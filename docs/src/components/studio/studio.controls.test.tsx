@@ -663,6 +663,99 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/size:\s*square/);
 	});
 
+	// #1256 — the writer is unit-tested in front-matter.test.ts; what THESE pin is the
+	// WIRING: that the real drawer controls call the lossless writer, on a real deck that
+	// has something to lose. #1254's control test was vacuous in exactly this way — it drove
+	// a deck with NO front matter, the one input where a whole-block rebuild destroys nothing.
+	const RICH_DECK = ['---', '# legal signed off on this footer', 'theme: indaco', '_class: lead', 'style: |', '  section.title h1 { color: red; }', 'tags: [alpha, beta]', '---', '', '<!-- _class: title -->', '', '# Q4', '', 'body'].join('\n');
+
+	/** Assert the deck source still carries every construct `parseFm`'s grammar cannot model. */
+	function expectFrontMatterIntact(label: string) {
+		const src = screen.getByLabelText('Deck source').textContent ?? '';
+		expect(src, `${label}: the YAML comment`).toContain('# legal signed off on this footer');
+		expect(src, `${label}: the _-prefixed key`).toContain('_class: lead');
+		expect(src, `${label}: the block scalar's body`).toContain('section.title h1 { color: red; }');
+		expect(src, `${label}: the flow sequence`).toContain('tags: [alpha, beta]');
+		expect(src, `${label}: the block scalar was stringified`).not.toContain('style: "|"');
+	}
+
+	async function pasteRichDeck(user: ReturnType<typeof setup>) {
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste(RICH_DECK);
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+	}
+
+	it('the Size control preserves front matter it did not come to change', async () => {
+		const user = setup();
+		await pasteRichDeck(user);
+		await user.click(await screen.findByRole('button', { name: /Widescreen|16 : 9/ }));
+		await user.click(await screen.findByRole('menuitem', { name: /Square/ }));
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/size:\s*square/);
+		expectFrontMatterIntact('Size');
+	});
+
+	it('the deck-theme dropdown SPLICES the existing theme: line, in place', async () => {
+		// `theme:` is the one key this deck already carries, so it exercises the splice path
+		// (the others insert). The whole-block rebuild also REORDERED the survivors, pushing
+		// the edited key to the end — so the position is part of the claim, not decoration.
+		const user = setup();
+		await pasteRichDeck(user);
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck theme' }));
+		await user.click(await screen.findByRole('option', { name: /^Cuoio/ }));
+		const src = screen.getByLabelText('Deck source').textContent ?? '';
+		expect(src).toMatch(/theme:\s*cuoio/);
+		expectFrontMatterIntact('Deck theme');
+		// …and it stayed where the author put it — first key in the block, ahead of `_class:`
+		// and the block scalar. (`textContent` on the editor drops the line breaks, so this
+		// asserts ORDER by offset rather than by line index.)
+		expect(src.indexOf('theme: cuoio')).toBeLessThan(src.indexOf('_class: lead'));
+		expect(src.indexOf('theme: cuoio')).toBeLessThan(src.indexOf('tags: [alpha, beta]'));
+	});
+
+	it('the Header field preserves front matter it did not come to change', async () => {
+		const user = setup();
+		await pasteRichDeck(user);
+		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		const header = await screen.findByRole('textbox', { name: 'Header' });
+		await user.click(header);
+		await user.type(header, 'Acme — Q3');
+		await user.tab(); // blur commits
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/header:\s*"?Acme/);
+		expectFrontMatterIntact('Header');
+	});
+
+	it('the Section-rail switch (a class-token write) preserves the rest of the block', async () => {
+		// `mergeClassTokens` / `removeClassTokens` route through the same writer now — the card
+		// scoped `class:` in with the 23 named directives, since it is the same flat scalar.
+		const user = setup();
+		await pasteRichDeck(user);
+		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
+		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
+		expect(screen.getByLabelText('Deck source').textContent).toContain('class: no-progress');
+		expectFrontMatterIntact('Section rail');
+	});
+
+	it('a text field shares its row with its label, like every dropdown in the column', async () => {
+		// jsdom has no layout, so this asserts the STRUCTURE the geometry rests on: the label
+		// and the input are siblings in one flex row, not stacked with the help line between
+		// them. The measured version (one row, right edges aligned, 36px tall, at 390/820/1440)
+		// runs against the built site — see the decision note. This is the part that fails if
+		// someone reverts TextRow to its own layout instead of routing through `Field`.
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		const field = await screen.findByRole('textbox', { name: /Deck name/ });
+		const label = document.querySelector(`label[for="${field.id}"]`);
+		expect(label).not.toBeNull();
+		expect(label?.parentElement).toBe(field.parentElement); // ONE row, not two
+		// …and the help line is BELOW that row, where every `Field` puts it — not between the
+		// label and the input, which is what pushed the field under the keyboard.
+		const desc = document.getElementById(field.getAttribute('aria-describedby') ?? '');
+		expect(desc).not.toBeNull();
+		expect(desc?.parentElement).toBe(field.parentElement?.parentElement);
+	});
+
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));

@@ -223,6 +223,59 @@ export function useKeyboardInset(active: boolean): void {
 	}, [active]);
 }
 
+/**
+ * THE PINNED-ROW CLASS — a settings row that holds itself above the keyboard while you
+ * type in it. Applied by the drawer's row primitive (`Field` in StudioShell), exported
+ * here because the rule it encodes is this file's, not that file's.
+ *
+ * ── WHY THIS AND NOT A SCROLL HOOK ────────────────────────────────────────────────────
+ *
+ * `useKeyboardInset` shortens the sheet and lifts it clear of the keyboard, and a field
+ * sitting two-thirds down the scroll region is then below the shortened sheet's bottom —
+ * so tapping Deck name in Deck setup put the keyboard over the field being typed into.
+ * Reported twice from a real iPhone 15 Pro.
+ *
+ * Two cuts of a `useKeyboardFieldReveal` hook tried to COMPUTE the field back into view —
+ * first from the element rects, then from `visualViewport`'s band — and both were wrong on
+ * the device while passing everything this sandbox can run. Measuring the surface that
+ * already works ended the argument: the command palette's field is **not in a scroll region
+ * at all**. It sits in a `PanelDock`, 21px above the sheet's bottom edge, pinned by layout;
+ * Deck setup's sat 540px above it, inside the scroller. The palette does not solve this
+ * problem — it does not HAVE it. (Measured at 390px on the built site.)
+ *
+ * So the drawer borrows the position instead of deriving it: while you type in a row, that
+ * row is `position: fixed` at `bottom: var(--kb)` — the SAME declaration that puts the
+ * sheet's own bottom edge above the keyboard (`MOBILE_OFFSET`). No viewport reading, no rect
+ * arithmetic, no listener, nothing to be wrong about on a platform this sandbox cannot run:
+ * if the sheet clears the keyboard — and the palette demonstrates it does — so does the row,
+ * because they are positioned by the same variable.
+ *
+ * `fixed`, not `sticky`, and that was measured rather than assumed. `position: sticky;
+ * bottom: 0` is the tidier expression of the same idea and it works in isolation — but not
+ * in this drawer's chain, where the row sits two wrappers deep inside a flex-sized
+ * `overflow-y-auto` body: driven on the built site at 390px, the row stayed 20px below the
+ * scrollport with `position: sticky` and `bottom: 0px` both computed and applied. `fixed`
+ * does not depend on the scroll container at all. It is safe here because nothing between
+ * the row and the viewport carries a transform (checked on the built site — a transformed
+ * ancestor would become the containing block and `bottom: var(--kb)` would then be measured
+ * from the sheet's own lifted edge, i.e. a keyboard too high).
+ *
+ * PHONE ONLY (`max-[699px]`, the `useBreakpoint` mobile cutoff, so the shell and this switch
+ * on one authority). A pointer surface has no keyboard eating the viewport, and a settings
+ * row that detached itself on focus there would be motion with no purpose.
+ *
+ * `:has(input:focus)` scopes it to "you are typing in THIS row" — not `focus-within`, which
+ * a tapped dropdown in the same row would also satisfy. The background, hairline and padding
+ * are `PanelDock`'s, because while pinned the row IS one. It is applied to the LABEL+CONTROL
+ * row rather than the whole setting block, so the help line stays in flow — a four-line
+ * description pinned over the deck would eat most of what a keyboard leaves, and the dock
+ * this imitates is one row.
+ */
+export const PINNED_FIELD_ROW =
+	'max-[699px]:[&:has(input:focus)]:fixed max-[699px]:[&:has(input:focus)]:inset-x-0 max-[699px]:[&:has(input:focus)]:bottom-[var(--kb)] ' +
+	'max-[699px]:[&:has(input:focus)]:z-50 max-[699px]:[&:has(input:focus)]:bg-[var(--bg)] max-[699px]:[&:has(input:focus)]:border-t ' +
+	'max-[699px]:[&:has(input:focus)]:border-border max-[699px]:[&:has(input:focus)]:px-3.5 max-[699px]:[&:has(input:focus)]:py-3';
+
 type PanelWidth = 'sm' | 'md' | 'lg';
 
 // The width scale — six ad-hoc widths collapse to three. px, not var() tokens:
@@ -630,6 +683,10 @@ export const PANEL_SEARCH_BOX =
  * The dock does NOT reserve the home indicator — `PanelSheet` does, once, for every
  * drawer (see MOBILE_BASE). Reserving it here too would double the gap on a notched
  * phone.
+ *
+ * A panel with ONE primary field docks it here. A SETTINGS panel has many, wherever each
+ * setting belongs, so it cannot — it uses `PINNED_FIELD_ROW` above to borrow this position
+ * for whichever row is being typed into. Same destination, reached without a DOM move.
  */
 export function PanelDock({ className, children }: { className?: string; children: React.ReactNode }) {
 	return (

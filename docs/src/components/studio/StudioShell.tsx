@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet } from '@/components/ui/panel';
+import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -48,7 +48,7 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
+import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
@@ -1016,10 +1016,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			// theme name to its base and clear the legacy `class: dark/light` alias, so the
 			// theme name and the deprecated axis can never disagree with the key.
 			const t = (getFrontMatter(s, 'theme') || '').trim();
-			const normalized = /-dark$/.test(t) ? setFrontMatter(s, 'theme', t.replace(/-dark$/, '')) : s;
+			const normalized = /-dark$/.test(t) ? writeFrontMatterLine(s, 'theme', t.replace(/-dark$/, '')) : s;
 			// Also clear a legacy `class: print` so the key is the single source of truth.
 			const cleared = removeClassTokens(normalized, 'dark light print');
-			return setFrontMatter(cleared, 'color-mode', value === 'default' ? null : value);
+			return writeFrontMatterLine(cleared, 'color-mode', value === 'default' ? null : value);
 		});
 	// Icon + label for the current color-mode value (shared by the trigger + the menu).
 	const COLOR_MODE_META: Record<'default' | 'light' | 'dark' | 'system' | 'inherited' | 'print', { label: string; icon: React.ReactNode }> = {
@@ -1043,7 +1043,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			const cur = (getFrontMatter(s, 'theme') || '').trim();
 			const hasClassMode = deckClassList.includes('dark') || deckClassList.includes('light');
 			if (/-dark$/.test(cur) && !hasClassMode) out = mergeClassTokens(out, 'dark');
-			return setFrontMatter(out, 'theme', name);
+			return writeFrontMatterLine(out, 'theme', name);
 		});
 	// …and WRITE to it (the editor + every export update in lock-step).
 	const finish = getFrontMatter(source, 'finish') || 'none';
@@ -1052,59 +1052,59 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// The deck author OVERRIDES any baked layer — backdrop strength/clearance included —
 	// through the single `finish-override:` front-matter map, which deep-merges into the
 	// finish's recipe and regenerates its CSS (see `finishExtraCss`).
-	const setFinish = (value: string) => settingsWrite(`Finish → ${value}`, (s) => setFrontMatter(s, 'finish', value === 'none' ? null : value));
+	const setFinish = (value: string) => settingsWrite(`Finish → ${value}`, (s) => writeFrontMatterLine(s, 'finish', value === 'none' ? null : value));
 	// The `mode:` axis (rendering mode — boardroom / sketch), a sibling of finish.
 	// (The key can't be `style:` — that's Marp's built-in inline-CSS directive.)
 	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.
 	const renderMode = getFrontMatter(source, 'mode') || 'boardroom';
-	const setRenderMode = (value: string) => settingsWrite(`Mode → ${value}`, (s) => setFrontMatter(s, 'mode', value === 'boardroom' ? null : value));
+	const setRenderMode = (value: string) => settingsWrite(`Mode → ${value}`, (s) => writeFrontMatterLine(s, 'mode', value === 'boardroom' ? null : value));
 	// Chart motion — the deck-wide `motion:` default (off is the baseline; clears the key). A slide
 	// overrides it with a `motion-*` class in the slide drawer. Preview-only; export is untouched.
 	// Chart motion — three deck-wide axes (Play / Style / Speed), full parity with the front matter.
 	// Play off is the baseline (clears the key); Style default build + Speed default auto are omitted.
 	const motionPlay = (getFrontMatter(source, 'motion') || '').trim().toLowerCase() === 'on';
-	const toggleMotionPlay = () => settingsWrite(motionPlay ? 'Motion off' : 'Motion on', (s) => setFrontMatter(s, 'motion', motionPlay ? null : 'on'));
+	const toggleMotionPlay = () => settingsWrite(motionPlay ? 'Motion off' : 'Motion on', (s) => writeFrontMatterLine(s, 'motion', motionPlay ? null : 'on'));
 	const motionStyle = getFrontMatter(source, 'motion-style') || 'build';
-	const setMotionStyleFM = (value: string) => settingsWrite(`Motion style → ${value}`, (s) => setFrontMatter(s, 'motion-style', value === 'build' ? null : value));
+	const setMotionStyleFM = (value: string) => settingsWrite(`Motion style → ${value}`, (s) => writeFrontMatterLine(s, 'motion-style', value === 'build' ? null : value));
 	const motionSpeed = getFrontMatter(source, 'motion-speed') || 'auto';
-	const setMotionSpeedFM = (value: string) => settingsWrite(`Motion speed → ${value}`, (s) => setFrontMatter(s, 'motion-speed', value === 'auto' ? null : value));
+	const setMotionSpeedFM = (value: string) => settingsWrite(`Motion speed → ${value}`, (s) => writeFrontMatterLine(s, 'motion-speed', value === 'auto' ? null : value));
 	// The white-label brand bar (`spectrum:` register). `on` is the rainbow default, so it
 	// writes no key; off / solid write the register.
 	const spectrum = getFrontMatter(source, 'spectrum') || 'on';
-	const setSpectrum = (value: string) => settingsWrite(`Brand bar → ${value}`, (s) => setFrontMatter(s, 'spectrum', value === 'on' ? null : value));
+	const setSpectrum = (value: string) => settingsWrite(`Brand bar → ${value}`, (s) => writeFrontMatterLine(s, 'spectrum', value === 'on' ? null : value));
 	// The accent sub-family — siblings of the brand bar (spectrum STYLE). Each defaults to a
 	// no-token value (bar on top / no card rail / auto rule / plain eyebrow), so a default deck
 	// writes no key. See lib/core/resolve-spectrum.js / resolve-rule.js / resolve-eyebrow.js.
 	const spectrumEdge = getFrontMatter(source, 'spectrum-edge') || 'top';
-	const setSpectrumEdge = (value: string) => settingsWrite(`Bar placement → ${value}`, (s) => setFrontMatter(s, 'spectrum-edge', value === 'top' ? null : value));
+	const setSpectrumEdge = (value: string) => settingsWrite(`Bar placement → ${value}`, (s) => writeFrontMatterLine(s, 'spectrum-edge', value === 'top' ? null : value));
 	const spectrumCard = getFrontMatter(source, 'spectrum-card') || 'off';
 	const setSpectrumCard = (value: string) => settingsWrite(`Card rail → ${value}`, (s) => {
-		const out = setFrontMatter(s, 'spectrum-card', value === 'off' ? null : value);
+		const out = writeFrontMatterLine(s, 'spectrum-card', value === 'off' ? null : value);
 		// Turning the rail off drops the placement too — a `spectrum-card-edge:` with no rail is
 		// dead front matter the (now-hidden) placement picker could no longer clear.
-		return value === 'off' ? setFrontMatter(out, 'spectrum-card-edge', null) : out;
+		return value === 'off' ? writeFrontMatterLine(out, 'spectrum-card-edge', null) : out;
 	});
 	// Card rail PLACEMENT (`spectrum-card-edge:`) — left is the default (no key); only meaningful
 	// when the card rail is on, so the picker is shown only then.
 	const spectrumCardEdge = getFrontMatter(source, 'spectrum-card-edge') || 'left';
-	const setSpectrumCardEdge = (value: string) => settingsWrite(`Card rail placement → ${value}`, (s) => setFrontMatter(s, 'spectrum-card-edge', value === 'left' ? null : value));
+	const setSpectrumCardEdge = (value: string) => settingsWrite(`Card rail placement → ${value}`, (s) => writeFrontMatterLine(s, 'spectrum-card-edge', value === 'left' ? null : value));
 	const headingRule = getFrontMatter(source, 'rule') || 'auto';
-	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => setFrontMatter(s, 'rule', value === 'auto' ? null : value));
+	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => writeFrontMatterLine(s, 'rule', value === 'auto' ? null : value));
 	const eyebrow = getFrontMatter(source, 'eyebrow') || 'plain';
-	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => setFrontMatter(s, 'eyebrow', value === 'plain' ? null : value));
+	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => writeFrontMatterLine(s, 'eyebrow', value === 'plain' ? null : value));
 	const headline = getFrontMatter(source, 'headline') || 'auto';
-	const setHeadline = (value: string) => settingsWrite(`Headline → ${value}`, (s) => setFrontMatter(s, 'headline', value === 'auto' ? null : value));
+	const setHeadline = (value: string) => settingsWrite(`Headline → ${value}`, (s) => writeFrontMatterLine(s, 'headline', value === 'auto' ? null : value));
 	// Structural trim (`spectrum-trim:`) — off by default (quiet); `on` flows the spectrum onto
 	// the in-content accents. On writes the key; off clears it.
 	const spectrumTrim = getFrontMatter(source, 'spectrum-trim') || 'off';
-	const setSpectrumTrim = (value: string) => settingsWrite(`Structural trim → ${value}`, (s) => setFrontMatter(s, 'spectrum-trim', value === 'off' ? null : value));
+	const setSpectrumTrim = (value: string) => settingsWrite(`Structural trim → ${value}`, (s) => writeFrontMatterLine(s, 'spectrum-trim', value === 'off' ? null : value));
 	// The layout DEBUG overlay — a real deck setting (`debug:` front matter), so it
 	// rides in previewFm to the render and is stripped from every export. Off is the
 	// default; the reveal modes are on-hover / on-always, each with an optional
 	// `verbose` (adds the class + box levers). The menu offers every value; a
 	// hand-typed value we don't recognize shows verbatim. No aliases.
 	const debugValue = getFrontMatter(source, 'debug');
-	const setDebug = (value: string | null) => setSource((s) => setFrontMatter(s, 'debug', value));
+	const setDebug = (value: string | null) => setSource((s) => writeFrontMatterLine(s, 'debug', value));
 	const DEBUG_OPTIONS: Array<{ value: string | null; label: string }> = [
 		{ value: null, label: 'Off' },
 		{ value: 'on-hover', label: 'On hover' },
@@ -1209,10 +1209,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	}, [fm, source, finishClass]);
 	// LANG_AUTO clears the deck's `lang:` so it inherits the workspace default; any
 	// concrete code writes the override. languageLabel resolves the human name for the toast.
-	const setDeckLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'Language → workspace default' : `Language → ${langDisplay(value)}`, (s) => setFrontMatter(s, 'lang', value === LANG_AUTO ? null : value));
-	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => setFrontMatter(s, 'size', value));
-	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => setFrontMatter(s, 'paginate', pageNumbers ? null : 'true'));
-	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => setFrontMatter(s, 'lift', lift ? null : 'on'));
+	const setDeckLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'Language → workspace default' : `Language → ${langDisplay(value)}`, (s) => writeFrontMatterLine(s, 'lang', value === LANG_AUTO ? null : value));
+	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => writeFrontMatterLine(s, 'size', value));
+	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? null : 'true'));
+	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeFrontMatterLine(s, 'lift', lift ? null : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
 	// band turns off — no separate toggle, the presence of text IS the switch.
 	// The deck's SHELF NAME — `title:` front matter. This is the only way to CREATE the
@@ -1221,15 +1221,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// override could only be reached by hand-writing YAML into a drawer whose whole purpose
 	// is "front matter without the YAML". Blank CLEARS the key (`|| null`), which restores
 	// heading derivation — the same shape as Header/Footer, so clearing is discoverable.
-	// LOSSLESS on purpose — `writeFrontMatterLine`, never `setFrontMatter`. This is the one
-	// key an author is told to hand-write, so the deck carrying it is exactly the deck with
-	// comments, `_class:`, and `style: |` blocks in its front matter. Routing the CREATE path
-	// through the whole-block rebuild would shred all of that on the FIRST write — and since
-	// Rename deliberately never creates the key, the first write is always this one, so the
-	// splice would only ever have protected decks that had already been damaged once.
+	// (`title:` was the FIRST key routed through the lossless `writeFrontMatterLine`, in #1254,
+	// because it is the one key an author is told to hand-write — so the deck carrying it is
+	// exactly the deck with comments, `_class:` and `style: |` blocks to lose. #1256 moved every
+	// other deck-scope control onto that same writer and retired the whole-block one, so being
+	// lossless is a property of the module now, not a choice made at this call site.)
 	const setDeckName = (v: string) => settingsWrite('Deck name', (s) => writeFrontMatterLine(s, 'title', v.trim() || null));
-	const setHeaderText = (v: string) => settingsWrite('Header', (s) => setFrontMatter(s, 'header', v.trim() || null));
-	const setFooterText = (v: string) => settingsWrite('Footer', (s) => setFrontMatter(s, 'footer', v.trim() || null));
+	const setHeaderText = (v: string) => settingsWrite('Header', (s) => writeFrontMatterLine(s, 'header', v.trim() || null));
+	const setFooterText = (v: string) => settingsWrite('Footer', (s) => writeFrontMatterLine(s, 'footer', v.trim() || null));
 	// The deck's `lexicon:` (word-or-symbol → spoken). Read from the front-matter block;
 	// committing writes the whole block back through the settings funnel (Undo toast + reactivity).
 	const lexicon = React.useMemo(() => lexiconMap(fm), [fm]);
@@ -3931,13 +3930,52 @@ function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNod
 		</div>
 	);
 }
+// Merged ONCE, at module scope. Both halves are constants, and `cn` is
+// `twMerge(clsx(...))` — parsing nine arbitrary-variant class names
+// (`max-[699px]:[&:has(input:focus)]:…`) is not free, and `Field` renders ~10 times per
+// Inspector state change. Doing it per render made the docs suite time out under load
+// (`studio.theme-depth.test.tsx`, 5s, a different case each run) while every file still
+// passed in isolation — the signature of a render-path cost, not a logic break.
+const FIELD_ROW = cn('flex items-center justify-between gap-2.5', PINNED_FIELD_ROW);
+
 // A deck-setting row. `desc` adds a plain-language help line under the control —
 // no magic, no mystery: every setting says what it does. Obvious toggles can omit it.
-function Field({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) {
+//
+// ONE row geometry for the whole drawer: label on the left, control on the right, help
+// line underneath. `TextRow` below routes through this too, so a text field sits exactly
+// where a dropdown sits — it used to stack (label, help, then a full-width input), which
+// read as a different kind of row and cost three lines of height per field. On a phone
+// that is the difference between the field being on screen when the keyboard opens and
+// being behind it.
+//
+// `htmlFor` makes the label a REAL <label> (tapping it focuses the field) instead of a
+// span; `descId` names the help line so the field can `aria-describedby` it. Both are
+// opt-in, so the dropdown/toggle rows — whose controls carry their own `aria-label` —
+// render exactly the markup they did before.
+function Field({ label, desc, htmlFor, descId, children }: { label: string; desc?: string; htmlFor?: string; descId?: string; children: React.ReactNode }) {
 	return (
 		<div className="my-2">
-			<div className="flex items-center justify-between gap-2.5"><span className="text-[12.5px] text-foreground">{label}</span>{children}</div>
-			{desc && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
+			{/* `PINNED_FIELD_ROW` holds the row you are TYPING in above the keyboard — the
+			    position the command palette's docked field occupies, borrowed rather than
+			    recomputed. It goes on the LABEL+CONTROL row, not the whole block: the help
+			    line stays in flow, because a four-line description pinned over the deck would
+			    eat most of what a keyboard leaves and the palette's dock is one row. Phone-only,
+			    and only rows that actually own an `<input>` can trigger it (`:has(input:focus)`),
+			    so the dropdown and toggle rows carry the class inertly. */}
+			<div className={FIELD_ROW}>
+				{htmlFor ? (
+					// `shrink-0` ONLY on this branch. A text field grows to fill the row, so
+					// without it the flex algorithm takes the space out of the label and
+					// "Deck name" wraps to two lines. The dropdown rows have no growing child,
+					// so adding it there would change nothing except their overflow behavior
+					// at the narrowest widths — left alone.
+					<label htmlFor={htmlFor} className="shrink-0 text-[12.5px] text-foreground">{label}</label>
+				) : (
+					<span className="text-[12.5px] text-foreground">{label}</span>
+				)}
+				{children}
+			</div>
+			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 		</div>
 	);
 }
@@ -3951,11 +3989,13 @@ Control.displayName = 'Control';
 function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; label?: string }) {
 	return <Switch checked={!!on} onCheckedChange={() => onClick?.()} aria-label={label} />;
 }
-// A text-DECLARATION row — label + help line, then a full-width input. Unlike a
-// Toggle (a binary state), this is where the author states the actual copy that
-// will render (the running header / footer text). Draft is local while typing and
-// commits on blur or Enter, so the source front-matter (and the editor + every
-// export) isn't rewritten on every keystroke. An empty commit clears the setting.
+// A text-DECLARATION row. Unlike a Toggle (a binary state), this is where the author
+// states the actual copy that will render (the deck name, the running header / footer
+// text). Draft is local while typing and commits on blur or Enter, so the source
+// front-matter (and the editor + every export) isn't rewritten on every keystroke. An
+// empty commit clears the setting.
+//
+// The geometry is `Field`'s, not its own — see the note there.
 function TextRow({ label, desc, value, placeholder, onCommit }: { label: string; desc?: string; value: string; placeholder?: string; onCommit: (v: string) => void }) {
 	const [draft, setDraft] = React.useState(value);
 	// A real <label htmlFor> (not a bare span) so tapping the label focuses the field,
@@ -3968,9 +4008,7 @@ function TextRow({ label, desc, value, placeholder, onCommit }: { label: string;
 	// never fights the author mid-keystroke.
 	React.useEffect(() => { setDraft(value); }, [value]);
 	return (
-		<div className="my-2">
-			<label htmlFor={id} className="text-[12.5px] text-foreground">{label}</label>
-			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
+		<Field label={label} desc={desc} htmlFor={id} descId={desc ? descId : undefined}>
 			<Input
 				id={id}
 				aria-describedby={desc ? descId : undefined}
@@ -3979,8 +4017,15 @@ function TextRow({ label, desc, value, placeholder, onCommit }: { label: string;
 				onChange={(e) => setDraft(e.target.value)}
 				onBlur={() => { if (draft !== value) onCommit(draft); }}
 				onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
-				className="mt-1.5 h-8 text-[12.5px]"
+				// Takes the row's remaining width, so its right edge lands where every
+				// dropdown's does. The 116px floor is `Control`'s own min-width — the field
+				// can never be squeezed narrower than the dropdowns it sits among, however
+				// long the label gets.
+				// `h-9` (36px), NOT the `h-8` this had while it was a full-width field of its
+				// own: that is `Control`'s height, so the field and the dropdowns it now sits
+				// among share a baseline instead of missing it by 4px on every row.
+				className="h-9 min-w-[116px] flex-1 text-[12.5px]"
 			/>
-		</div>
+		</Field>
 	);
 }

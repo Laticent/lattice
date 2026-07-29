@@ -6,9 +6,11 @@ describe('sizeFromSource — reads the size: front-matter directive', () => {
 		expect(sizeFromSource('---\ntheme: indaco\nsize: square\n---\n\n# Hi')).toBe('square');
 	});
 
-	// Regression: `setFrontMatter` pushes the last-edited key to the end, so `size:` is
-	// frequently NOT the last line. Without the `/m` flag the `$` anchor only matched
-	// end-of-string, so this silently returned '' and the deck fell back to 16:9.
+	// Regression: `size:` is frequently NOT the last line — it sits wherever the author put
+	// it, and the Size control's line splice leaves it there. Without the `/m` flag the `$`
+	// anchor only matched end-of-string, so this silently returned '' and the deck fell back
+	// to 16:9. (It first bit when the retired whole-block writer pushed the last-edited key to
+	// the end; the splice never reorders, and the `/m` is still required either way.)
 	it('finds size when it is NOT the last front-matter line', () => {
 		expect(sizeFromSource('---\ntheme: indaco\nsize: square\npaginate: true\n---\n\n# Hi')).toBe('square');
 		expect(sizeFromSource('---\nsize: story\ntheme: cuoio\ncolor: dusk\n---\n\n# Hi')).toBe('story');

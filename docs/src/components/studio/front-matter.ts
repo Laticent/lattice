@@ -5,6 +5,15 @@
 //
 // Deliberately tiny + line-based (not a YAML lib): the directives we set are
 // flat `key: value` scalars. Pure — no DOM, no engine.
+//
+// **Every flat-scalar write goes through `writeFrontMatterLine`** — a line splice
+// that reads nothing it did not come to change. The whole-block rebuild that used
+// to serve those writes (`setFrontMatter`) is RETIRED, not merely discouraged: it
+// was destructive by construction, and a writer that can silently delete a user's
+// YAML comments, `_`-prefixed keys and block scalars must not remain reachable.
+// See `engineering/decisions/2026-07-29-front-matter-lossless-writers.md`.
+// `parseFm`/`emitFm` survive because the two NESTED-block writers below
+// (`setFrontMatterBlock`, `setFrontMatterAcronyms`) genuinely re-emit a block.
 
 // Match a leading `---` block AND any fully-blank lines that follow it, so
 // stripping the block leaves the body flush — WITHOUT eating a content line's own
@@ -108,13 +117,15 @@ export function getFrontMatter(source: string, key: string): string | undefined 
  * rewrite that line and nothing else. Returns the span EXCLUDING any trailing CRLF `\r`
  * (so a splice preserves the file's line endings), plus the line's own indent.
  *
- * This exists because `setFrontMatter` is the wrong tool for a surgical edit: it parses the
- * whole block and re-emits it, which silently drops everything the grammar does not model —
- * YAML comments, `_`-prefixed keys (`_class:`, which the ENGINE accepts and this grammar
- * does not), block scalars (`style: |` and its indented lines), flow sequences — and also
- * reorders the remaining keys, re-quotes their values, and normalizes CRLF to LF. That is
- * an acceptable cost for a control that OWNS the block (the Deck-setup toggles), and an
- * unacceptable one for an edit the user reads as "rename this deck".
+ * This exists because a whole-block rebuild is the wrong tool for a surgical edit: parsing
+ * the block and re-emitting it silently drops everything the grammar does not model — YAML
+ * comments, `_`-prefixed keys (`_class:`, which the ENGINE accepts and this grammar does
+ * not), block scalars (`style: |` and its indented lines), flow sequences — and also
+ * reorders the remaining keys, re-quotes their values, and normalizes CRLF to LF. The
+ * retired `setFrontMatter` did exactly that; #1254 argued the cost was acceptable for a
+ * control that OWNS the block (the Deck-setup toggles) and unacceptable for an edit the user
+ * reads as "rename this deck". #1256 retired the first half of that boundary too: the author
+ * can hand-write every one of those keys, so no control owns the block.
  *
  * The scan MIRRORS `parseFm` exactly — same key grammar, same nested-block skipping — so
  * the span always lands on the same line `getFrontMatter` read the value from. A drift test
@@ -166,24 +177,24 @@ export function frontMatterKeySpan(source: string, key: string): { start: number
 	return null;
 }
 
-/** Serialize a value the way a front-matter line does — exported so a surgical splice
- *  quotes exactly like `setFrontMatter` would, instead of growing a second convention. */
+/** Serialize a value the way a front-matter line does — exported so a caller that assembles
+ *  a line itself quotes the one way this module quotes, instead of growing a second convention. */
 export function frontMatterValue(value: string): string {
 	return quoteIfNeeded(value);
 }
 
 /**
- * Set (or, with `value === null`, remove) ONE flat directive **losslessly** — the
- * non-destructive counterpart to `setFrontMatter`, for a key whose edits a user reads as
- * editing their document rather than flipping a setting.
+ * Set (or, with `value === null`, remove) ONE flat directive **losslessly**. THE writer for
+ * every flat `key: value` directive in the Studio — every Deck-setup control, the class-token
+ * helpers below, and the export path's `finish:` strip.
  *
- * `setFrontMatter` re-emits the entire block, which is an acceptable cost for a control
- * that owns a key the drawer itself created (`size`, `paginate`), and an unacceptable one
- * for a key an author hand-writes: it deletes YAML comments and `_`-prefixed keys, flattens
- * `style: |` block scalars to the literal string `"|"` (dropping their body), stringifies
- * flow sequences, reorders the survivors, and converts a CRLF block to LF. On a deck whose
- * leading `---` is a slide separator — which `FM_RE` cannot distinguish from front matter —
- * it deletes the swallowed slide outright.
+ * The retired `setFrontMatter` re-emitted the entire block instead. That deleted YAML comments
+ * and `_`-prefixed keys, flattened `style: |` block scalars to the literal string `"|"`
+ * (dropping their body), stringified flow sequences, reordered the survivors, and converted a
+ * CRLF block to LF. On a deck whose leading `---` is a slide separator — which `FM_RE` cannot
+ * distinguish from front matter — it deleted the swallowed slide outright. #1254 tolerated that
+ * for keys "the drawer owns"; #1256 established there is no such key, since an author can
+ * hand-write any of them, and the damage also rode OUTBOUND through the shared-`.md` export.
  *
  * Three paths, in descending order of how much of the file they touch:
  *   1. the key EXISTS → splice its line, leaving every other byte alone;
@@ -210,8 +221,8 @@ export function writeFrontMatterLine(source: string, key: string, value: string 
 			const innerStart = open[0].length;
 			const innerEnd = innerStart + m[1].length;
 			const remaining = src.slice(innerStart, span.start) + src.slice(end, innerEnd);
-			// Nothing but blanks left → drop the whole block, matching `setFrontMatter`'s
-			// behavior when its last key goes.
+			// Nothing but blanks left → drop the whole block, so clearing the last directive
+			// leaves the deck exactly as clean as it was before the first one was set.
 			if (!remaining.trim()) return src.slice(m[0].length);
 		}
 		return `${src.slice(0, span.start)}${src.slice(end)}`;
@@ -290,15 +301,15 @@ export function mergeClassTokens(source: string, tokens: string): string {
 	for (const t of incoming) {
 		if (!seen.has(t)) { seen.add(t); union.push(t); }
 	}
-	return setFrontMatter(source, 'class', union.join(' '));
+	return writeFrontMatterLine(source, 'class', union.join(' '));
 }
 
 /**
  * Remove space-separated class tokens from the deck's `class:` directive — the
  * inverse of `mergeClassTokens`. Any listed token is dropped; the rest keep their
- * order. When the last token goes, the `class:` key is removed entirely (mirroring
- * `setFrontMatter(..., null)`). With no incoming tokens, or no `class:` present, the
- * source is returned untouched. (Used to un-stamp a deck-wide chrome token — e.g.
+ * order. When the last token goes, the `class:` key is removed entirely — the same
+ * `writeFrontMatterLine(..., null)` removal every other deck-scope control uses. With no
+ * incoming tokens, or no `class:` present, the source is returned untouched. (Used to un-stamp a deck-wide chrome token — e.g.
  * clearing `no-progress` when the global "Section rail" toggle is switched back on.)
  */
 export function removeClassTokens(source: string, tokens: string): string {
@@ -308,28 +319,17 @@ export function removeClassTokens(source: string, tokens: string): string {
 	if (!existing.length) return source;
 	const kept = existing.filter((t) => !drop.has(t));
 	if (kept.length === existing.length) return source; // nothing removed
-	return setFrontMatter(source, 'class', kept.length ? kept.join(' ') : null);
-}
-
-/**
- * Set (or, with `value === null`, remove) a single front-matter directive,
- * preserving the rest of the block and the body. Creating the first directive
- * adds the block at the very top; removing the last one drops the block entirely.
- */
-export function setFrontMatter(source: string, key: string, value: string | null): string {
-	const body = stripFrontMatter(source);
-	const { pairs: all, blocks } = parseFm(source);
-	const pairs = all.filter(([k]) => k !== key);
-	if (value !== null) pairs.push([key, value]);
-	// Nested blocks (e.g. `finish-override:`) round-trip untouched when a flat key changes.
-	return emitFm(pairs, blocks, body);
+	return writeFrontMatterLine(source, 'class', kept.length ? kept.join(' ') : null);
 }
 
 /**
  * Set (or, with empty `entries`, remove) a NESTED child-map block — a bare `key:` header with
  * indented `"child": value` lines. This is the shape the narration keys use (`lexicon:` token →
- * spoken, and `acronyms:` term → spoken); `setFrontMatter` handles only flat scalars and can't
- * express it. Preserves the flat directives, any OTHER nested block, and the body. The reader is
+ * spoken, and `acronyms:` term → spoken); `writeFrontMatterLine` handles only flat scalars and
+ * can't express it. Preserves the flat directives, any OTHER nested block, and the body — but,
+ * unlike the flat writer, it DOES re-emit the whole block, so it still normalizes what
+ * `parseFm` does not model (#1256 scoped the two nested writers out; the gap is tracked as a
+ * follow-up rather than left unrecorded). The reader is
  * `lexiconMap` / `parseNarrationFrontMatter` (resolve-captions). Entries emit in order; the
  * child KEY is always quoted (a token can be `:` or whitespace-adjacent), the VALUE quoted only
  * when needed — an empty value emits `""`, the explicit "silence this token" form. Drops any prior

@@ -34,9 +34,11 @@ export function sizeFromSource(source: string): string {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source ?? ''));
 	if (!fm) return '';
 	// `/m` is REQUIRED: without it `$` anchors to end-of-string, so `size:` is only found
-	// when it is the LAST front-matter line — but `setFrontMatter` pushes the last-edited key
-	// to the end, so a deck with `size:` above another directive (theme, paginate, …) would
-	// silently fall back to 16:9. With `/m`, `$` matches end-of-LINE.
+	// when it is the LAST front-matter line — and it usually isn't. `size:` sits wherever the
+	// author (or the Size control's line splice) left it, above any other directive (theme,
+	// paginate, …), and such a deck would silently fall back to 16:9. With `/m`, `$` matches
+	// end-of-LINE. (The original wording blamed `setFrontMatter` pushing the last-edited key
+	// to the end; that writer is retired — #1256 — and the `/m` is no less required without it.)
 	const m = /^[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]);
 	return m ? m[1].replace(/^['"]|['"]$/g, '').trim() : '';
 }

@@ -365,6 +365,45 @@ in patch versions.
   / `npm run html` in the bundle are the full-fidelity routes and the generated README now says
   so plainly instead of claiming the preview shows the deck.
 
+- **Deck setup on a phone: one row geometry, and a field you can still see while typing.**
+  Two defects reported from a real iPhone. (a) The drawer shipped **two row shapes** — every
+  dropdown and toggle as label-left / control-right with the help line below, but Deck name,
+  Header and Footer as label, help line, then a full-width input. `TextRow` now routes through
+  `Field`, so there is one geometry: right edges align across the whole column, the input's
+  height matches the dropdowns' (32px → 36px), and the Deck name field sits **107px higher**
+  (measured at 390px). (b) Tapping a field in a mobile drawer **left it behind the keyboard.**
+  Shortening and lifting the sheet (#1216) does not move its scroll position, so a field
+  two-thirds down a full-height sheet is below the bottom of the shortened one — and the
+  browser's own scroll-on-focus runs against the pre-keyboard geometry, which the resize then
+  invalidates. The new shared `useKeyboardFieldReveal` hook, registered by `PanelSheet` so all
+  the row you are TYPING in pins itself above the keyboard — `position: fixed` at
+  `bottom: var(--kb)`, the same declaration that lifts the sheet's own bottom edge, so the two
+  cannot disagree. This is the command palette's position, borrowed: measured on the built
+  site, the palette's field is not in a scroll region at all (it sits in a `PanelDock` 21px
+  above the sheet's bottom edge) where Deck setup's sat 540px above it — the palette does not
+  solve this problem, it does not have it. Only the row being typed in pins, only on a phone,
+  and it returns to normal flow on blur. **Real iOS Safari is UNVERIFIED** — headless Chromium
+  has no software keyboard, so `--kb` is injected here; both fixes want a pass on a real phone.
+  (`engineering/decisions/2026-07-29-deck-setup-field-rows-and-keyboard-reveal.md`)
+
+- **Every Deck-setup control now edits ONE front-matter line, instead of rebuilding the whole
+  block.** #1254 made the Deck-name field lossless and left 24 other directives — `theme:`,
+  `size:`, `header:`, `footer:`, `lang:`, `paginate:`, `finish:`, the whole `spectrum-*` family
+  — on a writer that parsed the block and re-emitted it, deleting everything its grammar did
+  not model. On a deck with hand-written front matter, setting a Header erased the YAML
+  comment above it, dropped `_class:` (the engine accepts a leading `_`; the parser did not),
+  reduced `style: |` to the literal string `"|"` and **deleted its CSS body**, stringified
+  `tags: [alpha, beta]`, reordered the surviving keys, and converted a CRLF block to LF. On a
+  deck whose leading `---` is a slide separator — indistinguishable from front matter by
+  regex — it deleted the swallowed slide outright. All 27 flat-scalar call sites now splice a
+  single line: the 24 drawer controls, the two `class:` token writers behind the Section-rail
+  switch, and **the share/export path**, which is the one that mattered most — a deck with a
+  saved deck-wide finish shipped its recipient a silently corrupted `.md`, with no Undo on the
+  far side. The destructive writer is **deleted rather than deprecated**, so the regression is
+  now a compile error. Two writers remain on the whole-block rebuild by design and are called
+  out in the module: `lexicon:` and `acronyms:`, which genuinely own a nested block.
+  (#1256; `engineering/decisions/2026-07-29-front-matter-lossless-writers.md`)
+
 - **Two URL scrubs no longer discard `history.state`.** `overlay-back.ts` records ownership of
   its synthetic history entry there, and it is the only record that survives a reload; the
   `?new=1` shortcut scrub and the OpenRouter OAuth return scrub both called
