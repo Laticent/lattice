@@ -72,20 +72,17 @@ in patch versions.
   `26.8125px 19.5px 31.6875px` at 390px; it is the former at every size now. **(2) The export
   and the preview flag the same slides**, deck for deck. **(3) The shipped corpus turns out to
   be over-subscribed at design size**: measured across all 185 decks, the export goes from 10
-  decks / 15 clipped slides to 42 / 67 — and those slides were ALREADY clipping in the preview
-  on `main`; the export had been hiding them. **All of it is fixed here:** 45 decks trimmed, and
-  the corpus now sits at **12 clipped slides, below main's own 15**. The only deck left clipping
-  on purpose is `examples/overflow-fix-me.md`, which exists to demonstrate the overflow overlay
-  and whose two extra pages are the export catching up to the preview. Several stress specimens
-  asserted a capacity that is no longer true at design size — roadmap's "four workstreams by
-  five phases", agenda's "seven stops", list-tabular's "eight rows", content's "two paragraphs
-  and a list" — and each was reduced AND its headline rewritten so the slide still tells the
-  truth. Three capacity ceilings are corrected with them, because `gallery-contract.test.js`
-  requires a stress specimen to sit inside its declared band: `roadmap` hard 7 → 5, `agenda`
-  hard 7 → 6, `policy-recommendation` hard 4 → 3. Every other `capacity`/`density` number in
-  the catalog was also calibrated through the shrunken export and is still ~11% too generous —
-  that re-derivation belongs to `2026-07-28-capacity-basis.md`, not here.
-  Also note exported PAGE COUNTS can move: `examples/social-portrait.md` goes 8 → 10 as
+  decks / 15 clipped slides to 42 / 67 on the deck set first measured — and those slides were
+  ALREADY clipping in the preview on `main`; the export had been hiding them. **Measured over
+  the 247 decks that actually ship** (worked examples including their subdirectories, every
+  component and design gallery, the 46 exemplars, the baseline deck), `main` clips 43 slides
+  across 31 decks, and every slide this change newly exposed is fixed here. The only decks
+  left clipping are the ones that already were, plus `examples/overflow-fix-me.md`, which
+  exists to demonstrate the overflow overlay. Several stress specimens asserted a capacity
+  that is no longer true at design size — roadmap's "four workstreams by five phases",
+  agenda's "seven stops", list-tabular's "eight rows", content's "two paragraphs and a list"
+  — and each was reduced AND its headline and footer rewritten so the slide still tells the
+  truth. Also note exported PAGE COUNTS can move: `examples/social-portrait.md` goes 8 -> 10 as
   auto-split divides differently at the corrected size. Non-px `@size` geometries (`210mm`,
   `8in`) get no stamp rather than a wrong one, and export-to-Marp does not carry the stamp at
   all — it ships
@@ -127,7 +124,11 @@ in patch versions.
   asserts page counts, not fit. It renders every shipped deck and ratchets the per-deck clipped
   pages against `test/integration/overflow-baseline.json`, committed at `main`'s numbers, so a
   change that adds a clipped slide anywhere in the corpus fails and names it. On-demand rather
-  than blocking, for the same reason `bench:check` is — a full sweep is 185 real renders.
+  than blocking, for the same reason `bench:check` is — a full sweep is 247 real renders. Its
+  glob is the set of decks that SHIP: the first cut omitted the exemplars, every `examples/`
+  subdirectory and the design galleries, which let it certify a corpus it could not see. It is
+  also per-run isolated, so a `--bless` and a check running at once no longer delete each
+  other's renders and report phantom regressions.
 
 ### Added
 

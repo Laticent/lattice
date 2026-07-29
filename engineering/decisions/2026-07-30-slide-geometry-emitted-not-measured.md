@@ -10,10 +10,11 @@ summary: >
   design size the token coefficients are defined against. A third leak, in JS rather than CSS,
   is fixed alongside: state-chart derived its geometry scale from a transform-scaled rect.
   Correcting the size up revealed that the shipped deck corpus was over-subscribed at design
-  size: across all 185 decks the export went from 10 decks / 15 clipped slides to 42 / 67.
-  Those slides were ALREADY clipping in the preview on `main` — the export was hiding them.
-  All 53 newly-clipping slides are fixed here, and the corpus now sits at 12 clipped slides,
-  BELOW main's own 15. A new on-demand ratchet (`npm run overflow:check`) holds that floor.
+  size. Measured over the 247 decks that actually ship — worked examples INCLUDING their
+  subdirectories, every component and design gallery, the 46 exemplars, the baseline deck —
+  `main` clips 43 slides across 31 decks. Those slides were ALREADY clipping in the preview
+  on `main`; the export was hiding them. Every slide this change newly exposed is fixed, and
+  a new on-demand ratchet (`npm run overflow:check`) holds the floor.
 ---
 
 # The slide's geometry is emitted, not measured
@@ -117,27 +118,38 @@ intent — which is why the direction is defensible — but the argument is weak
 
 ## 4. The fallout, measured over the whole corpus
 
-The first draft of this note claimed "14 slides across four decks … in full". That was
-measured over a deck list of four, and it was wrong. The honest number comes from
-rendering **all 185 shipped decks** (110 `examples/`, 74 `lib/components/**/*.gallery.md`,
-the baseline deck) through the real emulator on both trees and reading its own
-`⚠ OVERFLOW` report:
+This number was wrong twice before it was right, and both mistakes are worth recording
+because they are the same mistake.
+
+**First** the note claimed "14 slides across four decks … in full" — measured over a deck
+list of four. **Then** it claimed 53 newly-clipping slides and a finish at "12, below main's
+15" — measured over a 185-deck glob that silently excluded `exemplars/**` (46 worked decks
+that ship committed PDFs AND are bundled into the docs Playground), every `examples/`
+SUBDIRECTORY, and `design/*.gallery.md`. Both times the denominator was a set someone
+remembered rather than the set that ships, and the second time the gate I had just built
+was the thing enforcing the wrong denominator — so it went green while ~45 slides clipped
+outside its view.
+
+The corpus is now the decks that ship: **247**. Measured on both trees through the real
+emulator, reading its own `⚠ OVERFLOW` report:
 
 | | decks clipping | slides clipped |
 |---|---|---|
-| `main` | 10 | 15 |
-| this branch | 42 | 67 |
+| `main` | 31 | 43 |
+| this branch, before the content pass | 41+ | 88 |
 
-`npm run overflow:check` reports it precisely: **53 newly-clipping slides across 33 decks**,
-one slide fixed below baseline.
+**The lesson, stated for the next person:** a fit gate is only as honest as its glob. If you
+add a render surface, add it to `corpus()` in `tools/check-overflow-corpus.js` in the same
+change, or the gate will certify a corpus it cannot see.
 
 **Fixed here (12 decks, all to zero):** `q-and-a` (2), `inventory` (2), `gallery-jargon` (3),
 `baseline-decks/gallery` (7), `auto-split` (2), `kanban-chart-redesign` (4), `map` (3),
 `policy-recommendation` (2), `read-across-carousel` (3), `split-envelope` (2),
 `staged-flow` (2), `universal-pill` (2).
 
-**Then fixed: the remaining 53 slides across 33 decks**, tracked by `npm run overflow:check`.
-The corpus finished at **12 clipped slides — below `main`'s 15** — and the ratchet is
+**Then fixed: every slide the widened corpus exposed**, tracked by `npm run overflow:check`
+— 26 in `examples/token-contrast/` (13 byte-identical theme decks), 23 across 15 exemplars,
+2 in the design-system gallery. The ratchet is
 re-blessed at that lower floor. How the trims were chosen, and the one class of edit that
 was rejected, is §6.
 
