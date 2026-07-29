@@ -379,14 +379,16 @@ in patch versions.
   not its name, so a screen reader got "2 / 7" regardless.
 
 - **A chart and its caption are now a real `<figure>` / `<figcaption>` pair.** The caption
-  used to be a `<p>` following the graphic, so nothing tied the two together: a screen
-  reader got the chart, then — some distance later in the reading order — a paragraph. The
-  stage cell that already holds exactly the chart body and its caption is now emitted as a
-  `<figure>` when a caption is present, and the caption as its `<figcaption>`. It is a
-  RETAG, not a new wrapper: zero added elements, and the rendered slides are byte-identical
-  (verified by comparing screenshots of the two affected gallery slides before and after).
-  The tag follows the caption rather than the chart, deliberately — a `<figure>` around an
-  uncaptioned graphic announces a boundary and conveys nothing.
+  used to be a `<p>` following the graphic, with nothing structural tying the two together.
+  The stage cell that already holds exactly the chart body and its caption is now emitted as
+  a **named** `<figure>` when a caption is present, and the caption as its `<figcaption>`.
+  It is a RETAG, not a new wrapper: zero added elements, and the affected slides screenshot
+  byte-identical before and after. Three deliberate limits, each of which exists because
+  the first implementation got it wrong: the pair is emitted by ONE function so the two
+  halves can never ship apart; it fires only where the caption is the first or last child,
+  because `<figure>`'s content model forbids a caption in the middle; and the figure carries
+  an accessible name, because Chrome maps a nameless `<figure>` to a PDF structure element
+  with no `/Alt` — a tagged-PDF regression on the artifact people actually receive.
 
 - **Charts re-hosted into the player's reading view no longer duplicate their ARIA ids.**
   The reading view clones each chart, which duplicated every id the naming pass mints —
@@ -394,6 +396,15 @@ in patch versions.
   the first match and both copies carried identical text).
 
 ### Fixed
+
+- **The reading view dropped `matrix-grid`'s legend.** The Read·Article projection selects
+  blocks by tag name, and the list did not include `figcaption` — so the line explaining what
+  the marks mean vanished from the reading surface while remaining on the slide.
+
+- **A captioned chart slide grew unbounded in the fluid (mobile) view.** The fluid rule
+  exempts `figure` from `flex-grow: 0` so author media can fill; the retagged stage cell is
+  a `<figure>` but is not author media, so a captioned roadmap stretched to 1912px against
+  an uncaptioned twin's 153px on the same deck. The exemption now excludes the stage.
 
 - **The below-note transform silently stopped finding the stage cell on captioned chart
   slides.** It located the cell with the literal string `<div class="cell-stage">`, which no

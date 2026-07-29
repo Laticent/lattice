@@ -1850,44 +1850,78 @@ association did. And the 2-of-7 statistic came from `gallery.md`, a **component 
 product, is the caption-RICH case; I generalized a structural decision from the one deck
 built to be terse.
 
-**So `<figure>` is neither retired nor deferred — it SHIPS in this change**, as the retag
-the paragraph above describes. Two edits, both in the shared kernel (HARD RULE #1):
+**So `<figure>` is neither retired nor deferred — it SHIPS in this change.** But the
+FIRST implementation of it was wrong in four separate ways, every one of them found by
+the adversarial round and none by a gate, so the shape below is the second one.
 
-| Where | Change |
+**What the first version did, and why it broke.** It split the pair: `chart-family.js`
+emitted the `<figcaption>`, and `masthead.transform.js` decided the `<figure>`. Four
+defects fell out of that split and out of the cascade argument beside it:
+
+| # | Defect | Surface | Root cause |
+|---|---|---|---|
+| 1 | A captioned roadmap grew to **1912px** against its uncaptioned twin's 153px | fluid / mobile | `base.fluid-view.css` exempts `figure` **by type** from `flex-grow: 0` |
+| 2 | **+5 alt-less `/Figure`** structs on a six-chart deck (7 → 12) | the exported **PDF** | Chrome derives `/Alt` from the accessible name; a bare `<figure>` has none |
+| 3 | `matrix-grid`'s legend **deleted** from the reading view | Read·Article | `projectGeneric`'s block list is tag-keyed and lacked `figcaption` |
+| 4 | `<figcaption>` with no `<figure>` anywhere | every `form: off` render | no stage is built there, so nothing supplied the other half |
+
+Plus two validity/consistency defects: `state-chart` put its `<figcaption>` in the
+MIDDLE of the figure (the content model allows figcaption first or last, never between),
+and the two render paths derived "is there a caption?" from different evidence — a regex
+on the HTML string vs `classList` on a node — and **disagreed on four real inputs**.
+
+**Defect 2 is the one worth reading twice.** The change existed to improve accessibility;
+it made the *primary artifact* worse. Lattice ships PDFs, Chrome tags them, and a
+`/Figure` with no `/Alt` is a PDF/UA failure that readers treat as atomic — so an unnamed
+figure wrapping the chart's own named one can swallow it. And the gate installed in the
+same PR reads only the HTML sidecar, so its green was evidence for a regression on the
+surface nobody measured. That is the textbook failure of installing a metric: the work
+went where the instrument pointed.
+
+**Defect 1 is the one that indicts the reasoning.** The safety argument was *"every
+`.cell-stage` selector in the engine is class-keyed (there is no `div.cell-stage`
+anywhere), so the cascade doesn't move."* That is true, and it proves nothing: the rule
+that broke never mentions the stage at all — it matches the new TAG. Proving the absence
+of a selector on the OLD element says nothing about rules that match the NEW one. A retag
+must ask "what matches what I am becoming?", not "what matched what I was?".
+
+**The shape that ships.** One function — `buildStageCell` in `masthead.transform.js`,
+mirrored node-for-node in `masthead-lift.js` — owns **both halves**:
+
+| Rule | Why |
 |---|---|
-| `chart-family.js` `liftChartCaption` | `<p class="chart-caption">` → `<figcaption class="chart-caption">` |
-| `masthead.transform.js` `stageTag` (+ its DOM mirror in `masthead-lift.js`) | the stage cell is built as `<figure>` when its body contains that `<figcaption>`, else `<div>` |
+| the caption is retagged `<p>` → `<figcaption>` **inside** the stage build | the pair cannot ship apart, so defect 4 and the path disagreement are structurally impossible, not merely tested against |
+| qualifies only when the caption is the **first or last** element child | that is the spec's content model; `state-chart` ({chart-body, caption, state-legend}) therefore keeps a `<div>` stage and a `<p>` caption |
+| the `<figure>` carries `aria-label` = the caption's text | HTML-AAM already says a figure is named by its figcaption; Chromium does not implement it, so stating it explicitly restores the PDF's `/Alt` |
+| `base.fluid-view.css` exempts `figure:not(.cell-stage)` | the stage is the slide's body box, not author media |
+| `figcaption` added to `projectGeneric`'s block list | a tag-keyed block list is the same footgun as a tag-keyed parser |
 
-**The tag keys on the CAPTION, not on `chart-frame`.** A `<figure>` whose only content is a
-graphic adds an announced boundary and no information — that is the over-tagging §4A warns
-about. The association is the entire point, so the tag follows the thing being associated.
-The state-chart caveat measured last round turns out not to bite: a stage that also carries
-`.chart-details` and a `.state-legend` still qualifies, because those are part of the
-graphic's own content and `<figure>` explicitly admits more than one child. Both shapes are
-in the gallery (slide 66 roadmap, slide 91 state-chart) and both retag correctly.
+**Re-measured after the rework**, on the real surfaces:
 
-**Verified on the real surface** (HARD RULE #23): rendered `gallery.md` through the
-emulator, screenshotted slides 66 and 91 before and after in Chromium — the PNGs are
-**byte-identical**. The retag is pixel-neutral, as the CSS-neutrality argument predicted.
-Three invariants in `semantic-structure.test.js` pin it: no orphan `<figcaption>`, the
-retag fires **exactly** when a caption exists (both directions), and the gallery actually
-exercises both branches so the first two can't pass vacuously.
+| Check | Before the fix | After |
+|---|---|---|
+| `/Figure` without `/Alt` (`chart-family-all-svg`, vs 7 on `main`) | **12** | **7** — parity restored, all 5 new figures named |
+| fluid stage height, captioned vs uncaptioned twin | 1912px vs 153px | **209px vs 153px**, both `flex-grow: 0` |
+| `matrix-grid` legend in Read·Article | **dropped** | present |
+| orphan `<figcaption>` under `form: off` | 1 per captioned chart | **0** |
+| engine vs DOM tag+name agreement | 4 inputs diverge | **8 of 8 agree**, including all four |
+| gallery slides 66 / 91 screenshots | — | **byte-identical** to pre-change |
 
-**And it found a fifth instance of this codebase's signature footgun.** `lib/core/below-note.js`
-locates the stage cell by the literal string `<div class="cell-stage">` and balances it by
-counting `</div>`. On a `<figure>` stage it finds nothing, falls silently back to the flat
-section-level anchor, and produces a *wrong answer that still renders* — invisible to every
-pixel and DOM-shape gate. `state-chart` is a live instance: it is not in below-note's
-exclusion list and its stage is now a figure. Fixed by matching the CLASS and balancing the
-tag it captured, which also fixes `split-envelope.js` for free (it consumes the same
-`extractStage`). That is now five confirmed places where this repo parses its own rendered
-HTML with a tag-anchored regex, and the fix has been identical every time. Stated as a rule
-in the code, so the sixth is caught by reading rather than by rendering.
+**And it found a fifth instance of this codebase's signature footgun** — then a sixth, in
+the fix itself. `lib/core/below-note.js` located the stage cell by the literal string
+`<div class="cell-stage">` and balanced it by counting `</div>`; on a `<figure>` stage it
+found nothing and fell back to the flat section-level anchor, a *wrong answer that still
+renders*. Fixed by matching the class and balancing the captured tag — which also fixes
+`split-envelope.js` for free, since both consume the same `extractStage`. Then the named
+figure broke it AGAIN, because the new matcher pinned the opening tag to end right after
+`class="cell-stage"` and the figure carries an `aria-label`. So the rule is longer than
+"key on the class": **key on the class, capture the tag, balance what you captured, and
+let the rest of the opening tag vary.** Six confirmed sites now, one fix each time.
 
-One consequence worth naming: on a render with `form: off` there is no stage cell, so the
-`<figcaption>` sits outside any `<figure>`. That is valid HTML and carries no association —
-which is precisely what the `<p>` carried. Nothing regresses; the association is simply
-absent on a surface that never had it.
+Three invariants in `semantic-structure.test.js` pin the result: the retag fires **exactly**
+when a first-or-last caption exists (both directions, so over- and under-tagging both
+fail), every `<figure>` stage is **named** and has a `<figcaption>` child, and no
+`<figcaption>` ever exists outside a `<figure>`.
 
 ### 18.3a `associateCaptions` shipped and was REMOVED in the same PR
 

@@ -86,10 +86,18 @@
  * centered instead of spreading airily, exactly as intended. Kept unscoped;
  * deviation from §7 recorded, not silent (HARD #18). */
 :root[data-lattice-view="fluid"] section[data-lattice-slide]
-  > :not(:is(header, footer, figure, img, picture, svg, canvas, video,
+  > :not(:is(header, footer, figure:not(.cell-stage), img, picture, svg, canvas, video,
              .mermaid, .mermaid-svg, .chart-body, .functionplot)) {
   flex-grow: 0 !important;
 }
+/* `figure` above exempts AUTHOR media, which should fill. The STAGE CELL is a `<figure>`
+ * whenever it holds a captioned graphic (masthead.transform.js `buildStageCell`), and it
+ * is not author media — it is the slide's body box, which this rule exists to keep
+ * compact. Without the `:not(.cell-stage)` it escaped `flex-grow: 0` and a captioned
+ * roadmap grew to 1912px against its uncaptioned twin's 153px, on the same deck at the
+ * same viewport. The retag's safety argument was "every `.cell-stage` selector is
+ * class-keyed" — which is true and irrelevant: the rule that broke never mentions the
+ * stage at all, it matches the new TAG. Found by the red team on a real mobile render. */
 
 /* The fixed-page background canvas is sized to the px box; hide it so each
  * section's own themed background fills the fluid box edge to edge. */

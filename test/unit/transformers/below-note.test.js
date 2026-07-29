@@ -90,6 +90,38 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
     assert.ok(asFigure.includes('<div class="below-note"><p>note</p></div></figure>'), asFigure);
   });
 
+  test('finds a NAMED <figure> stage — the open tag carries more than the class', () => {
+    // The figure stage carries an aria-label the div stage does not. A matcher that
+    // required the tag to end right after `class="cell-stage"` found nothing on exactly
+    // the slides the retag was for. Keying on the class is only half the lesson; the
+    // other half is not pinning the rest of the opening tag.
+    const body = '<ul><li>a</li></ul><p>note</p>';
+    const out = belowNote.applyToHtml(
+      sec('cards-grid form', `<figure class="cell-stage" aria-label="Source: Linear.">${body}</figure>`),
+    );
+    assert.ok(out.includes('<div class="below-note"><p>note</p></div></figure>'), out);
+  });
+
+  test('a trailing `/` does not close an HTML element — <div/> is an OPEN tag', () => {
+    // HTML parsers honor self-closing only on void elements and foreign-content roots.
+    // Treating `<div/>` as self-closing ended the cell one element early and left the
+    // real trailing <p> outside it; an unbalanced scan must fall through untouched
+    // rather than guess.
+    // `<div/>` opens a level the single `</div>` then closes, so the stage never closes:
+    // the scan finds no balanced cell and falls through to the section-level anchor —
+    // byte-identical to what this did before the rewrite. The defect to avoid is the
+    // OTHER answer, where honoring `/>` ends the cell early and silently returns a
+    // narrower body than the parser would.
+    const s = sec('cards-grid form', '<div class="cell-stage"><div class="x"/></div><p>after</p>');
+    assert.ok(belowNote.applyToHtml(s).includes('<div class="below-note"><p>after</p></div>'),
+      'falls through to the flat anchor rather than guessing a cell boundary');
+    // …but a foreign-content root genuinely does self-close.
+    const svg = belowNote.applyToHtml(
+      sec('cards-grid form', '<figure class="cell-stage"><svg/><p>note</p></figure>'),
+    );
+    assert.ok(svg.includes('<p>note</p>'), 'the svg case still resolves');
+  });
+
   test('balances the stage on the tag it actually opened with', () => {
     // The close scan used to be hardcoded to `</div>`. On a <figure> stage that walks
     // straight past the cell's own close and swallows following siblings.

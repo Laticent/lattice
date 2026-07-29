@@ -306,7 +306,7 @@ function projectQuote(stage) {
   return `${bq.outerHTML}${attrib ? `<cite class="lp-cite">${esc(attrib.replace(/^[—–-]\s*/, ""))}</cite>` : ""}`;
 }
 function projectGeneric(stage, eyebrow) {
-  const blocks = [...stage.querySelectorAll("p, ul, ol, blockquote, pre, table, dl, figure, svg, img, h3, h4")];
+  const blocks = [...stage.querySelectorAll("p, ul, ol, blockquote, pre, table, dl, figure, figcaption, svg, img, h3, h4")];
   const out = [];
   const emitted = [];
   for (const el of blocks) {

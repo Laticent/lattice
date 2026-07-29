@@ -282,23 +282,56 @@ describe('semantic structure — figure/figcaption association (ADR §18.3)', ()
     );
   });
 
-  test('a stage becomes a <figure> exactly when it captions a graphic', () => {
+  test('a stage is a <figure> exactly when a caption sits first or last', () => {
+    // Both directions, and the condition is the SPEC's: `<figure>` is *figcaption then
+    // flow* or *flow then figcaption*, never figcaption in the middle. `state-chart`
+    // ({chart-body, caption, state-legend}) therefore does NOT qualify — it shipped the
+    // invalid ordering before this was pinned.
     const stages = [...doc.querySelectorAll('.cell-stage')];
     assert.ok(stages.length > 20, `expected many stage cells, got ${stages.length}`);
     const wrong = stages
-      .map((s) => ({
-        tag: s.tagName.toLowerCase(),
-        captioned: Boolean(s.querySelector(':scope > figcaption.chart-caption')),
-        cls: s.closest('section')?.getAttribute('data-class') || '?',
-      }))
-      .filter((s) => (s.tag === 'figure') !== s.captioned)
-      .map((s) => `<${s.tag} class="cell-stage"> captioned=${s.captioned} on ${s.cls}`);
+      .map((s) => {
+        const kids = [...s.children];
+        const cap = kids.filter((k) => k.classList.contains('chart-caption'));
+        const qualifies = cap.length === 1 && kids.length >= 2 &&
+          (kids[0] === cap[0] || kids[kids.length - 1] === cap[0]);
+        return {
+          tag: s.tagName.toLowerCase(),
+          qualifies,
+          cls: s.closest('section')?.getAttribute('data-class') || '?',
+          shape: kids.map((k) => k.tagName.toLowerCase()).join(','),
+        };
+      })
+      .filter((s) => (s.tag === 'figure') !== s.qualifies)
+      .map((s) => `<${s.tag} class="cell-stage"> on ${s.cls} — children [${s.shape}]`);
     assert.deepEqual(
       wrong, [],
-      'The retag is conditional on the caption, in both directions: a captioned stage ' +
-      'MUST be a <figure> (that is the association), and an uncaptioned one must NOT be ' +
-      '(a boundary with nothing to bind is landmark noise — ADR §4A restraint).',
+      'The retag is conditional in both directions: a stage whose caption is first or ' +
+      'last MUST be a <figure>, and any other stage must NOT be (a boundary with nothing ' +
+      'to bind is landmark noise; a mid-figure caption is invalid HTML).',
     );
+  });
+
+  test('every <figure> stage is NAMED, and its caption is a <figcaption>', () => {
+    // A nameless <figure> is worse than none in the artifact that ships: Chrome maps it
+    // to a PDF `/Figure` whose `/Alt` comes from the accessible name, readers treat
+    // `/Figure` as atomic, and an unnamed one wrapping the chart's own named figure can
+    // swallow it. The first version of this retag added five such structs to a six-chart
+    // deck. Pinning the name here keeps the PDF honest without opening a PDF.
+    const bad = [...doc.querySelectorAll('figure.cell-stage')]
+      .filter((f) => !f.getAttribute('aria-label')?.trim() || !f.querySelector(':scope > figcaption.chart-caption'))
+      .map((f) => f.closest('section')?.getAttribute('data-class') || '?');
+    assert.deepEqual(bad, [], 'a <figure> stage must carry an aria-label AND a <figcaption> child');
+  });
+
+  test('a caption outside a <figure> is still a <p>, never a stray <figcaption>', () => {
+    // The pair is emitted by ONE function (masthead.transform.js buildStageCell), so it
+    // cannot split. When the caption was emitted upstream in chart-family, every
+    // `form: off` render shipped a <figcaption> with no <figure> anywhere.
+    const strays = [...doc.querySelectorAll('.chart-caption')]
+      .filter((c) => c.tagName === 'FIGCAPTION' && !c.closest('figure'))
+      .map((c) => c.closest('section')?.getAttribute('data-class') || '?');
+    assert.deepEqual(strays, [], 'a <figcaption> outside a <figure> associates nothing');
   });
 
   test('the gallery actually exercises both branches', () => {
