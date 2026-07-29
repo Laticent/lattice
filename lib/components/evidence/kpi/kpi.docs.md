@@ -89,8 +89,6 @@ Flags the tile that misses.
 ```markdown
 <!-- _class: kpi attention -->
 
-`kpi attention`
-
 ## attention flags the tile that misses.
 
 1. 1
@@ -182,8 +180,6 @@ One tile earns double width.
 
 ```markdown
 <!-- _class: kpi spotlight -->
-
-`kpi spotlight`
 
 ## spotlight gives one tile double width.
 

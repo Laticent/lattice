@@ -51,11 +51,11 @@ Turn it on once with `class: sketch` in the front matter and it propagates to ev
 ## It is not tied to one layout.
 
 - Palette-blind by contract
-  - Colours resolve through `var(--token)`, so the finish never assumes a hue — it inherits the active theme's.
+  - Every stroke resolves through `var(--token)`, so the finish inherits the active theme's hue.
 - PDF-safe by design
-  - The look is pure type and border geometry; no SVG filters, which collapse Marp's print scaling.
+  - Pure type and border geometry; no SVG filters, which collapse Marp's print scaling.
 - Opt body back to clean
-  - Add `sketch-clean-body` to keep the hand headings and boxes while prose returns to the crisp engine face.
+  - Add `sketch-clean-body` to keep the hand headings and boxes while prose stays crisp.
 
 ---
 

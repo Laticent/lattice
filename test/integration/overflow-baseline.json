@@ -1,6 +1,6 @@
 {
   "$comment": "Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it.",
-  "totalSlides": 15,
+  "totalSlides": 11,
   "decks": {
     "examples/README.md": [
       1
@@ -11,14 +11,9 @@
     "examples/overflow-fix-me.md": [
       2,
       3,
-      5
-    ],
-    "examples/q-and-a.md": [
-      2
-    ],
-    "lib/components/chart/roadmap/roadmap.gallery.md": [
-      3,
-      4
+      4,
+      5,
+      6
     ],
     "lib/components/connect/connect.gallery.md": [
       3
@@ -27,15 +22,6 @@
       2,
       3,
       4
-    ],
-    "lib/components/evidence/kpi/kpi.gallery.md": [
-      8
-    ],
-    "lib/components/legal/legal.gallery.md": [
-      6
-    ],
-    "lib/components/legal/policy-recommendation/policy-recommendation.gallery.md": [
-      7
     ]
   }
 }

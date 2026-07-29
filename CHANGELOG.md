@@ -72,13 +72,23 @@ in patch versions.
   `26.8125px 19.5px 31.6875px` at 390px; it is the former at every size now. **(2) The export
   and the preview flag the same slides**, deck for deck. **(3) The shipped corpus turns out to
   be over-subscribed at design size**: measured across all 185 decks, the export goes from 10
-  decks / 15 clipped slides to 42 / 67. Twelve decks are trimmed back to zero here; **53 slides
-  across 33 decks are NOT fixed** — they already clip in the preview on `main` today, and
-  re-authoring them is a content pass that needs a human call
-  (`engineering/decisions/2026-07-30-slide-geometry-emitted-not-measured.md` §6). Also note
-  exported PAGE COUNTS can move: `examples/social-portrait.md` goes 8 → 10 as auto-split
-  divides differently at the corrected size. Non-px `@size` geometries (`210mm`, `8in`) get no
-  stamp rather than a wrong one, and export-to-Marp does not carry the stamp at all — it ships
+  decks / 15 clipped slides to 42 / 67 — and those slides were ALREADY clipping in the preview
+  on `main`; the export had been hiding them. **All of it is fixed here:** 45 decks trimmed, and
+  the corpus now sits at **12 clipped slides, below main's own 15**. The only deck left clipping
+  on purpose is `examples/overflow-fix-me.md`, which exists to demonstrate the overflow overlay
+  and whose two extra pages are the export catching up to the preview. Several stress specimens
+  asserted a capacity that is no longer true at design size — roadmap's "four workstreams by
+  five phases", agenda's "seven stops", list-tabular's "eight rows", content's "two paragraphs
+  and a list" — and each was reduced AND its headline rewritten so the slide still tells the
+  truth. Three capacity ceilings are corrected with them, because `gallery-contract.test.js`
+  requires a stress specimen to sit inside its declared band: `roadmap` hard 7 → 5, `agenda`
+  hard 7 → 6, `policy-recommendation` hard 4 → 3. Every other `capacity`/`density` number in
+  the catalog was also calibrated through the shrunken export and is still ~11% too generous —
+  that re-derivation belongs to `2026-07-28-capacity-basis.md`, not here.
+  Also note exported PAGE COUNTS can move: `examples/social-portrait.md` goes 8 → 10 as
+  auto-split divides differently at the corrected size. Non-px `@size` geometries (`210mm`,
+  `8in`) get no stamp rather than a wrong one, and export-to-Marp does not carry the stamp at
+  all — it ships
   the pre-built bundle, which no per-render helper can reach.
 
 ### Fixed

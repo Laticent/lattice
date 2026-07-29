@@ -75,15 +75,13 @@ Pick this when the room wants three parallel facts at a glance.
 
 - Federal
   - `15 U.S.C. §6501 · COPPA`
-  - Verifiable parental consent for under-13 personal data; nationwide floor.
+  - Verifiable parental consent for under-13 data; the floor.
 - State
   - `Cal. Civ. Code §1798.120 · CCPA/CPRA`
-  - Opt-in for selling under-16 data; California raises the floor for its residents.
+  - Opt-in for selling under-16 data; California raises it.
 - Local
   - `NYC Admin Code §22-1201`
-  - Annual bias-audit obligation for employment AEDTs; narrowest scope.
-
-Pick this when the room needs to see scope shrinking as the tier descends.
+  - Annual bias-audit duty for employment AEDTs.
 
 ---
 
@@ -94,18 +92,13 @@ Pick this when the room needs to see scope shrinking as the tier descends.
 
 - Federal
   - `15 U.S.C. §6501 · COPPA`
-  - Verifiable parental consent for under-13 PI; deletion within reasonable period.
-  - `In effect since 2000`
+  - Parental consent for under-13 PI; timely deletion.
 - State
   - `Cal. Civ. Code §1798.120 · CCPA/CPRA`
-  - Opt-in for selling or sharing under-16 data; 45-day DSAR response.
-  - `Enforced 2023`
+  - Opt-in for under-16 data; 45-day DSAR response.
 - Local
   - `NYC Admin Code §22-1201`
   - Annual bias-audit obligation for employment AEDTs; candidate notice required.
-  - `Effective 2023`
-
-Pick this when each row has more than a sentence to carry.
 
 ---
 
@@ -116,15 +109,14 @@ Pick this when each row has more than a sentence to carry.
 
 - Federal
   - `15 U.S.C. §6501 · COPPA`
-  - Verifiable parental consent for under-13 PI; this is the floor.
+  - Parental consent for under-13 PI; the floor.
 - State
   - `Cal. Civ. Code §1798.120 · CCPA/CPRA`
-  - California adds opt-in for sale or sharing of under-16 data.
+  - California adds opt-in for under-16 data.
 - Local
   - `NYC §22-1201`
-  - New York City adds an annual AEDT bias-audit duty on top.
+  - New York City adds an annual AEDT bias audit.
 
-Pick this when the relationship between tiers is the point — not parallel facts.
 
 ---
 
@@ -340,8 +332,6 @@ Pick when each cell carries a sentence, not a glyph.
 
 ## Privacy & AI motion — Q1 2026.
 
-`Federal · State · International`
-
 1. EU AI Act
    - `Title III`
    - Conformity-assessment pre-market obligation took effect.
@@ -366,11 +356,10 @@ Pick when each cell carries a sentence, not a glyph.
 
 ## Privacy & AI motion — Q1 2026.
 
-`Federal · State · International`
 
 1. EU AI Act
    - `Title III`
-   - High-risk system conformity-assessment pre-market obligation took effect.
+   - High-risk conformity assessment took effect.
    - `Effective Feb 2026`
 2. Colorado AI Act
    - `SB 24-205`
@@ -382,7 +371,7 @@ Pick when each cell carries a sentence, not a glyph.
    - `Final Mar 2026`
 4. Texas DPSA
    - `Bus. & Com. Code §541.151`
-   - DSAR opt-out portal mandatory; safe-harbor narrowed.
+   - DSAR opt-out portal mandatory.
    - `Effective Mar 2026`
 
 ---
@@ -414,13 +403,11 @@ Pick when each cell carries a sentence, not a glyph.
 
 ## Privacy & AI motion — Q1 2026 by kind of change.
 
-`Added · Amended · Repealed · Enforced`
-
 ### Added
 
 1. EU AI Act
    - `Title III · high-risk systems`
-   - First conformity-assessment obligation took effect across the bloc.
+   - First conformity assessment took effect.
 2. Colorado AI Act
    - `SB 24-205`
    - New developer + deployer duties for consequential-decision systems.
@@ -435,7 +422,7 @@ Pick when each cell carries a sentence, not a glyph.
 
 1. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order finalised; 20-year compliance program.
+   - $16.5M consent order finalized; 20-year compliance program.
 
 ---
 

@@ -99,7 +99,6 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 <!-- _class: roadmap -->
 <!-- _footer: "roadmap — now framed, colour-blind-safe markers · chart family" -->
 
-`H2 2026 · Rollout plan`
 
 ## What ships in each phase, by workstream.
 
@@ -110,7 +109,6 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 | Governance | [x] Decision log | [x] Calibration cadence | [ ] Board reporting |
 | Tooling | [x] Intake form | [/] Dashboards | [ ] Self-serve exports |
 
-State markers are shape-distinct: ✓ shipped, – in flight, ✕ planned, ╱ out of scope.
 
 ---
 

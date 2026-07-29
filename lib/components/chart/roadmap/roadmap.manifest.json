@@ -13,7 +13,7 @@
     "min": 2,
     "sweet": 4,
     "soft": 5,
-    "hard": 7,
+    "hard": 5,
     "escalateTo": [
       "split across slides"
     ],
@@ -65,10 +65,10 @@
   },
   "skeleton": "<!-- _class: roadmap -->\n\n`H2 2026 · Plan`\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nState markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n",
   "anatomyBlock": "roadmap",
-  "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |\n| Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |\n| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve exports  |\n",
+  "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |\n| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |\n",
   "stressDoc": {
     "summary": "Five phases — the ceiling, and what portrait paginates.",
-    "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Four workstreams by five phases is the ceiling.\n\n| Workstream | Phase one | Phase two | Phase three | Phase four | Phase five |\n| --- | --- | --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned cell | [ ] Later still | [ ] The last one |\n| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid | [ ] Four words at most | [ ] Or the grid wraps |\n| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps | [ ] Twenty cells total | [ ] The ceiling |\n| Fourth | [x] The last row | [-] Twenty cells total | [ ] The ceiling | [ ] Portrait paginates | [ ] Four pages at most |\n"
+    "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Three workstreams by four phases.\n\n| Workstream | Phase one | Phase two | Phase three | Phase four |\n| --- | --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned | [ ] The last one |\n| Second | [x] Every cell filled | [-] No blanks | [ ] The honest grid | [ ] Four words max |\n| Third | [x] Short labels | [-] Four words max | [ ] Or it wraps | [ ] The ceiling |\n"
   },
   "whenToUse": [
     {
@@ -124,22 +124,22 @@
     "horizons": {
       "label": "horizons",
       "summary": "Bets spread across three horizons.",
-      "sample": "<!-- _class: roadmap horizons -->\n\n`Three-horizon planning`\n\n## horizons spreads the bets across three horizons.\n\n| Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |\n| ------------- | ------------------------ | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1     | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |\n| Scoring       | [x] Equal weights      | [-] Per-team calibration   | [ ] Per-decision profiles |\n| Decision Log  | [x] Append-only schema   | [x] Outcome auto-pairing | [ ] Auditor export        |\n| Adoption      | [x] One pilot team       | [/] Second team          | [ ] Org-wide enablement   |\n"
+      "sample": "<!-- _class: roadmap horizons -->\n\n`Three-horizon planning`\n\n## horizons spreads the bets across three horizons.\n\n| Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |\n| ------------- | ------------------------ | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |\n| Scoring       | [x] Equal weights      | [-] Per-team weights   | [ ] Decision profiles |\n"
     },
     "status": {
       "label": "status",
       "summary": "Delivery state at a glance.",
-      "sample": "<!-- _class: roadmap status -->\n\n`Layout · roadmap status`\n\n## status reads delivery state at a glance.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |\n| ------------- | -------------------- | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1 | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |\n| Scoring       | [x] Equal weights    | [-] Per-team calibration | [ ] Per-decision profiles |\n| Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |\n| Adoption      | [x] One pilot team   | [/] Second team          | [ ] Org-wide enablement   |\n\nState markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n"
+      "sample": "<!-- _class: roadmap status -->\n\n`Layout · roadmap status`\n\n## status reads delivery state at a glance.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |\n| ------------- | -------------------- | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |\n| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |\n| Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |\n"
     },
     "swimlane": {
       "label": "swimlane",
       "summary": "One track per team.",
-      "sample": "<!-- _class: roadmap swimlane -->\n\n`Layout · roadmap swimlane`\n\n## swimlane gives each team its own track.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |\n| ------------- | -------------------- | ---------------------- | ------------------------- |\n| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |\n| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |\n| Decision Log  | Append schema        | Outcome pairing        | Auditor export            |\n| Adoption      | One pilot team       | Second team            | Org-wide enablement       |\n"
+      "sample": "<!-- _class: roadmap swimlane -->\n\n`Layout · roadmap swimlane`\n\n## swimlane gives each team its own track.\n\n| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |\n| ------------- | -------------------- | ---------------------- | ------------------------- |\n| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |\n| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |\n| Decision Log  | Append schema        | Outcome pairing        | Auditor export            |\n"
     },
     "milestones": {
       "label": "milestones",
       "summary": "The dated path, pinned.",
-      "sample": "<!-- _class: roadmap milestones -->\n\n`Layout · roadmap milestones`\n\n## milestones pins the dated path.\n\n| Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |\n| ------------- | -------------------- | ---------------------- | ------------------------- |\n| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |\n| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |\n| Decision Log  | Append schema        | Outcome pairing        | Auditor export            |\n"
+      "sample": "<!-- _class: roadmap milestones -->\n\n`Layout · roadmap milestones`\n\n## milestones pins the dated path.\n\n| Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |\n| ------------- | -------------------- | ---------------------- | ------------------------- |\n| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |\n| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |\n| Decision Log  | Append schema        | Outcome pairing        | Auditor export            |\n"
     }
   },
   "commonMistakes": [

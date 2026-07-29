@@ -108,13 +108,13 @@ Down-chevron tabs cascade into keyed description cards.
 ## Make the case, one stage at a time.
 
 1. Problem
-   - Define the problem that is causing the pain.
+   - Define the problem causing the pain.
 2. Vision
-   - Show what the world looks like once it is solved.
+   - Show the world once it is solved.
 3. Approach
-   - Detail the moves that get from here to there.
+   - Detail the moves from here to there.
 4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Commit to steps, owners, and a date.
 ```
 
 ### `converge` — converge
@@ -127,13 +127,11 @@ Tapering bands narrow onto the final stage (a qualitative funnel).
 ## Many concerns narrow onto one plan.
 
 1. Problem
-   - Define the problem that is causing the pain.
-2. Vision
-   - Show what the world looks like once it is solved.
-3. Approach
-   - Detail the moves that get from here to there.
-4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Define the problem causing the pain.
+2. Approach
+   - Detail the moves from here to there.
+3. Plan
+   - Commit to steps, owners, and a date.
 ```
 
 ### `ghost` — ghost
@@ -146,13 +144,11 @@ Faint chevron watermark, eyebrow label, hero description — editorial.
 ## The argument, stated plainly.
 
 1. Problem
-   - Define the problem that is causing the pain.
-2. Vision
-   - Show what the world looks like once it is solved.
-3. Approach
-   - Detail the moves that get from here to there.
-4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Define the problem causing the pain.
+2. Approach
+   - Detail the moves from here to there.
+3. Plan
+   - Commit to steps, owners, and a date.
 ```
 
 ### `timeline` — timeline

@@ -22,7 +22,7 @@ Generic prose slide — heading plus paragraphs or a short list.
 
 ## The content slide is the plainest tool in the box.
 
-A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
+A heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.
 
 
 ---
@@ -31,11 +31,9 @@ A heading that makes one claim, then a paragraph or a short list that delivers i
 <!-- stress-slide -->
 <!-- _footer: "Stress test · content — Two paragraphs and a list — the ceiling." -->
 
-`content · stress — the ceiling for prose`
-
 ## This is as much text as one slide should ever carry.
 
-Two paragraphs is the working limit. This first one runs three full lines to show where the measure sits, how the leading holds, and why anything denser belongs in a document instead of a deck.
+Two paragraphs is the working limit. This one runs two full lines to show where the measure sits and why anything denser belongs in a document.
 
 The second paragraph stays shorter — because by now the audience is reading, not listening.
 
@@ -53,7 +51,7 @@ The second paragraph stays shorter — because by now the audience is reading, n
 
 ## The content slide is the plainest tool in the box.
 
-A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
+A heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.
 
 
 ---
@@ -65,7 +63,7 @@ A heading that makes one claim, then a paragraph or a short list that delivers i
 
 ## The content slide is the plainest tool in the box.
 
-A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
+A heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.
 
 
 ---
@@ -77,7 +75,7 @@ A heading that makes one claim, then a paragraph or a short list that delivers i
 
 ## The content slide is the plainest tool in the box.
 
-A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
+A heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.
 
 
 ---

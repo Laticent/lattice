@@ -82,7 +82,7 @@
   "sample": "<!-- _class: list-steps -->\n\n## Steps promise an order and keep it.\n\n1. Name the step\n   - A verb-first title and one clause of body.\n2. Keep steps parallel\n   - Same shape every step, or sequence breaks.\n3. Number honestly\n   - Order is the promise this layout makes.\n4. Stop at five\n   - Six fits; seven is two slides.\n",
   "stressDoc": {
     "summary": "Six steps — the last honest sequence.",
-    "sample": "<!-- _class: list-steps -->\n\n## Six steps is the last honest sequence.\n\n1. Open at full strength\n   - A step at the hard budget carries a verb, its object, and the one condition that matters.\n2. Hold the parallel line\n   - Six steps survive only when every title starts with a verb and every body stays one clause.\n3. Front-load the risk\n   - The contested step belongs in the top half.\n4. Shorten as you descend\n   - The reader is walking, not studying.\n5. Mark the soft ceiling\n   - Five was it; this row is borrowed room.\n6. Stop\n   - A seventh step is a second slide.\n"
+    "sample": "<!-- _class: list-steps -->\n\n## Six steps is the last honest sequence.\n\n1. Open at full strength\n   - A step carries a verb, an object, and one condition.\n2. Hold the parallel line\n   - Six survive only if every body stays one clause.\n3. Front-load the risk\n   - The contested step goes up top.\n4. Shorten as you descend\n   - The reader is walking, not studying.\n5. Mark the soft ceiling\n   - Five was it; this is borrowed room.\n6. Stop\n   - A seventh step is a second slide.\n"
   },
   "whenToUse": [
     {
@@ -143,17 +143,17 @@
     "chevron": {
       "label": "chevron",
       "summary": "Down-chevron tabs cascade into keyed description cards.",
-      "sample": "<!-- _class: list-steps chevron -->\n\n## Make the case, one stage at a time.\n\n1. Problem\n   - Define the problem that is causing the pain.\n2. Vision\n   - Show what the world looks like once it is solved.\n3. Approach\n   - Detail the moves that get from here to there.\n4. Plan\n   - Commit to concrete steps, owners, and a date.\n"
+      "sample": "<!-- _class: list-steps chevron -->\n\n## Make the case, one stage at a time.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Vision\n   - Show the world once it is solved.\n3. Approach\n   - Detail the moves from here to there.\n4. Plan\n   - Commit to steps, owners, and a date.\n"
     },
     "converge": {
       "label": "converge",
       "summary": "Tapering bands narrow onto the final stage (a qualitative funnel).",
-      "sample": "<!-- _class: list-steps converge -->\n\n## Many concerns narrow onto one plan.\n\n1. Problem\n   - Define the problem that is causing the pain.\n2. Vision\n   - Show what the world looks like once it is solved.\n3. Approach\n   - Detail the moves that get from here to there.\n4. Plan\n   - Commit to concrete steps, owners, and a date.\n"
+      "sample": "<!-- _class: list-steps converge -->\n\n## Many concerns narrow onto one plan.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Approach\n   - Detail the moves from here to there.\n3. Plan\n   - Commit to steps, owners, and a date.\n"
     },
     "ghost": {
       "label": "ghost",
       "summary": "Faint chevron watermark, eyebrow label, hero description — editorial.",
-      "sample": "<!-- _class: list-steps ghost -->\n\n## The argument, stated plainly.\n\n1. Problem\n   - Define the problem that is causing the pain.\n2. Vision\n   - Show what the world looks like once it is solved.\n3. Approach\n   - Detail the moves that get from here to there.\n4. Plan\n   - Commit to concrete steps, owners, and a date.\n"
+      "sample": "<!-- _class: list-steps ghost -->\n\n## The argument, stated plainly.\n\n1. Problem\n   - Define the problem causing the pain.\n2. Approach\n   - Detail the moves from here to there.\n3. Plan\n   - Commit to steps, owners, and a date.\n"
     },
     "timeline": {
       "label": "timeline",

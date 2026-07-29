@@ -65,7 +65,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 <!-- _class: decision -->
 
-## Buy the platform; build the differentiation.
+## Buy the platform; build the difference.
 
 - Buy and configure.
   - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the differentiation actually lives.

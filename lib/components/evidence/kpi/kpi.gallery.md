@@ -18,8 +18,6 @@ Executive KPI system — one base, five layout modifiers.
 <!-- _class: kpi -->
 <!-- _footer: "Default · kpi" -->
 
-`evidence · kpi`
-
 ## Four tiles the eye sweeps in one pass.
 
 1. 4
@@ -40,8 +38,6 @@ Executive KPI system — one base, five layout modifiers.
 
 <!-- _class: kpi attention -->
 <!-- _footer: "attention · kpi attention — Flags the tile that misses." -->
-
-`kpi attention`
 
 ## attention flags the tile that misses.
 
@@ -127,8 +123,6 @@ Executive KPI system — one base, five layout modifiers.
 <!-- _class: kpi spotlight -->
 <!-- _footer: "spotlight · kpi spotlight — One tile earns double width." -->
 
-`kpi spotlight`
-
 ## spotlight gives one tile double width.
 
 1. 1
@@ -148,30 +142,26 @@ Executive KPI system — one base, five layout modifiers.
 <!-- stress-slide -->
 <!-- _footer: "Stress test · kpi — Four tiles at the fourteen-word line." -->
 
-`kpi · stress`
-
-## Four tiles at full word weight is the ceiling.
+## Four tiles at full word weight.
 
 1. 4
-   - tiles is the grid's seat count
+   - the grid's seat count
    - a fifth never renders `Max`
 2. 14
-   - words per tile, the hard budget
-   - this tile spends its whole allowance `Budget`
+   - words per tile, the budget
+   - spends the allowance `Budget`
 3. 1
-   - line per label before wrapping
-   - wrapping ends the five-second scan `Rule`
+   - line per label
+   - wrapping ends the scan `Rule`
 4. 2
-   - slides beat one crowded grid
-   - split past this point `Advice`
+   - slides beat one crowd
+   - split past this `Advice`
 
 
 ---
 
 <!-- _class: kpi dark -->
 <!-- _footer: "Composition: dark · kpi dark" -->
-
-`evidence · kpi`
 
 ## Four tiles the eye sweeps in one pass.
 
@@ -194,8 +184,6 @@ Executive KPI system — one base, five layout modifiers.
 <!-- _class: kpi compact -->
 <!-- _footer: "Composition: compact · kpi compact" -->
 
-`evidence · kpi`
-
 ## Four tiles the eye sweeps in one pass.
 
 1. 4
@@ -216,8 +204,6 @@ Executive KPI system — one base, five layout modifiers.
 
 <!-- _class: kpi accent -->
 <!-- _footer: "Composition: accent · kpi accent" -->
-
-`evidence · kpi`
 
 ## Four tiles the eye sweeps in one pass.
 

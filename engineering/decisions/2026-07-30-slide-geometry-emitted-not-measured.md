@@ -9,18 +9,17 @@ summary: >
   previous note deferred — the export was the flattering path, and it is corrected UP to the
   design size the token coefficients are defined against. A third leak, in JS rather than CSS,
   is fixed alongside: state-chart derived its geometry scale from a transform-scaled rect.
-  THE CATCH, and why this is `proposed` rather than done: correcting the size up reveals that
-  the shipped deck corpus is over-subscribed at design size. Measured over all 185 decks, the
-  export goes from 10 decks / 15 clipped slides to 42 / 67. Those slides are ALREADY clipping
-  in the preview on `main` today — the export was hiding them — but 53 of them would newly clip
-  in committed PDFs. Twelve decks are trimmed here; the rest is a fork that needs a human call,
-  stated in §6.
+  Correcting the size up revealed that the shipped deck corpus was over-subscribed at design
+  size: across all 185 decks the export went from 10 decks / 15 clipped slides to 42 / 67.
+  Those slides were ALREADY clipping in the preview on `main` — the export was hiding them.
+  All 53 newly-clipping slides are fixed here, and the corpus now sits at 12 clipped slides,
+  BELOW main's own 15. A new on-demand ratchet (`npm run overflow:check`) holds that floor.
 ---
 
 # The slide's geometry is emitted, not measured
 
 **Date:** 2026-07-30
-**Status:** proposed — carries an export-bytes change AND an unresolved fork (§6)
+**Status:** proposed — carries an export-bytes change, so it needs sign-off (§6 is settled)
 **Follows:** `2026-07-29-section-cq-icb-leak.md` (§7 "Still open" — this closes both items)
 
 ---
@@ -137,8 +136,10 @@ one slide fixed below baseline.
 `policy-recommendation` (2), `read-across-carousel` (3), `split-envelope` (2),
 `staged-flow` (2), `universal-pill` (2).
 
-**Not fixed: 53 slides across 33 decks**, named by `npm run overflow:check`. They are
-the fork in §6.
+**Then fixed: the remaining 53 slides across 33 decks**, tracked by `npm run overflow:check`.
+The corpus finished at **12 clipped slides — below `main`'s 15** — and the ratchet is
+re-blessed at that lower floor. How the trims were chosen, and the one class of edit that
+was rejected, is §6.
 
 Two things learned while trimming, worth writing down because they cost time:
 
@@ -183,60 +184,93 @@ state-chart's scale factor, and state-chart's fit ratio all had the same defect 
 slide should read the stamp or `offsetWidth`, never a rect, unless it normalizes — and
 when it normalizes, BOTH sides of every ratio have to move.
 
-## 6. The fork this leaves open
+## 6. The fork, and how it was settled
 
-53 slides across 33 decks clip at design size and are not fixed here. Under HARD RULE
-#18 a pre-existing fragility this change tips into visible failure is this change's to
-fix — and #18 is equally clear that when the correct fix is too large for the PR, the
-answer is to hold, not to file and ship. So this note is `proposed` and the PR is for
-inspection, not merge.
+The first cut of this change left 53 slides across 33 decks clipping at design size and
+put three options to the human. **Option 1 — finish the trims — was chosen, and it is
+done.** The corpus is now at **12 clipped slides, below `main`'s own 15.**
 
-**The one fact that should drive the decision.** Those 53 slides are not created by this
-change. On `main` today, the PREVIEW already flags them; only the export hides them.
-Measured by applying `main`'s own runtime stamp to `main`'s own exported HTML — no engine
-change involved — and comparing against this branch's export:
+**The fact that decided it.** Those 53 slides were not created by this change. On `main`,
+the PREVIEW already flagged them; only the export hid them. Measured by applying `main`'s
+own runtime stamp to `main`'s own exported HTML — no engine change involved — and
+comparing against this branch's export:
 
-| deck | `main` PDF says | `main` PREVIEW says | this branch's PDF says |
+| deck | `main` PDF says | `main` PREVIEW says | this branch's PDF said |
 |---|---|---|---|
 | `evidence/kpi.gallery` | 8 | 2, 3, 7, 8, 9, 11 | 2, 3, 7, 8, 9, 11 |
 | `legal/legal.gallery` | 6 | 5, 6, 7, 23, 25 | 5, 6, 7, 23, 25 |
 | `chart/roadmap.gallery` | 3, 4 | 2, 3, 4, 5, 7, 8, 10 | 2, 3, 4, 5, 7, 8, 10 |
 | `connect/contact.gallery` | — | 2, 3, 4 | 2, 3, 4 |
-| `examples/claim` | — | 2 | 2 |
-| `examples/logo-wall` | — | 2 | 2 |
 
-Page for page, this branch's export equals `main`'s preview. The catalog is already
-over-subscribed for every user of the Playground and the Studio; what this change removes
-is the PDF's ability to conceal it.
+Page for page, the export equalled `main`'s preview. The catalog was already
+over-subscribed for every Playground and Studio user; the export had simply been
+concealing it. So the honest move was to fix the content, not to re-normalize the type
+scale away from its documented pt values (option 2) — which would also have shrunk every
+preview by 11% to match a render nobody chose.
 
-**Three ways forward. This is the call to make.**
+**What the trims actually cost, and the four levers that worked.** In order of how often
+they were the answer:
 
-1. **Finish the trims** — re-author ~53 specimen slides to fit at design size. Correct,
-   and it makes the catalog honest. But it is a content/design pass across ~25 components,
-   not a bug fix, and §4's `pricing`/`logo-wall` lesson says it damages documentation when
-   done fast. It also leaves the catalog internally inconsistent unless step 3 follows.
+1. **Unwrap a line.** A wrapped line costs ~25-40px at HD and ~65-190px at 4K. But
+   shortening prose only helps if it crosses a line boundary — and in decks that write a
+   paragraph across several source lines, single newlines render as hard `<br>`, so line
+   count tracks SOURCE lines, not text width. In those decks the lever is "join lines",
+   not "shorten words". Several first-pass edits measured *identical* to baseline before
+   this was understood.
+2. **Drop a garnish** — an eyebrow, a lede, a caption, a below-note. Worth ~45-70px at
+   HD. This carried most of the chart-family slides, whose tiles and rows are sized by a
+   hero numeral or a fixed grid and so do not respond to text edits at all.
+3. **Correct a stated ceiling.** Several stress specimens asserted a capacity that is no
+   longer true at design size — roadmap's "four workstreams by five phases", agenda's
+   "seven stops", list-tabular's "eight rows", content's "two paragraphs and a list".
+   Each was reduced AND its headline rewritten, so the slide still tells the truth.
+4. **Drop a row or item** — last resort, used where the box was padding-dominated.
 
-2. **Re-normalize the coefficients** — keep the emit (it closes the sidecar leak and the
-   verdict gap regardless), and divide the descendant-dominant coefficients by 1280/1152 so
-   the rendered result stays where the corpus is empirically fitted. Zero content churn,
-   zero newly-clipped slides. Its cost: the `--fs-*` tier stops matching its documented pt
-   values, and the preview SHRINKS 11% from what users see today. It also may not be cleanly
-   separable — a token like `--frame-inset-x` is consumed both by the section's own padding
-   (already correct at 12.8) and by descendants, and one declaration cannot hold two bases.
-   **That separability question is unresolved and should be checked before choosing this.**
+**One class of edit was rejected outright:** removing the thing a specimen exists to
+demonstrate. A first fast pass deleted `pricing`'s marker-less audience line (a documented
+required slot with its own `whenToUse` and anti-pattern entries) and cut `logo-wall` to
+six marks against its own docs' "fewer than six looks thin". Both were reverted, and both
+turned out to be unnecessary anyway — see §6.1.
 
-3. **Re-derive the capacity basis.** Independent of 1 vs 2, every `capacity` and `density`
-   ceiling in the manifests was measured THROUGH the export by
-   `tools/calibrate-capacity.js` / `calibrate-density.js` (`tools/lib/calibrate-core.js`
-   parses the same `⚠ OVERFLOW` line). Those ceilings are now ~11% too generous, and
-   `lib/core/auto-split.js`, `lib/authoring/lint-core.js` and `dist/docs/components.json`
-   all consume them. `2026-07-28-capacity-basis.md` is already open on exactly this
-   question; this belongs there.
+### 6.1 A gate that was measuring nothing
 
-**Recommendation: 1 + 3, in that order, as follow-on work with the ratchet from §7 as the
-scoreboard** — the direction in §3 is right, and option 2 pays for a smaller diff with a
-type scale that no longer means what it says. But 2 deserves the separability check before
-it is dismissed, and neither should be decided at the end of a long night.
+Three manifest samples (`pricing`, `logo-wall`, `regulatory-update`) appeared
+over-subscribed only because the component-invariant suite was asserting against an
+unstyled stack: `test/helpers/semantic-render.js` pinned `form: off`, and `mastheadLift`
+is also what wraps a slide's body into the frame's `.cell-stage` cell, which every
+stage-migrated component keys its whole layout off. With form off those selectors matched
+nothing. logo-wall's eight marks measured 547px as a `display:block` list where the real
+component tiles them into a 400px flex wall with 90px to spare (`form: on` → 0px over,
+measured). The samples were fine; the harness was blind. Fixed at the harness, with the
+slot matcher treating the Form cells as transparent — 265/265 pass, and the assertion now
+means what it says.
+
+### 6.2 Still open, deliberately
+
+`examples/overflow-fix-me.md` clips 5 pages, up from 3 on `main`. That deck exists to
+demonstrate the overflow overlay — its own prose says so — and the two new pages are the
+export catching up to what the preview always showed. Re-baselined rather than trimmed.
+
+**Three capacity ceilings ARE corrected here, because a gate forced the issue.**
+`gallery-contract.test.js` requires a stress specimen to sit inside `[soft+1, hard]`
+and the default sample to land at or under `soft`, so trimming those specimens made
+the stale ceilings fail loudly rather than silently:
+
+| component | before | after | measured basis |
+|---|---|---|---|
+| `roadmap` | soft 5, hard 7 | **soft 5, hard 5** | five columns — the label column plus four phases — is what renders; `examples/portrait-roadmap.md` sits exactly there |
+| `agenda` | soft 6, hard 7 | **soft 6, hard 6** | seven stops clipped once the export stopped rendering 11% small |
+| `policy-recommendation` | sweet 3, soft 3, hard 4 | **soft 3, hard 3** | three evidence pairs is both the target and the ceiling |
+
+Those three are the ones the gate could see. The rest of the catalog is not re-derived.
+
+**Not done here, and it should follow:** every `capacity` and `density` ceiling in the
+manifests was measured THROUGH the export by `tools/calibrate-capacity.js` /
+`calibrate-density.js` (`tools/lib/calibrate-core.js` parses the same `⚠ OVERFLOW` line),
+so they are all ~11% too generous, and `lib/core/auto-split.js`,
+`lib/authoring/lint-core.js` and `dist/docs/components.json` all consume them. The stress
+specimens corrected in this PR are the visible tip. `2026-07-28-capacity-basis.md` is
+already open on exactly this question and is where it belongs.
 
 ## 7. Verification, and the gate that was missing
 

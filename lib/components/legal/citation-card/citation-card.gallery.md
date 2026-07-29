@@ -68,10 +68,10 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 
 `GDPR Art. 6(1)(f) · legitimate interests`
 
-> Processing is lawful only if and to the extent that processing is necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights of the data subject.
+> Processing is lawful … only if necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the fundamental rights of the data subject.
 
 - Two-part test.
-  - Necessity first, then a balancing exercise against the data subject's rights. Document both halves or the basis fails on audit.
+  - Necessity first, then balancing against the data subject's rights. Document both halves.
 
 
 ---

@@ -578,7 +578,7 @@
         "min": 3,
         "sweet": 4,
         "soft": 6,
-        "hard": 7,
+        "hard": 6,
         "escalateTo": [
           "split across slides"
         ],
@@ -6964,7 +6964,7 @@
         "sweet": 3,
         "perPage": 1,
         "soft": 3,
-        "hard": 4,
+        "hard": 3,
         "escalateTo": [
           "list-criteria",
           "split across slides"
@@ -8742,7 +8742,7 @@
         "min": 2,
         "sweet": 4,
         "soft": 5,
-        "hard": 7,
+        "hard": 5,
         "escalateTo": [
           "split across slides"
         ],

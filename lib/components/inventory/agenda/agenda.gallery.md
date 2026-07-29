@@ -180,15 +180,14 @@ Auto-numbered table of contents for the deck.
 <!-- stress-slide -->
 <!-- _footer: "Stress test · agenda — Seven stops — the hard ceiling." -->
 
-## Seven stops is the most one agenda holds.
+## Six stops is the most one agenda holds.
 
 1. The opening stop states the meeting's one question `p.2`
 2. Sixteen words is the hard budget for a stop `p.6`
 3. Even at seven, every line stays scannable `p.11`
 4. The current stop still reads at a glance `p.15`
 5. Late stops shorten as attention thins `p.19`
-6. The soft ceiling passed one stop ago `p.23`
-7. Seven is the stop sign `p.27`
+6. Six is the stop sign `p.23`
 
 
 ---

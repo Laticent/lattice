@@ -16,7 +16,7 @@
     "sweet": 3,
     "perPage": 1,
     "soft": 3,
-    "hard": 4,
+    "hard": 3,
     "escalateTo": ["list-criteria", "split across slides"],
     "note": "past four reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three"
   },
@@ -59,10 +59,10 @@
     }
   },
   "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n`Bill reference · Domain`\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `Citation` chip.\n- Second reason\n  - The evidence for it, with a `Citation` chip.\n- Third reason\n  - The evidence for it, with a `Citation` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
-  "sample": "<!-- _class: policy-recommendation adopt -->\n\n`HB 214 · Consumer Data Protection`\n\n## Adopt a 30-day deadline for breach notification.\n\nConsumers now learn of a breach 78 days late on average — long after the harm compounds.\n\n- Faster notice cuts identity-theft losses\n  - States with a 30-day rule saw 22% lower per-victim costs `FTC 2025`.\n- The window is already industry practice\n  - 14 of the top 20 data processors notify within 30 days voluntarily `IAPP survey`.\n- Enforcement is self-funding\n  - Penalties capitalize the oversight office; no new appropriation `LBB fiscal note`.\n\n> Vote YES on HB 214 § 3 — or sponsor the floor amendment adding the 30-day deadline.\n",
+  "sample": "<!-- _class: policy-recommendation adopt -->\n\n`HB 214 · Consumer Data Protection`\n\n## Adopt a 30-day deadline for breach notification.\n\n- Faster notice cuts identity-theft losses\n  - 30-day states saw 22% lower per-victim costs `FTC 2025`.\n- The window is already industry practice\n  - 14 of the top 20 processors already do `IAPP survey`.\n- Enforcement is self-funding\n  - Penalties fund the oversight office `LBB fiscal note`.\n\n> Vote YES on HB 214 § 3, or sponsor the floor amendment.\n",
   "stressDoc": {
     "summary": "Four reasons — the ceiling.",
-    "sample": "<!-- _class: policy-recommendation amend -->\n\n`SB 88 · Algorithmic Hiring`\n\n## Amend SB 88 to require bias audits before deployment, not after.\n\nPost-hoc audits catch discrimination only once applicants have already been screened out.\n\n- Pre-deployment testing is the only preventive control\n  - Audits after launch cannot un-reject the candidates already filtered `EEOC 2025`.\n- The change is narrow and drafted\n  - It moves one clause from § 4(b) to § 3; no new agency `Leg. counsel memo`.\n- Vendors can meet it today\n  - Three of five major ATS vendors already ship pre-deployment reports `vendor survey`.\n- Delay compounds the exposure\n  - Each hiring cycle under the current text is an un-audited liability `AG advisory`.\n\n> Move the § 4(b) audit trigger to § 3 in the committee substitute before markup.\n"
+    "sample": "<!-- _class: policy-recommendation amend -->\n\n`SB 88 · Algorithmic Hiring`\n\n## Amend SB 88 to require bias audits before deployment.\n\n- Pre-deployment testing is the only preventive control\n  - Audits after launch cannot un-reject filtered candidates `EEOC 2025`.\n- The change is narrow and drafted\n  - It moves one clause from § 4(b) to § 3; no new agency `Leg. counsel memo`.\n- Vendors can meet it today\n  - Three of five major ATS vendors already ship pre-deployment reports `vendor survey`.\n\n> Move the § 4(b) audit trigger to § 3 before markup.\n"
   },
   "whenToUse": [
     {
@@ -123,7 +123,7 @@
     "amend": {
       "label": "amend",
       "summary": "Conditional support — amber badge and rail.",
-      "sample": "<!-- _class: policy-recommendation amend -->\n\n`SB 88 · Algorithmic Hiring`\n\n## Amend SB 88 to require bias audits before deployment.\n\nPost-hoc audits catch discrimination only after applicants are screened out.\n\n- Pre-deployment testing is preventive\n  - Later audits cannot un-reject filtered candidates `EEOC 2025`.\n- The change is one clause\n  - Move the trigger from § 4(b) to § 3 `Leg. counsel`.\n\n> Adopt the § 4(b) to § 3 move in the committee substitute.\n"
+      "sample": "<!-- _class: policy-recommendation amend -->\n\n`SB 88 · Algorithmic Hiring`\n\n## Amend SB 88 to require bias audits before deployment.\n\nPost-hoc audits catch bias only after applicants are screened out.\n\n- Pre-deployment testing is preventive\n  - Later audits cannot un-reject candidates `EEOC 2025`.\n- The change is one clause\n  - Move the trigger from § 4(b) to § 3 `Leg. counsel`.\n\n> Adopt the § 4(b) to § 3 move in the committee substitute.\n"
     },
     "oppose": {
       "label": "oppose",

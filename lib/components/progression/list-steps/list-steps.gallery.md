@@ -53,13 +53,13 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 ## Make the case, one stage at a time.
 
 1. Problem
-   - Define the problem that is causing the pain.
+   - Define the problem causing the pain.
 2. Vision
-   - Show what the world looks like once it is solved.
+   - Show the world once it is solved.
 3. Approach
-   - Detail the moves that get from here to there.
+   - Detail the moves from here to there.
 4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Commit to steps, owners, and a date.
 
 
 ---
@@ -70,13 +70,11 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 ## Many concerns narrow onto one plan.
 
 1. Problem
-   - Define the problem that is causing the pain.
-2. Vision
-   - Show what the world looks like once it is solved.
-3. Approach
-   - Detail the moves that get from here to there.
-4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Define the problem causing the pain.
+2. Approach
+   - Detail the moves from here to there.
+3. Plan
+   - Commit to steps, owners, and a date.
 
 
 ---
@@ -87,13 +85,11 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 ## The argument, stated plainly.
 
 1. Problem
-   - Define the problem that is causing the pain.
-2. Vision
-   - Show what the world looks like once it is solved.
-3. Approach
-   - Detail the moves that get from here to there.
-4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Define the problem causing the pain.
+2. Approach
+   - Detail the moves from here to there.
+3. Plan
+   - Commit to steps, owners, and a date.
 
 
 ---
@@ -240,15 +236,15 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 ## Six steps is the last honest sequence.
 
 1. Open at full strength
-   - A step at the hard budget carries a verb, its object, and the one condition that matters.
+   - A step carries a verb, an object, and one condition.
 2. Hold the parallel line
-   - Six steps survive only when every title starts with a verb and every body stays one clause.
+   - Six survive only if every body stays one clause.
 3. Front-load the risk
-   - The contested step belongs in the top half.
+   - The contested step goes up top.
 4. Shorten as you descend
    - The reader is walking, not studying.
 5. Mark the soft ceiling
-   - Five was it; this row is borrowed room.
+   - Five was it; this is borrowed room.
 6. Stop
    - A seventh step is a second slide.
 

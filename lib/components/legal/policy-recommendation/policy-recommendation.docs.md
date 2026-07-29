@@ -10,7 +10,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 ## Agent contract
 
-**Capacity** ~3 items (crowds past 3, overflows past 4) — past that, list-criteria / split across slides.
+**Capacity** ~3 items (crowds past 3, overflows past 3) — past that, list-criteria / split across slides.
 
 **Density** aim ~20 words per item; past ~28 it reads as a wall of text — one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip.
 
@@ -104,10 +104,10 @@ Conditional support — amber badge and rail.
 
 ## Amend SB 88 to require bias audits before deployment.
 
-Post-hoc audits catch discrimination only after applicants are screened out.
+Post-hoc audits catch bias only after applicants are screened out.
 
 - Pre-deployment testing is preventive
-  - Later audits cannot un-reject filtered candidates `EEOC 2025`.
+  - Later audits cannot un-reject candidates `EEOC 2025`.
 - The change is one clause
   - Move the trigger from § 4(b) to § 3 `Leg. counsel`.
 

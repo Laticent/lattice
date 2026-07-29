@@ -23,7 +23,7 @@ Three baked-in details — the **spectrum** ribbon, the heading **rule**, and th
 
 ## One selection sets the gradient
 
-The `spectrum:` key picks the gradient identity — the ribbon on the **brand bar**. Elegant by default: the bar carries the spectrum, the in-content accents stay quiet.
+The `spectrum:` key picks the gradient identity — the ribbon on the **brand bar**. The bar carries it; the in-content accents stay quiet.
 
 - `on`
   - The default 3-stop rainbow ribbon (omit the key).

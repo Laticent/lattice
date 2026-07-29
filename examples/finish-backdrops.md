@@ -76,8 +76,7 @@ which still owns the palette. The engine reads it once and paints the layered
 finish behind every slide, so you never repeat a class.
 
 - Layered
-  - A finish stacks `wash + texture + mark + edge` by z-index — layers combine,
-    they don't replace each other.
+  - A finish stacks `wash + texture + mark + edge` by z-index — layers combine, never replace.
 - Palette-blind
   - Every layer is `color-mix()` of the theme accent — swap the theme and it
     recolors itself.
