@@ -79,17 +79,48 @@ describe('svg-a11y-names — applyToHtml', () => {
     assert.equal(applyToHtml(src), src, 'a non-direct-child <title> is not a name');
   });
 
-  test('a malformed id is not reused — it is an injection surface, not a reference', () => {
-    const out = applyToHtml('<svg role="img"><title id="a&quot; onload=x">T</title></svg>');
-    assert.match(out, /aria-labelledby="lat-svgt-1"/, 'falls back to a minted id');
-    assert.doesNotMatch(out, /aria-labelledby="[^"]*onload/, 'never reflects a malformed id');
+  test('a malformed id is never reflected — the graphic is skipped, not rewritten', () => {
+    const src = '<svg role="img"><title id="a&quot; onload=x">T</title></svg>';
+    const out = applyToHtml(src);
+    assert.equal(out, src, 'an author-owned id means hands off');
+    assert.doesNotMatch(out, /aria-labelledby/, 'never reflects a malformed id, in any position');
     assert.ok(balanced(out));
   });
 
-  test('re-identifying a titled node leaves exactly one id attribute', () => {
-    const out = applyToHtml('<svg role="img"><title id="radar-mini-3">Radar</title></svg>');
-    assert.equal((out.match(/<title[^>]*\sid=/g) || []).length, 1, 'no duplicate id attribute');
-    assert.match(out, /<title id="lat-svgt-1">Radar<\/title>/);
+  test('an author id is NEVER overwritten — that would dangle references to it', () => {
+    // An element has exactly one id, so "add ours as well" is not available. Overwriting
+    // silently breaks every reference elsewhere in the document; the button below loses
+    // its accessible name outright. Skipping costs this ONE graphic the durable naming —
+    // which is the state it was already in — and costs nothing else.
+    const src = '<svg role="img"><title id="radar-mini-3">Radar</title></svg>' +
+      '<button aria-labelledby="radar-mini-3">go</button>';
+    const out = applyToHtml(src);
+    assert.equal(out, src, 'the graphic is left exactly as authored');
+    assert.match(out, /id="radar-mini-3"/, 'the referenced id still has an owner');
+  });
+
+  test('an author id on <desc> costs the description, not the name', () => {
+    // Finer-grained than the <title> case: we can still mint the name and simply omit
+    // aria-describedby, so the graphic keeps a reliable name.
+    const out = applyToHtml('<svg role="img"><title>T</title><desc id="mine">D</desc></svg>');
+    assert.match(out, /aria-labelledby="lat-svgt-1"/, 'still named');
+    assert.doesNotMatch(out, /aria-describedby/, 'no reference to an id we do not own');
+    assert.match(out, /<desc id="mine">D<\/desc>/, 'the author id survives untouched');
+  });
+
+  test('the id-squat guard validates the prefix it actually returns', () => {
+    // The guard used to test the PREVIOUS candidate and bail at a fixed count, so the last
+    // prefix it assigned was returned unchecked: 32 decoy tokens as plain text plus a squat
+    // on the 33rd defeated it, and the chart announced the attacker's string on a real
+    // Chrome accessibility tree. The loop condition is now the invariant.
+    const decoys = ['lat-svg', ...Array.from({ length: 31 }, (_, i) => `lat-x${i}-svg`)].join(' ');
+    const out = applyToHtml(
+      `<p>${decoys}</p><span id="lat-x31-svgt-1" hidden>Squatted</span>` +
+      '<svg role="img"><title>Real chart</title></svg>',
+    );
+    const ref = out.match(/aria-labelledby="([^"]+)"/)[1];
+    assert.notEqual(ref, 'lat-x31-svgt-1', 'must not land on the squatted id');
+    assert.equal((out.match(new RegExp(`id="${ref}"`, 'g')) || []).length, 1, 'exactly one owner');
   });
 
   test('is idempotent — a second pass changes nothing', () => {
@@ -119,14 +150,15 @@ describe('svg-a11y-names — applyToHtml', () => {
     assert.match(out, new RegExp(`<title id="${ref}">Funnel chart</title>`), 'the reference resolves to OUR title');
   });
 
-  test('an id in the SOURCE is never referenced — only ours is', () => {
-    // No engine kernel emits a `<title id=…>`, so the only reachable input to an
-    // id-reuse branch was author HTML: it existed solely to let authored content choose
-    // what we point at.
-    const out = applyToHtml('<svg role="img"><title id="author-chosen">Real name</title></svg>');
-    assert.doesNotMatch(out, /aria-labelledby="author-chosen"/);
-    assert.match(out, /aria-labelledby="lat-svgt-1"/);
-    assert.match(out, /<title id="lat-svgt-1">Real name<\/title>/, 'the node is re-identified, its text untouched');
+  test('an id in the SOURCE is never referenced — and never destroyed either', () => {
+    // No engine kernel emits a `<title id=…>`, so this is reachable only from author HTML.
+    // Referencing it would let authored content (UNTRUSTED, in the Studio) dictate what a
+    // chart announces as; overwriting it dangles every reference to it. Skip is the only
+    // move that does neither.
+    const src = '<svg role="img"><title id="author-chosen">Real name</title></svg>';
+    const out = applyToHtml(src);
+    assert.doesNotMatch(out, /aria-labelledby/, 'we do not point at an id the source chose');
+    assert.equal(out, src, 'and we do not take the id away from it');
   });
 
   test('a self-closing <svg/> is left alone — rewriting it re-parents its sibling', () => {
