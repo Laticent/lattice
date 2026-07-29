@@ -16,8 +16,7 @@ Connect — cards the room can scan: join the network, save the speaker.
 - One scan saves the speaker `title`
 - SlideWright `org`
 - hello@slidewright.dev `email`
-- slidewright.dev `url`
-- The QR encodes this card as a vCard `caption`
+- +1-555-0142 `phone`
 
 ---
 

@@ -76,15 +76,15 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 1. Anchor
    - Orientation — title, divider, closing.
 2. Statement
-   - One declarative claim — big-number, quote, split-panel, content.
+   - One claim — big-number, quote, split-panel.
 3. Inventory
-   - Parallel items — cards-grid, cards-stack, list, list-tabular.
+   - Parallel items — cards-grid, list-tabular.
 4. Comparison
-   - Contrast options — compare-prose, verdict-grid, compare-table.
+   - Contrast — compare-prose, verdict-grid.
 5. Progression
-   - Ordered movement — list-steps, list-criteria, roadmap.
+   - Ordered movement — list-steps, roadmap.
 6. Evidence
-   - Data into picture — stats, kpi, quadrant, radar, diagram, code.
+   - Data into picture — stats, kpi, quadrant, radar.
 7. Imagery
    - Visual that carries meaning — image.
 
@@ -128,11 +128,11 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ## Each layout ships a manifest at `lib/components/<bucket>/<name>/<name>.manifest.json`.
 
 - Single source of truth.
-  - name, function, form, substance, description, purpose, variants, slots, skeleton. The rendering pipeline is unchanged — manifests are metadata.
+  - name, function, form, substance, purpose, variants, slots, skeleton. The pipeline is unchanged — manifests are metadata.
 - Consumed everywhere.
   - Scaffolder reads `skeleton`. Snippets read `skeleton` + `name`. The catalog groups by `function`. Editor autocomplete reads `variants`. Docs link from `docs`.
 - 53 components shipped.
-  - Every component currently used in the galleries (or supported by chart-family) has one. Validation gate keeps them well-formed.
+  - Every component in the galleries has one; a validation gate keeps them well-formed.
 
 ---
 
