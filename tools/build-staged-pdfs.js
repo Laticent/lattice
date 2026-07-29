@@ -81,14 +81,16 @@ function classify(file) {
   // Hand-authored example deck in a SUBDIRECTORY (examples/token-contrast/<palette>.md).
   // The rule above is single-level, so the 13 token-contrast decks — each of which
   // ships a committed PDF — could never trigger a rebuild, and their PDFs went stale
-  // the moment their markdown was edited. Guarded on the sibling PDF already existing
-  // so this stays "markdown that produces a committed PDF" (the tool's scope) and does
-  // not sweep in prose like examples/chart-theme-gallery/README.md, whose directory
-  // holds PDFs built by an unrelated path under different names.
+  // the moment their markdown was edited.
+  //
+  // Deliberately NOT guarded on the sibling PDF already existing. That guard looks
+  // tempting (it keeps prose like examples/chart-theme-gallery/README.md out) but it
+  // is a permanent trap, not a bootstrap cost: a NEW deck has no PDF, so it fails the
+  // guard, so the hook never renders one, so it fails the guard forever. The lowercase
+  // leading character in the stem already excludes README.md, which is what the guard
+  // was really for.
   m = file.match(/^(examples\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*)\.md$/);
-  if (m && fs.existsSync(path.join(ROOT, `${m[1]}.pdf`))) {
-    return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
-  }
+  if (m) return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
 
   // Design-system demo decks (design/<name>.gallery.md → sibling .pdf). These
   // "live with their owner" rather than under examples/, so tools/preview.js

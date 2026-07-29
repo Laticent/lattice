@@ -149,6 +149,20 @@ in patch versions.
   `KNOWN_UNCLASSIFIED` with reasons, and a companion test fails if an entry rots. All 59 affected
   PDFs were re-rendered. A path one filter can see and the other cannot is a dead gate, which is
   the same lesson as the corpus glob above.
+
+  **The first cut of that fix made it worse, and the test said it was fine.** Widening
+  `examples/*.md` to `examples/**/*.md` looks like a superset; it is not. In lefthook v2.1.6 `**/`
+  requires AT LEAST ONE intervening directory, so the widened pattern matched
+  `examples/token-contrast/indaco.md` and NOT `examples/pricing.md` — silently dropping all **108**
+  top-level example decks to pick up 59. The test passed throughout, because it emulated the hook
+  with `picomatch`, which matches zero directories for `**/` and reports the broken pattern as
+  matching. The glob now lists BOTH `dir/*.md` and `dir/**/*.md` for every root, and the test drives
+  the **real lefthook binary** against a throwaway repo instead of a glob library — verified to fail
+  when the top-level pattern is removed and pass when it is restored. `yaml` is now a declared
+  devDependency rather than a hoisted transitive of tailwindcss. The `fs.existsSync` guard on the
+  subdirectory rule is gone too: it would have stranded any NEW deck permanently (no PDF → guard
+  fails → hook never renders one → guard fails forever), and the rule's leading-lowercase stem
+  already excludes the `README.md` the guard was really aimed at.
 - **A second content audit caught trims that had traded meaning for fit.** Making a slide fit by
   deleting words is only correct while the words are not load-bearing, and several were.
   `agency-program-update` lost "**Median**" from *median time to first payment* — a benefits
