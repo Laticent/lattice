@@ -1383,7 +1383,7 @@ Stop 1 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-2` — progress-2
@@ -1400,7 +1400,7 @@ Stop 2 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-3` — progress-3
@@ -1417,7 +1417,7 @@ Stop 3 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-4` — progress-4
@@ -1434,7 +1434,7 @@ Stop 4 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-5` — progress-5
@@ -1451,7 +1451,7 @@ Stop 5 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-6` — progress-6
@@ -1468,7 +1468,7 @@ Stop 6 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `circles` — Style · circles
@@ -4086,7 +4086,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, timeline-list / split across slides.
+**Capacity** ~4 items (crowds past 5, overflows past 5) — past that, timeline-list / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph.
 
@@ -4452,8 +4452,6 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 ```markdown
 <!-- _class: kpi -->
-
-`Financial · Q4 2026`
 
 ## Revenue ahead of plan; margin and cash both expanded.
 
@@ -6766,8 +6764,6 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 ```markdown
 <!-- _class: roadmap -->
 
-`H2 2026 · Plan`
-
 ## What ships in each phase, by workstream.
 
 | Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
@@ -6775,7 +6771,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |
 | Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |
 
-State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
+Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
 #### Anatomy
@@ -6811,7 +6807,7 @@ Bets spread across three horizons.
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
 | Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
-| Scoring       | [x] Equal weights      | [-] Per-team weights   | [ ] Decision profiles |
+| Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
 ```
 
 ##### `status` — status
@@ -8161,7 +8157,7 @@ The cite in the gutter.
 
 `GDPR Art. 6(1)(f) · legitimate interests`
 
-> Processing is lawful … only if necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the fundamental rights of the data subject.
+> Processing is lawful … only if necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights … of the data subject.
 
 - Two-part test.
   - Necessity first, then balancing against the data subject's rights. Document both halves.
@@ -8401,7 +8397,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 | `eyebrow` | `p:first-of-type > code` | no | Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`). |
 | `recommendation` | `h2` | yes | The recommendation as a complete declarative sentence — the action you want taken, not a topic label. |
 | `impact` | `p` | no | One-sentence framing of the problem or stakes the recommendation addresses. |
-| `rationale` | `ul > li` | yes | Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
+| `rationale` | `ul > li` | yes | Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
 | `ask` | `blockquote` | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
 
 ##### Variant decision rule
@@ -8433,8 +8429,6 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 ```markdown
 <!-- _class: policy-recommendation adopt -->
-
-`Bill reference · Domain`
 
 ## The recommendation as a complete sentence.
 
@@ -8744,9 +8738,15 @@ Changed versus stayed.
    - `§7027`
    - Opt-out signal handling clarified.
 
+### Repealed
+
+3. Small-business carve-out
+   - `§541.107`
+   - The blanket exemption was narrowed.
+
 ### Enforced
 
-3. FTC v. Avast
+4. FTC v. Avast
    - `§5 unfairness`
    - $16.5M consent order finalized.
 ```

@@ -117,7 +117,6 @@ Pick this when the room wants three parallel facts at a glance.
   - `NYC §22-1201`
   - New York City adds an annual AEDT bias audit.
 
-
 ---
 
 <!-- _class: statute-stack lane -->
@@ -355,7 +354,6 @@ Pick when each cell carries a sentence, not a glyph.
 <!-- _footer: "Variant 4B · regulatory-update cards" -->
 
 ## Privacy & AI motion — Q1 2026.
-
 
 1. EU AI Act
    - `Title III`

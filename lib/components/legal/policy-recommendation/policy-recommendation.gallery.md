@@ -112,7 +112,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 <!-- _class: policy-recommendation amend -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · policy-recommendation — Four reasons — the ceiling." -->
+<!-- _footer: "Stress test · policy-recommendation — Three reasons — the ceiling." -->
 
 `SB 88 · Algorithmic Hiring`
 

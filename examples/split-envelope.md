@@ -45,7 +45,6 @@ A slide that outgrows its box becomes several. Now it always becomes the same *s
 
 `fourteen checks before the gate`
 
-
 - [x] Signal intake wired
 - [x] Scoring model calibrated
 - [x] Decision log live

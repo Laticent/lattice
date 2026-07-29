@@ -136,9 +136,15 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
    - `§7027`
    - Opt-out signal handling clarified.
 
+### Repealed
+
+3. Small-business carve-out
+   - `§541.107`
+   - The blanket exemption was narrowed.
+
 ### Enforced
 
-3. FTC v. Avast
+4. FTC v. Avast
    - `§5 unfairness`
    - $16.5M consent order finalized.
 

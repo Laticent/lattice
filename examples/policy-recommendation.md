@@ -18,9 +18,7 @@ Four measures reach the floor this week — here is where the caucus should stan
 
 <!-- _class: policy-recommendation adopt -->
 
-
 ## Adopt a 30-day deadline for breach notification.
-
 
 - Faster notice cuts identity-theft losses
   - A 30-day rule cut per-victim costs 22% `FTC 2025`.
@@ -35,9 +33,7 @@ Four measures reach the floor this week — here is where the caucus should stan
 
 <!-- _class: policy-recommendation amend -->
 
-
 ## Amend SB 88 to require bias audits before deployment, not after.
-
 
 - Pre-deployment testing is the only preventive control
   - Audits after launch cannot un-reject filtered candidates `EEOC 2025`.

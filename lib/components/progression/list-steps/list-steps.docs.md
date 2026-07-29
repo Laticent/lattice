@@ -10,7 +10,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, timeline-list / split across slides.
+**Capacity** ~4 items (crowds past 5, overflows past 5) — past that, timeline-list / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph.
 

@@ -50,8 +50,6 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 ```markdown
 <!-- _class: roadmap -->
 
-`H2 2026 · Plan`
-
 ## What ships in each phase, by workstream.
 
 | Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
@@ -59,7 +57,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |
 | Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |
 
-State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
+Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
 ## Anatomy
@@ -95,7 +93,7 @@ Bets spread across three horizons.
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
 | Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
-| Scoring       | [x] Equal weights      | [-] Per-team weights   | [ ] Decision profiles |
+| Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
 ```
 
 ### `status` — status

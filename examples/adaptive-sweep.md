@@ -68,7 +68,7 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 ## Buy the platform; build the difference.
 
 - Buy and configure.
-  - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the differentiation actually lives.
+  - Adopt the vendor's data infrastructure — live in six weeks, freeing three engineer-quarters for the product layer where the difference actually lives.
 - Build in-house.
   - Full control of schema and roadmap, but two to three engineer-quarters to reach parity with a platform we could adopt now and replace later.
 - Defer a year.

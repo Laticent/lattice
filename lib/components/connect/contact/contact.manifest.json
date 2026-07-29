@@ -39,7 +39,7 @@
     }
   },
   "skeleton": "<!-- _class: contact -->\n\n## Add me.\n\n- Full Name `name`\n- Title `title`\n- Organization `org`\n- name@example.com `email`\n- Scan to add me `caption`\n",
-  "sample": "<!-- _class: contact -->\n\n- Ada Slide `name`\n- One scan saves the speaker `title`\n- SlideWright `org`\n- hello@slidewright.dev `email`\n- slidewright.dev `url`\n- The QR encodes this card as a vCard `caption`\n",
+  "sample": "<!-- _class: contact -->\n\n- Ada Slide `name`\n- One scan saves the speaker `title`\n- SlideWright `org`\n- hello@slidewright.dev `email`\n- +1-555-0142 `phone`\n",
   "whenToUse": [
     {
       "title": "The scan-to-add-me close",

@@ -11,12 +11,12 @@
     "min": 3,
     "sweet": 4,
     "soft": 5,
-    "hard": 6,
+    "hard": 5,
     "escalateTo": [
       "timeline-list",
       "split across slides"
     ],
-    "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
+    "note": "past five steps the row crowds and a split paces one step per page; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
   },
   "density": {
     "axis": "item",
@@ -82,7 +82,7 @@
   "sample": "<!-- _class: list-steps -->\n\n## Steps promise an order and keep it.\n\n1. Name the step\n   - A verb-first title and one clause of body.\n2. Keep steps parallel\n   - Same shape every step, or sequence breaks.\n3. Number honestly\n   - Order is the promise this layout makes.\n4. Stop at five\n   - Six fits; seven is two slides.\n",
   "stressDoc": {
     "summary": "Six steps — the last honest sequence.",
-    "sample": "<!-- _class: list-steps -->\n\n## Six steps is the last honest sequence.\n\n1. Open at full strength\n   - A step carries a verb, an object, and one condition.\n2. Hold the parallel line\n   - Six survive only if every body stays one clause.\n3. Front-load the risk\n   - The contested step goes up top.\n4. Shorten as you descend\n   - The reader is walking, not studying.\n5. Mark the soft ceiling\n   - Five was it; this is borrowed room.\n6. Stop\n   - A seventh step is a second slide.\n"
+    "sample": "<!-- _class: list-steps -->\n\n## Five steps is the last honest sequence.\n\n1. Open at full strength\n   - A step carries a verb, an object, and one condition.\n2. Hold the parallel line\n   - Six survive only if every body stays one clause.\n3. Front-load the risk\n   - The contested step goes up top.\n4. Shorten as you descend\n   - The reader is walking, not studying.\n5. Stop\n   - A sixth step is a second slide.\n"
   },
   "whenToUse": [
     {

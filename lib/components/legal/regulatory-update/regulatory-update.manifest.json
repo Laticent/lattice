@@ -152,7 +152,7 @@
     "diff-bands": {
       "label": "diff-bands",
       "summary": "Changed versus stayed.",
-      "sample": "<!-- _class: regulatory-update diff-bands -->\n\n## diff-bands shades what changed versus stayed.\n\n### Added\n\n1. Colorado AI Act\n   - `SB 24-205`\n   - New duties for consequential-decision systems.\n\n### Amended\n\n2. CCPA regulations\n   - `§7027`\n   - Opt-out signal handling clarified.\n\n### Enforced\n\n3. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order finalized.\n"
+      "sample": "<!-- _class: regulatory-update diff-bands -->\n\n## diff-bands shades what changed versus stayed.\n\n### Added\n\n1. Colorado AI Act\n   - `SB 24-205`\n   - New duties for consequential-decision systems.\n\n### Amended\n\n2. CCPA regulations\n   - `§7027`\n   - Opt-out signal handling clarified.\n\n### Repealed\n\n3. Small-business carve-out\n   - `§541.107`\n   - The blanket exemption was narrowed.\n\n### Enforced\n\n4. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order finalized.\n"
     }
   },
   "commonMistakes": [

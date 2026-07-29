@@ -25,7 +25,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -40,7 +40,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -55,7 +55,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -70,7 +70,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -85,7 +85,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -100,7 +100,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -115,7 +115,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -178,13 +178,13 @@ Auto-numbered table of contents for the deck.
 
 <!-- _class: agenda progress-4 -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · agenda — Seven stops — the hard ceiling." -->
+<!-- _footer: "Stress test · agenda — Six stops — the hard ceiling." -->
 
 ## Six stops is the most one agenda holds.
 
 1. The opening stop states the meeting's one question `p.2`
 2. Sixteen words is the hard budget for a stop `p.6`
-3. Even at seven, every line stays scannable `p.11`
+3. Even at six, every line stays scannable `p.11`
 4. The current stop still reads at a glance `p.15`
 5. Late stops shorten as attention thins `p.19`
 6. Six is the stop sign `p.23`
@@ -202,7 +202,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -217,7 +217,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---
@@ -232,7 +232,7 @@ Auto-numbered table of contents for the deck.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 
 ---

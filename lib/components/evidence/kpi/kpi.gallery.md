@@ -140,7 +140,7 @@ Executive KPI system — one base, five layout modifiers.
 
 <!-- _class: kpi -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · kpi — Four tiles at the fourteen-word line." -->
+<!-- _footer: "Stress test · kpi — Four tiles at full word weight." -->
 
 ## Four tiles at full word weight.
 

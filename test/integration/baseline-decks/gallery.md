@@ -291,7 +291,7 @@ The scoring model is the most configurable component, and therefore the most arg
 ---
 
 <!-- _class: cards-grid -->
-<!-- _footer: "Key insight + below-note · cards-grid" -->
+<!-- _footer: "Key insight · cards-grid" -->
 
 ## Four parts, one insight — the loop is the product.
 

@@ -41,7 +41,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
 | Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
-| Scoring       | [x] Equal weights      | [-] Per-team weights   | [ ] Decision profiles |
+| Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
 
 
 ---
@@ -96,7 +96,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 <!-- _class: roadmap -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · roadmap — Five phases — the ceiling, and what portrait paginates." -->
+<!-- _footer: "Stress test · roadmap — Four phases — the ceiling, and what portrait paginates." -->
 
 `roadmap · stress`
 

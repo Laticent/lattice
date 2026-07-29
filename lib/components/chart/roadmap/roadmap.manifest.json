@@ -63,11 +63,11 @@
       "description": "A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable."
     }
   },
-  "skeleton": "<!-- _class: roadmap -->\n\n`H2 2026 · Plan`\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nState markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n",
+  "skeleton": "<!-- _class: roadmap -->\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nMarkers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n",
   "anatomyBlock": "roadmap",
   "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |\n| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |\n",
   "stressDoc": {
-    "summary": "Five phases — the ceiling, and what portrait paginates.",
+    "summary": "Four phases — the ceiling, and what portrait paginates.",
     "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Three workstreams by four phases.\n\n| Workstream | Phase one | Phase two | Phase three | Phase four |\n| --- | --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned | [ ] The last one |\n| Second | [x] Every cell filled | [-] No blanks | [ ] The honest grid | [ ] Four words max |\n| Third | [x] Short labels | [-] Four words max | [ ] Or it wraps | [ ] The ceiling |\n"
   },
   "whenToUse": [
@@ -124,7 +124,7 @@
     "horizons": {
       "label": "horizons",
       "summary": "Bets spread across three horizons.",
-      "sample": "<!-- _class: roadmap horizons -->\n\n`Three-horizon planning`\n\n## horizons spreads the bets across three horizons.\n\n| Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |\n| ------------- | ------------------------ | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |\n| Scoring       | [x] Equal weights      | [-] Per-team weights   | [ ] Decision profiles |\n"
+      "sample": "<!-- _class: roadmap horizons -->\n\n`Three-horizon planning`\n\n## horizons spreads the bets across three horizons.\n\n| Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |\n| ------------- | ------------------------ | ------------------------ | ------------------------- |\n| Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |\n| Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |\n"
     },
     "status": {
       "label": "status",

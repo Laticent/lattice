@@ -233,7 +233,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 <!-- stress-slide -->
 <!-- _footer: "Stress test · list-steps — Six steps — the last honest sequence." -->
 
-## Six steps is the last honest sequence.
+## Five steps is the last honest sequence.
 
 1. Open at full strength
    - A step carries a verb, an object, and one condition.
@@ -243,10 +243,8 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
    - The contested step goes up top.
 4. Shorten as you descend
    - The reader is walking, not studying.
-5. Mark the soft ceiling
-   - Five was it; this is borrowed room.
-6. Stop
-   - A seventh step is a second slide.
+5. Stop
+   - A sixth step is a second slide.
 
 
 ---

@@ -44,9 +44,24 @@ const { spawn } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const BASELINE = path.join(ROOT, 'test', 'integration', 'overflow-baseline.json');
-const WORK = path.join(ROOT, '.scratch', 'overflow-corpus');
+// PER-RUN scratch dir. Two concurrent invocations (a `--bless` while CI runs a
+// check, or two agents sweeping at once) previously derived the SAME output path
+// per deck and unlinked each other's HTML sidecars mid-navigation — which surfaces
+// as `net::ERR_FILE_NOT_FOUND` render failures and phantom regressions on decks
+// that are actually clean. The verdict must not depend on who else is running.
+const WORK = path.join(ROOT, '.scratch', 'overflow-corpus', `run-${process.pid}`);
 
-/** The shipped corpus: worked examples, every component's specimen gallery, the baseline deck. */
+/**
+ * The shipped corpus — everything a reader can open.
+ *
+ * The first cut of this globbed only top-level `examples/*.md`, the component
+ * galleries and the baseline deck, which quietly excluded `exemplars/**` (45
+ * worked boardroom decks that ship committed PDFs AND are bundled into the docs
+ * Playground), `design/*.gallery.md`, and every `examples/` SUBDIRECTORY. A gate
+ * whose denominator omits a third of the corpus can be satisfied without the
+ * corpus being fixed — which is exactly what happened, so the glob is now the
+ * set of decks that ship, not the set someone remembered.
+ */
 function corpus() {
   const g = (p) => {
     const out = [];
@@ -61,11 +76,17 @@ function corpus() {
     walk(ROOT);
     return out;
   };
-  return [
-    ...g((f) => /^examples[/\\][^/\\]+\.md$/.test(path.relative(ROOT, f))),
-    ...g((f) => /\.gallery\.md$/.test(f) && path.relative(ROOT, f).startsWith('lib' + path.sep + 'components')),
-    ...g((f) => /^test[/\\]integration[/\\]baseline-decks[/\\][^/\\]+\.md$/.test(path.relative(ROOT, f))),
-  ].sort();
+  const rel = (f) => path.relative(ROOT, f).split(path.sep).join('/');
+  const isDeck = (f) => /\.md$/.test(f) && !/\.(docs|gallery)\.md$/.test(path.basename(f));
+  return [...new Set([
+    // Worked examples, including subdirectories (token-contrast/, …).
+    ...g((f) => rel(f).startsWith('examples/') && isDeck(f)),
+    // Every component's specimen gallery, and the design-system galleries.
+    ...g((f) => /\.gallery\.md$/.test(f) && (rel(f).startsWith('lib/components/') || rel(f).startsWith('design/'))),
+    // The worked boardroom decks — committed PDFs, and bundled into the Playground.
+    ...g((f) => rel(f).startsWith('exemplars/') && isDeck(f)),
+    ...g((f) => /^test\/integration\/baseline-decks\/[^/]+\.md$/.test(rel(f))),
+  ])].sort();
 }
 
 /** Render one deck; return the pages the emulator reports as clipped. */
@@ -116,6 +137,8 @@ async function main() {
   const decks = only.length ? only : corpus();
   if (!json) console.error(`  sweeping ${decks.length} decks at ${jobs}× … (real renders; this takes a while)`);
   const rows = await pool(decks, jobs, probe);
+  // The per-run dir is ours alone, so it is safe to remove wholesale.
+  try { fs.rmSync(WORK, { recursive: true, force: true }); } catch { /* best effort */ }
 
   const base = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : { decks: {} };
   const errors = rows.filter((r) => r.error);

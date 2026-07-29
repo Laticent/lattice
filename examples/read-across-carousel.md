@@ -37,7 +37,6 @@ A comparison can't be cut down the middle — so when it won't fit, it becomes a
 - After Calibration
   - Weights reflect each team's accuracy — but the team keeps changing, and the history is one atypical quarter.
 
-
 ---
 
 <!-- _class: compare-prose -->

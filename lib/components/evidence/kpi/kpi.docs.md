@@ -51,8 +51,6 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 ```markdown
 <!-- _class: kpi -->
 
-`Financial · Q4 2026`
-
 ## Revenue ahead of plan; margin and cash both expanded.
 
 1. $2.4B

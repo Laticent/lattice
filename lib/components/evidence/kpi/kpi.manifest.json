@@ -88,11 +88,11 @@
       "description": "One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one."
     }
   },
-  "skeleton": "<!-- _class: kpi -->\n\n`Financial · Q4 2026`\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `On plan` `Board`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `On plan` `Audit`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `On plan` `Investor`\n",
+  "skeleton": "<!-- _class: kpi -->\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `On plan` `Board`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `On plan` `Audit`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `On plan` `Investor`\n",
   "anatomyBlock": "kpi",
   "sample": "<!-- _class: kpi -->\n\n## Four tiles the eye sweeps in one pass.\n\n1. 4\n   - tiles per row\n   - the ceiling `On plan`\n2. 8\n   - words per tile\n   - soft budget `Board`\n3. 5s\n   - scan time\n   - the target `On plan`\n4. 0\n   - prose sentences\n   - allowed here `Audit`\n",
   "stressDoc": {
-    "summary": "Four tiles at the fourteen-word line.",
+    "summary": "Four tiles at full word weight.",
     "sample": "<!-- _class: kpi -->\n\n## Four tiles at full word weight.\n\n1. 4\n   - the grid's seat count\n   - a fifth never renders `Max`\n2. 14\n   - words per tile, the budget\n   - spends the allowance `Budget`\n3. 1\n   - line per label\n   - wrapping ends the scan `Rule`\n4. 2\n   - slides beat one crowd\n   - split past this `Advice`\n"
   },
   "whenToUse": [

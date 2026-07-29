@@ -18,7 +18,7 @@
     "soft": 3,
     "hard": 3,
     "escalateTo": ["list-criteria", "split across slides"],
-    "note": "past four reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three"
+    "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three"
   },
   "density": {
     "axis": "item",
@@ -50,7 +50,7 @@
     "rationale": {
       "selector": "ul > li",
       "required": true,
-      "description": "Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip."
+      "description": "Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip."
     },
     "ask": {
       "selector": "blockquote",
@@ -58,10 +58,10 @@
       "description": "The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar."
     }
   },
-  "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n`Bill reference · Domain`\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `Citation` chip.\n- Second reason\n  - The evidence for it, with a `Citation` chip.\n- Third reason\n  - The evidence for it, with a `Citation` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
+  "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `Citation` chip.\n- Second reason\n  - The evidence for it, with a `Citation` chip.\n- Third reason\n  - The evidence for it, with a `Citation` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
   "sample": "<!-- _class: policy-recommendation adopt -->\n\n`HB 214 · Consumer Data Protection`\n\n## Adopt a 30-day deadline for breach notification.\n\n- Faster notice cuts identity-theft losses\n  - 30-day states saw 22% lower per-victim costs `FTC 2025`.\n- The window is already industry practice\n  - 14 of the top 20 processors already do `IAPP survey`.\n- Enforcement is self-funding\n  - Penalties fund the oversight office `LBB fiscal note`.\n\n> Vote YES on HB 214 § 3, or sponsor the floor amendment.\n",
   "stressDoc": {
-    "summary": "Four reasons — the ceiling.",
+    "summary": "Three reasons — the ceiling.",
     "sample": "<!-- _class: policy-recommendation amend -->\n\n`SB 88 · Algorithmic Hiring`\n\n## Amend SB 88 to require bias audits before deployment.\n\n- Pre-deployment testing is the only preventive control\n  - Audits after launch cannot un-reject filtered candidates `EEOC 2025`.\n- The change is narrow and drafted\n  - It moves one clause from § 4(b) to § 3; no new agency `Leg. counsel memo`.\n- Vendors can meet it today\n  - Three of five major ATS vendors already ship pre-deployment reports `vendor survey`.\n\n> Move the § 4(b) audit trigger to § 3 before markup.\n"
   },
   "whenToUse": [

@@ -25,7 +25,7 @@ Give the content the stage.
 - **framed** — the default: full masthead, footer, section rail.
 - **quiet** — recede the section rail + meta bay; keep the title and page number.
 - **hero** — drop the bands; the content fills the stage (the page number reads through).
-- **bleed** — true edge-to-edge, no safe margin. Media only.
+- **bleed** — edge-to-edge, no safe margin. Media and canvas.
 
 ---
 
