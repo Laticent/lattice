@@ -378,18 +378,6 @@ in patch versions.
   `generic` — where ARIA prohibits it — and a live region announces its changed *text*,
   not its name, so a screen reader got "2 / 7" regardless.
 
-- **A chart and its caption are now a real `<figure>` / `<figcaption>` pair.** The caption
-  used to be a `<p>` following the graphic, with nothing structural tying the two together.
-  The stage cell that already holds exactly the chart body and its caption is now emitted as
-  a **named** `<figure>` when a caption is present, and the caption as its `<figcaption>`.
-  It is a RETAG, not a new wrapper: zero added elements, and the affected slides screenshot
-  byte-identical before and after. Three deliberate limits, each of which exists because
-  the first implementation got it wrong: the pair is emitted by ONE function so the two
-  halves can never ship apart; it fires only where the caption is the first or last child,
-  because `<figure>`'s content model forbids a caption in the middle; and the figure carries
-  an accessible name, because Chrome maps a nameless `<figure>` to a PDF structure element
-  with no `/Alt` — a tagged-PDF regression on the artifact people actually receive.
-
 - **Charts re-hosted into the player's reading view no longer duplicate their ARIA ids.**
   The reading view clones each chart, which duplicated every id the naming pass mints —
   14 in a gallery export. It resolved correctly only by luck (`getElementById` returns
@@ -397,21 +385,13 @@ in patch versions.
 
 ### Fixed
 
-- **The reading view dropped `matrix-grid`'s legend.** The Read·Article projection selects
-  blocks by tag name, and the list did not include `figcaption` — so the line explaining what
-  the marks mean vanished from the reading surface while remaining on the slide.
-
-- **A captioned chart slide grew unbounded in the fluid (mobile) view.** The fluid rule
-  exempts `figure` from `flex-grow: 0` so author media can fill; the retagged stage cell is
-  a `<figure>` but is not author media, so a captioned roadmap stretched to 1912px against
-  an uncaptioned twin's 153px on the same deck. The exemption now excludes the stage.
-
-- **The below-note transform silently stopped finding the stage cell on captioned chart
-  slides.** It located the cell with the literal string `<div class="cell-stage">`, which no
-  longer matches now that a captioned stage is a `<figure>`; it then fell back to the
-  section-level anchor and produced a wrong answer that still rendered. It now matches on the
-  class and balances whichever tag it found — which fixes the split envelope for free, since
-  both read the same helper.
+- **The below-note and split-envelope transforms located the slide's content cell by a
+  hardcoded `<div class="cell-stage">` and balanced it by counting `</div>`.** Any change to
+  the cell's element or attributes made them find nothing and fall back to a section-level
+  anchor — a wrong answer that still renders, so no pixel or DOM gate would catch it. Both
+  read the same helper, which now matches on the class, balances whichever tag it found, and
+  tolerates additional attributes. No user-visible behavior changes today; this closes a
+  latent trap that has now been hit six separate times in this codebase.
 
 - **`split-panel watermark mirror` rendered its running header and footer at 1.11:1 —
   effectively invisible.** The `watermark` layout sets the chrome to on-accent ink because

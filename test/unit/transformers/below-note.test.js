@@ -75,11 +75,11 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
   });
 
   test('finds the cell by its CLASS, not its tag — a <figure> stage works identically', () => {
-    // The stage's ELEMENT is not fixed: masthead.transform.js builds it as a <figure>
-    // when it holds a captioned graphic. A matcher pinned to `<div class="cell-stage">`
-    // finds nothing on those slides and falls back to the flat section-level anchor —
-    // a wrong answer that still renders, so no pixel or DOM-shape gate would see it.
-    // `state-chart` is a live instance: it is NOT in EXCLUDED and its stage IS a figure.
+    // The engine emits a `<div>` stage today, and this asserts the matcher does not CARE.
+    // It was written after a retag briefly made the stage a `<figure>`: the matcher, pinned
+    // to `<div class="cell-stage">`, found nothing and fell back to the flat section-level
+    // anchor — a wrong answer that still renders, so no pixel or DOM-shape gate saw it.
+    // The retag was withdrawn; the lesson is kept, because the next one will not be.
     const body = '<ul><li>a</li></ul><blockquote><p>q</p></blockquote><p>note</p>';
     const asDiv = belowNote.applyToHtml(sec('cards-grid form', `<div class="cell-stage">${body}</div>`));
     const asFigure = belowNote.applyToHtml(sec('cards-grid form', `<figure class="cell-stage">${body}</figure>`));
@@ -91,10 +91,10 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
   });
 
   test('finds a NAMED <figure> stage — the open tag carries more than the class', () => {
-    // The figure stage carries an aria-label the div stage does not. A matcher that
-    // required the tag to end right after `class="cell-stage"` found nothing on exactly
-    // the slides the retag was for. Keying on the class is only half the lesson; the
-    // other half is not pinning the rest of the opening tag.
+    // Keying on the class is only half the lesson. A matcher that additionally required
+    // the tag to END right after `class="cell-stage"` broke the moment the cell grew one
+    // more attribute — which is a thing any future change can do without touching this
+    // file. Match the class, capture the tag, and let the rest of the opening tag vary.
     const body = '<ul><li>a</li></ul><p>note</p>';
     const out = belowNote.applyToHtml(
       sec('cards-grid form', `<figure class="cell-stage" aria-label="Source: Linear.">${body}</figure>`),
@@ -123,7 +123,7 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
   });
 
   test('balances the stage on the tag it actually opened with', () => {
-    // The close scan used to be hardcoded to `</div>`. On a <figure> stage that walks
+    // The close scan used to be hardcoded to `</div>`. On any other stage tag that walks
     // straight past the cell's own close and swallows following siblings.
     const out = belowNote.applyToHtml(
       sec(

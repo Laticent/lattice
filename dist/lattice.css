@@ -21809,9 +21809,8 @@ section.form .tile-progress {
  *
  * `section.form` is the root chrome Frame: the masthead Cell is a content-height
  * band at the top, the stage Cell holds the body, and the footer Cell is reserved
- * via padding-bottom. The stage is now a REAL element — `<div class="cell-stage">` (or
- * `<figure class="cell-stage">` when it holds a captioned graphic; masthead.transform.js
- * `stageTag`), built by the masthead kernel — turning the frame into a flex column so the body
+ * via padding-bottom. The stage is now a REAL element — `<div class="cell-stage">`,
+ * built by the masthead kernel — turning the frame into a flex column so the body
  * is a bounded clipping cell (flex:1; min-height:0; overflow:clip) and can't bleed
  * past the stage edge into the footer/rail band. This REVIVES the `.cell-stage`
  * wrapper that section-as-grid retired in 2026-06-16: that decision rejected a
@@ -21945,14 +21944,6 @@ section.form > .cell-stage {
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
-  /* The stage is a `<figure>` when it holds a captioned graphic (masthead.transform.js
-   * `stageTag`) — the retag that gives chart + caption a real association. The UA
-   * stylesheet puts `margin: 1em 40px` on `figure`, which would inset the whole stage
-   * and corrupt every measurement taken against it. A BARE ZERO reset is the one form
-   * HARD RULE #20 permits, for exactly this reason: it adds no space, so it can't
-   * collapse and can't hide from `getBoundingClientRect()`. Declared unconditionally
-   * so the `<div>` and `<figure>` stages are byte-identical in layout. */
-  margin: 0;
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────
@@ -23580,18 +23571,10 @@ section.print.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !im
  * centered instead of spreading airily, exactly as intended. Kept unscoped;
  * deviation from §7 recorded, not silent (HARD #18). */
 :root[data-lattice-view="fluid"] section[data-lattice-slide]
-  > :not(:is(header, footer, figure:not(.cell-stage), img, picture, svg, canvas, video,
+  > :not(:is(header, footer, figure, img, picture, svg, canvas, video,
              .mermaid, .mermaid-svg, .chart-body, .functionplot)) {
   flex-grow: 0 !important;
 }
-/* `figure` above exempts AUTHOR media, which should fill. The STAGE CELL is a `<figure>`
- * whenever it holds a captioned graphic (masthead.transform.js `buildStageCell`), and it
- * is not author media — it is the slide's body box, which this rule exists to keep
- * compact. Without the `:not(.cell-stage)` it escaped `flex-grow: 0` and a captioned
- * roadmap grew to 1912px against its uncaptioned twin's 153px, on the same deck at the
- * same viewport. The retag's safety argument was "every `.cell-stage` selector is
- * class-keyed" — which is true and irrelevant: the rule that broke never mentions the
- * stage at all, it matches the new TAG. Found by the red team on a real mobile render. */
 
 /* The fixed-page background canvas is sized to the px box; hide it so each
  * section's own themed background fills the fluid box edge to edge. */

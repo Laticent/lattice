@@ -1723,19 +1723,19 @@ viewer are worth more than the six structural invariants. One of those two now e
 
 ---
 
-## 18. The three follow-ups — G10 lands, graphics get durable names, `<figure>` ships
+## 18. The three follow-ups — G10 lands, graphics get durable names, `<figure>` does not
 
-The three items §17 left open, done in one change: the axe gate, id-referenced SVG
-naming, and §16's `<figure>`/`<figcaption>` conversion.
+The three items §17 left open. Two ship: the axe gate and id-referenced SVG naming.
+The third — §16's `<figure>`/`<figcaption>` conversion — was built twice, measured on the
+real artifacts, and **withdrawn**; §18.3 keeps the whole record because the reasoning is
+worth more than the outcome.
 
-**A note on how §18.3 got here, because the reasoning is the useful part.** A middle draft
-of this section retired the `<figure>` plan outright and shipped an `aria-describedby`
-association in its place. Both halves of that were wrong: the retirement rested on a claim
-about the DOM that one render refutes, and the replacement bound 4 of 11 captions to a
-chart on a *different slide* — a defect only assistive-technology users would ever
-experience. The alternative was removed and the original plan implemented. Two corrections
-in the same section, both found by an adversarial round rather than by a gate, which is
-itself the argument for §18.1.
+**The through-line of this section is that every defect in it was found by an adversarial
+pass and none by a gate.** Two false claims about the DOM, a caption bound to the wrong
+slide, four broken surfaces, and finally a change whose every number looked right while it
+made the exported PDF worse. The repo's gates measure pixels, DOM shape, and rule
+conformance; not one of them can see "this element is now hiding its own contents from a
+screen reader."
 
 ### 18.1 G10 — the axe gate, over the two SHIPPED shells
 
@@ -1813,115 +1813,84 @@ uniqueness invariant holds — and it keeps all eight kernels ignorant of the id
 (HARD RULE #1). Measured: 8 of 8 eligible graphics converted, 16 ids, all unique. The
 two skipped both already carry an author `aria-label`, which always wins.
 
-### 18.3 §16's `<figure>` plan — implemented. My argument for retiring it was wrong.
+### 18.3 §16's `<figure>` plan — BUILT TWICE, MEASURED, AND WITHDRAWN
 
-An earlier draft of this section retired §16's `<figure>` plan outright, on the claim
-that *"the caption is a SIBLING of the wrapper, not a child … §16 assumed a retag was
-available. It is not."* **The second half is false, and the adversarial round proved it
-in one render.** The shared parent exists one level up:
+This section has now held four positions on one question. That is the useful part of it,
+so the record keeps all four rather than tidying to the last.
 
-```html
-<!-- BEFORE — two boxes that merely sit near each other -->
-<div class="cell-stage">
-  <div class="chart-body">…<svg …></div>
-  <p class="chart-caption">…</p>
-</div>
+1. **Retire it** — on a claim about the DOM that one render refutes. Wrong.
+2. **Ship `associateCaptions` instead** — bound 4 of 11 captions to a chart on a
+   *different slide*. Removed (§18.3a).
+3. **Implement the retag** — broke four surfaces and shipped two validity defects.
+4. **Rebuild it** — every measured number came out right, and it was still wrong.
 
-<!-- AFTER — the same two boxes, now an associated pair -->
-<figure class="cell-stage">
-  <div class="chart-body">…<svg …></div>
-  <figcaption class="chart-caption">…</figcaption>
-</figure>
+**Position 4 is the instructive one, because nothing in the repo could see the defect.**
+
+The rebuild fixed all six earlier defects and produced a clean scoreboard: alt-less
+`/Figure` back to parity with `main`, fluid geometry restored, the dropped caption
+recovered, zero orphans, both render paths agreeing on 8 of 8 inputs, gallery slides
+byte-identical. Then the adversarial round opened the *shape* of the PDF rather than
+counting it:
+
+```
+BRANCH — the caption's /Alt now WRAPS the chart's own name
+  obj 126  /Figure  /Alt="The size ramp used to be an HTML rail, sized from…"   ← caption
+    ├── obj 127  /Figure  /Alt="Word cloud"                                     ← chart name
+    └── NonStruct                                                               ← caption again
 ```
 
-`.cell-stage` is *already* the common parent of the chart body and its caption —
-`chart-family.js` says so in its own comment. So the move is a RETAG, not a wrapper:
-`div.cell-stage` → `figure.cell-stage` on any stage that holds a caption, plus
-`p.chart-caption` → `figcaption.chart-caption`. Zero new boxes. Every `.cell-stage` selector in the engine is class-keyed (no
-`div.cell-stage`), so it is CSS-neutral, and HARD RULE #20 bars `margin`, not elements —
-the UA `figure{margin:1em 40px}` dies to a bare `margin:0`, which #20 explicitly permits.
+PDF 32000-1 §14.9.3 defines `/Alt` as an alternate description of the structure element
+**and its children**. So the fix that gave the figure a name to satisfy `/Alt` made the
+chart's own name unreachable. On the HTML/CSS chart families (`roadmap`, `matrix-grid`)
+there is no inner figure at all — the entire list of quarters and milestones ends up under
+a one-sentence `/Alt`. And in Chromium's accessibility tree the same label lands twice:
 
-My other argument — *"only 2 of 7 charts carry a caption, so a blanket conversion adds a
-boundary around five caption-less graphics"* — was a strawman against a plan nobody
-proposed: a conditional retag fires only where a caption exists, exactly as the
-association did. And the 2-of-7 statistic came from `gallery.md`, a **component catalog**
-(117 slides, 2 chart captions). Across the example decks the ratio is very different —
-`chart-family-all-svg.md` is 5 captions on 5 charts. A boardroom deck, which is the
-product, is the caption-RICH case; I generalized a structural decision from the one deck
-built to be terse.
+```
+figure  name="The size ramp used to be an HTML rail, sized from…"
+  Figcaption  name=""     → the same text, as content
+```
 
-**So `<figure>` is neither retired nor deferred — it SHIPS in this change.** But the
-FIRST implementation of it was wrong in four separate ways, every one of them found by
-the adversarial round and none by a gate, so the shape below is the second one.
+The caption is announced at the boundary — *before* the graphic it concludes — and again
+after. That is verbatim the defect §18.3a deleted `associateCaptions` for: *"the caption
+was then in the accessibility tree twice."* Written two sections earlier, in the same
+document, by the same author, and repeated anyway.
 
-**What the first version did, and why it broke.** It split the pair: `chart-family.js`
-emitted the `<figcaption>`, and `masthead.transform.js` decided the `<figure>`. Four
-defects fell out of that split and out of the cascade argument beside it:
+**The justification is self-refuting, which is what settles it.** The `aria-label` was
+added on the premise that *readers treat `/Figure` as atomic, so an unnamed one can
+swallow the chart*. If that premise holds, an outer stage figure is harmful **whether or
+not it is named** — naming only decides which information is destroyed. If it does not
+hold, the alt-less figure was never the problem and the label was never needed. There is
+no reading under which a stage-level `<figure>` is right. **The shape is wrong, not the
+implementation.**
 
-| # | Defect | Surface | Root cause |
-|---|---|---|---|
-| 1 | A captioned roadmap grew to **1912px** against its uncaptioned twin's 153px | fluid / mobile | `base.fluid-view.css` exempts `figure` **by type** from `flex-grow: 0` |
-| 2 | **+5 alt-less `/Figure`** structs on a six-chart deck (7 → 12) | the exported **PDF** | Chrome derives `/Alt` from the accessible name; a bare `<figure>` has none |
-| 3 | `matrix-grid`'s legend **deleted** from the reading view | Read·Article | `projectGeneric`'s block list is tag-keyed and lacked `figcaption` |
-| 4 | `<figcaption>` with no `<figure>` anywhere | every `form: off` render | no stage is built there, so nothing supplied the other half |
+**And the measurement was honest while measuring the wrong thing.** "12 → 7, parity
+restored" is reproducible and correct. It asks *does every figure have alt text?* and
+never *is a figure now hiding content?* §18.3 had already written that lesson about
+position 3 — *"the work went where the instrument pointed"* — and position 4 walked into
+it again. A counter is not a criterion.
 
-Plus two validity/consistency defects: `state-chart` put its `<figcaption>` in the
-MIDDLE of the figure (the content model allows figcaption first or last, never between),
-and the two render paths derived "is there a caption?" from different evidence — a regex
-on the HTML string vs `classList` on a node — and **disagreed on four real inputs**.
+**DECISION: the retag is withdrawn from this change.** `.cell-stage` is an unconditional
+`<div>`; the caption stays a `<p>`, delivered the way §18.3a already describes as correct
+— in document order, immediately after the graphic, with its prose punctuation intact.
 
-**Defect 2 is the one worth reading twice.** The change existed to improve accessibility;
-it made the *primary artifact* worse. Lattice ships PDFs, Chrome tags them, and a
-`/Figure` with no `/Alt` is a PDF/UA failure that readers treat as atomic — so an unnamed
-figure wrapping the chart's own named one can swallow it. And the gate installed in the
-same PR reads only the HTML sidecar, so its green was evidence for a regression on the
-surface nobody measured. That is the textbook failure of installing a metric: the work
-went where the instrument pointed.
+**What the follow-up should build instead**, when it is built: **one figure per graphic,
+not two.** The chart's own `role="img"` element becomes the figure, named by its
+`<title>`, described by its `<desc>`, with the caption bound by a **stage-scoped**
+`aria-describedby`. Stage scope is exactly the slide boundary whose absence broke
+`associateCaptions`, and the stage builder is now the one place on both render paths that
+sees a whole stage — so the bug that killed it cannot recur. **Its acceptance criterion is
+a real screen-reader pass, not a structure-element count.** Three things must be re-added
+with it, each of which this round proved necessary and each of which was reverted with the
+retag: the `figure:not(.cell-stage)` guard in `base.fluid-view.css`, `figcaption` in
+`projectGeneric`'s block list, and a PDF-side assertion that no `/Figure` gains an `/Alt`
+that shadows a named descendant.
 
-**Defect 1 is the one that indicts the reasoning.** The safety argument was *"every
-`.cell-stage` selector in the engine is class-keyed (there is no `div.cell-stage`
-anywhere), so the cascade doesn't move."* That is true, and it proves nothing: the rule
-that broke never mentions the stage at all — it matches the new TAG. Proving the absence
-of a selector on the OLD element says nothing about rules that match the NEW one. A retag
-must ask "what matches what I am becoming?", not "what matched what I was?".
-
-**The shape that ships.** One function — `buildStageCell` in `masthead.transform.js`,
-mirrored node-for-node in `masthead-lift.js` — owns **both halves**:
-
-| Rule | Why |
-|---|---|
-| the caption is retagged `<p>` → `<figcaption>` **inside** the stage build | the pair cannot ship apart, so defect 4 and the path disagreement are structurally impossible, not merely tested against |
-| qualifies only when the caption is the **first or last** element child | that is the spec's content model; `state-chart` ({chart-body, caption, state-legend}) therefore keeps a `<div>` stage and a `<p>` caption |
-| the `<figure>` carries `aria-label` = the caption's text | HTML-AAM already says a figure is named by its figcaption; Chromium does not implement it, so stating it explicitly restores the PDF's `/Alt` |
-| `base.fluid-view.css` exempts `figure:not(.cell-stage)` | the stage is the slide's body box, not author media |
-| `figcaption` added to `projectGeneric`'s block list | a tag-keyed block list is the same footgun as a tag-keyed parser |
-
-**Re-measured after the rework**, on the real surfaces:
-
-| Check | Before the fix | After |
-|---|---|---|
-| `/Figure` without `/Alt` (`chart-family-all-svg`, vs 7 on `main`) | **12** | **7** — parity restored, all 5 new figures named |
-| fluid stage height, captioned vs uncaptioned twin | 1912px vs 153px | **209px vs 153px**, both `flex-grow: 0` |
-| `matrix-grid` legend in Read·Article | **dropped** | present |
-| orphan `<figcaption>` under `form: off` | 1 per captioned chart | **0** |
-| engine vs DOM tag+name agreement | 4 inputs diverge | **8 of 8 agree**, including all four |
-| gallery slides 66 / 91 screenshots | — | **byte-identical** to pre-change |
-
-**And it found a fifth instance of this codebase's signature footgun** — then a sixth, in
-the fix itself. `lib/core/below-note.js` located the stage cell by the literal string
-`<div class="cell-stage">` and balanced it by counting `</div>`; on a `<figure>` stage it
-found nothing and fell back to the flat section-level anchor, a *wrong answer that still
-renders*. Fixed by matching the class and balancing the captured tag — which also fixes
-`split-envelope.js` for free, since both consume the same `extractStage`. Then the named
-figure broke it AGAIN, because the new matcher pinned the opening tag to end right after
-`class="cell-stage"` and the figure carries an `aria-label`. So the rule is longer than
-"key on the class": **key on the class, capture the tag, balance what you captured, and
-let the rest of the opening tag vary.** Six confirmed sites now, one fix each time.
-
-Three invariants in `semantic-structure.test.js` pin the result: the retag fires **exactly**
-when a first-or-last caption exists (both directions, so over- and under-tagging both
-fail), every `<figure>` stage is **named** and has a `<figcaption>` child, and no
-`<figcaption>` ever exists outside a `<figure>`.
+**What this round leaves behind, and it is not nothing.** The `below-note` /
+`split-envelope` stage matcher is now tag-agnostic and attribute-tolerant — a latent
+defect the retag *exposed* rather than caused, and the sixth confirmed instance of this
+codebase parsing its own rendered HTML with a tag-anchored matcher. That fix stays. So
+does the rule it earned: **key on the class, capture the tag, balance what you captured,
+and let the rest of the opening tag vary.**
 
 ### 18.3a `associateCaptions` shipped and was REMOVED in the same PR
 
@@ -1961,7 +1930,8 @@ proposition was "the data summary, then the author's so-what"; what it actually 
 |---|---|
 | **G10** (no automated a11y gate) | **PARTIALLY closed** — axe over both shipped shells, per-PR, at zero, with a self-check AND the `incomplete` bucket enforced for duplicate ids. Named exclusions: one deck, one viewport, two shells, color-contrast off. "Closed" overstated it |
 | **G5** (chart data equivalence) | **partially closed** — every chart's `<desc>` is now reliably referenced, and funnel carries its conversion rates. Still not a *navigable* table; a description is read, not explored |
-| **§16's `<figure>` spec** (not a gap number — an unshipped spec) | **implemented** — the stage cell is a `<figure>` and the caption a `<figcaption>` wherever a chart carries one (§18.3). The association is structural, so it survives reflow and re-ordering. *(This is NOT G11, which is video/audio captions for deaf/HoH users and remains **[LATER]**.)* |
+| **§16's `<figure>` spec** (not a gap number — an unshipped spec) | **still unshipped, now with evidence.** Built twice and withdrawn: a stage-level `<figure>` shadows the chart's own name in the tagged PDF and double-announces the caption in Chromium (§18.3). The follow-up should build one figure PER GRAPHIC with a stage-scoped `aria-describedby`, and its acceptance criterion is a screen-reader pass, not a structure-element count. *(This is NOT G11, which is video/audio captions for deaf/HoH users and remains **[LATER]**.)* |
+| **(new) G17** | **A deck with speaker notes exports an UNTAGGED PDF.** `embedNotesInPdf`'s pdf-lib round-trip drops `/StructTreeRoot` entirely, so every accessibility property of the export — `/Figure`, `/Alt`, `/Lang`, heading structure — is silently absent on any deck carrying notes (`examples/gallery-jargon.pdf`, rebuilt on this branch, has none). Pre-existing and off-path here, but it means the §14 G1 row's premise ("the PDF is untagged") is half-right for the wrong reason, and any future work measured on a notes-free deck generalizes wrongly |
 | **(new) G14** | **The Read·Article view drops the author's caption** and uses the slide HEADING as its `<figcaption>`, duplicating the `<h2>` above it. Found while checking whether `<figure>` was already in use — it is, on the reading surface, with the wrong content |
 | **(new) G13** | **Running header/footer muted ink is 4.20:1 (light) / 4.07:1 (dark) — below the 4.5:1 normal-text threshold, on every shell.** An earlier draft said it "passes AA as LARGE text at export scale"; that reassurance is a page-box artifact and is withdrawn. The slide canvas is nominally **3840 CSS px wide**, so the chrome's `43.4px` clears WCAG's 24px large-text line only in canvas units — as a fraction of the slide it is 1.13%, which is ~14px on a 1280px-wide presentation and smaller again in the player. Nothing about the way a human sees it is "large". A `--text-muted` change is theme-wide and off this branch's path — logged, not fixed (HARD RULE #18's off-path rule) |
 | **(new) G15** | **`tools/check-slide-contrast.js` silently skips every `color()`-valued run.** Its color parser is `/rgba?\(([^)]+)\)/`; Chrome serves some resolved tokens as `color(srgb r g b / a)`, which does not match, and an unparsed run is `continue`d rather than reported. So the tool's "N runs checked" undercounts and its green is partial. This is how a **1.11:1** header sat in the gallery unflagged (§18.1). One-line fix to the parser, plus a re-audit of whatever it then surfaces — a separate change, because the re-audit is the real work |
