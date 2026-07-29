@@ -1297,7 +1297,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		if (!params.has('new')) return;
 		params.delete('new');
 		const qs = params.toString();
-		window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+		// PRESERVE history.state. `replaceState(null, …)` wipes overlay-back.ts's ownership
+		// marker — the only record of our synthetic entry that survives a reload — and that
+		// module's header named this call site as one of six offenders. Found while building
+		// a deck URL that was NOT merged (#1244); the fix stands on its own, because the
+		// marker was being lost here regardless of what else is in the query string.
+		window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
 		newDeckRef.current();
 	}, []);
 	// Import a deck from an external `.md` file — seed a new persisted deck with its

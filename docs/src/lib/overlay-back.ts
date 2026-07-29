@@ -58,14 +58,18 @@
 // `adopt()` then fails after the next reload, and the module falls back to the
 // orphan-accumulating behavior described above.
 //
-// SIX call sites already do this — four pass `null`, two pass `{}`, and `{}` wipes the
-// marker just as thoroughly:
+// FOUR call sites still do this — two pass `null`, two pass `{}`, and `{}` wipes the marker
+// just as thoroughly:
 //
 //   PlaygroundApp.tsx:1139,1141   null   effect keyed on [view, walk]
-//   StudioShell.tsx:1271          null   boot URL tidy
-//   architect.ts:1548             null   boot URL tidy
 //   playground/theme-studio.js:535  {}   URL tidy
 //   pages/drawing-board.astro:796   {}   URL tidy
+//
+// Two were fixed while building a deck URL that was NOT merged (#1244): `StudioShell.tsx`'s
+// `?new=1` scrub and `architect.ts`'s OAuth scrub now both pass `history.state` through. They
+// stand on their own — the marker was being dropped there regardless of what else the query
+// carried. This roster is hand-maintained and has been wrong before (see three paragraphs
+// up); grep `replaceState` for the truth.
 //
 // An earlier draft of this paragraph said the PlaygroundApp calls run "repeatedly during
 // normal use" AND, three lines later, that they "run before any sheet opens". Both cannot
