@@ -67,7 +67,7 @@ so a `maxSize` small enough to silence real source silences the probe too.
 
 Both of those refinements came from the independent checker, and neither was a detail. A
 `.js`-only probe let `overrides[{includes: ["**/*.ts"], linter: {enabled: false}}]` un-lint
-**556 tracked files** with all three arms green — the likeliest real form of the attack,
+**519 tracked files** with all three arms green (556 `.ts`/`.tsx` are tracked; 37 were already excluded) — the likeliest real form of the attack,
 and quieter than the file-scoped override this doc originally called the only residual. And
 the probe's filename is now random per run: a fixed, published name meant
 `"!**/*.tmp.js"` — which reads as ordinary tempfile hygiene — silenced the entire repo while
@@ -75,6 +75,29 @@ every probe still reported, and it also meant two concurrent gate runs deleted e
 files and failed a push pointing at a config where nothing was wrong.
 
 ## What the gate does NOT do
+
+**Every baseline entry names its class.** The inversion's lead objection was that
+`test/lint-coverage/baseline.json` had become 72 exclusions with zero reasons — structurally
+the defect #1223 was filed about ("29 exclusions and zero reasons") — and that its `note`
+outsourced justification to "say in the PR", which is strictly less durable than the prose
+comment in `biome.jsonc` it replaced. That is fair, and it matters most for the entries this
+gate *exists* to produce: a file that stopped being linted is plausibly house source, i.e.
+exactly where the path does not explain itself. Entries are now `{path, class}` drawn from
+the same seven-word vocabulary `biome.jsonc` uses, `check` fails on a missing or bogus class,
+and `bless` **never infers one** — a new entry lands `null` and keeps failing until a human
+names it. This is not the removed syntax gate returning: that one validated the spelling of a
+*pattern*, while this validates a field on a *measured* set, so no bypass route reaches it.
+
+**A test asserts the gate is still wired into the build.** It runs only because of one line
+in `tools/build.js` PREFLIGHT. Deleting that line left all 45 tests, `lint`, `build:check`
+and CI green — the gate that exists because a one-line edit silently removed lint coverage,
+removable by a one-line edit. Every other sanctioned list in this repo has an anti-rot arm;
+its on/off switch had none.
+
+**The parsers assert their Biome version.** Three of them read output Biome does not promise
+(and its JSON reporter self-describes as unstable). A version mismatch now fails with
+"re-verify these parsers against <version>" instead of the inversion's predicted cause of
+death: a minor bump producing a repo-wide pre-push block diagnosed as "biome failed to start".
 
 **No count of what IS checked.** An earlier draft recorded `coveredCount` in the baseline
 so the ratchet would read as `1240 → 1254` in a PR diff. It also moved every time anyone
@@ -100,6 +123,48 @@ Re-adding `"!docs/src/components/ui"` under that one word still passes everythin
 automated — but it no longer passes *silently*, because the files it removes show up in
 arm 1. The convention survives for the half a human reads; the coverage it claims is now
 measured.
+
+## The adversarial trio
+
+HARD RULE #25's full trio ran against the commit that was already pushed and CI-green. It
+found more than the single checker round did, and the most important finding was not a bug
+in the code — it was a hole in what the code chose to look at.
+
+**Red team — a severity downgrade made the whole repo toothless while the gate said
+"teeth confirmed."** Biome accepts a severity string where a rule-group object goes:
+
+```jsonc
+// migration: suspicious + correctness are warnings until #9999 lands
+"suspicious": "warn",
+"correctness": "warn",
+```
+
+`biome check` **exits 0 on warnings**, so `npm run lint` went green over unfixed
+`debugger;` / `==` / `if (true)` across the repo — through CI. `diffProbes` matched on the
+diagnostic's *category* and never read its *severity*, so all 245 probes still "reported"
+and every arm passed. This is the worst kind of miss: not a deliberate bypass but an
+**accident-shaped** edit, the exact class the gate claims to be for, and one that rewards
+itself by turning the linter green immediately. Only an error is a tooth now.
+
+It also found that a tracked filename can answer for the summary line — a file named
+`Checked 0 files in .js` sorts into the verbose list *before* Biome's own tally, which made
+the gate permanently unpassable in one form and neutralized arm 2 in the other. The parser
+is anchored to column 0 and takes the last match; and `processed` now keeps only rows the
+gate actually asked about, which makes phantom rows unrepresentable rather than unlikely.
+
+**Independent checker — two false positives that would have blocked pre-push**, both
+through the same door the `existsSync` fix was meant to close. `SUPPRESS_ALL` matched
+`biome-ignore-all format` and `... assist`, neither of which removes *lint* coverage, and
+it matched a comment that merely *forbade* the practice — so the gate demanded a bless for a
+file Biome was fully linting, and the bless would have written it out of the ratchet
+permanently. It also found that deleting an *excluded* file fired the STALE arm: 62 of the
+72 entries are build output and this gate is a PREFLIGHT that runs **before** the steps that
+regenerate it, so `rm -rf <dist> && npm run build` aborted on a baseline that was correct.
+
+And it caught three round-one fixes that were asserted by nothing — mutating them failed
+**0 of 45** tests. Each now has a test that kills its mutation.
+
+**Munger inversion — the baseline was a second reason-free exclusion list.** See below.
 
 ## The residuals, stated
 

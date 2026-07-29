@@ -37,7 +37,8 @@
     // So the reasons stay a convention — keep writing them, they are cheap and they are
     // the half a human reads — while the coverage they claim is now measured. If you
     // genuinely need a new exclusion: add it here WITH its class, then run
-    // `npm run lint:coverage:bless` and say in the PR which class it is.
+    // `npm run lint:coverage:bless` — the new baseline entry lands with a null class and
+    // keeps failing until you name one of the seven above, in the baseline itself.
     //
     // File counts, if you quote one: measure on a CLEAN TRACKED TREE. A bare `biome check`
     // in a working directory also scans untracked build output (playwright reports,

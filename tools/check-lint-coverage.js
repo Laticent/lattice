@@ -55,10 +55,12 @@
  *     rest of the name stops the ACCIDENTS (`"!**\/*.tmp.js"` is ordinary-looking tempfile
  *     hygiene, and it used to silence the whole repo while every probe reported); it does
  *     not stop someone who reads this file and writes a pattern against the prefix.
- *   • `"rules": {"recommended": false}` while hand-preserving the probe's four rules leaves
- *     arm 3 satisfied and everything else off. Three rules across two groups for the JS
- *     family makes it an odd thing to write by accident; it is not impossible to write on
- *     purpose.
+ *   • `"rules": {"recommended": false}` while hand-preserving the probe's four rules AT
+ *     ERROR SEVERITY leaves arm 3 satisfied and everything else off. Three rules across two
+ *     groups for the JS family makes it an odd thing to write by accident; it is not
+ *     impossible to write on purpose. (Downgrading a whole rule GROUP to "warn"/"info" —
+ *     the far easier edit, and the one that also makes `npm run lint` exit 0 — is caught:
+ *     `diffProbes` counts only `severity: "error"`.)
  *   • This gate needs a git checkout — it asks `git ls-files` what is tracked. It cannot
  *     run in the extracted `git archive` tree that `biome.jsonc` recommends for counting.
  *   • SIGKILL leaves probe files behind; nothing can catch it. A survivor is untracked,
@@ -93,15 +95,37 @@ const ROOT = path.join(__dirname, '..');
  *
  * `jsonc` is deliberately absent. The repo's only `.jsonc` file is `biome.jsonc`, which
  * Biome processes because it is its own config, NOT because `files.includes` asks for it —
- * so it appears in the processed list while a `.jsonc` probe beside it is skipped
- * entirely. Watching the extension on that evidence produced a permanent, meaningless
- * failure. If a real `.jsonc` source file is ever added to `files.includes`,
+ * so a `.jsonc` probe beside it is skipped entirely while the config itself is checked.
+ * Watching the extension produced a permanent, meaningless failure on nothing. (An earlier
+ * version of this note said `biome.jsonc` "appears in the processed list". It no longer
+ * does — `collectCoverage` keeps only rows it asked about — and that false premise was what
+ * licensed `probeTargets` to skip an unprobed language in silence. Found by the independent
+ * checker.) If a real `.jsonc` source file is ever added to `files.includes`,
  * `unwatchedIncludeExtensions` below fails and tells you to add it here; that is the
  * safety valve for this omission.
  */
 const WATCHED_EXTENSIONS = ['js', 'mjs', 'cjs', 'json', 'ts', 'tsx'];
 
 const BASELINE_REL = 'test/lint-coverage/baseline.json';
+
+/**
+ * The seven classes an exclusion may claim — the same vocabulary `biome.jsonc` uses, and
+ * the one #1223 asked for. Recording the class IN THE BASELINE is what makes this list a
+ * house `SANCTIONED_*` allowlist rather than a second reason-free exclusion list, which is
+ * the exact defect #1223 was filed about ("29 exclusions and zero reasons"). An earlier
+ * draft told the author to "say in the PR" instead — strictly less durable and less
+ * discoverable than the prose it replaced, and the entries this gate EXISTS to produce are
+ * by construction the ones whose path does not explain them. Raised by the Munger inversion.
+ *
+ * This is not the removed syntax gate returning. That one validated the spelling of a
+ * PATTERN and could be walked around by nine routes that never touched a pattern. This
+ * validates a field on a MEASURED set: whatever route removes a file from coverage, the
+ * file lands here and has to carry a class.
+ */
+const EXCLUSION_CLASSES = ['dependency', 'build-output', 'transient', 'vendor', 'not-code', 'generated', 'unparseable'];
+
+/** Biome's stdout is parsed in three places and its JSON reporter self-describes as unstable. */
+const VERIFIED_BIOME = '2.4.15';
 const CONFIG_REL = 'biome.jsonc';
 
 /**
@@ -125,7 +149,7 @@ const PROBE_PREFIX = 'lint-teeth-probe-';
 /**
  * One probe body per language, because a probe is only evidence for the language it is
  * written in. A single `.js` probe let `overrides[{includes: ["**\/*.ts"], linter:
- * {enabled: false}}]` un-lint 556 tracked files with every arm green — the likeliest real
+ * {enabled: false}}]` un-lint 519 tracked files with every arm green — the likeliest real
  * form of the attack ("we'll turn TS lint back on later"), and quieter than the
  * file-scoped override the first draft called the only residual.
  *
@@ -164,10 +188,47 @@ const PROBE_LANGUAGES = {
  * ratchet: adding one fails until it is blessed. Per-line `biome-ignore` is untouched;
  * that is a legitimate, reviewable, single-rule escape.
  *
+ * ONLY `lint` counts. `biome-ignore-all format` and `... assist` leave the file fully
+ * linted, and matching them made the gate demand a bless for a file Biome was still
+ * checking — the same "ratchet a real file out of the ratchet" failure the existsSync fix
+ * exists to prevent, through a different door. `assist` is realistic here: `lint:fix`
+ * includes import sorting. Found by the independent checker.
+ *
+ * The trailing `:` is not decoration — it is Biome's grammar, and requiring it is what
+ * keeps prose out of the match. Measured on 2.4.15: `// biome-ignore-all lint` suppresses
+ * NOTHING (both violations still reported), while `// biome-ignore-all lint: reason`
+ * suppresses the file. Without the colon the pattern hit an ordinary JSDoc block that
+ * merely *documented* the syntax, and then the gate's own remedy — `--bless` — would have
+ * written a fully-linted source file into the baseline permanently, with the stale arm
+ * never firing to prune it. A benign prose edit, converted by the error message into a
+ * silent hole. Found by the red team.
+ *
  * The token is assembled at runtime so this file — which is itself linted — cannot match
- * its own pattern.
+ * its own pattern. Candidates are then CONFIRMED BY EFFECT (`confirmSuppressed`), so a
+ * string literal that happens to contain the whole grammar still cannot false-positive.
  */
-const SUPPRESS_ALL = new RegExp(String.raw`(?:^|//|/\*|\*)\s*biome-ignore` + '-all' + String.raw`\s+(?:lint|format|assist)\b`, 'm');
+const SUPPRESS_ALL = new RegExp(
+	String.raw`(?:^|//|/\*|\*)\s*biome-ignore` +
+		'-all' +
+		String.raw`\s+lint\b[^\n:]*:`,
+	'm',
+);
+
+/**
+ * A watched language with no probe body is an EXTENSION-SCOPED BYPASS waiting to happen:
+ * `probeTargets` skips it, so `overrides[{includes: ["**\/*.css"], linter: {enabled:
+ * false}}]` would be invisible exactly the way the `.ts` case was before round one. The
+ * widening guard tells you to add a language to WATCHED_EXTENSIONS and says nothing about
+ * this table, so the two lists are wired together here rather than by hope. Found by the
+ * independent checker.
+ */
+const unprobed = WATCHED_EXTENSIONS.filter((e) => !PROBE_LANGUAGES[e]);
+if (unprobed.length) {
+	throw new Error(
+		`check-lint-coverage: WATCHED_EXTENSIONS has no PROBE_LANGUAGES body for: ${unprobed.join(', ')}. ` +
+			'Add one (source + the rules it must trigger), or the teeth probe silently skips that language.',
+	);
+}
 
 // ── PURE PREDICATES (exported and unit-tested, like every sibling gate) ────────
 
@@ -213,8 +274,14 @@ function sawFilesProcessedBlock(output) {
  * would miss.
  */
 function parseCheckedCount(output) {
-	const m = /Checked (\d+) files? in /.exec(String(output));
-	return m ? Number(m[1]) : null;
+	// ANCHORED to column 0, and the LAST match wins. Biome prints its summary at the start
+	// of a line; the `--verbose` file list indents every row by two spaces. Unanchored, a
+	// tracked file named `Checked 0 files in .js` appeared in that list FIRST and became the
+	// answer — a permanent pre-push block that `--bless` could not clear, and in its
+	// `Checked 9999 files in .js` form, a way to neutralize this arm and re-open
+	// `files.maxSize` as a silent bypass. Found by the red team.
+	const matches = [...String(output).matchAll(/^Checked (\d+) files? in /gm)];
+	return matches.length ? Number(matches[matches.length - 1][1]) : null;
 }
 
 /** Tracked paths whose extension this gate watches. */
@@ -224,7 +291,7 @@ function trackedLintable(paths, watched = WATCHED_EXTENSIONS) {
 }
 
 /**
- * One probe per DIRECTORY × LANGUAGE actually present there — 246 targets against 199
+ * One probe per DIRECTORY × LANGUAGE actually present there — 245 targets against 199
  * directories in this repo, so the extension arm is nearly free. Probing only the
  * directory would leave every language but `.js` unguarded.
  */
@@ -235,7 +302,7 @@ function probeTargets(processed) {
 		const ext = path.posix.extname(p).slice(1);
 		if (!PROBE_LANGUAGES[ext]) continue;
 		const dir = path.posix.dirname(p);
-		const key = `${dir} ${ext}`;
+		const key = `${dir} ${ext}`;
 		if (seen.has(key)) continue;
 		seen.add(key);
 		targets.push({ dir, ext });
@@ -257,16 +324,23 @@ function suppressedFiles(processed, readFile) {
  * matters for the same reason it does in `SANCTIONED_PREVIEW_BUILDERS`: a list nobody
  * prunes stops describing anything.
  */
-function diffCoverage({ lintable, processed, baseline }) {
+function diffCoverage({ lintable, processed, baseline, present = null }) {
 	const covered = new Set(processed);
 	const uncovered = lintable.filter((p) => !covered.has(p)).sort();
 	const sanctioned = new Set(baseline);
 	const uncoveredSet = new Set(uncovered);
+	// A baseline entry is STALE when it is linted AGAIN — not when its file is merely gone
+	// from the worktree. 62 of the 72 entries here are build output, and this gate is a
+	// PREFLIGHT that runs BEFORE the steps that regenerate it, so `rm -rf docs/src/lib/lente/dist
+	// && npm run build` aborted the build on a baseline that was perfectly correct. The
+	// existsSync filter fixed this for linted files and left the excluded half open. Found by
+	// the independent checker.
+	const gone = (p) => present !== null && !present.has(p);
 	return {
 		uncovered,
 		coveredCount: lintable.length - uncovered.length,
 		newlyUncovered: uncovered.filter((p) => !sanctioned.has(p)),
-		stale: [...sanctioned].filter((p) => !uncoveredSet.has(p)).sort(),
+		stale: [...sanctioned].filter((p) => !uncoveredSet.has(p) && !gone(p)).sort(),
 	};
 }
 
@@ -279,6 +353,16 @@ function diffProbes({ probes, diagnostics }) {
 	for (const d of diagnostics) {
 		const file = typeof d.path === 'string' ? d.path : d.location?.path;
 		if (typeof file !== 'string') continue;
+		// SEVERITY IS PART OF THE EVIDENCE, and leaving it out was the worst hole in the
+		// first version. Biome accepts a severity string where a rule-group object goes
+		// (`"suspicious": "warn"`), which downgrades every rule in the group — and
+		// `biome check` EXITS 0 on warnings and infos. The probe still emitted all three
+		// categories, so all three arms passed and printed "teeth confirmed" while nothing
+		// in the repo was enforced any more, through CI. "Downgrade to warnings during a
+		// migration" is the most ordinary thing anyone writes into a linter config, and it
+		// turns `npm run lint` green immediately, which rewards doing it. Only an ERROR is
+		// a tooth. Found by the red team.
+		if (d.severity !== 'error') continue;
 		if (!byFile.has(file)) byFile.set(file, new Set());
 		byFile.get(file).add(d.category);
 	}
@@ -296,16 +380,30 @@ function diffProbes({ probes, diagnostics }) {
  * baseline's job.
  */
 function unwatchedIncludeExtensions(configText, watched = WATCHED_EXTENSIONS) {
-	const code = String(configText)
+	// Comments out, THEN narrow to the `files.includes` array. Anywhere else — an
+	// `overrides[].includes`, a `linter.includes` allowlist, a glob quoted in a trailing or
+	// block comment — a pattern grants no coverage, so demanding the extension be watched was
+	// a pre-push failure whose only documented remedy made things worse. Found by the
+	// independent checker.
+	// NARROW FIRST, strip comments second, and never run a comment regex over the whole
+	// document — an earlier attempt did, and `//` inside a glob string (`"**\/*.js"` sits one
+	// character away) let it eat the middle of the config and silently invent findings.
+	const files = /"files"\s*:\s*\{[\s\S]*?"includes"\s*:\s*\[([\s\S]*?)\]/.exec(String(configText));
+	if (!files) return [];
+	const balanced = (text) => (text.match(/"/g) ?? []).length % 2 === 0;
+	const body = files[1]
 		.split('\n')
-		.filter((l) => !/^\s*\/\//.test(l))
+		.map((line) => {
+			const at = line.indexOf('//');
+			return at >= 0 && balanced(line.slice(0, at)) ? line.slice(0, at) : line;
+		})
 		.join('\n');
 	const found = new Set();
 	// Any positive pattern, anywhere in it, that names an extension — `"**\/*.vue"`,
 	// `"docs/**\/*.vue"` and `"**\/*.{vue,svelte}"` all count. The first draft matched only
 	// the exact token `"**\/*.<ext>"`, so the two other spellings slipped a whole language
 	// past the one guard the header calls out.
-	for (const m of code.matchAll(/"(!?)([^"]*?)\*\.(?:\{([^}"]+)\}|([A-Za-z0-9]+))"/g)) {
+	for (const m of body.matchAll(/"(!?)([^"]*?)\*\.(?:\{([^}"]+)\}|([A-Za-z0-9]+))"/g)) {
 		if (m[1] === '!') continue;
 		const exts = m[3] ? m[3].split(',') : [m[4]];
 		for (const raw of exts) {
@@ -320,6 +418,13 @@ function unwatchedIncludeExtensions(configText, watched = WATCHED_EXTENSIONS) {
 
 function resolveBiome(root) {
 	return path.join(root, 'node_modules', '.bin', 'biome');
+}
+
+/** The version these parsers were written against — see VERIFIED_BIOME. */
+function biomeVersion(biome) {
+	const res = spawnSync(biome, ['--version'], { encoding: 'utf8' });
+	const m = /(\d+\.\d+\.\d+)/.exec(`${res.stdout ?? ''}${res.stderr ?? ''}`);
+	return m ? m[1] : null;
 }
 
 function listTracked(root) {
@@ -354,7 +459,14 @@ function collectCoverage(root, biome) {
 	});
 	if (res.error) throw new Error(`could not run ${biome}: ${res.error.message}`);
 	const output = `${res.stdout}\n${res.stderr}`;
-	const processed = parseFilesProcessed(output);
+	// Only rows we ASKED about count. The list is parsed out of human-readable stdout, so a
+	// tracked filename containing a newline made Biome emit an extra `  - <path>` row and
+	// injected a file into the covered set. Intersecting with what we passed in makes a
+	// phantom row unrepresentable rather than merely unlikely. (`biome.jsonc` drops out here
+	// too — Biome processes its own config unasked — which is correct: it is not in
+	// `lintable`, so it was never a coverage question.) Found by the red team.
+	const asked = new Set(lintable);
+	const processed = parseFilesProcessed(output).filter((p) => asked.has(p));
 	// A config error makes Biome print no list at all — which would otherwise read as
 	// "every file lost coverage" and bury the real message. An EMPTY list is different:
 	// that is Biome answering, and `files.maxSize` is how it happens.
@@ -435,17 +547,21 @@ function readBaseline(root) {
 	return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function writeBaseline(root, { uncovered }) {
+function writeBaseline(root, { uncovered, existing = [] }) {
 	const file = path.join(root, BASELINE_REL);
 	fs.mkdirSync(path.dirname(file), { recursive: true });
+	// Carry a known class forward; a NEW entry gets null and fails `check` until a human
+	// names it. Nothing here infers a class — inference is what made the removed gate a lie.
+	const known = new Map(existing.map((e) => [e?.path ?? e, e?.class ?? null]));
+	const entries = uncovered.map((p) => ({ path: p, class: known.get(p) ?? null }));
 	const body = {
 		version: 1,
 		// Deliberately NOT a count of what IS checked. That number moves every time anyone
 		// adds a source file, so recording it would make an unrelated re-bless a condition
 		// of every PR — a tax with no signal, since a file ENTERING coverage is never the
 		// failure. The excluded set only moves when an exclusion does.
-		note: 'Tracked, lintable files Biome does NOT check. Exceed-only: a file LEAVING coverage fails `npm run lint:coverage` until it is recorded here. Refresh with `npm run lint:coverage:bless` and say in the PR which exclusion class the new entries are. Gate + rationale: tools/check-lint-coverage.js.',
-		uncovered,
+		note: 'Tracked, lintable files Biome does NOT check, each with the exclusion class it claims. Exceed-only: a file LEAVING coverage fails `npm run lint:coverage` until it is recorded here. Refresh with `npm run lint:coverage:bless`; a new entry lands with a null class and keeps failing until you name one of: dependency, build-output, transient, vendor, not-code, generated, unparseable. Gate + rationale: tools/check-lint-coverage.js.',
+		uncovered: entries,
 	};
 	fs.writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`);
 	return file;
@@ -457,7 +573,7 @@ function writeBaseline(root, { uncovered }) {
  * ratchet handles it: adding one fails until it is blessed. Shared by `check` and `bless`
  * so the two can never disagree about what "covered" means.
  */
-function dropSuppressed(root, scanned) {
+function dropSuppressed(root, scanned, biome) {
 	const read = (p) => {
 		try {
 			return fs.readFileSync(path.join(root, p), 'utf8');
@@ -465,8 +581,64 @@ function dropSuppressed(root, scanned) {
 			return null;
 		}
 	};
-	const suppressed = new Set(suppressedFiles(scanned, read));
+	const candidates = suppressedFiles(scanned, read);
+	const suppressed = new Set(candidates.length ? confirmSuppressed(root, biome, candidates, read) : []);
 	return { processed: scanned.filter((p) => !suppressed.has(p)), suppressed: [...suppressed] };
+}
+
+/**
+ * Confirm a regex candidate BY EFFECT rather than trusting the pattern.
+ *
+ * For each candidate, copy its leading text beside it under a probe name, append a known
+ * violation, and ask Biome. A genuine `biome-ignore-all` carries over to the copy and Biome
+ * stays quiet; prose that merely resembles one does not, and Biome reports. Only files whose
+ * copy is silent are treated as suppressed.
+ *
+ * This exists because a false positive here is uniquely expensive: the gate's own error
+ * message sends the developer to `--bless`, which would write a fully-linted source file
+ * into the baseline permanently, with the stale arm never firing to prune it. Costs nothing
+ * in the normal case — there are zero candidates today, and the loop does not run.
+ */
+function confirmSuppressed(root, biome, candidates, read) {
+	const jsLike = candidates.filter((p) => PROBE_LANGUAGES[path.posix.extname(p).slice(1)]?.source === PROBE_JS);
+	if (!jsLike.length) return [];
+	const token = crypto.randomBytes(6).toString('hex');
+	const copies = jsLike.map((p) => ({
+		origin: p,
+		rel: path.posix.join(path.posix.dirname(p), `${PROBE_PREFIX}${token}${path.posix.extname(p)}`),
+	}));
+	const sweep = () => {
+		for (const c of copies) fs.rmSync(path.join(root, c.rel), { force: true });
+	};
+	try {
+		for (const c of copies) {
+			// The leading comment region is what carries a whole-file suppression; the rest of
+			// the file is irrelevant and might not survive truncation.
+			const head = String(read(c.origin) ?? '').split('\n').slice(0, 40).join('\n');
+			fs.writeFileSync(path.join(root, c.rel), `${head}\n${PROBE_JS}`);
+		}
+		const res = spawnSync(
+			biome,
+			['check', '--reporter=json', `--max-diagnostics=${copies.length * 8 + 100}`, ...copies.map((c) => c.rel)],
+			{ cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 },
+		);
+		let report;
+		try {
+			report = JSON.parse(res.stdout);
+		} catch {
+			// Could not confirm — treat every candidate as suppressed. Failing CLOSED here
+			// costs a bless; failing open costs the protection this whole fold-in provides.
+			return jsLike;
+		}
+		const noisy = new Set(
+			(report.diagnostics ?? [])
+				.filter((d) => d.severity === 'error')
+				.map((d) => (typeof d.path === 'string' ? d.path : d.location?.path)),
+		);
+		return copies.filter((c) => !noisy.has(c.rel)).map((c) => c.origin);
+	} finally {
+		sweep();
+	}
 }
 
 // ── GATE ──────────────────────────────────────────────────────────────────────
@@ -497,6 +669,16 @@ function check({ root = ROOT, biome = resolveBiome(root) } = {}) {
 		}
 	}
 
+	const installed = biomeVersion(biome);
+	if (installed && installed !== VERIFIED_BIOME) {
+		errors.push(
+			`Biome ${installed} is not the version these output parsers were verified against (${VERIFIED_BIOME}).\n` +
+				'  This gate regexes `Files processed:` and `Checked N files` out of human-readable stdout and\n' +
+				"  reads `--reporter=json`, which Biome itself labels unstable. Re-verify parseFilesProcessed,\n" +
+				`  parseCheckedCount and diffProbes against ${installed}, then update VERIFIED_BIOME.\n` +
+				'  Without this you get a repo-wide pre-push block diagnosed as "biome failed to start".',
+		);
+	}
 	const { lintable, processed: scanned, checkedCount } = collectCoverage(root, biome);
 	// Fail CLOSED. A null tally means the summary line did not parse — a Biome upgrade that
 	// reformats it, say — and the first draft simply skipped this arm when that happened,
@@ -516,7 +698,7 @@ function check({ root = ROOT, biome = resolveBiome(root) } = {}) {
 		);
 	}
 
-	const { processed, suppressed } = dropSuppressed(root, scanned);
+	const { processed, suppressed } = dropSuppressed(root, scanned, biome);
 	const baseline = readBaseline(root);
 	if (!baseline) {
 		errors.push(
@@ -524,7 +706,21 @@ function check({ root = ROOT, biome = resolveBiome(root) } = {}) {
 		);
 		return { errors, coverage: null, probe: null };
 	}
-	const coverage = diffCoverage({ lintable, processed, baseline: baseline.uncovered ?? [] });
+	const entries = baseline.uncovered ?? [];
+	const badClass = entries.filter((e) => !EXCLUSION_CLASSES.includes(e?.class));
+	if (badClass.length) {
+		errors.push(
+			`${BASELINE_REL} has ${badClass.length} entry/entries with no valid class:\n${bullets(badClass.map((e) => `${e?.path ?? e} → ${JSON.stringify(e?.class ?? null)}`))}\n` +
+				`  Edit the baseline and name one of: ${EXCLUSION_CLASSES.join(' · ')}.\n` +
+				'  A bare path is the defect #1223 was filed about — the reason has to live with the fact.',
+		);
+	}
+	const coverage = diffCoverage({
+		lintable,
+		processed,
+		baseline: entries.map((e) => e?.path ?? e),
+		present: new Set(listTracked(root).filter((p) => fs.existsSync(path.join(root, p)))),
+	});
 
 	if (coverage.newlyUncovered.length) {
 		errors.push(
@@ -570,9 +766,9 @@ function check({ root = ROOT, biome = resolveBiome(root) } = {}) {
 /** Record today's coverage as the new floor. The escape hatch, and it leaves a diff. */
 function bless({ root = ROOT, biome = resolveBiome(root) } = {}) {
 	const { lintable, processed: scanned } = collectCoverage(root, biome);
-	const { processed } = dropSuppressed(root, scanned);
+	const { processed } = dropSuppressed(root, scanned, biome);
 	const { uncovered, coveredCount } = diffCoverage({ lintable, processed, baseline: [] });
-	writeBaseline(root, { uncovered, coveredCount });
+	writeBaseline(root, { uncovered, existing: readBaseline(root)?.uncovered ?? [] });
 	return { uncovered, coveredCount };
 }
 
@@ -615,6 +811,9 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
 	WATCHED_EXTENSIONS,
+	EXCLUSION_CLASSES,
+	VERIFIED_BIOME,
+	biomeVersion,
 	BASELINE_REL,
 	CONFIG_REL,
 	PROBE_PREFIX,

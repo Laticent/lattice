@@ -69,7 +69,11 @@ in patch versions.
   scanned-vs-checked tallies (which is what catches `files.maxSize`, where an oversized file
   stays in the processed list while nothing reads it), and a violation-carrying probe written
   into all 245 checked directory-and-language targets to prove the linter still has teeth
-  there. A `biome-ignore-all` comment folds into the same ratchet. Each of the nine attacks —
+  there — and a probe only counts a diagnostic at **error** severity, because downgrading a rule
+  group to `"warn"` makes `biome check` exit 0 while every rule still "reports". A
+  `biome-ignore-all` comment folds into the same ratchet, and every baseline entry names its
+  exclusion class from the same seven-word vocabulary `biome.jsonc` uses — a bare path was the
+  defect #1223 was filed about. Each of the nine attacks —
   and the edits that must stay *silent*, including an ordinary `rm` before `git rm` — is a
   test against a real Biome in a real git repo. What it deliberately does not catch is
   enumerated under RESIDUALS in the tool's header.

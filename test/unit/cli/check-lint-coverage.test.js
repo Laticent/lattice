@@ -132,9 +132,9 @@ test('diffProbes flags a probe missing ANY of its language rules, not just all o
 		{ path: 'd/p.json', dir: 'd', ext: 'json' },
 	];
 	const diagnostics = [
-		...all.map((category) => ({ location: { path: 'a/p.js' }, category })),
-		{ location: { path: 'b/p.js' }, category: all[0] },
-		{ location: { path: 'd/p.json' }, category: gate.PROBE_LANGUAGES.json.rules[0] },
+		...all.map((category) => ({ location: { path: 'a/p.js' }, category, severity: 'error' })),
+		{ location: { path: 'b/p.js' }, category: all[0], severity: 'error' },
+		{ location: { path: 'd/p.json' }, category: gate.PROBE_LANGUAGES.json.rules[0], severity: 'error' },
 	];
 	assert.deepStrictEqual(
 		gate.diffProbes({ probes, diagnostics }).map((p) => p.path),
@@ -168,7 +168,7 @@ test('unwatchedIncludeExtensions widens only — negated patterns and comments a
 	].join('\n');
 	assert.deepStrictEqual(gate.unwatchedIncludeExtensions(config), ['vue']);
 	assert.deepStrictEqual(
-		gate.unwatchedIncludeExtensions('{ "includes": ["**/*.js", "!**/*.min.js"] }'),
+		gate.unwatchedIncludeExtensions('{ "files": { "includes": ["**/*.js", "!**/*.min.js"] } }'),
 		[],
 	);
 });
@@ -236,18 +236,30 @@ function makeSandbox(t) {
 	// `git ls-files` reports the index, so staging is enough — no commit, no identity.
 	execFileSync('git', ['add', '-A'], { cwd: root });
 	gate.bless({ root, biome: BIOME });
+	classifyBaseline(root);
 	return root;
+}
+
+/** Fill classes the way a human would after a bless — the gate never infers them. */
+function classifyBaseline(root) {
+	const baseline = gate.readBaseline(root);
+	baseline.uncovered = baseline.uncovered.map((e) => ({
+		...e,
+		class: e.class ?? (e.path.endsWith('.min.js') ? 'vendor' : e.path.startsWith('build/') ? 'build-output' : 'generated'),
+	}));
+	fs.writeFileSync(path.join(root, gate.BASELINE_REL), `${JSON.stringify(baseline, null, 2)}\n`);
 }
 
 const read = (root, rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 const write = (root, rel, body) => fs.writeFileSync(path.join(root, rel), body);
 const errorsOf = (root) => gate.check({ root, biome: BIOME }).errors;
+const errorsOf2 = (root, biome) => gate.check({ root, biome }).errors;
 
 test('the un-attacked sandbox is green, and its exclusions are the expected four', (t) => {
 	const root = makeSandbox(t);
 	assert.deepStrictEqual(errorsOf(root), []);
 	const baseline = gate.readBaseline(root);
-	assert.deepStrictEqual(baseline.uncovered, [
+	assert.deepStrictEqual(baseline.uncovered.map((e) => e.path), [
 		'build/out.js',
 		'docs/x/dist/i.js',
 		'docs/y/dist/j.js',
@@ -549,11 +561,202 @@ test('the probe never touches a file it did not write', (t) => {
 	fs.rmSync(victim);
 });
 
-test('an unreadable Checked-count fails the gate instead of skipping the arm', () => {
-	// `parseCheckedCount` returning null used to disable the files.maxSize arm silently,
-	// so a Biome upgrade that reformats one summary line would remove a mechanism while
-	// every run still printed OK.
+test('an unreadable Checked-count FAILS the gate rather than skipping the arm', (t) => {
+	// The round-one fix for this was asserted by nothing: the old test here only checked that
+	// the parser returned null, so deleting the guard failed 0 of 45 cases. This drives
+	// `check()` through a Biome stub whose summary line is unparseable. Found by the checker.
 	assert.strictEqual(gate.parseCheckedCount('Biome reformatted this line'), null);
+	const root = makeSandbox(t);
+	const stub = path.join(root, 'fake-biome.sh');
+	fs.writeFileSync(
+		stub,
+		`#!/bin/sh\nexec ${BIOME} "$@" | sed 's/^Checked \\([0-9]*\\) file/Inspected \\1 file/'\n`,
+	);
+	fs.chmodSync(stub, 0o755);
+	assert.match(errorsOf2(root, stub).join('\n'), /could not read Biome's `Checked N files` summary/);
+});
+
+test('parseCheckedCount is anchored, so a filename cannot answer for the summary', () => {
+	// A tracked file named `Checked 0 files in .js` appears in the verbose list FIRST. It made
+	// the gate permanently unpassable in one form, and neutralized arm 2 in the other.
+	const injected = '  - src/Checked 9999 files in .js\nChecked 12 files in 3ms.';
+	assert.strictEqual(gate.parseCheckedCount(injected), 12);
+});
+
+// ── FINDINGS FROM THE ADVERSARIAL TRIO ────────────────────────────────────────
+
+test('a severity downgrade is caught — a warning is not a tooth', (t) => {
+	// THE WORST HOLE IN THE FIRST VERSION. Biome takes a severity string where a rule-group
+	// object goes, and `biome check` EXITS 0 on warnings — so `npm run lint` went green over
+	// unfixed violations repo-wide while the gate printed "teeth confirmed". `diffProbes`
+	// matched on category and ignored severity. Found by the red team.
+	const root = makeSandbox(t);
+	write(
+		root,
+		'biome.jsonc',
+		read(root, 'biome.jsonc').replace(
+			'"rules": { "recommended": true }',
+			'"rules": { "recommended": true, "suspicious": "warn", "correctness": "warn" }',
+		),
+	);
+	assert.match(errorsOf(root).join('\n'), /linter is SILENT/);
+});
+
+test('diffProbes ignores a non-error diagnostic', () => {
+	const probes = [{ path: 'a/p.js', dir: 'a', ext: 'js' }];
+	const warned = gate.PROBE_LANGUAGES.js.rules.map((category) => ({
+		location: { path: 'a/p.js' },
+		category,
+		severity: 'warning',
+	}));
+	assert.strictEqual(gate.diffProbes({ probes, diagnostics: warned }).length, 1);
+	assert.deepStrictEqual(
+		gate.diffProbes({ probes, diagnostics: warned.map((d) => ({ ...d, severity: 'error' })) }),
+		[],
+	);
+});
+
+test('biome-ignore-all for format or assist is NOT lint suppression', () => {
+	const tok = 'biome-ignore' + '-all';
+	assert.ok(gate.SUPPRESS_ALL.test(`// ${tok} lint: real`));
+	// These leave the file fully linted; folding them out demanded a bless for a file Biome
+	// was still checking. `assist` is realistic here — `lint:fix` includes import sorting.
+	assert.ok(!gate.SUPPRESS_ALL.test(`// ${tok} format: sorted by hand`));
+	assert.ok(!gate.SUPPRESS_ALL.test(`// ${tok} assist: imports grouped deliberately`));
+});
+
+test('a comment that FORBIDS the practice is not a suppression', (t) => {
+	const root = makeSandbox(t);
+	const tok = 'biome-ignore' + '-all';
+	write(root, 'src/a.js', `// House rule: never write // ${tok} lint: x in engine source.\n${read(root, 'src/a.js')}`);
+	assert.deepStrictEqual(errorsOf(root), [], 'prose about the syntax is not the syntax');
+});
+
+test('a newline in a tracked filename cannot inject a covered file', (t) => {
+	// `processed` is parsed out of human-readable stdout. A file named `zz\n  - hidden.js`
+	// makes Biome emit a second `  - <path>` row, which scored a REAL, un-linted file as
+	// covered. Keeping only rows we asked about makes that unrepresentable. Found by the
+	// red team.
+	const root = makeSandbox(t);
+	// A genuinely un-linted file the phantom row would vouch for.
+	write(root, '.gitignore', `${read(root, '.gitignore')}src/hidden.js\n`);
+	write(root, 'src/hidden.js', CLEAN('src/hidden.js'));
+	fs.writeFileSync(path.join(root, 'src/zz\n  - hidden.js'), CLEAN('injector'));
+	execFileSync('git', ['add', '-A'], { cwd: root });
+	const { coverage } = gate.check({ root, biome: BIOME });
+	assert.ok(
+		!coverage.uncovered.includes('src/hidden.js'),
+		'src/hidden.js is gitignored, so it is not tracked and not a coverage question',
+	);
+	const { processed } = gate.collectCoverage(root, BIOME);
+	assert.ok(!processed.includes('hidden.js'), 'a phantom row was accepted as a covered file');
+	assert.ok(
+		processed.every((p) => !p.includes('\n')),
+		'every processed row must be a path we passed in',
+	);
+});
+
+test('every watched language has a probe body', () => {
+	// Without this, adding a language to WATCHED_EXTENSIONS on the widening guard's own
+	// instruction silently reopens the extension-scoped-override bypass for that language.
+	for (const ext of gate.WATCHED_EXTENSIONS) {
+		assert.ok(gate.PROBE_LANGUAGES[ext], `${ext} is watched but never probed`);
+	}
+});
+
+test('deleting an EXCLUDED file is not a stale baseline', (t) => {
+	// 62 of this repo's 72 entries are build output, and the gate is a PREFLIGHT that runs
+	// BEFORE the steps regenerating it — so `rm -rf <dist> && npm run build` aborted on a
+	// baseline that was correct. Found by the independent checker.
+	const root = makeSandbox(t);
+	fs.rmSync(path.join(root, 'build/out.js'));
+	assert.deepStrictEqual(errorsOf(root), []);
+});
+
+test('diffCoverage still calls a re-linted entry stale when the file is present', () => {
+	const got = gate.diffCoverage({
+		lintable: ['a.js', 'b.js'],
+		processed: ['a.js', 'b.js'],
+		baseline: ['b.js'],
+		present: new Set(['a.js', 'b.js']),
+	});
+	assert.deepStrictEqual(got.stale, ['b.js']);
+});
+
+test('the widening guard reads files.includes ONLY', () => {
+	// A glob in an overrides[] block, a linter allowlist, or a comment grants no coverage —
+	// demanding the extension be watched was a pre-push failure whose documented remedy made
+	// things worse. Found by the independent checker.
+	const base = '{ "files": { "includes": ["**/*.js"] }, ';
+	assert.deepStrictEqual(gate.unwatchedIncludeExtensions(`${base}"overrides": [{ "includes": ["**/*.svelte"] }] }`), []);
+	assert.deepStrictEqual(gate.unwatchedIncludeExtensions(`${base}"linter": { "includes": ["**/*.astro"] } }`), []);
+	assert.deepStrictEqual(gate.unwatchedIncludeExtensions('{ "files": { "includes": ["**/*.js"] /* dropped "**/*.vue" */ } }'), []);
+	assert.deepStrictEqual(gate.unwatchedIncludeExtensions('{ "files": { "includes": ["**/*.js"] } } // maybe "**/*.vue"'), []);
+	// A trailing comment INSIDE the array is the one that needs the quote-balance check.
+	assert.deepStrictEqual(
+		gate.unwatchedIncludeExtensions('{ "files": { "includes": [\n "**/*.js", // later "**/*.vue"\n "**/*.ts"] } }'),
+		[],
+	);
+	assert.deepStrictEqual(gate.unwatchedIncludeExtensions('{ "files": { "includes": ["**/*.js", "**/*.vue"] } }'), ['vue']);
+});
+
+test('bless immediately followed by check is green, suppression included', (t) => {
+	// `bless` and `check` must agree on what "covered" means. With bless skipping the
+	// suppression fold-in, the documented escape hatch stopped working — bless, then check,
+	// FAILED — and not one case noticed. Found by the independent checker.
+	const root = makeSandbox(t);
+	const tok = 'biome-ignore' + '-all';
+	write(root, 'src/a.js', `// ${tok} lint: deliberate\n${read(root, 'src/a.js')}`);
+	gate.bless({ root, biome: BIOME });
+	const baseline = gate.readBaseline(root);
+	assert.ok(baseline.uncovered.some((e) => e.path === 'src/a.js'), 'bless must see the suppression');
+	// A new entry lands with a null class and keeps failing until a human names one.
+	assert.match(errorsOf(root).join('\n'), /no valid class/);
+	classifyBaseline(root);
+	assert.deepStrictEqual(errorsOf(root), []);
+});
+
+test('a baseline entry with no class, or a bogus one, fails', (t) => {
+	const root = makeSandbox(t);
+	const baseline = gate.readBaseline(root);
+	for (const bad of [null, 'vendorish', '']) {
+		write(
+			root,
+			gate.BASELINE_REL,
+			`${JSON.stringify({ ...baseline, uncovered: baseline.uncovered.map((e, i) => (i ? e : { ...e, class: bad })) }, null, 2)}\n`,
+		);
+		assert.match(errorsOf(root).join('\n'), /no valid class/, `class ${JSON.stringify(bad)} was accepted`);
+	}
+});
+
+test('every committed baseline entry names a class from the vocabulary', () => {
+	const baseline = gate.readBaseline(REPO);
+	const bad = baseline.uncovered.filter((e) => !gate.EXCLUSION_CLASSES.includes(e.class));
+	assert.deepStrictEqual(bad, [], 'a bare path is the defect #1223 was filed about');
+});
+
+test('the gate is still WIRED INTO the build', () => {
+	// It runs only because of one line in tools/build.js. Delete that line and every other
+	// test here still passes, lint passes, build:check passes, CI is green — the gate that
+	// exists because a one-line edit silently removed lint coverage, removed by a one-line
+	// edit. Raised by the Munger inversion.
+	const { PREFLIGHT } = require('../../../tools/build.js');
+	assert.ok(
+		PREFLIGHT.some((step) => step.script === 'check-lint-coverage.js'),
+		'tools/build.js PREFLIGHT no longer runs the lint-coverage gate',
+	);
+});
+
+test('a Biome the parsers were not verified against fails loudly', (t) => {
+	const root = makeSandbox(t);
+	const stub = path.join(root, 'fake-version.sh');
+	fs.writeFileSync(stub, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "Version: 99.0.0"; exit 0; fi\nexec ${BIOME} "$@"\n`);
+	fs.chmodSync(stub, 0o755);
+	assert.match(errorsOf2(root, stub).join('\n'), /not the version these output parsers were verified against/);
+});
+
+test('the installed Biome matches VERIFIED_BIOME', () => {
+	assert.strictEqual(gate.biomeVersion(BIOME), gate.VERIFIED_BIOME);
 });
 
 test('every probe silent gets a DIFFERENT diagnosis from some probes silent', (t) => {
@@ -592,12 +795,14 @@ test('the committed baseline describes the repo as it stands', () => {
 	// Every excluded path must still be a tracked file — a baseline entry pointing at
 	// nothing is the exact rot that let `examples/**\/*.json` survive in the old config.
 	const tracked = new Set(gate.listTracked(REPO));
-	const gone = baseline.uncovered.filter((p) => !tracked.has(p));
+	const gone = baseline.uncovered.map((e) => e.path).filter((p) => !tracked.has(p));
 	assert.deepStrictEqual(gone, [], 'baseline entries that are no longer tracked');
 });
 
 test('docs/src/components/site is linted — the regression this gate was built for', () => {
 	const baseline = gate.readBaseline(REPO);
-	const shadowed = baseline.uncovered.filter((p) => p.startsWith('docs/src/components/site/'));
+	const shadowed = baseline.uncovered
+		.map((e) => e.path)
+		.filter((p) => p.startsWith('docs/src/components/site/'));
 	assert.deepStrictEqual(shadowed, [], 'a .gitignore line un-linted these once already');
 });
