@@ -8,8 +8,11 @@
  * Lattice's engine):
  *   <name>/
  *     <name>.md            — splits BAKED into literal `---` (lib/core/bake-splits.js),
- *                            local image paths localized into assets/, runtime
- *                            <script> tags (mermaid + lattice-runtime) appended
+ *                            local image + front-matter `logo:` paths localized into
+ *                            assets/, runtime <script> tags (mermaid + lattice-runtime)
+ *                            and the BAKED FRONT MATTER appended
+ *                            (lib/core/deck-front-matter.js — the deck-wide registers
+ *                            Marp strips and `fetch` can't recover over `file://`)
  *     lattice.css          — the palette-blind engine stylesheet (minified)
  *     fonts/*.woff2        — every face lattice.css's @font-face srcs point at
  *     themes/<palette>.css — the deck's palette (+ -dark), minified (from dist/themes/)
@@ -32,9 +35,11 @@
  * and the runtime never loads, so Mermaid and every JS-driven structural
  * component (split panels, the chart family) come out as bare markdown. WITH it,
  * marp-cli's own headless browser runs the runtime while rendering, so `npm run
- * pdf` / `npm run html` are full fidelity. The marp-vscode PREVIEW pane is not:
- * its webview does not execute the deck's scripts, so it shows palette + CSS
- * layout only (documented in the generated README).
+ * pdf` / `npm run html` carry every component layout, the deck-wide registers, and
+ * Mermaid — with six enumerated exceptions (`lib/core/marp-fidelity.js`, printed
+ * into the generated README). The marp-vscode PREVIEW pane carries less still: its
+ * webview does not execute the deck's scripts, so it shows palette + CSS layout
+ * only (also documented in the generated README).
  * Exit 0 on success, 1 on usage/IO error.
  */
 
@@ -45,7 +50,7 @@ const { bakeSplits } = require('../lib/core/bake-splits');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
-  vscodeSettings, readme, agentsMd,
+  safeName, vscodeSettings, readme, agentsMd,
 } = require('../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
@@ -61,32 +66,57 @@ function readTheme(src) {
 }
 
 /**
+ * Copy one local file reference into <dest>/assets and return its new relative
+ * path, or null when there is nothing to copy (a remote URL, or a dangling ref —
+ * left as authored). `copied` is the caller's dedupe map, shared across every
+ * reference in the deck so the same file is copied once and a same-named
+ * DIFFERENT file can't clobber it.
+ */
+function localizeOne(url, deckDir, destDir, copied) {
+  if (/^(https?:|data:|\/\/)/i.test(url)) return null;
+  const abs = path.resolve(deckDir, decodeURI(url));
+  if (!fs.existsSync(abs)) return null;
+  const existing = copied.get(abs);
+  if (existing) return existing;
+  const assetsDir = path.join(destDir, 'assets');
+  fs.mkdirSync(assetsDir, { recursive: true });
+  let base = path.basename(abs);
+  while (fs.existsSync(path.join(assetsDir, base)) && [...copied.values()].indexOf(`assets/${base}`) < 0) {
+    base = `_${base}`;
+  }
+  fs.copyFileSync(abs, path.join(assetsDir, base));
+  const rel = `assets/${base}`;
+  copied.set(abs, rel);
+  return rel;
+}
+
+/**
  * Localize local image references into assets/ and rewrite their paths. Handles
  * Markdown images `![alt](path)` / `![bg ...](path)`; leaves remote URLs
  * (http/https/data:) untouched. Copies each unique local file into <dest>/assets.
  */
-function localizeAssets(body, deckDir, destDir) {
-  const assetsDir = path.join(destDir, 'assets');
-  const copied = new Map(); // original resolved path -> assets/<base>
-  const isRemote = (u) => /^(https?:|data:|\/\/)/i.test(u);
+function localizeAssets(body, deckDir, destDir, copied = new Map()) {
   const out = body.replace(/(!\[[^\]]*\]\()([^)\s]+)(\s*(?:"[^"]*")?\))/g, (full, pre, url, post) => {
-    if (isRemote(url)) return full;
-    const abs = path.resolve(deckDir, decodeURI(url));
-    if (!fs.existsSync(abs)) return full; // leave dangling refs as-is (warned below)
-    let rel = copied.get(abs);
-    if (!rel) {
-      fs.mkdirSync(assetsDir, { recursive: true });
-      let base = path.basename(abs);
-      while (fs.existsSync(path.join(assetsDir, base)) && [...copied.values()].indexOf(`assets/${base}`) < 0) {
-        base = `_${base}`; // avoid clobbering a same-named different file
-      }
-      fs.copyFileSync(abs, path.join(assetsDir, base));
-      rel = `assets/${base}`;
-      copied.set(abs, rel);
-    }
-    return `${pre}${rel}${post}`;
+    const rel = localizeOne(url, deckDir, destDir, copied);
+    return rel ? `${pre}${rel}${post}` : full;
   });
   return { body: out, count: copied.size };
+}
+
+/**
+ * Localize the asset a FRONT-MATTER register points at — today just `logo:`.
+ *
+ * Markdown image refs were localized from the start; front matter was not, so a
+ * deck with `logo: brand/mark.svg` exported a bundle whose logo was a broken
+ * image on every slide. That was invisible while the register itself never
+ * survived the export at all; now that the baked front matter carries it, the
+ * file has to come along too.
+ */
+function localizeFrontMatter(fm, deckDir, destDir, copied) {
+  return fm.replace(/^([ \t]{0,8}logo:[ \t]{0,8}["']?)([^"'\r\n]+)(["']?[ \t]{0,8})$/m, (full, pre, url, post) => {
+    const rel = localizeOne(url.trim(), deckDir, destDir, copied);
+    return rel ? `${pre}${rel}${post}` : full;
+  });
 }
 
 function copyInto(srcAbs, destAbs) {
@@ -129,9 +159,14 @@ function main(argv) {
   const src = fs.readFileSync(deckPath, 'utf8');
   const palette = (paletteArg || readTheme(src) || 'indaco').toLowerCase();
   const name = path.basename(deckPath).replace(/\.md$/i, '');
+  // Every PATH in the bundle — the directory, the deck file, and the commands the
+  // generated package.json/README name it with — uses the sanitized slug, so a
+  // deck title with a space can't produce a `marp My Deck.md …` script that fails
+  // on its first argument. The raw `name` survives in README/AGENTS prose only.
+  const file = safeName(name);
   const wantZip = /\.zip$/i.test(outArg);
   const workRoot = wantZip ? fs.mkdtempSync(path.join(require('os').tmpdir(), 'export-marp-')) : path.resolve(outArg);
-  const dest = path.join(workRoot, name);
+  const dest = path.join(workRoot, file);
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(dest, { recursive: true });
 
@@ -144,12 +179,16 @@ function main(argv) {
   //    Glossary slide while the slide before it still announced it (#1256).
   const baked = bakeSplits(appendAutoGlossary(src));
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
-  const fm = fmMatch ? fmMatch[0] : '';
-  const body = fmMatch ? baked.slice(fm.length) : baked;
-  const localized = localizeAssets(body, path.dirname(path.resolve(deckPath)), dest);
-  // Append the runtime scripts so diagrams + structural components render
+  const deckDir = path.dirname(path.resolve(deckPath));
+  const copied = new Map(); // one dedupe map across body + front-matter refs
+  const fm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
+  const body = fmMatch ? baked.slice(fmMatch[0].length) : baked;
+  const localized = localizeAssets(body, deckDir, dest, copied);
+  // Append the runtime scripts + the baked front matter (the deck-wide registers
+  // Marp strips and `fetch` can't recover over `file://`), so diagrams,
+  // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  fs.writeFileSync(path.join(dest, `${name}.md`), withRuntimeScripts(fm + localized.body));
+  fs.writeFileSync(path.join(dest, `${file}.md`), withRuntimeScripts(fm + localized.body));
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
   //    under the readable `<palette>.css` name marp/VS Code register by @theme.
@@ -210,16 +249,16 @@ function main(argv) {
     const zipAbs = path.resolve(outArg);
     fs.rmSync(zipAbs, { force: true });
     fs.mkdirSync(path.dirname(zipAbs), { recursive: true });
-    execFileSync('zip', ['-rq', zipAbs, name], { cwd: workRoot });
+    execFileSync('zip', ['-rq', zipAbs, file], { cwd: workRoot });
     fs.rmSync(workRoot, { recursive: true, force: true });
     result = zipAbs;
   }
   console.log(`export-marp: wrote ${result}`);
   console.log(
-    `  deck: ${name}.md (splits baked) · palette: ${palette} · assets: ${localized.count} · fonts: ${fontCount}`,
+    `  deck: ${file}.md (splits baked) · palette: ${palette} · assets: ${localized.count} · fonts: ${fontCount}`,
   );
   return 0;
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { localizeAssets, readTheme };
+module.exports = { localizeAssets, localizeFrontMatter, readTheme };

@@ -175,7 +175,40 @@ So even after the premise mirror landed, the ledger's row terms rendered without
 their corner tag. Both now derive from `lib/core/slot-label-lift.js`, with a
 parity test that fails if either re-lists the layouts inline.
 
-## What we did NOT fix (deliberately): deck-wide front-matter registers
+### 4c. …and three more the follow-up closed
+
+Small, and all found by asking the same question of the same code rather than by a
+new report:
+
+- **The glossary slide's descendant-table guard.** Both halves of the DOM mirror
+  asked "does this section hold ANY `table`?" — so a glossary slide carrying an
+  unrelated table (a source note) skipped the list→table conversion entirely AND
+  drew its range pill from that table's first column: a pill reading `X` where the
+  engine, whose own range rule only ever reads the table IT generated, read `A`.
+  Both now key on the `Term` / `Definition` header row, which is the only thing
+  that identifies a generated table without changing the markup. The mirror also
+  converts EVERY top-level list, as the token path does, and reads the last table
+  for the pill, as the token path does.
+- **The generated `npm run pdf` interpolated the raw deck title.** Exporting
+  `Q3 Board Review.md` wrote a bundle whose only documented render command was
+  `marp Q3 Board Review.md …` — three arguments to marp-cli, none of which exists.
+  Every path in the bundle now uses the sanitized slug; prose keeps the real title.
+- **`cellHtml` did not escape its label.** The label is the concatenated
+  `.content` of a cell's inline children — decoded source text, which markdown-it
+  would have escaped on its own way out. Handing it to an `html_inline` token
+  skipped that, so `[x] Fees & Duties` emitted a bare `&` and `[x] <b>Tier 1</b>`
+  turned author text into live markup on the engine while the DOM mirror kept it
+  text. Escaping is what makes the two paths agree.
+
+Two pre-existing, off-path duplications were left where they are rather than pulled
+into the diff (HARD RULE #18): `docs/src/playground/drawing-board-export.js` keeps
+its own copy of `safeName` (it is called from PDF/PPTX paths that have no access to
+the playground's marp namespace), and `stripComments` exists three times over
+(`lib/engine/css.js`, `lib/layout/gate.js`, `tools/check-ownership.js`) — the
+browser-safe fourth caller now shares `lib/core/leading-is.js`'s comment walk
+instead of adding a fifth.
+
+## Deck-wide front-matter registers — deferred here, FIXED in the follow-up
 
 A fifth family, found while producing the light/dark artifacts for export
 sign-off, and left for its own change (HARD RULE #17):
@@ -211,10 +244,40 @@ the double-click case it is describing.
 
 The fix is therefore bigger than first written. Baking the color axis into a
 Marp-native global `class:` directive covers `color-mode` and `class` — **two of
-four**. `logo:` and `meta:` carry payloads a class cannot express and need the
-runtime to read a baked `<script type="application/json">` block (or data
-attributes on the deck) instead of a network fetch. Tracked as its own change;
-`gotchas.md`'s register carries the pointer.
+four**. `logo:` and `meta:` carry payloads a class cannot express.
+
+> **RESOLVED in the follow-up (2026-07-29).** All four axes, and the whole
+> finish / mode / claim / stamp / tone / spectrum / rule / eyebrow / headline /
+> lift family with them, by taking the network out of the path rather than
+> translating axis by axis: the export BAKES the deck's front matter into the
+> document as an inert `<script type="application/lattice-front-matter">` block,
+> and the runtime reads it from the DOM (`lib/core/deck-front-matter.js`). The
+> payload is the raw YAML, so the runtime's existing readers parse the same string
+> they used to fetch — one grammar, no second format. The block is REMOVED before
+> any transform measures the slide (an inert zero-height element still takes a
+> `gap` in a flex column), and the fetch survives as the fallback for a document
+> that predates the bake.
+>
+> Re-measured on the surface that failed, a `file://` open with default Chrome
+> flags: **0 → 10 of 10** sections carrying the deck's color mode, the logo
+> injected on the title slide, and the masthead meta filled. The front-matter
+> `logo:` asset is now localized into the bundle too — it never was, so the
+> register working would have pointed at a file that wasn't there.
+>
+> The generated README's *"opens standalone in any browser — same scripts, same
+> result"* was false for the double-click case; it is now true for it, and the
+> sentence says what a recipient does instead of claiming an equivalence.
+>
+> **Page-by-page against the engine's own PDF**, same deck, both rendered and
+> rasterized at 100 DPI: differing pixels per page were 325 / 51 791 / 50 905 / 0 /
+> 3 504 / 8 803 / 42 out of 1 000 500. Every one of those deltas is the atrium
+> finish's 9 %-alpha hairline gradient, not content — the TEXT is pixel-identical on
+> every page, and the finish's computed geometry (`background-size`,
+> `background-position`, the gradient itself, the box) is byte-identical between the
+> two documents. Two different Chrome print pipelines land a hairline
+> `repeating-linear-gradient` on different subpixel phases; page 4 happens to agree.
+> Worth knowing, not worth chasing: the deck-wide finish did not render in an
+> export AT ALL before this change.
 
 ## What we did NOT fix (can't): the marp-vscode preview pane
 
@@ -251,6 +314,29 @@ Three of the four defects were **visible in the first render** and none was
 subtle. What was missing was not skill or care; it was the render. A one-way
 handoff with no consumer on our side accrues defects at exactly the rate
 upstream changes, and reports zero.
+
+### The follow-up's answer to "what stops the fourth instance?"
+
+Fixing three missing mirrors does not stop the next one. Nothing forced a NEW
+markdown-it plugin to say whether the export covers it, and the export's own
+README was free to keep promising fidelity either way. So the classification is
+now DATA — `lib/core/marp-fidelity.js`, one entry per plugin, each `baked` /
+`mirrored` / `unmirrored` / `moot` — and two things read it:
+
+- `test/unit/core/marp-fidelity.test.js` fails when a plugin is added without a
+  verdict, when an entry outlives its plugin, and when a `mirrored` claim names a
+  symbol the runtime never calls (the two ways a coverage claim could be
+  aspirational rather than true).
+- the generated bundle README prints the `unmirrored` rows, so a gap cannot be
+  quietly dropped from the docs while staying in the code.
+
+Six gaps came out of that classification, every one observed on a real marp-cli
+render rather than read off the source: `_focusSteps` (stays one slide instead of
+N), `no-period` / `with-period` headings, `functionplot` and `anima` fences (each
+degrades to a code block showing its JSON), and math (typesets with MathJax, not
+KaTeX). The README's heading no longer calls that route "full fidelity".
+
+### The lesson, restated
 
 The cheapest durable guard is not a new gate — it is that
 `marp-independence.md` no longer says "clean boundary" without also saying

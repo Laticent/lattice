@@ -139,6 +139,70 @@ in patch versions.
   uniform 65% fill).
 
   Verified rendered in `indaco` and `indaco-dark`, all six level slides plus the capstone.
+- **An exported deck lost every deck-wide front-matter register the moment a recipient opened
+  it the way its own README says to.** `color-mode:`, `class:`, `logo:`, `meta:` and the whole
+  finish / mode / claim / stamp / tone / spectrum / rule / eyebrow / headline / lift family have
+  no Marp equivalent, so the runtime recovered them by FETCHING the deck's source `.md` from
+  beside the rendered document. `fetch` cannot read a `file://` URL in any modern browser — and
+  `file://` is how both a double-clicked `<name>.html` and marp-cli's own PDF conversion load the
+  deck. So a `class: dark` deck exported light, with no logo and an empty masthead. The export now
+  BAKES the front matter into the document as an inert
+  `<script type="application/lattice-front-matter">` block and the runtime reads it from the DOM
+  (`lib/core/deck-front-matter.js`), which removes the network from the path instead of
+  translating axis by axis: the payload is the raw YAML, so the runtime's existing readers parse
+  the same string they used to fetch. Measured on a `file://` open with default Chrome flags:
+  **0 → 10 of 10** sections carrying the deck's color mode, the logo injected, the masthead filled.
+  The block is removed before any transform measures a slide (an inert zero-height element still
+  takes a `gap` in a flex column), and the fetch survives as the fallback for an older export. The
+  three registers also stop fetching the same file three times. A front-matter `logo:` asset is
+  now localized into the bundle too — it never was, so the register working would have pointed at
+  a file that wasn't there.
+
+- **The Marp fidelity claim is now a ledger the tests hold us to, not prose.** Every defect in
+  #1256 was one shape: a structural transform that exists only as a markdown-it plugin, on a route
+  where marp-core never runs our plugins. Fixing three instances didn't stop the fourth — nothing
+  forced a NEW plugin to declare whether the export covers it, and the generated README was free
+  to keep promising fidelity either way. `lib/core/marp-fidelity.js` now classifies every plugin
+  (`baked` / `mirrored` / `unmirrored` / `moot`); `test/unit/core/marp-fidelity.test.js` fails when
+  a plugin is added without a verdict, when an entry outlives its plugin, and when a `mirrored`
+  claim names a symbol the runtime never calls; and the bundle README prints the `unmirrored` rows,
+  so a gap can't be dropped from the docs while staying in the code. Six gaps came out of it, each
+  observed on a real marp-cli render: `_focusSteps` (stays one slide instead of N), `no-period` /
+  `with-period` headings, `functionplot` and `anima` fences (each degrades to a code block showing
+  its JSON), and math (typesets with MathJax, not KaTeX). The README's heading no longer calls that
+  route "full fidelity", and its `<name>.html` line no longer claims "same scripts, same result".
+
+- **A glossary slide with any other table on it fabricated its range pill.** Both halves of the
+  DOM mirror asked "does this section hold ANY `table`?", so a glossary carrying a source note
+  skipped the list→table conversion entirely AND drew the pill from that table's first column —
+  `X` where the engine, whose range rule only ever reads the table it generated, read `A`. Both
+  now key on the `Term` / `Definition` header row, the only thing that identifies a generated
+  table without changing the markup. The mirror also converts every top-level list and reads the
+  last table for the pill, as the token path does.
+
+- **A deck title with a space made the exported bundle unrenderable.** The generated
+  `npm run pdf` / `npm run html` interpolated the raw title, so `Q3 Board Review.md` produced
+  `marp Q3 Board Review.md …` — three arguments to marp-cli, none of which exists. Every path and
+  command in the bundle now uses the sanitized slug (prose keeps the real title), and a test pins
+  the charset invariant the quote-free interpolation rests on.
+
+- **A matrix-grid cell label wasn't escaped on the engine path.** The label is the concatenated
+  `.content` of the cell's inline children — decoded source text that markdown-it would have
+  escaped on its own way out. Handing it to an `html_inline` token skipped that, so
+  `[x] Fees & Duties` emitted a bare `&` and `[x] <b>Tier 1</b>` turned author text into live
+  markup, on the same slide where the DOM mirror keeps it text. Escaping is what makes the two
+  paths agree.
+
+- **The leading-`:is()` distribution read the stylesheet as text, so a `{` inside a string
+  literal looked like a rule opening.** Everything back to the previous `;` became a candidate
+  selector, and a `:is(` in that window was "distributed" inside the declaration. Nothing in the
+  corpus does that today; the scanner is now a quote-aware character walk, so nothing has to. It
+  also preserves the newline before a rewritten rule (the pass now only ever touches selectors),
+  and `fontAssetsFor` strips comments before deriving the bundle's font supply — a
+  `url(fonts/…)` in a comment is an example, not a reference. New: `test/unit/core/leading-is.test.js`
+  pins all of it, including the cascade PRECONDITION nothing checked — `:is()` takes the
+  specificity of its most specific arm, so distributing is only neutral when the arms are equally
+  specific, and every leading head in engine CSS now has to be.
 
 - **A state-chart drew differently in every preview pane.** `state-chart.transform.js` derived
   its geometry scale from `section.getBoundingClientRect().width` — the VISUAL box — so on the
