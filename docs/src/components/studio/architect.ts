@@ -1562,8 +1562,13 @@ export async function resumePendingAuth(): Promise<boolean> {
 	}
 	// Scrub ONLY the OAuth code, and carry `history.state` through.
 	//
-	// The state half is the real fix: passing `null` wipes overlay-back.ts's ownership marker,
-	// and that module's header named this call site as one of its offenders.
+	// BOTH HALVES ARE DEFENSIVE. Say so plainly, because two earlier versions of this comment
+	// claimed otherwise. The caller runs this from an effect keyed on a `useCallback([])`, so
+	// it fires once on mount, and it early-returns unless `?code=` is present — which only
+	// happens on the redirect back from OpenRouter, a fresh navigation. overlay-back pushes
+	// its sentinel when a panel opens, strictly later. So there is no live marker here to wipe
+	// and no observable bug being fixed; what changes is that the invariant now holds by
+	// construction instead of by the order two unrelated effects happen to run in.
 	//
 	// The URL half is defensive, and its first justification was WRONG — worth recording so
 	// nobody re-derives it. It was written as "the old `location.href.split('?')[0]` silently

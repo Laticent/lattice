@@ -1297,11 +1297,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		if (!params.has('new')) return;
 		params.delete('new');
 		const qs = params.toString();
-		// PRESERVE history.state. `replaceState(null, …)` wipes overlay-back.ts's ownership
-		// marker — the only record of our synthetic entry that survives a reload — and that
-		// module's header named this call site as one of six offenders. Found while building
-		// a deck URL that was NOT merged (#1244); the fix stands on its own, because the
-		// marker was being lost here regardless of what else is in the query string.
+		// PRESERVE history.state — `replaceState(null, …)` wipes overlay-back.ts's ownership
+		// marker, the only record of its synthetic entry that survives a reload.
+		//
+		// Be precise about what this fixes, because the first version of this comment was not:
+		// today it fixes NOTHING OBSERVABLE. This effect is ref-guarded with `[]` deps, so it
+		// runs once on mount, and overlay-back pushes its sentinel only when a panel opens —
+		// strictly later. There is no marker here yet to lose. The invariant held by
+		// effect-ordering coincidence rather than by construction, which is the whole problem:
+		// add a dependency, drop the ref guard, or move this call, and the back guard silently
+		// stops recognizing its own entry after a reload, with nothing failing at the moment
+		// of the mistake. Passing state through costs one expression and removes the trap.
 		window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
 		newDeckRef.current();
 	}, []);

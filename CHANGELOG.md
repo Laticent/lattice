@@ -145,16 +145,19 @@ in patch versions.
 
 ### Fixed
 
-- **Two URL scrubs no longer wipe the mobile back-guard's ownership marker.** `overlay-back.ts`
-  records ownership of its synthetic history entry in `history.state` — the only record that
-  survives a reload — and both the `?new=1` shortcut scrub and the OpenRouter OAuth return
-  scrub called `replaceState(null, …)`, dropping it. Nothing breaks immediately, which is why
-  it went unnoticed: the in-memory sentinel carries on and the loss only shows after the next
-  reload. The OAuth scrub also rebuilt the URL with `location.href.split('?')[0]`, discarding
-  the whole query string and the fragment along with the code; it now removes only the `code`
-  parameter. `overlay-back.ts`'s roster of offending call sites is corrected from six to the
-  four that remain, verified by grep rather than by memory, and both fixes are pinned by
-  tests — reverting either one used to leave the whole suite green.
+- **Two URL scrubs no longer discard `history.state`.** `overlay-back.ts` records ownership of
+  its synthetic history entry there, and it is the only record that survives a reload; the
+  `?new=1` shortcut scrub and the OpenRouter OAuth return scrub both called
+  `replaceState(null, …)` and dropped it. **Nothing observable was broken:** both run once on
+  mount, before any panel can have pushed the sentinel, so there was no live marker to lose.
+  The invariant was holding by the order two unrelated effects happen to run in rather than by
+  construction — add a dependency or move a call and the back guard would silently stop
+  recognizing its own entry after a reload, with nothing failing at the moment of the mistake.
+  The OAuth scrub also rebuilt the URL with `location.href.split('?')[0]`, discarding the whole
+  query string and the fragment along with the code; it now removes only `code`.
+  `overlay-back.ts`'s roster of offending call sites is corrected from six to the four that
+  remain, verified by grep rather than from memory, and all of it is pinned by tests —
+  reverting either fix used to leave the whole suite green.
 
 - **A Studio deck's title now IS its first heading, everywhere it is shown.** Creating a deck
   gave you "Untitled deck", and typing a real `# Title` into it changed the slide and nothing
