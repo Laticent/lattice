@@ -48,6 +48,19 @@
  * BUDGETS are exceed-only and seeded at zero. Both shells are clean today, so zero is
  * the honest number and any regression fails. A budget above zero here would be a
  * scoreboard rather than a gate.
+ *
+ * WHAT THIS DOES NOT COVER, stated so the green is not read as more than it is:
+ *   · ONE deck (`gallery.md`) — a component catalog, which the ADR itself calls
+ *     unrepresentative of a real boardroom deck;
+ *   · ONE viewport (1280×720), so nothing responsive, and never the fluid view;
+ *   · the player's DEFAULT PRESENT VIEW ONLY. Read·Article and Read·Slides are never
+ *     switched to, and those are where the prose projection clones and re-hosts content —
+ *     a different DOM entirely, reached by a real user in one click;
+ *   · the ENGINE render (covered by the structural gates beside this file, not by axe);
+ *   · `color-contrast` (see above);
+ *   · the exported PDF's tag tree, which no gate in this repo reads at all — that gap is
+ *     how a `/Figure` regression once passed everything here (ADR §18.3).
+ * Each line is a place a defect can ship green.
  */
 
 const { test, describe, before, after } = require('node:test');
@@ -81,7 +94,11 @@ const VIOLATION_BUDGET = { 'export shell': 0, 'html player': 0 };
  * of thing that works by luck until it doesn't — and because this branch minted such a
  * pair itself.
  */
-const ENFORCED_INCOMPLETE = new Set(['duplicate-id-aria', 'duplicate-id']);
+const ENFORCED_INCOMPLETE = new Set(['duplicate-id-aria']);
+// NOT `duplicate-id`: in axe-core 4.12.1 it is tagged
+// ["cat.parsing","wcag2a-obsolete","wcag411","deprecated"], and none of those appear in
+// AXE_RUN_OPTIONS' tag list — so it can never fire and listing it read as coverage that
+// did not exist. Verified with `axe.getRules()`, not assumed from the rule name.
 
 const DECK = path.join(ROOT, 'test', 'integration', 'baseline-decks', 'gallery.md');
 
