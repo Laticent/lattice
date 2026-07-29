@@ -5051,13 +5051,30 @@ section.inventory.timeline > .cell-stage > ul > li strong {
 section.inventory.editorial > .cell-stage {
   display: grid; grid-template-columns: 1fr 1.25fr; column-gap: var(--sp-2xl); align-content: safe center;
 }
+/* `grid-row: 1` on BOTH, and it is load-bearing rather than tidy.
+ *
+ * `grid-column` names a column, not a cell. Auto-placement walks children in SOURCE order and
+ * never goes backwards, so an author who writes the list first and the takeaway after it — which
+ * is the natural order, and the order this component's own gallery and skeleton use — gets the
+ * `<ul>` in row 1 column 2, and then the blockquote cannot be placed beside it: it opens row 2.
+ * The result is the opposite of the variant's whole premise. Measured on the shipped gallery
+ * slide at `hd`: the items occupied 209–565px in column 2, the blockquote sat BELOW them at
+ * 572–653px against a content cell ending at 616 — so the left column rendered as a tall empty
+ * void, and the takeaway's second line fell 37px outside the clip box. The committed
+ * `inventory.gallery.light.pdf` shipped the sentence cut mid-phrase: "The sidebar carries the
+ * register's one" — the word "takeaway." simply gone, with no ring in the export to say so.
+ *
+ * Pinning both to row 1 restores "insight ∥ items" for either authoring order, and removes the
+ * overflow at its cause. Found by the adversarial trio on #1234, which is also the answer to why
+ * the split at `wide` looked like it helped: paginating a 4-item list into a 4-page run was
+ * papering over a placement bug, not solving a density one. */
 section.inventory.editorial > .cell-stage > blockquote {
-  grid-column: 1; align-self: center;
+  grid-column: 1; grid-row: 1; align-self: center;
   font-family: var(--font-display); font-style: italic; font-size: var(--fs-message);
   color: var(--accent); border-left: 0.3cqi solid var(--accent); padding-left: var(--sp-md);
 }
 section.inventory.editorial > .cell-stage > ul {
-  grid-column: 2; list-style: none; padding: 0;
+  grid-column: 2; grid-row: 1; list-style: none; padding: 0;
   display: flex; flex-direction: column; justify-content: safe center; gap: var(--sp-md);
 }
 section.inventory.editorial > .cell-stage > ul > li {
@@ -5123,6 +5140,22 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
   row-gap: var(--sp-lg);
   align-content: start;
+}
+/* …and the CHILDREN have to be released to that single column, which is the half this reflow
+ * has been missing since it landed. `grid-template-columns: 1fr` above does not collapse
+ * anything on its own: the `<ul>` still declares `grid-column: 2`, and a grid asked for a column
+ * that its template does not define simply creates an IMPLICIT one — so the two-column form
+ * survived the reflow intact, with the takeaway squeezed into a narrow rail. At `mobile` it wrapped
+ * one word per line down the left edge. It looked correct at `portrait` only by accident: that box
+ * splits, and a split body page is caught by the `.lat-split-native` rule above, which does reset
+ * `grid-column`. Unsplit — `mobile`, or any tall deck short enough to fit — nothing reset it.
+ *
+ * `grid-row: auto` goes with it: the row pin exists only to defeat source-order auto-placement
+ * ACROSS two columns, and in a single column auto-placement is exactly what stacking wants. Pin
+ * both and the two blocks would land in one cell, on top of each other. */
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > blockquote,
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  grid-column: 1; grid-row: auto;
 }
 
 /* === lib/components/chart/journey/journey.styles.css === */

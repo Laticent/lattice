@@ -63,8 +63,8 @@ describe('core: the measured pass makes the cut (rule 10 retired the static one)
   });
 
   test('only the slides the caller says OVERFLOWED are cut', () => {
-    // The measured pass keys on MEASUREMENT, not on capacity: "at capacity" is the static pass's
-    // question, and it now answers it by deferring rather than cutting (see the block below).
+    // The measured pass keys on MEASUREMENT, not on capacity. Since 2026-07-29 nothing else does
+    // either — "is this at capacity?" is `lint:deck`'s question, and it no longer reaches the engine.
     const html = docify(sec('cards', `<h2>T</h2>${list(4)}`));
     const { html: out, changed } = resplitDoc(html, [], cap);
     assert.equal(changed, 0);
@@ -300,24 +300,29 @@ describe('core: applyRails', () => {
   });
 });
 
-// ── FIT, NOT COUNT — the trigger, pinned by its negative case ───────────────────
+// ── resplitDoc's contract: it cuts what it is TOLD overflowed, and nothing else ──
 //
-// The splitter reads `capacity` for PACING (how many members ride a page) and never for the
-// decision to cut. That decision is the measured overflow verdict, full stop. The distinction
-// is invisible in every positive test above — they pass an overflowing slide, which is also
-// over-capacity — so it is pinned here, on a slide that is over `capacity.hard` by a wide
-// margin and that nothing reported as overflowing.
+// READ THIS BEFORE TRUSTING THIS BLOCK AS A REGRESSION PIN — IT IS NOT ONE.
 //
-// It is worth a block of its own because the engine got this wrong for a while: a pre-render
-// pass counted the collection and handed every over-budget slide to the measured loop as a
-// candidate, so twelve one-line checklist items at `hd` — comfortably inside a 1920×1080 box —
-// came out as three pages, two of them mostly white. An author who stays inside the geometry
-// gets the slide they wrote.
-describe('core: the split trigger is measured overflow, never the authored count', () => {
+// These cases document that `resplitDoc` acts only on the verdict handed to it: empty verdict,
+// no cut; non-empty verdict, cut — regardless of how the slide compares to `capacity.hard`.
+// That is worth stating, and it is ALL this block states.
+//
+// It cannot detect the 2026-07-29 change ("split fires on fit, never on count"), and the decision
+// note wrongly cited it as the unit pin for exactly that. The adversarial checker ran these tests
+// against the PRE-change kernel and all of them passed, for a reason that is obvious in hindsight:
+// the count trigger never lived in `resplitDoc`. It lived in `autoSplitDeck` plus the emulator's
+// `DEFERRED_BY_COUNT` wiring, and that wiring fed the measured loop a NON-empty verdict. Handing
+// `resplitDoc` an empty one was always a no-op, before and after.
+//
+// The real pin is an integration test, because the trigger is an emulator-level mechanism:
+// test/integration/invariants/split-trigger.test.js. Mutating either half of the change makes it
+// fail. Nothing here does.
+describe('core: resplitDoc cuts the verdict it is given, not the count it can see', () => {
   test('a slide 2× over `capacity.hard` that nothing reported as overflowing is untouched', () => {
     const html = docify(sec('cards', `<h2>T</h2>${list(9)}`)); // 9 vs hard 4
     const r = resplitDoc(html, [], cap); // …and an EMPTY overflow verdict
-    assert.equal(r.html, html, 'the bytes must be identical — the count is not a trigger');
+    assert.equal(r.html, html, 'an empty verdict must produce identical bytes, whatever the count');
     assert.equal(r.changed, 0);
   });
 
@@ -327,9 +332,9 @@ describe('core: the split trigger is measured overflow, never the authored count
     assert.equal(resplitDoc(html, [{ slide: 1, ratio: 3 }], cap).changed, 1);
   });
 
-  test('a slide UNDER capacity still splits when it overflows — density, not count', () => {
-    // The other direction, and the case a count threshold can never see: three items that are
-    // each a paragraph long overflow a tall box while sitting well inside `hard: 4`.
+  test('a slide UNDER capacity still splits when the verdict says it overflowed', () => {
+    // The other direction, and the case a count threshold could never see even in principle:
+    // three items that are each a paragraph long overflow a tall box while sitting inside `hard: 4`.
     const html = docify(sec('cards', `<h2>T</h2>${list(3)}`));
     assert.equal(resplitDoc(html, [{ slide: 1, ratio: 2 }], cap).changed, 1);
   });

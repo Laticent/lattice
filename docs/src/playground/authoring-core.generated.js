@@ -185,20 +185,21 @@ var require_lint_core = __commonJS({
       return SIZE_FAMILY_FALLBACK[name] || "wide";
     }
     var AUTOSPLIT_DIRECTIVE = /^\s*autosplit:\s*(\S+)\s*$/im;
-    function findRetiredAutosplitDirective(source) {
-      const fmMatch = String(source || "").match(/^---\n[\s\S]*?\n---/);
+    function findRetiredAutosplitDirective(source, vocab) {
+      const fmMatch = String(source || "").match(/^---\r?\n[\s\S]*?\r?\n---/);
       if (!fmMatch) return [];
       const hit = fmMatch[0].match(AUTOSPLIT_DIRECTIVE);
       if (!hit) return [];
       const off = /^(off|false|no)$/i.test(hit[1]);
+      const paginates = deckFamily(source, vocab) !== "wide";
       return [{
         slide: 1,
         rule: "autosplit-retired",
         severity: off ? "error" : "suggestion",
         classToken: "autosplit",
         line: hit[0].trim(),
-        message: off ? "autosplit: off is retired \u2014 splitting is intrinsic, so this deck WILL paginate an overflowing slide despite this line." : "autosplit: is retired \u2014 splitting is intrinsic, so this line no longer does anything.",
-        fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 an overflowing slide is divided without asking at every presentation @size (square \xB7 portrait \xB7 story \xB7 mobile). A landscape @size never paginates: 16:9 is the box the deck is authored in."
+        message: off ? paginates ? "autosplit: off is retired \u2014 splitting is intrinsic at this @size, so this deck WILL paginate a slide that does not fit, despite this line." : "autosplit: off is retired \u2014 the line does nothing. (At a landscape @size nothing would have paginated anyway: the split move does not run there.)" : "autosplit: is retired \u2014 splitting is intrinsic, so this line no longer does anything.",
+        fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 a slide that does not fit is divided without asking at every presentation @size (square \xB7 portrait \xB7 story \xB7 mobile). A landscape @size never paginates."
       }];
     }
     function findInlineTitleBodyLine(sample) {
@@ -588,10 +589,15 @@ ${indent}   - ${body.trim()}`;
                   severity: "warning",
                   classToken: t,
                   line: m[0],
-                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n} \u2014 expect it to overflow` + (cap.note ? ` (${cap.note})` : ""),
+                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n}, and a landscape @size does not paginate \u2014 so if it does not fit, it is clipped` + (cap.note ? ` (${cap.note})` : ""),
                   // Naming the non-split is the part an author cannot infer: every other @size
-                  // paginates, and the silence at landscape would otherwise read as a bug.
-                  fix: `${capacityFix(cap)} A landscape @size does not paginate \u2014 16:9 is the box the deck is authored in, so an over-full slide is clipped and ringed rather than divided.`
+                  // paginates, and the silence at landscape would otherwise read as a bug. What this
+                  // must NOT promise is the ring — the emulator strips the overflow marker before
+                  // printing ("a red box in front of a board is worse than the silent clip",
+                  // lattice-emulator.js), so the only signal outside this warning is a build-time
+                  // stderr line. An earlier draft of this string promised "clipped and ringed"; the
+                  // ring never reaches the artifact.
+                  fix: `${capacityFix(cap)} Nothing will divide it for you at a landscape @size, and the export carries no overflow marker \u2014 check the rendered page, or present at a portrait/square @size, where it paginates.`
                 });
                 continue;
               }
@@ -832,7 +838,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
-      findings.push(...findRetiredAutosplitDirective(source));
+      findings.push(...findRetiredAutosplitDirective(source, vocab));
       return findings;
     }
     var GANTT_STATUS = Object.freeze(/* @__PURE__ */ new Set([

@@ -103,9 +103,11 @@ in patch versions.
   `autosplit: off` is an **error** (it asks for something the engine no longer offers and
   the deck will paginate anyway), `autosplit: on` a suggestion (it asks for what already
   happens). The ten decks and fixtures in this repo are cleaned up here.
-  Catalog cost, measured before landing: **nothing moves.** Landscape output is
-  byte-identical because the split move never reaches it, and at the presentation sizes one
-  of thirteen committed example decks changes — the one that was shipping a clipped slide.
+  Catalog cost, measured before landing: landscape LAYOUT is unchanged (the split move never
+  reaches it — the `inventory` gallery is pixel-identical at 200 dpi on all 11 pages against
+  the branch base; a re-rendered PDF is not byte-identical, only because of `CreationDate` and
+  deflate jitter). At the presentation sizes, exactly one committed example deck changes —
+  `examples/reflow-legal.md`, which was shipping a clipped slide.
 
 - **The pre-render COUNT split pass is gone (`autoSplitDeck`).** The engine had two split
   triggers, and the second one cut slides that fit. It counted each collection against
@@ -121,10 +123,18 @@ in patch versions.
 
 - **`capacity-overflow` lint is un-retired, and now fires exactly where nothing will be
   split**: at a landscape `@size`, where the SPLIT move does not run. Its fix text names the
-  non-split outright — *"a landscape @size does not paginate"* — so an author is never left
-  wondering why the engine stayed quiet. At `square`/`tall`/`strip` the `capacity-autosplit`
-  advisory takes over, and both are suppressed on a `<!-- stress-slide -->` specimen, which
-  overflows on purpose and is never divided.
+  non-split outright — *"nothing will divide it for you at a landscape @size"* — so an author is
+  never left wondering why the engine stayed quiet, and it explicitly warns that the export
+  carries **no overflow marker** (the emulator strips the ring before printing). It does not
+  predict overflow from the count, which would be the same error this release removes from the
+  splitter. At `square`/`tall`/`strip` the `capacity-autosplit` advisory takes over, and both
+  are suppressed on a `<!-- stress-slide -->` specimen, which overflows on purpose and is never
+  divided.
+
+- **`autosplit-retired` stopped contradicting the engine at the default `@size`.** The `off`
+  variant asserted "this deck WILL paginate an overflowing slide despite this line", which is
+  false at `wide` — where most decks are, and where the restored gate forbids exactly that. It
+  is family-aware now.
 
 - **`capacity-autosplit` says only what it knows.** It used to promise "auto-split will
   divide it into 4 pages of 4". Two things were wrong once the count stopped forcing a cut:
@@ -134,6 +144,40 @@ in patch versions.
   pages of 4".
 
 ### Fixed
+
+- **`inventory editorial` placed its sidebar in an implicit second grid ROW, so the takeaway
+  rendered below the items instead of beside them — and the committed gallery PDF shipped that
+  sentence cut mid-phrase.** `grid-column` names a column, not a cell, and auto-placement never
+  goes backwards: an author who writes the list first and the takeaway after (the natural order,
+  and the one the component's own gallery and skeleton use) puts the `<ul>` in row 1 column 2,
+  after which the blockquote cannot be placed beside it. Measured on the shipped slide at `hd`:
+  items at 209–565px in column 2, blockquote BELOW them at 572–653px against a content cell
+  ending at 616 — a tall empty left column, and the takeaway's second line 37px outside the clip
+  box. `lib/components/inventory/inventory/inventory.gallery.light.pdf` read *"The sidebar
+  carries the register's one"*, with **takeaway.** simply gone and no ring in the export to say
+  so. Pinned both children to `grid-row: 1`.
+  **The same fix exposed a second defect in the variant's family reflow**: at `tall`/`strip` it
+  set `grid-template-columns: 1fr` but never reset the children's `grid-column`, and a grid asked
+  for a column its template does not define creates an implicit one — so the two-column form
+  survived the reflow with the takeaway squeezed into a narrow rail (at `mobile`, one word per
+  line down the left edge). It looked correct at `portrait` only because that box splits, and a
+  split body page is caught by a rule that does reset `grid-column`. General lesson worth
+  carrying: **`grid-template-columns` on the container does not collapse a grid whose children
+  name their own columns.**
+
+- **The emulator read `size:` two ways, and both were narrower than the linter's — so the split
+  gate could be sent to the wrong box.** Two divergences, both found by adversarial review, both
+  landing on the gate that decides pagination from geometry. (a) Two of the four front-matter
+  readers in `lattice-emulator.js` matched `/^---\n/`, **LF only**, while lint and the other two
+  already used `\r?\n`: a deck saved with CRLF endings had front matter the marpit engine parsed
+  fine, so the engine stamped `data-family="tall"` for `size: story` while the emulator saw no
+  front matter at all, defaulted to `hd`, and rendered tall-family CSS into a 1280×720 landscape
+  page with the content clipped — silently dropping `theme:`, `color-mode:`, `style:` and
+  `fluid:` along with it. (b) `size: story # phone` is legal YAML, but a `$`-anchored value
+  pattern rejected the line and fell back to `hd` while lint's prefix-matching copy accepted it,
+  so lint promised a split the engine would not perform. Both readers are now defined once
+  (`FRONT_MATTER_RE`, `SIZE_DIRECTIVE_RE`) and are supersets of what they replaced — no LF deck
+  changes.
 
 - **Front-matter `captions:` survived the split instead of being dropped.** Keyed by
   authored slide, they were discarded wholesale on any split deck ("keys are unsafe under

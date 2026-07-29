@@ -589,6 +589,27 @@ const paletteCSS = loadPaletteWithImports(palettePath);
 const layoutCSS  = loadPaletteWithImports(cssFile, new Set(), 'layout CSS');
 const css = paletteCSS + '\n' + layoutCSS;
 
+// ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
+// This file used to carry four hand-written copies of "match the front matter" and three of
+// "read `size:`", and they did not agree. Two divergences were real, both found by adversarial
+// review on #1234, and both landed on the SPLIT GATE — which decides its answer from the deck's
+// geometry, so a reader that mis-reads `size:` sends the gate to the wrong box:
+//
+//   · CRLF. Two copies matched `/^---\n/`, LF only, while `lib/authoring/lint-core.js` and two
+//     other readers in THIS file already used `\r?\n`. A deck saved with CRLF line endings has
+//     front matter that the marpit engine parses fine — so the engine stamped `data-family="tall"`
+//     for `size: story` while this file saw NO front matter at all, defaulted to `hd`, and
+//     rendered tall-family CSS into a 1280x720 landscape page with the content clipped. Every
+//     other directive (`theme:`, `color-mode:`, `style:`, `fluid:`) was silently dropped with it.
+//   · A trailing YAML comment. `size: story # phone` is legal YAML and the value is `story`, but
+//     a `$`-anchored value pattern rejects the whole line and falls back to `hd`, while lint's
+//     prefix-matching copy accepted it — so lint promised a split the engine would not perform.
+//
+// `\r?\n` on both sides, and the value pattern tolerates the comment and the `.` that lint has
+// always allowed. Strictly a superset of what these matched before: no LF deck changes.
+const FRONT_MATTER_RE   = /^---\r?\n[\s\S]*?\r?\n---/;
+const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
+
 // ── Fail fast on an unknown `size:` directive (#502) ──────────────────────
 // A typo'd size name (`size: storyy`) otherwise resolves SILENTLY to the first
 // declared @size: the deck renders at the wrong geometry with no signal, and a
@@ -597,9 +618,9 @@ const css = paletteCSS + '\n' + layoutCSS;
 // before any Chrome work — listing the valid names. No directive → hd default,
 // unchanged. Front-matter-scoped so a `size:` in prose / a code block can't trip it.
 const { parseSizes } = require('./lib/engine/css');
-const _mdFmMatch  = md.match(/^---\n[\s\S]*?\n---/);
+const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
-const explicitSize = (_mdFm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])[1];
+const explicitSize = (_mdFm.match(SIZE_DIRECTIVE_RE) || [])[1];
 if (explicitSize) {
   const knownSizes = new Set();
   for (const src of [paletteCSS, layoutCSS]) for (const k of parseSizes(src).keys()) knownSizes.add(k);
@@ -1325,7 +1346,7 @@ function preprocessMermaid(source) {
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
   // tall frame instead of shrinking to a thin strip; landscape is untouched.
-  const sizeName = (fm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])[1] || 'hd';
+  const sizeName = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
   const orientation = orientationFor(resolveSize(sizeName, [paletteCSS, layoutCSS])).name;
   return source.replace(/```mermaid\n([\s\S]*?)```/g, (_match, def, offset) => {
     const before = source.slice(0, offset);
@@ -1360,7 +1381,10 @@ const rawMd = appendAutoGlossary(preGlossaryMd);
 // byte-identical. Read the mode off the pre-append source: `rawMd` has had the trigger stripped
 // (the idempotency mechanism), so its mode always resolves to 'off'.
 const autoGlossaryEntries = resolveGlossaryMode(preGlossaryMd) === 'auto' ? glossaryEntries(preGlossaryMd) : [];
-const fmMatch = rawMd.match(/^---([\s\S]*?)---\n/);
+// CRLF-aware, and it captures the front-matter BODY (see FRONT_MATTER_RE above for why the
+// LF-only form was a real defect). Every consumer below reads it with an `/m`-anchored pattern,
+// so the exact newlines at the capture's edges do not matter.
+const fmMatch = rawMd.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 const fm      = fmMatch ? fmMatch[1] : '';
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
 // inlines the runtime, flags the page fluid-capable). Enabled by the `--fluid`
@@ -1460,7 +1484,7 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // scaffold bakes into `@page`. `paletteCSS`/`layoutCSS` carry every theme +
 // base `@size` declaration (theme first, then base — composeCss's source order).
 // (resolveSize / orientationCss required above, before preprocessMermaid.)
-const deckSizeName   = (fm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])[1] || 'hd';
+const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
 const _geom          = resolveSize(deckSizeName, [paletteCSS, layoutCSS]);
 const slideW         = parseFloat(_geom.width);
 const slideH         = parseFloat(_geom.height);
@@ -1475,15 +1499,20 @@ const slideH         = parseFloat(_geom.height);
 // never fitted to and the choice is paginate or clip.
 //
 // One classifier, the same one the components read off `data-family` (lib/adaptive/families.js):
-// square → square, portrait|story → tall, mobile → strip, hd|4K|16:9 → wide. Naming the FAMILY
-// rather than listing @size names means a custom `size: 1000x1000` is gated correctly too.
+// square → square, portrait|story → tall, mobile → strip, hd|4K|16:9|standard → wide. Naming the
+// FAMILY rather than listing @size names means a geometry registered by a custom `@size` in theme
+// or layout CSS is classified by its shape rather than by whether someone remembered to add its
+// NAME to a list. (An earlier draft of this comment offered `size: 1000x1000` as the example. That
+// cannot happen — inline dimensions are not a size value, and the #502 fail-fast rejects an
+// unregistered name before this line runs.)
 //
-// (This restores a gate that was briefly removed earlier on this branch on the argument that
-// "landscape is just another presentation". The argument is wrong at its root: landscape is
-// not another presentation, it is the AUTHORING box. What the removal was really reaching for
-// — landscape decks that clip today — is a real defect and it is the RING's job to report and
-// the author's to fix, not the splitter's to paper over.)
-const AUTOSPLIT_APPLIES = AUTOSPLIT && familyFor(slideW / slideH) !== 'wide';
+// The `Number.isFinite` guard is not defensive noise: both sibling call sites carry it
+// (lib/engine/index.js:171, lib/engine/css.js orientationFor), because `familyFor(NaN)` falls
+// through every band and returns 'strip' — the opposite verdict from the 'wide' those two produce
+// for the same degenerate geometry. Dropping it here is how the gate and the `data-family` stamp
+// would come to disagree about one box, which is exactly what this gate must never do.
+const AUTOSPLIT_APPLIES = AUTOSPLIT
+  && familyFor(Number.isFinite(slideW) && Number.isFinite(slideH) && slideH > 0 ? slideW / slideH : 16 / 9) !== 'wide';
 // Orientation scaling/fill (social/mobile portrait + square @sizes). Empty for
 // landscape, so the HD/4K PDF is byte-identical. Same helper the engine
 // scaffold + runtime use, so every render path agrees.

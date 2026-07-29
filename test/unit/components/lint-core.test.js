@@ -96,7 +96,10 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
       const f = out.find((x) => x.rule === 'capacity-overflow');
       assert.ok(f, `expected capacity-overflow for ${JSON.stringify(fmExtra) || 'the default @size'}`);
       assert.equal(f.severity, 'warning', 'the author has to act — this is not advisory');
-      assert.match(f.fix, /does not paginate/, 'and it says why nothing will be split for them');
+      assert.match(f.fix, /Nothing will divide it for you/, 'and it says why nothing will be split for them');
+      assert.match(f.fix, /no overflow marker/, 'and does not promise a ring the export strips');
+      assert.doesNotMatch(f.message, /expect it to overflow|will overflow/,
+        'a COUNT may not predict FIT — that is the error this whole change removed from the splitter');
       assert.equal(out.find((x) => x.rule === 'capacity-autosplit'), undefined,
         'promising a split that the size gate forbids is the lie-to-the-author defect');
     }
@@ -149,11 +152,21 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
   // works", and a deck carrying `autosplit: off` would look opted-out while the engine
   // paginated it anyway — which is why `off` is the error and `on` is only a suggestion.
   test('autosplit: off is an ERROR — it asks for something the engine no longer offers', () => {
-    const f = core.lintTextWith(overflowDeck('autosplit: off\n'), capVocab)
+    // The MESSAGE is family-aware, because "this deck paginates anyway" is only true where the
+    // split move runs. It shipped once asserting it unconditionally, which was false at the
+    // DEFAULT @size — the lie-to-the-author defect inside the rule that exists to prevent it.
+    const f = core.lintTextWith(overflowDeck('size: portrait\nautosplit: off\n'), capVocab)
       .find((x) => x.rule === 'autosplit-retired');
     assert.ok(f, 'expected autosplit-retired');
     assert.equal(f.severity, 'error');
     assert.match(f.message, /WILL paginate/);
+
+    const wide = core.lintTextWith(overflowDeck('autosplit: off\n'), capVocab)
+      .find((x) => x.rule === 'autosplit-retired');
+    assert.equal(wide.severity, 'error', 'still an error — the directive is retired either way');
+    assert.doesNotMatch(wide.message, /WILL paginate/,
+      'at a landscape @size nothing paginates, so the message must not claim it does');
+    assert.match(wide.message, /does not run there/);
     assert.match(f.fix, /stress-slide/, 'points at the per-slide replacement');
     assert.match(f.fix, /--no-split/, 'and at the tool flag for measurement rigs');
   });
@@ -458,7 +471,7 @@ describe('lint-core: capacity rule', () => {
     const f = capRule(itemsSlide(8), 'capacity-overflow');
     assert.ok(f, 'expected a capacity-overflow finding at 8 items');
     assert.equal(f.severity, 'warning');
-    assert.match(f.message, /expect it to overflow/);
+    assert.match(f.message, /does not paginate — so if it does not fit, it is clipped/);
     assert.match(f.fix, /list-tabular/, 'the escalateTo fix still leads');
     assert.equal(capRule(itemsSlide(8), 'capacity-autosplit'), undefined, 'nothing will be split at 16:9');
     // overflow and crowd stay mutually exclusive per slide
