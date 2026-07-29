@@ -11,7 +11,7 @@ summary: >
   is fixed alongside: state-chart derived its geometry scale from a transform-scaled rect.
   Correcting the size up revealed that the shipped deck corpus was over-subscribed at design
   size. Measured over the 247 decks that actually ship — worked examples INCLUDING their
-  subdirectories, every component and design gallery, the 46 exemplars, the baseline deck —
+  subdirectories, every component and design gallery, the exemplars, the baseline deck —
   `main` clips 43 slides across 31 decks. Those slides were ALREADY clipping in the preview
   on `main`; the export was hiding them. Every slide this change newly exposed is fixed, and
   a new on-demand ratchet (`npm run overflow:check`) holds the floor.
@@ -123,7 +123,7 @@ because they are the same mistake.
 
 **First** the note claimed "14 slides across four decks … in full" — measured over a deck
 list of four. **Then** it claimed 53 newly-clipping slides and a finish at "12, below main's
-15" — measured over a 185-deck glob that silently excluded `exemplars/**` (46 worked decks
+15" — measured over a 185-deck glob that silently excluded `exemplars/**` (45 worked decks
 that ship committed PDFs AND are bundled into the docs Playground), every `examples/`
 SUBDIRECTORY, and `design/*.gallery.md`. Both times the denominator was a set someone
 remembered rather than the set that ships, and the second time the gate I had just built

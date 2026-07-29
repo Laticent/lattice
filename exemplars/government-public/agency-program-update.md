@@ -35,11 +35,11 @@ Two years in, the modernised platform processes seven of every ten initial claim
    - Claims on new platform
    - target 65% this quarter `On plan`
 2. 4.2 days
-   - Time to first payment
-   - down from 21 days `On plan`
+   - Median time to first payment
+   - vs 21 days on legacy `On plan`
 3. $51M
    - Spent of $58M authorised
-   - 88% drawn, on schedule `On plan`
+   - 88% drawn `On plan`
 
 ---
 

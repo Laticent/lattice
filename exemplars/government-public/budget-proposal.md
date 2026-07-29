@@ -55,14 +55,14 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 <!-- _class: kpi compact -->
 <!-- tier: short -->
 
-## What the investment returns in reliability and cost avoidance.
+## Projected FY28–FY30 returns in reliability and cost avoidance.
 
 1. +52%
-   - Distance between failures
+   - Mean distance between failures
    - target +40% by FY30 `On plan`
 2. −31%
    - Weekday delay minutes
-   - from signal and track fixes
+   - signal and track fixes `On plan`
 3. $96M
    - Avoided emergency repair
    - over three years `On plan`

@@ -75,7 +75,7 @@ in patch versions.
   decks / 15 clipped slides to 42 / 67 on the deck set first measured — and those slides were
   ALREADY clipping in the preview on `main`; the export had been hiding them. **Measured over
   the 247 decks that actually ship** (worked examples including their subdirectories, every
-  component and design gallery, the 46 exemplars, the baseline deck), `main` clips 43 slides
+  component and design gallery, the exemplars, the baseline deck), `main` clips 43 slides
   across 31 decks, and every slide this change newly exposed is fixed here. The only decks
   left clipping are the ones that already were, plus `examples/overflow-fix-me.md`, which
   exists to demonstrate the overflow overlay. Several stress specimens asserted a capacity
@@ -149,6 +149,24 @@ in patch versions.
   `KNOWN_UNCLASSIFIED` with reasons, and a companion test fails if an entry rots. All 59 affected
   PDFs were re-rendered. A path one filter can see and the other cannot is a dead gate, which is
   the same lesson as the corpus glob above.
+- **A second content audit caught trims that had traded meaning for fit.** Making a slide fit by
+  deleting words is only correct while the words are not load-bearing, and several were.
+  `agency-program-update` lost "**Median**" from *median time to first payment* — a benefits
+  program's median and mean time-to-payment are different claims — and "on legacy", which was the
+  comparison basis. `status-update` asserted "latency and errors on target" on a slide that no
+  longer showed a single target, and had broadened `p99 checkout latency` / `Checkout error rate`
+  to `p99 latency` / `Error rate` in a deck about the checkout migration. `budget-proposal` renamed
+  *mean distance between failures* mid-deck (two slides after spelling it out), dropped its
+  "Projected FY28–FY30" marker, and left one metric of three without a status pill — so `−31%` read
+  as unasserted between two green ones. `grant-proposal` trimmed roadmap cells to dangling
+  adjectives (`Three-receptor`, `Stability`) that no longer named a deliverable, and
+  `inter-agency-briefing` shortened an agency roster entry to `Emergency`, which is not an entity.
+  All are restored, and each slide re-fitted by cutting genuine redundancy instead — a tail that
+  duplicated its own status pill, an eyebrow whose content moved into the headline. `contact`'s
+  manifest **sample** had been trimmed of its `url` and `caption` lines, which propagated to the
+  generated `connect` gallery and left **no** demo of either slot anywhere; the sample now drops
+  the less costly `phone` line instead and fits. The lesson is narrower than "trim less": a fit
+  edit must land on the slide that actually clips, and must spend redundancy before meaning.
 
 ### Added
 

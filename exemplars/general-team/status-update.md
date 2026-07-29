@@ -41,14 +41,17 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 <!-- _class: kpi compact -->
 <!-- tier: short -->
 
-## Eleven of fourteen live; latency and errors on target.
+## Eleven of fourteen live; latency and errors inside target.
 
 1. 78%
    - Services migrated
+   - 11 of 14 · target 100% by 1 Jul `On plan`
 2. 142 ms
-   - p99 latency
+   - p99 checkout latency
+   - target 180 ms `On plan`
 3. 0.02%
-   - Error rate
+   - Checkout error rate
+   - target 0.1% `On plan`
 
 ---
 

@@ -95,8 +95,8 @@ We will infect mice with a lethal carbapenem-resistant strain and treat with the
 
 | Aim | Years 1–2 `Build` | Years 2–4 `Test` | Years 4–5 `Translate` |
 | --- | --- | --- | --- |
-| Aim 1 — Retargeting | [x] Domain library | [-] Strain panel | [ ] Rapid response |
-| Aim 2 — Cocktails | [-] Three-receptor | [ ] Escape assays | [ ] Stability |
+| Aim 1 — Retargeting | [x] Domain library | [-] Full strain panel | [ ] Rapid-response protocol |
+| Aim 2 — Cocktails | [-] Three-receptor design | [ ] Escape assays | [ ] Stability formulation |
 | Aim 3 — In vivo | [ ] Model setup | [ ] Efficacy study | [ ] IND-enabling tox |
 
 ---

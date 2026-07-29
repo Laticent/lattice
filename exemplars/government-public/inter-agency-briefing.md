@@ -82,7 +82,7 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 | Workstream | Charter `April` | Drill `June` | Ready `September` |
 | --- | --- | --- | --- |
 | Command structure | [x] Roles agreed | [-] Tabletop | [ ] Activation drill |
-| Funding pool | [-] $46M committed | [ ] Pre-auth | [ ] Draw-down |
+| Funding pool | [-] $46M committed | [ ] Pre-auth | [ ] Draw-down tested |
 | Joint operations | [ ] Comms plan | [-] Cache sited | [ ] Pumps sited |
 | Public warning | [x] Alerts linked | [-] Routes set | [ ] Community drill |
 
@@ -96,8 +96,8 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 | Workstream | Charter `April` | Drill `June` | Ready `September` |
 | --- | --- | --- | --- |
 | Water District | [x] Commander set | [-] Pump ready | [ ] Breach drill |
-| Emergency | [x] Alert linkage | [-] Routes mapped | [ ] Evac exercise |
-| Finance Office | [-] Fund committed | [ ] Pre-authorized | [ ] Draw-down |
+| Emergency Mgmt | [x] Alert linkage | [-] Routes mapped | [ ] Evac exercise |
+| Finance Office | [-] Fund committed | [ ] Pre-authorized | [ ] Draw-down test |
 | Public Works | [x] Standing contract | [/] Debris site | [ ] Repair drill |
 
 ---
