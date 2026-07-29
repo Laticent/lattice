@@ -507,28 +507,70 @@ async function measureSweep(browser, html, rules) {
     return await page.evaluate((rs) => {
       const per = [];
       document.querySelectorAll('section[data-lattice-slide]').forEach((sec) => {
-        const scoped = {}, bare = {};
-        const pick = (sel) => {
-          if (!sel) return null;
-          let els = [];
-          try { els = [...sec.querySelectorAll(sel)]; } catch { return null; }
-          let self = false; try { self = sec.matches(sel); } catch { /* not valid on a section */ }
-          if (self) els = [sec, ...els];
-          return els.length ? els[0] : null;
+        const fam = sec.getAttribute('data-family') || 'wide';
+        const scoped = {}, reachable = {}, withoutStamp = {};
+
+        // A rule may target a PSEUDO-element, and `querySelectorAll` can never match one.
+        // Ten of the catalog's 142 family rules are pseudo-only — three of them are the whole
+        // visible substance of `cycle`'s tall reflow (the chevron, the return arc, the glyph)
+        // — so a pass that skips them reports green while they are dead. Split the pseudo off
+        // the selector, match the real element, and read the pseudo's own computed style.
+        const split = (sel) => {
+          const m = String(sel || '').match(/^(.*?)(::?(?:before|after|marker|placeholder))\s*$/);
+          return m ? { base: m[1].trim(), pseudo: m[2].replace(/^:?:/, '::') } : { base: sel, pseudo: null };
         };
+        const pick = (sel) => {
+          const { base, pseudo } = split(sel);
+          if (!base) return null;
+          let els = [];
+          try { els = [...sec.querySelectorAll(base)]; } catch { return null; }
+          let self = false; try { self = sec.matches(base); } catch { /* not valid on a section */ }
+          if (self) els = [sec, ...els];
+          return els.length ? { el: els[0], pseudo } : null;
+        };
+        const read = (hit, props) => {
+          const cs = getComputedStyle(hit.el, hit.pseudo || undefined);
+          return props.map((k) => cs.getPropertyValue(k));
+        };
+
+        // PASS 1 — the rule as it ships. `reachable` records whether the rule's target element
+        // exists at all (via the de-scoped selector), which is what separates a DEAD tier from
+        // one this slide simply never exercises.
         for (const r of rs) {
           const hit = pick(r.sel);
-          if (hit) {
-            const cs = getComputedStyle(hit);
-            scoped[r.sel] = r.props.map((k) => cs.getPropertyValue(k));
-          }
-          const b = pick(r.descoped);
-          if (b) {
-            const cs = getComputedStyle(b);
-            bare[r.sel] = r.props.map((k) => cs.getPropertyValue(k));
-          }
+          if (hit) scoped[r.sel] = read(hit, r.props);
+          if (pick(r.descoped)) reachable[r.sel] = true;
         }
-        per.push({ family: sec.getAttribute('data-family') || 'wide', scoped, bare });
+
+        // PASS 2 — THE A/B. Remove the family stamp from this section and read the same
+        // element again, in the SAME render, at the SAME viewport.
+        //
+        // This replaces a baseline taken from the `hd` render, which was confounded and is the
+        // reason this pass shipped unable to fail. Every `--sp-*` rides `--canvas-scale` and
+        // every `--fs-*` rides `cqi`, so ANY rule declaring a scale-derived length reads a
+        // different px at portrait than at hd whether or not the family predicate did anything.
+        // Measured on the catalog: 87 of 101 `fires` verdicts rested on at least one such
+        // length. Proven by three independent mutations that the gate did not catch —
+        // `verdict-grid`'s tier reverted outright (column -> row), `compare-prose`'s rule made a
+        // byte-for-byte no-op, and all three of `cycle`'s pseudo rules killed.
+        //
+        // Dropping the attribute makes exactly one thing false — the family predicate — and
+        // holds the box, the tokens, the DOM and the cascade fixed. So a difference here IS the
+        // rule's effect, and nothing else can produce one.
+        if (fam !== 'wide') {
+          sec.removeAttribute('data-family');
+          void sec.offsetHeight; // force a style recalculation before reading back
+          for (const r of rs) {
+            if (!scoped[r.sel]) continue;
+            // With the stamp gone the scoped selector cannot match, so the same element has to
+            // be re-found through the de-scoped one. A rule whose selector de-scopes to nothing
+            // has no readable "off" state; it is left absent and reported as `no-baseline`.
+            const off = pick(r.descoped);
+            if (off) withoutStamp[r.sel] = read(off, r.props);
+          }
+          sec.setAttribute('data-family', fam);
+        }
+        per.push({ family: fam, scoped, reachable, withoutStamp });
       });
       return per;
     }, rules);
@@ -540,60 +582,91 @@ async function measureSweep(browser, html, rules) {
  * needs), and returns `{ [size]: { [component]: verdict } }`.
  */
 async function conformanceSweep(browser, comps) {
-  // `hd` first and separately: it is the baseline every other size is compared against,
-  // and it is where the rule set is read.
+  // `hd` is rendered like any other size, not treated as a baseline. It USED to be the
+  // baseline, and that was the defect: comparing an element at hd against itself at portrait
+  // measures the viewport, not the family predicate. The A/B now happens inside each render
+  // (measureSweep), so hd is here only to DERIVE its own row rather than assert it — a
+  // hardcoded `n/a` column would be 20% of the advertised cells taken on faith.
   const wide = renderSweep('hd', comps);
   const rules = (await readFamilyRules(browser, wide.html))
     .map((r) => ({ ...r, descoped: descopeFamily(r.sel) }));
-  const base = await measureSweep(browser, wide.html, rules);
-  fs.rmSync(wide.html, { force: true });
 
-  const table = { hd: {} };
-  // Every component is `n/a` at wide by construction — the baseline cannot promise a
-  // family reflow to itself. Recorded rather than omitted so the row count is the same
-  // at every size and a missing component reads as missing, not as passing.
-  for (const c of wide.order) table.hd[c] = 'n/a';
+  // FLOOR SENTINEL. The rule reader has already failed once by returning nothing (an empty
+  // CSSRuleList is truthy, so every rule recursed into its own empty children). If it fails
+  // that way again, every cell becomes `n/a` and `--bless` would freeze a record that asserts
+  // nothing and is green forever. The clip oracle guards its read with a sentinel for exactly
+  // this reason; this one has to as well.
+  if (rules.length < 100) {
+    throw new Error(
+      `family-conformance: read only ${rules.length} family-scoped rules from the rendered bundle — `
+      + 'the catalog has ~142 and this pass has failed by reading ZERO before. Refusing to derive '
+      + 'a table (or bless one) from a read that is probably broken.',
+    );
+  }
 
-  for (const s of SIZES.filter((x) => x.family !== 'wide')) {
-    const r = renderSweep(s.size, comps);
+  const table = {};
+  for (const s of SIZES) {
+    const r = s.size === 'hd' ? wide : renderSweep(s.size, comps);
     const per = await measureSweep(browser, r.html, rules);
     fs.rmSync(r.html, { force: true });
     table[s.size] = {};
     r.order.forEach((comp, i) => {
-      const at = per[i], b = base[i];
+      const at = per[i];
       if (!at) { table[s.size][comp] = 'unrendered'; return; }
-      // Only the rules that NAME this component are its promise. A rule matching inside
-      // its slide but belonging to shared chrome (the masthead carries family rules too)
-      // is not this component's tier, and counting it would let a component inherit a
-      // green it never earned.
-      const mine = rules.filter((x) => new RegExp(`(^|[^\\w-])${comp}([^\\w-]|$)`).test(x.sel));
+      // Only the rules that NAME this component are its promise. A rule matching inside its
+      // slide but belonging to shared chrome (the masthead carries family rules too) is not
+      // this component's tier, and counting it would let a component inherit a green it never
+      // earned. Negations are stripped first: `:not(.stats)` inside a `math` selector is not
+      // `stats` promising anything — it is `math` promising to exclude it.
+      const positive = (sel) => sel.replace(/:not\([^()]*\)/g, ' ');
+      const mine = rules.filter((x) => new RegExp(`(^|[^\\w-])${comp}([^\\w-]|$)`).test(positive(x.sel)));
       const forFamily = mine.filter((x) => x.sel.includes(`"${at.family}"`));
       if (!forFamily.length) { table[s.size][comp] = 'n/a'; return; }
       const matched = forFamily.filter((x) => at.scoped[x.sel]);
       if (!matched.length) {
-        // NOTHING matched — but there are two very different reasons, and calling both
-        // `inert` would cry wolf. Ask the DE-SCOPED selector: if the rule's non-family
-        // part finds no element either, the rendered slide simply does not carry what the
-        // rule targets (a variant it is scoped to, or one it excludes), so the tier was
-        // never exercised and this says nothing about whether it works. If the de-scoped
-        // selector DOES find the element, then the family predicate is the only thing that
-        // failed — which is the #1218 defect exactly.
+        // NOTHING matched — two very different reasons, and calling both `inert` would cry
+        // wolf. If the rule's non-family part finds no element either, the slide simply does
+        // not carry what the rule targets (a variant it is scoped to, or one it excludes), so
+        // the tier was never exercised. If the de-scoped selector DOES find the element, the
+        // family predicate is the only thing that failed — the #1218 defect exactly.
         //
-        // This distinction is not hypothetical: on the first run six of seven `inert` cells
-        // were `q-and-a` (rule scoped to `.grid`, sweep slide is plain) and `list-steps`
-        // (rule scoped `:not(.timeline)`, sweep slide IS the timeline one). Reporting those
-        // as dead tiers would have been a confident, wrong, and expensive claim.
-        const reachable = forFamily.some((x) => at.bare[x.sel]);
-        table[s.size][comp] = reachable ? 'inert' : 'unexercised';
+        // Not hypothetical: six of the first seven `inert` cells were `q-and-a` (rule scoped
+        // `.grid`, sweep slide is plain) and `list-steps` (rule scoped `:not(.timeline)`,
+        // sweep slide IS the timeline one). Reporting those as dead tiers would have been a
+        // confident, wrong, expensive claim.
+        table[s.size][comp] = forFamily.some((x) => at.reachable[x.sel]) ? 'inert' : 'unexercised';
         return;
       }
-      const changed = matched.some((x) => {
-        const now = at.scoped[x.sel], was = b?.bare[x.sel];
-        // No baseline read means the selector de-scoped to nothing, so "did it change"
-        // is unanswerable — do not count it as an effect either way.
-        return was && now.some((v, k) => v !== was[k]);
+      // THE EFFECT TEST — same element, same render, same viewport, stamp on vs stamp off.
+      // A rule counts as having an effect only if ITS OWN declared properties move; a sibling
+      // rule moving is not evidence about this one. (The old test took `.some()` across all
+      // matched rules against a different-sized render, so one sibling reading a different px
+      // voted `fires` for a tier that had been reverted outright.)
+      const withEffect = matched.filter((x) => {
+        const on = at.scoped[x.sel], off = at.withoutStamp[x.sel];
+        return off && on.some((v, k) => v !== off[k]);
       });
-      table[s.size][comp] = changed ? 'fires' : 'no-effect';
+      // EVERY matched rule must earn its own green — `some()` is not enough.
+      //
+      // A component's cell aggregates per-RULE facts, and taking `some()` lets one live rule
+      // mask a dead sibling. Proven against this very pass: `list` ships three family rules;
+      // neutering one of them (space-evenly -> the initial value) left the cell reading `fires`
+      // because the other two still moved. That is the same defect class as the confound this
+      // A/B replaced, one level of granularity down, so it gets the same treatment: `fires`
+      // means ALL of them did something, `partial` means some did and some did not, and
+      // `partial` is the cell that wants a human.
+      if (withEffect.length === matched.length) { table[s.size][comp] = 'fires'; return; }
+      if (withEffect.length) {
+        table[s.size][comp] = `partial:${withEffect.length}/${matched.length}`;
+        return;
+      }
+      // Every matched rule had NO readable "off" state — the selector de-scopes to nothing, so
+      // the rule cannot be switched off without also losing the element. That is the
+      // instrument admitting it is blind here, and it must not borrow a defect's name: the old
+      // pass called this `no-effect` and then published a diagnosis ("redundant, or losing a
+      // cascade fight") that was false for all three of its instances.
+      const anyBaseline = matched.some((x) => at.withoutStamp[x.sel]);
+      table[s.size][comp] = anyBaseline ? 'no-effect' : 'no-baseline';
     });
   }
   return { table, ruleCount: rules.length };
@@ -624,8 +697,15 @@ async function conformanceReport(browser) {
     console.log(`${c.padEnd(w)}  ${sizes.map((s) => String(table[s][c] || '—').padEnd(12)).join('')}`);
   }
   console.log(`\n  ${Object.entries(tally).sort().map(([k, v]) => `${k}: ${v}`).join(' · ')}`);
-  console.log('  fires     = the tier matched AND changed a computed value vs the wide baseline');
-  console.log('  no-effect = it matched but changed nothing measurable — redundant, or losing a cascade fight');
+  console.log('  fires     = EVERY rule the component ships for this family matched, and removing the');
+  console.log('              stamp IN THIS RENDER moved a property each one declares — same element,');
+  console.log('              same box, rule on vs off');
+  console.log('  partial:n/m = n of m matched rules had an effect; the rest are redundant or dead.');
+  console.log('              One live rule must not vote green for a dead sibling');
+  console.log('  no-effect = it matched, the off-state was readable, and nothing it declares moved:');
+  console.log('              redundant with the base rule, or losing a cascade fight');
+  console.log('  no-baseline = it matched but cannot be switched off without losing the element too,');
+  console.log('              so this pass is BLIND here — not a verdict about the component');
   console.log('  inert     = the component ships a rule for this family and nothing matched it (#1218\'s bug)');
   console.log('  unexercised = a rule exists, but this slide does not carry what it targets — the sweep');
   console.log('              never tested it. A COVERAGE gap in the roster, not a defect in the component');
@@ -664,10 +744,14 @@ async function conformanceReport(browser) {
 const CONFORMANCE_NOTE = [
   'Does each family-reflowing component\'s [data-family] tier actually FIRE at each @size?',
   'DERIVED, never hand-marked: `node tools/check-family-tiers.js --conformance` renders one sweep',
-  'per @size and reads the rendered DOM. `fires` = a rule naming this component matched AND changed a',
-  'computed value against the same element in the `hd` render (reached by stripping the family',
-  'predicate off the selector). `no-effect` = matched, changed nothing measurable — redundant or losing',
-  'a cascade fight; worth a human look, not a failure. `inert` = the component ships a rule for that',
+  'per @size and reads the rendered DOM. `fires` = a rule naming this component matched, and removing',
+  'the data-family stamp FROM THAT SAME RENDER changed one of the properties THAT RULE declares —',
+  'same element, same viewport, rule on vs rule off. An earlier cut compared against the `hd` render',
+  'instead, which was confounded: every --sp-* rides --canvas-scale and every --fs-* rides cqi, so any',
+  'scale-derived length differs between boxes whatever the family predicate does — three deliberately',
+  'reverted tiers passed it. `no-effect` = matched, off-state readable, nothing it declares moved:',
+  'redundant or losing a cascade fight. `no-baseline` = matched but not switchable off without losing',
+  'the element too, so the pass is blind there rather than making a claim. `inert` = ships a rule for that',
   'family and the element IS present but the family predicate did not match — the #1218 defect this',
   'pass exists to catch. `unexercised` = a rule exists but the sweep slide does not carry what it',
   'targets (a variant it is scoped to, or one it excludes), so the tier was never tested: a coverage',

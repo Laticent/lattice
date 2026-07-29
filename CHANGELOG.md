@@ -3733,26 +3733,29 @@ in patch versions.
   A front-matter title is not markdown-stripped the way a heading is — nothing renders
   it, so `Q4_final` keeps its underscores. (#1248 follow-up)
 
-- **Every component's family-reflow tier is now verified, not assumed —
-  `npm run check:family-conformance`.** `check-family-tiers.js` had two halves and a hole
-  its own header confessed: the tier probe asserts a `[data-family]` rule actually fires for
-  **three** hand-picked components, and the overflow oracle covers all 33 but records only
-  whether they CLIP. So for 30 of 33 components nothing checked that their family rules did
-  anything at all — the same shape of hole as the one that let the square tier sit inert for
-  the entire life of the gate this one replaced (#1218).
-  The new pass derives, per (component × `@size`), whether a rule naming that component
-  **matched** and whether anything it declares **computes differently** from the same element
-  in the `wide` render. Four states, and the record (`test/oracle/family-conformance.json`) is
-  checked EXACTLY in both directions — a tier being fixed has to move it as loudly as one going
-  dead. Cost: zero extra renders. It reads the DOM of the same five sweeps the clip oracle
-  already needs, which is the "capped render budget" #1234 group E asked for.
-  **165 cells, 101 `fires`, and zero `inert`** — no component ships a family rule the stamp
-  fails to reach. The residue is 7 `unexercised` (the sweep's chosen slide does not carry what
-  the rule targets — `q-and-a`'s rule is scoped to `.grid` while the sweep picks the plain
-  slide, and `list-steps`' is scoped `:not(.timeline)` while the sweep picks *the timeline
-  slide*; a coverage gap in the roster, which also means the CLIP oracle has been measuring
-  those same unrepresentative slides) and 3 `no-effect` (`roadmap`'s legend rule matches but
-  changes no computed value — redundant, or losing a cascade fight).
+- **A derived conformance record for every family-reflow tier — `npm run check:family-conformance`.**
+  `check-family-tiers.js` had two halves and a hole its own header confessed: the tier probe
+  asserts a `[data-family]` rule fires for **three** hand-picked components, and the overflow
+  oracle covers all 33 but records only whether they CLIP. The new pass derives, per
+  (component × `@size`), whether every rule naming that component matched and whether removing
+  the stamp **from that same render** moves a property each one declares — same element, same
+  viewport, rule on vs rule off. Frozen in `test/oracle/family-conformance.json`, compared
+  exactly in both directions, with a floor sentinel so a broken rule-read cannot be blessed into
+  an all-`n/a` record that is green forever.
+  **165 cells: 73 `fires`, 14 `partial`, 17 `no-effect`, 7 `unexercised`, 54 `n/a`, zero `inert`.**
+  The useful finding is the 17 `no-effect`: across `cards-stack`, `content`, `pricing`, `stats`
+  and `verdict-grid`, a `[data-family]` rule duplicates a `[data-orientation]` rule on the same
+  component — two mechanisms shipped for one effect.
+  **Scope, stated because the headline invites overreading:** this covers the 33 components with
+  `[data-family]` CSS, one of the four reflow mechanisms the reflow ADR names. It proves a tier
+  fires and changes something; it cannot judge whether what changed is any good. It is an
+  on-demand diagnostic, not a CI gate — nothing runs it on a schedule.
+  *Its first cut could not go red.* It compared against the `hd` render, where every
+  `--canvas-scale`/`cqi` length differs for reasons unrelated to the family predicate — 87 of 101
+  greens rested on one — and it took `some()` across a component's rules, letting one live rule
+  vote green for a dead sibling. Both were found by adversarial review and both are fixed and
+  mutation-verified: neutering one of `list`'s three family rules now drifts four cells and
+  exits 1, where before it passed silently.
 
 
 - **Lint coverage is gated by effect, not by config syntax** — `npm run lint:coverage`

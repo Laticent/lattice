@@ -36,7 +36,7 @@ export rings the slide — the honest terminal.
    2026-07-29 (`2026-07-29-autosplit-is-not-a-toggle.md`) at the presentation sizes —
    `square`, `tall`, `strip` — so for those the recorded condition is deliberately
    artificial rather than the default one: most of that set paginates in a real export.
-   At portrait, **21** components clip un-split and **5** with splitting on — and those
+   At portrait, **22** components clip un-split and **5** with splitting on — and those
    five are the ones with no seam to cut, which is the honest terminal.
    `node tools/check-family-tiers.js --ladder` prints the overlap per @size, and that
    residue, which is the set actually worth shrinking. **At `wide` the oracle records
@@ -276,21 +276,38 @@ declares COMPUTE differently from the same element in the `wide` render? The rec
 `test/oracle/family-conformance.json`, checked exactly in both directions — a tier being
 fixed has to move it as loudly as a tier going dead.
 
-**Result: 165 cells, 101 `fires`, and ZERO `inert`.** No component ships a family rule
-that the stamp fails to reach — the #1218 defect does not recur anywhere in the catalog.
-The residue is ten cells, and they are two different things:
+**Result: 165 cells — 73 `fires`, 14 `partial`, 17 `no-effect`, 7 `unexercised`, 54 `n/a`,
+and zero `inert`.** No component ships a family rule whose target element is present and whose
+family predicate fails to reach it — which is the #1218 shape, *within the 33 components this
+pass covers*. It is not a claim about the catalog: 16 further components declare `adapt.mode:
+reflow` through the three mechanisms this pass cannot see, and a canonical-but-wrong family
+token reads `n/a` here (it is caught instead by `families.test.js`, which asserts every
+`[data-family="X"]` in `lib/**` names a real family).
 
-- **7 `unexercised`** — `list-steps` and `q-and-a` at tall/story/strip, `roadmap` at
-  square. The rule exists; the slide the sweep picked does not carry what it targets.
-  `q-and-a`'s rule is scoped to `.grid` and the sweep picks the plain slide;
-  `list-steps`' rule is scoped `:not(.timeline)` and the sweep picks *the timeline
-  slide*. **This is a coverage gap in the ORACLE'S ROSTER, not a defect in the
-  components** — and it applies to the clip oracle too, which has been measuring those
-  same unrepresentative slides. Worth fixing by letting a component nominate the slide
-  that exercises its reflow; logged, not done here.
-- **3 `no-effect`** — `roadmap`'s legend rule at tall/story/strip matches, but neither
-  `padding-top` nor `gap` computes differently from `wide`. Either redundant with the
-  base rule or losing a cascade fight. Not a failure; the cell a human has to look at.
+**The first version of this pass could not go red, and the adversarial trio proved it.** It
+compared each element against itself in the `hd` render — but every `--sp-*` rides
+`--canvas-scale` and every `--fs-*` rides `cqi`, so any rule declaring a scale-derived length
+differs between boxes whatever the family predicate does. 87 of its 101 greens rested on such a
+length. Three deliberately broken tiers passed it. Two corrections followed, and both were
+verified by mutation:
+
+1. **The A/B moved inside the render.** Remove the `data-family` stamp from the section, re-read
+   the same element at the same viewport, restore. Exactly one thing is false — the family
+   predicate — so a difference IS the rule's effect. Pseudo-element rules are read through
+   `getComputedStyle(el, '::after')`; ten of the catalog's 142 family rules target pseudos
+   exclusively and were structurally invisible before.
+2. **Every rule earns its own green.** The verdict aggregates per-RULE facts, and `some()` let
+   one live rule vote green for a dead sibling — I neutered one of `list`'s three family rules
+   and the cell stayed `fires`. `fires` now requires ALL matched rules to move something;
+   `partial:n/m` is the mixed case. Re-running that mutation now drifts four cells and exits 1.
+
+**What the corrected numbers show that the confounded ones hid:** 17 `no-effect` cells across
+five components — `cards-stack`, `content`, `pricing`, `stats`, `verdict-grid` — where a
+`[data-family]` rule is **redundant with a `[data-orientation]` rule on the same component**.
+`verdict-grid` is the clean example: line 116 sets `flex-direction: column` for tall/strip, and
+line 102 already sets it for `[data-orientation="portrait"]`. Both mechanisms shipped for one
+effect. That is real duplication worth collapsing, and the confounded instrument reported all
+five as `fires`.
 
 The honest limit of the pass: it proves a tier FIRES and CHANGES something. It cannot
 judge whether what it changed is *good* — that is the visual review's job, and no
