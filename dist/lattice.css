@@ -239,26 +239,13 @@
    *   --frame-inset-y     vertical inset of the top/bottom berths
    *   --frame-page-reserve footer-right gap that reserves the pagination berth
    *
-   * ANCHORED to the slide via `--_sec-1cqi`, not written as a bare `cqi`. The
-   * berths are read from BOTH sides of the section boundary — the chrome cells
-   * are descendants (their `cqi` resolves against the section, correctly), but
-   * `--footer-reserve` lands on the SECTION'S OWN `padding-bottom`, and a
-   * `container-type: size` element cannot query itself: its own `cqi` falls back
-   * to the ICB, which in a browser host is the HOST VIEWPORT. So one token gave
-   * two different answers on the same slide — 24px on the footer berth, 14.4px on
-   * the reserve meant to hold it — and the reserve tracked whatever width the
-   * preview pane happened to be. Measured on the docs-site filmstrip, the same
-   * deck's stage grew ~17px between a 900px pane and a phone's 355px one, which
-   * is enough to move a slide across the overflow threshold: the Playground and
-   * the Studio disagreed about which slides overflow because their iframes are
-   * different widths. `--_sec-1cqi` is the slide-width stamp that exists for
-   * exactly this (lib/runtime/index.js `patchSectionGeometry`); the `1cqi`
-   * fallback keeps the export path byte-identical, since there the ICB IS the
-   * slide box. See engineering/gotchas.md "A slide's own padding changes when the
-   * preview pane is resized". */
-  --frame-inset-x:      calc(var(--_sec-1cqi, 1cqi) * 2.34375);
-  --frame-inset-y:      calc(var(--_sec-1cqi, 1cqi) * 1.875);
-  --frame-page-reserve: calc(var(--_sec-1cqi, 1cqi) * 6.25);
+   * MOVED to the `:root, section` block below (beside the spacing scale), for the
+   * same reason the spacing scale moved: `--footer-reserve` lands on the SECTION'S
+   * OWN `padding-bottom`, and a `container-type: size` element cannot query itself.
+   * A `:root`-ONLY declaration cannot be fixed by writing `var(--_sec-1cqi, 1cqi)`
+   * — the substitution happens on `html`, where the stamp does not exist, so the
+   * fallback is baked in and the value still resolves against the ICB. Only the
+   * `section` copy re-substitutes the stamp per slide. */
 
   /* ── Marp chrome mappings ── */
   --marp-slide-pagination-color:     var(--text-muted);
@@ -774,10 +761,19 @@
  * (`section.kpi` padding, `section.math` grid gap, `section.redline` gaps, …)
  * fell back to the ICB — the slide only on the canonical/print path, the editor
  * pane in a preview iframe. The runtime sets `--_sec-1cqi`; the `1cqi` fallback
- * keeps the canonical render identical. Child consumers (the vast majority —
- * inner gaps/padding) inherit the section's already-substituted value, so they
- * resolve exactly as a bare `cqi` against the section would. Declared on BOTH
- * :root and section so the section copy re-substitutes --_sec-1cqi per slide. */
+ * keeps the canonical render identical. Declared on BOTH :root and section so the
+ * section copy re-substitutes --_sec-1cqi per slide — that duplication is the load-
+ * bearing part, not decoration: `var()` is substituted on the element the
+ * declaration APPLIES to, so a `:root`-only copy bakes in the `1cqi` fallback and
+ * the stamp never gets a chance.
+ *
+ * Child consumers inherit the section's already-substituted value, so a descendant
+ * reading one of these gets the SLIDE's 1% (offsetWidth/100 = the border box).
+ * That is NOT identical to a bare `cqi` written on the descendant, which is 1% of
+ * the section's CONTENT box — 1280 vs 1152 at HD, an 11% difference. (This comment
+ * used to claim they resolve identically; measured in Chromium, they do not. Which
+ * is why a descendant's bare `cqi` must be left alone: it is already slide-relative
+ * and already agrees across paths.) */
 :root, section {
   --sp-3xs: calc(0.15625 * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-2xs: calc(0.3125  * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
@@ -787,6 +783,25 @@
   --sp-lg:  calc(2.5     * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-xl:  calc(3.75    * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-2xl: calc(5       * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
+
+  /* ── Island berth coordinate frame (moved here from the :root block above) ──
+   * The named insets for the slide's peripheral chrome berths — header, footer,
+   * pagination, logo. Same coefficients as the historical literals (2.34375cqi /
+   * 1.875cqi / 6.25cqi), now anchored, and in the `:root, section` block for the
+   * reason spelled out above: `--footer-reserve` (lib/forms/cell/stage/stage.css)
+   * lands on the SECTION'S OWN `padding-bottom`, and a section cannot query its own
+   * `cqi`. Left at `:root` these fell back to the ICB — the slide box on the export
+   * path (right by luck), the HOST VIEWPORT in a browser. One token then gave two
+   * answers on the same slide: 24px on the footer berth (a descendant, resolving
+   * against the section) and 14.4px on the reserve meant to hold it (the section's
+   * own padding, resolving against a 767px preview pane). The docs-site Playground
+   * sizes its iframe to the preview pane while the Studio pins its iframe to the
+   * slide box, so the two surfaces laid out different slides and disagreed about
+   * which ones overflow. See engineering/gotchas.md "The Playground and the Studio
+   * disagree about which slides overflow". */
+  --frame-inset-x:      calc(2.34375 * var(--_sec-1cqi, 1cqi));
+  --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
+  --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── The 12 typography tokens — GENERATED, not hand-written here ────────
@@ -9591,7 +9606,7 @@ section.piechart:is(.claim-hero, .claim-bleed) .piechart-figure {
   max-width: 100%;
 }
 section.piechart:is(.claim-hero, .claim-bleed) .piechart-svg {
-  height: calc(var(--_sec-1cqi, 1cqi) * 38);
+  height: 38cqi;
   width: auto;
   max-height: 100%;
   max-width: 100%;
@@ -11682,7 +11697,7 @@ section.radar:is(.claim-hero, .claim-bleed) .radar-figure {
 section.radar:is(.claim-hero, .claim-bleed) .radar-svg {
   grid-column: 2;
   justify-self: center;
-  height: calc(var(--_sec-1cqi, 1cqi) * 36);
+  height: 36cqi;
   width: auto;
   max-height: 100%;
   max-width: 100%;
@@ -18465,7 +18480,7 @@ section.chart-frame .chart-body {
   justify-content: center;
   align-items: center;
   box-sizing: border-box;
-  width: calc(var(--_sec-1cqi, 1cqi) * 100 - 2 * var(--sp-2xl));
+  width: calc(100cqi - 2 * var(--sp-2xl));
   max-width: 100%;
   align-self: center;   /* centre the fixed-width body in the section flex column (was margin:0 auto) */
   padding: var(--sp-lg) var(--sp-2xl);
@@ -18516,7 +18531,7 @@ section.chart-frame > .cell-stage { justify-content: center; }
  * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md. */
 section.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body {
-  width: calc(var(--_sec-1cqi, 1cqi) * 100 - 2 * var(--sp-sm));
+  width: calc(100cqi - 2 * var(--sp-sm));
   padding: var(--sp-md) var(--sp-sm);
 }
 
@@ -20278,8 +20293,8 @@ section.finish-gallery {
   --fin-edge: none;
   --fin-edge-opaque: none;
   --fin-frame:
-    inset 0 0 0 2.6cqi var(--bg),
-    inset 0 0 0 2.82cqi color-mix(in srgb, var(--accent) 40%, var(--bg));
+    inset 0 0 0 calc(2.6  * var(--_sec-1cqi, 1cqi)) var(--bg),
+    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--accent) 40%, var(--bg));
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -21097,14 +21112,14 @@ section.sketch.agenda.rail > .cell-stage > ol > li::before {
  * Chrome reservation (top/bottom 88px) is intentionally preserved so header
  * and footer never collide with content. */
 section.compact {
-  --sp-3xs: 0.1171875cqi;
-  --sp-2xs: 0.234375cqi;
-  --sp-xs: 0.46875cqi;
-  --sp-sm: 0.9375cqi;
-  --sp-md: 1.40625cqi;
-  --sp-lg: 1.875cqi;
-  --sp-xl: 2.8125cqi;
-  --sp-2xl: 3.75cqi;
+  --sp-3xs: calc(0.1171875 * var(--_sec-1cqi, 1cqi));
+  --sp-2xs: calc(0.234375  * var(--_sec-1cqi, 1cqi));
+  --sp-xs:  calc(0.46875   * var(--_sec-1cqi, 1cqi));
+  --sp-sm:  calc(0.9375    * var(--_sec-1cqi, 1cqi));
+  --sp-md:  calc(1.40625   * var(--_sec-1cqi, 1cqi));
+  --sp-lg:  calc(1.875     * var(--_sec-1cqi, 1cqi));
+  --sp-xl:  calc(2.8125    * var(--_sec-1cqi, 1cqi));
+  --sp-2xl: calc(3.75      * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── accent ─────────────────────────────────────────────────────────────
@@ -21236,13 +21251,13 @@ section.tone-skip { --tone-color: var(--text-muted); }
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
    collides with the state ::before or the pagination ::after, and prints in the PDF. */
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
-  --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); /* rail (default) */
+  --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
 }
 /* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
    drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
-section.tone-rail { --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); }  /* left rail (explicit) */
-section.tone-glow { --tone-rail: inset 0 0 0 0.35cqi var(--tone-color); }  /* full inset ring */
+section.tone-rail { --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); }  /* left rail (explicit) */
+section.tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); }  /* full inset ring */
 
 /* `tone: edge` RECOLORS the spectrum brand bar (the top border) with the tone color,
    rather than painting a SEPARATE top band that would fight it — the same move the
@@ -22426,8 +22441,8 @@ section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
   display: block;
   align-self: auto;
   box-sizing: content-box;
-  width: calc(var(--_sec-1cqi, 1cqi) * 8);
-  height: calc(var(--_sec-1cqi, 1cqi) * 0.22);
+  width: 8cqi;
+  height: 0.22cqi;
   /* Now a real <hr>, so element-level finishes that target `section … hr` reach it — reset the
    * sketch wave mask (base.sketch.css), which would smear this 2px segment into a 7px tile and
    * near-erase it. A free body <hr> still gets the sketch treatment; only the heading rule opts out. */
@@ -22437,7 +22452,7 @@ section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
    * transparent padding-top and the segment paints only in the content box (background-clip). */
   padding-top: var(--sp-sm);
   border: none;
-  border-radius: calc(var(--_sec-1cqi, 1cqi) * 0.11);
+  border-radius: 0.11cqi;
   background: var(--border);
   background-clip: content-box;
 }

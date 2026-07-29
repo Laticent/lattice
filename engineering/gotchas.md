@@ -611,8 +611,9 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Symptom:** the same deck, the same palette, the same slide — the Studio's
   preview shows one slide ringed "OVERFLOWS", the Playground shows two. Resizing
   the browser window (or opening the Playground on a phone) changes which slides
-  are flagged. Distinct from the two entries above: fonts are loaded and identical,
-  and the export is not involved — the two BROWSER surfaces disagree with each other.
+  are flagged. Distinct from the two entries above: fonts are loaded and identical, and
+  the disagreement is between the two BROWSER surfaces. (The fix does move the preview's
+  chrome berths relative to the export by 3px — disclosed below; the PDF does not move.)
 - **Cause: two independent bugs that both key off the host, not the slide.**
   - **The section's own `cq*` units resolved against the ICB.** A
     `container-type: size` element cannot query itself, so a bare `cqi`/`cqh` in a
@@ -635,18 +636,51 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
     tolerance. The figure-legibility probe had the same mix, and reported glyphs at the
     pane's scale against a floor derived from the unscaled slide height.
 - **Fix:** anchor every section-own `cq*` to the slide —
-  `calc(var(--_sec-1cqi, 1cqi) * N)`, or `--_sec-1cqh` on the height axis (both stamped
+  `calc(N * var(--_sec-1cqi, 1cqi))`, or `--_sec-1cqh` on the height axis (both stamped
   per-section by `lib/runtime/index.js` `patchSectionGeometry`; the bare fallback keeps
   the export byte-identical, since there the ICB IS the slide box). The probe now
   normalizes every rect-derived measure to layout px via the section's own
   rect ÷ offsetHeight. **Gated:** `checkSectionCqAnchoring` in `tools/check-ownership.js`
   (via `build:check`), budget 0 with an empty allowlist.
+- **Two ways to write the fix and get nothing** (both were written first; see
+  `engineering/decisions/2026-07-29-section-cq-icb-leak.md` §5a):
+  - **`:root` alone cannot be anchored.** `var()` is substituted on the element the
+    declaration APPLIES to — for `:root` that is `html`, where the stamp doesn't exist,
+    so the fallback is baked in and the token still resolves against the ICB. Declare on
+    **`:root, section`** (the `--sp-*` idiom). It can LOOK fixed on the docs site anyway:
+    the engine packs `:root` rules onto `article.lattice > :where(section)`, so the packed
+    copy picks up the stamp while an unpacked document gets nothing. The gate's second arm
+    fails this.
+  - **A DESCENDANT's bare `cq*` must be left bare.** It already resolves against the
+    section — but `1cqi` there is 1% of the section's CONTENT box (1152 at HD) while the
+    stamp is `offsetWidth/100`, the BORDER box (1280). Anchoring one moves it 11%: doing
+    that to `.chart-body` took it 3072 → 3456px against a 3110.4px export and made a
+    `roadmap` slide's overflow ring vanish.
 - **Still open, one tier down:** `.chart-body`, `.piechart-figure` and
   `section.list-criteria`'s cell are themselves `container-type: size`, so a `cq*` in
   THEIR own declarations has the identical self-reference problem, and there is no
   stamped anchor for a non-section container. 50 computed values on the gallery still
   move with the host viewport (down from 631); none of them changes an overflow verdict.
   Fixing that tier needs a per-container stamp, not another token rewrite.
+- **Disclosed, not a bug: the chrome berths moved 3px in PREVIEW.** `--frame-inset-*` is
+  read from both sides of the section boundary, so anchoring it also changes what the
+  DESCENDANT side means wherever the stamp exists: the footer band's inset measures
+  30px / 24px in preview against 27px / 21.6px in the export (2.34375% of the 1280
+  border box vs of the 1152 content box). **The PDF does not move.** This puts the frame
+  insets into the same stamp-anchored family as `--sp-*`/`--fs-*`, which have carried
+  exactly this offset for as long as they have been anchored — the same OPEN question as
+  the entry above, now with three more tokens in it.
+- **The browser↔export verdict gap is untouched.** "0 flips" is a WITHIN-browser number.
+  Across the boundary, same 117-slide gallery: the preview flags 7 slides the export
+  flags 0 (pages 15, 21, 48, 66, 106, 109, 115; largest spill delta 381px), identical
+  before and after this fix. Don't read it as closing that class.
+- **Also still open — the exported HTML sidecar at a non-slide window size.** Nothing
+  stamps `--_sec-1cqi` in a standalone export, so every anchored token (the frame insets,
+  and equally `--sp-*`/`--fs-*`, which have always been written this way) falls back and
+  resolves against the WINDOW: the bloom sidecar's section padding reads 104px at a 1280px
+  window and 31.7px at 390px. The PDF is unaffected (the emulator sets the viewport to the
+  slide box) and the `--fluid` viewer re-derives on purpose. Pre-existing; it is the other
+  face of the open `--_sec-1cqi` export/preview question above.
 - **Triggered by:** writing a `cq` length directly on a `section…` rule — it reads as
   slide-relative and is not. Check with the gate, or by rendering the same deck in two
   differently-sized iframes and diffing computed styles.

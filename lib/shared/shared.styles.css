@@ -23,14 +23,14 @@
  * Chrome reservation (top/bottom 88px) is intentionally preserved so header
  * and footer never collide with content. */
 section.compact {
-  --sp-3xs: 0.1171875cqi;
-  --sp-2xs: 0.234375cqi;
-  --sp-xs: 0.46875cqi;
-  --sp-sm: 0.9375cqi;
-  --sp-md: 1.40625cqi;
-  --sp-lg: 1.875cqi;
-  --sp-xl: 2.8125cqi;
-  --sp-2xl: 3.75cqi;
+  --sp-3xs: calc(0.1171875 * var(--_sec-1cqi, 1cqi));
+  --sp-2xs: calc(0.234375  * var(--_sec-1cqi, 1cqi));
+  --sp-xs:  calc(0.46875   * var(--_sec-1cqi, 1cqi));
+  --sp-sm:  calc(0.9375    * var(--_sec-1cqi, 1cqi));
+  --sp-md:  calc(1.40625   * var(--_sec-1cqi, 1cqi));
+  --sp-lg:  calc(1.875     * var(--_sec-1cqi, 1cqi));
+  --sp-xl:  calc(2.8125    * var(--_sec-1cqi, 1cqi));
+  --sp-2xl: calc(3.75      * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── accent ─────────────────────────────────────────────────────────────

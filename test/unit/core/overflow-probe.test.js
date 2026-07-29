@@ -552,9 +552,10 @@ describe('overflow-probe: scale invariance (the host may transform the slide)', 
 
   test('the SECTION-level fold measures the same at either scale', () => {
     // The other half of the mix: a body whose BOX fits but whose content spills is
-    // folded onto its rect bottom (layout px onto visual px). At 0.543 that folded a
-    // 200px spill onto a 0.543-scaled rect and reported ~370px of overflow for a slide
-    // that is 200px over — the same slide, previewed in a narrower pane.
+    // folded onto its rect bottom (layout px onto visual px). Unfixed, the same
+    // fixture reports scrollH 1000 at scale 1 and 1037.1 at scale 0.543 — a slide
+    // that measures as fitting in one surface and 37px over in the other, purely
+    // from the pane's scale.
     const secWith = (k) => {
       const rect = rectAt(k);
       const body = { scrollHeight: 900, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280, getBoundingClientRect: rect(0, 700) };

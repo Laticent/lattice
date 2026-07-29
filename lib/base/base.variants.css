@@ -106,13 +106,13 @@ section.tone-skip { --tone-color: var(--text-muted); }
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
    collides with the state ::before or the pagination ::after, and prints in the PDF. */
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
-  --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); /* rail (default) */
+  --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
 }
 /* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
    drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
-section.tone-rail { --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); }  /* left rail (explicit) */
-section.tone-glow { --tone-rail: inset 0 0 0 0.35cqi var(--tone-color); }  /* full inset ring */
+section.tone-rail { --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); }  /* left rail (explicit) */
+section.tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); }  /* full inset ring */
 
 /* `tone: edge` RECOLORS the spectrum brand bar (the top border) with the tone color,
    rather than painting a SEPARATE top band that would fight it — the same move the

@@ -398,21 +398,39 @@ in patch versions.
   with it, and the content stage swung ~17px between a 900px pane and a phone's 355px one.
   Enough to move a slide across the threshold: on the 117-slide gallery, **2 slides changed
   their overflow verdict on pane width alone**, and 631 computed values moved with the
-  viewport. Every section-own `cq*` is now anchored to the slide (`calc(var(--_sec-1cqi,
-  1cqi) * N)`, plus a new `--_sec-1cqh` stamp for the height axis), which is what the
-  `--sp-*`/`--fs-*` tokens already did. **(2) The overflow probe mixed visual and layout
+  viewport. Every section-own `cq*` is now anchored to the slide (`calc(N *
+  var(--_sec-1cqi, 1cqi))`, plus a new `--_sec-1cqh` stamp for the height axis), declared
+  on `:root, section` — the `--sp-*` idiom, and load-bearing: `var()` substitutes on the
+  element the declaration applies to, so a `:root`-only copy bakes in the fallback and
+  the stamp never applies. A DESCENDANT's bare `cq*` is deliberately left alone: it
+  already resolves against the section, and the stamp is the border box (1280 at HD)
+  where a descendant's `1cqi` is the content box (1152) — anchoring one moves it 11%. **(2) The overflow probe mixed visual and layout
   px.** `getBoundingClientRect()` is transform-scaled; `scrollHeight`/`clientHeight` are
   not — and the probe adds them together. On the filmstrip's scaled sections the same
   over-stuffed slide measured 30px over at scale 1 and 17px at scale 0.543, which straddles
   the 12px tolerance. The probe now normalizes everything to layout px (same fix in the
   figure-legibility probe, which was reporting glyphs at the pane's scale). After both:
-  0 verdict flips across the gallery, the viewport-dependent values down 631 → 50, and the
-  Playground now reports the same numbers as the Studio. **The export is untouched** —
-  18 decks (HD, portrait, square, 4K, imagery, charts, finishes) re-render pixel-identical.
+  0 verdict flips across the gallery, viewport-dependent values down 631 → 50 on the
+  scanned property set, and the Playground reporting the same numbers as the Studio.
+  **The export is untouched** — 18 decks (HD, portrait, square, 4K, imagery, charts,
+  finishes, compact, tone rails, finish frames) re-render pixel-identical across 25 decks.
   A new `checkSectionCqAnchoring` gate (budget 0, empty allowlist) keeps the section tier
-  clean. The remaining 50 are one tier down — `.chart-body` and friends are size containers
-  with the same self-reference problem — tracked in `engineering/gotchas.md`; none of them
-  moves an overflow verdict.
+  clean in three arms: a bare `cq*` in a section-own declaration; a token routed through
+  `var(--_sec-1cq*)` but declared only where the stamp cannot reach it; and a bare `cq*`
+  that reaches the section's own box through a var() CHAIN — the bug's own shape, which a
+  literal-unit scan cannot see, and which caught two further live leaks (`section.compact`'s
+  `--sp-*` overrides and `--tone-rail`, both still pane-tracking after the first pass: a
+  compact slide's padding read 99.4 / 97.6 / 91.7px at 1440 / 1024 / 390px windows, a tone
+  rail 2.15px against the PDF's 7.04px). **Disclosed:** anchoring `--frame-inset-*` also
+  moves what its DESCENDANT consumers mean wherever the stamp exists, so the preview's
+  chrome berths now sit 30px/24px where the export has 27px/21.6px — the PDF does not
+  move, and this puts the frame insets into the same stamp-anchored family as
+  `--sp-*`/`--fs-*`. Three things stay open and recorded rather than half-fixed: the same
+  self-reference one tier down (`.chart-body` and friends are themselves size containers —
+  50 values, none verdict-moving); the exported HTML sidecar opened at a window that isn't
+  the slide box, where nothing stamps `--_sec-1cqi` at all; and the browser↔export verdict
+  gap this does NOT close (the preview flags 7 gallery slides the export flags 0, before
+  and after).
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`
   landmark — every slide rendered zero pixels wide.** The fluid viewer sizes each slide

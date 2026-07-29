@@ -708,8 +708,8 @@ section.finish-gallery {
   --fin-edge: none;
   --fin-edge-opaque: none;
   --fin-frame:
-    inset 0 0 0 2.6cqi var(--bg),
-    inset 0 0 0 2.82cqi color-mix(in srgb, var(--accent) 40%, var(--bg));
+    inset 0 0 0 calc(2.6  * var(--_sec-1cqi, 1cqi)) var(--bg),
+    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--accent) 40%, var(--bg));
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

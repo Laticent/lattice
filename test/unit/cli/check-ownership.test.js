@@ -32,6 +32,8 @@ const {
   offendingMargins,
   sectionBoxOffences,
   sectionCqOffences,
+  rootOnlyAnchorOffences,
+  sectionOwnTokenLeaks,
   targetsSectionElement,
   SECTION_BOX_PROPS,
   checkSectionBoxOwnership,
@@ -356,12 +358,84 @@ describe('check-ownership', () => {
       );
     });
 
+    test('every cq unit counts, not just the two with stamps', () => {
+      // The first cut matched `cq[ihb]` only, so `cqw`/`cqmin`/`cqmax` — valid units
+      // with the identical self-reference leak — walked past a budget of 0.
+      for (const unit of ['cqw', 'cqmin', 'cqmax', 'cqb']) {
+        assert.equal(sectionCqOffences(`section.a { padding: 5${unit}; }`).length, 1, unit);
+      }
+      // …including the form that LOOKS anchored: only `--_sec-1cqi`/`--_sec-1cqh` are
+      // ever stamped, so `var(--_sec-1cqb, 1cqb)` is inert and still resolves to the ICB.
+      assert.equal(sectionCqOffences('section.a { gap: calc(var(--_sec-1cqb, 1cqb) * 5); }').length, 1);
+      // A fallback naming the OTHER axis would measure width on the export path and
+      // height in preview — the two paths silently disagreeing, which is this whole bug.
+      assert.equal(sectionCqOffences('section.a { gap: calc(var(--_sec-1cqh, 1cqi) * 5); }').length, 1);
+    });
+
+    test('units are matched case-insensitively, and url()/strings are not lengths', () => {
+      // CSS units are case-insensitive; the sibling section-box gate's header records
+      // case-sensitivity as a defect it already fixed once, and this one reintroduced it.
+      assert.equal(sectionCqOffences('section.a { padding: 5CQI; }').length, 1);
+      assert.deepEqual(sectionCqOffences('section.a { background: url("img-5cqi.png"); }'), []);
+      assert.deepEqual(sectionCqOffences('section.a::after { content: "5cqi"; }'), []);
+    });
+
+    test('an at-rule NESTED INSIDE a section rule still applies to the section', () => {
+      // `section.a { @media print { padding: 5cqi } }` — the at-rule prelude was
+      // skipped outright, so the declaration inside it was never attributed.
+      assert.equal(sectionCqOffences('section.a { color: red; @media print { padding: 5cqi } }').length, 1);
+      assert.equal(sectionCqOffences('@media print { section.a { padding: 5cqi } }').length, 1);
+    });
+
+    test('a declaration sitting above a NESTED block is still scanned', () => {
+      // The prelude parser used to swallow everything before a nested `{`, so with
+      // native nesting the enclosing rule's own declarations became invisible.
+      assert.equal(sectionCqOffences('section.a { padding: 5cqi; .b { color: red } }').length, 1);
+    });
+
+    test('a bare unit that reaches the section through a TOKEN CHAIN is flagged', () => {
+      // #1243's own shape, and the one a literal-unit scan cannot see: neither
+      // declaration puts a `cq` unit next to a section selector.
+      const chain = ':root { --inset: 1.875cqi }\nsection.form { --reserve: calc(var(--inset) + 4px); padding-bottom: var(--reserve) }';
+      const leaks = sectionOwnTokenLeaks([{ file: 'x.css', css: chain }]);
+      assert.equal(leaks.length, 1);
+      assert.equal(leaks[0].token, '--inset');
+      // One hop is not special — the closure follows the chain as far as it goes.
+      const deep = 'section.a { --c: var(--b); padding: var(--c) }\n:root { --b: var(--a) }\n:root { --a: 5cqi }';
+      assert.equal(sectionOwnTokenLeaks([{ file: 'y.css', css: deep }]).length, 1);
+      // Anchored at any point in the chain → clean.
+      const fixed = ':root, section { --inset: calc(1.875 * var(--_sec-1cqi, 1cqi)) }\nsection.form { padding-bottom: var(--inset) }';
+      assert.deepEqual(sectionOwnTokenLeaks([{ file: 'z.css', css: fixed }]), []);
+      // A token read ONLY by a descendant stays bare — its `cq*` already resolves
+      // against the section, and anchoring it would move it 11% (border vs content box).
+      const descendantOnly = ':root { --gap: 5cqi }\nsection.a .card { gap: var(--gap) }';
+      assert.deepEqual(sectionOwnTokenLeaks([{ file: 'w.css', css: descendantOnly }]), []);
+    });
+
+    test('an anchored token declared only where the stamp is absent is flagged', () => {
+      // The mistake this gate's own first version shipped. `var()` substitutes on the
+      // element the declaration applies to; at `:root` that is `html`, where
+      // `--_sec-1cqi` does not exist — so the fallback is baked in and the token still
+      // resolves against the ICB. It reads as anchored and is not.
+      assert.equal(rootOnlyAnchorOffences(':root { --a: calc(var(--_sec-1cqi, 1cqi) * 2); }').length, 1);
+      // Declared on both, the section copy re-substitutes per slide — the --sp-* idiom.
+      assert.deepEqual(rootOnlyAnchorOffences(':root, section { --a: calc(var(--_sec-1cqi, 1cqi) * 2); }'), []);
+      // A second, section-subject declaration of the same token elsewhere also works.
+      assert.deepEqual(
+        rootOnlyAnchorOffences(':root { --a: calc(var(--_sec-1cqi, 1cqi) * 2) } section { --a: calc(var(--_sec-1cqi, 1cqi) * 2) }'),
+        [],
+      );
+    });
+
     test('the ANCHORED form is clean, and so is anything below the section', () => {
       assert.deepEqual(sectionCqOffences('section.a { padding: calc(var(--_sec-1cqi, 1cqi) * 6.875); }'), []);
       assert.deepEqual(sectionCqOffences('section.a { gap: calc(var(--_sec-1cqh, 1cqh) * 5); }'), []);
       // A descendant's `cq*` resolves against the SECTION (it is a real ancestor
       // container), and so does a pseudo-element's — verified in a browser, not
-      // assumed: only the section's own box falls back to the ICB.
+      // assumed: only the section's own box falls back to the ICB. A descendant must
+      // be LEFT bare: its `1cqi` is 1% of the section's CONTENT box (1152 at HD) while
+      // the stamp is `offsetWidth/100` (1280), so "anchoring" one moves it 11% and
+      // makes preview and export disagree — measured, after doing exactly that.
       assert.deepEqual(sectionCqOffences('section.a .card { width: 10cqi; }'), []);
       assert.deepEqual(sectionCqOffences('section.a::before { width: 10cqi; }'), []);
       // A custom property is not itself applied to anything — its CONSUMER is, and

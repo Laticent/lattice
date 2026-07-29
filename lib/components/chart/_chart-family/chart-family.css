@@ -338,7 +338,7 @@ section.chart-frame .chart-body {
   justify-content: center;
   align-items: center;
   box-sizing: border-box;
-  width: calc(var(--_sec-1cqi, 1cqi) * 100 - 2 * var(--sp-2xl));
+  width: calc(100cqi - 2 * var(--sp-2xl));
   max-width: 100%;
   align-self: center;   /* centre the fixed-width body in the section flex column (was margin:0 auto) */
   padding: var(--sp-lg) var(--sp-2xl);
@@ -389,7 +389,7 @@ section.chart-frame > .cell-stage { justify-content: center; }
  * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md. */
 section.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body {
-  width: calc(var(--_sec-1cqi, 1cqi) * 100 - 2 * var(--sp-sm));
+  width: calc(100cqi - 2 * var(--sp-sm));
   padding: var(--sp-md) var(--sp-sm);
 }
 
