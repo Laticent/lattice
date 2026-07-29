@@ -32,11 +32,22 @@
  * The baseline is not "zero" — several gallery slides already overflow at square
  * on `main`. The oracle's job is to freeze that set, not to assert it is empty.
  *
+ * A THIRD half, added for #1234 group E: the CONFORMANCE pass. The probe above reads
+ * three hand-picked components, and the oracle covers all 33 but records only whether
+ * they CLIP — so for 30 of 33 components nothing checked that their `[data-family]`
+ * rules do anything at all. That is the same shape of hole as the one in the first
+ * paragraph. `--conformance` derives, per (component × @size), whether the tier MATCHED
+ * and whether it CHANGED a computed value against the `wide` baseline, and freezes the
+ * result in `test/oracle/family-conformance.json`.
+ *
  * Usage: node tools/check-family-tiers.js [--bless]
  *        node tools/check-family-tiers.js --ladder    # reconcile the two blessed
  *          oracles per @size (reads committed JSON only — no browser, no render)
  *        node tools/check-family-tiers.js --presets   # what differs per @size:
  *          family, orientation, --canvas-scale, measured body/h2 px (report only)
+ *        node tools/check-family-tiers.js --conformance [--bless]
+ *          does every component's family tier actually fire? 165 derived cells from the
+ *          same five sweep renders the clip oracle needs (npm run check:family-conformance)
  * Exit 1 on any disagreement; skips loudly with no Chromium.
  */
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -209,12 +220,23 @@ function sweepDeck(size, comps) {
   return { src, comps: picked.map((p) => p.comp) };
 }
 
-/** Render one sweep and return the component names whose slide overflowed. */
-function clippedAt(size, comps) {
+/**
+ * Render one sweep deck and return `{ log, html, order }` — the emulator's combined
+ * output, the path to the `.html` sidecar it wrote, and the page↔component roster.
+ *
+ * ONE renderer for both halves of this file. The clip oracle greps `log`; the
+ * conformance pass (below) opens `html` in a browser and reads computed style. They
+ * measure different things about the SAME render, and rendering the catalog twice to
+ * ask two questions about it would double the tool's cost for nothing.
+ */
+function renderSweep(size, comps) {
   const { src, comps: order } = sweepDeck(size, comps);
   const file = path.join(ROOT, '.scratch', `family-sweep-${size}.md`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, src);
+  // Keep the artifact where the conformance pass can find it. The emulator writes its
+  // `.html` sidecar beside the PDF it is given, so naming the PDF names the HTML.
+  const pdf = path.join(os.tmpdir(), `fs-${size}-${process.pid}.pdf`);
   let log = '';
   try {
     // BOTH streams. The overflow warning goes to STDERR, and an stdout-only read
@@ -225,7 +247,7 @@ function clippedAt(size, comps) {
     // "no overflow" become the same string and the sentinel below has nothing to
     // check. The `HTML: N slides` tally is the proof the read worked.
     const r = spawnSync(process.execPath,
-      [path.join(ROOT, 'lattice-emulator.js'), file, path.join(os.tmpdir(), `fs-${size}-${process.pid}.pdf`), 'indaco', '--no-split'],
+      [path.join(ROOT, 'lattice-emulator.js'), file, pdf, 'indaco', '--no-split'],
       { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
     if (r.error) throw r.error;
     if (r.status !== 0) throw new Error(`emulator exited ${r.status} for ${size}:\n${r.stderr || r.stdout}`);
@@ -241,6 +263,12 @@ function clippedAt(size, comps) {
   if (!/HTML:\s*\d+\s*slides?/i.test(log)) {
     throw new Error(`family-overflow oracle: unrecognizable emulator output for ${size} — cannot tell "clean" from "not read". Output was:\n${log.slice(0, 400)}`);
   }
+  return { log, html: pdf.replace(/\.pdf$/, '.html'), order };
+}
+
+/** The component names whose slide overflowed in one sweep. */
+function clippedAt(size, comps) {
+  const { log, order } = renderSweep(size, comps);
   // The emitted line wraps, so match across it: "⚠ OVERFLOW … pages 3, 7, 11."
   const m = log.match(/OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/);
   if (!m) return [];
@@ -375,6 +403,286 @@ function ladderReport() {
   return 0;
 }
 
+// ── The CONFORMANCE pass — does every component's family tier actually FIRE? ──
+/**
+ * The hole this closes is the one this file's own header confesses: the probe half
+ * asserts a tier fires for THREE hand-picked components, and the overflow oracle covers
+ * all 33 but records only whether they CLIP. So for 30 of 33 components, nothing checks
+ * that their `[data-family]` rules do anything at all — which is exactly the failure that
+ * killed the gate this one replaced, where the square tier was inert for its entire life
+ * while every check stayed green.
+ *
+ * #1234 group E asked for this as "~97 of 265 conformance cells are UNVERIFIED — re-run
+ * with a render budget". That table was hand-marked, lived only in `.scratch/`, and is
+ * gone. Re-marking it by hand would rebuild the very thing the issue is about: an
+ * assertion written down once and never re-derived. So the cells are DERIVED here instead,
+ * and the budget falls out — the sweep already renders one deck per @size, and this reads
+ * the DOM of those same renders rather than adding 165 more.
+ *
+ * Per (component × @size), four honest states:
+ *   fires     the family-scoped selector matches, AND at least one property it declares
+ *             computes differently from the same element in the `wide` render
+ *   no-effect it matches, but nothing it declares changes the computed style — either
+ *             redundant with the base rule, or LOSING a cascade fight. Not a failure on
+ *             its own; it is the cell a human has to look at
+ *   inert     the component ships a rule for this family and NOTHING matches it. This is
+ *             the #1218 bug, and it is the state this pass exists to catch
+ *   n/a       the component ships no rule for this family — nothing was promised
+ *
+ * The `wide` column is `n/a` by construction: `wide` is the ABSENCE of the stamp
+ * (`familySelector('wide')` is `:where(section:not([data-family]))`), so no
+ * `[data-family=…]` rule can match there. That is what makes it the baseline.
+ */
+const CONFORMANCE_ORACLE = path.join(ROOT, 'test', 'oracle', 'family-conformance.json');
+
+/**
+ * The same selector with its family predicate removed, so the SAME element can be found
+ * in the `wide` render for comparison.
+ *
+ * Without this the effect test is vacuous: at `wide` the section carries no `data-family`
+ * attribute, so a family-scoped selector matches nothing, every property reads as
+ * "different from a baseline that does not exist", and every cell says `fires` — a green
+ * that means nothing. Caught by prototyping the pass before trusting it.
+ */
+function descopeFamily(sel) {
+  const bare = sel
+    // `:where([data-family="tall"], [data-family="strip"])` — the house idiom, zero
+    // specificity so removing it cannot change which rule wins in the baseline.
+    .replace(/:where\(\s*\[data-family[^()]*\)/g, '')
+    // …and a bare `[data-family="tall"]` written inline.
+    .replace(/\[data-family(?:\s*[~^$*|]?=\s*(?:"[^"]*"|'[^']*'|[\w-]+))?\]/g, '')
+    .replace(/\s{2,}/g, ' ').trim();
+  // A selector that was ONLY the family predicate de-scopes to nothing; there is no
+  // element to compare against, so the caller must skip the effect test rather than
+  // guess.
+  return bare && !/^[>+~,]/.test(bare) ? bare : null;
+}
+
+/**
+ * Read the family-scoped rules out of a rendered page's own stylesheets.
+ *
+ * From the PAGE rather than from `dist/lattice.css`, deliberately: what matters is the
+ * rule set the browser actually resolved, after the bundle, the theme and any `@media`
+ * nesting. Reading the source file would be measuring a different artifact from the one
+ * the components are laid out by.
+ */
+async function readFamilyRules(browser, html) {
+  const page = await browser.newPage();
+  try {
+    await page.goto(`file://${path.resolve(html)}`, { waitUntil: 'networkidle0', timeout: 120000 });
+    return await page.evaluate(() => {
+      const rules = [];
+      const walk = (list) => {
+        for (const r of list) {
+          // A CSSStyleRule ALSO exposes `.cssRules` (CSS nesting), and an EMPTY
+          // CSSRuleList is TRUTHY — so a naive `if (r.cssRules) recurse; else record`
+          // records nothing at all. Recurse on LENGTH; record on selectorText.
+          if (r.selectorText && /data-family/.test(r.selectorText)) {
+            const props = [];
+            for (let i = 0; i < r.style.length; i++) props.push(r.style[i]);
+            if (props.length) rules.push({ sel: r.selectorText, props });
+          }
+          // `?.length` keeps the trap closed: undefined -> falsy, and an EMPTY (but truthy)
+          // CSSRuleList -> 0 -> falsy. Recursing on truthiness alone is what found 0 rules.
+          if (r.cssRules?.length) walk(r.cssRules);
+        }
+      };
+      for (const sheet of document.styleSheets) {
+        let list; try { list = sheet.cssRules; } catch { continue; }
+        walk(list);
+      }
+      return rules;
+    });
+  } finally { await page.close(); }
+}
+
+/**
+ * For one rendered sweep, per slide: which of `rules` match, what they compute, and what
+ * the same element computes through the DE-SCOPED selector (the `wide` baseline read).
+ */
+async function measureSweep(browser, html, rules) {
+  const page = await browser.newPage();
+  try {
+    await page.goto(`file://${path.resolve(html)}`, { waitUntil: 'networkidle0', timeout: 120000 });
+    return await page.evaluate((rs) => {
+      const per = [];
+      document.querySelectorAll('section[data-lattice-slide]').forEach((sec) => {
+        const scoped = {}, bare = {};
+        const pick = (sel) => {
+          if (!sel) return null;
+          let els = [];
+          try { els = [...sec.querySelectorAll(sel)]; } catch { return null; }
+          let self = false; try { self = sec.matches(sel); } catch { /* not valid on a section */ }
+          if (self) els = [sec, ...els];
+          return els.length ? els[0] : null;
+        };
+        for (const r of rs) {
+          const hit = pick(r.sel);
+          if (hit) {
+            const cs = getComputedStyle(hit);
+            scoped[r.sel] = r.props.map((k) => cs.getPropertyValue(k));
+          }
+          const b = pick(r.descoped);
+          if (b) {
+            const cs = getComputedStyle(b);
+            bare[r.sel] = r.props.map((k) => cs.getPropertyValue(k));
+          }
+        }
+        per.push({ family: sec.getAttribute('data-family') || 'wide', scoped, bare });
+      });
+      return per;
+    }, rules);
+  } finally { await page.close(); }
+}
+
+/**
+ * The conformance pass. Renders one sweep per @size (the same five the clip oracle
+ * needs), and returns `{ [size]: { [component]: verdict } }`.
+ */
+async function conformanceSweep(browser, comps) {
+  // `hd` first and separately: it is the baseline every other size is compared against,
+  // and it is where the rule set is read.
+  const wide = renderSweep('hd', comps);
+  const rules = (await readFamilyRules(browser, wide.html))
+    .map((r) => ({ ...r, descoped: descopeFamily(r.sel) }));
+  const base = await measureSweep(browser, wide.html, rules);
+  fs.rmSync(wide.html, { force: true });
+
+  const table = { hd: {} };
+  // Every component is `n/a` at wide by construction — the baseline cannot promise a
+  // family reflow to itself. Recorded rather than omitted so the row count is the same
+  // at every size and a missing component reads as missing, not as passing.
+  for (const c of wide.order) table.hd[c] = 'n/a';
+
+  for (const s of SIZES.filter((x) => x.family !== 'wide')) {
+    const r = renderSweep(s.size, comps);
+    const per = await measureSweep(browser, r.html, rules);
+    fs.rmSync(r.html, { force: true });
+    table[s.size] = {};
+    r.order.forEach((comp, i) => {
+      const at = per[i], b = base[i];
+      if (!at) { table[s.size][comp] = 'unrendered'; return; }
+      // Only the rules that NAME this component are its promise. A rule matching inside
+      // its slide but belonging to shared chrome (the masthead carries family rules too)
+      // is not this component's tier, and counting it would let a component inherit a
+      // green it never earned.
+      const mine = rules.filter((x) => new RegExp(`(^|[^\\w-])${comp}([^\\w-]|$)`).test(x.sel));
+      const forFamily = mine.filter((x) => x.sel.includes(`"${at.family}"`));
+      if (!forFamily.length) { table[s.size][comp] = 'n/a'; return; }
+      const matched = forFamily.filter((x) => at.scoped[x.sel]);
+      if (!matched.length) {
+        // NOTHING matched — but there are two very different reasons, and calling both
+        // `inert` would cry wolf. Ask the DE-SCOPED selector: if the rule's non-family
+        // part finds no element either, the rendered slide simply does not carry what the
+        // rule targets (a variant it is scoped to, or one it excludes), so the tier was
+        // never exercised and this says nothing about whether it works. If the de-scoped
+        // selector DOES find the element, then the family predicate is the only thing that
+        // failed — which is the #1218 defect exactly.
+        //
+        // This distinction is not hypothetical: on the first run six of seven `inert` cells
+        // were `q-and-a` (rule scoped to `.grid`, sweep slide is plain) and `list-steps`
+        // (rule scoped `:not(.timeline)`, sweep slide IS the timeline one). Reporting those
+        // as dead tiers would have been a confident, wrong, and expensive claim.
+        const reachable = forFamily.some((x) => at.bare[x.sel]);
+        table[s.size][comp] = reachable ? 'inert' : 'unexercised';
+        return;
+      }
+      const changed = matched.some((x) => {
+        const now = at.scoped[x.sel], was = b?.bare[x.sel];
+        // No baseline read means the selector de-scoped to nothing, so "did it change"
+        // is unanswerable — do not count it as an effect either way.
+        return was && now.some((v, k) => v !== was[k]);
+      });
+      table[s.size][comp] = changed ? 'fires' : 'no-effect';
+    });
+  }
+  return { table, ruleCount: rules.length };
+}
+
+/**
+ * `--conformance` — run the pass, print the table, and check it against the committed
+ * record (or rewrite that record with `--bless`).
+ *
+ * Exceed-only would be the wrong shape here. A cell going `fires` → `inert` is the
+ * regression this exists to catch, but `inert` → `fires` is someone FIXING a dead tier
+ * and the record has to move with it; and `fires` → `n/a` means a component quietly
+ * dropped a family rule it used to ship. So the check is EXACT, and any drift asks for a
+ * re-bless with the diff in front of you.
+ */
+async function conformanceReport(browser) {
+  const comps = familyReflowingComponents();
+  const { table, ruleCount } = await conformanceSweep(browser, comps);
+  const sizes = Object.keys(table);
+  const tally = {};
+  for (const s of sizes) for (const v of Object.values(table[s])) tally[v] = (tally[v] || 0) + 1;
+
+  const w = Math.max(...comps.map((c) => c.length), 9);
+  console.log(`\nfamily-tier CONFORMANCE — ${comps.length} components x ${sizes.length} @sizes `
+    + `= ${comps.length * sizes.length} cells, from ${ruleCount} family-scoped rules\n`);
+  console.log(`${'component'.padEnd(w)}  ${sizes.map((s) => s.padEnd(12)).join('')}`);
+  for (const c of comps) {
+    console.log(`${c.padEnd(w)}  ${sizes.map((s) => String(table[s][c] || '—').padEnd(12)).join('')}`);
+  }
+  console.log(`\n  ${Object.entries(tally).sort().map(([k, v]) => `${k}: ${v}`).join(' · ')}`);
+  console.log('  fires     = the tier matched AND changed a computed value vs the wide baseline');
+  console.log('  no-effect = it matched but changed nothing measurable — redundant, or losing a cascade fight');
+  console.log('  inert     = the component ships a rule for this family and nothing matched it (#1218\'s bug)');
+  console.log('  unexercised = a rule exists, but this slide does not carry what it targets — the sweep');
+  console.log('              never tested it. A COVERAGE gap in the roster, not a defect in the component');
+  console.log('  n/a       = nothing promised for this family (every cell at hd, which IS the baseline)');
+
+  const fresh = { note: CONFORMANCE_NOTE, components: comps, cells: table };
+  if (BLESS) {
+    fs.mkdirSync(path.dirname(CONFORMANCE_ORACLE), { recursive: true });
+    fs.writeFileSync(CONFORMANCE_ORACLE, `${JSON.stringify(fresh, null, 2)}\n`);
+    console.log(`\nblessed ${path.relative(ROOT, CONFORMANCE_ORACLE)}`);
+    return 0;
+  }
+  if (!fs.existsSync(CONFORMANCE_ORACLE)) {
+    console.error(`\nno record at ${path.relative(ROOT, CONFORMANCE_ORACLE)} — run with --bless once you have read the table above.`);
+    return 1;
+  }
+  const prev = JSON.parse(fs.readFileSync(CONFORMANCE_ORACLE, 'utf8'));
+  const drift = [];
+  for (const s of sizes) {
+    for (const c of comps) {
+      const was = prev.cells?.[s]?.[c] ?? '(absent)';
+      const now = table[s][c];
+      if (was !== now) drift.push(`  ${c} @ ${s}: ${was} -> ${now}`);
+    }
+  }
+  for (const c of Object.keys(prev.cells?.hd || {})) {
+    if (!comps.includes(c)) drift.push(`  ${c}: in the record, no longer a family-reflowing component`);
+  }
+  if (!drift.length) { console.log('\nconformance OK — every cell matches the record.'); return 0; }
+  console.error(`\n${drift.length} cell(s) drifted from ${path.relative(ROOT, CONFORMANCE_ORACLE)}:`);
+  console.error(drift.join('\n'));
+  console.error('\nRead the diff before re-blessing: `fires -> inert` is a tier that stopped firing.');
+  return 1;
+}
+
+const CONFORMANCE_NOTE = [
+  'Does each family-reflowing component\'s [data-family] tier actually FIRE at each @size?',
+  'DERIVED, never hand-marked: `node tools/check-family-tiers.js --conformance` renders one sweep',
+  'per @size and reads the rendered DOM. `fires` = a rule naming this component matched AND changed a',
+  'computed value against the same element in the `hd` render (reached by stripping the family',
+  'predicate off the selector). `no-effect` = matched, changed nothing measurable — redundant or losing',
+  'a cascade fight; worth a human look, not a failure. `inert` = the component ships a rule for that',
+  'family and the element IS present but the family predicate did not match — the #1218 defect this',
+  'pass exists to catch. `unexercised` = a rule exists but the sweep slide does not carry what it',
+  'targets (a variant it is scoped to, or one it excludes), so the tier was never tested: a coverage',
+  'gap in the roster, not a defect. `n/a` = nothing',
+  'promised. Every hd cell is n/a by construction: `wide` is the ABSENCE of the stamp, so no',
+  '[data-family=] rule can match there — that is what makes it the baseline. The check is EXACT in both',
+  'directions, because a tier being fixed must move the record just as loudly as one going dead.',
+].join(' ');
+
+// Same short-circuit shape as `--presets`: a REPORT/gate that must not also run the tier
+// probe and the clip oracle. Checked inside the main IIFE below, which already launches
+// the browser this needs — a top-level `return` would be legal under the CommonJS module
+// wrapper but is an error to the linter, and duplicating the launch would be worse.
+const CONFORMANCE_ONLY = process.argv.includes('--conformance');
+
 if (process.argv.includes('--ladder')) process.exit(ladderReport());
 
 // ── The preset report ──────────────────────────────────────────────────────
@@ -453,6 +761,10 @@ const PRESETS_ONLY = process.argv.includes('--presets');
   if (PRESETS_ONLY) { process.exitCode = await presetReport(); return; }
   const puppeteer = require('puppeteer');
   const browser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
+  if (CONFORMANCE_ONLY) {
+    try { process.exitCode = await conformanceReport(browser); } finally { await browser.close(); }
+    return;
+  }
   const rows = [];
   for (const s of SIZES) {
     const src = path.join(ROOT, '.scratch', `vf-${s.size}.md`);

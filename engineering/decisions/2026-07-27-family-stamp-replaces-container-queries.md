@@ -254,6 +254,48 @@ comment: square is the balanced family, and collapsing it was measured to cost
 capacity. The claim was written before that decision was made and never revised —
 caught by the independent checker, recorded here rather than quietly corrected.
 
+### Coverage: three components verified by hand, then all 33 derived (#1234 group E)
+
+The table above is the tier PROBE, and it reads three hand-picked components. The
+conformance audit that ran alongside #1220 tried to close that by hand — 265 cells,
+one per (component × @size), marked by a maker with no render budget and no stopping
+rule. It ran for hours, was interrupted, and **~97 cells were left honestly marked
+UNVERIFIED**. The table lived in `.scratch/` and is gone.
+
+Re-marking it by hand would have rebuilt the exact thing this branch spent itself
+correcting: an assertion written down once and never re-derived. So the cells are
+DERIVED instead —
+
+    npm run check:family-conformance
+
+— which renders one sweep per @size (the same five the clip oracle already needs, so
+the render budget the issue asked for is zero extra) and reads the resulting DOM. Per
+(component × @size) it answers two questions the probe could only answer for three
+components: did a `[data-family]` rule naming this component MATCH, and did anything it
+declares COMPUTE differently from the same element in the `wide` render? The record is
+`test/oracle/family-conformance.json`, checked exactly in both directions — a tier being
+fixed has to move it as loudly as a tier going dead.
+
+**Result: 165 cells, 101 `fires`, and ZERO `inert`.** No component ships a family rule
+that the stamp fails to reach — the #1218 defect does not recur anywhere in the catalog.
+The residue is ten cells, and they are two different things:
+
+- **7 `unexercised`** — `list-steps` and `q-and-a` at tall/story/strip, `roadmap` at
+  square. The rule exists; the slide the sweep picked does not carry what it targets.
+  `q-and-a`'s rule is scoped to `.grid` and the sweep picks the plain slide;
+  `list-steps`' rule is scoped `:not(.timeline)` and the sweep picks *the timeline
+  slide*. **This is a coverage gap in the ORACLE'S ROSTER, not a defect in the
+  components** — and it applies to the clip oracle too, which has been measuring those
+  same unrepresentative slides. Worth fixing by letting a component nominate the slide
+  that exercises its reflow; logged, not done here.
+- **3 `no-effect`** — `roadmap`'s legend rule at tall/story/strip matches, but neither
+  `padding-top` nor `gap` computes differently from `wide`. Either redundant with the
+  base rule or losing a cascade fight. Not a failure; the cell a human has to look at.
+
+The honest limit of the pass: it proves a tier FIRES and CHANGES something. It cannot
+judge whether what it changed is *good* — that is the visual review's job, and no
+mechanical cell should be read as a claim about it.
+
 ## Square is a real family now — two layouts fixed, and one number that isn't
 
 Turning the tier on exposed layouts nobody had ever seen render. Two were wrong,

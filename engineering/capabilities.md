@@ -237,6 +237,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 
 | Name | What it does |
 |---|---|
+| `check:family-conformance` | **TODO: describe `check:family-conformance` in tools/build-capabilities.js (SCRIPT_META).** |
+| `check:family-conformance:bless` | **TODO: describe `check:family-conformance:bless` in tools/build-capabilities.js (SCRIPT_META).** |
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |

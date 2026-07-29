@@ -3733,6 +3733,28 @@ in patch versions.
   A front-matter title is not markdown-stripped the way a heading is — nothing renders
   it, so `Q4_final` keeps its underscores. (#1248 follow-up)
 
+- **Every component's family-reflow tier is now verified, not assumed —
+  `npm run check:family-conformance`.** `check-family-tiers.js` had two halves and a hole
+  its own header confessed: the tier probe asserts a `[data-family]` rule actually fires for
+  **three** hand-picked components, and the overflow oracle covers all 33 but records only
+  whether they CLIP. So for 30 of 33 components nothing checked that their family rules did
+  anything at all — the same shape of hole as the one that let the square tier sit inert for
+  the entire life of the gate this one replaced (#1218).
+  The new pass derives, per (component × `@size`), whether a rule naming that component
+  **matched** and whether anything it declares **computes differently** from the same element
+  in the `wide` render. Four states, and the record (`test/oracle/family-conformance.json`) is
+  checked EXACTLY in both directions — a tier being fixed has to move it as loudly as one going
+  dead. Cost: zero extra renders. It reads the DOM of the same five sweeps the clip oracle
+  already needs, which is the "capped render budget" #1234 group E asked for.
+  **165 cells, 101 `fires`, and zero `inert`** — no component ships a family rule the stamp
+  fails to reach. The residue is 7 `unexercised` (the sweep's chosen slide does not carry what
+  the rule targets — `q-and-a`'s rule is scoped to `.grid` while the sweep picks the plain
+  slide, and `list-steps`' is scoped `:not(.timeline)` while the sweep picks *the timeline
+  slide*; a coverage gap in the roster, which also means the CLIP oracle has been measuring
+  those same unrepresentative slides) and 3 `no-effect` (`roadmap`'s legend rule matches but
+  changes no computed value — redundant, or losing a cascade fight).
+
+
 - **Lint coverage is gated by effect, not by config syntax** — `npm run lint:coverage`
   (`tools/check-lint-coverage.js`, also a `build:check` preflight). It replaces a gate that
   was written and then removed before merge in #1232: that one validated how exclusions are
