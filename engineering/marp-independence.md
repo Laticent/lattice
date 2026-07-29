@@ -39,7 +39,7 @@ cataloged in full in
 | First-party render (CLI · emulator · playground) | **owned engine** | `lib/engine/` |
 | `marp.config.js` (BYO marp-cli render path) | **retired** | deleted; the owned engine is the only render path |
 | Export-to-Marp (#250 / #257) | **stays — generates recipient bundles** | the bundle pins marp-cli for the *recipient*, not for us; its generated config ships no engine — the deck is **rendered by the recipient's Marp**, and the bundle carries the minified `lattice.css` + themes, the browser runtime, and Mermaid for fidelity. There is **no bundled emulator** (`lib/core/marp-bundle.js`). |
-| VS Code live preview | **clean handoff** | the Export-to-Marp bundle is self-contained — anyone who wants Marp tooling exports it and runs Marp on the far side of the boundary; not our concern after the handoff |
+| VS Code live preview | **clean handoff, KNOWN CEILING** | the Export-to-Marp bundle is self-contained — anyone who wants Marp tooling exports it and runs Marp on the far side of the boundary. What the handoff delivers is now measured, not assumed: `npm run pdf` / `npm run html` in the bundle are FULL fidelity (marp-cli drives a real headless browser, so the runtime executes); the marp-vscode PREVIEW pane is palette + CSS only, because its webview executes no scripts. See §5 Cost 3 and `engineering/gotchas.md`. |
 
 **Marp is fully externalized.** We render every first-party path; Marp is an
 optional *export target* a user hands off to (VS Code, marp-cli) — its own thing,
@@ -98,11 +98,21 @@ are shared and stay — the honest delta is the marp tree only.)
 
 1. **Maintenance burden** — we own every Marpit bug marp-team used to fix.
 2. **Ecosystem labor** — community, plugins, docs, and browser-compat are ours alone.
-3. **Preview-compatibility tax** — the vscode Marp preview runs raw marp-core,
-   not our engine, so a `lattice-runtime.js` DOM mirror is the only way to
-   make a transform look right there (~800 lines, a dozen dual-kernel test
-   files, a permanent CSS-selector ban, a Chromium-91 feature ceiling on the
-   whole runtime bundle) — all still real, still paid. What's *no longer*
+3. **Marp-compatibility tax** — marp-core is a genuinely different renderer,
+   and every difference is ours to absorb. A `lattice-runtime.js` DOM mirror
+   is the only way to make a transform look right on any Marp surface (~800
+   lines, a dozen dual-kernel test files, a permanent CSS-selector ban, a
+   Chromium-91 feature ceiling on the whole runtime bundle) — all still real,
+   still paid. **Corrected 2026-07-29 (#1256):** this line used to say the
+   mirror makes a transform look right "in the vscode preview." It does not —
+   that webview executes no scripts, so the preview is CSS-only no matter how
+   many mirrors we write. What a mirror actually buys is the exported HTML and
+   marp-cli's `pdf`/`html` output. The same audit found two further taxes
+   nobody had priced: marp-core escapes raw HTML by default (so the bundle's
+   own runtime `<script>` tags printed as text), and its selector scoper
+   cannot handle a leading `:is(section…)` (so ~835 rules — the whole chart
+   bucket and the shared Form layer — matched nothing in every Marp render).
+   Both are export-side fixes now; neither was visible from our own render. What's *no longer*
    true: `engineering/workflow.md`'s "Two-renderer rule" used to require a
    mirror for every new transform, by name, forever; as of 2026-07-09 it's
    opt-in — add one only when actually needed, logged in
@@ -118,9 +128,13 @@ parity is explicitly off the table.
 
 **Export-to-Marp is the boundary that's clean** — the one-way bundle handoff
 (VS Code opening a recipient's own marp-cli render, or a direct marp-cli
-invocation) has no cost line here because it never runs on our side. The
-**live vscode preview is a different thing** — it's cost 3 above, not part of
-the export boundary.
+invocation) has no cost line here because it never runs on our side. **Clean
+is not the same as free, and it is not self-verifying:** the bundle was
+shipping a deck that rendered wrong for months (#1256) precisely because
+nothing on our side renders it. Nothing automated closes that gap today —
+exporting a real deck and LOOKING at the result is the only check. The **live
+vscode preview is a different thing** — it's cost 3 above, not part of the
+export boundary.
 
 ## 6. Owned verification — the standing work
 
@@ -142,6 +156,13 @@ gate, so we deepen it ourselves rather than wish for a second renderer:
 The bar is ours to raise — never marp's to validate.
 
 ## Update log
+
+- **2026-07-29 (#1256)** — Cost 3 renamed + corrected (a runtime mirror never
+  helped the vscode preview; it helps the exported HTML and marp-cli), the
+  scorecard's VS Code row given its measured ceiling, and the "clean boundary"
+  claim narrowed after a real exported deck was rendered and found broken four
+  ways (escaped runtime `<script>` tags, ~835 CSS rules dead to marp-core's
+  selector scoper, no bundled fonts, two transforms with no DOM mirror).
 
 - **2026-07-09 (b)** — Cost item 3 updated: the Two-renderer rule it
   describes was demoted from mandatory to opt-in the same day

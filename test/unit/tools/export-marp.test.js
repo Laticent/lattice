@@ -89,6 +89,33 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.equal(count(baked), count(original), 'baked deck divides identically to the source');
   });
 
+  // #1256 — the two defects that made a real exported deck come out wrong.
+  test('ships every font lattice.css references, beside the stylesheet', () => {
+    const css = fs.readFileSync(path.join(dest, 'lattice.css'), 'utf8');
+    const refs = [...css.matchAll(/url\(\s*['"]?fonts\/([^)'"\s]+)['"]?\s*\)/g)].map((m) => m[1]);
+    assert.ok(refs.length > 0, 'the bundled stylesheet references fonts at all');
+    for (const f of new Set(refs)) {
+      assert.ok(fs.existsSync(path.join(dest, 'fonts', f)), `bundle is missing fonts/${f}`);
+    }
+  });
+
+  test('bundled CSS is marp-scopable: no rule LEADS with :is(section…)', () => {
+    // marp-core scopes off the leftmost compound, so a leading
+    // `:is(section.x, figure.x)` head becomes a slide-inside-a-slide and matches
+    // nothing. Every stylesheet in the bundle goes through the distribution.
+    for (const f of ['lattice.css', 'themes/indaco.css', 'themes/indaco-dark.css']) {
+      const css = fs.readFileSync(path.join(dest, f), 'utf8');
+      const bad = css.match(/(^|[{};])\s*:is\([^)]*section[^)]*\)/g) || [];
+      assert.deepEqual(bad, [], `${f} still leads ${bad.length} rule(s) with :is(section…)`);
+    }
+  });
+
+  test('marp.config.cjs + .vscode enable HTML so the runtime tags survive', () => {
+    assert.match(fs.readFileSync(path.join(dest, 'marp.config.cjs'), 'utf8'), /html:\s*true/);
+    const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));
+    assert.equal(settings['markdown.marp.enableHtml'], true);
+  });
+
   test('package.json pins marp-cli only', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(dest, 'package.json'), 'utf8'));
     assert.ok(pkg.dependencies['@marp-team/marp-cli']);

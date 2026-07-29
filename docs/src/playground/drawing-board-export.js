@@ -150,7 +150,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, STATIC_ASSETS, AGENT_ASSETS, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -182,7 +182,10 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 			const r = await fetch(themeBase + tf).catch(() => null);
 			if (!r?.ok) continue;
 			const text = await r.text();
-			dir.file(`themes/${tf}`, text);
+			// Through marpScopableCss like every stylesheet in the bundle — a palette
+			// can lead a rule with the same dual-surface `:is(section.x, figure.x)` head
+			// marp-core's scoper cannot handle.
+			dir.file(`themes/${tf}`, marpScopableCss(text));
 			bundledThemes.push(`themes/${tf}`);
 			// Bundle the transitive theme-name @import closure (shared scan helper —
 			// handles the minified no-space form + strips comments so a banner's
@@ -195,8 +198,27 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	}
 
 	// static assets — minified stylesheet (→ lattice.css), runtime, mermaid.
+	// lattice.css is kept as TEXT as well: the font supply is derived from the
+	// `url(fonts/…)` refs inside it (see below), so the two producers ship the
+	// same faces without a second list to keep in sync.
+	let bundledCssText = '';
 	await Promise.all(STATIC_ASSETS.map(async ({ from, to }) => {
 		const r = await fetch(exportBase + baseName(from)).catch(() => null);
+		if (!r?.ok) return;
+		if (to === 'lattice.css') {
+			bundledCssText = marpScopableCss(await r.text());
+			dir.file(to, bundledCssText);
+			return;
+		}
+		dir.file(to, await r.blob());
+	}));
+
+	// fonts/ — the woff2 faces lattice.css's @font-face srcs point at, staged
+	// flat under export/fonts/ by sync-playground-assets.mjs. Without them the
+	// stylesheet-relative `url(fonts/…)` 404s in the recipient's bundle and every
+	// slide falls back to system serif/sans (#1256).
+	await Promise.all(fontAssetsFor(bundledCssText).map(async ({ from, to }) => {
+		const r = await fetch(`${exportBase}fonts/${baseName(from)}`).catch(() => null);
 		if (r?.ok) dir.file(to, await r.blob());
 	}));
 

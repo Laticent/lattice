@@ -267,7 +267,7 @@ Mermaid override surface.
 
 ## Embed in a browser
 
-For Marp live preview or web-export contexts, include `dist/lattice-runtime.js`:
+For web-export contexts, include `dist/lattice-runtime.js`:
 
 ```html
 <link rel="stylesheet" href="themes/indaco.css">
@@ -276,20 +276,34 @@ For Marp live preview or web-export contexts, include `dist/lattice-runtime.js`:
 <script src="dist/lattice-runtime.js"></script>
 ```
 
+Keep `dist/fonts/` beside `dist/lattice.css` — the `@font-face` srcs are
+stylesheet-relative, so moving the CSS without the directory drops the deck to
+system serif/sans on every slide.
+
 The runtime reads CSS custom properties from the loaded palette, derives
 the Mermaid `themeVariables` object, and fetches the Mermaid CSS section
 from the palette file. Same theme as the build path; one file to edit.
 
 It also composes every slide as **Form** by default — the masthead band, bay,
 progress rail, and section watermarks — matching the engine, so a deck dropped
-into a Marp tool (the marp-vscode preview, or an export-to-Marp bundle's HTML)
-gets the full layout with no per-slide tagging. Opt a single slide out with a
-`no-form` class (DOM-visible, honored everywhere). The deck-wide `form: off`
-opt-out is applied only on Lattice's own engine render paths (the `lattice` CLI,
-the docs playground); a Marp-rendered surface — the marp-vscode preview, or an
-export-to-Marp bundle rendered by the user's `marp` — never runs the toggle, and
-the runtime reads no front matter, so it composes Form there regardless. See
-`design/forms.md` and `engineering/decisions/2026-07-08-runtime-form-default.md`.
+into a Marp tool gets the full layout with no per-slide tagging. Opt a single
+slide out with a `no-form` class (DOM-visible, honored everywhere). The
+deck-wide `form: off` opt-out is applied only on Lattice's own engine render
+paths (the `lattice` CLI, the docs playground); a Marp-rendered surface never
+runs the toggle, and the runtime reads no front matter, so it composes Form
+there regardless. See `design/forms.md` and
+`engineering/decisions/2026-07-08-runtime-form-default.md`.
+
+**Where this actually runs.** Anywhere the browser executes the `<script>`
+tags: a plain HTML page, an Export-to-Marp bundle's `.html`, and marp-cli's
+`marp --html … --pdf` (it drives a real headless browser). Marp tools need
+raw HTML enabled or the tags are escaped into visible text — `html: true` /
+`--html` for marp-cli, `markdown.marp.enableHtml` for the VS Code extension.
+The one place it does **not** run is the **marp-vscode preview pane**: that
+webview executes no scripts, so it shows palette and CSS layout only, and
+runtime-composed structure (Form, split panels, Mermaid, the chart family)
+stays flat there. Use `lattice render` or the exported HTML/PDF to see the
+composed deck; see `engineering/gotchas.md` § "VS Code / marp-vscode".
 
 ## Project layout
 

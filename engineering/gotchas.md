@@ -1381,7 +1381,21 @@ of how many rows are here.
 
 | Transform | Symptom in VS Code preview | Added |
 |---|---|---|
-| `matrixGridCells` (`lib/integrations/markdown-it/plugins.js`) | Cells render as raw `[x]`/`[-]`/`[ ]` text inside table cells instead of the filled/outlined/empty swatch shapes — unlike its siblings `obligation-matrix`/`verdict-grid`, which mirror the same bracket-marker parse in `lib/runtime/index.js` for exactly this reason, matrix-grid has no such mirror yet. The rotated row-axis label and combined chart caption, by contrast, DO appear correctly — `buildMatrixGridSection` is registered in the shared `CHART_LAYOUTS` dispatch (`chart-family.js`), which `lib/transformers/chart-family.js`'s `applyToDom` also runs, so that half of the transform is NOT engine-only. | 2026-07-27 |
+| _(none currently logged)_ | — | — |
+
+**Two rows retired 2026-07-29 (#1256)**, both closed by adding the mirror
+rather than by dropping the transform: `matrixGridCells` (cells rendered as raw
+`[x]`/`[-]`/`[ ]` text; now the shared kernel `lib/core/matrix-grid-cells.js`,
+run on both paths) and `premise` (the claim never grouped, so the ledger
+collapsed; now `lib/core/premise.js` `applyToDom`). Both were found by rendering
+a real deck through the export rather than by anyone logging them here — which
+is the standing caveat above, demonstrated.
+
+**Read this register with the CSP entry below in mind.** A mirror makes a
+transform work on the *runtime* route — the exported HTML, `npm run pdf`,
+`npm run html`. The marp-vscode PREVIEW pane executes no scripts at all, so a
+mirror does not make anything appear there. An empty table means "no gap logged
+for the runtime route", never "the preview is complete."
 
 - **Removable when:** never fully — it's a living list, not a one-time
   migration. Individual rows retire if the underlying transform is dropped
@@ -1407,7 +1421,7 @@ of how many rows are here.
   build deps.
 - **Commits:** `8607e65`.
 
-### marp-vscode webview CSP blocks `<script>` — structural transforms must use the engine render hook
+### marp-vscode webview CSP blocks `<script>` — the preview is a CSS-only surface
 
 - **Symptom:** A DOM transform authored in `lattice-runtime.js` (or any
   `<script src="...">` tag in the markdown) works in PDF export and the
@@ -1417,18 +1431,70 @@ of how many rows are here.
   a strict Content Security Policy that disallows script execution. Even
   with `enableHtml: true`, relative `<script src="...">` paths do not
   resolve reliably inside the webview context.
-- **Mitigation:** Structural DOM transforms (split panels, chart-family)
-  are implemented as HTML-string rewrites in `lib/core/split-panels.js` and
-  `lib/components/chart/_chart-family/chart-family.js`, run at render time
-  by the owned engine (wired through `lib/integrations/markdown-it/plugins.js`).
-  Because they run at build time — before the webview CSP applies — the
-  HTML is baked correctly before any preview displays it. `lattice-runtime.js`
-  DOM transforms remain as a fallback for the web-export path only.
-- **Triggered by:** Any new structural transform that needs to work in the
-  VS Code Marp preview.
+- **Mitigation:** There isn't a general one — this is a real ceiling on that
+  surface, and the honest framing is that **the marp-vscode preview shows
+  palette + CSS layout, not the composed deck.** Anything the runtime builds
+  (Mermaid, split panels, the chart family, premise) stays flat there. The
+  previous version of this entry claimed structural transforms "run at build
+  time — before the webview CSP applies," which is **wrong for any Marp
+  surface**: marp-vscode renders with raw marp-core and never runs
+  `lib/integrations/markdown-it/plugins.js` at all (see the entry above), so
+  there is no build-time pass to be early for. That mistake is why the
+  Export-to-Marp README promised a fidelity it never delivered until #1256.
+  For the full deck, render the bundle: `npm run pdf` / `npm run html` DO
+  execute the runtime, because marp-cli drives a real headless browser.
+- **Triggered by:** Any structural transform viewed in the VS Code Marp preview.
 - **Removable when:** marp-vscode lifts its CSP for trusted workspace
   scripts. No indication this is planned.
-- **Commits:** Split-panel feature commit.
+- **Commits:** Split-panel feature commit; corrected in #1256.
+
+### `enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT
+
+- **Symptom:** The last slide of a deck (or an Export-to-Marp bundle) shows a
+  literal `<script src="mermaid-v11.min.js"></script> <script
+  src="lattice-runtime.min.js"></script>` across the page, and no
+  runtime-built component renders anywhere in the deck.
+- **Cause:** marp-core defaults to `html: false`, which ESCAPES raw HTML
+  rather than dropping it — so the tags survive as visible text and the
+  runtime is never fetched. The owned engine parses with `html: true`
+  (`lib/engine/index.js`), so nothing on our own render path ever showed it.
+- **Mitigation:** marp-cli needs `html: true` in the config (the generated
+  `marp.config.cjs` sets it) or `--html` on the command line; marp-vscode
+  needs `markdown.marp.enableHtml: true` (the generated
+  `.vscode/settings.json` sets it, and so does the repo's own). Note this is
+  necessary but NOT sufficient in the vscode preview — the webview still
+  won't execute the scripts (entry above).
+- **Triggered by:** Any Marp render of a deck carrying the runtime tags.
+- **Removable when:** Never — it's marp-core's documented default.
+- **Commits:** #1256.
+
+### A rule that LEADS with `:is(section…)` is dead in every Marp render
+
+- **Symptom:** A whole component renders unstyled through marp-cli or the
+  marp-vscode preview while looking perfect on the owned engine — the chart
+  family especially (matrix-grid cells with no swatch, a roadmap with no
+  track, `--map-base` undefined so every map/quadrant/radar fill falls back
+  to SVG's black initial value).
+- **Cause:** Marpit scopes a theme rule off its LEFTMOST compound: a literal
+  leading `section` IS the slide and is root-replaced (`… > section.foo`);
+  anything else is treated as a slide DESCENDANT and prefixed. Lattice's
+  dual-surface head `:is(section.x, figure.x)` is not a literal `section`, so
+  marp-core emits `… > section :is(section.x, …)` — a slide nested inside a
+  slide, which cannot exist. Roughly **835 rules** died this way. Same root
+  cause as the `:where(:root)` entry above.
+- **Mitigation:** `lib/engine/css.js` distributes a leading `:is()` into its
+  arms before scoping, which is why the owned path was never affected. That
+  step now lives in the shared kernel `lib/core/leading-is.js`, and
+  `marpScopableCss` (`lib/core/marp-bundle.js`) applies it to every stylesheet
+  the Export-to-Marp bundle ships. `dist/lattice.min.css` is unchanged — the
+  distribution happens at export. `:where()` heads are deliberately NOT
+  rewritten: unwrapping them would change the zero specificity they're chosen
+  for, and distributing them wouldn't help.
+- **Triggered by:** Any engine CSS rule whose selector STARTS with
+  `:is(section…)`. A mid-selector `:is()` is already in descendant position
+  and scopes fine.
+- **Removable when:** marp-core distributes leading `:is()` itself.
+- **Commits:** #1256; engine-side fix predates it (the `--map-base` bug).
 
 ### marp-cli timeouts under load (60-90s on small fixtures)
 
