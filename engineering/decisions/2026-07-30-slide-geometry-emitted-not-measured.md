@@ -147,11 +147,27 @@ change, or the gate will certify a corpus it cannot see.
 `policy-recommendation` (2), `read-across-carousel` (3), `split-envelope` (2),
 `staged-flow` (2), `universal-pill` (2).
 
-**Then fixed: every slide the widened corpus exposed**, tracked by `npm run overflow:check`
-— 26 in `examples/token-contrast/` (13 byte-identical theme decks), 23 across 15 exemplars,
-2 in the design-system gallery. The ratchet is
-re-blessed at that lower floor. How the trims were chosen, and the one class of edit that
-was rejected, is §6.
+**Then fixed**, tracked by `npm run overflow:check` and stated against the one baseline that
+means anything — `main` at `72b1755`, re-swept end to end with the concurrency-fixed tool:
+
+| | clipped slides | decks |
+|---|---|---|
+| `main` | 43 | 31 |
+| this branch | **27** | **17** |
+
+Every one of the remaining 27 also clips on `main` — **zero newly clipping**, checked
+slide-by-slide, not inferred from the totals. By area: exemplars 28 → 18, everything else
+15 → 9. `examples/token-contrast/` and the design-system gallery clip **nothing on either
+side**.
+
+That last fact is why an earlier draft of this section did not reconcile. It reported "26 in
+token-contrast, 23 across 15 exemplars, 2 in the design-system gallery" as slides *fixed* —
+but those slides never clipped on `main` at all. They existed only in the INTERMEDIATE state
+after the engine correction and before the content pass, so the figure was measured against a
+moving commit rather than a baseline, and re-measuring at any other point in the branch gave a
+different answer (33, not 23, for the exemplars). A count is only meaningful with the thing it
+is counted against named. The ratchet is re-blessed at the 27 floor. How the trims were chosen,
+and the one class of edit that was rejected, is §6.
 
 Two things learned while trimming, worth writing down because they cost time:
 

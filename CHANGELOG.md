@@ -76,9 +76,13 @@ in patch versions.
   ALREADY clipping in the preview on `main`; the export had been hiding them. **Measured over
   the 247 decks that actually ship** (worked examples including their subdirectories, every
   component and design gallery, the exemplars, the baseline deck), `main` clips 43 slides
-  across 31 decks, and every slide this change newly exposed is fixed here. The only decks
-  left clipping are the ones that already were, plus `examples/overflow-fix-me.md`, which
-  exists to demonstrate the overflow overlay. Several stress specimens asserted a capacity
+  across 31 decks and this branch clips 27 across 17 — and every one of those 27 also clips on
+  `main`, so **zero slides newly clip**, checked slide-by-slide rather than inferred from the
+  totals. Both figures come from an end-to-end re-sweep of `main` with the concurrency-fixed
+  tool, because the earlier numbers came from a version of it that could inflate a deck's count
+  (it recorded 5 clipped pages for `examples/overflow-fix-me.md` where a direct render shows 3).
+  The only decks left clipping are the ones that already were, plus `examples/overflow-fix-me.md`,
+  which exists to demonstrate the overflow overlay. Several stress specimens asserted a capacity
   that is no longer true at design size — roadmap's "four workstreams by five phases",
   agenda's "seven stops", list-tabular's "eight rows", content's "two paragraphs and a list"
   — and each was reduced AND its headline and footer rewritten so the slide still tells the
