@@ -137,8 +137,11 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `bench:bless` | Write the committed perf baseline (test/benchmark/baseline.json) from a fresh bench run — the ratchet a perf PR updates (HARD RULE #19). |
 | `bench:check` | Re-run the bench and compare vs the committed baseline; flags a regression only beyond the variance band (max of tolerancePct and combined RME). On-demand, not a blocking CI gate. |
 | `bless` | Re-render the gallery goldens (the regression gate baseline) and overwrite them; commit the refreshed PDFs. `-- --only <name>` for one. |
+| `geometry:check` | Assert a slide measures identically on every surface — real emulator render, real Chromium at four window sizes, sections optionally transform-scaled the way a preview pane scales them. Catches a bare cq* on the section itself or a getBoundingClientRect() that ignores the host transform. |
 | `oracle:bless` | Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component's derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11). |
 | `oracle:check` | Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift. |
+| `overflow:bless` | Re-record the overflow ratchet from the current tree. Lower the floor when you fix slides; raise it only with the PR that justifies the new number. |
+| `overflow:check` | Render every shipped deck (examples + component galleries + the baseline deck) and ratchet the per-deck CLIPPED pages against test/integration/overflow-baseline.json. Catches an engine change that quietly over-subscribes the corpus — nothing else measures fit corpus-wide. On-demand (185 real renders), not a blocking CI gate. |
 | `regress` | Visual regression gate (LOCAL spot-check): render every gallery fresh and pixel-diff it against the committed golden PDF; fails on unblessed drift. |
 | `test` | Full unit suite (node:test). The inner loop. |
 | `test:adaptive` | Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract. |
@@ -354,6 +357,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
 | `tools/check-geometry-parity.js` | geometry-parity — does a slide measure the SAME on every surface it renders on? |
 | `tools/check-lint-coverage.js` | Lint-coverage gate — asks what Biome ACTUALLY checks, never how the config is spelled. |
+| `tools/check-overflow-corpus.js` | overflow-corpus — how many slides in the SHIPPED corpus does the export clip? |
 | `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
 | `tools/check-slide-contrast.js` | check-slide-contrast — WCAG AA audit of the ACTUALLY RENDERED slide, not the |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |

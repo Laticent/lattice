@@ -176,9 +176,11 @@ async function main() {
         const b = run.rows[i];
         if (!b) continue;
         for (const key of ['padding', 'stage', 'over', 'overshoot']) {
-          // `stage`/`overshoot` are px measured through a scale — allow 1px of
-          // rounding when the sections are scaled, nothing otherwise.
-          const tol = run.su.scale && (key === 'stage' || key === 'overshoot') ? 1 : 0;
+          // `stage` is a getBoundingClientRect height divided by the scale, so it
+          // carries sub-pixel rounding when the sections are scaled — 1px of slack.
+          // `overshoot` comes from scrollHeight/clientHeight, which are
+          // scale-invariant integers: a tolerance there could only mask real drift.
+          const tol = run.su.scale && key === 'stage' ? 1 : 0;
           const differs = typeof a[key] === 'number' && typeof b[key] === 'number'
             ? Math.abs(a[key] - b[key]) > tol
             : a[key] !== b[key];
@@ -209,10 +211,19 @@ async function main() {
   for (const r of report) {
     console.log(`  ${r.deck} — ${r.slides} slides × ${r.surfaces} surfaces  (stamp ${r.stamp})`);
   }
+  // A check that measured nothing must not report success. If the export markup
+  // ever drifts off the selectors MEASURE queries, every deck yields zero rows and
+  // the comparison loop below is vacuously satisfied — green while blind.
+  if (!failures.length && slidesChecked === 0) {
+    console.error('✗ geometry parity measured ZERO slides — the selectors found no sections.\n' +
+      '  That is a broken check, not a pass. Verify the export still emits\n' +
+      '  `article.lattice > section` / `section[data-lattice-slide]`.');
+    process.exit(1);
+  }
   if (!failures.length) {
     console.log(`\n✓ geometry parity — ${slidesChecked} slides measure identically on every surface` +
-      (scaled ? ' (including transform-scaled sections)' : '') +
-      `.\n  Re-run with --scaled to include the filmstrip's per-section transform.`);
+      (scaled ? ' (including transform-scaled sections).' : '.') +
+      (scaled ? '' : `\n  Re-run with --scaled to include the filmstrip's per-section transform.`));
     process.exit(0);
   }
   console.error(`\n✗ ${failures.length} geometry disagreement(s) — a slide measured differently depending on the window:\n`);

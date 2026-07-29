@@ -56,7 +56,7 @@
   },
   "skeleton": "<!-- _class: logo-wall -->\n\n`Trusted by`\n\n## The headline claim the logos back up.\n\n- ![First brand](logo-1.svg)\n  - First brand\n  - `Series B`\n- ![Second brand](logo-2.svg)\n  - Second brand\n- ![Third brand](logo-3.svg)\n- ![Fourth brand](logo-4.svg)\n- ![Fifth brand](logo-5.svg)\n- ![Sixth brand](logo-6.svg)\n",
   "anatomyBlock": "logo-wall",
-  "sample": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](acme.svg)\n  - Acme\n  - `Series B`\n- ![Globex](globex.svg)\n  - Globex\n  - `Enterprise`\n- ![Vantage](vantage.svg)\n  - Vantage\n  - `Public`\n- ![Umbra](umbra.svg)\n  - Umbra\n  - `Series C`\n- ![Meridian](meridian.svg)\n  - Meridian\n  - `Seed`\n- ![Helios](helios.svg)\n  - Helios\n  - `Public`\n",
+  "sample": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](acme.svg)\n  - Acme\n  - `Series B`\n- ![Globex](globex.svg)\n  - Globex\n  - `Enterprise`\n- ![Vantage](vantage.svg)\n  - Vantage\n  - `Public`\n- ![Umbra](umbra.svg)\n  - Umbra\n  - `Series C`\n- ![Meridian](meridian.svg)\n  - Meridian\n  - `Seed`\n- ![Helios](helios.svg)\n  - Helios\n  - `Public`\n- ![Northwind](northwind.svg)\n  - Northwind\n  - `Anchor`\n- ![Cobalt](cobalt.svg)\n  - Cobalt\n  - `Series A`\n",
   "whenToUse": [
     {
       "title": "The proof is the logos",

@@ -27,8 +27,6 @@ calm; category coding is there when you ask for it.
     - framework
   - Calibration playbook `M`
     - governance
-  - Adoption dashboard `S`
-    - adoption
 - In progress
   - Scoring model v2 `M`
     - framework `at-risk`
@@ -56,8 +54,6 @@ calm; category coding is there when you ask for it.
     - framework
   - Calibration playbook `M`
     - governance
-  - Adoption dashboard `S`
-    - adoption
 - In progress
   - Scoring model v2 `M`
     - framework `at-risk`

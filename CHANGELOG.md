@@ -65,17 +65,21 @@ in patch versions.
   `engineering/gotchas.md` already ruled: the export was the flattering path, not the correct
   one. It resolved stage `cq*` against the section's CONTENT box (1152px at HD) while the
   token coefficients are defined against the slide ("px / 1280 * 100 = coefficient"), so body
-  type rendered 19.24px where the design says 21.38px.
+  type rendered 19.24px where the design says 21.38px. The factor is uniform — 164 of the
+  bloom deck's computed font sizes change, every one by exactly 1.1111.
   Three things follow. **(1) The exported HTML sidecar stops tracking the window it is opened
-  in** — the bloom deck's section padding read 104px at a 1280px window and 31.7px at 390px;
-  it is 104px at every size now. **(2) The export and the preview flag the same slides**: on
-  the 117-slide gallery the preview flagged 7 that the export flagged 0, and that gap is closed
-  deck-for-deck. **(3) 36 genuinely over-subscribed slides across twelve shipped decks stop
-  being hidden** — all trimmed here; `examples/overflow-fix-me.md` still overflows on 5 pages
-  because demonstrating overflow is its purpose, and the export now agrees with the preview
-  about which 5. Committed gallery PDFs are rebuilt (122); other committed example PDFs are
-  stale until their next per-deck rebuild — the repo's existing convention for an engine-wide
-  render change.
+  in** — the bloom deck's section padding read `88px 64px 104px` at a 1280px window and
+  `26.8125px 19.5px 31.6875px` at 390px; it is the former at every size now. **(2) The export
+  and the preview flag the same slides**, deck for deck. **(3) The shipped corpus turns out to
+  be over-subscribed at design size**: measured across all 185 decks, the export goes from 10
+  decks / 15 clipped slides to 37 / 68. Twelve decks are trimmed back to zero here; **53 slides
+  across ~25 decks are NOT fixed** — they already clip in the preview on `main` today, and
+  re-authoring them is a content pass that needs a human call
+  (`engineering/decisions/2026-07-30-slide-geometry-emitted-not-measured.md` §6). Also note
+  exported PAGE COUNTS can move: `examples/social-portrait.md` goes 8 → 10 as auto-split
+  divides differently at the corrected size. Non-px `@size` geometries (`210mm`, `8in`) get no
+  stamp rather than a wrong one, and export-to-Marp does not carry the stamp at all — it ships
+  the pre-built bundle, which no per-render helper can reach.
 
 ### Fixed
 
@@ -87,12 +91,33 @@ in patch versions.
   that, a viewport sweep of all 117 gallery slides reports **0** computed values that move with
   the host window — down from 631 before #1243 and 50 after it. Same defect as the overflow and
   legibility probes: a `getBoundingClientRect()` mixed with a transform-blind number. Anything
-  measuring a slide should read the stamp or `offsetWidth`, never a raw rect.
-- **`tools/check-geometry-parity.js`** (new): renders a deck through the real emulator and
-  asserts its section padding, stage height, overflow verdict and overshoot are identical at
-  1280×720, 900×700, 500×700 and 390×844 — optionally with the sections transform-scaled the
-  way the filmstrip scales them (`--scaled`). Run against `main` it fails, which is the check
-  that it checks something.
+  measuring a slide should read the stamp or `offsetWidth`, never a raw rect — and when it
+  normalizes, BOTH operands of every ratio have to move. The first cut of this fix normalized
+  the figure rect but not the one it was divided against, which scaled the diagram by the
+  preview pane twice (measured on the real Playground: fit 0.475 where it should be 0.8748, at
+  a pane scale of 0.543).
+- **`tools/check-geometry-parity.js`** (new, `npm run geometry:check`): renders a deck through
+  the real emulator and asserts its section padding, stage height, overflow verdict and
+  overshoot are identical at 1280×720, 900×700, 500×700 and 390×844 — optionally with the
+  sections transform-scaled the way a preview pane scales them (`--scaled`). Run against `main`
+  it reports 477 disagreements and exits 1, which is the check that it checks something.
+- **The component-invariant suite was asserting "this component fits" against an unstyled
+  stack.** `test/helpers/semantic-render.js` pinned `form: off`, reasoning that Form composes
+  chrome AROUND a component. True, but `mastheadLift` is also what wraps a slide's body into
+  the frame's `.cell-stage` cell, and every stage-migrated component keys its whole layout off
+  `section.X > .cell-stage > …` — so with form off those selectors matched nothing and the
+  component had no layout at all. logo-wall's eight marks measured 547px as a `display:block`
+  list where the real component tiles them into a 400px flex wall with 90px to spare. The
+  harness now renders the way every real deck renders (form on, the deck-wide default since
+  2026-06-26), and the slot-contract matcher treats the Form cells as transparent, so a
+  contract written `section > p` still resolves once the body is inside `.cell-stage`.
+- **`tools/check-overflow-corpus.js`** (new, `npm run overflow:check`) — the gate whose absence
+  let the fallout above go unnoticed. Nothing measured corpus-wide fit: `build:galleries:check`
+  verifies the gallery PDFs are current, not that they are clean, and the integration tier
+  asserts page counts, not fit. It renders every shipped deck and ratchets the per-deck clipped
+  pages against `test/integration/overflow-baseline.json`, committed at `main`'s numbers, so a
+  change that adds a clipped slide anywhere in the corpus fails and names it. On-demand rather
+  than blocking, for the same reason `bench:check` is — a full sweep is 185 real renders.
 
 ### Added
 

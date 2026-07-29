@@ -84,7 +84,6 @@ World names vary wildly, and a mistyped one is a silent gap. Two defences, both 
 
 ## What it doesn't do — yet.
 
-
 - **No sub-national detail.** Counties, districts, and city pins are out of scope; the world cut (110m) also omits the smallest city-states.
 - **Continents, blocs, and stated categories.** EU / ASEAN / G20 / BRICS / OECD ship with dated provenance; Global South / North too, pinned to a stated, dated definition (UN G77 + China) — so the definition travels with the data instead of every deck hand-rolling a roster.
 - **No magnitude in highlight.** If you need *which* and *how much*, lead with choropleth and name the set in the prose.

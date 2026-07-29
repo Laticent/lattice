@@ -37,18 +37,25 @@ const DECK_DIR = path.join(ROOT, '.scratch', 'invariant-decks');
  * Wrap a component manifest's `sample` (a complete `<!-- _class: X -->` slide) in
  * the minimal marp front-matter the emulator expects → a one-slide deck.
  *
- * `form: off` is pinned deliberately. These are COMPONENT-isolation invariants
- * (slot contract, the component fits the 1280×720 frame, per-component semantics) —
- * properties of the component itself, independent of deck chrome. Form is ON by
- * default deck-wide (2026-06-26), but it composes a masthead band / bay / rail
- * AROUND the component; whether a dense sample + that chrome overflows is a
- * deck-authoring concern (the overflow ring is the author's signal), not a
- * component invariant. Pinning it off keeps these assertions measuring the
- * component's intrinsic size/contract budget. Form composition is covered by the
- * visual sweep and the dedicated Form decks (examples/form.md, design/forms.gallery.md).
+ * `form` is ON, matching the deck-wide default (2026-06-26) — and it is NOT a free
+ * choice. It used to be pinned OFF here, on the reasoning that form composes a
+ * masthead band / bay / rail AROUND the component, so whether that chrome overflows
+ * is a deck-authoring concern rather than a component invariant. That reasoning was
+ * right about the chrome and wrong about the consequence: `mastheadLift` is also what
+ * wraps a slide's body into the frame's `.cell-stage` cell, and every STAGE_MIGRATED
+ * component keys its ENTIRE layout off `section.X > .cell-stage > …`. With form off
+ * those selectors match nothing, so the component has no layout — its list falls back
+ * to `display: block` and stacks. The suite was asserting "this component fits" against
+ * an unstyled stack: logo-wall's eight marks measured 547px tall as a vertical list
+ * where the real component tiles them into a 400px flex wall with 90px to spare.
+ *
+ * That made the overflow assertion meaningless for exactly the components most likely
+ * to overflow, and it hid the failure until an engine change moved every box by 11%
+ * (2026-07-30-slide-geometry-emitted-not-measured.md §4). Rendering the way every real
+ * deck renders is the only configuration in which the assertion measures the component.
  */
 function deckFromSample(sample, { palette = 'indaco' } = {}) {
-  return `---\nmarp: true\ntheme: ${palette}\nform: off\n---\n\n${String(sample).trim()}\n`;
+  return `---\nmarp: true\ntheme: ${palette}\nform: on\n---\n\n${String(sample).trim()}\n`;
 }
 
 /**
