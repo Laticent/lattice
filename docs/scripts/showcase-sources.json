@@ -82,12 +82,12 @@
 	"inventory.light": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "1de9b591417db44fb25e8c9057bb7fcd39d454f94a342ab5d15988e2dbb85e64"
+		"srcSha256": "d73a78fb7c7eb409670a58bd28b067575e35402a1f811fff348a80a9563619ce"
 	},
 	"inventory.dark": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "36d11721080f679056dcd2771866989c0c47b1bf00f7b7ae05583e7bf4bc2eaf"
+		"srcSha256": "5fb9076532b877c33e984f2507749570ae1267c3c7dd48f4ac37a237471ff826"
 	},
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
