@@ -115,10 +115,8 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
-
-`Traction · Q2 2026`
 
 ## Revenue tripled in a year as customers expanded fast.
 
@@ -206,10 +204,8 @@ Saffron connects to the ERP a manufacturer already runs, learns its approval pol
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: full -->
-
-`Plan · FY2026–2028`
 
 ## A clear path from $6.4M to $25M ARR in 24 months.
 

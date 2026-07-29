@@ -29,22 +29,20 @@ Patient visits and new clinic signups both beat plan this quarter. The single nu
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
 
-`Performance · Q2 2026`
-
-## Growth metrics beat plan; provider retention slipped below target.
+## Growth beat plan; provider retention slipped.
 
 1. 412K
    - Patient visits
-   - plan 380K · +8% `Ahead` `Ops`
+   - plan 380K · +8% `Ahead`
 2. 1,840
    - Active clinics
-   - +260 net new `Ahead` `Growth`
+   - +260 net new `Ahead`
 3. 88%
    - Provider retention
-   - target 93% · -5pp `At risk` `Board`
+   - target 93% · −5pp `At risk`
 
 ---
 
@@ -93,15 +91,13 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 <!-- _class: roadmap -->
 <!-- tier: short -->
 
-`Q3 2026 · Retention plan`
-
 ## The Q3 plan attacks early-tenure churn on three fronts.
 
 | Workstream | Now `Q2` | Build `Q3` | Scale `Q4` |
 | --- | --- | --- | --- |
-| Onboarding | [x] 14-day ramp | [-] Guided first-week flow | [ ] Mentor pairing |
-| Earnings | [x] Weekly payout | [-] First-month guarantee | [ ] Demand smart-routing |
-| Support | [x] Email support | [-] 90-day success owner | [ ] In-app coaching |
+| Onboarding | [x] 14-day ramp | [-] Guided first week | [ ] Mentor pairing |
+| Earnings | [x] Weekly payout | [-] Month-one guarantee | [ ] Smart routing |
+| Support | [x] Email support | [-] Success owner | [ ] In-app coaching |
 
 ---
 
@@ -139,10 +135,8 @@ Retention didn't slide evenly. Churn is clustered among providers in their first
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: full -->
-
-`Targets · Q3 2026`
 
 ## What success looks like next quarter, with the retention fix in flight.
 

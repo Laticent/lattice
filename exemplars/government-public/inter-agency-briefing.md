@@ -77,32 +77,28 @@ The levees, the pumps, the evacuation order, and the recovery funds sit in four 
 <!-- _class: roadmap -->
 <!-- tier: short -->
 
-`Stand-up plan · To storm season`
-
-## What each workstream delivers before the first storm.
+## What each workstream delivers before storm season.
 
 | Workstream | Charter `April` | Drill `June` | Ready `September` |
 | --- | --- | --- | --- |
-| Command structure | [x] Roles agreed | [-] Tabletop exercise | [ ] Full activation drill |
-| Funding pool | [-] $46M committed | [ ] Procurement pre-auth | [ ] Draw-down tested |
-| Joint operations | [ ] Shared comms plan | [-] Equipment cache sited | [ ] Pump pre-positioning |
-| Public warning | [x] Alert system linked | [-] Evacuation routes set | [ ] Community drill |
+| Command structure | [x] Roles agreed | [-] Tabletop | [ ] Activation drill |
+| Funding pool | [-] $46M committed | [ ] Pre-auth | [ ] Draw-down |
+| Joint operations | [ ] Comms plan | [-] Cache sited | [ ] Pumps sited |
+| Public warning | [x] Alerts linked | [-] Routes set | [ ] Community drill |
 
 ---
 
 <!-- _class: roadmap -->
 <!-- tier: full -->
 
-`Status · Readiness by workstream`
-
-## Where each agency stands on its stand-up commitments today.
+## Where each agency stands on stand-up commitments.
 
 | Workstream | Charter `April` | Drill `June` | Ready `September` |
 | --- | --- | --- | --- |
-| Water District | [x] Commander named | [-] Pump readiness | [ ] Breach drill |
-| Emergency Mgmt | [x] Alert linkage | [-] Route mapping | [ ] Evac exercise |
-| Finance Office | [-] Fund committed | [ ] Pre-authorisation | [ ] Draw-down test |
-| Public Works | [x] Standing contract | [/] Debris staging | [ ] Repair drill |
+| Water District | [x] Commander set | [-] Pump ready | [ ] Breach drill |
+| Emergency | [x] Alert linkage | [-] Routes mapped | [ ] Evac exercise |
+| Finance Office | [-] Fund committed | [ ] Pre-authorized | [ ] Draw-down |
+| Public Works | [x] Standing contract | [/] Debris site | [ ] Repair drill |
 
 ---
 

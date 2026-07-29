@@ -38,22 +38,20 @@ The current hybrid app crashes at three times the industry rate and can't use th
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
 
-`Atlas · June 2026`
-
-## On schedule and on budget; one workstream amber on a vendor dependency.
+## On schedule and on budget; one workstream amber.
 
 1. 64%
    - Build complete
-   - target 60% by Jun · ahead of plan `On plan` `Eng`
+   - target 60% by Jun `On plan`
 2. $1.4M
    - Budget consumed
-   - of $2.2M · 63% spent, 64% done `On plan` `Finance`
+   - of $2.2M · 63% spent `On plan`
 3. 1
    - Workstreams at risk
-   - auth SDK dependency `At risk` `Eng`
+   - auth SDK dependency `At risk`
 
 ---
 
@@ -80,16 +78,14 @@ The current hybrid app crashes at three times the industry rate and can't use th
 <!-- _class: roadmap -->
 <!-- tier: short -->
 
-`Atlas · road to beta`
-
 ## Where each workstream stands against the September beta.
 
 | Workstream | Now `Jun` | Next `Jul` | Beta `Sep` |
 | --- | --- | --- | --- |
-| Core UI | [x] Navigation shell | [-] Feature screens | [ ] Polish pass |
+| Core UI | [x] Nav shell | [-] Feature screens | [ ] Polish pass |
 | Auth | [-] SDK integration | [ ] Biometric login | [ ] Hardening |
-| Data sync | [x] Offline cache | [-] Conflict handling | [ ] Load test |
-| Release | [x] CI pipeline | [ ] Beta channel | [ ] Store submission |
+| Data sync | [x] Offline cache | [-] Conflicts | [ ] Load test |
+| Release | [x] CI pipeline | [ ] Beta channel | [ ] Store submit |
 
 ---
 

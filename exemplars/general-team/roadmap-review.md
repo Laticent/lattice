@@ -29,35 +29,31 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 <!-- _class: roadmap -->
 <!-- tier: short -->
 
-`Plan vs actual · H1 2026`
-
 ## What we committed to, and where each item landed.
 
 | Workstream | Q1 plan | Q2 plan | Status |
 | --- | --- | --- | --- |
-| Search | [x] Relevance rewrite | [x] Typeahead | [x] Shipped on plan |
-| Billing | [x] Usage-based plans | [-] Invoicing v2 | [-] Slipped to Q3 |
-| Mobile | [x] iOS parity | [x] Push notifications | [x] Shipped on plan |
-| Reporting | [x] Custom dashboards | [/] Scheduled exports | [/] Cut from H1 |
+| Search | [x] Relevance | [x] Typeahead | [x] On plan |
+| Billing | [x] Usage plans | [-] Invoicing v2 | [-] Slipped to Q3 |
+| Mobile | [x] iOS parity | [x] Push | [x] On plan |
+| Reporting | [x] Dashboards | [/] Scheduled export | [/] Cut from H1 |
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
-
-`Delivery · H1 2026`
 
 ## How delivery tracked against the plan we set in January.
 
 1. 5 / 7
    - Roadmap items shipped
-   - target 7 · two slipped `At risk` `Product`
+   - target 7 · two slipped `At risk`
 2. 92%
    - Sprints hit commitment
-   - target 85% · ahead `On plan` `Eng`
+   - target 85% · ahead `On plan`
 3. +6 wk
    - Total schedule slip
-   - concentrated in billing `At risk` `Eng`
+   - concentrated in billing `At risk`
 
 ---
 
@@ -131,8 +127,6 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 
 <!-- _class: roadmap -->
 <!-- tier: full -->
-
-`Reset · H2 2026`
 
 ## The H2 plan, with the slipped work front-loaded.
 

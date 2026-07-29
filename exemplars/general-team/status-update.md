@@ -38,22 +38,17 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
 
-`Migration · Week of 8 June 2026`
-
-## Eleven of fourteen services live; latency and error budget both inside target.
+## Eleven of fourteen live; latency and errors on target.
 
 1. 78%
    - Services migrated
-   - target 100% by 1 Jul · 11 of 14 `On plan` `Eng`
 2. 142 ms
-   - p99 checkout latency
-   - target 180 ms · -21% headroom `On plan` `SRE`
+   - p99 latency
 3. 0.02%
-   - Checkout error rate
-   - target 0.1% · well inside budget `On plan` `SRE`
+   - Error rate
 
 ---
 
@@ -104,9 +99,9 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 | Workstream | This week `Wk of 8 Jun` | Next week `Wk of 15 Jun` | Cutover `Wk of 29 Jun` |
 | --- | --- | --- | --- |
-| Services | [x] Payments 3 of 4 | [-] Final payment service | [ ] Decommission legacy |
-| Load testing | [-] Peak-load rehearsal | [ ] Sign-off | [ ] Standby |
-| Runbook | [x] Draft complete | [-] Dry-run rehearsal | [ ] On-call brief |
+| Services | [x] Payments 3 of 4 | [-] Final service | [ ] Decommission |
+| Load testing | [-] Peak-load run | [ ] Sign-off | [ ] Standby |
+| Runbook | [x] Draft complete | [-] Dry run | [ ] On-call brief |
 
 ---
 
@@ -133,7 +128,7 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 
 - [x] Shadow parity sustained above 99.9% `7 days`
 - [x] Runbook drafted and reviewed `Eng + SRE`
-- [-] Peak-load rehearsal `awaiting decision`
+- [-] Peak-load run `awaiting decision`
 - [-] Rollback procedure `dry-run pending`
 - [ ] Final payment service live `this week`
 - [ ] Executive go / no-go `25 Jun`

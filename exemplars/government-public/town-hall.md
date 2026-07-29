@@ -36,22 +36,20 @@ Public safety, streets and transit, and parks and libraries account for 67% of t
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
-
-`Your budget · FY2027`
 
 ## Where the $142M goes, by service.
 
 1. $52M
    - Public safety
-   - police, fire, and 911 `37% of budget`
+   - police, fire, 911 `37%`
 2. $43M
    - Streets & transit
-   - paving, buses, signals `30% of budget`
+   - paving, buses, signals `30%`
 3. $24M
    - Parks & libraries
-   - 41 parks, 6 branches `17% of budget`
+   - 41 parks, 6 branches `17%`
 
 ---
 
@@ -64,22 +62,20 @@ Last November residents approved a five-year street levy. This is the first year
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: standard -->
-
-`The levy · Year one`
 
 ## What the street levy is buying, in its first year.
 
 1. 64 mi
    - Streets repaved
-   - of 210 rated poor `On plan` `Public Works`
+   - of 210 rated poor `On plan`
 2. $18M
    - Levy revenue
-   - 100% to paving `On plan` `Finance`
+   - 100% to paving `On plan`
 3. $0
    - Spent outside paving
-   - dedicated by law `On plan` `Audit`
+   - dedicated by law `On plan`
 
 ---
 
