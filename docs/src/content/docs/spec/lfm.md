@@ -84,6 +84,12 @@ in addition to Marpit's own (`theme`, `paginate`, `_class`, …):
 These two keys are the complete LFM-added front-matter surface in 1.0; every
 other recognised key belongs to Marpit.
 
+Note that a *host application* may read its own front-matter keys that LFM does not
+define and a conforming renderer ignores — the Lattice Studio reads `title:` to name
+a deck in its UI and in export filenames, for instance. Such keys are application
+metadata, not language surface: a conforming implementation may ignore them and
+still render the deck correctly.
+
 - **Degrades to:** front matter is hidden or shown as a metadata table,
   depending on the host. **L0-clean** (it is YAML front matter, which every
   GFM host already special-cases).

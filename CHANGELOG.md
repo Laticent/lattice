@@ -57,6 +57,30 @@ in patch versions.
 
 ### Added
 
+- **A deck can carry a shelf name distinct from its cover — `title:` in front matter.**
+  Since #1248 a Studio deck is named by its first heading, which is right until the name
+  you want on the shelf is not the name you want on the slide: "Board pack — Q4 FY26
+  (final)" belongs in the switcher and the export filename, not in 90pt across the title
+  slide. Setting `title:` in the deck's front matter now names the deck everywhere the
+  Studio names it (switcher, header, ⌘K, Share, the `.md` / `.pdf` / `.lattice` filenames,
+  and the pre-paint shell on reload) while the cover slide keeps its own heading.
+  Set it from **Deck setup → Look → Deck name**; blank clears it and heading derivation
+  resumes. Precedence is `title:` → first heading → the deck's creation label, so a deck
+  without the key behaves exactly as before; an empty `title:` is ignored rather than
+  blanking the name. `title:` is not a new key — `share-export` already read it for the
+  PNG/SVG image-set manifest and as a dead fallback for the exported HTML `<title>` — so
+  this makes one existing directive authoritative instead of adding a second home for the
+  name. The engine does not consume it at all. **Both writers touch only the one `title:`
+  line** — the Deck name field and the menu Rename alike: the rest of the front matter
+  (comments, `_`-prefixed keys, `style: |` block scalars, flow sequences, key order, and
+  CRLF line endings) is preserved byte-for-byte, and a deck whose leading `---` is a slide
+  separator keeps that slide.
+  **Rename now edits whichever source the title actually came from**: the `title:` line
+  on an override deck (leaving the cover slide untouched), the first heading otherwise,
+  and it names which in the prompt. It never adds front matter to a deck that had none.
+  A front-matter title is not markdown-stripped the way a heading is — nothing renders
+  it, so `Q4_final` keeps its underscores. (#1248 follow-up)
+
 - **Lint coverage is gated by effect, not by config syntax** — `npm run lint:coverage`
   (`tools/check-lint-coverage.js`, also a `build:check` preflight). It replaces a gate that
   was written and then removed before merge in #1232: that one validated how exclusions are

@@ -99,6 +99,12 @@ instead of a rewrite, and would let a deck carry a shelf name distinct from its 
 here was that the title *track the H1*, which this does, and the override is a
 feature on top rather than a correction.
 
+**Shipped as that follow-up:**
+[`2026-07-29-deck-title-front-matter-override.md`](./2026-07-29-deck-title-front-matter-override.md).
+`resolveTitle` now owns the precedence and carries *where* the title came from, so
+Rename edits the override on a deck that has one and the heading on a deck that
+doesn't.
+
 ## Consequences worth naming
 
 - **The `welcome` built-in is now "Markdown for the boardroom"** in the switcher —

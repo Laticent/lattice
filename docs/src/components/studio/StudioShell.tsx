@@ -48,7 +48,7 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
@@ -81,7 +81,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, headingText, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, retitleSource, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, setDeckLabel, shouldNudgeBackup, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, setDeckLabel, shouldNudgeBackup, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -895,16 +895,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		if (decksClearedRef.current) return;
 		saveSource(id, src);
 		// Refresh the pre-paint shell's mirror. Deliberately derived from `src` HERE
-		// rather than passed in: this is the deck's real heading, never the normalized
-		// display title, and never its creation label (which stays put — see IndexEntry).
-		syncDerivedTitle(id, headingText(src));
+		// rather than passed in: this is the deck's real title as the deck states it —
+		// its `title:` override, else its heading — never its creation label (which stays
+		// put; see IndexEntry). Mirroring the RESOLVED title is what keeps the pre-paint
+		// shell from flashing a cover heading the override was set to replace.
+		syncDerivedTitle(id, resolveTitle(src)?.text ?? null);
 	}, []);
 
-	// The active deck's TITLE, derived live from what's in the editor: a deck is named
-	// by its first heading, so typing one renames the deck in the switcher, the header,
-	// ⌘K, Share and the export filename with no separate rename step. `deck.title` is
-	// only the fallback for a deck with no heading at all (it holds the last name the
-	// deck was loaded/created under).
+	// The active deck's TITLE, derived live from what's in the editor: a deck is named by
+	// its `title:` override when it sets one, else by its first heading — so typing either
+	// renames the deck in the switcher, the header, ⌘K, Share and the export filename with
+	// no separate rename step. `deck.title` is only the fallback for a deck carrying
+	// neither (it holds the last name the deck was loaded/created under).
 	const deckTitle = React.useMemo(() => titleFromSource(source, deck.title), [source, deck.title]);
 
 	// The deck list as the switcher + ⌘K should SEE it: `decks` holds each deck's
@@ -972,6 +974,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// when it carries text — an empty field clears the directive (the band is off).
 	const headerText = getFrontMatter(source, 'header') ?? '';
 	const footerText = getFrontMatter(source, 'footer') ?? '';
+	// The deck's shelf name, RAW from `title:` — empty when the deck has no override, which
+	// is the common case: the field then shows its placeholder (the heading-derived name) so
+	// the control reads as "this is what the deck is called, blank follows the cover".
+	const deckNameOverride = (getFrontMatter(source, 'title') ?? '').trim() ? (getFrontMatter(source, 'title') ?? '') : '';
 	// The section-progress rail has no native Marp directive (unlike header/footer/
 	// paginate), so it is governed deck-wide by the `no-progress` class token
 	// propagated to every slide (deckClassPropagate). ON is the default; the toggle
@@ -1209,6 +1215,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => setFrontMatter(s, 'lift', lift ? null : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
 	// band turns off — no separate toggle, the presence of text IS the switch.
+	// The deck's SHELF NAME — `title:` front matter. This is the only way to CREATE the
+	// override: Rename deliberately rewrites whichever source the name already comes from
+	// and never grows front matter on a deck that has none, so without this control the
+	// override could only be reached by hand-writing YAML into a drawer whose whole purpose
+	// is "front matter without the YAML". Blank CLEARS the key (`|| null`), which restores
+	// heading derivation — the same shape as Header/Footer, so clearing is discoverable.
+	// LOSSLESS on purpose — `writeFrontMatterLine`, never `setFrontMatter`. This is the one
+	// key an author is told to hand-write, so the deck carrying it is exactly the deck with
+	// comments, `_class:`, and `style: |` blocks in its front matter. Routing the CREATE path
+	// through the whole-block rebuild would shred all of that on the FIRST write — and since
+	// Rename deliberately never creates the key, the first write is always this one, so the
+	// splice would only ever have protected decks that had already been damaged once.
+	const setDeckName = (v: string) => settingsWrite('Deck name', (s) => writeFrontMatterLine(s, 'title', v.trim() || null));
 	const setHeaderText = (v: string) => settingsWrite('Header', (s) => setFrontMatter(s, 'header', v.trim() || null));
 	const setFooterText = (v: string) => settingsWrite('Footer', (s) => setFrontMatter(s, 'footer', v.trim() || null));
 	// The deck's `lexicon:` (word-or-symbol → spoken). Read from the front-matter block;
@@ -1353,33 +1372,67 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		}
 		file.text().then(importDeckFromText).catch(() => notify('Could not read that file.'));
 	}
-	// Rename REWRITES the deck's first heading, because that heading IS the deck's
-	// title — storing a label beside it would put the switcher and the slide in
-	// permanent disagreement. It goes through settingsWrite like every other
-	// source-touching setting, so it lands in the editor and is undoable. A deck with
-	// no heading at all has nothing to rewrite: it falls back to the stored label.
+	// Rename REWRITES whatever the deck's title actually comes from — its `title:`
+	// front-matter override when it has one, else its first heading — because that is
+	// the deck's title; storing a label beside it would put the switcher and the deck in
+	// permanent disagreement. Editing the WINNING source is what keeps Rename honest: on
+	// an override deck, rewriting the cover heading instead would appear to do nothing.
+	// It goes through settingsWrite like every other source-touching setting, so it lands
+	// in the editor and is undoable. A deck with neither has nothing to rewrite: it falls
+	// back to the stored label.
 	function renameActiveDeck(title: string) {
 		const t = title.replace(/\s+/g, ' ').trim();
-		if (!t || t === headingText(source)) return; // compared against the RAW heading — see renamePrompt
-		if (retitleSource(source, t)) {
-			settingsWrite(`Rename → ${t}`, (s) => retitleSource(s, t) ?? s);
-		} else if (!decksClearedRef.current) {
-			// No heading to carry the name — record it as the deck's explicit label.
+		if (!t) return;
+		// Compare against what would actually be STORED, not the raw input: on the heading
+		// path a leading `#` is stripped, so `#Q4` and `Q4` are the same rename. Comparing
+		// the raw input meant re-entering an unchanged name wrote an identical source and
+		// pushed a fresh undo entry every time, never converging.
+		const stored = storedTitleFor(source, t);
+		if (stored && stored === resolveTitle(source)?.text) return;
+		if (stored && retitleSource(source, t)) {
+			settingsWrite(`Rename → ${stored}`, (s) => retitleSource(s, t) ?? s);
+		} else if (!resolveTitle(source) && !decksClearedRef.current) {
+			// Neither an override nor a heading to carry the name — record it as the deck's
+			// explicit label. Gated on `resolveTitle` being null rather than on retitleSource
+			// having failed: a deck that HAS a title source but produced no writable value
+			// (renaming to a bare `#`) must fall through to nothing, not quietly overwrite the
+			// creation label — that field is write-once by design (the demo dedupes on it).
 			// Guarded like every other write: a rename during the Privacy & Data
 			// clear→reload window must not re-create the index it just wiped.
-			setDeckLabel(deck.id, t);
-			setDeck((cur) => ({ ...cur, title: t }));
+			// Strip a leading `#` here too. This branch is the label, not a heading, but the
+			// prompt prefills a raw heading and a user who edits it can leave the marker on —
+			// and a label of `#` is the write-once creation field silently overwritten with
+			// punctuation. No writable name means no write at all.
+			const label = t.replace(/^#+\s*/, '').trim();
+			if (!label) return;
+			setDeckLabel(deck.id, label);
+			setDeck((cur) => ({ ...cur, title: label }));
 			setDecks(loadDeckList());
+			notify(`Renamed to “${label}”.`);
+			return;
+		} else if (!stored) {
+			return; // nothing was written — don't claim a rename that didn't happen
 		}
-		notify(`Renamed to “${t}”.`);
+		// Report the name the user will SEE, which is display-normalized: markdown stripped
+		// from a heading and the whole thing capped at 60. Reporting the stored value made the
+		// toast honest about the write and still able to disagree with the switcher beside it.
+		notify(`Renamed to “${titleFromSource(retitleSource(source, t) ?? source, stored ?? t)}”.`);
 	}
-	// What Rename PREFILLS: the deck's raw heading, not `deckTitle`. `deckTitle` is
+	// What Rename PREFILLS: the deck's raw winning title, not `deckTitle`. `deckTitle` is
 	// display-normalized — markdown stripped, hard-capped at 60 chars — and Rename writes
 	// its result back into the deck, so prefilling with it silently deleted the author's
 	// emphasis and everything past the cap from their cover slide the moment they edited
-	// the name.
+	// the name. The prompt also NAMES what it is about to rewrite, so a deck whose shelf
+	// name is deliberately not its cover doesn't look like Rename is aimed at the slide.
 	const renamePrompt = () => {
-		const t = window.prompt('Rename deck — this rewrites its title heading', headingText(source) ?? deckTitle);
+		const cur = resolveTitle(source);
+		const where =
+			cur?.from === 'front-matter'
+				? 'Rename deck — this rewrites its title: front matter, not the cover slide'
+				: cur
+					? 'Rename deck — this rewrites its title heading'
+					: 'Rename deck';
+		const t = window.prompt(where, cur?.text ?? deckTitle);
 		if (t != null) renameActiveDeck(t);
 	};
 	function removeDeck(id: string) {
@@ -2478,7 +2531,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<PillTabs tabs={DECK_TABS} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
 			{deckTab === 'look' && (
 			<div>
-				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">The deck's identity — language, palette, light or dark, size, and surface.</p>
+				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">The deck's identity — its name, language, palette, light or dark, size, and surface.</p>
+				<TextRow
+					label="Deck name"
+					desc={`What this deck is called in the switcher, in Share, and in the export filename. ${deckNameOverride.trim() ? 'Clear the field to go back to following the cover heading.' : `Currently “${deckTitle}”, from the cover heading — type a name here only when the shelf name isn't what belongs on the title slide.`}`}
+					value={deckNameOverride}
+					placeholder="Follows the cover heading"
+					onCommit={setDeckName}
+				/>
 				<Field label="Language" desc="This deck's language — its document language (carried into every export and read-aloud) and the language the AI writes its content in. “Auto” (the link icon) inherits the workspace default; pick one to pin it to the deck. English only for now.">
 					<LanguageSelect
 						value={deckLang || LANG_AUTO}

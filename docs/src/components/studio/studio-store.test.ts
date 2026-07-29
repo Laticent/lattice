@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DECKS, deckSource } from './decks';
+import { writeFrontMatterLine } from './front-matter';
 import { addComment, listComments } from './slide-comments';
 import {
 	clearAllDecks,
@@ -24,6 +25,7 @@ import {
 	loadSource,
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
+	resolveTitle,
 	retitleSource,
 	saveActiveDeck,
 	saveChat,
@@ -34,6 +36,7 @@ import {
 	saveSettings,
 	saveSource,
 	setDeckLabel,
+	storedTitleFor,
 	syncDerivedTitle,
 	titleFromSource,
 	truncateCodePoints,
@@ -185,6 +188,238 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 	it('round-trips: what titleFromSource reads is what retitleSource writes', () => {
 		const src = retitleSource('---\nsize: 16:9\n---\n\n# Old\n\nbody', 'Board Pack') ?? '';
 		expect(titleFromSource(src)).toBe('Board Pack');
+	});
+});
+
+describe('studio-store — the `title:` front-matter override (shelf name ≠ cover)', () => {
+	const COVER = '<!-- _class: title -->\n\n# Q4\n\nbody';
+	const OVERRIDDEN = `---\ntitle: Board pack — Q4 FY26 (final)\n---\n\n${COVER}`;
+
+	it('the override wins over the heading, and reports WHERE the title came from', () => {
+		expect(titleFromSource(OVERRIDDEN)).toBe('Board pack — Q4 FY26 (final)');
+		expect(resolveTitle(OVERRIDDEN)).toEqual({ text: 'Board pack — Q4 FY26 (final)', from: 'front-matter' });
+		// …and with no override the heading still wins, tagged as such.
+		expect(resolveTitle(COVER)).toEqual({ text: 'Q4', from: 'heading' });
+		expect(resolveTitle('no title anywhere')).toBeNull();
+	});
+
+	it('an EMPTY or whitespace-only `title:` is treated as absent — a stray key cannot blank the deck name', () => {
+		// The bare-key form parses to '' (front-matter.ts), the spaces form to '  '. Neither is a
+		// name, and preferring either would leave the deck listed under the index fallback with a
+		// perfectly good heading sitting right there.
+		expect(titleFromSource(`---\ntitle:\n---\n\n${COVER}`)).toBe('Q4');
+		expect(titleFromSource(`---\ntitle: "   "\n---\n\n${COVER}`)).toBe('Q4');
+		expect(resolveTitle(`---\ntitle:\n---\n\n${COVER}`)?.from).toBe('heading');
+	});
+
+	it('does NOT markdown-strip a front-matter title — nothing renders it, so the characters are literal', () => {
+		// The heading path strips `*_\`` because that text IS rendered markdown. Applying the same
+		// strip to a YAML scalar would silently rewrite a name the author typed.
+		expect(titleFromSource('---\ntitle: Q4_final_v2\n---\n\n# Cover\n')).toBe('Q4_final_v2');
+		expect(titleFromSource('---\ntitle: "*not emphasis*"\n---\n\n# Cover\n')).toBe('*not emphasis*');
+		// …while the heading path still strips, unchanged.
+		expect(titleFromSource('# **Q4** Wrap\n')).toBe('Q4 Wrap');
+	});
+
+	it('still caps the DISPLAY title at 60 chars — the switcher pill is the same pill', () => {
+		const long = 'Project Falcon — the FY26 operating plan and capital allocation review'; // 70
+		expect(titleFromSource(`---\ntitle: ${long}\n---\n\n# Cover\n`)).toHaveLength(60);
+		expect(resolveTitle(`---\ntitle: ${long}\n---\n\n# Cover\n`)?.text).toBe(long); // …raw is uncapped
+	});
+
+	it('Rename rewrites the OVERRIDE and leaves the cover slide alone', () => {
+		const out = retitleSource(OVERRIDDEN, 'Board pack — Q4 FY26 (v3)') ?? '';
+		expect(titleFromSource(out)).toBe('Board pack — Q4 FY26 (v3)');
+		expect(out).toContain('# Q4\n'); // the cover heading is untouched — the point of the override
+		expect(headingText(out)).toBe('Q4');
+	});
+
+	it('Rename still rewrites the HEADING when there is no override — it never CREATES one', () => {
+		const out = retitleSource(COVER, 'Q4 Wrap') ?? '';
+		expect(out).toBe('<!-- _class: title -->\n\n# Q4 Wrap\n\nbody');
+		expect(out).not.toContain('title:'); // renaming a plain deck must not silently grow front matter
+	});
+
+	it('a title containing quotes or a backslash round-trips through the front matter losslessly', () => {
+		// setFrontMatter quotes + escapes; unquote decodes. Without a real round-trip the
+		// backslashes compound on every rename (front-matter.ts documents this).
+		const tricky = 'The "final" final \\ pack';
+		let src = retitleSource(OVERRIDDEN, tricky) ?? '';
+		expect(resolveTitle(src)?.text).toBe(tricky);
+		src = retitleSource(src, tricky) ?? src; // …and again — no compounding
+		expect(resolveTitle(src)?.text).toBe(tricky);
+	});
+
+	it('a multi-line title cannot break out of the front-matter block', () => {
+		const out = retitleSource(OVERRIDDEN, 'A\n---\n\n# Injected') ?? '';
+		expect(resolveTitle(out)?.text).toBe('A --- # Injected');
+		// Exactly the two delimiters of the one block — no third `---` opening a slide.
+		expect(out.match(/^---$/gm)).toHaveLength(2);
+	});
+
+	it('the override drives the DECK LIST, not just the resolver', () => {
+		const deck = createDeck('Untitled deck');
+		saveSource(deck.id, `---\ntitle: Board pack — Q4\n---\n\n# Q4\n\nbody`);
+		expect(loadDeckList().find((d) => d.id === deck.id)?.title).toBe('Board pack — Q4');
+	});
+
+	// ── Rename must SPLICE the `title:` line, never rebuild the block ──────────────────
+	// Every case below was found by the adversarial trio against the first cut, which routed
+	// this path through `setFrontMatter`. That rebuilds the whole block through parseFm/emitFm,
+	// so it silently dropped everything the grammar does not model and normalized what it did.
+	describe('Rename preserves the rest of the front matter byte-for-byte', () => {
+		const rename = (src: string, to = 'New Name') => retitleSource(src, to) ?? '';
+
+		it('preserves CRLF — a Windows-authored deck does not come back mixed-EOL', () => {
+			// #1248 built `lineEnd` precisely so Rename could not convert a CRLF line to LF; the
+			// first cut of the override bypassed it and produced an LF block with a CRLF body.
+			const src = '---\r\ntitle: Old Name\r\nsize: 16:9\r\n---\r\n\r\n<!-- _class: title -->\r\n\r\n# Q4\r\n\r\nbody\r\n';
+			const out = rename(src);
+			// The value is quoted exactly as `setFrontMatter` would quote it — one convention, not two.
+			expect(out).toBe('---\r\ntitle: "New Name"\r\nsize: 16:9\r\n---\r\n\r\n<!-- _class: title -->\r\n\r\n# Q4\r\n\r\nbody\r\n');
+			expect(out).not.toMatch(/[^\r]\n/); // no bare LF anywhere — line endings uniform
+		});
+
+		it('keeps YAML comments, key order, and every key the parser grammar does not model', () => {
+			const src = [
+				'---',
+				'# author note about this deck',
+				'title: Old',
+				'theme: indaco',
+				'_class: lead', // leading underscore: the ENGINE accepts it, parseFm's grammar does not
+				'style: |',
+				'  section { color: red; }',
+				'tags: [alpha, beta]',
+				'---',
+				'',
+				'# Q4',
+				'',
+			].join('\n');
+			const out = rename(src);
+			expect(out).toContain('# author note about this deck'); // comment survives
+			expect(out).toContain('_class: lead'); // underscore key survives
+			expect(out).toContain('style: |\n  section { color: red; }'); // block scalar + its lines survive
+			expect(out).toContain('tags: [alpha, beta]'); // flow sequence not stringified
+			expect(out).toBe(src.replace('title: Old', 'title: "New Name"')); // …and NOTHING else moved
+		});
+
+		it('preserves a nested block and does not reorder around it', () => {
+			const src = '---\ntitle: Old\nfinish-override:\n  backdrop:\n    strength: 0.4\nsize: wide\n---\n\n# Q4\n';
+			expect(rename(src)).toBe(src.replace('title: Old', 'title: "New Name"'));
+		});
+
+		it('rewrites only the FIRST `title:`, and leaves a duplicate key alone', () => {
+			// getFrontMatter reads the first; the writer must target that same line rather than
+			// collapsing the block (which silently deleted the author's second key).
+			const src = '---\ntitle: First\nsize: wide\ntitle: Second\n---\n\n# Cover\n';
+			const out = rename(src);
+			expect(out).toBe('---\ntitle: "New Name"\nsize: wide\ntitle: Second\n---\n\n# Cover\n');
+		});
+
+		it('does NOT strip a leading `#` on the front-matter path — the scalar is literal', () => {
+			// The `#` strip is a HEADING concern (it stops a prefilled `# Title` doubling). Applied
+			// here it renamed the deck to something other than what the user typed, and made the
+			// no-op guard non-convergent.
+			const src = '---\ntitle: Old\n---\n\n# Cover\n';
+			expect(resolveTitle(rename(src, '#1 Priority'))?.text).toBe('#1 Priority');
+			expect(storedTitleFor(src, '#1 Priority')).toBe('#1 Priority');
+			// …while the heading path still strips it.
+			expect(storedTitleFor('# Cover\n', '#1 Priority')).toBe('1 Priority');
+			expect(retitleSource('# Cover\n', '#1 Priority')).toBe('# 1 Priority\n');
+		});
+
+		it('an INDENTED `title:` is not a directive — it names nothing and is never written to', () => {
+			// An earlier cut of this change accepted it, on the reasoning that `parseFm` matches the
+			// trimmed line so the writer must follow the reader. The red team showed where that
+			// leads: the continuation of a folded scalar becomes both the deck's name AND Rename's
+			// write target. A real top-level directive sits at column 0; both halves now require it.
+			const src = '---\ntheme: indaco\n  title: sneaky\n---\n\n# Cover\n';
+			expect(resolveTitle(src)).toEqual({ text: 'Cover', from: 'heading' });
+			expect(rename(src)).toBe('---\ntheme: indaco\n  title: sneaky\n---\n\n# New Name\n');
+		});
+
+		it('writeFrontMatterLine CREATES the key losslessly — the path Rename never takes', () => {
+			// The trio's blocker: Rename never creates `title:`, so the FIRST write to it is always
+			// the Deck-name control. Routing that through `setFrontMatter` shredded the block, which
+			// meant the splice only ever protected decks already damaged once.
+			const rich = ['---', '# author note — keep me', 'theme: indaco', '_class: lead', 'style: |', '  section { color: red; }', 'tags: [alpha, beta]', '---', '', '# Q4', ''].join('\n');
+			const out = writeFrontMatterLine(rich, 'title', 'Board pack');
+			expect(out).toContain('# author note — keep me');
+			expect(out).toContain('_class: lead');
+			expect(out).toContain('style: |\n  section { color: red; }');
+			expect(out).toContain('tags: [alpha, beta]');
+			expect(out).toBe(rich.replace('\n---\n\n# Q4', '\ntitle: "Board pack"\n---\n\n# Q4'));
+			expect(resolveTitle(out)).toEqual({ text: 'Board pack', from: 'front-matter' });
+		});
+
+		it('CREATING a name on a deck whose leading `---` is a slide SEPARATOR does not eat slide 1', () => {
+			// FM_RE cannot tell a separator from front matter, so the whole-block rebuild deleted the
+			// swallowed slide outright — verified on the real Studio by two lenses.
+			const src = '---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
+			const out = writeFrontMatterLine(src, 'title', 'Board pack');
+			expect(out).toContain('# Cover slide');
+			expect(out).toContain('Revenue up 12 percent.');
+			expect(out).toContain('# Second slide');
+		});
+
+		it('CLEARING the name removes the line, keeps the block, and drops an empty block', () => {
+			const src = '---\n# keep me\ntitle: Board pack\ntheme: indaco\n---\n\n# Q4\n';
+			const cleared = writeFrontMatterLine(src, 'title', null);
+			expect(cleared).toBe('---\n# keep me\ntheme: indaco\n---\n\n# Q4\n');
+			// …and when the key was the only content, the block goes with it.
+			expect(writeFrontMatterLine('---\ntitle: Solo\n---\n\n# Q4\n', 'title', null)).toBe('# Q4\n');
+			// CRLF survives a create+clear round-trip.
+			const crlf = '---\r\ntheme: indaco\r\n---\r\n\r\n# Q4\r\n';
+			expect(writeFrontMatterLine(writeFrontMatterLine(crlf, 'title', 'X'), 'title', null)).toBe(crlf);
+		});
+
+		it('a `title:` inside a FOLDED SCALAR is not the deck name, and Rename will not write into it', () => {
+			// parseFm matches the trimmed line, so an indented `title:` reads as a flat pair — which
+			// made a continuation line both the deck's name and Rename's write target, rewriting the
+			// author's `header:` value. The heading path has always refused to write into content it
+			// doesn't own; the front-matter path now holds the same line (top-level only).
+			const src = '---\nheader: >\n  title: folded\ntheme: x\n---\n\n# Real Cover\n';
+			expect(resolveTitle(src)).toEqual({ text: 'Real Cover', from: 'heading' });
+			expect(retitleSource(src, 'ZZ')).toBe('---\nheader: >\n  title: folded\ntheme: x\n---\n\n# ZZ\n');
+		});
+
+		it('the 60-char display cap lands on a CODE POINT boundary — no lone surrogate', () => {
+			const src = `---\ntitle: ${'x'.repeat(59)}😀tail\n---\n\n# Cover\n`;
+			const out = titleFromSource(src);
+			expect([...out].length).toBeLessThanOrEqual(60); // 60 CHARACTERS, not UTF-16 units
+			expect(/[\uD800-\uDBFF]$/.test(out)).toBe(false); // no dangling high surrogate
+			expect([...out].every((ch) => ch.codePointAt(0) !== 0xfffd)).toBe(true);
+		});
+
+		it('AGREEMENT: for every deck shape, the spliced value is what the reader reads back', () => {
+			// The drift guard. If frontMatterKeySpan and parseFm ever diverge, this fails.
+			const shapes = [
+				'---\ntitle: A\n---\n\n# H\n',
+				'---\r\ntitle: A\r\nsize: wide\r\n---\r\n\r\n# H\r\n',
+				'---\n# note\ntitle: A\ntheme: indaco\n---\n\n# H\n',
+				'---\nfinish-override:\n  backdrop:\n    strength: 0.4\ntitle: A\n---\n\n# H\n',
+				'---\ntitle: A\nlexicon:\n  "α": alpha\n---\n\n# H\n',
+			];
+			for (const shape of shapes) {
+				for (const name of ['Board pack — Q4', 'The "final" \\ pack', 'plain', '#1 Priority']) {
+					const out = retitleSource(shape, name) ?? '';
+					expect(resolveTitle(out)).toEqual({ text: name, from: 'front-matter' });
+					// and the body is untouched
+					expect(out.slice(out.lastIndexOf('---') + 3)).toBe(shape.slice(shape.lastIndexOf('---') + 3));
+				}
+			}
+		});
+	});
+
+	it('the pre-paint MIRROR carries the override, so a reload does not flash the cover heading', () => {
+		// syncDerivedTitle is fed resolveTitle(src).text by the shell; the mirror is what
+		// studio.astro paints before hydration. Feeding it the heading would show "Q4" for a deck
+		// the author deliberately named something else, then snap on hydration.
+		const deck = createDeck('Untitled deck');
+		syncDerivedTitle(deck.id, resolveTitle(OVERRIDDEN)?.text ?? null);
+		const row = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]').find((e: { id: string }) => e.id === deck.id);
+		expect(row.derived).toBe('Board pack — Q4 FY26 (final)');
+		expect(row.title).toBe('Untitled deck'); // the creation label still stays put
 	});
 });
 
