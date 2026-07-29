@@ -60,6 +60,14 @@ describe('glossary slide — applyToDom', () => {
     assert.equal(cells[1].innerHTML, 'Recurring revenue.');
   });
 
+  test('unwraps a whitespace-padded <p> (the bounded, regex-free path)', () => {
+    const doc = dom('<ul><li>\n  <p>ARR</p>\n  <ul><li>  <p>Recurring revenue.</p>  </li></ul></li></ul>');
+    kernel.applyToDom(doc);
+    const cells = doc.querySelectorAll('tbody tr td');
+    assert.equal(cells[0].innerHTML, '<strong>ARR</strong>');
+    assert.equal(cells[1].innerHTML, 'Recurring revenue.');
+  });
+
   test('keeps an already-bold term as authored rather than double-wrapping', () => {
     const doc = dom('<ul><li><strong>ARR</strong><ul><li>d</li></ul></li></ul>');
     kernel.applyToDom(doc);

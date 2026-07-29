@@ -34,6 +34,12 @@ describe('matrix-grid cells — parse', () => {
     assert.equal(kernel.parseCell('[ ]').stateLabel, 'not applicable');
   });
 
+  test('tolerates a padded marker gap (the bounded quantifier still matches)', () => {
+    assert.equal(kernel.parseCell('[x]    Senior').label, 'Senior');
+    assert.equal(kernel.parseCell('[x]Senior').label, 'Senior');
+    assert.equal(kernel.parseCell('  [-]  ').shape, 'cell-outlined');
+  });
+
   test('returns null for an ordinary label cell', () => {
     for (const t of ['Create', '', '  ', 'x', '[y] nope', 'text [x] mid']) {
       assert.equal(kernel.parseCell(t), null, `${JSON.stringify(t)} is not a marker`);
