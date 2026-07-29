@@ -29,6 +29,7 @@
 import { ArrowLeft, Download, ExternalLink, Loader2, Printer } from 'lucide-react';
 import * as React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { messageForFailure } from '@/lib/chunk-load';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Engine helpers (shared kernel, HARD RULE #1): the paper decision + slide placement
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
@@ -176,7 +177,7 @@ export function PrintOptionsPanel({
 				setSections(splitSections(r.html));
 				setRendering(false);
 			})
-			.catch(() => { if (alive) { setStatus('Could not render the deck.'); setRendering(false); } });
+			.catch((e) => { if (alive) { setStatus(messageForFailure(e, 'Could not render the deck.')); setRendering(false); } });
 		return () => { alive = false; };
 	}, [options, source, palette, mode, extraTheme, extraCss, opts.color]);
 
@@ -356,7 +357,7 @@ export function PrintOptionsPanel({
 			setBuilding('print');
 			buildPdf()
 				.then((url) => { if (mountedRef.current) openPdfTab(url); })
-				.catch(() => notify('Could not build the PDF.'))
+				.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
 				.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 			return;
 		}
@@ -367,7 +368,7 @@ export function PrintOptionsPanel({
 		setBuilding('print');
 		buildPdf()
 			.then(() => { if (mountedRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
-			.catch(() => notify('Could not build the PDF.'))
+			.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
 			.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint, notify]);
 

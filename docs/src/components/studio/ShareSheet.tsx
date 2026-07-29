@@ -1,6 +1,7 @@
 import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSection, PanelSheet } from '@/components/ui/panel';
+import { chunkLoadMessage, isChunkLoadError } from '@/lib/chunk-load';
 import { deckColorMode } from '@/lib/deck-theme';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
@@ -63,7 +64,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				await fn(setProgress);
 				notify(`${label} ready.`);
 			} catch (e) {
-				notify(`${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
+				// Every share row funnels through here, and each one lazy-imports its exporter.
+				// A stale tab or a dropped connection failed BEFORE the export began, so echoing
+				// the engine's raw text ("Failed to fetch dynamically imported module: /_astro/…")
+				// blames the deck and leaks a hashed asset URL into boardroom-facing copy (#1242).
+				notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
 			} finally {
 				setBusy(null);
 				setProgress(null);
