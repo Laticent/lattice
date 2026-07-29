@@ -911,6 +911,103 @@ function checkSectionBoxOwnership(errors) {
   }
 }
 
+// ── The section's own `cq*` units must be ANCHORED to the slide ───────────────
+// A `container-type: size` element cannot query ITSELF, so a bare `cqi`/`cqh` in a
+// declaration that lands on the `<section>` falls back to the initial containing
+// block. In the export the ICB happens to BE the slide box (the emulator sets the
+// viewport to it), so the value is right by luck; in every browser host the ICB is
+// the HOST VIEWPORT, so the slide's own geometry silently tracks whatever iframe it
+// is previewed in. That is not a cosmetic drift: the docs-site Playground scales a
+// filmstrip iframe to the pane while the Studio pins its iframe to the slide box, so
+// the SAME deck laid out differently in the two surfaces and they disagreed about
+// which slides overflow (measured: a 17px swing in stage height between a 900px pane
+// and a phone's 355px one, and 2 of the 117 gallery slides changing verdict on pane
+// width alone). Descendants and pseudo-elements are fine — their `cq*` resolves
+// against the section — so this is exactly the section-subject case, which is what
+// `targetsSectionElement` already identifies for the section-box gate.
+//
+// The fix is always the same shape: `calc(var(--_sec-1cqi, 1cqi) * N)` (or
+// `--_sec-1cqh` on the height axis). Those stamps are written per-section by
+// lib/runtime/index.js `patchSectionGeometry` from the real slide box, and the bare
+// fallback keeps the export path byte-identical. Budget 0 + an allowlist, same shape
+// as the margin / hex / layer gates. See engineering/gotchas.md "A slide's own
+// padding changes when the preview pane is resized".
+const SECTION_CQ_BUDGET = 0;
+
+// Reviewed exceptions, each with its justification. A stale entry fails too, so the
+// list cannot rot.
+// EMPTY, and that is the achieved state, not an aspiration: every section-own
+// `cq*` in the engine is anchored. The fluid VIEW MODE, which legitimately
+// re-derives the slide box from the viewport, needs no entry — it does its work
+// with `dvh`/`svh` on the box itself, not with a section-own `cq*`.
+const SANCTIONED_SECTION_CQ = [];
+
+// `cq*` lengths in a declaration, ignoring the anchored form (`var(--_sec-1cq*, 1cq*)`,
+// whose bare fallback is the intended export path) and custom-property declarations
+// (a token is not itself applied to the section; its CONSUMER is, and that consumer is
+// what this gate sees).
+function sectionCqOffences(css) {
+  const src = stripComments(css);
+  const out = [];
+  let selStart = 0;
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === '{') { stack.push(src.slice(selStart, i).trim()); selStart = i + 1; continue; }
+    if (ch !== '}') continue;
+    const prelude = stack.pop() || '';
+    const body = src.slice(selStart, i);
+    selStart = i + 1;
+    if (prelude.startsWith('@')) continue; // at-rule prelude — its children were scanned
+    if (!targetsSectionElement(prelude)) continue;
+    for (const raw of body.split(';')) {
+      const decl = raw.trim();
+      if (!decl || decl.startsWith('--')) continue;
+      // Strip the anchored form before looking for a bare unit, so
+      // `calc(var(--_sec-1cqi, 1cqi) * 8)` reads as clean while `8cqi` does not.
+      const bare = decl.replace(/var\(\s*--_sec-1cq[ihb]\s*,\s*1cq[ihb]\s*\)/g, '');
+      if (/[\d.]cq[ihb]\b/.test(bare)) {
+        out.push({ selector: prelude.replace(/\s+/g, ' ').slice(0, 70), decl: decl.replace(/\s+/g, ' ') });
+      }
+    }
+  }
+  return out;
+}
+
+function checkSectionCqAnchoring(errors) {
+  const offences = [];
+  for (const root of SECTION_BOX_ROOTS) {
+    if (!fs.existsSync(root)) continue;
+    for (const file of listCssFiles(root)) {
+      const rel = path.relative(ROOT, file);
+      for (const o of sectionCqOffences(fs.readFileSync(file, 'utf8'))) offences.push({ file: rel, ...o });
+    }
+  }
+  const remaining = [];
+  const staleSanctions = [...SANCTIONED_SECTION_CQ];
+  for (const o of offences) {
+    const i = staleSanctions.findIndex((s) => s.file === o.file && o.decl.startsWith(s.decl));
+    if (i === -1) remaining.push(o);
+    else staleSanctions.splice(i, 1);
+  }
+  if (remaining.length > SECTION_CQ_BUDGET) {
+    const top = remaining.slice(0, 6).map((o) => `${o.file} \`${o.selector}\` → ${o.decl}`).join('; ');
+    errors.push(
+      `${remaining.length} bare container-query unit(s) in declarations that land on the SECTION element ` +
+      `(budget ${SECTION_CQ_BUDGET}). A \`container-type: size\` element cannot query itself, so these resolve ` +
+      `against the ICB — the HOST VIEWPORT in a browser preview — and the slide's own geometry then tracks the ` +
+      `preview pane instead of the slide (the Playground/Studio overflow disagreement). Anchor to the slide: ` +
+      `\`calc(var(--_sec-1cqi, 1cqi) * N)\`, or \`--_sec-1cqh\` on the height axis. Offending: ${top}.`,
+    );
+  }
+  for (const s of staleSanctions) {
+    errors.push(
+      `stale section-cq sanction in tools/check-ownership.js — \`${s.decl}\` in ${s.file} is no longer ` +
+      `present. Remove the SANCTIONED_SECTION_CQ entry so the allowlist stays honest.`,
+    );
+  }
+}
+
 // HARD RULE #20 gate — keep `margin` out of the engine's layout CSS; space with
 // `gap`/`padding`, which measure cleanly (engineering/gotchas.md). Layout budget 0 +
 // the SANCTIONED allowlist above.
@@ -3258,6 +3355,7 @@ function run() {
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
   checkSectionBoxOwnership(errors);
+  checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
@@ -3336,6 +3434,10 @@ module.exports = {
   nonCanonicalFsTokens,
   offendingMargins,
   sectionBoxOffences,
+  sectionCqOffences,
+  checkSectionCqAnchoring,
+  SECTION_CQ_BUDGET,
+  SANCTIONED_SECTION_CQ,
   targetsSectionElement,
   SECTION_BOX_PROPS,
   checkSectionBoxOwnership,

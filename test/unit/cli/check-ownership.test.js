@@ -31,10 +31,14 @@ const {
   nonCanonicalFsTokens,
   offendingMargins,
   sectionBoxOffences,
+  sectionCqOffences,
   targetsSectionElement,
   SECTION_BOX_PROPS,
   checkSectionBoxOwnership,
   SANCTIONED_SECTION_BOXES,
+  checkSectionCqAnchoring,
+  SECTION_CQ_BUDGET,
+  SANCTIONED_SECTION_CQ,
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
@@ -329,6 +333,48 @@ describe('check-ownership', () => {
       // Each entry is the fluid VIEW MODE deliberately unpinning the deck box; it
       // is gated on :root[data-lattice-view="fluid"], which no export ever sets.
       for (const s of SANCTIONED_SECTION_BOXES) {
+        assert.ok(s.file && s.decl, 'every sanction names a file and the exact declaration');
+      }
+    });
+  });
+
+  describe('section-cq anchoring gate', () => {
+    // Regression lock for the Playground/Studio overflow disagreement: a
+    // `container-type: size` section cannot query itself, so a bare `cqi`/`cqh` in
+    // one of its OWN declarations resolves against the ICB — the host viewport in a
+    // browser preview. The slide's geometry then tracked the preview pane's width
+    // (measured: a 17px swing in stage height between a 900px pane and a 355px one),
+    // and the two docs-site surfaces disagreed about which slides overflow.
+    test('flags a bare cq unit in a declaration that lands on the section', () => {
+      assert.equal(sectionCqOffences('section.divider { padding-left: 9.375cqi; }').length, 1);
+      assert.equal(sectionCqOffences('section { padding: 6.875cqi 5cqi; }').length, 1, 'bare section is the worst case');
+      assert.equal(sectionCqOffences('section.image { grid-template-rows: 44cqh 1fr; }').length, 1, 'the height axis leaks the same way');
+      assert.equal(
+        sectionCqOffences('section.a:hover { color: red }\nsection.a { gap: 5cqh }').length,
+        1,
+        'every rule is inspected, adjacent ones included',
+      );
+    });
+
+    test('the ANCHORED form is clean, and so is anything below the section', () => {
+      assert.deepEqual(sectionCqOffences('section.a { padding: calc(var(--_sec-1cqi, 1cqi) * 6.875); }'), []);
+      assert.deepEqual(sectionCqOffences('section.a { gap: calc(var(--_sec-1cqh, 1cqh) * 5); }'), []);
+      // A descendant's `cq*` resolves against the SECTION (it is a real ancestor
+      // container), and so does a pseudo-element's — verified in a browser, not
+      // assumed: only the section's own box falls back to the ICB.
+      assert.deepEqual(sectionCqOffences('section.a .card { width: 10cqi; }'), []);
+      assert.deepEqual(sectionCqOffences('section.a::before { width: 10cqi; }'), []);
+      // A custom property is not itself applied to anything — its CONSUMER is, and
+      // that consumer is what this gate sees.
+      assert.deepEqual(sectionCqOffences('section.a { --tone-rail: inset 0.55cqi 0 0 0 red; }'), []);
+    });
+
+    test('the tree is clean at budget 0, with an honest allowlist', () => {
+      const errors = [];
+      checkSectionCqAnchoring(errors);
+      assert.deepEqual(errors, [], 'every section-own cq unit in the engine is slide-anchored');
+      assert.equal(SECTION_CQ_BUDGET, 0);
+      for (const s of SANCTIONED_SECTION_CQ) {
         assert.ok(s.file && s.decl, 'every sanction names a file and the exact declaration');
       }
     });

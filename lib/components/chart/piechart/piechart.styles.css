@@ -47,7 +47,7 @@ section.piechart:is(.claim-hero, .claim-bleed) .piechart-figure {
   max-width: 100%;
 }
 section.piechart:is(.claim-hero, .claim-bleed) .piechart-svg {
-  height: 38cqi;
+  height: calc(var(--_sec-1cqi, 1cqi) * 38);
   width: auto;
   max-height: 100%;
   max-width: 100%;

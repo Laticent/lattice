@@ -38,8 +38,8 @@ section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
   display: block;
   align-self: auto;
   box-sizing: content-box;
-  width: 8cqi;
-  height: 0.22cqi;
+  width: calc(var(--_sec-1cqi, 1cqi) * 8);
+  height: calc(var(--_sec-1cqi, 1cqi) * 0.22);
   /* Now a real <hr>, so element-level finishes that target `section … hr` reach it — reset the
    * sketch wave mask (base.sketch.css), which would smear this 2px segment into a 7px tile and
    * near-erase it. A free body <hr> still gets the sketch treatment; only the heading rule opts out. */
@@ -49,7 +49,7 @@ section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
    * transparent padding-top and the segment paints only in the content box (background-clip). */
   padding-top: var(--sp-sm);
   border: none;
-  border-radius: 0.11cqi;
+  border-radius: calc(var(--_sec-1cqi, 1cqi) * 0.11);
   background: var(--border);
   background-clip: content-box;
 }

@@ -169,10 +169,28 @@
    * (Phase 0 of the islands model; see engineering/decisions/2026-06-11-islands.md).
    *   --frame-inset-x     horizontal inset of every edge berth
    *   --frame-inset-y     vertical inset of the top/bottom berths
-   *   --frame-page-reserve footer-right gap that reserves the pagination berth */
-  --frame-inset-x:      2.34375cqi;
-  --frame-inset-y:      1.875cqi;
-  --frame-page-reserve: 6.25cqi;
+   *   --frame-page-reserve footer-right gap that reserves the pagination berth
+   *
+   * ANCHORED to the slide via `--_sec-1cqi`, not written as a bare `cqi`. The
+   * berths are read from BOTH sides of the section boundary — the chrome cells
+   * are descendants (their `cqi` resolves against the section, correctly), but
+   * `--footer-reserve` lands on the SECTION'S OWN `padding-bottom`, and a
+   * `container-type: size` element cannot query itself: its own `cqi` falls back
+   * to the ICB, which in a browser host is the HOST VIEWPORT. So one token gave
+   * two different answers on the same slide — 24px on the footer berth, 14.4px on
+   * the reserve meant to hold it — and the reserve tracked whatever width the
+   * preview pane happened to be. Measured on the docs-site filmstrip, the same
+   * deck's stage grew ~17px between a 900px pane and a phone's 355px one, which
+   * is enough to move a slide across the overflow threshold: the Playground and
+   * the Studio disagreed about which slides overflow because their iframes are
+   * different widths. `--_sec-1cqi` is the slide-width stamp that exists for
+   * exactly this (lib/runtime/index.js `patchSectionGeometry`); the `1cqi`
+   * fallback keeps the export path byte-identical, since there the ICB IS the
+   * slide box. See engineering/gotchas.md "A slide's own padding changes when the
+   * preview pane is resized". */
+  --frame-inset-x:      calc(var(--_sec-1cqi, 1cqi) * 2.34375);
+  --frame-inset-y:      calc(var(--_sec-1cqi, 1cqi) * 1.875);
+  --frame-page-reserve: calc(var(--_sec-1cqi, 1cqi) * 6.25);
 
   /* ── Marp chrome mappings ── */
   --marp-slide-pagination-color:     var(--text-muted);

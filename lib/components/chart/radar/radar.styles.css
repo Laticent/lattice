@@ -373,7 +373,7 @@ section.radar:is(.claim-hero, .claim-bleed) .radar-figure {
 section.radar:is(.claim-hero, .claim-bleed) .radar-svg {
   grid-column: 2;
   justify-self: center;
-  height: 36cqi;
+  height: calc(var(--_sec-1cqi, 1cqi) * 36);
   width: auto;
   max-height: 100%;
   max-width: 100%;

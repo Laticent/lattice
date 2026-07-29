@@ -385,20 +385,34 @@ in patch versions.
 
 ### Fixed
 
-- **The below-note and split-envelope transforms located the slide's content cell by a
-  hardcoded `<div class="cell-stage">` and balanced it by counting `</div>`.** Any change to
-  the cell's element or attributes made them find nothing and fall back to a section-level
-  anchor — a wrong answer that still renders, so no pixel or DOM gate would catch it. Both
-  read the same helper, which now matches on the class, balances whichever tag it found, and
-  tolerates additional attributes. No user-visible behavior changes today; this closes a
-  latent trap that has now been hit six separate times in this codebase.
-
-- **`split-panel watermark mirror` rendered its running header and footer at 1.11:1 —
-  effectively invisible.** The `watermark` layout sets the chrome to on-accent ink because
-  the header and footer sit over its dark panel; `mirror` moves the panel to the other side
-  and the chrome, which is positioned against the slide, does not follow — so near-white ink
-  landed on the cream content side. Surfaced by the new axe gate and confirmed by looking at
-  the rendered slide. The un-mirrored variant is unchanged, byte for byte.
+- **A slide's own geometry tracked the preview pane's width, so the Playground and the
+  Studio disagreed about which slides overflow.** Reported from a phone: the same deck
+  flagged one overflowing slide in the Studio and two in the Playground. Two independent
+  causes, both now fixed. **(1) The section's `cq` units leaked the host viewport.** A
+  `container-type: size` element cannot query itself, so a bare `cqi`/`cqh` in one of the
+  section's OWN declarations falls back to the initial containing block. In the export the
+  ICB *is* the slide box (the emulator sets the viewport to it), so those values were right
+  by luck; in a browser the ICB is the host viewport. The docs-site Playground scales a
+  filmstrip iframe to the preview pane while the Studio pins its iframe to the slide box —
+  so `--frame-inset-y` computed 24px in one and 14.4px in the other, `--footer-reserve`
+  with it, and the content stage swung ~17px between a 900px pane and a phone's 355px one.
+  Enough to move a slide across the threshold: on the 117-slide gallery, **2 slides changed
+  their overflow verdict on pane width alone**, and 631 computed values moved with the
+  viewport. Every section-own `cq*` is now anchored to the slide (`calc(var(--_sec-1cqi,
+  1cqi) * N)`, plus a new `--_sec-1cqh` stamp for the height axis), which is what the
+  `--sp-*`/`--fs-*` tokens already did. **(2) The overflow probe mixed visual and layout
+  px.** `getBoundingClientRect()` is transform-scaled; `scrollHeight`/`clientHeight` are
+  not — and the probe adds them together. On the filmstrip's scaled sections the same
+  over-stuffed slide measured 30px over at scale 1 and 17px at scale 0.543, which straddles
+  the 12px tolerance. The probe now normalizes everything to layout px (same fix in the
+  figure-legibility probe, which was reporting glyphs at the pane's scale). After both:
+  0 verdict flips across the gallery, the viewport-dependent values down 631 → 50, and the
+  Playground now reports the same numbers as the Studio. **The export is untouched** —
+  18 decks (HD, portrait, square, 4K, imagery, charts, finishes) re-render pixel-identical.
+  A new `checkSectionCqAnchoring` gate (budget 0, empty allowlist) keeps the section tier
+  clean. The remaining 50 are one tier down — `.chart-body` and friends are size containers
+  with the same self-reference problem — tracked in `engineering/gotchas.md`; none of them
+  moves an overflow verdict.
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`
   landmark — every slide rendered zero pixels wide.** The fluid viewer sizes each slide

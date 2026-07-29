@@ -606,6 +606,51 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   export. `matrix-grid` and `compare-prose axis` were fixed that way; the others
   above remain.
 
+### The Playground and the Studio disagree about which slides overflow (and a slide's own padding changes when the preview pane is resized)
+
+- **Symptom:** the same deck, the same palette, the same slide — the Studio's
+  preview shows one slide ringed "OVERFLOWS", the Playground shows two. Resizing
+  the browser window (or opening the Playground on a phone) changes which slides
+  are flagged. Distinct from the two entries above: fonts are loaded and identical,
+  and the export is not involved — the two BROWSER surfaces disagree with each other.
+- **Cause: two independent bugs that both key off the host, not the slide.**
+  - **The section's own `cq*` units resolved against the ICB.** A
+    `container-type: size` element cannot query itself, so a bare `cqi`/`cqh` in a
+    declaration applied to the `<section>` falls back to the initial containing block
+    — the HOST VIEWPORT in a browser. `docs/src/playground/deck-preview.js` (the
+    filmstrip: Playground, Drawing Board) gives its iframe the PANE's width and scales
+    each `<section>` inside it, while `docs/src/lib/single-slide-render.ts` (the
+    Studio, the landing hero, component specimens) pins its iframe to the slide box and
+    scales the IFRAME ELEMENT. So `--frame-inset-y` — and `--footer-reserve`, which is
+    the section's `padding-bottom` — computed 24px in one surface and 14.4px in the
+    other. Measured on the filmstrip: the content stage grew from 405.9px to 423.2px as
+    the pane narrowed from 900px to 355px, and **2 of the 117 gallery slides changed
+    their overflow verdict on pane width alone**. Descendants and pseudo-elements were
+    never affected — their `cq*` resolves against the section — so the same token was
+    simultaneously right on the footer berth and wrong on the reserve meant to hold it.
+  - **The overflow probe mixed visual and layout pixels.** `getBoundingClientRect()`
+    is transform-scaled; `scrollHeight`/`clientHeight` are not; `lib/core/overflow-probe.js`
+    adds them together. On the filmstrip's scaled sections the same over-stuffed
+    matrix-grid measured 30px over at scale 1 and 17px at scale 0.543 — across the 12px
+    tolerance. The figure-legibility probe had the same mix, and reported glyphs at the
+    pane's scale against a floor derived from the unscaled slide height.
+- **Fix:** anchor every section-own `cq*` to the slide —
+  `calc(var(--_sec-1cqi, 1cqi) * N)`, or `--_sec-1cqh` on the height axis (both stamped
+  per-section by `lib/runtime/index.js` `patchSectionGeometry`; the bare fallback keeps
+  the export byte-identical, since there the ICB IS the slide box). The probe now
+  normalizes every rect-derived measure to layout px via the section's own
+  rect ÷ offsetHeight. **Gated:** `checkSectionCqAnchoring` in `tools/check-ownership.js`
+  (via `build:check`), budget 0 with an empty allowlist.
+- **Still open, one tier down:** `.chart-body`, `.piechart-figure` and
+  `section.list-criteria`'s cell are themselves `container-type: size`, so a `cq*` in
+  THEIR own declarations has the identical self-reference problem, and there is no
+  stamped anchor for a non-section container. 50 computed values on the gallery still
+  move with the host viewport (down from 631); none of them changes an overflow verdict.
+  Fixing that tier needs a per-container stamp, not another token rewrite.
+- **Triggered by:** writing a `cq` length directly on a `section…` rule — it reads as
+  slide-relative and is not. Check with the gate, or by rendering the same deck in two
+  differently-sized iframes and diffing computed styles.
+
 ### Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader
 
 - **Symptom:** in the opt-in `--fluid` viewer, either (a) a genuinely over-dense
@@ -866,6 +911,8 @@ own traps, flagged where relevant.
 | Section collapses (`container-type:size` won't size from contents) → cqi/cqh layouts render tiny + jump | all scaled | `slideBox` pins `width/height` before FIT scales (§ "Playground math … renders tiny") |
 | **`cqi`/`cqh` COLLAPSE under CSS `zoom` on iOS** (poster → fragment, text → one word/line) | any scaled | **NEVER `zoom` — keep `transform: scale()`** (§ "Preview slides collapse … CSS `zoom`"; decision doc `2026-07-02-preview-scale-zoom.md`, REJECTED) |
 | `:root` cqi tokens don't relocate onto `section` on mobile WebKit → spacing collapses | engine playground | delegate CSS packing to marp-core (§ "collapses on mobile WebKit") |
+| **A section-own `cq*` resolves against the ICB = the HOST VIEWPORT** → the slide's own padding/gaps track the preview pane, and the filmstrip and the Studio disagree about which slides overflow | filmstrip vs single-slide hosts | anchor to the slide: `calc(var(--_sec-1cqi, 1cqi) * N)` / `--_sec-1cqh` (§ "The Playground and the Studio disagree about which slides overflow"; gated by `checkSectionCqAnchoring`) |
+| **A transform-scaled section makes `getBoundingClientRect()` disagree with `scrollHeight`** → measured overflow shrinks with the pane's scale | any scaled | the probe normalizes to layout px (rect ÷ offsetHeight); never compare a rect delta to a scroll dim raw (§ same entry) |
 | Scaled `foreignObject` breaks CSS counters / cqi / mask (WebKit) → "00", overlaps, dropped marks | any `inlineSVG` path | render `inlineSVG:false` plain sections (§ "renders broken in mobile Safari/WebKit") |
 | 4K decks render oversized / cropped | docs-site, VS Code | `GEOM` globals + fixed-box FIT scale (§ "4K decks oversized"; "Mermaid HD in 4K") |
 | **Pane-splitter drag over the preview** — the iframe swallows `pointermove` mid-drag, and every drag frame that resizes the iframe re-runs the FIT agent per section (a 60Hz reflow storm on large decks); a pane expanded from a 0-width collapse hits the FIT bail like the mobile-tab reveal | Playground + Studio (`ui/split.tsx`) | `setPointerCapture` on the handle (`lostpointercapture` = authoritative end-of-drag) + `[data-split-dragging] iframe { pointer-events: none }` belt; the parent calls `__latticeFitSuspend()` during drag and `__latticeFitResume()` (one fit) on release; expands re-fit via the proven reveal path + `onFrameLoad`; renders DEFER while the preview is collapsed (decision `2026-07-02-resizable-editor-preview-panes.md`) |
