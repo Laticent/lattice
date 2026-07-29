@@ -165,6 +165,55 @@ in patch versions.
 
 ### Changed
 
+- **Model tiering is retired — every agent runs on Opus (HARD RULE #27 rewritten).**
+  The routing work from #1187 (nine agents pinned across Haiku/Sonnet/Opus, a
+  two-question "judgment or lookup" procedure, tier-split workflow stages) is reversed.
+  It did not survive contact with this codebase: what the procedure classified as cheap
+  *lookup* — where does X live, does this claim hold, why is this gate red — needs the
+  cascade, the token system, and a dozen HARD RULES in context to answer correctly
+  rather than plausibly, and a downshifted agent fails in the direction the machine
+  gates cannot catch (well-formed, confident, wrong). `engineering/model-routing.md` is
+  replaced by `engineering/model-policy.md`; all nine `.claude/agents/` and all five
+  `design-competition` stages pin `opus`; the visual sweep's maker/checker tier split is
+  gone. **The gate stays, narrowed**: `checkAgentModelPinning` keeps its acorn AST
+  parsing and mutation-tested soundness, with `AGENT_MODELS` cut to `['opus']`, so
+  `sonnet` / `haiku` / `fable` are now rejected *by name* — the pin is still required,
+  because a policy that relies on inheriting the session's model is an accident of the
+  current `/model` setting rather than a property of the repo. `effort` is untouched and
+  is now the only cost lever: spend less by spawning fewer agents at the right effort,
+  never by a cheaper model. **The card-level `model:*` axis is deleted outright**, not
+  collapsed: a single-valued label carries no information, so `.github/labels.json` loses
+  the namespace entirely, the work-item form loses its Model dropdown, and
+  `issue-form.js` / `apply-form-labels.yml` stop parsing and applying it.
+  (`sync-labels` is add-only and never deletes, so cards still carrying a `model:*` label
+  keep it until cleared by hand — nothing reads them.) A stale
+  `chat.planAgent.defaultModel: "Claude Sonnet 4.6"` in `.vscode/settings.json` — the one
+  committed setting still naming a non-Opus model for an agent surface — is removed with
+  it. Rationale and what would have to be true to
+  revisit it: `engineering/decisions/2026-07-28-model-tiering-retirement.md`.
+
+- **Fixed in the same change — the #27 gate could be defeated by an override the runtime
+  honors.** Found by the adversarial trio on the revert itself, and pre-existing since
+  #1187. `propNamed` read the **first** matching property, but object-literal semantics
+  are **last-wins**, and it ignored `SpreadElement` entirely — so
+  `{ model: 'opus', model: 'sonnet' }` and `{ model: 'opus', ...OVERRIDE }` both passed
+  the gate while running on a cheaper model. Four variants reproduced against the real
+  CLI with `build:check` green; `.claude/` is excluded from lint, so Biome's
+  `noDuplicateObjectKeys` never saw the duplicate either. The gate now reads the LAST
+  `model` property and reports any spread positioned after it as `spread-override`
+  rather than certifying the visible pin (a spread *before* the pin is still fine — the
+  literal wins at runtime too). Also closed on the roster half: it is now recursive (an
+  agent in a subdirectory was invisible, while the workflow half already recursed) and
+  survives a directory named `*.md` (previously an uncaught `EISDIR` killed
+  `build:check` with a stack trace instead of a gate error). The `invalid` message
+  regained the imperative the other three branches have and no longer claims a real tier
+  name "falls back to the session model" — it doesn't, it just runs cheaper, which was
+  the point. Mutation table extended: first-match, spread-blindness, non-recursive
+  roster, a drifted `meta.phases[].model`, and a roster agent missing from the policy
+  doc's **table** are each now caught. That last one exposed a pre-existing vacuous
+  assertion — the old roster/doc regex was so over-escaped it matched every string,
+  including agents that don't exist.
+
 - **The deck container is an `<article class="lattice">`, not a `<div>`.** A deck is a
   self-contained composition, which is what `<article>` means; the `<main>` landmark
   stays the document shell's job, because `<main>` says *where* the primary content is

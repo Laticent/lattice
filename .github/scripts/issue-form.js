@@ -21,11 +21,10 @@ const FIELD_BY_HEADING = {
   Area: 'area',
   Type: 'type',
   Priority: 'priority',
-  Model: 'model',
   'Notes / context': 'notes',
 };
 
-/** @returns {{summary?,swimlane?,acceptance?,area?,type?,priority?,model?,notes?:string}} */
+/** @returns {{summary?,swimlane?,acceptance?,area?,type?,priority?,notes?:string}} */
 function parseForm(body) {
   const text = String(body || '').replace(/\r\n/g, '\n');
   const headingRe = /^#{1,6}[ \t]+(.+?)[ \t]*$/gm;

@@ -6,10 +6,8 @@ export const meta = {
 		'A design fork with a genuinely WIDE solution space and real cost of getting it wrong — an architecture, a core UX model, a schema — where independent parallel attempts beat one iterated attempt. NOT for a bounded tweak ("rethink the footer padding"): that is a solo edit, not a 17-agent competition. Presents candidates for the human pick; the adversarial trio then hardens ONLY the winner, outside this workflow (HARD RULE #25, engineering/orchestration.md).',
 	phases: [
 		{ title: 'Design', detail: 'one agent per track, iterating internally', model: 'opus' },
-		// No `model` key: this phase spans two tiers (critic on opus, fold on sonnet),
-		// so a single phase-level model would be false. The per-call pins are canonical.
-		{ title: 'Critique', detail: 'one fresh-eyes critic per track (opus), folded back at low effort (sonnet)' },
-		{ title: 'Fact-check', detail: 'one shared pass over every load-bearing claim', model: 'sonnet' },
+		{ title: 'Critique', detail: 'one fresh-eyes critic per track, folded back at low effort', model: 'opus' },
+		{ title: 'Fact-check', detail: 'one shared pass over every load-bearing claim', model: 'opus' },
 		{ title: 'Judge', detail: 'comparative scoring, all candidates in one context', model: 'opus' },
 	],
 }
@@ -157,8 +155,6 @@ const candidates = await pipeline(
 				`Iterate INTERNALLY ${iterations} times: after each draft, critique it yourself against the brief and revise. ` +
 				`Stop early if a round changes nothing material. Return your best version. ` +
 				`List every load-bearing factual claim (paths, names, mechanisms) — they will be verified against the repo.`,
-			// Opus: generating a design over a wide solution space is judgment with no
-			// pattern to follow — the least downshiftable work there is (HARD RULE #27).
 			{ label: `design:${i + 1}`, phase: 'Design', schema: DESIGN_SCHEMA, model: 'opus' },
 		),
 	(design, _angle, i) => {
@@ -168,8 +164,6 @@ const candidates = await pipeline(
 				`Brief:\n${brief}\n\nDesign "${design.title}":\n${design.design}\n\n` +
 				`Find what the author cannot: blind spots, unstated assumptions, missing failure modes, ` +
 				`simpler alternatives. Severity-tag each finding.`,
-			// Opus: finding an author's blind spots is the same judgment as writing the
-			// design, from the other side — a cheaper critic just agrees with the draft.
 			{ label: `critique:${i + 1}`, phase: 'Critique', schema: CRITIQUE_SCHEMA, model: 'opus' },
 		).then((critique) => ({ design, critique }))
 	},
@@ -188,9 +182,10 @@ const candidates = await pipeline(
 				`Design "${design.title}":\n${design.design}\n\nClaims:\n${design.claims.join('\n')}\n\n` +
 				`Critique:\n${JSON.stringify(critique.findings, null, 2)}\n\n` +
 				`Return the revised design and the updated claims list.`,
-			// Sonnet + low effort: the prompt says it outright — a mechanical editing pass
-			// that applies findings without re-designing. Both levers apply (HARD RULE #27).
-			{ label: `fold:${i + 1}`, phase: 'Critique', schema: DESIGN_SCHEMA, effort: 'low', model: 'sonnet' },
+			// `effort: 'low'` is the lever here, not the model (HARD RULE #27): the prompt
+			// says it outright — a mechanical editing pass that applies findings without
+			// re-designing. Effort trims the output; the model stays opus like everything else.
+			{ label: `fold:${i + 1}`, phase: 'Critique', schema: DESIGN_SCHEMA, effort: 'low', model: 'opus' },
 		).then((revised) => {
 			// A null/failed fold falls back to the unfolded design — never a malformed
 			// {track, angle} that survives filter(Boolean) and crashes claims.map() later.
@@ -231,11 +226,10 @@ const factCheck = await agent(
 		`- "unverifiable" — genuinely can't tell.\n` +
 		`Reserve "refuted" for fabrications about existing reality; never use it as the default.\n\n` +
 		survivors.map((c) => `Track ${c.track} — "${c.title}":\n${c.claims.map((cl) => `- ${cl}`).join('\n')}`).join('\n\n'),
-	// Sonnet at high effort: verifying that a cited path/field/mechanism exists and
-	// behaves as stated is lookup, not judgment — this stage never ranks designs, and
-	// it is the biggest-input stage in the workflow (every candidate's claims at once),
-	// so the model lever dominates the effort lever here (HARD RULE #27).
-	{ label: 'fact-check', phase: 'Fact-check', schema: FACTCHECK_SCHEMA, effort: 'high', model: 'sonnet' },
+	// High effort: this is the biggest-input stage in the workflow (every candidate's
+	// claims at once), and a claim wrongly marked confirmed survives into the judge's
+	// ranking unchallenged.
+	{ label: 'fact-check', phase: 'Fact-check', schema: FACTCHECK_SCHEMA, effort: 'high', model: 'opus' },
 )
 
 // Surface unaddressed-critique risk to the judge (6b): a design whose critique or fold
@@ -257,8 +251,6 @@ const judgeBrief =
 const verdicts = (
 	await parallel(
 		Array.from({ length: judges }, (_, j) => () =>
-			// Opus: comparative ranking on taste decides which design the human is shown
-			// first — a wrong ranking wastes the whole competition (HARD RULE #27).
 			agent(judgeBrief, { label: `judge:${j + 1}`, phase: 'Judge', schema: JUDGE_SCHEMA, effort: 'high', model: 'opus' }),
 		),
 	)

@@ -2716,12 +2716,18 @@ function checkCatContrast(errors) {
   }
 }
 
-// HARD RULE #27 — every subagent declares its model, so routing can't silently
-// drift back to inheriting Opus 5 from the session. Two surfaces, both of which
-// default to the session model when the field is simply absent (the expensive
-// failure mode: it still WORKS, it just costs 2.5x and nobody notices):
-//   • `.claude/agents/*.md` — the roster. Frontmatter needs a `model:` naming a
-//     model the harness actually accepts; a typo (`sonnet-5`) silently falls back.
+// HARD RULE #27 — every subagent runs on Opus, and says so. Model tiering was
+// tried here and retired (engineering/decisions/2026-07-28-model-tiering-retirement.md):
+// what looked like cheap "lookup" work in this repo turns out to need the whole
+// cascade / token / HARD-RULE picture in context to answer correctly rather than
+// plausibly, and a downshifted agent fails in the expensive direction — well-formed,
+// confident, wrong, and past every machine gate.
+//
+// Omitting `model:` would ALSO yield Opus today, by inheriting the session's. The
+// gate still demands it be named, because an unstated policy is an accident of the
+// current `/model` setting rather than a property of the repo. Two surfaces:
+//   • `.claude/agents/*.md` — the roster. Frontmatter needs `model: opus`; a typo
+//     (`opus-5`) silently falls back to inheritance instead of erroring.
 //   • `.claude/workflows/*.{js,mjs,cjs}` (recursively) — every `agent()` call needs
 //     `model:` in its options, resolved from the **AST**, not from text. Three
 //     successive text-based versions of this check were all unsound, in both
@@ -2734,13 +2740,16 @@ function checkCatContrast(errors) {
 //     is the options object, and nothing textual can impersonate one.
 // COVERAGE BOUNDARY (be honest): this gate sees COMMITTED files only. An ad-hoc
 // `Agent()` call in a live session is invisible to it — that path rides on the
-// roster + the CLAUDE.md dispatch table, not on this check.
-// See engineering/model-routing.md.
+// roster + the CLAUDE.md dispatch line, not on this check.
+// See engineering/model-policy.md.
 const acorn = require('acorn');
-// The latest Haiku / Sonnet / Opus, and deliberately nothing else — tiers above
-// Opus (Fable, Mythos) are not used in this repo, so `fable` is rejected by name
-// rather than quietly accepted. See engineering/model-routing.md § Three tiers.
-const AGENT_MODELS = ['opus', 'sonnet', 'haiku'];
+// One tier, by decision. `sonnet`, `haiku` and `fable` are rejected BY NAME rather
+// than quietly accepted — re-adding one is a coordinated change across this list,
+// engineering/model-policy.md, CLAUDE.md, engineering/workflow.md, .github/labels.json,
+// the work-item form, AND the two ratchet tests that assert the collapse
+// (test/unit/cli/check-ownership.test.js, test/unit/tools/sync-labels.test.js — they
+// are MEANT to go red here). See engineering/model-policy.md § If a tier is ever added back.
+const AGENT_MODELS = ['opus'];
 const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
 const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
 
@@ -2759,11 +2768,21 @@ function walkAst(node, visit) {
   }
 }
 
-const propNamed = (obj, name) =>
-  obj.properties.find(
+// LAST match, not first — object-literal semantics are last-wins, so
+// `{ model: 'opus', model: 'sonnet' }` evaluates to `sonnet`. Reading the FIRST
+// `model` certified that object as pinned while it ran on a cheaper model: a
+// false PASS through the only machine enforcement HARD RULE #27 has. Found by the
+// red-team pass on #1240; `.claude/` is excluded from lint, so Biome's
+// noDuplicateObjectKeys never sees it either.
+const propIndexNamed = (obj, name) =>
+  obj.properties.findLastIndex(
     (p) => p.type === 'Property' && !p.computed &&
       ((p.key.type === 'Identifier' && p.key.name === name) || (p.key.type === 'Literal' && p.key.value === name)),
   );
+const propNamed = (obj, name) => {
+  const i = propIndexNamed(obj, name);
+  return i === -1 ? undefined : obj.properties[i];
+};
 
 // Every `agent(...)` call in a workflow, with whether its options pin a model.
 // Returns { error } when the file cannot be parsed — an unreadable workflow is
@@ -2825,13 +2844,22 @@ function agentCallPins(src) {
       calls.push({ label: null, pinned: false, reason: 'options-unresolved', value: null });
       return;
     }
-    const model = propNamed(options, 'model');
+    const modelIdx = propIndexNamed(options, 'model');
+    const model = modelIdx === -1 ? undefined : options.properties[modelIdx];
     const label = propNamed(options, 'label');
+    // A spread AFTER the pin overrides it: `{ model: 'opus', ...OVERRIDE }` runs on
+    // whatever OVERRIDE.model says. Resolving that needs real value analysis, so the
+    // honest answer is "cannot tell" — REPORT it rather than certify the visible pin.
+    // (A spread BEFORE the pin is harmless: the later literal wins.) Found by the
+    // red-team pass on #1240, alongside the duplicate-key hole above; both certified
+    // a stage as pinned while it ran on a cheaper model.
+    const lastSpreadIdx = options.properties.findLastIndex((p) => p.type === 'SpreadElement');
     // Distinguish WHY a call isn't pinned. Collapsing these into one message sends
     // someone hunting for a missing field when the value is the actual problem
     // (found in review on #1187) — the roster half already separates them.
     const [reason, value] =
-      !model ? ['missing', null]
+      lastSpreadIdx > modelIdx ? ['spread-override', null]
+      : !model ? ['missing', null]
       : model.value.type !== 'Literal' ? ['dynamic', null]
       : AGENT_MODELS.includes(model.value.value) ? ['pinned', model.value.value]
       : ['invalid', String(model.value.value)];
@@ -2860,6 +2888,23 @@ function listWorkflowFiles(dir, out = []) {
   return out;
 }
 
+// Agent definitions, recursively and directory-safe. The roster half used to be a
+// flat `readdirSync` + `endsWith('.md')`, which left two holes the red-team pass on
+// #1240 probed: an agent in a SUBDIRECTORY was invisible (while the workflow half
+// above already recursed — an undocumented asymmetry), and a DIRECTORY named `x.md`
+// made the later readFileSync throw an uncaught EISDIR, killing build:check with a
+// stack trace instead of a gate error. README.md documents the roster rather than
+// defining an agent — the harness registers agents by frontmatter, so it is not a
+// missing pin.
+function listAgentFiles(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listAgentFiles(p, out);
+    else if (e.name.endsWith('.md') && e.name !== 'README.md') out.push(p);
+  }
+  return out;
+}
+
 // The YAML scalar after `model:` — tolerant of what a human will actually write.
 // A raw \S+ capture would take `'sonnet'` WITH its quotes and reject valid YAML, and
 // would reject a trailing `# comment` outright; both are false positives that teach
@@ -2883,31 +2928,29 @@ function checkAgentModelPinning(errors, dirs = {}) {
   const agentsDir = dirs.agents || AGENTS_DIR;
   const workflowsDir = dirs.workflows || WORKFLOWS_DIR;
   // A MISSING roster is not "nothing to check" — it means the enforcement surface
-  // CLAUDE.md and engineering/model-routing.md point at is gone, so every subagent
-  // silently inherits Opus 5: precisely the drift this rule exists to prevent. Treat
-  // it exactly like an empty one. (The workflows half below early-returns instead,
-  // and that asymmetry is deliberate: no workflows dir means no agent() calls exist,
-  // so there is nothing that COULD drift.)
+  // CLAUDE.md and engineering/model-policy.md point at is gone, so the Opus-only
+  // policy stops being stated anywhere and reverts to whatever the session happens
+  // to be set to. Treat it exactly like an empty one. (The workflows half below
+  // early-returns instead, and that asymmetry is deliberate: no workflows dir means
+  // no agent() calls exist, so there is nothing that COULD drift.)
   if (!fs.existsSync(agentsDir)) {
     errors.push(
-      '.claude/agents/ does not exist — the model-routing roster is the enforcement surface for ' +
-      'HARD RULE #27, and without it every subagent silently inherits Opus 5. Restore it, or ' +
-      'retire the rule in CLAUDE.md and engineering/model-routing.md and delete this gate.',
+      '.claude/agents/ does not exist — the roster is the enforcement surface for HARD RULE #27, ' +
+      'and without it nothing states the Opus-only policy. Restore it, or retire the rule in ' +
+      'CLAUDE.md and engineering/model-policy.md and delete this gate.',
     );
   } else {
-    // README.md documents the roster rather than defining an agent — the harness
-    // registers agents by frontmatter, so a doc file is not a missing pin.
-    const agents = fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md') && f !== 'README.md');
+    const agents = listAgentFiles(agentsDir);
     if (!agents.length) {
       errors.push(
-        '.claude/agents/ has no agent definitions — the model-routing roster is the enforcement ' +
-        'surface for HARD RULE #27; an empty roster means every subagent inherits Opus 5. ' +
-        'Restore it or retire the rule in engineering/model-routing.md.',
+        '.claude/agents/ has no agent definitions — the roster is the enforcement surface for ' +
+        'HARD RULE #27; an empty roster leaves the Opus-only policy unstated. ' +
+        'Restore it or retire the rule in engineering/model-policy.md.',
       );
     }
     for (const file of agents) {
-      const rel = path.relative(ROOT, path.join(agentsDir, file));
-      const src = fs.readFileSync(path.join(agentsDir, file), 'utf8');
+      const rel = path.relative(ROOT, file);
+      const src = fs.readFileSync(file, 'utf8');
       const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src); // \r? — CRLF is still valid frontmatter
       if (!fm) {
         errors.push(`${rel} has no YAML frontmatter — HARD RULE #27 needs a \`model:\` field there.`);
@@ -2916,15 +2959,17 @@ function checkAgentModelPinning(errors, dirs = {}) {
       const declared = declaredModel(fm[1]);
       if (!declared) {
         errors.push(
-          `${rel} declares no \`model:\` in its frontmatter (HARD RULE #27), so it silently inherits ` +
-          `the session model — Opus 5, at 2.5x Sonnet 5's rate. Pin one of ${AGENT_MODELS.join(' / ')} ` +
-          `using the routing table in engineering/model-routing.md.`,
+          `${rel} declares no \`model:\` in its frontmatter (HARD RULE #27), so its tier is whatever ` +
+          `the session happens to be set to rather than a property of this repo. Add \`model: opus\` ` +
+          `— see engineering/model-policy.md.`,
         );
       } else if (!AGENT_MODELS.includes(declared)) {
         errors.push(
-          `${rel} pins \`model: ${declared}\`, which the harness does not accept (HARD RULE #27) — ` +
-          `an unrecognized name falls back to the session model instead of erroring. ` +
-          `Use one of ${AGENT_MODELS.join(' / ')}.`,
+          `${rel} pins \`model: ${declared}\` (HARD RULE #27). This repo runs every agent on \`opus\`; ` +
+          `model tiering was tried and retired because a downshifted agent fails silently here ` +
+          `(engineering/model-policy.md). Use \`opus\`. (A real tier name runs at that tier; a name ` +
+          `the harness does not recognize at all falls back to the session model rather than ` +
+          `erroring — both are silent, which is why this is gated.)`,
         );
       }
     }
@@ -2943,23 +2988,26 @@ function checkAgentModelPinning(errors, dirs = {}) {
       if (call.pinned) return;
       const which = call.label ? `\`${call.label}\`` : `#${i + 1}`;
       const head = `${rel}: agent() call ${which}`;
-      const tiers = AGENT_MODELS.join(' / ');
       errors.push(
         {
           'options-unresolved':
             `${head} passes options the gate cannot resolve statically (HARD RULE #27) — pass an ` +
             `inline object literal, or a module-level \`const\`, so the \`model:\` pin is checkable.`,
+          'spread-override':
+            `${head} spreads into its options AFTER the \`model:\` key (HARD RULE #27), so the ` +
+            `spread silently wins at runtime and the visible pin proves nothing. Put the spread ` +
+            `BEFORE \`model: 'opus'\`, or inline the options, so the pin is the last word.`,
           dynamic:
             `${head} computes its \`model:\` rather than naming one (HARD RULE #27), so the gate ` +
-            `cannot confirm the tier. Use a string literal — one of ${tiers}.`,
+            `cannot confirm the tier. Use the string literal \`'opus'\`.`,
           invalid:
-            `${head} pins \`model: '${call.value}'\`, which the harness does not accept ` +
-            `(HARD RULE #27) — an unrecognized name falls back to the session model instead of ` +
-            `erroring. Use one of ${tiers}.`,
+            `${head} pins \`model: '${call.value}'\` (HARD RULE #27). This repo runs every agent ` +
+            `on \`opus\`; model tiering was tried and retired (engineering/model-policy.md). ` +
+            `Use \`'opus'\`.`,
           missing:
-            `${head} passes no \`model:\` in its options (HARD RULE #27), so that stage inherits ` +
-            `Opus 5 for work the routing table may put on Sonnet 5 or Haiku 4.5. Add ` +
-            `\`model: '<tier>'\` to its options per engineering/model-routing.md.`,
+            `${head} passes no \`model:\` in its options (HARD RULE #27), so that stage's tier is ` +
+            `whatever the session is set to rather than a property of this repo. Add ` +
+            `\`model: 'opus'\` to its options per engineering/model-policy.md.`,
         }[call.reason],
       );
     });

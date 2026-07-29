@@ -29,7 +29,6 @@
         "themes/carta.css",
         "themes/carta-dark.css"
     ],
-    "chat.planAgent.defaultModel": "Claude Sonnet 4.6 (claude-code)",
     "chat.viewProgressBadge.enabled": true,
     "chat.tools.terminal.autoApprove": {
         "*": true,

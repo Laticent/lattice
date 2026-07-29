@@ -625,10 +625,9 @@ brain, issues are the hands.** This section is the operational how-to.
 
 ### Labels — the taxonomy (`.github/labels.json`)
 
-Four **required** namespaced dimensions plus one **advisory** one (`model:`,
-below), applied as code. Edit `.github/labels.json`; the **Sync labels** workflow
-upserts them on merge (or run `npm run sync:labels` locally with `gh` auth to
-bootstrap a repo).
+Four **required** namespaced dimensions, applied as code. Edit
+`.github/labels.json`; the **Sync labels** workflow upserts them on merge (or run
+`npm run sync:labels` locally with `gh` auth to bootstrap a repo).
 
 - `area:*` — the 12 buckets + cross-cutting (`engine`, `theming`, `docs`,
   `infra`, `website`). Doubles as the **swimlane** grouping.
@@ -636,9 +635,6 @@ bootstrap a repo).
 - `priority:*` — `critical | high | medium | low` (words, **not** `pN` — bare
   `P0`–`P4` already mean marp-program *phase*/severity here).
 - `status:*` — the board state machine, below.
-- `model:*` — `haiku | sonnet | opus`: the **recommended Claude model**
-  for the card. *Advisory, not gated* — the intake gate never flags a card for
-  lacking it. Rubric below (§ Model recommendation).
 - `needs:triage` — a **process flag**, not a dimension: the intake gate
   (below) sets it when a required axis is missing and clears it once complete.
   Filtering the board on a non-empty `needs:triage` is the "unlabelled intake"
@@ -646,47 +642,8 @@ bootstrap a repo).
 
 New cards filed via the work-item form get `status:backlog` from the template;
 the **Apply work-item form labels** workflow then applies the selected
-`area:`/`type:`/`priority:` (and `model:` if picked — a GitHub form doesn't turn
-dropdown picks into labels on its own). It's add-only — re-triage stays a human
-call.
-
-### Model recommendation — which Claude model (`model:*`)
-
-Every card should carry a **recommended model** so whoever picks it up (human or
-dispatcher) knows the right tier before starting. It's the fifth axis in the
-work-item form and the applier materializes the pick — but it's **advisory**:
-the triage gate doesn't require it, because model choice is a judgment call
-softer than area/type/priority. Tag by the *dominant* nature of the work. The
-tags name a role/tier, never a pinned version (they don't rot when models bump):
-
-- **`model:haiku`** — trivial / mechanical. No design judgment; local and
-  obvious. A typo, a mechanical rename, a count/number reconciliation, a
-  stale-golden refresh with a mechanical fix, deleting a phantom row.
-- **`model:sonnet`** — standard, well-scoped engineering. A known-shape
-  implementation with bounded blast radius: most `feat`/`fix` cards, a
-  self-contained component or website change, a localized refactor. The default.
-- **`model:opus`** — complex / novel / high-blast-radius, **or prose craft**.
-  Engine transforms (`lib/core`, `lib/engine`, shared kernel), architecture,
-  `type:spike`, plus work where the deliverable is *words a human reads* and the
-  craft is the writing — doc-prose rewrites, editorial/voice sweeps, gallery and
-  deck copy (a *structural* doc fix is Haiku/Sonnet),
-  multi-file refactors, security hardening — HARD RULE #25's "critical / novel"
-  tier, or where a subtly-wrong output is costly and hard to catch.
-
-Tie-breakers: **blast radius beats line count** (a 10-line `lib/engine` change is
-Opus); **novelty beats familiarity**; `type:spike` → Opus by default; a prose
-card with an engineering half → tag by the harder half. When torn between two
-tiers, pick the higher **only** if a plausible-but-wrong output would be costly
-to catch — otherwise take the cheaper tier (DEFAULT OP MODE #3).
-
-**Same decision, one scale down: `engineering/model-routing.md`** (HARD RULE #27)
-routes an individual **subagent** to a model, where this section tags a whole
-**card**. The two are one system — the rubric above governs the tier a card is
-worked at, and the routing doc pins the agents that do slices of it, so a
-`model:opus` card should still spawn its *lookup* agents on Sonnet and reserve
-Opus for the judgment. Both use the same three tiers — the latest Haiku, Sonnet,
-and Opus, and deliberately nothing above them. Keep them consistent: a change to
-either rubric that contradicts the other is the drift both are meant to prevent.
+`area:`/`type:`/`priority:` (a GitHub form doesn't turn dropdown picks into
+labels on its own). It's add-only — re-triage stays a human call.
 
 ### Intake floor — enforced on every path
 
@@ -717,9 +674,7 @@ perf-nightly watch tags its tracking issue
 on the gate; it's the backstop, not the front door. When you open an issue via
 the API/MCP/`gh`, set `area:`/`type:`/`priority:`/`status:backlog` (or file
 through the **Work item** form). The gate exists to catch a miss, not to excuse
-skipping the taxonomy. **Also add a `model:*` recommendation** (§ Model
-recommendation) — it's not gated, but a card without one makes the next picker
-guess the tier.
+skipping the taxonomy.
 
 ### Card lifecycle (the `status:` columns)
 

@@ -71,10 +71,7 @@ describe('committed .github/labels.json', () => {
       ['status:backlog', 'status:in-progress', 'status:ready', 'status:review'],
     );
   });
-  test('model set is the advisory four-tier recommendation axis', () => {
-    assert.deepEqual(
-      names.filter((n) => n.startsWith('model:')).sort(),
-      ['model:haiku', 'model:opus', 'model:sonnet'],
-    );
+  test('no model axis — card-level model tiering was retired (2026-07-28)', () => {
+    assert.deepEqual(names.filter((n) => n.startsWith('model:')), []);
   });
 });
