@@ -11,7 +11,7 @@ summary: >
   is fixed alongside: state-chart derived its geometry scale from a transform-scaled rect.
   THE CATCH, and why this is `proposed` rather than done: correcting the size up reveals that
   the shipped deck corpus is over-subscribed at design size. Measured over all 185 decks, the
-  export goes from 10 decks / 15 clipped slides to 37 / 68. Those slides are ALREADY clipping
+  export goes from 10 decks / 15 clipped slides to 42 / 67. Those slides are ALREADY clipping
   in the preview on `main` today — the export was hiding them — but 53 of them would newly clip
   in committed PDFs. Twelve decks are trimmed here; the rest is a fork that needs a human call,
   stated in §6.
@@ -126,15 +126,18 @@ the baseline deck) through the real emulator on both trees and reading its own
 
 | | decks clipping | slides clipped |
 |---|---|---|
-| `main` (23b9666) | 10 | 15 |
-| this branch | 37 | 68 |
+| `main` | 10 | 15 |
+| this branch | 42 | 67 |
+
+`npm run overflow:check` reports it precisely: **53 newly-clipping slides across 33 decks**,
+one slide fixed below baseline.
 
 **Fixed here (12 decks, all to zero):** `q-and-a` (2), `inventory` (2), `gallery-jargon` (3),
 `baseline-decks/gallery` (7), `auto-split` (2), `kanban-chart-redesign` (4), `map` (3),
 `policy-recommendation` (2), `read-across-carousel` (3), `split-envelope` (2),
 `staged-flow` (2), `universal-pill` (2).
 
-**Not fixed: 53 slides across ~25 decks**, listed by `npm run overflow:check`. They are
+**Not fixed: 53 slides across 33 decks**, named by `npm run overflow:check`. They are
 the fork in §6.
 
 Two things learned while trimming, worth writing down because they cost time:
@@ -182,7 +185,7 @@ when it normalizes, BOTH sides of every ratio have to move.
 
 ## 6. The fork this leaves open
 
-53 slides across ~25 decks clip at design size and are not fixed here. Under HARD RULE
+53 slides across 33 decks clip at design size and are not fixed here. Under HARD RULE
 #18 a pre-existing fragility this change tips into visible failure is this change's to
 fix — and #18 is equally clear that when the correct fix is too large for the PR, the
 answer is to hold, not to file and ship. So this note is `proposed` and the PR is for

@@ -72,8 +72,8 @@ in patch versions.
   `26.8125px 19.5px 31.6875px` at 390px; it is the former at every size now. **(2) The export
   and the preview flag the same slides**, deck for deck. **(3) The shipped corpus turns out to
   be over-subscribed at design size**: measured across all 185 decks, the export goes from 10
-  decks / 15 clipped slides to 37 / 68. Twelve decks are trimmed back to zero here; **53 slides
-  across ~25 decks are NOT fixed** — they already clip in the preview on `main` today, and
+  decks / 15 clipped slides to 42 / 67. Twelve decks are trimmed back to zero here; **53 slides
+  across 33 decks are NOT fixed** — they already clip in the preview on `main` today, and
   re-authoring them is a content pass that needs a human call
   (`engineering/decisions/2026-07-30-slide-geometry-emitted-not-measured.md` §6). Also note
   exported PAGE COUNTS can move: `examples/social-portrait.md` goes 8 → 10 as auto-split

@@ -93,7 +93,7 @@ async function pool(items, n, fn) {
   const results = new Array(items.length);
   let i = 0;
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
-    while (i < items.length) { const k = i++; results[k] = await fn(items[k], k); }
+    while (i < items.length) { const k = i++; results[k] = await fn(items[k]); }
   }));
   return results;
 }
