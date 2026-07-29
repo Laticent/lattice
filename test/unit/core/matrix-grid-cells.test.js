@@ -88,6 +88,23 @@ describe('matrix-grid cells — applyToDom', () => {
     assert.equal(doc.querySelector('section').innerHTML, TABLE);
   });
 
+  // The label arrives from `td.textContent` — document TEXT. Interpolating it
+  // into markup would reinterpret DOM text as HTML: a cell authored
+  // `[x] <img src=x onerror=…>` reads back as that literal text, and assigning
+  // it to innerHTML would re-parse it into a live element.
+  test('a markup-looking label stays TEXT — no element is constructed from it', () => {
+    const doc = new JSDOM(
+      '<article><section class="matrix-grid"><table><tbody><tr>'
+      + '<td>Row</td><td>[x] &lt;img src=x onerror=alert(1)&gt;</td>'
+      + '</tr></tbody></table></section></article>',
+    ).window.document;
+    kernel.applyToDom(doc);
+    const cell = doc.querySelector('.cell');
+    assert.equal(cell.textContent, '<img src=x onerror=alert(1)>', 'the label is preserved verbatim');
+    assert.equal(cell.querySelector('img'), null, 'and no <img> element was created');
+    assert.equal(doc.querySelectorAll('img').length, 0);
+  });
+
   test('survives a null / non-DOM root', () => {
     assert.doesNotThrow(() => kernel.applyToDom(null));
     assert.doesNotThrow(() => kernel.applyToDom({}));

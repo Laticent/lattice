@@ -84,6 +84,22 @@ describe('glossary slide — applyToDom', () => {
     assert.equal(doc.querySelectorAll('.range-pill').length, 1);
   });
 
+  // The cells are built by MOVING the author's nodes, never by serializing them
+  // back through innerHTML — so text that merely looks like markup stays text,
+  // and real inline markup survives byte-exact rather than being re-parsed.
+  test('markup-looking prose stays text; real inline markup survives as nodes', () => {
+    const doc = dom(
+      '<ul><li>ARR<ul><li>Revenue &lt;script&gt;alert(1)&lt;/script&gt; recurring.</li></ul></li>'
+      + '<li>NDR<ul><li>Kept and <code>expanded</code>.</li></ul></li></ul>',
+    );
+    kernel.applyToDom(doc);
+    const cells = [...doc.querySelectorAll('tbody tr td:nth-child(2)')];
+    assert.equal(cells[0].textContent, 'Revenue <script>alert(1)</script> recurring.');
+    assert.equal(doc.querySelectorAll('script').length, 0, 'no <script> element was created');
+    // …while genuine authored markup is still a real element.
+    assert.equal(cells[1].querySelector('code').textContent, 'expanded');
+  });
+
   test('leaves a non-glossary section alone', () => {
     const doc = dom(LIST, 'content');
     assert.doesNotThrow(() => kernel.applyToDom(doc));
