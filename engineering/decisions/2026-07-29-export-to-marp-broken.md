@@ -154,7 +154,27 @@ So even after the premise mirror landed, the ledger's row terms rendered without
 their corner tag. Both now derive from `lib/core/slot-label-lift.js`, with a
 parity test that fails if either re-lists the layouts inline.
 
-## What we did NOT fix: the marp-vscode preview pane
+## What we did NOT fix (deliberately): deck-wide front-matter registers
+
+A fifth family, found while producing the light/dark artifacts for export
+sign-off, and left for its own change (HARD RULE #17):
+
+`color-mode: dark` renders dark on the engine and **light** through the export's
+`npm run pdf`. Deck-wide front-matter axes (`color-mode:`, `class:`, `logo:`,
+`meta:`) have no Marp equivalent, so the runtime recovers them by FETCHING the
+deck's source `.md` from beside the rendered document. Verified: that fetch
+resolves when you open the exported `<name>.html` — every section correctly
+carries `dark` — and does NOT resolve during marp-cli's PDF conversion, so the
+registers never populate there.
+
+The fix shape is known and small for the color axis: bake the deck-wide axis
+into a Marp-native global `class:` directive at export time. marp-core honors
+front-matter `class:` on every section, which removes the fetch dependency
+outright — the same "bake the source transform" move that fixed splits and the
+auto-glossary. Logged in `gotchas.md`'s register rather than pulled into this
+change.
+
+## What we did NOT fix (can't): the marp-vscode preview pane
 
 The ask named the VS Code preview specifically. It cannot be made to work, and
 the honest answer is a ceiling, not a bug:

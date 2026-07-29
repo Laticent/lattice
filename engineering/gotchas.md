@@ -1379,17 +1379,19 @@ not this list: the audit doc §5(b) re-evaluates whether marp-vscode is still
 worth supporting as a live-preview surface at a fixed 90-day mark regardless
 of how many rows are here.
 
-| Transform | Symptom in VS Code preview | Added |
+| Transform | Symptom on a Marp-rendered surface | Added |
 |---|---|---|
-| _(none currently logged)_ | — | — |
+| Deck-wide front-matter registers (`color-mode:`, `class:`, `logo:`, `meta:` — `lib/runtime/index.js` `applyCachedDeckClass` / `applyCachedMastheadMeta` / `applyCachedDeckLogo`) | Silently absent in **marp-cli's `--pdf` conversion**, present everywhere else. These have no Marp equivalent, so the runtime recovers them by FETCHING the deck's source `.md` from beside the rendered document. That resolves when you open the exported `<name>.html` (verified: `color-mode: dark` puts `dark` on every section there), and does NOT resolve during marp-cli's PDF conversion, so a `color-mode: dark` deck exports as a LIGHT pdf while the engine renders it dark. Fix shape when someone takes it: bake the deck-wide axis into a Marp-native global `class:` directive at export time — marp-core honors front-matter `class:` on every section, which removes the fetch dependency entirely. Not done here to keep #1256 to one change (HARD RULE #17). | 2026-07-29 |
 
-**Two rows retired 2026-07-29 (#1256)**, both closed by adding the mirror
+**Three rows retired 2026-07-29 (#1256)**, all closed by adding the mirror
 rather than by dropping the transform: `matrixGridCells` (cells rendered as raw
 `[x]`/`[-]`/`[ ]` text; now the shared kernel `lib/core/matrix-grid-cells.js`,
 run on both paths) and `premise` (the claim never grouped, so the ledger
-collapsed; now `lib/core/premise.js` `applyToDom`). Both were found by rendering
-a real deck through the export rather than by anyone logging them here — which
-is the standing caveat above, demonstrated.
+collapsed; now `lib/core/premise.js` `applyToDom`), plus the auto-glossary (its
+generated slide was missing from the export outright; now baked at source like
+splits, with `lib/core/glossary-slide.js` mirroring its table + range pill). All
+were found by rendering a real deck through the export rather than by anyone
+logging them here — which is the standing caveat above, demonstrated.
 
 **Read this register with the CSP entry below in mind.** A mirror makes a
 transform work on the *runtime* route — the exported HTML, `npm run pdf`,
