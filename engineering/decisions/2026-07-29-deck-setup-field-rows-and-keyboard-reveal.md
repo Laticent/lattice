@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Two mobile defects in the Deck-setup drawer, reported from a real iPhone with screenshots. (1) The drawer shipped TWO row geometries — `Field` (label left, control right, help line below) for every dropdown and toggle, and `TextRow` (label, help line, then a full-width input) for Deck name, Header and Footer. Nothing distinguished them, so the difference read as an accident, and the stacked form cost three lines of height per field. `TextRow` now routes through `Field`: one geometry, right edges aligned across every row, and the input's height raised 32px → 36px to match `Control`. The Deck name input moves 107px up the panel, measured at 390px. (2) `useKeyboardInset` shortens the mobile sheet and lifts it clear of the keyboard, and that is only half the job — the sheet's SCROLL POSITION does not move, so a field two-thirds down a full-height sheet is below the bottom of the shortened one. The browser's own scroll-on-focus does not save it: that runs against the geometry BEFORE the keyboard opened, and the resize invalidates it. Tapping Deck name left the field, its label and its help text entirely behind the keyboard. New shared hook `useKeyboardFieldReveal`, registered by `PanelSheet` so every mobile panel inherits it, scrolls the focused field's own scroll container (never `scrollIntoView`, which walks the document and moves a fixed sheet on iOS) and does nothing when the field is already visible. Filter panels got this free by putting their field at the top of the sheet; a settings drawer cannot, so the behavior is made explicit and shared. Real-iOS behavior is UNVERIFIED from this sandbox and marked as such.
+summary: Two mobile defects in the Deck-setup drawer, reported from a real iPhone with screenshots. (1) The drawer shipped TWO row geometries — `Field` (label left, control right, help line below) for every dropdown and toggle, and `TextRow` (label, help line, then a full-width input) for Deck name, Header and Footer. Nothing distinguished them, so the difference read as an accident, and the stacked form cost three lines of height per field. `TextRow` now routes through `Field`: one geometry, right edges aligned across every row, and the input's height raised 32px → 36px to match `Control`. The Deck name input moves 107px up the panel, measured at 390px. (2) `useKeyboardInset` shortens the mobile sheet and lifts it clear of the keyboard, and that is only half the job — the sheet's SCROLL POSITION does not move, so a field two-thirds down a full-height sheet is below the bottom of the shortened one. The browser's own scroll-on-focus does not save it: that runs against the geometry BEFORE the keyboard opened, and the resize invalidates it. Tapping Deck name left the field, its label and its help text entirely behind the keyboard. New shared hook `useKeyboardFieldReveal`, registered by `PanelSheet` so every mobile panel inherits it, scrolls the focused field's own scroll container (never `scrollIntoView`, which walks the document and moves a fixed sheet on iOS) and does nothing when the field is already in the safe zone. Its FIRST cut shipped, and on the device did nothing at all: it compared the field's `getBoundingClientRect()` against its container's and got "the field is inside the sheet — fine", because `getBoundingClientRect()` is relative to the LAYOUT viewport, which iOS neither shrinks nor moves for the keyboard. With the body scroll-locked under a modal sheet iOS instead shifts the VISUAL viewport down (`offsetTop` > 0) — a shift `ViewportDebugOverlay` already documented as invisible to `position:fixed` and `getBoundingClientRect`. The visible band now comes from `visualViewport` (`[offsetTop, offsetTop + height]`, intersected with the container), the field lands at the TOP of that band rather than barely inside its bottom edge, a `visualViewport.scroll` listener catches the shift-without-resize case a resize-only listener misses, and a 56px bottom gap clears the iOS accessory bar that `visualViewport.height` does not include. Filter panels got this free by putting their field at the top of the sheet; a settings drawer cannot, so the behavior is made explicit and shared. Real-iOS behavior is UNVERIFIED from this sandbox — the branch that fixes the reported bug is precisely the one headless Chromium cannot execute — and marked as such.
 ---
 
 # Deck setup on a phone: one row geometry, and a field you can still see
@@ -60,25 +60,63 @@ The browser's own scroll-on-focus does not cover this. It runs at focus time, ag
 geometry *before* the keyboard opened; the resize that follows invalidates it.
 
 `useKeyboardFieldReveal` (in `panel.tsx`, registered by `PanelSheet`) scrolls the focused
-field back into its scroll container. Four decisions in it are load-bearing:
+field back into its scroll container.
 
+### The first cut shipped and did nothing, which is the interesting part
+
+It compared two `getBoundingClientRect()`s — the field's against its scroll container's —
+and asked "is the field inside the container". On the device the answer was **yes**, and it
+correctly did nothing, with the field behind the keyboard the whole time. A second
+screenshot from the same iPhone 15 Pro is what surfaced it.
+
+`getBoundingClientRect()` is relative to the **layout** viewport, and on iOS the layout
+viewport neither shrinks nor moves when the keyboard opens — the **visual** viewport does.
+With the body scroll-locked under a modal sheet the document cannot scroll, so iOS reveals
+the focused field by shifting the visual viewport DOWN inside the layout viewport
+(`offsetTop` > 0). A rect-only comparison cannot see any of that.
+
+This was already written down. `ViewportDebugOverlay`'s `offset` metric says, verbatim:
+
+> position:fixed and getBoundingClientRect() are blind to this shift.
+
+The repo had the diagnosis before the bug was written. The lesson is not "read
+visualViewport" — it is that a hook whose whole job is *"is this on screen"* had no business
+being built out of the one API that cannot answer that question on the platform it was
+written for.
+
+### What it does now
+
+The visible band is `[visualViewport.offsetTop, offsetTop + height]`, in the same coordinate
+space the rects already report in, intersected with the container. Five decisions are
+load-bearing:
+
+- **The band comes from `visualViewport`, the geometry from the rects.** Above.
+- **It lands the field at the TOP of the band**, not just inside its bottom edge. With the
+  band as short as a keyboard leaves it, and the accessory bar's height a guess, "barely in
+  view" is not a safe target. The label sits on the same row as the field now (part 1 of
+  this note), so aligning the field's top brings its name with it.
 - **It sets `scrollTop`, not `scrollIntoView`.** `scrollIntoView` walks every scrollable
   ancestor including the document, and on iOS scrolling the document under a
   `position: fixed` sheet moves the sheet's idea of where it is. One container, one axis.
-- **It listens to `focusin` AND `visualViewport.resize`.** Focus alone covers only "the
-  keyboard is already up and you tapped a second field". The first tap needs the resize,
-  and iOS fires it repeatedly through the opening animation — each pass re-checks, so the
-  reveal settles *with* the keyboard rather than trying to win a race against it.
-- **It does nothing when the field is already visible.** That guard is what stops a later
-  viewport event — the URL bar animating, a rotation — yanking the panel away from wherever
-  the user scrolled it.
-- **It ignores controls that raise no keyboard** (checkbox, radio, button, range, …).
-  Scrolling the panel for a tap that needed no room is a worse bug than the one being fixed.
+- **It listens to `focusin`, `visualViewport.resize` AND `visualViewport.scroll`,** and
+  re-checks at 150ms and 350ms. Focus alone covers only "the keyboard is already up and you
+  tapped a second field". Resize covers the first tap. **Scroll is the one that fires when
+  iOS shifts the band without changing its height** — the case a resize-only listener misses
+  entirely. The settle re-checks exist because iOS applies its own scroll adjustment on a
+  cadence of its own, sometimes after the event that announced the keyboard.
+- **It does nothing when the field is already in the safe zone,** which is what keeps the
+  re-checks free, stops a later viewport event yanking the panel, and prevents a tug of war
+  with iOS's own adjustment.
 
-The 16px gap it leaves below the field is deliberate: on iOS the autocomplete/accessory bar
-is drawn above the keyboard and is **not** included in `--kb`, so a field flush to the
-computed edge still sits under real chrome. 16px is not a measurement of that bar — it is
-breathing room, and if the real bar proves taller this is the number to revisit.
+It ignores controls that raise no keyboard (checkbox, radio, button, range, …) — scrolling
+the panel for a tap that needed no room is a worse bug than the one being fixed.
+
+**The bottom gap is 56px while the keyboard is up** (16px otherwise). iOS draws its accessory
+bar — the ‹ › chevrons and Done — above the keyboard and does **not** count it in
+`visualViewport.height`, so a field sitting just inside the computed band is still under real
+chrome; the reported screenshot shows those controls overlapping the panel. 56 is read off a
+photograph of a phone, which is evidence and not a measurement. **If it proves too tight,
+this is the number.**
 
 ### Why this is not the filter panels' problem
 
@@ -102,9 +140,14 @@ already use, and the trap a body-level fix fell into one PR ago.
 - **The reveal, exercised on the built Studio at 390px:** with the sheet shrunk to a 336px
   keyboard's geometry and the focused Deck name field scrolled 433px above the visible box,
   a `visualViewport` resize pulled it back to 16px inside the top edge — `scrollTop` 527 → 74.
-- **Mechanism, in unit tests** (`panel-keyboard.test.tsx`, 5 new cases): the reveal
-  arithmetic in both directions, the already-in-view no-op, the checkbox exclusion, and the
-  listener lifecycle. Mutation-tested — making the reveal a no-op kills 2.
+- **Mechanism, in unit tests** (`panel-keyboard.test.tsx`, 7 new cases): the reveal
+  arithmetic, the band read from `visualViewport` rather than the container rect, the
+  band-SHIFT (`offsetTop`) path, the accessory-bar clearance, the already-in-view no-op, the
+  checkbox exclusion, and the listener lifecycle. The stub's field rect **moves with
+  `scrollTop`** — not decoration: the reveal re-runs as the keyboard settles, and a frozen
+  rect let a bug that applied the same delta three times pass the first cut of these tests.
+  Mutation-tested: reverting to rect-only measurement kills **2**, dropping the accessory-bar
+  gap kills **1**, dropping the `scroll` listener kills **1**.
 - **A structural shell test** asserts the Deck name label and its input share a row
   container, so a revert to the stacked form fails rather than passing quietly.
 
@@ -116,10 +159,14 @@ keyboard number here is *injected*. What that means concretely:
 
 - The reveal was driven against a **synthetically** shortened viewport. It exercises the
   shipped hook against real layout in a real browser — it is not evidence about how iOS
-  sequences focus, resize and its own scroll-on-focus.
-- Whether 16px clears the iOS accessory bar is **untested on a device**. The screenshot that
-  prompted this shows that bar overlapping the panel, which is the reason for the gap and
-  also the reason the number is a guess.
+  sequences focus, resize, band shifts and its own scroll-on-focus. **The first cut passed
+  exactly this bar and did nothing on the device**, which is the honest measure of what this
+  kind of verification is worth here.
+- Whether 56px clears the iOS accessory bar is **untested on a device**, and neither is the
+  `offsetTop` path — headless Chromium never shifts the band, so the branch that fixes the
+  reported bug is the one the sandbox cannot execute. `?vvdebug` (`ViewportDebugOverlay`)
+  prints `inner`, `visual` and `offset` on the real phone; if this needs a third pass, those
+  three numbers settle it instead of another guess.
 - The measurement run notes one harness impurity worth recording rather than hiding: the
   dispatched `resize` also re-runs `useKeyboardInset`, which recomputes `--kb` from the real
   (unshrunken) viewport and grows the sheet back. The reveal's arithmetic keys off the
