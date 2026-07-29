@@ -68,6 +68,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
+| `lint:coverage`, `lint:coverage:bless` | Gate / re-record what Biome actually checks — see *Lint (Biome)* below |
 | `preview` | Fast visual-iteration loop (scope-detect, rebuild affected, pixel-diff) |
 | `build`, `build:check` | Regenerate / freshness-gate every generated artifact |
 
@@ -130,12 +131,23 @@ issues; the formatter would have rewritten ~43 of 49 files.)
 
 Run via `npm run lint` (read-only) or `npm run lint:fix` (`check --write`,
 includes the unsafe auto-fixes). Source of truth: `biome.jsonc` — `.jsonc`
-because every exclusion carries a written reason naming its class (#1223). That
-is a **convention, not a gate**: an enforcing gate was written and removed before
-merge because it validated the spelling of `!` entries while lint coverage does
-not live there — deleting one *positive* include line drops coverage 1253 → 892
-files, and one `.gitignore` line un-lints tracked source with no config edit at
-all. See the header of `biome.jsonc` for the measurements.
+because every exclusion carries a written reason naming its class (#1223).
+
+**The reasons are a convention; the coverage they claim is a gate.**
+`npm run lint:coverage` (`tools/check-lint-coverage.js`, also a `build:check`
+preflight) asks what Biome *actually* checks, in three arms: a committed baseline
+of the tracked files it does not process (`test/lint-coverage/baseline.json`),
+Biome's own scanned-vs-checked tallies, and a violation-carrying probe written
+into every checked directory *and language*. The accidental routes out of lint
+all fail it — a `.gitignore` line, a deleted *positive* include, an `overrides[]`
+that silences a path or an extension without moving the file count, a
+`biome-ignore-all` comment. The deliberate ones it does **not** catch are
+enumerated under RESIDUALS in the tool's own header; don't claim more than that. Record a deliberate
+exclusion with `npm run lint:coverage:bless`, which leaves the diff as the
+record; then say which class it is in the PR. An earlier gate that read the
+*spelling* of `!` entries was removed before merge — it missed nine measured
+bypasses and false-positived on a correct edit. Rationale and residuals:
+`engineering/decisions/2026-07-28-lint-coverage-effect-gate.md`.
 
 ## Hooks (lefthook)
 

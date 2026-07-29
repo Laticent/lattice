@@ -213,6 +213,8 @@
     "test:all": "node --test 'test/unit/**/*.test.js' 'test/integration/**/*.test.js'",
     "lint": "biome check",
     "lint:fix": "biome check --write",
+    "lint:coverage": "node tools/check-lint-coverage.js",
+    "lint:coverage:bless": "node tools/check-lint-coverage.js --bless",
     "lint:deck": "node tools/lint-deck.js",
     "lint:deck:all": "node tools/lint-deck.js --all --strict",
     "export:marp": "node tools/export-marp.js",

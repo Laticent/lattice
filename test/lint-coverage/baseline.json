@@ -1,0 +1,294 @@
+{
+  "version": 1,
+  "note": "Tracked, lintable files Biome does NOT check. Exceed-only: a file LEAVING coverage fails `npm run lint:coverage` until it is recorded here. Refresh with `npm run lint:coverage:bless` and say in the PR which exclusion class the new entries are. Gate + rationale: tools/check-lint-coverage.js.",
+  "uncovered": [
+    {
+      "path": ".claude/workflows/design-competition.js",
+      "class": "unparseable"
+    },
+    {
+      "path": "dist/docs/components.json",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/docs/concepts.json",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/docs/forms.json",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/docs/grammar.json",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/lattice-emulator.js",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/lattice-emulator.min.js",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/lattice-runtime.js",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/lattice-runtime.min.js",
+      "class": "build-output"
+    },
+    {
+      "path": "docs/package-lock.json",
+      "class": "not-code"
+    },
+    {
+      "path": "docs/public/playground/lattice-katex.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/public/playground/lattice-playground.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/builder.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/cadence.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/calibrate.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/cursor.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/index.cjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/index.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/index.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/lexicon.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/normalize.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/reader.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/segment.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/symbols.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/track.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/cadenza/dist/vtt.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/builder.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/hash.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/index.cjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/index.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/index.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/project.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/registry.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/suggest.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/tags.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/types.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/lente/dist/validate.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/builder.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/cache.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/encode.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/envelope.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/index.cjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/index.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/index.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/sequence.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/stage.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/suono/dist/types.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/index.cjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/index.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/index.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/react.cjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/react.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/react.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/recipes.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/runner.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/scene.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/stage.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/storyboard.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/lib/vetrina/dist/theme.d.ts",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/a11y-textures.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/authoring-core.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/exemplar-core.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/image-set-core.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/layout-core.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/player-core.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/player-prune.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/read-along-core.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/standalone-svg.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "docs/src/playground/theme-core.generated.js",
+      "class": "generated"
+    },
+    {
+      "path": "lib/export/anima-player-bundle.generated.mjs",
+      "class": "generated"
+    },
+    {
+      "path": "mermaid-v11.min.js",
+      "class": "vendor"
+    },
+    {
+      "path": "package-lock.json",
+      "class": "not-code"
+    }
+  ]
+}

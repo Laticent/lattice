@@ -184,6 +184,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `check:responsive` | Static lint: no fixed-px layout in chart CSS (responsive contract). |
 | `fonts:check` | Font parity gate: the canonical face manifest (lib/fonts/text-faces.js), assets/fonts/, and the web-export supply must agree, with no Google-Fonts CDN URL — the library self-hosts its type (zero network). |
 | `lint` | Biome over the JS tree (read-only). NEVER `npx biome`. |
+| `lint:coverage` | Gate what Biome ACTUALLY checks: coverage baseline + scanned-vs-checked + a teeth probe per directory. Also a build:check preflight. |
+| `lint:coverage:bless` | Re-record the lint-coverage baseline after a deliberate exclusion. The diff is the record. |
 | `lint:deck` | Author-facing footgun checks on one deck (card-style title, ordered-list bold, unknown _class). |
 | `lint:deck:all` | Repo-wide strict deck lint (always-on CI gate). |
 | `lint:fix` | Biome check --write (includes import sorting + unsafe fixes). |
@@ -346,6 +348,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
 | `tools/check-family-tiers.js` | check-family-tiers — does each adaptive family tier actually FIRE at each deck |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
+| `tools/check-lint-coverage.js` | Lint-coverage gate — asks what Biome ACTUALLY checks, never how the config is spelled. |
 | `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
 | `tools/check-slide-contrast.js` | check-slide-contrast — WCAG AA audit of the ACTUALLY RENDERED slide, not the |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |
