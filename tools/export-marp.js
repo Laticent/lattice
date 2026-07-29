@@ -11,6 +11,7 @@
  *                            local image paths localized into assets/, runtime
  *                            <script> tags (mermaid + lattice-runtime) appended
  *     lattice.css          — the palette-blind engine stylesheet (minified)
+ *     fonts/*.woff2        — every face lattice.css's @font-face srcs point at
  *     themes/<palette>.css — the deck's palette (+ -dark), minified (from dist/themes/)
  *     lattice-runtime.min.js,
  *     mermaid-v11.min.js   — render diagrams + components when opened as HTML
@@ -25,19 +26,26 @@
  * Usage:
  *   node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette]
  *
- * Fidelity: the baked `.md` + themes split + style correctly in ANY Marp tool
- * (the marp-vscode preview, marp-cli) — palette + CSS layouts. Mermaid + the
- * JS-driven structural components render when the exported HTML is opened in a
- * browser (the runtime <script> tags); that's inherent to a Marp render and is
- * documented in the generated README. Exit 0 on success, 1 on usage/IO error.
+ * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
+ * in ANY Marp tool. The generated marp.config.cjs sets `html: true` — without it
+ * marp-core escapes the deck's trailing runtime <script> tags into visible text
+ * and the runtime never loads, so Mermaid and every JS-driven structural
+ * component (split panels, the chart family) come out as bare markdown. WITH it,
+ * marp-cli's own headless browser runs the runtime while rendering, so `npm run
+ * pdf` / `npm run html` are full fidelity. The marp-vscode PREVIEW pane is not:
+ * its webview does not execute the deck's scripts, so it shows palette + CSS
+ * layout only (documented in the generated README).
+ * Exit 0 on success, 1 on usage/IO error.
  */
 
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits } = require('../lib/core/bake-splits');
+const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
+  vscodeSettings, readme, agentsMd,
 } = require('../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
@@ -86,6 +94,17 @@ function copyInto(srcAbs, destAbs) {
   fs.copyFileSync(srcAbs, destAbs);
 }
 
+/**
+ * Copy a stylesheet through `marpScopableCss` — the leading-`:is()` distribution
+ * marp-core's scoper needs (see lib/core/marp-bundle.js). Every CSS file in the
+ * bundle goes through it: lattice.css AND each palette, since a palette can lead
+ * a rule with the same dual-surface head.
+ */
+function copyCssInto(srcAbs, destAbs) {
+  fs.mkdirSync(path.dirname(destAbs), { recursive: true });
+  fs.writeFileSync(destAbs, marpScopableCss(fs.readFileSync(srcAbs, 'utf8')));
+}
+
 function main(argv) {
   // The agent kit (AGENTS.md + the component catalog) ships by DEFAULT so a
   // recipient's AI agent can extend the deck; `--no-agent` produces a lean,
@@ -116,8 +135,14 @@ function main(argv) {
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(dest, { recursive: true });
 
-  // 1) bake splits → literal `---`, then 2) localize local images.
-  const baked = bakeSplits(src);
+  // 1) bake the SOURCE transforms the recipient's Marp will never run — the
+  //    auto-glossary's generated slide first (it appends a whole slide and
+  //    strips its own `glossary:` trigger, so it must precede the split bake),
+  //    then splits → literal `---`. Both are idempotent and self-contained, so
+  //    the emitted `.md` renders identically on any Marp tool and stays editable.
+  //    Without the glossary bake the exported deck silently lost the generated
+  //    Glossary slide while the slide before it still announced it (#1256).
+  const baked = bakeSplits(appendAutoGlossary(src));
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const fm = fmMatch ? fmMatch[0] : '';
   const body = fmMatch ? baked.slice(fm.length) : baked;
@@ -132,7 +157,7 @@ function main(argv) {
   const bundledThemes = [];
   for (const f of themeFiles) {
     const min = path.join(ROOT, 'dist', 'themes', f.replace(/\.css$/, '.min.css'));
-    if (fs.existsSync(min)) { copyInto(min, path.join(dest, 'themes', f)); bundledThemes.push(`themes/${f}`); }
+    if (fs.existsSync(min)) { copyCssInto(min, path.join(dest, 'themes', f)); bundledThemes.push(`themes/${f}`); }
   }
   if (!bundledThemes.length) die(`unknown palette '${palette}' — no dist/themes/${palette}.min.css (run \`npm run build\`)`);
   const themesList = ['lattice.css', ...bundledThemes];
@@ -141,7 +166,23 @@ function main(argv) {
   //    and mermaid. No engine: the bundle is rendered with Marp, not Lattice.
   for (const { from, to } of STATIC_ASSETS) {
     const abs = path.join(ROOT, from);
-    if (fs.existsSync(abs)) copyInto(abs, path.join(dest, to));
+    if (!fs.existsSync(abs)) continue;
+    if (to.endsWith('.css')) copyCssInto(abs, path.join(dest, to));
+    else copyInto(abs, path.join(dest, to));
+  }
+
+  // 4b) the font supply — every `url(fonts/<file>)` the bundled stylesheet
+  //     references, copied to fonts/ beside it. Derived from the stylesheet we
+  //     just wrote (fontAssetsFor) rather than a second list, so it cannot drift
+  //     from what the CSS actually asks for. Without it the @font-face srcs 404
+  //     and the deck falls back to system serif/sans on every slide.
+  const bundledCss = path.join(dest, 'lattice.css');
+  let fontCount = 0;
+  if (fs.existsSync(bundledCss)) {
+    for (const { from, to } of fontAssetsFor(fs.readFileSync(bundledCss, 'utf8'))) {
+      const abs = path.join(ROOT, from);
+      if (fs.existsSync(abs)) { copyInto(abs, path.join(dest, to)); fontCount += 1; }
+    }
   }
 
   // 5) generated text files (from the shared bundle spec): marp-cli config,
@@ -174,7 +215,9 @@ function main(argv) {
     result = zipAbs;
   }
   console.log(`export-marp: wrote ${result}`);
-  console.log(`  deck: ${name}.md (splits baked) · palette: ${palette} · assets: ${localized.count}`);
+  console.log(
+    `  deck: ${name}.md (splits baked) · palette: ${palette} · assets: ${localized.count} · fonts: ${fontCount}`,
+  );
   return 0;
 }
 

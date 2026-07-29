@@ -9,9 +9,30 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+/**
+ * Evaluate the generated config the way a recipient's marp-cli does — from a
+ * real bundle-shaped directory, since the config readdir's `themes/` at load.
+ */
+function requireGeneratedConfig(src) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'marp-bundle-test-'));
+  fs.mkdirSync(path.join(dir, 'themes'));
+  fs.writeFileSync(path.join(dir, 'themes', 'indaco.css'), '/* */');
+  fs.writeFileSync(path.join(dir, 'lattice.css'), '/* */');
+  const file = path.join(dir, 'marp.config.cjs');
+  fs.writeFileSync(file, src);
+  try {
+    return require(file);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 const {
   STATIC_ASSETS, AGENT_ASSETS, RUNTIME_SCRIPTS, MARP_CONFIG_CJS, withRuntimeScripts,
-  safeName, packageJson, vscodeSettings, readme, agentsMd,
+  safeName, packageJson, vscodeSettings, readme, agentsMd, fontAssetsFor, marpScopableCss,
 } = require('../../../lib/core/marp-bundle');
 
 describe('marp-bundle spec', () => {
@@ -47,10 +68,24 @@ describe('marp-bundle spec', () => {
     assert.doesNotMatch(MARP_CONFIG_CJS, /@slidewright\/lattice\/config/);
   });
 
+  // marp-core defaults to html:false, which ESCAPES raw HTML — the deck's two
+  // trailing runtime <script> tags came out as literal text on the last slide
+  // and the runtime never loaded, so every transform-driven component rendered
+  // as bare markdown. The flag is load-bearing, not cosmetic.
+  test('marp.config.cjs enables html so the runtime <script> tags survive', () => {
+    assert.match(MARP_CONFIG_CJS, /html:\s*true/);
+    const cfg = requireGeneratedConfig(MARP_CONFIG_CJS);
+    assert.equal(cfg.html, true);
+    assert.equal(cfg.allowLocalFiles, true);
+  });
+
   test('vscodeSettings registers the bundled themes for Marp VS Code', () => {
     const s = vscodeSettings(['lattice.css', 'themes/indaco.css', 'themes/indaco-dark.css']);
     const parsed = JSON.parse(s);
     assert.deepEqual(parsed['markdown.marp.themes'], ['lattice.css', 'themes/indaco.css', 'themes/indaco-dark.css']);
+    // Mirrors marp.config.cjs's html:true — the extension also escapes raw HTML
+    // by default, which printed the runtime <script> tags across the preview.
+    assert.equal(parsed['markdown.marp.enableHtml'], true);
   });
 
   test('packageJson pins marp-cli only and scripts reference the deck', () => {
@@ -70,9 +105,102 @@ describe('marp-bundle spec', () => {
     assert.match(r, /markdown\.marp\.themes/);
     assert.match(r, /npm run pdf/);
     assert.match(r, /--theme-set lattice\.css themes/);
-    assert.match(r, /open the exported HTML|open the HTML|Open the HTML/i);
+    assert.match(r, /markdown\.marp\.enableHtml/);
+    // Honest about the one route that ISN'T full fidelity: the preview webview
+    // does not execute the deck's scripts, so runtime-built components stay flat.
+    assert.match(r, /does not execute the deck's\s+`<script>` tags/);
+    assert.match(r, /\.html` opens standalone in any browser/);
     // Marp-native: the README must NOT point at a bundled emulator any more.
     assert.doesNotMatch(r, /lattice-emulator/);
+  });
+
+
+  describe('font supply', () => {
+    // lattice.css's @font-face srcs are stylesheet-relative `url(fonts/<file>)`.
+    // A bundle that shipped the CSS without that directory 404'd every face and
+    // fell back to system serif/sans on every slide.
+    test('fontAssetsFor derives the supply from the stylesheet itself', () => {
+      const css = "@font-face{src:url(fonts/outfit-400.woff2) format('woff2')}"
+        + "@font-face{src:url('fonts/playfair-700.woff2')}"
+        + ".x{background:url(fonts/KaTeX_Main-Regular.woff2)}";
+      assert.deepEqual(fontAssetsFor(css), [
+        { from: 'dist/fonts/KaTeX_Main-Regular.woff2', to: 'fonts/KaTeX_Main-Regular.woff2' },
+        { from: 'dist/fonts/outfit-400.woff2', to: 'fonts/outfit-400.woff2' },
+        { from: 'dist/fonts/playfair-700.woff2', to: 'fonts/playfair-700.woff2' },
+      ]);
+    });
+
+    test('fontAssetsFor dedupes repeats and ignores non-font urls', () => {
+      const css = '@font-face{src:url(fonts/a.woff2)}@font-face{src:url(fonts/a.woff2)}'
+        + ".y{background:url('data:image/svg+xml,<svg/>')}.z{background:url(../img/x.png)}";
+      assert.deepEqual(fontAssetsFor(css), [{ from: 'dist/fonts/a.woff2', to: 'fonts/a.woff2' }]);
+    });
+
+    test('fontAssetsFor tolerates empty / missing input', () => {
+      assert.deepEqual(fontAssetsFor(''), []);
+      assert.deepEqual(fontAssetsFor(undefined), []);
+    });
+  });
+
+  describe('marp-scopable CSS', () => {
+    // marp-core scopes off the leftmost compound: a literal leading `section` is
+    // the slide, anything else becomes a slide DESCENDANT. Lattice's dual-surface
+    // `:is(section.x, figure.x)` head therefore scoped to a slide-inside-a-slide
+    // and matched nothing — ~835 rules dead across the chart bucket and the
+    // shared Form layer. Our own engine distributes the arms before scoping; the
+    // export bakes the same distribution in, since marp-core can't be patched.
+    test('distributes a leading :is() into per-arm selectors', () => {
+      assert.equal(
+        marpScopableCss(':is(section.map, figure.chart-frame) .map-region{fill:red}'),
+        'section.map .map-region, figure.chart-frame .map-region{fill:red}',
+      );
+    });
+
+    test('leaves a MID-selector :is() alone — it already scopes correctly', () => {
+      const css = 'section.foo :is(ul, ol) > li{color:red}';
+      assert.equal(marpScopableCss(css), css);
+    });
+
+    test('handles the minified no-space form and multiple rules', () => {
+      assert.equal(
+        marpScopableCss(':is(section,figure) .cell{a:b}section.x{c:d}:is(section.y,figure.y)::after{e:f}'),
+        'section .cell, figure .cell{a:b}section.x{c:d}section.y::after, figure.y::after{e:f}',
+      );
+    });
+
+    test('is idempotent — a distributed sheet passes through unchanged', () => {
+      const once = marpScopableCss(':is(section.a, figure.a) .b{x:y}');
+      assert.equal(marpScopableCss(once), once);
+    });
+
+    test('leaves declarations, at-rule preludes and data: URIs untouched', () => {
+      const css = "@media (min-width:1px){:is(section.a, figure.a) .b{background:url(\"data:image/svg+xml,<svg/>\")}}";
+      assert.equal(
+        marpScopableCss(css),
+        "@media (min-width:1px){section.a .b, figure.a .b{background:url(\"data:image/svg+xml,<svg/>\")}}",
+      );
+    });
+
+    test('the SHIPPED stylesheet survives it: same rule count, second pass a no-op', () => {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const css = fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', 'dist', 'lattice.min.css'), 'utf8',
+      );
+      const once = marpScopableCss(css);
+      const count = (s, ch) => s.split(ch).length - 1;
+      assert.equal(count(once, '{'), count(css, '{'), 'rule blocks preserved');
+      assert.equal(count(once, ';'), count(css, ';'), 'declarations preserved');
+      assert.ok(once.length > css.length, 'arms were actually distributed');
+      assert.equal(marpScopableCss(once), once, 'a second pass changes nothing');
+      assert.deepEqual(once.match(/(^|[{};])\s*:is\([^)]*section[^)]*\)/g) || [], [],
+        'no rule still LEADS with :is(section…)');
+    });
+
+    test('does NOT touch :where() heads — unwrapping them would change specificity', () => {
+      const css = ':where([data-family="tall"]) .x{a:b}';
+      assert.equal(marpScopableCss(css), css);
+    });
   });
 
   describe('agent kit', () => {

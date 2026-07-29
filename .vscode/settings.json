@@ -156,6 +156,7 @@
         "iex": false
     },
     "markdown.marp.diagnostics.slideContentOverflow": true,
+    "markdown.marp.enableHtml": true,
     "claudeCode.initialPermissionMode": "bypassPermissions",
     "claudeCode.allowDangerouslySkipPermissions": true,
     "github.copilot.chat.claudeAgent.allowDangerouslySkipPermissions": false,

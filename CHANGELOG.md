@@ -169,6 +169,49 @@ in patch versions.
 
 ### Fixed
 
+- **Export to Marp produced a broken deck — four defects, all fixed.** Exporting
+  `examples/bloom-engineering-journey.md` and rendering the bundle with marp-cli showed the
+  scale of it: split panels flattened into raw markdown, the matrix grid printed literal
+  `[x]`/`[-]`/`[ ]` text, the premise ledger collapsed, every slide fell back to system
+  serif/sans, and the closing slide carried a visible
+  `<script src="lattice-runtime.min.js"></script>`. Each cause was independent:
+  (a) **the runtime never loaded.** marp-core defaults to `html: false`, which *escapes* raw
+  HTML — so the two `<script>` tags the bundle appends to the deck came out as text and every
+  transform-driven component rendered flat. The generated `marp.config.cjs` now sets
+  `html: true` and `.vscode/settings.json` sets `markdown.marp.enableHtml`, matching the owned
+  engine, which has always parsed with `html: true`.
+  (b) **~835 CSS rules were dead in any Marp render.** marp-core scopes a theme rule off its
+  leftmost compound: a literal leading `section` is the slide, anything else is a slide
+  *descendant*. Lattice's dual-surface `:is(section.x, figure.x)` head therefore scoped to a
+  slide-inside-a-slide and matched nothing — taking out the entire chart bucket (matrix-grid,
+  roadmap, gantt, kanban, radar, quadrant, funnel, piechart, progress, map, timeline-list,
+  word-cloud) plus the shared `:is(section, figure)` Form layer. Our own engine has always
+  distributed those arms before scoping (`lib/engine/css.js`); that step is now a shared kernel
+  (`lib/core/leading-is.js`) and the export bakes it into the CSS it ships, since marp-core
+  cannot be patched. `dist/lattice.min.css` itself is unchanged for every other consumer.
+  (c) **no fonts shipped.** `lattice.css`'s `@font-face` srcs are stylesheet-relative
+  `url(fonts/…)`, and the bundle carried the stylesheet without the directory, so all 37 faces
+  404'd. The bundle now ships `fonts/` beside `lattice.css`, derived from the `url()` refs in
+  the stylesheet itself so the supply cannot drift from what the CSS asks for.
+  (d) **engine-only transforms never ran on the Marp route.** `premise` (now
+  `lib/core/premise.js` `applyToDom`) and matrix-grid's bracket-marker cells (now the shared
+  `lib/core/matrix-grid-cells.js`, replacing the plugin's inline copy). The **auto-glossary**
+  was worse than unstyled — the whole generated slide was *missing* from the export, while the
+  slide before it still read "the next slide is generated"; it's a SOURCE transform, so the
+  export now bakes it in exactly like splits (`appendAutoGlossary` before `bakeSplits`, both
+  producers), and its list→table + `A – N` range pill get a DOM mirror through the new shared
+  `lib/core/glossary-slide.js`. Every registry transformer now carries a DOM adapter (17/17);
+  a new export test asserts slide-count parity with what the CLI renders, which is what would
+  have caught the missing slide.
+  A fifth, smaller drift fell out of the same investigation: the slot-label-lift LAYOUT list
+  was maintained twice — a regex in the markdown-it plugin, a selector string in the runtime —
+  and the runtime's copy had fallen behind (`premise`, `q-and-a` missing), so premise row terms
+  lost their corner tag. Both now derive from `lib/core/slot-label-lift.js`.
+  **Still not full fidelity: the marp-vscode PREVIEW pane.** Its webview does not execute the
+  deck's `<script>` tags, so runtime-built components stay flat there regardless; `npm run pdf`
+  / `npm run html` in the bundle are the full-fidelity routes and the generated README now says
+  so plainly instead of claiming the preview shows the deck.
+
 - **Two URL scrubs no longer discard `history.state`.** `overlay-back.ts` records ownership of
   its synthetic history entry there, and it is the only record that survives a reload; the
   `?new=1` shortcut scrub and the OpenRouter OAuth return scrub both called

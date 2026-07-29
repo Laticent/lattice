@@ -89,6 +89,62 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.equal(count(baked), count(original), 'baked deck divides identically to the source');
   });
 
+  // #1256 — the two defects that made a real exported deck come out wrong.
+  test('ships every font lattice.css references, beside the stylesheet', () => {
+    const css = fs.readFileSync(path.join(dest, 'lattice.css'), 'utf8');
+    const refs = [...css.matchAll(/url\(\s*['"]?fonts\/([^)'"\s]+)['"]?\s*\)/g)].map((m) => m[1]);
+    assert.ok(refs.length > 0, 'the bundled stylesheet references fonts at all');
+    for (const f of new Set(refs)) {
+      assert.ok(fs.existsSync(path.join(dest, 'fonts', f)), `bundle is missing fonts/${f}`);
+    }
+  });
+
+  test('bundled CSS is marp-scopable: no rule LEADS with :is(section…)', () => {
+    // marp-core scopes off the leftmost compound, so a leading
+    // `:is(section.x, figure.x)` head becomes a slide-inside-a-slide and matches
+    // nothing. Every stylesheet in the bundle goes through the distribution.
+    for (const f of ['lattice.css', 'themes/indaco.css', 'themes/indaco-dark.css']) {
+      const css = fs.readFileSync(path.join(dest, f), 'utf8');
+      const bad = css.match(/(^|[{};])\s*:is\([^)]*section[^)]*\)/g) || [];
+      assert.deepEqual(bad, [], `${f} still leads ${bad.length} rule(s) with :is(section…)`);
+    }
+  });
+
+  // The auto-glossary APPENDS a whole slide from front-matter `acronyms:`. It is a
+  // source transform the recipient's Marp will never run, so the export must bake
+  // it exactly like splits — before #1256 the exported deck was one slide short,
+  // and the slide before it still announced "the next slide is generated".
+  test('bakes the auto-glossary slide into the exported deck (no slide is lost)', () => {
+    const tmpG = fs.mkdtempSync(path.join(os.tmpdir(), 'exp-gloss-'));
+    try {
+      const source = path.join(REPO, 'examples', 'auto-glossary.md');
+      execFileSync('node', [TOOL, source, tmpG], { stdio: 'pipe' });
+      const baked = fs.readFileSync(path.join(tmpG, 'auto-glossary', 'auto-glossary.md'), 'utf8');
+      // The generated slide is present, and its own trigger is consumed so a
+      // re-render can't append it twice.
+      assert.match(baked, /^<!-- _class: glossary/m, 'the generated glossary slide is baked in');
+      assert.doesNotMatch(baked, /^\s*glossary:\s*auto\s*$/m, 'the trigger is stripped');
+      // Slide-count parity with what the CLI actually renders. `render()` is the
+      // raw engine — the emulator runs appendAutoGlossary BEFORE it (the step the
+      // export was missing), so that is the baseline the export must match.
+      const { appendAutoGlossary } = require('../../../lib/core/glossary-auto.mjs');
+      const engine = latticeEngine.createEngine();
+      const count = (src) => (engine.render(src).html.match(/<section[\s>]/g) || []).length;
+      const original = fs.readFileSync(source, 'utf8');
+      assert.equal(count(baked), count(appendAutoGlossary(original)),
+        'the exported deck has the same slide count as the CLI renders');
+      assert.equal(count(baked), count(original) + 1, 'and it is exactly one MORE than the raw source');
+    } finally {
+      fs.rmSync(tmpG, { recursive: true, force: true });
+    }
+  });
+
+  test('marp.config.cjs + .vscode enable HTML so the runtime tags survive', () => {
+    assert.match(fs.readFileSync(path.join(dest, 'marp.config.cjs'), 'utf8'), /html:\s*true/);
+    const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));
+    assert.equal(settings['markdown.marp.enableHtml'], true);
+  });
+
   test('package.json pins marp-cli only', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(dest, 'package.json'), 'utf8'));
     assert.ok(pkg.dependencies['@marp-team/marp-cli']);

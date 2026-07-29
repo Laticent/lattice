@@ -428,6 +428,18 @@ a runtime mirror going forward. Opt-in only governs whether *new* authoring
 transforms chase mirror parity by default; it never means pulling the
 runtime/CSS bundles out of `dist/` or breaking that manual recipe.
 
+**Know what a mirror buys, and where.** A `lattice-runtime.js` mirror makes a
+transform work wherever the runtime actually EXECUTES: the exported HTML, and
+marp-cli's `npm run pdf` / `npm run html` (it drives a real headless browser).
+It does **not** make anything appear in the marp-vscode PREVIEW pane — that
+webview executes no scripts at all, so the preview is a palette-and-CSS
+surface, full stop (`engineering/gotchas.md` § "marp-vscode webview CSP").
+Two further requirements are easy to miss and were silently unmet until
+#1256: raw HTML must be enabled (`html: true` for marp-cli,
+`markdown.marp.enableHtml` for the extension) or the runtime `<script>` tags
+are ESCAPED into visible text, and a rule whose selector LEADS with
+`:is(section…)` is dead in any Marp render — see the same doc's two entries.
+
 ## Keeping an open PR mergeable while it waits
 
 A PR is not "done and parked" the moment CI goes green — it sits open while you
