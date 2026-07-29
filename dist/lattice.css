@@ -2918,7 +2918,8 @@ section.compare-code-block pre > code {
  *
  * Stacking is not a replacement for the carousel split recipe below (one block
  * per page at full width, which is still the right answer for an over-long
- * pair once `autosplit: on`). It is what the slide does when it is NOT split:
+ * pair, and splitting is intrinsic). It is what the slide does when it does NOT
+ * split — a pair short enough to fit, or a specimen marked `stress-slide`:
  * two full-width blocks at half height beat two half-width blocks with one of
  * them off-screen. Square stacks too — code lines are long, and 486px of column
  * wraps almost any real line. */
