@@ -1,7 +1,9 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseLensRegistry, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
-import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 
 const BODY = '<!-- _class: title -->\n\n# Hello\n\n---\n\n## Second';
 
@@ -50,7 +52,7 @@ describe('front-matter', () => {
 		const src = '---\ntheme: indaco\nfinish: finish-shu\nfinish-override:\n  backdrop:\n    strength: 0.4\n    clearance: off\n---\n\n# Deck';
 		// editing a FLAT key preserves the two-level nested block VERBATIM (regression: a
 		// naive flat parser would flatten `backdrop:`/`strength:` into stray scalars)
-		const out = setFrontMatter(src, 'paginate', 'true');
+		const out = writeFrontMatterLine(src, 'paginate', 'true');
 		expect(out).toMatch(/\nfinish-override:\n {2}backdrop:\n {4}strength: 0\.4\n {4}clearance: off\n/);
 		expect(getFrontMatter(out, 'paginate')).toBe('true');
 		expect(getFrontMatter(out, 'strength')).toBeUndefined(); // never a flat key
@@ -89,16 +91,16 @@ describe('front-matter', () => {
 	});
 
 	it('creates a block on the first directive', () => {
-		const out = setFrontMatter(BODY, 'size', 'square');
+		const out = writeFrontMatterLine(BODY, 'size', 'square');
 		expect(out.startsWith('---\nsize: square\n---\n\n')).toBe(true);
 		expect(stripFrontMatter(out)).toBe(BODY);
 		expect(getFrontMatter(out, 'size')).toBe('square');
 	});
 
 	it('updates an existing key, preserves the others', () => {
-		let out = setFrontMatter(BODY, 'size', '16:9');
-		out = setFrontMatter(out, 'paginate', 'true');
-		out = setFrontMatter(out, 'size', 'standard');
+		let out = writeFrontMatterLine(BODY, 'size', '16:9');
+		out = writeFrontMatterLine(out, 'paginate', 'true');
+		out = writeFrontMatterLine(out, 'size', 'standard');
 		expect(getFrontMatter(out, 'size')).toBe('standard');
 		expect(getFrontMatter(out, 'paginate')).toBe('true');
 		// Body is untouched (and not duplicated).
@@ -106,22 +108,22 @@ describe('front-matter', () => {
 	});
 
 	it('removes the block when the last key is cleared', () => {
-		const withFm = setFrontMatter(BODY, 'paginate', 'true');
+		const withFm = writeFrontMatterLine(BODY, 'paginate', 'true');
 		expect(frontMatterBlock(withFm)).not.toBe('');
-		const cleared = setFrontMatter(withFm, 'paginate', null);
+		const cleared = writeFrontMatterLine(withFm, 'paginate', null);
 		expect(frontMatterBlock(cleared)).toBe('');
 		expect(cleared).toBe(BODY);
 	});
 
 	it('quotes values that need it (header text with spaces)', () => {
-		const out = setFrontMatter(BODY, 'header', 'Q3 Board Review');
+		const out = writeFrontMatterLine(BODY, 'header', 'Q3 Board Review');
 		expect(out).toContain('header: "Q3 Board Review"');
 		expect(getFrontMatter(out, 'header')).toBe('Q3 Board Review');
 	});
 
 	it('preserves meaningful leading indentation on the body (only blank lines collapse)', () => {
 		const body = '  indented first line\n\n# Body';
-		const out = setFrontMatter(body, 'size', 'square');
+		const out = writeFrontMatterLine(body, 'size', 'square');
 		expect(stripFrontMatter(out)).toBe(body); // the two leading spaces survive
 	});
 
@@ -134,7 +136,7 @@ describe('front-matter', () => {
 
 describe('mergeClassTokens — finish class injection MERGES, never clobbers (MERGE-BLOCKER #1)', () => {
 	it('unions a finish class onto an existing class:, preserving the author tokens', () => {
-		// The bug: setFrontMatter REPLACES `class`, so `class: dark wide` + finish lost
+		// The bug: a plain write REPLACES `class`, so `class: dark wide` + finish lost
 		// `dark wide`. The fix unions them, deduped, in order.
 		const src = '---\nclass: dark\n---\n\n# Deck';
 		const out = mergeClassTokens(src, 'finish finish-mybrand');
@@ -302,7 +304,7 @@ describe('setFrontMatterAcronyms — structured term → { expansion, definition
 			['EBITDA', { expansion: 'ee bit dah', definition: 'Earnings before interest, taxes.' }],
 		]);
 		// edit a DIFFERENT key — the two-level acronyms block must not be flattened or dropped
-		const edited = setFrontMatterBlock(setFrontMatter(withAcr, 'paginate', 'true'), 'lexicon', [['→', 'to']]);
+		const edited = setFrontMatterBlock(writeFrontMatterLine(withAcr, 'paginate', 'true'), 'lexicon', [['→', 'to']]);
 		expect(edited).toMatch(/\n {2}EBITDA:\n {4}expansion: /);
 		const e = acronymEntries(edited).get('EBITDA');
 		expect(e).toEqual({ expansion: 'ee bit dah', definition: 'Earnings before interest, taxes.' });
@@ -316,5 +318,132 @@ describe('setFrontMatterBlock — escaping', () => {
 		const out = setFrontMatterBlock(BODY, 'lexicon', [['a\\b', 'x'], ['c"d', 'y']]);
 		expect(out).toContain('"a\\\\b": x'); // backslash doubled
 		expect(out).toContain('"c\\"d": y'); // quote escaped
+	});
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #1256 — every flat-scalar write is a LINE SPLICE, on every deck-scope key.
+//
+// #1254 made `title:` lossless and left 24 other directives on the whole-block
+// rebuild, on the theory that the Deck-setup drawer "owns" those keys. It does not:
+// an author hand-writes `theme:`, `size:` and `header:` all the time, and the deck
+// that carries them is the same deck that carries the YAML comment, the `_class:`,
+// and the `style: |` block the rebuild deleted. The acceptance deck below is the one
+// from the card — every construct `parseFm`'s grammar does not model, in one block.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RICH = [
+	'---',
+	'# legal signed off on this footer',
+	'theme: indaco',
+	'_class: lead',
+	'style: |',
+	'  section.title h1 { color: red; }',
+	'tags: [alpha, beta]',
+	'---',
+	'',
+	'# Q4',
+	'',
+].join('\n');
+
+/** Every line EXCEPT the one that carries `key` — the bytes a lossless write must leave
+ *  untouched, in order. Comparing these across a write is byte-identity of the whole file
+ *  minus the one line the caller came to change. */
+function linesExcept(source: string, key: string): string[] {
+	const re = new RegExp(`^\\s*${key}\\s*:`);
+	return source.split('\n').filter((l) => !re.test(l));
+}
+
+// Every flat directive a deck-scope control writes: the 23 in StudioShell + `class`
+// (the class-token helpers) + `finish`, which the EXPORT path also clears.
+const DECK_SCOPE_KEYS = [
+	'theme', 'color-mode', 'finish', 'mode', 'motion', 'motion-style', 'motion-speed',
+	'spectrum', 'spectrum-edge', 'spectrum-card', 'spectrum-card-edge', 'rule', 'eyebrow',
+	'headline', 'spectrum-trim', 'debug', 'lang', 'size', 'paginate', 'lift', 'header',
+	'footer', 'title', 'class',
+];
+
+describe('every deck-scope directive writes losslessly (#1256)', () => {
+	it.each(DECK_SCOPE_KEYS)('setting `%s` leaves every other byte identical', (key) => {
+		const out = writeFrontMatterLine(RICH, key, 'x-value');
+		// The write really happened — otherwise "nothing else changed" is vacuously true.
+		expect(getFrontMatter(out, key)).toBe('x-value');
+		// …and nothing else did: the comment, `_class:`, the block scalar AND its indented
+		// body, the flow sequence, and the key order all survive byte-for-byte.
+		expect(linesExcept(out, key)).toEqual(linesExcept(RICH, key));
+	});
+
+	it.each(DECK_SCOPE_KEYS)('setting then clearing `%s` restores the deck exactly', (key) => {
+		// The round trip is the strongest form of the claim: set-then-clear is the identity,
+		// so neither direction can leak a normalization. `theme:` is the one key the deck
+		// ALREADY carries, so clearing it removes the author's own line — the round trip lands
+		// on the deck minus that line, which is still byte-exact everywhere else.
+		const expected = key === 'theme' ? RICH.replace('theme: indaco\n', '') : RICH;
+		expect(writeFrontMatterLine(writeFrontMatterLine(RICH, key, 'x-value'), key, null)).toBe(expected);
+	});
+
+	it('the four constructs the whole-block rebuild destroyed are named explicitly', () => {
+		// The it.each above proves this generically; this one names the losses from the card
+		// so a failure reads as "the YAML comment is gone", not "arrays differ at index 1".
+		const out = writeFrontMatterLine(RICH, 'header', 'Acme — Q3');
+		expect(out).toContain('# legal signed off on this footer'); // the YAML comment
+		expect(out).toContain('_class: lead'); // the `_`-prefixed key parseFm cannot see
+		expect(out).toContain('style: |'); // …and NOT the corrupted `style: "|"`
+		expect(out).toContain('  section.title h1 { color: red; }'); // the block scalar's BODY
+		expect(out).toContain('tags: [alpha, beta]'); // the flow sequence, not a string
+		expect(out).not.toContain('"[alpha, beta]"');
+		// key ORDER is unchanged — the new line lands at the end of the block, and the
+		// existing keys stay exactly where the author put them.
+		expect(out.indexOf('theme: indaco')).toBeLessThan(out.indexOf('tags: [alpha, beta]'));
+	});
+
+	it('a CRLF deck stays CRLF — every line, including the new one', () => {
+		const crlf = RICH.replace(/\n/g, '\r\n');
+		const out = writeFrontMatterLine(crlf, 'size', '16:9');
+		expect(getFrontMatter(out, 'size')).toBe('16:9');
+		// No bare LF anywhere: a mixed-EOL file is the regression this pins.
+		expect(/[^\r]\n/.test(out)).toBe(false);
+		expect(linesExcept(out, 'size')).toEqual(linesExcept(crlf, 'size'));
+		expect(writeFrontMatterLine(out, 'size', null)).toBe(crlf);
+	});
+
+	it('a deck whose leading `---` is a slide separator keeps that slide', () => {
+		// FM_RE cannot tell a separator from front matter, so slide 1 is "inside the block".
+		// A splice can at worst edit the wrong line; the rebuild deleted the slide outright.
+		const sep = '---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
+		for (const key of DECK_SCOPE_KEYS) {
+			const out = writeFrontMatterLine(sep, key, 'x-value');
+			expect(out, key).toContain('# Cover slide');
+			expect(out, key).toContain('Revenue up 12 percent.');
+			expect(out, key).toContain('# Second slide');
+		}
+	});
+
+	it('the class-token helpers splice too — they are deck-scope writers like the rest', () => {
+		const stamped = mergeClassTokens(RICH, 'no-progress');
+		expect(getFrontMatter(stamped, 'class')).toBe('no-progress');
+		expect(linesExcept(stamped, 'class')).toEqual(linesExcept(RICH, 'class'));
+		// …and the inverse restores the deck byte-for-byte.
+		expect(removeClassTokens(stamped, 'no-progress')).toBe(RICH);
+	});
+
+	it('the destructive whole-block writer is GONE, not merely unused', () => {
+		// A discouraged-but-exported writer is one autocomplete away from coming back, and the
+		// failure is silent — the deck still renders, the author's comment is just missing.
+		// `setFrontMatterBlock` / `setFrontMatterAcronyms` are deliberately NOT matched: they
+		// own a nested block and legitimately re-emit one.
+		const offenders: string[] = [];
+		const walk = (dir: string) => {
+			for (const entry of readdirSync(dir)) {
+				const full = join(dir, entry);
+				if (statSync(full).isDirectory()) {
+					walk(full);
+				} else if (/\.(ts|tsx|astro|js|jsx)$/.test(entry)) {
+					if (/\bsetFrontMatter\s*\(/.test(readFileSync(full, 'utf8'))) offenders.push(full);
+				}
+			}
+		};
+		walk(join(__dirname, '..', '..'));
+		expect(offenders).toEqual([]);
 	});
 });

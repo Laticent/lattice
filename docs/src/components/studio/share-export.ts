@@ -14,7 +14,7 @@ import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
-import { getFrontMatter, mergeClassTokens, setFrontMatter } from './front-matter';
+import { getFrontMatter, mergeClassTokens, writeFrontMatterLine } from './front-matter';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -426,7 +426,11 @@ export function embedFinishInMarkdown(source: string, finishClass?: string, fini
 	// own (the merged class + embedded CSS do the work) and would otherwise trip an
 	// `unknown-finish` lint warning in the shared artifact. Per-slide finishes carry
 	// their class in the source already, so they need neither the merge nor the strip.
-	const classed = finishClass ? setFrontMatter(mergeClassTokens(source, finishClass), 'finish', null) : source;
+	// Both edits are LINE SPLICES (`writeFrontMatterLine`, via `mergeClassTokens`): this is an
+	// OUTBOUND path, so a whole-block rebuild here shipped the recipient a corrupted `.md` —
+	// the sender's YAML comments, `_class:`, `style: |` body and flow sequences deleted from a
+	// copy they never see, with no Undo on the far side (#1256).
+	const classed = finishClass ? writeFrontMatterLine(mergeClassTokens(source, finishClass), 'finish', null) : source;
 	const block = `<style>\n/* Lattice Studio — embedded finish (self-contained: this deck keeps its surface\n   finish even where the saved finish is not installed). Generated on export. */\n${finishCss.trim()}\n</style>\n`;
 	const fm = /^(---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$))/.exec(classed);
 	if (fm) return classed.slice(0, fm[0].length) + '\n' + block + '\n' + classed.slice(fm[0].length);

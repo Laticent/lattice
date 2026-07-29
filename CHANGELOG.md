@@ -365,6 +365,24 @@ in patch versions.
   / `npm run html` in the bundle are the full-fidelity routes and the generated README now says
   so plainly instead of claiming the preview shows the deck.
 
+- **Every Deck-setup control now edits ONE front-matter line, instead of rebuilding the whole
+  block.** #1254 made the Deck-name field lossless and left 24 other directives — `theme:`,
+  `size:`, `header:`, `footer:`, `lang:`, `paginate:`, `finish:`, the whole `spectrum-*` family
+  — on a writer that parsed the block and re-emitted it, deleting everything its grammar did
+  not model. On a deck with hand-written front matter, setting a Header erased the YAML
+  comment above it, dropped `_class:` (the engine accepts a leading `_`; the parser did not),
+  reduced `style: |` to the literal string `"|"` and **deleted its CSS body**, stringified
+  `tags: [alpha, beta]`, reordered the surviving keys, and converted a CRLF block to LF. On a
+  deck whose leading `---` is a slide separator — indistinguishable from front matter by
+  regex — it deleted the swallowed slide outright. All 27 flat-scalar call sites now splice a
+  single line: the 24 drawer controls, the two `class:` token writers behind the Section-rail
+  switch, and **the share/export path**, which is the one that mattered most — a deck with a
+  saved deck-wide finish shipped its recipient a silently corrupted `.md`, with no Undo on the
+  far side. The destructive writer is **deleted rather than deprecated**, so the regression is
+  now a compile error. Two writers remain on the whole-block rebuild by design and are called
+  out in the module: `lexicon:` and `acronyms:`, which genuinely own a nested block.
+  (#1256; `engineering/decisions/2026-07-29-front-matter-lossless-writers.md`)
+
 - **Two URL scrubs no longer discard `history.state`.** `overlay-back.ts` records ownership of
   its synthetic history entry there, and it is the only record that survives a reload; the
   `?new=1` shortcut scrub and the OpenRouter OAuth return scrub both called

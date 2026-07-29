@@ -32,6 +32,23 @@ describe('embedFinishInMarkdown', () => {
 		expect(out).not.toMatch(/^finish:\s*finish-shu/m);
 	});
 
+	it('does not corrupt the sender\u2019s front matter on the way out (#1256)', () => {
+		// The worst of the 24 whole-block writers: this one damages the artifact you HAND
+		// SOMEONE ELSE. The drawer controls hit your own copy, where Undo is one click away;
+		// this one shipped the recipient a silently shredded `.md` and surfaced nothing.
+		const rich = ['---', '# legal signed off on this footer', 'theme: indaco', '_class: lead', 'style: |', '  section.title h1 { color: red; }', 'tags: [alpha, beta]', 'finish: finish-shu', '---', '', '# Q4', ''].join('\n');
+		const out = embedFinishInMarkdown(rich, 'finish finish-shu', CSS);
+		expect(out).toContain('# legal signed off on this footer'); // the YAML comment
+		expect(out).toContain('_class: lead');
+		expect(out).toContain('style: |');
+		expect(out).toContain('  section.title h1 { color: red; }'); // the block scalar's body
+		expect(out).toContain('tags: [alpha, beta]');
+		expect(out).not.toContain('style: "|"');
+		// …and it still did the two jobs it came to do.
+		expect(out).toMatch(/^class:.*\bfinish-shu\b/m);
+		expect(out).not.toMatch(/^finish:\s*finish-shu/m);
+	});
+
 	it('is a no-op when the deck references no saved finish (nothing to embed)', () => {
 		const src = '---\ntheme: indaco\n---\n\n# Plain\n';
 		expect(embedFinishInMarkdown(src, '', undefined)).toBe(src);
