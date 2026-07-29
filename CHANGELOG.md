@@ -365,6 +365,22 @@ in patch versions.
   / `npm run html` in the bundle are the full-fidelity routes and the generated README now says
   so plainly instead of claiming the preview shows the deck.
 
+- **Deck setup on a phone: one row geometry, and a field you can still see while typing.**
+  Two defects reported from a real iPhone. (a) The drawer shipped **two row shapes** — every
+  dropdown and toggle as label-left / control-right with the help line below, but Deck name,
+  Header and Footer as label, help line, then a full-width input. `TextRow` now routes through
+  `Field`, so there is one geometry: right edges align across the whole column, the input's
+  height matches the dropdowns' (32px → 36px), and the Deck name field sits **107px higher**
+  (measured at 390px). (b) Tapping a field in a mobile drawer **left it behind the keyboard.**
+  Shortening and lifting the sheet (#1216) does not move its scroll position, so a field
+  two-thirds down a full-height sheet is below the bottom of the shortened one — and the
+  browser's own scroll-on-focus runs against the pre-keyboard geometry, which the resize then
+  invalidates. The new shared `useKeyboardFieldReveal` hook, registered by `PanelSheet` so all
+  eleven mobile panels inherit it, scrolls the focused field back into view and leaves it alone
+  when it is already visible. **Real iOS Safari is UNVERIFIED** — headless Chromium has no
+  software keyboard, so the keyboard geometry here is injected; both fixes want a pass on a
+  real phone. (`engineering/decisions/2026-07-29-deck-setup-field-rows-and-keyboard-reveal.md`)
+
 - **Every Deck-setup control now edits ONE front-matter line, instead of rebuilding the whole
   block.** #1254 made the Deck-name field lossless and left 24 other directives — `theme:`,
   `size:`, `header:`, `footer:`, `lang:`, `paginate:`, `finish:`, the whole `spectrum-*` family

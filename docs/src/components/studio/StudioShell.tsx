@@ -3932,11 +3932,35 @@ function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNod
 }
 // A deck-setting row. `desc` adds a plain-language help line under the control —
 // no magic, no mystery: every setting says what it does. Obvious toggles can omit it.
-function Field({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) {
+//
+// ONE row geometry for the whole drawer: label on the left, control on the right, help
+// line underneath. `TextRow` below routes through this too, so a text field sits exactly
+// where a dropdown sits — it used to stack (label, help, then a full-width input), which
+// read as a different kind of row and cost three lines of height per field. On a phone
+// that is the difference between the field being on screen when the keyboard opens and
+// being behind it.
+//
+// `htmlFor` makes the label a REAL <label> (tapping it focuses the field) instead of a
+// span; `descId` names the help line so the field can `aria-describedby` it. Both are
+// opt-in, so the dropdown/toggle rows — whose controls carry their own `aria-label` —
+// render exactly the markup they did before.
+function Field({ label, desc, htmlFor, descId, children }: { label: string; desc?: string; htmlFor?: string; descId?: string; children: React.ReactNode }) {
 	return (
 		<div className="my-2">
-			<div className="flex items-center justify-between gap-2.5"><span className="text-[12.5px] text-foreground">{label}</span>{children}</div>
-			{desc && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
+			<div className="flex items-center justify-between gap-2.5">
+				{htmlFor ? (
+					// `shrink-0` ONLY on this branch. A text field grows to fill the row, so
+					// without it the flex algorithm takes the space out of the label and
+					// "Deck name" wraps to two lines. The dropdown rows have no growing child,
+					// so adding it there would change nothing except their overflow behavior
+					// at the narrowest widths — left alone.
+					<label htmlFor={htmlFor} className="shrink-0 text-[12.5px] text-foreground">{label}</label>
+				) : (
+					<span className="text-[12.5px] text-foreground">{label}</span>
+				)}
+				{children}
+			</div>
+			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
 		</div>
 	);
 }
@@ -3950,11 +3974,13 @@ Control.displayName = 'Control';
 function Toggle({ on, onClick, label }: { on?: boolean; onClick?: () => void; label?: string }) {
 	return <Switch checked={!!on} onCheckedChange={() => onClick?.()} aria-label={label} />;
 }
-// A text-DECLARATION row — label + help line, then a full-width input. Unlike a
-// Toggle (a binary state), this is where the author states the actual copy that
-// will render (the running header / footer text). Draft is local while typing and
-// commits on blur or Enter, so the source front-matter (and the editor + every
-// export) isn't rewritten on every keystroke. An empty commit clears the setting.
+// A text-DECLARATION row. Unlike a Toggle (a binary state), this is where the author
+// states the actual copy that will render (the deck name, the running header / footer
+// text). Draft is local while typing and commits on blur or Enter, so the source
+// front-matter (and the editor + every export) isn't rewritten on every keystroke. An
+// empty commit clears the setting.
+//
+// The geometry is `Field`'s, not its own — see the note there.
 function TextRow({ label, desc, value, placeholder, onCommit }: { label: string; desc?: string; value: string; placeholder?: string; onCommit: (v: string) => void }) {
 	const [draft, setDraft] = React.useState(value);
 	// A real <label htmlFor> (not a bare span) so tapping the label focuses the field,
@@ -3967,9 +3993,7 @@ function TextRow({ label, desc, value, placeholder, onCommit }: { label: string;
 	// never fights the author mid-keystroke.
 	React.useEffect(() => { setDraft(value); }, [value]);
 	return (
-		<div className="my-2">
-			<label htmlFor={id} className="text-[12.5px] text-foreground">{label}</label>
-			{desc && <p id={descId} className="mt-1 text-[11px] leading-snug text-muted-foreground">{desc}</p>}
+		<Field label={label} desc={desc} htmlFor={id} descId={desc ? descId : undefined}>
 			<Input
 				id={id}
 				aria-describedby={desc ? descId : undefined}
@@ -3978,8 +4002,15 @@ function TextRow({ label, desc, value, placeholder, onCommit }: { label: string;
 				onChange={(e) => setDraft(e.target.value)}
 				onBlur={() => { if (draft !== value) onCommit(draft); }}
 				onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
-				className="mt-1.5 h-8 text-[12.5px]"
+				// Takes the row's remaining width, so its right edge lands where every
+				// dropdown's does. The 116px floor is `Control`'s own min-width — the field
+				// can never be squeezed narrower than the dropdowns it sits among, however
+				// long the label gets.
+				// `h-9` (36px), NOT the `h-8` this had while it was a full-width field of its
+				// own: that is `Control`'s height, so the field and the dropdowns it now sits
+				// among share a baseline instead of missing it by 4px on every row.
+				className="h-9 min-w-[116px] flex-1 text-[12.5px]"
 			/>
-		</div>
+		</Field>
 	);
 }

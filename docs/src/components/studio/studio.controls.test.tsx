@@ -736,6 +736,26 @@ describe('Studio — Inspector controls respond', () => {
 		expectFrontMatterIntact('Section rail');
 	});
 
+	it('a text field shares its row with its label, like every dropdown in the column', async () => {
+		// jsdom has no layout, so this asserts the STRUCTURE the geometry rests on: the label
+		// and the input are siblings in one flex row, not stacked with the help line between
+		// them. The measured version (one row, right edges aligned, 36px tall, at 390/820/1440)
+		// runs against the built site — see the decision note. This is the part that fails if
+		// someone reverts TextRow to its own layout instead of routing through `Field`.
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		const field = await screen.findByRole('textbox', { name: /Deck name/ });
+		const label = document.querySelector(`label[for="${field.id}"]`);
+		expect(label).not.toBeNull();
+		expect(label?.parentElement).toBe(field.parentElement); // ONE row, not two
+		// …and the help line is BELOW that row, where every `Field` puts it — not between the
+		// label and the input, which is what pushed the field under the keyboard.
+		const desc = document.getElementById(field.getAttribute('aria-describedby') ?? '');
+		expect(desc).not.toBeNull();
+		expect(desc?.parentElement).toBe(field.parentElement?.parentElement);
+	});
+
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
