@@ -12,8 +12,6 @@ Evidence — data that supports the argument.
 <!-- _class: kpi -->
 <!-- _footer: "kpi · evidence survey" -->
 
-`evidence · kpi`
-
 ## Four tiles the eye sweeps in one pass.
 
 1. 4

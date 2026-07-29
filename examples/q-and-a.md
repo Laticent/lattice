@@ -20,11 +20,11 @@ The end-of-pitch slide that pre-empts the room — the three or four hardest que
 
 ## A few defended answers, not a help page.
 
-Q&A is a *function*, not a flat list: you anticipate the objection and close it on your own terms, which lands harder than waiting to be asked. Author it as a nested list — the top-level item is the question, the answer nests one level under it.
+Q&A is a *function*, not a flat list: you close the objection on your own terms. Author it nested — the top-level item is the question, the answer sits under it.
 
-- Questions are indexed automatically, so a `ul` and an `ol` render the same — pick the look that fits the room, not the list marker.
-- Five looks ship: the editorial **ledger** (default), `spine`, `rail`, `tab`, and `grid`. Plus the universal `solo`, `compact`, and `dark`.
-- Distinct from a reference `faq` (many terse look-ups) and from `list-criteria` (criteria you score against). q-and-a *defends* a recommendation.
+- Questions are indexed automatically, so `ul` and `ol` render the same.
+- Five looks: the editorial **ledger** (default), `spine`, `rail`, `tab`, `grid`, plus universal `solo`, `compact`, `dark`.
+- Distinct from a reference `faq` (terse look-ups) and `list-criteria` (criteria you score). q-and-a *defends* a recommendation.
 
 ---
 
@@ -80,7 +80,7 @@ Q&A is a *function*, not a flat list: you anticipate the objection and close it 
 ## The most editorial read.
 
 - Why not extend the current vendor one more year?
-  - The renewal lands in Q3 and locks us in through 2028. Switching now costs a single quarter; switching after renewal costs three.
+  - The renewal locks us in through 2028. Switching now costs a quarter; switching after renewal costs three.
 - What happens to the team mid-migration?
   - No headcount change. The same four engineers run both stacks through the eight-week overlap.
 - How confident are we in the savings?

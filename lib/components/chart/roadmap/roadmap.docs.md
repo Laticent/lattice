@@ -12,7 +12,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ## Agent contract
 
-**Capacity** ~4 columns (crowds past 5, overflows past 7) — past that, split across slides.
+**Capacity** ~4 columns (crowds past 5, overflows past 5) — past that, split across slides.
 
 ### Slots
 
@@ -50,8 +50,6 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 ```markdown
 <!-- _class: roadmap -->
 
-`H2 2026 · Plan`
-
 ## What ships in each phase, by workstream.
 
 | Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
@@ -59,7 +57,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |
 | Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |
 
-State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
+Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
 ## Anatomy
@@ -94,10 +92,8 @@ Bets spread across three horizons.
 
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1     | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |
-| Scoring       | [x] Equal weights      | [-] Per-team calibration   | [ ] Per-decision profiles |
-| Decision Log  | [x] Append-only schema   | [x] Outcome auto-pairing | [ ] Auditor export        |
-| Adoption      | [x] One pilot team       | [/] Second team          | [ ] Org-wide enablement   |
+| Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
+| Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
 ```
 
 ### `status` — status
@@ -113,12 +109,9 @@ Delivery state at a glance.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1 | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |
-| Scoring       | [x] Equal weights    | [-] Per-team calibration | [ ] Per-decision profiles |
+| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |
+| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |
 | Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |
-| Adoption      | [x] One pilot team   | [/] Second team          | [ ] Org-wide enablement   |
-
-State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
 ### `swimlane` — swimlane
@@ -134,10 +127,9 @@ One track per team.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
-| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |
-| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |
+| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
+| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
 | Decision Log  | Append schema        | Outcome pairing        | Auditor export            |
-| Adoption      | One pilot team       | Second team            | Org-wide enablement       |
 ```
 
 ### `milestones` — milestones
@@ -153,8 +145,8 @@ The dated path, pinned.
 
 | Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
-| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |
-| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |
+| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
+| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
 | Decision Log  | Append schema        | Outcome pairing        | Auditor export            |
 ```
 

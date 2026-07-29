@@ -435,8 +435,6 @@
     "body": [
       "<!-- _class: kpi -->",
       "",
-      "`Financial · Q4 2026`",
-      "",
       "## Revenue ahead of plan; margin and cash both expanded.",
       "",
       "1. $2.4B",
@@ -646,8 +644,6 @@
     "body": [
       "<!-- _class: policy-recommendation adopt -->",
       "",
-      "`Bill reference · Domain`",
-      "",
       "## The recommendation as a complete sentence.",
       "",
       "One line naming the problem or the stakes.",
@@ -848,8 +844,6 @@
     "body": [
       "<!-- _class: roadmap -->",
       "",
-      "`H2 2026 · Plan`",
-      "",
       "## What ships in each phase, by workstream.",
       "",
       "| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |",
@@ -857,7 +851,7 @@
       "| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |",
       "| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |",
       "",
-      "State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope."
+      "Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope."
     ],
     "description": "Phased multi-workstream grid — phases across the top, workstreams down the side."
   },

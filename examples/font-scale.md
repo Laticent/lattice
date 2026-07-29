@@ -105,7 +105,7 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 `Across the Board`
 
 - 1.3×
-  - The hero, the body, the eyebrow, and the chrome all ride `--fs-scale` together. Only the two largest headings sit it out — and this slide has none.
+  - Hero, body, eyebrow, and chrome all ride `--fs-scale` together — only h1 and h2 sit it out.
 
 ---
 

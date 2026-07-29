@@ -324,7 +324,10 @@ const LAYER3 = {
     'renders a heading over a prose paragraph body, with an eyebrow': async (page, assert, SLIDE) => {
       const f = await page.evaluate((sel) => {
         const s = document.querySelector(sel);
-        const ps = [...s.children].filter((e) => e.tagName === 'P');
+        // Form's `.cell-stage` holds the body, so "a direct-child <p>" means a direct
+        // child of the cell the engine placed it in — the wrapper is transparent here.
+        const bodyRoot = s.querySelector(':scope > .cell-stage') || s;
+        const ps = [...bodyRoot.children].filter((e) => e.tagName === 'P');
         return {
           h: s.querySelectorAll('h2').length,
           eyebrow: s.querySelectorAll('p > code').length,

@@ -48,10 +48,8 @@ Last summer one in five new teams left within a month. Instead of more retention
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
-
-`Trajectory · FY26 vs FY25`
 
 ## Every number that mattered moved the right way this year.
 

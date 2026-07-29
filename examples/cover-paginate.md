@@ -23,7 +23,7 @@ A long register can't shrink to fit — so when it overflows, the engine leads w
 
 - A dense list overflows? It can't drop a type size — readability is the floor
 - So the engine **leads with an accent cover** — a heading, a semantic intro, a forward arrow
-- Then it flows the layout's **own native cards** on clean pages — never flattened to generic rows
+- Then it flows the layout's **own native cards** — never generic rows
 - A small **progress rail** ties the run together — k-of-N, beside the page number (`autosplit: on`)
 
 ---
@@ -115,10 +115,10 @@ A long register can't shrink to fit — so when it overflows, the engine leads w
    - Staff guidance — non-binding, but cited in every consent order.
 4. Case
    - `In re Epic Games · 2022`
-   - $245M consent order — operationalised the "actual knowledge" standard.
+   - $245M consent order — operationalized the "actual knowledge" standard.
 5. Case
    - `In re YouTube · 2019`
-   - $170M penalty — channel-level COPPA liability for platforms.
+   - $170M penalty — channel-level liability.
 
 ---
 

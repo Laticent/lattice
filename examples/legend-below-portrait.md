@@ -20,7 +20,7 @@ On a tall deck the four keyed charts used to letterboxe into a short band — th
 
 ## Same chart, restructured for the box.
 
-These four charts bake the diagram **and** the legend into a single `<svg>` viewBox, so CSS can't reflow the key. The fix is render-time: the kernel reads the deck's orientation and emits a tall, legend-below composition.
+These four charts bake the diagram **and** its legend into one `<svg>` viewBox, so CSS can't reflow the key. The fix is render-time: the kernel emits the legend below.
 
 - **Landscape is untouched** — byte-identical to before. The right-rail layout runs when the deck isn't portrait.
 - **Portrait stacks** — dial on top, key centered below, a soft accent rule between them.

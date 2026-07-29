@@ -91,15 +91,13 @@ We will infect mice with a lethal carbapenem-resistant strain and treat with the
 <!-- _class: roadmap -->
 <!-- tier: short -->
 
-`Approach · five-year timeline`
-
 ## How the three aims unfold across the funding period.
 
 | Aim | Years 1–2 `Build` | Years 2–4 `Test` | Years 4–5 `Translate` |
 | --- | --- | --- | --- |
 | Aim 1 — Retargeting | [x] Domain library | [-] Full strain panel | [ ] Rapid-response protocol |
-| Aim 2 — Cocktails | [-] Three-receptor design | [ ] Escape-frequency assays | [ ] Stability formulation |
-| Aim 3 — In vivo | [ ] Model establishment | [ ] Efficacy study | [ ] IND-enabling tox |
+| Aim 2 — Cocktails | [-] Three-receptor design | [ ] Escape assays | [ ] Stability formulation |
+| Aim 3 — In vivo | [ ] Model setup | [ ] Efficacy study | [ ] IND-enabling tox |
 
 ---
 
@@ -115,22 +113,20 @@ Our lab built the modular chassis; our co-investigator runs the regional phage b
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
-
-`Expected outcomes · end of award`
 
 ## What a funded program delivers in five years.
 
 1. <48 h
    - Retarget time
-   - any clinical isolate `Aim 1` `Milestone`
+   - any clinical isolate `Aim 1`
 2. <1e-12
    - Escape frequency
-   - three-receptor cocktail `Aim 2` `Target`
+   - three-receptor cocktail `Aim 2`
 3. >80%
    - Murine survival
-   - vs 0% untreated `Aim 3` `Endpoint`
+   - vs 0% untreated `Aim 3`
 
 ---
 

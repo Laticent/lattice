@@ -32,33 +32,33 @@ all from the same plain numbered list.
 
 ---
 
-<!-- _class: list-steps converge -->
+<!-- _class: list-steps converge compact -->
 
 ## `converge` — four signals narrow onto one bet.
 
 1. Market
-   - A real, growing pool of people feel this pain weekly.
+   - A real, growing pool feels this pain weekly.
 2. Wedge
-   - One underserved job we can win before anyone notices.
+   - One underserved job we can win quietly.
 3. Moat
    - The advantage that compounds once we are in.
 4. Bet
-   - The single wager the next two quarters are built around.
+   - The wager the next two quarters are built on.
 
 ---
 
-<!-- _class: list-steps ghost -->
+<!-- _class: list-steps ghost compact -->
 
 ## `ghost` — the thesis, stated plainly.
 
 1. Belief
-   - Distribution beats features in a crowded market.
+   - Distribution beats features.
 2. Consequence
-   - So we spend on reach before we spend on polish.
+   - Spend on reach before polish.
 3. Risk
-   - A better-funded copy of us outspends the channel.
+   - A better-funded copy outspends the channel.
 4. Guardrail
-   - We defend the channel the moment retention proves out.
+   - We defend the channel once retention proves out.
 
 ---
 

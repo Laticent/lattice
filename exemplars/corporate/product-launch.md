@@ -60,15 +60,15 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-stack compact -->
 <!-- tier: standard -->
 
-## Lumen Trace answers the question; the rest of the platform keeps you ahead of it.
+## Lumen Trace answers the question; the platform keeps you ahead of it.
 
 - Ask in plain English
-  - Type the symptom and get the root cause with its full evidence chain in seconds — no query language, no dashboard hunting.
+  - Type the symptom, get the root cause and its evidence chain in seconds — no query language.
 - Causal graph
-  - Every signal correlated across services so cause and effect are explicit.
+  - Every signal correlated so cause and effect are explicit.
 - Deploy correlation
   - Ties incidents to the change that caused them automatically.
 - Anomaly watch
@@ -112,22 +112,20 @@ Lumen Trace correlates every log, metric, and trace into a causal graph. You ask
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
 
-`Beta results · 2026`
-
-## Beta teams cut diagnosis time by two-thirds and resolved far faster.
+## Beta teams cut diagnosis time by two-thirds.
 
 1. 9 min
    - Median MTTR
-   - down from 47 `5.2× faster` `Beta`
+   - down from 47 `5.2× faster`
 2. −68%
    - Time-to-diagnose
-   - across 40 teams `Measured` `Cohort`
+   - across 40 teams `Measured`
 3. 92%
    - Incidents auto-explained
-   - root cause surfaced `90-day` `Verified`
+   - root cause surfaced `Verified`
 
 ---
 

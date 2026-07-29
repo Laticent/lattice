@@ -578,7 +578,7 @@
         "min": 3,
         "sweet": 4,
         "soft": 6,
-        "hard": 7,
+        "hard": 6,
         "escalateTo": [
           "split across slides"
         ],
@@ -1022,7 +1022,7 @@
           "wide": {
             "sweet": 4,
             "soft": 4,
-            "hard": 6
+            "hard": 5
           },
           "square": {
             "sweet": 3,
@@ -4827,7 +4827,7 @@
           "description": "One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one."
         }
       },
-      "skeleton": "<!-- _class: kpi -->\n\n`Financial · Q4 2026`\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `On plan` `Board`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `On plan` `Audit`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `On plan` `Investor`\n",
+      "skeleton": "<!-- _class: kpi -->\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `On plan` `Board`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `On plan` `Audit`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `On plan` `Investor`\n",
       "whenToUse": [
         {
           "title": "Status framing matters as much as the number",
@@ -4914,7 +4914,7 @@
           "wide": {
             "sweet": 5,
             "soft": 6,
-            "hard": 8
+            "hard": 6
           },
           "square": {
             "sweet": 4,
@@ -5370,12 +5370,12 @@
         "min": 3,
         "sweet": 4,
         "soft": 5,
-        "hard": 6,
+        "hard": 5,
         "escalateTo": [
           "timeline-list",
           "split across slides"
         ],
-        "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
+        "note": "past five steps the row crowds and a split paces one step per page; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
       },
       "density": {
         "axis": "item",
@@ -6964,12 +6964,12 @@
         "sweet": 3,
         "perPage": 1,
         "soft": 3,
-        "hard": 4,
+        "hard": 3,
         "escalateTo": [
           "list-criteria",
           "split across slides"
         ],
-        "note": "past four reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three"
+        "note": "past three reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three"
       },
       "density": {
         "axis": "item",
@@ -6996,7 +6996,7 @@
         "rationale": {
           "selector": "ul > li",
           "required": true,
-          "description": "Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip."
+          "description": "Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip."
         },
         "ask": {
           "selector": "blockquote",
@@ -7004,7 +7004,7 @@
           "description": "The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar."
         }
       },
-      "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n`Bill reference · Domain`\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `Citation` chip.\n- Second reason\n  - The evidence for it, with a `Citation` chip.\n- Third reason\n  - The evidence for it, with a `Citation` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
+      "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `Citation` chip.\n- Second reason\n  - The evidence for it, with a `Citation` chip.\n- Third reason\n  - The evidence for it, with a `Citation` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
       "whenToUse": [
         {
           "title": "One recommendation, put to lawmakers",
@@ -8742,7 +8742,7 @@
         "min": 2,
         "sweet": 4,
         "soft": 5,
-        "hard": 7,
+        "hard": 5,
         "escalateTo": [
           "split across slides"
         ],
@@ -8760,7 +8760,7 @@
           "description": "A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable."
         }
       },
-      "skeleton": "<!-- _class: roadmap -->\n\n`H2 2026 · Plan`\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nState markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n",
+      "skeleton": "<!-- _class: roadmap -->\n\n## What ships in each phase, by workstream.\n\n| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |\n| --- | --- | --- | --- |\n| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |\n| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |\n\nMarkers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.\n",
       "whenToUse": [
         {
           "title": "Phased delivery across workstreams",

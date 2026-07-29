@@ -10,7 +10,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 6, overflows past 7) — past that, split across slides.
+**Capacity** ~4 items (crowds past 6, overflows past 6) — past that, split across slides.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short agenda line, not a description.
 
@@ -93,7 +93,7 @@ Stop 1 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ### `progress-2` — progress-2
@@ -110,7 +110,7 @@ Stop 2 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ### `progress-3` — progress-3
@@ -127,7 +127,7 @@ Stop 3 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ### `progress-4` — progress-4
@@ -144,7 +144,7 @@ Stop 4 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ### `progress-5` — progress-5
@@ -161,7 +161,7 @@ Stop 5 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ### `progress-6` — progress-6
@@ -178,7 +178,7 @@ Stop 6 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ### `circles` — Style · circles

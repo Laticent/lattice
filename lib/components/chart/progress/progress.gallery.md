@@ -37,8 +37,6 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 <!-- stress-slide -->
 <!-- _footer: "Stress test · progress — A full wall of tracks — the ceiling." -->
 
-`H1 2026 · Phase 1 readiness`
-
 ## Stress test — eight workstreams, full status range, one honest pill.
 
 - Signal Intake `92%` `on-track`

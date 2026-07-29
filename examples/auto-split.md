@@ -20,9 +20,9 @@ When a slide holds more than it can show, it becomes several — automatically, 
 ## The problem auto-split solves
 
 - Every layout declares how many items it holds comfortably — its **capacity**
-- Past that budget the slide **overflows**: the title clips off the top, the last items off the bottom
-- Below the readable type floor the engine has nothing smaller to reach for
-- The honest fix is **more slides, not smaller type** — readability is the floor, never the variable
+- Past that budget the slide **overflows** — the title clips off the top, the last items off the bottom
+- Below the type floor there is nothing smaller to reach for
+- The honest fix is **more slides, not smaller type**
 
 ---
 
@@ -30,11 +30,11 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ## How it works
 
-- A slide past its `capacity.hard` is **divided into several** that each fit
+- A slide past `capacity.hard` is **divided** into slides that each fit
 - The **heading repeats**; ordered lists **renumber** across the break
 - **Nothing is lost** — every item survives, in order
-- **Read-across** content (columns, code) is **never split** — it escalates instead
-- A **portrait-family** behavior — landscape resolves overflow another way
+- **Read-across** content (columns, code) is **never split**
+- A **portrait-family** behavior
 - Opt in per deck with `autosplit: on`
 
 ---

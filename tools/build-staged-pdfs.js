@@ -78,6 +78,27 @@ function classify(file) {
   m = file.match(/^examples\/([a-z][a-z0-9-]*)\.md$/);
   if (m) return { kind: 'deck', src: file, out: `examples/${m[1]}.pdf` };
 
+  // Hand-authored example deck in a SUBDIRECTORY (examples/token-contrast/<palette>.md).
+  // The rule above is single-level, so the 13 token-contrast decks — each of which
+  // ships a committed PDF — could never trigger a rebuild, and their PDFs went stale
+  // the moment their markdown was edited.
+  //
+  // Deliberately NOT guarded on the sibling PDF already existing. That guard looks
+  // tempting (it keeps prose like examples/chart-theme-gallery/README.md out) but it
+  // is a permanent trap, not a bootstrap cost: a NEW deck has no PDF, so it fails the
+  // guard, so the hook never renders one, so it fails the guard forever. The lowercase
+  // leading character in the stem already excludes README.md, which is what the guard
+  // was really for.
+  m = file.match(/^(examples\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*)\.md$/);
+  if (m) return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
+
+  // Design-system demo decks (design/<name>.gallery.md → sibling .pdf). These
+  // "live with their owner" rather than under examples/, so tools/preview.js
+  // deliberately skips them — but they DO ship a committed PDF, and nothing was
+  // rebuilding it.
+  m = file.match(/^(design\/[a-z][a-z0-9-]*\.gallery)\.md$/);
+  if (m) return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
+
   // CI baseline deck (lives with the test infra).
   m = file.match(/^(test\/integration\/baseline-decks\/[a-z][a-z0-9-]*)\.md$/);
   if (m) return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
@@ -216,4 +237,9 @@ async function main() {
   }
 }
 
-main();
+// Run as a hook; `require`d only by the test that keeps `classify()` and the
+// pre-commit glob in lefthook.yml in sync (a path one can see and the other
+// cannot is a dead gate — that is how 27 committed PDFs went stale).
+if (require.main === module) main();
+
+module.exports = { classify };

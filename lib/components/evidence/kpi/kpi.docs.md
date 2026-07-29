@@ -51,8 +51,6 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 ```markdown
 <!-- _class: kpi -->
 
-`Financial · Q4 2026`
-
 ## Revenue ahead of plan; margin and cash both expanded.
 
 1. $2.4B
@@ -88,8 +86,6 @@ Flags the tile that misses.
 
 ```markdown
 <!-- _class: kpi attention -->
-
-`kpi attention`
 
 ## attention flags the tile that misses.
 
@@ -182,8 +178,6 @@ One tile earns double width.
 
 ```markdown
 <!-- _class: kpi spotlight -->
-
-`kpi spotlight`
 
 ## spotlight gives one tile double width.
 

@@ -24,10 +24,9 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
-| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |
-| Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |
+| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve exports  |
+| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---
@@ -41,10 +40,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1     | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |
-| Scoring       | [x] Equal weights      | [-] Per-team calibration   | [ ] Per-decision profiles |
-| Decision Log  | [x] Append-only schema   | [x] Outcome auto-pairing | [ ] Auditor export        |
-| Adoption      | [x] One pilot team       | [/] Second team          | [ ] Org-wide enablement   |
+| Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
+| Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
 
 
 ---
@@ -58,12 +55,9 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1 | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |
-| Scoring       | [x] Equal weights    | [-] Per-team calibration | [ ] Per-decision profiles |
+| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |
+| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |
 | Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |
-| Adoption      | [x] One pilot team   | [/] Second team          | [ ] Org-wide enablement   |
-
-State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 
 
 ---
@@ -77,10 +71,9 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
-| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |
-| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |
+| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
+| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
 | Decision Log  | Append schema        | Outcome pairing        | Auditor export            |
-| Adoption      | One pilot team       | Second team            | Org-wide enablement       |
 
 
 ---
@@ -94,8 +87,8 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 | Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
-| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |
-| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |
+| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
+| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
 | Decision Log  | Append schema        | Outcome pairing        | Auditor export            |
 
 
@@ -103,18 +96,17 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 <!-- _class: roadmap -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · roadmap — Five phases — the ceiling, and what portrait paginates." -->
+<!-- _footer: "Stress test · roadmap — Four phases — the ceiling, and what portrait paginates." -->
 
 `roadmap · stress`
 
-## Four workstreams by five phases is the ceiling.
+## Three workstreams by four phases.
 
-| Workstream | Phase one | Phase two | Phase three | Phase four | Phase five |
-| --- | --- | --- | --- | --- | --- |
-| First | [x] Done cell | [-] Active cell | [ ] Planned cell | [ ] Later still | [ ] The last one |
-| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid | [ ] Four words at most | [ ] Or the grid wraps |
-| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps | [ ] Twenty cells total | [ ] The ceiling |
-| Fourth | [x] The last row | [-] Twenty cells total | [ ] The ceiling | [ ] Portrait paginates | [ ] Four pages at most |
+| Workstream | Phase one | Phase two | Phase three | Phase four |
+| --- | --- | --- | --- | --- |
+| First | [x] Done cell | [-] Active cell | [ ] Planned | [ ] The last one |
+| Second | [x] Every cell filled | [-] No blanks | [ ] The honest grid | [ ] Four words max |
+| Third | [x] Short labels | [-] Four words max | [ ] Or it wraps | [ ] The ceiling |
 
 
 ---
@@ -128,10 +120,9 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
-| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |
-| Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |
+| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve exports  |
+| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---
@@ -145,10 +136,9 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
-| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |
-| Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |
+| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve exports  |
+| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---
@@ -162,10 +152,9 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 | Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
-| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |
-| Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |
+| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |
-| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve exports  |
+| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve  |
 
 
 ---

@@ -52,22 +52,20 @@ header: "Lattice · fluid-box viewer"
 <!-- _class: kpi -->
 <!-- _footer: "kpi · value + nested detail, reflows box-locally" -->
 
-### Financial · Q4 2026
-
 ## Revenue ahead of plan; margin and cash both expanded.
 
 1. $2.4B
    - Total revenue
-   - target $2.2B · +9% `On plan` `Board`
+   - target $2.2B · +9% `On plan`
 2. 42%
    - Gross margin
-   - +2pp QoQ `On plan` `Audit`
+   - +2pp QoQ `On plan`
 3. $1.1B
    - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
+   - +$180M QoQ `On plan`
 4. +18%
    - YoY revenue growth
-   - vs 14% prior year `Ahead` `Board`
+   - vs 14% prior year `Ahead`
 
 ---
 

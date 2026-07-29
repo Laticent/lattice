@@ -26,7 +26,7 @@ Statement — one declarative claim per slide.
 
 ## The content slide is the plainest tool in the box.
 
-A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
+A heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.
 
 ---
 

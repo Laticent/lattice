@@ -85,6 +85,4 @@ Past eight rows the categorical hues repeat, so eight is this layout's practical
 
 ## What changed
 
-The veto now asks whether splitting *narrows* the collection, not which direction it
-overflowed. A flex row or a multi-column grid qualifies; a table does not, because its
-width comes from its columns.
+The veto asks whether splitting *narrows* the collection, not which way it overflowed. A flex row qualifies; a table does not — its width comes from its columns.

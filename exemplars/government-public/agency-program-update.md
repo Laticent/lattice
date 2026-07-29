@@ -26,22 +26,20 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
 
-`Delivery · Q2 FY2027`
-
-## The program is ahead on adoption and inside its cost and quality targets.
+## Ahead on adoption, inside cost and quality targets.
 
 1. 70%
    - Claims on new platform
-   - target 65% this quarter `On plan` `Board`
+   - target 65% this quarter `On plan`
 2. 4.2 days
    - Median time to first payment
-   - down from 21 days on legacy `On plan` `Ops`
+   - vs 21 days on legacy `On plan`
 3. $51M
    - Spent of $58M authorised
-   - 88% drawn, on schedule `On plan` `Finance`
+   - 88% drawn `On plan`
 
 ---
 
@@ -65,22 +63,20 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: standard -->
 
-`Reliability · Q2 FY2027`
-
-## The platform is meeting its availability and accuracy service levels.
+## Meeting availability and accuracy service levels.
 
 1. 99.94%
    - Platform availability
-   - SLO 99.9% `On track` `SRE`
+   - SLO 99.9% `On track`
 2. 99.2%
    - Payment accuracy
-   - target 99% `On track` `Audit`
+   - target 99% `On track`
 3. 0
    - Security findings open
-   - last pen-test cleared `Compliant` `Security`
+   - pen-test cleared `Compliant`
 
 ---
 
@@ -94,9 +90,9 @@ Two years in, the modernised platform processes seven of every ten initial claim
 | Workstream | Now `Q2 2027` | Next `Q4 2027` | Later `Q2 2028` |
 | --- | --- | --- | --- |
 | Claims platform | [x] Initial claims | [-] Appeals module | [ ] Employer portal |
-| Legacy retirement | [x] Read-only cutover | [-] Mainframe shutdown | [ ] Data archive |
-| Integrations | [x] Tax-agency feed | [-] Federal reporting | [ ] Fraud-screening API |
-| Accessibility | [x] WCAG 2.1 AA | [-] Multilingual intake | [ ] Voice channel |
+| Legacy retirement | [x] Read-only | [-] Mainframe off | [ ] Data archive |
+| Integrations | [x] Tax-agency feed | [-] Federal reporting | [ ] Fraud screening |
+| Accessibility | [x] WCAG 2.1 AA | [-] Multilingual | [ ] Voice channel |
 
 ---
 

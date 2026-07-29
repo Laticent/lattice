@@ -154,7 +154,15 @@ describe('component semantic invariants (assert meaning, not pixels)', () => {
                 x = x.trim();
                 return /^section\b/.test(x) ? x.replace(/^section\b/, ':scope') : `:scope ${x}`;
               }).join(', ');
-              try { return s.querySelectorAll(norm).length; } catch { return -2; }
+              // The Form frame's cells are TRANSPARENT to a slot contract. `mastheadLift`
+              // moves the eyebrow/title into `.cell-masthead` and the body into
+              // `.cell-stage`, so a contract written `section > p` is still satisfied —
+              // the paragraph is a direct child of the cell the engine put it in, not of
+              // the section. Count against each cell root as well as the section itself.
+              const roots = [s, ...s.querySelectorAll(':scope > .cell-stage, :scope > .cell-masthead')];
+              try {
+                return roots.reduce((n, r) => n + r.querySelectorAll(norm).length, 0);
+              } catch { return -2; }
             }, spec.selector);
             assert.ok(n >= 1, `expected ≥1 "${spec.selector}" for required slot "${slot}", got ${n}`);
           });

@@ -37,7 +37,7 @@ Body text at full strength for comparison. The eyebrow above and the subtitle li
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 
 ## KPI labels and the footnote both use secondary ink.
 
@@ -127,7 +127,7 @@ Body text at full strength for comparison. On the dark canvas the eyebrow and su
 
 ---
 
-<!-- _class: kpi dark -->
+<!-- _class: kpi dark compact -->
 
 ## KPI labels and footnote on the dark canvas.
 

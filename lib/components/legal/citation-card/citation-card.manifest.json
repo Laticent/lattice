@@ -130,7 +130,7 @@
     "margin": {
       "label": "margin",
       "summary": "The cite in the gutter.",
-      "sample": "<!-- _class: citation-card margin -->\n\n## margin hangs the cite in the gutter.\n\n`GDPR Art. 6(1)(f) · legitimate interests`\n\n> Processing is lawful only if and to the extent that processing is necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights of the data subject.\n\n- Two-part test.\n  - Necessity first, then a balancing exercise against the data subject's rights. Document both halves or the basis fails on audit.\n"
+      "sample": "<!-- _class: citation-card margin -->\n\n## margin hangs the cite in the gutter.\n\n`GDPR Art. 6(1)(f) · legitimate interests`\n\n> Processing is lawful \u2026 only if necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights \u2026 of the data subject.\n\n- Two-part test.\n  - Necessity first, then balancing against the data subject's rights. Document both halves.\n"
     },
     "triptych": {
       "label": "triptych",

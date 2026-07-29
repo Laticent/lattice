@@ -19,7 +19,7 @@
     "min": 3,
     "sweet": 4,
     "soft": 6,
-    "hard": 7,
+    "hard": 6,
     "escalateTo": [
       "split across slides"
     ],
@@ -69,10 +69,10 @@
   },
   "skeleton": "<!-- _class: agenda -->\n\n## What this deck covers.\n\n1. First section title\n2. Second section title\n3. Third section title\n4. Fourth section title\n",
   "anatomyBlock": "agenda",
-  "sample": "<!-- _class: agenda -->\n\n## The agenda numbers the deck's stops and pages.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n",
+  "sample": "<!-- _class: agenda -->\n\n## The agenda numbers the deck's stops and pages.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n",
   "stressDoc": {
-    "summary": "Seven stops — the hard ceiling.",
-    "sample": "<!-- _class: agenda progress-4 -->\n\n## Seven stops is the most one agenda holds.\n\n1. The opening stop states the meeting's one question `p.2`\n2. Sixteen words is the hard budget for a stop `p.6`\n3. Even at seven, every line stays scannable `p.11`\n4. The current stop still reads at a glance `p.15`\n5. Late stops shorten as attention thins `p.19`\n6. The soft ceiling passed one stop ago `p.23`\n7. Seven is the stop sign `p.27`\n"
+    "summary": "Six stops — the hard ceiling.",
+    "sample": "<!-- _class: agenda progress-4 -->\n\n## Six stops is the most one agenda holds.\n\n1. The opening stop states the meeting's one question `p.2`\n2. Sixteen words is the hard budget for a stop `p.6`\n3. Even at six, every line stays scannable `p.11`\n4. The current stop still reads at a glance `p.15`\n5. Late stops shorten as attention thins `p.19`\n6. Six is the stop sign `p.23`\n"
   },
   "whenToUse": [
     {
@@ -128,32 +128,32 @@
     "progress-2": {
       "label": "progress-2",
       "summary": "Stop 2 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-2 -->\n\n## progress-2 marks stop 2 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-2 -->\n\n## progress-2 marks stop 2 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-3": {
       "label": "progress-3",
       "summary": "Stop 3 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-3 -->\n\n## progress-3 marks stop 3 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-3 -->\n\n## progress-3 marks stop 3 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-4": {
       "label": "progress-4",
       "summary": "Stop 4 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-4 -->\n\n## progress-4 marks stop 4 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-4 -->\n\n## progress-4 marks stop 4 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-5": {
       "label": "progress-5",
       "summary": "Stop 5 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-5 -->\n\n## progress-5 marks stop 5 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-5 -->\n\n## progress-5 marks stop 5 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-1": {
       "label": "progress-1",
       "summary": "Stop 1 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-1 -->\n\n## progress-1 marks stop 1 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-1 -->\n\n## progress-1 marks stop 1 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "progress-6": {
       "label": "progress-6",
       "summary": "Stop 6 is current; the rest dim or wait.",
-      "sample": "<!-- _class: agenda progress-6 -->\n\n## progress-6 marks stop 6 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past seven stops, split the agenda `p.22`\n"
+      "sample": "<!-- _class: agenda progress-6 -->\n\n## progress-6 marks stop 6 as the current one.\n\n1. One line per stop, ten words max `p.2`\n2. Page references ride as inline code `p.5`\n3. Six stops is the soft ceiling `p.9`\n4. The progress variants mark the current stop `p.14`\n5. Markers come as circles, rail, cards, checks `p.18`\n6. Past six stops, split the agenda `p.22`\n"
     },
     "circles": {
       "label": "Style · circles",

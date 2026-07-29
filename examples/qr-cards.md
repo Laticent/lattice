@@ -49,7 +49,6 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 - SlideWright `org`
 - sharmarke@slidewright.dev `email`
 - +1-555-0142 `phone`
-- slidewright.dev `url`
 
 ---
 

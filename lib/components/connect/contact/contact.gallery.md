@@ -22,7 +22,6 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 - One scan saves the speaker `title`
 - SlideWright `org`
 - hello@slidewright.dev `email`
-- +1-555-0142 `phone`
 - slidewright.dev `url`
 - The QR encodes this card as a vCard `caption`
 
@@ -36,7 +35,6 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 - One scan saves the speaker `title`
 - SlideWright `org`
 - hello@slidewright.dev `email`
-- +1-555-0142 `phone`
 - slidewright.dev `url`
 - The QR encodes this card as a vCard `caption`
 
@@ -50,7 +48,6 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 - One scan saves the speaker `title`
 - SlideWright `org`
 - hello@slidewright.dev `email`
-- +1-555-0142 `phone`
 - slidewright.dev `url`
 - The QR encodes this card as a vCard `caption`
 

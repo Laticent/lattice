@@ -156,7 +156,7 @@ small-multiples captions had stayed outside — 22 characters of HTML.*
 ## What changed, and what proves it
 
 - `render` is derived, not claimed
-  - `check-render-nature` renders each gallery through the export path and fails when a manifest disagrees with the artifact.
+  - `check-render-nature` renders each gallery through the export path and fails when the manifest disagrees.
 - Size-neutral where it was right, a fix where it was not
   - The caption still renders at 10.78px; at portrait the old HTML key had overflowed its own rail.
 - The stage-fit invariant now has a gate

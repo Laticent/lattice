@@ -187,6 +187,9 @@ const SCRIPT_META = {
   'bench':                    ['Test & verify', 'tinybench render benchmark — the owned engine over time (on-demand; not in `npm test`). `-- --export` / `-- --json`.'],
   'bench:bless':              ['Test & verify', 'Write the committed perf baseline (test/benchmark/baseline.json) from a fresh bench run — the ratchet a perf PR updates (HARD RULE #19).'],
   'bench:check':              ['Test & verify', 'Re-run the bench and compare vs the committed baseline; flags a regression only beyond the variance band (max of tolerancePct and combined RME). On-demand, not a blocking CI gate.'],
+  'overflow:check':           ['Test & verify', 'Render every shipped deck (examples + component galleries + the baseline deck) and ratchet the per-deck CLIPPED pages against test/integration/overflow-baseline.json. Catches an engine change that quietly over-subscribes the corpus — nothing else measures fit corpus-wide. On-demand (185 real renders), not a blocking CI gate.'],
+  'overflow:bless':           ['Test & verify', 'Re-record the overflow ratchet from the current tree. Lower the floor when you fix slides; raise it only with the PR that justifies the new number.'],
+  'geometry:check':           ['Test & verify', 'Assert a slide measures identically on every surface — real emulator render, real Chromium at four window sizes, sections optionally transform-scaled the way a preview pane scales them. Catches a bare cq* on the section itself or a getBoundingClientRect() that ignores the host transform.'],
   'regress':                  ['Test & verify', 'Visual regression gate (LOCAL spot-check): render every gallery fresh and pixel-diff it against the committed golden PDF; fails on unblessed drift.'],
   'bless':                    ['Test & verify', 'Re-render the gallery goldens (the regression gate baseline) and overwrite them; commit the refreshed PDFs. `-- --only <name>` for one.'],
 

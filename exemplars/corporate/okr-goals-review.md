@@ -29,10 +29,8 @@ Tideline set three objectives for Q2: grow the buyer base, deepen marketplace tr
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: short -->
-
-`Objectives · Q2 2026`
 
 ## Two objectives landed green; supplier liquidity finished below the bar.
 
@@ -127,22 +125,20 @@ Demand was strong everywhere; supply wasn't. Fill rates were healthy in mature c
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- tier: full -->
-
-`Targets · Q3 2026`
 
 ## Q3 keys all point at closing the supplier-liquidity gap.
 
 1. 90%
    - Order fill rate
-   - up from 71% `Target` `Supply`
+   - up from 71% `Target`
 2. 1,200
    - New suppliers (focus cats)
-   - 3 underserved categories `Target` `Growth`
+   - 3 underserved categories `Target`
 3. 36h
    - Median time-to-fill
-   - down from 61h `Target` `Ops`
+   - down from 61h `Target`
 
 ---
 

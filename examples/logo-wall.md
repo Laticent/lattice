@@ -20,7 +20,7 @@ A grid of customer, partner, or funder marks — the social-proof slide every go
 
 ## One layout, every industry's proof slide.
 
-The credibility moment shows up everywhere — it just wears a different label. `logo-wall` desaturates the marks to one uniform grey so a loud red brand can't outshout a quiet one, and the wall reads as a single credential.
+The credibility moment shows up everywhere — it just wears a different label. `logo-wall` desaturates the marks to one gray, so no loud brand outshouts a quiet one.
 
 - Corporate calls it *trusted by*; nonprofits call it *our funders*; government calls it *participating agencies*.
 - The `color` variant keeps brand hues for insignia and crests; `dense` packs a longer roster.

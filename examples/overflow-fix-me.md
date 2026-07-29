@@ -70,11 +70,7 @@ prints a clean but visibly cut-off card.
 
 ## Two signals, tiered by confidence — never a guess dressed as a fact.
 
-A bounded content cell (`.cell-stage`, `.panel-right`, `.compare-right`)
-that overflows genuinely clipped its own content — it never pushed a
-neighbor, so highlighting it is a geometric fact, not a guess. Where the
-cell holds a repeated collection, the tag narrows further to whichever item
-is a real content outlier — never its stretched neighbor.
+A bounded content cell (`.cell-stage`, `.panel-right`, `.compare-right`) that overflows genuinely clipped its own content — it never pushed a neighbor, so highlighting it is a geometric fact. Where the cell holds a repeated collection, the tag narrows to whichever item is a real content outlier.
 
 ---
 
@@ -108,12 +104,7 @@ available guess, never a geometric certainty.
 
 ## No clip-cell at all is now covered, hedged honestly.
 
-A slide with no bounded cell in play now falls back to the component's own
-word budget: whichever item has the highest live word count past
-`density.hard` is the best content-grounded guess. Copy says so — Case A
-reads "Fix Me," Case B reads "Likely fix." An oversized image, a wide
-table, or a long code block still has no signal to drill into; the red
-ring alone still fires there.
+A slide with no bounded cell falls back to the component's own word budget: whichever item runs furthest past `density.hard` is the best content-grounded guess. The copy says so — Case A reads "Fix Me," Case B reads "Likely fix." An oversized image, wide table, or long code block has no signal to drill into; the red ring alone fires there.
 
 ---
 

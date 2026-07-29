@@ -21,10 +21,9 @@ boardroom PDF is byte-identical whether debug is on or off.
 
 ## Read the grid at a glance.
 
-At rest you see only the outlines — each box colored by how it lays its children
-out: **grid** (blue), **flex** (vermillion), **flow** (gray). **Hover** any box to
-reveal its label (and its containers'). Want the whole map pinned on at once instead?
-Use `debug: on-always`.
+At rest you see only outlines — each box colored by how it lays its children out:
+**grid** (blue), **flex** (vermillion), **flow** (gray). **Hover** any box to read
+its label; `debug: on-always` pins the whole map on at once.
 
 - Tool A · Chorus
   - [x] Speed

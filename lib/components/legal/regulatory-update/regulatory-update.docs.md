@@ -104,15 +104,15 @@ Ordered by effective date.
    - `Effective Feb 2026`
 2. Colorado AI Act
    - `SB 24-205`
-   - Developer and deployer duties for consequential-decision systems.
+   - Developer and deployer duties for covered systems.
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
 4. Texas DPSA
    - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
+   - DSAR opt-out portal mandatory; safe-harbor narrowed.
    - `Effective Mar 2026`
 ```
 
@@ -158,15 +158,15 @@ One tile per change.
    - `Effective Feb 2026`
 2. Colorado AI Act
    - `SB 24-205`
-   - Developer and deployer duties for consequential-decision systems.
+   - Developer and deployer duties for covered systems.
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
 4. Texas DPSA
    - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
+   - DSAR opt-out portal mandatory; safe-harbor narrowed.
    - `Effective Mar 2026`
 ```
 
@@ -183,25 +183,25 @@ Changed versus stayed.
 
 1. Colorado AI Act
    - `SB 24-205`
-   - New developer and deployer duties for consequential-decision systems.
+   - New duties for consequential-decision systems.
 
 ### Amended
 
 2. CCPA regulations
    - `§7027`
-   - Opt-out preference signal handling clarified and tightened.
+   - Opt-out signal handling clarified.
 
 ### Repealed
 
 3. Small-business carve-out
    - `§541.107`
-   - The blanket exemption was narrowed and partially repealed.
+   - The blanket exemption was narrowed.
 
 ### Enforced
 
 4. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order finalized against deceptive privacy branding.
+   - $16.5M consent order finalized.
 ```
 
 ## Universal modifiers

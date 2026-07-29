@@ -1300,7 +1300,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 6, overflows past 7) — past that, split across slides.
+**Capacity** ~4 items (crowds past 6, overflows past 6) — past that, split across slides.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short agenda line, not a description.
 
@@ -1383,7 +1383,7 @@ Stop 1 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-2` — progress-2
@@ -1400,7 +1400,7 @@ Stop 2 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-3` — progress-3
@@ -1417,7 +1417,7 @@ Stop 3 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-4` — progress-4
@@ -1434,7 +1434,7 @@ Stop 4 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-5` — progress-5
@@ -1451,7 +1451,7 @@ Stop 5 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `progress-6` — progress-6
@@ -1468,7 +1468,7 @@ Stop 6 is current; the rest dim or wait.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 ```
 
 ##### `circles` — Style · circles
@@ -4086,7 +4086,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, timeline-list / split across slides.
+**Capacity** ~4 items (crowds past 5, overflows past 5) — past that, timeline-list / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph.
 
@@ -4184,13 +4184,13 @@ Down-chevron tabs cascade into keyed description cards.
 ## Make the case, one stage at a time.
 
 1. Problem
-   - Define the problem that is causing the pain.
+   - Define the problem causing the pain.
 2. Vision
-   - Show what the world looks like once it is solved.
+   - Show the world once it is solved.
 3. Approach
-   - Detail the moves that get from here to there.
+   - Detail the moves from here to there.
 4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Commit to steps, owners, and a date.
 ```
 
 ##### `converge` — converge
@@ -4203,13 +4203,11 @@ Tapering bands narrow onto the final stage (a qualitative funnel).
 ## Many concerns narrow onto one plan.
 
 1. Problem
-   - Define the problem that is causing the pain.
-2. Vision
-   - Show what the world looks like once it is solved.
-3. Approach
-   - Detail the moves that get from here to there.
-4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Define the problem causing the pain.
+2. Approach
+   - Detail the moves from here to there.
+3. Plan
+   - Commit to steps, owners, and a date.
 ```
 
 ##### `ghost` — ghost
@@ -4222,13 +4220,11 @@ Faint chevron watermark, eyebrow label, hero description — editorial.
 ## The argument, stated plainly.
 
 1. Problem
-   - Define the problem that is causing the pain.
-2. Vision
-   - Show what the world looks like once it is solved.
-3. Approach
-   - Detail the moves that get from here to there.
-4. Plan
-   - Commit to concrete steps, owners, and a date.
+   - Define the problem causing the pain.
+2. Approach
+   - Detail the moves from here to there.
+3. Plan
+   - Commit to steps, owners, and a date.
 ```
 
 ##### `timeline` — timeline
@@ -4457,8 +4453,6 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 ```markdown
 <!-- _class: kpi -->
 
-`Financial · Q4 2026`
-
 ## Revenue ahead of plan; margin and cash both expanded.
 
 1. $2.4B
@@ -4494,8 +4488,6 @@ Flags the tile that misses.
 
 ```markdown
 <!-- _class: kpi attention -->
-
-`kpi attention`
 
 ## attention flags the tile that misses.
 
@@ -4588,8 +4580,6 @@ One tile earns double width.
 
 ```markdown
 <!-- _class: kpi spotlight -->
-
-`kpi spotlight`
 
 ## spotlight gives one tile double width.
 
@@ -6736,7 +6726,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 #### Agent contract
 
-**Capacity** ~4 columns (crowds past 5, overflows past 7) — past that, split across slides.
+**Capacity** ~4 columns (crowds past 5, overflows past 5) — past that, split across slides.
 
 ##### Slots
 
@@ -6774,8 +6764,6 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 ```markdown
 <!-- _class: roadmap -->
 
-`H2 2026 · Plan`
-
 ## What ships in each phase, by workstream.
 
 | Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |
@@ -6783,7 +6771,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |
 | Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |
 
-State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
+Markers are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
 #### Anatomy
@@ -6818,10 +6806,8 @@ Bets spread across three horizons.
 
 | Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1     | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |
-| Scoring       | [x] Equal weights      | [-] Per-team calibration   | [ ] Per-decision profiles |
-| Decision Log  | [x] Append-only schema   | [x] Outcome auto-pairing | [ ] Auditor export        |
-| Adoption      | [x] One pilot team       | [/] Second team          | [ ] Org-wide enablement   |
+| Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
+| Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
 ```
 
 ##### `status` — status
@@ -6837,12 +6823,9 @@ Delivery state at a glance.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
-| Signal Intake | [x] Connector v1 | [-] Multi-source dedupe    | [ ] Anomaly auto-routing |
-| Scoring       | [x] Equal weights    | [-] Per-team calibration | [ ] Per-decision profiles |
+| Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [ ] Auto-routing |
+| Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |
 | Decision Log  | [x] Append schema    | [x] Outcome pairing      | [ ] Auditor export        |
-| Adoption      | [x] One pilot team   | [/] Second team          | [ ] Org-wide enablement   |
-
-State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
 
 ##### `swimlane` — swimlane
@@ -6858,10 +6841,9 @@ One track per team.
 
 | Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
-| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |
-| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |
+| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
+| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
 | Decision Log  | Append schema        | Outcome pairing        | Auditor export            |
-| Adoption      | One pilot team       | Second team            | Org-wide enablement       |
 ```
 
 ##### `milestones` — milestones
@@ -6877,8 +6859,8 @@ The dated path, pinned.
 
 | Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
-| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |
-| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |
+| Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
+| Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
 | Decision Log  | Append schema        | Outcome pairing        | Auditor export            |
 ```
 
@@ -8175,10 +8157,10 @@ The cite in the gutter.
 
 `GDPR Art. 6(1)(f) · legitimate interests`
 
-> Processing is lawful only if and to the extent that processing is necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights of the data subject.
+> Processing is lawful … only if necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights … of the data subject.
 
 - Two-part test.
-  - Necessity first, then a balancing exercise against the data subject's rights. Document both halves or the basis fails on audit.
+  - Necessity first, then balancing against the data subject's rights. Document both halves.
 ```
 
 ##### `triptych` — triptych
@@ -8404,7 +8386,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 #### Agent contract
 
-**Capacity** ~3 items (crowds past 3, overflows past 4) — past that, list-criteria / split across slides.
+**Capacity** ~3 items (crowds past 3, overflows past 3) — past that, list-criteria / split across slides.
 
 **Density** aim ~20 words per item; past ~28 it reads as a wall of text — one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip.
 
@@ -8415,7 +8397,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 | `eyebrow` | `p:first-of-type > code` | no | Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`). |
 | `recommendation` | `h2` | yes | The recommendation as a complete declarative sentence — the action you want taken, not a topic label. |
 | `impact` | `p` | no | One-sentence framing of the problem or stakes the recommendation addresses. |
-| `rationale` | `ul > li` | yes | Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
+| `rationale` | `ul > li` | yes | Two-to-three evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
 | `ask` | `blockquote` | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
 
 ##### Variant decision rule
@@ -8447,8 +8429,6 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 ```markdown
 <!-- _class: policy-recommendation adopt -->
-
-`Bill reference · Domain`
 
 ## The recommendation as a complete sentence.
 
@@ -8498,10 +8478,10 @@ Conditional support — amber badge and rail.
 
 ## Amend SB 88 to require bias audits before deployment.
 
-Post-hoc audits catch discrimination only after applicants are screened out.
+Post-hoc audits catch bias only after applicants are screened out.
 
 - Pre-deployment testing is preventive
-  - Later audits cannot un-reject filtered candidates `EEOC 2025`.
+  - Later audits cannot un-reject candidates `EEOC 2025`.
 - The change is one clause
   - Move the trigger from § 4(b) to § 3 `Leg. counsel`.
 
@@ -8671,15 +8651,15 @@ Ordered by effective date.
    - `Effective Feb 2026`
 2. Colorado AI Act
    - `SB 24-205`
-   - Developer and deployer duties for consequential-decision systems.
+   - Developer and deployer duties for covered systems.
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
 4. Texas DPSA
    - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
+   - DSAR opt-out portal mandatory; safe-harbor narrowed.
    - `Effective Mar 2026`
 ```
 
@@ -8725,15 +8705,15 @@ One tile per change.
    - `Effective Feb 2026`
 2. Colorado AI Act
    - `SB 24-205`
-   - Developer and deployer duties for consequential-decision systems.
+   - Developer and deployer duties for covered systems.
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
 4. Texas DPSA
    - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
+   - DSAR opt-out portal mandatory; safe-harbor narrowed.
    - `Effective Mar 2026`
 ```
 
@@ -8750,25 +8730,25 @@ Changed versus stayed.
 
 1. Colorado AI Act
    - `SB 24-205`
-   - New developer and deployer duties for consequential-decision systems.
+   - New duties for consequential-decision systems.
 
 ### Amended
 
 2. CCPA regulations
    - `§7027`
-   - Opt-out preference signal handling clarified and tightened.
+   - Opt-out signal handling clarified.
 
 ### Repealed
 
 3. Small-business carve-out
    - `§541.107`
-   - The blanket exemption was narrowed and partially repealed.
+   - The blanket exemption was narrowed.
 
 ### Enforced
 
 4. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order finalized against deceptive privacy branding.
+   - $16.5M consent order finalized.
 ```
 
 #### Universal modifiers

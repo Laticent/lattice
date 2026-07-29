@@ -55,6 +55,137 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
+  PDFs render stage content ~11% larger than before — and agree with the preview.** The
+  engine emits the slide's own 1% (`--_sec-1cqi` / `--_sec-1cqh`) as CSS from the resolved
+  `@size`, on every render path, instead of leaving the export to fall back to a bare `cq*`.
+  This settles the engine-wide question #1243 deferred, in the direction
+  `engineering/gotchas.md` already ruled: the export was the flattering path, not the correct
+  one. It resolved stage `cq*` against the section's CONTENT box (1152px at HD) while the
+  token coefficients are defined against the slide ("px / 1280 * 100 = coefficient"), so body
+  type rendered 19.24px where the design says 21.38px. The factor is uniform — 164 of the
+  bloom deck's computed font sizes change, every one by exactly 1.1111.
+  Three things follow. **(1) The exported HTML sidecar stops tracking the window it is opened
+  in** — the bloom deck's section padding read `88px 64px 104px` at a 1280px window and
+  `26.8125px 19.5px 31.6875px` at 390px; it is the former at every size now. **(2) The export
+  and the preview flag the same slides**, deck for deck. **(3) The shipped corpus turns out to
+  be over-subscribed at design size**: measured across all 185 decks, the export goes from 10
+  decks / 15 clipped slides to 42 / 67 on the deck set first measured — and those slides were
+  ALREADY clipping in the preview on `main`; the export had been hiding them. **Measured over
+  the 247 decks that actually ship** (worked examples including their subdirectories, every
+  component and design gallery, the exemplars, the baseline deck), `main` clips 43 slides
+  across 31 decks and this branch clips 27 across 17 — and every one of those 27 also clips on
+  `main`, so **zero slides newly clip**, checked slide-by-slide rather than inferred from the
+  totals. Both figures come from an end-to-end re-sweep of `main` with the concurrency-fixed
+  tool, because the earlier numbers came from a version of it that could inflate a deck's count
+  (it recorded 5 clipped pages for `examples/overflow-fix-me.md` where a direct render shows 3).
+  The only decks left clipping are the ones that already were, plus `examples/overflow-fix-me.md`,
+  which exists to demonstrate the overflow overlay. Several stress specimens asserted a capacity
+  that is no longer true at design size — roadmap's "four workstreams by five phases",
+  agenda's "seven stops", list-tabular's "eight rows", content's "two paragraphs and a list"
+  — and each was reduced AND its headline and footer rewritten so the slide still tells the
+  truth. Also note exported PAGE COUNTS can move: `examples/social-portrait.md` goes 8 -> 10 as
+  auto-split divides differently at the corrected size. Non-px `@size` geometries (`210mm`,
+  `8in`) get no stamp rather than a wrong one, and export-to-Marp does not carry the stamp at
+  all — it ships
+  the pre-built bundle, which no per-render helper can reach.
+
+### Fixed
+
+- **A state-chart drew differently in every preview pane.** `state-chart.transform.js` derived
+  its geometry scale from `section.getBoundingClientRect().width` — the VISUAL box — so on the
+  docs filmstrip, which transform-scales each section to the pane, it read 695px instead of
+  1280 and every px constant in the diagram shrank with the window. It now reads the slide's 1%
+  from the stamp and normalizes every rect the drawing pass consumes back to layout px. With
+  that, a viewport sweep of all 117 gallery slides reports **0** computed values that move with
+  the host window — down from 631 before #1243 and 50 after it. Same defect as the overflow and
+  legibility probes: a `getBoundingClientRect()` mixed with a transform-blind number. Anything
+  measuring a slide should read the stamp or `offsetWidth`, never a raw rect — and when it
+  normalizes, BOTH operands of every ratio have to move. The first cut of this fix normalized
+  the figure rect but not the one it was divided against, which scaled the diagram by the
+  preview pane twice (measured on the real Playground: fit 0.475 where it should be 0.8748, at
+  a pane scale of 0.543).
+- **`tools/check-geometry-parity.js`** (new, `npm run geometry:check`): renders a deck through
+  the real emulator and asserts its section padding, stage height, overflow verdict and
+  overshoot are identical at 1280×720, 900×700, 500×700 and 390×844 — optionally with the
+  sections transform-scaled the way a preview pane scales them (`--scaled`). Run against `main`
+  it reports 477 disagreements and exits 1, which is the check that it checks something.
+- **The component-invariant suite was asserting "this component fits" against an unstyled
+  stack.** `test/helpers/semantic-render.js` pinned `form: off`, reasoning that Form composes
+  chrome AROUND a component. True, but `mastheadLift` is also what wraps a slide's body into
+  the frame's `.cell-stage` cell, and every stage-migrated component keys its whole layout off
+  `section.X > .cell-stage > …` — so with form off those selectors matched nothing and the
+  component had no layout at all. logo-wall's eight marks measured 547px as a `display:block`
+  list where the real component tiles them into a 400px flex wall with 90px to spare. The
+  harness now renders the way every real deck renders (form on, the deck-wide default since
+  2026-06-26), and the slot-contract matcher treats the Form cells as transparent, so a
+  contract written `section > p` still resolves once the body is inside `.cell-stage`.
+- **`tools/check-overflow-corpus.js`** (new, `npm run overflow:check`) — the gate whose absence
+  let the fallout above go unnoticed. Nothing measured corpus-wide fit: `build:galleries:check`
+  verifies the gallery PDFs are current, not that they are clean, and the integration tier
+  asserts page counts, not fit. It renders every shipped deck and ratchets the per-deck clipped
+  pages against `test/integration/overflow-baseline.json`, committed at `main`'s numbers, so a
+  change that adds a clipped slide anywhere in the corpus fails and names it. On-demand rather
+  than blocking, for the same reason `bench:check` is — a full sweep is 247 real renders. Its
+  glob is the set of decks that SHIP: the first cut omitted the exemplars, every `examples/`
+  subdirectory and the design galleries, which let it certify a corpus it could not see. It is
+  also per-run isolated, so a `--bless` and a check running at once no longer delete each
+  other's renders and report phantom regressions.
+- **The pre-commit PDF auto-rebuild could not see the exemplars, and never had.** The hook has
+  two independent filters that must agree — lefthook's `pdf-rebuild` glob decides whether the
+  job runs, `classify()` in `tools/build-staged-pdfs.js` decides what it rebuilds — and they
+  disagreed silently. `classify()` always understood `exemplars/<sector>/<name>.md`, but the
+  glob listed only `examples/*.md`, the baseline decks and the component galleries, so a commit
+  touching only exemplar markdown never started the job: 45 worked decks that each ship a
+  committed PDF had no auto-rebuild at all. The same single-level `examples/*.md` missed all 13
+  `examples/token-contrast/` decks, and `design/*.gallery.md` was reachable by neither filter.
+  The content trims in this release are what made it bite — 27 committed PDFs still depicted
+  content their markdown no longer had (`status-update.pdf` showed a "p99 checkout latency" row
+  that had been trimmed out). The glob now covers `examples/**`, `exemplars/**` and
+  `design/*.gallery.md`; `classify()` handles example subdirectories (guarded on the sibling PDF
+  already existing, so prose like `chart-theme-gallery/README.md` is not swept in) and the
+  design-system demo decks; and `test/unit/tools/staged-pdf-glob.test.js` walks the real repo for
+  markdown shipping a committed PDF and asserts BOTH filters reach it, so they cannot drift apart
+  again — it caught the fix itself teaching `classify()` about the design galleries while
+  forgetting the glob. Three pre-existing unreachable one-offs are recorded in
+  `KNOWN_UNCLASSIFIED` with reasons, and a companion test fails if an entry rots. All 59 affected
+  PDFs were re-rendered. A path one filter can see and the other cannot is a dead gate, which is
+  the same lesson as the corpus glob above.
+
+  **The first cut of that fix made it worse, and the test said it was fine.** Widening
+  `examples/*.md` to `examples/**/*.md` looks like a superset; it is not. In lefthook v2.1.6 `**/`
+  requires AT LEAST ONE intervening directory, so the widened pattern matched
+  `examples/token-contrast/indaco.md` and NOT `examples/pricing.md` — silently dropping all **108**
+  top-level example decks to pick up 59. The test passed throughout, because it emulated the hook
+  with `picomatch`, which matches zero directories for `**/` and reports the broken pattern as
+  matching. The glob now lists BOTH `dir/*.md` and `dir/**/*.md` for every root, and the test drives
+  the **real lefthook binary** against a throwaway repo instead of a glob library — verified to fail
+  when the top-level pattern is removed and pass when it is restored. `yaml` is now a declared
+  devDependency rather than a hoisted transitive of tailwindcss. The `fs.existsSync` guard on the
+  subdirectory rule is gone too: it would have stranded any NEW deck permanently (no PDF → guard
+  fails → hook never renders one → guard fails forever), and the rule's leading-lowercase stem
+  already excludes the `README.md` the guard was really aimed at.
+- **A second content audit caught trims that had traded meaning for fit.** Making a slide fit by
+  deleting words is only correct while the words are not load-bearing, and several were.
+  `agency-program-update` lost "**Median**" from *median time to first payment* — a benefits
+  program's median and mean time-to-payment are different claims — and "on legacy", which was the
+  comparison basis. `status-update` asserted "latency and errors on target" on a slide that no
+  longer showed a single target, and had broadened `p99 checkout latency` / `Checkout error rate`
+  to `p99 latency` / `Error rate` in a deck about the checkout migration. `budget-proposal` renamed
+  *mean distance between failures* mid-deck (two slides after spelling it out), dropped its
+  "Projected FY28–FY30" marker, and left one metric of three without a status pill — so `−31%` read
+  as unasserted between two green ones. `grant-proposal` trimmed roadmap cells to dangling
+  adjectives (`Three-receptor`, `Stability`) that no longer named a deliverable, and
+  `inter-agency-briefing` shortened an agency roster entry to `Emergency`, which is not an entity.
+  All are restored, and each slide re-fitted by cutting genuine redundancy instead — a tail that
+  duplicated its own status pill, an eyebrow whose content moved into the headline. `contact`'s
+  manifest **sample** had been trimmed of its `url` and `caption` lines, which propagated to the
+  generated `connect` gallery and left **no** demo of either slot anywhere; the sample now drops
+  the less costly `phone` line instead and fits. The lesson is narrower than "trim less": a fit
+  edit must land on the slide that actually clips, and must spend redundancy before meaning.
+
 ### Added
 
 - **A deck can carry a shelf name distinct from its cover — `title:` in front matter.**

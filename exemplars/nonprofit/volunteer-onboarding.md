@@ -91,7 +91,7 @@ On any given day we house around 90 animals. Few are here because something is w
 
 ## A typical day here runs on three shifts — and every shift needs hands.
 
-The shelter opens at 7 a.m. for morning care and closes after the evening clean. Volunteers pick the shifts that fit their week; there's no minimum, though most settle into one regular slot.
+The shelter opens at 7 a.m. and closes after the evening clean. Pick the shifts that fit your week — there's no minimum.
 
 - Morning `7–10 a.m.` — feeding, kennel cleaning, and the first dog walks of the day.
 - Midday `11 a.m.–2 p.m.` — adoption-floor support, cat socializing, laundry.
@@ -175,7 +175,7 @@ Once your badge is active, the volunteer portal shows every open slot for the ne
 
 ## A few house rules that keep both you and the animals safe.
 
-These aren't bureaucracy — every one comes from something we learned the hard way. Read them once and they'll become second nature by your second shift.
+These aren't bureaucracy — every one comes from something we learned the hard way, and they become second nature fast.
 
 - Never enter a kennel with a red card on the door without a staff member present.
 - Wash hands between animals, and always sign in and out so we know who's on the floor.
@@ -204,7 +204,7 @@ These aren't bureaucracy — every one comes from something we learned the hard 
 
 ## You don't have to wait to feel useful — here's what helps most this month.
 
-We're heading into our busiest adoption season, and a few specific gaps would make an outsized difference right now. Pick whatever fits; every one of them moves an animal closer to home.
+We're heading into our busiest adoption season, and a few gaps would make an outsized difference right now.
 
 - Saturday morning dog walkers — our most-needed and most-loved slot.
 - Cat socializers for the shy ones who need patience to show their best.

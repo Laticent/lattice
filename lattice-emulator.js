@@ -1296,7 +1296,7 @@ function renderMermaid(definition, mode) {
 // back to a deck-wide `class:`/`color-scheme:dark` signal in the front matter.
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
-const { resolveSize, orientationFor, orientationCss } = require('./lib/engine/css');
+const { resolveSize, orientationFor, orientationCss, geometryVarsCss } = require('./lib/engine/css');
 // The ONE family classifier (lib/adaptive/README.md) — the same call the engine's `data-family`
 // stamp makes, so the split gate and the components can never disagree about which box this is.
 const { familyFor } = require('./lib/adaptive/families');
@@ -1517,6 +1517,15 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT
 // landscape, so the HD/4K PDF is byte-identical. Same helper the engine
 // scaffold + runtime use, so every render path agrees.
 const orientationStyle = orientationCss(_geom);
+// The slide's own 1%, emitted from the SAME geometry the page box uses (one
+// helper, shared with the engine scaffold — HARD RULE #1). Without it the export
+// left `--_sec-1cqi` unset, so every token written as `calc(N * var(--_sec-1cqi,
+// 1cqi))` fell back to a bare `cq*`: the section's own properties resolved
+// against the ICB (right only because the PDF viewport IS the slide, wrong the
+// moment a human opens the HTML sidecar at any other size) and stage descendants
+// resolved against the section's CONTENT box, rendering ~11% smaller than the
+// token coefficients are defined for. See lib/engine/css.js geometryVarsCss.
+const geometryStyle = geometryVarsCss(_geom);
 // Deck-wide `style:` directive — Marp injects this CSS verbatim into the
 // rendered output. Authors use it for ad-hoc overrides like
 // `style: ":root{color-scheme:dark}"` without needing a custom theme.
@@ -1982,6 +1991,7 @@ ${katexCssLink}
 body  { margin: 0; padding: 0; }
 ${css}
 section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
+${geometryStyle}
 ${orientationStyle}
 ${marpSystemCss}
 /* Skip link — the keyboard bypass for a deck that is otherwise a flat pile of

@@ -178,6 +178,9 @@
     "bench": "node test/benchmark/engine-bench.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",
+    "overflow:check": "node tools/check-overflow-corpus.js",
+    "overflow:bless": "node tools/check-overflow-corpus.js --bless",
+    "geometry:check": "node tools/check-geometry-parity.js --scaled",
     "oracle:bless": "node tools/bless-split-oracle.js",
     "oracle:check": "node tools/bless-split-oracle.js --check",
     "regress": "node tools/regression-gate.mjs",
@@ -258,6 +261,7 @@
     "tinybench": "^6.0.2",
     "typescript": "^6.0.3",
     "vivus": "^0.4.6",
+    "yaml": "^2.9.0",
     "zdog": "^1.1.3"
   },
   "optionalDependencies": {

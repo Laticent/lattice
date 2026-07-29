@@ -22,16 +22,14 @@ A legislative recommendation — a stance verdict beside the recommendation, its
 
 ## Adopt a 30-day deadline for breach notification.
 
-Consumers now learn of a breach 78 days late on average — long after the harm compounds.
-
 - Faster notice cuts identity-theft losses
-  - States with a 30-day rule saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
 - The window is already industry practice
-  - 14 of the top 20 data processors notify within 30 days voluntarily `IAPP survey`.
+  - 14 of the top 20 processors already do `IAPP survey`.
 - Enforcement is self-funding
-  - Penalties capitalize the oversight office; no new appropriation `LBB fiscal note`.
+  - Penalties fund the oversight office `LBB fiscal note`.
 
-> Vote YES on HB 214 § 3 — or sponsor the floor amendment adding the 30-day deadline.
+> Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
 
 ---
@@ -62,10 +60,10 @@ Consumers now learn of a breach 78 days late on average.
 
 ## Amend SB 88 to require bias audits before deployment.
 
-Post-hoc audits catch discrimination only after applicants are screened out.
+Post-hoc audits catch bias only after applicants are screened out.
 
 - Pre-deployment testing is preventive
-  - Later audits cannot un-reject filtered candidates `EEOC 2025`.
+  - Later audits cannot un-reject candidates `EEOC 2025`.
 - The change is one clause
   - Move the trigger from § 4(b) to § 3 `Leg. counsel`.
 
@@ -114,24 +112,20 @@ Error rates for the proposed system are unpublished for the populations it would
 
 <!-- _class: policy-recommendation amend -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · policy-recommendation — Four reasons — the ceiling." -->
+<!-- _footer: "Stress test · policy-recommendation — Three reasons — the ceiling." -->
 
 `SB 88 · Algorithmic Hiring`
 
-## Amend SB 88 to require bias audits before deployment, not after.
-
-Post-hoc audits catch discrimination only once applicants have already been screened out.
+## Amend SB 88 to require bias audits before deployment.
 
 - Pre-deployment testing is the only preventive control
-  - Audits after launch cannot un-reject the candidates already filtered `EEOC 2025`.
+  - Audits after launch cannot un-reject filtered candidates `EEOC 2025`.
 - The change is narrow and drafted
   - It moves one clause from § 4(b) to § 3; no new agency `Leg. counsel memo`.
 - Vendors can meet it today
   - Three of five major ATS vendors already ship pre-deployment reports `vendor survey`.
-- Delay compounds the exposure
-  - Each hiring cycle under the current text is an un-audited liability `AG advisory`.
 
-> Move the § 4(b) audit trigger to § 3 in the committee substitute before markup.
+> Move the § 4(b) audit trigger to § 3 before markup.
 
 
 ---
@@ -143,16 +137,14 @@ Post-hoc audits catch discrimination only once applicants have already been scre
 
 ## Adopt a 30-day deadline for breach notification.
 
-Consumers now learn of a breach 78 days late on average — long after the harm compounds.
-
 - Faster notice cuts identity-theft losses
-  - States with a 30-day rule saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
 - The window is already industry practice
-  - 14 of the top 20 data processors notify within 30 days voluntarily `IAPP survey`.
+  - 14 of the top 20 processors already do `IAPP survey`.
 - Enforcement is self-funding
-  - Penalties capitalize the oversight office; no new appropriation `LBB fiscal note`.
+  - Penalties fund the oversight office `LBB fiscal note`.
 
-> Vote YES on HB 214 § 3 — or sponsor the floor amendment adding the 30-day deadline.
+> Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
 
 ---
@@ -164,16 +156,14 @@ Consumers now learn of a breach 78 days late on average — long after the harm 
 
 ## Adopt a 30-day deadline for breach notification.
 
-Consumers now learn of a breach 78 days late on average — long after the harm compounds.
-
 - Faster notice cuts identity-theft losses
-  - States with a 30-day rule saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
 - The window is already industry practice
-  - 14 of the top 20 data processors notify within 30 days voluntarily `IAPP survey`.
+  - 14 of the top 20 processors already do `IAPP survey`.
 - Enforcement is self-funding
-  - Penalties capitalize the oversight office; no new appropriation `LBB fiscal note`.
+  - Penalties fund the oversight office `LBB fiscal note`.
 
-> Vote YES on HB 214 § 3 — or sponsor the floor amendment adding the 30-day deadline.
+> Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
 
 ---
@@ -185,16 +175,14 @@ Consumers now learn of a breach 78 days late on average — long after the harm 
 
 ## Adopt a 30-day deadline for breach notification.
 
-Consumers now learn of a breach 78 days late on average — long after the harm compounds.
-
 - Faster notice cuts identity-theft losses
-  - States with a 30-day rule saw 22% lower per-victim costs `FTC 2025`.
+  - 30-day states saw 22% lower per-victim costs `FTC 2025`.
 - The window is already industry practice
-  - 14 of the top 20 data processors notify within 30 days voluntarily `IAPP survey`.
+  - 14 of the top 20 processors already do `IAPP survey`.
 - Enforcement is self-funding
-  - Penalties capitalize the oversight office; no new appropriation `LBB fiscal note`.
+  - Penalties fund the oversight office `LBB fiscal note`.
 
-> Vote YES on HB 214 § 3 — or sponsor the floor amendment adding the 30-day deadline.
+> Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
 
 ---

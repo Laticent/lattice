@@ -35,7 +35,7 @@ Inventory — parallel sets of related items.
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
 5. Markers come as circles, rail, cards, checks `p.18`
-6. Past seven stops, split the agenda `p.22`
+6. Past six stops, split the agenda `p.22`
 
 ---
 
@@ -139,7 +139,7 @@ Inventory — parallel sets of related items.
    - _def · spec · register_
 3. Escalation
    - Long content leaves for a table.
-   - _split past eight rows_
+   - _split past seven rows_
 
 ---
 
