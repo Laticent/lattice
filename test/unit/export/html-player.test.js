@@ -627,9 +627,28 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// the icons never corrupted an accessible NAME — but an un-hidden inline SVG can still
 	// surface in an AT graphics rotor as noise, and `focusable="false"` keeps legacy
 	// engines from tabbing into them. Attribute-only: no CSS, no layout, no script.
-	// A pure-attribute + tag change: no CSS, no layout, no script behaviour. Deliberate.
+	// Re-blessed AGAIN for the G10 follow-up: `#lp-bar` is now a `<header>` (axe's `region`
+	// rule caught the deck TITLE sitting outside every landmark, so a screen reader
+	// navigating by landmark skipped the one string naming the deck), and every
+	// `role="img"` chart svg now references its own `<title>`/`<desc>` by id
+	// (`aria-labelledby`/`aria-describedby`) instead of relying on a bare child `<title>`,
+	// which VoiceOver/Safari and older JAWS drop. Tag + attribute only — `#lp-bar` is
+	// styled by id, so the retag costs no CSS, no layout and no script.
+	// Re-blessed for the adversarial-review round: `#lp-count` splits into a visible,
+	// aria-hidden numeral plus an sr-only live region carrying "Slide N of M". The prior
+	// shape put `aria-label` on a bare <span> (role `generic`), where ARIA prohibits it —
+	// and a live region announces its changed TEXT, not its name, so a screen reader got
+	// "2 / 7" regardless. Adds one <span> + one sr-only rule; the visible counter is
+	// unchanged. Re-hosted charts in the Read view also get suffixed ids so the clone
+	// stops duplicating the originals' ARIA-referenced ids (axe duplicate-id-aria).
+	// The sr-only rule uses `clip-path: inset(50%)` rather than the classic
+	// `clip` + `margin:-1px` pair: the box is already out of flow, so the negative margin
+	// buys nothing, and HARD RULE #20 keeps margins out of this engine's CSS on principle
+	// (this file is not in the gate's scan path, which is not a reason to write one).
+	// A pure-attribute + tag change plus that one hidden-utility rule: no layout, no
+	// script behaviour. Deliberate.
 	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
-	assert.equal(sha, 'dacf85b1f413b854646689aaca8bb588566a3481cd9b576b3566ef1861afe80e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '7c05ca6413808f210cdbdc6e4ba13cecec5c50b663f62dcb8e157096392e9cc3', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

@@ -1720,3 +1720,224 @@ individual bug:** every gate on this branch measures DOM shape, and the two wors
 defects were a *layout* break and a *pixel* break that DOM-shape gates cannot see. An
 `axe-core` gate over the three shells (G10) plus real geometry assertions on the fluid
 viewer are worth more than the six structural invariants. One of those two now exists.
+
+---
+
+## 18. The three follow-ups — G10 lands, graphics get durable names, `<figure>` does not
+
+The three items §17 left open. Two ship: the axe gate and id-referenced SVG naming.
+The third — §16's `<figure>`/`<figcaption>` conversion — was built twice, measured on the
+real artifacts, and **withdrawn**; §18.3 keeps the whole record because the reasoning is
+worth more than the outcome.
+
+**The through-line of this section is that every defect in it was found by an adversarial
+pass and none by a gate.** Two false claims about the DOM, a caption bound to the wrong
+slide, four broken surfaces, and finally a change whose every number looked right while it
+made the exported PDF worse. The repo's gates measure pixels, DOM shape, and rule
+conformance; not one of them can see "this element is now hiding its own contents from a
+screen reader."
+
+### 18.1 G10 — the axe gate, over the two SHIPPED shells
+
+`test/integration/invariants/axe-a11y.test.js` runs `axe-core` (WCAG 2.0/2.1 A + AA,
+plus best-practice) against the **export shell** and the **HTML player** in real
+Chromium, in the per-PR tier. *(An earlier draft of this heading said "all three
+shells" and the test's docblock enumerated three; the engine render is NOT tested —
+the two shipped artifacts are. Corrected.)*
+
+This is the gate all three adversarial lenses independently said was worth more than
+the six hand-written invariants, and the reason is structural: those invariants encode
+defects *we already understood*. Axe checks the rules someone else thought of. The
+ADR's own history is the argument — three categories of content sat outside the
+accessibility tree for months with every gate green.
+
+**It found a real defect on its first run.** The player's `#lp-bar` was a `<div>`, so
+the deck TITLE sat outside every landmark (`region`) — a screen reader navigating by
+landmark skipped the one string that says which deck this is. Now a `<header>`; the CSS
+is id-keyed, so the retag is free. **Both shells are now at zero violations**, and the
+budget is zero, not a seeded ratchet — a budget above zero here would be a scoreboard.
+
+The suite includes a **self-check**: it plants an alt-less `<img>` and asserts axe
+reports it. A green a11y gate is otherwise indistinguishable from one that never
+loaded — and the player's CSP does block a normal `<script src>` injection, which is
+why the bundle is evaluated as source.
+
+**Color-contrast is excluded — and the original justification for that was wrong.** I
+wrote that "the repo already owns that check (`tools/check-slide-contrast.js`)". It does
+not own THIS: that tool iterates `section[data-lattice-slide]` — slide content only — so
+it never sees the player's chrome at player font sizes, which is exactly where G13 lives;
+its own docblock deliberately exempts "the muted chrome tier (footer, pagination)"; and
+no npm script or workflow invokes it. So the honest statement is that **player-chrome
+contrast is currently gated by nobody**, and G13 is logged rather than covered.
+
+**And my second reason for excluding it was worse than wrong — it was manufactured.** I
+wrote that "axe's background resolution is demonstrably wrong on this layered canvas — it
+reported `#fcfaf3` as the foreground for a running header whose computed color is
+`#80704a`". Those are two different elements. The header axe actually flagged is on slide
+57 (`split-panel watermark mirror`), and its computed color is `color(srgb 1 1 1 / 0.7)` —
+near-white. **Axe was right, and it had found a real, visible defect**, which I then used
+as evidence that axe was broken.
+
+The defect: `.watermark` sets the running header/footer to on-accent ink, because on that
+layout the chrome sits over the dark accent panel. `.mirror` row-reverses the panel to the
+right and the absolutely-positioned chrome does not move with it — so near-white ink lands
+on the cream content side at **1.11:1**, effectively invisible in the shipped PDF. Fixed in
+this change (`split-panel.styles.css`, one `:not(.mirror)`), verified by rendering slide 57
+and looking at it; slide 18 (the un-mirrored twin) is byte-identical before and after.
+
+**Why the repo's own contrast tool was green on it.** `tools/check-slide-contrast.js`
+parses colors with `/rgba?\(([^)]+)\)/` and skips any run it cannot parse. Chrome serves
+these tokens as `color(srgb 1 1 1 / 0.7)` — the modern color-function form, which that
+regex does not match — so **every text run whose color resolves through a `color()` value
+is silently dropped from the audit**, contrast unknown rather than measured. That is not a
+scoping choice, it is a hole, and it is logged as G15.
+
+So the honest scoping statement is the FIRST reason alone: one gate should own contrast,
+and the tool that owns it must first be fixed (G15) and then actually be run by something.
+Re-enabling axe's `color-contrast` rule scoped to the player shell remains the obvious
+follow-up, and on this evidence it would find things.
+
+### 18.2 The id-referenced naming — `lib/core/svg-a11y-names.js`
+
+§17.9 named the charts that had none, using a **bare child `<title>`** — the mechanism
+§14 flags as unreliable (VoiceOver/Safari and older JAWS drop it). So the fix shipped
+four new instances of the known-weak form. Closed now: every `role="img"` chart SVG
+references its own `<title>`/`<desc>` via `aria-labelledby`/`aria-describedby`.
+
+**Why a document-level pass and not eight kernel edits.** `aria-labelledby` takes an
+*id*, and an id must be unique in the DOCUMENT. The chart kernels are per-slide,
+stateless and shared across three render paths, so none can mint a document-unique id:
+a per-kernel counter collides the moment two chart types share a deck, and renumbers
+differently per path. Running once over the assembled document is the only place the
+uniqueness invariant holds — and it keeps all eight kernels ignorant of the id space
+(HARD RULE #1). Measured: 8 of 8 eligible graphics converted, 16 ids, all unique. The
+two skipped both already carry an author `aria-label`, which always wins.
+
+### 18.3 §16's `<figure>` plan — BUILT TWICE, MEASURED, AND WITHDRAWN
+
+This section has now held four positions on one question. That is the useful part of it,
+so the record keeps all four rather than tidying to the last.
+
+1. **Retire it** — on a claim about the DOM that one render refutes. Wrong.
+2. **Ship `associateCaptions` instead** — bound 4 of 11 captions to a chart on a
+   *different slide*. Removed (§18.3a).
+3. **Implement the retag** — broke four surfaces and shipped two validity defects.
+4. **Rebuild it** — every measured number came out right, and it was still wrong.
+
+**Position 4 is the instructive one, because nothing in the repo could see the defect.**
+
+The rebuild fixed all six earlier defects and produced a clean scoreboard: alt-less
+`/Figure` back to parity with `main`, fluid geometry restored, the dropped caption
+recovered, zero orphans, both render paths agreeing on 8 of 8 inputs, gallery slides
+byte-identical. Then the adversarial round opened the *shape* of the PDF rather than
+counting it:
+
+```
+BRANCH — the caption's /Alt now WRAPS the chart's own name
+  obj 126  /Figure  /Alt="The size ramp used to be an HTML rail, sized from…"   ← caption
+    ├── obj 127  /Figure  /Alt="Word cloud"                                     ← chart name
+    └── NonStruct                                                               ← caption again
+```
+
+PDF 32000-1 §14.9.3 defines `/Alt` as an alternate description of the structure element
+**and its children**. So the fix that gave the figure a name to satisfy `/Alt` made the
+chart's own name unreachable. On the HTML/CSS chart families (`roadmap`, `matrix-grid`)
+there is no inner figure at all — the entire list of quarters and milestones ends up under
+a one-sentence `/Alt`. And in Chromium's accessibility tree the same label lands twice:
+
+```
+figure  name="The size ramp used to be an HTML rail, sized from…"
+  Figcaption  name=""     → the same text, as content
+```
+
+The caption is announced at the boundary — *before* the graphic it concludes — and again
+after. That is verbatim the defect §18.3a deleted `associateCaptions` for: *"the caption
+was then in the accessibility tree twice."* Written two sections earlier, in the same
+document, by the same author, and repeated anyway.
+
+**The justification is self-refuting, which is what settles it.** The `aria-label` was
+added on the premise that *readers treat `/Figure` as atomic, so an unnamed one can
+swallow the chart*. If that premise holds, an outer stage figure is harmful **whether or
+not it is named** — naming only decides which information is destroyed. If it does not
+hold, the alt-less figure was never the problem and the label was never needed. There is
+no reading under which a stage-level `<figure>` is right. **The shape is wrong, not the
+implementation.**
+
+**And the measurement was honest while measuring the wrong thing.** "12 → 7, parity
+restored" is reproducible and correct. It asks *does every figure have alt text?* and
+never *is a figure now hiding content?* §18.3 had already written that lesson about
+position 3 — *"the work went where the instrument pointed"* — and position 4 walked into
+it again. A counter is not a criterion.
+
+**DECISION: the retag is withdrawn from this change.** `.cell-stage` is an unconditional
+`<div>`; the caption stays a `<p>`, delivered the way §18.3a already describes as correct
+— in document order, immediately after the graphic, with its prose punctuation intact.
+
+**What the follow-up should build instead**, when it is built: **one figure per graphic,
+not two.** The chart's own `role="img"` element becomes the figure, named by its
+`<title>`, described by its `<desc>`, with the caption bound by a **stage-scoped**
+`aria-describedby`. Stage scope is exactly the slide boundary whose absence broke
+`associateCaptions`, and the stage builder is now the one place on both render paths that
+sees a whole stage — so the bug that killed it cannot recur. **Its acceptance criterion is
+a real screen-reader pass, not a structure-element count.** Three things must be re-added
+with it, each of which this round proved necessary and each of which was reverted with the
+retag: the `figure:not(.cell-stage)` guard in `base.fluid-view.css`, `figcaption` in
+`projectGeneric`'s block list, and a PDF-side assertion that no `/Figure` gains an `/Alt`
+that shadows a named descendant.
+
+**What this round leaves behind, and it is not nothing.** The `below-note` /
+`split-envelope` stage matcher is now tag-agnostic and attribute-tolerant — a latent
+defect the retag *exposed* rather than caused, and the sixth confirmed instance of this
+codebase parsing its own rendered HTML with a tag-anchored matcher. That fix stays. So
+does the rule it earned: **key on the class, capture the tag, balance what you captured,
+and let the rest of the opening tag vary.**
+
+### 18.3a `associateCaptions` shipped and was REMOVED in the same PR
+
+The alternative I built instead of `<figure>` — appending the caption's id to the
+graphic's `aria-describedby` — was measured against the repo's own decks and is a
+**regression**. Binding by "nearest preceding `<svg>` in string order" has no slide
+boundary, and many chart layouts carry a caption but contain **no SVG at all**
+(`matrix-grid`, `roadmap` are HTML/CSS). Their captions walk backwards past their own
+slide onto whatever chart came last:
+
+| deck | correct | bound to a chart on a DIFFERENT slide | unbound |
+|---|---|---|---|
+| `gallery-jargon.md` | 1 | **3** | 0 |
+| `chart-family-all-svg.md` | 3 | 0 | 2 |
+| `data-viz-gallery.md` | 1 | **1** | 0 |
+
+A radar chart on slide 27 was described with a roadmap's caption from slide 33. That is a
+comprehension regression **only assistive-technology users experience** — there is no
+visual symptom, and it is invisible to axe (the reference resolves; it is not dangling).
+My own verification, *"both captions bound, zero dangling refs"*, checked for the one
+failure mode this cannot produce.
+
+Two further problems the round surfaced, both real: the caption was then in the
+accessibility tree **twice** (inside the description and as its own paragraph), and
+welding an author's editorial conclusion onto a machine-derived data summary destroys the
+data/opinion distinction that a sighted reader gets for free from typography — the exact
+boundary `<figcaption>` exists to preserve.
+
+**Removed.** The caption was already delivered correctly: in document order, immediately
+after the graphic, attributed, with its prose punctuation intact. The feature's value
+proposition was "the data summary, then the author's so-what"; what it actually did was
+"the data summary, then a different slide's so-what".
+
+### 18.4 Gap-register updates
+
+| Gap | Move |
+|---|---|
+| **G10** (no automated a11y gate) | **PARTIALLY closed** — axe over both shipped shells, per-PR, at zero, with a self-check AND the `incomplete` bucket enforced for `duplicate-id-aria`. The exclusion list in the test's docblock is the honest one and is longer than this row was: one deck, one viewport, the player's DEFAULT view only (never Read·Article/Read·Slides, where the projection clones live), the engine render, color-contrast, and the exported PDF's tag tree — which no gate here reads at all. "Closed" overstated it, and so did the first version of this row |
+| **(new) G18** | **21 duplicated `id`s survive in the player's cloned charts** — `chart-spine-N`, `pie-wedge-N`, `gantt-fill-*`, `q-tint-*`, `radar-area-*`, each referenced by `fill="url(#…)"`. `reidClone` re-ids only the ARIA-referenced ids this branch minted, so `duplicate-id-aria` correctly stays quiet and these are invisible to the gate. Pre-existing (same on `main`) and off-path, so logged rather than fixed — but a paint reference resolving to whichever copy came first is correct by luck |
+| **G5** (chart data equivalence) | **partially closed** — every chart's `<desc>` is now reliably referenced, and funnel carries its conversion rates. Still not a *navigable* table; a description is read, not explored |
+| **§16's `<figure>` spec** (not a gap number — an unshipped spec) | **still unshipped, now with evidence.** Built twice and withdrawn: a stage-level `<figure>` shadows the chart's own name in the tagged PDF and double-announces the caption in Chromium (§18.3). The follow-up should build one figure PER GRAPHIC with a stage-scoped `aria-describedby`, and its acceptance criterion is a screen-reader pass, not a structure-element count. *(This is NOT G11, which is video/audio captions for deaf/HoH users and remains **[LATER]**.)* |
+| **(new) G17** | **A deck with speaker notes exports an UNTAGGED PDF.** `embedNotesInPdf`'s pdf-lib round-trip drops `/StructTreeRoot` entirely, so every accessibility property of the export — `/Figure`, `/Alt`, `/Lang`, heading structure — is silently absent on any deck carrying notes (`examples/gallery-jargon.pdf`, rebuilt on this branch, has none). Pre-existing and off-path here, but it means the §14 G1 row's premise ("the PDF is untagged") is half-right for the wrong reason, and any future work measured on a notes-free deck generalizes wrongly |
+| **(new) G14** | **The Read·Article view drops the author's caption** and uses the slide HEADING as its `<figcaption>`, duplicating the `<h2>` above it. Found while checking whether `<figure>` was already in use — it is, on the reading surface, with the wrong content |
+| **(new) G13** | **Running header/footer muted ink is 4.20:1 (light) / 4.07:1 (dark) — below the 4.5:1 normal-text threshold, on every shell.** An earlier draft said it "passes AA as LARGE text at export scale"; that reassurance is a page-box artifact and is withdrawn. The slide canvas is nominally **3840 CSS px wide**, so the chrome's `43.4px` clears WCAG's 24px large-text line only in canvas units — as a fraction of the slide it is 1.13%, which is ~14px on a 1280px-wide presentation and smaller again in the player. Nothing about the way a human sees it is "large". A `--text-muted` change is theme-wide and off this branch's path — logged, not fixed (HARD RULE #18's off-path rule) |
+| **(new) G15** | **`tools/check-slide-contrast.js` silently skips every `color()`-valued run.** Its color parser is `/rgba?\(([^)]+)\)/`; Chrome serves some resolved tokens as `color(srgb r g b / a)`, which does not match, and an unparsed run is `continue`d rather than reported. So the tool's "N runs checked" undercounts and its green is partial. This is how a **1.11:1** header sat in the gallery unflagged (§18.1). One-line fix to the parser, plus a re-audit of whatever it then surfaces — a separate change, because the re-audit is the real work |
+| **(new) G16** | **The 27 sub-AA text runs the contrast tool DOES report on the export shell are unadjudicated.** Most are `li::before` step counters and `image statement` headings where the tool resolves the background by climbing ancestors' `background-color` — a climb that misses a panel or pseudo-element paint, so several are likely false positives (slide 18 is a confirmed one: the tool and my own probe both call it 1.11:1, and the render shows legible cream-on-brown). "Likely" is not "checked". Each needs a look at the rendered pixel before it is dismissed or fixed |
+
+**Unchanged and still the ceiling:** no screen reader has been run against any of this.
+Axe checks rule conformance, not comprehension — it cannot tell you whether "Quadrant
+chart. Axes — Effort horizontal, Reach vertical…" is *useful*, only that it exists.

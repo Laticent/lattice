@@ -190,6 +190,9 @@ describe('chart-family transformer', () => {
       '<ul><li>API <code>72</code></li></ul>' +
       '<p>Refreshed weekly.</p>';
     const { html } = chartEngine.transformChartSection(inner, 'progress');
+    // A <p> HERE. It becomes a <figcaption> only where a matching <figure> is actually
+    // built (masthead.transform.js `buildStageCell`) — emitting it from this end shipped
+    // an orphaned <figcaption> on every `form: off` render.
     assert.match(html, /<p class="chart-caption">Refreshed weekly\.<\/p>/,
       'trailing paragraph becomes the chart-caption');
     assert.doesNotMatch(html, /<\/div><p>Refreshed weekly\.<\/p>/,

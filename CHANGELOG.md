@@ -352,7 +352,53 @@ in patch versions.
     `glossary` run is a real `<table>` at portrait/story/square and a header-less
     `display: block` stack at `mobile`.
 
+- **An automated accessibility gate now runs `axe-core` over both shipped shells.**
+  The WCAG 2.0/2.1 A + AA rule set (plus best-practice) against the export shell and the
+  HTML player, in real Chromium, in the per-PR tier. The existing structural gates check
+  invariants *we thought of*; axe checks the rules someone else thought of — which is
+  the class of defect a bespoke assertion cannot catch, because a bespoke assertion only
+  encodes a defect you already understand. It found one on its first run: the player's
+  top bar was a `<div>`, so the deck **title sat outside every landmark** and a screen
+  reader navigating by landmark skipped the one string naming the deck. It is a
+  `<header>` now. Both shells are at **zero** violations and the budget is zero, not a
+  seeded ratchet. The suite also plants an alt-less `<img>` and asserts axe reports it —
+  a green a11y gate is otherwise indistinguishable from one that never loaded.
+
+- **Every chart graphic is now named in the form assistive technology actually
+  resolves.** Charts were named with a bare child `<title>`, which VoiceOver/Safari and
+  older JAWS drop — so a named chart could still announce as an unnamed image. Each
+  `role="img"` chart SVG now references its own `<title>`/`<desc>` by id
+  (`aria-labelledby` / `aria-describedby`). This runs once over the assembled document
+  rather than in the eight chart kernels, because an id must be unique per *document*
+  and a per-slide kernel cannot guarantee that.
+
+- **The player's slide counter uses a real screen-reader live region.** The visible
+  "2 / 7" is now decoration and a separate visually-hidden region carries "Slide 2 of 7".
+  The previous shape put `aria-label` on a bare `<span>`, whose implicit role is
+  `generic` — where ARIA prohibits it — and a live region announces its changed *text*,
+  not its name, so a screen reader got "2 / 7" regardless.
+
+- **Charts re-hosted into the player's reading view no longer duplicate their ARIA ids.**
+  The reading view clones each chart, which duplicated every id the naming pass mints —
+  14 in a gallery export. It resolved correctly only by luck (`getElementById` returns
+  the first match and both copies carried identical text).
+
 ### Fixed
+
+- **The below-note and split-envelope transforms located the slide's content cell by a
+  hardcoded `<div class="cell-stage">` and balanced it by counting `</div>`.** Any change to
+  the cell's element or attributes made them find nothing and fall back to a section-level
+  anchor — a wrong answer that still renders, so no pixel or DOM gate would catch it. Both
+  read the same helper, which now matches on the class, balances whichever tag it found, and
+  tolerates additional attributes. No user-visible behavior changes today; this closes a
+  latent trap that has now been hit six separate times in this codebase.
+
+- **`split-panel watermark mirror` rendered its running header and footer at 1.11:1 —
+  effectively invisible.** The `watermark` layout sets the chrome to on-accent ink because
+  the header and footer sit over its dark panel; `mirror` moves the panel to the other side
+  and the chrome, which is positioned against the slide, does not follow — so near-white ink
+  landed on the cream content side. Surfaced by the new axe gate and confirmed by looking at
+  the rendered slide. The un-mirrored variant is unchanged, byte for byte.
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`
   landmark — every slide rendered zero pixels wide.** The fluid viewer sizes each slide

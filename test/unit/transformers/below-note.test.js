@@ -74,6 +74,68 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
     assert.ok(out.includes('<div class="cell-footer"><footer>f</footer></div>'), 'footer cell untouched');
   });
 
+  test('finds the cell by its CLASS, not its tag — a <figure> stage works identically', () => {
+    // The engine emits a `<div>` stage today, and this asserts the matcher does not CARE.
+    // It was written after a retag briefly made the stage a `<figure>`: the matcher, pinned
+    // to `<div class="cell-stage">`, found nothing and fell back to the flat section-level
+    // anchor — a wrong answer that still renders, so no pixel or DOM-shape gate saw it.
+    // The retag was withdrawn; the lesson is kept, because the next one will not be.
+    const body = '<ul><li>a</li></ul><blockquote><p>q</p></blockquote><p>note</p>';
+    const asDiv = belowNote.applyToHtml(sec('cards-grid form', `<div class="cell-stage">${body}</div>`));
+    const asFigure = belowNote.applyToHtml(sec('cards-grid form', `<figure class="cell-stage">${body}</figure>`));
+    assert.equal(
+      asFigure.replace(/figure/g, 'div'), asDiv,
+      'the <figure> stage must be treated exactly as the <div> stage is',
+    );
+    assert.ok(asFigure.includes('<div class="below-note"><p>note</p></div></figure>'), asFigure);
+  });
+
+  test('finds a NAMED <figure> stage — the open tag carries more than the class', () => {
+    // Keying on the class is only half the lesson. A matcher that additionally required
+    // the tag to END right after `class="cell-stage"` broke the moment the cell grew one
+    // more attribute — which is a thing any future change can do without touching this
+    // file. Match the class, capture the tag, and let the rest of the opening tag vary.
+    const body = '<ul><li>a</li></ul><p>note</p>';
+    const out = belowNote.applyToHtml(
+      sec('cards-grid form', `<figure class="cell-stage" aria-label="Source: Linear.">${body}</figure>`),
+    );
+    assert.ok(out.includes('<div class="below-note"><p>note</p></div></figure>'), out);
+  });
+
+  test('a trailing `/` does not close an HTML element — <div/> is an OPEN tag', () => {
+    // HTML parsers honor self-closing only on void elements and foreign-content roots.
+    // Treating `<div/>` as self-closing ended the cell one element early and left the
+    // real trailing <p> outside it; an unbalanced scan must fall through untouched
+    // rather than guess.
+    // `<div/>` opens a level the single `</div>` then closes, so the stage never closes:
+    // the scan finds no balanced cell and falls through to the section-level anchor —
+    // byte-identical to what this did before the rewrite. The defect to avoid is the
+    // OTHER answer, where honoring `/>` ends the cell early and silently returns a
+    // narrower body than the parser would.
+    const s = sec('cards-grid form', '<div class="cell-stage"><div class="x"/></div><p>after</p>');
+    assert.ok(belowNote.applyToHtml(s).includes('<div class="below-note"><p>after</p></div>'),
+      'falls through to the flat anchor rather than guessing a cell boundary');
+    // …but a foreign-content root genuinely does self-close.
+    const svg = belowNote.applyToHtml(
+      sec('cards-grid form', '<figure class="cell-stage"><svg/><p>note</p></figure>'),
+    );
+    assert.ok(svg.includes('<p>note</p>'), 'the svg case still resolves');
+  });
+
+  test('balances the stage on the tag it actually opened with', () => {
+    // The close scan used to be hardcoded to `</div>`. On any other stage tag that walks
+    // straight past the cell's own close and swallows following siblings.
+    const out = belowNote.applyToHtml(
+      sec(
+        'state-chart form',
+        '<figure class="cell-stage"><div class="chart-body"><div>x</div></div><p>note</p></figure>' +
+          '<div class="cell-footer"><footer>f</footer></div>',
+      ),
+    );
+    assert.ok(out.includes('<div class="below-note"><p>note</p></div></figure>'), out);
+    assert.ok(out.includes('<div class="cell-footer"><footer>f</footer></div>'), 'footer cell untouched');
+  });
+
   test('wraps the real trailing <p> when a <pre> sample merely mentions the literal cell-stage string', () => {
     // Regression: extractStage used to do a bare `indexOf('<div class="cell-
     // stage">')`, which matched this literal text INSIDE the <pre> sample —
