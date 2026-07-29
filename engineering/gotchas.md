@@ -567,6 +567,15 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ### A slide clips 30-70px in the Playground that the exported PDF renders whole
 
+> **RESOLVED 2026-07-30** — the export now stamps the slide geometry too, so it renders at
+> design size and the two paths agree. The ruling below ("the preview is honest, the export
+> is the flattering one") is what the fix implemented; the 11% figure is exactly the
+> 1280-vs-1152 basis. Kept because the symptom is the clearest description of the defect, and
+> because any deck authored against the OLD export may now be over-full — that is real
+> over-subscription surfacing, not a regression. See
+> `engineering/decisions/2026-07-30-slide-geometry-emitted-not-measured.md`.
+
+
 - **Symptom:** the live preview shows an "OVERFLOWS" tab and visibly cuts a
   line of the lede or a caption, but the same slide in the exported `.pdf` is
   complete. Distinct from the font-race false positive above: fonts are fully
@@ -674,7 +683,16 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   Across the boundary, same 117-slide gallery: the preview flags 7 slides the export
   flags 0 (pages 15, 21, 48, 66, 106, 109, 115; largest spill delta 381px), identical
   before and after this fix. Don't read it as closing that class.
-- **Also still open — the exported HTML sidecar at a non-slide window size.** Nothing
+- **CLOSED (2026-07-30) — both of the above.** The engine now EMITS `--_sec-1cqi` /
+  `--_sec-1cqh` from the resolved `@size` on every render path
+  (`lib/engine/css.js geometryVarsCss`), so the export resolves tokens at design size like
+  the preview: the sidecar no longer tracks its window, and the export/preview verdict gap
+  is gone. The remaining nested-container leak turned out not to be CSS at all — state-chart
+  derived its scale from a transform-scaled rect. See
+  `engineering/decisions/2026-07-30-slide-geometry-emitted-not-measured.md`, and
+  `tools/check-geometry-parity.js` for the regression test. The entries below are kept as
+  the record of what the symptom looked like.
+- **Was open — the exported HTML sidecar at a non-slide window size.** Nothing
   stamps `--_sec-1cqi` in a standalone export, so every anchored token (the frame insets,
   and equally `--sp-*`/`--fs-*`, which have always been written this way) falls back and
   resolves against the WINDOW: the bloom sidecar's section padding reads 104px at a 1280px

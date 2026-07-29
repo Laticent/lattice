@@ -32,12 +32,8 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
-4. Texas DPSA
-   - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
-   - `Effective Mar 2026`
 
 
 ---
@@ -196,12 +192,8 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
-4. Texas DPSA
-   - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
-   - `Effective Mar 2026`
 
 
 ---
@@ -223,12 +215,8 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
-4. Texas DPSA
-   - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
-   - `Effective Mar 2026`
 
 
 ---
@@ -250,12 +238,8 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
    - `Effective Feb 2026`
 3. FTC v. Avast
    - `§5 unfairness`
-   - $16.5M consent order; clarifies the deception standard for privacy branding.
+   - $16.5M consent order; clarifies the deception standard.
    - `Final Mar 2026`
-4. Texas DPSA
-   - `§541.151`
-   - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
-   - `Effective Mar 2026`
 
 
 ---

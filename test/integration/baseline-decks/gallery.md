@@ -215,7 +215,7 @@ The shift from equal weights to calibrated weights takes two retrospective cycle
 - It does not replace customer discovery — it scores and routes what discovery surfaces.
 - It does not work without the Decision Log — calibration requires outcome data to learn from.
 - It does not guarantee alignment — it surfaces disagreement earlier, when it is cheaper and louder.
-- It does not scale down to individual feature decisions — it is designed for prioritization above P2.
+- It does not scale down to individual features — it is designed for prioritization above P2.
 
 ---
 
@@ -304,9 +304,7 @@ The scoring model is the most configurable component, and therefore the most arg
 - Calibration Loop
   - Monthly retrospective that compares predicted outcomes to actual outcomes.
 
-> The calibration loop is what separates teams that learn from teams that repeat the same mistakes.
-
-The insight survived three reviews unedited — a first for this deck.
+> The calibration loop is the product.
 
 ---
 
@@ -751,16 +749,14 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 <!-- _class: list-steps vertical compact -->
 <!-- _footer: "Modifier — list-steps vertical · list-steps vertical compact" -->
 
-`Framework · The Loop`
-
 ## Sense, score, decide — the loop in three verbs.
 
 1. Sense
-   - Inputs are signals, observed and never invented — write down what you see, not what you conclude.
+   - Observed, never invented — write what you see.
 2. Score
-   - A signal becomes data once it carries a number, calibrated against outcomes.
+   - A signal becomes data once it carries a number.
 3. Decide
-   - A decision is a signal plus a deadline; without the deadline it is an opinion.
+   - A signal plus a deadline; without it, an opinion.
 
 ---
 
@@ -1034,8 +1030,6 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 | Scoring       | Equal-weights model | Per-team calibration | Per-decision profiles |
 | Decision Log  | Append-only schema  | Outcome auto-pairing | Examiner export       |
 | Adoption      | One pilot team      |                      | Org-wide enablement   |
-
-Adoption ships nothing in Phase 02 — the dash is load-bearing, and nobody has claimed it.
 
 ---
 
@@ -1698,20 +1692,16 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 <!-- _class: policy-recommendation adopt -->
 <!-- _footer: "Legal — policy-recommendation · adopt" -->
 
-`Federal AI Accountability Act · Deployer Duties`
-
 ## Adopt Colorado's deployer-duties framework as the federal floor.
 
-A federal standard ends the fifty-state patchwork our audit log already answers to.
-
 - The audit trail already exists
-  - Every score is logged, signed, and DSAR-exportable today `Colorado SB 24-205`.
+  - Every score is logged, signed, DSAR-exportable `Colorado SB 24-205`.
 - Compliance is a moat, not a cost
-  - Deployers who logged decisions saw 31% fewer disputes reach litigation `Stanford HAI 2025`.
+  - Logged decisions saw 31% fewer disputes litigated `Stanford HAI 2025`.
 - One federal floor beats fifty ceilings
-  - It retires the conflicting state duties without lowering the bar `EU AI Act Title III`.
+  - Retires conflicting state duties without lowering the bar `EU AI Act Title III`.
 
-> Co-sponsor the deployer-duties title in § 4, or move it as a floor amendment before markup.
+> Co-sponsor the deployer-duties title in § 4, or move it as a floor amendment.
 
 ---
 
@@ -1752,9 +1742,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 - **Signal Intake.** Weekly structured collection across conversations and market data.
 - **Scoring Model.** Each signal scored on confidence, recency, and relevance.
 - **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle. Run once so far; the once was humbling.
-
-> Signals without decisions are just noise.
+- **Calibration Loop.** Outcomes compared to predictions each cycle.
 
 ---
 
@@ -1858,15 +1846,12 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 <!-- _class: contact -->
 <!-- _footer: "Connect — contact · contact" -->
 
-## The framework has an owner, and she answers email.
+## The framework has an owner.
 
 - Dana Reyes `name`
 - VP Strategy · framework owner `title`
-- Strategy Office `org`
 - dana.reyes@strategy.example `email`
 - +1-555-0142 `phone`
-- strategy.example/decision-log `url`
-- Scan to add me `caption`
 
 ---
 

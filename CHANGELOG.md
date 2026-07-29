@@ -55,6 +55,45 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
+  PDFs render stage content ~11% larger than before — and agree with the preview.** The
+  engine emits the slide's own 1% (`--_sec-1cqi` / `--_sec-1cqh`) as CSS from the resolved
+  `@size`, on every render path, instead of leaving the export to fall back to a bare `cq*`.
+  This settles the engine-wide question #1243 deferred, in the direction
+  `engineering/gotchas.md` already ruled: the export was the flattering path, not the correct
+  one. It resolved stage `cq*` against the section's CONTENT box (1152px at HD) while the
+  token coefficients are defined against the slide ("px / 1280 * 100 = coefficient"), so body
+  type rendered 19.24px where the design says 21.38px.
+  Three things follow. **(1) The exported HTML sidecar stops tracking the window it is opened
+  in** — the bloom deck's section padding read 104px at a 1280px window and 31.7px at 390px;
+  it is 104px at every size now. **(2) The export and the preview flag the same slides**: on
+  the 117-slide gallery the preview flagged 7 that the export flagged 0, and that gap is closed
+  deck-for-deck. **(3) 36 genuinely over-subscribed slides across twelve shipped decks stop
+  being hidden** — all trimmed here; `examples/overflow-fix-me.md` still overflows on 5 pages
+  because demonstrating overflow is its purpose, and the export now agrees with the preview
+  about which 5. Committed gallery PDFs are rebuilt (122); other committed example PDFs are
+  stale until their next per-deck rebuild — the repo's existing convention for an engine-wide
+  render change.
+
+### Fixed
+
+- **A state-chart drew differently in every preview pane.** `state-chart.transform.js` derived
+  its geometry scale from `section.getBoundingClientRect().width` — the VISUAL box — so on the
+  docs filmstrip, which transform-scales each section to the pane, it read 695px instead of
+  1280 and every px constant in the diagram shrank with the window. It now reads the slide's 1%
+  from the stamp and normalizes every rect the drawing pass consumes back to layout px. With
+  that, a viewport sweep of all 117 gallery slides reports **0** computed values that move with
+  the host window — down from 631 before #1243 and 50 after it. Same defect as the overflow and
+  legibility probes: a `getBoundingClientRect()` mixed with a transform-blind number. Anything
+  measuring a slide should read the stamp or `offsetWidth`, never a raw rect.
+- **`tools/check-geometry-parity.js`** (new): renders a deck through the real emulator and
+  asserts its section padding, stage height, overflow verdict and overshoot are identical at
+  1280×720, 900×700, 500×700 and 390×844 — optionally with the sections transform-scaled the
+  way the filmstrip scales them (`--scaled`). Run against `main` it fails, which is the check
+  that it checks something.
+
 ### Added
 
 - **A deck can carry a shelf name distinct from its cover — `title:` in front matter.**

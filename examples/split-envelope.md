@@ -21,10 +21,10 @@ A slide that outgrows its box becomes several. Now it always becomes the same *s
 
 ## Cover, body, insight
 
-- **Cover — always.** A masthead worth a lead-in: eyebrow, title, subtitle, lede
-- **Body — the split content**, native pages, heading repeated, `(cont.)` from the second on
+- **Cover — always.** A masthead worth a lead-in
+- **Body — the split content**, heading repeated, `(cont.)` from the second on
 - **Key insight — its own page, only when earned.** The takeaway never shares a page
-- **Below-note — the last body page**, one size down, a footnote of the content above it
+- **Below-note — the last body page**, one size down
 
 ---
 
@@ -45,7 +45,6 @@ A slide that outgrows its box becomes several. Now it always becomes the same *s
 
 `fourteen checks before the gate`
 
-Everything below has to read true before we ship — the list is the gate, not a summary of it.
 
 - [x] Signal intake wired
 - [x] Scoring model calibrated
@@ -128,9 +127,9 @@ Source: vendor evaluation, Q3 procurement review.
 ## The invariant
 
 - Every split run begins with **exactly one** cover and carries **at most one** key-insight page
-- A below-note rides the **last body page** — never its own page, never repeated on every page
-- A title-less slide has no masthead to cover with, so it keeps the plain partition — an empty accent field would be worse
-- Nothing is dropped: every page is the source slide with spans **removed**, so no leaf can go missing
+- A below-note rides the **last body page** — never its own, never repeated
+- A title-less slide has no masthead to cover with, so it keeps the plain partition
+- Nothing is dropped: every page is the source slide with spans **removed**
 
 ---
 

@@ -203,26 +203,26 @@ The most configurable component — a feature or a warning sign, depending on yo
 <!-- _class: list-tabular -->
 <!-- _footer: "Tabular list · list-tabular" -->
 
-## The six signal dimensions, what they measure, and how they are scored
+## The six signal dimensions
 
 1. Confidence
-   - Independent sources corroborating the signal
+   - Independent sources corroborating it
    - _1–5 · Auto · Enterprise always gets a 4_
 2. Recency
-   - Time-decay from signal date, configurable half-life
-   - _0.0–1.0 · Auto · "Short" after a bad quarter_
+   - Time-decay from signal date
+   - _0.0–1.0 · Auto · "Short" after a bad Q_
 3. Relevance
-   - Alignment to current strategic bets, owner-scored
+   - Alignment to current bets, owner-scored
    - _1–5 · Manual · What the PM already planned_
 4. Reach
    - Customers or segments affected
    - _1–5 · Auto · 5 if the enterprise asked_
 5. Effort
-   - Engineering and design cost to act on the signal
+   - Engineering and design cost to act
    - _1–5 · Manual · Engineering's eyebrows go up_
 6. Confidence delta
-   - Change in confidence since the last scoring cycle
-   - _−5 to +5 · Auto · Did anyone talk to a customer_
+   - Change since the last scoring cycle
+   - _−5 to +5 · Auto · Did anyone ask a customer_
 
 ---
 
@@ -506,7 +506,7 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 <!-- _class: roadmap -->
 <!-- _footer: "Workstream × phase grid · roadmap" -->
 
-## What ships in each phase, by workstream
+## What ships in each phase
 
 | Workstream    | Phase 01            | Phase 02              | Phase 03              |
 | ------------- | ------------------- | --------------------- | --------------------- |
@@ -514,8 +514,6 @@ Three phases, four workstreams. We own the policy, the loop, the timeline — an
 | Scoring       | Equal-weights model | Per-team calibration  | Per-decision profiles |
 | Decision Log  | Append-only schema  | Outcome auto-pairing  | Examiner export       |
 | Adoption      | One pilot team      |                       | Org-wide enablement   |
-
-Phase 3 holds org-wide enablement. In the roadmap since 2024. Phase 2 is ongoing.
 
 ---
 
@@ -847,20 +845,18 @@ Last updated 2026-05-07 · the 9% is probably higher
 
 `Framework arc`
 
-## How the framework arrived in production
+## How the framework reached production
 
-Four stages over eighteen months. The connective tissue is described as "momentum."
+Four stages over eighteen months. The connective tissue is called "momentum."
 
 1. `2024 Q3` Pre-framework prioritization
-   - Decisions in recurring meetings. Close: 4 hours. No trail. We called it "being agile."
+   - Decisions in meetings. Close: 4 hours. No trail. We called it "being agile."
 2. `2025 Q1` Framework proposal `decision`
-   - Architecture review approves the build. The build team is the architecture review team.
+   - Architecture review approves the build — and is the build team.
 3. `2025 Q3` Pilot `pilot`
-   - One team, one quarter. 18 logged, 340 made. p99 18 min on the logged ones.
+   - One team, one quarter. 18 logged, 340 made.
 4. `2026 Q1` Production `live`
    - Policy live. 12% adoption. Phase 02 planned for Q2.
-
-Cross-functional sign-off · "cross-functional" means two teams instead of one
 
 ---
 

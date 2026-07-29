@@ -22,9 +22,6 @@ calm; category coding is there when you ask for it.
 
 ## Default — a calm grid where the flag is the focal point.
 
-Uniform neutral tiles, soft depth, one quiet category label. Only the at-risk card
-carries colour, so the eye lands on it without being told.
-
 - Backlog
   - Per-team weighting `S`
     - framework
@@ -53,9 +50,6 @@ carries colour, so the eye lands on it without being told.
 `Delivery · week 30`
 
 ## `keyline` — category coding, disciplined to one edge.
-
-When ownership-at-a-glance earns its keep: each card keeps the same neutral tile and
-takes a single crisp coloured left edge for its workstream. No patchwork.
 
 - Backlog
   - Per-team weighting `S`
@@ -86,16 +80,11 @@ takes a single crisp coloured left edge for its workstream. No patchwork.
 
 ## `tinted` — colour tracks the pipeline, left to right.
 
-Colour moves off the cards and onto the lanes: each stage is whisper-tinted, so the
-shape of the flow registers before any single card does.
-
 - Backlog
   - Per-team weighting `S`
     - framework
   - Calibration playbook `M`
     - governance
-  - Adoption dashboard `S`
-    - adoption
 - In progress
   - Scoring model v2 `M`
     - framework `at-risk`
@@ -117,9 +106,6 @@ shape of the flow registers before any single card does.
 `Release train · go / no-go`
 
 ## Status holds up under load — three flags, instantly visible.
-
-The same calm surface scales: with several cards flagged, each one tints to its own
-status colour and the clean cards recede, so the board still reads at a glance.
 
 - Backlog
   - Data residency review `M`

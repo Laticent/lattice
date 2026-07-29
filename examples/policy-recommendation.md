@@ -18,37 +18,33 @@ Four measures reach the floor this week — here is where the caucus should stan
 
 <!-- _class: policy-recommendation adopt -->
 
-`HB 214 · Consumer Data Protection`
 
 ## Adopt a 30-day deadline for breach notification.
 
-Consumers now learn of a breach 78 days late on average — long after the harm compounds.
 
 - Faster notice cuts identity-theft losses
-  - States with a 30-day rule saw 22% lower per-victim costs `FTC 2025`.
+  - A 30-day rule cut per-victim costs 22% `FTC 2025`.
 - The window is already industry practice
   - 14 of the top 20 data processors notify within 30 days `IAPP survey`.
 - Enforcement is self-funding
-  - Penalties capitalize the oversight office; no new appropriation `LBB fiscal note`.
+  - Penalties fund the oversight office `LBB fiscal note`.
 
-> Vote YES on HB 214 § 3 — or sponsor the floor amendment adding the 30-day deadline.
+> Vote YES on HB 214 § 3, or sponsor the floor amendment.
 
 ---
 
 <!-- _class: policy-recommendation amend -->
 
-`SB 88 · Algorithmic Hiring`
 
 ## Amend SB 88 to require bias audits before deployment, not after.
 
-Post-hoc audits catch discrimination only once applicants have already been screened out.
 
 - Pre-deployment testing is the only preventive control
-  - Audits after launch cannot un-reject the candidates already filtered `EEOC 2025`.
+  - Audits after launch cannot un-reject filtered candidates `EEOC 2025`.
 - The change is narrow and drafted
   - It moves one clause from § 4(b) to § 3; no new agency `Leg. counsel memo`.
 - Vendors can meet it today
-  - Three of five major ATS vendors already ship pre-deployment reports `vendor survey`.
+  - Three of five ATS vendors ship pre-deployment reports `vendor survey`.
 
 > Move the § 4(b) audit trigger to § 3 in the committee substitute before markup.
 

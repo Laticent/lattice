@@ -39,10 +39,9 @@ centre-aligned text, colour left to carry the meaning.
 
 ---
 
-<!-- _class: kpi -->
+<!-- _class: kpi compact -->
 <!-- _footer: "kpi · uppercase is a per-pill opt-in" -->
 
-### Financial · Q4 2026
 ## Same pill, with the uppercase opt-in.
 
 1. $2.4B
@@ -50,13 +49,10 @@ centre-aligned text, colour left to carry the meaning.
    - target $2.2B · +9% `On plan` `Board`
 2. 42%
    - Gross margin
-   - +2pp QoQ `On plan` `Audit`
+   - +2pp QoQ `On plan`
 3. $1.1B
    - Cash & equivalents
-   - +$180M QoQ `On plan` `Investor`
-4. +18%
-   - YoY revenue growth
-   - vs 14% prior year `Ahead` `Board`
+   - +$180M QoQ `On plan`
 
 ---
 
@@ -93,11 +89,10 @@ centre-aligned text, colour left to carry the meaning.
 
 ## Universal pills next to a sanctioned variant.
 
-The date pills are the universal shape; the green status chips are the
-bar-matching chart-status variant.
+Date pills are the universal shape; green chips are the chart-status variant.
 
 1. `2024 Q3` First workshop
-   - The one where we agreed to agree on a definition of "signal." Output: a fifth workshop.
+   - Where we agreed to agree on "signal." Output: a fifth workshop.
 2. `2025 Q1` Framework approved `decision`
    - The steering committee accepts the scoring model. Build approved; the build team is the steering committee.
 3. `2025 Q3` Pilot live `live`

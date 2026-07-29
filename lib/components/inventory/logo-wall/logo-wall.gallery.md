@@ -40,12 +40,6 @@ A grid of customer, partner, or funder logos as social proof.
 - ![Helios](helios.svg)
   - Helios
   - `Public`
-- ![Northwind](northwind.svg)
-  - Northwind
-  - `Anchor`
-- ![Cobalt](cobalt.svg)
-  - Cobalt
-  - `Series A`
 
 
 ---
@@ -117,12 +111,6 @@ A grid of customer, partner, or funder logos as social proof.
 - ![Helios](helios.svg)
   - Helios
   - `Public`
-- ![Northwind](northwind.svg)
-  - Northwind
-  - `Anchor`
-- ![Cobalt](cobalt.svg)
-  - Cobalt
-  - `Series A`
 
 
 ---
@@ -152,12 +140,6 @@ A grid of customer, partner, or funder logos as social proof.
 - ![Helios](helios.svg)
   - Helios
   - `Public`
-- ![Northwind](northwind.svg)
-  - Northwind
-  - `Anchor`
-- ![Cobalt](cobalt.svg)
-  - Cobalt
-  - `Series A`
 
 
 ---

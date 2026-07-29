@@ -75,17 +75,14 @@ Comparison — how two or more options differ.
   - [x] The checklist rows compare
   - [/] Slashed rows mean not included
   - [/] Same rows on every tier
-  - One line positions the tier.
 - Growth `$49 / mo` *Most popular*
   - [x] The starred tier gets the accent
   - [x] Checks accumulate up the ladder
   - [/] One gap keeps it honest
-  - The column buyers should read first.
 - Enterprise `Custom`
   - [x] The top tier checks every row
   - [x] Custom replaces a number
   - [x] Nothing slashed up here
-  - The ceiling of the ladder.
 
 ---
 

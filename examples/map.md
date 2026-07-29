@@ -23,7 +23,7 @@ The first layout on the new **spatial** form — regions placed by real-world ge
 Name a place, give it a value. The tokens pick the rest.
 
 - **`map`** is US states; **`map world`** is world countries (Robinson projection). Same authoring — one place per li with a trailing inline-code value: `- Brazil \`31\``.
-- **Choropleth** (default) shades a single-hue ramp — *how much, where*. **`highlight`** gives each named place its own colour — *which ones*.
+- **Choropleth** (default) shades one hue — *how much, where*. **`highlight`** colours each place — *which ones*.
 - Names resolve loosely — `California` / `CA` / `Calif.`, or `Brazil` / `BR` / `Brasil` — and anything the basemap can't place is reported, never dropped.
 
 ---
@@ -73,10 +73,10 @@ Name a place, give it a value. The tokens pick the rest.
 
 ## Naming a region is the hard part — so we made it cheap.
 
-World names vary wildly (Côte d'Ivoire, Myanmar, Czechia), and a mistyped name is a silent gap. Two defences, both off the same baked vocabulary — no model call, no token cost.
+World names vary wildly, and a mistyped one is a silent gap. Two defences, both off the baked vocabulary.
 
 - **Group as a fat alias.** Name a continent or a dated bloc — `European Union`, `Sub-Saharan Africa`, `G20` — and the kernel fills every member. Blocs carry the year their membership is asserted.
-- **Autocomplete + did-you-mean.** In the editor, region names complete as you type; a name that still slips through is flagged at lint time with the nearest match (`Brasil` → `Brazil`).
+- **Autocomplete + did-you-mean.** Region names complete as you type; a name that slips through is flagged at lint time with the nearest match (`Brasil` → `Brazil`).
 
 ---
 
@@ -84,10 +84,9 @@ World names vary wildly (Côte d'Ivoire, Myanmar, Czechia), and a mistyped name 
 
 ## What it doesn't do — yet.
 
-The spatial form is built to grow; the boundary stays provable.
 
 - **No sub-national detail.** Counties, districts, and city pins are out of scope; the world cut (110m) also omits the smallest city-states.
-- **Continents, blocs, and stated categories.** EU / ASEAN / G20 / BRICS / OECD ship with dated provenance; Global South / Global North ship too, pinned to a stated, dated definition (the UN G77 + China) with the same provenance — so the definition travels with the data and an author can cite it, rather than every deck hand-rolling its own roster.
+- **Continents, blocs, and stated categories.** EU / ASEAN / G20 / BRICS / OECD ship with dated provenance; Global South / North too, pinned to a stated, dated definition (UN G77 + China) — so the definition travels with the data instead of every deck hand-rolling a roster.
 - **No magnitude in highlight.** If you need *which* and *how much*, lead with choropleth and name the set in the prose.
 
 ---

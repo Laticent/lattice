@@ -168,12 +168,6 @@ Inventory — parallel sets of related items.
 - ![Helios](logo-wall/helios.svg)
   - Helios
   - `Public`
-- ![Northwind](logo-wall/northwind.svg)
-  - Northwind
-  - `Anchor`
-- ![Cobalt](logo-wall/cobalt.svg)
-  - Cobalt
-  - `Series A`
 
 ---
 

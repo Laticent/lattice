@@ -352,6 +352,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
 | `tools/check-family-tiers.js` | check-family-tiers — does each adaptive family tier actually FIRE at each deck |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
+| `tools/check-geometry-parity.js` | geometry-parity — does a slide measure the SAME on every surface it renders on? |
 | `tools/check-lint-coverage.js` | Lint-coverage gate — asks what Biome ACTUALLY checks, never how the config is spelled. |
 | `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
 | `tools/check-slide-contrast.js` | check-slide-contrast — WCAG AA audit of the ACTUALLY RENDERED slide, not the |
