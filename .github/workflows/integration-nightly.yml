@@ -68,27 +68,36 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # The adaptive-family tier check + its overflow oracle: renders one gallery
-      # slide per family-reflowing component at all four family sizes and compares
-      # the clipped set against test/oracle/family-overflow.json. Too slow for
-      # per-PR CI (four full emulator sweeps), and it needs the Chromium this job
-      # already has — so it belongs in the nightly render tier, not the fast lane.
-      # It is the gate that catches a reflow rule silently starting to clip; #1218
-      # shipped three such regressions with every other gate green.
+      # The adaptive-family checks, both of which need the Chromium this job already
+      # has and are too slow for per-PR CI (five full emulator sweeps each):
+      #
+      #   check:family-tiers       does a reflow rule now CLIP? Renders one gallery
+      #                            slide per family-reflowing component at every
+      #                            @size against test/oracle/family-overflow.json.
+      #   check:family-conformance does each rule DO anything? Renders every gallery
+      #                            slide, reads the DOM with the family stamp on vs
+      #                            off, against test/oracle/family-conformance.json.
+      #
+      # Two questions about the same reflow, and #1218 is why both are gates: it
+      # shipped a square tier that was inert for its entire life with every other
+      # check green, plus three rules that silently started clipping. A blessed
+      # record that no scheduled job ever evaluates is an assertion that rots.
       - name: Adaptive family tiers + overflow oracle
         id: families
         run: |
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
-          {
-            echo ''
-            echo '--- check:family-tiers ---'
-          } >> "$REPORT"
-          if npm run --silent check:family-tiers 2>&1 | tee -a "$REPORT"; then
-            echo "failed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "failed=true" >> "$GITHUB_OUTPUT"
-          fi
+          FAILED=false
+          for GATE in check:family-tiers check:family-conformance; do
+            {
+              echo ''
+              echo "--- $GATE ---"
+            } >> "$REPORT"
+            if ! npm run --silent "$GATE" 2>&1 | tee -a "$REPORT"; then
+              FAILED=true
+            fi
+          done
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
 
       # The `code-line-clipped` budgets are five numbers MEASURED in a browser
       # (lib/authoring/lint-core.js CODE_LINE_BUDGET). Their guard re-measures
@@ -113,14 +122,27 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # WHY NOT A BARE TAIL. This used to be `tail -n 40`, which worked only while the
+      # last gate in the report was also the noisiest thing in it. `check:family-conformance`
+      # prints a 33-row table, a legend and a per-rule shortfall listing before its verdict,
+      # so a `NEW CLIPS` line from the gate BEFORE it falls off the end — the one line a
+      # reader needs, dropped by the reporter. So: grep the failure markers the gates
+      # actually print and lead with those, then tail for context.
       - name: Job summary
         if: always()
         run: |
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            tail -n 40 "$GITHUB_WORKSPACE/integration-nightly-report.txt" || true
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|difference\(s\) from|^not ok |^--- ' \
+              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
             echo '```'
+            echo '<details><summary>Last 120 lines</summary>'
+            echo ''
+            echo '```'
+            tail -n 120 "$GITHUB_WORKSPACE/integration-nightly-report.txt" || true
+            echo '```'
+            echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload report
@@ -146,11 +168,19 @@ jobs:
           {
             echo "The nightly render-regression tier failed on \`main@${{ github.sha }}\`."
             echo ""
-            echo "Tail of the run (full log in the run's artifact):"
+            echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            tail -n 40 "$GITHUB_WORKSPACE/integration-nightly-report.txt" || true
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|difference\(s\) from|^not ok |^--- ' \
+              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
             echo '```'
+            echo ""
+            echo "<details><summary>Last 120 lines</summary>"
+            echo ""
+            echo '```'
+            tail -n 120 "$GITHUB_WORKSPACE/integration-nightly-report.txt" || true
+            echo '```'
+            echo "</details>"
             echo ""
             echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$BODY"

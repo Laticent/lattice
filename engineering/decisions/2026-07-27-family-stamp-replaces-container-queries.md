@@ -268,16 +268,20 @@ DERIVED instead —
 
     npm run check:family-conformance
 
-— which renders one sweep per @size (the same five the clip oracle already needs, so
-the render budget the issue asked for is zero extra) and reads the resulting DOM. Per
-(component × @size) it answers two questions the probe could only answer for three
-components: did a `[data-family]` rule naming this component MATCH, and did anything it
-declares COMPUTE differently from the same element in the `wide` render? The record is
-`test/oracle/family-conformance.json`, checked exactly in both directions — a tier being
-fixed has to move it as loudly as a tier going dead.
+— which renders one sweep per @size and reads the resulting DOM. Per (component × @size) it
+answers two questions the probe could only answer for three components: did a `[data-family]`
+rule naming this component MATCH, and did anything it declares COMPUTE differently from the
+same element with the stamp removed? The record is `test/oracle/family-conformance.json`,
+checked exactly in both directions — a tier being fixed has to move it as loudly as a tier
+going dead — and it runs **nightly** beside `check:family-tiers`, because a blessed record no
+scheduled job evaluates is exactly the assertion-that-rots this issue is about.
 
-**Result: 165 cells — 73 `fires`, 14 `partial`, 17 `no-effect`, 7 `unexercised`, 54 `n/a`,
-and zero `inert`.** No component ships a family rule whose target element is present and whose
+Each sweep carries **every gallery slide of every rostered component** — 321 slides, about ten
+seconds an @size — not one slide picked per component. That was tried, and the coverage section
+below records why it does not work.
+
+**Result: 165 cells — 70 `fires`, 54 `n/a`, zero `inert`, and 41 that fall short with the
+reason named.** No component ships a family rule whose target element is present and whose
 family predicate fails to reach it — which is the #1218 shape, *within the 33 components this
 pass covers*. It is not a claim about the catalog: 16 further components declare `adapt.mode:
 reflow` through the three mechanisms this pass cannot see, and a canonical-but-wrong family
@@ -298,16 +302,57 @@ verified by mutation:
    exclusively and were structurally invisible before.
 2. **Every rule earns its own green.** The verdict aggregates per-RULE facts, and `some()` let
    one live rule vote green for a dead sibling — I neutered one of `list`'s three family rules
-   and the cell stayed `fires`. `fires` now requires ALL matched rules to move something;
-   `partial:n/m` is the mixed case. Re-running that mutation now drifts four cells and exits 1.
+   and the cell stayed `fires`. `fires` now requires ALL of them to move something. Re-running
+   that mutation drifts four cells and exits 1.
 
-**What the corrected numbers show that the confounded ones hid:** 17 `no-effect` cells across
-five components — `cards-stack`, `content`, `pricing`, `stats`, `verdict-grid` — where a
-`[data-family]` rule is **redundant with a `[data-orientation]` rule on the same component**.
-`verdict-grid` is the clean example: line 116 sets `flex-direction: column` for tall/strip, and
-line 102 already sets it for `[data-orientation="portrait"]`. Both mechanisms shipped for one
-effect. That is real duplication worth collapsing, and the confounded instrument reported all
-five as `fires`.
+**The second version could not go red either, one level out — and the fix was to stop
+choosing.** With one slide per component, a rule scoped to a variant that slide did not carry
+never matched, and a matched sibling rule voted green for it. The attempted repair was to SCORE
+the candidates from the component's own selectors and render the winner. That is unanswerable:
+`q-and-a`'s family rules are scoped `.grid` while its first gallery slide is plain, and
+`list-steps`' are scoped `:not(.timeline)` while its first slide *is* the timeline one — but a
+component's promise for a family is the whole set of its rules, and one slide cannot exercise a
+set whose members disagree about which variant they want. Worse, the CLIP oracle rode the same
+picker, so scoring moved seven components off the HARD RULE #8-protected baseline deck onto
+galleries ordinary feature work edits, dropped four verified clips out of the record, and blessed
+four new ones — including `math`, whose hero equation runs 1884px off a portrait canvas with no
+split recourse (`enrolled: false`). Both were caught by the trio.
+
+So the two rosters were separated, which is what they always wanted:
+
+- **The clip oracle takes the FIRST candidate**, baseline-deck-first. It asks "does the slide an
+  author is most likely to write overflow", and its virtue is *stability* under unrelated edits.
+- **The conformance pass takes ALL of them.** Rendering 321 slides instead of 33 costs ten
+  seconds an @size, which is nothing on a nightly, and the judgement call disappears.
+
+`unexercised` recovers its real meaning under the full sweep — *no gallery slide anywhere
+carries what this rule targets* — and the denominator became every rule the component ships for
+that family rather than only the ones that matched, because excusing an unmatched rule is how a
+cell read `fires` while 4 of `kanban`'s 7 tall rules had never been tested. Both rosters are
+pinned by `test/unit/tools/family-conformance.test.js`, which goes red on either mutation
+(one-slide-per-component; clip roster picking any candidate but the first).
+
+**What the corrected numbers show that the confounded ones hid.** Every shortfall is printed
+with its selector, so the record is a work list rather than a score. Three groups are worth a
+human, all pre-existing, all off this change's path and logged here rather than pulled into it
+(#8, #17):
+
+- **`no-effect` — a `[data-family]` rule redundant with a `[data-orientation]` rule on the same
+  component**, across `cards-stack`, `content`, `pricing`, `stats`, `verdict-grid`.
+  `verdict-grid` is the clean example: line 116 sets `flex-direction: column` for tall/strip,
+  and line 102 already sets it for `[data-orientation="portrait"]`. Two mechanisms shipped for
+  one effect. The confounded instrument reported all five as `fires`.
+- **`unexercised` — a rule no gallery slide reaches.** `compare-code`'s
+  `:not(:has(.code-cols))` pair (every compare-code gallery slide has two code blocks, so the
+  single-block form is never rendered), `progress`'s `.progress-note`, and
+  `timeline-list`'s `.timeline-spine::before`. These are gaps in the galleries, not defects in
+  the components.
+- **Out of the instrument's reach, and labeled as such.** Four of `kanban`'s seven tall rules
+  are scoped `.lat-split-native`, a marker `lib/core/auto-split.js` adds — and these sweeps
+  render `--no-split` deliberately, to measure the un-split terminal of the Fit Ladder. No slide
+  can be added to fix that. The report flags those selectors explicitly rather than reporting
+  them with the same words as a gallery gap, because pointing a reader at a missing slide that
+  cannot exist is worse than saying nothing.
 
 The honest limit of the pass: it proves a tier FIRES and CHANGES something. It cannot
 judge whether what it changed is *good* — that is the visual review's job, and no

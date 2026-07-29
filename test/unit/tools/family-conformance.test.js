@@ -1,24 +1,36 @@
 /**
- * Unit: `descopeFamily` — the one piece of the family-tier conformance pass that is pure,
- * and the piece that decides whether the pass measures anything at all.
+ * Unit: the two pieces of the family-tier sweep that decide WHAT gets measured, and are pure
+ * enough to pin without a browser — the ROSTER builders (`clipDeck`, `conformanceDeck`) and
+ * `descopeFamily`.
  *
- * The conformance pass (`tools/check-family-tiers.js --conformance`) answers, per
- * (component × @size), whether a `[data-family]` rule MATCHED and whether it CHANGED a
- * computed value. The second half needs a baseline: the same element, in the `wide`
- * render, where no family rule can apply. `descopeFamily` produces the selector that
- * finds it — the component's own selector with the family predicate stripped off.
+ * `tools/check-family-tiers.js` derives two committed records: `family-overflow.json` (does
+ * each component's gallery slide clip at each @size) and `family-conformance.json` (does each
+ * `[data-family]` rule actually do anything). Both are only as honest as the slides they are
+ * derived from, so the slide choice is not an implementation detail — it is the assumption
+ * every cell in both records rests on.
  *
- * WHY THIS IS PINNED. The first cut of the pass had no de-scoping, and compared the
- * family-scoped selector's matches at `tall` against its matches at `wide`. At `wide` the
- * section carries no `data-family` attribute at all, so that selector matches NOTHING —
- * every property therefore read as "different from a baseline that does not exist", and
- * all 33 components reported `fires`. A green that could not have gone red. Caught by
- * prototyping the pass against a real render before trusting its output, and this file is
- * the guard so it cannot come back.
+ * WHY EACH ONE IS PINNED, since a test whose reason is forgotten gets deleted:
  *
- * `descopeFamily` is not exported (the tool is a script, not a module), so the source is
- * read and the function extracted. That is deliberate: exporting it would mean loading a
- * file whose module scope launches a browser and renders five decks.
+ *  - The two records want DIFFERENT rosters, and a cut that made them share one cost real
+ *    accuracy in both directions. The clip record wants the slide an author is most likely to
+ *    write, held stable; the conformance record wants every slide a rule could reach. Pointing
+ *    the clip roster at "the slide that exercises the reflow" moved seven components off the
+ *    HARD RULE #8-protected baseline deck onto galleries ordinary feature work edits, dropped
+ *    four verified clips from the record, and blessed four new ones.
+ *  - Picking ONE slide per component for conformance cannot answer the conformance question.
+ *    `q-and-a`'s family rules are scoped `.grid` and its first slide is plain; `list-steps`'
+ *    are scoped `:not(.timeline)` and its first slide IS the timeline one. With one slide those
+ *    rules read as facts about the component when they were gaps in the instrument.
+ *  - `descopeFamily` is the baseline half of the effect test. The first cut of the pass had no
+ *    de-scoping and compared the family-scoped selector's matches at `tall` against its matches
+ *    at `wide` — where the section carries no `data-family` at all, so it matched NOTHING, every
+ *    property read as "different from a baseline that does not exist", and all 33 components
+ *    reported `fires`. A green that could not have gone red.
+ *
+ * The tool is required directly: its CLI entry points are guarded by `require.main === module`,
+ * so importing it costs a parse and starts no browser. An earlier version of this file lifted
+ * the function out of the source with `new Function`, which would have gone on passing against
+ * nothing the day it was renamed.
  */
 
 const { test, describe } = require('node:test');
@@ -26,22 +38,91 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'tools', 'check-family-tiers.js'), 'utf8');
+const {
+  classTokens, galleryCandidates, clipDeck, conformanceDeck, descopeFamily, SPLIT_ONLY_MARKER,
+} = require('../../../tools/check-family-tiers.js');
 
-// Lift the function out by source. If it is renamed or removed, this throws with a clear
-// message rather than silently testing nothing.
-const descopeFamily = (() => {
-  const at = SRC.indexOf('function descopeFamily(');
-  assert.ok(at > 0, 'descopeFamily is gone from tools/check-family-tiers.js — the conformance pass cannot measure effect without it');
-  // Balance braces from the function head to its close.
-  let depth = 0, end = at;
-  for (let i = SRC.indexOf('{', at); i < SRC.length; i++) {
-    if (SRC[i] === '{') depth++;
-    else if (SRC[i] === '}') { depth--; if (!depth) { end = i + 1; break; } }
-  }
-  // eslint-disable-next-line no-new-func
-  return new Function(`${SRC.slice(at, end)}; return descopeFamily;`)();
-})();
+const sig = (x) => [...x.tokens].sort().join('.');
+
+describe('tools: the sweep rosters — what the two records are derived from', () => {
+  test('classTokens reads `_class:` by VALUE, so `list` cannot claim a `list-tabular` slide', () => {
+    const t = classTokens('<!-- _class: list-tabular compact -->\n\n# x');
+    assert.deepEqual([...t].sort(), ['compact', 'list-tabular']);
+    assert.ok(!t.has('list'), 'a substring match would let `list` claim this slide');
+  });
+
+  test('clipDeck takes the FIRST candidate — one slide per component, baseline deck first', () => {
+    const comps = ['decision', 'premise'];
+    const deck = clipDeck('portrait', comps);
+    assert.equal(deck.slides.length, comps.length, 'exactly one slide per component');
+    deck.slides.forEach((s, i) => { assert.deepEqual(s.comps, [comps[i]], 'in roster order, one component each'); });
+    for (const c of comps) {
+      const first = galleryCandidates(c)[0];
+      const mine = deck.slides.find((s) => s.comps[0] === c);
+      assert.equal(mine.body, first.body,
+        `${c}'s clip slide must be its first candidate. galleryCandidates orders the shared baseline `
+        + 'deck first because HARD RULE #8 keeps feature work out of it, which is what makes the clip '
+        + 'record stable across unrelated edits. Scoring a "better" slide here re-breaks that.');
+    }
+  });
+
+  test('clipDeck fails loudly for a component with no gallery slide anywhere', () => {
+    // Silently skipping is how the record came to claim 34 components while rendering 31.
+    assert.throws(() => clipDeck('portrait', ['no-such-component-xyz']), /no slide to render/);
+  });
+
+  test('conformanceDeck carries EVERY candidate, not one — the variant the rule is scoped to', () => {
+    // The two cases that were live defects. `q-and-a` needs a `.grid` slide AND a plain one;
+    // `list-steps` needs a non-`.timeline` slide even though its FIRST slide is the timeline.
+    const deck = conformanceDeck('portrait', ['q-and-a', 'list-steps']);
+    const sigsOf = (c) => deck.slides.filter((s) => s.comps.includes(c))
+      .map((s) => sig({ tokens: classTokens(s.body) }));
+
+    const qa = sigsOf('q-and-a');
+    assert.ok(qa.some((s) => s.split('.').includes('grid')),
+      'q-and-a family rules are scoped `.grid`; without a `.grid` slide they cannot be exercised');
+    assert.ok(qa.some((s) => !s.split('.').includes('grid')), 'and the plain form must still be swept');
+
+    const ls = sigsOf('list-steps');
+    assert.ok(ls.some((s) => !s.split('.').includes('timeline')),
+      'list-steps family rules are scoped `:not(.timeline)`, and its FIRST gallery slide IS the '
+      + 'timeline one — so a one-slide roster tests the single slide the rule excludes');
+
+    for (const c of ['q-and-a', 'list-steps']) {
+      assert.equal(deck.slides.filter((s) => s.comps.includes(c)).length, galleryCandidates(c).length,
+        `every one of ${c}'s gallery slides must be in the conformance sweep`);
+    }
+  });
+
+  test('conformanceDeck renders a shared slide ONCE and attributes it to both components', () => {
+    // The baseline deck's `_class: compare-prose decision` slide is one page serving two
+    // components. Rendering it twice would measure the same pixels twice and inflate the deck.
+    const deck = conformanceDeck('portrait', ['compare-prose', 'decision']);
+    assert.equal(new Set(deck.slides.map((s) => s.body)).size, deck.slides.length, 'no duplicate bodies');
+    const shared = deck.slides.filter((s) => s.comps.length > 1);
+    assert.ok(shared.length, 'the compare-prose/decision slide should be attributed to both');
+    for (const s of shared) assert.deepEqual([...s.comps].sort(), ['compare-prose', 'decision']);
+  });
+
+  test('both decks declare the requested @size, and neither opts into splitting', () => {
+    // The sweeps measure the UN-SPLIT terminal of the Fit Ladder on purpose; splitting is
+    // suppressed with the emulator's `--no-split` flag at the call site, so a split directive
+    // creeping into the deck source would silently start measuring something else.
+    for (const deck of [clipDeck('story', ['decision']), conformanceDeck('story', ['decision'])]) {
+      assert.match(deck.src, /^---\nmarp: true\ntheme: indaco\nsize: story\npaginate: true\n---\n/);
+      assert.ok(!/autosplit/i.test(deck.src), 'the sweep deck must not carry a split directive');
+    }
+  });
+
+  test('SPLIT_ONLY_MARKER recognizes the markers only the splitter emits', () => {
+    // Four of kanban's seven tall rules are scoped `.lat-split-native`, which `lib/core/auto-split.js`
+    // adds — and these decks render `--no-split`. That is a REACH limit of the instrument, not a
+    // gap in the galleries, and the report must not describe it with the same words.
+    assert.ok(SPLIT_ONLY_MARKER.test('section.kanban.lat-split-native:where([data-family="tall"]) .kanban-board'));
+    assert.ok(SPLIT_ONLY_MARKER.test('section[data-split-role="body"]:where([data-family="tall"])'));
+    assert.ok(!SPLIT_ONLY_MARKER.test('section.q-and-a.grid:where([data-family="tall"]) > .cell-stage'));
+  });
+});
 
 describe('tools: descopeFamily — the wide-baseline selector', () => {
   test('strips the house `:where([data-family=…])` idiom, including a multi-family list', () => {

@@ -3741,21 +3741,33 @@ in patch versions.
   the stamp **from that same render** moves a property each one declares — same element, same
   viewport, rule on vs rule off. Frozen in `test/oracle/family-conformance.json`, compared
   exactly in both directions, with a floor sentinel so a broken rule-read cannot be blessed into
-  an all-`n/a` record that is green forever.
-  **165 cells: 73 `fires`, 14 `partial`, 17 `no-effect`, 7 `unexercised`, 54 `n/a`, zero `inert`.**
-  The useful finding is the 17 `no-effect`: across `cards-stack`, `content`, `pricing`, `stats`
-  and `verdict-grid`, a `[data-family]` rule duplicates a `[data-orientation]` rule on the same
-  component — two mechanisms shipped for one effect.
+  an all-`n/a` record that is green forever. It runs nightly beside `check:family-tiers` — a
+  blessed record no scheduled job evaluates is an assertion that rots, which is the defect this
+  whole issue is about.
+  **165 cells: 70 `fires`, 54 `n/a`, zero `inert`, and 41 cells that fall short with the reason
+  named** — `n/m` plus tags, where the denominator is every rule the component ships for that
+  family, not just the ones that happened to match. Each shortfall is printed with its selector,
+  so `kanban: 3/7 unexercised:4` is something to act on rather than a number to scroll past.
+  Two findings worth a human: a `[data-family]` rule duplicating a `[data-orientation]` rule on
+  the same component (`cards-stack`, `content`, `pricing`, `stats`, `verdict-grid` — two
+  mechanisms shipped for one effect), and `compare-code`'s `:not(:has(.code-cols))` pair, which
+  no gallery slide exercises at all.
   **Scope, stated because the headline invites overreading:** this covers the 33 components with
   `[data-family]` CSS, one of the four reflow mechanisms the reflow ADR names. It proves a tier
-  fires and changes something; it cannot judge whether what changed is any good. It is an
-  on-demand diagnostic, not a CI gate — nothing runs it on a schedule.
-  *Its first cut could not go red.* It compared against the `hd` render, where every
-  `--canvas-scale`/`cqi` length differs for reasons unrelated to the family predicate — 87 of 101
-  greens rested on one — and it took `some()` across a component's rules, letting one live rule
-  vote green for a dead sibling. Both were found by adversarial review and both are fixed and
-  mutation-verified: neutering one of `list`'s three family rules now drifts four cells and
-  exits 1, where before it passed silently.
+  fires and changes something; it cannot judge whether what changed is any good. And it renders
+  `--no-split` on purpose, so a rule scoped to a marker the splitter emits — four of `kanban`'s
+  seven tall rules — is out of its reach entirely; the report says so rather than filing it as a
+  gallery gap.
+  *Two earlier cuts could not go red, and both are worth recording.* The first compared against
+  the `hd` render, where every `--canvas-scale`/`cqi` length differs for reasons unrelated to the
+  family predicate — 87 of 101 greens rested on one — and took `some()` across a component's
+  rules, letting one live rule vote green for a dead sibling. The second rendered ONE slide per
+  component and tried to SCORE which one, from the component's own selectors. That is
+  unanswerable from one slide: `q-and-a`'s family rules are scoped `.grid` while its first
+  gallery slide is plain, and `list-steps`' are scoped `:not(.timeline)` while its first slide
+  IS the timeline one. Sweeping every gallery slide instead costs ten seconds an `@size` and
+  removes the judgement call — 321 slides rather than 33, `unexercised` restored to meaning "no
+  slide anywhere carries this", and the roster pinned by unit tests that fail on both mutations.
 
 
 - **Lint coverage is gated by effect, not by config syntax** — `npm run lint:coverage`
@@ -3821,6 +3833,35 @@ in patch versions.
   members ride a page once the measured pass has ordered a cut.
 
 ### Changed
+
+- **word-cloud and radar small-multiples follow the piechart's portrait + container-fill model.**
+  Two behaviors the pie has had since #598 and these two did not. (a) **Key below at portrait.**
+  word-cloud's `size = frequency` key moves from a side rail to a band UNDER the cloud, with the
+  horizontal accent rule and a left→right A-ramp — `svg-legend.js buildPortrait`'s model, threaded
+  through `ctx.orientation` the way roadmap already does. In a tall box the scarce axis is width, so
+  a rail squeezed the cloud AND cramped the key; the cloud now packs the full width against a taller
+  portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
+  (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
+  before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
+  context, pinning it to `85.9375cqi × 25cqi`. The svg box now fills 88.9% × 87.2% of its chart
+  body, matching the piechart — though the box was already 88.9% wide, so only the height fill
+  changed and the LANDSCAPE drawing is the same size as before. The real gain is portrait, where the
+  cloud's word ink goes **5% → 25%** of the body (biggest word 89px → 134px), which needed the word
+  sizes scaled with the taller canvas — enlarging the canvas alone bought emptier canvas.
+  radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`) that
+  divides the body on both axes: portrait fill goes **23% → 43%** at six series. Landscape is
+  deliberately unchanged — four minis already fill the row width, and square tiles in a 2.4:1 body
+  cannot do better. The grid also repairs a **pre-existing** defect: across a 36-case sweep the
+  baseline tree clipped 12 (every 5–8-series deck with a below-note, and all 9-series decks, by up to
+  150px); the tip clips none. Trade to know about: the mini's diagram is no longer a fixed physical
+  size (351.6px at 1–2 series, 188.1px at four, 78.6px at nine with a note) and nothing enforces a
+  legibility floor at the top of that range.
+
+  A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
+  chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
+  them — measured **607.8px against a 449.1px stage, clipping 115.8px of chart off the top**. The grid
+  gives every cell the same width whatever row it lands in, and `1fr` rows split the height, so the
+  same deck now fits with 130px to spare.
 
 - **`capacity-overflow` lint is un-retired, and now fires exactly where nothing will be
   split**: at a landscape `@size`, where the SPLIT move does not run. Its fix text names the
