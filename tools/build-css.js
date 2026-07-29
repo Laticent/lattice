@@ -44,6 +44,30 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { minifyCss } = require('./minify-css');
+// Leading-`:is()` distribution, applied to EVERY stylesheet dist/ ships.
+//
+// Marpit-family scopers (marp-core, and our own port in lib/engine/css.js) key
+// on a selector's leftmost compound: a literal leading `section` IS the slide,
+// anything else becomes a slide DESCENDANT. Lattice's dual-surface chart head
+// `:is(section.x, figure.x)` is not a literal `section`, so marp-core scopes it
+// to a slide-inside-a-slide and it matches NOTHING — 617 rules in dist/lattice.css,
+// the entire chart bucket (roadmap, gantt, radar, quadrant, matrix-grid, kanban,
+// progress, timeline-list, word-cloud, funnel, piechart, map, chart-frame).
+//
+// #1259 shipped this rewrite at EXPORT time only, which left the manual
+// marp-vscode recipe — `markdown.marp.themes` pointing straight at
+// dist/lattice.css, the repo's own .vscode/settings.json included — still
+// broken: every non-chart component worked, every chart rendered unstyled.
+// Distributing here fixes that recipe at the source and makes the export-time
+// pass an idempotent no-op.
+//
+// Safe for every other consumer: the arms in this corpus are all equal
+// specificity (`section.x` / `figure.x` are both (0,1,1); `section` / `figure`
+// both (0,0,1)), so the distributed form is cascade-identical; lib/engine/css.js
+// already distributes at pack time, so pre-distributed input changes nothing
+// there; and un-scoped users (the docs `<figure>` surface, a plain `<link>`) see
+// an equivalent selector list.
+const { distributeLeadingIs } = require('../lib/core/leading-is');
 const { typographyTokensCss } = require('../lib/typography/emit');
 const { TEXT_FACES } = require('../lib/fonts/text-faces');
 
@@ -76,7 +100,7 @@ function buildThemes() {
   for (const file of fs.readdirSync(THEMES_SRC).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    const src = fs.readFileSync(path.join(THEMES_SRC, file), 'utf8');
+    const src = distributeLeadingIs(fs.readFileSync(path.join(THEMES_SRC, file), 'utf8'));
     out[`${name}.min.css`] = minifyCss(src, themeMinBanner(name)) + '\n';
   }
   return out;
@@ -554,7 +578,10 @@ function bundle() {
     parts.push('/* === generated: Form per-family slicing (frame manifests `slicing`) === */');
     parts.push(slicing);
   }
-  return parts.join('\n');
+  // Distribute leading `:is()` LAST, over the assembled bundle — so `bundle()`
+  // is the single definition of what dist/lattice.css should contain, which is
+  // what the freshness gate (test/unit/cli/build-css.test.js) compares against.
+  return distributeLeadingIs(parts.join('\n'));
 }
 
 function main(argv) {

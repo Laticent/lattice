@@ -300,6 +300,21 @@ in patch versions.
 
 ### Fixed
 
+- **Charts rendered unstyled in the Marp VS Code preview — the `:is(section…)` distribution now
+  runs at BUILD time, not just at export.** The previous fix rewrote only the stylesheet copied
+  INTO an exported bundle, which left the manual marp-vscode recipe untouched: point
+  `markdown.marp.themes` straight at `dist/lattice.css` (as this repo's own `.vscode/settings.json`
+  does) and 617 rules were still dead to marp-core's selector scoper — the entire chart bucket
+  (roadmap, gantt, radar, quadrant, matrix-grid, kanban, progress, timeline-list, word-cloud,
+  funnel, piechart, map, chart-frame). Every other component leads with a literal `section.X` and
+  scoped fine, so the symptom read as "only the charts are broken." `tools/build-css.js` now pipes
+  the assembled bundle through `distributeLeadingIs`, so `lattice.css`, `lattice.min.css`, the
+  `lattice-default` pair and `dist/themes/*` all ship scopable; the export-time pass is now an
+  idempotent no-op. Source keeps the readable dual-surface head — only the artifact is rewritten.
+  The scan also became comment-aware, which fixed a second miss (a rule sitting directly after a
+  doc comment wasn't at a recognized rule boundary, so 151 survived the first pass) and removes the
+  risk of reflowing comment prose that merely discusses `:is(…)`.
+
 - **Export to Marp produced a broken deck — four defects, all fixed.** Exporting
   `examples/bloom-engineering-journey.md` and rendering the bundle with marp-cli showed the
   scale of it: split panels flattened into raw markdown, the matrix grid printed literal
