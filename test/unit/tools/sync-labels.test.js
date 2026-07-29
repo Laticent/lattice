@@ -71,7 +71,7 @@ describe('committed .github/labels.json', () => {
       ['status:backlog', 'status:in-progress', 'status:ready', 'status:review'],
     );
   });
-  test('model set collapsed to opus — tiering was retired (2026-07-28)', () => {
-    assert.deepEqual(names.filter((n) => n.startsWith('model:')).sort(), ['model:opus']);
+  test('no model axis — card-level model tiering was retired (2026-07-28)', () => {
+    assert.deepEqual(names.filter((n) => n.startsWith('model:')), []);
   });
 });

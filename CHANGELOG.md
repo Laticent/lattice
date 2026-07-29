@@ -181,10 +181,15 @@ in patch versions.
   because a policy that relies on inheriting the session's model is an accident of the
   current `/model` setting rather than a property of the repo. `effort` is untouched and
   is now the only cost lever: spend less by spawning fewer agents at the right effort,
-  never by a cheaper model. Card labels collapse with it — `model:haiku` and
-  `model:sonnet` leave `.github/labels.json` and the work-item form, leaving `model:opus`
-  as a single-valued, advisory axis (`sync-labels` is add-only, so retired labels linger
-  on existing cards until cleared by hand). Rationale and what would have to be true to
+  never by a cheaper model. **The card-level `model:*` axis is deleted outright**, not
+  collapsed: a single-valued label carries no information, so `.github/labels.json` loses
+  the namespace entirely, the work-item form loses its Model dropdown, and
+  `issue-form.js` / `apply-form-labels.yml` stop parsing and applying it.
+  (`sync-labels` is add-only and never deletes, so cards still carrying a `model:*` label
+  keep it until cleared by hand — nothing reads them.) A stale
+  `chat.planAgent.defaultModel: "Claude Sonnet 4.6"` in `.vscode/settings.json` — the one
+  committed setting still naming a non-Opus model for an agent surface — is removed with
+  it. Rationale and what would have to be true to
   revisit it: `engineering/decisions/2026-07-28-model-tiering-retirement.md`.
 
 - **Fixed in the same change — the #27 gate could be defeated by an override the runtime

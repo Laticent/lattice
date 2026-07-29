@@ -14,7 +14,7 @@ const path = require('node:path');
 const { parseForm } = require(path.join(__dirname, '..', '..', '..', '.github', 'scripts', 'issue-form.js'));
 
 // A representative rendered work-item form body.
-const form = ({ swimlane = 'decisions/x.md', acceptance = 'tests pass', area = 'area:chart', model = 'model:opus', notes = '_No response_' } = {}) =>
+const form = ({ swimlane = 'decisions/x.md', acceptance = 'tests pass', area = 'area:chart', notes = '_No response_' } = {}) =>
   [
     '### Summary', '', 'Do the thing', '',
     '### ★ Swimlane / governing decision doc', '', swimlane, '',
@@ -22,7 +22,6 @@ const form = ({ swimlane = 'decisions/x.md', acceptance = 'tests pass', area = '
     '### Area', '', area, '',
     '### Type', '', 'type:feat', '',
     '### Priority', '', 'priority:high', '',
-    '### Model', '', model, '',
     '### Notes / context', '', notes,
   ].join('\n');
 
@@ -35,13 +34,9 @@ describe('parseForm — happy path', () => {
     assert.equal(f.area, 'area:chart');
     assert.equal(f.type, 'type:feat');
     assert.equal(f.priority, 'priority:high');
-    assert.equal(f.model, 'model:opus');
   });
   test('maps _No response_ to empty', () => {
     assert.equal(parseForm(form()).notes, '');
-  });
-  test('the advisory Model axis is optional — a blank pick maps to empty', () => {
-    assert.equal(parseForm(form({ model: '_No response_' })).model, '');
   });
 });
 

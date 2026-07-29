@@ -625,10 +625,9 @@ brain, issues are the hands.** This section is the operational how-to.
 
 ### Labels — the taxonomy (`.github/labels.json`)
 
-Four **required** namespaced dimensions plus one **advisory** one (`model:`,
-below), applied as code. Edit `.github/labels.json`; the **Sync labels** workflow
-upserts them on merge (or run `npm run sync:labels` locally with `gh` auth to
-bootstrap a repo).
+Four **required** namespaced dimensions, applied as code. Edit
+`.github/labels.json`; the **Sync labels** workflow upserts them on merge (or run
+`npm run sync:labels` locally with `gh` auth to bootstrap a repo).
 
 - `area:*` — the 12 buckets + cross-cutting (`engine`, `theming`, `docs`,
   `infra`, `website`). Doubles as the **swimlane** grouping.
@@ -636,9 +635,6 @@ bootstrap a repo).
 - `priority:*` — `critical | high | medium | low` (words, **not** `pN` — bare
   `P0`–`P4` already mean marp-program *phase*/severity here).
 - `status:*` — the board state machine, below.
-- `model:*` — `opus`, the only tier this repo uses. *Advisory, not gated* — the
-  intake gate never flags a card for lacking it. Rubric below (§ Model
-  recommendation).
 - `needs:triage` — a **process flag**, not a dimension: the intake gate
   (below) sets it when a required axis is missing and clears it once complete.
   Filtering the board on a non-empty `needs:triage` is the "unlabelled intake"
@@ -646,37 +642,8 @@ bootstrap a repo).
 
 New cards filed via the work-item form get `status:backlog` from the template;
 the **Apply work-item form labels** workflow then applies the selected
-`area:`/`type:`/`priority:` (and `model:` if picked — a GitHub form doesn't turn
-dropdown picks into labels on its own). It's add-only — re-triage stays a human
-call.
-
-### Model recommendation — `model:opus`, and nothing else
-
-**Every card is worked on Opus.** `model:opus` is the only model label left, and
-it is a statement of policy rather than a choice to make per card.
-
-This axis used to be a four-way then three-way pick (`model:haiku` /
-`model:fable` / `model:sonnet` / `model:opus`), letting a triager route a card
-to the cheapest tier that plausibly fit. That experiment is over: tiering was
-tried across both cards and subagents and retired, because the work in this repo
-needs the whole cascade / token / HARD-RULE picture in context to be *correct*
-rather than merely plausible, and a downshifted pass fails in the direction the
-gates cannot catch. The full record is
-`engineering/decisions/2026-07-28-model-tiering-retirement.md`.
-
-Practically, that means: the label is still the fifth axis in the work-item form
-and the applier still materializes the pick, but there is one option, it stays
-**advisory** (the triage gate never requires it), and a card without it loses
-nothing. `model:haiku` and `model:sonnet` are retired from `.github/labels.json`
-and the form. `sync-labels` is add-only and never deletes, so any card still
-carrying a retired label keeps it until someone clears it by hand — harmless,
-since the label no longer routes anything.
-
-**Same policy, one scale down: `engineering/model-policy.md`** (HARD RULE #27)
-covers the individual **subagents** spawned while working a card, where this
-section covers the **card**. Both say Opus; that is the whole rubric now. A
-change to either that reintroduces a tier is a coordinated change to both, plus
-the gate — see that doc's § If a tier is ever added back.
+`area:`/`type:`/`priority:` (a GitHub form doesn't turn dropdown picks into
+labels on its own). It's add-only — re-triage stays a human call.
 
 ### Intake floor — enforced on every path
 
@@ -707,8 +674,7 @@ perf-nightly watch tags its tracking issue
 on the gate; it's the backstop, not the front door. When you open an issue via
 the API/MCP/`gh`, set `area:`/`type:`/`priority:`/`status:backlog` (or file
 through the **Work item** form). The gate exists to catch a miss, not to excuse
-skipping the taxonomy. `model:opus` (§ Model recommendation) is optional and
-carries no routing information any more — add it or don't.
+skipping the taxonomy.
 
 ### Card lifecycle (the `status:` columns)
 

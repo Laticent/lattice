@@ -4,50 +4,24 @@
 the cheapest model that clears the bar?" It no longer asks that question.
 
 **Every agent this repo spawns runs on Opus. There is no tier ladder, no
-routing table, and no decision to make at spawn time.** The only model name
-this repo accepts anywhere — `.claude/agents/*.md` frontmatter, a workflow
-`agent()` option, a card label — is `opus`. The gate rejects every other value
-by name.
+routing table, and no decision to make at spawn time.** The only model name this
+repo accepts — `.claude/agents/**.md` frontmatter, a workflow `agent()` option —
+is `opus`. The gate rejects every other value by name.
 
----
+**Why, in one line:** a downshifted agent here fails in the expensive direction —
+well-formed, confident, wrong, and past every machine gate, because the gates
+check syntax and counts, not whether a map points at the right file. The saving
+was cents. The full record, including what was actually observed versus argued
+and the withdrawn routing table, is
+`engineering/decisions/2026-07-28-model-tiering-retirement.md` — it is not
+repeated here.
 
-## Why there is no ladder
-
-Model tiering was tried here deliberately and it failed. The reasoning that
-motivated it was sound in the abstract — lookup work billed at judgment prices
-is waste — but it did not survive contact with this codebase:
-
-- **Lattice has less genuine "lookup" work than the split assumed.** The tiering
-  doc divided tasks into *judgment* and *lookup* and routed the second half down.
-  In practice most questions here — "where does X live", "does this claim hold",
-  "why is this gate red" — require holding the cascade, the token system, the Fit
-  Spine, and a dozen HARD RULES in view at once to answer *correctly rather than
-  plausibly*. Much of what was filed as lookup was judgment wearing a
-  lookup-shaped prompt.
-
-  The residue is real but small: `inventory`'s zero-interpretation sweeps (count
-  the files matching a pattern, extract a field from every manifest) genuinely
-  are mechanical. The problem is that *deciding* a given task belongs in that
-  residue is itself the judgment call the split was supposed to eliminate — and
-  getting it wrong is silent. Keeping `inventory` as a **prompt** ("no
-  interpretation, exact output shape, never guess a criterion") while running it
-  on Opus keeps the useful half of that distinction and drops the half that
-  required a correct routing decision up front.
-- **The context demand is the binding constraint, not the token price.** A
-  useful sweep here pulls in the component manifests, the theme tokens, the
-  layout CSS, and the docs that govern them. The saving a smaller tier offers
-  is measured in cents; the cost of a confidently wrong answer that clears
-  every machine gate and lands in a doc or a merge is not.
-- **A downshifted agent fails in the expensive direction.** It returns
-  something well-formed and wrong. The gates catch syntax, counts, and
-  ownership — they do not catch a map that points at the wrong file or a
-  fact-check that confirms a claim it did not actually verify. The failure is
-  silent by construction, which is exactly the failure this repo is least
-  equipped to absorb.
-
-So the ladder is retired. Not narrowed, not re-tuned — retired. See
-`engineering/decisions/2026-07-28-model-tiering-retirement.md` for the full
-record, including what the tiering work built and why each piece came out.
+One clarification that IS policy rather than history: `inventory` still describes
+its work as having "no interpretation in it", and that residue is real. What did
+not survive is *deciding up front* that a given task belongs in it — that call is
+itself judgment, and getting it wrong is silent. So `inventory` keeps its
+**prompt** (exact output shape, never guess a criterion) and runs on Opus like
+everything else.
 
 ---
 

@@ -85,15 +85,6 @@ body:
         - "priority:low"
     validations:
       required: true
-  - type: dropdown
-    id: model
-    attributes:
-      label: Model
-      description: "Every card is worked on Opus — the only tier this repo uses (engineering/model-policy.md). Advisory and optional; leave blank if you like."
-      options:
-        - "model:opus"
-    validations:
-      required: false
   - type: textarea
     id: notes
     attributes:
