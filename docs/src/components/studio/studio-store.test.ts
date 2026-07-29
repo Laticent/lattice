@@ -24,6 +24,7 @@ import {
 	loadSource,
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
+	resolveTitle,
 	retitleSource,
 	saveActiveDeck,
 	saveChat,
@@ -185,6 +186,90 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 	it('round-trips: what titleFromSource reads is what retitleSource writes', () => {
 		const src = retitleSource('---\nsize: 16:9\n---\n\n# Old\n\nbody', 'Board Pack') ?? '';
 		expect(titleFromSource(src)).toBe('Board Pack');
+	});
+});
+
+describe('studio-store — the `title:` front-matter override (shelf name ≠ cover)', () => {
+	const COVER = '<!-- _class: title -->\n\n# Q4\n\nbody';
+	const OVERRIDDEN = `---\ntitle: Board pack — Q4 FY26 (final)\n---\n\n${COVER}`;
+
+	it('the override wins over the heading, and reports WHERE the title came from', () => {
+		expect(titleFromSource(OVERRIDDEN)).toBe('Board pack — Q4 FY26 (final)');
+		expect(resolveTitle(OVERRIDDEN)).toEqual({ text: 'Board pack — Q4 FY26 (final)', from: 'front-matter' });
+		// …and with no override the heading still wins, tagged as such.
+		expect(resolveTitle(COVER)).toEqual({ text: 'Q4', from: 'heading' });
+		expect(resolveTitle('no title anywhere')).toBeNull();
+	});
+
+	it('an EMPTY or whitespace-only `title:` is treated as absent — a stray key cannot blank the deck name', () => {
+		// The bare-key form parses to '' (front-matter.ts), the spaces form to '  '. Neither is a
+		// name, and preferring either would leave the deck listed under the index fallback with a
+		// perfectly good heading sitting right there.
+		expect(titleFromSource(`---\ntitle:\n---\n\n${COVER}`)).toBe('Q4');
+		expect(titleFromSource(`---\ntitle: "   "\n---\n\n${COVER}`)).toBe('Q4');
+		expect(resolveTitle(`---\ntitle:\n---\n\n${COVER}`)?.from).toBe('heading');
+	});
+
+	it('does NOT markdown-strip a front-matter title — nothing renders it, so the characters are literal', () => {
+		// The heading path strips `*_\`` because that text IS rendered markdown. Applying the same
+		// strip to a YAML scalar would silently rewrite a name the author typed.
+		expect(titleFromSource('---\ntitle: Q4_final_v2\n---\n\n# Cover\n')).toBe('Q4_final_v2');
+		expect(titleFromSource('---\ntitle: "*not emphasis*"\n---\n\n# Cover\n')).toBe('*not emphasis*');
+		// …while the heading path still strips, unchanged.
+		expect(titleFromSource('# **Q4** Wrap\n')).toBe('Q4 Wrap');
+	});
+
+	it('still caps the DISPLAY title at 60 chars — the switcher pill is the same pill', () => {
+		const long = 'Project Falcon — the FY26 operating plan and capital allocation review'; // 70
+		expect(titleFromSource(`---\ntitle: ${long}\n---\n\n# Cover\n`)).toHaveLength(60);
+		expect(resolveTitle(`---\ntitle: ${long}\n---\n\n# Cover\n`)?.text).toBe(long); // …raw is uncapped
+	});
+
+	it('Rename rewrites the OVERRIDE and leaves the cover slide alone', () => {
+		const out = retitleSource(OVERRIDDEN, 'Board pack — Q4 FY26 (v3)') ?? '';
+		expect(titleFromSource(out)).toBe('Board pack — Q4 FY26 (v3)');
+		expect(out).toContain('# Q4\n'); // the cover heading is untouched — the point of the override
+		expect(headingText(out)).toBe('Q4');
+	});
+
+	it('Rename still rewrites the HEADING when there is no override — it never CREATES one', () => {
+		const out = retitleSource(COVER, 'Q4 Wrap') ?? '';
+		expect(out).toBe('<!-- _class: title -->\n\n# Q4 Wrap\n\nbody');
+		expect(out).not.toContain('title:'); // renaming a plain deck must not silently grow front matter
+	});
+
+	it('a title containing quotes or a backslash round-trips through the front matter losslessly', () => {
+		// setFrontMatter quotes + escapes; unquote decodes. Without a real round-trip the
+		// backslashes compound on every rename (front-matter.ts documents this).
+		const tricky = 'The "final" final \\ pack';
+		let src = retitleSource(OVERRIDDEN, tricky) ?? '';
+		expect(resolveTitle(src)?.text).toBe(tricky);
+		src = retitleSource(src, tricky) ?? src; // …and again — no compounding
+		expect(resolveTitle(src)?.text).toBe(tricky);
+	});
+
+	it('a multi-line title cannot break out of the front-matter block', () => {
+		const out = retitleSource(OVERRIDDEN, 'A\n---\n\n# Injected') ?? '';
+		expect(resolveTitle(out)?.text).toBe('A --- # Injected');
+		// Exactly the two delimiters of the one block — no third `---` opening a slide.
+		expect(out.match(/^---$/gm)).toHaveLength(2);
+	});
+
+	it('the override drives the DECK LIST, not just the resolver', () => {
+		const deck = createDeck('Untitled deck');
+		saveSource(deck.id, `---\ntitle: Board pack — Q4\n---\n\n# Q4\n\nbody`);
+		expect(loadDeckList().find((d) => d.id === deck.id)?.title).toBe('Board pack — Q4');
+	});
+
+	it('the pre-paint MIRROR carries the override, so a reload does not flash the cover heading', () => {
+		// syncDerivedTitle is fed resolveTitle(src).text by the shell; the mirror is what
+		// studio.astro paints before hydration. Feeding it the heading would show "Q4" for a deck
+		// the author deliberately named something else, then snap on hydration.
+		const deck = createDeck('Untitled deck');
+		syncDerivedTitle(deck.id, resolveTitle(OVERRIDDEN)?.text ?? null);
+		const row = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]').find((e: { id: string }) => e.id === deck.id);
+		expect(row.derived).toBe('Board pack — Q4 FY26 (final)');
+		expect(row.title).toBe('Untitled deck'); // the creation label still stays put
 	});
 });
 

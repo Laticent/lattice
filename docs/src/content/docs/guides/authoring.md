@@ -247,6 +247,39 @@ validation** off in the Deck setup drawer (or write `validate: off` in front
 matter) — useful for a deck built on bespoke local classes the linter doesn't
 know. The choice lives in front matter, so it travels with the deck.
 
+## Naming the deck
+
+**A deck is named by its first heading.** Type `# Q4 Board Pack` onto the cover
+slide and that is what the deck is called everywhere the Studio names it — the
+deck switcher, the header, ⌘K, Share, and the `.md` / `.pdf` / `.lattice`
+filenames. There is no separate "deck name" field to keep in step, and no rename
+step: the name tracks as you type.
+
+Sometimes the right *shelf* name is not the right *cover*. "Board pack — Q4 FY26
+(final)" is what you want in the switcher and on the exported file; it is not
+what you want set in 90pt across the title slide. For that, set `title:` in front
+matter:
+
+```markdown
+---
+title: Board pack — Q4 FY26 (final)
+---
+
+<!-- _class: title -->
+
+# Q4
+```
+
+The switcher, Share, and the export filename read **Board pack — Q4 FY26
+(final)**; the cover slide still reads **Q4**. Precedence is `title:` → first
+heading → the name the deck was created under, so a deck with no `title:` behaves
+exactly as before. An empty `title:` is ignored rather than blanking the name.
+
+**Rename edits whichever of the two the name came from.** The Rename item in the
+deck menu rewrites the `title:` line on a deck that has one (leaving the cover
+slide alone) and the first heading on a deck that doesn't — and it says which
+before you commit. It never silently adds front matter to a deck that had none.
+
 ## Deck setup (front matter without the YAML)
 
 The Drawing Board's **Deck setup** drawer — the sliders button beside the

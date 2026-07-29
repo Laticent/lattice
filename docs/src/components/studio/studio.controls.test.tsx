@@ -107,6 +107,31 @@ describe('Studio — every top-bar control responds', () => {
 		prompt.mockRestore();
 	});
 
+	it('a `title:` override names the deck, and Rename aims at the override — not the cover slide', async () => {
+		// The whole point of the override is a shelf name the cover slide does not say. So the
+		// switcher must show the override, and Rename — which writes back — must target the
+		// override; rewriting the heading instead would look like Rename did nothing.
+		const user = setup();
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('---\ntitle: Board pack — Q4 FY26 (final)\n---\n\n<!-- _class: title -->\n\n# Q4\n\nbody');
+
+		// The switcher trigger carries the override, not the cover heading.
+		const trigger = await screen.findByRole('button', { name: /Board pack — Q4 FY26 \(final\)/ });
+		const prompt = vi.spyOn(window, 'prompt').mockImplementation(() => 'Board pack — Q4 FY26 (v3)');
+		await user.click(trigger);
+		await user.click(await screen.findByRole('menuitem', { name: /^Rename/ }));
+		// Prefilled with the RAW override, and the prompt says what it is about to rewrite.
+		expect(prompt).toHaveBeenCalledWith(expect.stringMatching(/front matter/), 'Board pack — Q4 FY26 (final)');
+
+		await waitFor(() => {
+			const src = screen.getByLabelText('Deck source').textContent ?? '';
+			expect(src).toContain('title: "Board pack — Q4 FY26 (v3)"');
+			expect(src).toContain('# Q4'); // the cover slide is untouched
+		});
+		prompt.mockRestore();
+	});
+
 	it('imports a deck from a .md file (title from its heading)', async () => {
 		const user = setup();
 		// Drive the hidden file input directly (a real <input type=file> change).

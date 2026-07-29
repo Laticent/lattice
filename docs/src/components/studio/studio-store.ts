@@ -1,5 +1,5 @@
 import { DECKS, deckSource, type StudioDeck } from './decks';
-import { frontMatterBlock, stripFrontMatter } from './front-matter';
+import { frontMatterBlock, getFrontMatter, setFrontMatter, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
@@ -47,15 +47,19 @@ function remove(key: string): void {
 }
 
 // ── The deck's title IS its first heading ──────────────────────────────────
-// A deck has ONE name and the deck itself carries it: the first heading in the
-// source. Everything that shows a deck title (the switcher, the header, ⌘K,
-// Share, the export filename) derives it from there, so typing a real `# Title`
+// A deck has ONE name and the deck itself carries it: the `title:` front-matter
+// override when the author set one, else the first heading in the source.
+// Everything that shows a deck title (the switcher, the header, ⌘K, Share, the
+// export filename) resolves it through `resolveTitle`, so typing a real `# Title`
 // renames the deck everywhere with no second step — the bug this closes was a
 // new deck staying "Untitled deck" in the switcher forever after its heading
-// changed. The stored index label is only a FALLBACK (a deck with no heading at
-// all) plus a mirror for the surfaces that read localStorage before the app
-// hydrates; `syncDerivedTitle` keeps that mirror fresh, and Rename rewrites the
-// heading via `retitleSource` rather than storing a name that disagrees with the slide.
+// changed — and a deck that needs a shelf name distinct from its cover says so in
+// one directive instead of writing that name onto the slide. The stored index
+// label is only a FALLBACK (a deck with neither override nor heading) plus a
+// mirror for the surfaces that read localStorage before the app hydrates;
+// `syncDerivedTitle` keeps that mirror fresh, and Rename rewrites whichever of the
+// two the title actually came from (`retitleSource`) rather than storing a name
+// that disagrees with the deck.
 
 /** How many chars of `line` are the line ITSELF, excluding a CRLF `\r`. Splicing must
  *  stop before that `\r`, or a rewrite would silently convert one line of a
@@ -115,22 +119,71 @@ export function headingText(source: string): string | null {
 	return scanFirstHeading(source)?.text ?? null;
 }
 
-/** Derive a deck title from its source — the first heading, else a fallback. The
- *  stripping and the 60-char cap are DISPLAY concerns; never write the result back into
- *  a deck (see headingText). */
-export function titleFromSource(source: string, fallback = 'Imported deck'): string {
-	return (scanFirstHeading(source)?.text ?? '').replace(/[`*_]/g, '').trim().slice(0, 60) || fallback;
+/** Where a deck's title actually lives — its `title:` front-matter override, or the first
+ *  heading. The distinction is load-bearing for the WRITE half (`retitleSource`) and for
+ *  display normalization, which differs between the two (see `titleFromSource`). */
+export type TitleOrigin = { text: string; from: 'front-matter' | 'heading' };
+
+/**
+ * The deck's title, RAW, plus WHERE it comes from — the resolver every other title
+ * function is built on. Precedence:
+ *
+ *   1. the `title:` front-matter override — a deliberate, deck-carried SHELF name
+ *   2. the first heading — the words on the cover slide
+ *   3. (the caller's fallback: the stored creation label)
+ *
+ * The override exists because a deck's shelf name and its cover are not always the same
+ * fact: "Board pack — Q4 FY26 (final)" is the right name in the switcher and the export
+ * filename, and the wrong words to put in 90pt on the title slide. Without it the only
+ * way to name the deck was to write that name onto the slide. `title:` is not a new key —
+ * `share-export` already reads it for the HTML `<title>` and the `.lattice` metadata — so
+ * this makes one existing directive authoritative rather than inventing a second home for
+ * the name. An EMPTY or whitespace-only `title:` is treated as absent, so a stray key
+ * can't blank the deck's name; it falls through to the heading.
+ */
+export function resolveTitle(source: string): TitleOrigin | null {
+	const override = getFrontMatter(source, 'title')?.trim();
+	if (override) return { text: override, from: 'front-matter' };
+	const h = scanFirstHeading(source);
+	return h ? { text: h.text, from: 'heading' } : null;
 }
 
-/** Rewrite the deck's first heading to `title`, preserving its level — the write half of
- *  `headingText`, used by Rename so a renamed deck's SLIDE says so too. Returns null when
- *  the deck has no heading to rewrite (the caller falls back to the stored index label).
- *  The title is flattened to one line: a newline in it would inject raw markdown —
- *  including a `---` slide break — into the deck. */
+/** Derive a deck title from its source — the `title:` override, else the first heading,
+ *  else a fallback. The stripping and the 60-char cap are DISPLAY concerns; never write
+ *  the result back into a deck (see resolveTitle / headingText). */
+export function titleFromSource(source: string, fallback = 'Imported deck'): string {
+	const t = resolveTitle(source);
+	if (!t) return fallback;
+	// Markdown is stripped ONLY from a heading. That text is rendered markdown, so a cover
+	// reading `# **Q4** Board Pack` must list as "Q4 Board Pack". A front-matter title is a
+	// plain YAML scalar — nothing renders it — so stripping there would eat the literal
+	// characters of a name the author typed, turning `Q4_final` into `Q4final`.
+	const display = t.from === 'heading' ? t.text.replace(/[`*_]/g, '') : t.text;
+	return display.trim().slice(0, 60) || fallback;
+}
+
+/**
+ * Rewrite the deck's title to `title` — the write half of `resolveTitle`, used by Rename
+ * so a renamed deck says so in the place its name actually comes from. **Rename edits
+ * whatever currently DETERMINES the title**: a deck carrying a `title:` override has its
+ * override rewritten (its cover slide is left alone — the whole point of having named the
+ * deck separately), and any other deck has its first heading rewritten, preserving the
+ * level. Returns null when there is nothing to write — a deck with no override and no
+ * heading — and the caller falls back to the stored index label.
+ *
+ * The title is flattened to one line for both targets, for two different reasons: in a
+ * heading a newline would inject raw markdown (including a `---` slide break), and in
+ * front matter it would break out of the `---` block entirely. Quoting/escaping of the
+ * front-matter value is `setFrontMatter`'s job.
+ */
 export function retitleSource(source: string, title: string): string | null {
-	const h = scanFirstHeading(source);
 	const t = title.replace(/\s+/g, ' ').replace(/^#+\s*/, '').trim();
-	if (!h || !t) return null;
+	if (!t) return null;
+	const cur = resolveTitle(source);
+	if (!cur) return null;
+	if (cur.from === 'front-matter') return setFrontMatter(source, 'title', t);
+	const h = scanFirstHeading(source);
+	if (!h) return null; // unreachable — `from: 'heading'` means the scan just found one
 	const src = String(source ?? '');
 	return `${src.slice(0, h.start)}${'#'.repeat(h.level)} ${t}${src.slice(h.end)}`;
 }
@@ -250,8 +303,9 @@ function canonicalSource(entry: IndexEntry): string {
 /**
  * Resolve the full deck list with each deck's CURRENT source (edited override,
  * else canonical). This is what the shell renders + switches between. Each title
- * is DERIVED from that source (its first heading), so the switcher can never
- * disagree with the slide; the index label is the fallback for a heading-less deck.
+ * is DERIVED from that source (its `title:` override, else its first heading), so
+ * the switcher can never disagree with what the deck itself says; the index label
+ * is the fallback for a deck carrying neither.
  */
 export function loadDeckList(): StudioDeck[] {
 	return loadIndex().map((e) => {
