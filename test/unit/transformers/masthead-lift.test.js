@@ -626,6 +626,39 @@ describe('masthead-lift — the stage cell (figure vs div), engine == web', () =
     }
   });
 
+  test('the figure name is escaped for an attribute, and cannot be broken out of', () => {
+    // The name goes into `aria-label="…"` by string concatenation on the engine path, so
+    // the escaping is the ONLY thing between a caption and the attribute. Tag-stripping
+    // is for readability and is defeatable by construction — it is not the guard.
+    const attack = 'Cap" onmouseover="alert(1)';
+    const { engine } = both(`<h2>T</h2><div class="chart-body">x</div><p class="chart-caption">${attack}</p>`);
+    assert.equal(engine.tag, 'figure');
+    assert.doesNotMatch(engine.out, /aria-label="[^"]*"[^>]*onmouseover/, 'no attribute breakout');
+    assert.match(engine.out, /aria-label="Cap&quot; onmouseover=&quot;alert\(1\)"/);
+  });
+
+  test('tag stripping runs to a FIXED POINT — one pass can be reconstituted', () => {
+    // `<scr<b>ipt>` survives a single `replace(/<[^>]*>/g, '')` as a usable fragment.
+    // Looping to stability is what makes the readability step non-load-bearing.
+    const { engine } = both(
+      '<h2>T</h2><div class="chart-body">x</div><p class="chart-caption">a<scr<b>ipt>b</p>',
+    );
+    const label = (engine.out.match(/aria-label="([^"]*)"/) || [])[1] || '';
+    assert.doesNotMatch(label, /<[a-zA-Z]/, `a raw tag survived into the label: ${label}`);
+  });
+
+  test('the label matches textContent semantics on BOTH paths', () => {
+    // The DOM mirror reads `textContent`, which joins across element boundaries. The
+    // string path must collapse tags to nothing for the same reason — replacing them with
+    // a space reads better in isolation and makes every marked-up caption announce
+    // differently on the two paths.
+    const marked = '<h2>T</h2><div class="chart-body">x</div>' +
+      '<p class="chart-caption"><strong>Source</strong> · <em>Linear</em>.</p>';
+    const { engine, web } = both(marked);
+    assert.equal(engine.label, 'Source · Linear.');
+    assert.equal(web.label, 'Source · Linear.');
+  });
+
   test('a caption nested inside content never promotes the stage', () => {
     const nested =
       '<h2>Rollout</h2><div class="chart-body"><p class="chart-caption">inner</p></div>';
