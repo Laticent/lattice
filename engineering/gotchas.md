@@ -1413,9 +1413,9 @@ logging them here — which is the standing caveat above, demonstrated.
 
 **Read this register with the CSP entry below in mind.** A mirror makes a
 transform work on the *runtime* route — the exported HTML, `npm run pdf`,
-`npm run html`. The marp-vscode PREVIEW pane executes no scripts at all, so a
-mirror does not make anything appear there. An empty table means "no gap logged
-for the runtime route", never "the preview is complete."
+`npm run html`. The marp-vscode PREVIEW pane is believed to execute no scripts,
+in which case a mirror does not make anything appear there. **Status of this claim: UNVERIFIED and contested.** It originates in this file's CSP entry below and has never been tested against a real VS Code. A field report (2026-07-29) describes structural components rendering correctly in the preview, which would require the runtime to execute. Do not treat either reading as settled; the safe advice is unchanged — render the bundle for anything you need to trust. An empty table
+means "no gap logged for the runtime route", never "the preview is complete.
 
 - **Removable when:** never fully — it's a living list, not a one-time
   migration. Individual rows retire if the underlying transform is dropped
@@ -1502,19 +1502,33 @@ for the runtime route", never "the preview is complete."
   marp-core emits `… > section :is(section.x, …)` — a slide nested inside a
   slide, which cannot exist. Roughly **835 rules** died this way. Same root
   cause as the `:where(:root)` entry above.
-- **Mitigation:** `lib/engine/css.js` distributes a leading `:is()` into its
-  arms before scoping, which is why the owned path was never affected. That
-  step now lives in the shared kernel `lib/core/leading-is.js`, and
-  `marpScopableCss` (`lib/core/marp-bundle.js`) applies it to every stylesheet
-  the Export-to-Marp bundle ships. `dist/lattice.min.css` is unchanged — the
-  distribution happens at export. `:where()` heads are deliberately NOT
-  rewritten: unwrapping them would change the zero specificity they're chosen
-  for, and distributing them wouldn't help.
+- **Mitigation:** the distribution runs at BUILD time —
+  `tools/build-css.js` `bundle()` pipes the assembled sheet through
+  `distributeLeadingIs` (`lib/core/leading-is.js`), so **every stylesheet dist/
+  ships is already scopable**: `lattice.css`, `lattice.min.css`, the
+  `lattice-default` pair, and `dist/themes/*`. `lib/engine/css.js` distributes
+  again at pack time (harmless — the pass is idempotent), and the
+  Export-to-Marp bundle's `marpScopableCss` is now a belt-and-braces no-op for
+  a current dist. Authors keep writing the readable dual-surface
+  `:is(section.x, figure.x)` head in source; only the artifact is rewritten.
+  **This started as an export-only rewrite and that was wrong** — it left the
+  manual marp-vscode recipe (`markdown.marp.themes` pointing straight at
+  `dist/lattice.css`, which is what this repo's own `.vscode/settings.json`
+  does) still carrying every dead rule. Measured against real marp-core: **835
+  dead selectors across 518 blocks**, of which 465 are `:is(section, figure)`
+  heads over MERMAID diagram internals and the rest are the chart bucket. Only
+  the chart half shows without a diagram on the slide — hence the misleading
+  "only the charts are broken" symptom. Gated by
+  `test/unit/core/shipped-css-marp-scopable.test.js`, which asserts the
+  ARTIFACT. `:where()` heads are deliberately NOT rewritten: unwrapping them
+  would change the zero specificity they're chosen for, and distributing them
+  wouldn't help.
 - **Triggered by:** Any engine CSS rule whose selector STARTS with
   `:is(section…)`. A mid-selector `:is()` is already in descendant position
   and scopes fine.
 - **Removable when:** marp-core distributes leading `:is()` itself.
-- **Commits:** #1256; engine-side fix predates it (the `--map-base` bug).
+- **Commits:** #1256 (export-only, incomplete) → #1259 follow-up (build-time,
+  every shipped stylesheet); engine-side fix predates both (the `--map-base` bug).
 
 ### marp-cli timeouts under load (60-90s on small fixtures)
 

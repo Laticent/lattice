@@ -300,6 +300,27 @@ in patch versions.
 
 ### Fixed
 
+- **Charts rendered unstyled in the Marp VS Code preview — the `:is(section…)` distribution now
+  runs at BUILD time, not just at export.** The previous fix rewrote only the stylesheet copied
+  INTO an exported bundle, which left the manual marp-vscode recipe untouched: point
+  `markdown.marp.themes` straight at `dist/lattice.css` (as this repo's own `.vscode/settings.json`
+  does) and every leading-`:is()` rule was still dead to marp-core's selector scoper — measured
+  against real marp-core, **835 dead selectors across 518 declaration blocks**, in two populations:
+  the chart bucket (roadmap, gantt, radar, quadrant, matrix-grid, kanban, progress, timeline-list,
+  word-cloud, funnel, piechart, map, chart-frame), and **465 `:is(section, figure)` selectors over
+  Mermaid diagram internals**. Only the first is visible without a diagram on the slide, which is
+  why this was first reported as "only the charts are broken" — that framing predated measuring the
+  second population and was wrong. `tools/build-css.js` now pipes
+  the assembled bundle through `distributeLeadingIs`, so `lattice.css`, `lattice.min.css`, the
+  `lattice-default` pair and `dist/themes/*` all ship scopable; the export-time pass is now an
+  idempotent no-op. Source keeps the readable dual-surface head — only the artifact is rewritten.
+  The scan also became comment-aware, which fixed a second miss (a rule sitting directly after a
+  doc comment wasn't at a recognized rule boundary, so 151 survived the first pass) and removes the
+  risk of reflowing comment prose that merely discusses `:is(…)`. **Blast radius worth stating:
+  the distributed form is larger — `dist/lattice.min.css` grows ~3.0% (546,666 → 563,221 bytes) and
+  ships that way to npm, the docs site, and every `<link>` consumer. Cascade-identical (every arm is
+  equal specificity — verified, 0 exceptions across 491 rules), but not free.
+
 - **Export to Marp produced a broken deck — four defects, all fixed.** Exporting
   `examples/bloom-engineering-journey.md` and rendering the bundle with marp-cli showed the
   scale of it: split panels flattened into raw markdown, the matrix grid printed literal
@@ -319,7 +340,8 @@ in patch versions.
   word-cloud) plus the shared `:is(section, figure)` Form layer. Our own engine has always
   distributed those arms before scoping (`lib/engine/css.js`); that step is now a shared kernel
   (`lib/core/leading-is.js`) and the export bakes it into the CSS it ships, since marp-core
-  cannot be patched. `dist/lattice.min.css` itself is unchanged for every other consumer.
+  cannot be patched. (This shipped as an export-only rewrite and that was incomplete — the
+  build-time follow-up above supersedes it and DOES change every shipped stylesheet.)
   (c) **no fonts shipped.** `lattice.css`'s `@font-face` srcs are stylesheet-relative
   `url(fonts/…)`, and the bundle carried the stylesheet without the directory, so all 37 faces
   404'd. The bundle now ships `fonts/` beside `lattice.css`, derived from the `url()` refs in
