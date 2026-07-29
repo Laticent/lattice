@@ -116,8 +116,9 @@ rather than invent a second home for the name.
 said the cover heading. That is the intended resolution of a nearly-dead key, but it
 *is* a change in exported bytes for that population, so it was captured both ways
 (reverting to `origin/main`, rebuilding, and exporting the same deck) and put in
-front of the human. **That sign-off is outstanding at the time of writing** — the
-QUALITY BAR makes it a hard stop, and this note does not claim it was given.
+front of the human, and **signed off** (2026-07-29) before merge — the QUALITY BAR
+makes it a hard stop, and the artifacts (both revisions, light and dark) were shown
+rather than described.
 
 ### Why the LFM spec is not amended
 
