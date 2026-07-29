@@ -2745,8 +2745,10 @@ function checkCatContrast(errors) {
 const acorn = require('acorn');
 // One tier, by decision. `sonnet`, `haiku` and `fable` are rejected BY NAME rather
 // than quietly accepted — re-adding one is a coordinated change across this list,
-// engineering/model-policy.md, CLAUDE.md, engineering/workflow.md, .github/labels.json
-// and the work-item form. See engineering/model-policy.md § If a tier is ever added back.
+// engineering/model-policy.md, CLAUDE.md, engineering/workflow.md, .github/labels.json,
+// the work-item form, AND the two ratchet tests that assert the collapse
+// (test/unit/cli/check-ownership.test.js, test/unit/tools/sync-labels.test.js — they
+// are MEANT to go red here). See engineering/model-policy.md § If a tier is ever added back.
 const AGENT_MODELS = ['opus'];
 const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
 const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
@@ -2766,11 +2768,21 @@ function walkAst(node, visit) {
   }
 }
 
-const propNamed = (obj, name) =>
-  obj.properties.find(
+// LAST match, not first — object-literal semantics are last-wins, so
+// `{ model: 'opus', model: 'sonnet' }` evaluates to `sonnet`. Reading the FIRST
+// `model` certified that object as pinned while it ran on a cheaper model: a
+// false PASS through the only machine enforcement HARD RULE #27 has. Found by the
+// red-team pass on #1240; `.claude/` is excluded from lint, so Biome's
+// noDuplicateObjectKeys never sees it either.
+const propIndexNamed = (obj, name) =>
+  obj.properties.findLastIndex(
     (p) => p.type === 'Property' && !p.computed &&
       ((p.key.type === 'Identifier' && p.key.name === name) || (p.key.type === 'Literal' && p.key.value === name)),
   );
+const propNamed = (obj, name) => {
+  const i = propIndexNamed(obj, name);
+  return i === -1 ? undefined : obj.properties[i];
+};
 
 // Every `agent(...)` call in a workflow, with whether its options pin a model.
 // Returns { error } when the file cannot be parsed — an unreadable workflow is
@@ -2832,13 +2844,22 @@ function agentCallPins(src) {
       calls.push({ label: null, pinned: false, reason: 'options-unresolved', value: null });
       return;
     }
-    const model = propNamed(options, 'model');
+    const modelIdx = propIndexNamed(options, 'model');
+    const model = modelIdx === -1 ? undefined : options.properties[modelIdx];
     const label = propNamed(options, 'label');
+    // A spread AFTER the pin overrides it: `{ model: 'opus', ...OVERRIDE }` runs on
+    // whatever OVERRIDE.model says. Resolving that needs real value analysis, so the
+    // honest answer is "cannot tell" — REPORT it rather than certify the visible pin.
+    // (A spread BEFORE the pin is harmless: the later literal wins.) Found by the
+    // red-team pass on #1240, alongside the duplicate-key hole above; both certified
+    // a stage as pinned while it ran on a cheaper model.
+    const lastSpreadIdx = options.properties.findLastIndex((p) => p.type === 'SpreadElement');
     // Distinguish WHY a call isn't pinned. Collapsing these into one message sends
     // someone hunting for a missing field when the value is the actual problem
     // (found in review on #1187) — the roster half already separates them.
     const [reason, value] =
-      !model ? ['missing', null]
+      lastSpreadIdx > modelIdx ? ['spread-override', null]
+      : !model ? ['missing', null]
       : model.value.type !== 'Literal' ? ['dynamic', null]
       : AGENT_MODELS.includes(model.value.value) ? ['pinned', model.value.value]
       : ['invalid', String(model.value.value)];
@@ -2863,6 +2884,23 @@ function listWorkflowFiles(dir, out = []) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) listWorkflowFiles(p, out);
     else if (/\.(?:js|mjs|cjs)$/.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+// Agent definitions, recursively and directory-safe. The roster half used to be a
+// flat `readdirSync` + `endsWith('.md')`, which left two holes the red-team pass on
+// #1240 probed: an agent in a SUBDIRECTORY was invisible (while the workflow half
+// above already recursed — an undocumented asymmetry), and a DIRECTORY named `x.md`
+// made the later readFileSync throw an uncaught EISDIR, killing build:check with a
+// stack trace instead of a gate error. README.md documents the roster rather than
+// defining an agent — the harness registers agents by frontmatter, so it is not a
+// missing pin.
+function listAgentFiles(dir, out = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listAgentFiles(p, out);
+    else if (e.name.endsWith('.md') && e.name !== 'README.md') out.push(p);
   }
   return out;
 }
@@ -2902,9 +2940,7 @@ function checkAgentModelPinning(errors, dirs = {}) {
       'CLAUDE.md and engineering/model-policy.md and delete this gate.',
     );
   } else {
-    // README.md documents the roster rather than defining an agent — the harness
-    // registers agents by frontmatter, so a doc file is not a missing pin.
-    const agents = fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md') && f !== 'README.md');
+    const agents = listAgentFiles(agentsDir);
     if (!agents.length) {
       errors.push(
         '.claude/agents/ has no agent definitions — the roster is the enforcement surface for ' +
@@ -2913,8 +2949,8 @@ function checkAgentModelPinning(errors, dirs = {}) {
       );
     }
     for (const file of agents) {
-      const rel = path.relative(ROOT, path.join(agentsDir, file));
-      const src = fs.readFileSync(path.join(agentsDir, file), 'utf8');
+      const rel = path.relative(ROOT, file);
+      const src = fs.readFileSync(file, 'utf8');
       const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src); // \r? — CRLF is still valid frontmatter
       if (!fm) {
         errors.push(`${rel} has no YAML frontmatter — HARD RULE #27 needs a \`model:\` field there.`);
@@ -2931,8 +2967,9 @@ function checkAgentModelPinning(errors, dirs = {}) {
         errors.push(
           `${rel} pins \`model: ${declared}\` (HARD RULE #27). This repo runs every agent on \`opus\`; ` +
           `model tiering was tried and retired because a downshifted agent fails silently here ` +
-          `(engineering/model-policy.md). An unrecognized name also falls back to the session model ` +
-          `instead of erroring. Use \`opus\`.`,
+          `(engineering/model-policy.md). Use \`opus\`. (A real tier name runs at that tier; a name ` +
+          `the harness does not recognize at all falls back to the session model rather than ` +
+          `erroring — both are silent, which is why this is gated.)`,
         );
       }
     }
@@ -2956,13 +2993,17 @@ function checkAgentModelPinning(errors, dirs = {}) {
           'options-unresolved':
             `${head} passes options the gate cannot resolve statically (HARD RULE #27) — pass an ` +
             `inline object literal, or a module-level \`const\`, so the \`model:\` pin is checkable.`,
+          'spread-override':
+            `${head} spreads into its options AFTER the \`model:\` key (HARD RULE #27), so the ` +
+            `spread silently wins at runtime and the visible pin proves nothing. Put the spread ` +
+            `BEFORE \`model: 'opus'\`, or inline the options, so the pin is the last word.`,
           dynamic:
             `${head} computes its \`model:\` rather than naming one (HARD RULE #27), so the gate ` +
             `cannot confirm the tier. Use the string literal \`'opus'\`.`,
           invalid:
             `${head} pins \`model: '${call.value}'\` (HARD RULE #27). This repo runs every agent ` +
-            `on \`opus\`; model tiering was tried and retired (engineering/model-policy.md). An ` +
-            `unrecognized name also falls back to the session model instead of erroring.`,
+            `on \`opus\`; model tiering was tried and retired (engineering/model-policy.md). ` +
+            `Use \`'opus'\`.`,
           missing:
             `${head} passes no \`model:\` in its options (HARD RULE #27), so that stage's tier is ` +
             `whatever the session is set to rather than a property of this repo. Add ` +

@@ -36,6 +36,32 @@ taxonomy (added a week earlier, 2026-07-20) tagged whole issues by tier.
 The stated saving was real arithmetic: a typical exploration agent at ~60K in /
 ~8K out cost about $0.50 on Opus, $0.20 on Sonnet, $0.10 on Haiku.
 
+## What was observed vs. what is argued
+
+**Read this before the next section.** The four findings below are *arguments*,
+not measurements, and the honest scope of the evidence is narrow:
+
+| | |
+|---|---|
+| **Observed** | #1187 shipped 2026-07-26 and was retired 2026-07-29 — a **58-hour** window. One concrete misroute: `inventory` on Haiku, whose 200K context could not hold a repo-wide sweep. The principal's withdrawal of confidence: *"I have no confidence in any model other than Opus."* |
+| **Argued a priori** | All four findings in "Why it failed". Every one of them could have been written the day *before* #1187 shipped. Finding 4 is the routing doc quoted against itself. |
+| **Not observed** | No agent returned a wrong map that was caught. No fact-check confirmed a false claim. No CI triage broke something. No re-run cost more than the routing saved. **There is no measured failure here.** |
+
+This distinction matters because this repo has a canonical example of the
+opposite: `2026-07-10-hard-rule-12-retirement.md` retired a rule by *empirically
+retesting its premise*, and its indictment was precisely that the gate "had never
+been re-verified since it was written." This decision does not clear that bar and
+should not be read as though it does.
+
+What makes it defensible anyway is not evidence but **decision rights and
+asymmetry**: the principal owns the spend and the risk tolerance, and the cost of
+being wrong is lopsided (a confidently-wrong answer costs a re-run plus its blast
+radius; over-modeling an easy task costs about thirty cents). Under that
+asymmetry, routing down is only correct where you are *confident* a task is pure
+lookup — and confidence is exactly what was withdrawn. A decision can be right on
+those grounds while its supporting arguments remain untested. Both things are
+true here.
+
 ## Why it failed
 
 **1. The judgment/lookup split does not survive contact with this codebase.**
@@ -120,6 +146,27 @@ offers that confidence.
 - **HARD RULE #27 keeps its number** and is rewritten in place, per the numbering
   convention. It was not retired: there is still a binding rule about what model
   an agent runs on. The rule's *answer* changed, not its subject.
+- **Cost pressure moves onto the verification lever.** This is the second-order
+  effect most worth watching, and it cuts against the change's own justification.
+  `effort` is not declarable on a roster card — only `design-competition.js` uses
+  it — so for a roster spawn the surviving lever is **agent count**, which *is*
+  the verification ladder. The 22-agent visual sweep previously ran 11 makers on
+  Sonnet and 11 checkers on Opus at roughly half price; it now costs full price
+  for identical output, and HARD RULE #25's ~10-agent session-cumulative gate
+  bites at half the previous work per dollar. Under real budget pressure that
+  lands as *11 makers instead of 22*, or a skipped checker pass, or a change
+  ruled not-quite-critical enough for the trio. The retirement is justified as
+  protecting verification from silent error; its second-order effect is to
+  redirect all remaining cost pressure onto verification volume. Accepted, but
+  it is the thing to watch — see "If this is ever revisited".
+- **The repo is heavier than if tiering had never been tried.** Net of
+  `model-routing.md`'s removal, this leaves roughly 700 added lines (policy doc,
+  this doc, the gate and its tests, the rule, the label and form entries, the
+  pins) for **zero behavioral delta** — before #1187 every agent inherited Opus;
+  after #1240 every agent runs Opus. The return is the written record itself,
+  which is only worth having if it is accurate about its evidence and preserves
+  what a future reader would reason from. Hence the section above, and the
+  appendix below.
 
 ## If this is ever revisited
 
@@ -128,5 +175,66 @@ should run on cheap models — and it was already wrong once here. Anyone
 proposing it again should start by naming which specific tasks in this repo are
 *verifiably* pure lookup, and what catches a confidently wrong answer from one
 of them before it merges. Absent a concrete answer to the second question, the
-answer is no. Mechanics for adding a tier back: `engineering/model-policy.md`
-§ If a tier is ever added back.
+answer is no. Mechanics: `engineering/model-policy.md` § If a tier is ever added
+back. **Start from the appendix**, which is the withdrawn hypothesis in full —
+do not re-derive it from scratch.
+
+Three triggers that should reopen this deliberately, rather than requiring
+someone to argue against a closed case:
+
+1. **A tier ships that did not exist on 2026-07-28.** The ladder was rejected
+   against the models available on that date. A new tier is new evidence, not a
+   re-litigation of settled ground.
+2. **Agent spend becomes a binding monthly constraint AND verification volume is
+   being cut because of it** — sweeps halved, checker passes skipped, the trio
+   ruled out on borderline-critical work. At that point the revert is costing
+   more verification than it buys, which inverts its own justification.
+3. **A shape emerges where a cheaper stage is adjudicated by a named Opus stage
+   in the same workflow** — the `fold` pass feeding an Opus fact-check, or the
+   visual-sweep maker feeding an authoritative Opus checker. That shape answers
+   the "what catches a wrong answer" question structurally rather than by
+   assertion, which is the one form of the argument this doc does not defeat.
+
+---
+
+## Appendix — the withdrawn hypothesis
+
+Preserved deliberately. The section above demands that a future proposer name
+which tasks are *verifiably* pure lookup; deleting the repo's only existing
+attempt at that taxonomy while raising the bar to clear it would make
+reconsideration harder in both directions at once. This is the routing table from
+the deleted `engineering/model-routing.md`, verbatim as it shipped in #1187 —
+**withdrawn, not endorsed**. Every row is a claim that a task is lookup; the
+retirement is the position that those claims were not reliably true here.
+
+| Task | Model | Effort | Claimed rationale |
+|---|---|---|---|
+| Editorial / voice sweeps, doc-prose rewrites, gallery + deck copy | opus | high | The words *are* the deliverable |
+| Design / architecture / "rethink X" | opus | high–xhigh | Wide solution space, no pattern |
+| Red team, Munger inversion, independent checker | opus | high | The trio catches costly errors (#25) |
+| Comparative judging of candidate designs | opus | high | Ranking on taste |
+| Root-cause debugging (cause not localized) | opus | high | Multi-file causality |
+| Visual quality **sign-off** vs the 10/10 rubric | opus | high | Aesthetic judgment is the QUALITY BAR |
+| Token / cascade / `@layer` surgery | opus | high | Silent breakage; #26's rule-3 trap |
+| Novel engine transform, first-of-its-kind mechanism | opus | xhigh | "Novel" is a tier-2 trigger |
+| Writing a decision doc that will be depended on | opus | high | The doc *is* the deliverable |
+| Codebase understanding, "where does X live" | sonnet | medium | Retrieve and summarize |
+| Fact-checking claims against the repo | sonnet | high | Verifying existence, not merit |
+| CI failure triage → diagnose → fix | sonnet | medium | Tests and lint are the gate |
+| Test writing against a defined spec | sonnet | medium | The suite verifies it |
+| Mechanical refactor following an existing pattern | sonnet | medium | Pattern already established |
+| Bug fix with a clean repro and localized cause | sonnet | medium | The test proves the fix |
+| Deck authoring from an existing component | sonnet | medium | `lint:deck` is the gate |
+| Structural docs, `CHANGELOG`, doc fixes | sonnet | medium | Reviewable; gated |
+| Folding a critique back into a draft | sonnet | low | Explicitly a mechanical pass |
+| Visual review **maker** pass | sonnet | medium | Matching slides to a written rubric |
+| Enumerate / count / list files matching a pattern | haiku | — | No interpretation |
+| Structured extraction, dedup, reformatting | haiku | — | Shape transformation only |
+
+Prices as of 2026-07-26, also point-in-time and not re-verified since: Opus 5
+$5/$25 per MTok (1M context); Sonnet 5 $2/$10 introductory through 2026-08-31,
+$3/$15 after (1M context); Haiku 4.5 $1/$5 (**200K** context, no `effort`
+parameter). Note that Sonnet's context window equalled Opus's — only Haiku was
+context-constrained, which is why the principal's stated reason ("requires
+significant context window") reaches Haiku directly and Sonnet only through the
+confidence argument.

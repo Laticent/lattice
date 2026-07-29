@@ -187,6 +187,28 @@ in patch versions.
   on existing cards until cleared by hand). Rationale and what would have to be true to
   revisit it: `engineering/decisions/2026-07-28-model-tiering-retirement.md`.
 
+- **Fixed in the same change — the #27 gate could be defeated by an override the runtime
+  honors.** Found by the adversarial trio on the revert itself, and pre-existing since
+  #1187. `propNamed` read the **first** matching property, but object-literal semantics
+  are **last-wins**, and it ignored `SpreadElement` entirely — so
+  `{ model: 'opus', model: 'sonnet' }` and `{ model: 'opus', ...OVERRIDE }` both passed
+  the gate while running on a cheaper model. Four variants reproduced against the real
+  CLI with `build:check` green; `.claude/` is excluded from lint, so Biome's
+  `noDuplicateObjectKeys` never saw the duplicate either. The gate now reads the LAST
+  `model` property and reports any spread positioned after it as `spread-override`
+  rather than certifying the visible pin (a spread *before* the pin is still fine — the
+  literal wins at runtime too). Also closed on the roster half: it is now recursive (an
+  agent in a subdirectory was invisible, while the workflow half already recursed) and
+  survives a directory named `*.md` (previously an uncaught `EISDIR` killed
+  `build:check` with a stack trace instead of a gate error). The `invalid` message
+  regained the imperative the other three branches have and no longer claims a real tier
+  name "falls back to the session model" — it doesn't, it just runs cheaper, which was
+  the point. Mutation table extended: first-match, spread-blindness, non-recursive
+  roster, a drifted `meta.phases[].model`, and a roster agent missing from the policy
+  doc's **table** are each now caught. That last one exposed a pre-existing vacuous
+  assertion — the old roster/doc regex was so over-escaped it matched every string,
+  including agents that don't exist.
+
 - **The deck container is an `<article class="lattice">`, not a `<div>`.** A deck is a
   self-contained composition, which is what `<article>` means; the `<main>` landmark
   stays the document shell's job, because `<main>` says *where* the primary content is

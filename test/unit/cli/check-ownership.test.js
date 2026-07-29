@@ -761,6 +761,58 @@ describe('check-ownership', () => {
     // The AST is what makes these sound. Three successive TEXT-based versions of this
     // check accepted every "must be flagged" case below and rejected every "must be
     // accepted" one — see the maker-checker findings on #1187.
+    test('a pin the runtime would OVERRIDE does not count as pinned', () => {
+      // Object-literal semantics are last-wins, and a spread after the key replaces it.
+      // Reading the FIRST `model` (or ignoring spreads) certified these as pinned while
+      // they ran on a cheaper model — a false PASS through the only machine enforcement
+      // #27 has. `.claude/` is lint-excluded, so Biome's noDuplicateObjectKeys never
+      // sees the duplicate either. Found by the red-team pass on #1240.
+      const overridden = {
+        'duplicate key, cheaper one last': "agent(p, { label: 'a', model: 'opus', model: 'sonnet' })",
+        'spread of a module const after the pin': "const OVERRIDE = { model: 'sonnet' }\nagent(p, { label: 'a', model: 'opus', ...OVERRIDE })",
+        'inline spread after the pin': "agent(p, { label: 'a', model: 'opus', ...{ model: 'sonnet' } })",
+        'conditional spread after the pin': "agent(p, { label: 'a', model: 'opus', ...(cheap ? { model: 'haiku' } : {}) })",
+      };
+      for (const [name, body] of Object.entries(overridden)) {
+        const { error, calls } = agentCallPins(body);
+        assert.equal(error, null, `${name}: fixture should parse`);
+        assert.ok(calls.length > 0 && calls.every((c) => !c.pinned), `${name}: must NOT count as pinned`);
+      }
+      // …and the gate must actually SAY so, with its own diagnosis.
+      withFixture(
+        { 'agents/a.md': AGENT('opus'), 'workflows/w.js': "agent(p, { label: 'a', model: 'opus', ...OVERRIDE })\n" },
+        (e) => assert.equal(only(e, 'spreads into its options AFTER').length, 1, e.join('; ')),
+      );
+      withFixture(
+        { 'agents/a.md': AGENT('opus'), 'workflows/w.js': "agent(p, { label: 'a', model: 'opus', model: 'sonnet' })\n" },
+        (e) => assert.equal(only(e, "pins `model: 'sonnet'`").length, 1, e.join('; ')),
+      );
+      // A spread BEFORE the pin is harmless — the later literal wins at runtime too.
+      const before = agentCallPins("agent(p, { ...DEFAULTS, label: 'a', model: 'opus' })");
+      assert.ok(before.calls.every((c) => c.pinned), 'a spread before the pin must still be accepted');
+    });
+
+    test('roster scanning is recursive and survives a directory named *.md', () => {
+      // Both probed by the red-team pass on #1240. A subdirectory agent was invisible
+      // (while the workflow half already recursed), and a directory named `x.md` threw
+      // an uncaught EISDIR that killed build:check with a stack trace, not a gate error.
+      withFixture({ 'agents/sub/deep.md': AGENT('sonnet') }, (e) =>
+        assert.equal(only(e, 'This repo runs every agent on `opus`').length, 1, 'a nested agent must be scanned'));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-hr27-eisdir-'));
+      try {
+        fs.mkdirSync(path.join(dir, 'agents', 'trap.md'), { recursive: true });
+        fs.writeFileSync(path.join(dir, 'agents', 'real.md'), AGENT('opus'));
+        const errors = [];
+        assert.doesNotThrow(
+          () => checkAgentModelPinning(errors, { agents: path.join(dir, 'agents'), workflows: path.join(dir, 'workflows') }),
+          'a directory named *.md must not crash the gate',
+        );
+        assert.deepEqual(errors, [], errors.join('\n'));
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
     test('a model: that only LOOKS like a pin cannot satisfy the gate', () => {
       const bypasses = {
         'pin quoted inside the prompt text': "agent(`Return { label: 'x', model: 'opus' }`, { label: 'a' })",
@@ -837,20 +889,38 @@ describe('check-ownership', () => {
       const roster = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
       assert.ok(roster.length > 0, '.claude/agents/ must not be empty — it IS the #27 enforcement surface');
       const doc = fs.readFileSync(path.join(ROOT, 'engineering', 'model-policy.md'), 'utf8');
+      // A TABLE ROW, not a mention anywhere in the prose. The pre-#1240 version of this
+      // assertion was a regex so over-escaped (`\\|` = escaped-backslash then an empty
+      // alternation) that it matched EVERY string, including agent names that do not
+      // exist — it was vacuous on main. A substring check has real teeth but would
+      // still be satisfied by a name appearing in a paragraph, so anchor on the row.
+      const rows = doc.split('\n').filter((l) => l.trimStart().startsWith('|'));
       for (const file of roster) {
         const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8'));
         const model = declaredModel(fm[1]);
         assert.equal(model, 'opus', `${file} pins "${model}" — every agent runs on opus (HARD RULE #27)`);
         const name = file.replace(/\.md$/, '');
-        assert.ok(doc.includes(`\`${name}\``), `${name} has no row in engineering/model-policy.md's roster table`);
+        assert.ok(
+          rows.some((r) => r.includes(`\`${name}\``)),
+          `${name} has no row in engineering/model-policy.md's roster table`,
+        );
       }
+      // …and the assertion must be capable of failing (the old one was not).
+      assert.ok(!rows.some((r) => r.includes('`ghostwriter`')), 'guard: a nonexistent agent must not match');
       for (const file of listWorkflowFiles(WORKFLOWS_DIR)) {
-        const { error, calls } = agentCallPins(fs.readFileSync(file, 'utf8'));
+        const src = fs.readFileSync(file, 'utf8');
+        const { error, calls } = agentCallPins(src);
         assert.equal(error, null, `${file} should parse`);
         assert.ok(calls.length > 0, `${file} has no agent() calls — is it still a workflow?`);
         calls.forEach((c, i) => {
           assert.ok(c.pinned, `${path.basename(file)} stage #${i + 1} is unpinned`);
         });
+        // `meta.phases[].model` is DESCRIPTIVE — the gate deliberately ignores it (a
+        // phases entry must not be able to satisfy a real pin). That leaves it free to
+        // drift out of sync with the pins it describes, so assert it here instead.
+        for (const m of src.matchAll(/\btitle:\s*['"][^'"]+['"][^}]*?\bmodel:\s*'([^']+)'/g)) {
+          assert.equal(m[1], 'opus', `${path.basename(file)}: a meta.phases entry claims model '${m[1]}'`);
+        }
       }
     });
   });

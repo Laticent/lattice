@@ -17,13 +17,22 @@ Model tiering was tried here deliberately and it failed. The reasoning that
 motivated it was sound in the abstract — lookup work billed at judgment prices
 is waste — but it did not survive contact with this codebase:
 
-- **Lattice does not have much genuine "lookup" work.** The tiering doc split
-  tasks into *judgment* and *lookup* and routed the second half down. In
-  practice almost every question here — "where does X live", "does this claim
-  hold", "why is this gate red" — requires holding the cascade, the token
-  system, the Fit Spine, and a dozen HARD RULES in view at once to answer
-  *correctly rather than plausibly*. What looked like lookup was judgment
-  wearing a lookup-shaped prompt.
+- **Lattice has less genuine "lookup" work than the split assumed.** The tiering
+  doc divided tasks into *judgment* and *lookup* and routed the second half down.
+  In practice most questions here — "where does X live", "does this claim hold",
+  "why is this gate red" — require holding the cascade, the token system, the Fit
+  Spine, and a dozen HARD RULES in view at once to answer *correctly rather than
+  plausibly*. Much of what was filed as lookup was judgment wearing a
+  lookup-shaped prompt.
+
+  The residue is real but small: `inventory`'s zero-interpretation sweeps (count
+  the files matching a pattern, extract a field from every manifest) genuinely
+  are mechanical. The problem is that *deciding* a given task belongs in that
+  residue is itself the judgment call the split was supposed to eliminate — and
+  getting it wrong is silent. Keeping `inventory` as a **prompt** ("no
+  interpretation, exact output shape, never guess a criterion") while running it
+  on Opus keeps the useful half of that distinction and drops the half that
+  required a correct routing decision up front.
 - **The context demand is the binding constraint, not the token price.** A
   useful sweep here pulls in the component manifests, the theme tokens, the
   layout CSS, and the docs that govern them. The saving a smaller tier offers
@@ -123,9 +132,19 @@ a full re-read of the conversation, and the session model is the user's
 ## If a tier is ever added back
 
 It would be a deliberate, coordinated change — not a one-line edit to an
-allowlist. Update together: `AGENT_MODELS` in `tools/check-ownership.js`, this
-doc, the `CLAUDE.md` HARD RULE #27 text and dispatch line, the card rubric in
-`engineering/workflow.md`, `.github/labels.json`, and
-`.github/ISSUE_TEMPLATE/work-item.yml`. And read the retirement decision doc
-first — the case for tiering is easy to re-derive from first principles, and it
-was already wrong once here.
+allowlist. Update together:
+
+1. `AGENT_MODELS` in `tools/check-ownership.js`
+2. This doc, and the `CLAUDE.md` HARD RULE #27 text + dispatch line
+3. The card rubric in `engineering/workflow.md`
+4. `.github/labels.json` and `.github/ISSUE_TEMPLATE/work-item.yml`
+5. **The two ratchet tests**, which assert the collapse and will go red:
+   `test/unit/cli/check-ownership.test.js` (`assert.deepEqual([...AGENT_MODELS],
+   ['opus'])`) and `test/unit/tools/sync-labels.test.js` (the `model:*` label set)
+
+Step 5 is not optional bookkeeping — it is the ratchet doing its job, and it was
+missing from this list until the trio on #1240 followed the list literally and
+landed on two red assertions with no pointer.
+
+And read the retirement decision doc first — the case for tiering is easy to
+re-derive from first principles, and it was already wrong once here.

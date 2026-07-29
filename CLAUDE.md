@@ -160,9 +160,13 @@ rules: `engineering/orchestration.md`.
 
 ## MODEL POLICY — everything runs on Opus (HARD RULE #27)
 
-**One tier. No routing decision at spawn time.** Every agent — roster, workflow
-stage, ad-hoc `Agent()` call — runs on `opus`, and names it explicitly. The gate
-rejects `sonnet`, `haiku`, and `fable` by name.
+**One tier. No routing decision at spawn time.** Every agent runs on `opus`. A
+**roster card** (`.claude/agents/*.md`) and a **workflow stage** (`agent()` in
+`.claude/workflows/**`) must *name* it — that pair is what the gate enforces, and
+it rejects `sonnet`, `haiku`, and `fable` by name. An **ad-hoc `Agent()` call**
+should pass `model: 'opus'` too; a **harness built-in** (`Explore`, `Plan`,
+`general-purpose`) needs nothing passed, because inheriting the session already
+lands on Opus.
 
 Model tiering was tried here and **retired**: what looks like cheap "lookup"
 work in this repo (where does X live, does this claim hold, why is this gate
@@ -183,9 +187,8 @@ is for now:
 | `red-team` · `inversion` · `checker` | The trio (#25) |
 | `docs-auditor` · `prose-checker` | Doc honesty · prose audit |
 
-Built-ins (`Explore`, `Plan`, `general-purpose`) inherit Opus from the session,
-which is now correct — pass them nothing. **The session's own model never
-changes** (it would void the prompt cache, and it's the human's `/model`).
+**The session's own model never changes** (it would void the prompt cache, and
+it's the human's `/model`).
 
 **`effort` is the one lever left**: it cuts output tokens without changing what
 reasons about the problem, and Opus 5 is unusually strong at `low`/`medium`. Cut
@@ -413,29 +416,23 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `checkCascadeLayers` + `SANCTIONED_LAYER_BLOCKS` in `tools/check-ownership.js`,
   via `build:check`; budget 0 + order-pin + inert-note sentinel;
   `engineering/cascade.md`.)*
-- **#27 — Every agent runs on Opus, and declares it.** One tier. There is no
-  routing question to answer at spawn time and no cheaper tier to reach for.
-  **Model tiering was tried here and retired** (2026-07-28): the split into
-  "judgment" and cheap "lookup" work does not hold in this repo — answering
-  where something lives, whether a claim survives, or why a gate is red
-  *correctly rather than plausibly* takes the cascade, the token system, and a
-  dozen of these rules in context at once. A downshifted agent fails in the
-  expensive direction: well-formed, confident, wrong, and past every machine
-  gate, because the gates check syntax and counts, not whether a map points at
-  the right file. The saving was cents; the failure was silent. Omitting
-  `model:` would also yield Opus by inheritance, but the pin is still
-  **required** — an unstated policy is an accident of the current `/model`
-  setting rather than a property of the repo. The **session's own** model still
-  never changes mid-task (it voids the prompt cache, and it's the human's
-  `/model` setting). `effort` remains a live lever and is the one to reach for:
-  trim output tokens and spawn **fewer** agents, never a cheaper model. *(gated
-  — `checkAgentModelPinning` in `tools/check-ownership.js`, via `build:check`:
-  every `.claude/agents/*.md` needs `model: opus`, and every
-  `.claude/workflows/**` `agent()` call needs `model: 'opus'` in its options;
-  `sonnet` / `haiku` / `fable` are rejected by name. The gate sees committed
-  files only — an ad-hoc `Agent()` call in a live session rides on the policy
-  above. `engineering/model-policy.md`,
-  `engineering/decisions/2026-07-28-model-tiering-retirement.md`.)*
+- **#27 — Every agent runs on Opus, and roster cards and workflow stages declare
+  it.** One tier; there is no routing question at spawn time. **Model tiering was
+  tried here and retired** (2026-07-28) because a downshifted agent fails in the
+  expensive direction — well-formed, confident, wrong, and past every machine
+  gate. The pin is required even though inheritance would also yield Opus: an
+  unstated policy is an accident of the current `/model` setting rather than a
+  property of the repo. The **session's own** model never changes mid-task.
+  `effort` is the surviving cost lever — spawn **fewer** agents, never a cheaper
+  model. Why, and what to change if a tier is ever added back:
+  `engineering/model-policy.md`. *(gated — `checkAgentModelPinning` in
+  `tools/check-ownership.js`, via `build:check`: every `.claude/agents/**.md`
+  needs `model: opus`, and every `.claude/workflows/**` `agent()` call needs
+  `model: 'opus'` as the LAST word in its options — a duplicate key or a later
+  spread that would override it at runtime is rejected, not certified.
+  `sonnet`/`haiku`/`fable` are rejected by name. Committed files only; an ad-hoc
+  `Agent()` call rides on the policy above, and harness built-ins need nothing
+  passed. `engineering/decisions/2026-07-28-model-tiering-retirement.md`.)*
 
 ---
 
