@@ -68,10 +68,15 @@ Marpit scopes a theme rule off its **leftmost compound**: a literal leading
 — is not a literal `section`, so marp-core emitted
 `div#… > section :is(section.map, …) .map-region`: a slide nested inside a
 slide, which cannot exist. Measured on the bloom render: **913 dead selectors**,
-of which ~835 target real slide state — the entire chart bucket (matrix-grid,
-roadmap, gantt, kanban, radar, quadrant, funnel, piechart, progress, map,
-timeline-list, word-cloud) plus the 466-rule shared `:is(section, figure)` Form
-layer.
+of which **835 are real** (the rest are legitimate `:is(h1, marp-h1)` heads),
+spread across 518 declaration blocks. *(The "913" figure could not be reproduced
+under any later measurement and should be read as 862 all-in / 835 real.)* Two
+populations: the chart bucket (matrix-grid, roadmap, gantt, kanban, radar,
+quadrant, funnel, piechart, progress, map, timeline-list, word-cloud), and **465
+`:is(section, figure)` selectors across 199 rules over MERMAID diagram
+internals** — first written up here as a "466-rule Form layer", which is wrong on
+both the count and the name. The Mermaid half is invisible until a deck has a
+diagram, which is why the surviving symptom looked chart-only.
 
 We already knew this bug. `lib/engine/css.js` has carried a fix since someone
 hit it on the owned path (the comment names the symptom: "`--map-base` is never
@@ -81,8 +86,14 @@ export.
 
 Fix: the distribution moved to a shared kernel (`lib/core/leading-is.js`) that
 `lib/engine/css.js` now imports, and `marpScopableCss` in `lib/core/marp-bundle.js`
-applies it to every stylesheet the bundle ships. `dist/lattice.min.css` is
-untouched for every other consumer — the rewrite happens at export time.
+applies it to every stylesheet the bundle ships.
+
+> **SUPERSEDED 2026-07-29.** This section originally added *"`dist/lattice.min.css`
+> is untouched for every other consumer — the rewrite happens at export time."*
+> Export-time-only was the wrong layer: it left the manual marp-vscode recipe
+> (themes pointed straight at `dist/lattice.css`) fully broken. The distribution
+> now runs in `tools/build-css.js` `bundle()`, so **every** stylesheet `dist/`
+> ships is distributed, and the min sheet grows ~3.0%.
 
 `:where()` heads are deliberately left alone. Distributing them wouldn't help
 (a `:where(section…)` arm is still not a literal leading `section`), and
@@ -135,10 +146,20 @@ it." Two distinct causes stacked:
   with no table, headers, or `A – N` pill. Mirrored through the new shared
   kernel `lib/core/glossary-slide.js`.
 
-Checked and CLEAN: heading-period normalization (not applied by default, so
-nothing to mirror) and `animaSceneFences` (the `.anima-spec` div is a spec
-carrier the scene transform strips on both paths — `examples/anima-scene.md`
-exports at identical page count and renders identically).
+Checked: heading-period normalization is CLEAN (not applied by default, so
+nothing to mirror).
+
+> **CORRECTED 2026-07-29.** `animaSceneFences` was recorded here as "clean —
+> renders identically." It is not. That check compared page count and one slide;
+> a full render shows **three raw JSON code blocks** on the `scene` slides of the
+> exported deck that the engine render does not emit (engine: 0 `language-anima`
+> nodes; export: 3 visible). `functionplot` fences fail the same way — a visible
+> code block, never a plot, because `function-plot.js` is not in `STATIC_ASSETS`.
+> Math also falls back to marp-core's MathJax rather than Lattice's KaTeX. All
+> three are PRE-EXISTING (fences were never handled on any Marp surface) — but
+> the "clean" claim was new, and wrong, and it is exactly the shape of error this
+> note exists to warn about: verifying the cheap thing and writing up the
+> expensive one.
 
 The cheap guard that would have caught the missing slide is now a test:
 `export-marp.test.js` asserts the exported deck's slide count matches what the
@@ -162,17 +183,38 @@ sign-off, and left for its own change (HARD RULE #17):
 `color-mode: dark` renders dark on the engine and **light** through the export's
 `npm run pdf`. Deck-wide front-matter axes (`color-mode:`, `class:`, `logo:`,
 `meta:`) have no Marp equivalent, so the runtime recovers them by FETCHING the
-deck's source `.md` from beside the rendered document. Verified: that fetch
-resolves when you open the exported `<name>.html` — every section correctly
-carries `dark` — and does NOT resolve during marp-cli's PDF conversion, so the
-registers never populate there.
+deck's source `.md` from beside the rendered document.
 
-The fix shape is known and small for the color axis: bake the deck-wide axis
-into a Marp-native global `class:` directive at export time. marp-core honors
-front-matter `class:` on every section, which removes the fetch dependency
-outright — the same "bake the source transform" move that fixed splits and the
-auto-glossary. Logged in `gotchas.md`'s register rather than pulled into this
-change.
+> **CORRECTED 2026-07-29, after the adversarial trio.** The original text here
+> read: *"Verified: that fetch resolves when you open the exported `<name>.html`
+> — every section correctly carries `dark`."* **That was false, and the way it
+> was produced is the point.** The artifact came from a headless Chrome launched
+> with `--allow-file-access-from-files` — a non-default flag no recipient has.
+> Re-run on the real surface, a recipient double-clicking the file:
+>
+> | | sections with `.dark` |
+> |---|---|
+> | `file://`, default flags | **0** |
+> | `file://`, `--allow-file-access-from-files` | 13 |
+>
+> Chrome: *"Access to fetch at 'file:///…/deck.md' from origin 'null' has been
+> blocked by CORS policy."* `fetch` does not work on `file://` in any modern
+> browser — not intermittently, never. This is a HARD RULE #23 violation
+> committed in the same document that argues for #23: the claim named one
+> surface and the artifact came from another.
+
+**The diagnosis was also wrong, which matters more than the miss.** This is not
+a marp-cli PDF quirk — it is the `file://` scheme, so the **HTML route fails
+identically**, and the generated README's *"opens standalone in any browser —
+same scripts, same result, no install"* (`lib/core/marp-bundle.js`) is false for
+the double-click case it is describing.
+
+The fix is therefore bigger than first written. Baking the color axis into a
+Marp-native global `class:` directive covers `color-mode` and `class` — **two of
+four**. `logo:` and `meta:` carry payloads a class cannot express and need the
+runtime to read a baked `<script type="application/json">` block (or data
+attributes on the deck) instead of a network fetch. Tracked as its own change;
+`gotchas.md`'s register carries the pointer.
 
 ## What we did NOT fix (can't): the marp-vscode preview pane
 

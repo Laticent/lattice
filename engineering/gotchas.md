@@ -1514,8 +1514,11 @@ for the runtime route", never "the preview is complete."
   **This started as an export-only rewrite and that was wrong** — it left the
   manual marp-vscode recipe (`markdown.marp.themes` pointing straight at
   `dist/lattice.css`, which is what this repo's own `.vscode/settings.json`
-  does) still carrying 617 dead chart rules, so every non-chart component
-  worked and the charts alone rendered unstyled. Gated by
+  does) still carrying every dead rule. Measured against real marp-core: **835
+  dead selectors across 518 blocks**, of which 465 are `:is(section, figure)`
+  heads over MERMAID diagram internals and the rest are the chart bucket. Only
+  the chart half shows without a diagram on the slide — hence the misleading
+  "only the charts are broken" symptom. Gated by
   `test/unit/core/shipped-css-marp-scopable.test.js`, which asserts the
   ARTIFACT. `:where()` heads are deliberately NOT rewritten: unwrapping them
   would change the zero specificity they're chosen for, and distributing them

@@ -50,9 +50,16 @@ const { minifyCss } = require('./minify-css');
 // on a selector's leftmost compound: a literal leading `section` IS the slide,
 // anything else becomes a slide DESCENDANT. Lattice's dual-surface chart head
 // `:is(section.x, figure.x)` is not a literal `section`, so marp-core scopes it
-// to a slide-inside-a-slide and it matches NOTHING — 617 rules in dist/lattice.css,
-// the entire chart bucket (roadmap, gantt, radar, quadrant, matrix-grid, kanban,
-// progress, timeline-list, word-cloud, funnel, piechart, map, chart-frame).
+// to a slide-inside-a-slide and it matches NOTHING. Measured on dist/lattice.css
+// before the fix: 808 leading-`:is()` selectors across 491 rules. Two populations,
+// and it is worth naming both because the first framing of this fix named only one:
+//   - 343 selectors are the chart bucket (roadmap, gantt, radar, quadrant,
+//     matrix-grid, kanban, progress, timeline-list, word-cloud, funnel, piechart,
+//     map, chart-frame) — the visible half, since these style whole components.
+//   - 465 selectors across 199 rules are `:is(section, figure)` heads over MERMAID
+//     diagram internals (g.architecture-*, svg.mindmapDiagram, .section-N, radar*).
+//     Equally dead, but invisible unless a deck has a diagram — which is why the
+//     symptom read as "only the charts are broken."
 //
 // #1259 shipped this rewrite at EXPORT time only, which left the manual
 // marp-vscode recipe — `markdown.marp.themes` pointing straight at
