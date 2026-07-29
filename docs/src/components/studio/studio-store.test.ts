@@ -35,6 +35,7 @@ import {
 	saveSettings,
 	saveSource,
 	setDeckLabel,
+	storedTitleFor,
 	syncDerivedTitle,
 	titleFromSource,
 	truncateCodePoints,
@@ -259,6 +260,101 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 		const deck = createDeck('Untitled deck');
 		saveSource(deck.id, `---\ntitle: Board pack — Q4\n---\n\n# Q4\n\nbody`);
 		expect(loadDeckList().find((d) => d.id === deck.id)?.title).toBe('Board pack — Q4');
+	});
+
+	// ── Rename must SPLICE the `title:` line, never rebuild the block ──────────────────
+	// Every case below was found by the adversarial trio against the first cut, which routed
+	// this path through `setFrontMatter`. That rebuilds the whole block through parseFm/emitFm,
+	// so it silently dropped everything the grammar does not model and normalized what it did.
+	describe('Rename preserves the rest of the front matter byte-for-byte', () => {
+		const rename = (src: string, to = 'New Name') => retitleSource(src, to) ?? '';
+
+		it('preserves CRLF — a Windows-authored deck does not come back mixed-EOL', () => {
+			// #1248 built `lineEnd` precisely so Rename could not convert a CRLF line to LF; the
+			// first cut of the override bypassed it and produced an LF block with a CRLF body.
+			const src = '---\r\ntitle: Old Name\r\nsize: 16:9\r\n---\r\n\r\n<!-- _class: title -->\r\n\r\n# Q4\r\n\r\nbody\r\n';
+			const out = rename(src);
+			// The value is quoted exactly as `setFrontMatter` would quote it — one convention, not two.
+			expect(out).toBe('---\r\ntitle: "New Name"\r\nsize: 16:9\r\n---\r\n\r\n<!-- _class: title -->\r\n\r\n# Q4\r\n\r\nbody\r\n');
+			expect(out).not.toMatch(/[^\r]\n/); // no bare LF anywhere — line endings uniform
+		});
+
+		it('keeps YAML comments, key order, and every key the parser grammar does not model', () => {
+			const src = [
+				'---',
+				'# author note about this deck',
+				'title: Old',
+				'theme: indaco',
+				'_class: lead', // leading underscore: the ENGINE accepts it, parseFm's grammar does not
+				'style: |',
+				'  section { color: red; }',
+				'tags: [alpha, beta]',
+				'---',
+				'',
+				'# Q4',
+				'',
+			].join('\n');
+			const out = rename(src);
+			expect(out).toContain('# author note about this deck'); // comment survives
+			expect(out).toContain('_class: lead'); // underscore key survives
+			expect(out).toContain('style: |\n  section { color: red; }'); // block scalar + its lines survive
+			expect(out).toContain('tags: [alpha, beta]'); // flow sequence not stringified
+			expect(out).toBe(src.replace('title: Old', 'title: "New Name"')); // …and NOTHING else moved
+		});
+
+		it('preserves a nested block and does not reorder around it', () => {
+			const src = '---\ntitle: Old\nfinish-override:\n  backdrop:\n    strength: 0.4\nsize: wide\n---\n\n# Q4\n';
+			expect(rename(src)).toBe(src.replace('title: Old', 'title: "New Name"'));
+		});
+
+		it('rewrites only the FIRST `title:`, and leaves a duplicate key alone', () => {
+			// getFrontMatter reads the first; the writer must target that same line rather than
+			// collapsing the block (which silently deleted the author's second key).
+			const src = '---\ntitle: First\nsize: wide\ntitle: Second\n---\n\n# Cover\n';
+			const out = rename(src);
+			expect(out).toBe('---\ntitle: "New Name"\nsize: wide\ntitle: Second\n---\n\n# Cover\n');
+		});
+
+		it('does NOT strip a leading `#` on the front-matter path — the scalar is literal', () => {
+			// The `#` strip is a HEADING concern (it stops a prefilled `# Title` doubling). Applied
+			// here it renamed the deck to something other than what the user typed, and made the
+			// no-op guard non-convergent.
+			const src = '---\ntitle: Old\n---\n\n# Cover\n';
+			expect(resolveTitle(rename(src, '#1 Priority'))?.text).toBe('#1 Priority');
+			expect(storedTitleFor(src, '#1 Priority')).toBe('#1 Priority');
+			// …while the heading path still strips it.
+			expect(storedTitleFor('# Cover\n', '#1 Priority')).toBe('1 Priority');
+			expect(retitleSource('# Cover\n', '#1 Priority')).toBe('# 1 Priority\n');
+		});
+
+		it('an indented `title:` is spliced where the READER found it — writer and reader agree', () => {
+			// parseFm matches the TRIMMED line, so an indented key under a non-bare parent IS a
+			// flat pair. Whatever the reader read, the writer must rewrite — the worst possible
+			// failure here is the two disagreeing and Rename editing a different line.
+			const src = '---\ntheme: indaco\n  title: sneaky\n---\n\n# Cover\n';
+			expect(resolveTitle(src)).toEqual({ text: 'sneaky', from: 'front-matter' });
+			expect(rename(src)).toBe('---\ntheme: indaco\n  title: "New Name"\n---\n\n# Cover\n');
+		});
+
+		it('AGREEMENT: for every deck shape, the spliced value is what the reader reads back', () => {
+			// The drift guard. If frontMatterKeySpan and parseFm ever diverge, this fails.
+			const shapes = [
+				'---\ntitle: A\n---\n\n# H\n',
+				'---\r\ntitle: A\r\nsize: wide\r\n---\r\n\r\n# H\r\n',
+				'---\n# note\ntitle: A\ntheme: indaco\n---\n\n# H\n',
+				'---\nfinish-override:\n  backdrop:\n    strength: 0.4\ntitle: A\n---\n\n# H\n',
+				'---\ntheme: indaco\n  title: A\n---\n\n# H\n',
+				'---\ntitle: A\nlexicon:\n  "α": alpha\n---\n\n# H\n',
+			];
+			for (const shape of shapes) {
+				for (const name of ['Board pack — Q4', 'The "final" \\ pack', 'plain', '#1 Priority']) {
+					const out = retitleSource(shape, name) ?? '';
+					expect(resolveTitle(out)).toEqual({ text: name, from: 'front-matter' });
+					// and the body is untouched
+					expect(out.slice(out.lastIndexOf('---') + 3)).toBe(shape.slice(shape.lastIndexOf('---') + 3));
+				}
+			}
+		});
 	});
 
 	it('the pre-paint MIRROR carries the override, so a reload does not flash the cover heading', () => {

@@ -104,6 +104,75 @@ export function getFrontMatter(source: string, key: string): string | undefined 
 }
 
 /**
+ * The character span of ONE flat directive's LINE inside the leading block — enough to
+ * rewrite that line and nothing else. Returns the span EXCLUDING any trailing CRLF `\r`
+ * (so a splice preserves the file's line endings), plus the line's own indent.
+ *
+ * This exists because `setFrontMatter` is the wrong tool for a surgical edit: it parses the
+ * whole block and re-emits it, which silently drops everything the grammar does not model —
+ * YAML comments, `_`-prefixed keys (`_class:`, which the ENGINE accepts and this grammar
+ * does not), block scalars (`style: |` and its indented lines), flow sequences — and also
+ * reorders the remaining keys, re-quotes their values, and normalizes CRLF to LF. That is
+ * an acceptable cost for a control that OWNS the block (the Deck-setup toggles), and an
+ * unacceptable one for an edit the user reads as "rename this deck".
+ *
+ * The scan MIRRORS `parseFm` exactly — same key grammar, same nested-block skipping — so
+ * the span always lands on the same line `getFrontMatter` read the value from. A drift test
+ * pins that agreement; if the two ever diverge, a write would target a different line than
+ * the read, which is the worst failure this function could have.
+ */
+export function frontMatterKeySpan(source: string, key: string): { start: number; end: number; indent: string } | null {
+	const src = String(source ?? '');
+	const m = FM_RE.exec(src);
+	if (!m) return null;
+	const open = /^---[ \t]*\r?\n/.exec(m[0]);
+	if (!open) return null;
+	const lines = m[1].split('\n'); // '\r' stays attached to the line, like `parseFm`'s own split
+	const bare = (raw: string) => raw.slice(0, raw.length - (raw.endsWith('\r') ? 1 : 0));
+	let at = open[0].length; // offset of the inner body's first line, within `src`
+	for (let i = 0; i < lines.length; i++) {
+		const raw = lines[i];
+		const line = bare(raw);
+		const head = line.match(/^(\s*)([A-Za-z][\w-]*):[ \t]*$/); // a bare `key:` — no value
+		if (head) {
+			// Look ahead for indented children WITHOUT consuming: a header that owns them is a
+			// nested block (`finish-override:`, `lexicon:`) that `parseFm` never flattens into
+			// pairs, so its children can't be the flat key we're looking for either.
+			const base = head[1].length;
+			let j = i;
+			let skipped = 0;
+			let child = false;
+			while (j + 1 < lines.length) {
+				const next = bare(lines[j + 1]);
+				if (!next.trim()) { j++; skipped += lines[j].length + 1; continue; } // blanks don't end a block
+				if ((next.match(/^(\s*)/)?.[1] ?? '').length <= base) break; // dedent → block ends
+				child = true;
+				j++;
+				skipped += lines[j].length + 1;
+			}
+			if (child) { at += raw.length + 1 + skipped; i = j; continue; }
+			// No children — `parseFm` treats this as an empty scalar pair, so it can match.
+			if (head[2] === key) return { start: at, end: at + line.length, indent: head[1] };
+			at += raw.length + 1;
+			continue;
+		}
+		// `parseFm` matches the TRIMMED line, so an indented `key: value` under a non-bare
+		// parent counts as a flat pair. Mirror that rather than "fixing" it here — the writer
+		// must target whatever the reader read.
+		const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line.trim());
+		if (kv && kv[1] === key) return { start: at, end: at + line.length, indent: line.match(/^(\s*)/)?.[1] ?? '' };
+		at += raw.length + 1;
+	}
+	return null;
+}
+
+/** Serialize a value the way a front-matter line does — exported so a surgical splice
+ *  quotes exactly like `setFrontMatter` would, instead of growing a second convention. */
+export function frontMatterValue(value: string): string {
+	return quoteIfNeeded(value);
+}
+
+/**
  * Parse the deck's `finish-override:` block into a PARTIAL recipe — a map of layer →
  * `{ attr: rawStringValue }`, nested one level under each layer key to mirror the recipe
  * shape (`backdrop: { strength: 0.4, clearance: off }`, `wash: { intensity: 5 }`, …).

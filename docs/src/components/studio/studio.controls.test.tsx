@@ -107,6 +107,54 @@ describe('Studio — every top-bar control responds', () => {
 		prompt.mockRestore();
 	});
 
+	it('the pre-paint MIRROR carries the override — driven through the real save path, not hand-fed', async () => {
+		// The predecessor of this test hand-fed resolveTitle(...) straight to syncDerivedTitle,
+		// so it asserted only that the store persists what you give it and passed unchanged with
+		// the production wiring reverted (an independent checker caught it). This types an
+		// override into the REAL editor and asserts what the debounced save actually mirrored —
+		// which is what studio.astro paints before hydration.
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		await user.click(await screen.findByText('New deck'));
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('---\ntitle: Board pack — Q4 FY26\n---\n\n<!-- _class: title -->\n\n# Q4\n\n');
+		await waitFor(() => {
+			const idx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]') as { title: string; derived?: string }[];
+			// The OVERRIDE, not the cover heading — mirroring "Q4" here would flash the very name
+			// the override exists to replace, then snap on hydration.
+			expect(idx.at(-1)?.derived).toBe('Board pack — Q4 FY26');
+			expect(idx.at(-1)?.title).toBe('Untitled deck'); // creation label still untouched
+		});
+	});
+
+	it('the Deck setup "Deck name" field CREATES and CLEARS the override', async () => {
+		// Rename never grows front matter on a deck that has none, so without this control the
+		// override could only be reached by hand-writing YAML — in a drawer whose entire purpose
+		// is front matter without the YAML. This is the feature's only entry point.
+		const user = setup();
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('<!-- _class: title -->\n\n# Q4\n\nbody');
+		expect(await screen.findByRole('button', { name: /Q4/ })).toBeInTheDocument();
+
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		const field = await screen.findByRole('textbox', { name: 'Deck name' });
+		await user.click(field);
+		await user.type(field, 'Board pack — Q4 FY26 (final)');
+		await user.tab(); // blur commits
+
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).toContain('title: "Board pack — Q4 FY26 (final)"'));
+		expect(await screen.findByRole('button', { name: /Board pack — Q4 FY26 \(final\)/ })).toBeInTheDocument();
+
+		// Blank CLEARS it — the key is removed and heading derivation resumes.
+		await user.clear(screen.getByRole('textbox', { name: 'Deck name' }));
+		await user.tab();
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toContain('title:'));
+		expect(await screen.findByRole('button', { name: /Q4/ })).toBeInTheDocument();
+	});
+
 	it('a `title:` override names the deck, and Rename aims at the override — not the cover slide', async () => {
 		// The whole point of the override is a shelf name the cover slide does not say. So the
 		// switcher must show the override, and Rename — which writes back — must target the

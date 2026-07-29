@@ -310,7 +310,8 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						var act = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
 						var did = act && act.deckId;
 						// TITLE SEED — the returning user's actual deck, not the default. Precedence
-						// matters: `derived` is the index MIRROR of the deck's real heading, written
+						// matters: `derived` is the index MIRROR of the deck's RESOLVED title — its
+						// `title:` override when it sets one, else its heading — written
 						// by the app on save, so it is the only entry field guaranteed CURRENT — take
 						// it first. Then the built-in's own declared title, which beats the index's
 						// `title` because that field is a CREATION label: every returning user has a

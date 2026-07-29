@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The follow-up recorded by 2026-07-29-deck-title-is-its-heading, and proposed independently by two lenses of that change's adversarial trio — a `title:` front-matter override, precedence `title:` → first heading → creation label. The heading rule is right up to the point where a deck's shelf name and its cover are different facts ("Board pack — Q4 FY26 (final)" belongs in the switcher and the export filename, not in 90pt on the title slide); without an override the only way to name the deck was to write that name onto the slide. `resolveTitle(source)` becomes the one resolver, returning the raw winning title PLUS where it came from, and `titleFromSource` / `retitleSource` / the pre-paint mirror are all rebuilt on it, so every surface inherits the precedence with no per-call-site change. The load-bearing detail is that `from` is carried, not just the text: Rename edits WHATEVER DETERMINES the title (the `title:` line on an override deck, the heading otherwise) because rewriting the heading on an override deck would appear to do nothing, and display normalization differs between the two (markdown is stripped from a heading, which is rendered markdown, and never from a front-matter scalar, where the characters are literal). `title:` is not a new key — share-export already read it for the HTML `<title>` and the `.lattice` manifest — so this makes one existing directive authoritative rather than adding a second home for the name; the knock-on is that an override deck's exported HTML `<title>` now says the override where it used to say the heading.
+summary: The follow-up recorded by 2026-07-29-deck-title-is-its-heading, and proposed independently by two lenses of that change's adversarial trio — a `title:` front-matter override, precedence `title:` → first heading → creation label. The heading rule is right up to the point where a deck's shelf name and its cover are different facts ("Board pack — Q4 FY26 (final)" belongs in the switcher and the export filename, not in 90pt on the title slide); without an override the only way to name the deck was to write that name onto the slide. `resolveTitle(source)` becomes the one resolver, returning the raw winning title PLUS where it came from, and `titleFromSource` / `retitleSource` / the pre-paint mirror are all rebuilt on it, so every surface inherits the precedence with no per-call-site change. The load-bearing detail is that `from` is carried, not just the text: Rename edits WHATEVER DETERMINES the title (the `title:` line on an override deck, the heading otherwise) because rewriting the heading on an override deck would appear to do nothing, and display normalization differs between the two (markdown is stripped from a heading, which is rendered markdown, and never from a front-matter scalar, where the characters are literal). `title:` is not a new key — share-export already read it for the PNG/SVG image-set manifest and as a dead fallback for the exported HTML `<title>` — so this makes one existing directive authoritative rather than adding a second home for the name; the knock-on is that an override deck's exported HTML `<title>` now says the override where it used to say the heading. Hardened after the HARD RULE #25 adversarial trio, which moved the implementation: Rename SPLICES the `title:` line rather than routing through `setFrontMatter`, whose whole-block rebuild silently deleted YAML comments, `_`-prefixed keys, block scalars and flow sequences, reordered the survivors, and converted a CRLF block to LF (regressing a #1248 hardening); the heading path's `#` strip no longer applies to a front-matter scalar; the creation label can no longer be clobbered by a rename that wrote nothing; and the feature gained the control that CREATES an override — without it `title:` was reachable only by hand-writing YAML into a drawer whose purpose is front matter without the YAML.
 ---
 
 # A deck's shelf name: the `title:` front-matter override
@@ -63,35 +63,101 @@ else. Two behaviors depend on knowing *where* the title came from:
   `Q4_final` into `Q4final`. The 60-char display cap still applies to both; the
   raw value is never capped, because Rename writes it back.
 
+### The control that creates it
+
+Rename edits whichever source the name already comes from, and deliberately never
+grows front matter on a deck that has none. That rule is only coherent if something
+*else* can create the override — and in the first cut, nothing could. Enumerating
+every `setFrontMatter(…, key)` call in `docs/src` turns up 24 directives, and
+`title` was the only one whose writer could not bring it into existence: `size`,
+`header`, `footer`, `theme`, `finish`, `paginate`, `class`, `lang` and the rest all
+have a control in the Deck-setup drawer. The sole entry point was hand-writing YAML
+— in a drawer the authoring guide titles *"Deck setup (front matter without the
+YAML)"*, and in Compose mode, where front matter is an invisible document attribute,
+the key would not have been observable at all.
+
+So the drawer's **Look** tab (the deck's *identity* — name, language, palette, size)
+gains a **Deck name** row, following `setHeaderText` exactly: it shows the raw
+override, placeholders with the heading-derived name so blank reads as "follows the
+cover", and clearing it removes the key and resumes heading derivation.
+
 ### Not a new key
 
-`title:` was already read by `share-export` — for the exported HTML's `<title>`
-and the `.lattice` manifest's provenance — as a fallback behind the passed-in deck
-title, which meant it almost never won. This change makes that one existing
-directive authoritative rather than inventing a second home for the name, which is
-the same instinct the heading rule was built on: one fact, one home.
+`title:` was already read by `share-export`, though more narrowly than the first
+draft of this note claimed: the **PNG/SVG image-set** manifest reads it
+(`share-export.ts:577`), and the exported HTML's `<title>` reads it as a fallback
+behind the passed-in deck title (`:320`) that in practice never fired, since
+`titleFromSource` always returns a non-empty string. The `.lattice` manifest never
+read front matter at all — it takes the shell's `deckTitle` argument directly. The
+**engine** does not consume the key either: `title` is absent from
+`lib/engine/directives.js`'s `KNOWN_DIRECTIVES`, so no slide's rendering depends on
+it. What this change does is make one existing, mostly-inert directive authoritative
+rather than invent a second home for the name.
 
 **Knock-on worth naming:** for a deck that carries `title:`, the exported HTML's
-`<title>` now says the override where it previously said the cover heading. That
-is the intended resolution of a key that was previously almost dead, but it *is* a
-change in exported bytes for that population, and it was shown and signed off
-rather than slipped in.
+`<title>` — and the export filename — now say the override where they previously
+said the cover heading. That is the intended resolution of a nearly-dead key, but it
+*is* a change in exported bytes for that population, so it was captured both ways
+(reverting to `origin/main`, rebuilding, and exporting the same deck) and put in
+front of the human for the QUALITY BAR's export sign-off rather than slipped in.
+
+### Why the LFM spec is not amended
+
+Spec §2.3 states that `finish:` and `logo:` are "the complete LFM-added front-matter
+surface in 1.0". That claim is left standing, deliberately: `title:` is **application**
+metadata, not a language extension. The engine renders nothing from it — it is not a
+`KNOWN_DIRECTIVE`, it produces no `<section>` attribute, and a third-party LFM
+implementer can ignore it entirely and still render a Lattice deck correctly. What
+consumes it is the Studio (deck naming) and the export wrapper (filename, HTML
+`<title>`), which are product surfaces rather than the document language. Amending a
+versioned, CC-BY-published spec is a governance act with its own process (§10), and
+spending it on a key the renderer ignores would widen the standard for no
+implementer's benefit. §2.3 carries a one-line note that app-level metadata keys
+exist outside the LFM surface, so the completeness claim cannot be read as "no other
+key may appear in a Lattice deck's front matter."
+
+## What the adversarial pass changed (HARD RULE #25)
+
+The trio ran against the first cut. It found one root cause with four faces: the
+front-matter write went through `setFrontMatter`, which does not edit a line — it
+parses the whole block and re-emits it. Everything the grammar does not model was
+deleted, and everything it did model was normalized.
+
+| Found | Was | Now |
+|---|---|---|
+| Rename converted a CRLF (Windows-authored) block to LF, leaving a mixed-EOL file | `emitFm` joins with `\n` | the `title:` line is **spliced**; `\r` is outside the span, so line endings are untouched — the same discipline `lineEnd` gave the heading path in #1248 |
+| Rename deleted YAML comments, `_class:` / `_paginate:` (the engine accepts a leading `_`; `parseFm`'s key grammar does not), `style: \|` block scalars and their indented lines, and stringified flow sequences (`tags: [a, b]`) | whole-block rebuild | nothing outside the one line is read, let alone rewritten |
+| Rename re-quoted *other* keys with escapes the engine's `stripQuotes` does not decode, so `header: The "Q4" pack` rendered with literal backslashes | whole-block rebuild | other keys are never re-emitted |
+| Rename could delete an entire slide: on a deck whose leading `---` is a slide separator, `FM_RE` swallows slide 1, a body line shaped `title: x` resolves as the title, and the rebuild discarded the rest | whole-block rebuild | the splice replaces one line, so the worst case is a wrong line edited, not content destroyed |
+| a duplicate `title:` key silently vanished | rebuild emits one | the first is spliced (the same one the reader read); the second is left alone |
+| `#1 Priority` was stored as `1 Priority`, the toast claimed the un-stripped name, and the no-op guard never converged | the heading path's `^#+` strip applied to both | the strip is heading-only; `storedTitleFor` gives the toast and the guard the value actually written |
+| renaming to a bare `#` clobbered the deck's write-once creation label | the fallback fired whenever `retitleSource` returned null | the fallback is gated on the deck having *no* title source at all |
+| the feature had no way to be turned on | Rename never creates the key, and nothing else wrote it | the Deck-setup **Deck name** row (above) |
+| the pre-paint mirror's test hand-fed the resolver to the store, so reverting the production wiring killed no tests | a vacuous assertion | the shell test types an override into the real editor and asserts what the debounced save mirrored |
+
+A **reader/writer agreement** test now pins the one failure this design could not
+survive: `frontMatterKeySpan` (the writer's line finder) mirrors `parseFm` (the
+reader's grammar), and if they ever diverge, Rename would rewrite a different line
+than the one the title was read from.
 
 ## Edges that decide behavior
 
 | Case | Behavior | Why |
 |---|---|---|
 | `title:` with an empty or whitespace value | ignored; falls through to the heading | a stray key must not blank a deck that has a perfectly good heading |
-| a title with `"` or `\` | round-trips losslessly through `setFrontMatter`'s quote/escape and back | without a real round-trip the backslashes compound on every rename (`front-matter.ts` documents this) |
+| a title with `"` or `\` | round-trips losslessly through the shared quote/escape and back | without a real round-trip the backslashes compound on every rename (`front-matter.ts` documents this) |
 | a multi-line title | flattened to one line | in a heading a newline injects markdown (including a `---` slide break); in front matter it breaks out of the block entirely |
-| `title:` nested under another key (e.g. `finish-override:`) | not seen as the deck title | `parseFm` captures nested blocks verbatim and never flattens their children into scalars |
+| `title:` nested under a **bare** header (e.g. `finish-override:`) | not seen as the deck title | `parseFm` captures such blocks verbatim and never flattens their children into scalars |
+| `title:` **indented under a non-bare key** (malformed YAML) | *is* seen as the deck title, and the splice targets that same line | `parseFm` matches the trimmed line, so it is a flat pair to the reader; the writer must follow the reader rather than "fix" it independently — an earlier draft of this table claimed the stronger invariant, and the checker disproved it |
+| a duplicate `title:` | the first wins on read, and is the line rewritten; the second is left untouched | matching `getFrontMatter`'s `.find` |
 | a deck with neither override nor heading | Rename falls back to the stored label | unchanged from the heading rule |
 | the built-in decks | unaffected — none carries `title:` | the drift test pinning each built-in's declared title to its heading still holds |
 
 ## Verified
 
 Driven on the **real built Studio** (`astro build` + `astro preview` + real
-Chromium), not a harness — ten checks, all passing:
+Chromium), not a harness. Ten scripted checks, all passing — the four distinct
+behaviors they cover:
 
 - the switcher pill reads the override while the rendered cover slide still reads
   `Q4`;
@@ -101,10 +167,27 @@ Chromium), not a harness — ten checks, all passing:
   saved source afterward carries the rewritten `title:` with `# Q4` untouched;
 - a deck with **no** override still renames its heading, and grows no front matter.
 
-Screenshotted at 1440 / 820 / 390. The unit assertions were **mutation-tested** —
-dropping the precedence, the empty-value guard, the strip split, and the
-front-matter write branch each kill tests (6 / 1 / 1 / 3 respectively), so none of
-them passes vacuously.
+Screenshotted at 1440 / 820 / 390. The export change was captured **both ways** —
+`origin/main` rebuilt and exported the same deck as `q4.html` / `<title>Q4`, this
+branch as `board-pack-q4-fy26-final.html` / `<title>Board pack — Q4 FY26 (final)` —
+in light and dark.
+
+Every assertion added here is **mutation-tested**; each of these kills tests, so
+none passes vacuously:
+
+| Mutation | Tests killed |
+|---|---|
+| drop the precedence (ignore the override) | 6 |
+| drop the empty-value guard | 1 |
+| apply the markdown strip to both paths | 1 |
+| delete the front-matter write branch | 3 |
+| revert the splice to a whole-block `setFrontMatter` | 6 |
+| revert the pre-paint mirror to `headingText` | 1 |
+| remove the Deck-name control | 1 |
+
+The last two exist because the checker found the original mirror test **vacuous** —
+it hand-fed the resolver's output to the store, so reverting the production wiring
+killed nothing.
 
 **Known, pre-existing, NOT from this change:** at 820px the switcher pill is
 squeezed to zero width by the crowded header (#1249) — visible in the 820

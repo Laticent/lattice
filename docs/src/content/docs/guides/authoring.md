@@ -257,8 +257,10 @@ step: the name tracks as you type.
 
 Sometimes the right *shelf* name is not the right *cover*. "Board pack — Q4 FY26
 (final)" is what you want in the switcher and on the exported file; it is not
-what you want set in 90pt across the title slide. For that, set `title:` in front
-matter:
+what you want set in 90pt across the title slide. For that, give the deck its own
+name in **Deck setup → Look → Deck name** — leaving it blank keeps the deck named
+by its first heading. The control writes a `title:` directive, which you can also
+type yourself:
 
 ```markdown
 ---
@@ -278,7 +280,10 @@ exactly as before. An empty `title:` is ignored rather than blanking the name.
 **Rename edits whichever of the two the name came from.** The Rename item in the
 deck menu rewrites the `title:` line on a deck that has one (leaving the cover
 slide alone) and the first heading on a deck that doesn't — and it says which
-before you commit. It never silently adds front matter to a deck that had none.
+before you commit. It never silently adds front matter to a deck that had none:
+that's what the Deck name field is for. Renaming an override deck rewrites that
+one line and nothing else — your other directives, their order, and any comments
+you've left in the block all survive untouched.
 
 ## Deck setup (front matter without the YAML)
 
