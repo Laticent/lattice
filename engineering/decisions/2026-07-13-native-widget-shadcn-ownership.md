@@ -346,7 +346,11 @@ controls exposed?" traced to the reset architecture: the docs site runs Tailwind
 guard test enforces it — Preflight would repaint Starlight's ~7k lines of hand-written CSS) and
 replaces it with a *scoped* reset under `.lx-ui` (`docs/src/styles/tailwind.css`). That scoped reset
 was a hand-maintained SUBSET of Preflight — it covered box-sizing, borders, and font inheritance but
-omitted the `padding: 0` / `margin: 0` Preflight zeroes on `button/input/select/textarea`. So the UA
+omitted the `padding: 0` / `margin: 0` Preflight zeroes on `button/input/select/textarea`. *(Update,
+2026-07-28: the reset is no longer a strict subset. #1216 added `user-select`/`-webkit-touch-callout`
+on controls — declarations Preflight does NOT carry — so "is it in Preflight?" is no longer the test
+for what belongs in this block. The test is whether the property is one a CONTROL needs and no
+per-component convention reliably supplies.)* So the UA
 default button padding (~1px 6px) survived; the Switch was the only control whose geometry depended on
 it (absolute thumb translate from the padded edge — checkbox/radio/icon-buttons *center* their content
 so symmetric padding doesn't shift it; Button/Toggle/Select-trigger set explicit padding; the Slider
