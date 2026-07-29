@@ -94,6 +94,33 @@ in patch versions.
 
 ### Fixed
 
+- **`split-panel proof`'s categorical tint stopped at the claim panel — the whole supporting
+  zone stayed one `--accent` blue on every slide in the sequence.** `cat-N` recolored
+  `.panel-left`'s fill and the panel's own top rule, but the checkpoint-card labels (and, under
+  `capstone`, the signal label) pinned `var(--accent)` directly, so a six-level run read as six
+  different panels beside six identical right halves. Most visible on `capstone`, whose quote-card
+  border and pillar rules ALREADY take `--panel-mark`: a cat-6 brown rule sat under a blue label
+  on the same slide. Those labels now take a new `--panel-label-ink`, set by `cat-N` and falling
+  back to `--accent` on a bare `proof` slide, which reproduces what the source deck this variant
+  came from actually does (`.l1 h6, .l1 h3 { color: var(--l1) }`).
+
+  The ink is a mix, not the raw `--cat-N-mark`: these labels are `--fs-meta` mono at 600, i.e.
+  normal-size text needing 4.5:1, where the mark tier carries only the 3:1 NON-TEXT guarantee its
+  stroke role is gated to — raw, it measures as low as 3.46:1 and fails 87 of 448 theme × mode ×
+  slot × surface pairs. Blending in `--text-heading` (already gated AA on both card surfaces) buys
+  the contrast without giving up the hue, the same fix `chart/matrix-grid`'s row labels and
+  `chart/quadrant`'s `.quadrant-label` use at the same 65/35 ratio. The dark arm dilutes only 20%,
+  since the mark tier flips to a pale tint on a dark canvas and starts much closer to the floor
+  there — spending the light arm's 35% would wash out chroma for nothing. Across all 32 themes:
+  0 failures of 448 pairs, worst 5.20:1 light (`concrete` cat-6) and 5.15:1 dark (`carbone`
+  cat-5). Deriving the ink from `--panel-fill` instead, so the label matched the panel hue exactly
+  (a theme's fill and mark cycles are independent and need not share a hue per slot), was measured
+  and rejected — the fill tier is a SURFACE tier, pale in light and deep in dark, so it cannot
+  carry small text on its own canvas at any ratio that leaves the hue visible. Verified rendered
+  in `indaco` and `indaco-dark`; note the visible tint is bounded by how much chroma a theme's
+  dark mark tier carries, and `indaco`'s is near-neutral by design, so on `indaco-dark` these
+  labels read as barely-tinted white and the panel fill is what carries the category.
+
 - **A state-chart drew differently in every preview pane.** `state-chart.transform.js` derived
   its geometry scale from `section.getBoundingClientRect().width` — the VISUAL box — so on the
   docs filmstrip, which transform-scales each section to the pane, it read 695px instead of

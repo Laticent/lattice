@@ -176,42 +176,42 @@
     },
     "cat-1": {
       "label": "cat-1",
-      "summary": "Override: pins this slide to the theme's categorical fill #1. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #1 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-1 -->\n\n`Stage 1 of 8`\n\n## Discover the real problem.\n\n- Talk to the people living with it\n  - Five conversations beat one survey.\n- Write down what surprised you\n  - The surprise is usually the actual problem.\n"
     },
     "cat-2": {
       "label": "cat-2",
-      "summary": "Override: pins this slide to the theme's categorical fill #2. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #2 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-2 -->\n\n`Stage 2 of 8`\n\n## Define what \"done\" means.\n\n- One sentence, not a document\n  - If it needs a meeting to explain, it isn't defined yet.\n- Name what's explicitly out of scope\n  - The edges matter more than the center.\n"
     },
     "cat-3": {
       "label": "cat-3",
-      "summary": "Override: pins this slide to the theme's categorical fill #3. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #3 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-3 -->\n\n`Stage 3 of 8`\n\n## Design the smallest real version.\n\n- Cut until it's uncomfortable\n  - Comfortable scope is usually still too big.\n- Sketch before you spec\n  - A rough picture surfaces disagreement a document hides.\n"
     },
     "cat-4": {
       "label": "cat-4",
-      "summary": "Override: pins this slide to the theme's categorical fill #4. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #4 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-4 -->\n\n`Stage 4 of 8`\n\n## Build the thing you designed.\n\n- Ship the ugly path first\n  - It finds the real risk; the happy path is easy.\n- Keep a running list of shortcuts taken\n  - Nothing is forgotten faster than a deliberate shortcut.\n"
     },
     "cat-5": {
       "label": "cat-5",
-      "summary": "Override: pins this slide to the theme's categorical fill #5. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #5 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-5 -->\n\n`Stage 5 of 8`\n\n## Validate with the people it's for.\n\n- Watch, don't narrate\n  - What they do matters more than what they say they'd do.\n- One real user beats five imagined ones\n  - A single honest session outweighs a week of speculation.\n"
     },
     "cat-6": {
       "label": "cat-6",
-      "summary": "Override: pins this slide to the theme's categorical fill #6. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #6 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-6 -->\n\n`Stage 6 of 8`\n\n## Launch to a small, real audience.\n\n- Small enough to fix fast\n  - A limited launch turns mistakes into hours, not weeks.\n- Tell people it's early\n  - Set the expectation and the feedback gets more honest.\n"
     },
     "cat-7": {
       "label": "cat-7",
-      "summary": "Override: pins this slide to the theme's categorical fill #7. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #7 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-7 -->\n\n`Stage 7 of 8`\n\n## Scale what actually worked.\n\n- Scale the mechanism, not the guess\n  - Confirm why it worked before you multiply it.\n- Expect the edges to break first\n  - Scale finds every assumption that only held at small size.\n"
     },
     "cat-8": {
       "label": "cat-8",
-      "summary": "Override: pins this slide to the theme's categorical fill #8. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
+      "summary": "Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-8 -->\n\n`Stage 8 of 8`\n\n## Sustain it without you in the loop.\n\n- Write down what only you know\n  - If it lives in your head, it isn't sustained yet.\n- Hand off the decision, not just the task\n  - Ownership transfers when someone else can say no.\n"
     }
   },

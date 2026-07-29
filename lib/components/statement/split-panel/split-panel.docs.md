@@ -246,7 +246,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 
 ### `cat-1` — cat-1
 
-Override: pins this slide to the theme's categorical fill #1. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #1 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-1 -->
@@ -263,7 +263,7 @@ Override: pins this slide to the theme's categorical fill #1. Normally unnecessa
 
 ### `cat-2` — cat-2
 
-Override: pins this slide to the theme's categorical fill #2. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #2 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-2 -->
@@ -280,7 +280,7 @@ Override: pins this slide to the theme's categorical fill #2. Normally unnecessa
 
 ### `cat-3` — cat-3
 
-Override: pins this slide to the theme's categorical fill #3. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #3 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-3 -->
@@ -297,7 +297,7 @@ Override: pins this slide to the theme's categorical fill #3. Normally unnecessa
 
 ### `cat-4` — cat-4
 
-Override: pins this slide to the theme's categorical fill #4. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #4 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-4 -->
@@ -314,7 +314,7 @@ Override: pins this slide to the theme's categorical fill #4. Normally unnecessa
 
 ### `cat-5` — cat-5
 
-Override: pins this slide to the theme's categorical fill #5. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #5 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-5 -->
@@ -331,7 +331,7 @@ Override: pins this slide to the theme's categorical fill #5. Normally unnecessa
 
 ### `cat-6` — cat-6
 
-Override: pins this slide to the theme's categorical fill #6. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #6 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-6 -->
@@ -348,7 +348,7 @@ Override: pins this slide to the theme's categorical fill #6. Normally unnecessa
 
 ### `cat-7` — cat-7
 
-Override: pins this slide to the theme's categorical fill #7. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #7 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-7 -->
@@ -365,7 +365,7 @@ Override: pins this slide to the theme's categorical fill #7. Normally unnecessa
 
 ### `cat-8` — cat-8
 
-Override: pins this slide to the theme's categorical fill #8. Normally unnecessary — `proof` slides are tinted automatically by deck order.
+Override: pins this slide to the theme's categorical slot #8 — the claim panel's fill, and under `proof` the checkpoint labels' ink. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-8 -->

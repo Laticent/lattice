@@ -13079,7 +13079,9 @@ section.split-panel.proof .panel-right { gap:var(--sp-md); }
   display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr;
   align-items:stretch; gap:var(--sp-md); flex:1 1 auto; min-height:0;
   justify-content:initial; list-style:none; padding:0; margin:0;
-}section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child{ grid-column:1 / -1; }section.split-panel.proof .panel-right > :is(ul,ol) > li{ background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:center; }section.split-panel.proof .panel-right > :is(ul,ol) > li > strong{ display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); font-weight:600; padding-bottom:var(--sp-xs); }section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol){ list-style:none; padding:0; margin:0; }section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) > li{ font-size:var(--fs-body-compact); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-base); }
+}section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child{ grid-column:1 / -1; }section.split-panel.proof .panel-right > :is(ul,ol) > li{ background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:center; }
+/* `--panel-label-ink` is the category's contrast-safe ink, set only by `cat-N`
+ * (see the cat block below) — falls back to `--accent` on a bare `proof` slide. */section.split-panel.proof .panel-right > :is(ul,ol) > li > strong{ display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--panel-label-ink, var(--accent)); font-weight:600; padding-bottom:var(--sp-xs); }section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol){ list-style:none; padding:0; margin:0; }section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) > li{ font-size:var(--fs-body-compact); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-base); }
 /* The signal row carries the slide's scenario — it reads at body scale, not the
  * compact card scale the two proof cards use. */section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child > :is(ul,ol) > li{ font-size:var(--fs-body); color:var(--text-heading); line-height:var(--lh-relaxed); }
 
@@ -13130,7 +13132,7 @@ section.split-panel.proof.capstone .panel-left p em:first-child {
   border-radius: var(--radius-md); padding: var(--sp-md) var(--sp-lg);
 }section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > :is(ul,ol) > li{
   font-family: var(--font-display); font-style: italic; color: var(--text-heading);
-}section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > strong{ color: var(--accent); }section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2){
+}section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > strong{ color: var(--panel-label-ink, var(--accent)); }section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2){
   background: none; border: none; border-top: 2px solid var(--panel-mark, var(--accent)); border-radius: 0;
   padding: var(--sp-sm) 0 0;
 }
@@ -13252,7 +13254,16 @@ section.split-panel > .cell-stage {
  *
  * `--cat-N-fill` is a pale tint in light mode and a deep saturated fill in
  * dark mode (themes/*.css). Text on it uses `--cat-on-fill`, the one ink the
- * categorical contract guarantees against any fill — see the text rules below. */
+ * categorical contract guarantees against any fill — see the text rules below.
+ *
+ * The category carries into the SUPPORTING zone too, via `--panel-label-ink`
+ * (consumed by `.proof`'s and `.capstone`'s card labels above). Tinting only the
+ * claim panel left the right half of every level slide reading one `--accent`
+ * blue regardless of which hue the engine had stamped — most visibly on
+ * `capstone`, whose quote-card and pillar rules already take `--panel-mark`, so a
+ * cat-6 brown rule sat under a blue label on the same slide. The source deck
+ * colors its checkpoint labels with the level's own hue (`.l1 h6, .l1 h3 { color:
+ * var(--l1) }`), which is the behavior this reproduces. */
 section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); }
 section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); }
 section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); }
@@ -13262,6 +13273,45 @@ section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(-
 section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); }
 section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); }section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left{
   background: var(--panel-fill);
+}
+/* NOT the raw `--panel-mark`. The card labels sit on `--bg-alt` (`--bg` under
+ * `capstone`), where `--cat-N-mark` carries only the 3:1 NON-TEXT guarantee its
+ * stroke role is gated to — text qualifies for 3:1 only at >=18.66px AND >=700
+ * weight, the exemption `statement/premise` earns by bumping its row term to 700.
+ * These labels are `--fs-meta` mono at 600 and can't take that weight without
+ * losing their caption voice, so they fall under the 4.5:1 normal-text rule, where
+ * the raw mark measures as low as 3.46:1 (87 of 448 theme × mode × slot × surface
+ * pairs fail). Mixing in `--text-heading` — the ink already gated AA on both of
+ * these surfaces — buys the missing contrast without giving up the hue. Same space
+ * and same 65/35 ratio as `chart/matrix-grid`'s row labels and `chart/quadrant`'s
+ * `.quadrant-label` for the identical "a graphical hue now carries text" problem.
+ *
+ * The DARK arm dilutes only 20%, not 35%: the mark tier flips to a pale tint on a
+ * dark canvas, so it starts far closer to AA there (only `carbone`, whose marks
+ * stay vivid in both modes, fails raw), and every point of dilution is chroma
+ * spent. 20% is what clears the floor on the worst slot; taking the light arm's
+ * 35% into dark would wash the tint out for nothing. Measured across all 32
+ * themes: 0 failures of 448 pairs, worst 5.20:1 light (`concrete` cat-6), 5.15:1
+ * dark (`carbone` cat-5). NOTE this is bounded by how much chroma a theme's dark
+ * mark tier carries in the first place — `indaco`'s is near-neutral by design, so
+ * on `indaco-dark` these labels read as barely-tinted white and the panel fill is
+ * what carries the category. Re-tuning that tier is a theme-wide change (kanban
+ * stripes, gantt bars, `premise` rows all draw from it), not this component's.
+ *
+ * Deriving the ink from `--panel-fill` instead — so the label matched the panel's
+ * hue exactly, since a theme's fill and mark cycles are INDEPENDENT (themes/*.css:
+ * "two independent cycles") and need not share a hue per slot — was measured and
+ * rejected: the fill tier is a SURFACE tier, pale in light mode and deep in dark,
+ * i.e. close to its own canvas by construction. It cannot carry small text on that
+ * canvas at any ratio that leaves the hue visible (301 of 448 pairs fail at 65%
+ * fill, still 11 at 40%, by which point the ink is mostly `--text-heading`
+ * anyway). So the mark cycle is the ink, which also matches what the rest of this
+ * component already draws from it — `.panel-left::before`'s rule and `capstone`'s
+ * quote border + pillar rules — rather than introducing a second hue per slide. */section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8){
+  --panel-label-ink: light-dark(
+    color-mix(in oklab, var(--panel-mark) 65%, var(--text-heading)),
+    color-mix(in oklab, var(--panel-mark) 80%, var(--text-heading))
+  );
 }section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before{
   background: var(--panel-mark);
 }

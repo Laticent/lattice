@@ -378,12 +378,14 @@ before it's called settled.
   Went further than the fill: the source also colors the level's badge
   label and its two checkpoint-card labels with the SAME level hue
   (`.l1 h6, .l1 h3 { color: var(--l1) }`, `.l1 > ul > li::before { color:
-  var(--l1) }`) — `cat-N` now tints `.panel-eyebrow` and (under `proof`)
-  the checkpoint `<strong>` labels with `--panel-mark` too, not just the
-  fill, so the category identity carries every labeled element on the
-  slide, matching the source's actual coverage rather than a partial
-  read of it. Verified rendered in both `indaco` and `indaco-dark` — all
-  six read with strong, clear contrast in both modes. See `### Added` in
+  var(--l1) }`) — the intent was for `cat-N` to tint `.panel-eyebrow` and
+  (under `proof`) the checkpoint `<strong>` labels too, not just the fill,
+  so the category identity carries every labeled element on the slide.
+  **Only the eyebrow half of that actually shipped**; the checkpoint labels
+  kept `--accent` for another two passes. See "A third look" below for what
+  was missed, why the audit didn't catch it, and the ink that fixed it.
+  Verified rendered in both `indaco` and `indaco-dark` — all six panel
+  fills read with strong, clear contrast in both modes. See `### Added` in
   `CHANGELOG.md`.
 - **Fixed: level 6 used the same checkpoint-card treatment as levels 1–5**
   (source: a distinct "THE SIGNAL" quote card + top-rule "PROOF 01"/"PROOF
@@ -478,12 +480,71 @@ deltas the fixes above still hadn't caught, both concrete, both real:
 Both fixes verified rendered in `indaco` and `indaco-dark`. See `### Added`
 / `### Fixed` in `CHANGELOG.md`.
 
+## A third look — the tint never left the claim panel
+
+The author came back with "still doesn't have multi color from the token
+palette for the split-panel proof." It was a real miss, and it had been
+described as fixed twice in this doc: the `cat-N` section above says
+"`cat-N` now tints `.panel-eyebrow` and (under `proof`) the checkpoint
+`<strong>` labels with `--panel-mark` too, not just the fill, so the
+category identity carries every labeled element on the slide" — the
+eyebrow part shipped, the checkpoint-label part never did. No rule in
+`split-panel.styles.css` ever targeted those labels; they kept the
+`color: var(--accent)` the base `.proof` rule set. So a six-level run
+rendered as six differently-tinted panels beside six identical
+`--accent`-blue right halves, and `capstone` — whose quote-card border
+and pillar rules DO take `--panel-mark` — put a cat-6 brown rule directly
+under a blue label on the same slide.
+
+Two lessons, both about verification rather than CSS:
+
+- **The claim was written from the intent, not the render.** Every other
+  fix in this doc was caught by rasterizing a page and looking at it. This
+  one was asserted in prose and in the `CHANGELOG` without a page to point
+  at, and it survived a full page-by-page audit because the audit compared
+  Lattice's page against the SOURCE's page for structure and proportion
+  and read the panel tint as the thing `cat-N` was responsible for.
+- **A sequence is only "multi color" if the whole slide moves.** Half a
+  slide varying while the other half repeats reads as a mistake, not a set
+  — arguably worse than a monochrome deck, because the eye registers the
+  repetition as the deliberate part.
+
+Fixed with a `--panel-label-ink` token set by `cat-N` (falling back to
+`--accent` on a bare `proof` slide), consumed by `.proof`'s card labels and
+`capstone`'s signal label. The interesting part is the ink, not the
+plumbing: the raw `--cat-N-mark` is not usable here (a stroke token gated
+to 3:1, under labels that are `--fs-meta` mono at 600 and therefore
+normal-size text needing 4.5:1 — 87 of 448 theme × mode × slot × surface
+pairs fail raw), and neither is a `--panel-fill`-derived ink that would
+have matched the panel's hue exactly, because the fill tier is a SURFACE
+tier by construction — pale on a light canvas, deep on a dark one — and so
+cannot carry small text on its own canvas at any ratio that leaves the hue
+visible (301 of 448 fail at 65% fill; still 11 at 40%, by which point the
+ink is mostly `--text-heading`). What works is the mark blended toward
+`--text-heading`, `chart/matrix-grid`'s and `chart/quadrant`'s answer to
+the identical problem, at the same 65/35 ratio in light mode and a lighter
+20% dilution in dark (the mark tier flips pale on a dark canvas, so it
+starts near the floor and every point of dilution is chroma spent). Full
+numbers in `### Fixed` in `CHANGELOG.md`.
+
 ## What's still open
 
-Nothing outstanding from the original five-item delta list, or from the
-second look above. Future review should still be a full page-by-page
-comparison against the source, not spot checks — that discipline, twice
-over now, is what caught every fix in this section.
+**The tint a theme's dark mark tier can actually carry.** The fix above is
+bounded by the palette: `indaco`'s `--cat-N-mark` dark arm is near-neutral
+by design (`#D4DFE8`, `#E7D5D6`, `#E7E6D5`…), so on `indaco-dark` the
+checkpoint labels read as barely-tinted white and the panel fill is what
+carries the category. Themes whose marks stay vivid in dark (`carbone`)
+show the hue plainly. Re-tuning that tier would be a theme-wide change —
+kanban lane stripes, gantt bars, and `statement/premise`'s rows all draw
+from the same token — so it is deliberately NOT in this component's diff
+(HARD RULE #18's off-path boundary), and noted here rather than silently
+accepted.
+
+Nothing else outstanding from the original five-item delta list or the
+second look. Future review should still be a full page-by-page comparison
+against the source, not spot checks — and, per the third look above, it
+should re-derive each claim from a rendered page rather than trusting a
+"fixed" already written in this doc.
 
 ## What's deliberately different from the source deck
 
