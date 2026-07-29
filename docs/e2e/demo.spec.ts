@@ -52,7 +52,11 @@ test('the Show Me menu lists every tour, and a tour builds a deck and completes'
 
 	// It completes on its own: the stage detaches and the built deck is LEFT BEHIND.
 	await expect(page.locator(STAGE)).toHaveCount(0, { timeout: 130_000 });
-	await expect(toastText(page)).toContainText(FIRST_DECK);
+	// The completion toast NAMES NO DECK: a deck is titled by its first heading now, so by
+	// the time the tour finishes this deck is called whatever the tour typed, not
+	// "My First Deck". Its stable creation LABEL is still that, which is what
+	// firstDeckCount below asserts on.
+	await expect(toastText(page)).toContainText('yours to edit');
 	await expect.poll(() => railButtons(page).count()).toBe(4);
 	expect(await firstDeckCount(page)).toBe(1); // persisted, single
 	await expect(page.locator(SHOW_ME)).toBeVisible();

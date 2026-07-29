@@ -206,7 +206,9 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				cur.setDeckMenuOpen(false);
 				cur.applyPalette(snap.palette);
 				if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
-				cur.notify(reason === 'complete' ? 'Demo complete — “My First Deck” is yours to edit.' : 'Demo ended — “My First Deck” is yours to edit.');
+				// Names no deck: a deck is titled by its first heading now, so by the time a tour
+				// finishes it is called whatever the tour typed — not “My First Deck”.
+				cur.notify(reason === 'complete' ? 'Demo complete — the deck is yours to edit.' : 'Demo ended — the deck is yours to edit.');
 			},
 		};
 	});

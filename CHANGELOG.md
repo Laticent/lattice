@@ -145,6 +145,33 @@ in patch versions.
 
 ### Fixed
 
+- **A Studio deck's title now IS its first heading, everywhere it is shown.** Creating a deck
+  gave you "Untitled deck", and typing a real `# Title` into it changed the slide and nothing
+  else — the switcher, the header, ⌘K, Share and the export filename kept saying "Untitled deck"
+  forever, because the title lived in a second place (the persisted deck index) that only
+  `createDeck` and Rename ever wrote. That second copy is gone as a source of truth: every deck
+  title is derived from its source (`titleFromSource`), the ACTIVE deck derives from the live
+  editor buffer so the name tracks as you type, a new deck's starter template is seeded with its
+  own name so the two agree from birth, and **Rename now rewrites the heading** (undoable, visible
+  in the editor) instead of storing a label free to disagree with the cover slide. The stored
+  index label survives only as the fallback for a deck with no heading at all, and as a mirror
+  kept fresh for the surfaces that read `localStorage` without the app — so a reload paints the
+  right deck name in the pre-paint instant shell, and backup filenames stay accurate. Two knock-on
+  changes this forces: the `welcome` built-in is listed under its own cover heading
+  ("Markdown for the boardroom") rather than a separate declared name, with a drift test pinning
+  the two together; and a `(restored)` backup copy carries that marker in its heading rather than
+  an index label that would now be invisible. Heading detection skips fenced code, which matters
+  more now that Rename writes to the span it finds — as do HTML comments, so a
+  `<!-- Notes: # … -->` aside is never mistaken for (or rewritten as) the deck's name.
+  The stored index row keeps three separate things straight: the deck's creation/rename
+  LABEL (never overwritten as you type), a single-writer `derived` mirror read only by
+  the pre-paint shell, and a `restored` provenance tag — so a restored backup copy is
+  stored byte-faithful rather than having the marker written into its heading, and
+  Rename round-trips the deck's RAW heading rather than the display title (which is
+  stripped of markdown and capped at 60 characters). Windows-authored CRLF decks derive
+  their heading correctly, and a rename can no longer inject a slide break.
+  See `engineering/decisions/2026-07-29-deck-title-is-its-heading.md`.
+
 - **`inventory editorial` placed its sidebar in an implicit second grid ROW, so the takeaway
   rendered below the items instead of beside them — and the committed gallery PDF shipped that
   sentence cut mid-phrase.** `grid-column` names a column, not a cell, and auto-placement never

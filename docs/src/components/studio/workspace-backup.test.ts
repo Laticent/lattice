@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exportStudioState, importStudioState, lastBackupAt, loadChat, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, markBackupTaken, saveChat, saveCheckpoint, saveInstructions, saveSettings, saveSource, shouldNudgeBackup } from './studio-store';
+import { createDeck, exportStudioState, importStudioState, lastBackupAt, loadChat, loadCheckpoints, loadDeckList, loadInstructions, loadSettings, loadSource, markBackupTaken, saveChat, saveCheckpoint, saveInstructions, saveSettings, saveSource, shouldNudgeBackup } from './studio-store';
 import { packWorkspace, restoreWorkspace, WORKSPACE_FORMAT, WORKSPACE_ZIP_NAME } from './workspace-backup';
 
 // jsdom has no IndexedDB, so the Library shelves read as empty — these tests
@@ -130,6 +130,46 @@ describe('workspace-backup — restore semantics', () => {
 		const restored = loadDeckList().find((d) => d.title === 'Quarterly plan (restored)');
 		expect(restored).toBeTruthy();
 		expect(loadSource(restored!.id)).toContain('Hello.');
+	});
+
+	it('a restored copy is BYTE-FAITHFUL — the "(restored)" marker never edits the content', async () => {
+		// Restore fidelity is the whole point of this path. The marker is a display tag on
+		// the index row, never a rewrite of the deck: writing it into the heading (which
+		// this briefly did) stripped inline markdown, truncated mid-word against a DISPLAY
+		// cap, and could split a surrogate pair in the user's restored content.
+		const heading = '# The `Q3` **board** review — every number that moved, and the three that matter 🎉';
+		const backedUp = `${heading}\n\nfrom the backup`;
+		saveSource('welcome', backedUp);
+		const blob = await packWorkspace(T0);
+		saveSource('welcome', `${heading}\n\ndiverged locally`);
+
+		await restoreWorkspace(blob, T0 + 60_000);
+
+		const copy = loadDeckList().find((d) => d.title.includes('(restored)'));
+		expect(copy).toBeTruthy();
+		expect(loadSource(copy!.id)).toBe(backedUp); // not one byte changed
+		expect(loadSource(copy!.id)?.isWellFormed()).toBe(true); // no lone surrogate
+	});
+
+	it('the "(restored)" tag survives the deck being retitled — it is provenance, not a name', async () => {
+		seedWorkspace();
+		const blob = await packWorkspace(T0);
+		saveSource('deck-aaa', '# Quarterly plan\n\nEdited SINCE the backup.');
+		await restoreWorkspace(blob, T0 + 60_000);
+
+		const copy = loadDeckList().find((d) => d.title.includes('(restored)'));
+		saveSource(copy!.id, '# Renamed by its heading\n\nbody');
+		expect(loadDeckList().find((d) => d.id === copy!.id)?.title).toBe('Renamed by its heading (restored)');
+	});
+
+	it('a readable decks/*.md copy is named from the deck HEADING, not the stale index label', async () => {
+		// The label is a creation record, so a deck named by its heading (or one not
+		// opened since) would otherwise export as `untitled-deck.md`.
+		const d = createDeck('Untitled deck');
+		saveSource(d.id, '# Q4 Board Pack\n\nbody');
+		const { default: JSZip } = await import('jszip');
+		const zip = await JSZip.loadAsync(await packWorkspace(T0));
+		expect(Object.keys(zip.files).some((f) => f === 'decks/q4-board-pack.md')).toBe(true);
 	});
 
 	it('identical decks are skipped, not duplicated', async () => {

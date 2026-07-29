@@ -109,7 +109,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		localStorage.clear(); // a true fresh visitor — no seed, no prior use
 		render(<StudioShell options={options} />);
 		// The crafted intro deck is the active deck, shown full-bleed.
-		expect(screen.getByText('Welcome to Lattice')).toBeInTheDocument();
+		expect(within(screen.getByRole('banner')).getByText('Markdown for the boardroom')).toBeInTheDocument(); // the header names the deck by its own cover heading
 		// Read is calm: no docked coach, no activity-bar launcher.
 		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();

@@ -61,6 +61,52 @@ describe('Studio — every top-bar control responds', () => {
 		expect(screen.getByRole('button', { name: /Untitled deck/ })).toBeInTheDocument();
 	});
 
+	it('a new deck takes its name from the heading you type — no rename step (#deck-title-tracks-h1)', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		await user.click(await screen.findByText('New deck'));
+		// It starts as "Untitled deck" — the starter template's own heading.
+		expect(screen.getByRole('button', { name: /Untitled deck/ })).toBeInTheDocument();
+		// Give it a real title the only way an author would: type it into the deck.
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('<!-- _class: title -->\n\n# Acme Board Pack\n\n');
+		// The switcher (and everything else that shows a deck title) tracks it live.
+		expect(await screen.findByRole('button', { name: /Acme Board Pack/ })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /Untitled deck/ })).not.toBeInTheDocument();
+		// …and the switcher's own list agrees, not just the trigger.
+		await user.click(screen.getByRole('button', { name: /Acme Board Pack/ }));
+		expect(await within(await screen.findByRole('menu')).findByText('Acme Board Pack')).toBeInTheDocument();
+		// The debounced save mirrors the heading into the index for studio.astro's
+		// pre-paint shell — and leaves the deck's creation label untouched.
+		await waitFor(() => {
+			const idx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]') as { title: string; derived?: string }[];
+			expect(idx.at(-1)?.derived).toBe('Acme Board Pack');
+			expect(idx.at(-1)?.title).toBe('Untitled deck');
+		});
+	});
+
+	it('Rename rewrites the deck HEADING, and never truncates or strips it', async () => {
+		// Rename writes into the deck, so what it round-trips must be the RAW heading —
+		// prefilling from the display title (stripped, capped at 60) silently deleted the
+		// author's emphasis and everything past the cap from their cover slide.
+		const user = setup();
+		const long = 'Project Falcon — the FY26 operating plan and capital allocation review'; // 70 chars
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste(`<!-- _class: title -->\n\n# ${long}\n\nbody`);
+
+		// The prompt is prefilled with the whole heading, not the 60-char display title.
+		const prompt = vi.spyOn(window, 'prompt').mockImplementation(() => `${long} II`);
+		await user.click(screen.getByRole('button', { name: new RegExp(long.slice(0, 40)) }));
+		await user.click(await screen.findByRole('menuitem', { name: /^Rename/ }));
+		expect(prompt).toHaveBeenCalledWith(expect.any(String), long);
+
+		// …and the deck's own heading carries the full new title — nothing lost off the end.
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).toContain(`# ${long} II`));
+		prompt.mockRestore();
+	});
+
 	it('imports a deck from a .md file (title from its heading)', async () => {
 		const user = setup();
 		// Drive the hidden file input directly (a real <input type=file> change).
@@ -134,14 +180,15 @@ describe('Studio — every top-bar control responds', () => {
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('<!-- _class: title -->\n\n# UNIQUE-MARKER-XYZ\n\n');
-		// Switch to the second built-in deck, then back to the first.
-		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		// Switch to the second built-in deck, then back to the first. The edited deck is
+		// now NAMED by the pasted heading — a deck's title is its first heading.
+		await user.click(screen.getByRole('button', { name: /UNIQUE-MARKER-XYZ/ }));
 		await user.click(await screen.findByText('FY26 Product Strategy'));
-		expect(screen.queryByText(/UNIQUE-MARKER-XYZ/)).not.toBeInTheDocument();
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/UNIQUE-MARKER-XYZ/);
 		await user.click(screen.getByRole('button', { name: /FY26 Product Strategy/ }));
-		await user.click(await screen.findByText('Q3 Board Review'));
+		await user.click(await screen.findByText('UNIQUE-MARKER-XYZ'));
 		// The edit is restored — not reset to the canonical source.
-		expect(await screen.findByText(/UNIQUE-MARKER-XYZ/)).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).toMatch(/UNIQUE-MARKER-XYZ/));
 	});
 
 	it('⌘K runs a command (Fabricate) and a theme', async () => {
