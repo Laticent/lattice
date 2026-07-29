@@ -46,8 +46,13 @@ describe('deck front matter — the baked block', () => {
     const block = frontMatterBlock(DECK);
     assert.match(block, new RegExp(`^<script type="${FRONT_MATTER_TYPE}">`));
     assert.match(block, /<\/script>\n$/);
-    const payload = block.replace(/^<script[^>]*>/, '').replace(/<\/script>\n$/, '');
-    assert.equal(JSON.parse(payload), readFrontMatterBlock(DECK));
+    // Read the payload through a real HTML parser rather than by stripping the
+    // tags with a regex: what matters is what a BROWSER sees in that element, and
+    // a tag-shaped regex answers a different question (CodeQL is right to flag
+    // the pattern, even in a test — it is never the tool for this job).
+    const el = new JSDOM(`<section>${block}</section>`).window.document.querySelector('script');
+    assert.equal(el.getAttribute('type'), FRONT_MATTER_TYPE);
+    assert.equal(JSON.parse(el.textContent), readFrontMatterBlock(DECK));
   });
 
   test('a deck with no front matter bakes nothing', () => {
@@ -58,7 +63,10 @@ describe('deck front matter — the baked block', () => {
   // The one character that could turn a data block into markup.
   test('a payload cannot close its own script element', () => {
     const block = frontMatterBlock('---\nmeta: "</script><img src=x onerror=alert(1)>"\n---\n# A\n');
-    assert.ok(!block.slice(0, -'</script>\n'.length).includes('</script'), 'only the real closing tag is present');
+    // Case-insensitively: `frontMatterBlock` escapes EVERY `<`, so `</SCRIPT>`
+    // cannot close the element either.
+    const beforeTheRealClose = block.slice(0, -'</script>\n'.length).toLowerCase();
+    assert.ok(!beforeTheRealClose.includes('</script'), 'only the real closing tag is present');
     assert.match(block, /\\u003c\/script>/, 'the payload\'s `<` is escaped');
     const doc = new JSDOM(`<article><section>${block}</section></article>`).window.document;
     assert.equal(doc.querySelectorAll('img').length, 0, 'the browser parses no injected element');
