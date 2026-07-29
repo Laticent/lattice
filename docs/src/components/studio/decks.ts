@@ -22,7 +22,7 @@ export const DECKS: StudioDeck[] = [
 		id: 'welcome',
 		// A deck is named by its first heading (studio-store.titleFromSource), so this
 		// declared title must BE that heading — it is only the seed/fallback for the
-		// index, and a drift test (decks.test.ts) fails if the two ever disagree.
+		// index, and a drift test (studio-store.test.ts) fails if the two ever disagree.
 		title: 'Markdown for the boardroom',
 		meta: '7 slides',
 		slides: [

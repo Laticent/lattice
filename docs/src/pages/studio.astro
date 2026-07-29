@@ -309,15 +309,25 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						var rr = DEFAULT_RATIO;
 						var act = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
 						var did = act && act.deckId;
-						// TITLE SEED — the returning user's actual deck, not the default. The persisted
-						// index carries every deck's CURRENT title (studio-store mirrors each deck's
-						// derived heading into it on save), so this covers a USER-created deck too;
-						// DECK_TITLES is the built-in fallback for a browser with no saved index yet.
+						// TITLE SEED — the returning user's actual deck, not the default. Precedence
+						// matters: `derived` is the index MIRROR of the deck's real heading, written
+						// by the app on save, so it is the only entry field guaranteed CURRENT — take
+						// it first. Then the built-in's own declared title, which beats the index's
+						// `title` because that field is a CREATION label: every returning user has a
+						// built-in row stamped with whatever it was called when they first loaded,
+						// and trusting it would paint a stale name for any built-in they never edit.
+						// The creation label is right only for a user-made deck the app has yet to save.
 						if (did) {
 							var ttl = '';
 							try {
 								var idx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') || 'null');
-								if (idx && idx.length) for (var ti = 0; ti < idx.length; ti++) { if (idx[ti] && idx[ti].id === did && typeof idx[ti].title === 'string') ttl = idx[ti].title; }
+								if (idx && idx.length) for (var ti = 0; ti < idx.length; ti++) {
+									var row = idx[ti];
+									if (!row || row.id !== did) continue;
+									if (typeof row.derived === 'string' && row.derived) ttl = row.derived;
+									else if (typeof DECK_TITLES[did] === 'string') ttl = DECK_TITLES[did];
+									else if (typeof row.title === 'string') ttl = row.title;
+								}
 							} catch (e5) { ttl = ''; } // corrupt index → fall through to the built-in title
 							if (!ttl && typeof DECK_TITLES[did] === 'string') ttl = DECK_TITLES[did];
 							if (ttl) r.setAttribute('data-ssr-title', ttl);

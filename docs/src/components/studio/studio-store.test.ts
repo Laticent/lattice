@@ -6,8 +6,10 @@ import {
 	createDeck,
 	DECKS_CLEARED_EVENT,
 	deckContentStats,
+	deckLabels,
 	deleteDeck,
 	exportStudioState,
+	headingText,
 	importStudioState,
 	loadActiveDeck,
 	loadBootDeck,
@@ -31,7 +33,8 @@ import {
 	saveOnDeviceInstructions,
 	saveSettings,
 	saveSource,
-	syncDeckTitle,
+	setDeckLabel,
+	syncDerivedTitle,
 	titleFromSource,
 	truncateCodePoints,
 } from './studio-store';
@@ -70,7 +73,7 @@ describe('studio-store — deck index', () => {
 		const d = createDeck('Temp');
 		saveSource(d.id, 'just body text, no heading');
 		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Temp');
-		syncDeckTitle(d.id, 'Named by hand');
+		setDeckLabel(d.id, 'Named by hand');
 		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Named by hand');
 	});
 
@@ -135,6 +138,35 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 		expect(titleFromSource('no heading here')).toBe('Imported deck');
 	});
 
+	it('reads a CRLF (Windows-authored) deck — the `\\r` is not part of the heading', () => {
+		expect(titleFromSource('<!-- _class: title -->\r\n\r\n# Q4 Wrap\r\n\r\nbody')).toBe('Q4 Wrap');
+		// …and a rewrite leaves the rest of the file's line endings untouched.
+		const out = retitleSource('# Old\r\n\r\nbody\r\n', 'New') ?? '';
+		expect(out).toBe('# New\r\n\r\nbody\r\n');
+	});
+
+	it('skips HTML COMMENTS — an authored note is not the deck title, and Rename must not eat it', () => {
+		const src = '<!-- _class: big-number -->\n\n<!-- Notes: # TODO rewrite this cover -->\n\n- 42%\n  - of revenue';
+		expect(titleFromSource(src, 'FALLBACK')).toBe('FALLBACK');
+		expect(retitleSource(src, 'Acme Q4')).toBeNull();
+	});
+
+	it('does not truncate or strip what it WRITES — the display cap is display-only', () => {
+		const long = 'Project Falcon — the FY26 operating plan and capital allocation review'; // 70 chars
+		const src = `# ${long}\n\nbody`;
+		expect(titleFromSource(src)).toHaveLength(60); // display caps…
+		expect(headingText(src)).toBe(long); // …the raw heading does not
+		expect(retitleSource(src, `${long} II`)).toContain(`# ${long} II`);
+		// Emphasis survives a round-trip through headingText (it would not through titleFromSource).
+		expect(headingText('# **Q4** Wrap\n')).toBe('**Q4** Wrap');
+	});
+
+	it('flattens a multi-line title — a newline would inject a slide break into the deck', () => {
+		const out = retitleSource('# Old\n\nBody.\n', 'A\n---\n\n<!-- _class: quote -->\n\n# B') ?? '';
+		expect(out.split('\n')[0]).toBe('# A --- <!-- _class: quote --> # B');
+		expect(out.match(/^---$/gm)).toBeNull(); // no new slide break
+	});
+
 	it('skips front matter and FENCED CODE — a `# comment` in a bash block is not the title', () => {
 		expect(titleFromSource('---\ntheme: indaco\n---\n\n# Real Title\n')).toBe('Real Title');
 		expect(titleFromSource('```bash\n# npm install\n```\n\n## Real Title\n')).toBe('Real Title');
@@ -153,6 +185,43 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 	it('round-trips: what titleFromSource reads is what retitleSource writes', () => {
 		const src = retitleSource('---\nsize: 16:9\n---\n\n# Old\n\nbody', 'Board Pack') ?? '';
 		expect(titleFromSource(src)).toBe('Board Pack');
+	});
+});
+
+describe('studio-store — the index label vs the derived mirror', () => {
+	// The label is a CREATION record. Typing must never overwrite it: it is what the
+	// demo dedupes its starter deck by, what the e2e specs locate that deck by, and the
+	// only evidence a deck was ever explicitly named. (An earlier cut of this change
+	// overwrote it on every save — silently, irreversibly, on the first keystroke.)
+	it('typing a new heading refreshes the MIRROR and leaves the creation label alone', () => {
+		const d = createDeck('My First Deck');
+		saveSource(d.id, '# Q4 Board Update\n\nbody');
+		syncDerivedTitle(d.id, headingText('# Q4 Board Update\n\nbody'));
+
+		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Q4 Board Update'); // display tracks the heading
+		expect(deckLabels().find((x) => x.id === d.id)?.label).toBe('My First Deck'); // …the label does not move
+		const raw = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]') as { id: string; derived?: string }[];
+		expect(raw.find((e) => e.id === d.id)?.derived).toBe('Q4 Board Update'); // the pre-paint shell's only source
+	});
+
+	it('syncDerivedTitle ignores a heading-less deck (nothing to mirror)', () => {
+		const d = createDeck('Temp');
+		syncDerivedTitle(d.id, headingText('no heading at all'));
+		const raw = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]') as { id: string; derived?: string }[];
+		expect(raw.find((e) => e.id === d.id)?.derived).toBeUndefined();
+	});
+
+	it('deckLabels finds a deck the author has since retitled — the demo-dedupe handle', () => {
+		const d = createDeck('My First Deck');
+		saveSource(d.id, '# Something Else Entirely\n\nbody');
+		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Something Else Entirely');
+		expect(deckLabels().filter((x) => x.label === 'My First Deck').map((x) => x.id)).toEqual([d.id]);
+	});
+
+	it('an explicit rename MOVES the label — so a renamed deck escapes the demo slot', () => {
+		const d = createDeck('My First Deck');
+		setDeckLabel(d.id, 'Acme board pack');
+		expect(deckLabels().filter((x) => x.label === 'My First Deck')).toEqual([]);
 	});
 });
 

@@ -27,7 +27,7 @@ import { listStudioComponents, saveStudioComponent } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
 import { listStudioScenes, saveStudioScene } from './scene-library';
-import { exportStudioState, type ImportSummary, importStudioState, requestSourceFlush, resolvedSources, type StudioExport } from './studio-store';
+import { exportStudioState, type ImportSummary, importStudioState, requestSourceFlush, resolvedSources, type StudioExport, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
 
 export const WORKSPACE_FORMAT = 'lattice-workspace/1';
@@ -73,7 +73,10 @@ export async function packWorkspace(now: number): Promise<Blob> {
 	// for the human inspecting the file, and it must match the deck list.
 	const seen = new Set<string>();
 	for (const { entry, source } of resolvedSources()) {
-		let name = fileSlug(entry.title, entry.id);
+		// Derive from the SOURCE, not the index label: the label is a creation record, so
+		// a deck renamed by its heading (or never opened since) would export as
+		// `untitled-deck.md` — a readable copy that reads nothing like the deck.
+		let name = fileSlug(titleFromSource(source, entry.title), entry.id);
 		while (seen.has(name)) name = `${name}-2`;
 		seen.add(name);
 		zip.file(`decks/${name}.md`, source);

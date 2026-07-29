@@ -81,7 +81,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, retitleSource, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, syncDeckTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, headingText, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, retitleSource, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, setDeckLabel, shouldNudgeBackup, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -166,9 +166,6 @@ const NO_KNOWN: string[] = [];
 // The demo's starter deck title — a real, persisted deck deduped on each run and left
 // behind for the newcomer (see createDemoFirstDeck).
 const DEMO_FIRST_DECK_TITLE = 'My First Deck';
-// …under a FIXED id, because the demo overwrites the deck's content (and therefore its
-// derived title) as it types — the id is the only stable handle for deduping it.
-const DEMO_FIRST_DECK_ID = 'deck-demo-first';
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -894,10 +891,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		window.addEventListener(DECKS_CLEARED_EVENT, onCleared);
 		return () => window.removeEventListener(DECKS_CLEARED_EVENT, onCleared);
 	}, []);
-	const saveSourceGuarded = React.useCallback((id: string, src: string, title: string) => {
+	const saveSourceGuarded = React.useCallback((id: string, src: string) => {
 		if (decksClearedRef.current) return;
 		saveSource(id, src);
-		syncDeckTitle(id, title); // the index label mirrors the heading — see studio-store
+		// Refresh the pre-paint shell's mirror. Deliberately derived from `src` HERE
+		// rather than passed in: this is the deck's real heading, never the normalized
+		// display title, and never its creation label (which stays put — see IndexEntry).
+		syncDerivedTitle(id, headingText(src));
 	}, []);
 
 	// The active deck's TITLE, derived live from what's in the editor: a deck is named
@@ -920,18 +920,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			firstSave.current = false;
 			return;
 		}
-		const id = setTimeout(() => saveSourceGuarded(deck.id, source, deckTitle), 400);
+		const id = setTimeout(() => saveSourceGuarded(deck.id, source), 400);
 		return () => clearTimeout(id);
-	}, [source, deck.id, deckTitle, saveSourceGuarded]);
+	}, [source, deck.id, saveSourceGuarded]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
 	// backup entirely (no stored source yet at pack time).
 	React.useEffect(() => {
-		const flush = () => saveSourceGuarded(deck.id, source, deckTitle);
+		const flush = () => saveSourceGuarded(deck.id, source);
 		window.addEventListener(FLUSH_EVENT, flush);
 		return () => window.removeEventListener(FLUSH_EVENT, flush);
-	}, [source, deck.id, deckTitle, saveSourceGuarded]);
+	}, [source, deck.id, saveSourceGuarded]);
 
 	// Record the deck + slide currently in view, so a reload (or an iOS memory-reclaim
 	// tab discard) boots back here instead of on deck #1 — and so studio.astro's pre-paint
@@ -1226,7 +1226,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	function loadDeck(d: StudioDeck) {
 		// Flush the current deck's edits before leaving it (the debounce may not
 		// have fired), then restore the target deck's saved source.
-		saveSourceGuarded(deck.id, source, deckTitle);
+		saveSourceGuarded(deck.id, source);
 		// Re-read the list AFTER that flush: the deck we're leaving may have been
 		// retitled by an edit (titles derive from the heading), and the switcher shows
 		// stored titles for every deck but the active one.
@@ -1239,7 +1239,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// New / rename / delete — all persisted via the store, then reflected in the
 	// live deck list and switcher.
 	function newDeck() {
-		saveSourceGuarded(deck.id, source, deckTitle);
+		saveSourceGuarded(deck.id, source);
 		const d = createDeck();
 		setDecks(loadDeckList());
 		setDeck(d);
@@ -1257,13 +1257,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// Flush the deck we're switching away from first (as newDeck/switchDeck do) — a
 		// viewer who clicks "Watch demo" within the 400ms autosave debounce of an edit
 		// would otherwise lose that edit when we switch decks.
-		saveSourceGuarded(deck.id, source, deckTitle);
-		// Dedupe by ID, not by title: the demo types a whole board deck into this deck,
-		// so its title (the first heading) is no longer "My First Deck" by the time the
-		// walkthrough ends — a title match would miss it and accumulate a duplicate on
-		// every re-run. The fixed id is what makes it the SAME deck each time.
-		deleteDeckStore(DEMO_FIRST_DECK_ID);
-		const d = createDeck(DEMO_FIRST_DECK_TITLE, undefined, DEMO_FIRST_DECK_ID);
+		saveSourceGuarded(deck.id, source);
+		// Dedupe by the deck's stable creation LABEL, not by its displayed title: the demo
+		// types a whole board deck in, so the displayed title (its first heading) is no
+		// longer "My First Deck" by the time the walkthrough ends. The label is the one
+		// thing that survives that — and because an explicit Rename is what moves it,
+		// renaming the deck still lifts it out of the demo slot, which is how a newcomer
+		// who KEEPS this deck protects it from the next run. (A fixed id was tried here
+		// and reverted: it made re-running a tour silently delete a kept deck along with
+		// its checkpoints, chat, and comments.)
+		for (const { id, label } of deckLabels()) {
+			if (label === DEMO_FIRST_DECK_TITLE) deleteDeckStore(id);
+		}
+		const d = createDeck(DEMO_FIRST_DECK_TITLE);
 		setDecks(loadDeckList());
 		setDeck(d);
 		setSource(''); // a blank canvas — the demo types the board deck into it
@@ -1302,7 +1308,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// notifies on success.
 	function openImportedDeck(text: string, title: string, comments?: unknown) {
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
-		saveSourceGuarded(deck.id, source, deckTitle);
+		saveSourceGuarded(deck.id, source);
 		const d = createDeck(title || titleFromSource(text), text);
 		// Restore comments SYNCHRONOUSLY (static import) before the deck goes active —
 		// a floating async restore could be overwritten by a comment added in the gap,
@@ -1342,17 +1348,29 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// source-touching setting, so it lands in the editor and is undoable. A deck with
 	// no heading at all has nothing to rewrite: it falls back to the stored label.
 	function renameActiveDeck(title: string) {
-		const t = title.trim();
-		if (!t || t === deckTitle) return;
+		const t = title.replace(/\s+/g, ' ').trim();
+		if (!t || t === headingText(source)) return; // compared against the RAW heading — see renamePrompt
 		if (retitleSource(source, t)) {
 			settingsWrite(`Rename → ${t}`, (s) => retitleSource(s, t) ?? s);
-		} else {
-			syncDeckTitle(deck.id, t);
+		} else if (!decksClearedRef.current) {
+			// No heading to carry the name — record it as the deck's explicit label.
+			// Guarded like every other write: a rename during the Privacy & Data
+			// clear→reload window must not re-create the index it just wiped.
+			setDeckLabel(deck.id, t);
 			setDeck((cur) => ({ ...cur, title: t }));
 			setDecks(loadDeckList());
 		}
 		notify(`Renamed to “${t}”.`);
 	}
+	// What Rename PREFILLS: the deck's raw heading, not `deckTitle`. `deckTitle` is
+	// display-normalized — markdown stripped, hard-capped at 60 chars — and Rename writes
+	// its result back into the deck, so prefilling with it silently deleted the author's
+	// emphasis and everything past the cap from their cover slide the moment they edited
+	// the name.
+	const renamePrompt = () => {
+		const t = window.prompt('Rename deck — this rewrites its title heading', headingText(source) ?? deckTitle);
+		if (t != null) renameActiveDeck(t);
+	};
 	function removeDeck(id: string) {
 		deleteDeckStore(id);
 		const list = loadDeckList();
@@ -3034,7 +3052,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</DropdownMenuItem>
 				))}
 				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck — this rewrites its title heading', deckTitle); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deckTitle}”</DropdownMenuItem>
+				<DropdownMenuItem onSelect={renamePrompt}><PencilLine className="size-4" />Rename “{deckTitle}”</DropdownMenuItem>
 				<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

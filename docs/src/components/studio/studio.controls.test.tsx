@@ -77,6 +77,34 @@ describe('Studio — every top-bar control responds', () => {
 		// …and the switcher's own list agrees, not just the trigger.
 		await user.click(screen.getByRole('button', { name: /Acme Board Pack/ }));
 		expect(await within(await screen.findByRole('menu')).findByText('Acme Board Pack')).toBeInTheDocument();
+		// The debounced save mirrors the heading into the index for studio.astro's
+		// pre-paint shell — and leaves the deck's creation label untouched.
+		await waitFor(() => {
+			const idx = JSON.parse(localStorage.getItem('lattice-studio-deck-index') ?? '[]') as { title: string; derived?: string }[];
+			expect(idx.at(-1)?.derived).toBe('Acme Board Pack');
+			expect(idx.at(-1)?.title).toBe('Untitled deck');
+		});
+	});
+
+	it('Rename rewrites the deck HEADING, and never truncates or strips it', async () => {
+		// Rename writes into the deck, so what it round-trips must be the RAW heading —
+		// prefilling from the display title (stripped, capped at 60) silently deleted the
+		// author's emphasis and everything past the cap from their cover slide.
+		const user = setup();
+		const long = 'Project Falcon — the FY26 operating plan and capital allocation review'; // 70 chars
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste(`<!-- _class: title -->\n\n# ${long}\n\nbody`);
+
+		// The prompt is prefilled with the whole heading, not the 60-char display title.
+		const prompt = vi.spyOn(window, 'prompt').mockImplementation(() => `${long} II`);
+		await user.click(screen.getByRole('button', { name: new RegExp(long.slice(0, 40)) }));
+		await user.click(await screen.findByRole('menuitem', { name: /^Rename/ }));
+		expect(prompt).toHaveBeenCalledWith(expect.any(String), long);
+
+		// …and the deck's own heading carries the full new title — nothing lost off the end.
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).toContain(`# ${long} II`));
+		prompt.mockRestore();
 	});
 
 	it('imports a deck from a .md file (title from its heading)', async () => {

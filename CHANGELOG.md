@@ -161,7 +161,15 @@ in patch versions.
   ("Markdown for the boardroom") rather than a separate declared name, with a drift test pinning
   the two together; and a `(restored)` backup copy carries that marker in its heading rather than
   an index label that would now be invisible. Heading detection skips fenced code, which matters
-  more now that Rename writes to the span it finds.
+  more now that Rename writes to the span it finds — as do HTML comments, so a
+  `<!-- Notes: # … -->` aside is never mistaken for (or rewritten as) the deck's name.
+  The stored index row keeps three separate things straight: the deck's creation/rename
+  LABEL (never overwritten as you type), a single-writer `derived` mirror read only by
+  the pre-paint shell, and a `restored` provenance tag — so a restored backup copy is
+  stored byte-faithful rather than having the marker written into its heading, and
+  Rename round-trips the deck's RAW heading rather than the display title (which is
+  stripped of markdown and capped at 60 characters). Windows-authored CRLF decks derive
+  their heading correctly, and a rename can no longer inject a slide break.
   See `engineering/decisions/2026-07-29-deck-title-is-its-heading.md`.
 
 - **`inventory editorial` placed its sidebar in an implicit second grid ROW, so the takeaway
