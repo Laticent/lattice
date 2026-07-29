@@ -299,11 +299,13 @@ tags: a plain HTML page, an Export-to-Marp bundle's `.html`, and marp-cli's
 `marp --html … --pdf` (it drives a real headless browser). Marp tools need
 raw HTML enabled or the tags are escaped into visible text — `html: true` /
 `--html` for marp-cli, `markdown.marp.enableHtml` for the VS Code extension.
-The one place it does **not** run is the **marp-vscode preview pane**: that
-webview executes no scripts, so it shows palette and CSS layout only, and
-runtime-composed structure (Form, split panels, Mermaid, the chart family)
-stays flat there. Use `lattice render` or the exported HTML/PDF to see the
-composed deck; see `engineering/gotchas.md` § "VS Code / marp-vscode".
+The one surface where this is **not** guaranteed is the **marp-vscode preview
+pane** — its webview is understood to block script execution, which would leave
+runtime-composed structure (Form, split panels, Mermaid, the chart family) flat
+there. That reading is unverified and disputed by at least one field report, so
+treat the preview as best-effort: use `lattice render` or the exported HTML/PDF
+when you need to trust what you see. See `engineering/gotchas.md`
+§ "VS Code / marp-vscode".
 
 ## Project layout
 

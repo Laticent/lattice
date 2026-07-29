@@ -1413,9 +1413,9 @@ logging them here — which is the standing caveat above, demonstrated.
 
 **Read this register with the CSP entry below in mind.** A mirror makes a
 transform work on the *runtime* route — the exported HTML, `npm run pdf`,
-`npm run html`. The marp-vscode PREVIEW pane executes no scripts at all, so a
-mirror does not make anything appear there. An empty table means "no gap logged
-for the runtime route", never "the preview is complete."
+`npm run html`. The marp-vscode PREVIEW pane is believed to execute no scripts,
+in which case a mirror does not make anything appear there. **Status of this claim: UNVERIFIED and contested.** It originates in this file's CSP entry below and has never been tested against a real VS Code. A field report (2026-07-29) describes structural components rendering correctly in the preview, which would require the runtime to execute. Do not treat either reading as settled; the safe advice is unchanged — render the bundle for anything you need to trust. An empty table
+means "no gap logged for the runtime route", never "the preview is complete.
 
 - **Removable when:** never fully — it's a living list, not a one-time
   migration. Individual rows retire if the underlying transform is dropped

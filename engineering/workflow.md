@@ -431,9 +431,10 @@ runtime/CSS bundles out of `dist/` or breaking that manual recipe.
 **Know what a mirror buys, and where.** A `lattice-runtime.js` mirror makes a
 transform work wherever the runtime actually EXECUTES: the exported HTML, and
 marp-cli's `npm run pdf` / `npm run html` (it drives a real headless browser).
-It does **not** make anything appear in the marp-vscode PREVIEW pane — that
-webview executes no scripts at all, so the preview is a palette-and-CSS
-surface, full stop (`engineering/gotchas.md` § "marp-vscode webview CSP").
+Whether it also helps the marp-vscode PREVIEW pane is unsettled — that webview
+is believed to block script execution (`engineering/gotchas.md` § "marp-vscode
+webview CSP"), but the claim has never been tested here and a field report
+contradicts it. Don't plan a mirror around the preview either way.
 Two further requirements are easy to miss and were silently unmet until
 #1256: raw HTML must be enabled (`html: true` for marp-cli,
 `markdown.marp.enableHtml` for the extension) or the runtime `<script>` tags
