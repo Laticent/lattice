@@ -2545,7 +2545,11 @@ async function renderBody(browser, g, closeBrowser) {
       preferCSSPageSize: true
     }), 'print pdf');
     await closeBrowser();
-    let finalBytes = await embedNotesInPdf(pdfBytes, materializedNotes);
+    // Bind notes to the RENDERED pages, not the authored slides — a split run has more
+    // of the former than the latter, and the length guard inside would otherwise drop
+    // every annotation in the deck (see notesPerRenderedPage).
+    const pageNotes = notesPerRenderedPage(cleanDocHtml, materializedNotes);
+    let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
@@ -2579,7 +2583,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
-    finalBytes = await embedNotesInPdf(finalBytes, materializedNotes);
+    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(cleanDocHtml, materializedNotes));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
@@ -3355,6 +3359,23 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
 // Slides without a note get no annotation. Returns the modified PDF bytes; on
 // any pdf-lib failure it falls back to the un-annotated bytes (the visible deck
 // must never be lost to a notes problem).
+/**
+ * The per-PAGE notes of the FINAL, post-split document. Parses the sections and hands
+ * them to notes-core, which owns the binding rule (and is dependency-free, so it takes
+ * the parsed list rather than reaching for a parser itself). Falls back to the authored
+ * array when the document has no recognizable sections, so a deck that never split is
+ * byte-identical either way.
+ */
+function notesPerRenderedPage(docHtml, authored) {
+  const at = String(docHtml || '').search(/<section\b[^>]*\bdata-lattice-slide=/);
+  if (at < 0) return authored;
+  try {
+    const parts = require('./lib/core/split-sections').splitSections(docHtml.slice(at))
+      .filter((p) => p.type === 'section');
+    return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
+  } catch { return authored; }
+}
+
 async function embedNotesInPdf(pdfBytes, notes) {
   if (!notes.some(Boolean)) return pdfBytes;
   try {

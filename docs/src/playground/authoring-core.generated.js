@@ -2279,6 +2279,22 @@ var require_notes_core = __commonJS({
       );
       return stripCaptionsFrontMatter(commentsStripped);
     }
+    function notesPerRenderedPage(sections) {
+      const list = Array.isArray(sections) ? sections : [];
+      const unescapeEntities = (s) => String(s).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+      const noteOf = (p) => {
+        const m = String(p?.inner || "").match(/<aside class="lattice-notes"[^>]*>([\s\S]*?)<\/aside>/);
+        return m ? unescapeEntities(m[1]) : null;
+      };
+      const runOf = (p) => (String(p?.openTag || "").match(/\sdata-split-run="([^"]*)"/) || [])[1] || null;
+      const notes = list.map(noteOf);
+      const byRun = /* @__PURE__ */ new Map();
+      list.forEach((p, i) => {
+        const r = runOf(p);
+        if (r && notes[i] && !byRun.has(r)) byRun.set(r, notes[i]);
+      });
+      return notes.map((n, i) => n || runOf(list[i]) && byRun.get(runOf(list[i])) || null);
+    }
     module.exports = {
       MAGIC_COMMENT_MATCHERS,
       isToolingComment,
@@ -2287,6 +2303,7 @@ var require_notes_core = __commonJS({
       noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,
+      notesPerRenderedPage,
       descriptionFromHtml,
       extractSlideDescriptions,
       captionFromHtml,
