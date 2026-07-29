@@ -110,6 +110,35 @@ describe('export-marp bundle (end-to-end)', () => {
     }
   });
 
+  // The auto-glossary APPENDS a whole slide from front-matter `acronyms:`. It is a
+  // source transform the recipient's Marp will never run, so the export must bake
+  // it exactly like splits — before #1256 the exported deck was one slide short,
+  // and the slide before it still announced "the next slide is generated".
+  test('bakes the auto-glossary slide into the exported deck (no slide is lost)', () => {
+    const tmpG = fs.mkdtempSync(path.join(os.tmpdir(), 'exp-gloss-'));
+    try {
+      const source = path.join(REPO, 'examples', 'auto-glossary.md');
+      execFileSync('node', [TOOL, source, tmpG], { stdio: 'pipe' });
+      const baked = fs.readFileSync(path.join(tmpG, 'auto-glossary', 'auto-glossary.md'), 'utf8');
+      // The generated slide is present, and its own trigger is consumed so a
+      // re-render can't append it twice.
+      assert.match(baked, /^<!-- _class: glossary/m, 'the generated glossary slide is baked in');
+      assert.doesNotMatch(baked, /^\s*glossary:\s*auto\s*$/m, 'the trigger is stripped');
+      // Slide-count parity with what the CLI actually renders. `render()` is the
+      // raw engine — the emulator runs appendAutoGlossary BEFORE it (the step the
+      // export was missing), so that is the baseline the export must match.
+      const { appendAutoGlossary } = require('../../../lib/core/glossary-auto.mjs');
+      const engine = latticeEngine.createEngine();
+      const count = (src) => (engine.render(src).html.match(/<section[\s>]/g) || []).length;
+      const original = fs.readFileSync(source, 'utf8');
+      assert.equal(count(baked), count(appendAutoGlossary(original)),
+        'the exported deck has the same slide count as the CLI renders');
+      assert.equal(count(baked), count(original) + 1, 'and it is exactly one MORE than the raw source');
+    } finally {
+      fs.rmSync(tmpG, { recursive: true, force: true });
+    }
+  });
+
   test('marp.config.cjs + .vscode enable HTML so the runtime tags survive', () => {
     assert.match(fs.readFileSync(path.join(dest, 'marp.config.cjs'), 'utf8'), /html:\s*true/);
     const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));

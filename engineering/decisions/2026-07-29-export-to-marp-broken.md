@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The Export-to-Marp bundle shipped a deck that rendered wrong, and had for a long time. Rendering examples/bloom-engineering-journey.md through the bundle with real marp-cli surfaced four independent defects — escaped runtime <script> tags (marp-core defaults to html:false), ~835 CSS rules dead to marp-core's selector scoper (a leading `:is(section.x, figure.x)` head scopes to a slide-inside-a-slide), no bundled fonts (stylesheet-relative `url(fonts/…)` with no directory), and two transforms with no live-DOM mirror (premise, matrixGridCells). All four fixed. Root cause underneath all four: NOTHING on our side ever rendered the bundle, so every claim about it was inference. The marp-vscode PREVIEW pane remains CSS-only by construction — its webview executes no scripts — and the docs now say so instead of promising fidelity it can't deliver.
+summary: The Export-to-Marp bundle shipped a deck that rendered wrong, and had for a long time. Rendering examples/bloom-engineering-journey.md through the bundle with real marp-cli surfaced four independent defects (a fifth, the auto-glossary's generated slide going MISSING from the export entirely, came out of asking the same question of every other transform) — escaped runtime <script> tags (marp-core defaults to html:false), ~835 CSS rules dead to marp-core's selector scoper (a leading `:is(section.x, figure.x)` head scopes to a slide-inside-a-slide), no bundled fonts (stylesheet-relative `url(fonts/…)` with no directory), and two transforms with no live-DOM mirror (premise, matrixGridCells). All four fixed. Root cause underneath all four: NOTHING on our side ever rendered the bundle, so every claim about it was inference. The marp-vscode PREVIEW pane remains CSS-only by construction — its webview executes no scripts — and the docs now say so instead of promising fidelity it can't deliver.
 ---
 
 # Export to Marp was broken, and nothing would have told us
@@ -104,7 +104,7 @@ KaTeX, and the supply follows with no second list to update. Both producers use
 it; the docs site stages `export/fonts/` so the in-browser export ships the same
 bytes as the CLI.
 
-### 4. Two transforms had no live-DOM mirror
+### 4. Engine-only transforms never ran on the Marp route
 
 `premise` and `matrixGridCells` ran only on the engine's render path, so on any
 Marp surface a premise slide lost its claim grouping (ledger collapsed, overflow
@@ -115,6 +115,35 @@ never logged at all, which is that register's documented failure mode.
 Fix: both mirrored through shared kernels — `lib/core/premise.js` `applyToDom`,
 and the new `lib/core/matrix-grid-cells.js` (which the markdown-it plugin now
 also uses, replacing its inline copy).
+
+**Then the same question was asked of every other transform, and it found a
+third — worse — case.** Every registry transformer now has a DOM adapter (17/17;
+`premise` was the last hole), but the markdown-it PLUGINS are a separate
+population, and the **auto-glossary** was not merely unstyled in the export: the
+generated slide was **missing entirely** (6 pages against the engine's 7), while
+the slide before it still read "The next slide is generated — you didn't write
+it." Two distinct causes stacked:
+
+- `appendAutoGlossary` is a SOURCE transform — it appends a slide and strips its
+  own trigger — and `lattice-emulator.js` + `docs/src/lib/render-engine.ts` both
+  run it, but neither export producer did. Its own doc comment says "the
+  CLI/export builds `rawMd` through it," which was true of the CLI and never of
+  the export. Now baked exactly like splits (`appendAutoGlossary` then
+  `bakeSplits`, in both producers), so the emitted `.md` is self-contained and
+  still editable by the recipient.
+- `glossaryListToTable` + `glossaryRange` then rendered it as a bare bullet list
+  with no table, headers, or `A – N` pill. Mirrored through the new shared
+  kernel `lib/core/glossary-slide.js`.
+
+Checked and CLEAN: heading-period normalization (not applied by default, so
+nothing to mirror) and `animaSceneFences` (the `.anima-spec` div is a spec
+carrier the scene transform strips on both paths — `examples/anima-scene.md`
+exports at identical page count and renders identically).
+
+The cheap guard that would have caught the missing slide is now a test:
+`export-marp.test.js` asserts the exported deck's slide count matches what the
+CLI renders. A page-count diff is the single highest-yield export check there
+is, and it costs nothing.
 
 ### 4b. …and one more drift the same investigation surfaced
 

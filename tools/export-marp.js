@@ -42,6 +42,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits } = require('../lib/core/bake-splits');
+const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
   vscodeSettings, readme, agentsMd,
@@ -134,8 +135,14 @@ function main(argv) {
   fs.rmSync(dest, { recursive: true, force: true });
   fs.mkdirSync(dest, { recursive: true });
 
-  // 1) bake splits → literal `---`, then 2) localize local images.
-  const baked = bakeSplits(src);
+  // 1) bake the SOURCE transforms the recipient's Marp will never run — the
+  //    auto-glossary's generated slide first (it appends a whole slide and
+  //    strips its own `glossary:` trigger, so it must precede the split bake),
+  //    then splits → literal `---`. Both are idempotent and self-contained, so
+  //    the emitted `.md` renders identically on any Marp tool and stays editable.
+  //    Without the glossary bake the exported deck silently lost the generated
+  //    Glossary slide while the slide before it still announced it (#1256).
+  const baked = bakeSplits(appendAutoGlossary(src));
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const fm = fmMatch ? fmMatch[0] : '';
   const body = fmMatch ? baked.slice(fm.length) : baked;

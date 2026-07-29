@@ -150,7 +150,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, appendAutoGlossary, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -158,8 +158,11 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const zip = new JSZip();
 	const dir = zip.folder(slug);
 
-	// deck.md — splits baked + the runtime <script> tags appended.
-	dir.file(`${slug}.md`, withRuntimeScripts(bakeSplits(source)));
+	// deck.md — the auto-glossary's generated slide baked in FIRST (it appends a
+	// whole slide and strips its own trigger), then splits baked to literal `---`,
+	// then the runtime <script> tags appended. Same order as the CLI producer, so
+	// the two emit a byte-identical deck.
+	dir.file(`${slug}.md`, withRuntimeScripts(bakeSplits(appendAutoGlossary(source))));
 
 	// palette CSS (+ dark), fetched from the staged theme dir. Fall back to the
 	// default palette if the deck's theme isn't a served built-in (e.g. a

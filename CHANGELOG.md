@@ -193,9 +193,16 @@ in patch versions.
   `url(fonts/…)`, and the bundle carried the stylesheet without the directory, so all 37 faces
   404'd. The bundle now ships `fonts/` beside `lattice.css`, derived from the `url()` refs in
   the stylesheet itself so the supply cannot drift from what the CSS asks for.
-  (d) **two transforms had no live-DOM mirror**, so they never ran on the Marp route:
-  `premise` (now `lib/core/premise.js` `applyToDom`) and matrix-grid's bracket-marker cells
-  (now the shared `lib/core/matrix-grid-cells.js`, replacing the plugin's inline copy).
+  (d) **engine-only transforms never ran on the Marp route.** `premise` (now
+  `lib/core/premise.js` `applyToDom`) and matrix-grid's bracket-marker cells (now the shared
+  `lib/core/matrix-grid-cells.js`, replacing the plugin's inline copy). The **auto-glossary**
+  was worse than unstyled — the whole generated slide was *missing* from the export, while the
+  slide before it still read "the next slide is generated"; it's a SOURCE transform, so the
+  export now bakes it in exactly like splits (`appendAutoGlossary` before `bakeSplits`, both
+  producers), and its list→table + `A – N` range pill get a DOM mirror through the new shared
+  `lib/core/glossary-slide.js`. Every registry transformer now carries a DOM adapter (17/17);
+  a new export test asserts slide-count parity with what the CLI renders, which is what would
+  have caught the missing slide.
   A fifth, smaller drift fell out of the same investigation: the slot-label-lift LAYOUT list
   was maintained twice — a regex in the markdown-it plugin, a selector string in the runtime —
   and the runtime's copy had fallen behind (`premise`, `q-and-a` missing), so premise row terms
