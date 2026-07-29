@@ -223,153 +223,58 @@ export function useKeyboardInset(active: boolean): void {
 	}, [active]);
 }
 
-/** Is this the kind of element a software keyboard opens for? */
-function isTextField(el: Element | null): el is HTMLElement {
-	if (!el) return false;
-	if (el instanceof HTMLTextAreaElement) return true;
-	if (el instanceof HTMLElement && el.isContentEditable) return true;
-	if (!(el instanceof HTMLInputElement)) return false;
-	// Checkboxes, radios and buttons take focus without raising a keyboard, so revealing
-	// them would scroll the panel for a tap that needed no room.
-	return !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/.test(el.type);
-}
-
-/** The nearest ancestor that actually scrolls — the panel body, in every drawer here. */
-function scrollParent(el: HTMLElement): HTMLElement | null {
-	for (let n = el.parentElement; n; n = n.parentElement) {
-		const overflow = getComputedStyle(n).overflowY;
-		if ((overflow === 'auto' || overflow === 'scroll') && n.scrollHeight > n.clientHeight) return n;
-	}
-	return null;
-}
-
 /**
- * Keep the FOCUSED text field visible when the software keyboard opens.
+ * THE PINNED-ROW CLASS — a settings row that holds itself above the keyboard while you
+ * type in it. Applied by the drawer's row primitive (`Field` in StudioShell), exported
+ * here because the rule it encodes is this file's, not that file's.
  *
- * `useKeyboardInset` above shortens the sheet and lifts it clear of the keyboard, and that
- * is only two thirds of the job: the sheet's SCROLL POSITION does not move, so a field that
- * sat two-thirds down a full-height sheet is now below the bottom of a much shorter one. The
- * browser's own scroll-on-focus does not save this — it runs at focus time, against the
- * geometry BEFORE the keyboard opened, and the resize that follows invalidates it. Reported
- * from a real iPhone: tapping Deck name in Deck setup left the field, its label and its help
- * text entirely behind the keyboard, with only the tabs above them visible.
+ * ── WHY THIS AND NOT A SCROLL HOOK ────────────────────────────────────────────────────
  *
- * This is what the filter panels get for free by putting their field at the top of the sheet
- * (or in a `PanelDock` at the bottom) — it is always in view, so there is nothing to scroll
- * to. A settings drawer cannot do that: its fields are wherever the setting belongs. So the
- * behavior is made explicit and shared, rather than a property of one layout.
+ * `useKeyboardInset` shortens the sheet and lifts it clear of the keyboard, and a field
+ * sitting two-thirds down the scroll region is then below the shortened sheet's bottom —
+ * so tapping Deck name in Deck setup put the keyboard over the field being typed into.
+ * Reported twice from a real iPhone 15 Pro.
  *
- * ── THE MEASUREMENT, which the first cut got wrong ────────────────────────────────────
+ * Two cuts of a `useKeyboardFieldReveal` hook tried to COMPUTE the field back into view —
+ * first from the element rects, then from `visualViewport`'s band — and both were wrong on
+ * the device while passing everything this sandbox can run. Measuring the surface that
+ * already works ended the argument: the command palette's field is **not in a scroll region
+ * at all**. It sits in a `PanelDock`, 21px above the sheet's bottom edge, pinned by layout;
+ * Deck setup's sat 540px above it, inside the scroller. The palette does not solve this
+ * problem — it does not HAVE it. (Measured at 390px on the built site.)
  *
- * The visible band comes from `visualViewport`, NOT from the elements' own rects. That
- * distinction is the whole fix, and `ViewportDebugOverlay`'s `offset` metric already stated
- * it before this hook existed: "position:fixed and getBoundingClientRect() are blind to this
- * shift." `getBoundingClientRect()` is relative to the LAYOUT viewport, and on iOS the layout
- * viewport neither shrinks nor moves when the keyboard opens — the VISUAL viewport does, and
- * with the body scroll-locked under a modal sheet iOS shifts it DOWN (`offsetTop` > 0) to
- * reveal the focused field. So a rect-only comparison asks "is the field inside the sheet",
- * gets "yes", and does nothing — which is exactly what the second real-device screenshot
- * showed after the first cut shipped. The band is `[offsetTop, offsetTop + height]`, in the
- * same coordinate space the rects are already in, intersected with the container.
+ * So the drawer borrows the position instead of deriving it: while you type in a row, that
+ * row is `position: fixed` at `bottom: var(--kb)` — the SAME declaration that puts the
+ * sheet's own bottom edge above the keyboard (`MOBILE_OFFSET`). No viewport reading, no rect
+ * arithmetic, no listener, nothing to be wrong about on a platform this sandbox cannot run:
+ * if the sheet clears the keyboard — and the palette demonstrates it does — so does the row,
+ * because they are positioned by the same variable.
  *
- * It lands the field at the TOP of that band rather than just inside its bottom edge. With
- * the band as short as a keyboard leaves it, and the height of iOS's accessory bar a guess
- * (below), "barely in view" is not a safe target and the top is. The label sits on the same
- * ROW as the field now, so aligning the field's top brings its name with it.
+ * `fixed`, not `sticky`, and that was measured rather than assumed. `position: sticky;
+ * bottom: 0` is the tidier expression of the same idea and it works in isolation — but not
+ * in this drawer's chain, where the row sits two wrappers deep inside a flex-sized
+ * `overflow-y-auto` body: driven on the built site at 390px, the row stayed 20px below the
+ * scrollport with `position: sticky` and `bottom: 0px` both computed and applied. `fixed`
+ * does not depend on the scroll container at all. It is safe here because nothing between
+ * the row and the viewport carries a transform (checked on the built site — a transformed
+ * ancestor would become the containing block and `bottom: var(--kb)` would then be measured
+ * from the sheet's own lifted edge, i.e. a keyboard too high).
  *
- * It scrolls that one container by setting `scrollTop`, NOT via `scrollIntoView`: that walks
- * every scrollable ancestor including the document, and on iOS scrolling the document under
- * a `position: fixed` sheet moves the sheet's idea of where it is. One container, one axis.
+ * PHONE ONLY (`max-[699px]`, the `useBreakpoint` mobile cutoff, so the shell and this switch
+ * on one authority). A pointer surface has no keyboard eating the viewport, and a settings
+ * row that detached itself on focus there would be motion with no purpose.
  *
- * Conservative by construction — it moves nothing when the field is already in the safe
- * zone, so a later viewport event (the URL bar animating, an orientation change) cannot yank
- * the panel away from where the user scrolled it, and iOS's own scroll adjustment does not
- * get into a tug of war with this one.
- *
- * UNVERIFIED on real iOS (HARD RULE #23): headless Chromium has no software keyboard, so
- * `visualViewport` never shrinks or shifts here and neither the `offsetTop` path nor the
- * accessory-bar clearance can be exercised on the real surface from the sandbox. Both
- * numbers below come from a photograph of an iPhone 15 Pro, which is evidence but not a
- * measurement. `?vvdebug` (ViewportDebugOverlay) prints the real geometry on the device if
- * this needs another pass.
+ * `:has(input:focus)` scopes it to "you are typing in THIS row" — not `focus-within`, which
+ * a tapped dropdown in the same row would also satisfy. The background, hairline and padding
+ * are `PanelDock`'s, because while pinned the row IS one. It is applied to the LABEL+CONTROL
+ * row rather than the whole setting block, so the help line stays in flow — a four-line
+ * description pinned over the deck would eat most of what a keyboard leaves, and the dock
+ * this imitates is one row.
  */
-export function useKeyboardFieldReveal(active: boolean): void {
-	React.useEffect(() => {
-		if (!active || typeof window === 'undefined') return;
-		let raf = 0;
-		let settle: ReturnType<typeof setTimeout>[] = [];
-		const reveal = () => {
-			raf = 0;
-			const el = document.activeElement;
-			if (!isTextField(el)) return;
-			const box = scrollParent(el);
-			if (!box) return;
-			const vv = window.visualViewport;
-			// The band that is ACTUALLY on screen, in layout-viewport coordinates — the same
-			// space `getBoundingClientRect()` reports in. See the note above for why the rects
-			// alone cannot answer this on iOS.
-			const bandTop = vv ? vv.offsetTop : 0;
-			const bandBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-			// Either signal means a keyboard: the band is shorter than the layout viewport, or
-			// it has been shifted down inside it (the scroll-locked-sheet case, where the
-			// height difference alone reads as zero).
-			const keyboardUp = bandBottom < window.innerHeight - 1 || bandTop > 0;
-			const frame = box.getBoundingClientRect();
-			const top = Math.max(frame.top, bandTop);
-			const bottom = Math.min(frame.bottom, bandBottom);
-			if (bottom - top < 24) return; // nothing meaningful visible — nowhere to reveal INTO
-			const field = el.getBoundingClientRect();
-			// iOS draws its accessory bar — the ‹ › chevrons and Done — ABOVE the keyboard and
-			// does NOT count it in `visualViewport.height`, so a field sitting just inside the
-			// computed band is still under real chrome. That bar measures ~50pt in the reported
-			// screenshot; 56 leaves a hair of margin. If it proves taller, this is the number.
-			const bottomGap = keyboardUp ? 56 : 16;
-			const topGap = 8;
-			if (field.bottom <= bottom - bottomGap && field.top >= top + topGap) return;
-			// One expression for both directions: negative scrolls the container up (the field
-			// was above the band), positive scrolls it down (the field was below).
-			box.scrollTop += field.top - (top + topGap);
-		};
-		const schedule = () => {
-			if (!raf) raf = requestAnimationFrame(reveal);
-			// iOS applies its OWN scroll adjustment on a cadence of its own, sometimes after the
-			// resize that told us the keyboard arrived. Re-checking twice as the animation
-			// settles costs two no-ops in the common case and is the difference between landing
-			// the field and being quietly undone. The in-view guard makes a repeat free.
-			for (const t of settle) clearTimeout(t);
-			settle = [setTimeout(reveal, 150), setTimeout(reveal, 350)];
-		};
-		// A deliberate scroll WINS. The settle re-checks exist to survive iOS's late scroll
-		// adjustment, not to overrule the user: without this, flicking the panel within 350ms
-		// of tapping a field gets silently undone half a second later. Caught in the browser
-		// harness, which did exactly that and had its scroll reverted.
-		const cancelSettle = () => {
-			for (const t of settle) clearTimeout(t);
-			settle = [];
-		};
-		document.addEventListener('touchmove', cancelSettle, { passive: true });
-		document.addEventListener('wheel', cancelSettle, { passive: true });
-		// FOCUS covers "the keyboard is already up and you tapped a second field"; RESIZE
-		// covers the first tap, where the keyboard is still animating open when focus fires
-		// and the geometry it would have used is already stale. iOS fires resize repeatedly
-		// through that animation, and each pass re-checks — so the reveal settles with the
-		// keyboard instead of racing it.
-		document.addEventListener('focusin', schedule);
-		window.visualViewport?.addEventListener('resize', schedule);
-		// `scroll` on the visual viewport is what fires when iOS SHIFTS the band (offsetTop)
-		// without changing its height — the exact case a resize-only listener misses.
-		window.visualViewport?.addEventListener('scroll', schedule);
-		return () => {
-			document.removeEventListener('touchmove', cancelSettle);
-			document.removeEventListener('wheel', cancelSettle);
-			document.removeEventListener('focusin', schedule);
-			window.visualViewport?.removeEventListener('resize', schedule);
-			window.visualViewport?.removeEventListener('scroll', schedule);
-			if (raf) cancelAnimationFrame(raf);
-			for (const t of settle) clearTimeout(t);
-		};
-	}, [active]);
-}
+export const PINNED_FIELD_ROW =
+	'max-[699px]:[&:has(input:focus)]:fixed max-[699px]:[&:has(input:focus)]:inset-x-0 max-[699px]:[&:has(input:focus)]:bottom-[var(--kb)] ' +
+	'max-[699px]:[&:has(input:focus)]:z-50 max-[699px]:[&:has(input:focus)]:bg-[var(--bg)] max-[699px]:[&:has(input:focus)]:border-t ' +
+	'max-[699px]:[&:has(input:focus)]:border-border max-[699px]:[&:has(input:focus)]:px-3.5 max-[699px]:[&:has(input:focus)]:py-3';
 
 type PanelWidth = 'sm' | 'md' | 'lg';
 
@@ -499,10 +404,6 @@ export function PanelSheet({
 	const mobile = useIsPhone();
 	const nav = React.useContext(PanelNavCtx);
 	useKeyboardInset(mobile && open);
-	// Shortening + lifting the sheet is not enough on its own — the field the user tapped
-	// has to still be ON the shortened sheet. Registered here, so every mobile panel with a
-	// text field inherits it rather than each drawer solving it (or not) for itself.
-	useKeyboardFieldReveal(mobile && open);
 	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
 	// only — a pointer surface has no back gesture, and binding history there would be
 	// a regression, not a fix. Registering HERE rather than per call site is what makes
@@ -782,6 +683,10 @@ export const PANEL_SEARCH_BOX =
  * The dock does NOT reserve the home indicator — `PanelSheet` does, once, for every
  * drawer (see MOBILE_BASE). Reserving it here too would double the gap on a notched
  * phone.
+ *
+ * A panel with ONE primary field docks it here. A SETTINGS panel has many, wherever each
+ * setting belongs, so it cannot — it uses `PINNED_FIELD_ROW` above to borrow this position
+ * for whichever row is being typed into. Same destination, reached without a DOM move.
  */
 export function PanelDock({ className, children }: { className?: string; children: React.ReactNode }) {
 	return (

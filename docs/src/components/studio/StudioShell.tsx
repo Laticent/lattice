@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
-import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet } from '@/components/ui/panel';
+import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet, PINNED_FIELD_ROW } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -3947,7 +3947,14 @@ function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNod
 function Field({ label, desc, htmlFor, descId, children }: { label: string; desc?: string; htmlFor?: string; descId?: string; children: React.ReactNode }) {
 	return (
 		<div className="my-2">
-			<div className="flex items-center justify-between gap-2.5">
+			{/* `PINNED_FIELD_ROW` holds the row you are TYPING in above the keyboard — the
+			    position the command palette's docked field occupies, borrowed rather than
+			    recomputed. It goes on the LABEL+CONTROL row, not the whole block: the help
+			    line stays in flow, because a four-line description pinned over the deck would
+			    eat most of what a keyboard leaves and the palette's dock is one row. Phone-only,
+			    and only rows that actually own an `<input>` can trigger it (`:has(input:focus)`),
+			    so the dropdown and toggle rows carry the class inertly. */}
+			<div className={cn('flex items-center justify-between gap-2.5', PINNED_FIELD_ROW)}>
 				{htmlFor ? (
 					// `shrink-0` ONLY on this branch. A text field grows to fill the row, so
 					// without it the flex algorithm takes the space out of the label and

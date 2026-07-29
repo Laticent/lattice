@@ -376,16 +376,15 @@ in patch versions.
   two-thirds down a full-height sheet is below the bottom of the shortened one — and the
   browser's own scroll-on-focus runs against the pre-keyboard geometry, which the resize then
   invalidates. The new shared `useKeyboardFieldReveal` hook, registered by `PanelSheet` so all
-  eleven mobile panels inherit it, scrolls the focused field to the top of the visible band and
-  leaves it alone when it is already in the safe zone. It reads that band from `visualViewport`,
-  not from element rects: `getBoundingClientRect()` is relative to the LAYOUT viewport, which
-  iOS neither shrinks nor moves for the keyboard — with the body scroll-locked under a modal
-  sheet iOS shifts the VISUAL viewport down instead, and a rect-only check answers "the field is
-  inside the sheet, nothing to do" while the field sits behind the keyboard. A 56px bottom gap
-  clears the iOS accessory bar, which `visualViewport.height` does not include. **Real iOS Safari
-  is UNVERIFIED** — headless Chromium has no software keyboard and never shifts the band, so the
-  branch that fixes this is the one the sandbox cannot execute; both fixes want a pass on a real
-  phone. (`engineering/decisions/2026-07-29-deck-setup-field-rows-and-keyboard-reveal.md`)
+  the row you are TYPING in pins itself above the keyboard — `position: fixed` at
+  `bottom: var(--kb)`, the same declaration that lifts the sheet's own bottom edge, so the two
+  cannot disagree. This is the command palette's position, borrowed: measured on the built
+  site, the palette's field is not in a scroll region at all (it sits in a `PanelDock` 21px
+  above the sheet's bottom edge) where Deck setup's sat 540px above it — the palette does not
+  solve this problem, it does not have it. Only the row being typed in pins, only on a phone,
+  and it returns to normal flow on blur. **Real iOS Safari is UNVERIFIED** — headless Chromium
+  has no software keyboard, so `--kb` is injected here; both fixes want a pass on a real phone.
+  (`engineering/decisions/2026-07-29-deck-setup-field-rows-and-keyboard-reveal.md`)
 
 - **Every Deck-setup control now edits ONE front-matter line, instead of rebuilding the whole
   block.** #1254 made the Deck-name field lossless and left 24 other directives — `theme:`,
