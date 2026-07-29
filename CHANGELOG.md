@@ -78,6 +78,48 @@ in patch versions.
   test against a real Biome in a real git repo. What it deliberately does not catch is
   enumerated under RESIDUALS in the tool's header.
 
+### Changed
+
+- **Auto-split is ON by default for every non-landscape deck.** `autosplit: on` was
+  opt-in, and `lattice-emulator.js` said why in its own comment: *"Default-on is a later
+  decision, once the catalog is audited."* That audit is done. Rendering one gallery slide
+  per family-reflowing component at every registered @size, split off against split on,
+  counting **components** that still clip (page counts shift once a slide splits, so they
+  are not comparable):
+
+  | @size | split off | split on |
+  |---|---|---|
+  | `square` | 4 | **2** |
+  | `portrait` | 21 | **5** |
+  | `story` | 9 | **3** |
+  | `mobile` | 2 | 2 |
+
+  Splitting resolves 16 of the 21 components that clip at portrait, and the residue is not
+  random: `logo-wall`, `matrix-2x2`, `pricing` and `split-compare` are exactly the ones
+  `check-family-tiers.js --ladder` already reports as **not enrolled** — they have no seam
+  — plus `roadmap`, whose transposed cards do not fit a strip box even one per page.
+
+  The reason this is a correctness fix rather than a preference: the Fit Spine has **no
+  shrink move** (*"there is no fifth move, and crucially no shrink move"*), so when content
+  does not fit, SPLIT and the overflow ring are the only two answers. Leaving split opt-in
+  made the ring the answer for any author who had not heard of the flag, so the engine's
+  stated policy and its out-of-the-box behavior disagreed. A cover, an atomic body and a
+  carried continuation signal is what the design says should happen, so it now happens
+  without being asked for. **`autosplit: off` opts out**, for decks that demonstrate
+  overflow deliberately.
+
+  Catalog churn is almost nil: of the 13 committed non-landscape example decks, **12 are
+  byte-unchanged**. The one that moves is `examples/reflow-legal.md`, which was shipping a
+  **clipped** slide in its committed PDF and is now 11 clean pages.
+
+  The directive also stops being two regexes in two files. `lib/core/autosplit-flag.js` is
+  the one reader, shared by the engine and by `lint-core` — they would have disagreed the
+  moment the default flipped, and a linter still saying "opt-in" would have told authors
+  their over-capacity slide merely overflows. Two measurement rigs that relied on the old
+  default now declare `autosplit: off` explicitly: the overflow oracle's sweep (it measures
+  the un-split terminal on purpose) and `calibrate-core`'s graded deck (page N must stay
+  step N).
+
 ### Fixed
 
 - **Auto-split ignored a collection that overflowed SIDEWAYS, so members ran off the right

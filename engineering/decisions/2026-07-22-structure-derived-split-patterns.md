@@ -38,11 +38,20 @@ other. **Three things to carry across the boundary:**
    note's own gate tested one @size per family and so never tested `story` at all.
    Un-split, 22 components clip at `portrait` and 9 at `story`.
 
-3. **"Never a truncation" is conditional on `autosplit: on`.** §0b promises that
-   overflow is always more slides, never "…". That promise is real, and it is also
-   **opt-in**: `autosplit` is per-deck and is skipped outright on landscape @sizes, so
-   a deck that does not set it gets the ring instead. This is why the two blessed
-   oracles look like they contradict each other and do not —
+3. **"Never a truncation" is the DEFAULT now (2026-07-28, #1234) — it used to be
+   opt-in, and that gap is why this list originally read the other way.** §0b promises
+   that overflow is always more slides, never "…". The promise was real and the
+   behavior was `autosplit: on`, per deck, off unless asked for — so an author who
+   never heard of the flag got the ring, and the engine's stated policy disagreed with
+   what it did out of the box. Since the Fit Spine has no shrink move, SPLIT and the
+   ring are the only two answers there are; making the ring the unasked-for one was
+   the wrong default. It is now on for every non-landscape deck, with `autosplit: off`
+   as the opt-out (`lib/core/autosplit-flag.js` carries the catalog audit behind it:
+   at portrait, 21 components that clip un-split drop to 5).
+   The two blessed oracles still look like they contradict each other and still do
+   not — `test/oracle/family-overflow.json` now declares `autosplit: off` explicitly,
+   because it measures the un-split terminal ON PURPOSE, where it used to get that
+   from the default —
    `test/oracle/family-overflow.json` records what clips with `autosplit` OFF, while
    `test/oracle/split-oracle.json` records what is enrolled to paginate once it is ON,
    and most of the first list is in the second. **Run

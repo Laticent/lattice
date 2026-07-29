@@ -207,7 +207,13 @@ function sweepDeck(size, comps) {
       + 'coverage it does not have; give the component a gallery slide or remove it from the roster.',
     );
   }
-  const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
+  // `autosplit: off` EXPLICITLY. This record measures the UN-SPLIT terminal of the Fit
+  // Ladder on purpose — "what clips when the author has not opted into splitting" — and
+  // it used to get that by relying on the flag being off by DEFAULT. #1234 flipped the
+  // default to on, so the reliance had to become a declaration: without it the sweep
+  // would paginate, the 1:1 page↔component mapping below would break, and the record
+  // would quietly start measuring something else entirely.
+  const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\nautosplit: off\npaginate: true\n---\n\n`
     + picked.map((p) => p.body).join('\n\n---\n\n') + '\n';
   return { src, comps: picked.map((p) => p.comp) };
 }

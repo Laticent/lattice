@@ -29,11 +29,14 @@ export rings the slide — the honest terminal.
 
 **Two things to carry across the boundary:**
 
-1. **A clip recorded here is a clip with `autosplit` OFF.** The overflow oracle
-   (`test/oracle/family-overflow.json`) deliberately sets no `autosplit`, so a name in
-   it means "overflows when the author has not opted into splitting" — *not* "broken".
-   Most of that set is enrolled to paginate under the sibling note's rung and fits
-   once `autosplit: on` is set. The two records measure different terminals of the
+1. **A clip recorded here is a clip with `autosplit: off`.** The overflow oracle
+   (`test/oracle/family-overflow.json`) declares it explicitly, because it measures
+   the un-split terminal on purpose — so a name in it means "overflows when splitting
+   is disabled", *not* "broken". Since 2026-07-28 (#1234) splitting is the DEFAULT for
+   non-landscape decks, so that is no longer the ordinary case: most of this set
+   paginates under the sibling note's rung without anyone asking. At portrait, 21
+   components clip with split off and **5** with it on. The two records measure
+   different terminals of the
    same ladder; they do not disagree. `node tools/check-family-tiers.js --ladder`
    prints the overlap per @size, and the residue that still rings because no split is
    available to it at all — which is the set actually worth shrinking.

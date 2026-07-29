@@ -96,10 +96,29 @@ var require_slide_split = __commonJS({
   }
 });
 
+// lib/core/autosplit-flag.js
+var require_autosplit_flag = __commonJS({
+  "lib/core/autosplit-flag.js"(exports, module) {
+    var ON_RE = /^\s*autosplit:\s*(?:on|true|yes)\s*$/im;
+    var OFF_RE = /^\s*autosplit:\s*(?:off|false|no)\s*$/im;
+    function autosplitDirective(source) {
+      const s = String(source || "");
+      if (OFF_RE.test(s)) return false;
+      if (ON_RE.test(s)) return true;
+      return null;
+    }
+    function autosplitEnabled(source) {
+      return autosplitDirective(source) !== false;
+    }
+    module.exports = { autosplitDirective, autosplitEnabled, ON_RE, OFF_RE };
+  }
+});
+
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
     var { splitTopLevel, separatorLines } = require_slide_split();
+    var { autosplitEnabled, autosplitDirective, ON_RE } = require_autosplit_flag();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
@@ -191,9 +210,9 @@ var require_lint_core = __commonJS({
       const fmMatch = String(source || "").match(/^---\n[\s\S]*?\n---/);
       if (!fmMatch) return [];
       const fm = fmMatch[0];
-      const flag = fm.match(/^\s*autosplit:\s*(?:on|true|yes)\s*$/im);
-      if (!flag) return [];
+      if (autosplitDirective(fm) !== true) return [];
       if (deckOrientation(fm, vocab) !== "landscape") return [];
+      const flag = fm.match(ON_RE);
       return [{
         slide: 1,
         rule: "autosplit-landscape-noop",
@@ -437,7 +456,7 @@ ${indent}   - ${body.trim()}`;
     }
     function lintTextWith(source, vocab) {
       const findings = [];
-      const autosplitOn = /^\s*autosplit:\s*(?:on|true|yes)\s*$/im.test(source);
+      const autosplitOn = autosplitEnabled(source);
       const cardStyle = new Set(CARD_STYLE_LAYOUTS);
       const ledgerOl = new Set(LEDGER_OL_LAYOUTS);
       const statementOl = new Set(STATEMENT_OL_LAYOUTS);

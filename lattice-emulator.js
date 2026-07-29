@@ -1379,7 +1379,11 @@ const ENGINE_BUILD = (() => {
 // from the top-level `capacity` OR the per-family `adapt.capacity`, so a layout whose
 // budget lives only in adapt is still splittable by measurement. See lib/core/auto-split.js
 // + engineering/decisions/2026-06-22-the-fit-spine.md §3.
-const AUTOSPLIT = /^\s*autosplit:\s*(?:on|true|yes)\s*$/im.test(fm);
+// DEFAULT ON for non-landscape (2026-07-28, #1234) — `autosplit: off` opts out.
+// One reader, shared with lint-core so the engine and the author's advisory cannot
+// disagree about what the directive means (HARD RULE #1). Rationale + the catalog
+// audit behind the default: lib/core/autosplit-flag.js.
+const AUTOSPLIT = require('./lib/core/autosplit-flag').autosplitEnabled(fm);
 const SPLIT_CAP = (() => {
   if (!AUTOSPLIT) return {};
   const map = {};
