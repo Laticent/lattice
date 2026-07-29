@@ -3930,6 +3930,14 @@ function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNod
 		</div>
 	);
 }
+// Merged ONCE, at module scope. Both halves are constants, and `cn` is
+// `twMerge(clsx(...))` — parsing nine arbitrary-variant class names
+// (`max-[699px]:[&:has(input:focus)]:…`) is not free, and `Field` renders ~10 times per
+// Inspector state change. Doing it per render made the docs suite time out under load
+// (`studio.theme-depth.test.tsx`, 5s, a different case each run) while every file still
+// passed in isolation — the signature of a render-path cost, not a logic break.
+const FIELD_ROW = cn('flex items-center justify-between gap-2.5', PINNED_FIELD_ROW);
+
 // A deck-setting row. `desc` adds a plain-language help line under the control —
 // no magic, no mystery: every setting says what it does. Obvious toggles can omit it.
 //
@@ -3954,7 +3962,7 @@ function Field({ label, desc, htmlFor, descId, children }: { label: string; desc
 			    eat most of what a keyboard leaves and the palette's dock is one row. Phone-only,
 			    and only rows that actually own an `<input>` can trigger it (`:has(input:focus)`),
 			    so the dropdown and toggle rows carry the class inertly. */}
-			<div className={cn('flex items-center justify-between gap-2.5', PINNED_FIELD_ROW)}>
+			<div className={FIELD_ROW}>
 				{htmlFor ? (
 					// `shrink-0` ONLY on this branch. A text field grows to fill the row, so
 					// without it the flex algorithm takes the space out of the label and
