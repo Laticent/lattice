@@ -41,8 +41,19 @@ pre-commit:
       # stay in CI (build:galleries:check). The tool queries the git
       # index directly, so the glob only decides whether it runs.
       # Skippable via `git commit --no-verify` only as a last resort.
+      #
+      # KEEP THIS GLOB IN SYNC WITH `classify()` in tools/build-staged-pdfs.js.
+      # The tool already handled exemplars, but this glob did not list them, so a
+      # commit touching ONLY exemplar markdown never ran the job at all — 45 worked
+      # decks that each ship a committed PDF had no auto-rebuild, and 14 of them
+      # went stale in this branch alone (the committed PDF still showed rows the
+      # markdown no longer had). `examples/*.md` was single-level for the same
+      # reason and missed all 13 examples/token-contrast decks. A path the tool can
+      # classify but the glob cannot reach is a silently dead gate.
       glob:
-        - 'examples/*.md'
+        - 'examples/**/*.md'
+        - 'exemplars/**/*.md'
+        - 'design/*.gallery.md'
         - 'test/integration/baseline-decks/*.md'
         - 'lib/components/**/*.gallery.md'
       run: node tools/build-staged-pdfs.js
