@@ -129,6 +129,26 @@ in patch versions.
   subdirectory and the design galleries, which let it certify a corpus it could not see. It is
   also per-run isolated, so a `--bless` and a check running at once no longer delete each
   other's renders and report phantom regressions.
+- **The pre-commit PDF auto-rebuild could not see the exemplars, and never had.** The hook has
+  two independent filters that must agree — lefthook's `pdf-rebuild` glob decides whether the
+  job runs, `classify()` in `tools/build-staged-pdfs.js` decides what it rebuilds — and they
+  disagreed silently. `classify()` always understood `exemplars/<sector>/<name>.md`, but the
+  glob listed only `examples/*.md`, the baseline decks and the component galleries, so a commit
+  touching only exemplar markdown never started the job: 45 worked decks that each ship a
+  committed PDF had no auto-rebuild at all. The same single-level `examples/*.md` missed all 13
+  `examples/token-contrast/` decks, and `design/*.gallery.md` was reachable by neither filter.
+  The content trims in this release are what made it bite — 27 committed PDFs still depicted
+  content their markdown no longer had (`status-update.pdf` showed a "p99 checkout latency" row
+  that had been trimmed out). The glob now covers `examples/**`, `exemplars/**` and
+  `design/*.gallery.md`; `classify()` handles example subdirectories (guarded on the sibling PDF
+  already existing, so prose like `chart-theme-gallery/README.md` is not swept in) and the
+  design-system demo decks; and `test/unit/tools/staged-pdf-glob.test.js` walks the real repo for
+  markdown shipping a committed PDF and asserts BOTH filters reach it, so they cannot drift apart
+  again — it caught the fix itself teaching `classify()` about the design galleries while
+  forgetting the glob. Three pre-existing unreachable one-offs are recorded in
+  `KNOWN_UNCLASSIFIED` with reasons, and a companion test fails if an entry rots. All 59 affected
+  PDFs were re-rendered. A path one filter can see and the other cannot is a dead gate, which is
+  the same lesson as the corpus glob above.
 
 ### Added
 
