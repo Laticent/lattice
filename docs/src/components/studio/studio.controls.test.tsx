@@ -61,6 +61,24 @@ describe('Studio — every top-bar control responds', () => {
 		expect(screen.getByRole('button', { name: /Untitled deck/ })).toBeInTheDocument();
 	});
 
+	it('a new deck takes its name from the heading you type — no rename step (#deck-title-tracks-h1)', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		await user.click(await screen.findByText('New deck'));
+		// It starts as "Untitled deck" — the starter template's own heading.
+		expect(screen.getByRole('button', { name: /Untitled deck/ })).toBeInTheDocument();
+		// Give it a real title the only way an author would: type it into the deck.
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('<!-- _class: title -->\n\n# Acme Board Pack\n\n');
+		// The switcher (and everything else that shows a deck title) tracks it live.
+		expect(await screen.findByRole('button', { name: /Acme Board Pack/ })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /Untitled deck/ })).not.toBeInTheDocument();
+		// …and the switcher's own list agrees, not just the trigger.
+		await user.click(screen.getByRole('button', { name: /Acme Board Pack/ }));
+		expect(await within(await screen.findByRole('menu')).findByText('Acme Board Pack')).toBeInTheDocument();
+	});
+
 	it('imports a deck from a .md file (title from its heading)', async () => {
 		const user = setup();
 		// Drive the hidden file input directly (a real <input type=file> change).
@@ -134,14 +152,15 @@ describe('Studio — every top-bar control responds', () => {
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('<!-- _class: title -->\n\n# UNIQUE-MARKER-XYZ\n\n');
-		// Switch to the second built-in deck, then back to the first.
-		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		// Switch to the second built-in deck, then back to the first. The edited deck is
+		// now NAMED by the pasted heading — a deck's title is its first heading.
+		await user.click(screen.getByRole('button', { name: /UNIQUE-MARKER-XYZ/ }));
 		await user.click(await screen.findByText('FY26 Product Strategy'));
-		expect(screen.queryByText(/UNIQUE-MARKER-XYZ/)).not.toBeInTheDocument();
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/UNIQUE-MARKER-XYZ/);
 		await user.click(screen.getByRole('button', { name: /FY26 Product Strategy/ }));
-		await user.click(await screen.findByText('Q3 Board Review'));
+		await user.click(await screen.findByText('UNIQUE-MARKER-XYZ'));
 		// The edit is restored — not reset to the canonical source.
-		expect(await screen.findByText(/UNIQUE-MARKER-XYZ/)).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).toMatch(/UNIQUE-MARKER-XYZ/));
 	});
 
 	it('⌘K runs a command (Fabricate) and a theme', async () => {

@@ -20,7 +20,10 @@ export const DECKS: StudioDeck[] = [
 		// first-time author learns the system by reading a beautiful deck, then edits it
 		// or starts their own. Design: engineering/decisions/2026-06-30-studio-newcomer-onboarding.md.
 		id: 'welcome',
-		title: 'Welcome to Lattice',
+		// A deck is named by its first heading (studio-store.titleFromSource), so this
+		// declared title must BE that heading — it is only the seed/fallback for the
+		// index, and a drift test (decks.test.ts) fails if the two ever disagree.
+		title: 'Markdown for the boardroom',
 		meta: '7 slides',
 		slides: [
 			`<!-- _class: title -->\n\n# Markdown for the boardroom\n\n\`Lattice · A guided tour\`\n\nWrite plain text. Ship a deck with the taste built in.`,

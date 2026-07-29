@@ -81,7 +81,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, retitleSource, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, syncDeckTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -166,6 +166,9 @@ const NO_KNOWN: string[] = [];
 // The demo's starter deck title — a real, persisted deck deduped on each run and left
 // behind for the newcomer (see createDemoFirstDeck).
 const DEMO_FIRST_DECK_TITLE = 'My First Deck';
+// …under a FIXED id, because the demo overwrites the deck's content (and therefore its
+// derived title) as it types — the id is the only stable handle for deduping it.
+const DEMO_FIRST_DECK_ID = 'deck-demo-first';
 // Slide sizes the engine themes define (@size tokens). `size:` front-matter picks one.
 const SIZES = [
 	{ value: '16:9', label: 'Widescreen 16 : 9' },
@@ -891,10 +894,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		window.addEventListener(DECKS_CLEARED_EVENT, onCleared);
 		return () => window.removeEventListener(DECKS_CLEARED_EVENT, onCleared);
 	}, []);
-	const saveSourceGuarded = React.useCallback((id: string, src: string) => {
+	const saveSourceGuarded = React.useCallback((id: string, src: string, title: string) => {
 		if (decksClearedRef.current) return;
 		saveSource(id, src);
+		syncDeckTitle(id, title); // the index label mirrors the heading — see studio-store
 	}, []);
+
+	// The active deck's TITLE, derived live from what's in the editor: a deck is named
+	// by its first heading, so typing one renames the deck in the switcher, the header,
+	// ⌘K, Share and the export filename with no separate rename step. `deck.title` is
+	// only the fallback for a deck with no heading at all (it holds the last name the
+	// deck was loaded/created under).
+	const deckTitle = React.useMemo(() => titleFromSource(source, deck.title), [source, deck.title]);
+
+	// The deck list as the switcher + ⌘K should SEE it: `decks` holds each deck's
+	// stored title/meta, which for the ACTIVE deck goes stale the moment you type —
+	// so the active row is projected from the live editor instead.
+	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { ...d, title: deckTitle, meta: metaFor(source) } : d)), [decks, deck.id, deckTitle, source]);
 
 	// Persist the active deck's source (debounced) so edits survive a switch AND a
 	// reload. Skipped on the very first render (nothing changed yet).
@@ -904,18 +920,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			firstSave.current = false;
 			return;
 		}
-		const id = setTimeout(() => saveSourceGuarded(deck.id, source), 400);
+		const id = setTimeout(() => saveSourceGuarded(deck.id, source, deckTitle), 400);
 		return () => clearTimeout(id);
-	}, [source, deck.id, saveSourceGuarded]);
+	}, [source, deck.id, deckTitle, saveSourceGuarded]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
 	// backup entirely (no stored source yet at pack time).
 	React.useEffect(() => {
-		const flush = () => saveSourceGuarded(deck.id, source);
+		const flush = () => saveSourceGuarded(deck.id, source, deckTitle);
 		window.addEventListener(FLUSH_EVENT, flush);
 		return () => window.removeEventListener(FLUSH_EVENT, flush);
-	}, [source, deck.id, saveSourceGuarded]);
+	}, [source, deck.id, deckTitle, saveSourceGuarded]);
 
 	// Record the deck + slide currently in view, so a reload (or an iOS memory-reclaim
 	// tab discard) boots back here instead of on deck #1 — and so studio.astro's pre-paint
@@ -1210,7 +1226,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	function loadDeck(d: StudioDeck) {
 		// Flush the current deck's edits before leaving it (the debounce may not
 		// have fired), then restore the target deck's saved source.
-		saveSourceGuarded(deck.id, source);
+		saveSourceGuarded(deck.id, source, deckTitle);
+		// Re-read the list AFTER that flush: the deck we're leaving may have been
+		// retitled by an edit (titles derive from the heading), and the switcher shows
+		// stored titles for every deck but the active one.
+		setDecks(loadDeckList());
 		setDeck(d);
 		setSource(loadSource(d.id) ?? deckSource(d));
 		setActiveSlide(0);
@@ -1219,7 +1239,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// New / rename / delete — all persisted via the store, then reflected in the
 	// live deck list and switcher.
 	function newDeck() {
-		saveSourceGuarded(deck.id, source);
+		saveSourceGuarded(deck.id, source, deckTitle);
 		const d = createDeck();
 		setDecks(loadDeckList());
 		setDeck(d);
@@ -1237,11 +1257,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// Flush the deck we're switching away from first (as newDeck/switchDeck do) — a
 		// viewer who clicks "Watch demo" within the 400ms autosave debounce of an edit
 		// would otherwise lose that edit when we switch decks.
-		saveSourceGuarded(deck.id, source);
-		for (const d of loadDeckList()) {
-			if (d.title === DEMO_FIRST_DECK_TITLE) deleteDeckStore(d.id);
-		}
-		const d = createDeck(DEMO_FIRST_DECK_TITLE);
+		saveSourceGuarded(deck.id, source, deckTitle);
+		// Dedupe by ID, not by title: the demo types a whole board deck into this deck,
+		// so its title (the first heading) is no longer "My First Deck" by the time the
+		// walkthrough ends — a title match would miss it and accumulate a duplicate on
+		// every re-run. The fixed id is what makes it the SAME deck each time.
+		deleteDeckStore(DEMO_FIRST_DECK_ID);
+		const d = createDeck(DEMO_FIRST_DECK_TITLE, undefined, DEMO_FIRST_DECK_ID);
 		setDecks(loadDeckList());
 		setDeck(d);
 		setSource(''); // a blank canvas — the demo types the board deck into it
@@ -1280,7 +1302,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// notifies on success.
 	function openImportedDeck(text: string, title: string, comments?: unknown) {
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
-		saveSourceGuarded(deck.id, source);
+		saveSourceGuarded(deck.id, source, deckTitle);
 		const d = createDeck(title || titleFromSource(text), text);
 		// Restore comments SYNCHRONOUSLY (static import) before the deck goes active —
 		// a floating async restore could be overwritten by a comment added in the gap,
@@ -1314,12 +1336,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		}
 		file.text().then(importDeckFromText).catch(() => notify('Could not read that file.'));
 	}
+	// Rename REWRITES the deck's first heading, because that heading IS the deck's
+	// title — storing a label beside it would put the switcher and the slide in
+	// permanent disagreement. It goes through settingsWrite like every other
+	// source-touching setting, so it lands in the editor and is undoable. A deck with
+	// no heading at all has nothing to rewrite: it falls back to the stored label.
 	function renameActiveDeck(title: string) {
 		const t = title.trim();
-		if (!t || t === deck.title) return;
-		renameDeckStore(deck.id, t);
-		setDeck((cur) => ({ ...cur, title: t }));
-		setDecks(loadDeckList());
+		if (!t || t === deckTitle) return;
+		if (retitleSource(source, t)) {
+			settingsWrite(`Rename → ${t}`, (s) => retitleSource(s, t) ?? s);
+		} else {
+			syncDeckTitle(deck.id, t);
+			setDeck((cur) => ({ ...cur, title: t }));
+			setDecks(loadDeckList());
+		}
 		notify(`Renamed to “${t}”.`);
 	}
 	function removeDeck(id: string) {
@@ -2549,7 +2580,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{deckTab === 'marks' && (
 			<div>
 				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">The header, footer, page number, and section rail — the marks that repeat across slides.</p>
-					<TextRow label="Header" desc="The line along the top — a deck title or client name. Blank hides it." value={headerText} placeholder={`e.g. ${deck.title}`} onCommit={setHeaderText} />
+					<TextRow label="Header" desc="The line along the top — a deck title or client name. Blank hides it." value={headerText} placeholder={`e.g. ${deckTitle}`} onCommit={setHeaderText} />
 					<TextRow label="Footer" desc="The line along the bottom — a confidentiality or source line. Blank hides it." value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
 					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
@@ -2978,7 +3009,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    never clipped to an arbitrary 180/260px. */}
 				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:px-2.5">
 					<span className="size-2 shrink-0 rounded-full bg-primary" />
-					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
+					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deckTitle}</span>
 					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
 					    desktop/tablet the deck title takes priority. */}
 					<span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground xl:inline">{metaFor(source)}</span>
@@ -2987,11 +3018,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-72">
 				<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Switch deck</DropdownMenuLabel>
-				{decks.map((d) => (
+				{deckList.map((d) => (
 					<DropdownMenuItem key={d.id} onSelect={() => loadDeck(d)} className="group">
 						<span className={cn('size-2 rounded-full', d.id === deck.id ? 'bg-[var(--accent)]' : 'bg-primary')} />
 						<span className="truncate font-semibold text-[var(--text-heading)]">{d.title}</span>
-						<span className="ml-auto flex items-center gap-1.5">
+						{/* shrink-0: the title beside this is the flexible one (it truncates). Without
+						    it a long deck name squeezes the meta until `7 slides` wraps to two lines
+						    and the row grows — visible the moment a deck is named by a long heading. */}
+						<span className="ml-auto flex shrink-0 items-center gap-1.5">
 							<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.meta}</span>
 							{decks.length > 1 && (
 								<button type="button" aria-label={`Delete ${d.title}`} className="hidden rounded p-0.5 text-muted-foreground hover:text-[var(--fail,#b3261e)] group-hover:block" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeDeck(d.id); }}><Trash2 className="size-3.5" /></button>
@@ -3000,7 +3034,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</DropdownMenuItem>
 				))}
 				<DropdownMenuSeparator />
-				<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck', deck.title); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deck.title}”</DropdownMenuItem>
+				<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck — this rewrites its title heading', deckTitle); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deckTitle}”</DropdownMenuItem>
 				<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -3051,7 +3085,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    switcher: deck navigation is not strippable chrome. */}
 				{effectiveStop === 'read' ? (
 					<>
-						<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
+						<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deckTitle}</span>
 						<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
 					</>
 				) : deckSwitcher}
@@ -3555,8 +3589,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} notify={notify} />
-			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deck.title, Theme: `${palette} · ${mode}` }} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} notify={notify} />
+			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector
@@ -3624,7 +3658,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				// must not follow you to wherever the command took you. Without this, all
 				// ~31 commands sprang the drawer back open on top of the result.
 				onRun={() => setDrawerPendingReturn(false)}
-				decks={decks}
+				decks={deckList}
 				palettes={BUILTIN_PALETTES}
 				onPickDeck={loadDeck}
 				onNewDeck={() => newDeck()}

@@ -1,5 +1,5 @@
 import { DECKS, deckSource, type StudioDeck } from './decks';
-import { stripFrontMatter } from './front-matter';
+import { frontMatterBlock, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
@@ -46,10 +46,62 @@ function remove(key: string): void {
 	}
 }
 
+// ── The deck's title IS its first heading ──────────────────────────────────
+// A deck has ONE name and the deck itself carries it: the first heading in the
+// source. Everything that shows a deck title (the switcher, the header, ⌘K,
+// Share, the export filename) derives it from there, so typing a real `# Title`
+// renames the deck everywhere with no second step — the bug this closes was a
+// new deck staying "Untitled deck" in the switcher forever after its heading
+// changed. The stored index label is only a FALLBACK (a deck with no heading at
+// all) plus a mirror for the surfaces that read localStorage before the app
+// hydrates; `syncDeckTitle` keeps it fresh, and Rename rewrites the heading via
+// `retitleSource` rather than storing a name that disagrees with the slide.
+
+/** The first heading in `source` — front matter skipped, fenced code skipped —
+ *  as its char span, level, and text. Null when the deck has no heading.
+ *  Fenced code is skipped because a `# install deps` line in a bash block is not
+ *  the deck's title, and (since Rename WRITES this span back) must never be
+ *  rewritten as one. */
+function scanFirstHeading(source: string): { start: number; end: number; level: number; text: string } | null {
+	const src = String(source ?? '');
+	let at = frontMatterBlock(src).length;
+	let fence = '';
+	for (const line of src.slice(at).split('\n')) {
+		const end = at + line.length;
+		const f = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+		if (f) {
+			if (!fence) fence = f[1][0];
+			else if (f[1][0] === fence) fence = '';
+		} else if (!fence) {
+			const h = line.match(/^(#{1,3})[ \t]+(.+?)[ \t]*$/);
+			if (h) return { start: at, end, level: h[1].length, text: h[2] };
+		}
+		at = end + 1; // + the '\n' consumed by split
+	}
+	return null;
+}
+
 /** Derive a deck title from its source — the first heading, else a fallback. */
 export function titleFromSource(source: string, fallback = 'Imported deck'): string {
-	const m = stripFrontMatter(source).match(/^#{1,3}\s+(.+?)\s*$/m);
-	return (m?.[1] ?? '').replace(/[`*_]/g, '').trim().slice(0, 60) || fallback;
+	return (scanFirstHeading(source)?.text ?? '').replace(/[`*_]/g, '').trim().slice(0, 60) || fallback;
+}
+
+/** Rewrite the deck's first heading to `title`, preserving its level — the write half
+ *  of `titleFromSource`, used by Rename so a renamed deck's SLIDE says so too. Returns
+ *  null when the deck has no heading to rewrite (the caller falls back to the stored
+ *  index label). */
+export function retitleSource(source: string, title: string): string | null {
+	const h = scanFirstHeading(source);
+	const t = title.trim();
+	if (!h || !t) return null;
+	const src = String(source ?? '');
+	return `${src.slice(0, h.start)}${'#'.repeat(h.level)} ${t}${src.slice(h.end)}`;
+}
+
+/** The starter source for a brand-new deck — its heading seeded with `title`, so the
+ *  deck's name and its cover slide agree from birth (the title is the heading). */
+export function newDeckSource(title = 'Untitled deck'): string {
+	return `<!-- _class: title -->\n\n# ${title.trim() || 'Untitled deck'}\n\n\`Draft\`\n\nStart typing to build your deck.`;
 }
 
 /** `N slides` for the deck-switcher meta line — the SAME splitter the live rail
@@ -136,20 +188,21 @@ function dropSource(id: string): void {
 
 // The canonical (unedited) source for a deck. Built-ins come from DECKS; a
 // user-created deck stores its starter slides in the index-paired template.
-const NEW_DECK_TEMPLATE = '<!-- _class: title -->\n\n# Untitled deck\n\n`Draft`\n\nStart typing to build your deck.';
 function canonicalSource(entry: IndexEntry): string {
 	const builtin = DECKS.find((d) => d.id === entry.id);
-	return builtin ? deckSource(builtin) : NEW_DECK_TEMPLATE;
+	return builtin ? deckSource(builtin) : newDeckSource(entry.title);
 }
 
 /**
  * Resolve the full deck list with each deck's CURRENT source (edited override,
- * else canonical). This is what the shell renders + switches between.
+ * else canonical). This is what the shell renders + switches between. Each title
+ * is DERIVED from that source (its first heading), so the switcher can never
+ * disagree with the slide; the index label is the fallback for a heading-less deck.
  */
 export function loadDeckList(): StudioDeck[] {
 	return loadIndex().map((e) => {
 		const source = loadSource(e.id) ?? canonicalSource(e);
-		return { id: e.id, title: e.title, meta: metaFor(source), slides: splitSlides(stripFrontMatter(source)) };
+		return { id: e.id, title: titleFromSource(source, e.title), meta: metaFor(source), slides: splitSlides(stripFrontMatter(source)) };
 	});
 }
 
@@ -209,25 +262,37 @@ export function loadBootSlide(): number {
 
 /**
  * Create + persist a new deck. With `source` given (a deck import) the deck is
- * seeded with that content; otherwise the blank starter. Returns the new deck.
+ * seeded with that content; otherwise the blank starter, whose heading carries
+ * `title` so the deck's name and its cover slide agree from birth. `id` is passed
+ * only by a caller that needs a STABLE id across runs (the demo's starter deck,
+ * which dedupes itself); everything else mints one. Returns the new deck.
  */
-export function createDeck(title = 'Untitled deck', source?: string): StudioDeck {
+export function createDeck(title = 'Untitled deck', source?: string, id?: string): StudioDeck {
 	// Date.now is fine in app code (unlike workflow scripts). Add a short random
 	// suffix so two creates in the same millisecond (double-click) can't collide.
-	const id = `deck-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-	const body = source?.trim() ? source : NEW_DECK_TEMPLATE;
+	const deckId = id ?? `deck-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+	const body = source?.trim() ? source : newDeckSource(title);
 	const index = loadIndex();
-	index.push({ id, title, builtin: false });
+	index.push({ id: deckId, title, builtin: false });
 	saveIndex(index);
-	saveSource(id, body);
-	return { id, title, meta: metaFor(body), slides: splitSlides(stripFrontMatter(body)) };
+	saveSource(deckId, body);
+	return { id: deckId, title: titleFromSource(body, title), meta: metaFor(body), slides: splitSlides(stripFrontMatter(body)) };
 }
 
-/** Rename a deck in the index. */
-export function renameDeck(id: string, title: string): void {
+/**
+ * Mirror a deck's title into the index. The title itself lives in the deck's first
+ * heading (see titleFromSource) — this keeps the stored label in step so the surfaces
+ * that read localStorage WITHOUT the app do too: studio.astro's pre-paint instant
+ * shell (which would otherwise flash the previous name through hydration) and the
+ * backup's readable per-deck filenames. Also the direct writer for the one case with
+ * no heading to derive from — Rename on a heading-less deck.
+ */
+export function syncDeckTitle(id: string, title: string): void {
 	const t = title.trim();
-	if (!t) return;
-	saveIndex(loadIndex().map((e) => (e.id === id ? { ...e, title: t } : e)));
+	const index = loadIndex();
+	const entry = index.find((e) => e.id === id);
+	if (!t || !entry || entry.title === t) return; // unchanged → no write
+	saveIndex(index.map((e) => (e.id === id ? { ...e, title: t } : e)));
 }
 
 /** Remove a deck (index entry + its edited source, checkpoints, chat, chat
@@ -590,10 +655,17 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			summary.added++;
 			continue;
 		}
-		// Truly diverged (both sides carry edits) — restore beside, never over.
+		// Truly diverged (both sides carry edits) — restore beside, never over. The
+		// "(restored)" marker goes in the copy's own HEADING, not just the index label:
+		// titles derive from the source now, so a label-only suffix would be invisible
+		// and the two copies would sit in the switcher under one identical name.
 		const newId = `deck-${ts.toString(36)}-r${(n++).toString(36)}`;
-		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false });
-		saveSource(newId, incomingSrc);
+		// Budgeted against titleFromSource's own 60-char display cap, or a long deck
+		// name would push the marker past it and the copies would read alike again.
+		const RESTORED = ' (restored)';
+		const restoredTitle = `${titleFromSource(incomingSrc, entry.title).slice(0, 60 - RESTORED.length).trim()}${RESTORED}`;
+		index.push({ id: newId, title: restoredTitle, builtin: false });
+		saveSource(newId, retitleSource(incomingSrc, restoredTitle) ?? incomingSrc);
 		if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;

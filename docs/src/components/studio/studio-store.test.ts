@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { DECKS } from './decks';
+import { DECKS, deckSource } from './decks';
 import { addComment, listComments } from './slide-comments';
 import {
 	clearAllDecks,
@@ -22,7 +22,7 @@ import {
 	loadSource,
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
-	renameDeck,
+	retitleSource,
 	saveActiveDeck,
 	saveChat,
 	saveChatDraft,
@@ -31,6 +31,7 @@ import {
 	saveOnDeviceInstructions,
 	saveSettings,
 	saveSource,
+	syncDeckTitle,
 	titleFromSource,
 	truncateCodePoints,
 } from './studio-store';
@@ -53,10 +54,28 @@ describe('studio-store — deck index', () => {
 		expect(list.find((x) => x.id === d.id)).toBeTruthy();
 	});
 
-	it('renameDeck and deleteDeck persist', () => {
+	it('a new deck is seeded with its title as the HEADING, so the two can never disagree', () => {
+		const d = createDeck('My deck');
+		expect(loadSource(d.id)).toContain('# My deck');
+	});
+
+	it('the listed title tracks the deck HEADING, not the stored label (the rename-in-place case)', () => {
+		const d = createDeck('Untitled deck');
+		// The author types a real title into the deck — no rename step.
+		saveSource(d.id, '<!-- _class: title -->\n\n# Q4 Wrap\n\nbody');
+		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Q4 Wrap');
+	});
+
+	it('a deck with NO heading falls back to its stored label, which syncDeckTitle writes', () => {
 		const d = createDeck('Temp');
-		renameDeck(d.id, 'Renamed');
-		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Renamed');
+		saveSource(d.id, 'just body text, no heading');
+		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Temp');
+		syncDeckTitle(d.id, 'Named by hand');
+		expect(loadDeckList().find((x) => x.id === d.id)?.title).toBe('Named by hand');
+	});
+
+	it('deleteDeck persists', () => {
+		const d = createDeck('Temp');
 		deleteDeck(d.id);
 		expect(loadDeckList().find((x) => x.id === d.id)).toBeUndefined();
 	});
@@ -110,10 +129,39 @@ describe('studio-store — version history', () => {
 	});
 });
 
-describe('studio-store — titleFromSource', () => {
+describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS its heading)', () => {
 	it('derives a title from the first heading', () => {
 		expect(titleFromSource('<!-- _class: title -->\n\n# Q4 Wrap\n\nbody')).toBe('Q4 Wrap');
 		expect(titleFromSource('no heading here')).toBe('Imported deck');
+	});
+
+	it('skips front matter and FENCED CODE — a `# comment` in a bash block is not the title', () => {
+		expect(titleFromSource('---\ntheme: indaco\n---\n\n# Real Title\n')).toBe('Real Title');
+		expect(titleFromSource('```bash\n# npm install\n```\n\n## Real Title\n')).toBe('Real Title');
+	});
+
+	it('retitleSource rewrites that heading in place, preserving its level', () => {
+		expect(retitleSource('<!-- _class: title -->\n\n# Old\n\nbody', 'New')).toBe('<!-- _class: title -->\n\n# New\n\nbody');
+		expect(retitleSource('## Old\n\nbody', 'New')).toBe('## New\n\nbody');
+	});
+
+	it('retitleSource never rewrites a fenced code line, and reports "no heading" as null', () => {
+		expect(retitleSource('```bash\n# npm install\n```\n', 'New')).toBeNull();
+		expect(retitleSource('no heading here', 'New')).toBeNull();
+	});
+
+	it('round-trips: what titleFromSource reads is what retitleSource writes', () => {
+		const src = retitleSource('---\nsize: 16:9\n---\n\n# Old\n\nbody', 'Board Pack') ?? '';
+		expect(titleFromSource(src)).toBe('Board Pack');
+	});
+});
+
+describe('studio-store — built-in deck titles (drift gate)', () => {
+	// A deck is named by its first heading, so a built-in's DECLARED title is only the
+	// seed/fallback for the index — if the two drift apart, the switcher silently shows
+	// one name while the deck's cover slide says another. Pin them together here.
+	it('every built-in deck\'s declared title IS its first heading', () => {
+		for (const d of DECKS) expect(titleFromSource(deckSource(d))).toBe(d.title);
 	});
 });
 

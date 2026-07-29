@@ -132,6 +132,23 @@ describe('workspace-backup — restore semantics', () => {
 		expect(loadSource(restored!.id)).toContain('Hello.');
 	});
 
+	it('a restored copy carries "(restored)" in its HEADING, so it survives the derived-title display cap', async () => {
+		// Titles derive from the deck's first heading, so an index-only suffix would be
+		// invisible and the two copies would sit in the switcher under one identical name.
+		// The marker is budgeted against titleFromSource's 60-char cap for the same reason.
+		const long = `# ${'Extremely Long Quarterly Board Review Deck Name That Runs On'}`;
+		saveSource('welcome', `${long}\n\nfrom the backup`);
+		const blob = await packWorkspace(T0);
+		saveSource('welcome', `${long}\n\ndiverged locally`);
+
+		await restoreWorkspace(blob, T0 + 60_000);
+
+		const copy = loadDeckList().find((d) => d.title.includes('(restored)'));
+		expect(copy).toBeTruthy();
+		expect(copy?.title.length).toBeLessThanOrEqual(60); // not pushed past the display cap
+		expect(loadSource(copy!.id)).toContain('(restored)'); // …because it lives in the source
+	});
+
 	it('identical decks are skipped, not duplicated', async () => {
 		seedWorkspace();
 		const blob = await packWorkspace(T0);
