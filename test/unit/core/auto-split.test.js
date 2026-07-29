@@ -1,20 +1,21 @@
 /**
  * Unit: lib/core/auto-split.js — the build-time slide auto-splitter.
  *
- * Drives the partitionAxis kernel from each component's capacity contract: a slide
- * past `capacity.hard` on a splittable axis is re-emitted as several; everything
- * else passes through byte-identical (so a non-overflowing deck's export is
- * unchanged). The Fit Ladder's SPLIT move applied (the-fit-spine.md §3).
+ * Drives the partitionAxis kernel from each component's capacity contract: a slide a real
+ * render found OVERFLOWING is re-emitted as several, paced by the contract; everything else
+ * passes through byte-identical (so a deck that fits exports unchanged). The Fit Ladder's
+ * SPLIT move applied (the-fit-spine.md §3).
  *
- * §8 rule 10 moved the CUT: the pre-render static pass is DEFER-ONLY now, and every partition
- * (and every cover) comes from the MEASURED pass, which reads the really-rendered DOM. The shape
- * these tests pin is unchanged — so they drive the pass that produces it, through `measuredSplit`
- * below, and `autoSplitDeck`'s own contract (count, defer, emit nothing) has its own block.
+ * ONE pass produces every partition and every cover: the MEASURED one, which reads the
+ * really-rendered DOM. There used to be a pre-render static pass (`autoSplitDeck`) that counted
+ * against `capacity.hard` and fed the measured loop; it is gone (2026-07-29), because a slide
+ * that FITS is a slide the author composed and a count is not a fit. So these tests hand
+ * `resplitDoc` the overflow verdict directly, through `measuredSplit` below.
  */
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { autoSplitDeck, resplitDoc, capacityForClass, applyRails } = require('../../../lib/core/auto-split');
+const { resplitDoc, capacityForClass, applyRails } = require('../../../lib/core/auto-split');
 
 const sec = (cls, inner) => `<section class="${cls}">${inner}</section>`;
 const docSec = (n, cls, inner) => `<section data-lattice-slide="${n}" class="${cls}">${inner}</section>`;
@@ -62,8 +63,8 @@ describe('core: the measured pass makes the cut (rule 10 retired the static one)
   });
 
   test('only the slides the caller says OVERFLOWED are cut', () => {
-    // The measured pass keys on MEASUREMENT, not on capacity: "at capacity" is the static pass's
-    // question, and it now answers it by deferring rather than cutting (see the block below).
+    // The measured pass keys on MEASUREMENT, not on capacity. Since 2026-07-29 nothing else does
+    // either — "is this at capacity?" is `lint:deck`'s question, and it no longer reaches the engine.
     const html = docify(sec('cards', `<h2>T</h2>${list(4)}`));
     const { html: out, changed } = resplitDoc(html, [], cap);
     assert.equal(changed, 0);
@@ -299,39 +300,42 @@ describe('core: applyRails', () => {
   });
 });
 
-// ── §8 rule 10 — the static pass DEFERS, it never cuts ──────────────────────────
-describe('core: autoSplitDeck — defer-only (§8 rule 10)', () => {
-  test('an over-capacity slide is NAMED, not divided — the bytes are untouched', () => {
-    const html = docify(sec('cards', `<h2>T</h2>${list(9)}`)); // 9 > hard 4
-    const r = autoSplitDeck(html, cap);
-    assert.equal(r.html, html, 'the pre-render pass must emit no partition');
-    assert.equal(r.splits, 0);
-    assert.deepEqual(r.deferred, [1], 'it hands slide 1 to the measured loop');
+// ── resplitDoc's contract: it cuts what it is TOLD overflowed, and nothing else ──
+//
+// READ THIS BEFORE TRUSTING THIS BLOCK AS A REGRESSION PIN — IT IS NOT ONE.
+//
+// These cases document that `resplitDoc` acts only on the verdict handed to it: empty verdict,
+// no cut; non-empty verdict, cut — regardless of how the slide compares to `capacity.hard`.
+// That is worth stating, and it is ALL this block states.
+//
+// It cannot detect the 2026-07-29 change ("split fires on fit, never on count"), and the decision
+// note wrongly cited it as the unit pin for exactly that. The adversarial checker ran these tests
+// against the PRE-change kernel and all of them passed, for a reason that is obvious in hindsight:
+// the count trigger never lived in `resplitDoc`. It lived in `autoSplitDeck` plus the emulator's
+// `DEFERRED_BY_COUNT` wiring, and that wiring fed the measured loop a NON-empty verdict. Handing
+// `resplitDoc` an empty one was always a no-op, before and after.
+//
+// The real pin is an integration test, because the trigger is an emulator-level mechanism:
+// test/integration/invariants/split-trigger.test.js. Mutating either half of the change makes it
+// fail. Nothing here does.
+describe('core: resplitDoc cuts the verdict it is given, not the count it can see', () => {
+  test('a slide 2× over `capacity.hard` that nothing reported as overflowing is untouched', () => {
+    const html = docify(sec('cards', `<h2>T</h2>${list(9)}`)); // 9 vs hard 4
+    const r = resplitDoc(html, [], cap); // …and an EMPTY overflow verdict
+    assert.equal(r.html, html, 'an empty verdict must produce identical bytes, whatever the count');
+    assert.equal(r.changed, 0);
   });
 
-  test('a slide AT capacity is not even deferred', () => {
-    const r = autoSplitDeck(docify(sec('cards', `<h2>T</h2>${list(4)}`)), cap);
-    assert.deepEqual(r.deferred, []);
+  test('the same slide DOES split once a render reports it overflowing', () => {
+    // The control for the test above: the input is identical, only the verdict differs.
+    const html = docify(sec('cards', `<h2>T</h2>${list(9)}`));
+    assert.equal(resplitDoc(html, [{ slide: 1, ratio: 3 }], cap).changed, 1);
   });
 
-  test('deferred slides are numbered by ORDINAL position, not `data-lattice-slide`', () => {
-    // This pass runs BEFORE the emulator stamps that attribute (it stamps it from this pass's
-    // output), so reading it here yielded 0 for every slide — caught on a real render.
-    const html = sec('quote', '<blockquote>x</blockquote>') + sec('cards', list(9)) + sec('cards', list(9));
-    assert.deepEqual(autoSplitDeck(html, cap).deferred, [2, 3]);
-  });
-
-  test('a carousel-recipe layout is the measured pass\'s business, never deferred here', () => {
-    const withRecipe = { cards: { axis: 'item', hard: 4, split: { strategy: 'cover-paginate' } } };
-    assert.deepEqual(autoSplitDeck(docify(sec('cards', list(9))), withRecipe).deferred, []);
-  });
-
-  test('the axis is the RENDERED one (rule 1): a table counts rows, whatever the manifest says', () => {
-    // `capacity.axis: 'item'` is an AUTHORING-shape claim — glossary authors a list and renders a
-    // table. The count must follow the DOM, or the estimate counts a collection that isn't there.
-    const asTable = docify(sec('cards', '<table><tbody>' + Array.from({ length: 9 }, (_, i) => `<tr><td>${i}</td></tr>`).join('') + '</tbody></table>'));
-    assert.deepEqual(autoSplitDeck(asTable, cap).deferred, [1], 'nine rows read as nine members');
-    const noCollection = docify(sec('cards', '<p>prose only</p>'));
-    assert.deepEqual(autoSplitDeck(noCollection, cap).deferred, []);
+  test('a slide UNDER capacity still splits when the verdict says it overflowed', () => {
+    // The other direction, and the case a count threshold could never see even in principle:
+    // three items that are each a paragraph long overflow a tall box while sitting inside `hard: 4`.
+    const html = docify(sec('cards', `<h2>T</h2>${list(3)}`));
+    assert.equal(resplitDoc(html, [{ slide: 1, ratio: 2 }], cap).changed, 1);
   });
 });

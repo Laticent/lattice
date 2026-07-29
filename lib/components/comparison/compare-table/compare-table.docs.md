@@ -23,7 +23,7 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 
 ### Common mistakes
 
-- **Writing a vague or duplicate first column, assuming it's just another data column.** When the deck opts into `autosplit: on` and the table overflows a portrait/narrow box, the Fit Ladder reshapes it into row-cards (column headers become in-card labels) instead of clipping — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row. Without `autosplit: on`, an overflowing table is not automatically protected this way.
+- **Writing a vague or duplicate first column, assuming it's just another data column.** When the table overflows a narrow box, the Fit Ladder reshapes it into row-cards (column headers become in-card labels) instead of clipping — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row. This happens automatically and needs no opt-in.
 
 ## When to use
 

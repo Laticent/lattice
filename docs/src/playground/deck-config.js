@@ -61,21 +61,14 @@ const FIELD_DEFAULTS = {
   // 'headings' (the default → omitted) splits on each h1/h2 (eyebrow-aware, `---`
   // still honoured) so the deck needs no separators; 'rule' opts back to `---`-only.
   split: 'headings',
-  // `autosplit` opts the deck into the Fit Ladder's SPLIT move: an over-capacity
-  // slide is divided across extra pages at render (lib/core/auto-split.js). Off
-  // (default → omitted) / on; `true`/`yes` are read as on, the canonical written
-  // value is `on`. A portrait/square-family behavior — a no-op at a landscape
-  // @size, where collapse + shed resolve overflow first (lint warns via
-  // `autosplit-landscape-noop`). Surfaced as a boolean, like `paginate`.
-  autosplit: 'off',
   // `glossary` opts the deck into the auto-glossary: a reference-appendix slide built from
   // the `acronyms:` registry's `definition` fields (lib/core/glossary-auto.mjs, #920). Off
-  // (default → omitted) / `auto`. Surfaced as a boolean, like `autosplit`; the canonical
+  // (default → omitted) / `auto`. Surfaced as a boolean, like `paginate`; the canonical
   // written value is `auto`. No-op unless the deck's `acronyms:` registry defines a term.
   glossary: 'off',
   // `lift` opts the deck into card ELEVATION — the "Struck" box-shadow that lifts card
   // surfaces (cards-grid, kpi tiles, stats, …) off the slide (lib/core/resolve-lift.js).
-  // Off (default → omitted) / `on`; surfaced as a boolean like `autosplit`, the canonical
+  // Off (default → omitted) / `on`; surfaced as a boolean like `paginate`, the canonical
   // written value is `on`. Per-slide `_class: lifted` / `flat` override it.
   lift: 'off',
   size: 'hd', // default landscape (memorable name; 16:9 geometry) (themes also define 4K / standard)
@@ -125,7 +118,7 @@ const COLOR_MODE_OPTIONS = [
 
 // Emit order for known keys; any unmanaged keys we preserved trail in their
 // original order. `marp` leads (it's what tells marp-cli to render the deck).
-const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'autosplit', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
+const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'];
 
 // Field PROFILES per surface — the `fields` allow-list createConfigPanel takes.
 //   author  — every field (the Drawing Board: full set, theme three-way synced).
@@ -137,11 +130,7 @@ const EMIT_ORDER = ['marp', 'theme', 'mode', 'color-mode', 'finish', 'split', 'a
 //             with no deck chrome and no theme, which the studio itself owns).
 export const CONFIG_PROFILES = Object.freeze({
   author: null,
-  noTheme: ['mode', 'color-mode', 'finish', 'split', 'autosplit', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
-  // `autosplit` is a deck-AUTHORING concern (does my over-capacity content
-  // divide?), not a theme/component PREVIEW register — so it's deliberately out
-  // of the preview profile (a fixed specimen never overflows). It rides the full
-  // author set + the Playground (noTheme) only.
+  noTheme: ['mode', 'color-mode', 'finish', 'split', 'glossary', 'lift', 'size', 'paginate', 'header', 'footer', 'class', 'form', 'validate', 'math', 'lang'],
   preview: ['mode', 'color-mode', 'finish', 'size', 'paginate', 'form', 'lift'],
 });
 
@@ -218,8 +207,6 @@ export function readFrontMatter(source) {
     'color-mode': map['color-mode'] || '',
     finish: map.finish || '',
     split: (map.split || 'headings').trim().toLowerCase() === 'rule' ? 'rule' : 'headings',
-    // `autosplit` is binary — surfaced as a boolean (like paginate) for the switch.
-    autosplit: TRUEY.test(map.autosplit || ''),
     // `glossary` is binary — on when the deck opts in with `glossary: auto`.
     glossary: (map.glossary || '').trim().toLowerCase() === 'auto',
     // `lift` is binary — on when the deck opts in with `lift: on`.
@@ -247,8 +234,6 @@ export function readFrontMatter(source) {
 
 function isDefault(key, value) {
   if (key === 'paginate') return !TRUEY.test(value);
-  // `autosplit` is binary — off (any non-truthy) is the omitted default.
-  if (key === 'autosplit') return !TRUEY.test(value);
   // `glossary` is binary — off is the omitted default; only `glossary: auto` is written.
   if (key === 'glossary') return (value == null ? '' : String(value)).trim().toLowerCase() !== 'auto';
   // `lift` is binary — off is the omitted default; only `lift: on` is written.
@@ -276,9 +261,7 @@ function isDefault(key, value) {
 // paginate, a string otherwise.
 function normalize(key, value) {
   if (key === 'paginate') return value === true || TRUEY.test(value || '') ? 'true' : null;
-  // `autosplit` writes the canonical `on` when enabled; off omits the key. The
   // engine reads on/true/yes — we always emit `on` (matches the example decks).
-  if (key === 'autosplit') return value === true || TRUEY.test(value || '') ? 'on' : null;
   // `glossary` writes the canonical `auto` when enabled; off omits the key. The switch
   // passes a boolean; a hand-typed `auto` is honored too.
   if (key === 'glossary') return value === true || (value != null && String(value).trim().toLowerCase() === 'auto') ? 'auto' : null;
@@ -549,10 +532,6 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     // (lattice-emulator.js) — UNLIKE form (a live CSS class), it shows only on
     // EXPORT, never in this live preview. The hint says so, so the toggle doesn't
     // read as broken when the preview doesn't visibly change.
-    if (show('autosplit')) {
-      host.append(switchRow('autosplit', 'Auto-split overflow',
-        'Split an over-capacity slide across extra pages — portrait & square sizes, applied on export (not shown in the live preview)', fm.autosplit));
-    }
 
     // Auto-glossary — generate a reference-appendix slide from the acronym registry's
     // definitions (#920). Unlike auto-split, this DOES show in the live preview (the

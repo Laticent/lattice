@@ -184,24 +184,22 @@ var require_lint_core = __commonJS({
       }
       return SIZE_FAMILY_FALLBACK[name] || "wide";
     }
-    function deckOrientation(source, vocab) {
-      return deckFamily(source, vocab) === "wide" ? "landscape" : "portrait";
-    }
-    function findAutosplitOrientationMismatch(source, vocab) {
-      const fmMatch = String(source || "").match(/^---\n[\s\S]*?\n---/);
+    var AUTOSPLIT_DIRECTIVE = /^\s*autosplit:\s*(\S+)\s*$/im;
+    function findRetiredAutosplitDirective(source, vocab) {
+      const fmMatch = String(source || "").match(/^---\r?\n[\s\S]*?\r?\n---/);
       if (!fmMatch) return [];
-      const fm = fmMatch[0];
-      const flag = fm.match(/^\s*autosplit:\s*(?:on|true|yes)\s*$/im);
-      if (!flag) return [];
-      if (deckOrientation(fm, vocab) !== "landscape") return [];
+      const hit = fmMatch[0].match(AUTOSPLIT_DIRECTIVE);
+      if (!hit) return [];
+      const off = /^(off|false|no)$/i.test(hit[1]);
+      const paginates = deckFamily(source, vocab) !== "wide";
       return [{
         slide: 1,
-        rule: "autosplit-landscape-noop",
-        severity: "warning",
+        rule: "autosplit-retired",
+        severity: off ? "error" : "suggestion",
         classToken: "autosplit",
-        line: flag[0].trim(),
-        message: "autosplit: on has no effect at a landscape @size \u2014 the split move is a portrait/square-family behavior (portrait \xB7 story \xB7 mobile \xB7 square).",
-        fix: "Use a portrait @size (size: portrait | story | mobile | square) to enable autosplit, or drop autosplit: on for a landscape deck."
+        line: hit[0].trim(),
+        message: off ? paginates ? "autosplit: off is retired \u2014 splitting is intrinsic at this @size, so this deck WILL paginate a slide that does not fit, despite this line." : "autosplit: off is retired \u2014 the line does nothing. (At a landscape @size nothing would have paginated anyway: the split move does not run there.)" : "autosplit: is retired \u2014 splitting is intrinsic, so this line no longer does anything.",
+        fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 a slide that does not fit is divided without asking at every presentation @size (square \xB7 portrait \xB7 story \xB7 mobile). A landscape @size never paginates."
       }];
     }
     function findInlineTitleBodyLine(sample) {
@@ -437,7 +435,6 @@ ${indent}   - ${body.trim()}`;
     }
     function lintTextWith(source, vocab) {
       const findings = [];
-      const autosplitOn = /^\s*autosplit:\s*(?:on|true|yes)\s*$/im.test(source);
       const cardStyle = new Set(CARD_STYLE_LAYOUTS);
       const ledgerOl = new Set(LEDGER_OL_LAYOUTS);
       const statementOl = new Set(STATEMENT_OL_LAYOUTS);
@@ -446,7 +443,6 @@ ${indent}   - ${body.trim()}`;
       const isH2AnchoredSplit = (tokens) => tokens.includes("split-panel") && !tokens.includes("pullquote") || tokens.includes("split-compare");
       const slides = splitTopLevel(source);
       const fm = fmChunks(source);
-      const orientation = deckOrientation(source, vocab);
       const family = deckFamily(source, vocab);
       const fmClaimBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
       const deckClaimRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1];
@@ -585,7 +581,27 @@ ${indent}   - ${body.trim()}`;
             if (!n) break;
             const comfort = cap.sweet != null ? cap.sweet : cap.soft;
             if (cap.hard != null && n > cap.hard) {
-              if (autosplitOn && orientation === "portrait") {
+              if (isStressSlide) continue;
+              if (family === "wide") {
+                findings.push({
+                  slide: idx - fm + 1,
+                  rule: "capacity-overflow",
+                  severity: "warning",
+                  classToken: t,
+                  line: m[0],
+                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n}, and a landscape @size does not paginate \u2014 so if it does not fit, it is clipped` + (cap.note ? ` (${cap.note})` : ""),
+                  // Naming the non-split is the part an author cannot infer: every other @size
+                  // paginates, and the silence at landscape would otherwise read as a bug. What this
+                  // must NOT promise is the ring — the emulator strips the overflow marker before
+                  // printing ("a red box in front of a board is worse than the silent clip",
+                  // lattice-emulator.js), so the only signal outside this warning is a build-time
+                  // stderr line. An earlier draft of this string promised "clipped and ringed"; the
+                  // ring never reaches the artifact.
+                  fix: `${capacityFix(cap)} Nothing will divide it for you at a landscape @size, and the export carries no overflow marker \u2014 check the rendered page, or present at a portrait/square @size, where it paginates.`
+                });
+                continue;
+              }
+              {
                 const target = cap.perPage ?? cap.sweet ?? cap.soft ?? cap.hard;
                 const pages = Math.max(1, Math.ceil(n / target));
                 const base = Math.floor(n / pages);
@@ -600,20 +616,11 @@ ${indent}   - ${body.trim()}`;
                   severity: "info",
                   classToken: t,
                   line: m[0],
-                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so auto-split will divide it into ${pages} pages of ${paced}` + (cap.perPage != null ? ` (${t} paces ${cap.perPage} per page when split)` : ""),
-                  fix: hasHeadline ? `Intended? Nothing to do \u2014 the split leads with a cover and ${evenness}. ${trim}` : `Intended? ${evenness.charAt(0).toUpperCase()}${evenness.slice(1)}, but this slide has no \`## \` headline, so the run gets no cover page to open on \u2014 add one. ${trim}`
+                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so if it does not fit the ${family} box auto-split divides it into ${pages} or more pages of ${paced}` + (cap.perPage != null ? ` (${t} paces ${cap.perPage} per page when split)` : ""),
+                  fix: hasHeadline ? `Intended? Nothing to do \u2014 if it splits, the run leads with a cover and ${evenness}. ${trim}` : `Intended? If it splits, ${evenness}, but this slide has no \`## \` headline, so the run gets no cover page to open on \u2014 add one. ${trim}`
                 });
                 continue;
               }
-              findings.push({
-                slide: idx - fm + 1,
-                rule: "capacity-overflow",
-                severity: "warning",
-                classToken: t,
-                line: m[0],
-                message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n} \u2014 it will overflow` + (cap.note ? ` (${cap.note})` : ""),
-                fix: capacityFix(cap)
-              });
             } else if (cap.soft != null && n > cap.soft && !isStressSlide) {
               findings.push({
                 slide: idx - fm + 1,
@@ -831,7 +838,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
-      findings.push(...findAutosplitOrientationMismatch(source, vocab));
+      findings.push(...findRetiredAutosplitDirective(source, vocab));
       return findings;
     }
     var GANTT_STATUS = Object.freeze(/* @__PURE__ */ new Set([
@@ -1470,7 +1477,6 @@ ${indent}   - ${body.trim()}`;
       STATEMENT_OL_LAYOUTS,
       SPLIT_SLOT_LAYOUTS,
       NUMBER_SLOT_LAYOUTS,
-      deckOrientation,
       findInlineTitleBodyLine,
       findOrderedInlineTitleBodyLine,
       findBoldOrderedStatement,
@@ -1480,7 +1486,7 @@ ${indent}   - ${body.trim()}`;
       axisNoun,
       capacityFix,
       findUnknownMapRegions,
-      findAutosplitOrientationMismatch,
+      findRetiredAutosplitDirective,
       findUnknownFinish,
       findUnknownMode,
       findUnknownColorMode,
@@ -2260,6 +2266,22 @@ var require_notes_core = __commonJS({
       );
       return stripCaptionsFrontMatter(commentsStripped);
     }
+    function notesPerRenderedPage(sections) {
+      const list = Array.isArray(sections) ? sections : [];
+      const unescapeEntities = (s) => String(s).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+      const noteOf = (p) => {
+        const m = String(p?.inner || "").match(/<aside class="lattice-notes"[^>]*>([\s\S]*?)<\/aside>/);
+        return m ? unescapeEntities(m[1]) : null;
+      };
+      const runOf = (p) => (String(p?.openTag || "").match(/\sdata-split-run="([^"]*)"/) || [])[1] || null;
+      const notes = list.map(noteOf);
+      const byRun = /* @__PURE__ */ new Map();
+      list.forEach((p, i) => {
+        const r = runOf(p);
+        if (r && notes[i] && !byRun.has(r)) byRun.set(r, notes[i]);
+      });
+      return notes.map((n, i) => n || runOf(list[i]) && byRun.get(runOf(list[i])) || null);
+    }
     module.exports = {
       MAGIC_COMMENT_MATCHERS,
       isToolingComment,
@@ -2268,6 +2290,7 @@ var require_notes_core = __commonJS({
       noteBodiesFromHtml,
       notesFromHtml,
       extractSlideNotes,
+      notesPerRenderedPage,
       descriptionFromHtml,
       extractSlideDescriptions,
       captionFromHtml,

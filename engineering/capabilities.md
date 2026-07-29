@@ -100,6 +100,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `runtime:watch` | Rebuild the runtime bundle on change. |
 | `snippets:build` | Generate .vscode/lattice.code-snippets from component manifests. |
 | `snippets:check` | Freshness gate for the VS Code snippets. |
+| `split:treatments` | Render §0c's split-treatment table (which of the 11 treatments each component gets) into the split decision note from TREATMENTS in lib/core/split-facts.js — the prose used to be a second, unchecked copy of that map. |
+| `split:treatments:check` | Freshness gate for §0c's generated split-treatment table (stale vs lib/core/split-facts.js). |
 | `stage-catalog:build` | Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest's `stage` field + the sovereign frames' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (stage-cell classification, step A). |
 | `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
@@ -135,6 +137,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `bench:bless` | Write the committed perf baseline (test/benchmark/baseline.json) from a fresh bench run — the ratchet a perf PR updates (HARD RULE #19). |
 | `bench:check` | Re-run the bench and compare vs the committed baseline; flags a regression only beyond the variance band (max of tolerancePct and combined RME). On-demand, not a blocking CI gate. |
 | `bless` | Re-render the gallery goldens (the regression gate baseline) and overwrite them; commit the refreshed PDFs. `-- --only <name>` for one. |
+| `oracle:bless` | Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component's derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11). |
+| `oracle:check` | Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift. |
 | `regress` | Visual regression gate (LOCAL spot-check): render every gallery fresh and pixel-diff it against the committed golden PDF; fails on unblessed drift. |
 | `test` | Full unit suite (node:test). The inner loop. |
 | `test:adaptive` | Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract. |
@@ -224,8 +228,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
-| `oracle:bless` | **TODO: describe `oracle:bless` in tools/build-capabilities.js (SCRIPT_META).** |
-| `oracle:check` | **TODO: describe `oracle:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -323,6 +325,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
+| `tools/audit-capacity-basis.js` | audit-capacity-basis — what words-per-element does each component ACTUALLY get |
 | `tools/bless-split-oracle.js` | bless-split-oracle — write the STANDING ORACLE record (§8 rule 5). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
 | `tools/build-anima-player.js` | Bundle the Anima host + vector backends into ONE self-contained IIFE string, for |
@@ -339,6 +342,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
 | `tools/build-showcase-galleries.js` | build-showcase-galleries — GENERATED consolidated cross-bucket showcase decks. |
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
+| `tools/build-split-treatments.js` | build-split-treatments.js — regenerate §0c's treatment table in |
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |

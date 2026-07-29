@@ -3,7 +3,6 @@ size: portrait
 theme: indaco
 paginate: true
 footer: "Auto-split — the Fit Ladder's split move"
-autosplit: on
 ---
 
 <!-- _class: title -->

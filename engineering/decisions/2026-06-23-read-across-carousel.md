@@ -195,8 +195,9 @@ flows the layout's **own native cards** on body pages, never flattened:
   in portrait) packs the original tighter than the single-column split, so the raw ratio
   under-counts the pages the split needs. The cover keeps the engine id; every body drops
   it (never a duplicate id).
-- A layout with a `split` recipe is owned by the *measured* pass, so the static count pass
-  (`autoSplitDeck`) skips it — otherwise it would pre-paginate the list and drop the cover.
+- A layout with a `split` recipe is owned by the *measured* pass. The static count pass
+  (`autoSplitDeck`) skipped it, so it could not pre-paginate the list and drop the cover; since
+  2026-07-29 that pass no longer exists and the measured pass is the only one.
 
 **Not in this family:** **obligation-matrix** overflows *horizontally* in portrait (a
 six-column matrix is too wide), which row-splitting can't fix — it needs a column-aware

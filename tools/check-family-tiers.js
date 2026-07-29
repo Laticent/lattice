@@ -33,6 +33,10 @@
  * on `main`. The oracle's job is to freeze that set, not to assert it is empty.
  *
  * Usage: node tools/check-family-tiers.js [--bless]
+ *        node tools/check-family-tiers.js --ladder    # reconcile the two blessed
+ *          oracles per @size (reads committed JSON only — no browser, no render)
+ *        node tools/check-family-tiers.js --presets   # what differs per @size:
+ *          family, orientation, --canvas-scale, measured body/h2 px (report only)
  * Exit 1 on any disagreement; skips loudly with no Chromium.
  */
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -203,6 +207,12 @@ function sweepDeck(size, comps) {
       + 'coverage it does not have; give the component a gallery slide or remove it from the roster.',
     );
   }
+  // The deck carries NO split directive — there is none to carry. This record measures
+  // the UN-SPLIT terminal of the Fit Ladder on purpose ("what clips when nothing
+  // paginates"), which is INSTRUMENTATION, so it is bought with the emulator's
+  // `--no-split` flag at the call site below rather than with a line in the deck. Without
+  // it the sweep would paginate, the 1:1 page↔component mapping would break, and the
+  // record would quietly start measuring something else entirely.
   const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
     + picked.map((p) => p.body).join('\n\n---\n\n') + '\n';
   return { src, comps: picked.map((p) => p.comp) };
@@ -224,7 +234,7 @@ function clippedAt(size, comps) {
     // "no overflow" become the same string and the sentinel below has nothing to
     // check. The `HTML: N slides` tally is the proof the read worked.
     const r = spawnSync(process.execPath,
-      [path.join(ROOT, 'lattice-emulator.js'), file, path.join(os.tmpdir(), `fs-${size}-${process.pid}.pdf`), 'indaco'],
+      [path.join(ROOT, 'lattice-emulator.js'), file, path.join(os.tmpdir(), `fs-${size}-${process.pid}.pdf`), 'indaco', '--no-split'],
       { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
     if (r.error) throw r.error;
     if (r.status !== 0) throw new Error(`emulator exited ${r.status} for ${size}:\n${r.stderr || r.stdout}`);
@@ -263,20 +273,35 @@ function overflowOracle() {
     // The record carries its own semantics. Without this the `clipped` lists read
     // as "these components are broken at this size", and they do not mean that: the
     // sweep deliberately sets NO `autosplit`, so a clip here is "overflows when the
-    // author has not opted into splitting". An audit found 16 of the 22 portrait
-    // entries are components `split-oracle.json` records as enrolled and
-    // splittable — i.e. two blessed records appearing to disagree, reconciled only
-    // by a comment in this file. A record that needs an out-of-band comment to read
-    // correctly is a trap for whoever inherits it.
+    // author has not opted into splitting". Many of these entries are components
+    // `split-oracle.json` records as enrolled and splittable — i.e. two blessed
+    // records appearing to disagree, reconciled only by a comment in this file. A
+    // record that needs an out-of-band comment to read correctly is a trap for
+    // whoever inherits it.
+    // This comment used to quote the overlap as "16 of the 22 portrait entries".
+    // Re-derived it is 18 — it drifted the moment `roadmap` gained a carousel recipe
+    // and `premise` was enrolled. `--ladder` computes it instead; the note says the
+    // command, not the count.
     const note = [
-      'Components whose GALLERY SLIDE overflows at each @size, with NO `autosplit`.',
-      'A name here means "clips when the author has not opted into splitting" — NOT',
-      '"broken". Many of these are enrolled in test/oracle/split-oracle.json and fit',
-      'once `autosplit: on` is set. The two records measure different terminals of',
-      'the Fit Ladder and do not contradict each other.',
-      'One entry per registered @size, not per family: `portrait` and `story` are both',
-      '`tall`, but a clip is a function of the BOX — story is 570px taller at the same',
-      'width, and the two clip sets differ substantially.',
+      "Components whose GALLERY SLIDE overflows at each @size, rendered with the emulator's",
+      '`--no-split` flag. A name here means "overflows when nothing paginates" — NOT "broken".',
+      'Splitting is INTRINSIC (2026-07-29) at the PRESENTATION sizes — square, portrait, story, mobile:',
+      'there an overflowing slide WITH A SEAM is divided at render without being asked, so those rows are',
+      'not the ordinary case — they are the un-split terminal of the Fit Ladder, measured on purpose so',
+      'the record has a stable baseline. Most of that set paginates in a real export. For how many clip',
+      'un-split vs. with splitting on, per @size, run `node tools/check-family-tiers.js --ladder` — an',
+      'earlier note quoted 21 at portrait against a clipped.portrait of 22, which is the drift this file',
+      'keeps re-learning: do not write the count down, name the command. The `hd` row is DIFFERENT: the split move does',
+      'not run at a landscape @size, so a clip recorded there is the real terminal a reader sees — an',
+      'authoring or layout defect to fix, not a baseline. (There is no 4K row: 4K and hd are the same box,',
+      'so sweeping both would measure the same thing twice.) WHAT THIS FILE DOES NOT COVER: it renders one',
+      'synthetic per-component slide, not the real galleries, so `hd: []` means "no skeleton clips", NOT',
+      '"nothing clips at landscape" — four galleries and four example decks do. See the wide-clip ratchet',
+      'named in engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md Risks.',
+      'Run `node tools/check-family-tiers.js --ladder` for the overlap per @size, and for which',
+      'components still ring because they have no seam at all. One entry per registered @size, not per',
+      'family: `portrait` and `story` are both `tall`, but a clip is a function of the BOX — story is',
+      '570px taller at the same width, and the two clip sets differ substantially.',
     ].join(' ');
     fs.writeFileSync(ORACLE, `${JSON.stringify({ note, components: comps, clipped: fresh }, null, 2)}\n`);
     console.log(`\nblessed ${path.relative(ROOT, ORACLE)} — ${comps.length} components across ${SIZES.length} families.`);
@@ -316,7 +341,125 @@ function overflowOracle() {
   return bad;
 }
 
+// ── The ladder report ──────────────────────────────────────────────────────
+/**
+ * Reconcile the TWO blessed records against each other, per @size.
+ *
+ * They look like they contradict: `family-overflow.json` names components as CLIPPED
+ * at a size, while `split-oracle.json` records many of the same ones as ENROLLED and
+ * splittable. They do not. They measure two different terminals of the same Fit
+ * Ladder — this sweep sets NO `autosplit`, so a clip here means "overflows when the
+ * author has not opted in", and an enrolled component paginates instead once
+ * `autosplit: on` is set.
+ *
+ * That reconciliation used to live in a COMMENT in this file, quoting "16 of the 22
+ * portrait entries". Re-derived today it is 18 of 22 — the number drifted the moment
+ * `roadmap` gained a carousel recipe (#1209) and `premise` was enrolled, and nobody
+ * re-ran it. So the constant is deleted and this prints it instead. Both decision
+ * notes name this command rather than a figure.
+ *
+ * Reads the two committed records only — no browser, no render, so it is safe to
+ * quote from a doc and cheap to run.
+ */
+function ladderReport() {
+  const fam = JSON.parse(fs.readFileSync(ORACLE, 'utf8'));
+  const splitPath = path.join(ROOT, 'test', 'oracle', 'split-oracle.json');
+  const split = JSON.parse(fs.readFileSync(splitPath, 'utf8')).components;
+  console.log('The Fit Ladder, per @size — REFLOW\'s clipped set against SPLIT\'s enrolled set.');
+  console.log('A component in both columns clips un-split and paginates once `autosplit: on`.\n');
+  console.log('size      clipped  enrolled  rings  components that still ring (no opt-in)');
+  for (const s of SIZES) {
+    const clipped = (fam.clipped?.[s.size] || []).slice().sort();
+    const enrolled = clipped.filter((c) => split[c]?.enrolled);
+    const rings = clipped.filter((c) => !split[c]?.enrolled);
+    console.log(
+      `${s.size.padEnd(9)} ${String(clipped.length).padEnd(8)} ${String(enrolled.length).padEnd(9)} `
+      + `${String(rings.length).padEnd(6)} ${rings.join(', ') || '—'}`,
+    );
+  }
+  console.log(
+    '\nA name in the last column is the honest terminal of the ladder: no reflow fits it,'
+    + '\nand no split is available, so the export rings it. That is the set worth shrinking.',
+  );
+  return 0;
+}
+
+if (process.argv.includes('--ladder')) process.exit(ladderReport());
+
+// ── The preset report ──────────────────────────────────────────────────────
+/**
+ * What actually differs between the registered @sizes: the family stamp, the deck
+ * orientation, `--canvas-scale`, and the MEASURED body / `h2` px.
+ *
+ * The split note's §0b asserted "every portrait preset is 1080 wide, so body type is
+ * one size across them; a taller preset simply holds more units", and reasoned about
+ * one budget across a bucket that included `square`. Two of the three claims in that
+ * sentence are false, and no command existed to check any of them — so this prints
+ * the numbers instead of the note quoting them. `portrait`/`story`/`mobile` share the
+ * `portrait` type category and agree exactly; `square` is its own category and does
+ * not.
+ *
+ * A REPORT, not a gate: it asserts nothing and exits 0. The tier assertions are the
+ * default run above; this exists so a doc can name a command rather than a constant.
+ */
+const PRESET_DECK = `<!-- _class: content -->
+
+## A heading for the probe
+
+A plain body paragraph carrying the container default type role, long enough to wrap
+at any preset and be measured honestly.
+`;
+
+async function presetReport() {
+  const puppeteer = require('puppeteer');
+  const browser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
+  console.log('Per-@size render facts — the family stamp, the type category, and the measured result.\n');
+  console.log('size      family   orientation  --canvas-scale  body px    h2 px');
+  for (const s of SIZES) {
+    const src = path.join(ROOT, '.scratch', `preset-${s.size}.md`);
+    fs.mkdirSync(path.dirname(src), { recursive: true });
+    fs.writeFileSync(src, `---\nmarp: true\ntheme: indaco\nsize: ${s.size}\n---\n\n${PRESET_DECK}`);
+    const base = path.join(os.tmpdir(), `preset-${s.size}-${process.pid}`);
+    execFileSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), src, `${base}.pdf`, 'indaco', '-q'],
+      { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
+    const page = await browser.newPage();
+    await page.setViewport({ width: s.vp[0], height: s.vp[1] });
+    await page.goto(`file://${base}.html`, { waitUntil: 'networkidle0', timeout: 120000 });
+    const r = await page.evaluate(() => {
+      const sec = [...document.querySelectorAll('section')].find((x) => x.className.includes('content'));
+      const px = (el) => (el ? getComputedStyle(el).fontSize : 'MISSING');
+      return {
+        stamp: sec?.getAttribute('data-family') || '(none → wide)',
+        orientation: sec?.getAttribute('data-orientation') || '(none)',
+        scale: sec ? (getComputedStyle(sec).getPropertyValue('--canvas-scale').trim() || '1 (unset)') : '?',
+        body: px(sec?.querySelector('.cell-stage p') || sec?.querySelector('p')),
+        h2: px(sec?.querySelector('h2')),
+      };
+    });
+    console.log(
+      `${s.size.padEnd(9)} ${s.family.padEnd(8)} ${r.orientation.padEnd(12)} `
+      + `${r.scale.padEnd(15)} ${r.body.padEnd(10)} ${r.h2}`,
+    );
+    await page.close();
+    fs.rmSync(src, { force: true });
+  }
+  await browser.close();
+  console.log(
+    '\nType is `coefficient × cqi` per ORIENTATION category (lib/typography/scale.js), not one'
+    + '\nscale × a multiplier — so portrait/story/mobile agree exactly (same category, all 1080'
+    + '\nwide) and square does not (its own category). `--canvas-scale` still ramps by aspect but'
+    + '\nno longer multiplies type; it drives spacing.',
+  );
+  return 0;
+}
+
+// `--presets` short-circuits the assertion run below: it is a REPORT, and running the
+// full tier probe + four emulator sweeps to print five rows would make a doc's cited
+// command too slow to actually run.
+const PRESETS_ONLY = process.argv.includes('--presets');
+
 (async () => {
+  if (PRESETS_ONLY) { process.exitCode = await presetReport(); return; }
   const puppeteer = require('puppeteer');
   const browser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
   const rows = [];

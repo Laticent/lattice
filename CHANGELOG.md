@@ -78,6 +78,280 @@ in patch versions.
   test against a real Biome in a real git repo. What it deliberately does not catch is
   enumerated under RESIDUALS in the tool's header.
 
+### Removed
+
+- **`autosplit:` is retired as a deck directive — splitting is intrinsic.** A deck is
+  authored once and presented at many sizes, so its page COUNT is a function of the
+  content and the box, never an authoring switch. `autosplit: off` did not say
+  "paginate this differently"; it said "do not paginate, clip instead", which is not an
+  intent anyone holds about a deck they want read. The evidence was blunter than the
+  argument: across the whole repository, every deck that mentioned the directive set it
+  **on** — six examples, four fixtures — and **nothing ever set it off**.
+  Splitting now runs without being asked at every **presentation** `@size` — `square`,
+  `portrait`, `story`, `mobile` — on two conditions, both about the render: the slide
+  MEASURED as overflowing, and it has a seam. It does **not** run at a landscape `@size`:
+  `hd` and `4K` are the same box (`cqi` is width-relative), and that box is the one a deck
+  is authored in, so a slide that fits there is one its author composed and the engine does
+  not re-cut it. Content with no seam still rings, and so does an over-full landscape
+  slide; that is the honest terminal and it is not a toggle either.
+  **What replaces it, at the right altitude.** A specimen that means to DEMONSTRATE
+  overflow marks itself per-slide with `<!-- stress-slide -->` — the marker `lint-core`
+  already read as "this slide EXISTS to show the upper limit", now honored by the
+  splitter too. Measurement rigs use the emulator's new `--no-split`, because what they
+  actually want is the deck held still so page N stays slide N, which is a tool concern.
+  **Breaking:** decks carrying `autosplit:` should drop the line. `lint:deck` names it —
+  `autosplit: off` is an **error** (it asks for something the engine no longer offers and
+  the deck will paginate anyway), `autosplit: on` a suggestion (it asks for what already
+  happens). The ten decks and fixtures in this repo are cleaned up here.
+  Catalog cost, measured before landing: landscape LAYOUT is unchanged (the split move never
+  reaches it — the `inventory` gallery is pixel-identical at 200 dpi on all 11 pages against
+  the branch base; a re-rendered PDF is not byte-identical, only because of `CreationDate` and
+  deflate jitter). At the presentation sizes, exactly one committed example deck changes —
+  `examples/reflow-legal.md`, which was shipping a clipped slide.
+
+- **The pre-render COUNT split pass is gone (`autoSplitDeck`).** The engine had two split
+  triggers, and the second one cut slides that fit. It counted each collection against
+  `capacity.hard` and handed every over-budget slide to the measured loop as a candidate —
+  deliberately including the ones that measured no overflow — so twelve one-line checklist
+  items at `size: portrait` came out as **3 pages** where they now come out as **1**, having
+  occupied about a third of the canvas all along. `capacity` is an editorial budget measured
+  against a synthetic probe deck (see `2026-07-28-capacity-basis.md`), not a fit predictor;
+  its one consumer is `lint:deck`. The splitter now reads it for **pacing only** — how many
+  members ride a page once the measured pass has ordered a cut.
+
+### Changed
+
+- **`capacity-overflow` lint is un-retired, and now fires exactly where nothing will be
+  split**: at a landscape `@size`, where the SPLIT move does not run. Its fix text names the
+  non-split outright — *"nothing will divide it for you at a landscape @size"* — so an author is
+  never left wondering why the engine stayed quiet, and it explicitly warns that the export
+  carries **no overflow marker** (the emulator strips the ring before printing). It does not
+  predict overflow from the count, which would be the same error this release removes from the
+  splitter. At `square`/`tall`/`strip` the `capacity-autosplit` advisory takes over, and both
+  are suppressed on a `<!-- stress-slide -->` specimen, which overflows on purpose and is never
+  divided.
+
+- **`autosplit-retired` stopped contradicting the engine at the default `@size`.** The `off`
+  variant asserted "this deck WILL paginate an overflowing slide despite this line", which is
+  false at `wide` — where most decks are, and where the restored gate forbids exactly that. It
+  is family-aware now.
+
+- **`capacity-autosplit` says only what it knows.** It used to promise "auto-split will
+  divide it into 4 pages of 4". Two things were wrong once the count stopped forcing a cut:
+  a slide that fits is not divided at all, and when one is, `resplitDoc` paces at the tighter
+  of the authored target and the measured overflow ratio, so the run can be longer than the
+  manifest implies. It now reads "**if it does not fit** the tall box … into 4 **or more**
+  pages of 4".
+
+### Fixed
+
+- **`inventory editorial` placed its sidebar in an implicit second grid ROW, so the takeaway
+  rendered below the items instead of beside them — and the committed gallery PDF shipped that
+  sentence cut mid-phrase.** `grid-column` names a column, not a cell, and auto-placement never
+  goes backwards: an author who writes the list first and the takeaway after (the natural order,
+  and the one the component's own gallery and skeleton use) puts the `<ul>` in row 1 column 2,
+  after which the blockquote cannot be placed beside it. Measured on the shipped slide at `hd`:
+  items at 209–565px in column 2, blockquote BELOW them at 572–653px against a content cell
+  ending at 616 — a tall empty left column, and the takeaway's second line 37px outside the clip
+  box. `lib/components/inventory/inventory/inventory.gallery.light.pdf` read *"The sidebar
+  carries the register's one"*, with **takeaway.** simply gone and no ring in the export to say
+  so. Pinned both children to `grid-row: 1`.
+  **The same fix exposed a second defect in the variant's family reflow**: at `tall`/`strip` it
+  set `grid-template-columns: 1fr` but never reset the children's `grid-column`, and a grid asked
+  for a column its template does not define creates an implicit one — so the two-column form
+  survived the reflow with the takeaway squeezed into a narrow rail (at `mobile`, one word per
+  line down the left edge). It looked correct at `portrait` only because that box splits, and a
+  split body page is caught by a rule that does reset `grid-column`. General lesson worth
+  carrying: **`grid-template-columns` on the container does not collapse a grid whose children
+  name their own columns.**
+
+- **The emulator read `size:` two ways, and both were narrower than the linter's — so the split
+  gate could be sent to the wrong box.** Two divergences, both found by adversarial review, both
+  landing on the gate that decides pagination from geometry. (a) Two of the four front-matter
+  readers in `lattice-emulator.js` matched `/^---\n/`, **LF only**, while lint and the other two
+  already used `\r?\n`: a deck saved with CRLF endings had front matter the marpit engine parsed
+  fine, so the engine stamped `data-family="tall"` for `size: story` while the emulator saw no
+  front matter at all, defaulted to `hd`, and rendered tall-family CSS into a 1280×720 landscape
+  page with the content clipped — silently dropping `theme:`, `color-mode:`, `style:` and
+  `fluid:` along with it. (b) `size: story # phone` is legal YAML, but a `$`-anchored value
+  pattern rejected the line and fell back to `hd` while lint's prefix-matching copy accepted it,
+  so lint promised a split the engine would not perform. Both readers are now defined once
+  (`FRONT_MATTER_RE`, `SIZE_DIRECTIVE_RE`) and are supersets of what they replaced — no LF deck
+  changes.
+
+- **Front-matter `captions:` survived the split instead of being dropped.** Keyed by
+  authored slide, they were discarded wholesale on any split deck ("keys are unsafe under
+  autosplit"). Survivable while splitting was opt-in; not once it is intrinsic. New
+  `authoredIndexPerPage` (`lib/core/auto-split.js`) recovers page → authored slide from
+  the contiguous `data-split-run` groups, so a caption written for slide 4 reaches every
+  page slide 4 became. The narration pipeline is fed page-bound notes for the same
+  reason, putting notes, projection and captions in one index space. An unsplit deck is
+  unaffected.
+
+### Changed
+
+- **Auto-split runs unasked at every non-landscape @size.** `autosplit: on` was opt-in, and
+  `lattice-emulator.js` said why in its own comment: *"Default-on is a later decision, once
+  the catalog is audited."* That audit is done; the directive itself is retired above, so
+  this is what the catalog evidence bought. Rendering one gallery slide per family-reflowing
+  component at every registered @size, split off against split on, counting **components**
+  that still clip (page counts shift once a slide splits, so they are not comparable):
+
+  | @size | split off | split on |
+  |---|---|---|
+  | `square` | 4 | **2** |
+  | `portrait` | 21 | **5** |
+  | `story` | 9 | **3** |
+  | `mobile` | 2 | 2 |
+
+  Splitting resolves 16 of the 21 components that clip at portrait, and the residue is not
+  random: `logo-wall`, `matrix-2x2`, `pricing` and `split-compare` are exactly the ones
+  `check-family-tiers.js --ladder` already reports as **not enrolled** — they have no seam
+  — plus `roadmap`, whose transposed cards do not fit a strip box even one per page.
+
+  The reason this is a correctness fix rather than a preference: the Fit Spine has **no
+  shrink move** (*"there is no fifth move, and crucially no shrink move"*), so when content
+  does not fit, SPLIT and the overflow ring are the only two answers. Leaving split opt-in
+  made the ring the answer for any author who had not heard of the flag, so the engine's
+  stated policy and its out-of-the-box behavior disagreed. A cover, an atomic body and a
+  carried continuation signal is what the design says should happen, so it now happens
+  without being asked for. A slide that demonstrates overflow deliberately marks itself
+  `<!-- stress-slide -->`; measurement rigs pass `--no-split`.
+
+  Catalog churn is almost nil: of the 13 committed non-landscape example decks, **12 are
+  byte-unchanged**. The one that moves is `examples/reflow-legal.md`, which was shipping a
+  **clipped** slide in its committed PDF and is now 11 clean pages.
+
+### Fixed
+
+- **Auto-split ignored a collection that overflowed SIDEWAYS, so members ran off the right
+  edge and were lost from the export.** `canSplit` (the measured pass's veto,
+  `lattice-emulator.js`) keyed on vertical spill alone. `list-steps` at `size: square` is the
+  reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six steps want **1291px
+  in a 972px track** with `scrollHeight === clientHeight` — zero vertical overflow. Step 06
+  rendered entirely off the frame and step 05 was sliced mid-word, on a component declaring
+  `capacity.perPage: 1`, which pagination fixes completely. Silent, too: the slide reached the
+  measured list carrying `canSplit: false`, so nothing cut it while `lint:deck`'s
+  `capacity-autosplit` advisory promised the author a split.
+  The old gate was right about its own case (a too-wide `<table>` gains nothing from
+  row-splitting: its width comes from its columns) and too broad. The test is now **"does
+  splitting this collection reduce its width"** — a flex row, or a grid with more than one
+  column; a `<table>` is excluded by construction. Swept before/after across every enrolled
+  component's whole gallery at both boxes: `portrait` 452 → 455 pages (clips 16 → 15),
+  `square` 281 → 290 (clips 13 → 11), **no content lost at either size** by word-multiset
+  check. Two real losses recovered — `cards-stack horizontal` was dropping two of three cards
+  at portrait, and `list-steps`' carbon-cycle slide was rendering as interleaved column
+  fragments at square. This confirms an audit finding that had been recorded as
+  non-reproducing (#1234 group C): the reporter's synthetic deck was right, and the
+  component's own gallery simply has no slide that triggers it.
+
+- **A split run repeated its lede on every body page when the component grouped title and
+  lede in one wrapper.** `ledeSpansIn` (`lib/core/split-envelope.js`) scanned depth-0 siblings
+  while `readMasthead` finds the `<h2>` at any depth, so the two readers disagreed about where
+  the masthead lives: the cover got a heading with no lede, and the lede stayed in the body and
+  repeated. `premise` is that shape (`lib/core/premise.js` wraps `<h2>` + lede in
+  `.premise-claim`) — reproduced at portrait, story and mobile. The rule is now "the lede lives
+  in the title's own container", handling all three depths (absent, because a banded title sits
+  outside the content cell; depth-0 on a bandless slide; one level in for a masthead group), and
+  it descends exactly one level — deeper is a component's own structure, not a masthead. Fix is
+  in the shared envelope rather than in `premise`, because "the lede hoists to the cover" is the
+  envelope's §0a promise. Swept: across 452 pages of every enrolled component's gallery at
+  portrait, the only diff is `premise`'s lede moving to its cover.
+
+### Fixed
+
+- **`premise`'s stacked ledger stopped stretching, so a portrait page centres instead of
+  packing to the top over half a page of void.** `section.premise > ol` takes `flex: 1` so
+  it claims the row's remaining WIDTH beside the 34% claim rail — right in landscape, wrong
+  once the composition stacks, where it claims the remaining HEIGHT instead. The rows then
+  packed at the top of a full-height box and the section's `safe center` had nothing left to
+  centre. Most visible on a split body page, where the hoisted lede is no longer there to
+  fill the gap. Clip-neutral: premise's own gallery at portrait clips the same one slide
+  before and after, and the overflow oracle is unchanged at every size.
+
+### Changed
+
+- **The planned capacity-basis fix was checked and does not hold; a decision note records
+  what does.** The reflow note prescribed each component's own `skeleton` as the honest
+  basis for measuring count ceilings, and #1234 group D asked for it. The diagnosis is
+  right — `density.soft` is more generous than real authoring on **23 of the 25** measurable
+  components and tighter on none — but the prescription is backwards: a skeleton is a shape
+  template with placeholder filler, not a length specimen, so it runs >30% terser than real
+  authoring on **8 of 25**, and a terser basis measures a **higher** ceiling. For `inventory`
+  it moves the measured `tall` ceiling from **3 to 5**, away from the truth. Deeper still,
+  the count ceiling is not a well-defined quantity: holding `inventory` at 4 members and ~10
+  words, the same slide fits or clips depending on its look modifier and whether it carries
+  a trailing insight — the member count is not the variable. New
+  `tools/audit-capacity-basis.js` measures all three candidate bases so no figure in the
+  note is a constant anyone has to trust. See
+  `engineering/decisions/2026-07-28-capacity-basis.md`; the reflow note's paragraph is
+  marked superseded in place. No capacity number changed.
+
+- **`premise` collides with the deck header at portrait — found, reproduced, and logged
+  rather than fixed.** `section.premise` sets `padding: 0 var(--sp-2xl)`, zero on the block
+  axis, so the stacked claim lands under the absolutely-positioned `<header>` and both
+  render unreadable on every premise slide in any deck that sets `header:`. No split
+  involved; it shipped with the reflow. Not fixed because a full box has no slack: measured
+  against premise's own gallery at portrait (5 slides, 1 clipping today), reserving the
+  berth top and bottom takes it to **5 of 5 clipped**, and the top alone still takes it to
+  **2**. The honest statement is "premise holds fewer rows at portrait than it claims" — a
+  density decision that wants the capacity work behind it. The overflow oracle caught the
+  attempt and refused it.
+
+- **The `--row-mark` hue restart across a split stays open, and the decision note now says
+  why in a way the next reader can act on.** The note's own diagnosis pointed at "a
+  transform in `premise`"; the absolute index actually lives in `partitionAxis`'s `offset`,
+  beside the `<ol start="N">` it already writes. The obvious fix was built and measured
+  (page three continuing at palette slots 5–8, confirmed by computed style) and then
+  reverted: `partitionAxis` is component-agnostic, so stamping unconditionally changes the
+  emitted HTML of every item-axis split across 15+ components to serve one — eleven
+  byte-exact tests said so. The honest shape is a manifest opt-in like
+  `capacity.relationship`, which is a real slice for a cosmetic defect. Recorded rather
+  than shipped broad.
+
+- **§0c's split-treatment table is now GENERATED, and the split oracle can no longer mint
+  a default it was supposed to record.** Two decision notes — the REFLOW rung
+  (`2026-07-27-family-stamp-replaces-container-queries.md`) and the SPLIT rung
+  (`2026-07-22-structure-derived-split-patterns.md`) — are consecutive steps of one Fit
+  Ladder and did not reference each other at all, which is the root of most of what the
+  #1234 audit found. Each now opens with the ladder, and the claims that crossed the
+  boundary are stated on both sides.
+  - **`npm run split:treatments`** renders §0c's "every component has a treatment" table
+    from `TREATMENTS` in `lib/core/split-facts.js` plus the live manifests; `build:check`
+    fails on drift. Hand-maintained, it had rotted three ways at once: it claimed "every
+    one of the **59** components" against a catalog of **61**; `matrix-grid` and `premise`
+    appeared nowhere in it, so their placement existed only in code; and `roadmap` was
+    still recorded *atomic* a release after #1209 moved it to *read-across*. The `†`
+    marker for "placed but not opted in" is now a derived `°` and finds **six**
+    components where the hand-set list named three — `content`, `list-criteria`,
+    `logo-wall` and `pricing` were unlisted backfill candidates.
+  - **§8 rule 11 is now enforced, having previously been satisfied only on paper.**
+    `bless-split-oracle.js` diffed recomputed manifest facts and nothing else, so the
+    first `--bless` on a newly enrolled component *minted* its split behavior and
+    `checkSplitOracle` then defended it — drift-detection doing duty as
+    initial-correctness, the one substitution the rule exists to forbid. Enrollment now
+    requires an attestation naming the committed deck that exercises the split and who
+    signed the derived facts off; blessing refuses to write an entry without one, and an
+    attestation pointing at a deck that is not in the tree fails too. The 28 components
+    enrolled before the precondition landed are frozen in a **shrink-only** `GRANDFATHERED`
+    backlog rather than given sign-offs nobody witnessed.
+  - **Two constants replaced by commands.** `node tools/check-family-tiers.js --ladder`
+    reconciles the two blessed oracles per @size (a code comment had frozen the overlap
+    at "16 of the 22 portrait entries"; re-derived it is 18, and it drifted the moment
+    `roadmap` gained a carousel recipe). `node tools/check-family-tiers.js --presets`
+    prints the per-@size family, orientation, `--canvas-scale` and measured body/`h2` px.
+  - **Three ADR claims corrected against the shipped code, not the other way round.**
+    §0a/rule 9's absolute "cover **always**" contradicted §9's own sanctioned exception:
+    a title-less slide has no masthead to build a cover from and keeps the bare
+    partition (verified — a title-less enrolled `list` at `size: portrait` renders two
+    body sections, zero covers). §0c cited an `@container (aspect-ratio <= 0.9)`
+    mechanism the sibling note **deleted** and gated against reintroducing. §0b's "one
+    body type size across every portrait preset" held for `tall`+`strip` (50.544px at
+    all three) and not for `square` (34.02px, its own type category), and its "a taller
+    preset simply holds more units" is false wherever the family changes — the same
+    `glossary` run is a real `<table>` at portrait/story/square and a header-less
+    `display: block` stack at `mobile`.
+
 ### Fixed
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`

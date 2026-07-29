@@ -34,12 +34,6 @@ export const PAGINATE_VALUES = ['true', 'false', 'skip', 'hold'];
 // `class: no-progress` chrome control.)
 export const FORM_VALUES = ['off', 'standard'];
 
-// Value vocabulary for the deck-level `autosplit:` front-matter toggle — opt the
-// deck into the Fit Ladder's SPLIT move (an over-capacity slide is divided across
-// extra pages at render). Binary: `on` enables it, `off` is the default. The
-// engine also reads true/yes; `on` is the canonical written value. Mirrors the
-// `autosplit` flag in lattice-emulator.js / lib/authoring/lint-core.js.
-export const AUTOSPLIT_VALUES = ['off', 'on'];
 
 // Value vocabulary for the Lattice `split:` front-matter directive, which picks
 // how the body divides into slides: `rule` (split on `---`, the default) or

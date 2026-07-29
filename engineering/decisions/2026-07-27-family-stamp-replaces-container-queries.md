@@ -10,6 +10,45 @@ builds-on: 2026-06-18-component-adaptive-sizing.md, 2026-06-19-chart-adaptive-si
 
 Fixes #1218.
 
+## ★ Read this with its sibling — the two rungs of the Fit Ladder
+
+*Added 2026-07-28 (#1234). Until then these two notes did not reference each other
+at all, and that omission is the root of most of what the #1234 audit found.*
+
+A slide that does not fit its box has two answers, and they are consecutive rungs of
+one ladder. This note owns the first; a sibling owns the second:
+
+| | rung | the note that owns it | status |
+|---|---|---|---|
+| **REFLOW** | the slide changes SHAPE for its box | this note | shipped |
+| **SPLIT** | the slide becomes SEVERAL slides | [`2026-07-22-structure-derived-split-patterns.md`](2026-07-22-structure-derived-split-patterns.md) | proposed |
+
+Reflow is the cheaper rung and runs first: a component restructures in place for its
+family. When no reflow fits, the split rung paginates. When neither is available, the
+export rings the slide — the honest terminal.
+
+**Two things to carry across the boundary:**
+
+1. **A clip recorded here is a clip with splitting DISABLED.** The overflow oracle
+   (`test/oracle/family-overflow.json`) renders with the emulator's `--no-split` flag,
+   because it measures the un-split terminal on purpose — so a name in it means
+   "overflows when nothing paginates", *not* "broken". Splitting is INTRINSIC since
+   2026-07-29 (`2026-07-29-autosplit-is-not-a-toggle.md`) at the presentation sizes —
+   `square`, `tall`, `strip` — so for those the recorded condition is deliberately
+   artificial rather than the default one: most of that set paginates in a real export.
+   At portrait, **21** components clip un-split and **5** with splitting on — and those
+   five are the ones with no seam to cut, which is the honest terminal.
+   `node tools/check-family-tiers.js --ladder` prints the overlap per @size, and that
+   residue, which is the set actually worth shrinking. **At `wide` the oracle records
+   the REAL terminal, not an artificial one**: the split move does not run there (16:9 is
+   the authoring box), so a landscape clip in this file is a clip a reader will see.
+
+2. **The sibling's §0b talks about "portrait presets" as one bucket.** It is four
+   families, and `square` is not `tall`. That section is corrected in place there and
+   defers to the model in this note; `node tools/check-family-tiers.js --presets`
+   prints the per-@size facts (family, orientation, `--canvas-scale`, measured body
+   and `h2` px) so neither note has to quote a constant.
+
 ## The bug, in one line
 
 A deck declared `size: square` (1080×1080) is `square` to `familyFor()` in JS and
@@ -362,13 +401,66 @@ repeats:
   gallery, which HARD RULE #8 forbids in feature work) and **hard-fails** when a
   rostered component has no slide at all. Roster is 33, all rendered.
 
-**Still open, and cosmetic:** the `--row-mark` hue cycles on `nth-child(8n+k)`
-*within each `<ol>`*, so across a split run page two restarts at the first hue —
-04/05/06 render in the same blue/red/olive as 01/02/03. The ordinal was fixed by
-moving to the `list-item` counter; its visual twin was not, because CSS cannot
-select on the `start` offset without a rule per start value. The robust fix is a
-transform that stamps each row's absolute index; `premise` has no transform today,
-so that is a separate slice rather than brittle CSS bolted on here.
+**Open, and NOT cosmetic: `premise`'s stacked composition collides with the deck header
+(found 2026-07-28, #1234, by looking at a render on a phone).** `section.premise` sets
+`padding: 0 var(--sp-2xl)` — zero on the block axis. Correct for the landscape
+composition, where the claim rail and the ledger sit side by side and nothing reaches the
+top edge. Stacked, the claim IS the top edge, and it lands straight under the deck
+`<header>`, which is `position: absolute; top: var(--frame-inset-y)` and reserves no space
+of its own. The running header prints THROUGH the `<h2>` and both are unreadable, on every
+premise slide in any deck that sets `header:`. A Form layout never hits this because
+`.cell-masthead` occupies the band; a sovereign frame has to reserve it itself.
+
+Reproduce: any premise slide, `size: portrait`, `header:` set. No split involved — this
+shipped with the reflow in this note, not with the split work.
+
+**Not fixed, because it is a density decision rather than a padding one.** Reserving the
+berth is two lines and a full box has no slack to give. Measured against premise's own
+gallery at portrait — 5 slides, 1 clipping today — reserving top *and* bottom takes it to
+**5 of 5 clipped**; reserving the top alone, sized to exactly one `--fs-meta` line, still
+takes it to **2**. So the honest statement is "premise holds fewer rows at portrait than
+it claims", which is the owner's call and wants the capacity work
+(`2026-07-28-capacity-basis.md`) behind it. The overflow oracle caught the attempt and
+refused it, which is the gate working.
+
+**~~Still open, and cosmetic~~ — the `--row-mark` hue restart. The note below sent the
+next reader to the wrong place, so here is what an attempt found (2026-07-28, #1234).** The `--row-mark` hue cycles on
+`nth-child(8n+k)` *within each `<ol>`*, so across a split run page two restarts at the
+first hue. Confirmed by computed style on a real portrait render: page three's four rows
+read `rgb(46,96,138) · rgb(134,50,54) · rgb(123,119,45) · rgb(50,54,134)` — byte-identical
+to page two's. The ordinal was fixed here by moving to the `list-item` counter; its visual
+twin cannot follow, because CSS cannot select on the `start` offset without a rule per
+start value.
+
+**Correction to this paragraph's own diagnosis.** It proposed "a transform that stamps each
+row's absolute index" and deferred on the grounds that "`premise` has no transform today".
+Both halves are misleading. `premise` *does* have one (`lib/core/premise.js`), and more
+importantly the absolute index is **not premise's to know** — it is the SPLIT's, and
+`partitionAxis` (`lib/core/collections.js`) already holds it exactly, as the `offset` it
+uses to write `<ol start="N">`. Anyone starting from this paragraph will go looking for a
+component transform and find the wrong problem.
+
+**Why the obvious fix was built, measured, and then reverted.** Stamping the palette slot
+on every member at that `offset` works — verified end to end, page three continuing
+`rgb(48,130,126) · rgb(134,88,50) · rgb(88,56,128) · rgb(128,56,95)` for slots 5–8. It was
+still the wrong change to ship: `partitionAxis` is component-agnostic, so an unconditional
+stamp alters the emitted HTML of **every** item-axis split across 15+ components to serve
+one, and eleven byte-exact tests said so. A kernel may legitimately own a *structural* fact
+(`data-split-role` is stamped everywhere for exactly that reason), but "which of eight
+palette slots" is a presentation concern, and the modulo cannot move to CSS — there is no
+attribute-modulo selector, which is the same wall the `start` offset hits.
+
+So the honest shape is **opt-in through the manifest**, the way `capacity.relationship` was
+added (§8 rule 12a): the component declares it wants a continuous categorical cycle, the
+kernel stamps only for those, and the split oracle records it so dropping it fails CI. That
+is a real slice — schema, oracle, plumbing — for a cosmetic defect, so it is written down
+rather than smuggled in. Shipping the broad version to avoid the slice would be the same
+trade this note exists to argue against.
+
+One trap worth keeping, found on the way: the first cut named the attribute `data-cat`,
+which the chart family already owns on `.chart-key-swatch` — and owns **0-based**. Same
+name, inverted indexing, different subtree; it would have read as correct right up until
+someone generalized one of the two.
 
 **A split surfaced a counter bug in `premise`.** Once it could paginate, page two
 restarted the ordinals at `01` — on a Bloom ladder, "Analyze is the first verb".
@@ -403,6 +495,26 @@ the canonical authored element already sitting in every manifest. That is the
 next step, and it is a derivation, not another number to hand-maintain. Shipping
 the current values would have replaced one set of unverified numbers with
 another, which is the exact failure this whole note is about.
+
+> **⚠ SUPERSEDED — the skeleton prescription above was checked, and it does not
+> hold (2026-07-28, #1234).** The *diagnosis* stands: `density.soft` is more
+> generous than real authoring on **23 of the 25** measurable components, and
+> tighter on none. The *prescription* is backwards. A skeleton is a shape template
+> with placeholder filler ("One-sentence description"), not a length specimen — it
+> runs more than 30% terser than real authoring on **8 of 25**, and a terser basis
+> measures a **higher** ceiling. For `inventory`, the very component the paragraph
+> below is about, the skeleton basis moves the measured `tall` ceiling from **3 to
+> 5** — away from the truth, and in the direction that makes the linter quieter
+> about slides that clip.
+>
+> Measured deeper, the count ceiling is not a well-defined quantity at all: holding
+> `inventory` at 4 members and ~10 words, the same slide fits or clips depending on
+> its look modifier and whether it carries a trailing insight. See
+> `2026-07-28-capacity-basis.md`; re-derive with `node tools/audit-capacity-basis.js`.
+>
+> This paragraph is itself an instance of what this note is about. "The right basis
+> is the skeleton" was written down once — in the section arguing that assertions
+> nobody re-derives drift from what ships — and never checked against the skeletons.
 
 **`inventory` is the sharpest live instance, and it is deliberately left alone.**
 It declares `adapt.capacity.tall.hard: 8`; the measured tall ceiling is **3**

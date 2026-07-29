@@ -652,8 +652,8 @@ export async function shareCaptions(
 	// (`renderMarkdown`) never runs the emulator's Fit-Spine autosplit, so `sections` is 1:1
 	// with the authored slides and `fmCaptions.get(i+1)` binds correctly — we deliberately do
 	// NOT port the CLI's `AUTOSPLIT_APPLIES` guard (which nulls the map): here it would be a
-	// dead no-op at best, and wrong if keyed off the `autosplit:` front-matter alone. An
-	// autosplit deck's exported `.vtt` differs from the CLI's by design (the CLI splits).
+	// dead no-op at best. A deck whose slides SPLIT exports a `.vtt` that differs from the
+	// CLI's by design (the CLI paginates; splitting is intrinsic since 2026-07-29).
 	const fmCaptions = resolveCaptionsMod.frontMatterCaptions(source);
 	const acronyms = resolveCaptionsMod.acronymSpokenMap(source);
 	const lexicon = resolveCaptionsMod.lexiconMap(source); // author lexicon beats the built-in commons

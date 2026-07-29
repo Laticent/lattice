@@ -2933,7 +2933,8 @@ section.compare-code-block pre > code {
  *
  * Stacking is not a replacement for the carousel split recipe below (one block
  * per page at full width, which is still the right answer for an over-long
- * pair once `autosplit: on`). It is what the slide does when it is NOT split:
+ * pair, and splitting is intrinsic). It is what the slide does when it does NOT
+ * split — a pair short enough to fit, or a specimen marked `stress-slide`:
  * two full-width blocks at half height beat two half-width blocks with one of
  * them off-screen. Square stacks too — code lines are long, and 486px of column
  * wraps almost any real line. */
@@ -5065,13 +5066,30 @@ section.inventory.timeline > .cell-stage > ul > li strong {
 section.inventory.editorial > .cell-stage {
   display: grid; grid-template-columns: 1fr 1.25fr; column-gap: var(--sp-2xl); align-content: safe center;
 }
+/* `grid-row: 1` on BOTH, and it is load-bearing rather than tidy.
+ *
+ * `grid-column` names a column, not a cell. Auto-placement walks children in SOURCE order and
+ * never goes backwards, so an author who writes the list first and the takeaway after it — which
+ * is the natural order, and the order this component's own gallery and skeleton use — gets the
+ * `<ul>` in row 1 column 2, and then the blockquote cannot be placed beside it: it opens row 2.
+ * The result is the opposite of the variant's whole premise. Measured on the shipped gallery
+ * slide at `hd`: the items occupied 209–565px in column 2, the blockquote sat BELOW them at
+ * 572–653px against a content cell ending at 616 — so the left column rendered as a tall empty
+ * void, and the takeaway's second line fell 37px outside the clip box. The committed
+ * `inventory.gallery.light.pdf` shipped the sentence cut mid-phrase: "The sidebar carries the
+ * register's one" — the word "takeaway." simply gone, with no ring in the export to say so.
+ *
+ * Pinning both to row 1 restores "insight ∥ items" for either authoring order, and removes the
+ * overflow at its cause. Found by the adversarial trio on #1234, which is also the answer to why
+ * the split at `wide` looked like it helped: paginating a 4-item list into a 4-page run was
+ * papering over a placement bug, not solving a density one. */
 section.inventory.editorial > .cell-stage > blockquote {
-  grid-column: 1; align-self: center;
+  grid-column: 1; grid-row: 1; align-self: center;
   font-family: var(--font-display); font-style: italic; font-size: var(--fs-message);
   color: var(--accent); border-left: 0.3cqi solid var(--accent); padding-left: var(--sp-md);
 }
 section.inventory.editorial > .cell-stage > ul {
-  grid-column: 2; list-style: none; padding: 0;
+  grid-column: 2; grid-row: 1; list-style: none; padding: 0;
   display: flex; flex-direction: column; justify-content: safe center; gap: var(--sp-md);
 }
 section.inventory.editorial > .cell-stage > ul > li {
@@ -5081,6 +5099,33 @@ section.inventory.editorial > .cell-stage > ul > li {
 section.inventory.editorial > .cell-stage > ul > li strong {
   display: block; font-family: var(--font-display); font-size: var(--fs-message);
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
+}
+
+/* A SPLIT body page has no sidebar, so it must not reserve a column for one.
+ *
+ * The stage above is `1fr 1.25fr`: column 1 is the accent-ruled insight, column 2 the
+ * items. The split envelope HOISTS a trailing key-insight to its own closing page (§0a),
+ * which is right — but it leaves the body pages holding an empty `1fr` where the
+ * blockquote used to be, so two-thirds of the slide renders blank beside a short column
+ * of rows. Seen on the real render the moment landscape splitting turned on: the
+ * `editorial` gallery slide went from one CLIPPED page to three pages with an empty left
+ * half, which is trading one defect for another.
+ *
+ * One column on a body page; the items take the width. `:not(:has(> blockquote))` would
+ * express it more directly, but the split role is the fact that actually changed and it
+ * is stamped on the section, so key on that — no support question, and it cannot
+ * misfire on an unsplit slide that happens to lack an insight.
+ *
+ * NOTE this is the third instance of the class the split note already named — "every
+ * DECORATION the shell implies has to be re-expressed per component-owned DOM, with
+ * nothing detecting a missed one" (#1193/#1194, the decorator-vocabulary follow-on). A
+ * generic rule cannot know a component's grid, so any component whose stage reserves a
+ * column for hoisted trailing material has this bug latent. */
+section.inventory.editorial.lat-split-native > .cell-stage {
+  grid-template-columns: 1fr;
+}
+section.inventory.editorial.lat-split-native > .cell-stage > ul {
+  grid-column: 1;
 }
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
@@ -5110,6 +5155,22 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
   row-gap: var(--sp-lg);
   align-content: start;
+}
+/* …and the CHILDREN have to be released to that single column, which is the half this reflow
+ * has been missing since it landed. `grid-template-columns: 1fr` above does not collapse
+ * anything on its own: the `<ul>` still declares `grid-column: 2`, and a grid asked for a column
+ * that its template does not define simply creates an IMPLICIT one — so the two-column form
+ * survived the reflow intact, with the takeaway squeezed into a narrow rail. At `mobile` it wrapped
+ * one word per line down the left edge. It looked correct at `portrait` only by accident: that box
+ * splits, and a split body page is caught by the `.lat-split-native` rule above, which does reset
+ * `grid-column`. Unsplit — `mobile`, or any tall deck short enough to fit — nothing reset it.
+ *
+ * `grid-row: auto` goes with it: the row pin exists only to defeat source-order auto-placement
+ * ACROSS two columns, and in a single column auto-placement is exactly what stacking wants. Pin
+ * both and the two blocks would land in one cell, on top of each other. */
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > blockquote,
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  grid-column: 1; grid-row: auto;
 }
 
 /* === lib/components/chart/journey/journey.styles.css === */
@@ -9965,9 +10026,45 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
    * into "the claim is missing".) */
   justify-content: safe center;
   gap: var(--sp-lg);
+  /* ── KNOWN DEFECT, NOT FIXED HERE: this composition collides with the deck header.
+   *
+   * `section.premise` sets `padding: 0 var(--sp-2xl)` — zero on the block axis. That
+   * is right for the landscape composition, where the claim rail and the ledger sit
+   * side by side in the middle of the box and nothing reaches the top edge. Stacked,
+   * the claim IS the top edge, and it lands straight under the deck `<header>`, which
+   * is `position: absolute; top: var(--frame-inset-y)` and reserves no space of its
+   * own. Rendered at portrait, the running header prints THROUGH the `<h2>` and both
+   * are unreadable — on every premise slide in any deck that sets `header:`. A Form
+   * layout never hits this because `.cell-masthead` occupies the band; a sovereign
+   * frame has to reserve it itself.
+   *
+   * Reproduce: any premise slide, `size: portrait`, `header:` set. No split involved
+   * — this predates the split work and is not caused by it.
+   *
+   * WHY IT IS NOT FIXED HERE. Reserving the berth is a two-line change and it costs
+   * real capacity, because a full box has no slack to give. Measured against premise's
+   * own gallery at portrait (5 slides, 1 clipping today): reserving top AND bottom
+   * takes it to 5 of 5 clipped; reserving the top alone, sized to exactly one
+   * `--fs-meta` line, still takes it to 2. So the fix is not "add padding", it is
+   * "premise holds fewer rows at portrait than it claims" — a density decision on the
+   * component, which is the owner's call and wants the capacity work (#1234 group D)
+   * behind it. Adding the padding unilaterally would trade a collision for a clip and
+   * fail the overflow oracle, which is exactly what it caught when this was tried. */
 }
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .premise-claim {
   width: auto;
+}
+/* The ledger stops STRETCHING once it is stacked. `section.premise > ol` takes
+ * `flex: 1` so it claims the row's remaining width beside the 34% claim rail — right
+ * in landscape, wrong in a column, where `flex: 1` claims the remaining HEIGHT instead.
+ * The rows then pack at the top of a full-height box and the section's `safe center`
+ * has nothing left to centre, so a four-row page rendered as content in the top third
+ * over half a page of void. Natural height instead, and the centring works as written.
+ *
+ * This is most visible on a SPLIT body page, where the hoisted lede is no longer there
+ * to fill the gap — so the fix belongs with that work even though the rule predates it. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol {
+  flex: 0 1 auto;
 }
 /* The row becomes a hanging-ordinal card: the generated `01` keeps its gutter,
  * and the term stacks OVER its description instead of competing for a fixed

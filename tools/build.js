@@ -113,6 +113,9 @@ const STEPS = [
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
   { label: 'capability index (engineering/capabilities.md)', script: 'build-capabilities.js' },
+  // §0c's split-treatment table — renders TREATMENTS (lib/core/split-facts.js) into
+  // the split decision note. Reads manifests + that map; order-independent.
+  { label: 'split treatments (§0c of the split decision note)', script: 'build-split-treatments.js' },
   // Decision-doc index — reads each note's front-matter; order-independent.
   { label: 'decision index (engineering/decisions/README.md)', script: 'build-decisions-index.js' },
   // Last — it indexes the finished dist/ folder, so every other artifact

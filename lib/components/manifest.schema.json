@@ -633,7 +633,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "Actionable fix the warning prints — sibling component names and/or 'split across slides'. UNIVERSAL RULE: 'split across slides' (autosplit / the Fit Ladder's SPLIT move) operates ONLY at a portrait/square @size — portrait, story, mobile, square. In a wide/landscape box, collapse + shed resolve overflow before split is reached, so the engine skips autosplit there (lattice-emulator.js) and lint:deck warns on `autosplit: on` + a landscape @size (rule autosplit-landscape-noop). The orientation boundary is lib/authoring/lint-core.js PORTRAIT_SIZES; see engineering/decisions/2026-06-22-the-fit-spine.md §3 + 2026-06-23-read-across-carousel.md."
+          "description": "Actionable fix the warning prints — sibling component names and/or 'split across slides'. UNIVERSAL RULE: 'split across slides' (the Fit Ladder's SPLIT move) is INTRINSIC and needs no opt-in — an overflowing slide with a seam is divided at render. TWO conditions, both about the render and neither about the author: it fires on MEASURED overflow (never on a count against `capacity.hard` — that is an editorial budget `lint:deck` reports, and a slide over budget that fits is left alone), and it fires at the PRESENTATION @sizes only — square, portrait, story, mobile. It does NOT run at a landscape @size: 16:9 is the box a deck is authored in, so an over-full slide there rings and `lint:deck` says `capacity-overflow`. There is no `autosplit:` directive; it was retired 2026-07-29 because a deck is authored once and presented at many sizes, so its page count is a function of the content and the box rather than an authoring switch. A slide that means to DEMONSTRATE overflow marks itself `<!-- stress-slide -->`; measurement rigs use the emulator's `--no-split`. Content with no seam still rings. See engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md + 2026-06-22-the-fit-spine.md §3."
         },
         "note": {
           "type": "string",
@@ -703,7 +703,7 @@
         "strategy"
       ],
       "additionalProperties": false,
-      "description": "The Fit Ladder carousel recipe: when a slide of this layout OVERFLOWS (deck-level `autosplit: on`), lib/core/auto-split.js hands the section to lib/core/carousel.js carouselize() with this recipe, re-authoring the read-across as a cover → windowed sequence. The strategy enum is the source of truth; CAROUSEL_STRATEGIES in lib/core/carousel.js must carry exactly these keys (sync-gated). Historically this field was undocumented and unvalidated — a typo'd strategy silently fell through (or, worse, hit an Object.prototype member).",
+      "description": "The Fit Ladder carousel recipe: when a slide of this layout OVERFLOWS, lib/core/auto-split.js hands the section to lib/core/carousel.js carouselize() with this recipe, re-authoring the read-across as a cover → windowed sequence. The strategy enum is the source of truth; CAROUSEL_STRATEGIES in lib/core/carousel.js must carry exactly these keys (sync-gated). Historically this field was undocumented and unvalidated — a typo'd strategy silently fell through (or, worse, hit an Object.prototype member).",
       "properties": {
         "strategy": {
           "enum": [

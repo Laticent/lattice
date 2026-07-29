@@ -206,15 +206,6 @@ export function splitValuePosition(before) {
 	return { from: m[1].length, typed: m[2] };
 }
 
-// The cursor's position on an `autosplit:` front-matter line, for the binary
-// on/off completion. Mirrors splitValuePosition — `autosplit:` then an optional
-// partial value. Returns `{ from, typed }` or null.
-export function autosplitValuePosition(before) {
-	const m = before.match(/^(\s*autosplit:\s*)([\w-]*)$/);
-	if (!m) return null;
-	return { from: m[1].length, typed: m[2] };
-}
-
 // The cursor's position on a `size:` front-matter line, for slide-size
 // completion (hd / story / square / …). The value charset includes `:` and `.`
 // so the aspect-alias names (`16:9`, `9:16`, `4:5`, `1:1`) complete too.
@@ -361,7 +352,6 @@ export function typeaheadContext(getLine, lineNo, before) {
 		if (finishValuePosition(before)) return 'finish';
 		if (formValuePosition(before)) return 'form';
 		if (splitValuePosition(before)) return 'split';
-		if (autosplitValuePosition(before)) return 'autosplit';
 		if (sizeValuePosition(before)) return 'size';
 	}
 	return null;

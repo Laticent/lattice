@@ -3151,8 +3151,9 @@ function checkSplitOracle(manifests, errors) {
   for (const m of manifests) {
     for (const v of treatmentViolations(m, splitFactsFor(m))) errors.push(v);
   }
-  let blessed = null;
-  try { blessed = JSON.parse(fs.readFileSync(ORACLE, 'utf8')).components; } catch { /* handled below */ }
+  let record = null;
+  try { record = JSON.parse(fs.readFileSync(ORACLE, 'utf8')); } catch { /* handled below */ }
+  const blessed = record?.components || null;
   if (!blessed) {
     errors.push(
       'split oracle record missing or unreadable (test/oracle/split-oracle.json) — §8 rule 5 ' +
@@ -3162,10 +3163,19 @@ function checkSplitOracle(manifests, errors) {
   }
   const fresh = {};
   for (const m of manifests) fresh[m.name] = splitFactsFor(m);
+  // §8 rule 11's PRECONDITION, not just its drift half. Diffing recomputed manifest
+  // facts can only catch a default that MOVED; it says nothing about whether the
+  // default was right the first time, so before this the first `--bless` on a newly
+  // enrolled component minted its split behavior and the gate then defended it. The
+  // check lives in bless-split-oracle.js and is shared, so the tool that writes the
+  // record and the gate that reads it cannot disagree about what "verified" means.
+  for (const p of require('./bless-split-oracle').attestationProblems(fresh, record.verified || {})) {
+    errors.push(p);
+  }
   for (const name of Object.keys(fresh)) {
     if (!blessed[name]) {
       errors.push(
-        `${name}: not in the blessed split oracle. A new component's split behaviour is a ` +
+        `${name}: not in the blessed split oracle. A new component's split behavior is a ` +
         `DECISION, not a default (§8 rule 11) — confirm its §0c treatment, then ` +
         `\`npm run oracle:bless\`.`,
       );

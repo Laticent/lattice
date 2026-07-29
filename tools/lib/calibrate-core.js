@@ -128,8 +128,10 @@ function findManifest(name) {
 /**
  * A graded deck: one slide per step, page N ↔ step N.
  *
- * Deliberately NO `autosplit: on` — the deck must not re-paginate, or page N
- * would stop mapping to step N. Front matter emits no
+ * Rendered with `--no-split` — the deck must not re-paginate, or page N would stop
+ * mapping to step N. That is INSTRUMENTATION, which is why it is a tool flag and not a
+ * deck directive: this rig needs the deck held still so it can measure, which is a
+ * different need from any an author has (2026-07-29-autosplit-is-not-a-toggle.md). Front matter emits no
  * `section[data-lattice-slide]`, so the emulator's `slide: i+1` aligns to
  * steps[i].
  */
@@ -152,7 +154,7 @@ function renderProbe(deck, label) {
   const out = path.join(tmpDir, `${label}.pdf`);
   fs.writeFileSync(src, deck);
   try {
-    const r = spawnSync('node', [EMULATOR, src, out, '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
+    const r = spawnSync('node', [EMULATOR, src, out, '--no-split', '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
     const log = `${r.stdout || ''}\n${r.stderr || ''}`;
     if (r.status !== 0 && !/OVERFLOW/.test(log)) {
       const tail = log.trim().split('\n').slice(-8).join('\n');

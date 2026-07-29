@@ -3,7 +3,6 @@ size: portrait
 theme: indaco
 paginate: true
 form: standard
-autosplit: on
 header: "Lattice · footer band"
 footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not distribute outside the Audit Committee · ÅÉÀÖ"
 ---

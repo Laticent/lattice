@@ -19,9 +19,8 @@
 
 import { autocompletion } from '@codemirror/autocomplete';
 import { dataSources } from './data-sources.js';
-import { AUTOSPLIT_VALUES, DIRECTIVE_NAMES, FENCE_LANGS, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, FORM_VALUES, MERMAID_KEYWORDS, PAGINATE_VALUES, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
+import { DIRECTIVE_NAMES, FENCE_LANGS, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, FORM_VALUES, MERMAID_KEYWORDS, PAGINATE_VALUES, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
 import {
-	autosplitValuePosition,
 	backdropAxisPosition,
 	blankBodyPartial,
 	classDirectiveCompletion,
@@ -53,7 +52,6 @@ const DIRECTIVE_OPTIONS = DIRECTIVE_NAMES.map((d) => ({ label: d, type: 'keyword
 const PAGINATE_OPTIONS = PAGINATE_VALUES.map((v) => ({ label: v, type: 'constant' }));
 const FORM_OPTIONS = FORM_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'form' }));
 const SPLIT_OPTIONS = SPLIT_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'split' }));
-const AUTOSPLIT_OPTIONS = AUTOSPLIT_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'autosplit' }));
 const SIZE_OPTIONS = SIZE_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'size' }));
 const FOCUS_STYLE_OPTIONS = FOCUS_STYLE_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'focus style' }));
 const FENCE_OPTIONS = FENCE_LANGS.map((l) => ({ label: l, type: 'constant', detail: 'language' }));
@@ -263,7 +261,6 @@ export function latticeAutocomplete({ vocab, catalog, themes, finishes } = {}) {
 			focusAxisSource(catalog),
 			lineLocalSource(formValuePosition, FORM_OPTIONS),
 			lineLocalSource(splitValuePosition, SPLIT_OPTIONS),
-			lineLocalSource(autosplitValuePosition, AUTOSPLIT_OPTIONS),
 			lineLocalSource(sizeValuePosition, SIZE_OPTIONS),
 			lineLocalSource(fenceLangAt, FENCE_OPTIONS),
 			mermaidSource,

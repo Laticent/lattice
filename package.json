@@ -149,6 +149,8 @@
     "docs:landing-tokens:check": "node tools/build-landing-tokens.js --check",
     "docs:spec": "node tools/build-spec-docs.js",
     "docs:spec:check": "node tools/build-spec-docs.js --check",
+    "split:treatments": "node tools/build-split-treatments.js",
+    "split:treatments:check": "node tools/build-split-treatments.js --check",
     "decisions:index": "node tools/build-decisions-index.js",
     "decisions:index:check": "node tools/build-decisions-index.js --check",
     "check:ownership": "node tools/check-ownership.js",

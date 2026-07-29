@@ -148,6 +148,10 @@ OPTIONS
                           timeline) plus per-slide <output>.NN.vtt. Timing is
                           Cadenza's estimate (no audio, no key); honors --strip-notes
                           and --strip-captions
+      --no-split          Do NOT paginate an overflowing slide — render it whole
+                          and let it ring. INSTRUMENTATION only: a measurement rig
+                          needs page N to stay slide N. A deck that means to show
+                          overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
                           shareable file with no speaker text
@@ -313,6 +317,7 @@ function parseArgs(argv) {
     if (a === '-q' || a === '--quiet') { flags.quiet = true; continue; }
     if (a === '--notes') { flags.notes = true; continue; }
     if (a === '--captions') { flags.captions = true; continue; }
+    if (a === '--no-split') { flags['no-split'] = true; continue; }
     if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
     if (a === '--strip-captions') { flags['strip-captions'] = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
@@ -376,6 +381,9 @@ const CAPTIONS = !!flags.captions;
 // default (present-from-it), but this scrubs them from EVERY baked copy — the slide
 // DOM aside, the PDF text annotation, AND the envelope `source` (design doc §Notes
 // on export) — so a shared file leaks no speaker text.
+// Instrumentation, not authoring: hold the deck still so a rig can measure it (page N
+// must stay slide N). See the AUTOSPLIT comment below.
+const NO_SPLIT = !!flags['no-split'];
 const STRIP_NOTES = !!flags['strip-notes'];
 // `--strip-captions`: the SEPARATE privacy strip for the caption (read-as) channel —
 // orthogonal to `--strip-notes`. Notes (what you SAY) and captions (what a slide READS)
@@ -581,6 +589,27 @@ const paletteCSS = loadPaletteWithImports(palettePath);
 const layoutCSS  = loadPaletteWithImports(cssFile, new Set(), 'layout CSS');
 const css = paletteCSS + '\n' + layoutCSS;
 
+// ── The TWO front-matter readers, defined once (HARD RULE #1) ─────────────
+// This file used to carry four hand-written copies of "match the front matter" and three of
+// "read `size:`", and they did not agree. Two divergences were real, both found by adversarial
+// review on #1234, and both landed on the SPLIT GATE — which decides its answer from the deck's
+// geometry, so a reader that mis-reads `size:` sends the gate to the wrong box:
+//
+//   · CRLF. Two copies matched `/^---\n/`, LF only, while `lib/authoring/lint-core.js` and two
+//     other readers in THIS file already used `\r?\n`. A deck saved with CRLF line endings has
+//     front matter that the marpit engine parses fine — so the engine stamped `data-family="tall"`
+//     for `size: story` while this file saw NO front matter at all, defaulted to `hd`, and
+//     rendered tall-family CSS into a 1280x720 landscape page with the content clipped. Every
+//     other directive (`theme:`, `color-mode:`, `style:`, `fluid:`) was silently dropped with it.
+//   · A trailing YAML comment. `size: story # phone` is legal YAML and the value is `story`, but
+//     a `$`-anchored value pattern rejects the whole line and falls back to `hd`, while lint's
+//     prefix-matching copy accepted it — so lint promised a split the engine would not perform.
+//
+// `\r?\n` on both sides, and the value pattern tolerates the comment and the `.` that lint has
+// always allowed. Strictly a superset of what these matched before: no LF deck changes.
+const FRONT_MATTER_RE   = /^---\r?\n[\s\S]*?\r?\n---/;
+const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
+
 // ── Fail fast on an unknown `size:` directive (#502) ──────────────────────
 // A typo'd size name (`size: storyy`) otherwise resolves SILENTLY to the first
 // declared @size: the deck renders at the wrong geometry with no signal, and a
@@ -589,9 +618,9 @@ const css = paletteCSS + '\n' + layoutCSS;
 // before any Chrome work — listing the valid names. No directive → hd default,
 // unchanged. Front-matter-scoped so a `size:` in prose / a code block can't trip it.
 const { parseSizes } = require('./lib/engine/css');
-const _mdFmMatch  = md.match(/^---\n[\s\S]*?\n---/);
+const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
-const explicitSize = (_mdFm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])[1];
+const explicitSize = (_mdFm.match(SIZE_DIRECTIVE_RE) || [])[1];
 if (explicitSize) {
   const knownSizes = new Set();
   for (const src of [paletteCSS, layoutCSS]) for (const k of parseSizes(src).keys()) knownSizes.add(k);
@@ -1268,6 +1297,9 @@ function renderMermaid(definition, mode) {
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor, orientationCss } = require('./lib/engine/css');
+// The ONE family classifier (lib/adaptive/README.md) — the same call the engine's `data-family`
+// stamp makes, so the split gate and the components can never disagree about which box this is.
+const { familyFor } = require('./lib/adaptive/families');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // Reoriented raw Mermaid definitions, index-aligned with the `data-mmd-idx` stamp on each
 // rendered `.mermaid-svg`. The image-set export's cross-scheme SVG look uses this to RE-BAKE a
@@ -1314,7 +1346,7 @@ function preprocessMermaid(source) {
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
   // tall frame instead of shrinking to a thin strip; landscape is untouched.
-  const sizeName = (fm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])[1] || 'hd';
+  const sizeName = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
   const orientation = orientationFor(resolveSize(sizeName, [paletteCSS, layoutCSS])).name;
   return source.replace(/```mermaid\n([\s\S]*?)```/g, (_match, def, offset) => {
     const before = source.slice(0, offset);
@@ -1349,7 +1381,10 @@ const rawMd = appendAutoGlossary(preGlossaryMd);
 // byte-identical. Read the mode off the pre-append source: `rawMd` has had the trigger stripped
 // (the idempotency mechanism), so its mode always resolves to 'off'.
 const autoGlossaryEntries = resolveGlossaryMode(preGlossaryMd) === 'auto' ? glossaryEntries(preGlossaryMd) : [];
-const fmMatch = rawMd.match(/^---([\s\S]*?)---\n/);
+// CRLF-aware, and it captures the front-matter BODY (see FRONT_MATTER_RE above for why the
+// LF-only form was a real defect). Every consumer below reads it with an `/m`-anchored pattern,
+// so the exact newlines at the capture's edges do not matter.
+const fmMatch = rawMd.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 const fm      = fmMatch ? fmMatch[1] : '';
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
 // inlines the runtime, flags the page fluid-capable). Enabled by the `--fluid`
@@ -1371,15 +1406,34 @@ const PLAYER_VERSION = '1';
 const ENGINE_BUILD = (() => {
   try { return require('./package.json').version; } catch { return ''; }
 })();
-// Auto-split (the Fit Ladder SPLIT move) — opt-in per deck. The flag + the capacity
-// map are hoisted to module scope so BOTH passes see them: the cheap STATIC pre-pass
-// in engineSlides() (count > capacity.hard), and the MEASURED loop in the export IIFE
-// (split what a real render found to OVERFLOW, by how much — the only pass that
-// catches density overflow in a tall box). The map carries each layout's split AXIS
-// from the top-level `capacity` OR the per-family `adapt.capacity`, so a layout whose
-// budget lives only in adapt is still splittable by measurement. See lib/core/auto-split.js
-// + engineering/decisions/2026-06-22-the-fit-spine.md §3.
-const AUTOSPLIT = /^\s*autosplit:\s*(?:on|true|yes)\s*$/im.test(fm);
+// Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
+// overflowing its box, and the slide has a seam (lib/core/auto-split.js `resplitDoc`, driven
+// by the `measureOverflow` evaluate below). The capacity map is hoisted to module scope so
+// the measured loop can read each layout's split AXIS + pacing from the top-level `capacity`
+// OR the per-family `adapt.capacity`, so a layout whose budget lives only in adapt is still
+// splittable. See engineering/decisions/2026-06-22-the-fit-spine.md §3.
+//
+// SPLIT FIRES ON FIT, NEVER ON COUNT (2026-07-29). There used to be a second trigger: a cheap
+// pre-render pass counted the collection against `capacity.hard` and fed every over-budget
+// slide into the measured loop as a candidate, so a slide that was authored past its budget
+// AND fit its box comfortably was cut anyway — twelve one-line checklist items at
+// `size: portrait`, occupying about a third of the canvas, became three pages, two of them
+// mostly white. That is the engine second-guessing an author who
+// stayed inside the geometry. `capacity` is an AUTHORING advisory and `lint:deck` is where it
+// speaks; the engine's only question is "does it fit". See
+// engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md §"Fit, not count".
+//
+// Splitting is INTRINSIC. A deck is authored once and presented at many sizes, so its page
+// COUNT is a function of the content and the box, not an authoring fact — which is why the
+// retired `autosplit:` directive was never the right shape.
+//
+// `--no-split` is INSTRUMENTATION, not authoring: the measurement rigs need page N to
+// stay slide N so they can measure (tools/check-family-tiers.js's sweep records the
+// un-split terminal on purpose; tools/lib/calibrate-core.js grades one step per page).
+// A specimen slide that means to DEMONSTRATE overflow marks itself per-slide with
+// `<!-- stress-slide -->` instead — the marker lint-core already reads as "this slide
+// EXISTS to show the upper limit".
+const AUTOSPLIT = !NO_SPLIT;
 const SPLIT_CAP = (() => {
   if (!AUTOSPLIT) return {};
   const map = {};
@@ -1430,20 +1484,35 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // scaffold bakes into `@page`. `paletteCSS`/`layoutCSS` carry every theme +
 // base `@size` declaration (theme first, then base — composeCss's source order).
 // (resolveSize / orientationCss required above, before preprocessMermaid.)
-const deckSizeName   = (fm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])[1] || 'hd';
+const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
 const _geom          = resolveSize(deckSizeName, [paletteCSS, layoutCSS]);
 const slideW         = parseFloat(_geom.width);
 const slideH         = parseFloat(_geom.height);
-// Auto-split is a portrait/square-family behavior — the Fit Ladder's SPLIT move
-// (the-fit-spine.md §3). In a wide/landscape box, collapse + shed resolve overflow
-// before split is ever reached, so the move is scoped to NON-LANDSCAPE @sizes — the
-// universal rule mirrored by lint-core's PORTRAIT_SIZES and the manifest `orientation`
-// contract. A landscape deck with `autosplit: on` is therefore a no-op (lint:deck
-// warns; the HD/4K PDF stays byte-identical).
-const AUTOSPLIT_APPLIES = AUTOSPLIT && orientationFor(_geom).name !== 'landscape';
-if (AUTOSPLIT && !AUTOSPLIT_APPLIES) {
-  console.log(`  auto-split: skipped — '${deckSizeName}' is a landscape @size; autosplit applies only to portrait/square sizes (portrait · story · mobile · square).`);
-}
+// THE SIZE GATE — split runs at `square`, `tall` and `strip`, never at `wide`.
+//
+// A deck is AUTHORED at 16:9. `hd` and `4K` are the same box (cqi is width-relative, so a
+// 3840×2160 render is a 1920×1080 render at 2× — identical layout, identical fit), and that
+// box is the one the author had in front of them: a slide that fits there is a slide they
+// composed. Pagination at wide would be the engine re-cutting a deck to solve a problem the
+// author does not have. The sizes that DO need it are the ones the deck was never authored
+// for — `square`, `portrait`, `story`, `mobile` — where the same content meets a box it was
+// never fitted to and the choice is paginate or clip.
+//
+// One classifier, the same one the components read off `data-family` (lib/adaptive/families.js):
+// square → square, portrait|story → tall, mobile → strip, hd|4K|16:9|standard → wide. Naming the
+// FAMILY rather than listing @size names means a geometry registered by a custom `@size` in theme
+// or layout CSS is classified by its shape rather than by whether someone remembered to add its
+// NAME to a list. (An earlier draft of this comment offered `size: 1000x1000` as the example. That
+// cannot happen — inline dimensions are not a size value, and the #502 fail-fast rejects an
+// unregistered name before this line runs.)
+//
+// The `Number.isFinite` guard is not defensive noise: both sibling call sites carry it
+// (lib/engine/index.js:171, lib/engine/css.js orientationFor), because `familyFor(NaN)` falls
+// through every band and returns 'strip' — the opposite verdict from the 'wide' those two produce
+// for the same degenerate geometry. Dropping it here is how the gate and the `data-family` stamp
+// would come to disagree about one box, which is exactly what this gate must never do.
+const AUTOSPLIT_APPLIES = AUTOSPLIT
+  && familyFor(Number.isFinite(slideW) && Number.isFinite(slideH) && slideH > 0 ? slideW / slideH : 16 / 9) !== 'wide';
 // Orientation scaling/fill (social/mobile portrait + square @sizes). Empty for
 // landscape, so the HD/4K PDF is byte-identical. Same helper the engine
 // scaffold + runtime use, so every render path agrees.
@@ -1518,13 +1587,6 @@ function splitTopLevelSections(latticeHtml) {
   return out;
 }
 
-// §8 rule 10 — the slides the DEFER-ONLY static pass named as at-risk from its count estimate.
-// Module-level because the pass runs during assembly and the MEASURED loop that owns every cut
-// runs later, in the export path: "defer" has to mean the measured loop is actually asked, not
-// that a number is printed. Ordinals (1-based slide positions), matching the `data-lattice-slide`
-// the assembler stamps immediately after.
-let DEFERRED_BY_COUNT = [];
-
 function engineSlides() {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -1560,26 +1622,13 @@ function engineSlides() {
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
   // print-to-PDF). Read against the deck dir, the same base `![bg]` uses.
   const renderedHtml = inlineLogoMarkSvg(rendered.html, deckBaseUrl);
-  // Auto-split over-capacity slides into several, BEFORE the index-based
-  // `data-lattice-slide` re-tag below renumbers them (the Fit Ladder's SPLIT move
-  // — lib/core/auto-split.js; engineering/decisions/2026-06-22-the-fit-spine.md §3).
-  // OPT-IN per deck (`autosplit: on` in the front-matter): existing decks and the
-  // curated galleries — whose stress slides demonstrate overflow on PURPOSE — stay
-  // byte-unchanged. Default-on is a later decision, once the catalog is audited.
-  let html = renderedHtml;
-  if (AUTOSPLIT_APPLIES) {
-    // The STATIC pass is DEFER-ONLY (§8 rule 10): it counts against `capacity.hard` and names the
-    // slides at risk, but emits no partition — every cut and every cover comes from the MEASURED
-    // loop in the export IIFE, which reads the really-rendered DOM. A cut made here would be on
-    // the AUTHORING-shape axis, and the two can disagree.
-    const r = require('./lib/core/auto-split').autoSplitDeck(renderedHtml, SPLIT_CAP);
-    html = r.html;
-    DEFERRED_BY_COUNT = r.deferred || [];
-    if (DEFERRED_BY_COUNT.length && !QUIET) {
-      const n = DEFERRED_BY_COUNT.length;
-      console.log(`  auto-split (static estimate): ${n} slide(s) over capacity — page${n > 1 ? 's' : ''} ${DEFERRED_BY_COUNT.join(', ')}; deferred to the measured pass`);
-    }
-  }
+  // No pre-render split pass. There used to be one — it counted each collection against
+  // `capacity.hard` and handed every over-budget slide to the measured loop as a candidate —
+  // and it was the second of two triggers. Splitting now has exactly ONE trigger, measured
+  // overflow (the loop in the export IIFE, which reads the really-rendered DOM), because a
+  // slide that fits its box is a slide the author composed and the engine has no business
+  // re-cutting it. `capacity` speaks to the author through `lint:deck`, not to the splitter.
+  const html = renderedHtml;
   const imageScrim = require('./lib/transformers/image-scrim');
   return splitTopLevelSections(html).map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
@@ -2368,35 +2417,63 @@ async function renderBody(browser, g, closeBrowser) {
         }
       }
       const headroom = C - (probe.scrollH - collH - hoistH); // room a BODY page will have
-      const canSplit = vOver && collH > 0 && headroom > C * 0.2;
-      const splitRatio = canSplit ? Math.max(2, collH / headroom) : ratio;
+      // ── The HORIZONTAL half, which this gate did not have (#1234 group C).
+      //
+      // `canSplit` keyed on `vOver` alone, so a collection that overflows ONLY sideways
+      // was never handed to the measured loop. `list-steps` at `size: square` is the
+      // reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six steps want
+      // **1291px in a 972px track** (eight want 1852) with `scrollH === clientH` — zero
+      // vertical spill. Step 06 rendered entirely off the frame and step 05 sliced
+      // mid-word, on a component that declares `capacity.perPage: 1` and would have been
+      // completely fixed by pagination. Worse, the slide was over `capacity.hard` and the
+      // static pass DID defer it — but a deferred candidate is dropped when the slide is
+      // already in the measured list, and it was, with `canSplit: false`. So it fell
+      // between the two passes and shipped clipped, while `lint:deck`'s
+      // `capacity-autosplit` advisory told the author it would be divided. That is §8
+      // rule 10's lie-to-the-author defect, through a different door.
+      //
+      // The `vOver` gate was RIGHT about its own case and too broad. Its stated reason (at
+      // the paginator branch above) is that "a too-wide table overflows HORIZONTALLY —
+      // row-splitting it is futile and balloons the deck". True of a `<table>`: its width
+      // comes from its COLUMNS and its rows stack vertically, so cutting rows narrows
+      // nothing. False of a collection whose MEMBERS run along the inline axis — there,
+      // fewer members per page IS a narrower row, and pagination fixes the overflow
+      // directly. So the test is not "which direction did it overflow" but "does splitting
+      // this collection reduce its width", which is a property of its layout.
+      const hOver = collEl ? collEl.scrollWidth - collEl.clientWidth > TOL : false;
+      const inlineFlow = (() => {
+        if (!collEl || collEl.tagName === 'TABLE') return false; // the counter-case, excluded by construction
+        const cs = getComputedStyle(collEl);
+        if (cs.display.includes('flex')) return cs.flexDirection.startsWith('row');
+        // A multi-COLUMN grid lays members out inline too; a single-column one does not.
+        if (cs.display.includes('grid')) return cs.gridTemplateColumns.split(/\s+/).filter(Boolean).length > 1;
+        return false;
+      })();
+      const vSplit = vOver && headroom > C * 0.2;
+      const hSplit = hOver && inlineFlow;
+      const canSplit = collH > 0 && (vSplit || hSplit);
+      // Size the cut from whichever axis is actually binding. For the horizontal case that
+      // is how many times too wide the collection is — and the authored `perPage` still
+      // wins where it is tighter (`resplitDoc` takes the tighter of the two), so a
+      // `perPage: 1` component still atomizes rather than merely halving.
+      const splitRatio = vSplit
+        ? Math.max(2, collH / headroom)
+        : (hSplit ? Math.max(2, collEl.scrollWidth / Math.max(1, collEl.clientWidth)) : ratio);
       out.push({ slide: i + 1, ratio, canSplit, splitRatio, illegible, unmeasured });
     });
     return out;
   }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
   let overflow = await measureOverflow();
-  // …plus the slides the static COUNT estimate deferred (§8 rule 10). Deferral has to be real: a
-  // slide over `capacity.hard` may still FIT, so a measured pass fed only by box spill would never
-  // see it, the count signal would do nothing, and `lint:deck`'s `capacity-autosplit` advisory
-  // ("auto-split will divide it into 2 pages of 4") would describe a split that never happens — the
-  // same lie-to-the-author defect this branch fixed once already. So they enter the first measured
-  // pass as candidates, and the render-time builder — reading the real DOM, on the derived axis,
-  // with a cover — makes the cut, which is exactly what the rule asks. `ratio: 2` lets the AUTHORED
-  // target govern the pacing (`resplitDoc` takes the tighter of target and ratio-implied), so an
-  // over-capacity-but-fitting slide paces the way its manifest says, not the way a box measurement
-  // it never failed would. First pass only: after it, slide numbers have shifted.
-  if (AUTOSPLIT_APPLIES && DEFERRED_BY_COUNT.length) {
-    const measured = new Set(overflow.map((o) => o.slide));
-    overflow = overflow.concat(
-      DEFERRED_BY_COUNT.filter((n) => !measured.has(n)).map((n) => ({ slide: n, ratio: 2, canSplit: true, splitRatio: 2, byCount: true })),
-    );
-  }
-  // MEASURED auto-split — the loop that makes "split" fit REAL boxes. Divide every
-  // overflowing SPLITTABLE slide by how much it overflows, re-render, re-measure,
-  // until the deck fits or only un-splittable overflow remains (read-across / atomic /
-  // a single item taller than the page — those stay for the ring). This catches the
-  // DENSITY overflow a count threshold can't see — dominant in a tall/portrait box.
-  // Opt-in (`autosplit: on`). See lib/core/auto-split.js + the-fit-spine.md §3.
+  // MEASURED auto-split — the ONLY split trigger, and the loop that makes "split" fit REAL
+  // boxes. Divide every overflowing SPLITTABLE slide by how much it overflows, re-render,
+  // re-measure, until the deck fits or only un-splittable overflow remains (read-across /
+  // atomic / a single item taller than the page — those stay for the ring). This is the pass
+  // that catches DENSITY overflow, which no count threshold can see: whether a slide fits is
+  // a fact about glyphs in a box, not about how many bullets someone typed.
+  //
+  // Nothing is fed in here from a count estimate. That is the point of the 2026-07-29
+  // correction: a slide over `capacity.hard` that FITS is left exactly as authored, at every
+  // size the gate admits. See lib/core/auto-split.js + the-fit-spine.md §3.
   if (AUTOSPLIT_APPLIES) {
     const { resplitDoc, applyRails, applyRelationshipSignals } = require('./lib/core/auto-split');
     for (let pass = 1; pass <= 5 && overflow.some((o) => o.canSplit); pass++) {
@@ -2501,7 +2578,11 @@ async function renderBody(browser, g, closeBrowser) {
       preferCSSPageSize: true
     }), 'print pdf');
     await closeBrowser();
-    let finalBytes = await embedNotesInPdf(pdfBytes, materializedNotes);
+    // Bind notes to the RENDERED pages, not the authored slides — a split run has more
+    // of the former than the latter, and the length guard inside would otherwise drop
+    // every annotation in the deck (see notesPerRenderedPage).
+    const pageNotes = notesPerRenderedPage(cleanDocHtml, materializedNotes);
+    let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
@@ -2535,7 +2616,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
-    finalBytes = await embedNotesInPdf(finalBytes, materializedNotes);
+    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(cleanDocHtml, materializedNotes));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, finalBytes);
@@ -2966,7 +3047,13 @@ async function renderBody(browser, g, closeBrowser) {
   // projection, but NOT the captions: a caption is public-facing narration the author opts into via
   // `--captions`, not a private note, so it composes with `--strip-notes` (ship captions, drop notes).
   if (CAPTIONS) {
-    await writeCaptionsSidecar(outFile, materializedNotes, cleanDocHtml, slideCaptions);
+    // PAGE-bound notes, not authored ones: `projectDeckSpeechFromHtml` projects the
+    // RENDERED sections, so feeding it the authored array made the two lengths disagree
+    // the moment a slide split — and `mergeNarration` then dropped the projection (and
+    // the front-matter captions with it) rather than misalign. One index space fixes all
+    // three channels at once.
+    const pageNotesForCaptions = notesPerRenderedPage(cleanDocHtml, materializedNotes);
+    await writeCaptionsSidecar(outFile, pageNotesForCaptions, cleanDocHtml, slideCaptions);
   }
 }
 
@@ -3311,6 +3398,23 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
 // Slides without a note get no annotation. Returns the modified PDF bytes; on
 // any pdf-lib failure it falls back to the un-annotated bytes (the visible deck
 // must never be lost to a notes problem).
+/**
+ * The per-PAGE notes of the FINAL, post-split document. Parses the sections and hands
+ * them to notes-core, which owns the binding rule (and is dependency-free, so it takes
+ * the parsed list rather than reaching for a parser itself). Falls back to the authored
+ * array when the document has no recognizable sections, so a deck that never split is
+ * byte-identical either way.
+ */
+function notesPerRenderedPage(docHtml, authored) {
+  const at = String(docHtml || '').search(/<section\b[^>]*\bdata-lattice-slide=/);
+  if (at < 0) return authored;
+  try {
+    const parts = require('./lib/core/split-sections').splitSections(docHtml.slice(at))
+      .filter((p) => p.type === 'section');
+    return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
+  } catch { return authored; }
+}
+
 async function embedNotesInPdf(pdfBytes, notes) {
   if (!notes.some(Boolean)) return pdfBytes;
   try {
@@ -3606,10 +3710,32 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // index-aligned. (Present resolves the same map through the original source index; the export has
   // no such map here.) NOTE: captions are NOT stripped by `--strip-notes` — that flag removes the
   // private NOTE channel; a caption is public-facing narration the author opts into via `--captions`.
+  // Front-matter `captions:[n]` is keyed by AUTHORED slide, and splitting changes the
+  // page count — so the keys stop lining up the moment a slide paginates. This used to
+  // DROP the whole map on any split deck, which was survivable while splitting was
+  // opt-in and is not now that it is intrinsic: every deck with a split slide would
+  // silently lose its authored captions. Remap instead. `authoredIndexPerPage` recovers
+  // page → authored slide from the contiguous `data-split-run` groups, so a caption
+  // written for slide 4 reaches every page slide 4 became — the same treatment notes
+  // got, for the same reason (2026-07-29-autosplit-is-not-a-toggle.md).
   let fmForMerge = fmCaptions;
-  if (AUTOSPLIT_APPLIES && fmCaptions?.size) {
-    fmForMerge = null;
-    if (!QUIET) console.log('Captions: front-matter captions: keys are unsafe under autosplit (section count shifts) — using inline captions / notes for those slides');
+  if (fmCaptions?.size) {
+    const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
+    if (at >= 0) {
+      const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
+        .filter((x) => x.type === 'section');
+      const origin = require('./lib/core/auto-split').authoredIndexPerPage(pages);
+      // Only rebuild when the split actually moved something; an unsplit deck keeps the
+      // authored map byte-for-byte, so a deck that never paginates is unaffected.
+      if (origin.length && origin[origin.length - 1] !== origin.length) {
+        const remapped = new Map();
+        origin.forEach((authored, i) => {
+          if (fmCaptions.has(authored)) remapped.set(i + 1, fmCaptions.get(authored));
+        });
+        fmForMerge = remapped;
+        if (!QUIET) console.log(`Captions: front-matter captions remapped across the split — ${remapped.size} page(s) keyed from ${fmCaptions.size} authored slide(s)`);
+      }
+    }
   }
   // `--strip-captions` blanks the author's caption OVERRIDES (inline + front-matter) — a
   // channel separate from `--strip-notes`. Those slides fall back to note → projection, so
