@@ -92,12 +92,12 @@
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "b645360e583c40466a34e93734b488c7d5410e1815501588d09f1535e270c6f5"
+		"srcSha256": "bb473c3af1cde1e488a363f3ca45935ab8ecd60417694f8e27511a9061d0f723"
 	},
 	"kpi.dark": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "2c4ff62723defdda9745dfcc45ef1a068b08d577c057ca394da05c784ea642a3"
+		"srcSha256": "be2bde66c80554a7c90a63d47d1d336c58b2e16209032ab2106f381e9943f89f"
 	},
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
@@ -132,12 +132,12 @@
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "c955aeeac946f6c7d537c94f9e60d6fcfa93825394414d10bc596096d72ee876"
+		"srcSha256": "fec140de29c6effbebd9d2e17d84d32f358e7a89b3140bf95448b15d726a2336"
 	},
 	"roadmap.dark": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "34b127c071593b40af7d94a85534c3e5b9ada43bee174be19475d20abc0071b6"
+		"srcSha256": "33a1bcd98ad71b0a7d6d237616eb7106b7b1321472a26e6362ca91211aefc6a6"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
