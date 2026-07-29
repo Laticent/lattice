@@ -1276,6 +1276,9 @@ function renderMermaid(definition, mode) {
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor, orientationCss } = require('./lib/engine/css');
+// The ONE family classifier (lib/adaptive/README.md) — the same call the engine's `data-family`
+// stamp makes, so the split gate and the components can never disagree about which box this is.
+const { familyFor } = require('./lib/adaptive/families');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
 // Reoriented raw Mermaid definitions, index-aligned with the `data-mmd-idx` stamp on each
 // rendered `.mermaid-svg`. The image-set export's cross-scheme SVG look uses this to RE-BAKE a
@@ -1379,22 +1382,26 @@ const PLAYER_VERSION = '1';
 const ENGINE_BUILD = (() => {
   try { return require('./package.json').version; } catch { return ''; }
 })();
-// Auto-split (the Fit Ladder SPLIT move) — opt-in per deck. The flag + the capacity
-// map are hoisted to module scope so BOTH passes see them: the cheap STATIC pre-pass
-// in engineSlides() (count > capacity.hard), and the MEASURED loop in the export IIFE
-// (split what a real render found to OVERFLOW, by how much — the only pass that
-// catches density overflow in a tall box). The map carries each layout's split AXIS
-// from the top-level `capacity` OR the per-family `adapt.capacity`, so a layout whose
-// budget lives only in adapt is still splittable by measurement. See lib/core/auto-split.js
-// + engineering/decisions/2026-06-22-the-fit-spine.md §3.
-// DEFAULT ON for non-landscape (2026-07-28, #1234) — `autosplit: off` opts out.
-// One reader, shared with lint-core so the engine and the author's advisory cannot
-// disagree about what the directive means (HARD RULE #1). Rationale + the catalog
-// audit behind the default: lib/core/autosplit-flag.js.
-// Splitting is INTRINSIC (2026-07-29). A deck is authored once and presented at many
-// sizes, so its page COUNT is a function of the content and the box, not an authoring
-// fact — which is why the retired `autosplit:` directive was never the right shape.
-// See engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md.
+// Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
+// overflowing its box, and the slide has a seam (lib/core/auto-split.js `resplitDoc`, driven
+// by the `measureOverflow` evaluate below). The capacity map is hoisted to module scope so
+// the measured loop can read each layout's split AXIS + pacing from the top-level `capacity`
+// OR the per-family `adapt.capacity`, so a layout whose budget lives only in adapt is still
+// splittable. See engineering/decisions/2026-06-22-the-fit-spine.md §3.
+//
+// SPLIT FIRES ON FIT, NEVER ON COUNT (2026-07-29). There used to be a second trigger: a cheap
+// pre-render pass counted the collection against `capacity.hard` and fed every over-budget
+// slide into the measured loop as a candidate, so a slide that was authored past its budget
+// AND fit its box comfortably was cut anyway — twelve one-line checklist items at
+// `size: portrait`, occupying about a third of the canvas, became three pages, two of them
+// mostly white. That is the engine second-guessing an author who
+// stayed inside the geometry. `capacity` is an AUTHORING advisory and `lint:deck` is where it
+// speaks; the engine's only question is "does it fit". See
+// engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md §"Fit, not count".
+//
+// Splitting is INTRINSIC. A deck is authored once and presented at many sizes, so its page
+// COUNT is a function of the content and the box, not an authoring fact — which is why the
+// retired `autosplit:` directive was never the right shape.
 //
 // `--no-split` is INSTRUMENTATION, not authoring: the measurement rigs need page N to
 // stay slide N so they can measure (tools/check-family-tiers.js's sweep records the
@@ -1457,19 +1464,26 @@ const deckSizeName   = (fm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])
 const _geom          = resolveSize(deckSizeName, [paletteCSS, layoutCSS]);
 const slideW         = parseFloat(_geom.width);
 const slideH         = parseFloat(_geom.height);
-// NO SIZE GATE. Split used to be skipped outright on landscape @sizes, on the stated
-// ground that "in a wide box, collapse + shed resolve overflow before split is ever
-// reached". That is an assumption, and measured it is false — four committed landscape
-// decks clip today with no recourse, and five component galleries carry a clipping
-// slide at landscape. If `size:` is a property of PRESENTATION, landscape is just
-// another presentation: the gate is "does it overflow, and is there a seam", a question
-// about the content in its box, never "which box shape is it".
-// (2026-07-29-autosplit-is-not-a-toggle.md.)
+// THE SIZE GATE — split runs at `square`, `tall` and `strip`, never at `wide`.
 //
-// Content that FITS is untouched at every size, so this changes only slides that were
-// already clipping. Content with no seam still rings — that is the honest terminal, and
-// it is not a toggle either.
-const AUTOSPLIT_APPLIES = AUTOSPLIT;
+// A deck is AUTHORED at 16:9. `hd` and `4K` are the same box (cqi is width-relative, so a
+// 3840×2160 render is a 1920×1080 render at 2× — identical layout, identical fit), and that
+// box is the one the author had in front of them: a slide that fits there is a slide they
+// composed. Pagination at wide would be the engine re-cutting a deck to solve a problem the
+// author does not have. The sizes that DO need it are the ones the deck was never authored
+// for — `square`, `portrait`, `story`, `mobile` — where the same content meets a box it was
+// never fitted to and the choice is paginate or clip.
+//
+// One classifier, the same one the components read off `data-family` (lib/adaptive/families.js):
+// square → square, portrait|story → tall, mobile → strip, hd|4K|16:9 → wide. Naming the FAMILY
+// rather than listing @size names means a custom `size: 1000x1000` is gated correctly too.
+//
+// (This restores a gate that was briefly removed earlier on this branch on the argument that
+// "landscape is just another presentation". The argument is wrong at its root: landscape is
+// not another presentation, it is the AUTHORING box. What the removal was really reaching for
+// — landscape decks that clip today — is a real defect and it is the RING's job to report and
+// the author's to fix, not the splitter's to paper over.)
+const AUTOSPLIT_APPLIES = AUTOSPLIT && familyFor(slideW / slideH) !== 'wide';
 // Orientation scaling/fill (social/mobile portrait + square @sizes). Empty for
 // landscape, so the HD/4K PDF is byte-identical. Same helper the engine
 // scaffold + runtime use, so every render path agrees.
@@ -1544,13 +1558,6 @@ function splitTopLevelSections(latticeHtml) {
   return out;
 }
 
-// §8 rule 10 — the slides the DEFER-ONLY static pass named as at-risk from its count estimate.
-// Module-level because the pass runs during assembly and the MEASURED loop that owns every cut
-// runs later, in the export path: "defer" has to mean the measured loop is actually asked, not
-// that a number is printed. Ordinals (1-based slide positions), matching the `data-lattice-slide`
-// the assembler stamps immediately after.
-let DEFERRED_BY_COUNT = [];
-
 function engineSlides() {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -1586,26 +1593,13 @@ function engineSlides() {
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
   // print-to-PDF). Read against the deck dir, the same base `![bg]` uses.
   const renderedHtml = inlineLogoMarkSvg(rendered.html, deckBaseUrl);
-  // Auto-split over-capacity slides into several, BEFORE the index-based
-  // `data-lattice-slide` re-tag below renumbers them (the Fit Ladder's SPLIT move
-  // — lib/core/auto-split.js; engineering/decisions/2026-06-22-the-fit-spine.md §3).
-  // OPT-IN per deck (`autosplit: on` in the front-matter): existing decks and the
-  // curated galleries — whose stress slides demonstrate overflow on PURPOSE — stay
-  // byte-unchanged. Default-on is a later decision, once the catalog is audited.
-  let html = renderedHtml;
-  if (AUTOSPLIT_APPLIES) {
-    // The STATIC pass is DEFER-ONLY (§8 rule 10): it counts against `capacity.hard` and names the
-    // slides at risk, but emits no partition — every cut and every cover comes from the MEASURED
-    // loop in the export IIFE, which reads the really-rendered DOM. A cut made here would be on
-    // the AUTHORING-shape axis, and the two can disagree.
-    const r = require('./lib/core/auto-split').autoSplitDeck(renderedHtml, SPLIT_CAP);
-    html = r.html;
-    DEFERRED_BY_COUNT = r.deferred || [];
-    if (DEFERRED_BY_COUNT.length && !QUIET) {
-      const n = DEFERRED_BY_COUNT.length;
-      console.log(`  auto-split (static estimate): ${n} slide(s) over capacity — page${n > 1 ? 's' : ''} ${DEFERRED_BY_COUNT.join(', ')}; deferred to the measured pass`);
-    }
-  }
+  // No pre-render split pass. There used to be one — it counted each collection against
+  // `capacity.hard` and handed every over-budget slide to the measured loop as a candidate —
+  // and it was the second of two triggers. Splitting now has exactly ONE trigger, measured
+  // overflow (the loop in the export IIFE, which reads the really-rendered DOM), because a
+  // slide that fits its box is a slide the author composed and the engine has no business
+  // re-cutting it. `capacity` speaks to the author through `lint:deck`, not to the splitter.
+  const html = renderedHtml;
   const imageScrim = require('./lib/transformers/image-scrim');
   return splitTopLevelSections(html).map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
@@ -2441,28 +2435,16 @@ async function renderBody(browser, g, closeBrowser) {
     return out;
   }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
   let overflow = await measureOverflow();
-  // …plus the slides the static COUNT estimate deferred (§8 rule 10). Deferral has to be real: a
-  // slide over `capacity.hard` may still FIT, so a measured pass fed only by box spill would never
-  // see it, the count signal would do nothing, and `lint:deck`'s `capacity-autosplit` advisory
-  // ("auto-split will divide it into 2 pages of 4") would describe a split that never happens — the
-  // same lie-to-the-author defect this branch fixed once already. So they enter the first measured
-  // pass as candidates, and the render-time builder — reading the real DOM, on the derived axis,
-  // with a cover — makes the cut, which is exactly what the rule asks. `ratio: 2` lets the AUTHORED
-  // target govern the pacing (`resplitDoc` takes the tighter of target and ratio-implied), so an
-  // over-capacity-but-fitting slide paces the way its manifest says, not the way a box measurement
-  // it never failed would. First pass only: after it, slide numbers have shifted.
-  if (AUTOSPLIT_APPLIES && DEFERRED_BY_COUNT.length) {
-    const measured = new Set(overflow.map((o) => o.slide));
-    overflow = overflow.concat(
-      DEFERRED_BY_COUNT.filter((n) => !measured.has(n)).map((n) => ({ slide: n, ratio: 2, canSplit: true, splitRatio: 2, byCount: true })),
-    );
-  }
-  // MEASURED auto-split — the loop that makes "split" fit REAL boxes. Divide every
-  // overflowing SPLITTABLE slide by how much it overflows, re-render, re-measure,
-  // until the deck fits or only un-splittable overflow remains (read-across / atomic /
-  // a single item taller than the page — those stay for the ring). This catches the
-  // DENSITY overflow a count threshold can't see — dominant in a tall/portrait box.
-  // Opt-in (`autosplit: on`). See lib/core/auto-split.js + the-fit-spine.md §3.
+  // MEASURED auto-split — the ONLY split trigger, and the loop that makes "split" fit REAL
+  // boxes. Divide every overflowing SPLITTABLE slide by how much it overflows, re-render,
+  // re-measure, until the deck fits or only un-splittable overflow remains (read-across /
+  // atomic / a single item taller than the page — those stay for the ring). This is the pass
+  // that catches DENSITY overflow, which no count threshold can see: whether a slide fits is
+  // a fact about glyphs in a box, not about how many bullets someone typed.
+  //
+  // Nothing is fed in here from a count estimate. That is the point of the 2026-07-29
+  // correction: a slide over `capacity.hard` that FITS is left exactly as authored, at every
+  // size the gate admits. See lib/core/auto-split.js + the-fit-spine.md §3.
   if (AUTOSPLIT_APPLIES) {
     const { resplitDoc, applyRails, applyRelationshipSignals } = require('./lib/core/auto-split');
     for (let pass = 1; pass <= 5 && overflow.some((o) => o.canSplit); pass++) {

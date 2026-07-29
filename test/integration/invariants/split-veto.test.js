@@ -66,13 +66,14 @@ describe('split veto — a hoistable lede + note must not veto the split', () =>
  * `<ol>` is `display:flex; flex-direction:row`, and six steps want 1291px in a 972px
  * track with `scrollH === clientH` — zero vertical spill. Step 06 rendered entirely off
  * the frame and step 05 was sliced mid-word, on a component declaring `capacity.perPage:
- * 1`, in a deck with `autosplit: on`, which pagination fixes completely.
+ * 1`, which pagination fixes completely.
  *
- * The failure was doubly silent. Over `capacity.hard` the static pass DID defer the
- * slide — but a deferred candidate is dropped when the slide already appears in the
- * measured list, and it did, with `canSplit: false`. So it fell between the two passes
- * while `lint:deck`'s `capacity-autosplit` advisory promised the author a split. That is
- * §8 rule 10's lie-to-the-author defect through a different door.
+ * The failure was silent: nothing but `canSplit` decides whether an overflowing slide reaches
+ * the splitter, and it said no, so the slide shipped clipped while `lint:deck`'s
+ * `capacity-autosplit` advisory promised the author a split. (At the time a pre-render count
+ * pass also deferred the slide, and that signal was dropped for exactly the slides already in
+ * the measured list — this one. That pass is retired, 2026-07-29, which removes the second
+ * door and leaves `canSplit` as the only gate. Its correctness is therefore load-bearing.)
  *
  * The old gate was right about its own case and too broad: a too-wide `<table>` gains
  * nothing from row-splitting, because its width comes from its COLUMNS. The test is

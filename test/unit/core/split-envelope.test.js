@@ -504,15 +504,10 @@ describe('core: the envelope through the auto-split passes (HARD RULE #1)', () =
     assert.equal((out.match(/lat-split-cover/g) || []).length, 1); // still exactly one
   });
 
-  test('a deck nothing reported as overflowing is byte-identical through both passes', () => {
+  test('a deck nothing reported as overflowing is byte-identical', () => {
     const html = doc(formInner({ n: 3, insight: 'Insight.', note: 'Note.' }));
-    // The pre-render pass emits nothing at all now (rule 10) and does not even defer this one —
-    // three items, well under capacity.
-    const { autoSplitDeck } = require('../../../lib/core/auto-split');
-    const staticPass = autoSplitDeck(html, cap);
-    assert.equal(staticPass.html, html);
-    assert.deepEqual(staticPass.deferred, []);
-    // …and the measured pass touches only what it is told measured over.
+    // The measured pass touches only what a real render told it overflowed, and there is no
+    // other pass — the pre-render count estimate that used to feed it is gone (2026-07-29).
     assert.equal(resplitDoc(html, [], cap).html, html);
   });
 });

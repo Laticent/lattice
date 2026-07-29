@@ -33,13 +33,15 @@ export rings the slide — the honest terminal.
    (`test/oracle/family-overflow.json`) renders with the emulator's `--no-split` flag,
    because it measures the un-split terminal on purpose — so a name in it means
    "overflows when nothing paginates", *not* "broken". Splitting is INTRINSIC since
-   2026-07-29 (`2026-07-29-autosplit-is-not-a-toggle.md`), at every @size including
-   landscape, so that condition is now deliberately artificial rather than the default
-   one: most of this set paginates in a real export. At portrait, **21** components
-   clip un-split and **5** with splitting on — and those five are the ones with no seam
-   to cut, which is the honest terminal. `node tools/check-family-tiers.js --ladder`
-   prints the overlap per @size, and that residue, which is the set actually worth
-   shrinking.
+   2026-07-29 (`2026-07-29-autosplit-is-not-a-toggle.md`) at the presentation sizes —
+   `square`, `tall`, `strip` — so for those the recorded condition is deliberately
+   artificial rather than the default one: most of that set paginates in a real export.
+   At portrait, **21** components clip un-split and **5** with splitting on — and those
+   five are the ones with no seam to cut, which is the honest terminal.
+   `node tools/check-family-tiers.js --ladder` prints the overlap per @size, and that
+   residue, which is the set actually worth shrinking. **At `wide` the oracle records
+   the REAL terminal, not an artificial one**: the split move does not run there (16:9 is
+   the authoring box), so a landscape clip in this file is a clip a reader will see.
 
 2. **The sibling's §0b talks about "portrait presets" as one bucket.** It is four
    families, and `square` is not `tall`. That section is corrected in place there and

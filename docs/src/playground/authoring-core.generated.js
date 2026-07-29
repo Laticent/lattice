@@ -198,7 +198,7 @@ var require_lint_core = __commonJS({
         classToken: "autosplit",
         line: hit[0].trim(),
         message: off ? "autosplit: off is retired \u2014 splitting is intrinsic, so this deck WILL paginate an overflowing slide despite this line." : "autosplit: is retired \u2014 splitting is intrinsic, so this line no longer does anything.",
-        fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 an overflowing slide is divided at every @size without asking."
+        fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 an overflowing slide is divided without asking at every presentation @size (square \xB7 portrait \xB7 story \xB7 mobile). A landscape @size never paginates: 16:9 is the box the deck is authored in."
       }];
     }
     function findInlineTitleBodyLine(sample) {
@@ -581,6 +581,20 @@ ${indent}   - ${body.trim()}`;
             const comfort = cap.sweet != null ? cap.sweet : cap.soft;
             if (cap.hard != null && n > cap.hard) {
               if (isStressSlide) continue;
+              if (family === "wide") {
+                findings.push({
+                  slide: idx - fm + 1,
+                  rule: "capacity-overflow",
+                  severity: "warning",
+                  classToken: t,
+                  line: m[0],
+                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n} \u2014 expect it to overflow` + (cap.note ? ` (${cap.note})` : ""),
+                  // Naming the non-split is the part an author cannot infer: every other @size
+                  // paginates, and the silence at landscape would otherwise read as a bug.
+                  fix: `${capacityFix(cap)} A landscape @size does not paginate \u2014 16:9 is the box the deck is authored in, so an over-full slide is clipped and ringed rather than divided.`
+                });
+                continue;
+              }
               {
                 const target = cap.perPage ?? cap.sweet ?? cap.soft ?? cap.hard;
                 const pages = Math.max(1, Math.ceil(n / target));
@@ -596,8 +610,8 @@ ${indent}   - ${body.trim()}`;
                   severity: "info",
                   classToken: t,
                   line: m[0],
-                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so auto-split will divide it into ${pages} pages of ${paced}` + (cap.perPage != null ? ` (${t} paces ${cap.perPage} per page when split)` : ""),
-                  fix: hasHeadline ? `Intended? Nothing to do \u2014 the split leads with a cover and ${evenness}. ${trim}` : `Intended? ${evenness.charAt(0).toUpperCase()}${evenness.slice(1)}, but this slide has no \`## \` headline, so the run gets no cover page to open on \u2014 add one. ${trim}`
+                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so if it does not fit the ${family} box auto-split divides it into ${pages} or more pages of ${paced}` + (cap.perPage != null ? ` (${t} paces ${cap.perPage} per page when split)` : ""),
+                  fix: hasHeadline ? `Intended? Nothing to do \u2014 if it splits, the run leads with a cover and ${evenness}. ${trim}` : `Intended? If it splits, ${evenness}, but this slide has no \`## \` headline, so the run gets no cover page to open on \u2014 add one. ${trim}`
                 });
                 continue;
               }

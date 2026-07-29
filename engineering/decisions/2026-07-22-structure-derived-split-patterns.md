@@ -46,9 +46,14 @@ other. **Three things to carry across the boundary:**
    then retired the directive outright: a deck is authored once and presented at many
    sizes, so its page COUNT is a function of the content and the box, never an
    authoring switch (`2026-07-29-autosplit-is-not-a-toggle.md`). Splitting is
-   intrinsic at every @size — the landscape gate is gone too — and the only opt-outs
-   are per-SLIDE (`<!-- stress-slide -->`, for a specimen that means to show overflow)
-   and the emulator's `--no-split` (for a measurement rig).
+   intrinsic at the PRESENTATION sizes — `square` · `tall` · `strip` — and does not run
+   at `wide`, which is the box a deck is authored in and whose fit its author already
+   judged; a landscape slide that does not fit rings, and `lint:deck`'s
+   `capacity-overflow` names the non-split so the silence is never mistaken for a bug.
+   It fires on measured FIT, never on a slide's authored count against `capacity.hard`
+   — that number is an editorial budget with one consumer, `lint:deck`. The only
+   opt-outs are per-SLIDE (`<!-- stress-slide -->`, for a specimen that means to show
+   overflow) and the emulator's `--no-split` (for a measurement rig).
    The two blessed oracles still look like they contradict each other and still do
    not — `test/oracle/family-overflow.json` is rendered with `--no-split`, because it
    measures the un-split terminal ON PURPOSE, which is now a deliberately artificial
@@ -179,8 +184,10 @@ seam. `matrix-2x2` renders a live `<ul>` of quadrant `<li>`s, and `roadmap` /
 `obligation-matrix` render live `<table>`s — the candidate rule would split and
 *destroy* all three; they are saved **only** because they never opt in
 (`capacity=null, split=null`). So structure yields a candidate; the per-component
-gate ratifies it. `capacity.axis` survives as the pre-render count estimate; the
-render-time DOM is the axis authority for opted-in seams.
+gate ratifies it. `capacity.axis` survives as the ENROLLMENT signal and as the
+declared-shape preference `deriveAxis` consults; the render-time DOM is the axis
+authority for opted-in seams. (It used to be described as "the pre-render count
+estimate" — that pass is retired, 2026-07-29.)
 
 **Content type — graphics vs text — decides scale-vs-split, but "figure" is two
 buckets, not one:**
@@ -478,7 +485,7 @@ Sorting the vector honestly (this replaces the first draft's "derive and delete"
     authors as a list, splits as a table). The synthesis corrects the altitude:
     the split runs on **rendered** HTML, where the axis **is** derivable from the
     DOM (list → item, table → row, svg → container-responsive). `capacity.axis`/`split.axis` is
-    **retained only as the pre-render count estimate**, not as the split authority
+    **retained as the enrollment signal + the declared-shape preference**, not as the split authority
     — not "VETOED as irreplaceable." The forbidden guess is inferring intent from
     *authored content*; reading the *rendered* structure is deterministic.
   - **split-seam opt-in (b)** — a rendered collection does not imply a split
@@ -572,7 +579,9 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
 
 1. **Axis is read from the RENDERED DOM at split time (§0b), never inferred from
    authored content.** The rendered structure (list / table / svg / pre) is the
-   authority; `capacity.axis` is retained only as the pre-render count estimate.
+   authority; `capacity.axis` is retained as the enrollment signal and the declared-shape
+   preference `deriveAxis` consults (it was "the pre-render count estimate" until that pass
+   was retired, 2026-07-29).
    (This supersedes the first draft's "never read from a slide's DOM" — that
    confused authored markdown with rendered HTML; see §0b.)
    **☑ BUILT (P-envelope).** `deriveAxis` (lib/core/split-envelope.js) scans the recognizable
@@ -723,7 +732,6 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    once §0a lands — a title-less slide keeps it, since there is nothing to put on a
    cover (§0a's exception, §9's P-envelope note 1; this rule said "Cover always" and
    was corrected to match the code and the gate on 2026-07-28, #1234).
-   `autoSplitDeck` and
    `resplitDoc`'s plain branch must route through the same cover→body→closing
    builder as `cover-paginate`, and `partitionAxis`'s repeated `post` must hoist any
    `.below-note`/key-insight into ONE closing slide — never stamped per body page (it
@@ -741,14 +749,23 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    now runs the invariant over ALL NINE strategies, and an un-stamped page FAILS — so a new
    strategy cannot fall outside the gate. Verified on a real render: 18 run sections, 0
    missing a role. The role is also the hook rules 6 and 12a key on.
-10. **The pre-render count pass may only DEFER, never CUT.** With axis derivation at
-    render time, the startup pass's sole job is "might this overflow? → hand it to
-    the measured loop." It must not emit a final partition on the *authoring*-shape
-    axis (which would land coverless and the measured pass can't retro-wrap it). Any
-    real cut + its cover is produced by the render-time builder that reads the real
-    DOM, so the estimate axis and the split axis can't disagree in shipped bytes.
-    (FM-4.)
-    **☑ BUILT (P-envelope).** `autoSplitDeck` emits no partition at all now: it counts against
+10. ~~**The pre-render count pass may only DEFER, never CUT.**~~ — **RETIRED 2026-07-29:
+    there is no pre-render count pass.** The rule was a half-measure that took two
+    revisions to see through. It said: with axis derivation at render time, the startup
+    pass's sole job is "might this overflow? → hand it to the measured loop"; it must not
+    emit a final partition on the *authoring*-shape axis (which would land coverless and
+    the measured pass can't retro-wrap it), so every real cut + its cover comes from the
+    render-time builder reading the real DOM. (FM-4.)
+    All of that is right about *where* a cut is made and silent about *whether* one should
+    happen — and "defer" was implemented as "hand it to the measured loop as a candidate
+    that always splits", so the count was still the decision-maker, one indirection down.
+    **The owner's ruling: the count is not a trigger at all.** `capacity.hard` is an
+    editorial budget, `lint:deck` is its consumer, and a slide over budget that FITS is
+    left exactly as authored. `autoSplitDeck` is deleted; the measured pass is the only
+    pass. See `2026-07-29-autosplit-is-not-a-toggle.md` §"Split fires on FIT".
+    What survives from this rule is everything it *found*: three measurement blind spots
+    below, all of them properties of the measured pass, all still load-bearing.
+    **☑ BUILT (P-envelope), now historical.** `autoSplitDeck` emitted no partition: it counted against
     `capacity.hard` on the DERIVED axis and returns `deferred` — the ordinal positions it judges
     at risk — which the emulator logs ("N slide(s) over capacity … the measured pass decides") and
     which changes no bytes. `splits` is always 0, kept in the return shape so callers need no
@@ -766,31 +783,37 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     `examples/split-envelope.md` were the only two the static pass still cut (1 and 2 slides); the
     measured loop now cuts exactly those, and both export with zero overflow. Nothing regressed
     because the measured loop runs in the same invocation, right after a real render.
-    **What "defer" does and does not mean.** It moves WHERE the cut is made, not whether one
-    happens. The deferred ordinals enter the FIRST measured pass as candidates
-    (`lattice-emulator.js`, `DEFERRED_BY_COUNT`), so a slide over `capacity.hard` that nevertheless
-    FITS is still cut — by the render-time builder, on the derived axis, with a cover. That is
-    deliberate: `lint:deck`'s `capacity-autosplit` advisory promises the author "auto-split will
-    divide this into 2 pages of 4", and a deferral that silently dropped the count signal would
-    make the advisory a lie — the same lie-to-the-author defect this branch fixed once already.
-    *An earlier version of this entry (and of the CHANGELOG, as a `**Breaking:**` bullet) claimed
-    the opposite — that a fitting slide is no longer split. It was never true of the code; caught
-    by the trio's inversion pass with a 10-item `checklist` that fits and still becomes three
-    pages.* Whether `hard` SHOULD force a cut on a slide that fits is a real question — two of
-    those three pages are mostly white — but it is a change to what `capacity.hard` means, and
-    that is the owner's call, not this rule's.
+    **What "defer" did and did not mean — and how the question was settled.** It moved WHERE
+    the cut was made, not whether one happened. The deferred ordinals entered the FIRST measured
+    pass as candidates (`lattice-emulator.js`, `DEFERRED_BY_COUNT`), so a slide over
+    `capacity.hard` that nevertheless FIT was still cut. That was deliberate at the time:
+    `lint:deck`'s `capacity-autosplit` advisory promised the author "auto-split will divide this
+    into 2 pages of 4", and a deferral that dropped the count signal would have made the advisory
+    a lie. *An earlier version of this entry (and of the CHANGELOG, as a `**Breaking:**` bullet)
+    claimed the opposite — that a fitting slide is no longer split. It was never true of the code;
+    caught by the trio's inversion pass with a 10-item `checklist` that fits and still becomes
+    three pages.* The entry then parked the real question — *"whether `hard` SHOULD force a cut
+    on a slide that fits … is the owner's call, not this rule's."*
+    **It was asked and answered on 2026-07-29: no.** Twelve one-line checklist items at
+    `size: portrait` occupied about a third of the canvas and came out as three pages, two of them
+    mostly white. The engine has no business re-cutting a slide that fits. The advisory was the
+    thing that had to move, not the splitter: it now reads *"if it does not fit … 2 **or more**
+    pages of 4"*, which is true of a conditional split paced by measurement, where the old
+    sentence was true only of a count that forced one.
     **A FOURTH blind spot, and it defeated the defer→measure handoff this rule is about
     (2026-07-28, #1234).** `canSplit` keyed on `vOver` — vertical spill — so a collection that
     overflowed only SIDEWAYS was never handed to the measured loop. `list-steps` at `size:
     square` is the reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six
     steps want **1291px in a 972px track** (eight want 1852) with `scrollH === clientH`, i.e.
     **zero** vertical spill. Step 06 rendered entirely off the frame and step 05 was sliced
-    mid-word — on a component declaring `capacity.perPage: 1`, in a deck with `autosplit: on`,
-    where pagination fixes it completely.
-    The second half is this rule's own machinery failing. Over `capacity.hard` the static pass
-    DID defer the slide — but `DEFERRED_BY_COUNT` is filtered by `!measured.has(n)`, and the
-    slide WAS in the measured list, carrying `canSplit: false`. So the deferral was silently
-    swallowed by a measurement that said "cannot split", the slide fell between the two passes,
+    mid-word — on a component declaring `capacity.perPage: 1`, where pagination fixes it
+    completely. **This half outlives the rule**: `canSplit` is the MEASURED pass's veto, and a
+    sideways-only overflow is invisible to it whether or not a count pass exists.
+    The second half was this rule's own machinery failing, and it is why the machinery is gone.
+    Over `capacity.hard` the static pass DID defer the slide — but `DEFERRED_BY_COUNT` was
+    filtered by `!measured.has(n)`, and the slide WAS in the measured list, carrying
+    `canSplit: false`. So the deferral was silently swallowed by a measurement that said "cannot
+    split", the slide fell between the two passes,
     and `capacity-autosplit` promised the author a split that never came. That is precisely the
     lie-to-the-author defect this entry says was fixed, reached through a different door — and
     it is why "the count signal must survive to the measured pass" is not enough on its own:
@@ -912,7 +935,7 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   below-note to one closing slide. Must land **before** any defaulting (P2), since
   §0a is unbuilt on that path today. Maker-checker.
   ☑ **SHIPPED** — `lib/core/split-envelope.js` is the one builder both paths go
-  through: `autoSplitDeck` + `resplitDoc`'s plain branch and `carousel.js`'s
+  through: `resplitDoc`'s plain branch and `carousel.js`'s
   `cover-paginate` (and `cover-cards`, for the cover) all call it, so bare partition
   is retired as a split *look*. As built, with four notes the design didn't state:
   1. **A TITLE-LESS slide keeps the bare partition.** There is no masthead to build a

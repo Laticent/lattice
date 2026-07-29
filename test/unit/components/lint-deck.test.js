@@ -350,13 +350,21 @@ describe('deck linter', () => {
     const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 6 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
     assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd warning');
     assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd warns as before');
-    // Past hard, an ordinary slide is told it will be divided…
-    const over = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
-    assert.equal(lintText(over(''), { vocab }).filter((x) => x.rule === 'capacity-autosplit').length, 1, 'the budget speaks');
-    // …but a SPECIMEN is not, because the splitter will not divide it. Promising a split
-    // that never happens is the same lie-to-the-author defect, pointed the other way.
-    assert.equal(lintText(over('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-autosplit').length, 0,
-      'a specimen is never promised a split it will not get');
+    // Past hard, an ordinary slide is told what its box will do to it — the split advisory
+    // at a presentation @size, the overflow warning at the landscape authoring box…
+    const over = (marker, size = '') => `---\nmarp: true\ntheme: indaco\n${size}---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
+    assert.equal(lintText(over('', 'size: portrait\n'), { vocab }).filter((x) => x.rule === 'capacity-autosplit').length, 1, 'the budget speaks');
+    assert.equal(lintText(over(''), { vocab }).filter((x) => x.rule === 'capacity-overflow').length, 1, 'and speaks louder where nothing will be split');
+    // …but a SPECIMEN is told neither, in either box. It will not be divided (promising a
+    // split that never happens is the lie-to-the-author defect pointed the other way) and
+    // it overflows on purpose, so the warning is noise its author has already answered.
+    for (const size of ['size: portrait\n', '']) {
+      const out = lintText(over('<!-- stress-slide -->', size), { vocab });
+      assert.equal(out.filter((x) => x.rule === 'capacity-autosplit').length, 0,
+        'a specimen is never promised a split it will not get');
+      assert.equal(out.filter((x) => x.rule === 'capacity-overflow').length, 0,
+        'and is never warned about the overflow it exists to demonstrate');
+    }
   });
 
   test('narrationText strips front matter, fenced + inline code, keeps prose', () => {

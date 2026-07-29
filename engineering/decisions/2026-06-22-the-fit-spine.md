@@ -148,23 +148,32 @@ Three properties make this the spine and not just a list:
   fluid box with zero churn, because they restyle, they don't re-paginate. This is
   what makes a live preview viable.
 - **Move 3 is discrete and build-time.** Splitting changes slide *count*, which
-  the engine has never owned. ~~**It is scoped to portrait/square `@sizes`**~~ — **CORRECTED 2026-07-29: it applies
-  at EVERY `@size`.** The scoping rested on "in a wide/landscape box, moves 1–2
-  (collapse + shed) resolve overflow before split is reached", which is an assumption
-  and measured is false: four committed landscape decks and five component galleries
-  carry a clipping slide today. If `size:` is a property of PRESENTATION, landscape is
-  just another presentation, so the gate is "does it overflow, and is there a seam" —
-  a question about the content in its box, never about which box shape it is.
-  See `2026-07-29-autosplit-is-not-a-toggle.md`. It runs
+  the engine has never owned. **It is scoped to the PRESENTATION families —
+  `square`, `tall`, `strip` (square · portrait · story · mobile) — and does not run at
+  `wide`.** This note's original wording said "portrait/square `@sizes`" and gave the
+  wrong reason: *"in a wide/landscape box, moves 1–2 (collapse + shed) resolve overflow
+  before split is reached."* That is an assumption and measured it is false — four
+  committed landscape decks and five component galleries carry a clipping slide today,
+  which moves 1–2 did not resolve. **The real reason is that 16:9 is the box a deck is
+  AUTHORED in** (2026-07-29): an author judging fit at `hd` has already decided the slide,
+  and re-cutting it would be the engine solving a problem they do not have. `4K` is the
+  same box at 2× — `cqi` is width-relative — so the two behave identically. Those
+  landscape clips are real authoring defects, and the ring plus `lint:deck`'s
+  `capacity-overflow` (which names the non-split) is their terminal. The gate is a
+  FAMILY, not an @size list, so a custom geometry classifies correctly. See
+  `2026-07-29-autosplit-is-not-a-toggle.md` §"Two corrections". It runs
   at render time against a known target
-  geometry (the per-device export the emailed-link reader receives), in two passes
-  over one kernel (`lib/core/auto-split.js`): a cheap **count-based** pre-cut splits
-  a slide past its layout's `capacity.hard`, then a **measured** loop renders the
+  geometry (the per-device export the emailed-link reader receives), in ONE pass
+  over one kernel (`lib/core/auto-split.js`): a **measured** loop renders the
   deck headless, finds the slides that *actually* clip (by their
   `scrollHeight/clientHeight` ratio), divides each by that ratio, and re-renders +
-  re-measures until the deck fits. The measured pass is what catches **density**
+  re-measures until the deck fits. It catches **density**
   overflow — few but tall items that no count threshold sees — the dominant cause
-  in a tall/portrait box. **Live runtime re-pagination is rejected** — re-breaking
+  in a tall/portrait box. There was once a second, **count-based** pre-cut that split a
+  slide past its layout's `capacity.hard`; it was **retired 2026-07-29** because a count
+  is not a fit — it cut slides that fit their box comfortably. `capacity` is an editorial
+  budget read by `lint:deck`, and the splitter now reads it only for *pacing* once the
+  measured pass has decided to cut. **Live runtime re-pagination is rejected** — re-breaking
   and re-numbering slides as a phone rotates is churn and a navigation/anchor
   maintenance nightmare (the inversion in §4 derives this). **Narrowed 2026-06-25:**
 only the *unbounded* form stays rejected; a *bounded* runtime split — portrait
@@ -305,10 +314,10 @@ throughout. Ordered by the inversion: **unmask first, unify second, build third.
   — splits the primary collection (`item`/`row`) into per-slide groups, repeats heading
   + wrapper + `<thead>`, renumbers `<ol>`; returns `null` for the non-splittable axes
   (`col`/`cell`/`line`) so the caller escalates. *Slice 2 (the build-time wiring):*
-  `lib/core/auto-split.js` drives the kernel from each component's `capacity.hard` at
-  export (in `lattice-emulator.js`, before slide-index re-tagging, so copies renumber
-  for free). ~~**OPT-IN** per deck (`autosplit: on`)~~ — **RETIRED 2026-07-29: splitting is
-  intrinsic.** The opt-in existed so existing decks and galleries stayed
+  `lib/core/auto-split.js` drives the kernel from the MEASURED overflow verdict at
+  export (in `lattice-emulator.js`, after the render that produces it, so copies
+  renumber for free). ~~**OPT-IN** per deck (`autosplit: on`)~~ — **RETIRED 2026-07-29:
+  splitting is intrinsic.** The opt-in existed so existing decks and galleries stayed
   byte-unchanged, and the note that added it said default-on was "a later decision,
   once the catalog is audited". That audit ran, and then the directive went entirely:
   a deck is authored once and presented at many sizes, so its page COUNT is a function
@@ -316,8 +325,10 @@ throughout. Ordered by the inversion: **unmask first, unify second, build third.
   note's own thesis — with no shrink move, SPLIT and the honest ring are the only two
   terminals, and leaving split opt-in made the ring the unasked-for one. The opt-outs
   are per-SLIDE (`<!-- stress-slide -->`, a specimen) and the emulator's `--no-split`
-  (a measurement rig). `capacity-overflow` lint is retired with it — an over-`hard`
-  slide is divided rather than warned about. Maker-checker
+  (a measurement rig). ~~`capacity.hard` drives the cut~~ — **also corrected 2026-07-29:**
+  it never drives the cut, only the *pacing* of one the measured pass ordered, and
+  `capacity-overflow` lint is un-retired at `wide`, where nothing will be split.
+  Maker-checker
   caught + fixed a front-matter-vs-body flag scope bug and a duplicate-`id` on copies.
   Demo: `examples/auto-split.md`. Member-level `keepTogether` is honoured by
   construction. *Follow-ups:* a `(cont.)` adornment; CSS-counter components (agenda)

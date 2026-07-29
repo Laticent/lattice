@@ -85,25 +85,44 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
     `---\nmarp: true\ntheme: indaco\n${fmExtra}---\n\n<!-- _class: checklist -->\n\n## H\n\n` +
     `${Array.from({ length: 14 }, (_, i) => `- [ ] item ${i + 1}`).join('\n')}\n`;
 
-  // `capacity-overflow` is RETIRED (2026-07-29). Splitting is intrinsic, so a slide past
-  // `hard` is DIVIDED rather than left to overflow — the warning described an outcome the
-  // engine no longer produces. It is replaced everywhere by the `capacity-autosplit`
-  // advisory, which reports what will actually happen.
-  test('a 14-item checklist over hard=9 gets the SPLIT advisory, not an overflow warning', () => {
-    const out = core.lintTextWith(overflowDeck(), capVocab);
-    assert.equal(out.find((x) => x.rule === 'capacity-overflow'), undefined, 'capacity-overflow is retired');
+  // WHICH terminal an over-`hard` slide gets is a question about the BOX, because the SPLIT
+  // move is gated on the box (lattice-emulator.js `AUTOSPLIT_APPLIES`): square · tall · strip
+  // paginate, `wide` does not — 16:9 is the box a deck is AUTHORED in, and the engine does not
+  // re-cut a slide its author composed. So the linter forks the same way, and each half must
+  // describe the terminal that actually happens.
+  test('at a LANDSCAPE @size there is no split move — a 14-item checklist warns about overflow', () => {
+    for (const fmExtra of ['', 'size: 16:9\n', 'size: 4K\n']) {
+      const out = core.lintTextWith(overflowDeck(fmExtra), capVocab);
+      const f = out.find((x) => x.rule === 'capacity-overflow');
+      assert.ok(f, `expected capacity-overflow for ${JSON.stringify(fmExtra) || 'the default @size'}`);
+      assert.equal(f.severity, 'warning', 'the author has to act — this is not advisory');
+      assert.match(f.fix, /does not paginate/, 'and it says why nothing will be split for them');
+      assert.equal(out.find((x) => x.rule === 'capacity-autosplit'), undefined,
+        'promising a split that the size gate forbids is the lie-to-the-author defect');
+    }
+  });
+
+  // `hd` and `4K` are the SAME box — cqi is width-relative, so a 3840×2160 render is a
+  // 1920×1080 render at 2×, identical layout and identical fit. Both are `wide`, so both take
+  // the overflow branch above; the loop asserts it rather than leaving it to be assumed.
+
+  test('at a PORTRAIT @size the slide may be divided — the advisory, at info tier', () => {
+    const out = core.lintTextWith(overflowDeck('size: portrait\n'), capVocab);
     const f = out.find((x) => x.rule === 'capacity-autosplit');
     assert.ok(f, 'expected the capacity-autosplit advisory');
     assert.equal(f.severity, 'info', 'advisory tier — a deliberate split must not red `lint:deck --strict`');
+    assert.equal(out.find((x) => x.rule === 'capacity-overflow'), undefined);
   });
 
-  // The gate that used to exist here asserted the OPPOSITE: that a landscape deck still
-  // got a real overflow warning "because split never fires there". It fires there now —
-  // `size:` is a property of presentation, and a wide box is just another presentation.
-  test('the advisory fires at a LANDSCAPE @size too — the size gate is gone', () => {
-    const out = core.lintTextWith(overflowDeck('size: 16:9\n'), capVocab);
-    assert.ok(out.find((x) => x.rule === 'capacity-autosplit'), 'landscape splits like any other size');
-    assert.equal(out.find((x) => x.rule === 'capacity-overflow'), undefined);
+  // The advisory is CONDITIONAL and bounded from below, because the count no longer forces
+  // anything: the splitter fires on measured overflow only (2026-07-29), and when it does fire
+  // it paces at the tighter of the authored target and the measured ratio — so the real run can
+  // be longer than the number here, and a slide that fits is not divided at all.
+  test('the advisory promises neither that a split happens nor exactly how long it is', () => {
+    const f = core.lintTextWith(overflowDeck('size: portrait\n'), capVocab)
+      .find((x) => x.rule === 'capacity-autosplit');
+    assert.match(f.message, /if it does not fit/, 'the split is conditional on fit, not on the count');
+    assert.match(f.message, /or more pages/, 'and the page count is a floor, not a promise');
   });
 
   // The advisory's fix text describes what the split will DO, so it must not promise a
@@ -435,24 +454,30 @@ describe('lint-core: capacity rule', () => {
     assert.match(f.message, /this slide has 5/);
     assert.match(f.fix, /list-tabular/);
   });
-  test('past hard → the SPLIT advisory, not an overflow warning (capacity-overflow is retired)', () => {
-    // Splitting is intrinsic, so a slide past `hard` is DIVIDED rather than left to
-    // overflow: the old `capacity-overflow` warning described an outcome the engine no
-    // longer produces. The budget still has to speak — an author needs to know their
-    // slide is about to become several — which is what the advisory is for.
-    const f = capRule(itemsSlide(8), 'capacity-autosplit');
+  test('past hard at WIDE → the overflow warning; the split move is gated off there', () => {
+    const f = capRule(itemsSlide(8), 'capacity-overflow');
+    assert.ok(f, 'expected a capacity-overflow finding at 8 items');
+    assert.equal(f.severity, 'warning');
+    assert.match(f.message, /expect it to overflow/);
+    assert.match(f.fix, /list-tabular/, 'the escalateTo fix still leads');
+    assert.equal(capRule(itemsSlide(8), 'capacity-autosplit'), undefined, 'nothing will be split at 16:9');
+    // overflow and crowd stay mutually exclusive per slide
+    assert.equal(capRule(itemsSlide(8), 'capacity-crowd'), undefined);
+  });
+  test('past hard at PORTRAIT → the split advisory instead, at info tier', () => {
+    const portrait = itemsSlide(8).replace('theme: indaco\n', 'theme: indaco\nsize: portrait\n');
+    assert.equal(capRule(portrait, 'capacity-overflow'), undefined);
+    const f = capRule(portrait, 'capacity-autosplit');
     assert.ok(f, 'expected a capacity-autosplit finding at 8 items');
     assert.equal(f.severity, 'info', 'advisory tier — a deliberate split must not red --strict');
-    assert.match(f.message, /auto-split will divide it/);
-    assert.equal(capRule(itemsSlide(8), 'capacity-overflow'), undefined, 'retired');
-    // advisory and crowd stay mutually exclusive per slide
-    assert.equal(capRule(itemsSlide(8), 'capacity-crowd'), undefined);
+    assert.match(f.message, /auto-split divides it/);
+    assert.equal(capRule(portrait, 'capacity-crowd'), undefined);
   });
   test('table layout counts the row axis', () => {
     const rows = (n) => `${FM}<!-- _class: compare-table -->\n\n## H\n\n| A | B |\n|---|---|\n` + Array.from({ length: n }, (_, i) => `| ${i} | x |\n`).join('');
     assert.equal(capRule(rows(6), 'capacity-crowd'), undefined); // 6 == soft, not past
     assert.ok(capRule(rows(7), 'capacity-crowd'), 'expected crowd at 7 rows');
-    assert.ok(capRule(rows(9), 'capacity-autosplit'), 'expected the split advisory at 9 rows');
+    assert.ok(capRule(rows(9), 'capacity-overflow'), 'expected the overflow warning at 9 rows');
   });
   test('no capacity data → rule is inert', () => {
     const out = core.lintTextWith(itemsSlide(20), { names: new Set(['cards-grid']), modifiers: new Set() });

@@ -87,12 +87,13 @@ in patch versions.
   intent anyone holds about a deck they want read. The evidence was blunter than the
   argument: across the whole repository, every deck that mentioned the directive set it
   **on** — six examples, four fixtures — and **nothing ever set it off**.
-  Splitting now runs at **every** `@size`, gated only on "overflows AND has a seam". The
-  landscape skip is gone with it: its stated rationale ("in a wide box, collapse + shed
-  resolve overflow before split is reached") is an assumption, and measured it is false —
-  four committed landscape decks and five component galleries carry a clipping slide.
-  Content with no seam still rings; that is the honest terminal and it is not a toggle
-  either.
+  Splitting now runs without being asked at every **presentation** `@size` — `square`,
+  `portrait`, `story`, `mobile` — on two conditions, both about the render: the slide
+  MEASURED as overflowing, and it has a seam. It does **not** run at a landscape `@size`:
+  `hd` and `4K` are the same box (`cqi` is width-relative), and that box is the one a deck
+  is authored in, so a slide that fits there is one its author composed and the engine does
+  not re-cut it. Content with no seam still rings, and so does an over-full landscape
+  slide; that is the honest terminal and it is not a toggle either.
   **What replaces it, at the right altitude.** A specimen that means to DEMONSTRATE
   overflow marks itself per-slide with `<!-- stress-slide -->` — the marker `lint-core`
   already read as "this slide EXISTS to show the upper limit", now honored by the
@@ -102,16 +103,35 @@ in patch versions.
   `autosplit: off` is an **error** (it asks for something the engine no longer offers and
   the deck will paginate anyway), `autosplit: on` a suggestion (it asks for what already
   happens). The ten decks and fixtures in this repo are cleaned up here.
-  Catalog cost, measured before landing: one component golden moves (`inventory`, which
-  was shipping a clipped slide) — `kpi` and `policy-recommendation` are marked specimens,
-  `wifi` is atomic, and `roadmap`'s table form has no seam.
+  Catalog cost, measured before landing: **nothing moves.** Landscape output is
+  byte-identical because the split move never reaches it, and at the presentation sizes one
+  of thirteen committed example decks changes — the one that was shipping a clipped slide.
 
-- **`capacity-overflow` lint is retired.** An over-`hard` slide is now DIVIDED rather
-  than left to overflow, so the warning described an outcome the engine no longer
-  produces and its branch was unreachable. The `capacity-autosplit` advisory replaces it
-  everywhere and reports what will actually happen — and is itself suppressed on a
-  `stress-slide`, since promising a split the splitter deliberately will not perform is
-  the same lie-to-the-author defect pointed the other way.
+- **The pre-render COUNT split pass is gone (`autoSplitDeck`).** The engine had two split
+  triggers, and the second one cut slides that fit. It counted each collection against
+  `capacity.hard` and handed every over-budget slide to the measured loop as a candidate —
+  deliberately including the ones that measured no overflow — so twelve one-line checklist
+  items at `size: portrait` came out as **3 pages** where they now come out as **1**, having
+  occupied about a third of the canvas all along. `capacity` is an editorial budget measured
+  against a synthetic probe deck (see `2026-07-28-capacity-basis.md`), not a fit predictor;
+  its one consumer is `lint:deck`. The splitter now reads it for **pacing only** — how many
+  members ride a page once the measured pass has ordered a cut.
+
+### Changed
+
+- **`capacity-overflow` lint is un-retired, and now fires exactly where nothing will be
+  split**: at a landscape `@size`, where the SPLIT move does not run. Its fix text names the
+  non-split outright — *"a landscape @size does not paginate"* — so an author is never left
+  wondering why the engine stayed quiet. At `square`/`tall`/`strip` the `capacity-autosplit`
+  advisory takes over, and both are suppressed on a `<!-- stress-slide -->` specimen, which
+  overflows on purpose and is never divided.
+
+- **`capacity-autosplit` says only what it knows.** It used to promise "auto-split will
+  divide it into 4 pages of 4". Two things were wrong once the count stopped forcing a cut:
+  a slide that fits is not divided at all, and when one is, `resplitDoc` paces at the tighter
+  of the authored target and the measured overflow ratio, so the run can be longer than the
+  manifest implies. It now reads "**if it does not fit** the tall box … into 4 **or more**
+  pages of 4".
 
 ### Fixed
 
@@ -126,12 +146,12 @@ in patch versions.
 
 ### Changed
 
-- **Auto-split is ON by default for every non-landscape deck.** `autosplit: on` was
-  opt-in, and `lattice-emulator.js` said why in its own comment: *"Default-on is a later
-  decision, once the catalog is audited."* That audit is done. Rendering one gallery slide
-  per family-reflowing component at every registered @size, split off against split on,
-  counting **components** that still clip (page counts shift once a slide splits, so they
-  are not comparable):
+- **Auto-split runs unasked at every non-landscape @size.** `autosplit: on` was opt-in, and
+  `lattice-emulator.js` said why in its own comment: *"Default-on is a later decision, once
+  the catalog is audited."* That audit is done; the directive itself is retired above, so
+  this is what the catalog evidence bought. Rendering one gallery slide per family-reflowing
+  component at every registered @size, split off against split on, counting **components**
+  that still clip (page counts shift once a slide splits, so they are not comparable):
 
   | @size | split off | split on |
   |---|---|---|
@@ -151,20 +171,12 @@ in patch versions.
   made the ring the answer for any author who had not heard of the flag, so the engine's
   stated policy and its out-of-the-box behavior disagreed. A cover, an atomic body and a
   carried continuation signal is what the design says should happen, so it now happens
-  without being asked for. **`autosplit: off` opts out**, for decks that demonstrate
-  overflow deliberately.
+  without being asked for. A slide that demonstrates overflow deliberately marks itself
+  `<!-- stress-slide -->`; measurement rigs pass `--no-split`.
 
   Catalog churn is almost nil: of the 13 committed non-landscape example decks, **12 are
   byte-unchanged**. The one that moves is `examples/reflow-legal.md`, which was shipping a
   **clipped** slide in its committed PDF and is now 11 clean pages.
-
-  The directive also stops being two regexes in two files. `lib/core/autosplit-flag.js` is
-  the one reader, shared by the engine and by `lint-core` — they would have disagreed the
-  moment the default flipped, and a linter still saying "opt-in" would have told authors
-  their over-capacity slide merely overflows. Two measurement rigs that relied on the old
-  default now declare `autosplit: off` explicitly: the overflow oracle's sweep (it measures
-  the un-split terminal on purpose) and `calibrate-core`'s graded deck (page N must stay
-  step N).
 
 ### Fixed
 
@@ -174,10 +186,8 @@ in patch versions.
   reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six steps want **1291px
   in a 972px track** with `scrollHeight === clientHeight` — zero vertical overflow. Step 06
   rendered entirely off the frame and step 05 was sliced mid-word, on a component declaring
-  `capacity.perPage: 1` in a deck with `autosplit: on`, which pagination fixes completely.
-  Doubly silent: over `capacity.hard` the static pass *did* defer the slide, but a deferred
-  candidate is dropped when the slide is already in the measured list — and it was, carrying
-  `canSplit: false` — so it fell between the two passes while `lint:deck`'s
+  `capacity.perPage: 1`, which pagination fixes completely. Silent, too: the slide reached the
+  measured list carrying `canSplit: false`, so nothing cut it while `lint:deck`'s
   `capacity-autosplit` advisory promised the author a split.
   The old gate was right about its own case (a too-wide `<table>` gains nothing from
   row-splitting: its width comes from its columns) and too broad. The test is now **"does
