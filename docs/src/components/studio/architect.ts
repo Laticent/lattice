@@ -1535,6 +1535,21 @@ export async function connectOpenRouter(): Promise<void> {
 }
 
 /** On return from OAuth (`?code=`), exchange the code and clean the URL. */
+/**
+ * The OAuth return URL with `code` removed and everything else intact.
+ *
+ * Exported and pure so it can be tested for real. An earlier version of this logic lived
+ * inline, and the only test of it re-implemented the same four lines in the test file — so
+ * deleting the `code` removal from the real code changed nothing and the suite stayed green.
+ * A test of a copy is not a test.
+ */
+export function scrubOAuthCode(pathname: string, search: string, hash: string): string {
+	const params = new URLSearchParams(search);
+	params.delete('code');
+	const qs = params.toString();
+	return pathname + (qs ? `?${qs}` : '') + hash;
+}
+
 export async function resumePendingAuth(): Promise<boolean> {
 	const m = await architectModel();
 	if (!m) return false;
@@ -1545,7 +1560,23 @@ export async function resumePendingAuth(): Promise<boolean> {
 	} catch {
 		return false;
 	}
-	history.replaceState(null, '', location.href.split('?')[0]);
+	// Scrub ONLY the OAuth code, and carry `history.state` through.
+	//
+	// BOTH HALVES ARE DEFENSIVE. Say so plainly, because two earlier versions of this comment
+	// claimed otherwise. The caller runs this from an effect keyed on a `useCallback([])`, so
+	// it fires once on mount, and it early-returns unless `?code=` is present — which only
+	// happens on the redirect back from OpenRouter, a fresh navigation. overlay-back pushes
+	// its sentinel when a panel opens, strictly later. So there is no live marker here to wipe
+	// and no observable bug being fixed; what changes is that the invariant now holds by
+	// construction instead of by the order two unrelated effects happen to run in.
+	//
+	// The URL half is defensive, and its first justification was WRONG — worth recording so
+	// nobody re-derives it. It was written as "the old `location.href.split('?')[0]` silently
+	// ate `?deck=<id>`", but `connectOpenRouter` above already registers the callback as
+	// `location.href.split('?')[0]`, so the query is gone before the redirect and `?code=…` is
+	// all that ever comes back. Rebuilding from URLSearchParams costs nothing and stops the
+	// next parameter anyone adds from being collateral, but it fixes no observed bug today.
+	history.replaceState(history.state, '', scrubOAuthCode(location.pathname, location.search, location.hash));
 	return true;
 }
 
