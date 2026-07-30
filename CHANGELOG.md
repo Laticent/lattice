@@ -308,6 +308,20 @@ in patch versions.
   pins all of it, including the cascade PRECONDITION nothing checked — `:is()` takes the
   specificity of its most specific arm, so distributing is only neutral when the arms are equally
   specific, and every leading head in engine CSS now has to be.
+- **The markdown-it parser is reused across renders instead of rebuilt.** `buildMd` is a pure
+  function of the deck's directive base, and it is not cheap — a fresh markdown-it, a
+  geometry/orientation/family resolution, the slide pipeline, the background-image and math plugins,
+  the Mermaid highlight grammar and 15 plugins — and it ran on **every** render. Memoized on one
+  entry keyed on the full input set. Measured impact, honestly scoped: it is a fixed ~0.3ms saving
+  per render (Node, warm), so it is large *proportionally* on a small render — a one-slide render
+  goes **0.44ms → 0.15ms (2.9×)** — and small on a large one: on the real Studio at 4× CPU the
+  40-slide preview render moved only 20.2→18.7ms (prose) and 57.1→53.4ms (gallery), because there
+  the fixed cost is amortized across 40 slides. It therefore pays most on the paths that render one
+  slide at a time, and its value compounds with any change that shrinks the render rather than
+  substituting for it. Guarded by byte-identity across every committed deck plus a cold-vs-warm
+  engine comparison (`test/unit/engine/parser-memo.test.js`) — a guard that was **unwritable**
+  before the determinism fix below.
+
 - **`render(deck)` was not a pure function of its input — the same deck rendered twice in one
   process produced different bytes.** Several chart kernels mint SVG `<defs>` ids (pie wedge and
   gantt slot gradients, radar area fills, quadrant tints, legend spines) from a sequence whose
