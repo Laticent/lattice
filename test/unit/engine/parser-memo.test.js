@@ -11,16 +11,17 @@ const ROOT = path.join(__dirname, '../../..');
 //
 // `renderHtml` reuses its markdown-it instance across renders instead of rebuilding it (a fresh
 // parser, geometry resolution, the slide pipeline, math, the Mermaid highlight grammar and 15
-// plugins) every time. That is ~0.3ms of a 0.44ms one-slide render, and it is the only lever that
-// makes the preview's typing path faster than it was rather than merely level: typing must
-// re-render the edited slide, so no cache can do less work than one render — the only way to win
-// is to make that render cheaper.
+// plugins) every time. It is a roughly fixed cost, so it is worth 17% of a one-slide render, 3% of a
+// 40-slide one and nothing on a 117-slide one (measured; see the note in lib/engine/index.js). That
+// makes it the only lever that can put the preview's typing path BELOW where it was rather than
+// level with it: typing must re-render the edited slide, so no cache can do less work than one
+// render — the only way to win is to make that render cheaper.
 //
 // The risk is precisely one thing: state surviving inside the instance between renders. These
-// tests are the byte-comparison that would catch it. They are only meaningful because the engine
-// is now deterministic (render-scoped `<defs>` id sequences — see test/unit/core/render-ids.test.js);
-// against the previous non-deterministic renderer this whole file would have failed spuriously,
-// and the tempting repair would have been a normalizer that also hid real leakage.
+// tests are the byte-comparison that would catch it, and they are plain byte comparisons only
+// because the engine is now deterministic (render-scoped `<defs>` id sequences — see
+// test/unit/core/render-ids.test.js). Against the previous renderer this file would have needed a
+// normalizer over the drifting ids, which would have hidden real leakage of the same shape.
 //
 // A leak would show up here as a SECOND render differing from the first, or as a render differing
 // from one produced by a fresh engine instance (which has its own, unpopulated memo).
@@ -103,4 +104,130 @@ test('parser memo: interleaving two themes does not leak one into the other', ()
 	const again = e.render(src, 'indaco');
 	assert.equal(first.html, again.html, 'a theme round-trip changed the html — the memo key misses the theme');
 	assert.equal(first.css, again.css, 'a theme round-trip changed the css');
+});
+
+test('parser memo: re-registering a theme whose @size changed does NOT serve a stale parser', () => {
+	// THE REGRESSION THE ADVERSARIAL TRIO FOUND. `buildMd` resolves geometryFor(theme, size) and
+	// bakes the resulting orientation + family into the slide pipeline. Live surfaces re-register
+	// themes on EVERY render (addThemes overwrites by name so an edited theme takes effect at once),
+	// so a key covering only `globalBase` hit the memo after a theme's `@size` changed and served a
+	// parser built against the OLD geometry — width/height updated while data-orientation /
+	// data-family did not, silently disabling every family-keyed reflow rule in the cascade.
+	const { createEngine } = require('../../../lib/engine/index.js');
+	const e = createEngine();
+	e.addThemes([fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8')]);
+	const landscape = '/*! @theme flip */\n/* @size box 1280px 720px */\n:root{--x:1}';
+	const portrait = '/*! @theme flip */\n/* @size box 1080px 1920px */\n:root{--x:1}';
+	const deck = '---\ntheme: flip\nsize: box\n---\n\n# One\n\n---\n\n## Two\n';
+
+	e.addThemes([landscape]);
+	const wide = e.render(deck, 'flip');
+	e.addThemes([portrait]); // the author edits the theme's @size and it is re-registered
+	const tall = e.render(deck, 'flip');
+
+	// Fixture guard: if `@size` stopped resolving, everything below passes vacuously.
+	assert.notEqual(`${tall.width}x${tall.height}`, `${wide.width}x${wide.height}`, 'fixture broken: the re-registered @size did not change the resolved geometry');
+	// The real assertion: a fresh engine given the portrait theme is the reference.
+	const ref = createEngine();
+	ref.addThemes([fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8'), portrait]);
+	assert.equal(tall.html, ref.render(deck, 'flip').html, 'a re-registered theme served a stale parser — the memo key is missing the resolved geometry');
+});
+
+test('parser memo: registering the deck theme AFTER a first render does NOT serve a stale parser', () => {
+	// The other half of the same staleness class, and the one a live host hits on startup: the first
+	// render happens before the theme lands (unknown theme → the HD default geometry gets baked), the
+	// theme arrives, and the second render must pick up the real box. Found by the red team.
+	const { createEngine } = require('../../../lib/engine/index.js');
+	const base = fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8');
+	const portrait = '/*! @theme late */\n/* @size box 1080px 1920px */\n:root{--x:1}';
+	const deck = '---\ntheme: late\nsize: box\n---\n\n# One\n\n---\n\n## Two\n';
+
+	const e = createEngine();
+	e.addThemes([base]);
+	e.render(deck, 'late'); // theme not registered yet
+	e.addThemes([portrait]);
+	const after = e.render(deck, 'late');
+
+	const ref = createEngine();
+	ref.addThemes([base, portrait]);
+	const want = ref.render(deck, 'late');
+	assert.match(want.html, /data-orientation="portrait"/, 'fixture broken: the reference render is not portrait');
+	assert.equal(after.html, want.html, 'a late-registered theme served a parser built for the pre-registration geometry');
+});
+
+// ── Counting how many parsers actually get built ────────────────────────────────────────────
+// Two of the tests below assert about memo HITS and MISSES, which no output byte reveals: a hit and
+// a miss render identically (that is the point of the memo). So they count `new MarkdownIt` through
+// a subclass installed in the module cache before a fresh engine is required. Without this, "the
+// parser stayed warm" is unassertable and "112 decks went through one parser" is unverifiable —
+// which is how the cross-document test below came to be vacuous for ~96 of them.
+function countingEngine() {
+	const mdPath = require.resolve('markdown-it');
+	const real = require('markdown-it');
+	const state = { builds: 0 };
+	class Counting extends real {
+		constructor(...a) {
+			super(...a);
+			state.builds++;
+		}
+	}
+	const saved = require.cache[mdPath].exports;
+	require.cache[mdPath].exports = Counting;
+	let e;
+	try {
+		const { createEngine } = freshEngine();
+		e = createEngine();
+	} finally {
+		require.cache[mdPath].exports = saved;
+	}
+	return { engine: e, state };
+}
+
+test('parser memo: re-registering byte-identical theme css keeps the parser warm', () => {
+	// WHY THIS IS A TEST AND NOT AN OPTIMIZATION NOTE. The live-theme surfaces
+	// (single-slide-render.ts, theme-studio.js) call `addThemes` with the SAME css before EVERY
+	// render, deliberately — a `hasTheme()` guard would keep rendering stale CSS after an edit. So a
+	// memo key that invalidated on store MUTATION (a revision counter — the first repair attempted
+	// here) would miss 100% of the time on exactly the surface the memo exists for, handing back
+	// ~2ms of parser rebuild per keystroke. Keying on the RESOLVED GEOMETRY — the only thing
+	// `buildMd` reads from the store — invalidates precisely when the baked stamps would change.
+	const { engine: e, state } = countingEngine();
+	const base = fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8');
+	const css = '/*! @theme warm */\n/* @size box 1280px 720px */\n:root{--x:1}';
+	const deck = '---\ntheme: warm\nsize: box\n---\n\n# One\n';
+	e.addThemes([base, css]);
+	e.render(deck, 'warm');
+	const afterFirst = state.builds;
+	assert.ok(afterFirst > 0, 'fixture broken: the counting subclass never saw a construction');
+	for (let i = 0; i < 5; i++) {
+		e.addThemes([css]); // exactly what a live editing host does every render
+		e.render(deck, 'warm');
+	}
+	assert.equal(state.builds, afterFirst, 'a no-op theme re-registration rebuilt the parser — the memo key is invalidating on mutation rather than on geometry');
+
+	// And the converse, so this is not just "the key ignores the store": a real geometry change must
+	// still rebuild.
+	e.addThemes(['/*! @theme warm */\n/* @size box 1080px 1920px */\n:root{--x:1}']);
+	e.render(deck, 'warm');
+	assert.ok(state.builds > afterFirst, 'a changed @size did not rebuild the parser');
+});
+
+test('parser memo: many DIFFERENT documents through ONE parser match cold renders', () => {
+	// The cross-document leak test, made non-vacuous. The obvious version ("render every deck
+	// through one warm engine") barely tests reuse at all: the memo key includes the global
+	// directives, so 112 committed decks produce ~100 distinct keys and the memo is REBUILT for
+	// nearly every one — the comparison then proves "same deck twice", not "deck A then deck B on
+	// one parser". Stripping the front matter collapses them onto a single key, which the build
+	// counter below asserts rather than assumes. Found by the red team.
+	const FM = /^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n)?/;
+	const bodies = DECKS().map(([name, src]) => [name, src.replace(FM, '')]);
+	const { engine: e, state } = countingEngine();
+	const drifted = [];
+	for (const [name, src] of bodies) {
+		const warm = e.render(src, 'lattice').html;
+		const cold = freshEngine().render(src, 'lattice').html;
+		if (warm !== cold) drifted.push(name);
+	}
+	assert.deepEqual(drifted, [], `documents where a reused parser differs from a cold one: ${drifted.join(', ')}`);
+	assert.equal(state.builds, 1, `expected all ${bodies.length} documents to share one parser; it was rebuilt ${state.builds} times, so this test did not exercise reuse`);
 });

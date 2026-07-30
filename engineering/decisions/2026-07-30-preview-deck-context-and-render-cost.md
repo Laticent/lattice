@@ -4,17 +4,21 @@ summary: >
   Every Studio preview printed "1" as the page number because the engine numbers a slide by its
   ordinal position among the sections of the document it parses, and the previews handed it one
   sliced-out slide. The number was the only symptom loud enough to notice: the same slice was also
-  dropping inherited running-global directives and the deck-scoped progress rail. Fixing it by
-  rendering the deck and displaying one section made navigation faster (10.2 -> 5.8ms) and typing
-  slower (9.0 -> 20.2ms prose, 10.6 -> 57.1ms gallery), because the preview's cost now scales with
-  the whole deck's content rather than the shown slide's. Along the way: render() turned out not to
-  be a pure function of its input (module-level chart <defs> counters, 48 of 112 decks differing on
-  a second render), which is the precondition for any render cache's incremental-equals-whole guard;
-  the markdown-it parser is now reused across renders (a fixed ~0.3ms, large on a one-slide render,
-  negligible on a 40-slide one); and structural gating is shown viable against 901 slides in 109
-  decks, ~99% mechanically reconcilable with a ~1% bail set. Memory: +1.4MB settled, lower growth
-  under use, 6.6MB cheaper for the overview grid, and flat under deck churn. Also records three
-  claims of mine that the measurements refuted, and four off-path defects logged not fixed.
+  dropping inherited running-global directives and the deck-scoped progress rail. Rendering the deck
+  and displaying one section fixes all three but makes the preview's cost scale with the whole deck,
+  so it is GATED: a deck with no paginate / running-global directive / divider / auto-glossary keeps
+  the cheap slice path. Measured against origin/main on the real Studio at 4x CPU, the shipped default
+  deck is faster on both axes (navigation 10.5 -> 7.9ms, typing 9.1 -> 7.9ms); a deck that opts INTO
+  pagination gets much faster navigation (11.8 -> 6.9ms) and slower typing (10.4 -> 46.3ms gallery,
+  9.8 -> 17.0ms prose) — a real regression on the opt-in path, closed only by step 3. Along the way:
+  render() turned out not to be a pure function of its input (module-level chart <defs> counters, 24
+  of 112 decks differing on a second render), fixed with a render-scoped kernel plus an anti-squat
+  prefix for the hole determinism itself opened; the markdown-it parser is reused across renders,
+  keyed on the resolved theme geometry (17% of a one-slide render, nothing on a 117-slide one); and
+  structural gating is shown viable against 902 slides in 109 decks, 96.5% byte-equal after a
+  mechanical cascade with a 2-slide bail set. Memory: +1.8MB settled, parity everywhere else. Also
+  records six claims of mine that the measurements refuted, and five off-path defects logged not
+  fixed.
 ---
 
 # Deck-context preview renders — correctness, cost, and what the measurements actually said
@@ -22,9 +26,12 @@ summary: >
 **Status:** steps 1–2 landed on `claude/studio-preview-pagination-8tpodq`; step 3 (structural
 gating) designed and shown viable, not built. **Date:** 2026-07-30.
 
-This note exists because the investigation produced several findings that are more valuable than
-the patch that prompted them, and because three of my own claims along the way were wrong in ways
-worth recording so nobody re-derives them.
+This note exists because the investigation produced several findings that are more valuable than the
+patch that prompted them, and because a series of my own claims along the way were wrong in ways worth
+recording so nobody re-derives them. Six are called out in place: a Node-based perf table, "typing is
+unmeasurable", the parser memo's headline number, the structural-gating residual, and two memory
+"wins" that were instrument artifacts. Each was caught by a measurement or a review pass, not by
+re-reading my own reasoning, which is the pattern worth keeping.
 
 ---
 
@@ -58,8 +65,10 @@ Those counts diverge on decks that ship here:
 | `examples/split-headings.md` | 1 | 7 | `split: headings` divides at every heading |
 
 Plus splitter disagreement: the engine's `splitOnHr` breaks on **any** markdown-it `hr` (`***`,
-`___`, `- - -`, `---` with trailing spaces), while the Studio's `SEP_RE` matches only a bare
-`\n---\n`. The result was the preview painting a *different slide* than the one selected — worse
+`___`, `- - -`, `---` with trailing spaces), while the Studio's `SEP_RE` (`/\n-{3,}\n/`,
+`docs/src/components/studio/lint.ts`) matches only a run of three-or-more hyphens alone on a line
+with nothing after it — so `***`, `___`, `- - -` and a trailing space all split for the engine and
+not for the Studio. The result was the preview painting a *different slide* than the one selected — worse
 than the wrong number, because a wrong number is visibly wrong and a wrong slide is plausibly
 wrong.
 
@@ -71,41 +80,77 @@ performance work, because it is the defect generator.
 
 Several chart kernels mint SVG `<defs>` ids from sequences whose purpose is uniqueness *within* a
 document. They were **module**-level — process-scoped, not render-scoped — so they climbed across
-calls: **48 of 112 committed decks produced different bytes on a second render in one process**
+calls: **24 of 112 committed decks produced different bytes on a second render in one process**
 (`gantt-fill-pass-1` → `-2`, `pie-wedge-1` → `-6`, `radar-area-1` → `-4`). Nothing broke visibly,
 because an id and the references to it are minted together. One comment rested the design on "one
 Node process per deck", which stopped being true when the docs site began rendering many times per
 page.
 
 Fixed by one render-scoped kernel (`lib/core/render-ids.js`) reset per render. **Exported bytes
-unchanged**, verified by hashing the first render of 31 decks in fresh processes before and after.
+unchanged**, verified by hashing the first render of **all 112 committed decks** in a fresh process
+each, in a worktree at `origin/main` and in this tree: 112 of 112 identical
+(`.scratch/hash-first-render.sh`). That is the CLI/export case by construction — one render per
+process — so the check is the claim, not a proxy for it.
 
-**Why it is load-bearing rather than tidy:** byte-determinism is the *precondition* for caching the
-render at all. `2026-07-15-incremental-per-slide-render-cache.md` guards its whole design with an
-`incrementalRender === wholeRender` property test, and that test cannot be written against a
-non-deterministic renderer — it fails spuriously, and the obvious repair is a normalizer that also
-hides the drift it exists to catch. Every equivalence measurement in §5 below became possible only
-after this fix.
+**Determinism has a price, and it needed a guard.** A predictable id is a squattable id: a deck can
+declare `<radialGradient id="pie-wedge-1">` in raw HTML on an earlier slide, and SVG's
+first-def-in-tree-order-wins rule then paints the real chart's wedges with the author's gradient
+while its legend still reads correctly — a chart that lies. This was *already* possible, but only on
+a process's FIRST render; from the second on, the climbing module counter moved the real ids aside by
+accident. On the multi-render surfaces this change exists for, that accidental escape is gone, so the
+collision became permanent. `resetRenderIds(source)` now probes the source and, when it finds a
+minting family named there, shifts the whole namespace behind `lat-r<N>-` with N chosen as
+`max(existing) + 1` — free by construction rather than by a loop that might return its own last
+untested candidate, which is how `svgA11yNames.uniquePrefix` was broken once before. The probe reads
+the DECODED id space too, because `id="pie&#x2d;wedge-1"` parses to exactly the id about to be
+minted. No deck that does not name a family is affected, which is every committed deck — hence the
+112-of-112 above. Found by the red team.
 
-## 4. The performance model — and three claims I got wrong
+**Why it is load-bearing rather than tidy:** it is what lets a render cache be *guarded cheaply*.
+`2026-07-15-incremental-per-slide-render-cache.md` guards its whole design with an
+`incrementalRender === wholeRender` property test. That test is writable against a non-deterministic
+renderer, but only by normalizing the drifting ids away first — and a normalizer broad enough to hide
+this drift also hides real drift of the same shape, which is what the guard exists to catch. With
+determinism the guard is a plain byte comparison. The §5 equivalence measurements below are that
+comparison, and they are the concrete payoff: they were not meaningfully runnable before.
 
-**The cost axis is CONTENT, not slide count.** `main`'s typing barely moves between a 40-slide
-prose deck and 40 gallery slides (9.0 vs 10.6ms) because it rendered one slide. Deck context makes
-the preview's cost scale with the **whole deck's content**: 20→57ms at the same slide count.
+## 4. The performance model — and the claims I got wrong
 
-Measured on the real built Studio at 4× CPU by `docs/e2e/studio-preview-perf.spec.ts` (committed,
-tagged `@perf`, in no project's grep so it never gates a PR), TOTAL p50:
+**The cost axis is CONTENT, not slide count.** `main` renders one slide, so its typing barely moves
+between a 40-slide prose deck and 40 gallery slides (9.8 vs 10.4ms). A deck-context render makes the
+preview's cost scale with the **whole deck's content**, which is where the 4× spread comes from.
 
-| interaction | deck (40 slides) | main | deck context |
-|---|---|---|---|
-| navigation | prose | 10.2ms | **5.8ms** |
-| navigation | gallery | 11.7ms | **6.7ms** |
-| typing | prose | 9.0ms | 20.2ms |
-| typing | gallery | 10.6ms | 57.1ms |
+**So the fix is a gate, not a faster render.** A preview only needs the deck when the deck
+contributes something to the shown slide: `paginate`, a running-global directive comment, a divider
+that drives the progress rail, or `glossary: auto`. `needsDeckContext` tests exactly that and renders
+the slice otherwise — and the slice path is now *cheaper than it was on `main`*, because the parser
+memo makes a one-slide render cheaper (§4, wrong claim 3). **`paginate` is default-OFF and none of
+the three shipped Studio decks sets it**, so the gated path is the common case, not an edge one.
 
-Navigation is *faster* than before, because the previous code re-rendered a slide every time and a
-single-entry whole-deck memo makes navigation a cache hit. Typing is worse, and the memo cannot
-reach it: the markdown changed, so it misses by construction.
+Measured on the real built Studio at 4× CPU by `docs/e2e/studio-preview-perf.spec.ts` — the SAME
+spec run against a worktree at `origin/main` and against this branch, serial, one worker (three
+throttled Chromiums in parallel workers inflate every number). TOTAL p50, 40 slides:
+
+| deck | interaction | `main` | this branch | |
+|---|---|---|---|---|
+| **default** (no `paginate` — the shipped shape) | navigation | 10.5ms | **7.9ms** | **−25%** |
+| **default** | typing | 9.1ms | **7.9ms** | **−13%** |
+| prose, `paginate: true` | navigation | 10.7ms | **6.0ms** | −44% |
+| prose, `paginate: true` | typing | 9.8ms | 17.0ms | **+73%** |
+| gallery, `paginate: true` | navigation | 11.8ms | **6.9ms** | −42% |
+| gallery, `paginate: true` | typing | 10.4ms | 46.3ms | **+345%** |
+
+Read it as two regimes:
+
+- **The default deck is faster on both axes** — the gate declines the deck render and the parser memo
+  makes the remaining slice render cheaper than `main`'s was. This is the case the product ships.
+- **A deck that opts INTO pagination pays for its own correctness on the typing path.** Navigation
+  gets much faster (a whole-deck memo turns every rail click into a hit); typing cannot be helped by
+  a memo, because the markdown changed and it misses by construction. 46ms on a 40-slide gallery deck
+  is over `createFrameScheduler`'s 50ms heavy threshold's doorstep and is the honest cost of showing a
+  true page number today. **Closing it is step 3 (§5), which is designed and not built.** Until then,
+  paginated heavy decks are slower to type in than they were, and that is a real regression stated
+  plainly rather than averaged away.
 
 **Wrong claim 1 — a Node-based table.** An earlier version of these numbers came from a harness
 that was warm-up-contaminated (ascending sizes, one warm-up — producing a non-monotonic 40-vs-60
@@ -123,11 +168,24 @@ swallow the `---` separators and merge every slide. **Four throwaway harnesses w
 reading that one file.**
 
 **Wrong claim 3 — the parser memo as the fix.** `buildMd` rebuilds a markdown-it, geometry
-resolution, the slide pipeline, math, the Mermaid grammar and 15 plugins on *every* render. That is
-a fixed ~0.3ms, so memoizing it is large proportionally on a small render (one slide: 0.44 →
-0.15ms, 2.9×) and nearly nothing on a large one (the Studio's 40-slide render: 20.2 → 18.7ms). I
-presented the 2.9× as a preview number. **Its value is unlocked *by* structural gating, not
-independent of it.**
+resolution, the slide pipeline, math, the Mermaid grammar and 15 plugins on *every* render. It is a
+roughly FIXED cost, so memoizing it matters in inverse proportion to deck size. Measured by forcing
+a miss without changing the render — alternate two theme names of identical geometry, so the key
+moves and nothing else does (`.scratch/memo-saving.mjs`, Node, 1× CPU, p50 of 80 renders):
+
+| deck | warm (hit) | forced miss | memo saves | share of render |
+|---|---|---|---|---|
+| 1 slide | 1.73ms | 2.07ms | 0.35ms | 16.6% |
+| 10 slides | 2.27ms | 2.47ms | 0.20ms | 8.1% |
+| 40 slides, prose | 3.64ms | 3.74ms | 0.11ms | 2.8% |
+| 117 slides, gallery | 44.44ms | 43.47ms | — | within noise |
+
+An earlier version of this note put the one-slide win at "0.44 → 0.15ms, 2.9×" and the 40-slide one
+at "20.2 → 18.7ms". Neither is supported: the first came from a bare engine with no theme
+registered, and the second attached a Node-measured delta to a browser number it was never measured
+against. **The memo's value is unlocked *by* structural gating, not independent of it** — it is worth
+16.6% of a one-slide render and nothing on a whole-deck one, and structural gating is what makes the
+render one slide.
 
 ## 5. Structural gating (step 3) — viable, with evidence
 
@@ -145,63 +203,115 @@ So: re-render only slide *k*, with a synthesized directive prelude (a **0.033ms*
 117 slides — effectively free), and reuse the cached position.
 
 Tested for byte-equivalence — one-slide render vs the matching section of a whole-deck render —
-across **901 slides in 109 decks**:
+across **902 slides in 109 decks** (2 decks excluded: they are the 1→N expanders from §2, where
+there is no one-to-one slide↔section pairing to compare). `.scratch/equiv-classify.mjs`.
 
-| class | share | resolution |
+Only **32 slides (3.5%)** are byte-exact from a synthesized directive prelude alone. The rest need a
+mechanical repair, applied as a cascade — each is O(section bytes) over a string the caller already
+holds, and the count is "slides needing this normalizer", so a slide appears in several rows:
+
+| repair | slides | resolution |
 |---|---|---|
-| pagination attrs + positional `id` | ~76% | re-stamp from the cached position |
-| `<defs>` id sequences | ~12% | **seed** the sequences — a direct payoff of §3 |
-| progress rail absent | ~14% | inject from the deck-wide divider count |
-| **genuinely semantic** | **~10 of 901 (~1%)** | bail to whole-deck |
+| pagination attrs + positional `id` | 870 | re-stamp from the cached position |
+| progress rail absent | 130 | inject from the deck-wide divider count |
+| a11y `<svg>` title/desc ids | 88 | re-stamp — `svgA11yNames` already probes and re-prefixes |
+| chart `<defs>` id sequences | 44 | **seed** the sequences — a direct payoff of §3 |
+| `cat-N` categorical cycle | 6 | re-stamp — a deck-scoped counter, same class as the page number |
 
-The ~1% is divider slides and the watermark glyph — both driven by running divider counts, both
-visible in the markdown, so both cheaply detectable for a bail. **~99% is mechanically
-reconcilable.** Because the id sequences are now render-scoped and resettable, `resetRenderIds()`
-can become `seedRenderIds(offsets)` so a slice render emits deck-correct ids directly rather than
-needing a post-hoc rewrite.
+**870 of 902 (96.5%) are byte-equal after the cascade. 30 (3.3%) differ only in whitespace between
+block tags. 2 (0.2%) must bail** — both watermark glyphs, driven by the running divider count, both
+visible in the markdown and so cheaply detectable.
+
+**Two corrections to how this was measured, because the first two passes were both wrong.** The
+version of this note written before review claimed "~99% reconcilable, ~1% bail" from a classifier
+that *listed* a `<defs>` class it never actually normalized — so it was crediting id drift as
+reconciled and its residual bucket was unexamined. Re-measured properly it read 92.6% / 7.4% with 58
+slides unattributed. Those 58 turned out to be two bugs in the probe itself, not engine properties:
+
+- **32** — the prelude synthesizer treated *any* non-`_` comment `name: value` as a running global,
+  so it injected slide 0's `<!-- describe: … -->` into every later slide. `describe:` is slide-local
+  and consumed (`lib/authoring/notes-core.js`); it is not in `KNOWN_DIRECTIVES` at all. Fixed by
+  using the engine's own directive set.
+- **6** — the `cat-N` categorical cycle, a genuine deck-scoped running counter, but re-stampable
+  from position rather than semantic. It is now a cascade row, which is also what removed the 7
+  "divider slide" bails: they were `cat-N` differences.
+
+The **30 whitespace-only** cases are the probe's remaining artifact — injecting a prelude perturbs
+markdown block adjacency, so the body re-parses tight-vs-loose. They are reported separately rather
+than folded into either side: a real implementation has to preserve adjacency, and step 3 needs an
+equivalence harness that does. The number to carry forward is therefore **0.2% genuine bail, with a
+~3% band still owed to a better instrument** — not the ~1% originally asserted, and not the 7.4% the
+intermediate pass produced.
+
+Because the id sequences are now render-scoped and resettable, `resetRenderIds()` can become
+`seedRenderIds(offsets)` so a slice render emits deck-correct ids directly rather than needing a
+post-hoc rewrite.
 
 **Ceiling, stated plainly:** typing must re-render the edited slide, so no design does less work
 than one slide render. Structural gating reaches **parity** with `main`, not better; the parser
-memo is the only thing that goes below that line, and it is worth ~0.3ms. If parity is not
+memo is the only thing that goes below that line, and on a one-slide render it is worth 0.35ms
+(17%). If parity is not
 acceptable, the different-in-kind option is moving the render off the main thread (a worker), which
 decouples typing latency from render cost instead of shrinking it.
 
 ## 6. Memory cost
 
-Measured in the real Studio with GC forced before each reading, 40-slide gallery deck:
+**The instrument had to be rebuilt before any of this was worth reading.** The first version answered
+three questions it could not see:
 
-| | main | deck context | Δ |
+- it drove `page.reload()` between decks to test the memo's boundedness — but a reload destroys the JS
+  realm and recreates the memo empty, so its flat heap proved nothing;
+- the overview-grid delta spanned those reloads, subtracting two different realms;
+- it used `Runtime.getHeapUsage`, which reports the **top frame's JS heap only**. Every preview is a
+  same-origin `srcdoc` iframe with its own realm, so the grid's 22 frames — the thing being measured —
+  were invisible to it.
+
+The rebuilt instrument (`.scratch/mem-browser2.mjs`) serves the site cross-origin-isolated and uses
+`performance.measureUserAgentSpecificMemory()`, which reports total bytes with a per-realm breakdown;
+it prints the realm count so the iframes are visible rather than assumed (4 realms at rest, 25 with
+the grid open). Everything after first paint happens in ONE realm, so every delta is a real delta.
+Three interleaved runs per side, GC forced before each reading, 40-slide gallery deck, same-machine:
+
+| | `main` (3 runs) | this branch (3 runs) | verdict |
 |---|---|---|---|
-| settled after first paint | 17.18MB | 18.60MB | **+1.4MB** |
-| growth over 40 navigations | +7.30MB | +6.53MB | −0.77MB |
-| overview grid (22 frames) | +20.00MB | +13.40MB | **−6.6MB** |
-| deck-churn, 6 alternating decks | — | 18.53 → 18.55MB | **+0.02MB** |
+| settled after first paint | 24.68 / 24.66 / 24.68MB | 26.47 / 26.51 / 26.32MB | **+1.8MB**, well outside noise |
+| growth over 40 navigations | +3.15 / +3.42 / +2.89MB | +3.30 / +3.37 / +3.53MB | **parity** (within-side spread is larger than the gap) |
+| overview grid, 22 live frames | +27.71 / +27.62 / +28.00MB | +25.59 / +27.23 / +27.25MB | **parity** |
 
-Node-side retention: the parser memo holds **0.44MB** (one markdown-it + 15 plugins); a deck memo
-entry is **48KB** at 40 slides and **285KB** at 117; a whole-deck render allocates ~0.55MB of
-transient garbage that GCs cleanly (0.83MB after 20 renders, i.e. noise). The memo's `css` field is
-the *same string instance* the theme store already memoizes, so it costs a pointer, not the ~563KB
-sheet.
+**Two claims from the earlier version are refuted by this.** It reported "−0.77MB growth over 40
+navigations" and "−6.6MB for the overview grid" as wins. Neither survives: both are parity once the
+iframe realms are counted, and both gaps are smaller than the run-to-run spread. The grid's cost lives
+almost entirely in its 22 frames (~1.2MB each), which the old top-frame-only reading could not see, so
+what it was actually measuring was top-frame bookkeeping noise.
 
-**The churn row is the one that matters.** Alternating two different decks across six reloads makes
-every render miss and replace the entry; the heap is flat to 0.02MB. A map-shaped cache or a
-retained-realm leak climbs there. Given `2026-07-17-preview-accumulation-leaks.md`, bounded is a
-property to demonstrate, not assert.
+**Boundedness is a structural property, so it is now a structural test.** After three browser attempts
+to read it off the heap measured nothing, the honest form of the question is "does the memo ever hold
+more than one entry?" — and that is `whole-deck memo boundedness` in
+`docs/src/lib/single-slide-render.deck-context.test.ts`: six alternating deck renders must produce six
+engine calls (a two-entry cache would serve four of them), and four identical renders must produce
+one. It runs in CI instead of being a one-off reading.
 
-Roughly half the +1.4MB is attributable (parser memo, memo entry, the whole-deck source strings the
-Studio now holds); the remainder is not decomposed, so it is recorded as **observed** rather than
-explained. It scales with deck size but stays bounded at one entry.
+Node-side retention, separately measured: the parser memo holds **0.44MB** (one markdown-it + 15
+plugins); a deck memo entry is **48KB** at 40 slides and **285KB** at 117; a whole-deck render
+allocates ~0.55MB of transient garbage that GCs cleanly (0.83MB after 20 renders, i.e. noise). The
+memo's `css` field is the *same string instance* the theme store already memoizes, so it costs a
+pointer, not the ~563KB sheet.
 
-**Net:** +1.4MB fixed, lower growth under use, and the overview grid materially cheaper.
+**Net: +1.8MB fixed, and parity everywhere else.** Roughly half the +1.8MB is attributable (the parser
+memo, one memo entry, the whole-deck source strings the Studio now holds); the remainder is not
+decomposed, so it is recorded as **observed** rather than explained.
 
 ## 7. What to preserve from this branch
 
 Independently valuable, regardless of what happens to the pagination fix:
 
-1. **`lib/core/render-ids.js` + determinism** — a correctness fix, and the precondition for every
-   caching design. `test/unit/core/render-ids.test.js`.
-2. **The parser memo** — a real saving on every render path, largest where the render is small.
-   `test/unit/engine/parser-memo.test.js`.
+1. **`lib/core/render-ids.js` + determinism + the anti-squat prefix** — a correctness fix, what
+   lets a future cache's equivalence guard be a plain byte comparison, and a closed hole that
+   determinism itself opened. `test/unit/core/render-ids.test.js`.
+2. **The parser memo, keyed on the resolved geometry** — a real saving on every render path, largest
+   where the render is small. The KEY is the load-bearing part: a mutation-counter key looks correct
+   and misses 100% of the time on the live-theme surfaces, which re-register identical CSS before
+   every render on purpose. `test/unit/engine/parser-memo.test.js`.
 3. **`docs/e2e/studio-preview-perf.spec.ts`** — the only instrument in the repo that measures the
    preview's *typing* path on a real surface, over two decks, with an assertion that renders
    actually happened (a caret outside the shown slide records zero samples, which reads as "free"
@@ -225,6 +335,12 @@ Independently valuable, regardless of what happens to the pagination fix:
   the script itself still misleads.
 - **`docs/src/playground/preview-virtual.js` exports a dead `diffSections`** with no production
   consumer, and its header points at a controller that has since moved.
+- **`lib/components/chart/state-chart/state-chart.transform.js` mints `sc-node-fill-N` from a
+  counter scoped to the `applyToDom` CALL**, while its comment claims "unique per figure". Two
+  `applyToDom` passes over one long-lived document can therefore both emit `sc-node-fill-1`. Not in
+  the engine's HTML output and untouched by this work, so it was left alone rather than pulled into
+  the diff — but it is the same class as §3 and should migrate to `render-ids.js` when someone is in
+  there. Found by the red team.
 - **The flat `splitSections` in `docs/src` is the weaker of two existing walkers.**
   `lib/core/split-sections.js` is depth-aware ("survives nested sections") but is CJS and not
   exposed on the browser engine bundle, so the preview detects-and-degrades instead. Exposing that
