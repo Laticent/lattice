@@ -15,6 +15,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { getFrontMatter, mergeClassTokens, writeFrontMatterLine } from './front-matter';
+import type { OverflowMarker } from './studio-store';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 type PG = LatticePlaygroundEngine;
@@ -469,16 +470,18 @@ export async function shareLattice(source: string, name: string, deckTitle: stri
 }
 
 /** The self-contained Marp ZIP bundle (renders anywhere). */
-export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string): Promise<void> {
+export async function shareMarp(options: SingleSlideOptions, source: string, name: string, palette: string, finishClass?: string, finishCss?: string, overflowMarker?: OverflowMarker): Promise<void> {
 	await ensureReady(options); // PG.marp must be present
 	const ex = await exporters();
 	// Same finish-embed as the Markdown handoff so the ZIP renders the custom finish.
-	// `overflowMarker` from workspace settings — the standing answer for every export
-	// here, mirroring how `pdfPages` above reaches exportPdf. Without it the bundle
-	// fell back to the runtime's AUTHORING default and a recipient got the red QA
-	// ring and "FIX ME" overlays on any clipped slide.
+	// `overflowMarker` — who a clipped slide's marker speaks to in the exported deck.
+	// The Share sheet's Marp options step passes this export's pick; the Workspace
+	// setting is the standing answer it defaults from (and the fallback for any caller
+	// that doesn't ask). Without it the bundle fell back to the runtime's AUTHORING
+	// default and a recipient got the red QA ring and "FIX ME" overlays on any
+	// clipped slide.
 	const { loadSettings } = await import('./studio-store');
-	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: loadSettings().overflowMarker });
+	await ex.exportMarp(embedFinishInMarkdown(source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, overflowMarker: overflowMarker ?? loadSettings().overflowMarker });
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format

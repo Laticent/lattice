@@ -69,3 +69,59 @@ test('a drafted deck exports its Markdown source', async ({ page }) => {
 	expect((await download).suggestedFilename()).toMatch(/\.md$/);
 	await expect(toastText(page)).toContainText('Markdown ready.');
 });
+
+// The Marp bundle's pre-export step. The bundle renders through the browser RUNTIME
+// inside marp-cli, so before the overflow-marker setting it inherited the runtime's
+// AUTHORING treatment and a recipient got a red QA ring and "FIX ME" tags on any
+// clipped slide. The level now travels with the artifact, and this is the surface an
+// author actually chooses it on — so the oracle is the DOWNLOADED ZIP: unzip the
+// deck and read the export-settings block the runtime will read.
+async function markerInBundle(zipPath: string): Promise<string | null> {
+	const { default: JSZip } = await import('jszip');
+	const fs = await import('node:fs');
+	const zip = await JSZip.loadAsync(fs.readFileSync(zipPath));
+	const deck = Object.keys(zip.files).find((f) => f.endsWith('.md'));
+	if (!deck) return null;
+	const md = await zip.files[deck].async('string');
+	const m = md.match(/<script type="application\/lattice-export-settings">([\s\S]*?)<\/script>/);
+	return m ? (JSON.parse(m[1]).overflowMarker ?? null) : null;
+}
+
+test('the Marp bundle exports at the workspace default overflow marker', async ({ page }) => {
+	const download = page.waitForEvent('download', { timeout: 60_000 });
+	await page.getByRole('dialog').getByRole('button', { name: /^Marp bundle/ }).click();
+	// The options step, not a straight-to-download row.
+	await expect(page.getByRole('heading', { name: 'Export Marp bundle' })).toBeVisible();
+	await page.getByRole('button', { name: /^Download bundle/ }).click();
+	const d = await download;
+	expect(d.suggestedFilename()).toMatch(/\.zip$/);
+	await expect(toastText(page)).toContainText('Marp bundle ready.');
+	expect(await markerInBundle((await d.path()) as string)).toBe('reader');
+});
+
+test('the Marp options step overrides the marker for THIS export only', async ({ page }) => {
+	const download = page.waitForEvent('download', { timeout: 60_000 });
+	await page.getByRole('dialog').getByRole('button', { name: /^Marp bundle/ }).click();
+	await page.getByRole('button', { name: /^For me/ }).click();
+	// The panel says so out loud — a per-export pick must not read as a settings change.
+	await expect(page.getByText(/This export only/)).toBeVisible();
+	await page.getByRole('button', { name: /^Download bundle/ }).click();
+	const d = await download;
+	expect(await markerInBundle((await d.path()) as string)).toBe('author');
+	// …and the workspace default is untouched.
+	const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('lattice-studio-settings') || '{}').overflowMarker);
+	expect(stored === undefined || stored === 'reader').toBe(true);
+});
+
+test('the Workspace overflow-marker preference is what the step starts from', async ({ page }) => {
+	await page.evaluate(() => {
+		const KEY = 'lattice-studio-settings';
+		const cur = JSON.parse(window.localStorage.getItem(KEY) || '{}');
+		window.localStorage.setItem(KEY, JSON.stringify({ ...cur, overflowMarker: 'off' }));
+	});
+	const download = page.waitForEvent('download', { timeout: 60_000 });
+	await page.getByRole('dialog').getByRole('button', { name: /^Marp bundle/ }).click();
+	await expect(page.getByRole('button', { name: /^No marker/ })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('button', { name: /^Download bundle/ }).click();
+	expect(await markerInBundle((await (await download).path()) as string)).toBe('off');
+});

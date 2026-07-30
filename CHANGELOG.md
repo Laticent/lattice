@@ -110,7 +110,9 @@ in patch versions.
   and those want three different answers, so it belongs to the render target (the reasoning
   that retired `autosplit:` a day earlier). Choose it with `--overflow-marker=<level>` on
   `tools/export-marp.js` for one export, `LATTICE_OVERFLOW_MARKER` for every export from a
-  checkout, or the Studio's new workspace setting beside the PDF page format. The level
+  checkout, or — in the Studio — the new **Share → Marp bundle** pre-export step (the same
+  options step PDF, Webpage, Print and Image set already have), which starts from a new
+  Workspace setting beside the PDF page format. The level
   travels in the bundle's own generated settings block — never front matter — so a re-export
   cannot silently inherit the previous export's choice. A stray `overflow-marker:` in a deck
   is flagged by `lint:deck`. `export-marp` also prints the policy in effect and says plainly

@@ -125,7 +125,9 @@ node tools/export-marp.js <deck.md> <out> --overflow-marker=off   # this export
 LATTICE_OVERFLOW_MARKER=author node tools/export-marp.js …        # every export here
 ```
 
-In the Studio it is a workspace setting, beside the PDF page-format choice.
+In the Studio it is both: **Share → Marp bundle** has a pre-export step where you
+pick it for that one export, and **Workspace settings** holds the standing default
+that step starts from (beside the PDF page-format choice).
 
 `export-marp` does not render, so it cannot measure overflow — it says so, and
 names the command that can: `node lattice-emulator.js <deck.md> <out.pdf>` prints

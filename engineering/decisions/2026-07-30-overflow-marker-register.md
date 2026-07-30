@@ -107,7 +107,8 @@ type the flag", paid for with permanent front-matter vocabulary, a documented ro
 |---|---|---|
 | `--overflow-marker=<level>` | this one export | `tools/export-marp.js` |
 | `LATTICE_OVERFLOW_MARKER` | every export from this checkout | env var (there is no Lattice config format, and inventing one for a single setting is the larger change) |
-| Studio workspace setting | every export from this Studio | `StudioSettings.overflowMarker`, beside `pdfPages` — which is already a workspace-level *export* setting with the same reasoning |
+| Studio: Share → Marp bundle | this one export | `MarpOptionsPanel`, the pre-export step the PDF / Webpage / Print / Image-set formats already have |
+| Studio: Workspace settings | every export from this Studio | `StudioSettings.overflowMarker`, beside `pdfPages` — which is already a workspace-level *export* setting with the same reasoning |
 | — | otherwise | `reader` |
 
 and it travels to the runtime in its **own generated block**
@@ -207,11 +208,14 @@ and touching the emulator's separate inline watcher copy, which is its own chang
 its own sign-off. It is the next item in this swimlane, and the scope limit is stated
 in `resolve-overflow-marker.js`'s header rather than left for someone to discover.
 
-**No Studio UI for a per-export override.** The Studio has the WORKSPACE setting
-(every export from that Studio) but no per-export picker in the Share sheet, where
-the CLI has `--overflow-marker`. That is the smaller half of "config at export time
-or in workspace settings" and can follow; the workspace setting is what makes the
-Studio's export stop shipping QA chrome today.
+**(Corrected.)** An earlier draft of this note said the Studio had no per-export
+picker and filed one as a follow-up. That was wrong — the Share sheet has had a
+pre-export OPTIONS STEP per format since the comments-layer work (`ExportOptionsPanel`
+for PDF, plus Webpage / Print / Image set), and the Marp row was simply the one
+format that had never used it. It does now (`MarpOptionsPanel`), defaulting from the
+workspace setting, and the flow is covered end to end in
+`docs/e2e/journeys/author-export.spec.ts` — driving the real Studio and reading the
+level back out of the downloaded ZIP.
 
 
 ---

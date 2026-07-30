@@ -10,8 +10,10 @@ import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
 import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
 import { splitSlides } from './lint';
+import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
+import { loadSettings, type OverflowMarker } from './studio-store';
 import { WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
@@ -30,11 +32,13 @@ function Row({ icon, title, desc, dev, busy, status, onClick }: { icon: React.Re
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, options, palette, mode, extraTheme, extraCss, onPresent, notify }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; notify: (msg: string) => void }) {
 	const close = () => onOpenChange(false);
-	// The sheet has four views: the format MENU, and a pre-export OPTIONS step for
-	// PDF (comments as sticky notes), the Webpage player (strip speaker notes), and
-	// PRINT (paper / colour + live preview, prepares the PDF, then prints or saves).
-	// Reset to the menu whenever the sheet re-opens so it never lands mid-flow.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print' | 'imageset'>('menu');
+	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
+	// a real per-artifact decision: PDF (comments as sticky notes), the Webpage player
+	// (colour mode / strip speaker notes), PRINT (paper + colour with a live preview),
+	// IMAGE SET (format / resolution), and the MARP bundle (who the overflow marker
+	// speaks to). Reset to the menu whenever the sheet re-opens so it never lands
+	// mid-flow.
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print' | 'imageset' | 'marp'>('menu');
 	React.useEffect(() => { if (open) setView('menu'); }, [open]);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:
@@ -101,6 +105,14 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const exportImages = (imageOpts: ImageSetOptions) => {
 		run('images', 'Image set', (onStatus) => shareImageSet(options, artifactSource, name, palette, mode, imageOpts, extraTheme, onStatus, extraCss));
 	};
+	// Marp bundle from its options step: `overflowMarker` decides who a clipped
+	// slide's marker speaks to in the exported deck. Defaulted from Workspace
+	// settings and overridable for THIS export — the bundle renders through the
+	// browser runtime inside marp-cli, which is why the choice has to travel with
+	// the artifact at all (engineering/decisions/2026-07-30-overflow-marker-register.md).
+	const exportMarpBundle = (overflowMarker: OverflowMarker) => {
+		run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss, overflowMarker));
+	};
 	// The export defaults to the deck's authored `color-mode:` when it has one (so a
 	// system/inherited deck's panel reflects that), else the current preview mode.
 	// `print` is a paper medium, not a screen scheme — the .html player has no print
@@ -124,6 +136,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} notify={notify} />
 					) : view === 'imageset' ? (
 						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
+					) : view === 'marp' ? (
+						<MarpOptionsPanel busy={busy === 'marp'} status={progress} defaultMarker={loadSettings().overflowMarker} onBack={() => setView('menu')} onExport={exportMarpBundle} />
 					) : (
 						<>
 							<PanelSection label="Hand off the deck">
@@ -140,7 +154,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
 								<Row busy={busy === 'lattice'} icon={<FileArchive className="size-4" />} title="Lattice project (.lattice)" desc="Deck + comments in one file — re-opens here" onClick={() => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now()))} />
 								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss))} />
-								<Row dev busy={busy === 'marp'} icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss))} />
+								<Row dev busy={busy === 'marp'} status={progress} icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => setView('marp')} />
 								<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
 							</PanelSection>
 						</>
