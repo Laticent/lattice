@@ -422,6 +422,7 @@ script execution needed) but cannot express `logo:`/`meta:` payloads; it remains
 available as an ADDITION, which is the main reason the current shape is not a fork.
 
 **3. A seventh unmirrored gap, found by taking inversion's prediction seriously.**
+*(CLOSED in the follow-up — see §"The imagery gap, closed" below.)*
 The completeness claim had been measured on two decks with zero `![bg]` and zero
 Mermaid. Rendering an imagery-bucket slide through the bundle: the engine lifts
 `![bg]` into a `.lattice-bg` panel and wraps the prose in `.image-text` (a
@@ -497,6 +498,107 @@ deck; `safeName` leaves no raw-name path in either producer; and the headline
 One thing the checker could not confirm and worth stating: whether the docs Studio
 reuses a preview iframe across deck switches. If it does, the memoized
 "no front matter here" answer could outlive a deck that has one. Unverified.
+
+## The imagery gap, closed
+
+Disclosing a gap is not fixing it, and this one was the worst of the seven: not a
+graceful degradation but an unreadable slide. It closed the same way the glossary
+did — by noticing that half of it is a SOURCE transform, which the export can bake.
+
+Two halves, and the measurement that proves neither is sufficient:
+
+| baked | mirrored | result on a Marp render |
+|---|---|---|
+| — | — | Marp's advanced-background machinery: photo FULL-BLEED, prose unscrimmed on top |
+| `liftImageBgImages` | — | photo correct; prose scattered — eyebrow floating, heading over the canvas edge |
+| `liftImageBgImages` | `wrapImageTextToDom` | **0 differing pixels** against the engine's own PDF |
+
+The lift runs after localization, so the URL it embeds is the bundle's own
+`assets/…` path rather than the author's — a panel pointing at a file the bundle
+doesn't carry would have been the same class of defect as the un-localized `logo:`.
+
+The DOM mirror needs two keep-outs the string version does not: `.image-scrim` and
+`.backdrop`. Both are ordering artifacts rather than a difference of intent — on the
+engine path the scrim is injected AFTER the fold and the backdrop after that, so
+neither can be present; in the runtime the registry's scrim adapter and
+`injectBackdrops()` both run BEFORE it. Folding the backdrop in would bury it and
+break `section.finish > .backdrop`, which is precisely the hazard the engine avoids
+by ordering alone (see the comment on `applyBackdropToHtml` in lib/engine/index.js).
+
+**And a count that was wrong the whole time.** `marp-independence.md`, the
+`gotchas.md` register row, and the exporter header all said "six enumerated
+exceptions". They were written before the imagery gap was found, so all three shipped
+at six while the ledger shipped seven — then closing imagery would have made six
+right again by accident. A hardcoded count in prose beside a list that lives in code
+drifts silently; all three now point at the ledger and name no number.
+
+### …and what a checker found in THAT fix
+
+The imagery fix went out for maker-checker only after being asked whether one had
+run — it hadn't, and the rule (shared kernel + engine transform + multi-file) says it
+should have. The checker found six defects in it, two of them regressions:
+
+**A prose-less image slide grew a spurious white card, with the deck logo duplicated
+behind it.** The fold answered "no prose → leave it alone" on pass 1, correctly. Then
+`startOverflowWatcher()` — which runs AFTER the first transform pass — appended a
+`.overflow-tab` reading "Overflows". Pass 2 found text, wrapped, and swept in
+everything not on the keep-out list: the tab and `img.deck-logo`. Both owners guard on
+their element being a DIRECT child, so both re-injected, and the logo's frame insets
+then resolved against a `position:absolute` card instead of the slide.
+
+Two fixes, and the second is the one that matters: the missing keep-outs were added,
+AND the decision is now stamped on the section whether or not a panel was built. "No
+prose" is only a safe answer while the DOM still looks the way it did on pass 1, and it
+doesn't — so the stamp makes the whole class unreachable for the next injector nobody
+remembers to list here.
+
+**The runtime `<script src>` tags were being folded into the last slide's panel.**
+`withRuntimeScripts` appends them at EOF, which makes them children of the LAST
+section. On a deck ending with an image slide, one became the panel's `:last-child` and
+took the `> :last-child { padding-bottom: 0 }` collapse away from the real content:
+the panel measured 24px taller than the engine's and sat 24px higher. `script`, `style`
+and `template` are keep-outs now; re-measured, both paths give an identical `589×149`
+panel with `0px` padding on the heading.
+
+**The bake was in the wrong place in the pipeline.** It ran after `bakeSplits`, but the
+lift needs the `_class: …image…` comment and the `![bg]` in the SAME slide part. Once
+heading boundaries are literal `---`, an image slide with TWO top-level headings has
+its `_class` in one part and its `![bg]` in the next — so the lift skipped it silently
+and Marp's advanced-background machinery took the image: precisely the defect the bake
+exists to prevent, on a deck shape that is entirely ordinary. It now runs on the
+UNSPLIT body, which is also exactly where the engine lifts.
+
+**Three parity breaks, two of them in the STRING half.** `wrapImageText` pulled out
+only the FIRST `.lattice-bg`, so a slide with two `![bg]` folded the second into the
+panel — `:has(> .lattice-bg-left)` then stopped matching and the composition mirror
+fired on one path and not the other, swapping panel and photo between renderers. It
+also gated on `/\bimage\b/`, which matches `image-hero`, a class the CSS
+(`section.image`) does not. And the DOM half counted a comment node as prose. All three
+fixed on whichever side was wrong.
+
+**`bgDiv` escaped `'` but not `"`.** `![bg](p.jpg "A caption")` — markdown's ordinary
+optional title, which `BG_RE` captures as part of the URL — closed the `style`
+attribute and got re-parsed as attributes. A crafted URL could add an `onerror`. The
+title is now stripped (it was never part of the URL) and `"` / `<` / `>` are
+percent-encoded alongside `'`. Pre-existing on the engine path, but this change bakes
+the result into the file a recipient reads, so it is on-path.
+
+**And the verification claim was too general.** "0 differing pixels vs the engine's own
+PDF" was true of a deck the repo didn't contain, so nobody could reproduce it — and the
+checker contradicted it on two ordinary shapes, both of which were the regressions
+above. The probe deck is now a committed fixture,
+`test/fixtures/image-bucket-parity.md`, and the measurement is **0 of 1 000 500 pixels
+at 100 DPI** with the two regressions fixed. Where a `finish:` or an SVG asset is in
+play the page still differs in the backdrop's hairline gradient and the SVG's
+rasterization, as recorded above — so the claim is scoped to the fixture rather than
+stated of imagery in general.
+
+**Logged, pre-existing, off-path:** an `image spotlight` slide in a deck with a
+`finish:` renders `.lattice-bg` at height **0** — the photo does not appear at all,
+because `position` computes to `relative` instead of the base `absolute` so `inset: 0`
+cannot size it. Measured identically on BOTH paths (`1280×0`, `position: relative`), so
+cross-renderer parity holds and this change did not cause it; but it means the imagery
+fix delivers no visible photo on that composition+finish combination.
 
 ### The lesson, restated
 

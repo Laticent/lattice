@@ -59,6 +59,18 @@ The deck-wide registers and every structural transform make it. Six constructs d
 
 ---
 
+<!-- _class: image -->
+
+`Offsite · Day One`
+
+## The image bucket needs both halves of the fix.
+
+The `![bg]` lift is baked into the exported deck; the text panel is folded by the runtime. Either one alone renders wrong.
+
+![bg](assets/sample-photo-wide.svg)
+
+---
+
 <!-- _class: math -->
 
 ## Math renders, with a different typesetter
