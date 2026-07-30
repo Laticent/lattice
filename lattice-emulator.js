@@ -2668,13 +2668,19 @@ async function renderBody(browser, g, closeBrowser) {
   if (PLAYER) {
     try {
       if (hasStateChart || hasFunctionPlot) {
-        await page.evaluate(() => new Promise((r) => setTimeout(r, 200))); // let async inflaters settle
+        // Through the render guard like every other page call in this file: a CDP
+        // response that never arrives would otherwise hang to the outer CI timeout
+        // instead of failing fast into the hardened retry (lib/engine/render-guard.js).
+        // The old capture was unguarded too, but it ran only for dynamic-component
+        // decks; this one runs for EVERY --player render, on the largest DOMs the
+        // tool serializes, so the unguarded window is no longer narrow.
+        await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 200))), 'player capture: settle inflaters');
       }
-      inflatedPlayerHtml = await page.evaluate(() => {
+      inflatedPlayerHtml = await g(() => page.evaluate(() => {
         // Clone — never mutate the live page; the raster below still needs it.
         const root = document.documentElement.cloneNode(true);
         return `<!DOCTYPE html>\n${root.outerHTML}`;
-      });
+      }), 'player capture: serialize baked DOM');
     } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
   }
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
@@ -3157,10 +3163,18 @@ async function renderBody(browser, g, closeBrowser) {
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (inflatedPlayerHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
-        // Say so rather than let the level go quietly missing: without the baked DOM the
-        // player falls back to the pre-browser render, which carries no marker at all.
-        if (!inflatedPlayerHtml && level !== 'off') console.warn(`  honesty: the player DOM could not be captured — this player shows no overflow marker, not \`${level}\`.`);
         for (const n of pruneNotes) console.log(n);
+      }
+      // Say so rather than let the level go quietly missing: without the baked DOM the
+      // player falls back to the pre-browser render, which carries no marker at all.
+      //
+      // UNGATED by --quiet, matching the mermaid re-render warnings above ("so an
+      // automated pipeline sees them"): --quiet is exactly the mode a pipeline runs in,
+      // and this is the only signal that a delivered artifact silently lost its marker.
+      // Gated on there being something to mark, so a clean deck whose capture failed is
+      // not told it is missing a marker that was never going to appear.
+      if (!inflatedPlayerHtml && level !== 'off' && overflowing.length) {
+        console.warn(`  honesty: the player DOM could not be captured — this player shows no overflow marker, not \`${level}\`.`);
       }
     } catch (err) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);

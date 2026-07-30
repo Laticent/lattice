@@ -176,15 +176,22 @@ in patch versions.
   `h2.nextElementSibling`, which was always immune, so this was also a live HARD RULE #1 engine↔web
   split (live but unexercised: every deck in the shipped corpus places its notes after the heading).
 - **18 committed PDFs are regenerated, and they now show the clips they always had.** The
+- **20 committed PDFs are regenerated, and they now show the clips they always had.** The
   emulator's default moved from "print no marker" to `reader`, so every shipped artifact whose
-  deck clips gains the calm "Content clipped" pill. That is 18 PDFs across 17 decks — the exact
-  set `test/integration/overflow-baseline.json` already ratchets (2 examples, 12 exemplars, the
-  `connect` and `wifi` galleries in both moods). The ratchet is unchanged: no new slide clips,
-  the same 27 do, and they are now visible in the artifact instead of only on stderr. Note that
-  `build:galleries:check` compares mtimes rather than content, so it would not have caught these
-  going stale. `examples/overflow-fix-me.md`'s closing slide is also trimmed: the copy this
-  branch gave it ran two lines past the frame, which made a deck *about* overflow ship a clipped
-  conclusion.
+  deck clips gains the calm "Content clipped" pill. That is 20 PDFs across 18 decks: the 18 that
+  `test/integration/overflow-baseline.json` ratchets (3 examples — one of which, `examples/README.md`,
+  ships no PDF — 12 exemplars, and the `connect` + `wifi` galleries in both moods), **plus
+  `lib/base/_logo/logo.gallery.{light,dark}.pdf`**, which clip page 3 and which the ratchet cannot
+  see: `tools/check-overflow-corpus.js`'s glob covers `examples/`, `exemplars/`,
+  `lib/components/**`, `design/*.gallery.md` and the baseline deck, but **not `lib/base/**`**, and
+  no gallery builder owns those two files either. They were found by diffing `git ls-files '*.pdf'`
+  against the ratchet rather than trusting the ratchet to be complete. The glob hole itself is
+  pre-existing and off this change's path, so it is recorded here rather than widened in this diff.
+  The ratchet is unchanged: no new slide clips, the same 27 do, and they are now visible in the
+  artifact instead of only on stderr. Note that `build:galleries:check` compares mtimes rather than
+  content, so it would not have caught any of these going stale.
+  `examples/overflow-fix-me.md`'s closing slide is also trimmed: the copy this branch gave it ran
+  two lines past the frame, which made a deck *about* overflow ship a clipped conclusion.
 
 - **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
   PDFs render stage content ~11% larger than before — and agree with the preview.** The

@@ -226,7 +226,12 @@ describe('export-formats', () => {
   // assembled from the pre-browser static render, which no overflow watcher had ever
   // touched, so `--player` was permanently equal to `off` whatever the flag said. That
   // is invisible from the PDF assertions above, hence its own test.
-  test('--player bakes the resolved overflow-marker level into the shipped HTML', { timeout: TIMEOUT }, () => {
+  // THREE full player renders, so it gets three times the budget. At the shared
+  // per-test TIMEOUT this measured 59.2s of 60s — a runner 10% slower than this box
+  // red-lines, and the failure is misleading: spawnSync carries the same timeout, so
+  // a slow render returns status null and the assertion reports "render failed" with
+  // an empty stderr, which reads as a render bug rather than a clock.
+  test('--player bakes the resolved overflow-marker level into the shipped HTML', { timeout: TIMEOUT * 3 }, () => {
     const dir = tmpDir();
     const src = path.join(dir, 'pl.md');
     const wall = Array.from({ length: 40 }, (_, i) =>
@@ -246,19 +251,32 @@ describe('export-formats', () => {
     // The attribute is what base.modifiers.css keys the treatment off, and the tab text
     // is what a recipient actually reads — assert both, so a baked attribute with no tab
     // (or a tab carrying the wrong register's wording) still fails.
+    // Every attribute assertion is anchored to `<section …` on purpose. The bare
+    // string `data-lattice-overflow-marker="reader"` ALSO occurs in the inlined
+    // lattice.css, inside base.modifiers.css's
+    //   section.overflow:not([…="reader"]):not([…="off"]) { box-shadow: … }
+    // so an unanchored regex passes on a player whose sections carry NO marker
+    // attribute at all — which is the one state that renders the 4px red author ring
+    // in a reader artifact. The assertion has to prove the SECTION carries it.
     const author = play('author');
-    assert.match(author, /data-lattice-overflow-marker="author"/, 'author level must be baked in');
+    assert.match(author, /<section[^>]*data-lattice-overflow-marker="author"/, 'author level must be baked onto the section');
     assert.match(author, /class="overflow-tab"[^>]*>Overflows</, 'author bakes the "Overflows" flag');
     assert.match(author, /<section[^>]*class="[^"]*\boverflow\b/, 'author bakes the ring class');
 
     const reader = play('reader');
-    assert.match(reader, /data-lattice-overflow-marker="reader"/, 'reader level must be baked in');
+    assert.match(reader, /<section[^>]*data-lattice-overflow-marker="reader"/, 'reader level must be baked onto the section');
     assert.match(reader, /class="overflow-tab"[^>]*>Content clipped</, 'reader bakes the calm tag');
 
     // `off` is the level that used to be indistinguishable from every other one here.
+    // Match the ELEMENT form (`class="overflow-tab"`), never the bare token: the token
+    // appears 4x in the inlined lattice.css, and it is absent from a shipped `off`
+    // player only because the P6 CSS prune removed it. That prune is best-effort and
+    // silent by design (it launches a second Chromium and gives up on a small
+    // container), so the bare-token form would fail a CORRECT `off` bake whenever a
+    // size optimization happened not to run.
     const off = play('off');
-    assert.match(off, /data-lattice-overflow-marker="off"/, 'off level must be baked in');
-    assert.doesNotMatch(off, /overflow-tab/, 'off bakes no tab at all');
+    assert.match(off, /<section[^>]*data-lattice-overflow-marker="off"/, 'off level must be baked onto the section');
+    assert.doesNotMatch(off, /class="overflow-tab"/, 'off bakes no tab element at all');
   });
 
   // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────
