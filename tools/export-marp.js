@@ -36,8 +36,8 @@
  * component (split panels, the chart family) come out as bare markdown. WITH it,
  * marp-cli's own headless browser runs the runtime while rendering, so `npm run
  * pdf` / `npm run html` carry every component layout, the deck-wide registers, and
- * Mermaid — with six enumerated exceptions (`lib/core/marp-fidelity.js`, printed
- * into the generated README). The marp-vscode PREVIEW pane carries less still: its
+ * Mermaid — with the exceptions `lib/core/marp-fidelity.js` enumerates (printed
+ * into the generated README; not counted here, since the count moves). The marp-vscode PREVIEW pane carries less still: its
  * webview does not execute the deck's scripts, so it shows palette + CSS layout
  * only (also documented in the generated README).
  * Exit 0 on success, 1 on usage/IO error.
@@ -47,6 +47,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits } = require('../lib/core/bake-splits');
+const { liftImageBgImages } = require('../lib/core/bg-image');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
@@ -209,11 +210,21 @@ function main(argv) {
   const fm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const body = fmMatch ? baked.slice(fmMatch[0].length) : baked;
   const localized = localizeAssets(body, deckDir, dest, copied);
+  // 2) the imagery bucket's `![bg]` → `.lattice-bg` panel. A SOURCE transform on the
+  //    engine path too (lib/engine/index.js lifts before parsing), so baking it here
+  //    is the same move the glossary and the splits get. It runs AFTER localization
+  //    so the URL it embeds is the bundle-relative `assets/…` path, and with no
+  //    baseDir so that path stays relative. Without it, Marp's own
+  //    advanced-background machinery takes the `![bg]` instead: photo full-bleed,
+  //    prose unscrimmed on top, a heading over a bright area unreadable. The
+  //    matching `.image-text` fold is the runtime's (lib/core/bg-image.js
+  //    wrapImageTextToDom) — both halves are needed, neither is sufficient.
+  const withImagePanels = liftImageBgImages(localized.body, undefined);
   // Append the runtime scripts + the baked front matter (the deck-wide registers
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  fs.writeFileSync(path.join(dest, `${file}.md`), withRuntimeScripts(fm + localized.body));
+  fs.writeFileSync(path.join(dest, `${file}.md`), withRuntimeScripts(fm + withImagePanels));
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
   //    under the readable `<palette>.css` name marp/VS Code register by @theme.

@@ -422,6 +422,7 @@ script execution needed) but cannot express `logo:`/`meta:` payloads; it remains
 available as an ADDITION, which is the main reason the current shape is not a fork.
 
 **3. A seventh unmirrored gap, found by taking inversion's prediction seriously.**
+*(CLOSED in the follow-up — see §"The imagery gap, closed" below.)*
 The completeness claim had been measured on two decks with zero `![bg]` and zero
 Mermaid. Rendering an imagery-bucket slide through the bundle: the engine lifts
 `![bg]` into a `.lattice-bg` panel and wraps the prose in `.image-text` (a
@@ -497,6 +498,39 @@ deck; `safeName` leaves no raw-name path in either producer; and the headline
 One thing the checker could not confirm and worth stating: whether the docs Studio
 reuses a preview iframe across deck switches. If it does, the memoized
 "no front matter here" answer could outlive a deck that has one. Unverified.
+
+## The imagery gap, closed
+
+Disclosing a gap is not fixing it, and this one was the worst of the seven: not a
+graceful degradation but an unreadable slide. It closed the same way the glossary
+did — by noticing that half of it is a SOURCE transform, which the export can bake.
+
+Two halves, and the measurement that proves neither is sufficient:
+
+| baked | mirrored | result on a Marp render |
+|---|---|---|
+| — | — | Marp's advanced-background machinery: photo FULL-BLEED, prose unscrimmed on top |
+| `liftImageBgImages` | — | photo correct; prose scattered — eyebrow floating, heading over the canvas edge |
+| `liftImageBgImages` | `wrapImageTextToDom` | **0 differing pixels** against the engine's own PDF |
+
+The lift runs after localization, so the URL it embeds is the bundle's own
+`assets/…` path rather than the author's — a panel pointing at a file the bundle
+doesn't carry would have been the same class of defect as the un-localized `logo:`.
+
+The DOM mirror needs two keep-outs the string version does not: `.image-scrim` and
+`.backdrop`. Both are ordering artifacts rather than a difference of intent — on the
+engine path the scrim is injected AFTER the fold and the backdrop after that, so
+neither can be present; in the runtime the registry's scrim adapter and
+`injectBackdrops()` both run BEFORE it. Folding the backdrop in would bury it and
+break `section.finish > .backdrop`, which is precisely the hazard the engine avoids
+by ordering alone (see the comment on `applyBackdropToHtml` in lib/engine/index.js).
+
+**And a count that was wrong the whole time.** `marp-independence.md`, the
+`gotchas.md` register row, and the exporter header all said "six enumerated
+exceptions". They were written before the imagery gap was found, so all three shipped
+at six while the ledger shipped seven — then closing imagery would have made six
+right again by accident. A hardcoded count in prose beside a list that lives in code
+drifts silently; all three now point at the ledger and name no number.
 
 ### The lesson, restated
 

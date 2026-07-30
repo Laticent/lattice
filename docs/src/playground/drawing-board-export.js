@@ -150,7 +150,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, appendAutoGlossary, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -169,7 +169,14 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// that points at a relative local path would therefore render a broken image
 	// where the register previously just never fired — so those keys are dropped
 	// here. A remote or `data:` logo resolves anywhere and is kept.
-	dir.file(`${slug}.md`, withRuntimeScripts(bakeSplits(appendAutoGlossary(source)), { localAssets: false }));
+	// The imagery bucket's `![bg]` → `.lattice-bg` panel, baked like the splits and
+	// the glossary. No baseDir, so the author's own URL survives verbatim — this
+	// producer cannot copy local files (hence `localAssets: false` below), so a
+	// remote or `data:` image works and a relative one was already unresolvable.
+	dir.file(
+		`${slug}.md`,
+		withRuntimeScripts(liftImageBgImages(bakeSplits(appendAutoGlossary(source)), undefined), { localAssets: false }),
+	);
 
 	// palette CSS (+ dark), fetched from the staged theme dir. Fall back to the
 	// default palette if the deck's theme isn't a served built-in (e.g. a

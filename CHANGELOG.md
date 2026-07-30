@@ -94,6 +94,29 @@ in patch versions.
 
 ### Fixed
 
+- **An exported `image` slide now renders its photo as a panel and its prose in a text
+  column — the same slide the engine draws, pixel for pixel.** This was the seventh gap
+  #1261 disclosed and the one that did NOT degrade gracefully: Marp's own
+  advanced-background machinery took the `![bg]`, so the photo went full-bleed and the
+  prose sat on top of it unscrimmed, a heading over a bright area barely legible. Closing
+  it took two halves, and neither alone is enough — baking only the lift renders the photo
+  correctly and scatters the prose (eyebrow floating, heading over the canvas edge).
+  (a) `liftImageBgImages` is a SOURCE transform on the engine path too, so the export bakes
+  it like the splits and the glossary, after localization so the embedded URL is the
+  bundle's own `assets/…` path. (b) `wrapImageText` had no live-DOM counterpart;
+  `bgImage.wrapImageTextToDom` is the mirror, keeping `.image-scrim` and `.backdrop` out of
+  the fold — two keep-outs the string version never needs, because on the engine path
+  neither element exists yet when it runs. Verified against the engine's own PDF:
+  **0 differing pixels** on a deck with no finish and a raster photo. (On the demo deck the
+  page still differs, entirely in the atrium finish's hairline gradient and the SVG's
+  rasterization — the artifact #1261 measured and documented; the layout is identical.)
+
+- **The gap COUNT is gone from the prose that quoted it.** `marp-independence.md`,
+  `gotchas.md` and the exporter header each said "six enumerated exceptions" — written
+  before the imagery gap was found, so each shipped wrong for a day at seven, and closing
+  imagery would have made six right again by accident. All three point at
+  `lib/core/marp-fidelity.js` and name no number.
+
 - **`split-panel proof`'s categorical tint stopped at the claim panel — the whole supporting
   zone stayed one `--accent` blue on every slide in the sequence.** `cat-N` recolored
   `.panel-left`'s fill and the panel's own top rule, but the checkpoint-card labels (and, under

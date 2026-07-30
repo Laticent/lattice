@@ -84,6 +84,26 @@ describe('export-marp bundle (end-to-end)', () => {
   // source `.md` beside the document — cannot work over `file://`, which is how
   // both a double-clicked export and marp-cli itself load the deck. So the deck
   // carries its own front matter as an inert data block.
+  // The imagery bucket's `![bg]` is a SOURCE transform on the engine path too, so
+  // the export bakes it like the splits and the glossary. Left unbaked, Marp's own
+  // advanced-background machinery took the `![bg]` instead — photo full-bleed, prose
+  // unscrimmed on top. The URL must be the LOCALIZED `assets/…` path: the bake runs
+  // after localization, and a bundle that embeds the author's original path ships a
+  // panel pointing at a file it doesn't carry.
+  test('an `image` slide\'s ![bg] is baked into the .lattice-bg panel, localized', () => {
+    const deck = ['---', 'marp: true', 'theme: indaco', '---', '',
+      '<!-- _class: image -->', '', '`Eyebrow`', '', '## A lake view.', '',
+      'Body prose.', '', '![bg](photo.jpg)', ''].join('\n');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'export-img-'));
+    fs.writeFileSync(path.join(dir, 'photo.jpg'), 'not-really-a-jpeg');
+    fs.writeFileSync(path.join(dir, 'img.md'), deck);
+    execFileSync('node', [TOOL, path.join(dir, 'img.md'), path.join(dir, 'out')], { stdio: 'pipe' });
+    const baked = fs.readFileSync(path.join(dir, 'out', 'img', 'img.md'), 'utf8');
+    assert.match(baked, /<div class="lattice-bg lattice-bg-full" style="background-image:url\('assets\/photo\.jpg'\)"><\/div>/);
+    assert.doesNotMatch(baked, /!\[bg\]/, 'the markdown image form is gone');
+    assert.ok(fs.existsSync(path.join(dir, 'out', 'img', 'assets', 'photo.jpg')), 'and the file came along');
+  });
+
   test('deck ends with the BAKED front matter, carrying the deck-wide registers', () => {
     const baked = fs.readFileSync(path.join(dest, 'split-headings.md'), 'utf8');
     const m = baked.match(/<script type="application\/lattice-front-matter">([\s\S]*?)<\/script>\s*$/);
