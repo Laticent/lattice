@@ -181,11 +181,11 @@ the deck linter rather than silently rendering the baseline.
 > **Moved in a recent release:** `sketch`/`boardroom` used to be `finish:` values.
 > They're now `mode:` — `finish:` is backdrops only (`none` / `atrium` … `gallery`).
 
-## Autocomplete in the Drawing Board
+## Autocomplete in the editor
 
-The **[Drawing Board](/drawing-board/)** is the in-browser editor. It
-completes the deck vocabulary as you type, from the same catalog the component
-reference and the linter use. Every suggestion is deterministic and offline;
+The **[Studio](/studio/)** and the **[Playground](/playground/)** both complete
+the deck vocabulary as you type, from the same catalog the component reference
+and the linter use. Every suggestion is deterministic and offline;
 `Ctrl-Space` summons any of them on demand.
 
 - **`theme:` in front matter** — the registered palette names. An unknown one
@@ -234,13 +234,14 @@ matching dot in the gutter, and hovering it shows the message and the fix. Where
 a fix is mechanical (the inline-bold card/ledger trap, a body-less split item, a
 retired gantt delimiter) the hover carries a **Quick fix** button that rewrites
 the line for you in one undoable step. It's the same deterministic engine as the
-**[Architect](/drawing-board/)** panel and the `lint-deck` CLI — just shown where
-your cursor is. This runs in **both** the Drawing Board and the
+Studio's **[Coach](/studio/)** panel and the `lint-deck` CLI — just shown where
+your cursor is. This runs in **both** the [Studio](/studio/) and the
 [Playground](/playground/).
 
-A few shortcuts: **F8** / **Shift-F8** jump between findings, **Ctrl-Shift-M**
-opens the lint panel, and **Alt-Shift-F** (or the Architect panel's **Fix all**
-button) applies every mechanical fix in the deck at once.
+Applying them differs by surface. In the Studio, the deck drawer's **Fix all
+issues** applies every mechanical fix at once. In the Playground, **F8** /
+**Shift-F8** jump between findings, **Ctrl-Shift-M** opens the lint panel, and
+**Alt-Shift-F** applies every mechanical fix in the deck.
 
 Validation is **on by default**. To turn it off for a deck, flip **Inline
 validation** off in the Deck setup drawer (or write `validate: off` in front
@@ -290,9 +291,11 @@ keeps its line endings.
 
 ## Deck setup (front matter without the YAML)
 
-The Drawing Board's **Deck setup** drawer — the sliders button beside the
-settings chip — edits the deck's front matter through plain controls, so you
-never hand-write the `---` block and the Markdown body stays content-only. It
+The [Playground](/playground/)'s **Deck setup** drawer — the sliders button
+beside the settings chip — edits the deck's front matter through plain controls,
+so you never hand-write the `---` block and the Markdown body stays
+content-only. (In the [Studio](/studio/), the same settings live in the Deck
+inspector.) It
 covers the whole-deck settings: the **deck name** (see Naming the deck above),
 **theme**, slide **size** (landscape HD / 4K /
 Standard, plus social/mobile Square / Portrait / Story / Mobile),
@@ -360,7 +363,7 @@ header · Hide footer · Hide page number · Hide rail).
 - [Themes & palettes](/guides/themes/) — choose or author a palette.
 - [Component reference](/components/) — every component's
   authoring contract.
-- [Drawing Board](/drawing-board/) — author a full deck in the
-  browser (autocomplete, live linting).
+- [Studio](/studio/) — author a full deck in the browser
+  (autocomplete, live linting, coaching, present, export).
 - [`design/skill.md`](https://github.com/slidewright/lattice/blob/main/design/skill.md)
   in the repo — the full deck-authoring contract.

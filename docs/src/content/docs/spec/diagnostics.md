@@ -25,7 +25,7 @@ GitHub. This protocol is the foundation of a future LFM Language Server (§6).
 
 The reference implementation is `lib/authoring/lint-core.js` (pure, fs-free,
 shared by the CLI `tools/lint-deck.js`, the engine's `validate()`, and the
-Drawing Board browser panel). This document *publishes* that implementation's
+browser panels in the Studio and the Playground). This document *publishes* that implementation's
 contract; the contract, not the implementation, is the standard.
 
 ---
@@ -130,7 +130,7 @@ apply it without prompting the author. The reference implementation exposes:
   rewrite is computed from the located source line, so its indentation is kept.
 - `applyAllFixes(source, vocab)` — applies every autofixable finding in one pass
   loop (re-linting between fixes, since each shifts line numbers), returning the
-  fully-fixed source. Backs the Drawing Board's "Fix all" and an editor command.
+  fully-fixed source. Backs the Studio's "Fix all issues" and an editor command.
 
 A conformant L2 tool MAY implement its own fixer; it MUST NOT mark a finding
 `autofixable` unless the rewrite is deterministic and unique.

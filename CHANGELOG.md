@@ -70,6 +70,15 @@ in patch versions.
   overflowed the viewport by 88px at exactly 1024px and cut off the GitHub icon. `nav.mjs`'s
   `toolsNav` / `toolsActive` are replaced by `appsNav`; `<NavActions>`'s `tools` prop is now `apps`.
 
+- **The docs stop advertising the frozen Drawing Board.** The 404 page, the authoring guide
+  (autocomplete, inline validation, Deck setup, "where to go next"), and the diagnostics spec named
+  the Drawing Board as *the* in-browser editor while the nav no longer lists it. They now name the
+  surface that actually ships the behavior, scoped to where it really works: autocomplete and inline
+  validation in **both** the Studio and the Playground; **Fix all issues** in the Studio; the
+  **F8 / Shift-F8 / Ctrl-Shift-M / Alt-Shift-F** lint shortcuts in the Playground, which is the only
+  surface whose editor binds `lintKeymap`; and the **Deck setup** drawer in the Playground, with the
+  Studio's equivalent called out as the Deck inspector.
+
 - **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
   PDFs render stage content ~11% larger than before — and agree with the preview.** The
   engine emits the slide's own 1% (`--_sec-1cqi` / `--_sec-1cqh`) as CSS from the resolved
