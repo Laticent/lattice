@@ -28,7 +28,9 @@ preview (Playground, Drawing Board, Studio, or the VS Code marp preview) to
 see the red ring and the yellow tag land on "Preferred option" alone, not
 "Alternative option" or the whole panel. A static export shows the calm
 reader form instead: a "Content clipped" tag, no ring and no Fix-Me tag.
-Export with `--overflow-marker=author` to get the full signal here too.
+Export with `--overflow-marker=author` to get the red ring and the "Overflows"
+flag in the artifact — the yellow Fix-Me tag stays preview-only, because it is
+drawn by the runtime script an export does not carry.
 
 - Alternative option
   - A short first fact about the alternative
@@ -115,5 +117,7 @@ A slide with no bounded cell falls back to the component's own word budget: whic
 The Fix-Me tags and the red ring are the AUTHORING signal, and an export
 does not carry them by default. What it does carry is a small "Content
 clipped" tag, because a slide that loses content should say so rather than
-look finished. `--overflow-marker` decides: `author` ships the full signal,
-`off` ships none. Whichever you pick, the console names the clipped pages.
+look finished. `--overflow-marker` decides: `author` ships the red ring and the
+"Overflows" flag, `off` ships none. The yellow Fix-Me tag is preview-only in
+every case — it needs the runtime, which an export does not carry. Whichever you
+pick, the console names the clipped pages.

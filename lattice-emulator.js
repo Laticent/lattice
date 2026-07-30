@@ -213,9 +213,11 @@ OPTIONS
                           artifact. A slide with more content than fits is CLIPPED
                           (not scrollable, not printed), so the export says so
                           rather than losing it quietly. 'reader' (default) draws a
-                          calm "Content clipped" tag; 'author' draws the full
-                          editing signal (red ring, "Fix Me" tags, the small-type
-                          alarm); 'off' draws nothing, for a deck you have already
+                          calm "Content clipped" tag; 'author' draws the red ring,
+                          the "Overflows" flag and the small-type alarm (the
+                          per-cell "Fix Me" tags are preview-only — they need the
+                          runtime script an export does not carry); 'off' draws
+                          nothing, for a deck you have already
                           checked fits. LATTICE_OVERFLOW_MARKER sets a standing
                           default ('off' is per-render only). The overflow warning
                           on stderr is printed at every level.
@@ -420,6 +422,7 @@ const {
   OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker,
 } = require('./lib/core/resolve-overflow-marker');
 const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
+const { exportSettingsBlock } = require('./lib/core/export-settings');
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
@@ -437,7 +440,7 @@ const OVERFLOW_MARKER = resolveExportOverflowMarker({
   chosen: typeof flags['overflow-marker'] === 'string' ? flags['overflow-marker'] : null,
   workspace: process.env.LATTICE_OVERFLOW_MARKER ?? null,
 });
-if (flags['overflow-marker'] && !isKnownOverflowMarker(flags['overflow-marker'])) {
+if (flags['overflow-marker'] !== undefined && !isKnownOverflowMarker(flags['overflow-marker'])) {
   console.error(`lattice: --overflow-marker must be one of ${OVERFLOW_MARKER_LEVELS.join(', ')}`);
   process.exit(1);
 }
@@ -2118,7 +2121,12 @@ ${stateChartScript}
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
-      var leg = probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_RATIO});
+      // AUTHOR-ONLY, matching the overflow branch above and the runtime's own gate
+      // (lib/runtime/index.js). A reader cannot resize a figure, so "Type 3px ·
+      // floor 8.4px" is a QA diagnostic in front of an audience. Ungated, it rode
+      // into the exported .html -- which is written BEFORE the level-aware strip
+      // runs, so nothing cleaned it up there.
+      var leg = MARKER_LEVEL === 'author' ? probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_RATIO}) : null;
       var under = !!(leg && leg.under);
       s.classList.toggle('illegible', under);
       // The labelled tab — the ring is colour-only (WCAG 1.4.1), so name the condition in text,
@@ -2591,7 +2599,12 @@ async function renderBody(browser, g, closeBrowser) {
       illegible.map((o) => `page ${o.slide} at ${o.illegible.minPx}px (${o.illegible.pct}%)`).join(', ') + '.');
     console.warn('    A container-responsive figure never overflows — it scales its own labels instead, so the');
     console.warn('    overflow check cannot see this. Simplify the figure (fewer labels, shorter text), give it a');
-    console.warn('    bigger box, or split it across slides. The export stays clean — no ring is printed.');
+    // Level-aware, like the OVERFLOW line below. `author` keeps the amber ring in
+    // the artifact, so claiming a clean export there was the tool stating the
+    // opposite of what it had just done, on the same run.
+    console.warn(`    bigger box, or split it across slides. ${OVERFLOW_MARKER.marker === 'author'
+      ? 'The export carries the amber ring and its tag.'
+      : 'The export stays clean — no ring is printed, so this warning is the only channel.'}`);
   }
   // …and the figures the floor could not judge AT ALL. Mermaid's `htmlLabels` emit
   // `<foreignObject>` HTML rather than SVG `<text>`, which the probe cannot size — so a
@@ -2625,9 +2638,8 @@ async function renderBody(browser, g, closeBrowser) {
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on
   // any `.overflow` section — invaluable while authoring in the live preview,
   // but a red box in front of a board is worse than the silent clip that
-  // overflow:hidden already applies. The author was warned on stderr above; the
-  // PDF / PNG / PPTX deliverable stays clean, matching the contract documented
-  // at the detection pass. (Removing the class also hides the .overflow-tab via
+  // overflow:hidden already applies. The author is warned on stderr at EVERY level;
+  // what the artifact shows is the `overflow-marker` setting's job, resolved above. (Removing the class also hides the .overflow-tab via
   // `section:not(.overflow) > .overflow-tab { display:none }`.)
   const level = OVERFLOW_MARKER.marker;
   await g(() => page.evaluate((lvl) => {
@@ -3133,7 +3145,15 @@ async function renderBody(browser, g, closeBrowser) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
     }
   } else if (FLUID_VIEW) {
-    fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));
+    // The fluid viewer runs the BUNDLED RUNTIME, which resolves the overflow level
+    // from an export-settings block and otherwise falls back to `reader`. Without
+    // the block the flag was silently ignored here: `--overflow-marker=off` still
+    // drew a pill, and `author` drew a reader-styled pill with author wording.
+    // Emitting it is the same channel the Marp bundle uses (lib/core/export-settings.js).
+    fs.writeFileSync(
+      outHtml,
+      toFluidViewer(cleanDocHtml) + exportSettingsBlock({ overflowMarker: OVERFLOW_MARKER.marker }),
+    );
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
   // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next to the deck,

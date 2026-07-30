@@ -345,12 +345,14 @@ bled.**
 - **The overflow warning is a slide / root-Frame signal**, not a Cell one — an
   authoring aid that the whole composition overflows (a z4 review-plane cue),
   drawn once per slide as a red ring **plus a labelled "OVERFLOWS" tab** (text,
-  so it doesn't rely on colour alone — WCAG 1.4.1). It is **preview-only**: the
-  loud signal appears where the author is fixing (VS Code / Drawing Board /
-  playground), and is **never burned into an exported deck** — a delivered slide
-  should not overflow, and a red box in front of a board is worse than the
-  subtle clipping. On **export** the content simply clips and the export **warns
-  the author with the exact pages** to fix.
+  so it doesn't rely on colour alone — WCAG 1.4.1). The **loud** form is where the
+  author is fixing (VS Code / Drawing Board / playground); a red box in front of a
+  board is worse than the subtle clipping, so an **export** does not carry it by
+  default. What an export carries is the `overflow-marker` setting's answer —
+  `reader` (default) tags the slide "Content clipped", `author` keeps the loud
+  form, `off` writes nothing — and at every level the export **warns the author
+  with the exact pages** to fix
+  (`engineering/decisions/2026-07-30-overflow-marker-register.md`).
 - **No content "fade" at the cut.** A gradient-to-background scrim was considered
   and rejected: it is a *scrollable-web* idiom ("more below — scroll"), which is
   false on a fixed-page slide; it hides authored content, reads as a render

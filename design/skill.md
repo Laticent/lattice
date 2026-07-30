@@ -115,7 +115,7 @@ producing, not to the deck. There is nothing to write in your front matter (and
 | level | an overflowing slide shows |
 |---|---|
 | `reader` | a calm "Content clipped" pill, no ring — **the export default** |
-| `author` | the full editing signal, for a deck you are still working on |
+| `author` | the red ring, the "Overflows" flag and the small-type alarm, for a deck you are still working on. The per-cell "Fix Me" tags stay preview-only — they need the runtime an export does not carry |
 | `off` | nothing. Only for a deck you have already checked fits |
 
 **Every export path reads it** — a PDF, a PNG set, a PPTX, and a Marp bundle alike.

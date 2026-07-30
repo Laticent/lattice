@@ -16,11 +16,15 @@ Shipped decks should never have overflow rings.
   720px budget. If overflow is detected, it adds `.overflow` to the
   section at runtime.
 - `lattice-emulator.js` produces an analogous static check during PDF
-  build, but the ring/tab are stripped before bytes are written — an
-  overflowing slide produces a clean, clipped PDF page plus a stdout
-  warning naming the exact page(s), never a marked-up export. The ring
-  (and the Fix-Me overlay below) are preview-only, authoring-time-only
-  signals.
+  build, and what reaches the artifact is the `overflow-marker` EXPORT
+  SETTING's job (`--overflow-marker`, `LATTICE_OVERFLOW_MARKER`, or the
+  Studio's per-export step — `lib/core/resolve-overflow-marker.js`):
+  `reader` (the default) tags the slide "Content clipped"; `author` keeps
+  the red ring and the "Overflows" flag; `off` writes nothing. The stdout
+  warning naming the exact page(s) is printed at EVERY level, which is why
+  `off` is tolerable at all. **The per-cell Fix-Me overlay below is the one
+  signal that stays preview-only** — it is drawn by the runtime script,
+  which an export does not carry.
 
 The `.overflow` class is the contract. Anything that detects overflow
 and wants the ring just adds the class.

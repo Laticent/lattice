@@ -745,7 +745,7 @@ ${indent}   - ${body.trim()}`;
                   // lattice-emulator.js), so the only signal outside this warning is a build-time
                   // stderr line. An earlier draft of this string promised "clipped and ringed"; the
                   // ring never reaches the artifact.
-                  fix: `${capacityFix(cap)} Nothing will divide it for you at a landscape @size, and the export carries no overflow marker \u2014 check the rendered page, or present at a portrait/square @size, where it paginates.`
+                  fix: `${capacityFix(cap)} Nothing will divide it for you at a landscape @size, and the export tags the clipped slide "Content clipped" rather than dividing it \u2014 check the rendered page, or present at a portrait/square @size, where it paginates.`
                 });
                 continue;
               }

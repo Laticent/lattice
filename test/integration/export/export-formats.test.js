@@ -158,7 +158,10 @@ describe('export-formats', () => {
 
     const out = path.join(dir, 'overflow.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      // Neutralize the ambient standing default — this test is about the DEFAULT,
+      // so a developer with LATTICE_OVERFLOW_MARKER set in their shell must not
+      // change what it measures.
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.match(r.stderr, /OVERFLOW/, 'expected the emulator to warn about overflow on stderr');
@@ -189,14 +192,32 @@ describe('export-formats', () => {
       // The console channel is unconditional — it is the author's, at every level.
       assert.match(r.stderr, /OVERFLOW/, `${level} must still warn on stderr`);
       execFileSync('pdftoppm', ['-r', '96', '-f', '1', '-l', '1', out, path.join(dir, `${level}-page`)]);
-      return ringRedPixels(path.join(dir, `${level}-page-1.ppm`));
+      // TEXT as well as pixels. The ring oracle cannot tell `reader` from `off` —
+      // neither draws one — so on its own it left the behavior that actually
+      // CHANGED (a delivered PDF now carries a "Content clipped" tag where it
+      // carried nothing) with no coverage: deleting the tag entirely kept both
+      // assertions green. The tab is real text in the PDF, so read it back.
+      const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+      return { ring: ringRedPixels(path.join(dir, `${level}-page-1.ppm`)), text };
     };
 
-    // `author` PAINTS the danger ring — the assertion that proves the setting is
-    // read, and the exact inverse of the default-path test above.
-    assert.ok(render('author') > 500, 'author must draw the danger ring in the PDF');
-    // `off` draws nothing at all.
-    assert.ok(render('off') < 50, 'off must leave no ring');
+    // `author` PAINTS the danger ring and names the defect — the assertion that
+    // proves the setting is read, and the exact inverse of the default test above.
+    const author = render('author');
+    assert.ok(author.ring > 500, 'author must draw the danger ring in the PDF');
+    // Case-insensitive: the author tab is `text-transform: uppercase`, and Chromium
+    // applies that to the PDF's TEXT layer, so it extracts as "OVERFLOWS".
+    assert.match(author.text, /overflows/i, 'author names the defect in text');
+
+    // `reader` is the DEFAULT and the whole point: no ring, but the loss is stated.
+    const reader = render('reader');
+    assert.ok(reader.ring < 50, 'reader must not draw the danger ring');
+    assert.match(reader.text, /content clipped/i, 'reader states the loss plainly');
+
+    // `off` draws nothing at all — neither ring nor text.
+    const off = render('off');
+    assert.ok(off.ring < 50, 'off must leave no ring');
+    assert.doesNotMatch(off.text, /content clipped|overflows/i, 'off leaves no marker text');
   });
 
   // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────

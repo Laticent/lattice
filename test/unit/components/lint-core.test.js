@@ -97,7 +97,7 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
       assert.ok(f, `expected capacity-overflow for ${JSON.stringify(fmExtra) || 'the default @size'}`);
       assert.equal(f.severity, 'warning', 'the author has to act — this is not advisory');
       assert.match(f.fix, /Nothing will divide it for you/, 'and it says why nothing will be split for them');
-      assert.match(f.fix, /no overflow marker/, 'and does not promise a ring the export strips');
+      assert.match(f.fix, /Content clipped/, 'and names what the export actually shows');
       assert.doesNotMatch(f.message, /expect it to overflow|will overflow/,
         'a COUNT may not predict FIT — that is the error this whole change removed from the splitter');
       assert.equal(out.find((x) => x.rule === 'capacity-autosplit'), undefined,
