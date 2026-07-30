@@ -203,28 +203,39 @@ function main(argv) {
   //    the emitted `.md` renders identically on any Marp tool and stays editable.
   //    Without the glossary bake the exported deck silently lost the generated
   //    Glossary slide while the slide before it still announced it (#1256).
-  const baked = bakeSplits(appendAutoGlossary(src));
-  const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+  const glossed = appendAutoGlossary(src);
+  const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs
-  const fm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
-  const body = fmMatch ? baked.slice(fmMatch[0].length) : baked;
-  const localized = localizeAssets(body, deckDir, dest, copied);
-  // 2) the imagery bucket's `![bg]` → `.lattice-bg` panel. A SOURCE transform on the
-  //    engine path too (lib/engine/index.js lifts before parsing), so baking it here
-  //    is the same move the glossary and the splits get. It runs AFTER localization
-  //    so the URL it embeds is the bundle-relative `assets/…` path, and with no
-  //    baseDir so that path stays relative. Without it, Marp's own
-  //    advanced-background machinery takes the `![bg]` instead: photo full-bleed,
-  //    prose unscrimmed on top, a heading over a bright area unreadable. The
-  //    matching `.image-text` fold is the runtime's (lib/core/bg-image.js
-  //    wrapImageTextToDom) — both halves are needed, neither is sufficient.
+  const rawBody = glossedFm ? glossed.slice(glossedFm[0].length) : glossed;
+  const localized = localizeAssets(rawBody, deckDir, dest, copied);
+  // 2) the imagery bucket's `![bg]` → `.lattice-bg` panel, on the UNSPLIT body — the
+  //    exact position the engine lifts at (lib/engine/index.js, before parsing).
+  //    Ordering is load-bearing in BOTH directions:
+  //      · AFTER localization, so the URL it embeds is the bundle's own `assets/…`
+  //        path rather than the author's (a panel pointing at a file the bundle
+  //        doesn't carry is the same defect as an un-localized `logo:`).
+  //      · BEFORE bakeSplits, because the lift needs the `_class: …image…` comment
+  //        and the `![bg]` in the SAME slide part. Once heading boundaries are
+  //        literal `---`, an image slide with TWO top-level headings has its
+  //        `_class` in the first part and its `![bg]` in the second — so the lift
+  //        silently skipped it and Marp's advanced-background machinery took the
+  //        image: photo full-bleed, prose unscrimmed on top, i.e. exactly the defect
+  //        this bake exists to prevent, on the deck shape most likely to hit it.
   const withImagePanels = liftImageBgImages(localized.body, undefined);
+  // 3) splits → literal `---`, LAST of the source bakes, so it sees the final body.
+  //    (The glossary bake had to precede it too: it appends a whole slide and strips
+  //    its own `glossary:` trigger.) Both are idempotent and self-contained, so the
+  //    emitted `.md` renders identically on any Marp tool and stays editable.
+  const baked = bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels);
+  const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+  const fm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
+  const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;
   // Append the runtime scripts + the baked front matter (the deck-wide registers
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  fs.writeFileSync(path.join(dest, `${file}.md`), withRuntimeScripts(fm + withImagePanels));
+  fs.writeFileSync(path.join(dest, `${file}.md`), withRuntimeScripts(fm + bakedBody));
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
   //    under the readable `<palette>.css` name marp/VS Code register by @theme.

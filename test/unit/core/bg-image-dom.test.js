@@ -100,6 +100,83 @@ describe('image text panel — applyToDom', () => {
   });
 });
 
+// Each of these was found by an independent checker on the first cut of this change.
+// They are the reason the keep-out list is longer than the string version's and the
+// reason the decision is stamped rather than re-made on every pass.
+describe('image text panel — what later passes inject stays out', () => {
+  test('the deck logo and the overflow tab are never folded in', () => {
+    const doc = dom(`<img class="deck-logo" alt=""/>${BG}${PROSE}<div class="overflow-tab">Overflows</div>`);
+    bgImage.wrapImageTextToDom(doc);
+    const section = doc.querySelector('section.image');
+    assert.ok(section.querySelector(':scope > img.deck-logo'), 'the logo stays a direct child');
+    assert.ok(section.querySelector(':scope > .overflow-tab'), 'the overflow tab stays a direct child');
+    // Both owners re-inject when their element is not a DIRECT child, so folding one
+    // in duplicates it — that is how a prose-less slide ended up with two logos.
+    assert.equal(section.querySelectorAll('.image-text img.deck-logo').length, 0);
+    assert.equal(section.querySelectorAll('.image-text .overflow-tab').length, 0);
+  });
+
+  // An exported deck carries the runtime `<script src>` tags at EOF, which makes them
+  // children of the LAST slide. Folded in, one becomes the panel's `:last-child` and
+  // steals the `> :last-child { padding-bottom: 0 }` collapse from the real content —
+  // measured as a 24px-taller panel than the engine's.
+  test('script / style / template stay out, so :last-child stays the real content', () => {
+    const doc = dom(`${BG}${PROSE}<script src="lattice-runtime.min.js"></script><style>a{}</style>`);
+    bgImage.wrapImageTextToDom(doc);
+    const panel = doc.querySelector('.image-text');
+    assert.equal(panel.querySelector('script'), null);
+    assert.equal(panel.querySelector('style'), null);
+    assert.equal(panel.lastElementChild.tagName.toLowerCase(), 'p', 'the last child is the real prose');
+  });
+
+  // The decide-once stamp. The overflow watcher appends a `.overflow-tab` reading
+  // "Overflows" AFTER the first transform pass, so a prose-LESS image slide answered
+  // "no prose" on pass 1 and then found text on pass 2 — building a spurious white
+  // card over the photo and duplicating the chrome it swept in.
+  test('a prose-less slide stays panel-less even after a later pass adds chrome', () => {
+    const doc = dom(BG);
+    bgImage.wrapImageTextToDom(doc);
+    assert.equal(doc.querySelector('.image-text'), null, 'pass 1: no prose, no panel');
+    const section = doc.querySelector('section.image');
+    const tab = doc.createElement('div');
+    tab.className = 'overflow-tab';
+    tab.textContent = 'Overflows';
+    section.appendChild(tab);
+    bgImage.wrapImageTextToDom(doc);
+    assert.equal(doc.querySelector('.image-text'), null, 'pass 2: the decision is not re-made');
+  });
+
+  test('a nested section.image is not a slide and is left alone', () => {
+    const doc = dom(`${BG}<p>Outer prose.</p><section class="image"><p>Inner.</p></section>`);
+    bgImage.wrapImageTextToDom(doc);
+    const outer = doc.querySelector('article > section.image');
+    const nested = doc.querySelector('section.image section.image');
+    assert.ok(outer.querySelector(':scope > .image-text'), 'the slide itself is wrapped');
+    assert.equal(nested.querySelector('.image-text'), null, 'the nested one is not a slide');
+    assert.equal(doc.querySelectorAll('.image-text').length, 1, 'exactly one panel');
+  });
+
+  test('a comment is not prose', () => {
+    const doc = dom(`${BG}<!-- a speaker note -->`);
+    bgImage.wrapImageTextToDom(doc);
+    assert.equal(doc.querySelector('.image-text'), null);
+  });
+});
+
+describe('bgDiv — the URL cannot leave its attribute', () => {
+  test("markdown's optional title is stripped, not escaped into the URL", () => {
+    const div = bgImage.bgDiv('right', 'assets/p.jpg "A caption"', undefined);
+    assert.equal(div, '<div class="lattice-bg lattice-bg-right" style="background-image:url(\'assets/p.jpg\')"></div>');
+  });
+
+  test('quotes and angle brackets are percent-encoded, so no attribute is injected', () => {
+    const div = bgImage.bgDiv('', 'x.jpg" onerror=alert(1) data-y="', undefined);
+    const doc = new JSDOM(`<section>${div}</section>`).window.document.querySelector('.lattice-bg');
+    assert.equal(doc.getAttributeNames().sort().join(','), 'class,style', 'only the two real attributes');
+    assert.equal(doc.getAttribute('onerror'), null);
+  });
+});
+
 describe('image text panel — the two implementations agree', () => {
   // The string pass reorders to header + bg + panel + footer; the DOM pass folds in
   // place. Sibling order carries no layout meaning here (bg / scrim / backdrop are
@@ -124,6 +201,12 @@ describe('image text panel — the two implementations agree', () => {
     ['image only', BG, 'image'],
     ['a full-bleed variant', BG + PROSE, 'image full'],
     ['no bg at all', PROSE, 'image'],
+    // Two `![bg]` on one slide: the string pass pulled out only the FIRST, folding the
+    // second into the panel — so `:has(> .lattice-bg-left)` stopped matching and the
+    // composition mirror fired on one path and not the other, swapping panel and photo.
+    ['two bg panels', `${BG}<div class="lattice-bg lattice-bg-left"></div>${PROSE}`, 'image'],
+    // `\bimage\b` matched `image-hero`, which `section.image` does not.
+    ['a class that merely CONTAINS image', PROSE, 'image-hero'],
   ]) {
     test(`same panel contents and same siblings — ${name}`, () => {
       const { fromHtml, fromDom, panelOf, outsideOf } = parity(inner, cls);

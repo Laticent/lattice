@@ -107,9 +107,34 @@ in patch versions.
   `bgImage.wrapImageTextToDom` is the mirror, keeping `.image-scrim` and `.backdrop` out of
   the fold — two keep-outs the string version never needs, because on the engine path
   neither element exists yet when it runs. Verified against the engine's own PDF:
-  **0 differing pixels** on a deck with no finish and a raster photo. (On the demo deck the
-  page still differs, entirely in the atrium finish's hairline gradient and the SVG's
-  rasterization — the artifact #1261 measured and documented; the layout is identical.)
+  **0 of 1 000 500 pixels** differ at 100 DPI on the committed fixture
+  `test/fixtures/image-bucket-parity.md` — a deck with no `finish:` and a raster photo, in the
+  repo so the measurement is reproducible. (With a `finish:` or an SVG asset the page still
+  differs in the backdrop's hairline gradient and the SVG's rasterization — the artifact #1261
+  measured; the layout is identical.)
+
+- **Six defects in the above, found by an independent checker and fixed before merge.** Two were
+  regressions the change introduced. (1) A prose-less image slide grew a spurious white card with
+  the deck logo duplicated behind it: the fold said "no prose" on pass 1, then the overflow
+  watcher appended a `.overflow-tab` reading "Overflows" and pass 2 found text and swept in the
+  tab and the logo — both of which re-inject when not a direct child. The keep-out list gained
+  them, and the decision is now STAMPED whether or not a panel was built, which makes the class
+  unreachable rather than the instance. (2) The runtime `<script src>` tags, which sit at EOF and
+  so belong to the LAST slide, were folded into the panel — one became its `:last-child` and stole
+  the `padding-bottom: 0` collapse from the real content, measuring 24px taller than the engine's.
+  (3) The bake ran after `bakeSplits`, so a `split: headings` image slide with two top-level
+  headings lost the lift entirely — its `_class` and its `![bg]` ended up in different parts. It
+  now runs on the unsplit body, where the engine lifts. (4-6) Three parity breaks, two of them in
+  the STRING half: `wrapImageText` removed only the first `.lattice-bg` (flipping the composition
+  mirror between renderers on a two-`![bg]` slide) and gated on `/\bimage\b/`, which matches
+  `image-hero` where the CSS does not; the DOM half counted a comment node as prose.
+
+- **`![bg](p.jpg "A caption")` no longer breaks out of its `style` attribute.** `bgDiv` escaped
+  `'` but not `"`, and `BG_RE` captures markdown's optional title as part of the URL — so an
+  ordinary caption closed the attribute and the remainder re-parsed as attributes (a crafted URL
+  could add an `onerror`). The title is stripped, since it was never part of the URL, and `"`,
+  `<`, `>` are percent-encoded alongside `'`. Pre-existing on the engine path; on-path here
+  because this change bakes the result into the file a recipient reads.
 
 - **The gap COUNT is gone from the prose that quoted it.** `marp-independence.md`,
   `gotchas.md` and the exporter header each said "six enumerated exceptions" — written
