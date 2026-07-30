@@ -11,12 +11,18 @@ import { splitSlides } from './lint';
 /** Default body for a freshly-added slide. */
 export const NEW_SLIDE = '<!-- _class: content -->\n\n## New slide\n\nReplace this with your point.';
 
+/** The canonical slide separator this module rejoins with. Exported because the previews
+ *  reassemble a viewed slide LIST back into a deck document too (they render the deck for
+ *  context and display one slide, so the engine's page number is true), and that document
+ *  must split back into the same slides the engine and the rail see. */
+export const SLIDE_SEP = '\n\n---\n\n';
+
 function bodySlides(source: string): string[] {
 	return splitSlides(stripFrontMatter(source));
 }
 function rejoin(source: string, slides: string[]): string {
 	const fm = frontMatterBlock(source); // ends with its own blank line, or ''
-	const body = slides.join('\n\n---\n\n');
+	const body = slides.join(SLIDE_SEP);
 	return fm ? fm + body : body;
 }
 const clampIndex = (i: number, len: number) => Math.max(0, Math.min(i, len - 1));

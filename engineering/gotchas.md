@@ -703,6 +703,57 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   slide-relative and is not. Check with the gate, or by rendering the same deck in two
   differently-sized iframes and diffing computed styles.
 
+### A live preview prints "1" as the page number on every slide
+
+- **Symptom:** a deck with `paginate: true` shows the page number `1` on every slide in a
+  preview — most visibly the Studio's Present slide-overview grid, where every tile reads
+  "1". Navigating slides doesn't change it. The exported PDF/HTML numbers correctly, and the
+  Playground's filmstrip numbers correctly, so it looks like a Studio-only rendering bug.
+- **Cause: the engine numbers the DOCUMENT IT IS GIVEN, and the caller gave it one slide.**
+  `lattice_directives_apply` (`lib/engine/slides.js`) walks the parsed token stream and does
+  `pageNumber += 1` per section, stamping `data-lattice-pagination` with that ordinal and,
+  after the walk, the final count as `data-lattice-pagination-total`. It is a position within
+  one parse — there is no deck-level state and **no offset parameter** (`render(markdown,
+  theme, opts)` takes only `baseUrl` / `stats` / `preview`). So a caller that slices one slide
+  out and renders it alone gets a truthful "1 of 1". Nothing downstream is wrong: the
+  `section[data-lattice-pagination]::after` pseudo (`lib/engine/css.js`) and the visible
+  `<span class="lat-pagination">` both just read what the engine stamped.
+- **Fix:** hand the engine the whole deck and DISPLAY one section — `DeckPreview`'s
+  `slideIndex` / `renderInto`'s `opts.slideIndex`, which narrows a whole-deck render to the
+  one shown slide (`keepOnlySection` in `docs/src/lib/single-slide-render.ts`). The kept
+  section carries the ordinal, the total, and its positional `id`, all computed against the
+  real deck. The srcdoc still holds a single section, so the frame's CSS parse + runtime
+  execution is unchanged — but note the engine parse is now the dominant cost on the PATCH path
+  (a warm edit's frame is ~1.8ms), so a **single-entry module-level memo of the last whole-deck
+  render** collapses the two interactions that repeat an identical parse: changing the shown
+  slide, and the overview grid's N tiles rendering the same deck. Measured on the real Studio at
+  4× CPU on a 40-slide deck, navigation is TOTAL 7.1ms p50 (RENDER 0.1ms) against 12.8ms/6.8ms
+  before deck context existed. A keystroke misses the memo by construction and pays the full
+  parse; that one needs the engine-side incremental render path, not a memo.
+- **The trap inside the fix — ONE AUTHORED SLIDE IS NOT ONE SECTION.** `slideIndex` indexes
+  the CALLER's authored-slide list; narrowing indexes the ENGINE's sections. They diverge, and
+  when they do an index-based lookup paints a slide the author did not select — which is worse
+  than a wrong number, because a wrong number is visibly wrong and a wrong slide is plausibly
+  wrong. Two confirmed causes, both on decks that ship here: a **1→N expansion** (`_focusSteps`
+  clones one slide into a section per step — `examples/focus.md` is 11 authored → 14 sections;
+  `split: headings` divides one chunk at every heading — `examples/split-headings.md` is 1 → 7),
+  and **splitter disagreement** (the engine's `splitOnHr` breaks on ANY markdown-it `hr` —
+  `***`, `___`, `- - -`, `---` with trailing spaces — while the Studio's `SEP_RE` in
+  `docs/src/components/studio/lint.ts` matches only a bare `\n---\n`). So a host passes
+  `slideCount` and `slideMarkdown` alongside `slideIndex`: narrowing happens only when the
+  engine's section count agrees, and otherwise the shown slide is re-rendered alone and
+  honestly numbered 1 of 1. **Right slide always; true number only when provably true.**
+  Locked by `docs/src/lib/single-slide-render.alignment.test.ts`, which drives the real engine
+  and the real splitter over the real example decks — a mocked engine cannot express a 1→N
+  expansion, which is exactly the failure mode.
+- **Triggered by:** any new preview surface that slices a slide out of a deck before
+  rendering. If a host knows a slide's place in a deck, it must pass `slideIndex` **with**
+  `slideCount` and `slideMarkdown`; omit all three only for a genuinely standalone slide (a
+  landing island, a component specimen), where 1-of-1 is the truth. Note the preview number can still differ from the exported PDF's for a
+  portrait/square/story deck: auto-split runs only in `lattice-emulator.js` (the export path,
+  `resplitDoc`), never in the browser render, so an export may legitimately have more pages
+  than the deck has slides.
+
 ### Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader
 
 - **Symptom:** in the opt-in `--fluid` viewer, either (a) a genuinely over-dense

@@ -146,11 +146,23 @@ change is independently reviewable/verifiable (HARD RULE #17).
 | Surface | Renders | Has the O(deck) cost? |
 |---|---|---|
 | **Playground** | whole deck → all sections in one iframe (content-visibility virtualization; nodes stay mounted) | **Yes** — the 227 ms case; the cache target |
-| **Studio** | `frontMatter + current slide` — one section per iframe (`StudioShell.tsx:1923`) | **No** — already single-slide/incremental |
+| **Studio** | **whole deck → narrowed to one section for the frame** (`StudioShell.tsx` `editorSample`, `single-slide-render.ts` `narrowToSlide`) | **Yes, since the deck-context fix** — see the note below |
 | **Print/export** | all pages in one doc | n/a — renders once |
 
-The Studio is already incremental by construction, so this work targets the
-Playground filmstrip only.
+~~The Studio is already incremental by construction, so this work targets the
+Playground filmstrip only.~~
+
+**SUPERSEDED (deck-context page-number fix).** The Studio is no longer incremental
+by construction. It renders the WHOLE viewed deck on every keystroke and narrows the
+result to one `<section>` for the frame, because the engine derives a slide's page
+number from its ordinal position among the sections it parses and takes no offset —
+so a lone slice is always "1 of 1". The same slice was also silently dropping every
+inherited running-global directive (a mid-deck `<!-- header: … -->`) and the deck-scoped
+progress dot rail. Consequently **both** preview surfaces now carry the O(deck) engine
+cost, which removes this document's reason for scoping the cache to the Playground and
+is the new evidence for building step 2. The cache design below is unchanged and still
+correct — including the resolution that pagination stays single-owner in the engine and
+is re-stamped at assembly.
 
 ## Pagination — decided by adversarial trio (verdict: single owner, no CSS counter)
 

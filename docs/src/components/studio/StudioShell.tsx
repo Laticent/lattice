@@ -40,7 +40,7 @@ import { ComposeView } from './ComposeView';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
-import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
+import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import type { EditorHandle } from './Editor';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
@@ -831,7 +831,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// The canonical deck is `slides`; the preview/rail render the VIEWED set — the
 	// full deck, or a reader-lens reshape of it (the editor always holds the source).
 	const viewSlides = React.useMemo(() => (composeLens === 'full' ? slides : presentationSet(slides, composeLens, lensReg)), [slides, composeLens, lensReg]);
-	const slide = viewSlides[Math.min(activeSlide, viewSlides.length - 1)] ?? viewSlides[0] ?? '';
+	// The viewed slide's index in `viewSlides` — clamped, and the position the preview reports to
+	// the engine as deck context (below). Split out of `slide` because the index is now load-
+	// bearing on its own, not just a lookup step.
+	const viewIndex = viewSlides.length ? Math.max(0, Math.min(activeSlide, viewSlides.length - 1)) : 0;
+	const slide = viewSlides[viewIndex] ?? '';
 	// When inline validation is off, nothing is "unknown" — the editor, the issue
 	// count, and the Architect's component check all stand down together.
 	// Your saved local components are first-class names too — fold them into the
@@ -2163,7 +2167,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// hoisted fixed host, no measure-and-track. Present renders its OWN preview
 	// (PresentOverlay), so there is no shared iframe to re-aim and no iOS fixed-vs-visual
 	// drift. `mermaid` is unified to the shown slide so a same-signature edit stays a patch.
-	const editorSample = previewFm ? previewFm + slide : slide;
+	// DECK CONTEXT, not a lone slide. The preview renders the whole viewed deck and displays
+	// `viewIndex` (DeckPreview's `slideIndex`). Handing the engine one sliced-out slide is what
+	// printed "1" as the page number on EVERY slide: the engine numbers a slide by its ordinal
+	// position among the sections of the document it parses, so a one-slide document is always
+	// page 1 of 1. It is the VIEWED set (a reader lens reshapes the deck), so a lens numbers
+	// within what the audience actually sees — the same set Present and the overview number over.
+	// Memoized: this joins the WHOLE deck, and the shell re-renders far more often than the
+	// deck changes (every panel toggle, every clock tick). The value is what DeckPreview diffs
+	// by string value, so a stable identity also keeps the render deps honest.
+	const editorSample = React.useMemo(() => previewFm + viewSlides.join(SLIDE_SEP), [previewFm, viewSlides]);
+	// The alignment fallback (DeckPreview's `slideMarkdown`): the shown slide ALONE. Used when the
+	// engine's section count disagrees with `viewSlides.length` — a `_focusSteps` / `split: headings`
+	// deck, where one authored slide becomes several sections and an index cannot name the shown
+	// slide. Then the preview renders this instead: the right slide, honestly numbered 1 of 1.
+	const editorSlideAlone = React.useMemo(() => previewFm + slide, [previewFm, slide]);
 	const editorMermaid = hasMermaid(slide);
 	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
@@ -2954,7 +2972,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    island. `resetKeys` clears the fault when the user navigates to another
 					    slide or deck, so a per-slide fault self-recovers without a reload. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]}>
-						<DeckPreview options={options} sample={editorSample} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+						<DeckPreview options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
 			</div>
