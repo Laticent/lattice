@@ -710,3 +710,52 @@ describe('lint-core: bookend-finish-contrast', () => {
     assert.equal(core.lintTextWith(src, beVocab).find((f) => f.rule === 'bookend-finish-contrast'), undefined);
   });
 });
+
+// `paginate: skip` / `hold` are Marp values Lattice does NOT implement — `truthy()` rejects
+// all three of false/skip/hold identically, so each merely hides the badge while the slide
+// keeps its place in the numbering. For `false` that is the intent; for the other two the
+// author asked for a renumbering they will not get, and the deck still renders, so nothing
+// told them. Same "silence reads as it works" reasoning as the retired-autosplit rule.
+describe('paginate: skip / hold are flagged rather than silently downgraded', () => {
+  const find = (src) => ruleFor(src, 'paginate-unsupported-value');
+
+  test('a spot `_paginate: skip` is flagged, on the right slide', () => {
+    const f = find('---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n');
+    assert.ok(f, 'expected paginate-unsupported-value');
+    assert.equal(f.severity, 'suggestion'); // the render is legitimate; only the renumbering is absent
+    assert.equal(f.slide, 2);
+    assert.match(f.message, /STILL counted/);
+    assert.match(f.fix, /_paginate: false/);
+  });
+
+  test('`hold` gets its own message — it is a different unmet promise from `skip`', () => {
+    const f = find('---\npaginate: hold\n---\n\n# A\n');
+    assert.ok(f);
+    assert.equal(f.slide, 1); // front matter is deck-level, so it reports against slide 1
+    assert.match(f.message, /repeat the previous number/);
+  });
+
+  test('`false` is NOT flagged — hiding the badge is exactly what it means', () => {
+    assert.equal(find('---\npaginate: false\n---\n\n# A\n'), undefined);
+    assert.equal(find('---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _paginate: false -->\n\n## B.\n'), undefined);
+  });
+
+  test('a value inside a FENCED code block is documentation, not a directive', () => {
+    // This rule's own docs entry is a fenced sample, so a whole-source scan would flag it.
+    assert.equal(find('---\npaginate: true\n---\n\n# A\n\n```\n<!-- _paginate: skip -->\n```\n'), undefined);
+  });
+
+  test('the slide number counts slides, not front-matter fences', () => {
+    // Counting bare `---` reported two too high, because front matter's own fences split too.
+    const f = find('---\npaginate: true\n---\n\n# A\n\n---\n\n## B.\n\n---\n\n<!-- _paginate: skip -->\n\n## C.\n');
+    assert.equal(f.slide, 3);
+  });
+
+  test('one finding per distinct directive+value, not one per slide', () => {
+    const all = core.lintTextWith(
+      '---\npaginate: true\n---\n\n<!-- _paginate: skip -->\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n',
+      vocab,
+    ).filter((x) => x.rule === 'paginate-unsupported-value');
+    assert.equal(all.length, 1);
+  });
+});

@@ -116,6 +116,33 @@ in patch versions.
 
 ### Fixed
 
+- **A `split-panel proof` run still showed one hue in the Studio unless the deck happened to
+  paginate.** The previous release renders the whole deck and displays one section so deck-derived
+  facts resolve, but gates that on `needsDeckContext` to keep the cheap path for decks that don't
+  need it — and that gate listed pagination, running-global directives, dividers and `glossary: auto`,
+  not `split-panel proof`. Since `cat-N` comes from a slide's ordinal among the deck's proof slides,
+  a proof deck without pagination fell back to the lone slice and every slide took `cat-1`. The
+  originally reported deck paginates, so it tripped the pagination entry and came out right by luck.
+  Verified on the real Present overlay: three slides at `rgb(188, 213, 236)` before, `cat-1`/`cat-2`/
+  `cat-3` after.
+
+  The gate is now a `DECK_DERIVED_FACTS` registry rather than a regex chain: each entry names the
+  fact, states why a lone slice can't produce it, and carries its probes, so adding a deck-derived
+  feature is one entry with a stated reason. The old framing asked "does this deck show page
+  numbers?" — a proxy that only ever worked for pagination, the one fact whose visibility and
+  correctness coincide. Guarded by `docs/e2e/proof-run-deck-context.spec.ts`, which drives the real
+  overlay on an un-paginated run and fails if the entry is removed.
+
+- **`paginate: skip` and `paginate: hold` were silently downgraded to `false`.** Lattice numbers
+  every slide — the counter advances on every section, so a hidden slide still holds its place and
+  the next visible one reads its true position — and treats visibility as the only per-slide choice.
+  Marp's `skip` (drop the slide from the count) and `hold` (show a number without advancing it) are
+  not implemented; `truthy()` rejects all three of `false`/`skip`/`hold` identically. For `false`
+  that is the intent, but an author writing `skip` or `hold` asked for a renumbering they don't get,
+  and the deck still rendered, so nothing said so. A new `paginate-unsupported-value` lint
+  suggestion now names which value was written, what it actually does, and that `false` is the
+  supported way to hide a badge. Fence-aware, so a value inside a code sample isn't flagged.
+
 - **An exported `image` slide now renders its photo as a panel and its prose in a text
   column — the same slide the engine draws, pixel for pixel.** This was the seventh gap
   #1261 disclosed and the one that did NOT degrade gracefully: Marp's own

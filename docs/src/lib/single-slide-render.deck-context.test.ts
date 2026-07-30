@@ -25,7 +25,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { clearDeckMemo, createSingleSlideRenderer } from './single-slide-render';
+import { clearDeckMemo, createSingleSlideRenderer, DECK_DERIVED_FACTS } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -318,5 +318,97 @@ describe('whole-deck memo boundedness', () => {
 		const deck = '---\npaginate: true\n---\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
 		for (let i = 0; i < 4; i++) await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, arg);
 		expect(seen).toEqual([deck]);
+	});
+});
+
+// The fact the first cut of this gate was blind to. `cat-N` on a `split-panel proof` run
+// comes from the slide's ordinal among the deck's proof slides, so a slice rendered alone
+// is always "the first one" and takes `cat-1` — a leveled deck presented as N identical
+// panels. It survived the original gate only because the reported deck also paginates.
+describe('deck-context gate — split-panel proof runs', () => {
+	const proofDeck = (extra = '') =>
+		`---\ntheme: indaco${extra}\n---\n\n<!-- _class: split-panel proof -->\n\n## One.\n\n---\n\n<!-- _class: split-panel proof -->\n\n## Two.`;
+
+	it('renders the DECK for a proof run with NO paginate', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = proofDeck();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('renders the DECK for a capstone run (capstone implies proof)', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '<!-- _class: split-panel capstone -->\n\n## One.\n\n---\n\nbody';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('renders the DECK when the class arrives via front matter rather than a directive', async () => {
+		// deckClassPropagate can supply `split-panel` deck-wide, so the probe must not
+		// require the token to sit in the same directive comment.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '---\nclass: split-panel proof\n---\n\n## One.\n\n---\n\n## Two.';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('still renders the SLICE for a deck with neither proof nor any other deck-derived fact', async () => {
+		// The optimization has to survive: adding a fact must not make every deck pay.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		await r.renderInto(host, '<!-- _class: split-panel -->\n\n## Plain.\n\n---\n\nbody', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen).toEqual(['THE SLICE']);
+	});
+});
+
+// STRUCTURAL, not behavioral. The gate is a registry precisely so that adding a
+// deck-derived feature is one entry with a stated reason, instead of a regex appended to
+// an anonymous chain — which is how `split-panel proof` came to be missing. These assert
+// the registry stays self-describing, so a future entry cannot be half-added.
+describe('deck-derived fact registry', () => {
+	it('every fact is named, justified, and has at least one probe', () => {
+		expect(DECK_DERIVED_FACTS.length).toBeGreaterThan(0);
+		for (const f of DECK_DERIVED_FACTS) {
+			expect(f.fact, 'fact needs a name').toBeTruthy();
+			expect(f.why.length, `${f.fact} needs a stated reason`).toBeGreaterThan(20);
+			expect(f.probes.length, `${f.fact} needs a probe`).toBeGreaterThan(0);
+		}
+	});
+
+	it('names are unique, so a duplicate entry is visible', () => {
+		const names = DECK_DERIVED_FACTS.map((f) => f.fact);
+		expect(new Set(names).size).toBe(names.length);
+	});
+
+	it('every probe actually matches something — no dead regex', () => {
+		// A probe that can never fire is worse than no probe: it reads as coverage.
+		const samples = [
+			'---\npaginate: true\n---\n\nbody',
+			'<!-- _paginate: true -->\n\nbody',
+			'<!-- header: Q3 -->\n\nbody',
+			'<!-- _class: divider -->\n\nbody',
+			'---\nglossary: auto\n---\n\nbody',
+			'<!-- _class: split-panel proof -->\n\nbody',
+			'<!-- _class: split-panel capstone -->\n\nbody',
+			'---\nclass: split-panel proof\n---\n\nbody',
+		];
+		for (const f of DECK_DERIVED_FACTS) {
+			for (const p of f.probes) {
+				expect(samples.some((s) => p.test(s)), `${f.fact}: probe ${p} matches none of the samples`).toBe(true);
+			}
+		}
+	});
+
+	it('covers the proof run — the fact whose absence was the reported bug', () => {
+		const proof = DECK_DERIVED_FACTS.find((f) => /proof/i.test(f.fact));
+		expect(proof, 'a split-panel proof fact must be registered').toBeDefined();
+		expect(proof?.probes.some((p) => p.test('<!-- _class: split-panel proof -->'))).toBe(true);
 	});
 });

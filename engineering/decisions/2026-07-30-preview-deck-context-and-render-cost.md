@@ -6,8 +6,9 @@ summary: >
   sliced-out slide. The number was the only symptom loud enough to notice: the same slice was also
   dropping inherited running-global directives and the deck-scoped progress rail. Rendering the deck
   and displaying one section fixes all three but makes the preview's cost scale with the whole deck,
-  so it is GATED: a deck with no paginate / running-global directive / divider / auto-glossary keeps
-  the cheap slice path. Measured against origin/main on the real Studio at 4x CPU, the shipped default
+  so it is GATED: a deck with no paginate / running-global directive / divider / auto-glossary /
+  `split-panel proof` run keeps the cheap slice path. (The proof entry was MISSING in the first cut —
+  see the amendment at the end of this note.) Measured against origin/main on the real Studio at 4x CPU, the shipped default
   deck is faster on both axes (navigation 10.5 -> 7.9ms, typing 9.1 -> 7.9ms); a deck that opts INTO
   pagination gets much faster navigation (11.8 -> 6.9ms) and slower typing (10.4 -> 46.3ms gallery,
   9.8 -> 17.0ms prose) — a real regression on the opt-in path, closed only by step 3. Along the way:
@@ -122,8 +123,8 @@ preview's cost scale with the **whole deck's content**, which is where the 4× s
 
 **So the fix is a gate, not a faster render.** A preview only needs the deck when the deck
 contributes something to the shown slide: `paginate`, a running-global directive comment, a divider
-that drives the progress rail, or `glossary: auto`. `needsDeckContext` tests exactly that and renders
-the slice otherwise — and the slice path is now *cheaper than it was on `main`*, because the parser
+that drives the progress rail, `glossary: auto`, or a `split-panel proof` run. `needsDeckContext`
+tests exactly that and renders the slice otherwise — and the slice path is now *cheaper than it was on `main`*, because the parser
 memo makes a one-slide render cheaper (§4, wrong claim 3). **`paginate` is default-OFF and none of
 the three shipped Studio decks sets it**, so the gated path is the common case, not an edge one.
 
@@ -400,3 +401,51 @@ above center. The assertion that discriminates: **the editor's vertical center f
   `lib/core/split-sections.js` is depth-aware ("survives nested sections") but is CJS and not
   exposed on the browser engine bundle, so the preview detects-and-degrades instead. Exposing that
   kernel is the proper fix.
+
+---
+
+## Amendment (2026-07-30, same day): the gate's question was a proxy, and it missed `cat-N`
+
+The gate shipped keyed on "does this deck show page numbers, inherit a running global, draw a
+progress rail, or grow a glossary slide?" That list is a **proxy** for the real question, which is
+*does any slide render something whose value depends on other slides?* — and the proxy was missing an
+entry: **`split-panel proof`**.
+
+`cat-N` is not authored. The engine assigns it from a slide's ordinal among the deck's proof slides
+(`proofTokensFor`, `lib/core/split-panels.js`), so a slice rendered alone is always "the first proof
+slide" and takes `cat-1` — a leveled deck presented as N identical blue panels. That is the
+originally reported bug, and it survived this gate because **the reported deck also paginates**: it
+tripped the `pagination` entry and came out right by luck. Measured against the gate verbatim:
+
+```
+proof deck, no paginate/divider/glossary  -> needsDeckContext = false
+same deck WITH paginate: true             -> needsDeckContext = true
+```
+
+Confirmed on the real Present overlay before the fix: a three-slide un-paginated proof run painted
+`rgb(188, 213, 236)` for all three slides. After: `cat-1`/`cat-2`/`cat-3`, three distinct fills.
+
+Live impact at the time was zero — of 126 decks in `examples/` and `test/integration/baseline-decks/`,
+exactly one has a proof run and it paginates — but an author writing a proof deck without pagination
+hit the full original symptom.
+
+**Why pagination hid the problem, and the general lesson.** Pagination is the *forgiving* fact: a page
+number nobody displays can be wrong invisibly, so gating on "is it enabled" is safe there. A
+categorical hue is displayed either way, so the same shortcut renders it wrong in plain sight. Keying
+the gate on a *visibility* switch therefore only ever worked for the one fact whose visibility and
+correctness coincide.
+
+**What changed.** `needsDeckContext` is now a `DECK_DERIVED_FACTS` registry — each entry names the
+fact, states why it cannot be derived from a lone slice, and carries its probes. Adding a
+deck-derived feature means adding an entry, and the registry is exported so tests assert every fact
+is named, justified, probed, uniquely named, and that no probe is dead. Bias stays toward
+over-triggering: a false positive costs one memoized parse, a false negative renders wrong output.
+
+The `split-panel proof` probe matches `proof`/`capstone` *without* requiring `split-panel` in the same
+directive, because `deckClassPropagate` can supply that token from front matter.
+
+**Guard:** `docs/e2e/proof-run-deck-context.spec.ts` drives the real Present overlay on an
+un-paginated proof run and reads the painted fill; it fails with all three slides on one slot if the
+registry entry is removed. The unit tests assert the gate's *answer*; this asserts the *painted
+result*, which is the distinction that matters — this bug class has now been found twice by bug
+report and never by a passing unit suite.

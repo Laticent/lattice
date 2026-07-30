@@ -265,21 +265,67 @@ function narrowToSlide(html: string, index: number, slideCount?: number): string
 //
 // It FAILS OPEN — anything it is unsure about returns true — so a wrong answer costs latency, never
 // correctness. Cost is a regex pass over the source, measured at 0.033ms across 117 slides.
+// THE QUESTION THIS ASKS. Not "does this deck show page numbers" — that was the first
+// framing and it is a PROXY, which is how the gate shipped blind to `split-panel proof`.
+// Pagination is only one deck-derived fact, and it is the forgiving one: a page number
+// nobody displays can be wrong invisibly. A categorical hue is displayed either way, so
+// the same shortcut renders it wrong in plain sight.
+//
+// The question is: **does any slide render something whose value depends on OTHER slides?**
+// Each entry below is one such fact, named, with the reason it cannot be derived from a
+// lone slice. Adding a deck-derived feature means adding an entry — and the registry is
+// exported so a test can assert every fact is actually probed, rather than trusting that
+// whoever added the feature remembered this file.
+//
+// Bias is deliberately toward OVER-triggering: a false positive costs one whole-deck parse
+// (0.033ms of probing, ~39ms of parse, memoized), a false negative renders wrong output.
+export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; probes: RegExp[] }> = [
+	{
+		fact: 'pagination',
+		why: 'the page number is the slide\'s ordinal in the whole deck, and the total is the deck\'s count',
+		probes: [
+			/^\s*paginate\s*:\s*(?!false|no|off\b)\S/m, // front matter
+			/<!--\s*_?paginate\s*:\s*(?!false|no|off\b)\S/, // directive comment, spot or global
+		],
+	},
+	{
+		fact: 'running-global directive',
+		why: 'a directive comment without the `_` spot prefix applies to its slide AND every one after, so a slice loses what it inherited',
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+	},
+	{
+		fact: 'divider',
+		why: 'dividers drive the progress dot rail and the watermark section glyph, both counted across the deck (progress.transform.js is a no-op without them)',
+		probes: [/<!--\s*_?class\s*:[^>]*\bdivider\b/],
+	},
+	{
+		fact: 'glossary: auto',
+		why: 'appends a derived appendix slide built from terms across the whole deck, changing the slide count',
+		probes: [/^\s*glossary\s*:\s*auto\b/m],
+	},
+	{
+		// THE ONE THE PROXY MISSED. `cat-N` on a `split-panel proof` run is assigned from the
+		// slide's ordinal among the deck's proof slides (`proofTokensFor`, lib/core/split-panels.js),
+		// never authored. A slice rendered alone is always "the first proof slide" and takes `cat-1`,
+		// so a leveled deck presented as six identical blue panels — the originally reported bug,
+		// which survived the first cut of this gate because it paginates and tripped `pagination`
+		// by luck. Verified on the real Present overlay: without this entry a three-slide proof run
+		// with no `paginate` paints one hue for all three; with it, three.
+		//
+		// Matches `proof`/`capstone` WITHOUT requiring `split-panel` in the same directive, because
+		// `deckClassPropagate` can supply that token from front matter. Over-triggering on a stray
+		// `proof` class is the cheap direction.
+		fact: 'split-panel proof run',
+		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
+		probes: [
+			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
+			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
+		],
+	},
+];
+
 function needsDeckContext(deck: string): boolean {
-	// `paginate` truthy in front matter or in ANY directive comment (spot or global): the number is
-	// a function of the whole deck, so any slide that shows one needs the deck.
-	if (/^\s*paginate\s*:\s*(?!false|no|off\b)\S/m.test(deck)) return true;
-	if (/<!--\s*_?paginate\s*:\s*(?!false|no|off\b)\S/.test(deck)) return true;
-	// A RUNNING-GLOBAL directive comment — one without the `_` spot prefix — applies to its slide and
-	// every one after, so a slice rendered alone loses it.
-	if (/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/.test(deck)) return true;
-	// Divider slides drive the progress dot rail and the watermark section glyph, both of which count
-	// across the deck. No dividers, no rail (progress.transform.js is a no-op without them).
-	if (/<!--\s*_?class\s*:[^>]*\bdivider\b/.test(deck)) return true;
-	// `glossary: auto` appends a derived appendix slide built from terms across the WHOLE deck, which
-	// also changes the slide count the number is relative to.
-	if (/^\s*glossary\s*:\s*auto\b/m.test(deck)) return true;
-	return false;
+	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)));
 }
 
 // ── Whole-deck render memo — ONE entry, module-level ─────────────────────────
