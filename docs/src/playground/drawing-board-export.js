@@ -150,7 +150,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
+	const { bakeSplits, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd, withResolvedOverflowMarker } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -173,9 +173,23 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// the glossary. No baseDir, so the author's own URL survives verbatim — this
 	// producer cannot copy local files (hence `localAssets: false` below), so a
 	// remote or `data:` image works and a relative one was already unresolvable.
+	// …and the `overflow-marker:` policy resolved + WRITTEN IN, through the same
+	// shared helper the CLI uses. Without it this producer shipped the runtime's
+	// authoring fallback: `frontMatterBlock` bakes nothing for a deck with no front
+	// matter, so a front-matter-less deck exported from here carried no baked block,
+	// the runtime read it as an authoring surface, and a recipient got the red ring
+	// and the "FIX ME" overlays — the exact defect the register exists to fix, on the
+	// export path a non-CLI user actually uses. Writing the key manufactures the
+	// front matter when absent. No override here yet: the Studio has no UI for it, so
+	// the deck's own key decides and the default is `reader`.
 	dir.file(
 		`${slug}.md`,
-		withRuntimeScripts(liftImageBgImages(bakeSplits(appendAutoGlossary(source)), undefined), { localAssets: false }),
+		withRuntimeScripts(
+			withResolvedOverflowMarker(
+				liftImageBgImages(bakeSplits(appendAutoGlossary(source)), undefined),
+			).deck,
+			{ localAssets: false },
+		),
 	);
 
 	// palette CSS (+ dark), fetched from the staged theme dir. Fall back to the

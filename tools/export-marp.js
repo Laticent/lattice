@@ -33,10 +33,14 @@
  *                             [--no-agent] [--overflow-marker=author|reader|off]
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
- * addressed to — see lib/core/resolve-overflow-marker.js. It overrides the deck's
- * own key for this one export; absent both, the export default is `reader`. The
- * resolved value is WRITTEN into the emitted front matter, so the artifact states
- * its own policy.
+ * addressed to — see lib/core/resolve-overflow-marker.js. It leaves the SOURCE deck
+ * untouched; absent it and a deck key, the export default is `reader`.
+ *
+ * It is NOT, however, "one export and gone": the resolved value is written into the
+ * EMITTED front matter (which is what makes the artifact state its own policy), so
+ * re-exporting that bundle's own `.md` — an ordinary thing to do with a deck a
+ * recipient sent back — inherits it. That matters most for `off`, the level that
+ * makes a clipped slide look finished. The console says which source won.
  *
  * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
  * in ANY Marp tool. The generated marp.config.cjs sets `html: true` — without it
@@ -58,13 +62,10 @@ const { execFileSync } = require('child_process');
 const { bakeSplits } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
-const { withFrontMatterKey, readFrontMatterBlock } = require('../lib/core/deck-front-matter');
-const {
-  OVERFLOW_MARKER_LEVELS, EXPORT_DEFAULT_MARKER, isKnownOverflowMarker, readOverflowMarker,
-} = require('../lib/core/resolve-overflow-marker');
+const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
-  safeName, vscodeSettings, readme, agentsMd,
+  safeName, vscodeSettings, readme, agentsMd, withResolvedOverflowMarker, OVERFLOW_MARKER_LEVELS,
 } = require('../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
@@ -193,7 +194,7 @@ function copyCssInto(srcAbs, destAbs) {
 function printOverflowPolicy(marker, source, deckPath) {
   const WHAT = {
     author: 'the red ring, an "Overflows" tab, per-cell "Fix Me" overlays, and the type-floor alarm',
-    reader: 'a calm "More below" pill — clipped content is still marked as clipped, with no QA chrome',
+    reader: 'a calm "Content clipped" pill — the loss is stated plainly, with no QA chrome',
     off: 'nothing — a clipped slide will look finished',
   };
   console.log(`  overflow marker: ${marker} (${source}) — a reader sees ${WHAT[marker]}.`);
@@ -201,8 +202,10 @@ function printOverflowPolicy(marker, source, deckPath) {
     console.warn('  ⚠ With `off`, this console is the ONLY channel that can tell you a slide clips,');
     console.warn('    and this export did not render, so it did not check.');
   }
+  // Quoted: an unquoted `Q3 Board Review.md` printed a command that fails on its
+  // first argument — the exact bug lib/core/marp-bundle.js's `safeName` records.
   console.log(`    export-marp does not render, so it cannot measure overflow. To check: `
-    + `\`node lattice-emulator.js ${deckPath} /tmp/check.pdf\` — it prints the clipped pages.`);
+    + `\`node lattice-emulator.js "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
 }
 
 function main(argv) {
@@ -214,8 +217,19 @@ function main(argv) {
   // `overflow-marker:` key: the deck states the author's standing intent, the
   // flag decides one artifact ("this one goes to the board — quiet it down")
   // without editing the source. Resolution order is flag → deck → `reader`.
-  const markerArg = argv.find((a) => a.startsWith('--overflow-marker'));
-  const markerFlag = markerArg ? (markerArg.split('=')[1] ?? '') : null;
+  // EXACT match, not a prefix. `startsWith('--overflow-marker')` accepted
+  // `--overflow-markerZZZ=off` and reported it as the real flag — a typo silently
+  // applying, in the one direction that matters (`off` makes a clipped slide look
+  // finished). Split on the FIRST `=` only, so `--overflow-marker=off=x` is a bad
+  // value rather than a silently truncated good one, and reject a repeat outright
+  // instead of quietly taking the first.
+  const markerArgs = argv.filter((a) => a === '--overflow-marker' || a.startsWith('--overflow-marker='));
+  const strayMarker = argv.find((a) => a.startsWith('--overflow-marker') && !markerArgs.includes(a));
+  if (strayMarker) die(`unknown flag '${strayMarker}' (did you mean --overflow-marker=…?)`);
+  if (markerArgs.length > 1) die('--overflow-marker given more than once');
+  const markerFlag = markerArgs.length
+    ? markerArgs[0].slice('--overflow-marker'.length).replace(/^=/, '')
+    : null;
   const [deckPath, outArg, paletteArg] = argv.filter((a) => !a.startsWith('--'));
   if (!deckPath || !outArg) {
     die('usage: node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette] [--no-agent] '
@@ -294,13 +308,18 @@ function main(argv) {
   //     future runtime ships. `withRuntimeScripts` then bakes this same front
   //     matter into the document block, so the visible key and the one the
   //     runtime reads cannot disagree (lib/core/deck-front-matter.js).
-  const deckMarker = readOverflowMarker(readFrontMatterBlock(localizedFm));
-  const marker = markerFlag !== null
-    ? markerFlag.trim().toLowerCase()
-    : (isKnownOverflowMarker(deckMarker) ? deckMarker.trim().toLowerCase() : EXPORT_DEFAULT_MARKER);
-  const markerSource = markerFlag !== null ? '--overflow-marker'
-    : (isKnownOverflowMarker(deckMarker) ? 'deck front matter' : 'default');
-  const fm = withFrontMatterKey(localizedFm, 'overflow-marker', marker);
+  const resolvedMarker = withResolvedOverflowMarker(localizedFm, markerFlag);
+  const { marker } = resolvedMarker;
+  const markerSource = resolvedMarker.source === 'override' ? '--overflow-marker' : resolvedMarker.source;
+  // An unrecognized deck value used to collapse into "(default)", so the author was
+  // never told their key had been ignored — and the export then OVERWROTE the typo,
+  // erasing it from the artifact too. The flag form dies on a bad value; the deck
+  // form falls back (a typo must not decide an artifact) but must at least say so.
+  if (resolvedMarker.ignored !== null) {
+    console.warn(`  ⚠ front matter says \`overflow-marker: ${resolvedMarker.ignored}\`, which is not one of `
+      + `${OVERFLOW_MARKER_LEVELS.join(', ')} — ignored, using '${marker}'.`);
+  }
+  const fm = resolvedMarker.deck;
   // Append the runtime scripts + the baked front matter (the deck-wide registers
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render

@@ -27,7 +27,7 @@ theme: indaco
     done
 
   Expected on page 2, and nothing at all on page 1:
-    reader  a calm "More below ↓" pill, bottom-center, NO ring
+    reader  a calm "Content clipped" pill, bottom-center, NO ring
     author  a red inset ring, an "OVERFLOWS" corner flag, a "FIX ME" overlay
     off     nothing
 

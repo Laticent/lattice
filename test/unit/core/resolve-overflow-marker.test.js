@@ -101,7 +101,7 @@ describe('overflowMarkerPolicy — what each level actually draws', () => {
   test('reader still MARKS — it only changes who the marker talks to', () => {
     const p = overflowMarkerPolicy('reader');
     assert.equal(p.mark, true, 'the honest marker stays — only its tone changes');
-    assert.equal(p.tabText, 'More below');
+    assert.equal(p.tabText, 'Content clipped');
     assert.equal(p.authorTags, false, 'no per-cell Fix Me overlays');
     assert.equal(p.legibility, false, 'the type-floor alarm has no reader answer');
   });
@@ -125,10 +125,17 @@ describe('overflowMarkerPolicy — what each level actually draws', () => {
     assert.equal(overflowMarkerPolicy('reader').tabText, overflowTabText(false));
   });
 
-  test('an unknown level is treated as reader-ish — it still marks', () => {
+  // `startOverflowWatcher` resolves through `resolveOverflowMarker` before it gets
+  // here, so an unknown level is unreachable from either boot site. Pinned anyway
+  // because the failure it would cause is a HYBRID, not a graceful degrade: the tab
+  // would read "Content clipped" while the CSS — whose gate is `[…="reader"]` and
+  // would not match — drew the red AUTHOR ring. That is worse than either level.
+  test('an unknown level still marks, and callers must normalize before this point', () => {
     const p = overflowMarkerPolicy('nonsense');
     assert.equal(p.mark, true, 'only an explicit `off` may silence the marker');
     assert.equal(p.authorTags, false);
+    assert.equal(resolveOverflowMarker('nonsense', 'author'), 'author',
+      'the normalization the watcher relies on, so the hybrid state is unreachable');
   });
 });
 
@@ -143,6 +150,12 @@ describe('overflowMarkerPolicy — what each level actually draws', () => {
 describe('sweepOverflowMarkers — what `off` clears', () => {
   const { JSDOM } = require('jsdom');
   const { sweepOverflowMarkers } = require('../../../lib/runtime/fluid-view-policy');
+  // The Fix-Me half of this fixture is transcribed from what `drawFixMeTags`
+  // actually builds in lib/runtime/index.js (an overlay host holding one `.lattice-
+  // fixme-box` per culprit plus a `.lattice-fixme-tab` label) rather than from the
+  // selector list the implementation sweeps. Built the other way round the test
+  // could not fail for anything the sweep forgot — and an earlier cut DID forget the
+  // boxes and the overlay while its docstring promised "every marker".
   const marked = () => new JSDOM(`<article>
     <section class="content overflow illegible" data-lattice-slide>
       <h2>A</h2>
@@ -150,14 +163,21 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
       <div class="illegible-tab">Type 3px · floor 8.4px</div>
     </section>
     <section class="content" data-lattice-slide><h2>B</h2></section>
-    <div class="lattice-fixme-tab">Fix Me</div>
+    <div class="lattice-fixme-overlay">
+      <div class="lattice-fixme-box"></div>
+      <div class="lattice-fixme-tab">Fix Me</div>
+    </div>
   </article>`).window.document;
 
-  test('clears both rings, both tabs, and the Fix-Me overlays', () => {
+  // Asserted as "nothing the author would SEE is left", not as a selector list.
+  test('clears both rings and every drawn marker, including the Fix-Me boxes', () => {
     const doc = marked();
     sweepOverflowMarkers(doc);
     assert.equal(doc.querySelectorAll('.overflow, .illegible').length, 0, 'no rings left');
-    assert.equal(doc.querySelectorAll('.overflow-tab, .illegible-tab, .lattice-fixme-tab').length, 0, 'no tabs left');
+    const chrome = [...doc.querySelectorAll('*')]
+      .filter((el) => /overflow-tab|illegible-tab|lattice-fixme/.test(el.className || ''))
+      .map((el) => el.className);
+    assert.deepEqual(chrome, [], `marker chrome survived the sweep: ${chrome.join(', ')}`);
   });
 
   test('leaves the slide content alone — it removes chrome, not content', () => {

@@ -125,7 +125,15 @@ section.finish > .backdrop {
  * (the runtime overflow signal). With `:not(.overflow)` the finish rule stops matching
  * once a slide overflows, so the red ring shows; on a normal slide it still wins (the
  * `:not()` adds no specificity, but the finish rule is later in source order). */
-section.finish:not(.overflow) {
+/* The `:not(.overflow)` yield is now conditional on the ring being DRAWN. At
+ * `overflow-marker: reader` / `off` the ring is suppressed at its own rule
+ * (base.modifiers.css), so yielding to it would leave the slide with no edge at
+ * all — the frame vanishing on exactly one slide of an otherwise framed deck.
+ * `reader` is the export default, so without these two arms every delivered
+ * `finish:` deck lost its keyline on any slide that clipped. */
+section.finish:not(.overflow),
+section.finish.overflow[data-lattice-overflow-marker="reader"],
+section.finish.overflow[data-lattice-overflow-marker="off"] {
   /* Compose the TONE rail (base.variants.css `--tone-rail`) ahead of the finish frame
      on the SECTION box-shadow — a section shadow prints reliably in the vector PDF
      (an inset shadow on the absolutely-positioned `.backdrop` does NOT). Both fall

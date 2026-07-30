@@ -105,16 +105,24 @@ overflowing slide is marked. `overflow-marker:` decides who the mark is *for*.
 | Front-matter | An overflowing slide shows | Use it for |
 |---|---|---|
 | `overflow-marker: author` | red ring, "Overflows" flag, per-cell "Fix Me" overlays, the small-type alarm | fixing the deck — the live-preview default |
-| `overflow-marker: reader` | a calm "More below ↓" pill, no ring | delivering the deck — the **export default** |
+| `overflow-marker: reader` | a calm "Content clipped" pill, no ring | delivering the deck — the **export default** |
 | `overflow-marker: off` | nothing | a deck you have already checked fits |
 
 The marker is drawn over the slide and never changes the layout. It is a signal,
 not a fix: trim the content, or move it to a layout with more room.
 
+**This is an EXPORT setting.** The runtime reads it out of the snapshot block an
+export bakes, so it decides what a *bundle* shows and nothing else: your live
+preview always shows the `author` signal (you are authoring), a PDF from
+`lattice-emulator.js` always comes out clean with the warning on stderr, and the key
+in a working deck changes nothing you can see until you export. `lint:deck` will
+name a typo in it.
+
 `node tools/export-marp.js <deck.md> <out> --overflow-marker=<level>` overrides the
-key for one export without editing the deck, and writes the resolved value into the
-exported front matter. `export-marp` does not render, so it cannot measure overflow
-— `node lattice-emulator.js <deck.md> <out.pdf>` prints the clipped pages.
+key without touching your source deck — but it *is* written into the exported one,
+so re-exporting that bundle inherits it. `export-marp` does not render, so it cannot
+measure overflow: `node lattice-emulator.js <deck.md> <out.pdf>` prints the clipped
+pages.
 
 Design record: [2026-07-30-overflow-marker-register.md](../engineering/decisions/2026-07-30-overflow-marker-register.md).
 

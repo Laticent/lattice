@@ -26,7 +26,7 @@ const {
 describe('overflowTabText — reader vs author label', () => {
   test('author preview names the defect; the reader gets a calm cue', () => {
     assert.equal(overflowTabText(true), 'Overflows', 'author (authorTags:true)');
-    assert.equal(overflowTabText(false), 'More below', 'reader (authorTags:false)');
+    assert.equal(overflowTabText(false), 'Content clipped', 'reader (authorTags:false)');
   });
 });
 

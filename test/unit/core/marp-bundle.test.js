@@ -287,3 +287,86 @@ describe('marp-bundle spec', () => {
     });
   });
 });
+
+/**
+ * `withResolvedOverflowMarker` — the one place both producers agree on the
+ * bundle's overflow policy (HARD RULE #1).
+ *
+ * Before it existed, only the CLI resolved and wrote the key. That split was not
+ * cosmetic: `frontMatterBlock` bakes nothing for a deck with NO front matter, so a
+ * front-matter-less deck exported from the Studio carried no baked block at all,
+ * the runtime read it as an authoring surface, and a recipient got the red ring and
+ * the "FIX ME" overlays — the originally reported defect, unfixed, on the export
+ * path a non-CLI user actually uses.
+ */
+describe('marp bundle — the overflow-marker policy both producers share', () => {
+  const { withResolvedOverflowMarker } = require('../../../lib/core/marp-bundle');
+  const { readOverflowMarker } = require('../../../lib/core/resolve-overflow-marker');
+  const { readFrontMatterBlock, readBakedFrontMatter } = require('../../../lib/core/deck-front-matter');
+  const { JSDOM } = require('jsdom');
+  const markerIn = (deck) => readOverflowMarker(readFrontMatterBlock(deck));
+
+  test('a deck that says nothing gets `reader` written in', () => {
+    const r = withResolvedOverflowMarker('---\nmarp: true\n---\n\n# A\n');
+    assert.equal(r.marker, 'reader');
+    assert.equal(r.source, 'default');
+    assert.equal(markerIn(r.deck), 'reader', 'the artifact states its own policy');
+  });
+
+  // The Studio hole, pinned. No front matter means no baked block means the runtime
+  // falls back to `author` — so the key has to MANUFACTURE the front matter.
+  test('a deck with NO front matter still comes out with a policy', () => {
+    const r = withResolvedOverflowMarker('# A\n\nBody.\n');
+    assert.equal(markerIn(r.deck), 'reader');
+    assert.match(r.deck, /^---\noverflow-marker: reader\n---\n/);
+    assert.ok(r.deck.endsWith('# A\n\nBody.\n'), 'the body is untouched');
+  });
+
+  test("the deck's own key is honored, and an override beats it", () => {
+    const deck = '---\nmarp: true\noverflow-marker: author\n---\n\n# A\n';
+    const kept = withResolvedOverflowMarker(deck);
+    assert.equal(kept.marker, 'author');
+    assert.equal(kept.source, 'deck front matter');
+    const forced = withResolvedOverflowMarker(deck, 'off');
+    assert.equal(forced.marker, 'off');
+    assert.equal(forced.source, 'override');
+    assert.equal(markerIn(forced.deck), 'off');
+  });
+
+  // A typo falls back rather than deciding the artifact — but the write then
+  // ERASES it, so the caller is handed the ignored value and is expected to say so.
+  test('an unrecognized deck value falls back AND is reported, not swallowed', () => {
+    const r = withResolvedOverflowMarker('---\noverflow-marker: quiet\n---\n\n# A\n');
+    assert.equal(r.marker, 'reader');
+    assert.equal(r.ignored, 'quiet', 'the caller can name what it ignored');
+    assert.equal(markerIn(r.deck), 'reader');
+  });
+
+  test('a valid value reports nothing ignored', () => {
+    assert.equal(withResolvedOverflowMarker('---\noverflow-marker: off\n---\n\n# A\n').ignored, null);
+    assert.equal(withResolvedOverflowMarker('---\nmarp: true\n---\n\n# A\n').ignored, null);
+  });
+
+  // YAML reads the LAST of a duplicated key. Taking the first meant the artifact
+  // stated one policy and enacted another, and shipped both lines.
+  test('duplicate keys collapse to one line, last value winning', () => {
+    const r = withResolvedOverflowMarker('---\noverflow-marker: off\nx: 1\noverflow-marker: author\n---\n\n# A\n');
+    assert.equal(r.marker, 'author', 'last wins, as YAML does');
+    assert.equal((r.deck.match(/^overflow-marker:/gm) || []).length, 1, 'exactly one line survives');
+    assert.match(r.deck, /^x: 1$/m, 'unrelated keys are untouched');
+  });
+
+  test('re-resolving a resolved deck is idempotent', () => {
+    const once = withResolvedOverflowMarker('---\nmarp: true\n---\n\n# A\n').deck;
+    assert.equal(withResolvedOverflowMarker(once).deck, once);
+  });
+
+  // The property that makes the artifact self-consistent end to end.
+  test('what the deck says and what the baked block carries are one value', () => {
+    const { deck } = withResolvedOverflowMarker('---\nmarp: true\n---\n\n# A\n', 'off');
+    const bundle = withRuntimeScripts(deck);
+    const doc = new JSDOM(`<body>${bundle}</body>`).window.document;
+    assert.equal(readOverflowMarker(readBakedFrontMatter(doc)), 'off');
+    assert.equal(markerIn(deck), 'off');
+  });
+});

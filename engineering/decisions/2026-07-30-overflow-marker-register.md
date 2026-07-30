@@ -25,7 +25,10 @@ signal. It is **who the signal is addressed to.**
 ## The marker is not a false positive
 
 Before changing anything, the detection was checked, because a marker that fires on
-a slide that fits is a different bug with a different fix.
+a slide that fits is a different bug with a different fix. **This evidence is about
+DETECTION ACCURACY and comes from earlier in this swimlane — it is the reason the
+fix is a routing change rather than a suppression, and it is not evidence about the
+new treatment.** Nothing in this change reproduces it.
 
 - Verified across **258 slides / 9 decks**, covering all three clip cells
   (`.cell-stage`, `.panel-right`, `.compare-right`) plus the viewBox legibility
@@ -77,11 +80,13 @@ nothing is silently lost — while dropping everything that only helps someone
 deck and wants a wholly clean artifact; it is never the default, because a default
 that hides a defect is the failure mode this whole swimlane exists to prevent.
 
-**Resolution order** is flag → deck front matter → default, decided in
-`tools/export-marp.js`:
+**Resolution order** is flag → deck front matter → default, decided once in
+`withResolvedOverflowMarker` (`lib/core/marp-bundle.js`) so the CLI and the
+in-browser Studio cannot ship different defaults:
 
-- `--overflow-marker=<level>` decides ONE artifact ("this one goes to the board")
-  without editing the source deck.
+- `--overflow-marker=<level>` leaves the SOURCE deck untouched. It is not "one
+  export and gone", though: the resolved value is written into the EMITTED deck, so
+  re-exporting a bundle's own `.md` inherits it. That matters most for `off`.
 - the deck's own `overflow-marker:` key states the author's standing intent.
 
 The resolved value is **written into the emitted front matter**, unconditionally.
@@ -98,6 +103,27 @@ Whatever the level, `export-marp` now prints the policy on the author's console,
 the command that does (`lattice-emulator.js`, which prints
 `⚠ OVERFLOW — N slides … pages X, Y` from the same probe). A disclosure that named a
 measurement it had not taken would be worse than none (HARD RULE #23).
+
+## Scope: narrower than "a deck register" sounds
+
+Stated here because the first version of this record got it wrong, and the trio
+caught it by rendering. The runtime resolves the key from the BAKED block and
+nothing else, and only an export producer writes one:
+
+| surface | what it shows | reads the key? |
+|---|---|---|
+| Export-to-Marp bundle | flag → deck key → `reader` | **yes — the only one** |
+| live preview / Studio | always `author` | no |
+| fluid viewer | always `reader` | no (no block is baked into one) |
+| emulator PDF/PNG/PPTX | clean + a stderr warning | no |
+| HTML player | no marker (scripts stripped) | no |
+
+This is defensible — it is an *export* configuration, and an authoring surface
+should show the authoring signal — but two consequences have to be said out loud
+rather than discovered: `overflow-marker: author` will not put a ring in a PDF, and
+setting the key in a working deck changes nothing visible until you export.
+`design/skill.md` says so where an author reads, and deck-lint now knows the key so
+a typo is at least named (`findUnknownOverflowMarker`).
 
 ## Two traps found while building it
 
@@ -155,3 +181,90 @@ a ring in a PDF. Wiring it up means changing the bytes of the primary export art
 and touching the emulator's separate inline watcher copy, which is its own change with
 its own sign-off. It is the next item in this swimlane, and the scope limit is stated
 in `resolve-overflow-marker.js`'s header rather than left for someone to discover.
+
+
+---
+
+## What the adversarial trio changed (HARD RULE #25)
+
+Run on the first commit of this change, after it had already been rendered and
+verified. Every lens found something the render tests structurally could not, which
+is the argument for the ladder in one paragraph: the pixels were right and the
+reasoning around them was not.
+
+**Inversion — the reader label was a lie.** It read **"More below ↓"**. There is no
+below: `base.elements.css` sets `section { overflow: hidden }` and the standard body
+cell sets `overflow: clip`, which does not create a scroll container at all; the
+fluid viewer's `scroll-snap-type: y mandatory` sends a downward scroll to the NEXT
+SLIDE. So the calm reader cue promised the content was reachable, on precisely the
+delivery surfaces this register exists to serve — a softer concealment than the one
+the change refuses to do, and worse than `off`, which asserts nothing. The string
+predates this change (it came from the fluid viewer), but this change moved it onto
+the delivery surface and made it the default for every export, so it is on-path and
+fixed rather than filed (HARD RULE #18). It now reads **"Content clipped"**, and the
+`↓` is gone with it.
+
+**Red team — two regressions this change introduced, both invisible on the probe.**
+
+1. *`reader` deleted the finish frame.* `base.finish.css` scopes its keyline
+   `section.finish:not(.overflow)` so it deliberately YIELDS to the overflow ring.
+   The reader rule then nulled the ring with `box-shadow: none !important`, so a
+   clipping slide in a `finish:` deck got **neither** — a naked slide in an
+   otherwise framed deck, on the new default. Fixed by GATING the author ring
+   (`section.overflow:not([…="reader"]):not([…="off"])`) instead of overriding it,
+   which removes the `!important` and lets the finish cascade work, plus two arms on
+   the finish rule so it only yields when the ring is actually drawn.
+2. *`off` produced the LOUDEST marker.* `lattice-emulator.js` embeds its own inline
+   watcher in a `--fluid` export, which knows nothing about the register and
+   re-stamps `.overflow` on font-settle and on **every resize**. A one-shot JS sweep
+   cannot win that race, so a deck asking for silence rendered the red author ring.
+   Fixed by enforcing `off` in CSS (the level is stamped on every section before the
+   sweep returns), which survives whatever stamps `.overflow` afterwards.
+
+Red team also falsified a claim this change shipped in three places — *"the marker
+never changes the layout"*. `base.finish.css`'s `section.finish > *:not(.backdrop)`
+sets `position: relative` at equal specificity from a later file and won, so on a
+`finish:` deck the "corner flag" rendered as a full-width in-flow band that cost a
+line of copy (measured `x:64 y:593 w:1152 h:23 position:relative`). The reader rule
+survived only because it carried `position: absolute !important`; the author rule
+now does too, which makes the claim true rather than removing it.
+
+**Checker — the wiring had no tests at all.** Every test pinned a pure function;
+`deckOverflowMarker`'s surface heuristic and the per-section stamp — the two riskiest
+new behaviors — had none, and all three confirmed correctness findings lived in that
+gap. `test/integration/parity/runtime-overflow-marker.test.js` now drives the real
+bundled runtime over both surfaces. The checker also found the sweep's docstring
+promising "every marker" while leaving the Fix-Me boxes and overlay behind, and its
+justifying comment asserting a build-time `.overflow` stamp that does not exist (the
+emulator stamps at runtime and strips before printing) — a claim inherited from an
+older comment and built upon here.
+
+**Also folded in:** `--overflow-markerZZZ=off` was accepted as the real flag
+(prefix match) and a repeat silently took the first; a typo'd deck value was
+rewritten to the default with no channel saying so, and `lint-core.js` had never
+heard of the key despite this resolver citing deck-lint as the safety net;
+duplicate keys resolved first-wins against YAML's last-wins, so the artifact could
+state one policy and enact another; and the Studio's export never wrote the key at
+all, so a front-matter-less deck exported from the Playground still shipped the
+original defect. The resolution now lives in one shared
+`withResolvedOverflowMarker` both producers call.
+
+**Where the trio confirmed the design:** the diagnosis, the refusal to simply hide
+the marker, the column-0 read, the `:root[…]` scoping discovery, and the console
+disclosure that names what it did *not* measure.
+
+## Still unverified
+
+Named rather than implied, because a green gate is not a rendered surface
+(HARD RULE #23):
+
+- **The marp-vscode preview pane** — the surface the originating request named. Not
+  reachable from this sandbox. The scope table above is **UNVERIFIED** there.
+- **`marp deck.md --html` opened standalone**, the route the bundle README
+  advertises with "double-click it". Only the PDF route was rendered.
+- **A real deck at `reader`.** The probe is two synthetic slides with no bottom
+  chrome. The pill is bottom-center and `base.modifiers.css` has rules lifting
+  footer / pagination / progress above that band, so a collision on a deck that
+  carries them is unproven.
+- **The Studio's export**, now that it writes the key — the fix is unit-tested, not
+  driven through the real Playground.

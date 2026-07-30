@@ -17440,7 +17440,19 @@ section.closing.numbered::after        { content: counter(lat-closing,  decimal-
  * inset ring on every slide that doesn't fit — no debug flag, no missed
  * defects. Drawn via `box-shadow` so it never shifts layout.
  * ──────────────────────────────────────────────────────────────────── */
-section.overflow {
+/* GATED, not overridden. The reader treatment below used to null this with
+ * `box-shadow: none !important`, which also ate the FINISH FRAME: base.finish.css
+ * scopes its museum-mat keyline `section.finish:not(.overflow)` so it deliberately
+ * YIELDS to this ring — so a clipping slide in a `finish:` deck got neither, while
+ * every slide around it kept its frame. Excluding the two reader levels here means
+ * no `!important` is needed and the finish frame's ordinary cascade survives.
+ *
+ * The `off` arm is load-bearing for a different reason: a `--fluid` export carries
+ * lattice-emulator.js's OWN inline watcher, which knows nothing about the register
+ * and re-stamps `.overflow` on font-settle and on every resize. A one-shot JS sweep
+ * cannot win that race, so `off` has to be enforced in CSS — otherwise a deck that
+ * asked for silence rendered the LOUDEST marker there is. */
+section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]) {
   box-shadow: inset 0 0 0 4px #d4351c;
 }
 /* The ring is colour-only (fails WCAG 1.4.1 "use of colour"), so the watcher
@@ -17449,7 +17461,15 @@ section.overflow {
  * above all content. The red matches the ring (a fixed danger colour, not a
  * theme token — same exception the ring itself takes). */
 section.overflow > .overflow-tab {
-  position: absolute;
+  /* `!important` because base.finish.css's `section.finish > *:not(.backdrop)`
+   * sets `position: relative` at the SAME specificity (0,2,1) from a later file,
+   * and won — so on a `finish:` deck this "corner flag" rendered as a full-width
+   * in-flow red BAND that pushed content down and cost a line of copy. Measured:
+   * `x:64 y:593 w:1152 h:23 position:relative`. The reader rule below already
+   * asserts `position: absolute !important` for exactly this reason; the author
+   * rule did not, which is why the claim "the marker never changes the layout"
+   * was false on the one deck family most likely to notice. */
+  position: absolute !important;
   top: 0;
   right: 0;
   z-index: 50;
@@ -17469,6 +17489,16 @@ section.overflow > .overflow-tab {
  * the slide is fixed (the runtime watcher also removes it). */
 section:not(.overflow) > .overflow-tab { display: none; }
 
+/* `overflow-marker: off` — the CSS half of "no marker". The JS half sweeps once at
+ * boot, which is not enough on a `--fluid` export: the emulator embeds its own
+ * inline watcher that re-adds `.overflow` and its tab on font-settle (up to 2 s
+ * later) and on every resize. Suppressing here means a deck that asked for silence
+ * stays silent no matter who stamps what afterwards. The ring itself is excluded at
+ * its own rule above, so this only has the tabs left to handle. */
+section[data-lattice-overflow-marker="off"] > .overflow-tab,
+section[data-lattice-overflow-marker="off"] > .illegible-tab { display: none !important; }
+section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !important; }
+
 /* ── The READER variant of the same marker ────────────────────────────────────
  * Everything above is the AUTHORING signal: a loud red danger ring and an
  * "OVERFLOWS" corner flag. Right for the person fixing the deck, alarming in
@@ -17477,10 +17507,11 @@ section:not(.overflow) > .overflow-tab { display: none; }
  *
  * So the deck's `overflow-marker:` register decides who the marker talks to
  * (lib/core/resolve-overflow-marker.js), the runtime stamps the resolved level on
- * <html>, and this block is the `reader` treatment: drop the red ring, restyle the
- * SAME text-labeled tab (WCAG 1.4.1 — never colour alone) into a calm
- * bottom-center "More below ↓" pill. Content that clips is still visibly clipped;
- * only the tone changes. `off` draws nothing at all and is handled in JS, not here.
+ * each SLIDE SECTION, and this block is the `reader` treatment: restyle the SAME
+ * text-labeled tab (WCAG 1.4.1 — never colour alone) into a calm bottom-center
+ * "Content clipped" pill. The red ring is not overridden here — it is EXCLUDED at
+ * its own rule above, so the finish frame that yields to it survives. Content that
+ * clips is still visibly clipped; only the tone changes.
  *
  * These rules used to be gated on `:root[data-lattice-fluid-capable]` in
  * base.fluid-view.css, because the fluid viewer was the only reader surface that
@@ -17499,9 +17530,6 @@ section:not(.overflow) > .overflow-tab { display: none; }
  * slide section instead.
  * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
  * engineering/decisions/2026-07-30-overflow-marker-register.md. */
-section.overflow[data-lattice-overflow-marker="reader"] {
-  box-shadow: none !important;                 /* drop the author red inset ring */
-}
 section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* Self-contained (not inherited from the author rule above): the settle
    * guarantee relies on the tab being out of flow so it can't change the measured
@@ -17521,9 +17549,10 @@ section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab {
   box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 0.28); /* neutral drop shadow (HTML viewer only, never in PDF) */
   opacity: 0.9;
 }
-section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab::after {
-  content: " \2193";                            /* down arrow — "more below" affordance */
-}
+/* No `::after` arrow. It used to render " \2193" beside the label, and a down arrow
+ * is an affordance — it promises the content is reachable by scrolling. It is not:
+ * the cell is `overflow: clip`. The arrow went with the "More below" copy it
+ * belonged to (lib/runtime/fluid-view-policy.js `overflowTabText`). */
 
 /* ── The TYPE-FLOOR ring (§8 rule 8) ──────────────────────────────────────────────
    The overflow ring's blind spot, made visible. A viewBox figure is CONTAINER-RESPONSIVE:
@@ -19829,7 +19858,15 @@ section.finish > .backdrop {
  * (the runtime overflow signal). With `:not(.overflow)` the finish rule stops matching
  * once a slide overflows, so the red ring shows; on a normal slide it still wins (the
  * `:not()` adds no specificity, but the finish rule is later in source order). */
-section.finish:not(.overflow) {
+/* The `:not(.overflow)` yield is now conditional on the ring being DRAWN. At
+ * `overflow-marker: reader` / `off` the ring is suppressed at its own rule
+ * (base.modifiers.css), so yielding to it would leave the slide with no edge at
+ * all — the frame vanishing on exactly one slide of an otherwise framed deck.
+ * `reader` is the export default, so without these two arms every delivered
+ * `finish:` deck lost its keyline on any slide that clipped. */
+section.finish:not(.overflow),
+section.finish.overflow[data-lattice-overflow-marker="reader"],
+section.finish.overflow[data-lattice-overflow-marker="off"] {
   /* Compose the TONE rail (base.variants.css `--tone-rail`) ahead of the finish frame
      on the SECTION box-shadow — a section shadow prints reliably in the vector PDF
      (an inset shadow on the absolutely-positioned `.backdrop` does NOT). Both fall
