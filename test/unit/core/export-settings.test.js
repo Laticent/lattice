@@ -17,7 +17,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const {
-  EXPORT_SETTINGS_TYPE, EXPORT_SETTINGS_NOTE,
+  EXPORT_SETTINGS_TYPE,
   exportSettingsBlock, withoutExportSettingsBlock, readExportSettings,
 } = require('../../../lib/core/export-settings');
 
@@ -26,10 +26,6 @@ const docWith = (block) => new JSDOM(`<article><section><h1>A</h1>${block}</sect
 describe('export settings — the block', () => {
   test('carries the settings as a JSON payload under its own type', () => {
     const block = exportSettingsBlock({ overflowMarker: 'reader' });
-    assert.ok(block.startsWith(`${EXPORT_SETTINGS_NOTE}\n`), 'the generated-file note leads');
-    // The note has one job beyond provenance: say it is NOT front matter, so nobody
-    // copies the idea back into a deck.
-    assert.match(EXPORT_SETTINGS_NOTE, /Not deck front matter/);
     const el = new JSDOM(`<section>${block}</section>`).window.document.querySelector('script');
     assert.equal(el.getAttribute('type'), EXPORT_SETTINGS_TYPE);
     assert.deepEqual(JSON.parse(el.textContent), { overflowMarker: 'reader' });
@@ -40,6 +36,13 @@ describe('export settings — the block', () => {
     assert.equal(exportSettingsBlock(), '');
     assert.equal(exportSettingsBlock({ overflowMarker: undefined }), '');
     assert.equal(exportSettingsBlock({ overflowMarker: '' }), '', 'an empty value is absence');
+  });
+
+  // NO HTML COMMENT. Marpit turns a non-directive comment into a SPEAKER NOTE, so
+  // the explanatory note this block first shipped with landed in the recipient's
+  // presenter view and in the PPTX notes pane the bundle's README advertises.
+  test('writes no comment — a comment here becomes a speaker note', () => {
+    assert.doesNotMatch(exportSettingsBlock({ overflowMarker: 'reader' }), /<!--/);
   });
 
   // The one character that could turn a data block into markup — same guard and
@@ -96,7 +99,7 @@ describe('export settings — reading them back', () => {
 });
 
 describe('export settings — stripping, so a re-export cannot inherit', () => {
-  test('removes the block and its note, leaving the deck otherwise intact', () => {
+  test('removes the block, leaving the deck otherwise intact', () => {
     const deck = `# A\n\nBody.\n${exportSettingsBlock({ overflowMarker: 'off' })}`;
     assert.equal(withoutExportSettingsBlock(deck), '# A\n\nBody.\n');
   });
@@ -110,6 +113,19 @@ describe('export settings — stripping, so a re-export cannot inherit', () => {
     assert.equal(withoutExportSettingsBlock('# A\n'), '# A\n');
     assert.equal(withoutExportSettingsBlock(null), '');
     assert.equal(withoutExportSettingsBlock(undefined), '');
+  });
+
+  // A payload can never contain a raw `<` (every one is escaped), so the strip
+  // bounds its payload with `[^<]*`. The lazy `[\s\S]*?` it replaces scanned
+  // forward to the NEXT `</script>` ANYWHERE, so an unclosed tag in a deck body ate
+  // everything up to the bundle's own runtime tags — measured at three slides in,
+  // one slide out, with a duplicated runtime script left behind.
+  test('an UNCLOSED tag in the body cannot swallow the rest of the deck', () => {
+    const deck = `# A\n\n<script type="${EXPORT_SETTINGS_TYPE}">\n\n---\n\n# B\n\n---\n\n# C\n`;
+    const out = withoutExportSettingsBlock(deck);
+    assert.equal(out, deck, 'nothing is removed — there is no complete block here');
+    assert.match(out, /# B/);
+    assert.match(out, /# C/, 'the slides after it survive');
   });
 
   // It must not touch the FRONT-MATTER snapshot beside it — the two blocks live in

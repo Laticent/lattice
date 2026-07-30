@@ -35,16 +35,15 @@
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
  * addressed to — see lib/core/resolve-overflow-marker.js. It is an EXPORT setting,
- * not a deck key: the same source is previewed while authoring, exported for a
+ * never a deck key: the same source is previewed while authoring, exported for a
  * recipient, and printed to PDF, and those three want different answers. Resolution
- * is `--overflow-marker` (this export) → `LATTICE_OVERFLOW_MARKER` (the standing
- * choice for this checkout; the Studio has a workspace toggle instead) → `reader`.
- * The console says which one won.
+ * is `--overflow-marker` (this export) → `LATTICE_OVERFLOW_MARKER` (every export
+ * from this checkout) → `reader`. The console says which one won.
  *
  * The chosen level is recorded in the bundle's export-settings block, NOT in the
  * deck's front matter — so re-exporting a bundle's own `.md` starts from your
- * current settings rather than silently inheriting the previous export's. That
- * matters most for `off`, the level that makes a clipped slide look finished.
+ * current inputs rather than inheriting the previous export's, and Lattice's own
+ * render paths strip the block so a bundle-derived deck cannot inherit it either.
  *
  * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
  * in ANY Marp tool. The generated marp.config.cjs sets `html: true` — without it
@@ -217,16 +216,8 @@ function main(argv) {
   // recipient's AI agent can extend the deck; `--no-agent` produces a lean,
   // Marp-only bundle.
   const includeAgent = !argv.includes('--no-agent');
-  // `--overflow-marker=<level>` is the PER-EXPORT override of the deck's own
-  // `overflow-marker:` key: the deck states the author's standing intent, the
-  // flag decides one artifact ("this one goes to the board — quiet it down")
-  // without editing the source. Resolution order is flag → deck → `reader`.
-  // EXACT match, not a prefix. `startsWith('--overflow-marker')` accepted
-  // `--overflow-markerZZZ=off` and reported it as the real flag — a typo silently
-  // applying, in the one direction that matters (`off` makes a clipped slide look
-  // finished). Split on the FIRST `=` only, so `--overflow-marker=off=x` is a bad
-  // value rather than a silently truncated good one, and reject a repeat outright
-  // instead of quietly taking the first.
+  // `--overflow-marker=<level>` — this export's answer. `LATTICE_OVERFLOW_MARKER`
+  // below is the standing one for this checkout. Neither reads the deck.
   const markerArgs = argv.filter((a) => a === '--overflow-marker' || a.startsWith('--overflow-marker='));
   const strayMarker = argv.find((a) => a.startsWith('--overflow-marker') && !markerArgs.includes(a));
   if (strayMarker) die(`unknown flag '${strayMarker}' (did you mean --overflow-marker=…?)`);
@@ -252,10 +243,14 @@ function main(argv) {
     workspace: process.env.LATTICE_OVERFLOW_MARKER ?? null,
   });
   const marker = resolvedMarker.marker;
-  const markerSource = resolvedMarker.source === 'this export' ? '--overflow-marker' : resolvedMarker.source;
-  if (resolvedMarker.ignored !== null) {
-    console.warn(`  ⚠ LATTICE_OVERFLOW_MARKER='${resolvedMarker.ignored}' is not one of `
-      + `${OVERFLOW_MARKER_LEVELS.join(', ')} — ignored, using '${marker}'.`);
+  // Name the INPUT, not the abstract tier. `resolveExportOverflowMarker` speaks in
+  // tiers because the Studio shares it, but the CLI has no "workspace" — printing
+  // that word sent a reader looking for a setting this tool does not have.
+  const markerSource = { 'this export': '--overflow-marker', 'workspace setting': 'LATTICE_OVERFLOW_MARKER' }[resolvedMarker.source]
+    || resolvedMarker.source;
+  for (const bad of resolvedMarker.ignored) {
+    const where = bad.tier === 'this export' ? '--overflow-marker' : 'LATTICE_OVERFLOW_MARKER';
+    console.warn(`  ⚠ ${where}='${bad.value}' ignored — ${bad.reason || `not one of ${OVERFLOW_MARKER_LEVELS.join(', ')}`}.`);
   }
   if (!fs.existsSync(deckPath)) die(`deck not found: ${deckPath}`);
   // Validate the agent-kit inputs UP FRONT (before writing anything), so a
@@ -318,15 +313,6 @@ function main(argv) {
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const localizedFm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;
-  // 3b) resolve + WRITE the overflow-marker policy into the emitted front matter.
-  //     Written unconditionally, not only when overridden, because the emitted
-  //     `.md` is the artifact a recipient reads and edits: a deck that states
-  //     `overflow-marker: reader` in plain sight is a policy they can see and
-  //     change, where an unstated default is one they'd have to know about. It is
-  //     also what makes the bundle's behavior independent of whatever default a
-  //     future runtime ships. `withRuntimeScripts` then bakes this same front
-  //     matter into the document block, so the visible key and the one the
-  //     runtime reads cannot disagree (lib/core/deck-front-matter.js).
   const fm = localizedFm;
   // Append the runtime scripts + the baked front matter (the deck-wide registers
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
@@ -378,7 +364,7 @@ function main(argv) {
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));
-  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent }));
+  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent, overflowMarker: marker }));
 
   // 6) the agent kit (default on): a bundle-tailored AGENTS.md at the root +
   //    the component catalog under agent/, so a recipient's AI agent can extend

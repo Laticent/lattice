@@ -154,7 +154,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
 								<Row busy={busy === 'lattice'} icon={<FileArchive className="size-4" />} title="Lattice project (.lattice)" desc="Deck + comments in one file — re-opens here" onClick={() => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now()))} />
 								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss))} />
-								<Row dev busy={busy === 'marp'} status={progress} icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => setView('marp')} />
+								<Row dev icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => setView('marp')} />
 								<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
 							</PanelSection>
 						</>

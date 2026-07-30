@@ -32,8 +32,8 @@ import {
 	loadSettings,
 	markBackupTaken,
 	ON_DEVICE_INSTRUCTIONS_MAX,
-	type OverflowMarker,
 	type PdfPages,
+	type StandingOverflowMarker,
 	saveInstructions,
 	saveOnDeviceInstructions,
 	saveSettings,
@@ -114,13 +114,16 @@ const PDF_PAGE_CHOICES: { value: PdfPages; title: string; blurb: string }[] = [
 	{ value: 'jpeg', title: 'Fast', blurb: 'JPEG pages — ~2× faster export, much smaller file' },
 ];
 
-// Who the overflow marker speaks to in a deck you export. A clipped slide is always
-// marked — this is the tone, not whether. `off` is last and least, because a deck
-// that clips silently looks finished.
-const OVERFLOW_MARKER_CHOICES: { value: OverflowMarker; title: string; blurb: string }[] = [
+// Who the overflow marker speaks to in a bundle you export. A clipped slide is
+// always marked here — this is the tone, not whether.
+//
+// "No marker" is deliberately ABSENT. It is available per export (the Share → Marp
+// bundle step), never as a standing default: a persistent silence nobody can see is
+// the failure this setting exists to prevent, and a workspace preference would apply
+// it to every future export with nothing to notice it by.
+const OVERFLOW_MARKER_CHOICES: { value: StandingOverflowMarker; title: string; blurb: string }[] = [
 	{ value: 'reader', title: 'For the reader', blurb: 'A calm "Content clipped" tag — the default' },
 	{ value: 'author', title: 'For me', blurb: 'The full editing signal: red ring, "Fix Me" tags' },
-	{ value: 'off', title: 'No marker', blurb: 'Nothing is shown — only for a deck you know fits' },
 ];
 
 // A miniature of each handle style for the picker card (accent-toned).
@@ -210,7 +213,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
 	// Share → PDF page-image format (lossless PNG / fast JPEG).
 	const [pdfPages, setPdfPages] = React.useState<PdfPages>(() => loadSettings().pdfPages);
-	const [overflowMarker, setOverflowMarker] = React.useState<OverflowMarker>(() => loadSettings().overflowMarker);
+	const [overflowMarker, setOverflowMarker] = React.useState<StandingOverflowMarker>(() => loadSettings().overflowMarker);
 	// Whether decks inherit the workspace default reader views (the curated two — Bottom line + The evidence).
 	const [lensDefaults, setLensDefaults] = React.useState(() => loadSettings().lensDefaults);
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
@@ -516,7 +519,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										);
 									})}
 								</div>
-								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to decks you export. While you are editing here you always see the full signal — you are the one who can fix it.</p>
+								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to Share → Marp bundle in this Studio; the other formats are unaffected. You can change it for one export in that step, and while editing here you always see the full signal.</p>
 							</div>
 
 							{/* Install the app — the Studio IS the app (the manifest launches here).

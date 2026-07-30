@@ -118,6 +118,12 @@ producing, not to the deck. There is nothing to write in your front matter (and
 | `author` | the full editing signal, for a deck you are still working on |
 | `off` | nothing. Only for a deck you have already checked fits |
 
+**This governs an exported Marp bundle and nothing else.** Your live preview always
+shows the full editing signal — you are the one who can fix a clipped slide. A PDF
+from `lattice-emulator.js` always comes out clean, with the warning on stderr, and
+does not read this setting at all. There is nothing to write in your deck (and
+`lint:deck` will tell you so if you try).
+
 Choose it per export, or once for everything:
 
 ```sh
@@ -125,9 +131,14 @@ node tools/export-marp.js <deck.md> <out> --overflow-marker=off   # this export
 LATTICE_OVERFLOW_MARKER=author node tools/export-marp.js …        # every export here
 ```
 
+`off` is per-export only. A standing default cannot be `off` — a silence applying to
+every future export, with nothing to notice it by, is the thing this setting exists
+to prevent — so the standing channels take `reader` or `author`, and both refuse
+`off` out loud rather than downgrading it quietly.
+
 In the Studio it is both: **Share → Marp bundle** has a pre-export step where you
-pick it for that one export, and **Workspace settings** holds the standing default
-that step starts from (beside the PDF page-format choice).
+pick it for that one export (including "No marker"), and **Workspace settings** holds
+the standing default that step starts from, beside the PDF page-format choice.
 
 `export-marp` does not render, so it cannot measure overflow — it says so, and
 names the command that can: `node lattice-emulator.js <deck.md> <out.pdf>` prints

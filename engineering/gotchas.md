@@ -813,8 +813,11 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   guarded, so the mutation loop still settles). (b) Gate the reader styling on the
   RESOLVED MARKER LEVEL, not on a viewer flag. Both caught by maker-checker, not CI
   (no committed test exercises the fluid viewer yet — #1138).
-- **Current shape (2026-07-30):** who the marker talks to is the `overflow-marker:`
-  deck register (`lib/core/resolve-overflow-marker.js` — `author` / `reader` / `off`),
+- **Current shape (2026-07-30):** who the marker talks to is the `overflow-marker`
+  EXPORT SETTING (`lib/core/resolve-overflow-marker.js` — `author` / `reader` / `off`;
+  chosen by `--overflow-marker`, `LATTICE_OVERFLOW_MARKER`, or the Studio's Share →
+  Marp bundle step, and carried in the bundle's own generated block —
+  `lib/core/export-settings.js`. It is NOT a deck key; `lint:deck` says so if you write one),
   the watcher stamps the resolved level on every slide section, and both treatments
   live in `base.modifiers.css` keyed on
   `section.overflow[data-lattice-overflow-marker="reader"]`. The rules moved out of

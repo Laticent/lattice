@@ -300,7 +300,8 @@ describe('export-marp — the overflow-marker export setting', () => {
   test('LATTICE_OVERFLOW_MARKER is the standing choice for every export', () => {
     const { md, said } = exportWith('env', [], { env: { LATTICE_OVERFLOW_MARKER: 'author' } });
     assert.deepEqual(settingsIn(md), { overflowMarker: 'author' });
-    assert.match(said, /overflow marker: author \(workspace setting\)/);
+    // Names the INPUT, not an abstract tier — the CLI has no "workspace".
+    assert.match(said, /overflow marker: author \(LATTICE_OVERFLOW_MARKER\)/);
   });
 
   test('the flag beats the workspace setting', () => {
@@ -310,10 +311,22 @@ describe('export-marp — the overflow-marker export setting', () => {
 
   // A stored setting can go stale. It must not break the export, and it must not
   // be swallowed — the deck-key version fell back silently.
-  test('a stale workspace value falls back AND is named', () => {
+  test('a stale standing value falls back AND is named', () => {
     const { md, said } = exportWith('stale', [], { env: { LATTICE_OVERFLOW_MARKER: 'quiet' } });
     assert.deepEqual(settingsIn(md), { overflowMarker: 'reader' });
-    assert.match(said, /LATTICE_OVERFLOW_MARKER='quiet' is not one of/);
+    assert.match(said, /LATTICE_OVERFLOW_MARKER='quiet' ignored/);
+  });
+
+  // `off` is a real level, but never a STANDING one: a silence applying to every
+  // future export from this checkout, with nothing to notice it by, is the failure
+  // the whole setting exists to prevent. Refused loudly, not downgraded quietly.
+  test('LATTICE_OVERFLOW_MARKER=off is refused, and says why', () => {
+    const { md, said } = exportWith('env-off', [], { env: { LATTICE_OVERFLOW_MARKER: 'off' } });
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'reader' }, 'it does not become the standing answer');
+    assert.match(said, /cannot be a standing default — choose it per export/);
+    // …while the per-export flag still honors it.
+    const one = exportWith('env-off-flag', ['--overflow-marker=off'], { env: { LATTICE_OVERFLOW_MARKER: 'off' } });
+    assert.deepEqual(settingsIn(one.md), { overflowMarker: 'off' });
   });
 
   // `off` is the only level where the artifact itself will not tell anyone, so the

@@ -17520,7 +17520,7 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * front of a board — a red QA box on a delivered slide is the "debug information"
  * a recipient should never be handed.
  *
- * So the deck's `overflow-marker:` register decides who the marker talks to
+ * So the export's `overflow-marker` setting decides who the marker talks to
  * (lib/core/resolve-overflow-marker.js), the runtime stamps the resolved level on
  * each SLIDE SECTION, and this block is the `reader` treatment: restyle the SAME
  * text-labeled tab (WCAG 1.4.1 — never colour alone) into a calm bottom-center

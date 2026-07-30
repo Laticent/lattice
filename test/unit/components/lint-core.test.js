@@ -759,3 +759,50 @@ describe('paginate: skip / hold are flagged rather than silently downgraded', ()
     assert.equal(all.length, 1);
   });
 });
+
+/**
+ * Two shapes of `overflow-marker` that a deck should not carry.
+ *
+ * The level is an EXPORT setting, not a deck key — one deck source is previewed,
+ * exported and printed, and those want three different answers
+ * (engineering/decisions/2026-07-30-overflow-marker-register.md). The rules exist
+ * because the alternative is silence, and silence on an inert setting is what the
+ * move was meant to end.
+ */
+describe('lint-core: stray overflow-marker (an export setting, not a deck key)', () => {
+  const fm = (body) => `---\nmarp: true\n${body}---\n\n# A\n`;
+  const rules = (src) => core.lintTextWith(src, vocab).map((f) => f.rule);
+
+  test('a front-matter key is flagged — nothing reads it', () => {
+    const f = core.lintTextWith(fm('overflow-marker: off\n'), vocab).find((x) => x.rule === 'stray-overflow-marker');
+    assert.ok(f, 'the dead key is named');
+    assert.equal(f.severity, 'warning', 'a deletion, not a broken render');
+    assert.match(f.fix, /--overflow-marker=/, 'and it says where the setting actually lives');
+  });
+
+  // A same-named key nested under a mapping is different config, not this register.
+  test('a NESTED key of the same name is not flagged', () => {
+    assert.ok(!rules(fm('meta:\n  overflow-marker: off\n')).includes('stray-overflow-marker'));
+  });
+
+  test('a deck that says nothing is clean', () => {
+    assert.deepEqual(rules(fm('')).filter((r) => r.startsWith('stray-')), []);
+  });
+
+  // The shape that used to change behavior, and still does downstream: Lattice
+  // strips the block when rendering, but it survives into a Marp bundle built from
+  // this source, where marp-cli's browser reads it.
+  test('a PLANTED export-settings block is flagged', () => {
+    const src = `${fm('')}\n<script type="application/lattice-export-settings">{"overflowMarker":"off"}</script>\n`;
+    const f = core.lintTextWith(src, vocab).find((x) => x.rule === 'stray-export-settings');
+    assert.ok(f, 'the planted block is named');
+    assert.match(f.message, /not a setting for this deck/);
+    assert.match(f.fix, /Marp bundle/, 'and says why it still matters after the strip');
+  });
+
+  test('both shapes at once produce both findings', () => {
+    const src = `${fm('overflow-marker: off\n')}\n<script type="application/lattice-export-settings">{"overflowMarker":"off"}</script>\n`;
+    const found = rules(src).filter((r) => r.startsWith('stray-'));
+    assert.deepEqual(found.sort(), ['stray-export-settings', 'stray-overflow-marker']);
+  });
+});

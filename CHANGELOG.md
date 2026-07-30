@@ -112,7 +112,9 @@ in patch versions.
   `tools/export-marp.js` for one export, `LATTICE_OVERFLOW_MARKER` for every export from a
   checkout, or — in the Studio — the new **Share → Marp bundle** pre-export step (the same
   options step PDF, Webpage, Print and Image set already have), which starts from a new
-  Workspace setting beside the PDF page format. The level
+  Workspace setting beside the PDF page format. **`off` is per-export only**: a standing
+  default cannot be `off`, because a silence applying to every future export with nothing
+  to notice it by is the failure the setting exists to prevent. The level
   travels in the bundle's own generated settings block — never front matter — so a re-export
   cannot silently inherit the previous export's choice. A stray `overflow-marker:` in a deck
   is flagged by `lint:deck`. `export-marp` also prints the policy in effect and says plainly

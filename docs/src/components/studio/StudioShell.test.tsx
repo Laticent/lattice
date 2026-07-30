@@ -352,7 +352,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(sheet.getByRole('button', { name: /download bundle/i }));
 		expect(shareSpies.shareMarp).toHaveBeenCalled();
 		// …and it carries the chosen level (7th arg), defaulted from workspace settings.
-		expect(shareSpies.shareMarp.mock.calls.at(-1)?.[6]).toBe('reader');
+		expect((shareSpies.shareMarp.mock.calls.at(-1) as unknown[] | undefined)?.[6]).toBe('reader');
 		await user.click(sheet.getByRole('button', { name: /all formats/i }));
 		await user.click(sheet.getByText('Print source'));
 		expect(shareSpies.sharePrintSource).toHaveBeenCalled();

@@ -171,36 +171,45 @@ watcher, and the rules moved to `base.modifiers.css` beside the author treatment
 replace. The fluid viewer resolves to `reader` in both its states, so its behavior is
 unchanged — verified by screenshot at 390×844.
 
-**2. The register must be read at column 0.** The shared `frontMatterValue` reader
-tolerates leading whitespace, so it finds a same-named key NESTED under a mapping
-(`meta:` → `  overflow-marker:`). Harmless for most registers; here it would let
-unrelated config decide what a delivered artifact shows. This register reads and
-writes at column 0 only, matching how `lib/authoring/lint-core.js` anchors `^form:`.
+**2. A deck key had to be read at column 0** — the shared `frontMatterValue` reader
+tolerates indentation, so it finds a same-named key NESTED under a mapping (`meta:` →
+`  overflow-marker:`), which would let unrelated config decide a delivered artifact.
+That reader and its writer are both **gone** with the deck key; the constraint
+survives only in `lint-core.js`'s stray-key rule, which anchors at column 0 for the
+same reason. Recorded because the reasoning generalizes to the next register.
 
 ## Verified
 
-Rendered through **real marp-cli** (not the engine, not a harness), converted to PDF,
-rasterized and looked at — HARD RULE #23:
+Rendered through **real marp-cli** (not the engine, not a harness), then measured —
+computed style rather than eyeballed, because the `gallery` keyline is invisible
+against white and eyeballing would have missed the regression it exposed. Re-run
+after the export-settings transport replaced the front-matter key, so this table
+describes the mechanism that ships:
 
 | level | page 2 (overflows) | page 1 (fits) |
 |---|---|---|
-| default (`reader`) | calm "More below ↓" pill, bottom-center, no ring | no marker |
-| `--overflow-marker=author` | red ring + "OVERFLOWS" flag + "FIX ME" overlay | no marker |
-| `--overflow-marker=off` | nothing | no marker |
+| default (`reader`) | `ring: none`, tab `"Content clipped"`, no Fix-Me boxes | nothing |
+| `--overflow-marker=author` | `ring: ring`, tab `"Overflows"`, 1 Fix-Me box | nothing |
+| `--overflow-marker=off` | nothing | nothing |
 
-Dark mode checked separately (`color-mode: dark`): the pill is palette-blind
-(`--text-body` on `--bg`) and inverts correctly. The fluid viewer was re-screenshotted
-at 390×844 after the CSS move and is unchanged.
+Rasterized and looked at for `reader` (the default, and the one a recipient sees).
+Dark mode checked separately: the pill is palette-blind (`--text-body` on `--bg`) and
+inverts. A `finish: gallery` deck was measured at all three levels to confirm the
+keyline survives at `reader` — page 2's `box-shadow` now matches page 1's, where it
+read `none` before the fix.
 
-The probe is committed at `test/fixtures/overflow-marker-probe.md`, with the exact
-render commands in its header comment, so the claim above is reproducible rather than
-resting on the screenshots in this note. Page 1 fits and page 2 does not, on purpose:
-a change that started marking slides that FIT would be a worse defect than the one
-this fixes.
+The render-inheritance attack (below) was re-run after its fix, on a real `--fluid`
+viewer built from an `off` bundle's own `.md`: `reader` / `"Content clipped"`, where
+it had been `off` / nothing.
+
+Three Playwright journeys drive the **real Studio** in a browser and read the level
+back out of the DOWNLOADED ZIP — default, an in-panel override, and a workspace
+preference. `test/fixtures/overflow-marker-probe.md` carries the render commands so
+the table is reproducible rather than resting on these screenshots.
 
 ## Not in scope, and why
 
-**The emulator's PDF / PNG / PPTX path does not read this setting yet.** It is
+**The emulator's PDF / PNG / PPTX path does not read this setting.** It is
 hard-wired to the equivalent of `off` plus its stderr warning — which is already the
 right default, so nothing is broken there, but `overflow-marker: author` will not put
 a ring in a PDF. Wiring it up means changing the bytes of the primary export artifact
@@ -277,12 +286,10 @@ older comment and built upon here.
 **Also folded in:** `--overflow-markerZZZ=off` was accepted as the real flag
 (prefix match) and a repeat silently took the first; a typo'd deck value was
 rewritten to the default with no channel saying so, and `lint-core.js` had never
-heard of the key despite this resolver citing deck-lint as the safety net;
-duplicate keys resolved first-wins against YAML's last-wins, so the artifact could
-state one policy and enact another; and the Studio's export never wrote the key at
-all, so a front-matter-less deck exported from the Playground still shipped the
-original defect. The resolution now lives in one shared
-`withResolvedOverflowMarker` both producers call.
+heard of the key despite the resolver citing deck-lint as the safety net; duplicate
+keys resolved first-wins against YAML's last-wins; and the Studio's export never
+wrote the key at all, so a front-matter-less deck exported from the Playground still
+shipped the original defect.
 
 **Where the trio confirmed the design:** the diagnosis, the refusal to simply hide
 the marker, the column-0 read, the `:root[…]` scoping discovery, and the console
@@ -303,3 +310,78 @@ Named rather than implied, because a green gate is not a rendered surface
   carries them is unproven.
 - **The Studio's export**, now that it writes the key — the fix is unit-tested, not
   driven through the real Playground.
+
+
+---
+
+## The SECOND trio, on the altitude move (HARD RULE #25)
+
+The first trio reviewed a design that no longer exists — the deck register. The move
+to an export setting replaced the transport, the read path, the resolution, and
+added a UI surface, so it got its own pass. Every lens again found something the
+render evidence could not.
+
+**Red team — the block was inherited by every RENDER, not just every re-export.**
+The highest-severity finding of either round, and it falsified this note's own claim
+that "a document carrying one IS an exported artifact." The block lives in the SOURCE
+TEXT, so opening a bundle's own `.md` — which its README invites, and which "a deck a
+recipient sent back" describes — carried the old export's level into every future
+render. Measured on a real `--fluid` viewer built from an `off` bundle: the emulator
+printed `⚠ OVERFLOW … is CLIPPED` and the artifact drew **nothing**. At the default it
+is wrong the other way — a live preview silently downgrades from `author` to `reader`
+and loses the Fix-Me overlays and the type-floor alarm. Fixed by stripping the block
+on Lattice's own render path (`lib/engine/index.js`), the same shape as
+`stripDebugAttrs`: a marker from one context must not ride into another. Re-run after
+the fix: `reader` / `"Content clipped"`.
+
+It also found that `withoutExportSettingsBlock`'s `[\s\S]*?` payload **deleted author
+content** — a fenced code sample of the block came out empty, and an unclosed tag in a
+deck body swallowed two slides on re-export (3 in, 1 out) and duplicated a runtime
+script. The payload can never contain a raw `<` (every one is escaped), so it is
+bounded `[^<]*` now.
+
+**Checker — the Drawing Board shipped the QA ring, and the docs typecheck was red.**
+The default had moved out of the shared kernel into each caller, and one caller was
+never updated: `drawing-board.astro` passes no marker, `exportSettingsBlock`
+writes nothing for `undefined`, and the runtime reads "no block" as "authoring
+surface". A delivered bundle from that path carried the red ring and the "FIX ME"
+overlays — the originating defect, reintroduced. The design had made *"the producer
+chose nothing"* and *"this is an authoring surface"* the same wire signal; the choke
+point (`withRuntimeScripts`) now resolves, so no producer can emit a block-less deck.
+
+`cd docs && npm run typecheck` was **red at HEAD** on a line the previous commit
+added — a blocking CI step I had run before that edit and not after.
+
+**Inversion — the change globalized the failure mode it was built to end.** The deck
+key's persistent `off` was narrow, textual, greppable, lintable and visible in a
+diff. What replaced it — a Studio workspace setting and an env var — is none of those
+and silences *every* export from that Studio or checkout, indefinitely. The removal
+was written up as a win on exactly that axis. `off` is now barred from both standing
+channels (`STANDING_MARKER_LEVELS`; the Workspace card does not offer it and the
+resolver refuses it, saying why) and available only where it is a decision about ONE
+artifact — the flag and the Studio's per-export step, both of which leave a record.
+
+Inversion also caught that `design/skill.md`'s **scope fence was deleted** by the
+move: the paragraph stating this governs a bundle and nothing else, and that a PDF is
+always clean. What replaced it implied `--overflow-marker=author` puts a ring in a
+PDF. Restored, and the Workspace card's copy is now as precise as the `pdfPages` card
+directly above it.
+
+**Also folded in:** the generated README described `reader` unconditionally, so an
+`off` bundle told its recipient that clipped slides are tagged — it is per-level now,
+and tells a recipient without Lattice that they can edit the block directly; the
+block's HTML comment became a **speaker note** in the recipient's presenter view and
+PPTX notes pane (dropped — the `type` is self-describing); `resolveExportOverflowMarker`
+swallowed a stale standing value whenever a flag won, which is the exact case its
+docstring claimed to cover; deck-lint was aimed at the retired key and blind to a
+*planted* settings block, which is the form that still matters downstream (a rule for
+each, both now tested — neither had coverage); the CLI printed "(workspace setting)",
+a thing the CLI does not have; and the two data blocks were a structural
+transcription of each other, one commit old — factored into `lib/core/data-block.js`,
+where bounding the payload fixed both at once (HARD RULE #15).
+
+**Where the trio confirmed the design:** the altitude call itself (inversion looked
+hard for a case to restore the deck key and did not find one); the separate block
+rather than folding producer settings into the author's front-matter snapshot;
+writing the block unconditionally; the lint rule's existence and its reason; and the
+console disclosure that names what it did *not* measure.
