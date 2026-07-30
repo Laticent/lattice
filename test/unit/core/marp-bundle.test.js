@@ -75,11 +75,21 @@ describe('marp-bundle spec', () => {
     // choke point now refuses to produce.)
     assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/);
     assert.ok(RUNTIME_SCRIPTS.includes('lattice-runtime.min.js'));
-    // Nothing but generated data blocks may follow — no stray deck content.
-    const trailer = out.slice(out.indexOf('<!-- markdownlint-disable MD033 -->'))
-      .replace('<!-- markdownlint-disable MD033 -->\n', '')
-      .replace(/<script[\s\S]*?<\/script>\n?/g, '');
-    assert.doesNotMatch(trailer, /\S/);
+    // Nothing but generated data blocks may follow — no stray deck content. Asserted as
+    // EXACT EQUALITY rather than "strip the script tags and check for leftovers": the
+    // strip form needed a `<script[\s\S]*?</script>` regex, which CodeQL reads (fairly, on
+    // shape alone) as a hand-rolled HTML sanitizer — it is not one, there is no untrusted
+    // input here, and saying so in a comment would not make the pattern stop looking like
+    // one. Equality is also the stronger assertion: the strip form passed no matter how the
+    // generated blocks were ordered or spelled.
+    const trailer = out.slice(out.indexOf('<!-- markdownlint-disable MD033 -->'));
+    assert.equal(
+      trailer,
+      '<!-- markdownlint-disable MD033 -->\n'
+      + '<script src="mermaid-v11.min.js"></script>\n'
+      + '<script src="lattice-runtime.min.js"></script>\n'
+      + `<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n`,
+    );
   });
 
   test('marp.config.cjs builds a themeSet from root lattice.css + themes/, no engine', () => {
