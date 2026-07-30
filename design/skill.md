@@ -118,17 +118,18 @@ producing, not to the deck. There is nothing to write in your front matter (and
 | `author` | the full editing signal, for a deck you are still working on |
 | `off` | nothing. Only for a deck you have already checked fits |
 
-**This governs an exported Marp bundle and nothing else.** Your live preview always
-shows the full editing signal — you are the one who can fix a clipped slide. A PDF
-from `lattice-emulator.js` always comes out clean, with the warning on stderr, and
-does not read this setting at all. There is nothing to write in your deck (and
-`lint:deck` will tell you so if you try).
+**Every export path reads it** — a PDF, a PNG set, a PPTX, and a Marp bundle alike.
+Your live preview is the exception, and deliberately: you are the one who can fix a
+clipped slide, so it always shows the full editing signal. There is nothing to write
+in your deck either (`lint:deck` will tell you so if you try) — it is chosen where
+the export is.
 
 Choose it per export, or once for everything:
 
 ```sh
-node tools/export-marp.js <deck.md> <out> --overflow-marker=off   # this export
-LATTICE_OVERFLOW_MARKER=author node tools/export-marp.js …        # every export here
+node lattice-emulator.js <deck.md> <out.pdf> --overflow-marker=off   # this PDF
+node tools/export-marp.js <deck.md> <out> --overflow-marker=author   # this bundle
+LATTICE_OVERFLOW_MARKER=author node lattice-emulator.js …            # every export here
 ```
 
 `off` is per-export only. A standing default cannot be `off` — a silence applying to
@@ -140,9 +141,10 @@ In the Studio it is both: **Share → Marp bundle** has a pre-export step where 
 pick it for that one export (including "No marker"), and **Workspace settings** holds
 the standing default that step starts from, beside the PDF page-format choice.
 
-`export-marp` does not render, so it cannot measure overflow — it says so, and
-names the command that can: `node lattice-emulator.js <deck.md> <out.pdf>` prints
-the clipped pages.
+**Whatever you choose, the console still tells you.** `lattice-emulator.js` renders,
+so it names the clipped pages on stderr at every level — including `off`, where it is
+the only channel. `export-marp` does not render, so it says so rather than implying a
+check it never ran.
 
 Design record: [2026-07-30-overflow-marker-register.md](../engineering/decisions/2026-07-30-overflow-marker-register.md).
 

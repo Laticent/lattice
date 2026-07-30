@@ -128,10 +128,12 @@ describe('export-formats', () => {
   }
 
   test('warns on overflow but keeps the ring out of the exported PDF — even when the deck loads the live runtime', { timeout: TIMEOUT }, () => {
-    // The overflow signal (a red inset ring + "OVERFLOWS" tab) is an authoring
-    // aid for the live preview; the deliverable must stay clean — a red box in
-    // front of a board is worse than the silent clip overflow:hidden already
-    // applies. Two mechanisms can paint it: the emulator's own inline watcher
+    // The red inset ring + "OVERFLOWS" tab is the AUTHORING signal; a delivered PDF
+    // must not carry it — a red QA box in front of a board is worse than the silent
+    // clip overflow:hidden already applies. That is now the DEFAULT (`reader`)
+    // rather than a hard-wire: the emulator reads the overflow-marker setting, and
+    // the level-aware behavior is pinned in the test below this one. What this test
+    // guards is that the default never regresses to the loud signal. Two mechanisms can paint it: the emulator's own inline watcher
     // (the ring, via the `.overflow` class — removed by the export strip) and
     // the live-preview runtime (lattice-runtime.js — the ring AND the tab, on a
     // MutationObserver/ResizeObserver/rAF loop that would re-mark during print
@@ -165,6 +167,36 @@ describe('export-formats', () => {
     execFileSync('pdftoppm', ['-r', '96', '-f', '1', '-l', '1', out, path.join(dir, 'page')]);
     const ring = ringRedPixels(path.join(dir, 'page-1.ppm'));
     assert.ok(ring < 50, `overflow ring leaked into the export: ${ring} danger-red edge pixels (expected ~0)`);
+  });
+
+  // The setting is READ on this path — the point of wiring it here. A setting the
+  // primary export ignores is not a setting, and `--overflow-marker=author` silently
+  // doing nothing in a PDF was the state before this.
+  test('the emulator reads --overflow-marker: author draws the ring, off draws nothing', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'lvl.md');
+    const wall = Array.from({ length: 40 }, (_, i) =>
+      `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
+    ).join('\n');
+    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+
+    const render = (level) => {
+      const out = path.join(dir, `${level}.pdf`);
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', `--overflow-marker=${level}`], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `emulator failed at ${level}: ${r.stderr}`);
+      // The console channel is unconditional — it is the author's, at every level.
+      assert.match(r.stderr, /OVERFLOW/, `${level} must still warn on stderr`);
+      execFileSync('pdftoppm', ['-r', '96', '-f', '1', '-l', '1', out, path.join(dir, `${level}-page`)]);
+      return ringRedPixels(path.join(dir, `${level}-page-1.ppm`));
+    };
+
+    // `author` PAINTS the danger ring — the assertion that proves the setting is
+    // read, and the exact inverse of the default-path test above.
+    assert.ok(render('author') > 500, 'author must draw the danger ring in the PDF');
+    // `off` draws nothing at all.
+    assert.ok(render('off') < 50, 'off must leave no ring');
   });
 
   // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────

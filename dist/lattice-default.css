@@ -17561,7 +17561,13 @@ section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab {
   border-radius: 999px;
   letter-spacing: 0.04em;
   text-transform: none;
-  box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 0.28); /* neutral drop shadow (HTML viewer only, never in PDF) */
+  /* NO DROP SHADOW. It used to carry `box-shadow: 0 .125rem .5rem rgb(0 0 0/.28)`
+   * with the note "HTML viewer only, never in PDF" — true only while this pill was
+   * a fluid-viewer affordance. Now that the emulator's PDF/PNG/PPTX path reads the
+   * overflow-marker setting, the pill prints, and Chromium rasterizes a shadowed box
+   * into an image XObject: the `--keep-vector-images` export grew a raster object it
+   * promises not to have, caught by test/integration/export/export-formats.test.js.
+   * The pill is a solid, token-colored capsule — it reads perfectly well without one. */
   opacity: 0.9;
 }
 /* No `::after` arrow. It used to render " \2193" beside the label, and a down arrow

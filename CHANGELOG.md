@@ -119,8 +119,11 @@ in patch versions.
   cannot silently inherit the previous export's choice. A stray `overflow-marker:` in a deck
   is flagged by `lint:deck`. `export-marp` also prints the policy in effect and says plainly
   that it did not render and therefore did not measure overflow, naming `lattice-emulator.js`
-  as the command that does. The emulator's PDF/PNG/PPTX path is unchanged (already clean +
-  a stderr warning) and does not read the setting yet.
+  as the command that does. **Every export path reads the setting**, including
+  `lattice-emulator.js` (PDF / PNG / PPTX / HTML), which takes the same
+  `--overflow-marker` flag — a setting the primary export ignored would not have been a
+  setting. Its default is unchanged in effect (a delivered PDF still carries no red QA
+  ring) and the overflow warning on stderr is unconditional at every level.
   `engineering/decisions/2026-07-30-overflow-marker-register.md`.
 - **The overflow marker's reader wording no longer promises something false.** The calm
   variant read "More below ↓", which is a scroll affordance — but `section` is

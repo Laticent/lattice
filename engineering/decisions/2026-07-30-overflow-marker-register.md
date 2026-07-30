@@ -207,27 +207,42 @@ back out of the DOWNLOADED ZIP — default, an in-panel override, and a workspac
 preference. `test/fixtures/overflow-marker-probe.md` carries the render commands so
 the table is reproducible rather than resting on these screenshots.
 
-## Not in scope, and why
+## The emulator reads it too — corrected after the second trio
 
-**The emulator's PDF / PNG / PPTX path does not read this setting.** It is
-hard-wired to the equivalent of `off` plus its stderr warning — which is already the
-right default, so nothing is broken there, but `overflow-marker: author` will not put
-a ring in a PDF. Wiring it up means changing the bytes of the primary export artifact
-and touching the emulator's separate inline watcher copy, which is its own change with
-its own sign-off. It is the next item in this swimlane, and the scope limit is stated
-in `resolve-overflow-marker.js`'s header rather than left for someone to discover.
+The first cut left `lattice-emulator.js` (PDF / PNG / PPTX / HTML) hard-wired to the
+equivalent of `off` plus its stderr warning, reasoning that this was already the
+right default so nothing was broken. That reasoning was wrong in a way worth
+recording, and the user said it in one line: **you cannot ship a setting that isn't
+read.** `--overflow-marker=author` silently did nothing in the artifact most decks
+actually become, and the two export paths disagreed about the thing the setting
+exists to decide — a Marp bundle said "Content clipped" where the same deck's PDF
+said nothing.
 
-**(Corrected.)** An earlier draft of this note said the Studio had no per-export
-picker and filed one as a follow-up. That was wrong — the Share sheet has had a
-pre-export OPTIONS STEP per format since the comments-layer work (`ExportOptionsPanel`
-for PDF, plus Webpage / Print / Image set), and the Marp row was simply the one
-format that had never used it. It does now (`MarpOptionsPanel`), defaulting from the
-workspace setting, and the flow is covered end to end in
-`docs/e2e/journeys/author-export.spec.ts` — driving the real Studio and reading the
-level back out of the downloaded ZIP.
+The emulator now takes the same flag, resolves through the same kernel with the same
+precedence, and stamps the same per-section attribute the browser runtime does, so
+one CSS block serves both. Its inline watcher draws the tab; the strip pass became
+level-aware instead of unconditional.
 
+Two things did NOT change, and both are load-bearing:
 
----
+- **The default is still effectively quiet for a reader** — `reader` draws a calm
+  "Content clipped" pill, no red ring. The existing integration test that guards
+  "no danger-red ring leaks into a delivered PDF" still passes untouched, which is
+  the honest check that this widening did not turn every PDF into a bug report.
+- **The stderr warning is unconditional at every level.** It is why `off` is
+  tolerable at all: the author is always told, even when the artifact says nothing.
+
+One regression this surfaced, caught by the export tier rather than by eye: the
+reader pill carried a `box-shadow` commented "HTML viewer only, never in PDF" —
+true only while the pill was a fluid-viewer affordance. Once it printed, Chromium
+rasterized the shadowed box into an image XObject, so a `--keep-vector-images`
+export grew a raster object it promises not to have. The shadow is gone.
+
+## Still not in scope
+
+**The marp-vscode preview pane.** Not reachable from this sandbox. marp-cli is, and
+every claim about a Marp render here comes from it — but the VS Code webview is a
+different surface and stays **UNVERIFIED**.
 
 ## What the adversarial trio changed (HARD RULE #25)
 

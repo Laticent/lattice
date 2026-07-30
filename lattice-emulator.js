@@ -208,6 +208,17 @@ OPTIONS
                           panel), so the deck can be re-rendered from the PDF
                           alone. Note: ships your source (including speaker
                           notes) inside the artifact.
+      --overflow-marker <author|reader|off>
+                          Who a clipped slide's marker speaks to in the exported
+                          artifact. A slide with more content than fits is CLIPPED
+                          (not scrollable, not printed), so the export says so
+                          rather than losing it quietly. 'reader' (default) draws a
+                          calm "Content clipped" tag; 'author' draws the full
+                          editing signal (red ring, "Fix Me" tags, the small-type
+                          alarm); 'off' draws nothing, for a deck you have already
+                          checked fits. LATTICE_OVERFLOW_MARKER sets a standing
+                          default ('off' is per-render only). The overflow warning
+                          on stderr is printed at every level.
       --keep-vector-images
                           Keep SVG images as vectors in the PDF. By default SVG
                           <img>/background images are rasterized to 2x PNG at
@@ -311,6 +322,9 @@ function parseArgs(argv) {
     '--image-format': 'image-format', '--image-size': 'image-size',
     '--image-quality': 'image-quality', '--thumb-width': 'thumb-width',
     '--image-mode': 'image-mode', '--svg-background': 'svg-background',
+    // Who a clipped slide's marker speaks to in THIS render — the same export
+    // setting tools/export-marp.js takes (lib/core/resolve-overflow-marker.js).
+    '--overflow-marker': 'overflow-marker',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -402,9 +416,35 @@ function stripSharedSource(src, noteBodies) {
   if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out);
   return out;
 }
+const {
+  OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker,
+} = require('./lib/core/resolve-overflow-marker');
+const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
+// Who the overflow marker in the printed artifact is addressed to. Same setting,
+// same kernel and same precedence as the Marp exporter — `--overflow-marker` for
+// this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
+//
+// This path used to be hard-wired to the equivalent of `off`: it stripped every
+// marker and warned the author on stderr. That was defensible on its own, but it
+// made the setting one that the PRIMARY export did not read — so `--overflow-marker=author`
+// silently did nothing in a PDF, and a clipped slide in the most-used artifact went
+// out looking finished while the same deck exported to Marp said "Content clipped".
+// engineering/decisions/2026-07-30-overflow-marker-register.md
+const OVERFLOW_MARKER = resolveExportOverflowMarker({
+  chosen: typeof flags['overflow-marker'] === 'string' ? flags['overflow-marker'] : null,
+  workspace: process.env.LATTICE_OVERFLOW_MARKER ?? null,
+});
+if (flags['overflow-marker'] && !isKnownOverflowMarker(flags['overflow-marker'])) {
+  console.error(`lattice: --overflow-marker must be one of ${OVERFLOW_MARKER_LEVELS.join(', ')}`);
+  process.exit(1);
+}
+for (const bad of OVERFLOW_MARKER.ignored) {
+  const where = bad.tier === 'this export' ? '--overflow-marker' : 'LATTICE_OVERFLOW_MARKER';
+  console.warn(`  ⚠ ${where}='${bad.value}' ignored — ${bad.reason || 'not a known level'}.`);
+}
 // PRESENT is resolved below, once the deck front matter is parsed (it can be
 // enabled by `--present` OR a `present: true` front-matter key, mirroring --fluid).
 // FLUID_VIEW is resolved below, once the deck front matter is parsed (it can be
@@ -524,6 +564,7 @@ const { resolvePalette } = require('./lib/core/resolve-palette');
 const { CLIP_CELL_SELECTOR, PROBE_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
+  OVERFLOW_TAB_TEXT_SRC,
   LEGIBILITY_TAB_TEXT_SRC,
   LEGIBILITY_TAB_ACTION_SRC,
 } = require('./lib/runtime/fluid-view-policy');
@@ -2036,6 +2077,12 @@ ${stateChartScript}
 (function(){
   var TOL = 12;
   var CLIP_CELL_SELECTOR = ${JSON.stringify(CLIP_CELL_SELECTOR)};
+  // The resolved overflow-marker level, stamped on every slide so base.modifiers.css
+  // can pick the TONE (author = red ring + "Overflows"; reader = no ring + a calm
+  // "Content clipped" pill). Same attribute the browser runtime stamps.
+  // (No backticks in this string -- it is injected into a template literal.)
+  var MARKER_LEVEL = ${JSON.stringify(OVERFLOW_MARKER.marker)};
+  var overflowTabText = ${OVERFLOW_TAB_TEXT_SRC};
   var probeSectionOverflow = ${PROBE_SRC};
   var probeFigureLegibility = ${LEGIBILITY_SRC};
   // The legibility tab's LABEL and its add/update/remove decision are injected from the
@@ -2051,6 +2098,23 @@ ${stateChartScript}
       // section, so probe the cells too (lib/core/overflow-probe.js).
       var over = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL).over;
       s.classList.toggle('overflow', over);
+      if (s.getAttribute('data-lattice-overflow-marker') !== MARKER_LEVEL) {
+        s.setAttribute('data-lattice-overflow-marker', MARKER_LEVEL);
+      }
+      // The overflow tab. The ring is colour-only (WCAG 1.4.1), so the condition is
+      // named in text -- and the text differs by level, which is the whole setting.
+      // The "off" level draws none; the strip pass below clears the class too.
+      if (MARKER_LEVEL !== 'off') {
+        var oTab = s.querySelector(':scope > .overflow-tab');
+        if (over && !oTab) {
+          oTab = document.createElement('div');
+          oTab.className = 'overflow-tab';
+          oTab.textContent = overflowTabText(MARKER_LEVEL === 'author');
+          s.appendChild(oTab);
+        } else if (!over && oTab) {
+          oTab.remove();
+        }
+      }
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
@@ -2556,14 +2620,25 @@ async function renderBody(browser, g, closeBrowser) {
   // PDF / PNG / PPTX deliverable stays clean, matching the contract documented
   // at the detection pass. (Removing the class also hides the .overflow-tab via
   // `section:not(.overflow) > .overflow-tab { display:none }`.)
-  await g(() => page.evaluate(() => {
-    for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-    // The §8 rule 8 TYPE-FLOOR marker is the same kind of authoring-only signal (an amber ring
-    // plus a tab naming the measured px against the floor), and it leaves the deliverable for the
-    // same reason. The stderr warning above is the author's channel.
-    for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');
-    for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
-  }), 'strip overflow marker');
+  const level = OVERFLOW_MARKER.marker;
+  await g(() => page.evaluate((lvl) => {
+    // `off` — the historical behavior of this path, now a CHOICE rather than the
+    // only option: clear the ring so the deliverable carries no marker at all. The
+    // stderr warning above is then the author's only channel, which is why `off` is
+    // never a standing default (lib/core/resolve-overflow-marker.js).
+    if (lvl === 'off') {
+      for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
+      for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
+    }
+    // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:
+    // a reader cannot resize a figure, so an amber alarm reading "Type 3px · floor
+    // 8.4px" is a QA diagnostic in front of a boardroom. The stderr warning is the
+    // author's channel for it.
+    if (lvl !== 'author') {
+      for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');
+      for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
+    }
+  }, level), 'apply overflow marker level');
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
   // clipped/cropped placements Chromium prints for them emit shading-pattern /
   // transparency-group constructs that iOS Quartz viewers partially render or
