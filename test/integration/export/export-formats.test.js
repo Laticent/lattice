@@ -220,6 +220,47 @@ describe('export-formats', () => {
     assert.doesNotMatch(off.text, /content clipped|overflows/i, 'off leaves no marker text');
   });
 
+  // The self-contained player is the one export that cannot READ the setting at view
+  // time — player-core.mjs drops every inline script from the document it is handed —
+  // so the level has to be BAKED into its DOM at export. It was not: the player was
+  // assembled from the pre-browser static render, which no overflow watcher had ever
+  // touched, so `--player` was permanently equal to `off` whatever the flag said. That
+  // is invisible from the PDF assertions above, hence its own test.
+  test('--player bakes the resolved overflow-marker level into the shipped HTML', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'pl.md');
+    const wall = Array.from({ length: 40 }, (_, i) =>
+      `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
+    ).join('\n');
+    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+
+    const play = (level) => {
+      const out = path.join(dir, `${level}.pdf`);
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--player', `--overflow-marker=${level}`], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `player render failed at ${level}: ${r.stderr}`);
+      return fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+    };
+
+    // The attribute is what base.modifiers.css keys the treatment off, and the tab text
+    // is what a recipient actually reads — assert both, so a baked attribute with no tab
+    // (or a tab carrying the wrong register's wording) still fails.
+    const author = play('author');
+    assert.match(author, /data-lattice-overflow-marker="author"/, 'author level must be baked in');
+    assert.match(author, /class="overflow-tab"[^>]*>Overflows</, 'author bakes the "Overflows" flag');
+    assert.match(author, /<section[^>]*class="[^"]*\boverflow\b/, 'author bakes the ring class');
+
+    const reader = play('reader');
+    assert.match(reader, /data-lattice-overflow-marker="reader"/, 'reader level must be baked in');
+    assert.match(reader, /class="overflow-tab"[^>]*>Content clipped</, 'reader bakes the calm tag');
+
+    // `off` is the level that used to be indistinguishable from every other one here.
+    const off = play('off');
+    assert.match(off, /data-lattice-overflow-marker="off"/, 'off level must be baked in');
+    assert.doesNotMatch(off, /overflow-tab/, 'off bakes no tab at all');
+  });
+
   // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────
 
   // A 2-slide deck exercising both SVG image channels: a `![bg]` (CSS

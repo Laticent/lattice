@@ -2351,24 +2351,11 @@ async function renderBody(browser, g, closeBrowser) {
       await document.fonts.ready;
     } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
   }), 'load fonts');
-  // Bake dynamic components for the self-contained player: `state-chart` (inline
-  // script) and `function-plot` (file:// script) draw their SVGs in the BROWSER at
-  // load. Capture the inflated DOM NOW — after load, before the raster's SVG-image
-  // swap mutates it — so the player ships static SVG (§A2b) instead of a dead
-  // `file://`/inline script the player would strip (leaving the diagram blank).
+  // The self-contained player's DOM is captured further down, immediately after the
+  // overflow-marker level is applied — see "Bake the player's DOM" below. Declared
+  // here only because the autosplit loop between here and there may re-render the
+  // page, and a capture taken before that would be stale.
   let inflatedPlayerHtml = null;
-  if (PLAYER && (hasStateChart || hasFunctionPlot)) {
-    try {
-      await page.evaluate(() => new Promise((r) => setTimeout(r, 200))); // let async inflaters settle
-      inflatedPlayerHtml = await page.evaluate(() => {
-        // Clone (never mutate the live page — the raster below still needs it) and
-        // drop the authoring overflow ring the watcher may have toggled on.
-        const root = document.documentElement.cloneNode(true);
-        for (const s of root.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-        return `<!DOCTYPE html>\n${root.outerHTML}`;
-      });
-    } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
-  }
   // Detect sections whose content exceeds the 1280×720 frame, to WARN the
   // author (with exact pages) — but keep the EXPORT itself clean: the red ring
   // + "OVERFLOWS" tab are NOT burned into the deliverable PDF. A loud red box in
@@ -2660,6 +2647,36 @@ async function renderBody(browser, g, closeBrowser) {
       for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
     }
   }, level), 'apply overflow marker level');
+  // Bake the player's DOM NOW — after the level above is applied, before the raster's
+  // SVG-image swap mutates the page. One capture carries two things:
+  //
+  //   · THE OVERFLOW MARKER. The player ships no runtime (player-core.mjs drops every
+  //     inline script from this doc — "authoring watcher etc."), so whatever the marker
+  //     looks like at this instant is what the shared file shows forever. The old base
+  //     was the PRE-BROWSER static render, which no watcher had ever touched — so
+  //     `--player` was silently equal to `off` at every level, a second export path
+  //     that ignored the setting. That is precisely the failure the settings block
+  //     exists to prevent (lib/core/export-settings.js).
+  //   · DYNAMIC COMPONENTS. `state-chart` (inline script) and `function-plot`
+  //     (file:// script) draw their SVGs in the BROWSER at load, so the player ships
+  //     baked static SVG (§A2b) rather than a dead script it would strip, leaving the
+  //     diagram blank. This used to be its own earlier capture; taking it here instead
+  //     also makes it survive an autosplit re-render.
+  //
+  // Never fail-hard: a failed capture falls back to the clean static render, which is
+  // exactly the behavior that shipped before.
+  if (PLAYER) {
+    try {
+      if (hasStateChart || hasFunctionPlot) {
+        await page.evaluate(() => new Promise((r) => setTimeout(r, 200))); // let async inflaters settle
+      }
+      inflatedPlayerHtml = await page.evaluate(() => {
+        // Clone — never mutate the live page; the raster below still needs it.
+        const root = document.documentElement.cloneNode(true);
+        return `<!DOCTYPE html>\n${root.outerHTML}`;
+      });
+    } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
+  }
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
   // clipped/cropped placements Chromium prints for them emit shading-pattern /
   // transparency-group constructs that iOS Quartz viewers partially render or
@@ -3089,9 +3106,10 @@ async function renderBody(browser, g, closeBrowser) {
               : csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm) ? 'dark'
                 : 'light';
       const { html: playerHtml, report } = await buildPlayerHtml({
-        // Prefer the browser-inflated DOM when the deck has dynamic components, so
-        // state-chart / function-plot ship as baked static SVG (§A2b); else the
-        // clean static render (fast path, no re-serialize).
+        // The browser-baked DOM (captured after the overflow-marker level was applied,
+        // with state-chart / function-plot inflated to static SVG). Falls back to the
+        // clean static render only if that capture failed — which also means no marker,
+        // so the fallback is announced rather than silent.
         docHtml: inflatedPlayerHtml || cleanDocHtml,
         // The envelope carries verbatim source for lossless re-import — but under
         // `--strip-notes` / `--strip-captions` that source is re-serialized WITHOUT the
@@ -3139,6 +3157,9 @@ async function renderBody(browser, g, closeBrowser) {
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (inflatedPlayerHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
+        // Say so rather than let the level go quietly missing: without the baked DOM the
+        // player falls back to the pre-browser render, which carries no marker at all.
+        if (!inflatedPlayerHtml && level !== 'off') console.warn(`  honesty: the player DOM could not be captured — this player shows no overflow marker, not \`${level}\`.`);
         for (const n of pruneNotes) console.log(n);
       }
     } catch (err) {

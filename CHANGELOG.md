@@ -119,11 +119,18 @@ in patch versions.
   cannot silently inherit the previous export's choice. A stray `overflow-marker:` in a deck
   is flagged by `lint:deck`. `export-marp` also prints the policy in effect and says plainly
   that it did not render and therefore did not measure overflow, naming `lattice-emulator.js`
-  as the command that does. **Every export path reads the setting**, including
-  `lattice-emulator.js` (PDF / PNG / PPTX / HTML), which takes the same
-  `--overflow-marker` flag — a setting the primary export ignored would not have been a
-  setting. Its default is unchanged in effect (a delivered PDF still carries no red QA
-  ring) and the overflow warning on stderr is unconditional at every level.
+  as the command that does. **Every export path honors the setting**, including
+  `lattice-emulator.js` (PDF / PNG / PPTX / HTML / `--fluid` / `--player`), which takes
+  the same `--overflow-marker` flag — a setting the primary export ignored would not have
+  been a setting. Its default is unchanged in effect (a delivered PDF still carries no red
+  QA ring) and the overflow warning on stderr is unconditional at every level.
+  The self-contained **`--player`** is the one surface that cannot read anything at view
+  time (`player-core.mjs` drops every inline script it is handed), so the level is *baked*
+  into its DOM: the emulator now captures the page after applying the level, where it used
+  to build the player from the pre-browser static render — which no watcher had ever
+  touched, making `--player` permanently equal to `off` whatever the setting said. That
+  capture also replaces the separate dynamic-component bake, so state-chart / function-plot
+  SVGs now survive an autosplit re-render too.
   `engineering/decisions/2026-07-30-overflow-marker-register.md`.
 - **The overflow marker's reader wording no longer promises something false.** The calm
   variant read "More below ↓", which is a scroll affordance — but `section` is

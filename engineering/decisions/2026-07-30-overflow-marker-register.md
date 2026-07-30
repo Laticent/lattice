@@ -143,9 +143,21 @@ measurement it had not taken would be worse than none (HARD RULE #23).
 |---|---|---|
 | Export-to-Marp bundle | flag → workspace → `reader` | **yes — it is the artifact the setting is for** |
 | live preview / Studio | always `author` | no, by design: you can fix it |
-| fluid viewer | always `reader` | no block is written into one |
-| emulator PDF/PNG/PPTX | clean + a stderr warning | not yet — see below |
-| HTML player | no marker (scripts stripped) | no runtime, so no marker |
+| emulator PDF/PNG/PPTX | flag → workspace → `reader` | **yes** — applied in the render browser before printing |
+| emulator `--fluid` viewer | flag → workspace → `reader` | **yes** — the emulator writes the settings block, which the inlined runtime reads |
+| emulator `--player` | flag → workspace → `reader` | **yes** — BAKED, not read: the player ships no runtime |
+
+The player is the one surface that cannot *read* anything at view time — `player-core.mjs`
+drops every inline script from the document it is handed. So the level is baked into its
+DOM instead: the emulator captures the page **after** applying the level in the render
+browser, and that capture is the player's source. Getting this wrong is subtle and silent —
+the player used to be built from the PRE-BROWSER static render, which no watcher had ever
+touched, so `--player` was permanently equal to `off` no matter what the setting said.
+
+The rule this suggests for any future export path: a surface either reads the settings
+block or has the resolved state baked into it. There is no third option, and "the default
+is already correct there" is not one of them — a setting the primary export ignores is not
+a setting.
 
 The runtime tells an exported artifact from an authoring surface by the PRESENCE of
 the export-settings block, which is written by one function and only ever by an
