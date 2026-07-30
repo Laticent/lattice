@@ -193,7 +193,9 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
 //     chunk at every heading (`examples/split-headings.md`: 1 → 7);
 //   · SPLITTER DISAGREEMENT — the engine's `splitOnHr` (lib/engine/slides.js) breaks on ANY
 //     markdown-it `hr` (`***`, `___`, `- - -`, `---` with trailing spaces), while the Studio's
-//     `SEP_RE` (docs/src/components/studio/lint.ts) matches only a bare `\n---\n`.
+//     `SEP_RE` (docs/src/components/studio/lint.ts) is `/\n-{3,}\n/` — three-or-more hyphens alone
+//     on a line, nothing after them — so `***`, `___`, `- - -` and a trailing space split for the
+//     engine and not for the Studio.
 // So the caller passes the count it believes (`slideCount`) and narrowing happens ONLY when the
 // engine agrees. On disagreement `narrowToSlide` returns null and the caller re-renders the one
 // slide alone — the pre-deck-context behavior: the RIGHT slide with a "1 of 1" number. Right
@@ -239,6 +241,45 @@ function narrowToSlide(html: string, index: number, slideCount?: number): string
 		pos = at + sections[i].length;
 	}
 	return out + html.slice(pos);
+}
+
+// ── Does this deck need a whole-deck render at all? ──────────────────────────
+// The deck-context render exists to get three things right, and EVERY ONE of them requires the
+// deck to actually carry deck-scoped state:
+//   · the page NUMBER — only rendered when `paginate` is truthy, which in the Studio is a
+//     default-OFF toggle that none of the three shipped decks sets;
+//   · inherited RUNNING-GLOBAL directives — a bare `<!-- header: … -->` mid-deck. The Studio's own
+//     header/footer controls write FRONT MATTER, which the caller already prepends to the slice, so
+//     this is reachable only by hand-authoring directive comments;
+//   · the deck-scoped PROGRESS RAIL and watermark glyph — both derived from divider slides, and both
+//     no-ops in a deck with no dividers.
+//
+// Rendering the whole deck unconditionally therefore taxes the UNIVERSAL case to buy correctness in
+// the OPT-IN case: a plain 40-slide prose deck with pagination off — the product's default shape —
+// paid 20.2ms per keystroke instead of 9.0ms to compute a number it will never display.
+//
+// So decide first, from the source, which document the engine should get. This is deliberately NOT
+// the thing `2026-07-15-incremental-per-slide-render-cache.md`'s trio rejected: it re-derives no
+// engine semantics, synthesizes no directive prelude, re-stamps no number. It only picks the input.
+// The engine stays the single owner of the page number (HARD RULE #1).
+//
+// It FAILS OPEN — anything it is unsure about returns true — so a wrong answer costs latency, never
+// correctness. Cost is a regex pass over the source, measured at 0.033ms across 117 slides.
+function needsDeckContext(deck: string): boolean {
+	// `paginate` truthy in front matter or in ANY directive comment (spot or global): the number is
+	// a function of the whole deck, so any slide that shows one needs the deck.
+	if (/^\s*paginate\s*:\s*(?!false|no|off\b)\S/m.test(deck)) return true;
+	if (/<!--\s*_?paginate\s*:\s*(?!false|no|off\b)\S/.test(deck)) return true;
+	// A RUNNING-GLOBAL directive comment — one without the `_` spot prefix — applies to its slide and
+	// every one after, so a slice rendered alone loses it.
+	if (/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/.test(deck)) return true;
+	// Divider slides drive the progress dot rail and the watermark section glyph, both of which count
+	// across the deck. No dividers, no rail (progress.transform.js is a no-op without them).
+	if (/<!--\s*_?class\s*:[^>]*\bdivider\b/.test(deck)) return true;
+	// `glossary: auto` appends a derived appendix slide built from terms across the WHOLE deck, which
+	// also changes the slide count the number is relative to.
+	if (/^\s*glossary\s*:\s*auto\b/m.test(deck)) return true;
+	return false;
 }
 
 // ── Whole-deck render memo — ONE entry, module-level ─────────────────────────
@@ -540,6 +581,18 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
 				let out: { html: string; css: string; width?: number; height?: number; stats?: RenderStats };
 				let engineMs = 0;
+				// GATE the whole-deck render on whether this deck actually needs one (see
+				// needsDeckContext). When it does not, render the shown slide ALONE — the
+				// pre-deck-context cost, for a deck whose deck-scoped facts are all absent anyway.
+				// This is the SINGLE decision point, so no call site has to know about it, and it also
+				// removes the double render the misalignment fallback used to pay: a deck that needs no
+				// context never renders the deck, so it can never fall back from one.
+				// Divert to the slice ONLY when there is a slice to render and the deck contributes
+				// nothing. A caller that passes `slideIndex` without `slideMarkdown` has no slice to
+				// fall back to, so it keeps the deck render and the narrowing it asked for.
+				const canDivert = typeof opts?.slideIndex === 'number' && !!opts.slideMarkdown;
+				const wantsContext = typeof opts?.slideIndex === 'number' && (!canDivert || needsDeckContext(markdown));
+				const renderSource = wantsContext || !canDivert ? markdown : (opts?.slideMarkdown as string);
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
 				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
@@ -559,14 +612,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// silently couple every such host (and every test of them) to whatever rendered
 					// last. Narrowing the gate keeps the shared state confined to the callers that
 					// actually benefit from it.
-					const key = typeof opts?.slideIndex === 'number' ? memoKey(markdown, theme, mode, extraCss || '', extra?.css || '') : null;
+					const key = typeof opts?.slideIndex === 'number' ? memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '') : null;
 					if (key !== null && deckMemo?.key === key) {
 						out = { ...deckMemo.out };
 						engineMs = performance.now() - tEngine; // the real (near-zero) cost
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
@@ -617,7 +670,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// (and the reported `slides`) sees exactly the one-section document it saw before this
 				// option existed. The engine `stats` above deliberately still describe the WHOLE render
 				// — that is the work the engine actually did, and what its timing covers.
-				if (typeof opts?.slideIndex === 'number') {
+				// Narrowing only applies when we actually rendered the deck.
+				if (wantsContext && typeof opts?.slideIndex === 'number') {
 					const narrowed = narrowToSlide(out.html, opts.slideIndex, opts.slideCount);
 					if (narrowed !== null) out.html = narrowed;
 					else if (opts.slideMarkdown) {
@@ -1052,6 +1106,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 */
 	function dispose(): void {
 		disposed = true; // stop any in-flight renderInto from re-registering below
+		// Release the whole-deck memo too. It is bounded at one entry, so it is not a leak — but this
+		// function's whole doctrine is that it releases every module-level root this file owns, and
+		// leaving the last-viewed deck's HTML (up to ~285KB on a 117-slide deck) resident after the
+		// final preview unmounts is exactly the kind of quiet retention it exists to prevent. Costs
+		// one re-render if a host mounts again.
+		clearDeckMemo();
 		for (const ro of ownedObservers) {
 			try {
 				ro.disconnect();

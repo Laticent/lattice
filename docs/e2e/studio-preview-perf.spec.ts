@@ -33,9 +33,23 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 // thing about an early version of these numbers. A 40-slide prose deck and 40 slides of the
 // GALLERY (every chart, map, diagram and math block in the library) differ by ~4x on the same
 // render path, so one figure alone invites the wrong conclusion about which decks are affected.
+function proseSlides(n: number): string {
+	return Array.from({ length: n }, (_, i) => `## Slide ${i + 1}\n\nBody text for slide ${i + 1}, with enough prose to be a real section.`).join('\n\n---\n\n');
+}
+/** Pagination ON — the case that needs a deck-context render. */
 function proseDeck(n: number): string {
-	const slides = Array.from({ length: n }, (_, i) => `## Slide ${i + 1}\n\nBody text for slide ${i + 1}, with enough prose to be a real section.`);
-	return `---\npaginate: true\n---\n\n${slides.join('\n\n---\n\n')}\n`;
+	return `---\npaginate: true\n---\n\n${proseSlides(n)}\n`;
+}
+/**
+ * THE PRODUCT'S DEFAULT SHAPE: no `paginate`, no running-global directive comment, no divider — so
+ * nothing the deck could contribute to the shown slide. `paginate` is a default-OFF toggle in Deck
+ * Setup and none of the three shipped Studio decks sets it, so this is the common case, not an edge
+ * one. It exists as its own variant because the two decks above both opt IN to pagination, which
+ * meant an earlier version of this spec measured only the expensive path and could not see whether
+ * gating the deck render helped at all.
+ */
+function defaultDeck(n: number): string {
+	return `---\ntheme: indaco\n---\n\n${proseSlides(n)}\n`;
 }
 /** The first `n` slides of the real gallery — the heavy end of what authors actually write. */
 function galleryDeck(n: number): string {
@@ -86,14 +100,20 @@ function report(label: string, samples: Sample[]): void {
 	console.log(`  n=${patch.length}  RENDER p50 ${f(p50(patch.map((s) => s.engineMs)))}  FRAME p50 ${f(p50(patch.map((s) => s.frameMs)))}  TOTAL p50 ${f(p50(patch.map((s) => s.totalMs)))}  TOTAL max ${f(Math.max(...patch.map((s) => s.totalMs)))}`);
 }
 
-for (const kind of ['prose', 'gallery'] as const) {
+// SERIAL, and not negotiable for this file: these cases each throttle their browser to 4x CPU, so
+// running them in parallel workers puts three throttled Chromiums in contention and every number
+// comes out inflated and unstable (it also produced an intermittent failure). A perf measurement
+// that competes with itself measures the harness, not the code.
+test.describe.configure({ mode: 'serial' });
+
+for (const kind of ['default', 'prose', 'gallery'] as const) {
 test(`@perf preview render path — navigation vs typing (${kind} deck)`, async ({ page, context }) => {
 	test.setTimeout(300_000);
 	const SLIDES = 40;
 	const CPU = 4; // the throttle the perf-diagnosis doc reasons about (a mid-range phone)
 
 	await gotoStudio(page);
-	await setEditorContent(page, kind === 'prose' ? proseDeck(SLIDES) : galleryDeck(SLIDES));
+	await setEditorContent(page, kind === 'default' ? defaultDeck(SLIDES) : kind === 'prose' ? proseDeck(SLIDES) : galleryDeck(SLIDES));
 	// The rail is the oracle that the deck actually landed — 40 slides, not one mangled blob.
 	await expect.poll(() => railButtons(page).count(), { timeout: 30_000 }).toBe(SLIDES);
 	await expect(livePreview(page).locator('.lattice section').first()).toBeVisible();
