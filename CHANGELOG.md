@@ -94,6 +94,25 @@ in patch versions.
 
 ### Fixed
 
+
+- **The `split-panel proof` sequencing rule existed twice, and the copy no test held.**
+  `lib/transformers/split-panels.js`'s DOM walk — the browser runtime's path — carried its own
+  hand-kept restatement of how a proof slide takes its categorical hue from deck order
+  (capstone-implies-proof, slot counting including authored overrides, the mod-8 cycle). It now
+  calls the kernel's own rule, extracted as `proofTokensFor` in `lib/core/split-panels.js`, so
+  only the traversal differs (HARD RULE #1).
+
+  The reason this is a fix and not a tidy-up: `test/unit/core/split-panel-proof-sequence.test.js`
+  stated that the DOM walk was "covered alongside the other DOM parity cases in
+  split-panels-dom.test.js", and that was false — the file had no proof/capstone case at all, and
+  deleting the walk's entire sequencing loop broke nothing in a 4,700-test suite. The walk shipped
+  ungated behind a comment claiming otherwise. It now has seven cases including a real
+  kernel-vs-DOM parity check, and 7 of the 7 fail if the loop is removed. The false pointer is
+  corrected rather than left to mislead the next reader.
+
+  One pathological input changes behavior deliberately: a token like `cat-1.5` now counts as
+  pinned on the DOM path too, where previously only the HTML path saw it. The two paths agreeing
+  is the point, and neither shape is reachable from `_class:` authoring.
 - **An exported `image` slide now renders its photo as a panel and its prose in a text
   column — the same slide the engine draws, pixel for pixel.** This was the seventh gap
   #1261 disclosed and the one that did NOT degrade gracefully: Marp's own

@@ -8,8 +8,10 @@
  * insertion. These lock the four behaviors that make the automatic assignment
  * safe to rely on.
  *
- * The DOM mirror (lib/transformers/split-panels.js sequenceProofPanels) is
- * covered alongside the other DOM parity cases in split-panels-dom.test.js.
+ * The DOM walk (lib/transformers/split-panels.js sequenceProofPanels) is covered by
+ * split-panels-dom.test.js § "proof sequencing", which includes a kernel-vs-DOM
+ * parity case. This pointer used to be FALSE: that file had no proof/capstone case
+ * at all, and the DOM walk's sequencing was entirely ungated.
  */
 
 const { test, describe } = require('node:test');
