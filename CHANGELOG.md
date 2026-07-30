@@ -181,12 +181,16 @@ in patch versions.
   deck clips gains the calm "Content clipped" pill. That is 20 PDFs across 18 decks: the 18 that
   `test/integration/overflow-baseline.json` ratchets (3 examples — one of which, `examples/README.md`,
   ships no PDF — 12 exemplars, and the `connect` + `wifi` galleries in both moods), **plus
-  `lib/base/_logo/logo.gallery.{light,dark}.pdf`**, which clip page 3 and which the ratchet cannot
-  see: `tools/check-overflow-corpus.js`'s glob covers `examples/`, `exemplars/`,
-  `lib/components/**`, `design/*.gallery.md` and the baseline deck, but **not `lib/base/**`**, and
-  no gallery builder owns those two files either. They were found by diffing `git ls-files '*.pdf'`
-  against the ratchet rather than trusting the ratchet to be complete. The glob hole itself is
-  pre-existing and off this change's path, so it is recorded here rather than widened in this diff.
+  `lib/base/_logo/logo.gallery.{light,dark}.pdf`**, which clip page 3 and which **three separate
+  gates are all blind to**: `tools/check-overflow-corpus.js`'s glob covers `examples/`,
+  `exemplars/`, `lib/components/**`, `design/*.gallery.md` and the baseline deck but not
+  `lib/base/**`; no gallery builder owns those two files (`build-galleries.js` walks
+  `lib/components/**`, `build-bucket-galleries.js` the buckets); and `tools/golden-diff.mjs:75`
+  pathspec-limits its diff to `-- lib/components`, so their pixels move without a montage — as this
+  very commit demonstrates, since it changes both PDFs and golden-diff reported 4 gallery·moods, not
+  6. They were found by diffing `git ls-files '*.pdf'` against the ratchet rather than trusting the
+  ratchet to be complete. The hole itself is pre-existing and off this change's path, so it is
+  recorded here rather than widened in this diff.
   The ratchet is unchanged: no new slide clips, the same 27 do, and they are now visible in the
   artifact instead of only on stderr. Note that `build:galleries:check` compares mtimes rather than
   content, so it would not have caught any of these going stale.
