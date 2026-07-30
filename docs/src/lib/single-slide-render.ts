@@ -550,8 +550,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Reuse the last whole-deck render when every input is identical — a navigation
 					// or a sibling overview tile (see the deckMemo note above). Copied out, never
 					// handed over, because the narrowing step below mutates `out.html`.
-					const key = memoKey(markdown, theme, mode, extraCss || '', extra?.css || '');
-					if (deckMemo && deckMemo.key === key) {
+					//
+					// GATED ON DECK CONTEXT, and that gate is load-bearing rather than an optimization.
+					// The memo exists for one problem: the same deck re-parsed because only the shown
+					// index changed. A host WITHOUT deck context (a landing island, a component
+					// specimen) renders a standalone slide once and never repeats it, so memoizing it
+					// buys nothing and costs an entry — and, because the memo is module state, it would
+					// silently couple every such host (and every test of them) to whatever rendered
+					// last. Narrowing the gate keeps the shared state confined to the callers that
+					// actually benefit from it.
+					const key = typeof opts?.slideIndex === 'number' ? memoKey(markdown, theme, mode, extraCss || '', extra?.css || '') : null;
+					if (key !== null && deckMemo?.key === key) {
 						out = { ...deckMemo.out };
 						engineMs = performance.now() - tEngine; // the real (near-zero) cost
 					} else {
@@ -560,8 +569,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
-						// mutation below and to any caller that edits what it received.
-						deckMemo = { key, out: { html: out.html, css: out.css, width: out.width, height: out.height } };
+						// mutation below and to any caller that edits what it received. Only a
+						// deck-context render populates it (`key !== null`) — see the gate above.
+						if (key !== null) deckMemo = { key, out: { html: out.html, css: out.css, width: out.width, height: out.height } };
 					}
 					// engineMs brackets the WHOLE renderMarkdown call, which also does the
 					// math prescan + (cold) KaTeX load before the engine's own render. Fold

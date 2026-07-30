@@ -323,13 +323,28 @@ in patch versions.
   instead of one slide's — removed, for the two interactions that repeat an IDENTICAL parse, by a
   **single-entry module-level memo of the last whole-deck render**: changing the shown slide (only
   the index changes) and the overview grid (every tile renders the same deck, so N parses become
-  one). Measured on the real built Studio at 4× CPU, 40-slide gallery deck, patch path: slide
-  navigation is **TOTAL 12.8ms → 7.1ms p50, RENDER 6.8ms → 0.1ms** — *faster* than before this
-  change, because the previous code re-rendered a slide on every navigation. A KEYSTROKE misses the
-  memo by construction (the markdown changed) and still pays the whole-deck parse: ~44ms RENDER on
-  that deck at 4× against 6.8ms before, the cost the engine-side incremental render path would
-  collapse (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`). The frame
-  cost is unchanged either way (~1.8ms on the patch path) — the srcdoc still carries one section.
+  one). Measured on the real built Studio at 4× CPU on a 40-slide gallery deck, patch path, three
+  states benched back-to-back on one machine (p50 of 19 real slide navigations each) —
+  `main` → deck context without the memo → with it:
+
+  | needle | main | no memo | with memo |
+  |---|---|---|---|
+  | RENDER (engine) | 6.9ms | 38.0ms | **0.1ms** |
+  | FRAME | 1.4ms | 1.8ms | 2.0ms |
+  | TOTAL p50 | 14.3ms | 46.6ms | **8.1ms** |
+  | TOTAL max | 19.7ms | 106.7ms | **17.1ms** |
+
+  Navigation is *faster* than before this change, because the previous code re-rendered a slide
+  every time. Run-to-run variance is ~10%, so read these as ±1–2ms — the gap between states is far
+  outside that, the `main` column's own spread is not. Being single-entry, the memo is not a 100%
+  hit: the first navigation is cold and an intervening full-write render evicts it, which shows up
+  as occasional 1–8ms RENDER samples. A KEYSTROKE misses by construction (the markdown changed) and
+  still pays the whole-deck parse — ~38ms RENDER on that deck at 4×, against 6.9ms before — which is
+  the cost the engine-side incremental render path would collapse
+  (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`), and which is
+  UNMEASURED on the real surface (CodeMirror does not accept synthetic keys in the harness, so that
+  figure is the no-memo column, not a typing measurement). The frame cost is unchanged either way
+  (~1.4–2.0ms on the patch path) — the srcdoc still carries one section.
   A standalone host (landing island, component specimen) omits `slideIndex` and is
   byte-identical to before, where 1-of-1 is the truth. Exports were never affected: they render the
   whole source in one pass.
