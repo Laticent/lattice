@@ -57,6 +57,28 @@ in patch versions.
 
 ### Changed
 
+- **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
+  Playground are now inline top-level links on every surface — Studio first, keeping its honest
+  `Preview` badge — instead of sitting two hops deep behind a "Tools" disclosure. The frozen
+  **Drawing Board** and **Workbench** are removed from every nav surface (the desktop bar, the
+  mobile Sheet, the ⌘K palette, and the Starlight sidebar); their routes still resolve, so existing
+  links and bookmarks keep working until the routes are deleted
+  (`engineering/decisions/2026-07-03-studio-succession.md` §6 P4/P5). Two consequences worth
+  knowing: the header's search control is an icon between 1024px and 1280px (it was a pill from
+  1024px) and the Libraries disclosure now appears from 1408px, both to pay for the two app links
+  the bar spells out — and that re-budgeting **fixes a pre-existing defect**, where the bar
+  overflowed the viewport by 88px at exactly 1024px and cut off the GitHub icon. `nav.mjs`'s
+  `toolsNav` / `toolsActive` are replaced by `appsNav`; `<NavActions>`'s `tools` prop is now `apps`.
+
+- **The docs stop advertising the frozen Drawing Board.** The 404 page, the authoring guide
+  (autocomplete, inline validation, Deck setup, "where to go next"), and the diagnostics spec named
+  the Drawing Board as *the* in-browser editor while the nav no longer lists it. They now name the
+  surface that actually ships the behavior, scoped to where it really works: autocomplete and inline
+  validation in **both** the Studio and the Playground; **Fix all issues** in the Studio; the
+  **F8 / Shift-F8 / Ctrl-Shift-M / Alt-Shift-F** lint shortcuts in the Playground, which is the only
+  surface whose editor binds `lintKeymap`; and the **Deck setup** drawer in the Playground, with the
+  Studio's equivalent called out as the Deck inspector.
+
 - **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
   PDFs render stage content ~11% larger than before — and agree with the preview.** The
   engine emits the slide's own 1% (`--_sec-1cqi` / `--_sec-1cqh`) as CSS from the resolved
