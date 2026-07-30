@@ -5,13 +5,18 @@
 // docs zone render this exact component, so the chrome can no longer drift
 // (it used to be copy-pasted into 8 places across two class systems).
 //
-// Shape:  [brand] [Docs · Components · Features · Comparison · Tools ▾]
+// Shape:  [brand] [Studio ᴾᴿᴱⱽ · Playground · Docs · Components · Features · Comparison · Libraries ▾]
 //                            …flex spacer…
 //         [Search ⌘K] [theme select] [light/dark] [GitHub] [☰ on mobile]
 //
-// The inline content links + the Tools disclosure are static HTML (SSR, no-JS,
+// The apps lead the bar (Studio first — it is the front door), then the
+// content links, then the Libraries disclosure. The "Tools" disclosure that
+// used to hide the apps behind a hover is gone: the Studio and the Playground
+// are one click from every page (nav.mjs).
+//
+// The inline links + the Libraries disclosure are static HTML (SSR, no-JS,
 // crawlable). Everything interactive — the ⌘K command palette, the theme
-// controls, the mobile menu — is the single <NavActions> island. The Tools
+// controls, the mobile menu — is the single <NavActions> island. The Libraries
 // disclosure is a native <details> (no island) with a tiny shared script to
 // close it on outside-click / Escape.
 //
@@ -25,7 +30,7 @@
 //                           also carries the page TOC).
 import NavActions from './NavActions.tsx';
 import { joinBase } from '../../lib/base-url.mjs';
-import { contentNav, toolsNav, librariesNav, primaryNav, GITHUB_URL, isCurrent, toolsActive, librariesActive } from '../../lib/nav.mjs';
+import { appsNav, contentNav, librariesNav, primaryNav, GITHUB_URL, isCurrent, librariesActive } from '../../lib/nav.mjs';
 
 const { palettes = [], wide = false, standalone = true, mobileMenu = true } = Astro.props;
 
@@ -34,11 +39,10 @@ const url = (p) => joinBase(base, p);
 const here = Astro.url.pathname;
 
 const annotate = (items) => items.map((l) => ({ ...l, current: isCurrent(l, here) }));
+const apps = annotate(appsNav(url));
 const content = annotate(contentNav(url));
-const tools = annotate(toolsNav(url));
 const libraries = annotate(librariesNav(url));
 const links = annotate(primaryNav(url)); // flat, for the command palette + sheet
-const toolsOn = toolsActive(here, url);
 const libsOn = librariesActive(here, url);
 const pagefindUrl = url('pagefind/pagefind.js');
 const homeHref = url('');
@@ -54,29 +58,17 @@ const Wrapper = standalone ? 'header' : 'div';
 		</a>
 
 		<nav class="sh-nav" aria-label="Primary">
+			{apps.map((l) => (
+				<a class="sh-link sh-link-app" href={l.href} aria-current={l.current ? 'page' : undefined}>
+					{l.label}
+					{l.badge && <span class="sh-link-badge">{l.badge}</span>}
+				</a>
+			))}
+			<span class="sh-divider" aria-hidden="true"></span>
 			{content.map((l) => (
 				<a class="sh-link" href={l.href} aria-current={l.current ? 'page' : undefined}>{l.label}</a>
 			))}
-			<details class="sh-tools">
-				<summary class="sh-link sh-tools-summary" data-active={toolsOn ? '' : undefined} aria-current={toolsOn ? 'true' : undefined}>
-					Tools
-					<svg class="sh-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-						<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
-				</summary>
-				<div class="sh-tools-menu" role="menu">
-					{tools.map((l) => (
-						<a class="sh-tools-item" href={l.href} role="menuitem" aria-current={l.current ? 'page' : undefined}>
-							<span class="sh-tools-item-head">
-								<span class="sh-tools-item-label">{l.label}</span>
-								{l.badge && <span class="sh-tools-item-badge">{l.badge}</span>}
-							</span>
-							{l.desc && <span class="sh-tools-item-desc">{l.desc}</span>}
-						</a>
-					))}
-				</div>
-			</details>
-			<details class="sh-tools">
+			<details class="sh-tools sh-libraries">
 				<summary class="sh-link sh-tools-summary" data-active={libsOn ? '' : undefined} aria-current={libsOn ? 'true' : undefined}>
 					Libraries
 					<svg class="sh-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -103,8 +95,8 @@ const Wrapper = standalone ? 'header' : 'div';
 				client:idle
 				palettes={palettes}
 				links={links}
+				apps={apps}
 				content={content}
-				tools={tools}
 				libraries={libraries}
 				githubUrl={GITHUB_URL}
 				pagefindUrl={pagefindUrl}
@@ -116,7 +108,7 @@ const Wrapper = standalone ? 'header' : 'div';
 </Wrapper>
 
 <script>
-	// Close the Tools disclosure on outside-click / Escape (native <details>
+	// Close the Libraries disclosure on outside-click / Escape (native <details>
 	// doesn't). One listener for every <details.sh-tools> on the page; runs once
 	// per page because Astro hoists + dedupes this module script.
 	const closeTools = (except?: EventTarget | null) => {
@@ -181,19 +173,47 @@ const Wrapper = standalone ? 'header' : 'div';
 	.sh-nav {
 		display: none;
 		align-items: center;
-		gap: 0.2rem;
-		margin-left: 0.6rem;
+		gap: 0.18rem;
+		/* No margin-left: `.site-header-inner`'s own 0.75rem gap already separates
+		   the nav from the brand, and the row's width is measured to the pixel
+		   below — an outside-the-box margin is exactly what that math can't see. */
 	}
-	/* The inline nav + the full action cluster (search pill, theme select,
-	 * GitHub) appear together at lg; below that the bar is compact (search +
-	 * light/dark + menu) and the Sheet / ⌘K palette carry everything. The
-	 * breakpoint keeps the bar from overflowing in the tablet band. The nav gap /
-	 * link padding are tuned tight so the full item set (incl. the Tools +
-	 * Libraries disclosures) fits inside the 1180px inner cap at lg without the
-	 * body scrolling horizontally. */
+	/* The bar's width budget, in three steps. Below lg the nav is hidden and the
+	 * Sheet / ⌘K palette carry everything. From lg (1024px) the nav appears with
+	 * the two app links + the four content links; the search control is an ICON
+	 * there, which is what buys the room. From xl (1280px) the Libraries
+	 * disclosure joins and the search grows back to a pill.
+	 *
+	 * These steps are measured, not guessed — the row's right edge, against the
+	 * viewport it has to fit inside:
+	 *
+	 *   1024px (lg)   → 1015px   nav + icon search
+	 *   1280px (xl)   → 1149px   + the search pill returns
+	 *   1408px        → 1239px   + Libraries
+	 *   1536px (2xl)  → 1319px   + the pill widens to w-64
+	 *
+	 * The previous layout (four content links + the Tools and Libraries
+	 * disclosures + a 176px search pill from lg) overflowed the viewport by 88px
+	 * at exactly 1024, cutting off the GitHub icon — every step above is now
+	 * positive. If you add an item here, re-measure before you ship: every link
+	 * is `white-space: nowrap`, so this row cannot reflow — it can only
+	 * overflow. */
 	@media (min-width: 64rem) {
 		.sh-nav {
 			display: flex;
+		}
+	}
+	/* Libraries — the four sibling projects — is the lowest-priority family in
+	 * the bar, so it is the one that waits for room, and it waits until after
+	 * the search pill has taken its share back. Below 88rem it is reached
+	 * through the ⌘K palette (the site's one findability surface, on every
+	 * page), the mobile Sheet, and the Starlight sidebar in the docs zone. */
+	.sh-libraries {
+		display: none;
+	}
+	@media (min-width: 88rem) {
+		.sh-libraries {
+			display: block;
 		}
 	}
 
@@ -201,7 +221,7 @@ const Wrapper = standalone ? 'header' : 'div';
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
-		padding: 0.4rem 0.5rem;
+		padding: 0.4rem 0.45rem;
 		border-radius: var(--radius-sm, 8px);
 		font-size: 0.875rem;
 		font-weight: 500;
@@ -222,7 +242,45 @@ const Wrapper = standalone ? 'header' : 'div';
 		font-weight: 600;
 	}
 
-	/* Tools disclosure */
+	/* The app links (Studio, Playground) lead the bar. They carry the heading
+	   colour + a touch more weight than the content links so the eye lands on
+	   the front door first — a rank cue, not a second button. */
+	.sh-link-app {
+		font-weight: 600;
+		color: var(--text-heading);
+	}
+	.sh-link-app[aria-current='page'] {
+		color: var(--accent);
+	}
+	/* The inline "Preview" pill — same chip as the disclosure/mobile/palette
+	   badges, palette-token only so it tracks the theme in light and dark. */
+	.sh-link-badge {
+		font-size: 0.6rem;
+		font-weight: 700;
+		line-height: 1;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		padding: 0.2rem 0.35rem;
+		border-radius: 999px;
+		color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 14%, transparent);
+	}
+	/* Hairline between the apps and the content links — the one visual cue that
+	   these are two families now that neither sits behind a disclosure. Drawn as
+	   a 1px content box inside transparent padding (background-clip) rather than
+	   with a margin — HARD RULE #20's habit, kept even here where the engine
+	   gate doesn't reach. */
+	.sh-divider {
+		box-sizing: content-box;
+		width: 1px;
+		height: 1.1rem;
+		flex: 0 0 auto;
+		padding-inline: 0.3rem;
+		background: var(--border);
+		background-clip: content-box;
+	}
+
+	/* Libraries disclosure */
 	.sh-tools {
 		position: relative;
 	}

@@ -28,16 +28,18 @@ import { useIsPhone } from '@/lib/use-breakpoint';
  *   • the shared <PaletteControls> (theme <select> + light/dark toggle);
  *   • a GitHub link;
  *   • on standalone routes, the mobile hamburger → a Sheet carrying the full
- *     nav. In the docs zone (`mobileMenu={false}`) Starlight owns the mobile
- *     menu (it also needs the page TOC), so we render only the cluster.
+ *     nav, grouped Open (the apps) / Browse (content) / Libraries in the same
+ *     order the desktop bar uses. In the docs zone (`mobileMenu={false}`)
+ *     Starlight owns the mobile menu (it also needs the page TOC), so we
+ *     render only the cluster.
  *
  * The ⌘K / `/` shortcut and the open state live here.
  */
 export default function NavActions({
 	palettes,
 	links,
+	apps,
 	content,
-	tools,
 	libraries = [],
 	githubUrl,
 	pagefindUrl,
@@ -46,8 +48,8 @@ export default function NavActions({
 }: {
 	palettes: string[];
 	links: NavLink[];
+	apps: NavLink[];
 	content: NavLink[];
-	tools: NavLink[];
 	libraries?: NavLink[];
 	githubUrl: string;
 	pagefindUrl: string;
@@ -84,13 +86,17 @@ export default function NavActions({
 
 	return (
 		<div className="flex items-center gap-1.5 sm:gap-2">
-			{/* Search — pill from lg, icon below it. Both open the same palette. */}
+			{/* Search — pill from xl, icon below it. Both open the same palette.
+			    The size steps sit one breakpoint later than they used to: the bar
+			    now spells out Studio and Playground inline instead of hiding them
+			    behind a "Tools" disclosure, and the ~144px the pill costs at lg is
+			    what pays for them. The icon is the same control, not a lesser one. */}
 			<Button
 				type="button"
 				variant="outline"
 				onClick={() => setOpen(true)}
 				aria-label="Search (⌘K)"
-				className="hidden h-8 w-44 justify-start gap-2 px-3 text-muted-foreground lg:inline-flex xl:w-64"
+				className="hidden h-8 w-44 justify-start gap-2 px-3 text-muted-foreground xl:inline-flex 2xl:w-64"
 			>
 				<Search className="size-4" />
 				<span className="text-sm">Search the docs…</span>
@@ -102,7 +108,7 @@ export default function NavActions({
 				size="icon-sm"
 				onClick={() => setOpen(true)}
 				aria-label="Search (⌘K)"
-				className="lg:hidden"
+				className="xl:hidden"
 			>
 				<Search className="size-4" />
 			</Button>
@@ -145,8 +151,10 @@ export default function NavActions({
 							</SheetClose>
 						</SheetHeader>
 						<nav className="flex flex-col gap-5 overflow-y-auto p-4" aria-label="Site">
+							{/* Apps first — the sheet mirrors the desktop bar's order, so the
+							    Studio is the first thing a phone visitor sees here too. */}
+							<SheetSection title="Open" items={apps} onNavigate={() => setSheet(false)} />
 							<SheetSection title="Browse" items={content} onNavigate={() => setSheet(false)} />
-							<SheetSection title="Tools" items={tools} onNavigate={() => setSheet(false)} />
 							{libraries.length > 0 && (
 								<SheetSection title="Libraries" items={libraries} onNavigate={() => setSheet(false)} />
 							)}
