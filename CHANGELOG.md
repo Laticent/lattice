@@ -308,6 +308,26 @@ in patch versions.
   pins all of it, including the cascade PRECONDITION nothing checked — `:is()` takes the
   specificity of its most specific arm, so distributing is only neutral when the arms are equally
   specific, and every leading head in engine CSS now has to be.
+- **`render(deck)` was not a pure function of its input — the same deck rendered twice in one
+  process produced different bytes.** Several chart kernels mint SVG `<defs>` ids (pie wedge and
+  gantt slot gradients, radar area fills, quadrant tints, legend spines) from a sequence whose
+  purpose is uniqueness *within* a document, because a duplicate id makes every reference resolve
+  to the first one. Those sequences were **module**-level — scoped to the process, not the render —
+  so they kept climbing: measured at **48 of 112 committed decks** differing on a second render
+  (`gantt-fill-pass-1` → `-2`, `pie-wedge-1` → `-6`, `radar-area-1` → `-4`). Nothing broke visibly,
+  because an id and its references are minted together, which is why it went unnoticed. One comment
+  even rested the design on "one Node process per deck", which stopped being true when the docs site
+  began rendering many times per page. They now come from one render-scoped kernel
+  (`lib/core/render-ids.js`) reset at the top of each engine render. **Exported bytes are
+  unchanged** — verified by hashing the first render of 31 decks in fresh processes before and
+  after: a single-render process always started at 1 and still does. This matters beyond tidiness:
+  byte-determinism is the precondition for caching the render at all.
+  `2026-07-15-incremental-per-slide-render-cache.md` guards its design with an
+  `incrementalRender === wholeRender` property test, which is unwritable against a
+  non-deterministic renderer — it fails spuriously, and the obvious repair is a normalizer that
+  hides the drift the test exists to catch. Locked by `test/unit/core/render-ids.test.js`,
+  including that ids stay unique *within* a render.
+
 - **Every slide in the Studio printed "1" as its page number.** The engine was right; the caller
   was throwing away the context it needed. The engine derives a slide's number from its ORDINAL
   POSITION among the sections of the document it parses (`lattice_directives_apply` in
