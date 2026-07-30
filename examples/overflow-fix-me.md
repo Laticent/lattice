@@ -26,9 +26,9 @@ be proven, "Likely fix" when it's the best available guess.
 This slide exists to demonstrate the Fix-Me overlay — open it in a live
 preview (Playground, Drawing Board, Studio, or the VS Code marp preview) to
 see the red ring and the yellow tag land on "Preferred option" alone, not
-"Alternative option" or the whole panel. A static export shows neither: the
-export strips both markers and clips the content instead, so this page
-prints a clean but visibly cut-off card.
+"Alternative option" or the whole panel. A static export shows the calm
+reader form instead: a "Content clipped" tag, no ring and no Fix-Me tag.
+Export with `--overflow-marker=author` to get the full signal here too.
 
 - Alternative option
   - A short first fact about the alternative
@@ -110,8 +110,10 @@ A slide with no bounded cell falls back to the component's own word budget: whic
 
 <!-- _class: closing -->
 
-# Preview-only. Never in the deliverable.
+# The overlay is for you. The exported deck speaks to its reader.
 
-The overlay lives entirely in the runtime script every live preview loads
-— never in the export pipeline — so a shipped PDF, PPTX, or HTML export is
-byte-identical whether a slide overflowed during authoring or not.
+The Fix-Me tags and the red ring are the AUTHORING signal, and an export
+does not carry them by default. What it does carry is a small "Content
+clipped" tag, because a slide that loses content should say so rather than
+look finished. `--overflow-marker` decides: `author` ships the full signal,
+`off` ships none. Whichever you pick, the console names the clipped pages.

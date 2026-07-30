@@ -2610,7 +2610,16 @@ async function renderBody(browser, g, closeBrowser) {
   if (overflowing.length) {
     const n = overflowing.length;
     console.warn(`  ⚠ OVERFLOW — ${n} slide${n > 1 ? 's' : ''} exceed the frame and ${n > 1 ? 'are' : 'is'} CLIPPED in this export: page${n > 1 ? 's' : ''} ${overflowing.join(', ')}.`);
-    console.warn(`    Fix ${n > 1 ? 'them' : 'it'} before delivering (trim content, or use a layout/fill that fits). The export stays clean — no overflow marker is printed.`);
+    // What the ARTIFACT does about it depends on the level — this line used to say
+    // "The export stays clean — no overflow marker is printed", which was true only
+    // while this path was hard-wired to strip everything. It reads the setting now,
+    // so it has to report what it actually did.
+    const marked = {
+      reader: 'The export marks the clipped slides with a "Content clipped" tag.',
+      author: 'The export draws the full authoring signal (red ring, "Overflows" flag) on them.',
+      off: 'The export stays clean — no overflow marker is printed, so this warning is the only channel.',
+    }[OVERFLOW_MARKER.marker];
+    console.warn(`    Fix ${n > 1 ? 'them' : 'it'} before delivering (trim content, or use a layout/fill that fits). ${marked}`);
   }
   // Strip the authoring-only overflow signal before exporting. The injected
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on
