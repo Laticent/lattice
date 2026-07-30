@@ -475,7 +475,7 @@ the shown slide ALONE and still print a true number, and `paginate` is no longer
 | with page position supplied | **53 (42.1%)** |
 | if section position were supplied too (the rail) | **10 (7.9%)** |
 
-115 decks set pagination and **68 tripped this gate for that reason alone**. The claim in §5 that
+115 decks set pagination and **69 tripped this gate for pagination alone** (68 of them flip to the slice path). The claim in §5 that
 "`paginate` is default-OFF … so the gated path is the common case" was generalized from three
 starter decks; the corpus says the opposite, and one click of the Studio's Page-numbers control
 moved a deck permanently onto the expensive path.

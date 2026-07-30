@@ -484,3 +484,55 @@ describe('deck-derived fact registry', () => {
 		expect(proof?.probes.some((p) => p.test('<!-- _class: split-panel proof -->'))).toBe(true);
 	});
 });
+
+// Supplying a page position is only sound when the caller's slide indices ARE engine section
+// indices. An earlier cut gated that on a `split: headings` probe — but heading splitting is the
+// DEFAULT, so a deck splits on headings with no directive to match, and a `---` chunk carrying two
+// top-level headings rendered THREE sections while the Studio counted TWO slides. The preview then
+// painted a confident "2 of 2" where the truth was "3 of 3"; the whole-deck path fails CLOSED to
+// "1 of 1" for the same deck. Trading an honest fallback for a plausible lie is worse than the bug
+// being fixed, so the slice path now VERIFIES instead of trusting.
+describe('supplied position is verified, not trusted', () => {
+	const sent = (mock: ReturnType<typeof vi.fn>) => mock.mock.calls[0][3];
+	const run = async (deck: string, slideCount: number) => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, {
+			slideIndex: 1,
+			slideCount,
+			slideMarkdown: 'THE SLICE',
+		});
+		return sent(mock);
+	};
+
+	it('does NOT supply a position when an implicit heading split desyncs the count', async () => {
+		// THE REGRESSION. No `split:` directive at all — heading splitting is simply the default.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n## B\n\n---\n\n# C\n', 2))?.page).toBeUndefined();
+	});
+
+	it('does NOT supply a position when a non-`---` hr form splits the deck', async () => {
+		// markdown-it treats `***` as an hr; the Studio's `\n---\n` splitter does not.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n***\n\n# C\n', 2))?.page).toBeUndefined();
+	});
+
+	it('DOES supply a position for an ordinary deck — the optimization must survive the guard', async () => {
+		// Measured: 72 of the 73 corpus decks on the slice path still earn a true number.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+	});
+
+	it('does NOT supply a position when the caller omits the count', async () => {
+		// Without a total the engine would compute `offset + 1` and print "2 of 2" for slide 2 of 9.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, '---\npaginate: true\n---\n\n# A\n\n---\n\n# C\n', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideMarkdown: 'THE SLICE' });
+		expect(sent(mock)?.page).toBeUndefined();
+	});
+
+	it('a heading nested in a list does not count as a split', async () => {
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n- item\n  # nested\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+	});
+});

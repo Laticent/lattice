@@ -347,6 +347,53 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; prob
 	},
 ];
 
+/**
+ * Can the caller's slide indices be TRUSTED as engine section indices?
+ *
+ * Supplying a page position is only sound if "slide k of N" means the same thing to the caller
+ * and to the engine. The whole-deck path VERIFIES that (narrowToSlide bails when the section
+ * count disagrees, and falls back to an honest 1-of-1); the slice path has no such backstop, so
+ * it has to earn the right to supply a number.
+ *
+ * WHY A PROBE IS NOT ENOUGH, and how this was caught. An earlier cut gated on a `split: headings`
+ * probe — but heading splitting is the DEFAULT (`DEFAULT_SPLIT` in lib/core/resolve-split.js), so
+ * a deck splits on headings with no directive to match. A deck whose `---` chunk carries two
+ * top-level h1/h2 therefore renders THREE sections while the Studio counts TWO slides, and the
+ * preview confidently painted "2 of 2" where the truth was "3 of 3". On the whole-deck path the
+ * same deck failed CLOSED to "1 of 1". Trading an honest fallback for a plausible lie is strictly
+ * worse than the bug being fixed, which is the bar this file's own registry comment sets.
+ *
+ * So this COUNTS what the engine will produce, conservatively, and returns false the moment it is
+ * unsure. Every "unsure" costs only the optimization — the render falls back to no supplied
+ * position, i.e. exactly the pre-existing 1-of-1 — so the failure direction is honest, never wrong.
+ */
+function positionIsTrustworthy(deck: string, slideCount: number | undefined): boolean {
+	if (!(typeof slideCount === 'number' && slideCount > 0)) return false;
+	const body = String(deck ?? '')
+		.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '') // front matter
+		.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, ''); // fenced code — never a boundary
+
+	// A `_focusSteps` slide becomes one slide PER STEP; the count is not derivable here at all.
+	if (/<!--\s*_?focusSteps\s*:/.test(body)) return false;
+	// An hr form the Studio's `\n---\n` splitter does not recognise but markdown-it does
+	// (`***`, `___`, `- - -`, `---` with trailing space). Either side miscounts; bail.
+	if (/^[ \t]*(?:\*[ \t]*\*[ \t]*\*[-* \t]*|_[ \t]*_[ \t]*_[_ \t]*|-[ \t]+-[ \t]+-[- \t]*|-{3,}[ \t]+)$/m.test(body)) return false;
+
+	const chunks = body.split(/\n-{3,}\n/);
+	if (chunks.length !== slideCount) return false; // the caller and this splitter already disagree
+
+	// Heading splitting is ON unless the deck opts out, and it inserts a break before every
+	// top-level h1/h2 after the first in a chunk. Count only headings at column 0 — one nested in
+	// a list or blockquote does not divide (see the plugin's `token.level === 0` guard).
+	const splitsOnHeadings = !/^\s*split\s*:\s*(rule|none|off)\b/m.test(deck);
+	if (splitsOnHeadings) {
+		for (const chunk of chunks) {
+			if ((chunk.match(/^#{1,2}[ \t]+\S/gm) || []).length > 1) return false;
+		}
+	}
+	return true;
+}
+
 function needsDeckContext(deck: string): boolean {
 	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)));
 }
@@ -668,9 +715,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				//
 				// Only on the slice path: a whole-deck render counts for itself and is right, and
 				// supplying an offset there would shift EVERY section (slide 1 numbered as 4).
+				// Supplied ONLY when the caller's indices are provably engine section indices
+				// (positionIsTrustworthy). Otherwise omit it and let the slide number itself 1 of 1 —
+				// the honest fallback, never a plausible wrong number.
 				const slicePage =
-					renderSource !== markdown && typeof opts?.slideIndex === 'number' && opts.slideIndex >= 0
-						? { offset: opts.slideIndex, total: typeof opts?.slideCount === 'number' ? opts.slideCount : undefined }
+					renderSource !== markdown &&
+					typeof opts?.slideIndex === 'number' &&
+					opts.slideIndex >= 0 &&
+					positionIsTrustworthy(markdown, opts?.slideCount)
+						? { offset: opts.slideIndex, total: opts.slideCount as number }
 						: undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
