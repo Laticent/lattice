@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Two mobile defects in the Deck-setup drawer, reported from a real iPhone 15 Pro with screenshots. (1) The drawer shipped TWO row geometries — `Field` (label left, control right, help line below) for every dropdown and toggle, and `TextRow` (label, help line, then a full-width input) for Deck name, Header and Footer. `TextRow` now routes through `Field`: one geometry, right edges aligned, input height 32px → 36px to match `Control`, and the Deck name input 107px higher (measured at 390px). (2) `useKeyboardInset` shortens the mobile sheet and lifts it clear of the keyboard, but the sheet's SCROLL POSITION does not move, so a field two-thirds down the scroll region is below the shortened sheet's bottom — tapping Deck name put the keyboard over the field being typed into. TWO cuts of a `useKeyboardFieldReveal` hook tried to COMPUTE the field back into view (first from element rects, then from `visualViewport`'s band) and both were wrong on the device while passing everything the sandbox can run: `getBoundingClientRect()` is relative to the LAYOUT viewport, which iOS neither shrinks nor moves for the keyboard. Measuring the surface that already works ended the argument — the command palette's field is not in a scroll region at all: it sits in a `PanelDock` 21px above the sheet's bottom edge, pinned by layout, where Deck setup's sat 540px above it. The palette does not solve this problem, it does not HAVE it. So the drawer borrows the position instead of deriving it: `PINNED_FIELD_ROW` makes the row you are typing in `position: fixed` at `bottom: var(--kb)` — the same declaration as `MOBILE_OFFSET`, so the row and the sheet's bottom edge cannot disagree. `fixed` not `sticky`, measured: sticky works in isolation but left the row 20px below the scrollport in this drawer's flex chain. The reveal hook is deleted rather than kept as a belt — two mechanisms both guessing at a surface neither can see is worse than one that does not guess. Real-iOS behavior is still UNVERIFIED from this sandbox and marked as such.
+summary: Two mobile defects in the Deck-setup drawer, reported from a real iPhone 15 Pro with screenshots. (1) The drawer shipped TWO row geometries — `Field` (label left, control right, help line below) for every dropdown and toggle, and `TextRow` (label, help line, then a full-width input) for Deck name, Header and Footer. `TextRow` now routes through `Field`: one geometry, right edges aligned, input height 32px → 36px to match `Control`, and the Deck name input 107px higher (measured at 390px). (2) `useKeyboardInset` shortens the mobile sheet and lifts it clear of the keyboard, but the sheet's SCROLL POSITION does not move, so a field two-thirds down the scroll region is below the shortened sheet's bottom — tapping Deck name put the keyboard over the field being typed into. TWO cuts of a `useKeyboardFieldReveal` hook tried to COMPUTE the field back into view (first from element rects, then from `visualViewport`'s band) and both were wrong on the device while passing everything the sandbox can run: `getBoundingClientRect()` is relative to the LAYOUT viewport, which iOS neither shrinks nor moves for the keyboard. Measuring the surface that already works ended the argument — the command palette's field is not in a scroll region at all: it sits in a `PanelDock` 21px above the sheet's bottom edge, pinned by layout, where Deck setup's sat 540px above it. The palette does not solve this problem, it does not HAVE it. So the drawer borrows the position instead of deriving it: `PINNED_FIELD_ROW` makes the row you are typing in `position: fixed` at `bottom: var(--kb)` — the same declaration as `MOBILE_OFFSET`, so the row and the sheet's bottom edge cannot disagree. `fixed` not `sticky`, measured: sticky works in isolation but left the row 20px below the scrollport in this drawer's flex chain. The reveal hook is deleted rather than kept as a belt — two mechanisms both guessing at a surface neither can see is worse than one that does not guess. VERIFIED on the reporting iPhone 15 Pro (2026-07-29, after merge): the reporter confirmed the pinned row is visible and editable with the keyboard up. The sandbox could not establish that — headless Chromium has no software keyboard, so every keyboard number in the pre-merge checks was injected by hand, which is exactly why the two earlier cuts passed here and failed there.
 ---
 
 # Deck setup on a phone: one row geometry, and a field you can still see
@@ -116,6 +116,46 @@ Decisions worth naming:
 - **The reveal hook is deleted, not kept as a belt.** Two mechanisms both guessing at a
   surface neither can see is worse than one that does not guess.
 
+### What the pin does NOT cover
+
+Worth stating plainly, because the natural reading of this note is that the Studio now
+handles this everywhere, and it does not.
+
+**Two separate things are at work, and only one is universal.**
+
+The **sheet lifting clear of the keyboard is universal** inside the Studio: every panel is
+either a `PanelSheet` (which calls `useKeyboardInset` and applies `MOBILE_OFFSET` +
+`MOBILE_HEIGHT`) or the `StudioDrawer`, which is a raw `Sheet` but calls the hook and applies
+both classes itself. The only un-lifted raw sheets in the repo are outside the Studio —
+`playground/DeckSetupSheet`, `playground/GalleriesSheet`, `site/NavActions`,
+`site/MetricDetail`. So any input in any Studio panel is inside a box that clears the keyboard.
+
+**The pin is not.** `PINNED_FIELD_ROW` is exported from `panel.tsx` but has exactly one
+consumer: `Field` in `StudioShell.tsx`, which is not exported. So it reaches that file's rows
+and nothing else. Whether an input elsewhere is *visible* inside its lifted sheet is a
+property of where the panel happens to put it:
+
+| | text inputs | covered by | 
+|---|---|---|
+| CommandPalette, SlidePicker, Library | 0–2 | **layout** — the field is in a `PanelDock` |
+| Deck setup (`StudioShell`) | 4 | **the pin** |
+| Fabricate, MotionStudio, FinishStudio, SlideContext, TtsSettings | 3–10 each | **nothing** — scrolling body, no dock, no pin |
+| WorkspaceSheet, AcronymEditor, LexiconEditor, SlideComments | 1–7 each | nothing, but their bodies don't scroll today |
+
+`SlideContext` is the sharpest case: the **Slide** tab is the segment beside Deck in the same
+sheet, it has its own near-identical `Row` primitive, and its three `<textarea>`s sit in an
+`overflow-y-auto` body. Same shape, same sheet, one tap away, not covered.
+
+**And nothing gates it.** The tests here assert the class string is well-formed, not that
+inputs live inside something carrying it — so a `<textarea>` added to a scrolling panel
+tomorrow ships under the keyboard with every check green.
+
+The structural repair is to collapse the three near-duplicate row primitives
+(`StudioShell`'s `Field`, `SlideContext`'s `Row`, `PrintOptionsPanel`'s `Field`) into one
+shared row in `panel.tsx`, so pinning is a property of "a settings row" rather than of one
+file. That is the same near-miss duplication §1 of this note complains about; this change
+fixed one instance of it and left two standing. Tracked separately.
+
 ## Verified
 
 - **Layout, on the real built Studio** (`astro build` + `astro preview` + real Chromium) at
@@ -143,7 +183,15 @@ Decisions worth naming:
 - **A structural shell test** asserts the Deck name label and its input share a row
   container, so a revert to the stacked form fails rather than passing quietly.
 
-### UNVERIFIED — stated, not glossed (HARD RULE #23)
+### Verified on the device, after merge (HARD RULE #23)
+
+**The reporter confirmed the pin on the iPhone 15 Pro that reported the bug** (2026-07-29,
+against `main`): the Deck name row is visible and editable with the keyboard up. That is the
+surface the defect lived on, and it is the only surface that could settle it.
+
+The evidence is a reporter confirmation, not a captured artifact — worth naming, because this
+note is otherwise strict about carrying one. What follows is the sandbox's side of it, kept
+because it explains why device confirmation was load-bearing rather than a formality.
 
 **Real iOS Safari is not reachable from this sandbox.** Headless Chromium has no software
 keyboard, so `visualViewport` never shrinks on its own and `--kb` is always 0; every
@@ -156,11 +204,12 @@ keyboard number here is *injected*. What that means concretely:
   palette, on the user's own device, demonstrates that it is. The row is positioned by the
   same variable as the sheet, so the remaining question is not "is the arithmetic right" but
   "does the sheet clear the keyboard", which the palette answers yes.
-- What is still unverified on a device: that `:has()` and the `max-[699px]` media query behave
-  on that iOS version (both are widely supported, neither is exercised there from here), and
-  that no ancestor gains a transform under a real keyboard, which would re-anchor the fixed
-  row. `?vvdebug` (`ViewportDebugOverlay`) prints `inner`, `visual` and `offset` on the real
-  phone if a fourth pass is needed.
+- The two open questions the sandbox could not answer — whether `:has()` and the
+  `max-[699px]` media query behave on that iOS version, and whether any ancestor gains a
+  transform under a real keyboard (which would re-anchor the fixed row) — are **answered by
+  the device check**: the row pins, so all three hold in practice. `?vvdebug`
+  (`ViewportDebugOverlay`) remains the way to read `inner` / `visual` / `offset` off a real
+  phone if this surface ever regresses.
 - The measurement run notes one harness impurity worth recording rather than hiding: the
   dispatched `resize` also re-runs `useKeyboardInset`, which recomputes `--kb` from the real
   (unshrunken) viewport and grows the sheet back. The reveal's arithmetic keys off the
