@@ -31,7 +31,15 @@ import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import type { LatticePlaygroundEngine } from './playground-global';
 
-export type RenderMarkdownOpts = { baseUrl?: string; stats?: boolean };
+export type RenderMarkdownOpts = {
+	baseUrl?: string;
+	stats?: boolean;
+	/** Caller-supplied DECK POSITION for a document holding only part of the deck:
+	 *  `offset` slides precede it, the deck holds `total`. Lets a preview render the
+	 *  shown slide ALONE and still print a true page number, instead of re-parsing the
+	 *  whole deck to recompute a position the caller already knows. */
+	page?: { offset: number; total?: number };
+};
 export type RenderMarkdownResult = { html: string; css: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 
 /**

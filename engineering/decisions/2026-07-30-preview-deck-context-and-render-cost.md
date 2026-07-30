@@ -449,3 +449,71 @@ un-paginated proof run and reads the painted fill; it fails with all three slide
 registry entry is removed. The unit tests assert the gate's *answer*; this asserts the *painted
 result*, which is the distinction that matters — this bug class has now been found twice by bug
 report and never by a passing unit suite.
+
+---
+
+## Amendment 2 (2026-07-30): pagination stopped needing the deck at all
+
+The gate above treats `paginate` as a reason to re-parse the whole deck. That was the wrong stance,
+and correcting it is the largest performance win in this whole line of work.
+
+A page number is **`slide k of N`** — positional metadata the caller *already holds*.
+`PresentOverlay`, `SlideOverview` and the editor preview each know exactly which slide they are
+showing and how many the deck has. The engine only needed the deck because it **derives** the number
+by counting the sections of whatever document it is handed. So a preview showing one slide re-parsed
+the entire deck to recompute a position nobody had lost.
+
+`render()` now takes an optional `page` (`{ offset, total }`). Supplying it lets the preview render
+the shown slide ALONE and still print a true number, and `paginate` is no longer a gate trigger.
+
+**Why this is the big one.** Measured over the 126 committed decks in `examples/` +
+`test/integration/baseline-decks/`:
+
+| | decks taking the expensive whole-deck path |
+|---|---|
+| before | 121 (96.0%) |
+| with page position supplied | **53 (42.1%)** |
+| if section position were supplied too (the rail) | **10 (7.9%)** |
+
+115 decks set pagination and **68 tripped this gate for that reason alone**. The claim in §5 that
+"`paginate` is default-OFF … so the gated path is the common case" was generalized from three
+starter decks; the corpus says the opposite, and one click of the Studio's Page-numbers control
+moved a deck permanently onto the expensive path.
+
+**Measured, same machine, minutes apart, identical `node_modules`** (stash the change, rebuild,
+re-run — not a cross-machine comparison):
+
+| deck | interaction | before | after | |
+|---|---|---|---|---|
+| default (no `paginate`) | typing | 7.8ms | 7.0ms | −10% |
+| **prose, `paginate: true`** | **typing** | **17.9ms** | **8.0ms** | **−55%** |
+| prose, `paginate: true` | navigation | 5.1ms | 8.1ms | **+59%** |
+| gallery, `paginate: true` | typing | 44.7ms | 44.0ms | — |
+
+The +73% typing regression this note recorded for a paginate-only deck is **gone** — 8.0ms is better
+than the 9.8ms it cost before any of this. Two honest caveats: prose NAVIGATION is slower, because
+navigation used to hit the whole-deck memo and slice renders do not share one (3ms on the cheap axis
+to buy 10ms on the axis that was over `createFrameScheduler`'s threshold); and the GALLERY deck
+barely moves, because it carries dividers and still trips the rail. Dividers are what the 42% → 8%
+row above would close, and that is the next step, not this one.
+
+**The gate's question changed with it.** It no longer asks "does this deck paginate?" but **"can I
+trust my own slide indices?"** — the only thing supplying a position actually requires. Two plugins
+break that 1→N: `_focusSteps` clones one authored slide per step, and `split: headings` starts a
+slide at every `##`. Under either, "slide k" of the caller's list is not section k, so those decks
+keep the whole-deck render. One committed deck (`examples/focus.md`) is in that class.
+
+**Two implementation traps, both of which would have been silent:**
+
+1. **`page` rides the per-render markdown-it `env`, never the pipeline's install options.** The
+   parser is memoized (§4), so a value baked into a plugin closure is served stale on a hit — every
+   slide printing the first one's number. Regression-tested by rendering at differing offsets on one
+   engine instance.
+2. **The whole-deck memo key includes the supplied position.** Two byte-identical slides at
+   different deck positions now render differently, so a key over source alone would hand slide 7
+   the number cached for slide 3.
+
+Absent `page`, numbering is counted off the document exactly as before, so no export path — none of
+which supplies it — can move. Guarded on the real surface by
+`docs/e2e/supplied-page-position.spec.ts`, which walks the real Present overlay on a paginated deck
+and asserts the PAINTED badge matches the player's counter.

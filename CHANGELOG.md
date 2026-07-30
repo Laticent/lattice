@@ -116,6 +116,30 @@ in patch versions.
 
 ### Fixed
 
+- **A preview showing one slide no longer re-parses the whole deck just to number it.** A page
+  number is `slide k of N` — positional metadata the caller already holds — but the engine derived
+  it by counting the sections of whatever document it was handed, so every paginated deck paid a
+  whole-deck parse per keystroke to recompute a position nobody had lost. `render()` now takes an
+  optional `page` (`{ offset, total }`); supplying it lets the preview render the shown slide alone
+  and still print a true number, and `paginate` stops forcing the expensive path.
+
+  Measured over the 126 committed example and baseline decks, the share taking the whole-deck path
+  falls from **121 (96.0%) to 53 (42.1%)** — 115 decks set pagination and 68 tripped the gate for
+  that reason alone. Same-machine before/after on the preview perf spec: a paginate-only prose deck
+  goes from **17.9ms to 8.0ms** typing p50 (−55%), erasing the +73% regression the previous release
+  recorded and landing below the 9.8ms it cost before any of this. Two honest caveats: that deck's
+  NAVIGATION is slower (5.1 → 8.1ms — navigation used to hit the whole-deck memo, and slice renders
+  don't share one), and a deck with dividers is unchanged (44.7 → 44.0ms) because the progress rail
+  still needs the deck. Supplying section position too would take the corpus to 7.9%; that is not
+  this change.
+
+  The deck-context gate's question changed with it — from "does this deck paginate?" to "can I trust
+  my own slide indices?", which is the only thing supplying a position requires. `_focusSteps` and
+  `split: headings` turn one authored slide into several, so those decks keep the whole-deck render.
+  Absent `page` the numbering is counted off the document exactly as before, so no exported artifact
+  moves. Guarded by `docs/e2e/supplied-page-position.spec.ts`, which reads the painted badge off the
+  real Present overlay.
+
 - **A `split-panel proof` run still showed one hue in the Studio unless the deck happened to
   paginate.** The previous release renders the whole deck and displays one section so deck-derived
   facts resolve, but gates that on `needsDeckContext` to keep the cheap path for decks that don't

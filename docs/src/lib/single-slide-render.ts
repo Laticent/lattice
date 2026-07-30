@@ -290,11 +290,25 @@ function narrowToSlide(html: string, index: number, slideCount?: number): string
 // bias exists at all — but the trade is a trade, not a freebie.
 export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; probes: RegExp[] }> = [
 	{
-		fact: 'pagination',
-		why: 'the page number is the slide\'s ordinal in the whole deck, and the total is the deck\'s count',
+		// NOT pagination. The page number is `slide k of N` — positional metadata the caller
+		// already holds, so it is SUPPLIED to the engine (`page` on the render opts) rather than
+		// re-derived by parsing the deck. That is why `paginate` is no longer a trigger, and it
+		// is the single biggest saving here: of 126 committed decks, 115 set pagination and 68
+		// tripped this gate for that reason ALONE. Those now keep the cheap slice path AND print
+		// a true number.
+		//
+		// What supplying a position DOES require is that the caller's slide indices mean the same
+		// thing the engine's sections do. Two plugins break that 1→N: `_focusSteps` clones one
+		// authored slide into one rendered slide per step, and `split: headings` starts a new
+		// slide at every `##`. Under either, "slide k" of the caller's list is not section k, so a
+		// supplied position would number the WRONG slide — worse than the bug it fixes. Those
+		// decks keep the whole-deck render, where the engine counts for itself and is right by
+		// construction. One committed deck (examples/focus.md) is in this class.
+		fact: 'slide expander (1→N)',
+		why: 'a plugin turns one authored slide into several rendered ones, so the caller\'s slide index no longer identifies a section and a supplied position would number the wrong slide',
 		probes: [
-			/^\s*paginate\s*:\s*(?!false|no|off\b)\S/m, // front matter
-			/<!--\s*_?paginate\s*:\s*(?!false|no|off\b)\S/, // directive comment, spot or global
+			/<!--\s*_?focusSteps\s*:/, // one slide per step
+			/^\s*split\s*:\s*headings\b/m, // a new slide at every `##`
 		],
 	},
 	{
@@ -648,6 +662,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const canDivert = typeof opts?.slideIndex === 'number' && !!opts.slideMarkdown;
 				const wantsContext = typeof opts?.slideIndex === 'number' && (!canDivert || needsDeckContext(markdown));
 				const renderSource = wantsContext || !canDivert ? markdown : (opts?.slideMarkdown as string);
+				// SUPPLIED DECK POSITION for the slice path. When we render the shown slide alone,
+				// the engine would number it "1 of 1" — so hand it the position the caller already
+				// knows. This is what lets `paginate` stop forcing a whole-deck parse.
+				//
+				// Only on the slice path: a whole-deck render counts for itself and is right, and
+				// supplying an offset there would shift EVERY section (slide 1 numbered as 4).
+				const slicePage =
+					renderSource !== markdown && typeof opts?.slideIndex === 'number' && opts.slideIndex >= 0
+						? { offset: opts.slideIndex, total: typeof opts?.slideCount === 'number' ? opts.slideCount : undefined }
+						: undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
 				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
@@ -667,14 +691,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// silently couple every such host (and every test of them) to whatever rendered
 					// last. Narrowing the gate keeps the shared state confined to the callers that
 					// actually benefit from it.
-					const key = typeof opts?.slideIndex === 'number' ? memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '') : null;
+					// The position is part of the key: two BYTE-IDENTICAL slides at different
+					// deck positions render differently now (they print different numbers), so a
+					// key over source alone would serve slide 7 the number it cached for slide 3.
+					const key = typeof opts?.slideIndex === 'number'
+						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}` : ''}`
+						: null;
 					if (key !== null && deckMemo?.key === key) {
 						out = { ...deckMemo.out };
 						engineMs = performance.now() - tEngine; // the real (near-zero) cost
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners(), page: slicePage });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
