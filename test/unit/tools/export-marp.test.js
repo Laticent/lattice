@@ -11,12 +11,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const TOOL = path.join(REPO, 'tools', 'export-marp.js');
 const { localizeAssets, readTheme } = require(TOOL);
 const latticeEngine = require('../../../lib/engine');
+const { JSDOM } = require('jsdom');
+const { readBakedFrontMatter } = require('../../../lib/core/deck-front-matter');
+const { readOverflowMarker } = require('../../../lib/core/resolve-overflow-marker');
 
 describe('export-marp helpers', () => {
   test('readTheme reads the front-matter palette, or null', () => {
@@ -232,5 +235,72 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.ok(!fs.existsSync(path.join(d, 'agent')), 'no agent/ folder');
     assert.doesNotMatch(fs.readFileSync(path.join(d, 'README.md'), 'utf8'), /Extend it with an AI agent/);
     fs.rmSync(lean, { recursive: true, force: true });
+  });
+});
+
+/**
+ * The `overflow-marker:` policy the bundle ships with.
+ *
+ * An Export-to-Marp bundle renders through the browser RUNTIME inside marp-cli's
+ * headless browser, so before this register it inherited the runtime's authoring
+ * default: a recipient opening a delivered deck saw a red ring, an "Overflows"
+ * tab, and per-cell "Fix Me" overlays. The fix is not to hide the overflow — that
+ * would ship a clipped slide that looks finished — but to say who the signal is
+ * for. `reader` keeps the honest marker and drops the QA chrome.
+ */
+describe('export-marp — the overflow-marker policy', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'exp-ovf-'));
+  const DECK = path.join(REPO, 'examples', 'split-headings.md');
+  after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  // Both streams: the policy line is stdout, the `off` warning is stderr (the
+  // same split lattice-emulator.js uses for its own overflow report).
+  const exportWith = (slug, args = [], deck = DECK) => {
+    const out = path.join(tmp, slug);
+    const r = spawnSync('node', [TOOL, deck, out, ...args], { encoding: 'utf8' });
+    assert.equal(r.status, 0, `export failed:\n${r.stderr}`);
+    const dir = path.join(out, path.basename(deck).replace(/\.md$/, ''));
+    return { said: r.stdout + r.stderr, md: fs.readFileSync(path.join(dir, `${path.basename(deck, '.md')}.md`), 'utf8') };
+  };
+
+  test('defaults to reader, and WRITES it into the emitted front matter', () => {
+    const { md, said } = exportWith('default');
+    assert.match(md, /^overflow-marker: reader$/m, 'the artifact states its own policy');
+    assert.match(said, /overflow marker: reader \(default\)/);
+    // The visible key and the baked snapshot are one value — a recipient cannot
+    // read one policy at the top of the deck and get another on the page.
+    const baked = readBakedFrontMatter(new JSDOM(`<body>${md}</body>`).window.document);
+    assert.equal(readOverflowMarker(baked), 'reader');
+  });
+
+  test('the flag overrides, for this one export, without editing the source', () => {
+    const { md, said } = exportWith('flag', ['--overflow-marker=off']);
+    assert.match(md, /^overflow-marker: off$/m);
+    assert.match(said, /overflow marker: off \(--overflow-marker\)/);
+    assert.equal(fs.readFileSync(DECK, 'utf8').includes('overflow-marker'), false, 'the source deck is untouched');
+  });
+
+  // `off` is the only level where the artifact itself will not tell anyone, so the
+  // console has to — and it has to admit that this export did not measure.
+  test('off warns on the console and does not claim to have checked', () => {
+    const { said } = exportWith('off-warn', ['--overflow-marker=off']);
+    assert.match(said, /ONLY channel/);
+    assert.match(said, /does not render, so it cannot measure overflow/);
+    assert.match(said, /lattice-emulator\.js/, 'and names the command that does measure');
+  });
+
+  test("the deck's own key is honored when no flag is given", () => {
+    const deck = path.join(tmp, 'authored.md');
+    fs.writeFileSync(deck, ['---', 'marp: true', 'theme: indaco', 'overflow-marker: author', '---', '', '# A', ''].join('\n'));
+    const { md, said } = exportWith('authored', [], deck);
+    assert.match(md, /^overflow-marker: author$/m);
+    assert.match(said, /overflow marker: author \(deck front matter\)/);
+  });
+
+  test('an unrecognized level is a usage error, not a silent fallback', () => {
+    assert.throws(
+      () => execFileSync('node', [TOOL, DECK, path.join(tmp, 'bad'), '--overflow-marker=quiet'], { stdio: 'pipe' }),
+      /author, reader, off/,
+    );
   });
 });

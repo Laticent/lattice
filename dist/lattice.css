@@ -17469,6 +17469,62 @@ section.overflow > .overflow-tab {
  * the slide is fixed (the runtime watcher also removes it). */
 section:not(.overflow) > .overflow-tab { display: none; }
 
+/* ── The READER variant of the same marker ────────────────────────────────────
+ * Everything above is the AUTHORING signal: a loud red danger ring and an
+ * "OVERFLOWS" corner flag. Right for the person fixing the deck, alarming in
+ * front of a board — a red QA box on a delivered slide is the "debug information"
+ * a recipient should never be handed.
+ *
+ * So the deck's `overflow-marker:` register decides who the marker talks to
+ * (lib/core/resolve-overflow-marker.js), the runtime stamps the resolved level on
+ * <html>, and this block is the `reader` treatment: drop the red ring, restyle the
+ * SAME text-labeled tab (WCAG 1.4.1 — never colour alone) into a calm
+ * bottom-center "More below ↓" pill. Content that clips is still visibly clipped;
+ * only the tone changes. `off` draws nothing at all and is handled in JS, not here.
+ *
+ * These rules used to be gated on `:root[data-lattice-fluid-capable]` in
+ * base.fluid-view.css, because the fluid viewer was the only reader surface that
+ * existed. It is not any more — an Export-to-Marp bundle renders through the same
+ * runtime inside marp-cli's browser — so the gate is the level, and the rules live
+ * next to the author treatment they replace. The fluid viewer resolves to `reader`
+ * in both its fixed and fluid states, so its behavior is unchanged.
+ *
+ * THE GATE IS ON THE SECTION, not on `:root`, and that is load-bearing rather than
+ * stylistic. marp-core scopes a theme rule off its LEFTMOST COMPOUND: a literal
+ * leading `section` is the slide, anything else becomes a slide DESCENDANT. A
+ * `:root[…] section.overflow` prelude came out of a real marp-cli render as
+ * `… > section:not([root])[…] section.overflow` — a slide nested in a slide, so
+ * the reader treatment silently lost and a delivered PDF kept the red QA ring. Same
+ * trap lib/core/leading-is.js exists for; the runtime stamps the attribute on every
+ * slide section instead.
+ * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
+ * engineering/decisions/2026-07-30-overflow-marker-register.md. */
+section.overflow[data-lattice-overflow-marker="reader"] {
+  box-shadow: none !important;                 /* drop the author red inset ring */
+}
+section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab {
+  /* Self-contained (not inherited from the author rule above): the settle
+   * guarantee relies on the tab being out of flow so it can't change the measured
+   * height — assert it here so a future edit to the author rule can't silently
+   * reintroduce a measure→mutate→measure loop. */
+  position: absolute !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: max(0.6rem, env(safe-area-inset-bottom)) !important;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
+  color: var(--bg) !important;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 0.28); /* neutral drop shadow (HTML viewer only, never in PDF) */
+  opacity: 0.9;
+}
+section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab::after {
+  content: " \2193";                            /* down arrow — "more below" affordance */
+}
+
 /* ── The TYPE-FLOOR ring (§8 rule 8) ──────────────────────────────────────────────
    The overflow ring's blind spot, made visible. A viewBox figure is CONTAINER-RESPONSIVE:
    it never spills its box, it shrinks its own labels — so the overflow probe (box spill and
@@ -23592,48 +23648,6 @@ section.print.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !im
 /* The fixed-page background canvas is sized to the px box; hide it so each
  * section's own themed background fills the fluid box edge to edge. */
 :root[data-lattice-view="fluid"] .lattice-bg { display: none !important; }
-
-/* Honest overflow marker — the READER variant (Fit Ladder move 4: never a silent
- * clip). The runtime overflow watcher flags a section whose content exceeds the
- * box with `.overflow`; the authoring signal (base.modifiers.css) is a loud red
- * danger ring + "OVERFLOWS" banner — right for the author, alarming for a
- * boardroom reader. In the viewer we drop the red ring and restyle the same
- * (text-labeled, WCAG 1.4.1) tab into a calm "More below" cue, bottom-center so
- * it never collides with the top-right toggle.
- *
- * Gated on `data-lattice-fluid-capable` — the export-viewer marker — NOT
- * `data-lattice-view="fluid"`: the watcher runs for the whole viewer export, and
- * a slide can overflow in the FIXED state too (an ultrawide default, or a reader
- * toggled to Fluid: off). Both are readers and must get the calm marker, never
- * the red author ring. The author live-preview has no fluid-capable marker, so it
- * keeps the red ring untouched. The real fix — reflow/split so nothing clips — is
- * the later slice; this is the honest floor until then.
- * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1. */
-:root[data-lattice-fluid-capable] section.overflow {
-  box-shadow: none !important;                 /* drop the author red inset ring */
-}
-:root[data-lattice-fluid-capable] section.overflow > .overflow-tab {
-  /* Self-contained (not inherited from base.modifiers.css): the settle guarantee
-   * relies on the tab being out of flow so it can't change the measured height —
-   * assert it here so a future edit to the author rule can't silently reintroduce
-   * a measure→mutate→measure loop. */
-  position: absolute !important;
-  top: auto !important;
-  right: auto !important;
-  bottom: max(0.6rem, env(safe-area-inset-bottom)) !important;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
-  color: var(--bg) !important;
-  border-radius: 999px;
-  letter-spacing: 0.04em;
-  text-transform: none;
-  box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 0.28); /* neutral drop shadow (HTML viewer only, never in PDF) */
-  opacity: 0.9;
-}
-:root[data-lattice-fluid-capable] section.overflow > .overflow-tab::after {
-  content: " \2193";                            /* down arrow — "more below" affordance */
-}
 
 /* The opt-in toggle the runtime injects on a fluid-capable page (lib/runtime/
  * index.js → initFluidView). Ungated: it shows in both fixed and fluid states so

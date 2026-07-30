@@ -96,6 +96,23 @@ in patch versions.
   **F8 / Shift-F8 / Ctrl-Shift-M / Alt-Shift-F** lint shortcuts in the Playground, which is the only
   surface whose editor binds `lintKeymap`; and the **Deck setup** drawer in the Playground, with the
   Studio's equivalent called out as the Deck inspector.
+- **The overflow marker is now a deck register, and an Export-to-Marp bundle stops
+  shipping QA chrome.** A delivered bundle put a red ring, an "OVERFLOWS" flag, and
+  per-cell "FIX ME" overlays on every clipped slide — it renders through the browser
+  runtime inside marp-cli, so it inherited the runtime's AUTHORING default by accident.
+  The marker was not a false positive (verified across 258 slides / 9 decks, zero false
+  positives), so the fix is not to hide it but to say who it is addressed to. New front
+  matter `overflow-marker: author | reader | off`, plus `--overflow-marker=<level>` on
+  `tools/export-marp.js` to override one export without editing the deck; the resolved
+  value is written into the emitted front matter, so the artifact states its own policy.
+  **`reader` is the export default** — no ring, and the same text-labeled tab restyled
+  into a calm "More below ↓" pill, so a clipped slide still says so while the artifact is
+  not a bug report. `author` keeps the full authoring signal (the live-preview default);
+  `off` draws nothing and must be opted into. `export-marp` also now prints the policy in
+  effect on the console, and says plainly that it did not render and therefore did not
+  measure overflow — naming `lattice-emulator.js` as the command that does. The emulator's
+  PDF/PNG/PPTX path is unchanged (already clean + a stderr warning) and does not read the
+  register yet. `engineering/decisions/2026-07-30-overflow-marker-register.md`.
 
 - **Masthead framing text now FILLS the band on every non-sovereign component; how it behaves is
   the deck's call, through `headline:` alignment.** The eyebrow, heading and subtitle take the width

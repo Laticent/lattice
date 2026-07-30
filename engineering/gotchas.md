@@ -810,13 +810,41 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
     gate was inert and the **ungated** author red ring (`base.modifiers.css`) won.
 - **Fix:** (a) track the tab on the measured `over` state **independent of the
   class flip** — add when `over && !tab`, remove when `!over && tab` (presence-
-  guarded, so the mutation loop still settles). (b) Gate reader-facing viewer
-  styling on `:root[data-lattice-fluid-capable]` — the export-viewer marker, set in
-  BOTH fill and fixed states — NOT `data-lattice-view="fluid"`; the author preview
-  has no capable marker, so it keeps the red ring. Both caught by maker-checker,
-  not CI (no committed test exercises the fluid viewer yet — #1138). See
-  `lib/runtime/index.js` `startOverflowWatcher`, `lib/base/base.fluid-view.css`,
-  `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`.
+  guarded, so the mutation loop still settles). (b) Gate the reader styling on the
+  RESOLVED MARKER LEVEL, not on a viewer flag. Both caught by maker-checker, not CI
+  (no committed test exercises the fluid viewer yet — #1138).
+- **Current shape (2026-07-30):** who the marker talks to is the `overflow-marker:`
+  deck register (`lib/core/resolve-overflow-marker.js` — `author` / `reader` / `off`),
+  the watcher stamps the resolved level on every slide section, and both treatments
+  live in `base.modifiers.css` keyed on
+  `section.overflow[data-lattice-overflow-marker="reader"]`. The rules moved out of
+  `base.fluid-view.css` and out of the `:root[data-lattice-fluid-capable]` gate,
+  because the fluid viewer is no longer the only reader surface — an Export-to-Marp
+  bundle renders through the same runtime. The fluid viewer resolves to `reader` in
+  both its states, so its behavior is unchanged. See `lib/runtime/index.js`
+  `startOverflowWatcher`, `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`,
+  `engineering/decisions/2026-07-30-overflow-marker-register.md`.
+
+### A theme rule gated on `:root[…]` silently does nothing in a Marp render
+
+- **Symptom:** a CSS rule whose prelude starts with `:root[data-…]` (or any
+  non-`section` compound) works in the engine, the live preview, and the emulator's
+  own export — and has NO effect in an Export-to-Marp bundle rendered by marp-cli.
+  Nothing errors; the rule is simply never applied. Found when the `reader` overflow
+  treatment landed and a delivered PDF kept the red author ring.
+- **Cause:** marp-core scopes every theme rule off its **leftmost compound**. A
+  literal leading `section` is understood as the slide itself; anything else is
+  rewritten as a slide DESCENDANT. `:root[data-lattice-overflow-marker="reader"]
+  section.overflow` came out of a real marp-cli render as
+  `div#\:\$p > svg > foreignObject > :where(section):not([\20 root])[data-lattice-overflow-marker=reader] section.overflow`
+  — a slide nested inside a slide, which cannot match. Same mechanism as the leading
+  `:is(section.x, figure.x)` trap `lib/core/leading-is.js` exists for, from the other
+  direction.
+- **Fix:** put the state on the SECTION and lead the selector with a literal
+  `section` (`section.overflow[data-…="reader"]`), stamping the attribute per-slide
+  from the runtime instead of once on `<html>`. If you must gate on document state,
+  check the rendered HTML — `marp deck.md --html -o out.html` then grep the emitted
+  prelude — rather than assuming the selector survived.
 
 ### A committed render golden doesn't match a fresh render — check staleness FIRST
 
