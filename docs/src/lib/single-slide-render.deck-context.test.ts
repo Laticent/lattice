@@ -11,8 +11,10 @@
 // The engine + theme fetch are mocked (this is not an engine test — the engine's numbering is
 // verified in test/unit/engine). What is under test is the module's own narrowing step: that it
 // keeps the RIGHT section, keeps the `<article class="lattice">` wrapper the frame CSS and the
-// patch path both depend on, preserves the engine's stamped attributes byte-for-byte, and
-// degrades to the whole document rather than a blank frame on a shape it can't split.
+// patch path both depend on, preserves the engine's stamped attributes byte-for-byte, and FAILS
+// CLOSED when it cannot prove which section is the shown slide (falling back to rendering that
+// slide alone rather than guessing an index — see single-slide-render.alignment.test.ts for why
+// that guard is load-bearing on decks that ship in this repo).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -143,13 +145,47 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		expect(srcdocOf(host).match(/<section\b/g)?.length).toBe(3);
 	});
 
-	it('degrades to the whole document on an out-of-range index (never a blank frame)', async () => {
+	it('FAILS CLOSED on a slide-count mismatch — falls back to the shown slide, not a wrong one', async () => {
+		// The critical case. `slideIndex` indexes the CALLER's authored slides; narrowing indexes the
+		// ENGINE's sections. On a `_focusSteps` / `split: headings` deck those differ, and picking by
+		// index would paint a slide the author did not select. The caller passes the count it believes
+		// plus the shown slide alone; on disagreement we render that slide — right content, 1 of 1.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const calls: string[] = [];
+		(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_pg: unknown, md: string) => {
+			calls.push(md);
+			// First call: the deck (3 sections). Second call: the fallback slide alone (1 section).
+			return md === 'FALLBACK' ? { html: `<article class="lattice">${section(1, 1, 'Shown')}</article>`, css: '' } : { html: DECK, css: '' };
+		});
+		// The engine reports 3 sections; the caller believes the deck has 5 slides → mismatch.
+		const status = await r.renderInto(host, 'deck', false, undefined, undefined, undefined, undefined, { slideIndex: 4, slideCount: 5, slideMarkdown: 'FALLBACK' });
+		expect(status.ok).toBe(true);
+		expect(calls).toEqual(['deck', 'FALLBACK']); // re-rendered the shown slide
+		const doc = srcdocOf(host);
+		expect(doc.match(/<section\b/g)?.length).toBe(1);
+		expect(doc).toContain('Shown');
+		// Honest 1-of-1 rather than a confidently wrong deck position.
+		expect(doc).toContain('data-lattice-pagination-total="1"');
+	});
+
+	it('narrows normally when the caller\'s count MATCHES the engine', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		await r.renderInto(host, 'deck', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 3, slideMarkdown: 'unused' });
+		const doc = srcdocOf(host);
+		expect(doc.match(/<section\b/g)?.length).toBe(1);
+		expect(doc).toContain('data-lattice-pagination="2"');
+		expect(doc).toContain('data-lattice-pagination-total="3"');
+	});
+
+	it('shows the whole render as a LAST RESORT when a mismatch has no fallback markdown', async () => {
+		// Only reachable from a caller that passes slideIndex without slideMarkdown — a contract
+		// violation. Showing the deck is visibly odd; showing nothing is a broken preview.
 		const r = createSingleSlideRenderer(opts);
 		for (const bad of [-1, 3, 99]) {
 			const host = mountHost();
 			await r.renderInto(host, 'deck', false, undefined, undefined, undefined, undefined, { slideIndex: bad });
-			// Showing the deck is a visible oddity; showing nothing is a broken preview. Prefer the
-			// former — the same "degrade, never blank" posture the reveal gate takes.
 			expect(srcdocOf(host).match(/<section\b/g)?.length).toBe(3);
 		}
 	});

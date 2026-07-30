@@ -724,10 +724,26 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   section carries the ordinal, the total, and its positional `id`, all computed against the
   real deck. The srcdoc still holds a single section, so the frame's CSS parse + runtime
   execution — the dominant preview cost — is unchanged.
+- **The trap inside the fix — ONE AUTHORED SLIDE IS NOT ONE SECTION.** `slideIndex` indexes
+  the CALLER's authored-slide list; narrowing indexes the ENGINE's sections. They diverge, and
+  when they do an index-based lookup paints a slide the author did not select — which is worse
+  than a wrong number, because a wrong number is visibly wrong and a wrong slide is plausibly
+  wrong. Two confirmed causes, both on decks that ship here: a **1→N expansion** (`_focusSteps`
+  clones one slide into a section per step — `examples/focus.md` is 11 authored → 14 sections;
+  `split: headings` divides one chunk at every heading — `examples/split-headings.md` is 1 → 7),
+  and **splitter disagreement** (the engine's `splitOnHr` breaks on ANY markdown-it `hr` —
+  `***`, `___`, `- - -`, `---` with trailing spaces — while the Studio's `SEP_RE` in
+  `docs/src/components/studio/lint.ts` matches only a bare `\n---\n`). So a host passes
+  `slideCount` and `slideMarkdown` alongside `slideIndex`: narrowing happens only when the
+  engine's section count agrees, and otherwise the shown slide is re-rendered alone and
+  honestly numbered 1 of 1. **Right slide always; true number only when provably true.**
+  Locked by `docs/src/lib/single-slide-render.alignment.test.ts`, which drives the real engine
+  and the real splitter over the real example decks — a mocked engine cannot express a 1→N
+  expansion, which is exactly the failure mode.
 - **Triggered by:** any new preview surface that slices a slide out of a deck before
-  rendering. If a host knows a slide's place in a deck, it must pass `slideIndex`; omit it
-  only for a genuinely standalone slide (a landing island, a component specimen), where
-  1-of-1 is the truth. Note the preview number can still differ from the exported PDF's for a
+  rendering. If a host knows a slide's place in a deck, it must pass `slideIndex` **with**
+  `slideCount` and `slideMarkdown`; omit all three only for a genuinely standalone slide (a
+  landing island, a component specimen), where 1-of-1 is the truth. Note the preview number can still differ from the exported PDF's for a
   portrait/square/story deck: auto-split runs only in `lattice-emulator.js` (the export path,
   `resplitDoc`), never in the browser render, so an export may legitimately have more pages
   than the deck has slides.

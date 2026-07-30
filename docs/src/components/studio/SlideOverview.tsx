@@ -13,13 +13,13 @@ import { hasMermaid, SlideThumbFace, useInView } from './slide-thumb';
 // view, then renders once and stays. Off-screen thumbs cost only a lightweight ref.
 // The SAME windowing + face powers the Studio add-slide gallery (SlidePicker).
 
-function Thumb({ options, sample, slideIndex, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; slideIndex: number; mermaid: boolean; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
+function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; slideIndex: number; slideCount: number; slideMarkdown: string; mermaid: boolean; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
 	const [ref, visible] = useInView<HTMLButtonElement>();
 	return (
 		<button type="button" ref={ref} onClick={onClick} aria-current={current ? 'true' : undefined} aria-label={label} className={cn('group relative overflow-hidden rounded-xl border-2 bg-card text-left transition-colors', current ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]')}>
 			{/* The render is an engine IFRAME — pointer-events:none so it can't swallow the
 			    click (a separate document) and the button's onClick still fires. */}
-			<SlideThumbFace options={options} sample={sample} slideIndex={slideIndex} mermaid={mermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" />
+			<SlideThumbFace options={options} sample={sample} slideIndex={slideIndex} slideCount={slideCount} slideMarkdown={slideMarkdown} mermaid={mermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" />
 			<span className="absolute bottom-1.5 left-1.5 rounded-md bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--text-heading)] backdrop-blur-sm">{label.replace('Slide ', '')}</span>
 		</button>
 	);
@@ -54,6 +54,8 @@ export function SlideOverview({ open, onClose, options, set, frontMatter = '', c
 						options={options}
 						sample={deck}
 						slideIndex={i}
+						slideCount={set.length}
+						slideMarkdown={frontMatter ? frontMatter + s : s}
 						mermaid={hasMermaid(s)}
 						paletteOverride={paletteOverride}
 						extraTheme={extraTheme}

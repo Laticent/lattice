@@ -60,6 +60,11 @@ export type SlideThumbFaceProps = {
 	 *  against the real deck instead of "1" on every tile. Omit for a standalone sample (the
 	 *  add-slide gallery's component skeletons), where 1-of-1 is the truth. */
 	slideIndex?: number;
+	/** Required with `slideIndex` — see DeckPreview. The count the caller believes, and the shown
+	 *  slide alone, so a deck whose sections do not correspond 1:1 to its slides falls back to the
+	 *  right slide instead of painting a different one. */
+	slideCount?: number;
+	slideMarkdown?: string;
 	/** Override Mermaid detection. Required alongside `slideIndex`: auto-detection reads
 	 *  `sample`, and for a deck document that means ANY mermaid slide would inject the mermaid
 	 *  runtime into EVERY thumbnail. Pass the shown slide's own markdown result. */
@@ -81,12 +86,14 @@ export type SlideThumbFaceProps = {
  * accessible NAME; the face itself is `aria-hidden` (a decorative render), so a
  * screen reader hears the tile's button once, never a duplicate figure node.
  */
-export function SlideThumbFace({ options, sample, slideIndex, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, active, className }: SlideThumbFaceProps) {
+export function SlideThumbFace({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, active, className }: SlideThumbFaceProps) {
 	return (
 		<DeckPreview
 			options={options}
 			sample={sample}
 			slideIndex={slideIndex}
+			slideCount={slideCount}
+			slideMarkdown={slideMarkdown}
 			mermaid={mermaid ?? hasMermaid(sample)}
 			paletteOverride={paletteOverride}
 			extraTheme={extraTheme}

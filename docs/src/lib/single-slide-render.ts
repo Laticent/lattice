@@ -183,19 +183,57 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
 // frame — which is where the milliseconds actually are — is unchanged. See
 // engineering/decisions/2026-07-11-preview-performance-diagnosis.md.
 //
-// Reuses the filmstrip's `splitSections` (HARD RULE #15) rather than a second parser; an
-// unrecognized shape returns the html untouched, so a preview degrades to "shows the whole
-// deck", never to a blank frame.
-function keepOnlySection(html: string, index: number): string {
+// ALIGNMENT IS NOT FREE — and getting it wrong shows the WRONG SLIDE. `index` is an index
+// into the CALLER's authored-slide list (the Studio's `splitSlides`), while this function
+// indexes the ENGINE's sections. Those counts diverge for real, committed decks, and when they
+// do an index-based lookup silently paints a slide the author did not select — strictly worse
+// than the wrong page number this whole path exists to fix. Two confirmed causes:
+//   · a 1→N EXPANSION — `_focusSteps` clones one authored slide into a step per section
+//     (`examples/focus.md`: 11 authored → 14 sections), and `split: headings` divides one
+//     chunk at every heading (`examples/split-headings.md`: 1 → 7);
+//   · SPLITTER DISAGREEMENT — the engine's `splitOnHr` (lib/engine/slides.js) breaks on ANY
+//     markdown-it `hr` (`***`, `___`, `- - -`, `---` with trailing spaces), while the Studio's
+//     `SEP_RE` (docs/src/components/studio/lint.ts) matches only a bare `\n---\n`.
+// So the caller passes the count it believes (`slideCount`) and narrowing happens ONLY when the
+// engine agrees. On disagreement `narrowToSlide` returns null and the caller re-renders the one
+// slide alone — the pre-deck-context behavior: the RIGHT slide with a "1 of 1" number. Right
+// slide always; true number only when it is provably true. This mirrors the guard the same
+// feature family already uses — `PresentOverlay.tsx` drops its narration projection wholesale
+// when "the render's section count doesn't match the slide count".
+//
+// Reuses the filmstrip's `splitSections` (HARD RULE #15) rather than a second parser.
+function narrowToSlide(html: string, index: number, slideCount?: number): string | null {
+	// `splitSections` is the FLAT walker: it pairs each `<section` with the NEXT `</section>`.
+	// The engine passes author raw HTML through verbatim, so a slide containing its own
+	// `<section>…</section>` mis-pairs — the walker closes the slide at the inner tag and the
+	// neighbor's markup (including its visible `.lat-pagination` number) leaks into the frame.
+	// A count agreement can't catch it: the mis-paired total often still equals the caller's
+	// slide count. So verify the walker against a raw `<section` tally, and fail closed when
+	// they disagree. The repo HAS a depth-aware walker for exactly this — `lib/core/split-sections.js`,
+	// whose own header says the scan "survives nested sections" — but it is CJS and not exposed
+	// on the browser engine bundle, so wiring it to `docs/src` is a bundle-surface change, not a
+	// line edit. Detect-and-degrade here; expose that kernel as the follow-up.
+	const opens = (html.match(/<section\b/g) || []).length;
 	const sections: string[] = splitSections(html);
-	if (sections.length < 2 || index < 0 || index >= sections.length) return html;
+	// Fail CLOSED on any disagreement or unusable index: null means "cannot prove which section
+	// is slide `index`", and the caller falls back rather than guessing. Never return the whole
+	// deck — stacking every section into a frame whose CSS and scale transform assume exactly
+	// one is both visibly broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
+	if (opens !== sections.length) return null; // the flat walker mis-paired — nested `<section>`
+	if (typeof slideCount === 'number' && sections.length !== slideCount) return null;
+	// `Number.isInteger` is load-bearing, not defensive noise: a fractional or NaN index passes
+	// both range comparisons (`NaN < 0` and `NaN >= n` are BOTH false), then `i === index` never
+	// matches and the walk emits a wrapper with ZERO sections — a blank frame, the one outcome
+	// this whole path is supposed to make unreachable.
+	if (!Number.isInteger(index) || index < 0 || index >= sections.length) return null;
+	if (sections.length < 2) return html;
 	let out = '';
 	let pos = 0;
 	// Walk by INDEX (not by matching the section string), so a deck with two byte-identical
 	// slides can't collapse onto the wrong one.
 	for (let i = 0; i < sections.length; i++) {
 		const at = html.indexOf(sections[i], pos);
-		if (at === -1) return html;
+		if (at === -1) return null; // shape we cannot walk — fail closed, same as a count mismatch
 		out += html.slice(pos, at); // inter-section text: the wrapper open tag, newlines
 		if (i === index) out += sections[i];
 		pos = at + sections[i].length;
@@ -420,11 +458,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// previews a live local component's styles). Existing callers omit it.
 		extraCss?: string,
 		// Opt-in extras, as an object so future additions don't grow this positional list.
-		// `slideIndex`: `markdown` is a WHOLE DECK and only the section at this 0-based index
-		// is shown — the deck-context render (see keepOnlySection above), which is what makes
-		// the engine's page number true. Existing callers omit it → the whole render is shown,
-		// unchanged.
-		opts?: { slideIndex?: number },
+		// The DECK-CONTEXT render (see narrowToSlide above): `markdown` is a WHOLE DECK and only
+		// one section is shown, so the engine's page number is computed against the real deck.
+		// All three fields travel together — pass all or none:
+		//   · `slideIndex`  — 0-based index of the shown slide in the caller's authored list;
+		//   · `slideCount`  — how many slides the caller believes the deck has. Narrowing happens
+		//     ONLY if the engine's section count matches, because otherwise the index does not
+		//     mean what the caller thinks and would show the WRONG SLIDE;
+		//   · `slideMarkdown` — the shown slide alone (front matter + that slide). Rendered as
+		//     the fallback when the counts disagree: the right slide, numbered 1 of 1.
+		// Existing callers omit all of it → the whole render is shown, unchanged.
+		opts?: { slideIndex?: number; slideCount?: number; slideMarkdown?: string },
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
@@ -440,6 +484,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const liveHost = host as LiveHost;
 		const coalesced = liveHost.__latticeCoalesce ?? 1;
 		liveHost.__latticeCoalesce = 1;
+		// The perf overlay's SOURCE-BYTES figure means "how much markdown produced the slide on
+		// screen". Under deck context `markdown` is the whole deck, so reporting its length would
+		// silently redefine the number (a 40× jump that reads as a content explosion, not as a
+		// changed denominator). Report the SHOWN slide's bytes; `slideMarkdown` is that slide.
+		const shownBytes = opts?.slideMarkdown?.length ?? markdown.length;
 		const themeReady = extra
 			? Promise.all([themes.ensureBase(), ensurePreviewFonts()]).then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
@@ -456,12 +505,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
 				let out: { html: string; css: string; width?: number; height?: number; stats?: RenderStats };
 				let engineMs = 0;
+				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
+				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
+				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
+				// Hoisted out of the try below so the deck-context fallback render can reuse it.
+				const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
 				try {
-					// Resolve a sample deck's `![bg](sample-image-*.svg)` against the
-					// staged samples/ dir (sibling of themes/ under the hashed root).
-					// Make it ABSOLUTE — themeBase is root-relative, and the engine's
-					// WHATWG-URL resolver needs an absolute base.
-					const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
 					const tEngine = performance.now();
 					// Ask the engine for its per-stage breakdown ONLY while the overlay is
 					// subscribed — otherwise it collects nothing (off = free).
@@ -511,7 +560,26 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// (and the reported `slides`) sees exactly the one-section document it saw before this
 				// option existed. The engine `stats` above deliberately still describe the WHOLE render
 				// — that is the work the engine actually did, and what its timing covers.
-				if (typeof opts?.slideIndex === 'number') out.html = keepOnlySection(out.html, opts.slideIndex);
+				if (typeof opts?.slideIndex === 'number') {
+					const narrowed = narrowToSlide(out.html, opts.slideIndex, opts.slideCount);
+					if (narrowed !== null) out.html = narrowed;
+					else if (opts.slideMarkdown) {
+						// The engine's sections do not correspond 1:1 to the caller's slides (a
+						// `_focusSteps` / `split: headings` expansion, or a separator the two splitters
+						// disagree about), so an index cannot identify the shown slide. Re-render that
+						// slide ALONE: the right content, honestly numbered 1 of 1, which is exactly
+						// what this surface did before deck context existed. One extra engine call on
+						// an uncommon deck shape, and only for as long as the deck stays that shape.
+						const alone = await renderMarkdown(PG, opts.slideMarkdown, theme, { baseUrl: samplesBase });
+						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+						// Swap only the HTML: theme CSS and `@size` geometry are identical (same theme,
+						// same front matter), and keeping the first render's `stats` keeps the perf
+						// overlay describing the work that was actually done.
+						out = { ...out, html: alone.html };
+					}
+					// No fallback markdown supplied → show the whole render rather than nothing. Only
+					// reachable from a caller that passed slideIndex without slideMarkdown.
+				}
 				// Stash the resolved slide box so scaleFrame divides by the right width.
 				const geom: Geom = { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H };
 				(host as LiveHost).__latticeGeom = geom;
@@ -569,7 +637,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// count + engine per-stage stats + settled overflow), so the RENDER
 						// breakdown / COALESCE / overflow chip stay accurate on patched renders
 						// too — not just on full writes.
-						const rec = recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length, coalesced, stats: out.stats, writePath: 'patch' });
+						const rec = recordRenderSample({ engineMs, sanitizeMs: patchSanitizeMs, frameMs: now - tFrame, fitMs: patchFitMs, totalMs: now - tStart, slides, srcBytes: shownBytes, coalesced, stats: out.stats, writePath: 'patch' });
 						if (out.stats) {
 							const countOverflow = () => {
 								try {
@@ -622,7 +690,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						const restyleFitMs = performance.now() - tFit;
 						requestAnimationFrame(() => applyDebug(live, { force: null }));
 						const now = performance.now();
-						const rec = recordRenderSample({ engineMs, sanitizeMs: restyleSanitizeMs, frameMs: now - tFrame, fitMs: restyleFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length, coalesced, stats: out.stats, writePath: 'restyle' });
+						const rec = recordRenderSample({ engineMs, sanitizeMs: restyleSanitizeMs, frameMs: now - tFrame, fitMs: restyleFitMs, totalMs: now - tStart, slides, srcBytes: shownBytes, coalesced, stats: out.stats, writePath: 'restyle' });
 						if (out.stats) {
 							const countOverflow = () => {
 								try {
@@ -708,7 +776,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// the whole `markdown` source string per live host.
 				let tFrameStart = 0;
 				let sanitizeMs = 0;
-				const srcBytes = markdown.length;
+				const srcBytes = shownBytes;
 				// Run exactly once — via the browser's `onload` (normal) OR the reveal poll's paint
 				// detection (iOS, where onload is unreliable). The guard makes a double-trigger a no-op.
 				let loadRan = false;

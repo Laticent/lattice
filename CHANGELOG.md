@@ -320,11 +320,26 @@ in patch versions.
   reusing the filmstrip's `splitSections`). This is what the Playground filmstrip already did, which
   is why its numbers were right. The number is computed over the VIEWED set, so a reader lens
   numbers within what the audience actually sees. Cost is one whole-deck engine parse per render
-  instead of one slide's (~39ms for a 58-slide deck) and leaves the dominant preview cost untouched
-  — the srcdoc still carries a single section, so the frame's CSS parse and runtime execution are
-  unchanged. A standalone host (landing island, component specimen) omits `slideIndex` and is
+  instead of one slide's — measured same-machine (fence-aware sizes, global warm-up, interleaved,
+  median of 21): **0.58ms → 1.8ms at 10 sections, 3.5ms at 20, 7.7ms at 40, 44.4ms at 117**. The
+  srcdoc still carries a single section, so the frame's CSS parse and runtime execution are
+  unchanged — but the engine parse is now the dominant cost on the PATCH path (the steady-state
+  typing path, where the frame costs ~2ms), and a 117-section deck crosses the frame scheduler's
+  50ms heavy threshold into coalescing. A standalone host (landing island, component specimen) omits `slideIndex` and is
   byte-identical to before, where 1-of-1 is the truth. Exports were never affected: they render the
   whole source in one pass.
+  Narrowing is **guarded**, because one authored slide is not always one section: `_focusSteps`
+  clones a slide into a section per step (`examples/focus.md` — 11 authored, 14 sections) and
+  `split: headings` divides one chunk at every heading (`examples/split-headings.md` — 1, 7), and
+  the engine's `splitOnHr` breaks on any markdown-it `hr` (`***`, `___`, `- - -`, `---` with
+  trailing spaces) where the Studio's separator regex matches only a bare `---`. A host therefore
+  passes `slideCount` + `slideMarkdown` with `slideIndex`; when the engine's section count
+  disagrees, the shown slide is re-rendered alone and honestly numbered 1 of 1 rather than an
+  index naming the wrong slide. Right slide always; true number only when provably true.
+  The fix also restores two things the sliced render was silently dropping: **inherited
+  running-global directives** (a mid-deck `<!-- header: … -->` applies to that slide and every
+  one after, so a lone slice lost it) and the **deck-scoped progress dot rail**, which is derived
+  from the whole deck's dividers and was absent from every single-slide preview.
 
 - **A state-chart drew differently in every preview pane.** `state-chart.transform.js` derived
   its geometry scale from `section.getBoundingClientRect().width` — the VISUAL box — so on the

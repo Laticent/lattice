@@ -344,8 +344,23 @@ fix lands once, not per surface (see
   bridges use.
 - **Single-slide** — `docs/src/lib/single-slide-render.ts` (one rendered
   `<section>` in a scaled `srcdoc` iframe) wrapped by the React
-  `docs/src/components/DeckPreview.tsx`. Backs the landing islands + the 53
-  component specimen pages.
+  `docs/src/components/DeckPreview.tsx`. Backs the landing islands, the 53
+  component specimen pages, **and every Studio preview** — the editor preview,
+  Present, the slide-overview grid, and the thumbnail grids (Fabricate, Finish,
+  Layout Studio, the add-slide and reshape pickers).
+  **One `<section>` in the frame does NOT mean one slide through the engine.** A
+  host that knows a slide's place in a deck passes `slideIndex` + `slideCount` +
+  `slideMarkdown`, and the renderer renders the WHOLE deck and narrows the output
+  to that section — because the engine derives a slide's page number from its
+  ordinal position among the sections it parses and accepts no offset, and because
+  a lone slice also loses inherited running-global directives (a mid-deck
+  `<!-- header: … -->`) and the deck-scoped progress rail. Narrowing is skipped
+  whenever the engine's section count disagrees with `slideCount` — a
+  `_focusSteps` or `split: headings` deck expands one authored slide into several,
+  and picking by index there would paint the WRONG slide — in which case the
+  shown slide is re-rendered alone and honestly numbered 1 of 1. See
+  `docs/src/lib/single-slide-render.alignment.test.ts` and the "A live preview
+  prints 1 as the page number" entry in `engineering/gotchas.md`.
 - **Multi-slide filmstrip** — `docs/src/playground/deck-preview.js` (patch-vs-
   rewrite, FIT/SYNC agents, content-visibility). Backs the playground, drawing
   board, and both workbench studios (see `2026-06-13-shared-deck-preview.md`).
