@@ -527,18 +527,70 @@ the identical problem, at the same 65/35 ratio in light mode and a lighter
 starts near the floor and every point of dilution is chroma spent). Full
 numbers in `### Fixed` in `CHANGELOG.md`.
 
+**The consequence to state out loud, since the mechanism alone undersells
+it:** the panel and its labels now carry DIFFERENT categorical hues on most
+slots. A theme's fill and mark cycles are independent — on `indaco` light
+they diverge on 6 of 8 slots, by up to 118°; on `cuoio` by up to 155° — so
+a level slide reads as a cream panel with dark-red labels, or a green panel
+with navy labels. That is deliberate, and it is the better of the two
+readings available: it makes the supporting zone internally consistent,
+because each label now matches the border and rules immediately around it
+(`.panel-left::before`, and under `capstone` the quote border and pillar
+rules, all of which already took `--panel-mark`), where before the labels
+clashed with those same rules. Two hues used consistently beats one hue
+used half the time. Worth naming because the section above rejects "half a
+slide varying" — "each half varying in its own hue" deserves an explicit
+verdict rather than silence, and the first draft of this fix gave it none.
+
 ## What's still open
 
-**The tint a theme's dark mark tier can actually carry.** The fix above is
-bounded by the palette: `indaco`'s `--cat-N-mark` dark arm is near-neutral
-by design (`#D4DFE8`, `#E7D5D6`, `#E7E6D5`…), so on `indaco-dark` the
-checkpoint labels read as barely-tinted white and the panel fill is what
-carries the category. Themes whose marks stay vivid in dark (`carbone`)
-show the hue plainly. Re-tuning that tier would be a theme-wide change —
-kanban lane stripes, gantt bars, and `statement/premise`'s rows all draw
-from the same token — so it is deliberately NOT in this component's diff
-(HARD RULE #18's off-path boundary), and noted here rather than silently
-accepted.
+**On a dark canvas the label ink carries no visible hue, on 13 of the 14
+hue themes.** This entry originally read "`indaco`'s dark mark tier is
+near-neutral *by design*" — framing it as one theme's idiosyncrasy. An
+independent checker measured the whole population and the framing was
+inverted: `carbone` is the lone theme whose dark marks carry hue.
+
+Mean oklab chroma of the label ink, over the 14 hue themes:
+
+| | light mode | dark mode |
+|---|---|---|
+| `carbone` | 0.108 | **0.133** |
+| most themes (`indaco`, `laguna`, `brina`, `atelier`, …) | 0.066–0.101 | 0.015–0.035 |
+| `concrete` | 0.022 | 0.003 |
+| `onyx` | **0.000** | **0.000** (a pure gray ramp) |
+
+So light mode reads as six distinct hues and dark mode reads as six
+barely-tinted whites, with the panel fill carrying the category there.
+`onyx` gets nothing in either mode, and the 5 `a11y-*` themes are outside
+the measured population entirely — the change is a visual no-op on 7 of the
+32 shipped theme files.
+
+**A metric worth not repeating.** The checker's evidence for this was that
+min adjacent-slot ΔE sits under `oklabDistance`'s ~0.15 "just about
+distinct" mark (`lib/theme/color.js:206`). That number is real, but it does
+not discriminate: it is under 0.15 for every theme in BOTH modes, including
+the light mode that visibly works. It is a worst-pair statistic over eight
+hues, so some adjacent pair is always close. Chroma separates the working
+case from the failing one; ΔE-of-the-closest-pair does not. Recorded here
+because the conclusion was right while the stated evidence for it was not.
+
+**The fix is a shared-token change, not a component one.** Re-tuning the
+dark mark tier touches kanban lane stripes, gantt bars, and
+`statement/premise`'s rows, so it is off-path for this component (HARD RULE
+#18). Tracked in #1263 with the measurement already done: a fill-derived
+dark arm at 45% fill clears AA (worst 4.70:1, versus the shipped 5.15:1)
+and roughly triples most themes' dark chroma — `indaco` 0.017 → 0.055 —
+but costs `carbone` its hue (0.133 → 0.022), because that theme's chroma
+lives in the mark tier and everyone else's lives in the fill. That is a
+per-theme call for a derived `--cat-N-ink`, which is exactly what #1263
+proposes.
+
+**And the new 4.5:1 floor is ungated.** `chart/quadrant`'s equivalent is
+pinned by `tools/check-viz-render.js` ("so the floor cannot silently move
+again"); `--panel-label-ink` has no such guard, and that tool is scoped to
+`chart.gallery.md`. A theme re-tuning `--cat-N-mark` would move this floor
+silently. Folded into #1263, which extends `checkCatContrast` to the new
+tier.
 
 Nothing else outstanding from the original five-item delta list or the
 second look. Future review should still be a full page-by-page comparison
