@@ -339,12 +339,24 @@ in patch versions.
   outside that, the `main` column's own spread is not. Being single-entry, the memo is not a 100%
   hit: the first navigation is cold and an intervening full-write render evicts it, which shows up
   as occasional 1–8ms RENDER samples. A KEYSTROKE misses by construction (the markdown changed) and
-  still pays the whole-deck parse — ~38ms RENDER on that deck at 4×, against 6.9ms before — which is
-  the cost the engine-side incremental render path would collapse
-  (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`), and which is
-  UNMEASURED on the real surface (CodeMirror does not accept synthetic keys in the harness, so that
-  figure is the no-memo column, not a typing measurement). The frame cost is unchanged either way
-  (~1.4–2.0ms on the patch path) — the srcdoc still carries one section.
+  still pays the whole-deck parse. **Typing is measured, on the same surface and deck, real
+  keystrokes into the shown slide** (p50 of 14):
+
+  | needle | main | this change |
+  |---|---|---|
+  | RENDER (engine) | 5.0ms | **48.9ms** |
+  | TOTAL p50 | 10.3ms | **55.3ms** |
+  | TOTAL max | 16.7ms | **93.1ms** |
+
+  So a keystroke costs ~5.4× more and crosses `createFrameScheduler`'s 50ms heavy threshold, which
+  means every keystroke coalesces onto the next frame instead of painting immediately. A SECOND
+  regression in the same family: on `main`, editing a slide OTHER than the shown one triggered **no
+  render at all** (the sample was just the shown slide, so the srcdoc stayed byte-identical across
+  14 keystrokes); under deck context that edit re-renders the whole deck, so it went from free to
+  ~55ms. Both are the cost the engine-side incremental render path would collapse
+  (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`); a memo cannot, because
+  the markdown changed. The frame cost is unchanged throughout (~1.0–2.0ms on the patch path) — the
+  srcdoc still carries one section.
   A standalone host (landing island, component specimen) omits `slideIndex` and is
   byte-identical to before, where 1-of-1 is the truth. Exports were never affected: they render the
   whole source in one pass.
