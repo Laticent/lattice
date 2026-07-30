@@ -158,6 +158,52 @@ in patch versions.
   now localized into the bundle too — it never was, so the register working would have pointed at
   a file that wasn't there.
 
+- **Front-matter key readers no longer scale quadratically with the deck's front matter.**
+  Every one was `/^\s*<key>:\s*…$/m`, and `\s` matches newlines, so a long run of blank
+  lines (valid YAML) made each reader O(N²). This never surfaced on an exported deck
+  because the readers only ran after a successful `fetch` and the fetch always failed
+  over `file://` — baking the front matter into the document removed that accidental
+  guard, so the change above would have shipped a **128 KB front matter → 8.1 s frozen
+  tab, 512 KB → 131 s**, on the recipient's double-click AND inside `npm run pdf`.
+  Bounded to a single line (`^[ \t]*<key>:[ \t]*`) across the shared kernels the
+  runtime bundles — a front-matter key sits at a line start by definition. Both
+  figures drop to 0.2 s. Found by the adversarial trio, not by the gates.
+
+- **A re-export no longer stacks a second, staler front-matter snapshot** — and the
+  deck says the snapshot is generated. `withRuntimeScripts` is now idempotent (it
+  replaces an existing block, and the duplicated runtime `<script>` tags it had
+  always emitted on a re-export), the reader takes the LAST block rather than the
+  first, and the emitted deck carries a comment — plus a README section — saying that
+  editing the front matter alone will not change the render. The bundle's own
+  `AGENTS.md` invites exactly that edit, and it was silently inert.
+
+- **A glossary slide with a raw HTML table no longer makes the two paths disagree.**
+  Narrowing the DOM mirror to a `Term`/`Definition` header row fixed the "any table"
+  bug but introduced a new one — the token path's range rule accepted any raw-HTML
+  table, so engine `Z` vs mirror `A – N`. Both paths now stamp and select a marker
+  class (`lib/core/glossary-table-class.js`), so neither reads a table it didn't
+  build, and an author's own table feeds neither.
+
+- **The leading-`:is()` scanner is one state machine instead of two disagreeing layers.**
+  The comment split was quote-blind while the walk inside it was quote-aware, so
+  `content:"/* x */"` swallowed every boundary to the next `*/` and silently stopped
+  distributing for the rest of the file — dead rules, the exact class the file exists
+  to prevent. Rewriting it as a single pass over typed runs also fixed a corruption
+  the regex version shipped (`.a /* mid */ :is(x, y) .c` → `.a /* mid */ x .c, y .c`,
+  dropping `.a` from every arm) and restored the 64 KB prelude bound, without which a
+  crafted head amplified 80 KB into 171 MB.
+
+- **`export-marp` no longer crashes on an ordinary logo filename, and says what it
+  copied.** `logo: assets/logo-50%.png` threw `URIError` from `decodeURI` and `logo: .`
+  threw `EISDIR`, both after the bundle directory existed — a half-written bundle. Each
+  asset copy now prints its resolved source path, so a ref that reaches outside the
+  deck's directory is visible rather than hidden behind "assets: 1".
+
+- **A deck-wide `form: off` is now honored on the Marp route.** The engine honors it;
+  the runtime ignored it, so an exported deck came out with the full Form chrome the
+  engine refuses to add. `lib/forms/form-default.js` documented itself as
+  front-matter-blind "by design" on a premise the baked front matter invalidates.
+
 - **The Marp fidelity claim is now a ledger the tests hold us to, not prose.** Every defect in
   #1256 was one shape: a structural transform that exists only as a markdown-it plugin, on a route
   where marp-core never runs our plugins. Fixing three instances didn't stop the fourth — nothing
@@ -166,11 +212,19 @@ in patch versions.
   (`baked` / `mirrored` / `unmirrored` / `moot`); `test/unit/core/marp-fidelity.test.js` fails when
   a plugin is added without a verdict, when an entry outlives its plugin, and when a `mirrored`
   claim names a symbol the runtime never calls; and the bundle README prints the `unmirrored` rows,
-  so a gap can't be dropped from the docs while staying in the code. Six gaps came out of it, each
-  observed on a real marp-cli render: `_focusSteps` (stays one slide instead of N), `no-period` /
+  so a gap can't be dropped from the docs while staying in the code. **Seven** gaps came out of it,
+  each observed on a real marp-cli render: `_focusSteps` (stays one slide instead of N), `no-period` /
   `with-period` headings, `functionplot` and `anima` fences (each degrades to a code block showing
-  its JSON), and math (typesets with MathJax, not KaTeX). The README's heading no longer calls that
-  route "full fidelity", and its `<name>.html` line no longer claims "same scripts, same result".
+  its JSON), math (typesets with MathJax, not KaTeX), and — found by taking the inversion pass's
+  prediction seriously and rendering an imagery slide — an `image` slide's `![bg]`, where Marp's own
+  advanced-background machinery puts the image full-bleed and the prose UNSCRIMMED on top of it. That
+  last one does not degrade gracefully, so the README no longer says the gaps "degrade rather than
+  break", its heading no longer calls that route "full fidelity", its `<name>.html` line no longer
+  claims "same scripts, same result", and "everything else renders the same" is now a claim about
+  what has been checked. The gate detects plugins by what they REGISTER rather than by how their
+  parameter is spelled (it had missed `function x(md, opts)`), a second gate covers the wider door —
+  a registry transformer that grows an `applyToHtml` with no `applyToDom` — and the ledger states
+  plainly what it does NOT cover.
 
 - **A glossary slide with any other table on it fabricated its range pill.** Both halves of the
   DOM mirror asked "does this section hold ANY `table`?", so a glossary carrying a source note

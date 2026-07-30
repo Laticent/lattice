@@ -35,13 +35,30 @@ const RUNTIME_SRC = read('lib/runtime/index.js');
 const EXPORTER_SRC = read('tools/export-marp.js');
 
 /**
- * The markdown-it plugins plugins.js defines — a function taking the markdown-it
- * (or marp) instance, spelled `markdown`, `md`, or `marp` in this file. That
- * signature is what makes something a plugin rather than a helper, so the
- * enumeration can't drift from the file.
+ * The markdown-it plugins plugins.js defines, found by what they DO rather than by
+ * how their parameter is spelled: a top-level function whose body registers a
+ * markdown-it rule or overrides a renderer rule.
+ *
+ * The first version of this matched `function name(markdown|marp|md)` — and an
+ * inversion pass showed it silently missed `function x(md, opts)` (the
+ * conventional markdown-it signature), `function x (md)` with a space, and
+ * `function x(state)`. A gate advertised as stopping a class cannot key on a
+ * spelling, so it keys on the registration call instead.
  */
+const RULE_REGISTRATION = /\.(?:core|block|inline)\.ruler\b|\.renderer\.rules\b|\.(?:use|highlightjs)\b/;
+
 function definedPlugins() {
-  return [...PLUGINS_SRC.matchAll(/^function ([A-Za-z]\w*)\((?:markdown|marp|md)\)/gm)].map((m) => m[1]);
+  const out = [];
+  const decl = /^function ([A-Za-z]\w*)\s*\(/gm;
+  for (const m of PLUGINS_SRC.matchAll(decl)) {
+    // The function's body runs to the next top-level declaration — enough to see
+    // whether it registers anything.
+    const start = m.index;
+    const next = PLUGINS_SRC.slice(start + m[0].length).search(/^(?:function|const|module\.exports)\s/m);
+    const body = next < 0 ? PLUGINS_SRC.slice(start) : PLUGINS_SRC.slice(start, start + m[0].length + next);
+    if (RULE_REGISTRATION.test(body)) out.push(m[1]);
+  }
+  return out;
 }
 
 const COVERAGE = new Set(['baked', 'mirrored', 'unmirrored', 'moot']);
@@ -105,6 +122,23 @@ describe('marp fidelity ledger — coverage claims point at real code', () => {
     for (const p of ['matrixGridCells', 'glossaryListToTable', 'glossaryRange']) {
       assert.equal(byPlugin[p].coverage, 'mirrored', `${p} regressed to unmirrored`);
     }
+  });
+});
+
+// The wider door the plugin enumeration does NOT watch: a registry transformer that
+// grows an `applyToHtml` and no `applyToDom` is an export gap, needs no ledger entry,
+// and trips nothing else — `registry.test.js` only asserts "at least one adapter".
+describe('marp fidelity ledger — the registry keeps its DOM adapters', () => {
+  test('every registry transformer has applyToDom, or a ledger row saying why not', () => {
+    const { TRANSFORMERS } = require('../../../lib/transformers/registry');
+    const classified = new Set(LEDGER.map((e) => e.topic).filter(Boolean));
+    const missing = TRANSFORMERS
+      .filter((t) => typeof t.applyToDom !== 'function' && !classified.has(t.name))
+      .map((t) => t.name);
+    assert.deepEqual(missing, [],
+      'a transformer with no DOM adapter does not run on a Marp render — give it one, '
+      + 'or add a lib/core/marp-fidelity.js row naming the gap');
+    assert.ok(TRANSFORMERS.length >= 17, `expected the registry; found ${TRANSFORMERS.length}`);
   });
 });
 

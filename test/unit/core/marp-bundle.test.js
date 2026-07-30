@@ -226,10 +226,20 @@ describe('marp-bundle spec', () => {
       const count = (s, ch) => s.split(ch).length - 1;
       assert.equal(count(once, '{'), count(css, '{'), 'rule blocks preserved');
       assert.equal(count(once, ';'), count(css, ';'), 'declarations preserved');
-      assert.ok(once.length > css.length, 'arms were actually distributed');
+      // `tools/build-css.js` distributes at BUILD time, so on a current dist this
+      // pass has nothing left to do — and it is now a BYTE-for-byte no-op, not
+      // merely a semantic one. (It used to re-join comma lists with `, ` and grow
+      // the sheet ~262 bytes; the character walk leaves an already-distributed
+      // prelude alone.) The belt-and-braces value is for a bundle built against an
+      // OLDER dist, which the next assertion covers.
+      assert.equal(once, css, 'a current dist is already distributed — nothing to do');
       assert.equal(marpScopableCss(once), once, 'a second pass changes nothing');
       assert.deepEqual(once.match(/(^|[{};])\s*:is\([^)]*section[^)]*\)/g) || [], [],
         'no rule still LEADS with :is(section…)');
+      // …and it really does distribute an UNDISTRIBUTED sheet (the older-dist case),
+      // so the equality above can't pass by doing nothing at all.
+      const stale = ':is(section.map, figure.chart-frame) .r{color:red}';
+      assert.equal(marpScopableCss(stale), 'section.map .r, figure.chart-frame .r{color:red}');
     });
 
     test('does NOT touch :where() heads — unwrapping them would change specificity', () => {

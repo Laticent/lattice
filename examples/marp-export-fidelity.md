@@ -72,7 +72,12 @@ $$ \int_0^1 x^2 \, dx = \frac{1}{3} $$
 ## A function-plot fence degrades to its config
 
 ```functionplot
-{ "fn": "x^2", "domain": [-3, 3] }
+{
+  "data": [{ "fn": "x^2" }],
+  "xAxis": { "domain": [-3, 3], "label": "x" },
+  "yAxis": { "domain": [0, 9], "label": "x²" },
+  "grid": true
+}
 ```
 
 ---

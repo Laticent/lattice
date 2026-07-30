@@ -1518,7 +1518,7 @@ var require_chart_narration = __commonJS({
       if (lines[i] !== void 0 && lines[i].trim() === "---") {
         let j = i + 1;
         while (j < lines.length && lines[j].trim() !== "---") {
-          const tm = lines[j].match(/^\s*title:\s*(.*)$/);
+          const tm = lines[j].match(/^[ \t]*title:[ \t]*(.*)$/);
           if (tm) title = scrubLabel(stripQuotes(tm[1]));
           j++;
         }
@@ -1925,7 +1925,7 @@ var require_chart_narration = __commonJS({
       if (lines[i] !== void 0 && lines[i].trim() === "---") {
         let j = i + 1;
         while (j < lines.length && lines[j].trim() !== "---") {
-          const tm = lines[j].match(/^\s*title:\s*(.*)$/);
+          const tm = lines[j].match(/^[ \t]*title:[ \t]*(.*)$/);
           if (tm) title = scrubLabel(stripQuotes(tm[1]));
           j++;
         }
@@ -2018,7 +2018,7 @@ var require_chart_narration = __commonJS({
       if (raw[i] !== void 0 && raw[i].trim() === "---") {
         let j = i + 1;
         while (j < raw.length && raw[j].trim() !== "---") {
-          const tm = raw[j].match(/^\s*title:\s*(.*)$/);
+          const tm = raw[j].match(/^[ \t]*title:[ \t]*(.*)$/);
           if (tm) title = scrubLabel(stripQuotes(tm[1]));
           j++;
         }

@@ -139,8 +139,10 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     assert.ok(document.querySelector('img.deck-logo'), 'logo injected from the baked front matter');
     assert.ok(document.querySelector('.tile-meta'), 'meta Tile filled from the baked front matter');
     assert.ok(document.querySelector('section').classList.contains('dark'), 'dark class applied');
-    // The block itself must be gone before anything measures a slide: an inert
-    // zero-height element still takes a `gap` in a flex column.
+    // The consumed block must not linger in a document something else may copy,
+    // serialize, or sanitize. (It is NOT a layout requirement — a `<script>` is
+    // `display:none` and takes no flex `gap`; an earlier comment here claimed
+    // otherwise and was measured wrong.)
     assert.equal(document.querySelector(`script[type="${FRONT_MATTER_TYPE}"]`), null,
       'the baked block was removed from the DOM');
 

@@ -253,10 +253,14 @@ four**. `logo:` and `meta:` carry payloads a class cannot express.
 > document as an inert `<script type="application/lattice-front-matter">` block,
 > and the runtime reads it from the DOM (`lib/core/deck-front-matter.js`). The
 > payload is the raw YAML, so the runtime's existing readers parse the same string
-> they used to fetch — one grammar, no second format. The block is REMOVED before
-> any transform measures the slide (an inert zero-height element still takes a
-> `gap` in a flex column), and the fetch survives as the fallback for a document
-> that predates the bake.
+> they used to fetch — one grammar, no second format. The block is REMOVED once
+> read — hygiene, so a consumed snapshot doesn't linger where something may copy,
+> serialize, or sanitize it, and so it can't be read twice. (An earlier draft called
+> removal a LAYOUT requirement — "an inert zero-height element still takes a `gap`
+> in a flex column." That was wrong, and is worth recording as wrong: a `<script>`
+> is `display:none`, and a measured flex column with `gap:40px` is 80px tall with or
+> without one. The removal is still right; the reason given for it was not.) The
+> fetch survives as the fallback for a document that predates the bake.
 >
 > Re-measured on the surface that failed, a `file://` open with default Chrome
 > flags: **0 → 10 of 10** sections carrying the deck's color mode, the logo
@@ -268,16 +272,35 @@ four**. `logo:` and `meta:` carry payloads a class cannot express.
 > result"* was false for the double-click case; it is now true for it, and the
 > sentence says what a recipient does instead of claiming an equivalence.
 >
-> **Page-by-page against the engine's own PDF**, same deck, both rendered and
-> rasterized at 100 DPI: differing pixels per page were 325 / 51 791 / 50 905 / 0 /
-> 3 504 / 8 803 / 42 out of 1 000 500. Every one of those deltas is the atrium
-> finish's 9 %-alpha hairline gradient, not content — the TEXT is pixel-identical on
-> every page, and the finish's computed geometry (`background-size`,
-> `background-position`, the gradient itself, the box) is byte-identical between the
-> two documents. Two different Chrome print pipelines land a hairline
-> `repeating-linear-gradient` on different subpixel phases; page 4 happens to agree.
-> Worth knowing, not worth chasing: the deck-wide finish did not render in an
-> export AT ALL before this change.
+> **Page-by-page against the engine's own PDF** — `examples/marp-export-fidelity.md`
+> (7 pages), both rendered and rasterized at 100 DPI. Differing pixels per page:
+> 325 / 51 791 / 50 905 / 0 / 3 504 / 8 803 / 42 out of 1 000 500.
+>
+> **CORRECTED after the trio.** The first version of this paragraph read *"every one
+> of those deltas is the atrium finish's 9 %-alpha hairline gradient, not content —
+> the TEXT is pixel-identical on every page."* That is false on two of the seven
+> pages, and it contradicted this same document two sections above:
+>
+> | page | what differs |
+> |---|---|
+> | 1, 2, 3, 4, 7 | only the atrium finish's hairline gradient — text pixel-identical |
+> | **5 (math)** | **content** — KaTeX vs MathJax: different glyph metrics AND position |
+> | **6 (functionplot)** | **content** — a plotted curve vs the literal JSON config |
+>
+> Pages 5 and 6 are the two `unmirrored` gaps the ledger lists; of course they
+> differ. Writing "text is pixel-identical on every page" over a measurement that
+> includes them is the HARD RULE #23 failure mode this note exists to warn about —
+> a real artifact produced, then described as showing something it does not show.
+>
+> On the five pages where parity IS the claim, it holds, and the finish's computed
+> geometry (`background-size`, `background-position`, the gradient, the box) is
+> byte-identical between the two documents — two Chrome print pipelines landing a
+> hairline `repeating-linear-gradient` on different subpixel phases. Page 4 happens
+> to agree exactly. Worth knowing, not worth chasing: the deck-wide finish did not
+> render in an export AT ALL before this change.
+>
+> The `0 → 10 of 10` figure above is a DIFFERENT deck — a 10-slide scratch probe
+> built to exercise all four register axes at once. Two numbers, two decks, named.
 
 ## What we did NOT fix (can't): the marp-vscode preview pane
 
@@ -335,6 +358,131 @@ render rather than read off the source: `_focusSteps` (stays one slide instead o
 N), `no-period` / `with-period` headings, `functionplot` and `anima` fences (each
 degrades to a code block showing its JSON), and math (typesets with MathJax, not
 KaTeX). The README's heading no longer calls that route "full fidelity".
+
+## What the adversarial trio found in the fix itself
+
+The follow-up went through red team + Munger inversion + independent checker
+(HARD RULE #25) before merge. They found nine things; six were defects the change
+had introduced, and the two most serious were invisible from the diff.
+
+**1. Removing the network removed an accidental guard (red team, HIGH).** The
+runtime's ~20 front-matter readers are `/^\s*<key>:\s*…$/m`, and `\s` matches
+newlines — so on an N-byte whitespace run each is O(N²). That never mattered on the
+export surface because the readers only ran after a SUCCESSFUL fetch, and the fetch
+always failed over `file://`. Baking the front matter made them reachable. Measured
+against the real bundled runtime in a `file://` document:
+
+| front matter | before the fix | after bounding the readers |
+|---|---|---|
+| 128 KB | **8.1 s** blocked | 0.2 s |
+| 512 KB | **131 s** blocked | 0.2 s |
+
+Attacker-authorable (a long run of blank lines is valid YAML), silent, and it hits
+`npm run pdf` too, since marp-cli runs the runtime in headless Chrome. Fixed by
+bounding every front-matter key reader to a single line — `^[ \t]*<key>:[ \t]*` —
+across the shared kernels the runtime bundles (`plugins.js`, the `resolve-*` family,
+the meta Tile). A front-matter key is at a line start by definition, so `\s` was
+never the right class. `lib/authoring/lint-core.js` has the same shape and is NOT in
+the runtime bundle; it is off this path and left as a tracked follow-up.
+
+**2. The snapshot silently overrode the file it sits in (all three, independently).**
+The block wins over the front matter it was copied from, and the bundle's own
+`AGENTS.md` says *"Edit this file; re-render."* So a recipient who changed
+`color-mode: dark` to `light` and re-rendered got a dark deck — the same silent
+wrong render this mechanism exists to fix, arriving through the edit path.
+Compounding it, `withRuntimeScripts` was not idempotent: a re-export stacked a
+SECOND block and the reader took the FIRST, so a re-export was read through the
+stalest snapshot in the file. Fixed three ways: the bake now REPLACES an existing
+block (and the duplicated runtime tags, which had always duplicated), the reader
+takes the LAST block and removes them all, and the emitted deck carries a generated
+comment plus a README section saying front-matter edits need a re-export.
+
+The deeper tension is real and is not "fixed": the front matter now lives in two
+places, and the snapshot is authoritative for every key Marp doesn't consume. The
+alternative that would eliminate it — strip the Lattice-only keys from the visible
+front matter so each key has exactly one home — costs the deck's round-trip back
+into Lattice and needs a keys-Marp-consumes allowlist that can rot. Not taken.
+Inversion's other suggestion, baking the deck-wide token set into each slide's own
+`_class:` directive, would additionally work in the marp-vscode preview pane (no
+script execution needed) but cannot express `logo:`/`meta:` payloads; it remains
+available as an ADDITION, which is the main reason the current shape is not a fork.
+
+**3. A seventh unmirrored gap, found by taking inversion's prediction seriously.**
+The completeness claim had been measured on two decks with zero `![bg]` and zero
+Mermaid. Rendering an imagery-bucket slide through the bundle: the engine lifts
+`![bg]` into a `.lattice-bg` panel and wraps the prose in `.image-text` (a
+source-level transform, engine-only); Marp uses its own advanced-background
+machinery instead, so the image goes full-bleed and the prose sits on top of it
+UNSCRIMMED — the heading over a bright area is barely legible. That one does not
+degrade gracefully. It is now a ledger row, the README's *"they degrade rather than
+break"* is gone, and the universal *"everything else renders the same"* is now a
+claim about what has been checked.
+
+**4. The glossary fix had traded one disagreement for another (checker).** Keying
+the DOM mirror on a `Term`/`Definition` header row fixed the "any table" bug but
+introduced a new one: the token path's range rule accepted any raw-HTML
+`html_block` table, so a deck with a raw `<table>` got engine `Z` and mirror
+`A – N` where the two had previously agreed. The shipped test could not catch it,
+because a markdown PIPE table is the one shape the token path already skipped. Both
+paths now stamp and select a marker class (`lib/core/glossary-table-class.js`), so
+neither reads a table it did not build — and an author's own table feeds neither.
+
+**5. The CSS scanner's two layers disagreed about where strings are (checker).**
+`eachCssSpan` split on comments without quote awareness, then handed fragments to a
+quote-AWARE walk — so `content:"/* x */"` swallowed every boundary to the next
+`*/` and silently disabled distribution for the rest of the file: dead rules, the
+exact class this file exists to prevent. Rewritten as ONE state machine over typed
+runs (`code` / `comment` / `string`). That also fixed a corruption the regex version
+had shipped: `.a /* mid */ :is(x, y) .c` distributed as `.a /* mid */ x .c, y .c`,
+dropping `.a` from every arm — it is not a leading `:is()` at all. And the 64 KB
+prelude bound the old regex carried, which the first rewrite dropped, is back:
+without it a crafted head amplified 80 KB into 171 MB, and 460 KB OOM'd a 512 MB
+heap.
+
+**6. Two crashes and an invisible file-copy channel in the new localizer (red team).**
+`logo: assets/logo-50%.png` — an ordinary filename — threw `URIError` from
+`decodeURI` and left a half-written bundle; `logo: .` threw `EISDIR`. Both are now
+handled. And `logo: ../.ssh/id_rsa` copies that file into the bundle: the traversal
+CLASS is pre-existing (a body `![](../../secret)` did the same) and confining it
+would break this repo's own decks, which legitimately reach out of their directory —
+but the summary said only "assets: 1", so an unexpected file was invisible. Every
+copy now prints its resolved source path.
+
+**7. The gate was narrower than the ledger claimed.** `definedPlugins()` matched
+`function x(md)` and missed `function x(md, opts)` (the conventional markdown-it
+signature), `function x (md)`, and `function x(state)`. It now detects plugins by
+what they DO — a function whose body registers a rule — and a second gate covers
+the wider door the checker found: a registry transformer that grows an `applyToHtml`
+with no `applyToDom` is an export gap that needed no ledger row and tripped nothing.
+The ledger header now states plainly what the gate does NOT cover (plugins outside
+`plugins.js`, the engine's HTML-stage post-processors, and any divergence in the
+other direction).
+
+**8. `form: off` was a divergence in the OTHER direction.** The engine honors it;
+the runtime ignored it, so a `form: off` deck exported to Marp came out WITH the
+full Form chrome. `lib/forms/form-default.js` documented itself as front-matter-blind
+"by design" — on a premise this change invalidated. Now honored from the baked front
+matter (synchronously, since it must be known before the first stamp), and the false
+rationale is corrected in place. The ledger has no vocabulary for reverse
+divergences, which is itself worth remembering.
+
+**9. Smaller, all fixed:** the browser producer baked a `logo:` path it cannot
+carry (it has no filesystem), turning a silently-absent register into a visibly
+broken image — it now passes `localAssets: false`; `readFrontMatterBlock` rejected
+the trailing-whitespace fences Marpit accepts, so the block asserted the wrong
+front matter for such a deck; and two comments described the CLI as if it were both
+producers ("byte-identical deck", "prose keeps the deck's own title").
+
+**What the trio verified and did NOT break:** the escaping (no payload can close
+its own `<script>`, confirmed against `</SCRIPT>` and CDATA forms); DOMPurify strips
+the block, so it cannot spoof a docs-site Studio preview (HARD RULE #22 holds); the
+numeric logo fields reject CSS injection; `cellHtml` escaping breaks no shipped
+deck; `safeName` leaves no raw-name path in either producer; and the headline
+`0 → all` result reproduces independently, including the CORS message.
+
+One thing the checker could not confirm and worth stating: whether the docs Studio
+reuses a preview iframe across deck switches. If it does, the memoized
+"no front matter here" answer could outlive a deck that has one. Unverified.
 
 ### The lesson, restated
 

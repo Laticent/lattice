@@ -74,8 +74,16 @@ function readTheme(src) {
  */
 function localizeOne(url, deckDir, destDir, copied) {
   if (/^(https?:|data:|\/\/)/i.test(url)) return null;
-  const abs = path.resolve(deckDir, decodeURI(url));
-  if (!fs.existsSync(abs)) return null;
+  // `decodeURI` THROWS on a lone `%` — and `logo: assets/logo-50%.png` is an
+  // ordinary filename a designer produces. Unhandled, it killed the export with a
+  // URIError after the bundle directory had already been created, leaving a
+  // half-written bundle behind. An undecodable ref is treated as authored.
+  let decoded;
+  try { decoded = decodeURI(url); } catch (_e) { decoded = url; }
+  const abs = path.resolve(deckDir, decoded);
+  // `isFile` rather than `existsSync`: `logo: .` resolved to a DIRECTORY and
+  // `copyFileSync` threw EISDIR, same half-written-bundle outcome.
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return null;
   const existing = copied.get(abs);
   if (existing) return existing;
   const assetsDir = path.join(destDir, 'assets');
@@ -87,6 +95,16 @@ function localizeOne(url, deckDir, destDir, copied) {
   fs.copyFileSync(abs, path.join(assetsDir, base));
   const rel = `assets/${base}`;
   copied.set(abs, rel);
+  // Name what was copied and WHERE IT CAME FROM. A deck's asset refs are paths,
+  // and a path can point anywhere the exporting user can read — `logo:
+  // ../.ssh/id_rsa` copies that file into a bundle they then forward. The
+  // traversal predates front matter becoming a channel for it (a body
+  // `![](../../secret)` did the same), and confining it would break the repo's own
+  // decks, which legitimately reach out of their directory
+  // (`logo: ../lib/base/_logo/acme-logo.svg`). What was missing is that the
+  // summary said "assets: 1" and nothing else, so an unexpected file was
+  // invisible. Now every copy is on stdout beside its resolved source.
+  console.log(`  asset: ${path.relative(process.cwd(), abs)} → ${rel}`);
   return rel;
 }
 
@@ -113,7 +131,14 @@ function localizeAssets(body, deckDir, destDir, copied = new Map()) {
  * file has to come along too.
  */
 function localizeFrontMatter(fm, deckDir, destDir, copied) {
-  return fm.replace(/^([ \t]{0,8}logo:[ \t]{0,8}["']?)([^"'\r\n]+)(["']?[ \t]{0,8})$/m, (full, pre, url, post) => {
+  // The bound here must not be TIGHTER than the readers', or the exporter skips a
+  // ref the runtime then resolves — a 404 logo on every slide. Both
+  // lib/runtime/index.js and the engine's `readDeckLogoFrontMatter` read
+  // `^[ \t]*logo:[ \t]*["']?(.*?)["']?[ \t]*$`, so this matches the same shape,
+  // including a value the reader would take verbatim (a trailing `# comment` is
+  // part of the value to both, so it is left alone here too — and then simply
+  // doesn't resolve, exactly as it doesn't for the reader).
+  return fm.replace(/^([ \t]*logo:[ \t]*["']?)([^"'\r\n]+?)(["']?[ \t]*)$/m, (full, pre, url, post) => {
     const rel = localizeOne(url.trim(), deckDir, destDir, copied);
     return rel ? `${pre}${rel}${post}` : full;
   });

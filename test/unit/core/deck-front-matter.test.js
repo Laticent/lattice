@@ -11,15 +11,17 @@
  *
  * Baking the front matter into the document as an inert data block removes the
  * network from the path. What has to hold: the payload survives a round trip
- * byte-exact, it cannot close its own `<script>`, and reading it REMOVES it (a
- * leftover element would take a `gap` in the flex column that measures the slide).
+ * byte-exact, it cannot close its own `<script>`, reading it REMOVES it (so a
+ * consumed snapshot doesn't linger where something may copy or serialize it), and
+ * a re-export REPLACES the block rather than stacking a staler one beside it.
  */
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const {
-  FRONT_MATTER_TYPE, readFrontMatterBlock, frontMatterBlock, readBakedFrontMatter,
+  FRONT_MATTER_TYPE, BLOCK_NOTE, readFrontMatterBlock, frontMatterBlock,
+  withoutFrontMatterBlock, withoutLocalAssetRefs, readBakedFrontMatter,
 } = require('../../../lib/core/deck-front-matter');
 const { withRuntimeScripts } = require('../../../lib/core/marp-bundle');
 
@@ -44,7 +46,11 @@ describe('deck front matter — reading the source block', () => {
 describe('deck front matter — the baked block', () => {
   test('carries the YAML as a JSON payload under its own type', () => {
     const block = frontMatterBlock(DECK);
-    assert.match(block, new RegExp(`^<script type="${FRONT_MATTER_TYPE}">`));
+    // The note leads, so the file says the block is generated where an editor is
+    // looking — the snapshot OVERRIDES the front matter it was copied from.
+    assert.ok(block.startsWith(`${BLOCK_NOTE}\n`), 'the generated-file note leads');
+    assert.match(BLOCK_NOTE, /re-export/, 'and it says what to do about it');
+    assert.match(block, new RegExp(`<script type="${FRONT_MATTER_TYPE}">`));
     assert.match(block, /<\/script>\n$/);
     // Read the payload through a real HTML parser rather than by stripping the
     // tags with a regex: what matters is what a BROWSER sees in that element, and
@@ -118,6 +124,68 @@ describe('deck front matter — reading it back out of a document', () => {
   test('survives a null / non-DOM argument', () => {
     assert.equal(readBakedFrontMatter(null), null);
     assert.equal(readBakedFrontMatter({}), null);
+  });
+});
+
+describe('deck front matter — the snapshot cannot go stale in duplicate', () => {
+  // Re-exporting a bundle's own deck is ordinary (edit what a recipient sent back,
+  // re-export). It used to stack a SECOND block, and the reader took the FIRST —
+  // so a re-export was read through the stalest snapshot in the file.
+  test('re-baking replaces the block rather than stacking a second', () => {
+    const once = withRuntimeScripts(DECK);
+    const twice = withRuntimeScripts(once);
+    assert.equal(once, twice, 'the second bake is byte-identical');
+    assert.equal((twice.match(new RegExp(FRONT_MATTER_TYPE, 'g')) || []).length, 1);
+    // …and the runtime tags too, which were also duplicating.
+    assert.equal((twice.match(/lattice-runtime\.min\.js/g) || []).length, 1);
+  });
+
+  test('a deck whose front matter CHANGED re-bakes to the new value', () => {
+    const first = withRuntimeScripts(DECK);
+    const edited = first.replace('color-mode: dark', 'color-mode: light');
+    const doc = new JSDOM(`<section>${withRuntimeScripts(edited)}</section>`).window.document;
+    const fm = readBakedFrontMatter(doc);
+    assert.match(fm, /color-mode: light/);
+    assert.doesNotMatch(fm, /color-mode: dark/, 'no trace of the previous snapshot');
+  });
+
+  test('when a document somehow holds two blocks, the LAST wins and both go', () => {
+    const doc = new JSDOM(
+      `<section>${frontMatterBlock('---\nclass: dark\n---\n# A\n')}`
+      + `${frontMatterBlock('---\nclass: light\n---\n# A\n')}</section>`,
+    ).window.document;
+    assert.equal(readBakedFrontMatter(doc), 'class: light', 'the newest snapshot is the one to trust');
+    assert.equal(doc.querySelectorAll('script').length, 0, 'neither is left behind');
+  });
+
+  test('withoutFrontMatterBlock strips the block and its note, and nothing else', () => {
+    const deck = `${DECK.replace(/\s*$/, '')}\n`;
+    assert.equal(withoutFrontMatterBlock(`${deck}${frontMatterBlock(DECK)}`), deck);
+    assert.equal(withoutFrontMatterBlock(deck), deck, 'a deck with no block is untouched');
+  });
+});
+
+describe('deck front matter — a producer that cannot carry local files', () => {
+  // The in-browser producer has no filesystem, so it cannot copy a deck's local
+  // images into the bundle. Baking a relative `logo:` would render a broken image
+  // where the register previously just never fired.
+  test('localAssets:false drops a relative logo, keeps a remote or data one', () => {
+    const payload = (src, opts) => {
+      const doc = new JSDOM(`<section>${frontMatterBlock(src, opts)}</section>`).window.document;
+      return readBakedFrontMatter(doc) || '';
+    };
+    const local = '---\nclass: dark\nlogo: brand/mark.svg\n---\n# A\n';
+    assert.match(payload(local), /logo: brand\/mark\.svg/, 'the CLI keeps it — it copies the file');
+    assert.doesNotMatch(payload(local, { localAssets: false }), /logo:/);
+    assert.match(payload(local, { localAssets: false }), /class: dark/, 'other keys survive');
+    for (const remote of ['https://x.test/m.svg', 'data:image/svg+xml,<svg/>', '//x.test/m.svg', '/abs/m.svg']) {
+      const src = `---\nlogo: ${remote}\n---\n# A\n`;
+      assert.ok(payload(src, { localAssets: false }).includes(`logo: ${remote}`), `kept: ${remote}`);
+    }
+  });
+
+  test('withoutLocalAssetRefs leaves a front matter with no asset key alone', () => {
+    assert.equal(withoutLocalAssetRefs('class: dark'), 'class: dark');
   });
 });
 
