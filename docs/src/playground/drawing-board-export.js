@@ -146,11 +146,24 @@ export function exportMarkdown(source, name, theme, components) {
 // (window.LatticePlayground.marp), shared with the CLI so the two can't drift.
 // `themeBase` is the hashed `…/playground/v/<hash>/themes/` URL the Drawing Board
 // already fetches palettes from; the static assets sit beside it under export/.
-export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version } = {}) {
+/**
+ * @param {string} source deck markdown
+ * @param {string} name deck name (slugged for every path in the bundle)
+ * @param {string} palette theme name
+ * @param {string} themeBase hashed `…/playground/v/<hash>/themes/` URL
+ * @param {{includeAgent?: boolean, version?: string,
+ *          overflowMarker?: 'author'|'reader'|'off'}} [opts]
+ *   `overflowMarker` is the EXPORT setting (lib/core/resolve-overflow-marker.js) —
+ *   who the overflow signal in the rendered bundle is addressed to. Typed
+ *   explicitly rather than left to inference: the caller passes it from workspace
+ *   settings, and an inferred signature dropped it, so a real wiring change
+ *   type-errored at the call site instead of being checked here.
+ */
+export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd, withResolvedOverflowMarker } = marp;
+	const { bakeSplits, appendAutoGlossary, liftImageBgImages, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson, vscodeSettings, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -173,22 +186,17 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// the glossary. No baseDir, so the author's own URL survives verbatim — this
 	// producer cannot copy local files (hence `localAssets: false` below), so a
 	// remote or `data:` image works and a relative one was already unresolvable.
-	// …and the `overflow-marker:` policy resolved + WRITTEN IN, through the same
-	// shared helper the CLI uses. Without it this producer shipped the runtime's
-	// authoring fallback: `frontMatterBlock` bakes nothing for a deck with no front
-	// matter, so a front-matter-less deck exported from here carried no baked block,
-	// the runtime read it as an authoring surface, and a recipient got the red ring
-	// and the "FIX ME" overlays — the exact defect the register exists to fix, on the
-	// export path a non-CLI user actually uses. Writing the key manufactures the
-	// front matter when absent. No override here yet: the Studio has no UI for it, so
-	// the deck's own key decides and the default is `reader`.
+	// …and this export's overflow-marker level recorded in its own settings block.
+	// Passed explicitly rather than defaulted, because without it this producer
+	// shipped the runtime's AUTHORING fallback — a recipient of a Studio-exported
+	// deck got the red ring and the "FIX ME" overlays, the exact defect the setting
+	// exists to fix, on the export path a non-CLI user actually uses. The caller
+	// resolves it from the workspace setting (share-export.ts).
 	dir.file(
 		`${slug}.md`,
 		withRuntimeScripts(
-			withResolvedOverflowMarker(
-				liftImageBgImages(bakeSplits(appendAutoGlossary(source)), undefined),
-			).deck,
-			{ localAssets: false },
+			liftImageBgImages(bakeSplits(appendAutoGlossary(source)), undefined),
+			{ localAssets: false, overflowMarker },
 		),
 	);
 

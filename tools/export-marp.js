@@ -12,9 +12,10 @@
  *                            assets/, runtime <script> tags (mermaid + lattice-runtime)
  *                            and the BAKED FRONT MATTER appended
  *                            (lib/core/deck-front-matter.js — the deck-wide registers
- *                            Marp strips and `fetch` can't recover over `file://`),
- *                            with the resolved `overflow-marker:` written in
- *                            (lib/core/resolve-overflow-marker.js)
+ *                            Marp strips and `fetch` can't recover over `file://`)
+ *                            plus this export's OWN settings block
+ *                            (lib/core/export-settings.js — today the overflow-marker
+ *                            level; producer choices, not deck front matter)
  *     lattice.css          — the palette-blind engine stylesheet (minified)
  *     fonts/*.woff2        — every face lattice.css's @font-face srcs point at
  *     themes/<palette>.css — the deck's palette (+ -dark), minified (from dist/themes/)
@@ -33,14 +34,17 @@
  *                             [--no-agent] [--overflow-marker=author|reader|off]
  *
  * `--overflow-marker` decides who the overflow signal in the rendered bundle is
- * addressed to — see lib/core/resolve-overflow-marker.js. It leaves the SOURCE deck
- * untouched; absent it and a deck key, the export default is `reader`.
+ * addressed to — see lib/core/resolve-overflow-marker.js. It is an EXPORT setting,
+ * not a deck key: the same source is previewed while authoring, exported for a
+ * recipient, and printed to PDF, and those three want different answers. Resolution
+ * is `--overflow-marker` (this export) → `LATTICE_OVERFLOW_MARKER` (the standing
+ * choice for this checkout; the Studio has a workspace toggle instead) → `reader`.
+ * The console says which one won.
  *
- * It is NOT, however, "one export and gone": the resolved value is written into the
- * EMITTED front matter (which is what makes the artifact state its own policy), so
- * re-exporting that bundle's own `.md` — an ordinary thing to do with a deck a
- * recipient sent back — inherits it. That matters most for `off`, the level that
- * makes a clipped slide look finished. The console says which source won.
+ * The chosen level is recorded in the bundle's export-settings block, NOT in the
+ * deck's front matter — so re-exporting a bundle's own `.md` starts from your
+ * current settings rather than silently inheriting the previous export's. That
+ * matters most for `off`, the level that makes a clipped slide look finished.
  *
  * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
  * in ANY Marp tool. The generated marp.config.cjs sets `html: true` — without it
@@ -65,7 +69,7 @@ const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
-  safeName, vscodeSettings, readme, agentsMd, withResolvedOverflowMarker, OVERFLOW_MARKER_LEVELS,
+  safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
 } = require('../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
@@ -238,6 +242,21 @@ function main(argv) {
   if (markerFlag !== null && !isKnownOverflowMarker(markerFlag)) {
     die(`--overflow-marker must be one of ${OVERFLOW_MARKER_LEVELS.join(', ')} (got '${markerFlag}')`);
   }
+  // The CLI's WORKSPACE-level answer — the standing choice for every export from
+  // this checkout, where the Studio has a settings toggle beside `pdfPages`. An env
+  // var rather than a config file: there is no lattice config format to add a key
+  // to, and inventing one for a single setting is the larger change. A stale value
+  // here falls back rather than dying (unlike the flag, which you just typed).
+  const resolvedMarker = resolveExportOverflowMarker({
+    chosen: markerFlag,
+    workspace: process.env.LATTICE_OVERFLOW_MARKER ?? null,
+  });
+  const marker = resolvedMarker.marker;
+  const markerSource = resolvedMarker.source === 'this export' ? '--overflow-marker' : resolvedMarker.source;
+  if (resolvedMarker.ignored !== null) {
+    console.warn(`  ⚠ LATTICE_OVERFLOW_MARKER='${resolvedMarker.ignored}' is not one of `
+      + `${OVERFLOW_MARKER_LEVELS.join(', ')} — ignored, using '${marker}'.`);
+  }
   if (!fs.existsSync(deckPath)) die(`deck not found: ${deckPath}`);
   // Validate the agent-kit inputs UP FRONT (before writing anything), so a
   // missing catalog can't leave an orphaned bundle whose README/AGENTS.md
@@ -308,23 +327,15 @@ function main(argv) {
   //     future runtime ships. `withRuntimeScripts` then bakes this same front
   //     matter into the document block, so the visible key and the one the
   //     runtime reads cannot disagree (lib/core/deck-front-matter.js).
-  const resolvedMarker = withResolvedOverflowMarker(localizedFm, markerFlag);
-  const { marker } = resolvedMarker;
-  const markerSource = resolvedMarker.source === 'override' ? '--overflow-marker' : resolvedMarker.source;
-  // An unrecognized deck value used to collapse into "(default)", so the author was
-  // never told their key had been ignored — and the export then OVERWROTE the typo,
-  // erasing it from the artifact too. The flag form dies on a bad value; the deck
-  // form falls back (a typo must not decide an artifact) but must at least say so.
-  if (resolvedMarker.ignored !== null) {
-    console.warn(`  ⚠ front matter says \`overflow-marker: ${resolvedMarker.ignored}\`, which is not one of `
-      + `${OVERFLOW_MARKER_LEVELS.join(', ')} — ignored, using '${marker}'.`);
-  }
-  const fm = resolvedMarker.deck;
+  const fm = localizedFm;
   // Append the runtime scripts + the baked front matter (the deck-wide registers
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  fs.writeFileSync(path.join(dest, `${file}.md`), withRuntimeScripts(fm + bakedBody));
+  fs.writeFileSync(
+    path.join(dest, `${file}.md`),
+    withRuntimeScripts(fm + bakedBody, { overflowMarker: marker }),
+  );
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
   //    under the readable `<palette>.css` name marp/VS Code register by @theme.

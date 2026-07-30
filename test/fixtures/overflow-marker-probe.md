@@ -33,6 +33,11 @@ theme: indaco
 
   Add `color-mode: dark` to the front matter for the dark-mode pass — the pill is
   palette-blind (`--text-body` on `--bg`) and must invert, not disappear.
+
+  NOTE: the level is an EXPORT setting, not a deck key — there is deliberately no
+  `overflow-marker:` in the front matter below, and adding one would do nothing
+  (`lint:deck` says so). It is chosen by the flag above, by
+  LATTICE_OVERFLOW_MARKER, or by the Studio's workspace setting.
 -->
 
 # Overflow marker probe

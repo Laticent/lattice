@@ -1,5 +1,5 @@
 /**
- * Integration: the `overflow-marker:` register, exercised through the REAL bundled
+ * Integration: the overflow-marker EXPORT SETTING, exercised through the REAL bundled
  * runtime (`dist/lattice-runtime.js`) in jsdom — the same harness shape as
  * runtime-frontmatter-refire.test.js, and for the same reason: the bootstrap IIFE
  * is not requireable, so a unit test can only reach the pure resolvers.
@@ -9,8 +9,8 @@
  * none — and all three of the confirmed correctness findings lived in that gap:
  *
  *   1. `deckOverflowMarker`'s surface heuristic. With no explicit fallback the
- *      PRESENCE of a baked front-matter block decides the default: a block means
- *      an Export-to-Marp bundle (→ `reader`), no block means a live preview
+ *      PRESENCE of an export-settings block decides the default: a block means an
+ *      exported artifact (→ `reader`), no block means an authoring surface
  *      (→ `author`). Getting that backwards is the original reported defect — a
  *      delivered deck covered in "FIX ME" overlays — so it is pinned here.
  *   2. The per-section `data-lattice-overflow-marker` stamp. It is what the CSS
@@ -29,7 +29,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
-const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
+const { exportSettingsBlock } = require('../../../lib/core/export-settings');
 
 const RUNTIME_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'),
@@ -37,12 +37,11 @@ const RUNTIME_SRC = fs.readFileSync(
 );
 
 const SLIDE = '<section class="content"><h2>Title</h2><p>Body.</p></section>';
-const deckWith = (fm) => `---\n${fm}\n---\n\n## Title\n\nBody.\n`;
 
 /**
- * Boot the real runtime over a document, optionally carrying a baked block.
- * `fetch` is stubbed to reject so the fetch fallback can never quietly supply the
- * front matter — every answer here has to come from the baked block or the default.
+ * Boot the real runtime over a document, optionally carrying an export-settings
+ * block. `fetch` is stubbed to reject so no network fallback can quietly supply an
+ * answer — everything here comes from the block or from the surface default.
  */
 async function boot({ block = '', markup = SLIDE } = {}) {
   const dom = new JSDOM(
@@ -65,24 +64,24 @@ describe('overflow-marker — the surface heuristic decides the default', () => 
   // runtime inside marp-cli's browser, and with no signal it took the AUTHORING
   // default. The baked block IS the signal — it is written by one function and
   // only ever by an export producer.
-  test('a document carrying a baked block is an export → reader', async () => {
-    const dom = await boot({ block: frontMatterBlock(deckWith('theme: indaco')) });
+  test('a document carrying an export-settings block is an export → reader', async () => {
+    const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'reader' }) });
     assert.deepEqual(levelsOn(dom.window.document), ['reader']);
     dom.window.close();
   });
 
-  test('a document with no baked block is an authoring surface → author', async () => {
+  test('a document with no export-settings block is an authoring surface → author', async () => {
     const dom = await boot();
     assert.deepEqual(levelsOn(dom.window.document), ['author']);
     dom.window.close();
   });
 
-  test("the deck's own key overrides the surface default, both ways", async () => {
-    const asAuthor = await boot({ block: frontMatterBlock(deckWith('overflow-marker: author')) });
+  test("the export's recorded level overrides the surface default, both ways", async () => {
+    const asAuthor = await boot({ block: exportSettingsBlock({ overflowMarker: 'author' }) });
     assert.deepEqual(levelsOn(asAuthor.window.document), ['author'], 'a bundle can ask for the author signal');
     asAuthor.window.close();
 
-    const asOff = await boot({ block: frontMatterBlock(deckWith('overflow-marker: off')) });
+    const asOff = await boot({ block: exportSettingsBlock({ overflowMarker: 'off' }) });
     assert.deepEqual(levelsOn(asOff.window.document), ['off']);
     asOff.window.close();
   });
@@ -92,14 +91,19 @@ describe('overflow-marker — the surface heuristic decides the default', () => 
   // gate would miss, and the slide would carry the reader's label inside the
   // author's red ring.
   test('an unrecognized value falls back to a REAL level, never stamps itself', async () => {
-    const dom = await boot({ block: frontMatterBlock(deckWith('overflow-marker: quiet')) });
+    const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'quiet' }) });
     assert.deepEqual(levelsOn(dom.window.document), ['reader']);
     dom.window.close();
   });
 
-  test('a nested key of the same name does not decide the artifact', async () => {
-    const dom = await boot({ block: frontMatterBlock(deckWith('meta:\n  overflow-marker: off')) });
-    assert.deepEqual(levelsOn(dom.window.document), ['reader'], 'the export default, not the nested value');
+  // The altitude fix, pinned at the surface that matters: a deck key is not an
+  // input any more. A bundle whose FRONT MATTER says `off` still renders `reader`,
+  // because only the export's own settings block decides.
+  test('a front-matter key is NOT an input — only the export settings decide', async () => {
+    const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
+    const dom = await boot({ block: frontMatterBlock('---\noverflow-marker: off\n---\n\n# A\n') });
+    assert.deepEqual(levelsOn(dom.window.document), ['author'],
+      'no export-settings block at all → an authoring surface, deck key ignored');
     dom.window.close();
   });
 });
@@ -113,7 +117,7 @@ describe('overflow-marker — `off` clears what is already there and stays stamp
     const marked = '<section class="content overflow illegible">'
       + '<h2>T</h2><div class="overflow-tab">Overflows</div>'
       + '<div class="illegible-tab">Type 3px · floor 8.4px</div></section>';
-    const dom = await boot({ markup: marked, block: frontMatterBlock(deckWith('overflow-marker: off')) });
+    const dom = await boot({ markup: marked, block: exportSettingsBlock({ overflowMarker: 'off' }) });
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off'], 'stamped, so the CSS suppression can key on it');
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'the rings are gone');

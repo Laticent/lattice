@@ -21,9 +21,8 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const {
   FRONT_MATTER_TYPE, BLOCK_NOTE, readFrontMatterBlock, frontMatterBlock,
-  withoutFrontMatterBlock, withoutLocalAssetRefs, readBakedFrontMatter, withFrontMatterKey,
+  withoutFrontMatterBlock, withoutLocalAssetRefs, readBakedFrontMatter,
 } = require('../../../lib/core/deck-front-matter');
-const { readOverflowMarker } = require('../../../lib/core/resolve-overflow-marker');
 const { withRuntimeScripts } = require('../../../lib/core/marp-bundle');
 
 const DECK = ['---', 'marp: true', 'theme: indaco', 'color-mode: dark', 'logo: assets/mark.svg', '---', '', '# A', ''].join('\n');
@@ -203,62 +202,5 @@ describe('deck front matter — the export bundle carries it', () => {
     const out = withRuntimeScripts('# A\n');
     assert.match(out, /lattice-runtime\.min\.js/);
     assert.ok(!out.includes(FRONT_MATTER_TYPE));
-  });
-});
-
-/**
- * `withFrontMatterKey` — the write half. The export uses it to put the resolved
- * `overflow-marker:` into the emitted `.md`, which is then what `frontMatterBlock`
- * bakes. That one-value-one-grammar property is the point: if the write and the
- * bake could disagree, the recipient would read one policy in the deck and get
- * another on the page.
- */
-describe('deck front matter — writing a key back in', () => {
-  test('appends a key the deck does not have, keeping the rest byte-exact', () => {
-    const out = withFrontMatterKey(DECK, 'overflow-marker', 'reader');
-    assert.match(out, /^---\nmarp: true\ntheme: indaco\ncolor-mode: dark\nlogo: assets\/mark\.svg\noverflow-marker: reader\n---\n/);
-    assert.ok(out.endsWith('\n# A\n'), 'the body is untouched');
-  });
-
-  test('replaces an existing key rather than adding a second one', () => {
-    const once = withFrontMatterKey(DECK, 'overflow-marker', 'author');
-    const twice = withFrontMatterKey(once, 'overflow-marker', 'off');
-    assert.equal((twice.match(/^overflow-marker:/gm) || []).length, 1);
-    assert.equal(readOverflowMarker(readFrontMatterBlock(twice)), 'off');
-  });
-
-  // A same-named key under a mapping is different config. An indentation-tolerant
-  // write would silently edit it — and the reader anchors at column 0 too, so the
-  // two halves agree about what the deck register even is.
-  test('a NESTED key of the same name is neither read nor rewritten', () => {
-    const nested = ['---', 'meta:', '  overflow-marker: off', '---', '', '# A', ''].join('\n');
-    assert.equal(readOverflowMarker(readFrontMatterBlock(nested)), null);
-    const out = withFrontMatterKey(nested, 'overflow-marker', 'reader');
-    assert.match(out, /^ {2}overflow-marker: off$/m, 'the nested key survives verbatim');
-    assert.match(out, /^overflow-marker: reader$/m, 'the deck key is added at column 0');
-  });
-
-  test('creates a front-matter head for a deck that has none', () => {
-    const out = withFrontMatterKey('# A\n', 'overflow-marker', 'reader');
-    assert.equal(out, '---\noverflow-marker: reader\n---\n# A\n');
-    assert.equal(readOverflowMarker(readFrontMatterBlock(out)), 'reader');
-  });
-
-  test('CRLF front matter stays CRLF', () => {
-    const crlf = '---\r\nmarp: true\r\n---\r\n\r\n# A\r\n';
-    const out = withFrontMatterKey(crlf, 'overflow-marker', 'off');
-    assert.equal(out, '---\r\nmarp: true\r\noverflow-marker: off\r\n---\r\n\r\n# A\r\n');
-    assert.equal(readOverflowMarker(readFrontMatterBlock(out)), 'off');
-  });
-
-  // The property that makes the artifact self-consistent: what a recipient READS
-  // at the top of the deck is what the runtime resolves from the baked block.
-  test('the written key and the baked block agree', () => {
-    const written = withFrontMatterKey(DECK, 'overflow-marker', 'off');
-    const bundle = withRuntimeScripts(written);
-    const doc = new JSDOM(`<body>${bundle}</body>`).window.document;
-    const baked = readBakedFrontMatter(doc);
-    assert.equal(readOverflowMarker(baked), 'off');
-    assert.equal(readOverflowMarker(readFrontMatterBlock(written)), 'off');
   });
 });

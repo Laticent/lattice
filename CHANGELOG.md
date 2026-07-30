@@ -96,36 +96,34 @@ in patch versions.
   **F8 / Shift-F8 / Ctrl-Shift-M / Alt-Shift-F** lint shortcuts in the Playground, which is the only
   surface whose editor binds `lintKeymap`; and the **Deck setup** drawer in the Playground, with the
   Studio's equivalent called out as the Deck inspector.
-- **The overflow marker is now a deck register, and an Export-to-Marp bundle stops
-  shipping QA chrome.** A delivered bundle put a red ring, an "OVERFLOWS" flag, and
-  per-cell "FIX ME" overlays on every clipped slide — it renders through the browser
-  runtime inside marp-cli, so it inherited the runtime's AUTHORING default by accident.
-  The marker was not a false positive — detection accuracy was established earlier in this
-  swimlane (258 slides / 9 decks, zero false positives; that is evidence about DETECTION,
-  not about this treatment) — so the fix is not to hide it but to say who it is addressed to. New front
-  matter `overflow-marker: author | reader | off`, plus `--overflow-marker=<level>` on
-  `tools/export-marp.js` to override one export without editing the deck; the resolved
-  value is written into the emitted front matter, so the artifact states its own policy.
-  **`reader` is the export default** — no ring, and the same text-labeled tab restyled
-  into a calm **"Content clipped"** pill, so a clipped slide still says so while the
-  artifact is not a bug report. (Not "More below": `section` is `overflow: hidden` and the
-  body cell is `overflow: clip`, so there is nothing below to scroll to — the old wording
-  promised a recovery that does not exist. The fluid viewer's tab is corrected too.) `author` keeps the full authoring signal (the live-preview default);
-  `off` draws nothing and must be opted into. `export-marp` also now prints the policy in
-  effect on the console, and says plainly that it did not render and therefore did not
-  measure overflow — naming `lattice-emulator.js` as the command that does. The emulator's
-  PDF/PNG/PPTX path is unchanged (already clean + a stderr warning) and does not read the
-  register yet — the key is read only out of the snapshot block an export bakes, so it
-  governs a bundle and nothing else; `design/skill.md` states that scope where an author
-  reads it, and `lint:deck` now names a typo'd value. Two regressions the adversarial trio
-  caught before merge are folded in: at `reader` a clipping slide in a `finish:` deck lost
-  its keyline (the frame yields to the overflow ring, and the ring was being nulled — the
-  ring is now gated instead), and `overflow-marker: off` rendered the *loudest* marker in a
-  `--fluid` export, because the emulator embeds its own watcher that re-stamps `.overflow`
-  on every resize (now enforced in CSS, which a one-shot sweep could not do). The author
-  "OVERFLOWS" tab is also `position: absolute !important` now — `base.finish.css` was
-  winning and rendering it as a full-width in-flow band that cost a line of copy.
+- **An Export-to-Marp bundle stops shipping QA chrome, and the overflow marker becomes an
+  EXPORT SETTING.** A delivered bundle put a red ring, an "OVERFLOWS" flag, and per-cell
+  "FIX ME" overlays on every clipped slide — it renders through the browser runtime inside
+  marp-cli, so it inherited the runtime's AUTHORING default by accident. The marker was not
+  a false positive (detection accuracy was established earlier in this swimlane), so the fix
+  is not to hide it but to say who it is addressed to. Three levels — `author` (the full
+  editing signal), `reader` (**the export default**: no ring, a calm **"Content clipped"**
+  pill, so a clipped slide still says so while the artifact is not a bug report), and `off`
+  (nothing; opt-in only). An authoring surface is not configurable — you are the one who can
+  fix it, so the live preview always shows the full signal.
+  **It is a setting, not a deck key**: the same source is previewed, exported, and printed,
+  and those want three different answers, so it belongs to the render target (the reasoning
+  that retired `autosplit:` a day earlier). Choose it with `--overflow-marker=<level>` on
+  `tools/export-marp.js` for one export, `LATTICE_OVERFLOW_MARKER` for every export from a
+  checkout, or the Studio's new workspace setting beside the PDF page format. The level
+  travels in the bundle's own generated settings block — never front matter — so a re-export
+  cannot silently inherit the previous export's choice. A stray `overflow-marker:` in a deck
+  is flagged by `lint:deck`. `export-marp` also prints the policy in effect and says plainly
+  that it did not render and therefore did not measure overflow, naming `lattice-emulator.js`
+  as the command that does. The emulator's PDF/PNG/PPTX path is unchanged (already clean +
+  a stderr warning) and does not read the setting yet.
   `engineering/decisions/2026-07-30-overflow-marker-register.md`.
+- **The overflow marker's reader wording no longer promises something false.** The calm
+  variant read "More below ↓", which is a scroll affordance — but `section` is
+  `overflow: hidden` and the body cell is `overflow: clip`, which creates no scroll container
+  at all, and the fluid viewer's scroll-snap sends a downward scroll to the *next slide*.
+  The content is gone, not below. It now reads **"Content clipped"**, with no arrow, on every
+  surface including the fluid viewer.
 
 - **Masthead framing text now FILLS the band on every non-sovereign component; how it behaves is
   the deck's call, through `headline:` alignment.** The eyebrow, heading and subtitle take the width

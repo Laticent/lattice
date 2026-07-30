@@ -100,29 +100,36 @@ see [theming.md § Dark mode](./theming.md#dark-mode).
 
 A slide whose content exceeds the frame is **clipped** — the overflow is not
 scrollable and it is not printed. Lattice never lets that happen quietly: the
-overflowing slide is marked. `overflow-marker:` decides who the mark is *for*.
+overflowing slide is marked. **While you are editing you always see the full
+signal** — a red ring, an "Overflows" tag, per-cell "Fix Me" overlays — because you
+are the one who can fix it. The marker is drawn over the slide and never changes
+its layout. It is a label on a loss, not a way to recover it: trim the content, or
+move it to a layout with more room.
 
-| Front-matter | An overflowing slide shows | Use it for |
-|---|---|---|
-| `overflow-marker: author` | red ring, "Overflows" flag, per-cell "Fix Me" overlays, the small-type alarm | fixing the deck — the live-preview default |
-| `overflow-marker: reader` | a calm "Content clipped" pill, no ring | delivering the deck — the **export default** |
-| `overflow-marker: off` | nothing | a deck you have already checked fits |
+**Who the marker speaks to in a deck you EXPORT is a setting, not a deck key.** The
+same source is previewed while authoring, exported for a recipient, and printed to
+PDF, and those three want different answers — so it belongs to what you are
+producing, not to the deck. There is nothing to write in your front matter (and
+`lint:deck` will tell you so if you try).
 
-The marker is drawn over the slide and never changes the layout. It is a signal,
-not a fix: trim the content, or move it to a layout with more room.
+| level | an overflowing slide shows |
+|---|---|
+| `reader` | a calm "Content clipped" pill, no ring — **the export default** |
+| `author` | the full editing signal, for a deck you are still working on |
+| `off` | nothing. Only for a deck you have already checked fits |
 
-**This is an EXPORT setting.** The runtime reads it out of the snapshot block an
-export bakes, so it decides what a *bundle* shows and nothing else: your live
-preview always shows the `author` signal (you are authoring), a PDF from
-`lattice-emulator.js` always comes out clean with the warning on stderr, and the key
-in a working deck changes nothing you can see until you export. `lint:deck` will
-name a typo in it.
+Choose it per export, or once for everything:
 
-`node tools/export-marp.js <deck.md> <out> --overflow-marker=<level>` overrides the
-key without touching your source deck — but it *is* written into the exported one,
-so re-exporting that bundle inherits it. `export-marp` does not render, so it cannot
-measure overflow: `node lattice-emulator.js <deck.md> <out.pdf>` prints the clipped
-pages.
+```sh
+node tools/export-marp.js <deck.md> <out> --overflow-marker=off   # this export
+LATTICE_OVERFLOW_MARKER=author node tools/export-marp.js …        # every export here
+```
+
+In the Studio it is a workspace setting, beside the PDF page-format choice.
+
+`export-marp` does not render, so it cannot measure overflow — it says so, and
+names the command that can: `node lattice-emulator.js <deck.md> <out.pdf>` prints
+the clipped pages.
 
 Design record: [2026-07-30-overflow-marker-register.md](../engineering/decisions/2026-07-30-overflow-marker-register.md).
 

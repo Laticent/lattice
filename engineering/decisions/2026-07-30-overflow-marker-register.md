@@ -1,9 +1,9 @@
 ---
 status: shipped
-summary: A delivered Export-to-Marp bundle put a red QA ring, an "OVERFLOWS" flag, and per-cell "FIX ME" overlays on every clipped slide — the bundle renders through the browser runtime inside marp-cli, so it inherited the runtime's AUTHORING default by accident. The marker was NOT a false positive (258 slides / 9 decks, zero false positives; a 12-slide boundary ladder measured identically on both paths), so the fix is not to hide it but to say who it is addressed to. Two shipped policies had disagreed and both were right on their own surface — the emulator strips the marker and warns on stderr, the runtime draws it so a reader never gets a silent clip — which makes it a configuration, not a constant. New `overflow-marker: author | reader | off` deck register plus a `--overflow-marker` flag on tools/export-marp.js; `reader` is the export default (no ring, a calm "More below" pill, so a clipped slide still says so without being a bug report), `off` must be opted into. Two traps found building it — a `:root[…]` gate is rewritten by marp-core's selector scoper into a slide-inside-a-slide and silently never matches (the gate rides on the section instead), and the register must be read at column 0 so a key nested under `meta:` cannot decide a delivered artifact. The emulator's PDF/PNG/PPTX path does not read the register yet and is unchanged.
+summary: A delivered Export-to-Marp bundle put a red QA ring, an "OVERFLOWS" flag, and per-cell "FIX ME" overlays on every clipped slide — the bundle renders through the browser runtime inside marp-cli, so it inherited the runtime's AUTHORING default by accident. The marker was NOT a false positive (detection accuracy was established earlier in the swimlane), so the fix is not to hide it but to say who it is addressed to. Two shipped policies had disagreed and both were right on their own surface — the emulator strips the marker and warns on stderr, the runtime draws it so a reader never gets a silent clip — which makes it a configuration, not a constant. Three levels: author / reader / off, with reader the export default (no ring, a calm "Content clipped" pill, so a clipped slide still says so without being a bug report) and off opt-in only. IT IS AN EXPORT SETTING, NOT A DECK REGISTER: it shipped as `overflow-marker:` front matter for one commit and the Munger inversion caught the altitude error, citing this repo's ruling from one day earlier that retired `autosplit:` — one deck source is previewed, exported, and printed, so the answer belongs to the render target. It is now chosen by `--overflow-marker` (this export), `LATTICE_OVERFLOW_MARKER` (this checkout), or the Studio workspace setting beside `pdfPages`, and travels in its own generated block so a re-export cannot inherit the previous export's choice. The reader label was also false — "More below" promised a scroll that `overflow: clip` makes impossible — and is now "Content clipped". Traps found: a `:root[…]` gate is rewritten by marp-core's selector scoper into a slide-inside-a-slide and silently never matches (the gate rides on the section instead); `reader` deleted the finish keyline by nulling the ring the finish frame yields to; and `off` lost a race to the emulator's own inline watcher until it was enforced in CSS. The emulator's PDF/PNG/PPTX path does not read the setting yet and is unchanged.
 ---
 
-# The overflow marker becomes a register, and the export stops shipping QA chrome
+# The overflow marker becomes an EXPORT SETTING, and the export stops shipping QA chrome
 
 **Date:** 2026-07-30
 **Swimlane:** Export-to-Marp fidelity (`2026-07-29-export-to-marp-broken.md`)
@@ -64,36 +64,68 @@ as bad choice."* That is the signature of a **configuration**, not a constant.
 
 ## The decision
 
-A deck front-matter register, `overflow-marker:`, with three levels
-(`lib/core/resolve-overflow-marker.js`):
+Three levels (`lib/core/resolve-overflow-marker.js`):
 
-| level | what an overflowing slide shows | default for |
+| level | what an overflowing slide shows | where it applies |
 |---|---|---|
-| `author` | red ring, "Overflows" flag, per-cell "Fix Me" overlays, the §8-rule-8 type-floor alarm | the live preview / Studio |
-| `reader` | no ring; the same text-labeled tab restyled into a calm **"More below ↓"** pill | **an export** |
-| `off` | nothing | never — opt in explicitly |
+| `author` | red ring, "Overflows" flag, per-cell "Fix Me" overlays, the §8-rule-8 type-floor alarm | every authoring surface, always |
+| `reader` | no ring; the same text-labeled tab restyled into a calm **"Content clipped"** pill | **an export, by default** |
+| `off` | nothing | an export, opted into |
 
-**`reader` is the default, and it is the least-bad choice rather than a good one.**
-It keeps the property that matters — a slide that clips still says so, in text, so
-nothing is silently lost — while dropping everything that only helps someone
-*fixing* the deck. `off` stays available for an author who has already checked the
-deck and wants a wholly clean artifact; it is never the default, because a default
-that hides a defect is the failure mode this whole swimlane exists to prevent.
+**`reader` is the export default, and it is the least-bad choice rather than a good
+one.** It keeps the property that matters — a slide that clips still says so, in
+text, so nothing is silently lost — while dropping everything that only helps
+someone *fixing* the deck. `off` stays available for an author who has already
+checked the deck; it is never the default, because a default that hides a defect is
+the failure mode this whole swimlane exists to prevent.
 
-**Resolution order** is flag → deck front matter → default, decided once in
-`withResolvedOverflowMarker` (`lib/core/marp-bundle.js`) so the CLI and the
-in-browser Studio cannot ship different defaults:
+An **authoring** surface is not configurable at all. You are the one who can fix a
+clipped slide, so the live preview and the Studio always show the full signal.
 
-- `--overflow-marker=<level>` leaves the SOURCE deck untouched. It is not "one
-  export and gone", though: the resolved value is written into the EMITTED deck, so
-  re-exporting a bundle's own `.md` inherits it. That matters most for `off`.
-- the deck's own `overflow-marker:` key states the author's standing intent.
+### It is a setting, not a deck register — corrected after the first cut
 
-The resolved value is **written into the emitted front matter**, unconditionally.
-That is what makes the bundle self-documenting: a recipient reads the policy in the
-deck they were handed and changes it by editing one line, and the same key is what
-`frontMatterBlock` bakes for the runtime — one value, one grammar, so the visible
-front matter and the runtime's copy cannot disagree.
+The first version of this shipped `overflow-marker:` as deck front matter. That was
+the wrong altitude, and the Munger inversion said so by pointing at this repo's own
+ruling from **one day earlier**:
+`engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md` retired `autosplit:`
+on exactly this argument — page count is a function of content and box, not an
+authoring fact, so it cannot be an authoring-time switch, and the need moved to a
+tool flag.
+
+Apply the same test. Is "who is the overflow signal addressed to" a property of the
+DECK, or of the RENDER TARGET? One deck source is previewed while authoring,
+exported to a bundle for a recipient, and printed to PDF for the record. One deck,
+three correct answers, decided entirely by which command you ran. That is a target
+property by definition — and the measured evidence agreed: the deck key was inert on
+four of five surfaces, so what it bought over the flag alone was "I don't want to
+type the flag", paid for with permanent front-matter vocabulary, a documented row in
+`design/skill.md`, a section in every generated bundle README, and a lint rule.
+
+**So the level is chosen where the export is:**
+
+| input | scope | mechanism |
+|---|---|---|
+| `--overflow-marker=<level>` | this one export | `tools/export-marp.js` |
+| `LATTICE_OVERFLOW_MARKER` | every export from this checkout | env var (there is no Lattice config format, and inventing one for a single setting is the larger change) |
+| Studio workspace setting | every export from this Studio | `StudioSettings.overflowMarker`, beside `pdfPages` — which is already a workspace-level *export* setting with the same reasoning |
+| — | otherwise | `reader` |
+
+and it travels to the runtime in its **own generated block**
+(`lib/core/export-settings.js`), never in the author's front matter. Three things
+follow from that separation, and each was a defect while it was a key:
+
+- **Nothing looks like an input the author should write.** A front-matter key the
+  export writes but never reads back is a key that LOOKS like an input and is not.
+- **A re-export cannot inherit it.** Exporting a bundle's own `.md` — an ordinary
+  thing to do with a deck a recipient sent back — used to carry the previous
+  export's choice forward silently. That mattered most for `off`: a one-time "quiet
+  this for the board" became a permanent property of every derived deck, watched by
+  nothing.
+- **The block is regenerated**, so it is always the current export's decision.
+
+A stray `overflow-marker:` in a deck now earns a deck-lint warning naming where the
+setting actually lives (`findStrayOverflowMarker`) — because the alternative is
+silence, and silence is what the move was meant to end.
 
 ### The second channel
 
@@ -104,26 +136,19 @@ the command that does (`lattice-emulator.js`, which prints
 `⚠ OVERFLOW — N slides … pages X, Y` from the same probe). A disclosure that named a
 measurement it had not taken would be worse than none (HARD RULE #23).
 
-## Scope: narrower than "a deck register" sounds
+## Which surface shows what
 
-Stated here because the first version of this record got it wrong, and the trio
-caught it by rendering. The runtime resolves the key from the BAKED block and
-nothing else, and only an export producer writes one:
-
-| surface | what it shows | reads the key? |
+| surface | what it shows | reads the export setting? |
 |---|---|---|
-| Export-to-Marp bundle | flag → deck key → `reader` | **yes — the only one** |
-| live preview / Studio | always `author` | no |
-| fluid viewer | always `reader` | no (no block is baked into one) |
-| emulator PDF/PNG/PPTX | clean + a stderr warning | no |
-| HTML player | no marker (scripts stripped) | no |
+| Export-to-Marp bundle | flag → workspace → `reader` | **yes — it is the artifact the setting is for** |
+| live preview / Studio | always `author` | no, by design: you can fix it |
+| fluid viewer | always `reader` | no block is written into one |
+| emulator PDF/PNG/PPTX | clean + a stderr warning | not yet — see below |
+| HTML player | no marker (scripts stripped) | no runtime, so no marker |
 
-This is defensible — it is an *export* configuration, and an authoring surface
-should show the authoring signal — but two consequences have to be said out loud
-rather than discovered: `overflow-marker: author` will not put a ring in a PDF, and
-setting the key in a working deck changes nothing visible until you export.
-`design/skill.md` says so where an author reads, and deck-lint now knows the key so
-a typo is at least named (`findUnknownOverflowMarker`).
+The runtime tells an exported artifact from an authoring surface by the PRESENCE of
+the export-settings block, which is written by one function and only ever by an
+export producer. That is a fact about the document, not a heuristic.
 
 ## Two traps found while building it
 
@@ -174,13 +199,19 @@ this fixes.
 
 ## Not in scope, and why
 
-**The emulator's PDF / PNG / PPTX path does not read this register yet.** It is
+**The emulator's PDF / PNG / PPTX path does not read this setting yet.** It is
 hard-wired to the equivalent of `off` plus its stderr warning — which is already the
 right default, so nothing is broken there, but `overflow-marker: author` will not put
 a ring in a PDF. Wiring it up means changing the bytes of the primary export artifact
 and touching the emulator's separate inline watcher copy, which is its own change with
 its own sign-off. It is the next item in this swimlane, and the scope limit is stated
 in `resolve-overflow-marker.js`'s header rather than left for someone to discover.
+
+**No Studio UI for a per-export override.** The Studio has the WORKSPACE setting
+(every export from that Studio) but no per-export picker in the Share sheet, where
+the CLI has `--overflow-marker`. That is the smaller half of "config at export time
+or in workspace settings" and can follow; the workspace setting is what makes the
+Studio's export stop shipping QA chrome today.
 
 
 ---

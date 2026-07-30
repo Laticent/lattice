@@ -1,13 +1,20 @@
 /**
- * Unit: the `overflow-marker:` register (lib/core/resolve-overflow-marker.js) and
- * the drawing policy it selects (lib/runtime/fluid-view-policy.js).
+ * Unit: the `overflow-marker` EXPORT SETTING (lib/core/resolve-overflow-marker.js)
+ * and the drawing policy it selects (lib/runtime/fluid-view-policy.js).
  *
- * The register exists because two shipped policies disagreed and BOTH were right
- * on their own surface: lattice-emulator.js strips every marker before printing a
- * PDF and warns the author on stderr; the browser runtime draws the marker so a
- * reader never gets a silent clip. An Export-to-Marp bundle renders through the
- * runtime inside marp-cli's browser, so it inherited the AUTHORING default by
- * accident and shipped "Overflows" + per-cell "Fix Me" tags to recipients.
+ * The setting exists because two shipped policies disagreed and BOTH were right on
+ * their own surface: lattice-emulator.js strips every marker before printing a PDF
+ * and warns the author on stderr; the browser runtime draws the marker so a reader
+ * never gets a silent clip. An Export-to-Marp bundle renders through the runtime
+ * inside marp-cli's browser, so it inherited the AUTHORING default by accident and
+ * shipped "Overflows" + per-cell "Fix Me" tags to recipients.
+ *
+ * It is NOT a deck register — it shipped as one for a single commit and moved, for
+ * the reason `autosplit:` moved a day earlier: one deck source is previewed,
+ * exported, and printed, and the three want different answers, which makes it a
+ * property of the render target. This module therefore knows only the vocabulary
+ * and how to resolve it; where the value COMES from is lib/core/export-settings.js
+ * and each producer.
  *
  * The load-bearing assertions here are the two defaults and the fact that `reader`
  * still marks. A `reader` level that quietly stopped marking would turn this from
@@ -18,7 +25,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   OVERFLOW_MARKER_LEVELS, EXPORT_DEFAULT_MARKER, AUTHORING_DEFAULT_MARKER,
-  isKnownOverflowMarker, readOverflowMarker, resolveOverflowMarker, overflowMarkerFrom,
+  isKnownOverflowMarker, resolveOverflowMarker,
 } = require('../../../lib/core/resolve-overflow-marker');
 const { overflowMarkerPolicy, overflowTabText } = require('../../../lib/runtime/fluid-view-policy');
 
@@ -47,35 +54,14 @@ describe('overflow-marker — the vocabulary', () => {
   });
 });
 
-describe('overflow-marker — reading it out of front matter', () => {
-  test('reads a flat key, quoted or bare', () => {
-    assert.equal(readOverflowMarker('theme: indaco\noverflow-marker: off\n'), 'off');
-    assert.equal(readOverflowMarker("overflow-marker: 'author'"), 'author');
-    assert.equal(readOverflowMarker('overflow-marker:   reader   '), 'reader');
-  });
-
-  test('absent, empty, and non-string inputs all read null', () => {
-    assert.equal(readOverflowMarker('theme: indaco\n'), null);
-    assert.equal(readOverflowMarker('overflow-marker:'), null);
-    assert.equal(readOverflowMarker(''), null);
-    assert.equal(readOverflowMarker(null), null);
-  });
-
-  // The register is a FLAT deck key. A same-named key nested under a mapping is a
-  // different thing, and reading it would let unrelated config decide the artifact.
-  test('a nested key is not the deck register', () => {
-    assert.equal(readOverflowMarker('meta:\n  overflow-marker: off\n'), null);
-  });
-});
-
 describe('overflow-marker — resolution', () => {
   test('a recognized value wins over the fallback', () => {
     assert.equal(resolveOverflowMarker('off', 'author'), 'off');
     assert.equal(resolveOverflowMarker(' Reader ', 'author'), 'reader');
   });
 
-  // A typo must not silently decide the artifact — deck-lint is where a typo gets
-  // named; here it just falls back to the caller's default.
+  // A stale or mistyped stored setting must not decide the artifact; it falls back
+  // to the caller's default. (The CLI flag is stricter and dies — see export-marp.)
   test('an absent or unrecognized value falls back', () => {
     assert.equal(resolveOverflowMarker(null, 'author'), 'author');
     assert.equal(resolveOverflowMarker('quiet', 'author'), 'author');
@@ -87,11 +73,6 @@ describe('overflow-marker — resolution', () => {
     assert.equal(resolveOverflowMarker(null, undefined), EXPORT_DEFAULT_MARKER);
   });
 
-  test('overflowMarkerFrom reads and resolves in one step', () => {
-    assert.equal(overflowMarkerFrom('overflow-marker: off\n', 'author'), 'off');
-    assert.equal(overflowMarkerFrom('theme: indaco\n', 'author'), 'author');
-    assert.equal(overflowMarkerFrom('', 'reader'), 'reader');
-  });
 });
 
 describe('overflowMarkerPolicy — what each level actually draws', () => {

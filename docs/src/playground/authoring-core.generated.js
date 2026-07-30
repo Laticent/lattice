@@ -99,36 +99,23 @@ var require_slide_split = __commonJS({
 // lib/core/resolve-overflow-marker.js
 var require_resolve_overflow_marker = __commonJS({
   "lib/core/resolve-overflow-marker.js"(exports, module) {
-    var KEY_RE = /^overflow-marker:[ \t]*(.*)$/gm;
     var OVERFLOW_MARKER_LEVELS = Object.freeze(["author", "reader", "off"]);
     var EXPORT_DEFAULT_MARKER = "reader";
     var AUTHORING_DEFAULT_MARKER = "author";
     function isKnownOverflowMarker(value) {
       return typeof value === "string" && OVERFLOW_MARKER_LEVELS.includes(value.trim().toLowerCase());
     }
-    function readOverflowMarker(fm) {
-      KEY_RE.lastIndex = 0;
-      const all = [...String(fm ?? "").matchAll(KEY_RE)];
-      if (!all.length) return null;
-      const v = all[all.length - 1][1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
-      return v === "" ? null : v;
-    }
     function resolveOverflowMarker(value, fallback = EXPORT_DEFAULT_MARKER) {
       const safeFallback = isKnownOverflowMarker(fallback) ? fallback.trim().toLowerCase() : EXPORT_DEFAULT_MARKER;
       if (!isKnownOverflowMarker(value)) return safeFallback;
       return value.trim().toLowerCase();
-    }
-    function overflowMarkerFrom(fm, fallback = EXPORT_DEFAULT_MARKER) {
-      return resolveOverflowMarker(readOverflowMarker(fm), fallback);
     }
     module.exports = {
       OVERFLOW_MARKER_LEVELS,
       EXPORT_DEFAULT_MARKER,
       AUTHORING_DEFAULT_MARKER,
       isKnownOverflowMarker,
-      readOverflowMarker,
-      resolveOverflowMarker,
-      overflowMarkerFrom
+      resolveOverflowMarker
     };
   }
 });
@@ -905,7 +892,7 @@ ${indent}   - ${body.trim()}`;
       findings.push(...findRetiredBackdrop(source));
       findings.push(...findSingleLetterLexiconKeys(source));
       findings.push(...findRetiredFormMinimal(source));
-      findings.push(...findUnknownOverflowMarker(source));
+      findings.push(...findStrayOverflowMarker(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
@@ -1454,21 +1441,17 @@ ${indent}   - ${body.trim()}`;
         fix: "Drop the `form: minimal` key (Form is on by default) and hide just the rail with the `no-progress` chrome control \u2014 deck-wide `class: no-progress`, or per-slide `no-progress`."
       }];
     }
-    function findUnknownOverflowMarker(source) {
+    function findStrayOverflowMarker(source) {
       const fmBlock = String(source || "").match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
-      if (!fmBlock) return [];
-      const m = [...fmBlock[1].matchAll(/^overflow-marker:[ \t]*(.*)$/gm)];
-      if (!m.length) return [];
-      const raw = m[m.length - 1][1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
-      if (raw === "" || OVERFLOW_MARKER_LEVELS.includes(raw.toLowerCase())) return [];
+      if (!fmBlock || !/^overflow-marker:/m.test(fmBlock[1])) return [];
       return [{
         slide: 0,
-        rule: "unknown-overflow-marker",
+        rule: "stray-overflow-marker",
         severity: "warning",
         classToken: "overflow-marker",
-        line: `overflow-marker: ${raw}`,
-        message: `\`overflow-marker: ${raw}\` is not a known level \u2014 it is ignored and the export falls back to \`reader\``,
-        fix: `Use one of ${OVERFLOW_MARKER_LEVELS.map((l) => `\`${l}\``).join(", ")}. \`reader\` marks a clipped slide calmly for a recipient, \`author\` shows the full authoring signal, \`off\` shows nothing.`
+        line: "overflow-marker:",
+        message: "`overflow-marker:` is not a deck key \u2014 it is an export setting, and this line does nothing",
+        fix: `Drop the key. Choose the level when you export: \`--overflow-marker=${OVERFLOW_MARKER_LEVELS.join("|")}\` on tools/export-marp.js (or \`LATTICE_OVERFLOW_MARKER\` for every export from this checkout; the Studio has a workspace setting).`
       }];
     }
     function findUnknownSplit(source, splitNames) {
