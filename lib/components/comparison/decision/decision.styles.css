@@ -15,10 +15,14 @@
  * edge — visually unified, signalling that they all support the verdict.
  * ──────────────────────────────────────────────────────────────────────── */
 section.decision > .cell-stage { display:flex; flex-direction:column; }
+/* No width: the heading FILLS the masthead band, whose `.masthead-lede` track already
+ * reserves the right bay. A 70.3125cqi cap used to sit here; it held the verdict heading
+ * below its band on 8 of 12 measured slides and cost every one of them an extra line
+ * (`compare-prose decision` — the authored pairing — included). Framing behavior is the
+ * deck's call via the `headline:` alignment register, not a per-component bake. */
 section.decision h2 {
   font-size:var(--fs-h2);
   line-height:var(--lh-tight);
-  max-width:70.3125cqi;
 }
 section.decision > .cell-stage > ul,
 section.decision > .cell-stage > ol {

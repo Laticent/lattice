@@ -7,10 +7,23 @@
 
 section.content h3 { padding-bottom:0.3125cqi; }
 section.content h2 { padding-bottom:var(--sp-sm); }
-/* Cap line length: at --fs-message a full-canvas paragraph runs ~90 chars,
- * past the comfortable maximum. 72cqi ≈ 65–75 chars. */
-section.content h2 { max-width:72cqi; }
+/* NO width on the heading: the framing assets FILL the masthead band, whose
+ * `.masthead-lede` track is the constraint (it already reserves the right bay). A
+ * 72cqi cap used to sit here and held the heading below its band on 21 of 28 measured
+ * slides, costing 18 of them an extra line. Framing behavior is the deck's call via
+ * the `headline:` alignment register, not a per-component bake. */
+/* BODY prose keeps a reading measure — 72cqi ≈ 65–75 chars, where an uncapped
+ * full-canvas paragraph at --fs-message runs ~90. */
 section.content p  { font-size:var(--fs-message); line-height:var(--lh-relaxed); max-width:72cqi; }
+/* …but NOT in the masthead band: the bare rule above also matched content's eyebrow and
+ * subtitle once they HOIST into `.masthead-lede`, capping framing text with a body rule
+ * (measured, a portrait eyebrow wrapped to two lines for want of 2.6px). Un-capped by
+ * exclusion rather than by re-scoping the rule to `> .cell-stage`: the stage only exists
+ * when the masthead lift runs, and the lift is opt-OUT-able (`form: off` deck-wide,
+ * `no-form` per slide — plugins.js readFormMode/formToggleClass). A stage-scoped measure
+ * silently dropped body prose back to ~90-char lines on exactly those decks, and left
+ * lists capped while paragraphs were not. Specificity (0,2,2) beats the (0,1,2) above. */
+section.content .cell-masthead p { max-width:none; }
 /* Vertical placement is no longer baked here — it's the author's call via the
  * universal alignment modifiers (align-top default · align-middle · align-bottom,
  * #527). content defaults to top like every frame; a deck that wants the old

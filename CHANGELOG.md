@@ -79,6 +79,43 @@ in patch versions.
   surface whose editor binds `lintKeymap`; and the **Deck setup** drawer in the Playground, with the
   Studio's equivalent called out as the Deck inspector.
 
+- **Masthead framing text now FILLS the band on every non-sovereign component; how it behaves is
+  the deck's call, through `headline:` alignment.** The eyebrow, heading and subtitle take the width
+  the `.masthead-lede` grid track offers — and that track already reserves the right bay, so a
+  `meta:` / `logo:` line narrows it and the framing follows. Four per-component `max-width` bakes are
+  removed: chart-family's heading (`70.3125cqi`) and subtitle (`68.75cqi`), reaching all 14
+  chart-bucket members; `content`'s heading (`72cqi`); and `decision`'s heading (`70.3125cqi`,
+  which also reached the authored `compare-prose decision` pairing). 17 components in total.
+  Measured across 73 deck-shapes, those four held 42 framing boxes below their own band and cost 30
+  of them an extra line — a heading like "A verdict can carry two full arguments, no more." wrapped
+  with "more." orphaned on its own line, and the reclaimed band height goes back to the stage.
+  Nothing documented them; the values appeared in no doc. The principle is now written down in
+  `lib/base/base.docs.md` under the `headline:` register: framing text on a component that frames
+  someone else's content is chrome, held to one standard and steered deck-wide, so a component does
+  not set its own framing width. **`cqi` is untouched** — it is what makes a deck render identically
+  at 8K, and the defect was the width, not the unit (re-expressing the same cap as `%` of the parent
+  was tested and renders *narrower* still). **Sovereign bookends are exempt** — on `title` /
+  `closing` / `divider` the heading and subtitle are the slide's content, so their measure is theirs
+  to compose and their caps stand. **Autosplit is unaffected**: fit is autosplit + atomization's job,
+  and the 15 `em` caps on generated cover pages were measured across 89 observations in a
+  portrait+autosplit pass without ever binding. `content`'s body-prose measure is kept, now scoped to
+  `> .cell-stage` so it stops reaching the hoisted eyebrow.
+  See `engineering/decisions/2026-07-30-masthead-framing-fills-the-band.md`.
+
+### Fixed
+
+- **A chart's subtitle no longer falls out of the masthead band when anything is authored above the
+  heading** — which had silently taken it out of `headline:` control. `extractSubtitleP` anchored
+  its match at the start of the section's HTML, so any preceding markup defeated it and the subtitle
+  stayed in the body below the hairline. Under `headline: center`, two otherwise-identical chart
+  slides therefore disagreed: the one with a speaker note centered its heading and left-pinned its
+  subtitle. The common trigger is a note — as its raw `<!-- … -->` comment node, *not* the
+  `<aside class="lattice-notes">`, which does not exist yet when the masthead lift runs (notes are
+  materialized after render). Prose or raw HTML above the heading did the same. The extractor now
+  anchors at the offset the heading vacated — the string equivalent of the DOM kernel's
+  `h2.nextElementSibling`, which was always immune, so this was also a live HARD RULE #1 engine↔web
+  split (live but unexercised: every deck in the shipped corpus places its notes after the heading).
+
 - **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
   PDFs render stage content ~11% larger than before — and agree with the preview.** The
   engine emits the slide's own 1% (`--_sec-1cqi` / `--_sec-1cqh`) as CSS from the resolved
