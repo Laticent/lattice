@@ -398,6 +398,15 @@ in patch versions.
   the engine-side incremental render path exists to collapse
   (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`). The frame cost is
   unchanged throughout (~0.8–1.7ms on the patch path) — the srcdoc still carries one section.
+  **Memory**, measured in the real Studio with GC forced (40-slide gallery deck): **+1.4MB** settled,
+  but *lower* growth under use — 40 navigations grow the heap 6.53MB against main's 7.30MB, and the
+  overview grid costs **6.6MB less** (13.40 vs 20.00MB for 22 frames) because its tiles now share one
+  memo entry instead of each rendering the deck. Bounded, not a leak: alternating two different decks
+  across six reloads — so every render misses and replaces the entry — drifts **0.02MB**. Node-side
+  retention is 0.44MB for the parser memo and 48KB–285KB for one deck memo entry depending on deck
+  size (its `css` field is the same string instance the theme store already holds, so it costs a
+  pointer, not the ~563KB sheet). Roughly half the +1.4MB is attributable; the rest is recorded as
+  observed rather than decomposed.
   A standalone host (landing island, component specimen) omits `slideIndex` and is
   byte-identical to before, where 1-of-1 is the truth. Exports were never affected: they render the
   whole source in one pass.
