@@ -375,15 +375,17 @@ in patch versions.
   Shortening and lifting the sheet (#1216) does not move its scroll position, so a field
   two-thirds down a full-height sheet is below the bottom of the shortened one — and the
   browser's own scroll-on-focus runs against the pre-keyboard geometry, which the resize then
-  invalidates. The new shared `useKeyboardFieldReveal` hook, registered by `PanelSheet` so all
-  the row you are TYPING in pins itself above the keyboard — `position: fixed` at
-  `bottom: var(--kb)`, the same declaration that lifts the sheet's own bottom edge, so the two
-  cannot disagree. This is the command palette's position, borrowed: measured on the built
-  site, the palette's field is not in a scroll region at all (it sits in a `PanelDock` 21px
-  above the sheet's bottom edge) where Deck setup's sat 540px above it — the palette does not
-  solve this problem, it does not have it. Only the row being typed in pins, only on a phone,
-  and it returns to normal flow on blur. **Real iOS Safari is UNVERIFIED** — headless Chromium
-  has no software keyboard, so `--kb` is injected here; both fixes want a pass on a real phone.
+  invalidates. So **the row you are TYPING in pins itself above the keyboard** — `position:
+  fixed` at `bottom: var(--kb)`, the same declaration that lifts the sheet's own bottom edge,
+  so the two cannot disagree. This is the command palette's position, borrowed: measured on the
+  built site, the palette's field is not in a scroll region at all (it sits in a `PanelDock`
+  21px above the sheet's bottom edge) where Deck setup's sat 540px above it — the palette does
+  not solve this problem, it does not have it. Only the row being typed in pins, only on a
+  phone, and it returns to normal flow on blur. **Confirmed on the reporting iPhone 15 Pro**
+  after merge: the row is visible and editable with the keyboard up. The sandbox could not
+  establish that — headless Chromium has no software keyboard, so every keyboard number in the
+  pre-merge checks was set by hand, which is why two earlier attempts at this passed CI and did
+  nothing on the device.
   (`engineering/decisions/2026-07-29-deck-setup-field-rows-and-keyboard-reveal.md`)
 
 - **Every Deck-setup control now edits ONE front-matter line, instead of rebuilding the whole
