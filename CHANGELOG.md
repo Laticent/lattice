@@ -94,6 +94,52 @@ in patch versions.
 
 ### Fixed
 
+- **`split-panel proof`'s categorical tint stopped at the claim panel — the whole supporting
+  zone stayed one `--accent` blue on every slide in the sequence.** `cat-N` recolored
+  `.panel-left`'s fill and the panel's own top rule, but the checkpoint-card labels (and, under
+  `capstone`, the signal label) pinned `var(--accent)` directly, so a six-level run read as six
+  different panels beside six identical right halves. Most visible on `capstone`, whose quote-card
+  border and pillar rules ALREADY take `--panel-mark`: a cat-6 brown rule sat under a blue label
+  on the same slide. Those labels now take a new `--panel-label-ink`, set by `cat-N` and falling
+  back to `--accent` on a bare `proof` slide, which reproduces what the source deck this variant
+  came from actually does (`.l1 h6, .l1 h3 { color: var(--l1) }`).
+
+  The ink is a mix, not the raw `--cat-N-mark`: these labels are `--fs-meta` mono at 600, i.e.
+  normal-size text needing 4.5:1, where the mark tier carries only the 3:1 NON-TEXT guarantee its
+  stroke role is gated to — raw, it measures as low as 3.27:1 (`concrete` light cat-4 on `--bg`)
+  and fails 87 of 448 pairs. Blending in `--text-heading` (already gated AA on both card surfaces
+  by `theme-surface-aa.test.js`) buys the contrast without giving up the hue, the same fix
+  `chart/matrix-grid`'s row labels and `chart/quadrant`'s `.quadrant-label` use at the same 65/35
+  ratio. The dark arm dilutes only 20%, since the mark tier flips to a pale tint on a dark canvas
+  and starts much closer to the floor there — spending the light arm's 35% would wash out chroma
+  for nothing. **The 448 pairs are the 14 HUE themes × 2 modes × 8 slots × 2 surfaces** — not "all
+  32 theme files": the 13 `-dark` files are a `color-scheme` flip over their base, so they *are*
+  the dark arm counted here rather than extra pairs, and the 5 `a11y-*` files are excluded exactly
+  as `checkCatContrast` excludes them. Result: 0 failures, worst 5.20:1 light (`concrete` cat-6)
+  and 5.15:1 dark (`carbone` cat-5).
+
+  **What this does not buy — visible hue on a dark canvas, for almost every theme.** The label
+  ink's mean oklab chroma is 0.066–0.108 in light mode but ≤0.035 in dark for 13 of the 14;
+  `carbone` (0.133) is the only theme whose dark marks carry hue, and `onyx` is 0.000 in both
+  modes (a pure gray ramp). So on a dark deck these labels read as barely-tinted white and the
+  panel fill is what carries the category. That is a property of the dark mark tier, not of this
+  rule — re-tuning it is theme-wide (kanban stripes, gantt bars, `premise` rows all draw from it),
+  tracked in #1263 along with the measured alternative: a fill-derived dark arm at 45% fill clears
+  AA (worst 4.70:1) and roughly triples most themes' dark chroma, but costs `carbone` its hue
+  (0.133 → 0.022), making it a per-theme call for the shared token tier rather than a swap here.
+
+  **Accepted consequence:** the panel and its labels now carry different categorical hues on most
+  slots, because a theme's fill and mark cycles are independent and need not share a hue per slot
+  (on `indaco` light they diverge on 6 of 8, by up to 118°; on `cuoio` by up to 155°). This is the
+  better of the two available readings — each label now matches the border and rules immediately
+  around it, which all take `--panel-mark`, where before it clashed with them. Deriving the ink
+  from `--panel-fill` to make panel and label agree fails on the LIGHT arm, which is what forces
+  the choice: the fill tier is a surface tier, pale on a light canvas by construction, so it
+  cannot carry small text there at any ratio leaving the hue visible (301 of 448 pairs fail at a
+  uniform 65% fill).
+
+  Verified rendered in `indaco` and `indaco-dark`, all six level slides plus the capstone.
+
 - **A state-chart drew differently in every preview pane.** `state-chart.transform.js` derived
   its geometry scale from `section.getBoundingClientRect().width` — the VISUAL box — so on the
   docs filmstrip, which transform-scales each section to the pane, it read 695px instead of
