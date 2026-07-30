@@ -165,9 +165,12 @@ in patch versions.
   over `file://` — baking the front matter into the document removed that accidental
   guard, so the change above would have shipped a **128 KB front matter → 8.1 s frozen
   tab, 512 KB → 131 s**, on the recipient's double-click AND inside `npm run pdf`.
-  Bounded to a single line (`^[ \t]*<key>:[ \t]*`) across the shared kernels the
-  runtime bundles — a front-matter key sits at a line start by definition. Both
-  figures drop to 0.2 s. Found by the adversarial trio, not by the gates.
+  The ten readers that captured with a lazy `(.*?)` now share one linear reader
+  (`lib/core/front-matter-key.js`) built on the shape `chart-narration.js` had already
+  adopted for this reason — a greedy `(.*)` to end-of-line, then trim and unquote in JS.
+  Both figures drop to 0.2 s, and a 512 KB tab run reads in 0 ms. Found by the
+  adversarial trio; the first attempt at the fix only removed the newline dimension and
+  CodeQL caught the single-line ambiguity that remained.
 
 - **A re-export no longer stacks a second, staler front-matter snapshot** — and the
   deck says the snapshot is generated. `withRuntimeScripts` is now idempotent (it

@@ -378,12 +378,26 @@ against the real bundled runtime in a `file://` document:
 | 512 KB | **131 s** blocked | 0.2 s |
 
 Attacker-authorable (a long run of blank lines is valid YAML), silent, and it hits
-`npm run pdf` too, since marp-cli runs the runtime in headless Chrome. Fixed by
-bounding every front-matter key reader to a single line — `^[ \t]*<key>:[ \t]*` —
-across the shared kernels the runtime bundles (`plugins.js`, the `resolve-*` family,
-the meta Tile). A front-matter key is at a line start by definition, so `\s` was
-never the right class. `lib/authoring/lint-core.js` has the same shape and is NOT in
-the runtime bundle; it is off this path and left as a tracked follow-up.
+`npm run pdf` too, since marp-cli runs the runtime in headless Chrome.
+
+**The first fix was incomplete, and CodeQL caught the remainder.** Bounding `\s` to
+`[ \t]` removed the NEWLINE dimension — the multiline blowup — but left a
+single-line ambiguity: `[ \t]*`, the lazy `(.*?)`, and the trailing `[ \t]*$` can
+all match the same tab, so `logo:` followed by a long tab run still made the engine
+try every split. Five HIGH alerts, correctly.
+
+The readers whose value class already excluded spaces and quotes
+(`([A-Za-z0-9_-]+)`, `(-?[\d.]+)`) were never ambiguous and are unchanged. The ten
+that used `(.*?)` now go through `lib/core/front-matter-key.js`
+`frontMatterValue(fm, key)`, which uses the shape `lib/core/chart-narration.js` had
+already adopted and documented for this exact reason: one GREEDY `(.*)` to
+end-of-line, which cannot fail and so never backtracks, then trim and unquote in JS
+where both are linear. A 512 KB tab run reads in 0 ms, and the two independent
+single-character quote strips reproduce the old `["']?…["']?` behavior exactly,
+including its odd `a "b"` → `a "b` case.
+
+`lib/authoring/lint-core.js` has the same original shape and is NOT in the runtime
+bundle; it is off this path and left as a tracked follow-up.
 
 **2. The snapshot silently overrode the file it sits in (all three, independently).**
 The block wins over the front matter it was copied from, and the bundle's own
