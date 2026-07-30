@@ -323,6 +323,53 @@ Independently valuable, regardless of what happens to the pagination fix:
 5. **The equivalence method in §5** — worth committing as a test when step 3 is built; it is what
    makes that work safe rather than hopeful.
 
+## 7b. The bug the true page number exposed — editor↔rail off by one
+
+Reported after the branch was pushed: *"the slide I am previewing via the preview slide selection is not
+the slide text that is in full view in the editor. I feel like the count or something is off."* On
+`examples/gallery-jargon.md`, from the deployed preview.
+
+**It was a real off-by-one, and it was NOT caused by this branch.** `slideStartOffset` and `slideIndexAt`
+(`docs/src/components/studio/lint.ts`) located slides by counting `---` separators over the whole editor
+document. The rail counts slides in the front-matter-STRIPPED body. A front-matter block's closing `---`
+is newline-flanked, so it matched the separator regex and became separator #0:
+
+| direction | was | should be |
+|---|---|---|
+| rail *k* → editor (`slideStartOffset`) | frames slide *k−1* | frames slide *k* |
+| caret in slide *k* → rail (`slideIndexAt`) | reports *k+1* | reports *k* |
+
+Both wrong in the same direction, so they compounded instead of cancelling; `slideStartOffset(src, 0)`
+framed the YAML block. A rarer second shift stacked on top: `splitSlides` drops empty chunks, a raw
+separator count does not.
+
+`git diff origin/main` on `lint.ts`, `Editor.tsx` and `front-matter.ts` is **empty** — the math is
+byte-identical to `main`, so the defect predates this work. **What this branch changed is its
+visibility:** while every preview printed "1 of 1" there was no number to reveal that the two panes were
+on different slides. Making the page number true made a latent misalignment legible. That is worth
+recording as a class: *a correctness fix can surface an unrelated defect by removing the noise that hid
+it*, and the resulting bug report will point at the new change.
+
+**Fixed in place rather than logged**, because it is squarely on the path of this work (editor↔preview
+sync is what the branch is about) — HARD RULE #18's on-path clause. Both functions now derive from one
+`slideRanges` helper that indexes exactly what `splitSlides` returns, so the two directions cannot
+disagree with each other or with the rail.
+
+**Why the existing test suite could not catch it, which is the more useful finding.** The fuzz property
+was `slideIndexAt(src, slideStartOffset(src, i)) === i` over decks built as `bodies.join('\n---\n')` from
+non-empty bodies — no front matter, no empty chunks. The two functions were self-consistent on exactly
+that shape, so **the round-trip property was TRUE while the pair was wrong on every real deck**. A
+round-trip between two functions that share a mistake proves only that they share it. The new cases feed
+the shapes real decks have.
+
+Three instrument attempts before a usable one, all worth naming because each *passed* while measuring
+nothing: the DOM selection reads empty (a rail click moves focus off the editor); "slide *i*'s first line
+is in the rendered DOM" passed with the bug reintroduced, because CodeMirror builds a margin of lines
+around the viewport; and "first line near the scroller's center" was wrong by construction, since
+`revealSlide` centers the whole slide RANGE, so the first line sits half a slide (120–191px, measured)
+above center. The assertion that discriminates: **the editor's vertical center falls inside slide *i***
+— it passes with the fix and fails on 6 of 8 sampled indices without it.
+
 ## 8. Off-path defects found, logged not fixed (HARD RULE #18)
 
 - **A bare `# h1` on a default `form` slide renders white-on-white.** `base.elements.css` sets

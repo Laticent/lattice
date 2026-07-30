@@ -3,6 +3,7 @@
 // are property-testable without rendering anything.
 
 import { type LensRegistry, lensPairs } from '@/lib/lente';
+import { frontMatterBlock } from './front-matter';
 import { fenceRanges } from './slide-directives';
 
 // A slide separator is a `---` (3+ dashes) line flanked by newlines — but NOT one
@@ -80,20 +81,77 @@ export function slideTitle(slideSrc: string): string {
 		.trim();
 }
 
-/** Zero-based index of the slide containing character offset `pos` — the count of
- *  `---` fences before it. Pairs with splitSlides() to sync editor cursor ↔ preview. */
-export function slideIndexAt(src: string, pos: number): number {
-	const at = Math.max(0, pos);
-	return separatorPositions(src).filter((s) => s.index < at).length;
+/**
+ * The slides `splitSlides` returns, located as ranges in the FULL document (front matter included) —
+ * the ONE derivation `slideIndexAt` and `slideStartOffset` both read, so the caret→rail and
+ * rail→editor directions cannot disagree with each other or with the rail.
+ *
+ * WHY THIS EXISTS. Both functions used to count `---` separators over the whole document, which
+ * disagrees with `splitSlides` in two ways, and both showed up as the editor framing a DIFFERENT
+ * slide than the one selected in the preview:
+ *
+ *   1. FRONT MATTER. Its closing `---` is preceded and followed by a newline, so it matches `SEP_RE`
+ *      and was counted as separator #0 — while the rail counts slides in the STRIPPED body. Every
+ *      deck with front matter (i.e. every real deck) was off by one: `revealSlide(3)` framed slide 2,
+ *      and a caret in slide 0 reported slide 1. `examples/gallery-jargon.md` reproduces it exactly.
+ *   2. EMPTY CHUNKS. `splitSlides` drops them (`.trim()` then `.filter(Boolean)`); a raw separator
+ *      count does not, so two consecutive separators shifted every later slide by one more.
+ *
+ * The old fuzz test could not catch either: it built decks as `bodies.join('\n---\n')` from non-empty
+ * bodies — no front matter, no empties — and the two functions were self-consistent on exactly that
+ * shape. The round-trip property was true and the pair was still wrong on every real deck.
+ *
+ * Ranges carry BOTH edges deliberately. `from` is the raw chunk start (immediately after the
+ * separator), so a caret anywhere in a slide — including the blank line above its first line — maps
+ * to that slide, which is what the cursor→rail direction needs and matches the previous behavior.
+ * `start` skips leading whitespace, so revealing a slide frames its TEXT rather than the blank line.
+ */
+function slideRanges(src: string): Array<{ from: number; start: number; end: number }> {
+	const text = String(src ?? '');
+	// The front-matter block is not a slide, and its terminator is not a separator. `frontMatterBlock`
+	// consumes the delimiters plus any blank lines after them, so `fmLen` is the first body character
+	// and every separator inside the block sits below it.
+	const fmLen = frontMatterBlock(text).length;
+	const out: Array<{ from: number; start: number; end: number }> = [];
+	const push = (from: number, end: number) => {
+		const raw = text.slice(from, end);
+		if (!raw.trim()) return; // matches splitSlides' drop-empties
+		out.push({ from, start: from + (raw.length - raw.trimStart().length), end });
+	};
+	let pos = fmLen;
+	for (const s of separatorPositions(text)) {
+		if (s.index < fmLen) continue;
+		push(pos, s.index);
+		pos = s.index + s.length;
+	}
+	push(pos, text.length);
+	return out;
 }
 
-/** Character offset where slide `index` begins — just past its preceding fence.
+/** Zero-based index of the slide containing character offset `pos`. Pairs with splitSlides() to sync
+ *  editor cursor ↔ preview — see slideRanges for why this is not a separator count. */
+export function slideIndexAt(src: string, pos: number): number {
+	const at = Math.max(0, pos);
+	const ranges = slideRanges(src);
+	// The LAST slide that starts at or before `pos`. A position inside the front matter (or before the
+	// first slide) has no such slide and clamps to 0, so the rail always names a real slide.
+	let idx = 0;
+	for (let i = 0; i < ranges.length; i++) if (ranges[i].from <= at) idx = i;
+	return idx;
+}
+
+/** Character offset where slide `index` begins — the first character of its text.
  *  The inverse of slideIndexAt, for scrolling the editor to a slide. */
 export function slideStartOffset(src: string, index: number): number {
-	if (index <= 0) return 0;
-	const seps = separatorPositions(src);
-	const s = seps[Math.min(index, seps.length) - 1];
-	return s ? s.index + s.length : 0;
+	if (index <= 0) {
+		const first = slideRanges(src)[0];
+		// Slide 0 starts after the front matter, NOT at offset 0 — revealing it used to frame the YAML
+		// block instead of the title slide.
+		return first ? first.start : 0;
+	}
+	const ranges = slideRanges(src);
+	const r = ranges[Math.min(index, ranges.length - 1)];
+	return r ? r.start : 0;
 }
 
 /** A reader-lens id. Any string so a deck-defined `lenses:` registry (projected by @slidewright/lente)

@@ -308,6 +308,31 @@ in patch versions.
   pins all of it, including the cascade PRECONDITION nothing checked — `:is()` takes the
   specificity of its most specific arm, so distributing is only neutral when the arms are equally
   specific, and every leading head in engine CSS now has to be.
+- **Fixed: the editor framed a DIFFERENT slide than the one selected in the preview — off by one, on
+  every deck with front matter.** `slideStartOffset` and `slideIndexAt` (`docs/src/components/studio/lint.ts`)
+  located slides by counting `---` separators across the WHOLE document, while the rail counts slides in
+  the front-matter-STRIPPED body (`splitSlides(stripFrontMatter(source))`). A front-matter block's closing
+  `---` is newline-flanked, so it matched the separator regex and was counted as separator #0: selecting
+  rail slide *k* scrolled the editor to slide *k−1*, and a caret in slide 0 reported slide 1 to the rail.
+  Both directions were wrong the same way, so they compounded rather than cancelled. `slideStartOffset(src, 0)`
+  framed the YAML block itself. A second, rarer shift stacked on top: `splitSlides` DROPS empty chunks and a
+  raw separator count does not, so a stray double separator moved every later slide by one more.
+  Both now derive from one `slideRanges` helper that indexes exactly what `splitSlides` returns, so the
+  caret→rail and rail→editor directions cannot disagree with each other or with the rail.
+  **Why it survived:** the existing fuzz test built decks as `bodies.join('\n---\n')` from non-empty
+  bodies — no front matter, no empty chunks — and the two functions were self-consistent on precisely
+  that shape, so its round-trip property was true while the pair was wrong on every real deck. Now
+  covered with front matter, an empty chunk, and a fence-masked separator (`lint.test.ts`), plus a
+  real-Studio guard on `examples/gallery-jargon.md` that asserts the editor's vertical center lands
+  INSIDE the selected slide (`docs/e2e/studio-jargon-alignment.spec.ts` — two weaker signals were tried
+  and discarded first: the DOM selection reads empty because a rail click moves focus off the editor, and
+  "the line is in the rendered DOM" passed with the bug reintroduced, since CodeMirror builds a margin of
+  lines around the viewport).
+  Pre-existing and untouched by the deck-context work (`git diff` against `main` on `lint.ts`,
+  `Editor.tsx` and `front-matter.ts` is empty) — but it only became *visible* once page numbers became
+  true: while every preview read "1 of 1" there was no number to reveal that the preview and the editor
+  were on different slides.
+
 - **The markdown-it parser is reused across renders instead of rebuilt.** `buildMd` is a pure
   function of the deck's directive base, and it is not cheap — a fresh markdown-it, a
   geometry/orientation/family resolution, the slide pipeline, the background-image and math plugins,

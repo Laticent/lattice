@@ -1,5 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { stripFrontMatter } from './front-matter';
 import { presentationIndices, presentationSet, slideClass, slideIndexAt, slideStartOffset, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 
 const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'stats'];
@@ -145,6 +146,61 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 		expect(slideIndexAt(undefined as unknown as string, 5)).toBe(0);
 		expect(slideStartOffset('a\n---\nb', 0)).toBe(0);
 		expect(slideStartOffset('a\n---\nb', 1)).toBe(6);
+	});
+
+	// THE GAP THE FUZZ TEST ABOVE COULD NOT SEE. It joins non-empty bodies with `\n---\n`, so it never
+	// produces a deck with FRONT MATTER — and front matter is what broke this pair on every real deck.
+	// Its closing `---` is newline-flanked, so a raw separator count treats it as separator #0 while the
+	// rail counts slides in the STRIPPED body: `slideStartOffset(src, 3)` framed slide 2 and a caret in
+	// slide 0 reported slide 1. Both functions were self-consistent, so the round-trip property held and
+	// the editor still framed a different slide than the preview showed.
+	const FM = '---\nmarp: true\npaginate: true\nheader: "H"\n---\n\n';
+
+	it('indexes slides the same way the rail does — WITH front matter', () => {
+		fc.assert(
+			fc.property(fc.array(bodyArb.filter((b) => b.trim().length > 0), { minLength: 1, maxLength: 8 }), (bodies) => {
+				const src = FM + bodies.join('\n---\n');
+				const slides = splitSlides(stripFrontMatter(src));
+				expect(slides.length).toBe(bodies.length);
+				for (let i = 0; i < slides.length; i++) {
+					const start = slideStartOffset(src, i);
+					// The offset must be the FIRST CHARACTER of slide i, so revealing it frames that slide.
+					expect(src.slice(start, start + slides[i].length)).toBe(slides[i]);
+					// And reading the index back at that offset must return i, not i+1.
+					expect(slideIndexAt(src, start)).toBe(i);
+				}
+			}),
+		);
+	});
+
+	it('slide 0 starts after the front matter, not at offset 0', () => {
+		const src = `${FM}<!-- _class: title -->\n\n# Title`;
+		expect(slideStartOffset(src, 0)).toBe(FM.length);
+		expect(slideIndexAt(src, FM.length)).toBe(0);
+		// A caret INSIDE the front matter clamps to slide 0 rather than naming a slide that isn't there.
+		expect(slideIndexAt(src, 5)).toBe(0);
+	});
+
+	it('an EMPTY slide chunk does not shift every later slide', () => {
+		// `splitSlides` drops empty chunks; a raw separator count did not, so a stray double separator
+		// desynced the rest of the deck on top of the front-matter offset.
+		const src = `${FM}one\n---\n\n---\ntwo\n---\nthree`;
+		const slides = splitSlides(stripFrontMatter(src));
+		expect(slides).toEqual(['one', 'two', 'three']);
+		for (let i = 0; i < slides.length; i++) {
+			const start = slideStartOffset(src, i);
+			expect(src.slice(start, start + slides[i].length)).toBe(slides[i]);
+			expect(slideIndexAt(src, start)).toBe(i);
+		}
+	});
+
+	it('a separator inside a fence is still not a slide boundary', () => {
+		// Guards the interaction: fence masking has to survive the front-matter offset.
+		const src = `${FM}one\n\n\`\`\`yaml\n---\nkey: v\n---\n\`\`\`\n\n---\ntwo`;
+		const slides = splitSlides(stripFrontMatter(src));
+		expect(slides.length).toBe(2);
+		expect(slideStartOffset(src, 1)).toBe(src.lastIndexOf('two'));
+		expect(slideIndexAt(src, src.indexOf('key: v'))).toBe(0);
 	});
 });
 
