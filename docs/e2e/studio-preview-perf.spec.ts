@@ -1,0 +1,150 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
+
+// Preview RENDER-PATH perf, measured on the real built Studio — the instrument HARD RULE #19
+// wants for any claim about the preview's cost, and the one HARD RULE #23 accepts (a real
+// browser driving the real app, not a Node timing of the engine in isolation).
+//
+// WHY IT LIVES HERE rather than in a scratch script: `docs/scripts/frame-bench.mjs` reports
+// LCP + the patch/write FRAME regimes, but it drives an edit by focusing `.cm-content` and
+// typing — which silently does NOTHING in the shipped default posture, where the editor is not
+// on screen. This suite's fixture already solves that (`gotoStudio` seeds `posture: 'build'`
+// before hydration; `focusEditor` targets the "Deck source" label and FAILS LOUDLY on a hidden
+// element; `setEditorContent` uses insertText so a multi-line deck's `---` separators survive
+// the editor's markdown auto-continuation). Reusing it is the difference between a measurement
+// and a plausible-looking zero.
+//
+// TAGGED @perf, and NOT in any project's grep, so it never runs on the PR gate: these are
+// wall-clock numbers and would be flaky as a merge blocker. Run it deliberately:
+//   npx playwright test --project=desktop --grep @perf
+//
+// WHAT IT MEASURES. Both interactions that drive a preview render, separately, because the
+// deck-context render made them diverge sharply:
+//   · NAVIGATION — click a rail slide. Only the shown index changes, so the whole-deck memo in
+//     single-slide-render.ts hits and the engine does no work.
+//   · TYPING — real keystrokes into the shown slide. The markdown changed, so the memo misses
+//     by construction and the whole deck is re-parsed. This is the expensive case.
+// Samples come from `window.__latticeRenderMetrics` (the tooling hook in render-metrics.ts),
+// raw per-render rather than the overlay's EMA.
+
+// TWO decks, because the cost axis is CONTENT, not slide count — the single most misleading
+// thing about an early version of these numbers. A 40-slide prose deck and 40 slides of the
+// GALLERY (every chart, map, diagram and math block in the library) differ by ~4x on the same
+// render path, so one figure alone invites the wrong conclusion about which decks are affected.
+function proseDeck(n: number): string {
+	const slides = Array.from({ length: n }, (_, i) => `## Slide ${i + 1}\n\nBody text for slide ${i + 1}, with enough prose to be a real section.`);
+	return `---\npaginate: true\n---\n\n${slides.join('\n\n---\n\n')}\n`;
+}
+/** The first `n` slides of the real gallery — the heavy end of what authors actually write. */
+function galleryDeck(n: number): string {
+	// ESM: no __dirname. Resolve from this module's own URL.
+	const here = path.dirname(fileURLToPath(import.meta.url));
+	const src = fs.readFileSync(path.join(here, '../../test/integration/baseline-decks/gallery.md'), 'utf8');
+	const fm = /^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/.exec(src)?.[0] ?? '';
+	// Fence-aware split: a bare /\n---\n/ cuts inside a mermaid block's own front matter.
+	const chunks: string[][] = [[]];
+	let fence = false;
+	for (const line of src.slice(fm.length).split('\n')) {
+		if (/^\s*(```|~~~)/.test(line)) fence = !fence;
+		if (!fence && /^-{3,}\s*$/.test(line)) { chunks.push([]); continue; }
+		chunks[chunks.length - 1].push(line);
+	}
+	const slides = chunks.map((c) => c.join('\n').trim()).filter(Boolean).slice(0, n);
+	return `${fm.replace(/\n---[ \t]*\n$/, '\npaginate: true\n---\n')}${slides.join('\n\n---\n\n')}\n`;
+}
+
+type Sample = { engineMs: number; frameMs: number; totalMs: number; writePath?: string };
+
+/** Subscribe to raw render samples and reset the buffer. */
+async function collectFrom(page: import('@playwright/test').Page): Promise<void> {
+	await page.waitForFunction(() => !!(window as unknown as { __latticeRenderMetrics?: unknown }).__latticeRenderMetrics);
+	await page.evaluate(() => {
+		const w = window as unknown as { __bench: Sample[]; __latticeRenderMetrics: { on: (cb: (s: Record<string, unknown>) => void) => void } };
+		w.__bench = [];
+		w.__latticeRenderMetrics.on((s) => {
+			const r = (s.raw as Record<string, number>) ?? (s as unknown as Record<string, number>);
+			w.__bench.push({ engineMs: r.engineMs, frameMs: r.frameMs, totalMs: r.totalMs, writePath: s.writePath as string });
+		});
+	});
+}
+const drain = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __bench: Sample[] }).__bench);
+const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (window as unknown as { __bench: Sample[] }).__bench = []; });
+
+function report(label: string, samples: Sample[]): void {
+	const patch = samples.filter((s) => s.writePath === 'patch');
+	const p50 = (a: number[]) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : Number.NaN);
+	const f = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : '--');
+	// Printed, not asserted against a threshold: the point is a reproducible number to paste
+	// into a PR's Performance section, and a wall-clock assertion here would be a flaky gate.
+	console.log(`\n${label}`);
+	const regimes: Record<string, number> = {};
+	for (const s of samples) regimes[s.writePath ?? '?'] = (regimes[s.writePath ?? '?'] ?? 0) + 1;
+	console.log(`  regimes: ${JSON.stringify(regimes)}`);
+	for (const [i, s] of patch.entries()) console.log(`    #${String(i + 1).padStart(2)}  RENDER ${f(s.engineMs).padStart(6)}  FRAME ${f(s.frameMs).padStart(5)}  TOTAL ${f(s.totalMs).padStart(6)}`);
+	console.log(`  n=${patch.length}  RENDER p50 ${f(p50(patch.map((s) => s.engineMs)))}  FRAME p50 ${f(p50(patch.map((s) => s.frameMs)))}  TOTAL p50 ${f(p50(patch.map((s) => s.totalMs)))}  TOTAL max ${f(Math.max(...patch.map((s) => s.totalMs)))}`);
+}
+
+for (const kind of ['prose', 'gallery'] as const) {
+test(`@perf preview render path — navigation vs typing (${kind} deck)`, async ({ page, context }) => {
+	test.setTimeout(300_000);
+	const SLIDES = 40;
+	const CPU = 4; // the throttle the perf-diagnosis doc reasons about (a mid-range phone)
+
+	await gotoStudio(page);
+	await setEditorContent(page, kind === 'prose' ? proseDeck(SLIDES) : galleryDeck(SLIDES));
+	// The rail is the oracle that the deck actually landed — 40 slides, not one mangled blob.
+	await expect.poll(() => railButtons(page).count(), { timeout: 30_000 }).toBe(SLIDES);
+	await expect(livePreview(page).locator('.lattice section').first()).toBeVisible();
+
+	await collectFrom(page);
+	const cdp = await context.newCDPSession(page);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU });
+
+	// ── NAVIGATION: only the shown index changes → the whole-deck memo should hit ──
+	await reset(page);
+	const rail = railButtons(page);
+	for (let pass = 0; pass < 2; pass++) {
+		for (let i = 0; i < 10; i++) {
+			await rail.nth(i).click();
+			await page.waitForTimeout(700);
+		}
+	}
+	report(`NAVIGATION — ${SLIDES} ${kind} slides, CPU ${CPU}x`, await drain(page));
+
+	// ── TYPING: the markdown changes → the memo misses, the whole deck is re-parsed ──
+	// Put the caret in the SHOWN slide, so the edit is one the preview must reflect. (Typing
+	// into a slide the preview is not showing is a separate case: before deck context it cost
+	// nothing at all, because the render sample was only the shown slide.)
+	// Show the LAST slide, so `ControlOrMeta+End` (the document's end) is guaranteed to sit inside
+	// it whatever the deck's shape. Counting ArrowDowns from the top is deck-shape dependent and
+	// overshoots a short slide — which reads as "zero renders" on the baseline and looks like a
+	// finding rather than a broken harness.
+	const last = (await rail.count()) - 1;
+	await rail.nth(last).click();
+	await page.waitForTimeout(800);
+	// Focus and position the caret ONCE, then type with raw keystrokes. `typeInEditor` re-clicks
+	// the editor on every call, which re-seats the caret wherever the click lands — and that
+	// silently invalidates the comparison: before deck context the preview re-rendered ONLY when
+	// the shown slide's own text changed, so an uncontrolled caret makes the baseline read as
+	// zero renders rather than as its real cost.
+	await page.getByLabel('Deck source').click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.waitForTimeout(500);
+	await reset(page);
+	for (let i = 0; i < 14; i++) {
+		await page.keyboard.type('x');
+		await page.waitForTimeout(700);
+	}
+	const typed = await drain(page);
+	report(`TYPING (shown slide) — ${SLIDES} ${kind} slides, CPU ${CPU}x`, typed);
+	// A zero here means the caret was not in the shown slide, not that typing is free.
+	expect(typed.filter((s) => s.writePath === 'patch').length, 'typing produced no patch renders — caret not in the shown slide?').toBeGreaterThan(0);
+
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+	// The only hard assertion: renders actually happened. A silently-zero harness is the
+	// failure mode this spec exists to prevent (see the header note).
+	expect((await drain(page)).length).toBeGreaterThan(0);
+});
+}

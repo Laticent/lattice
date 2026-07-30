@@ -449,7 +449,23 @@ npm run preview:e2e &        # astro preview on :4321 (playwright reuses it loca
 npm run test:e2e             # full suite, all three projects
 npm run test:e2e:smoke       # the @smoke chrome subset only (desktop, ~20s)
 npm run test:e2e -- e2e/inspector.spec.ts --project=desktop   # one spec
+npx playwright test --project=desktop --grep @perf             # preview render-path perf
 ```
+
+**`@perf` — the preview render-path measurement** (`e2e/studio-preview-perf.spec.ts`). Reports
+raw per-render RENDER / FRAME / TOTAL for the two interactions that drive a preview render —
+slide NAVIGATION and TYPING — at 4× CPU, over both a prose deck and 40 gallery slides, because
+the cost axis is **content, not slide count**. It prints numbers rather than asserting
+thresholds (a wall-clock assertion would be a flaky gate), and it is in **no project's grep**, so
+it never runs on the PR path — invoke it deliberately with the command above. Use it for any
+claim about preview cost: `scripts/frame-bench.mjs` drives an edit by focusing `.cm-content` and
+typing, which does **nothing** in the shipped default posture where the editor is off-screen, so
+it silently reports no warm samples at all. This spec reuses `studio-fixture`, which already
+handles that (`gotoStudio` seeds `posture: 'build'`; `getByLabel('Deck source')` fails loudly on a
+hidden element; `setEditorContent` uses `insertText` so a multi-line deck's `---` separators
+survive the editor's markdown auto-continuation). It also asserts that typing produced renders,
+because a caret outside the shown slide records **zero** samples on a preview that renders only
+the shown slide — which reads as "free" rather than as a broken harness.
 
 The pinned Chromium is **pre-installed** at `PLAYWRIGHT_BROWSERS_PATH=
 /opt/pw-browsers` (build 1194 ↔ `@playwright/test` 1.56.1) — do **NOT** run

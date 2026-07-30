@@ -339,24 +339,31 @@ in patch versions.
   outside that, the `main` column's own spread is not. Being single-entry, the memo is not a 100%
   hit: the first navigation is cold and an intervening full-write render evicts it, which shows up
   as occasional 1–8ms RENDER samples. A KEYSTROKE misses by construction (the markdown changed) and
-  still pays the whole-deck parse. **Typing is measured, on the same surface and deck, real
-  keystrokes into the shown slide** (p50 of 14):
+  still pays the whole-deck parse. Both interactions are measured by a committed, re-runnable
+  Playwright spec — `docs/e2e/studio-preview-perf.spec.ts`, tagged `@perf` and outside every
+  project's grep so it never gates a PR on wall-clock — driving the real built Studio at 4× CPU
+  over TWO decks, because the cost axis is **content, not slide count**:
 
-  | needle | main | this change |
-  |---|---|---|
-  | RENDER (engine) | 5.0ms | **48.9ms** |
-  | TOTAL p50 | 10.3ms | **55.3ms** |
-  | TOTAL max | 16.7ms | **93.1ms** |
+  | interaction | deck (40 slides) | main | this change |
+  |---|---|---|---|
+  | navigation | prose | 10.2ms | **5.8ms** |
+  | navigation | gallery | 11.7ms | **6.7ms** |
+  | typing | prose | 9.0ms | **20.2ms** |
+  | typing | gallery | 10.6ms | **57.1ms** |
 
-  So a keystroke costs ~5.4× more and crosses `createFrameScheduler`'s 50ms heavy threshold, which
-  means every keystroke coalesces onto the next frame instead of painting immediately. A SECOND
-  regression in the same family: on `main`, editing a slide OTHER than the shown one triggered **no
-  render at all** (the sample was just the shown slide, so the srcdoc stayed byte-identical across
-  14 keystrokes); under deck context that edit re-renders the whole deck, so it went from free to
-  ~55ms. Both are the cost the engine-side incremental render path would collapse
-  (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`); a memo cannot, because
-  the markdown changed. The frame cost is unchanged throughout (~1.0–2.0ms on the patch path) — the
-  srcdoc still carries one section.
+  (TOTAL p50; navigation n=16–20, typing n=14.) Navigation is *faster* than before, on both decks,
+  because the previous code re-rendered a slide every time. Typing is 2.2× slower on a prose deck —
+  20ms, comfortably inside `createFrameScheduler`'s 50ms heavy threshold — and 5.4× on the gallery,
+  which crosses it and coalesces. **The shape of the regression is that the preview's cost now
+  scales with the WHOLE deck's content rather than the shown slide's**: `main`'s typing barely moves
+  between the two decks (9.0 vs 10.6ms) because it rendered one slide, while this change spans
+  20→57ms on the same slide count. A SECOND case in the same family: on `main`, editing a slide
+  OTHER than the shown one triggered **no render at all** (the srcdoc stayed byte-identical across
+  14 keystrokes); under deck context that edit re-renders the whole deck. Neither typing case is
+  reachable by the memo — the markdown changed, so it misses by construction — and both are what
+  the engine-side incremental render path exists to collapse
+  (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`). The frame cost is
+  unchanged throughout (~0.8–1.7ms on the patch path) — the srcdoc still carries one section.
   A standalone host (landing island, component specimen) omits `slideIndex` and is
   byte-identical to before, where 1-of-1 is the truth. Exports were never affected: they render the
   whole source in one pass.
