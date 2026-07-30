@@ -308,6 +308,23 @@ in patch versions.
   pins all of it, including the cascade PRECONDITION nothing checked — `:is()` takes the
   specificity of its most specific arm, so distributing is only neutral when the arms are equally
   specific, and every leading head in engine CSS now has to be.
+- **Every slide in the Studio printed "1" as its page number.** The engine was right; the caller
+  was throwing away the context it needed. The engine derives a slide's number from its ORDINAL
+  POSITION among the sections of the document it parses (`lattice_directives_apply` in
+  `lib/engine/slides.js` counts sections, then stamps the count as `data-lattice-pagination-total`),
+  so a document holding ONE slide is always "1 of 1" — and all three Studio preview surfaces sliced
+  the active slide out of the deck and rendered it alone (the editor preview, Present, and the
+  Present slide-overview grid, where every tile read "1"). There is no offset to hand the engine —
+  the count IS the position — so each preview now renders the whole deck and DISPLAYS one section,
+  via a new `slideIndex` on `DeckPreview` / `renderInto` (`keepOnlySection` narrows the render,
+  reusing the filmstrip's `splitSections`). This is what the Playground filmstrip already did, which
+  is why its numbers were right. The number is computed over the VIEWED set, so a reader lens
+  numbers within what the audience actually sees. Cost is one whole-deck engine parse per render
+  instead of one slide's (~39ms for a 58-slide deck) and leaves the dominant preview cost untouched
+  — the srcdoc still carries a single section, so the frame's CSS parse and runtime execution are
+  unchanged. A standalone host (landing island, component specimen) omits `slideIndex` and is
+  byte-identical to before, where 1-of-1 is the truth. Exports were never affected: they render the
+  whole source in one pass.
 
 - **A state-chart drew differently in every preview pane.** `state-chart.transform.js` derived
   its geometry scale from `section.getBoundingClientRect().width` — the VISUAL box — so on the

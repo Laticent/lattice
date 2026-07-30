@@ -37,8 +37,17 @@ function deckMotionOf(src: string): DeckMotion {
 export type DeckPreviewProps = {
 	/** Renderer config (themeBase / runtimeUrl / engineUrl) — built from page data. */
 	options: SingleSlideOptions;
-	/** Slide markdown to render. */
+	/** Markdown to render — one slide, or (with `slideIndex`) a whole deck. */
 	sample: string;
+	/**
+	 * DECK CONTEXT. `sample` is a WHOLE DECK and only the slide at this 0-based index is
+	 * shown. Set it whenever the host knows the slide's place in a deck, because the
+	 * engine derives the page number from a slide's ordinal position among the sections
+	 * it parses — so a host that hands it one sliced-out slide gets "1 of 1" printed on
+	 * every slide. Omit for a genuinely standalone slide (a landing island, a component
+	 * specimen), where 1-of-1 is the truth.
+	 */
+	slideIndex?: number;
 	/** Whether the deck needs the mermaid runtime injected. */
 	mermaid: boolean;
 	/** Force a specific palette instead of the global `<html data-palette>`. */
@@ -113,6 +122,7 @@ export type DeckPreviewProps = {
 export function DeckPreview({
 	options,
 	sample,
+	slideIndex,
 	mermaid,
 	paletteOverride,
 	extraTheme,
@@ -294,7 +304,9 @@ export function DeckPreview({
 	const render = React.useCallback(() => {
 		const host = stageRef.current;
 		if (!host || !activeRef.current) return;
-		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss);
+		// `slideIndex` is passed only when set, so an omitting host hands the renderer no opts
+		// object at all — byte-identical to the pre-deck-context call.
+		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? undefined : { slideIndex });
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
 		// when the live frame is actually made visible (== genuinely good). Keying it on the
@@ -304,7 +316,7 @@ export function DeckPreview({
 		// Return the render promise so the frame scheduler can await it for
 		// backpressure — never overlap two renders on the same host.
 		return done;
-	}, [sample, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
+	}, [sample, slideIndex, mermaid, paletteOverride, extraTheme?.name, extraTheme?.css, modeOverride, extraCss]);
 
 	// Always hold the LATEST render closure in a ref, so the frame scheduler and the
 	// active rising-edge effect can reach the current render WITHOUT listing it as a

@@ -19,6 +19,7 @@ import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOve
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
+import { SLIDE_SEP } from './deck-ops';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';
@@ -172,7 +173,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		if (!open) return;
 		let cancelled = false;
 		const target = set; // the reference this render's projection belongs to
-		const source = frontMatter + target.join('\n\n---\n\n');
+		const source = frontMatter + target.join(SLIDE_SEP);
 		import('./narration-projection')
 			.then(({ projectDeckSpeech }) => projectDeckSpeech(options, source, paletteOverride, extraTheme, extraCss, modeOverride))
 			.then((texts) => { if (!cancelled && texts.length === target.length) setProjected({ set: target, texts }); })
@@ -277,7 +278,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	React.useEffect(() => {
 		if (!open) return;
 		let cancelled = false;
-		const source = fmAll + set.join('\n\n---\n\n');
+		const source = fmAll + set.join(SLIDE_SEP);
 		buildPresenterStageDoc(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride)
 			.then(({ doc }) => {
 				if (cancelled) return;
@@ -422,7 +423,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// suggested length, then build the plan to it.
 	const plan = React.useMemo<RehearsalPlan | null>(() => {
 		try {
-			const metas = metasFromSource(set.join('\n\n---\n\n'));
+			const metas = metasFromSource(set.join(SLIDE_SEP));
 			if (!metas.length) return null;
 			const probe = buildPlanFromMetas(metas, 1) as RehearsalPlan;
 			return buildPlanFromMetas(metas, Math.max(1, probe.suggestMinutes)) as RehearsalPlan;
@@ -452,7 +453,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// no longer borrows a hoisted shared host. `null` while a lens is withheld (fail-closed) →
 	// the slot shows the "unavailable" card instead of any slide. `hasMermaid(cur)` keeps the
 	// render signature aligned with the editor so same-slide navigation stays a patch.
-	const presentSample = unavailable ? null : frontMatter ? frontMatter + cur : cur;
+	// DECK CONTEXT (see DeckPreview's `slideIndex`): render the whole presented set and display
+	// `clamped`. Presenting one sliced-out slide printed "1" as the page number on every slide —
+	// the engine numbers a slide by its position among the sections it parses, so a one-slide
+	// document is page 1 of 1. Numbering over the PRESENTED set (not the authored deck) is
+	// deliberate: under a reader lens the audience's "3 of 12" is its position in what is shown.
+	// Memoized: it joins the whole presented set, and Present re-renders every second while the
+	// rehearsal clock runs — the deck itself changes far less often than that.
+	const presentSample = React.useMemo(() => (unavailable ? null : frontMatter + set.join(SLIDE_SEP)), [unavailable, frontMatter, set]);
 	const presentMermaid = unavailable ? false : hasMermaid(cur);
 
 	function pickLens(nextLens: PresentLens) {
@@ -683,7 +691,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
 						<div ref={cardRef} className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
-							<DeckPreview options={options} sample={presentSample ?? ''} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+							<DeckPreview options={options} sample={presentSample ?? ''} slideIndex={clamped} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={open} />

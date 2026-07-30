@@ -25,7 +25,7 @@
 
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
-import { hashString, linkGuardAgent } from '../playground/deck-preview.js';
+import { hashString, linkGuardAgent, splitSections } from '../playground/deck-preview.js';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
@@ -157,6 +157,52 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
 	return true;
 }
 
+// ── Deck-context render: keep ONE section of a whole-deck render ─────────────
+// Keep only section `index` of a rendered deck, preserving the `<article class="lattice">`
+// wrapper and any trailing chrome (the engine emits a `<script>`/`<style>` tail on some
+// decks), and dropping every other section.
+//
+// WHY a whole-deck render is rendered at all when one slide is shown: the engine numbers a
+// slide by its ORDINAL POSITION among the sections of the document it parses
+// (`lattice_directives_apply` in lib/engine/slides.js — `pageNumber += 1` per section, then
+// `data-lattice-pagination-total` = the final count). There is no offset to hand it; the
+// count IS the position. So a caller that slices one slide out and renders it ALONE gets
+// "1 of 1" — which is exactly what every Studio preview showed, on every slide. Rendering
+// the deck and DISPLAYING one section is the only way to get a true number without teaching
+// the engine a second numbering mode.
+//
+// The kept section carries the engine-stamped `data-lattice-pagination` / `-total` (read by
+// the `section[data-lattice-pagination]::after` pseudo in lib/engine/css.js), the visible
+// `<span class="lat-pagination">` the footer dock uses, AND its positional `id` — all
+// computed against the real deck.
+//
+// COST: one whole-deck engine parse per render instead of one slide's. That is the same
+// bargain `playground-engine.ts` already makes for the filmstrip (it renders the full source
+// on every edit, with typing INP green), and it leaves the DOMINANT preview cost untouched:
+// the srcdoc still carries ONE section, so the 563KB CSS parse + runtime execution inside the
+// frame — which is where the milliseconds actually are — is unchanged. See
+// engineering/decisions/2026-07-11-preview-performance-diagnosis.md.
+//
+// Reuses the filmstrip's `splitSections` (HARD RULE #15) rather than a second parser; an
+// unrecognized shape returns the html untouched, so a preview degrades to "shows the whole
+// deck", never to a blank frame.
+function keepOnlySection(html: string, index: number): string {
+	const sections: string[] = splitSections(html);
+	if (sections.length < 2 || index < 0 || index >= sections.length) return html;
+	let out = '';
+	let pos = 0;
+	// Walk by INDEX (not by matching the section string), so a deck with two byte-identical
+	// slides can't collapse onto the wrong one.
+	for (let i = 0; i < sections.length; i++) {
+		const at = html.indexOf(sections[i], pos);
+		if (at === -1) return html;
+		out += html.slice(pos, at); // inter-section text: the wrapper open tag, newlines
+		if (i === index) out += sections[i];
+		pos = at + sections[i].length;
+	}
+	return out + html.slice(pos);
+}
+
 // Scan the just-rendered slide for dropped-to-black SVG chart paint (the #956
 // signal), feeding the live VizDiagnosticsOverlay — but ONLY while it's subscribed
 // (off = free). Deferred ~650ms like the overflow re-read: an SVG chart is stamped
@@ -176,7 +222,9 @@ function scheduleVizScan(getDoc: () => Document | null | undefined): void {
 
 /**
  * Build a single-slide renderer bound to a theme source + runtime URL. Returns:
- *   - renderInto(host, markdown, mermaid, paletteOverride?, extra?, modeOverride?) → Promise<RenderStatus>
+ *   - renderInto(host, markdown, mermaid, paletteOverride?, extra?, modeOverride?, extraCss?, opts?) → Promise<RenderStatus>
+ *     (`opts.slideIndex` → `markdown` is a whole deck; show only that section, so the
+ *      engine's page number is computed against the real deck — see keepOnlySection)
  *   - whenReady()       → Promise<void> (triggers on-demand engine load)
  *   - onThemeChange(cb) → re-run cb (debounced) on a data-palette/-mode flip
  *   - scaleFrame(host)  → re-fit the host's iframe (after a reveal/resize)
@@ -371,6 +419,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// Opt-in: raw author CSS appended after the theme (Fabricate's Layout Studio
 		// previews a live local component's styles). Existing callers omit it.
 		extraCss?: string,
+		// Opt-in extras, as an object so future additions don't grow this positional list.
+		// `slideIndex`: `markdown` is a WHOLE DECK and only the section at this 0-based index
+		// is shown — the deck-context render (see keepOnlySection above), which is what makes
+		// the engine's page number true. Existing callers omit it → the whole render is shown,
+		// unchanged.
+		opts?: { slideIndex?: number },
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
@@ -451,6 +505,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Bail BEFORE any DOM mutation or observer/scaleTargets registration below,
 				// so a settling render can't re-root a host dispose() just released.
 				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+				// DECK-CONTEXT RENDER — narrow a whole-deck render to the one shown section, so the
+				// slide carries the page number the engine computed against the REAL deck. Done here,
+				// before the section count / sanitize / signature work below, so every downstream step
+				// (and the reported `slides`) sees exactly the one-section document it saw before this
+				// option existed. The engine `stats` above deliberately still describe the WHOLE render
+				// — that is the work the engine actually did, and what its timing covers.
+				if (typeof opts?.slideIndex === 'number') out.html = keepOnlySection(out.html, opts.slideIndex);
 				// Stash the resolved slide box so scaleFrame divides by the right width.
 				const geom: Geom = { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H };
 				(host as LiveHost).__latticeGeom = geom;
