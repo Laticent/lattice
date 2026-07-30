@@ -412,7 +412,7 @@ progress rail, or grow a glossary slide?" That list is a **proxy** for the real 
 entry: **`split-panel proof`**.
 
 `cat-N` is not authored. The engine assigns it from a slide's ordinal among the deck's proof slides
-(`proofTokensFor`, `lib/core/split-panels.js`), so a slice rendered alone is always "the first proof
+(`sequenceProofPanels`, `lib/core/split-panels.js`), so a slice rendered alone is always "the first proof
 slide" and takes `cat-1` — a leveled deck presented as N identical blue panels. That is the
 originally reported bug, and it survived this gate because **the reported deck also paginates**: it
 tripped the `pagination` entry and came out right by luck. Measured against the gate verbatim:

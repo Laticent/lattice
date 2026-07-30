@@ -277,8 +277,17 @@ function narrowToSlide(html: string, index: number, slideCount?: number): string
 // exported so a test can assert every fact is actually probed, rather than trusting that
 // whoever added the feature remembered this file.
 //
-// Bias is deliberately toward OVER-triggering: a false positive costs one whole-deck parse
-// (0.033ms of probing, ~39ms of parse, memoized), a false negative renders wrong output.
+// Bias is toward OVER-triggering, but do NOT read that as "false positives are free" — an
+// earlier version of this comment said exactly that, citing "~39ms, memoized", and it is
+// wrong on the path that hurts. The memo helps NAVIGATION (same deck, different slide); a
+// KEYSTROKE misses it by construction, because the markdown changed — see the memo's own
+// note below. On the typing path a false positive costs a full whole-deck parse per
+// keystroke, measured at 46.3ms p50 on a 40-slide gallery deck (the decision doc's +345%).
+//
+// So: over-trigger where the fact is genuinely possible, and do not add a probe merely
+// because it is cheap to write. Each entry widens a real latency cliff for every deck that
+// matches it. A false negative renders wrong output, which is still worse — that is why the
+// bias exists at all — but the trade is a trade, not a freebie.
 export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; probes: RegExp[] }> = [
 	{
 		fact: 'pagination',
@@ -305,7 +314,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; prob
 	},
 	{
 		// THE ONE THE PROXY MISSED. `cat-N` on a `split-panel proof` run is assigned from the
-		// slide's ordinal among the deck's proof slides (`proofTokensFor`, lib/core/split-panels.js),
+		// slide's ordinal among the deck's proof slides (`sequenceProofPanels`, lib/core/split-panels.js),
 		// never authored. A slice rendered alone is always "the first proof slide" and takes `cat-1`,
 		// so a leveled deck presented as six identical blue panels — the originally reported bug,
 		// which survived the first cut of this gate because it paginates and tripped `pagination`

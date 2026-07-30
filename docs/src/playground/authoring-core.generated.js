@@ -202,15 +202,19 @@ var require_lint_core = __commonJS({
         fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 a slide that does not fit is divided without asking at every presentation @size (square \xB7 portrait \xB7 story \xB7 mobile). A landscape @size never paginates."
       }];
     }
-    var PAGINATE_UNSUPPORTED_RE = /(?:^|<!--)[ \t]*(_?paginate)[ \t]*:[ \t]*(skip|hold)\b/im;
+    var PAGINATE_UNSUPPORTED_COMMENT_RE = /<!--[ \t]*(_?paginate)[ \t]*:[ \t]*(skip|hold)\b/i;
+    var PAGINATE_UNSUPPORTED_FM_RE = /^[ \t]*(paginate)[ \t]*:[ \t]*(skip|hold)\b/im;
+    function withoutCodeBlocks(text) {
+      return String(text).replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, "").replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, "").replace(/^(?: {4}|\t)[^\n]*$/gm, "").replace(/`[^`\n]*`/g, " ");
+    }
     function findUnsupportedPaginateValues(source) {
       const text = String(source || "");
       const out = [];
       const seen = /* @__PURE__ */ new Set();
       const fm = fmChunks(text);
       splitTopLevel(text).forEach((chunk, idx) => {
-        const body = chunk.replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, "");
-        const m = body.match(PAGINATE_UNSUPPORTED_RE);
+        const body = withoutCodeBlocks(chunk);
+        const m = body.match(PAGINATE_UNSUPPORTED_COMMENT_RE) || (idx < fm ? body.match(PAGINATE_UNSUPPORTED_FM_RE) : null);
         if (!m) return;
         const [, key, valueRaw] = m;
         const value = valueRaw.toLowerCase();

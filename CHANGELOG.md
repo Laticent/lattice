@@ -131,7 +131,10 @@ in patch versions.
   feature is one entry with a stated reason. The old framing asked "does this deck show page
   numbers?" — a proxy that only ever worked for pagination, the one fact whose visibility and
   correctness coincide. Guarded by `docs/e2e/proof-run-deck-context.spec.ts`, which drives the real
-  overlay on an un-paginated run and fails if the entry is removed.
+  overlay on an un-paginated run and fails if the entry is removed — though that spec is nightly
+  rather than merge-blocking; the per-PR guard is a unit test pinning the registry's expected fact
+  set, added after an inversion review showed the other structural assertions iterate the registry
+  and so stayed green when a fact was deleted outright.
 
 - **`paginate: skip` and `paginate: hold` were silently downgraded to `false`.** Lattice numbers
   every slide — the counter advances on every section, so a hidden slide still holds its place and

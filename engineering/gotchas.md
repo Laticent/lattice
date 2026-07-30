@@ -624,7 +624,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   colour.
 
 - **Cause:** `cat-N` is **not authored** — the engine assigns it from the slide's ordinal among the
-  deck's proof slides (`proofTokensFor`, `lib/core/split-panels.js`). The Studio's previews render
+  deck's proof slides (`sequenceProofPanels`, `lib/core/split-panels.js`). The Studio's previews render
   the whole deck and display one section precisely so deck-derived facts resolve (#1265), but that
   costs a whole-deck parse, so it is gated by `needsDeckContext`
   (`docs/src/lib/single-slide-render.ts`). The gate's first cut listed pagination, running-global
@@ -642,10 +642,15 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   looked like a reasonable proxy for "does this deck need real context". Any fact that renders
   regardless of a toggle (a colour, a rail, a glyph) breaks that proxy in plain sight.
 
-- **Guard:** `docs/e2e/proof-run-deck-context.spec.ts` drives the real Present overlay on an
-  UN-paginated proof run and reads the painted fill. Unit tests assert the gate's answer; only this
-  asserts what the reader sees — and this bug class has been found twice by bug report, never by a
-  passing unit suite.
+- **Guard, and what it actually blocks:** `docs/e2e/proof-run-deck-context.spec.ts` drives the real
+  Present overlay on an UN-paginated proof run and reads the painted fill. It fails if the registry
+  entry is removed — but it is NOT `@smoke`, so it runs in the nightly suite and **does not block a
+  merge**; `ci.yml` keeps `studio-smoke` out of `ci.needs` deliberately. What blocks a merge is the
+  docs Vitest job, where `single-slide-render.deck-context.test.ts` pins the expected fact SET by
+  name. That pin exists because the registry's other structural assertions iterate the registry, so
+  deleting a fact deleted it from the check and the whole suite stayed green — verified against the
+  `glossary: auto` entry. Unit tests assert the gate's answer; only the e2e asserts what the reader
+  sees, and this bug class has been found twice by bug report, never by a passing unit suite.
 
 ### The Playground and the Studio disagree about which slides overflow (and a slide's own padding changes when the preview pane is resized)
 

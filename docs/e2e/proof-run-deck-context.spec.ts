@@ -2,7 +2,7 @@
 // INCLUDING a deck that does not paginate.
 //
 // WHY THIS EXISTS. `cat-N` is never authored: the engine assigns it from a slide's ordinal
-// among the deck's proof slides (`proofTokensFor`, lib/core/split-panels.js). Any preview
+// among the deck's proof slides (`sequenceProofPanels`, lib/core/split-panels.js). Any preview
 // surface that renders one slide as its own document makes every proof slide look like the
 // first one, so they all take `cat-1` — a leveled deck presented as N identical blue panels.
 // Reported from a phone against the bloom deck.

@@ -387,6 +387,27 @@ describe('deck-derived fact registry', () => {
 		expect(new Set(names).size).toBe(names.length);
 	});
 
+	// THE ONE THAT ACTUALLY GUARDS. Every other assertion in this block iterates
+	// DECK_DERIVED_FACTS, so DELETING a fact deletes it from the check and they all still
+	// pass — verified: removing the `glossary: auto` entry left the whole repo green. That is
+	// the exact bug class this registry is presented as closing, reproduced against the
+	// registry itself, found by an inversion review.
+	//
+	// So the expected SET is pinned by name. Removing an entry now fails here, and adding one
+	// fails too — deliberately, because a new deck-derived fact should force a human to
+	// confirm it belongs and to add a BEHAVIORAL test for it, not merely to have been typed.
+	// This is a tripwire, not a description: it cannot detect a fact nobody registered, which
+	// is a real remaining gap (see the note in single-slide-render.ts).
+	it('the registry holds exactly the expected facts — deleting one FAILS here', () => {
+		expect(DECK_DERIVED_FACTS.map((f) => f.fact).sort()).toEqual([
+			'divider',
+			'glossary: auto',
+			'pagination',
+			'running-global directive',
+			'split-panel proof run',
+		]);
+	});
+
 	it('every probe actually matches something — no dead regex', () => {
 		// A probe that can never fire is worse than no probe: it reads as coverage.
 		const samples = [
@@ -404,6 +425,13 @@ describe('deck-derived fact registry', () => {
 				expect(samples.some((s) => p.test(s)), `${f.fact}: probe ${p} matches none of the samples`).toBe(true);
 			}
 		}
+	});
+
+	it('the glossary fact has BEHAVIORAL coverage, not just a registry row', () => {
+		// It was the only entry with none — which is how its deletion went unnoticed.
+		const g = DECK_DERIVED_FACTS.find((f) => f.fact === 'glossary: auto');
+		expect(g?.probes.some((p) => p.test('---\nglossary: auto\n---\n\nbody'))).toBe(true);
+		expect(g?.probes.some((p) => p.test('---\nglossary: manual\n---\n\nbody'))).toBe(false);
 	});
 
 	it('covers the proof run — the fact whose absence was the reported bug', () => {
