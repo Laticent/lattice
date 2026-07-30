@@ -320,12 +320,17 @@ in patch versions.
   reusing the filmstrip's `splitSections`). This is what the Playground filmstrip already did, which
   is why its numbers were right. The number is computed over the VIEWED set, so a reader lens
   numbers within what the audience actually sees. Cost is one whole-deck engine parse per render
-  instead of one slide's — measured same-machine (fence-aware sizes, global warm-up, interleaved,
-  median of 21): **0.58ms → 1.8ms at 10 sections, 3.5ms at 20, 7.7ms at 40, 44.4ms at 117**. The
-  srcdoc still carries a single section, so the frame's CSS parse and runtime execution are
-  unchanged — but the engine parse is now the dominant cost on the PATCH path (the steady-state
-  typing path, where the frame costs ~2ms), and a 117-section deck crosses the frame scheduler's
-  50ms heavy threshold into coalescing. A standalone host (landing island, component specimen) omits `slideIndex` and is
+  instead of one slide's — removed, for the two interactions that repeat an IDENTICAL parse, by a
+  **single-entry module-level memo of the last whole-deck render**: changing the shown slide (only
+  the index changes) and the overview grid (every tile renders the same deck, so N parses become
+  one). Measured on the real built Studio at 4× CPU, 40-slide gallery deck, patch path: slide
+  navigation is **TOTAL 12.8ms → 7.1ms p50, RENDER 6.8ms → 0.1ms** — *faster* than before this
+  change, because the previous code re-rendered a slide on every navigation. A KEYSTROKE misses the
+  memo by construction (the markdown changed) and still pays the whole-deck parse: ~44ms RENDER on
+  that deck at 4× against 6.8ms before, the cost the engine-side incremental render path would
+  collapse (`engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md`). The frame
+  cost is unchanged either way (~1.8ms on the patch path) — the srcdoc still carries one section.
+  A standalone host (landing island, component specimen) omits `slideIndex` and is
   byte-identical to before, where 1-of-1 is the truth. Exports were never affected: they render the
   whole source in one pass.
   Narrowing is **guarded**, because one authored slide is not always one section: `_focusSteps`

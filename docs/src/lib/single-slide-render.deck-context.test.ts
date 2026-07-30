@@ -25,7 +25,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { createSingleSlideRenderer } from './single-slide-render';
+import { clearDeckMemo, createSingleSlideRenderer } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -52,6 +52,11 @@ beforeEach(() => {
 	(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = RO;
 	(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { hasTheme: () => false, addThemes: () => {} };
 	(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockReset();
+	// The whole-deck memo is MODULE state (deliberately — the overview grid's tiles share one
+	// entry). Production is safe because the engine is deterministic: identical inputs always
+	// produce identical html. A test that re-mocks DIFFERENT html for the same markdown would
+	// otherwise be served the previous test's render, so drop the memo between cases.
+	clearDeckMemo();
 	mockRender(DECK);
 });
 afterEach(() => {

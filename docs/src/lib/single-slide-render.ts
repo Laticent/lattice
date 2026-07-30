@@ -241,6 +241,41 @@ function narrowToSlide(html: string, index: number, slideCount?: number): string
 	return out + html.slice(pos);
 }
 
+// ── Whole-deck render memo — ONE entry, module-level ─────────────────────────
+// The deck-context render re-parses the WHOLE deck to learn one slide's true page number, and
+// two common interactions repeat that parse with BYTE-IDENTICAL inputs:
+//   · NAVIGATION — changing the shown slide changes only `slideIndex`; the deck, theme, mode and
+//     author CSS are the same, so the engine's output is identical. Measured on the real built
+//     Studio at 4× CPU on a 40-slide gallery deck, patch path, before this memo: a rail click
+//     cost TOTAL 52.1ms p50 / RENDER 43.8ms, against 12.8ms / 6.8ms on `main` — a 4× regression
+//     that crossed `createFrameScheduler`'s 50ms heavy threshold, so every navigation coalesced
+//     instead of painting immediately.
+//   · THE OVERVIEW GRID — every visible tile renders the SAME deck document and displays its own
+//     section, so N tiles paid N identical parses for one modal.
+// MODULE-level, not per-host, precisely so the grid's tiles share one entry. ONE entry, replaced
+// on any miss, so memory stays bounded at a single render (~290KB for a 117-slide deck) instead
+// of growing per host.
+//
+// The key is the complete set of inputs this module feeds `renderMarkdown`: the markdown, the
+// resolved theme name, the mode, and both author-CSS channels. `baseUrl` and the preview flag are
+// fixed per renderer. Anything else that could change the output has to change one of these.
+//
+// A KEYSTROKE MISSES BY CONSTRUCTION — the markdown changed — and that is correct: that parse is
+// real work this memo must not pretend away. Collapsing it needs the engine-side incremental
+// render path (engineering/decisions/2026-07-15-incremental-per-slide-render-cache.md), not a memo.
+// On a hit `engineMs` is the real (near-zero) elapsed time and `stats` is absent, because no
+// engine stages ran — the perf overlay tells the truth rather than a fabricated breakdown.
+type DeckRender = { html: string; css: string; width?: number; height?: number };
+let deckMemo: { key: string; out: DeckRender } | null = null;
+function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
+	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
+	return `${theme}|${mode}|${hashString(markdown)}|${markdown.length}|${hashString(extraCss)}|${hashString(extraThemeCss)}`;
+}
+/** Drop the memo — used by tests, and safe to call at any time (it only costs a re-render). */
+export function clearDeckMemo(): void {
+	deckMemo = null;
+}
+
 // Scan the just-rendered slide for dropped-to-black SVG chart paint (the #956
 // signal), feeding the live VizDiagnosticsOverlay — but ONLY while it's subscribed
 // (off = free). Deferred ~650ms like the overflow re-read: an SVG chart is stamped
@@ -512,10 +547,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const samplesBase = new URL(themeBase.replace(/themes\/$/, 'samples/'), location.href).href;
 				try {
 					const tEngine = performance.now();
-					// Ask the engine for its per-stage breakdown ONLY while the overlay is
-					// subscribed — otherwise it collects nothing (off = free).
-					out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
-					engineMs = performance.now() - tEngine;
+					// Reuse the last whole-deck render when every input is identical — a navigation
+					// or a sibling overview tile (see the deckMemo note above). Copied out, never
+					// handed over, because the narrowing step below mutates `out.html`.
+					const key = memoKey(markdown, theme, mode, extraCss || '', extra?.css || '');
+					if (deckMemo && deckMemo.key === key) {
+						out = { ...deckMemo.out };
+						engineMs = performance.now() - tEngine; // the real (near-zero) cost
+					} else {
+						// Ask the engine for its per-stage breakdown ONLY while the overlay is
+						// subscribed — otherwise it collects nothing (off = free).
+						out = await renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
+						engineMs = performance.now() - tEngine;
+						// Store the UN-narrowed render; the copy keeps the memo immune to the
+						// mutation below and to any caller that edits what it received.
+						deckMemo = { key, out: { html: out.html, css: out.css, width: out.width, height: out.height } };
+					}
 					// engineMs brackets the WHOLE renderMarkdown call, which also does the
 					// math prescan + (cold) KaTeX load before the engine's own render. Fold
 					// that gap into an `other` bucket so the breakdown reconciles to

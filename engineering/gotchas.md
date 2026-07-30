@@ -723,7 +723,13 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   one shown slide (`keepOnlySection` in `docs/src/lib/single-slide-render.ts`). The kept
   section carries the ordinal, the total, and its positional `id`, all computed against the
   real deck. The srcdoc still holds a single section, so the frame's CSS parse + runtime
-  execution — the dominant preview cost — is unchanged.
+  execution is unchanged — but note the engine parse is now the dominant cost on the PATCH path
+  (a warm edit's frame is ~1.8ms), so a **single-entry module-level memo of the last whole-deck
+  render** collapses the two interactions that repeat an identical parse: changing the shown
+  slide, and the overview grid's N tiles rendering the same deck. Measured on the real Studio at
+  4× CPU on a 40-slide deck, navigation is TOTAL 7.1ms p50 (RENDER 0.1ms) against 12.8ms/6.8ms
+  before deck context existed. A keystroke misses the memo by construction and pays the full
+  parse; that one needs the engine-side incremental render path, not a memo.
 - **The trap inside the fix — ONE AUTHORED SLIDE IS NOT ONE SECTION.** `slideIndex` indexes
   the CALLER's authored-slide list; narrowing indexes the ENGINE's sections. They diverge, and
   when they do an index-based lookup paints a slide the author did not select — which is worse
