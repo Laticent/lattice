@@ -362,6 +362,14 @@ that shape, so **the round-trip property was TRUE while the pair was wrong on ev
 round-trip between two functions that share a mistake proves only that they share it. The new cases feed
 the shapes real decks have.
 
+**Both directions are now guarded on the real surface, each with a verified negative control** — the
+report named the caret→preview direction FIRST ("the slide I am editing is not the slide displayed"),
+and that one was initially checked with an invalid control: `git stash push` had nothing to stash
+because the fix was already committed, so the "without the fix" run silently ran WITH it and passed.
+Re-run against `origin/main`'s `lint.ts` it fails on 5 of 7 sampled slides, previewing slide *i+1* for
+a click into slide *i*. A negative control that cannot fail is the same defect as a test that cannot
+fail.
+
 Three instrument attempts before a usable one, all worth naming because each *passed* while measuring
 nothing: the DOM selection reads empty (a rail click moves focus off the editor); "slide *i*'s first line
 is in the rendered DOM" passed with the bug reintroduced, because CodeMirror builds a margin of lines

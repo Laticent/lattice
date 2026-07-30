@@ -142,3 +142,43 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 	}
 	expect(wrong, `the editor framed the wrong slide:\n${wrong.join('\n')}`).toEqual([]);
 });
+
+// THE OTHER DIRECTION, and the one the report named FIRST: "the slide I am editing is not the slide
+// displayed in the preview." Moving the caret drives the shown slide — Editor.tsx feeds
+// `slideIndexAt(doc, selection.head)` to `onCursorSlide`, which sets the active slide. The fix to
+// `slideIndexAt` is unit-covered, but the property a human checks is this one: click into a slide's
+// text and the preview must show THAT slide.
+test('jargon deck: clicking into a slide previews THAT slide', async ({ page }) => {
+	test.setTimeout(600_000);
+	const authored = splitSlides(stripFm(DECK));
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await expect.poll(() => railButtons(page).count(), { timeout: 60_000 }).toBe(authored.length);
+
+	const wrong: string[] = [];
+	for (const i of [1, 2, 3, 7, 20, 40, authored.length - 1]) {
+		const want = headingOf(authored[i]);
+		if (!want) continue;
+		// Reveal the slide first so its lines are built, then CLICK one of its own lines — the caret
+		// move is what has to drive the preview, so it must come from a real click, not from the rail
+		// selection that revealed it. Clicking the slide's LAST line (not its first) also guards the
+		// boundary: an off-by-one at the chunk edge would map it to the next slide.
+		await railButtons(page).nth(i).click();
+		await page.waitForTimeout(300);
+		const ownLines = authored[i].split('\n').map((l) => l.trim()).filter((l) => l.length > 8);
+		const target = ownLines[ownLines.length - 1];
+		const line = page.locator('.cm-line', { hasText: target }).first();
+		if (!(await line.count())) continue; // line not built (virtualized away) — skip rather than fake it
+		await line.click();
+		await page.waitForTimeout(400);
+		try {
+			await expect
+				.poll(async () => (await livePreview(page).locator('.lattice section').first().innerText()).replace(/\s+/g, ' '), { timeout: 8_000 })
+				.toContain(want);
+		} catch {
+			const got = (await livePreview(page).locator('.lattice section').first().innerText()).replace(/\s+/g, ' ').slice(0, 90);
+			wrong.push(`clicked into slide ${i} (line ${JSON.stringify(target.slice(0, 40))}): preview showed ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`);
+		}
+	}
+	expect(wrong, `the preview showed a different slide than the one being edited:\n${wrong.join('\n')}`).toEqual([]);
+});
