@@ -76,8 +76,23 @@ describe('export-marp bundle (end-to-end)', () => {
 
   test('deck ends with the runtime scripts (browser render) under a lint-ignore', () => {
     const baked = fs.readFileSync(path.join(dest, 'split-headings.md'), 'utf8');
-    assert.match(baked, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\s*$/,
-      'markdown ends with the lint-ignore + mermaid + runtime script tags');
+    assert.match(baked, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/,
+      'markdown carries the lint-ignore + mermaid + runtime script tags');
+  });
+
+  // Marp strips front matter, and the runtime's old recovery path — fetching the
+  // source `.md` beside the document — cannot work over `file://`, which is how
+  // both a double-clicked export and marp-cli itself load the deck. So the deck
+  // carries its own front matter as an inert data block.
+  test('deck ends with the BAKED front matter, carrying the deck-wide registers', () => {
+    const baked = fs.readFileSync(path.join(dest, 'split-headings.md'), 'utf8');
+    const m = baked.match(/<script type="application\/lattice-front-matter">([\s\S]*?)<\/script>\s*$/);
+    assert.ok(m, 'the baked front-matter block is the last thing in the deck');
+    const fm = JSON.parse(m[1]);
+    assert.match(fm, /^marp: true$/m);
+    assert.match(fm, /^theme: indaco$/m);
+    // It is the EXPORTED front matter, so it states the baked split mode.
+    assert.match(fm, /^split: rule$/m);
   });
 
   test('baked deck.md states split: rule and divides into the same slides', () => {

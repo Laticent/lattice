@@ -1399,7 +1399,16 @@ of how many rows are here.
 
 | Transform | Symptom on a Marp-rendered surface | Added |
 |---|---|---|
-| Deck-wide front-matter registers (`color-mode:`, `class:`, `logo:`, `meta:` — `lib/runtime/index.js` `applyCachedDeckClass` / `applyCachedMastheadMeta` / `applyCachedDeckLogo`) | Silently absent in **marp-cli's `--pdf` conversion**, present everywhere else. These have no Marp equivalent, so the runtime recovers them by FETCHING the deck's source `.md` from beside the rendered document. That resolves when you open the exported `<name>.html` (verified: `color-mode: dark` puts `dark` on every section there), and does NOT resolve during marp-cli's PDF conversion, so a `color-mode: dark` deck exports as a LIGHT pdf while the engine renders it dark. Fix shape when someone takes it: bake the deck-wide axis into a Marp-native global `class:` directive at export time — marp-core honors front-matter `class:` on every section, which removes the fetch dependency entirely. Not done here to keep #1256 to one change (HARD RULE #17). | 2026-07-29 |
+| a `_focusSteps` slide, `no-period` / `with-period` headings, `functionplot` / `anima` fences, and math typesetting | The five constructs a Marp render genuinely does not reproduce, plus one it renders with a different typesetter. Each is built while the deck is PARSED, which is earlier than any Marp tool lets a plugin in, so a browser runtime cannot cover for it. They are no longer prose here: `lib/core/marp-fidelity.js` is the ledger, `test/unit/core/marp-fidelity.test.js` fails when a new markdown-it plugin is added without a coverage verdict, and the generated bundle README prints the gaps from the same rows — so what a recipient is told cannot drift from what the repo knows. | 2026-07-29 |
+
+**Deck-wide front-matter registers: row retired 2026-07-29.** `color-mode:` / `class:` /
+`logo:` / `meta:` (and the whole finish / mode / claim / spectrum family) used to be
+absent from an exported PDF, because the runtime recovered them by FETCHING the
+source `.md` and `fetch` cannot read a `file://` URL — which is how both marp-cli
+and a recipient double-clicking the HTML load the deck. The export now BAKES the
+front matter into the document (`lib/core/deck-front-matter.js`) and the runtime
+reads it from the DOM. Measured on a `file://` open with default Chrome flags:
+**0 → 10 of 10** sections carrying the deck's color mode.
 
 **Three rows retired 2026-07-29 (#1256)**, all closed by adding the mirror
 rather than by dropping the transform: `matrixGridCells` (cells rendered as raw

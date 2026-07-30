@@ -52,6 +52,21 @@ describe('marp-bundle spec', () => {
     assert.equal(safeName('  '), 'deck');
   });
 
+  // The generated `npm run pdf` / `npm run html` scripts interpolate the deck
+  // filename UNQUOTED, so the sanitizer's charset is what keeps them one argument.
+  // Pin it: no whitespace, no shell metacharacter, no leading `-` to be read as a
+  // flag, for every shape of title a deck can carry.
+  test('safeName output is shell-safe, which is what lets the scripts go unquoted', () => {
+    for (const title of [
+      'Q3 Board Review', 'deck; rm -rf /', '--help', 'a"b\'c', 'a$(id)b', 'a|b&c', 'naïve—dash', '',
+      '../../etc/passwd', 'a\nb',
+    ]) {
+      const slug = safeName(title);
+      assert.match(slug, /^[\w.][\w.-]*$/, `unsafe slug for ${JSON.stringify(title)}: ${slug}`);
+      assert.ok(!slug.includes('/'), 'no path separator');
+    }
+  });
+
   test('withRuntimeScripts appends the lint-ignored mermaid + runtime tags', () => {
     const out = withRuntimeScripts('# A\n\n## B\n');
     assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\s*$/);
@@ -96,7 +111,27 @@ describe('marp-bundle spec', () => {
     // `npm install` and the recipient would never get marp-cli either.
     assert.strictEqual(pkg.dependencies['@slidewright/lattice'], undefined);
     assert.match(pkg.name, /^My-Deck-marp-export$/);
-    assert.match(pkg.scripts.pdf, /My Deck\.md/);
+    // The scripts name the SANITIZED file — the same string the producers write
+    // the deck under. They used to interpolate the raw title, so this bundle's
+    // only documented render command was `marp My Deck.md …`: marp-cli reads that
+    // as two input files, neither of which exists.
+    assert.match(pkg.scripts.pdf, /^marp My-Deck\.md /);
+    assert.match(pkg.scripts.pdf, / -o My-Deck\.pdf$/);
+    assert.match(pkg.scripts.html, /^marp My-Deck\.md .* -o My-Deck\.html$/);
+    for (const s of Object.values(pkg.scripts)) assert.doesNotMatch(s, /My Deck/);
+  });
+
+  // The generated README's paths and commands must name the same file the
+  // producers write — prose keeps the deck's own title.
+  test('readme paths use the sanitized filename, prose keeps the title', () => {
+    const r = readme({ name: 'My Deck', palette: 'indaco', themes: ['lattice.css'], agent: true });
+    assert.match(r, /^# My Deck — portable Marp bundle/, 'the heading keeps the real title');
+    assert.match(r, /npx @marp-team\/marp-cli My-Deck\.md /);
+    assert.match(r, /`My-Deck\.md` \| the deck/);
+    assert.doesNotMatch(r, /My Deck\.md/, 'no path spells the unsanitized name');
+    const a = agentsMd({ name: 'My Deck', version: '1.0.0' });
+    assert.match(a, /`My-Deck\.md` — the slides/);
+    assert.doesNotMatch(a, /`My Deck\.md`/);
   });
 
   test('readme documents the VS Code + marp-cli routes and the browser-HTML fidelity note', () => {
@@ -191,10 +226,20 @@ describe('marp-bundle spec', () => {
       const count = (s, ch) => s.split(ch).length - 1;
       assert.equal(count(once, '{'), count(css, '{'), 'rule blocks preserved');
       assert.equal(count(once, ';'), count(css, ';'), 'declarations preserved');
-      assert.ok(once.length > css.length, 'arms were actually distributed');
+      // `tools/build-css.js` distributes at BUILD time, so on a current dist this
+      // pass has nothing left to do — and it is now a BYTE-for-byte no-op, not
+      // merely a semantic one. (It used to re-join comma lists with `, ` and grow
+      // the sheet ~262 bytes; the character walk leaves an already-distributed
+      // prelude alone.) The belt-and-braces value is for a bundle built against an
+      // OLDER dist, which the next assertion covers.
+      assert.equal(once, css, 'a current dist is already distributed — nothing to do');
       assert.equal(marpScopableCss(once), once, 'a second pass changes nothing');
       assert.deepEqual(once.match(/(^|[{};])\s*:is\([^)]*section[^)]*\)/g) || [], [],
         'no rule still LEADS with :is(section…)');
+      // …and it really does distribute an UNDISTRIBUTED sheet (the older-dist case),
+      // so the equality above can't pass by doing nothing at all.
+      const stale = ':is(section.map, figure.chart-frame) .r{color:red}';
+      assert.equal(marpScopableCss(stale), 'section.map .r, figure.chart-frame .r{color:red}');
     });
 
     test('does NOT touch :where() heads — unwrapping them would change specificity', () => {

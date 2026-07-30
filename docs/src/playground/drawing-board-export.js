@@ -160,9 +160,16 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	// deck.md — the auto-glossary's generated slide baked in FIRST (it appends a
 	// whole slide and strips its own trigger), then splits baked to literal `---`,
-	// then the runtime <script> tags appended. Same order as the CLI producer, so
-	// the two emit a byte-identical deck.
-	dir.file(`${slug}.md`, withRuntimeScripts(bakeSplits(appendAutoGlossary(source))));
+	// then the runtime <script> tags + the baked front matter appended. Same order
+	// as the CLI producer.
+	//
+	// `localAssets: false` is the one place the two producers deliberately DIFFER:
+	// this one has no filesystem, so it cannot copy a deck's local image files into
+	// `assets/` the way tools/export-marp.js does. Baking a front-matter `logo:`
+	// that points at a relative local path would therefore render a broken image
+	// where the register previously just never fired — so those keys are dropped
+	// here. A remote or `data:` logo resolves anywhere and is kept.
+	dir.file(`${slug}.md`, withRuntimeScripts(bakeSplits(appendAutoGlossary(source)), { localAssets: false }));
 
 	// palette CSS (+ dark), fetched from the staged theme dir. Fall back to the
 	// default palette if the deck's theme isn't a served built-in (e.g. a

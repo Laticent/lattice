@@ -56,6 +56,23 @@ describe('matrix-grid cells — parse', () => {
       '<span class="cell cell-outlined"><span class="cell-sr-label">reachable</span></span>',
     );
   });
+
+  // The label is decoded source text, so the string path must escape what the
+  // node path keeps as a text node — otherwise `&` emits raw and `<b>` becomes
+  // live markup on the engine while staying literal text on a Marp render.
+  test('cellHtml escapes the label, so both paths keep text as text', () => {
+    assert.equal(
+      kernel.cellHtml(kernel.parseCell('[x] Fees & Duties')),
+      '<span class="cell cell-filled">Fees &amp; Duties</span>',
+    );
+    const html = kernel.cellHtml(kernel.parseCell('[x] <b>Tier 1</b>'));
+    assert.equal(html, '<span class="cell cell-filled">&lt;b&gt;Tier 1&lt;/b&gt;</span>');
+    // …and the node path already agreed — same visible text, no element created.
+    const doc = new JSDOM('<span></span>').window.document;
+    const node = kernel.cellNode(doc, kernel.parseCell('[x] <b>Tier 1</b>'));
+    assert.equal(node.textContent, '<b>Tier 1</b>');
+    assert.equal(node.querySelector('b'), null);
+  });
 });
 
 describe('matrix-grid cells — applyToDom', () => {

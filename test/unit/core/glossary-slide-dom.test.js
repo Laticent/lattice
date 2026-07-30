@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const kernel = require('../../../lib/core/glossary-slide');
 const latticeEngine = require('../../../lib/engine');
+const { GLOSSARY_TABLE_CLASS } = require('../../../lib/core/glossary-table-class');
 
 const LIST = '<ul>'
   + '<li>ARR<ul><li>Revenue a business can reliably expect to recur every year.</li></ul></li>'
@@ -100,6 +101,36 @@ describe('glossary slide — applyToDom', () => {
     assert.equal(cells[1].querySelector('code').textContent, 'expanded');
   });
 
+  // An unrelated table on the slide used to defeat BOTH halves: the "already
+  // converted?" guard asked whether the section held ANY table, and the pill read
+  // its first column. A glossary slide with a source note came out of a Marp
+  // render as a bare list with a pill reading the note's first cell.
+  test('an unrelated table neither blocks the conversion nor feeds the pill', () => {
+    const doc = dom(
+      LIST
+      + '<table><thead><tr><th>Source</th><th>Note</th></tr></thead>'
+      + '<tbody><tr><td>X team</td><td>Q3</td></tr></tbody></table>',
+    );
+    kernel.applyToDom(doc);
+    const section = doc.querySelector('section.glossary');
+    assert.ok(!section.querySelector('ul'), 'the term list was still converted');
+    assert.equal(section.querySelectorAll('table').length, 2, "the author's table survives");
+    assert.equal(doc.querySelector('.range-pill').textContent, 'A – N');
+  });
+
+  test('every top-level list is converted, and the pill reads the last table', () => {
+    const doc = dom(
+      '<ul><li>ARR<ul><li>Revenue.</li></ul></li></ul>'
+      + '<h3>Finance</h3>'
+      + '<ul><li>Zeta<ul><li>Last one.</li></ul></li></ul>',
+    );
+    kernel.applyToDom(doc);
+    const section = doc.querySelector('section.glossary');
+    assert.equal(section.querySelectorAll('table').length, 2);
+    assert.ok(!section.querySelector('ul'), 'neither list was left behind');
+    assert.equal(doc.querySelector('.range-pill').textContent, 'Z');
+  });
+
   test('leaves a non-glossary section alone', () => {
     const doc = dom(LIST, 'content');
     assert.doesNotThrow(() => kernel.applyToDom(doc));
@@ -141,5 +172,61 @@ describe('glossary slide — the two render paths agree', () => {
     const enginePill = engineHtml.match(/<span class="range-pill">([^<]*)<\/span>/);
     assert.ok(enginePill, 'the engine emitted a range pill');
     assert.equal(section.querySelector('.range-pill').textContent, enginePill[1]);
+  });
+
+  // The two divergences the descendant-table guard closed, each pinned against a
+  // REAL engine render rather than against what the mirror is assumed to do.
+  const enginePillFor = (body) => {
+    const deck = [
+      '---', 'marp: true', 'theme: indaco', '---', '',
+      '<!-- _class: glossary -->', '', '## Glossary', '', body, '',
+    ].join('\n');
+    const html = latticeEngine.createEngine().render(deck).html;
+    const pill = html.match(/<span class="range-pill">([^<]*)<\/span>/);
+    return { pill: pill?.[1], tables: (html.match(/<table[ >]/g) || []).length };
+  };
+
+  test('an unrelated table on the slide: both paths still read the term table', () => {
+    const engine = enginePillFor(
+      ['- ARR', '  - Revenue.', '- NDR', '  - Kept.', '', '| Source | Note |', '|---|---|', '| X team | Q3 |'].join('\n'),
+    );
+    const doc = dom(
+      LIST
+      + '<table><thead><tr><th>Source</th><th>Note</th></tr></thead>'
+      + '<tbody><tr><td>X team</td><td>Q3</td></tr></tbody></table>',
+    );
+    kernel.applyToDom(doc);
+    assert.equal(engine.pill, 'A – N', 'sanity: the engine reads the generated table');
+    assert.equal(doc.querySelector('.range-pill').textContent, engine.pill);
+    assert.equal(doc.querySelectorAll('table').length, engine.tables);
+  });
+
+  // The shape the markdown-pipe test above CANNOT catch: markdown-it emits a pipe
+  // table as `table_open` tokens, which the token path's range rule skipped anyway.
+  // A RAW HTML table arrives as an `html_block` — which that rule used to accept,
+  // so narrowing only the DOM mirror to a `Term` header traded one disagreement for
+  // another (engine `Z`, mirror `A – N`). Both now select the marker class.
+  test('a RAW HTML table on the slide feeds neither path\'s pill', () => {
+    const rawTable = '<table><thead><tr><th>Zone</th><th>Note</th></tr></thead>'
+      + '<tbody><tr><td>Zulu</td><td>n/a</td></tr></tbody></table>';
+    const engine = enginePillFor(['- ARR', '  - Revenue.', '- NDR', '  - Kept.', '', rawTable].join('\n'));
+    const doc = dom(LIST + rawTable);
+    kernel.applyToDom(doc);
+    assert.equal(engine.pill, 'A – N', "the engine ignores the author's raw table");
+    assert.equal(doc.querySelector('.range-pill').textContent, engine.pill);
+    assert.equal(doc.querySelectorAll(`table.${GLOSSARY_TABLE_CLASS}`).length, 1, 'one generated table');
+    assert.equal(doc.querySelectorAll('table').length, 2, "the author's table survives");
+  });
+
+  test('two term lists: both paths convert both and read the last', () => {
+    const engine = enginePillFor(['- ARR', '  - Revenue.', '', '### Finance', '', '- Zeta', '  - Last one.'].join('\n'));
+    const doc = dom(
+      '<ul><li>ARR<ul><li>Revenue.</li></ul></li></ul><h3>Finance</h3>'
+      + '<ul><li>Zeta<ul><li>Last one.</li></ul></li></ul>',
+    );
+    kernel.applyToDom(doc);
+    assert.equal(engine.pill, 'Z', 'sanity: the engine reads the LAST generated table');
+    assert.equal(doc.querySelector('.range-pill').textContent, engine.pill);
+    assert.equal(doc.querySelectorAll('table').length, engine.tables);
   });
 });
