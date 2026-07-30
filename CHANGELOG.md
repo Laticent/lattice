@@ -168,6 +168,16 @@ in patch versions.
   anchors at the offset the heading vacated — the string equivalent of the DOM kernel's
   `h2.nextElementSibling`, which was always immune, so this was also a live HARD RULE #1 engine↔web
   split (live but unexercised: every deck in the shipped corpus places its notes after the heading).
+- **18 committed PDFs are regenerated, and they now show the clips they always had.** The
+  emulator's default moved from "print no marker" to `reader`, so every shipped artifact whose
+  deck clips gains the calm "Content clipped" pill. That is 18 PDFs across 17 decks — the exact
+  set `test/integration/overflow-baseline.json` already ratchets (2 examples, 12 exemplars, the
+  `connect` and `wifi` galleries in both moods). The ratchet is unchanged: no new slide clips,
+  the same 27 do, and they are now visible in the artifact instead of only on stderr. Note that
+  `build:galleries:check` compares mtimes rather than content, so it would not have caught these
+  going stale. `examples/overflow-fix-me.md`'s closing slide is also trimmed: the copy this
+  branch gave it ran two lines past the frame, which made a deck *about* overflow ship a clipped
+  conclusion.
 
 - **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
   PDFs render stage content ~11% larger than before — and agree with the preview.** The

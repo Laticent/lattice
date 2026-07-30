@@ -112,12 +112,9 @@ A slide with no bounded cell falls back to the component's own word budget: whic
 
 <!-- _class: closing -->
 
-# The overlay is for you. The exported deck speaks to its reader.
+# The overlay is for you. The export isn't.
 
-The Fix-Me tags and the red ring are the AUTHORING signal, and an export
-does not carry them by default. What it does carry is a small "Content
-clipped" tag, because a slide that loses content should say so rather than
-look finished. `--overflow-marker` decides: `author` ships the red ring and the
-"Overflows" flag, `off` ships none. The yellow Fix-Me tag is preview-only in
-every case — it needs the runtime, which an export does not carry. Whichever you
-pick, the console names the clipped pages.
+The Fix-Me tags and the red ring are the *authoring* signal. An export
+carries a calm "Content clipped" tag instead, because a slide that loses
+content should say so — and whichever marker you pick, the console
+names the clipped pages.
