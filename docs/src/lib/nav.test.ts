@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error — plain .mjs module, no types
 import { appsNav, contentNav, isCurrent, librariesActive, librariesNav, primaryNav } from './nav.mjs';
 
 // The site's primary navigation is ONE source of truth (nav.mjs) that every
@@ -27,8 +26,8 @@ describe('nav model', () => {
 	});
 
 	it('keeps the Studio honest with a Preview badge', () => {
-		const studio = appsNav(url).find((l: { label: string }) => l.label === 'Studio');
-		expect(studio.badge).toBe('Preview');
+		const studio = appsNav(url).find((l) => l.label === 'Studio');
+		expect(studio?.badge).toBe('Preview');
 	});
 
 	it('lists no frozen surface anywhere in the nav', () => {
@@ -47,7 +46,8 @@ describe('nav model', () => {
 	});
 
 	it('marks a section current from any page inside it', () => {
-		const docs = contentNav(url).find((l: { label: string }) => l.label === 'Docs');
+		const docs = contentNav(url).find((l) => l.label === 'Docs');
+		if (!docs) throw new Error('the Docs entry vanished from contentNav');
 		expect(isCurrent(docs, '/lattice/guides/authoring/')).toBe(true);
 		expect(isCurrent(docs, '/lattice/studio/')).toBe(false);
 	});
