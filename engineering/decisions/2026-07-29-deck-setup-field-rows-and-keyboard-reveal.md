@@ -116,6 +116,46 @@ Decisions worth naming:
 - **The reveal hook is deleted, not kept as a belt.** Two mechanisms both guessing at a
   surface neither can see is worse than one that does not guess.
 
+### What the pin does NOT cover
+
+Worth stating plainly, because the natural reading of this note is that the Studio now
+handles this everywhere, and it does not.
+
+**Two separate things are at work, and only one is universal.**
+
+The **sheet lifting clear of the keyboard is universal** inside the Studio: every panel is
+either a `PanelSheet` (which calls `useKeyboardInset` and applies `MOBILE_OFFSET` +
+`MOBILE_HEIGHT`) or the `StudioDrawer`, which is a raw `Sheet` but calls the hook and applies
+both classes itself. The only un-lifted raw sheets in the repo are outside the Studio —
+`playground/DeckSetupSheet`, `playground/GalleriesSheet`, `site/NavActions`,
+`site/MetricDetail`. So any input in any Studio panel is inside a box that clears the keyboard.
+
+**The pin is not.** `PINNED_FIELD_ROW` is exported from `panel.tsx` but has exactly one
+consumer: `Field` in `StudioShell.tsx`, which is not exported. So it reaches that file's rows
+and nothing else. Whether an input elsewhere is *visible* inside its lifted sheet is a
+property of where the panel happens to put it:
+
+| | text inputs | covered by | 
+|---|---|---|
+| CommandPalette, SlidePicker, Library | 0–2 | **layout** — the field is in a `PanelDock` |
+| Deck setup (`StudioShell`) | 4 | **the pin** |
+| Fabricate, MotionStudio, FinishStudio, SlideContext, TtsSettings | 3–10 each | **nothing** — scrolling body, no dock, no pin |
+| WorkspaceSheet, AcronymEditor, LexiconEditor, SlideComments | 1–7 each | nothing, but their bodies don't scroll today |
+
+`SlideContext` is the sharpest case: the **Slide** tab is the segment beside Deck in the same
+sheet, it has its own near-identical `Row` primitive, and its three `<textarea>`s sit in an
+`overflow-y-auto` body. Same shape, same sheet, one tap away, not covered.
+
+**And nothing gates it.** The tests here assert the class string is well-formed, not that
+inputs live inside something carrying it — so a `<textarea>` added to a scrolling panel
+tomorrow ships under the keyboard with every check green.
+
+The structural repair is to collapse the three near-duplicate row primitives
+(`StudioShell`'s `Field`, `SlideContext`'s `Row`, `PrintOptionsPanel`'s `Field`) into one
+shared row in `panel.tsx`, so pinning is a property of "a settings row" rather than of one
+file. That is the same near-miss duplication §1 of this note complains about; this change
+fixed one instance of it and left two standing. Tracked separately.
+
 ## Verified
 
 - **Layout, on the real built Studio** (`astro build` + `astro preview` + real Chromium) at
