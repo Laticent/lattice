@@ -265,21 +265,137 @@ function narrowToSlide(html: string, index: number, slideCount?: number): string
 //
 // It FAILS OPEN — anything it is unsure about returns true — so a wrong answer costs latency, never
 // correctness. Cost is a regex pass over the source, measured at 0.033ms across 117 slides.
+// THE QUESTION THIS ASKS. Not "does this deck show page numbers" — that was the first
+// framing and it is a PROXY, which is how the gate shipped blind to `split-panel proof`.
+// Pagination is only one deck-derived fact, and it is the forgiving one: a page number
+// nobody displays can be wrong invisibly. A categorical hue is displayed either way, so
+// the same shortcut renders it wrong in plain sight.
+//
+// The question is: **does any slide render something whose value depends on OTHER slides?**
+// Each entry below is one such fact, named, with the reason it cannot be derived from a
+// lone slice. Adding a deck-derived feature means adding an entry — and the registry is
+// exported so a test can assert every fact is actually probed, rather than trusting that
+// whoever added the feature remembered this file.
+//
+// Bias is toward OVER-triggering, but do NOT read that as "false positives are free" — an
+// earlier version of this comment said exactly that, citing "~39ms, memoized", and it is
+// wrong on the path that hurts. The memo helps NAVIGATION (same deck, different slide); a
+// KEYSTROKE misses it by construction, because the markdown changed — see the memo's own
+// note below. On the typing path a false positive costs a full whole-deck parse per
+// keystroke, measured at 46.3ms p50 on a 40-slide gallery deck (the decision doc's +345%).
+//
+// So: over-trigger where the fact is genuinely possible, and do not add a probe merely
+// because it is cheap to write. Each entry widens a real latency cliff for every deck that
+// matches it. A false negative renders wrong output, which is still worse — that is why the
+// bias exists at all — but the trade is a trade, not a freebie.
+export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; probes: RegExp[] }> = [
+	{
+		// NOT pagination. The page number is `slide k of N` — positional metadata the caller
+		// already holds, so it is SUPPLIED to the engine (`page` on the render opts) rather than
+		// re-derived by parsing the deck. That is why `paginate` is no longer a trigger, and it
+		// is the single biggest saving here: of 126 committed decks, 115 set pagination and 68
+		// tripped this gate for that reason ALONE. Those now keep the cheap slice path AND print
+		// a true number.
+		//
+		// What supplying a position DOES require is that the caller's slide indices mean the same
+		// thing the engine's sections do. Two plugins break that 1→N: `_focusSteps` clones one
+		// authored slide into one rendered slide per step, and `split: headings` starts a new
+		// slide at every `##`. Under either, "slide k" of the caller's list is not section k, so a
+		// supplied position would number the WRONG slide — worse than the bug it fixes. Those
+		// decks keep the whole-deck render, where the engine counts for itself and is right by
+		// construction. One committed deck (examples/focus.md) is in this class.
+		fact: 'slide expander (1→N)',
+		why: 'a plugin turns one authored slide into several rendered ones, so the caller\'s slide index no longer identifies a section and a supplied position would number the wrong slide',
+		probes: [
+			/<!--\s*_?focusSteps\s*:/, // one slide per step
+			/^\s*split\s*:\s*headings\b/m, // a new slide at every `##`
+		],
+	},
+	{
+		fact: 'running-global directive',
+		why: 'a directive comment without the `_` spot prefix applies to its slide AND every one after, so a slice loses what it inherited',
+		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
+	},
+	{
+		fact: 'divider',
+		why: 'dividers drive the progress dot rail and the watermark section glyph, both counted across the deck (progress.transform.js is a no-op without them)',
+		probes: [/<!--\s*_?class\s*:[^>]*\bdivider\b/],
+	},
+	{
+		fact: 'glossary: auto',
+		why: 'appends a derived appendix slide built from terms across the whole deck, changing the slide count',
+		probes: [/^\s*glossary\s*:\s*auto\b/m],
+	},
+	{
+		// THE ONE THE PROXY MISSED. `cat-N` on a `split-panel proof` run is assigned from the
+		// slide's ordinal among the deck's proof slides (`sequenceProofPanels`, lib/core/split-panels.js),
+		// never authored. A slice rendered alone is always "the first proof slide" and takes `cat-1`,
+		// so a leveled deck presented as six identical blue panels — the originally reported bug,
+		// which survived the first cut of this gate because it paginates and tripped `pagination`
+		// by luck. Verified on the real Present overlay: without this entry a three-slide proof run
+		// with no `paginate` paints one hue for all three; with it, three.
+		//
+		// Matches `proof`/`capstone` WITHOUT requiring `split-panel` in the same directive, because
+		// `deckClassPropagate` can supply that token from front matter. Over-triggering on a stray
+		// `proof` class is the cheap direction.
+		fact: 'split-panel proof run',
+		why: 'cat-N is assigned from the slide\'s ordinal among the deck\'s proof slides, so a lone slice always takes cat-1',
+		probes: [
+			/<!--\s*_?class\s*:[^>]*\b(?:proof|capstone)\b/, // directive comment
+			/^\s*class\s*:[^\n]*\b(?:proof|capstone)\b/m, // front matter / global
+		],
+	},
+];
+
+/**
+ * Can the caller's slide indices be TRUSTED as engine section indices?
+ *
+ * Supplying a page position is only sound if "slide k of N" means the same thing to the caller
+ * and to the engine. The whole-deck path VERIFIES that (narrowToSlide bails when the section
+ * count disagrees, and falls back to an honest 1-of-1); the slice path has no such backstop, so
+ * it has to earn the right to supply a number.
+ *
+ * WHY A PROBE IS NOT ENOUGH, and how this was caught. An earlier cut gated on a `split: headings`
+ * probe — but heading splitting is the DEFAULT (`DEFAULT_SPLIT` in lib/core/resolve-split.js), so
+ * a deck splits on headings with no directive to match. A deck whose `---` chunk carries two
+ * top-level h1/h2 therefore renders THREE sections while the Studio counts TWO slides, and the
+ * preview confidently painted "2 of 2" where the truth was "3 of 3". On the whole-deck path the
+ * same deck failed CLOSED to "1 of 1". Trading an honest fallback for a plausible lie is strictly
+ * worse than the bug being fixed, which is the bar this file's own registry comment sets.
+ *
+ * So this COUNTS what the engine will produce, conservatively, and returns false the moment it is
+ * unsure. Every "unsure" costs only the optimization — the render falls back to no supplied
+ * position, i.e. exactly the pre-existing 1-of-1 — so the failure direction is honest, never wrong.
+ */
+function positionIsTrustworthy(deck: string, slideCount: number | undefined): boolean {
+	if (!(typeof slideCount === 'number' && slideCount > 0)) return false;
+	const body = String(deck ?? '')
+		.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '') // front matter
+		.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, ''); // fenced code — never a boundary
+
+	// A `_focusSteps` slide becomes one slide PER STEP; the count is not derivable here at all.
+	if (/<!--\s*_?focusSteps\s*:/.test(body)) return false;
+	// An hr form the Studio's `\n---\n` splitter does not recognise but markdown-it does
+	// (`***`, `___`, `- - -`, `---` with trailing space). Either side miscounts; bail.
+	if (/^[ \t]*(?:\*[ \t]*\*[ \t]*\*[-* \t]*|_[ \t]*_[ \t]*_[_ \t]*|-[ \t]+-[ \t]+-[- \t]*|-{3,}[ \t]+)$/m.test(body)) return false;
+
+	const chunks = body.split(/\n-{3,}\n/);
+	if (chunks.length !== slideCount) return false; // the caller and this splitter already disagree
+
+	// Heading splitting is ON unless the deck opts out, and it inserts a break before every
+	// top-level h1/h2 after the first in a chunk. Count only headings at column 0 — one nested in
+	// a list or blockquote does not divide (see the plugin's `token.level === 0` guard).
+	const splitsOnHeadings = !/^\s*split\s*:\s*(rule|none|off)\b/m.test(deck);
+	if (splitsOnHeadings) {
+		for (const chunk of chunks) {
+			if ((chunk.match(/^#{1,2}[ \t]+\S/gm) || []).length > 1) return false;
+		}
+	}
+	return true;
+}
+
 function needsDeckContext(deck: string): boolean {
-	// `paginate` truthy in front matter or in ANY directive comment (spot or global): the number is
-	// a function of the whole deck, so any slide that shows one needs the deck.
-	if (/^\s*paginate\s*:\s*(?!false|no|off\b)\S/m.test(deck)) return true;
-	if (/<!--\s*_?paginate\s*:\s*(?!false|no|off\b)\S/.test(deck)) return true;
-	// A RUNNING-GLOBAL directive comment — one without the `_` spot prefix — applies to its slide and
-	// every one after, so a slice rendered alone loses it.
-	if (/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/.test(deck)) return true;
-	// Divider slides drive the progress dot rail and the watermark section glyph, both of which count
-	// across the deck. No dividers, no rail (progress.transform.js is a no-op without them).
-	if (/<!--\s*_?class\s*:[^>]*\bdivider\b/.test(deck)) return true;
-	// `glossary: auto` appends a derived appendix slide built from terms across the WHOLE deck, which
-	// also changes the slide count the number is relative to.
-	if (/^\s*glossary\s*:\s*auto\b/m.test(deck)) return true;
-	return false;
+	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)));
 }
 
 // ── Whole-deck render memo — ONE entry, module-level ─────────────────────────
@@ -593,6 +709,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const canDivert = typeof opts?.slideIndex === 'number' && !!opts.slideMarkdown;
 				const wantsContext = typeof opts?.slideIndex === 'number' && (!canDivert || needsDeckContext(markdown));
 				const renderSource = wantsContext || !canDivert ? markdown : (opts?.slideMarkdown as string);
+				// SUPPLIED DECK POSITION for the slice path. When we render the shown slide alone,
+				// the engine would number it "1 of 1" — so hand it the position the caller already
+				// knows. This is what lets `paginate` stop forcing a whole-deck parse.
+				//
+				// Only on the slice path: a whole-deck render counts for itself and is right, and
+				// supplying an offset there would shift EVERY section (slide 1 numbered as 4).
+				// Supplied ONLY when the caller's indices are provably engine section indices
+				// (positionIsTrustworthy). Otherwise omit it and let the slide number itself 1 of 1 —
+				// the honest fallback, never a plausible wrong number.
+				const slicePage =
+					renderSource !== markdown &&
+					typeof opts?.slideIndex === 'number' &&
+					opts.slideIndex >= 0 &&
+					positionIsTrustworthy(markdown, opts?.slideCount)
+						? { offset: opts.slideIndex, total: opts.slideCount as number }
+						: undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
 				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
@@ -612,14 +744,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// silently couple every such host (and every test of them) to whatever rendered
 					// last. Narrowing the gate keeps the shared state confined to the callers that
 					// actually benefit from it.
-					const key = typeof opts?.slideIndex === 'number' ? memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '') : null;
+					// The position is part of the key: two BYTE-IDENTICAL slides at different
+					// deck positions render differently now (they print different numbers), so a
+					// key over source alone would serve slide 7 the number it cached for slide 3.
+					const key = typeof opts?.slideIndex === 'number'
+						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}` : ''}`
+						: null;
 					if (key !== null && deckMemo?.key === key) {
 						out = { ...deckMemo.out };
 						engineMs = performance.now() - tEngine; // the real (near-zero) cost
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
 						// subscribed — otherwise it collects nothing (off = free).
-						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners() });
+						out = await renderMarkdown(PG, renderSource, theme, { baseUrl: samplesBase, stats: hasRenderListeners(), page: slicePage });
 						engineMs = performance.now() - tEngine;
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a

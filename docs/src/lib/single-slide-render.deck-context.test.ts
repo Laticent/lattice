@@ -25,7 +25,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { clearDeckMemo, createSingleSlideRenderer } from './single-slide-render';
+import { clearDeckMemo, createSingleSlideRenderer, DECK_DERIVED_FACTS } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -34,7 +34,11 @@ const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 // no running-global directive and no divider has no deck-scoped fact to get right, so rendering
 // the whole thing would be pure cost. `paginate: true` is the realistic trigger — a deck showing
 // page numbers is precisely the case deck context exists for.
-const PAGINATED = '---\npaginate: true\n---\n\ndeck body';
+// A deck that genuinely NEEDS the whole-deck render, used by the narrowing tests below as their
+// lever into that path. It is a DIVIDER deck, not a paginated one: pagination stopped forcing a
+// deck render once the position became something the caller supplies, so `paginate: true` here
+// would quietly take the slice path and these tests would stop exercising narrowing at all.
+const DECK_SCOPED = '<!-- _class: divider -->\n\ndeck body';
 
 // A 3-slide deck exactly as the engine emits one: an `<article class="lattice">` wrapper, one
 // `<section>` per slide carrying its positional `id`, its `data-lattice-pagination` ordinal, the
@@ -99,7 +103,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		const host = mountHost();
 		// Slide 2 of a 3-slide deck. Before this option, the caller passed slide 2's markdown
 		// ALONE and the engine — correctly, for a one-slide document — stamped it "1 of 1".
-		const status = await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: 1 });
+		const status = await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1 });
 		expect(status.ok).toBe(true);
 
 		const doc = srcdocOf(host);
@@ -120,7 +124,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 	it('keeps the `.lattice` wrapper — the patch path and frame CSS both key on it', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: 2 });
+		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 2 });
 		const doc = srcdocOf(host);
 		// `article.lattice > section` is the engine's own selector shape (lib/engine/css.js), and
 		// patchSlideBody swaps `.lattice`'s innerHTML — losing the wrapper would break both.
@@ -136,7 +140,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		const seen: string[] = [];
 		for (const i of [0, 1, 2]) {
 			const host = mountHost();
-			await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: i });
+			await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: i });
 			seen.push(srcdocOf(host).match(/data-lattice-pagination="(\d+)"/)?.[1] ?? '');
 		}
 		expect(seen).toEqual(['1', '2', '3']);
@@ -150,7 +154,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		mockRender(`<article class="lattice">${section(1, 2, 'One')}${section(2, 2, 'Two')}<div class="deck-tail">tail</div></article>`);
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: 1 });
+		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1 });
 		const doc = srcdocOf(host);
 		expect(doc.match(/<section\b/g)?.length).toBe(1);
 		expect(doc).toContain('data-lattice-pagination="2"');
@@ -162,7 +166,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		// is the truth. They must keep passing no opts at all and behave exactly as before.
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		const status = await r.renderInto(host, PAGINATED, false);
+		const status = await r.renderInto(host, DECK_SCOPED, false);
 		expect(status.slides).toBe(3);
 		expect(srcdocOf(host).match(/<section\b/g)?.length).toBe(3);
 	});
@@ -181,9 +185,9 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 			return md === 'FALLBACK' ? { html: `<article class="lattice">${section(1, 1, 'Shown')}</article>`, css: '' } : { html: DECK, css: '' };
 		});
 		// The engine reports 3 sections; the caller believes the deck has 5 slides → mismatch.
-		const status = await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: 4, slideCount: 5, slideMarkdown: 'FALLBACK' });
+		const status = await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 4, slideCount: 5, slideMarkdown: 'FALLBACK' });
 		expect(status.ok).toBe(true);
-		expect(calls).toEqual([PAGINATED, 'FALLBACK']); // rendered the deck, then fell back to the slide
+		expect(calls).toEqual([DECK_SCOPED, 'FALLBACK']); // rendered the deck, then fell back to the slide
 		const doc = srcdocOf(host);
 		expect(doc.match(/<section\b/g)?.length).toBe(1);
 		expect(doc).toContain('Shown');
@@ -194,7 +198,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 	it('narrows normally when the caller\'s count MATCHES the engine', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 3, slideMarkdown: 'unused' });
+		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 3, slideMarkdown: 'unused' });
 		const doc = srcdocOf(host);
 		expect(doc.match(/<section\b/g)?.length).toBe(1);
 		expect(doc).toContain('data-lattice-pagination="2"');
@@ -207,7 +211,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		const r = createSingleSlideRenderer(opts);
 		for (const bad of [-1, 3, 99]) {
 			const host = mountHost();
-			await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: bad });
+			await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: bad });
 			expect(srcdocOf(host).match(/<section\b/g)?.length).toBe(3);
 		}
 	});
@@ -216,7 +220,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		mockRender(`<article class="lattice">${section(1, 1, 'Only')}</article>`);
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		const status = await r.renderInto(host, PAGINATED, false, undefined, undefined, undefined, undefined, { slideIndex: 0 });
+		const status = await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 0 });
 		expect(status.slides).toBe(1);
 		expect(srcdocOf(host)).toContain('data-lattice-pagination="1"');
 	});
@@ -238,13 +242,40 @@ describe('deck-context gate (needsDeckContext)', () => {
 		expect(seen).toEqual(['THE SLICE']); // one render, of the slide alone — main's cost
 	});
 
-	it('renders the DECK when `paginate` is on', async () => {
+	it('renders the SLICE when `paginate` is on — the position is SUPPLIED, not re-derived', async () => {
+		// THE STANCE CHANGE. A page number is `slide k of N`, which the caller already knows, so
+		// pagination no longer buys a whole-deck parse. Of 126 committed decks, 115 paginate and 68
+		// tripped this gate for that reason alone; they now keep the cheap path.
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
 		const deck = '---\npaginate: true\n---\n\nbody\n\n---\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
-		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
+		expect(seen).toEqual(['THE SLICE']);
+	});
+
+	it('hands the engine the shown slide’s real position on that slice render', async () => {
+		// Rendering the slice is only correct BECAUSE the position goes with it. Without this the
+		// badge silently reads "1 of 1" — the original bug, reintroduced by the optimization.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, '---\npaginate: true\n---\n\nbody\n\n---\n\nmore', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(mock.mock.calls[0][3]).toMatchObject({ page: { offset: 1, total: 2 } });
+	});
+
+	it('does NOT supply a position when it renders the whole deck', async () => {
+		// A whole-deck render counts for itself. An offset there would shift EVERY section —
+		// slide 1 numbered 4 — so the two paths must not both apply a position.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		const deck = '<!-- _class: divider -->\n\nbody\n\n---\n\nmore';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(mock.mock.calls[0][1]).toBe(deck);
+		expect(mock.mock.calls[0][3]?.page).toBeUndefined();
 	});
 
 	it('renders the DECK when a running-global directive could be inherited', async () => {
@@ -266,13 +297,24 @@ describe('deck-context gate (needsDeckContext)', () => {
 		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
 	});
 
-	it('a SPOT `_paginate` still needs the deck — the number is deck-relative', async () => {
+	it('a SPOT `_paginate` also takes the slice path — same reasoning', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
 		const deck = 'body\n\n---\n\n<!-- _paginate: true -->\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
-		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
+		expect(seen).toEqual(['THE SLICE']);
+	});
+
+	it('a 1→N EXPANDER keeps the whole-deck render — a supplied index would name the wrong slide', async () => {
+		// The one thing supplying a position genuinely requires: that the caller's slide index
+		// identifies a section. `_focusSteps` clones one authored slide into several, so it does not.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '<!-- _focusSteps: a | b | c -->\n\nbody\n\n---\n\nmore';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
 	});
 
 	it('`paginate: false` does NOT trigger a deck render', async () => {
@@ -300,8 +342,8 @@ describe('whole-deck memo boundedness', () => {
 		// `slideCount: 3` matches the mocked DECK's three sections — with a mismatch `narrowToSlide`
 		// fails closed and the renderer falls back to the slice, which adds a second render per round
 		// and makes the counts unreadable. (It did, the first time this was written.)
-		const deckA = '---\npaginate: true\n---\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
-		const deckB = '---\npaginate: true\n---\n\nbeta\n\n---\n\ntwo\n\n---\n\nthree';
+		const deckA = '<!-- _class: divider -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
+		const deckB = '<!-- _class: divider -->\n\nbeta\n\n---\n\ntwo\n\n---\n\nthree';
 		const arg = { slideIndex: 1, slideCount: 3, slideMarkdown: 'SLICE' };
 		for (let i = 0; i < 6; i++) await r.renderInto(host, i % 2 ? deckA : deckB, false, undefined, undefined, undefined, undefined, arg);
 		// Six alternating renders, six engine calls: a two-entry cache would have served four of them
@@ -315,8 +357,182 @@ describe('whole-deck memo boundedness', () => {
 		const host = mountHost();
 		const seen = recordRenders();
 		const arg = { slideIndex: 1, slideCount: 3, slideMarkdown: 'SLICE' };
-		const deck = '---\npaginate: true\n---\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
+		// A DIVIDER deck, not a paginated one: `paginate` no longer forces the whole-deck render
+		// (the position is supplied instead), so it would take the slice path and never touch the memo.
+		const deck = '<!-- _class: divider -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
 		for (let i = 0; i < 4; i++) await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, arg);
 		expect(seen).toEqual([deck]);
+	});
+});
+
+// The fact the first cut of this gate was blind to. `cat-N` on a `split-panel proof` run
+// comes from the slide's ordinal among the deck's proof slides, so a slice rendered alone
+// is always "the first one" and takes `cat-1` — a leveled deck presented as N identical
+// panels. It survived the original gate only because the reported deck also paginates.
+describe('deck-context gate — split-panel proof runs', () => {
+	const proofDeck = (extra = '') =>
+		`---\ntheme: indaco${extra}\n---\n\n<!-- _class: split-panel proof -->\n\n## One.\n\n---\n\n<!-- _class: split-panel proof -->\n\n## Two.`;
+
+	it('renders the DECK for a proof run with NO paginate', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = proofDeck();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('renders the DECK for a capstone run (capstone implies proof)', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '<!-- _class: split-panel capstone -->\n\n## One.\n\n---\n\nbody';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('renders the DECK when the class arrives via front matter rather than a directive', async () => {
+		// deckClassPropagate can supply `split-panel` deck-wide, so the probe must not
+		// require the token to sit in the same directive comment.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '---\nclass: split-panel proof\n---\n\n## One.\n\n---\n\n## Two.';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('still renders the SLICE for a deck with neither proof nor any other deck-derived fact', async () => {
+		// The optimization has to survive: adding a fact must not make every deck pay.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		await r.renderInto(host, '<!-- _class: split-panel -->\n\n## Plain.\n\n---\n\nbody', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen).toEqual(['THE SLICE']);
+	});
+});
+
+// STRUCTURAL, not behavioral. The gate is a registry precisely so that adding a
+// deck-derived feature is one entry with a stated reason, instead of a regex appended to
+// an anonymous chain — which is how `split-panel proof` came to be missing. These assert
+// the registry stays self-describing, so a future entry cannot be half-added.
+describe('deck-derived fact registry', () => {
+	it('every fact is named, justified, and has at least one probe', () => {
+		expect(DECK_DERIVED_FACTS.length).toBeGreaterThan(0);
+		for (const f of DECK_DERIVED_FACTS) {
+			expect(f.fact, 'fact needs a name').toBeTruthy();
+			expect(f.why.length, `${f.fact} needs a stated reason`).toBeGreaterThan(20);
+			expect(f.probes.length, `${f.fact} needs a probe`).toBeGreaterThan(0);
+		}
+	});
+
+	it('names are unique, so a duplicate entry is visible', () => {
+		const names = DECK_DERIVED_FACTS.map((f) => f.fact);
+		expect(new Set(names).size).toBe(names.length);
+	});
+
+	// THE ONE THAT ACTUALLY GUARDS. Every other assertion in this block iterates
+	// DECK_DERIVED_FACTS, so DELETING a fact deletes it from the check and they all still
+	// pass — verified: removing the `glossary: auto` entry left the whole repo green. That is
+	// the exact bug class this registry is presented as closing, reproduced against the
+	// registry itself, found by an inversion review.
+	//
+	// So the expected SET is pinned by name. Removing an entry now fails here, and adding one
+	// fails too — deliberately, because a new deck-derived fact should force a human to
+	// confirm it belongs and to add a BEHAVIORAL test for it, not merely to have been typed.
+	// This is a tripwire, not a description: it cannot detect a fact nobody registered, which
+	// is a real remaining gap (see the note in single-slide-render.ts).
+	it('the registry holds exactly the expected facts — deleting one FAILS here', () => {
+		expect(DECK_DERIVED_FACTS.map((f) => f.fact).sort()).toEqual([
+			'divider',
+			'glossary: auto',
+			'running-global directive',
+			'slide expander (1→N)',
+			'split-panel proof run',
+		]);
+	});
+
+	it('every probe actually matches something — no dead regex', () => {
+		// A probe that can never fire is worse than no probe: it reads as coverage.
+		const samples = [
+			'<!-- _focusSteps: a | b -->\n\nbody',
+			'---\nsplit: headings\n---\n\nbody',
+			'<!-- header: Q3 -->\n\nbody',
+			'<!-- _class: divider -->\n\nbody',
+			'---\nglossary: auto\n---\n\nbody',
+			'<!-- _class: split-panel proof -->\n\nbody',
+			'<!-- _class: split-panel capstone -->\n\nbody',
+			'---\nclass: split-panel proof\n---\n\nbody',
+		];
+		for (const f of DECK_DERIVED_FACTS) {
+			for (const p of f.probes) {
+				expect(samples.some((s) => p.test(s)), `${f.fact}: probe ${p} matches none of the samples`).toBe(true);
+			}
+		}
+	});
+
+	it('the glossary fact has BEHAVIORAL coverage, not just a registry row', () => {
+		// It was the only entry with none — which is how its deletion went unnoticed.
+		const g = DECK_DERIVED_FACTS.find((f) => f.fact === 'glossary: auto');
+		expect(g?.probes.some((p) => p.test('---\nglossary: auto\n---\n\nbody'))).toBe(true);
+		expect(g?.probes.some((p) => p.test('---\nglossary: manual\n---\n\nbody'))).toBe(false);
+	});
+
+	it('covers the proof run — the fact whose absence was the reported bug', () => {
+		const proof = DECK_DERIVED_FACTS.find((f) => /proof/i.test(f.fact));
+		expect(proof, 'a split-panel proof fact must be registered').toBeDefined();
+		expect(proof?.probes.some((p) => p.test('<!-- _class: split-panel proof -->'))).toBe(true);
+	});
+});
+
+// Supplying a page position is only sound when the caller's slide indices ARE engine section
+// indices. An earlier cut gated that on a `split: headings` probe — but heading splitting is the
+// DEFAULT, so a deck splits on headings with no directive to match, and a `---` chunk carrying two
+// top-level headings rendered THREE sections while the Studio counted TWO slides. The preview then
+// painted a confident "2 of 2" where the truth was "3 of 3"; the whole-deck path fails CLOSED to
+// "1 of 1" for the same deck. Trading an honest fallback for a plausible lie is worse than the bug
+// being fixed, so the slice path now VERIFIES instead of trusting.
+describe('supplied position is verified, not trusted', () => {
+	const sent = (mock: ReturnType<typeof vi.fn>) => mock.mock.calls[0][3];
+	const run = async (deck: string, slideCount: number) => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, {
+			slideIndex: 1,
+			slideCount,
+			slideMarkdown: 'THE SLICE',
+		});
+		return sent(mock);
+	};
+
+	it('does NOT supply a position when an implicit heading split desyncs the count', async () => {
+		// THE REGRESSION. No `split:` directive at all — heading splitting is simply the default.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n## B\n\n---\n\n# C\n', 2))?.page).toBeUndefined();
+	});
+
+	it('does NOT supply a position when a non-`---` hr form splits the deck', async () => {
+		// markdown-it treats `***` as an hr; the Studio's `\n---\n` splitter does not.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n***\n\n# C\n', 2))?.page).toBeUndefined();
+	});
+
+	it('DOES supply a position for an ordinary deck — the optimization must survive the guard', async () => {
+		// Measured: 72 of the 73 corpus decks on the slice path still earn a true number.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+	});
+
+	it('does NOT supply a position when the caller omits the count', async () => {
+		// Without a total the engine would compute `offset + 1` and print "2 of 2" for slide 2 of 9.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, '---\npaginate: true\n---\n\n# A\n\n---\n\n# C\n', false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideMarkdown: 'THE SLICE' });
+		expect(sent(mock)?.page).toBeUndefined();
+	});
+
+	it('a heading nested in a list does not count as a split', async () => {
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n- item\n  # nested\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
 	});
 });

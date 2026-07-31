@@ -116,6 +116,60 @@ in patch versions.
 
 ### Fixed
 
+- **A preview showing one slide no longer re-parses the whole deck just to number it.** A page
+  number is `slide k of N` — positional metadata the caller already holds — but the engine derived
+  it by counting the sections of whatever document it was handed, so every paginated deck paid a
+  whole-deck parse per keystroke to recompute a position nobody had lost. `render()` now takes an
+  optional `page` (`{ offset, total }`); supplying it lets the preview render the shown slide alone
+  and still print a true number, and `paginate` stops forcing the expensive path.
+
+  Measured over the 126 committed example and baseline decks, the share taking the whole-deck path
+  falls from **121 (96.0%) to 53 (42.1%)** — 115 decks set pagination and 68 tripped the gate for
+  that reason alone. Same-machine before/after on the preview perf spec: a paginate-only prose deck
+  goes from **17.9ms to 8.0ms** typing p50 (−55%), erasing the +73% regression the previous release
+  recorded and landing below the 9.8ms it cost before any of this. Two honest caveats: that deck's
+  NAVIGATION is slower (5.1 → 8.1ms — navigation used to hit the whole-deck memo, and slice renders
+  don't share one), and a deck with dividers is unchanged (44.7 → 44.0ms) because the progress rail
+  still needs the deck. Supplying section position too would take the corpus to 7.9%; that is not
+  this change.
+
+  The deck-context gate's question changed with it — from "does this deck paginate?" to "can I trust
+  my own slide indices?", which is the only thing supplying a position requires. `_focusSteps` and
+  `split: headings` turn one authored slide into several, so those decks keep the whole-deck render.
+  Absent `page` the numbering is counted off the document exactly as before, so no exported artifact
+  moves. Guarded by `docs/e2e/supplied-page-position.spec.ts`, which reads the painted badge off the
+  real Present overlay.
+
+- **A `split-panel proof` run still showed one hue in the Studio unless the deck happened to
+  paginate.** The previous release renders the whole deck and displays one section so deck-derived
+  facts resolve, but gates that on `needsDeckContext` to keep the cheap path for decks that don't
+  need it — and that gate listed pagination, running-global directives, dividers and `glossary: auto`,
+  not `split-panel proof`. Since `cat-N` comes from a slide's ordinal among the deck's proof slides,
+  a proof deck without pagination fell back to the lone slice and every slide took `cat-1`. The
+  originally reported deck paginates, so it tripped the pagination entry and came out right by luck.
+  Verified on the real Present overlay: three slides at `rgb(188, 213, 236)` before, `cat-1`/`cat-2`/
+  `cat-3` after.
+
+  The gate is now a `DECK_DERIVED_FACTS` registry rather than a regex chain: each entry names the
+  fact, states why a lone slice can't produce it, and carries its probes, so adding a deck-derived
+  feature is one entry with a stated reason. The old framing asked "does this deck show page
+  numbers?" — a proxy that only ever worked for pagination, the one fact whose visibility and
+  correctness coincide. Guarded by `docs/e2e/proof-run-deck-context.spec.ts`, which drives the real
+  overlay on an un-paginated run and fails if the entry is removed — though that spec is nightly
+  rather than merge-blocking; the per-PR guard is a unit test pinning the registry's expected fact
+  set, added after an inversion review showed the other structural assertions iterate the registry
+  and so stayed green when a fact was deleted outright.
+
+- **`paginate: skip` and `paginate: hold` were silently downgraded to `false`.** Lattice numbers
+  every slide — the counter advances on every section, so a hidden slide still holds its place and
+  the next visible one reads its true position — and treats visibility as the only per-slide choice.
+  Marp's `skip` (drop the slide from the count) and `hold` (show a number without advancing it) are
+  not implemented; `truthy()` rejects all three of `false`/`skip`/`hold` identically. For `false`
+  that is the intent, but an author writing `skip` or `hold` asked for a renumbering they don't get,
+  and the deck still rendered, so nothing said so. A new `paginate-unsupported-value` lint
+  suggestion now names which value was written, what it actually does, and that `false` is the
+  supported way to hide a badge. Fence-aware, so a value inside a code sample isn't flagged.
+
 - **An exported `image` slide now renders its photo as a panel and its prose in a text
   column — the same slide the engine draws, pixel for pixel.** This was the seventh gap
   #1261 disclosed and the one that did NOT degrade gracefully: Marp's own

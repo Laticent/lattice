@@ -202,6 +202,38 @@ var require_lint_core = __commonJS({
         fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 a slide that does not fit is divided without asking at every presentation @size (square \xB7 portrait \xB7 story \xB7 mobile). A landscape @size never paginates."
       }];
     }
+    var PAGINATE_UNSUPPORTED_COMMENT_RE = /<!--[ \t]*(_?paginate)[ \t]*:[ \t]*(skip|hold)\b/i;
+    var PAGINATE_UNSUPPORTED_FM_RE = /^[ \t]*(paginate)[ \t]*:[ \t]*(skip|hold)\b/im;
+    function withoutCodeBlocks(text) {
+      return String(text).replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, "").replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, "").replace(/^(?: {4}|\t)[^\n]*$/gm, "").replace(/`[^`\n]*`/g, " ");
+    }
+    function findUnsupportedPaginateValues(source) {
+      const text = String(source || "");
+      const out = [];
+      const seen = /* @__PURE__ */ new Set();
+      const fm = fmChunks(text);
+      splitTopLevel(text).forEach((chunk, idx) => {
+        const body = withoutCodeBlocks(chunk);
+        const m = body.match(PAGINATE_UNSUPPORTED_COMMENT_RE) || (idx < fm ? body.match(PAGINATE_UNSUPPORTED_FM_RE) : null);
+        if (!m) return;
+        const [, key, valueRaw] = m;
+        const value = valueRaw.toLowerCase();
+        const dedupeKey = `${key}:${value}`;
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+        const slide = Math.max(1, idx - fm + 1);
+        out.push({
+          slide,
+          rule: "paginate-unsupported-value",
+          severity: "suggestion",
+          classToken: "paginate",
+          line: m[0].replace(/^<!--/, "").trim(),
+          message: value === "skip" ? `paginate: skip is not implemented \u2014 it hides the number but the slide is STILL counted, so later slides keep their positions (Marp's skip would drop it from the count).` : `paginate: hold is not implemented \u2014 it hides the number instead of showing one without advancing it (Marp's hold would repeat the previous number).`,
+          fix: `Use \`${key}: false\` if hiding the badge is what you want \u2014 that is exactly what this line already does. Lattice numbers every slide and treats visibility as the only per-slide choice, so there is no way to renumber a deck around a slide.`
+        });
+      });
+      return out;
+    }
     function findInlineTitleBodyLine(sample) {
       if (!sample) return null;
       for (const line of sample.split("\n")) {
@@ -839,6 +871,7 @@ ${indent}   - ${body.trim()}`;
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
       findings.push(...findRetiredAutosplitDirective(source, vocab));
+      findings.push(...findUnsupportedPaginateValues(source));
       return findings;
     }
     var GANTT_STATUS = Object.freeze(/* @__PURE__ */ new Set([
@@ -1487,6 +1520,7 @@ ${indent}   - ${body.trim()}`;
       capacityFix,
       findUnknownMapRegions,
       findRetiredAutosplitDirective,
+      findUnsupportedPaginateValues,
       findUnknownFinish,
       findUnknownMode,
       findUnknownColorMode,

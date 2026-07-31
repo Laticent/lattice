@@ -615,6 +615,43 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   export. `matrix-grid` and `compare-prose axis` were fixed that way; the others
   above remain.
 
+### A `split-panel proof` run is one hue in the Studio, but only when the deck doesn't paginate
+
+- **Symptom:** a leveled deck's `split-panel proof` slides each show their own categorical tint in
+  the Playground and the exported PDF, but in the Studio (Present, its overview grid, the editor
+  preview) they all paint the SAME hue, always `cat-1`. Add `paginate: true` to the front matter and
+  the colours come right — which is the confusing part, because pagination has nothing to do with
+  colour.
+
+- **Cause:** `cat-N` is **not authored** — the engine assigns it from the slide's ordinal among the
+  deck's proof slides (`sequenceProofPanels`, `lib/core/split-panels.js`). The Studio's previews render
+  the whole deck and display one section precisely so deck-derived facts resolve (#1265), but that
+  costs a whole-deck parse, so it is gated by `needsDeckContext`
+  (`docs/src/lib/single-slide-render.ts`). The gate's first cut listed pagination, running-global
+  directives, dividers and `glossary: auto` — **not** proof runs. So a proof deck that paginates got
+  the deck render (and correct hues) as a side effect, and one that didn't fell back to the lone
+  slice, where every proof slide is "the first one".
+
+- **Fix (shipped):** `split-panel proof` is a registered entry in `DECK_DERIVED_FACTS`. If you are
+  adding a feature whose rendered value depends on other slides, **add an entry there** — name the
+  fact and say why a lone slice can't produce it. The gate is a registry, not a regex chain, so this
+  is one place and the tests assert every entry is named, justified and probed.
+
+- **The trap to avoid repeating:** don't key the gate on a *visibility* switch. Pagination is the
+  forgiving fact — a page number nobody displays can be wrong invisibly — so "is pagination on?"
+  looked like a reasonable proxy for "does this deck need real context". Any fact that renders
+  regardless of a toggle (a colour, a rail, a glyph) breaks that proxy in plain sight.
+
+- **Guard, and what it actually blocks:** `docs/e2e/proof-run-deck-context.spec.ts` drives the real
+  Present overlay on an UN-paginated proof run and reads the painted fill. It fails if the registry
+  entry is removed — but it is NOT `@smoke`, so it runs in the nightly suite and **does not block a
+  merge**; `ci.yml` keeps `studio-smoke` out of `ci.needs` deliberately. What blocks a merge is the
+  docs Vitest job, where `single-slide-render.deck-context.test.ts` pins the expected fact SET by
+  name. That pin exists because the registry's other structural assertions iterate the registry, so
+  deleting a fact deleted it from the check and the whole suite stayed green — verified against the
+  `glossary: auto` entry. Unit tests assert the gate's answer; only the e2e asserts what the reader
+  sees, and this bug class has been found twice by bug report, never by a passing unit suite.
+
 ### The Playground and the Studio disagree about which slides overflow (and a slide's own padding changes when the preview pane is resized)
 
 - **Symptom:** the same deck, the same palette, the same slide — the Studio's
