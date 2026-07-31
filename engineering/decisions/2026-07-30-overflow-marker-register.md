@@ -159,6 +159,45 @@ block or has the resolved state baked into it. There is no third option, and "th
 is already correct there" is not one of them — a setting the primary export ignores is not
 a setting.
 
+## The two registers ask different questions
+
+The register shipped with `author` and `reader` keyed off the SAME measurement — the
+geometric one, `probeSectionOverflow`. That was an altitude error, and the HARD RULE #25
+inversion caught it before merge.
+
+Geometry is right for `author`. The author can open devtools; an over-subscribed box is a
+defect to fix whether or not today's copy happens to fit inside the spill, and tomorrow's
+copy will not.
+
+Geometry is wrong for `reader`, because the pill makes a claim to someone whose only test
+is *"can I find what's missing?"*. Measured on the corpus this gate covers:
+
+| deck | overshoot | text-bearing leaves below the clip line |
+|---|---|---|
+| `exemplars/nonprofit/grant-report.md` p3 | 282px | **0** |
+| `exemplars/nonprofit/grant-report.md` p12 | 416px | **0** |
+
+The spill is padding and background. Cross-tabulating the whole ratchet by component:
+**18 of 27 clipping slides are bare `kpi`, and all 20 `kpi compact` slides fit** — a perfect
+separation, so this is one component's flex floor (`kpi.styles.css` keeps `min-height: auto`
+on the `<ol>` deliberately, for the grid variants), not 17 authoring accidents. Four more are
+`wifi`, three are the feature's own demo deck. The remaining two are genuine.
+
+So `reader` now asks the reader's question — `probeContentClipped`: is any content-bearing
+box (text, or a replaced element, because a chart cut in half loses plenty with no text in
+it) cut by a clipping ancestor? The two probes are kept SEPARATE rather than merged: the
+narrow one runs only on sections the geometric one already flagged, which is what lets
+`author` stay exactly as loud as it was.
+
+`.overflow` still lands on the section on geometry, because autosplit and the console report
+both key off it and both want the geometric truth. Only the reader treatment yields, via
+`.overflow-silent`.
+
+**The component defects are NOT fixed here** — they are pre-existing and off this change's
+path (HARD RULE #18's log-don't-pull arm), and `kpi.styles.css` already records one failed
+attempt at the same symptom. Fixing the predicate rather than the corpus is also the more
+general answer: it protects a user's own `kpi` deck, which regenerating our PDFs would not.
+
 The runtime tells an exported artifact from an authoring surface by the PRESENCE of
 the export-settings block, which is written by one function and only ever by an
 export producer. That is a fact about the document, not a heuristic.

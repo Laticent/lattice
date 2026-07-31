@@ -132,6 +132,27 @@ in patch versions.
   capture also replaces the separate dynamic-component bake, so state-chart / function-plot
   SVGs now survive an autosplit re-render too.
   `engineering/decisions/2026-07-30-overflow-marker-register.md`.
+- **The reader marker now fires only when the clip actually loses something.** `author` and
+  `reader` were asking the same GEOMETRIC question — did a box's content extent exceed the
+  box — and that is the right question for only one of them. An author can open devtools, so
+  an over-subscribed box is a defect worth flagging whether or not today's copy happens to fit
+  inside the spill. A recipient holding a PDF can only check the claim by looking, and on
+  **18 of the 27 slides the corpus ratchets** the answer they get is "nothing is missing":
+  `exemplars/nonprofit/grant-report.md` p3 overflows its `.cell-stage` by 282px and p12 by
+  416px with **every text-bearing leaf inside the frame** — the spill is padding and
+  background. All 18 are bare `kpi`; all 20 `kpi compact` slides fit, a perfect split. So the
+  shipped default's first act was to stamp "Content clipped" on intact slides, and a warning
+  that cries wolf teaches its reader to reach for `off`.
+  `reader` now asks the reader's question instead (`probeContentClipped` in
+  `lib/core/overflow-probe.js`): is any CONTENT-BEARING box — non-empty text, or a replaced
+  element, because an oversized chart cut in half is a real loss with no text involved — cut by
+  a clipping ancestor? `author` is untouched and still pure geometry. `.overflow` still lands on
+  the section either way, because autosplit and the console report both key off it and both want
+  the geometric truth; only the reader TREATMENT yields, via a new `.overflow-silent` class both
+  watchers stamp. The console warning is hedged to match, rather than repeating the same
+  overclaim in a different channel. Net effect on the shipped artifacts: **22 false pills
+  removed** (all 12 exemplars now carry none) and **every true cut kept** — `logo`, `wifi`,
+  `image-set-export` and the `overflow-fix-me` demo all still say so.
 - **The overflow marker's reader wording no longer promises something false.** The calm
   variant read "More below ↓", which is a scroll affordance — but `section` is
   `overflow: hidden` and the body cell is `overflow: clip`, which creates no scroll container

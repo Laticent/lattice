@@ -17470,6 +17470,22 @@ section.closing.numbered::after        { content: counter(lat-closing,  decimal-
 section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-overflow-marker="off"]) {
   box-shadow: inset 0 0 0 4px #d4351c;
 }
+
+/* `.overflow-silent` — the box overflowed, but nothing readable or visible was CUT
+ * (lib/core/overflow-probe.js `probeContentClipped`). The class is stamped by both
+ * watchers and means exactly one thing: do not tell a READER about this one.
+ *
+ * `.overflow` itself still lands on the section, because autosplit and the console
+ * report both key off it and both want the geometric truth. It is only the reader's
+ * TREATMENT that yields. The author's ring above deliberately does NOT check this
+ * class — an over-subscribed box is a defect worth fixing whether or not today's copy
+ * happens to fit inside the spill, and the author is the one who can fix it.
+ *
+ * !important because the reader tab rule below is more specific than this selector,
+ * and this has to beat it on the sections it applies to. */
+section.overflow-silent[data-lattice-overflow-marker="reader"] > .overflow-tab {
+  display: none !important;
+}
 /* The ring is colour-only (fails WCAG 1.4.1 "use of colour"), so the watcher
  * also injects a labelled tab — a red corner flag reading "OVERFLOWS" — that
  * names the condition in text. Authoring signal; loud by design, top-right,

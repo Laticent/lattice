@@ -13,6 +13,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   CLIP_CELL_SELECTOR, probeSectionOverflow, PROBE_SRC,
+  probeContentClipped, CONTENT_CLIPPED_SRC,
   probeFigureLegibility, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO,
 } = require('../../../lib/core/overflow-probe');
 
@@ -595,5 +596,85 @@ describe('overflow-probe: scale invariance (the host may transform the slide)', 
     } finally {
       global.getComputedStyle = prev;
     }
+  });
+});
+
+describe('probeContentClipped — did the clip actually CUT anything?', () => {
+  // The geometry probe answers "did the box overflow"; this one answers the
+  // narrower question the READER register needs: was anything readable or visible
+  // actually cut. On the shipped corpus those disagree on 18 slides, which is the
+  // whole reason this exists — a `kpi` stage overflows by 282-416px of padding with
+  // every glyph inside the frame, and a "Content clipped" tag there is untrue.
+  const rect = (top, bottom, left = 0, right = 100) => ({
+    top, bottom, left, right, width: right - left, height: bottom - top,
+  });
+  // A content leaf: no element children, some text, a rect.
+  const leaf = (text, r, cls = []) => ({
+    tagName: 'P', textContent: text, children: [],
+    classList: { contains: (c) => cls.includes(c) },
+    matches: () => false,
+    getBoundingClientRect: () => r,
+  });
+  // A clip box holding leaves. querySelectorAll('*') yields its leaves.
+  const box = (r, leaves) => ({
+    getBoundingClientRect: () => r,
+    querySelectorAll: (sel) => (sel === '*' ? leaves : []),
+  });
+  const section = (r, leaves, cells = []) => ({
+    getBoundingClientRect: () => r,
+    querySelectorAll: (sel) => (sel === '*' ? leaves : sel === CLIP_CELL_SELECTOR ? cells : []),
+  });
+
+  function withClipping(run) {
+    const prev = global.getComputedStyle;
+    global.getComputedStyle = () => ({ overflowY: 'clip', overflowX: 'visible', position: 'static', display: 'block', visibility: 'visible' });
+    try { return run(); } finally { global.getComputedStyle = prev; }
+  }
+
+  test('padding-only overflow is NOT a cut — the kpi case', () => {
+    // Box bottom 1000; every leaf ends well above it. The BOX may still overflow
+    // geometrically (that is the other probe's business); nothing was lost here.
+    const leaves = [leaf('218', rect(100, 300)), leaf('Adults enrolled', rect(300, 380))];
+    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
+    assert.equal(r.cut, false, 'no leaf crosses the clip line, so nothing was cut');
+    assert.equal(r.first, null);
+  });
+
+  test('a leaf past the clip line IS a cut, and it is named', () => {
+    const leaves = [leaf('fine', rect(100, 300)), leaf('lost text', rect(900, 1100))];
+    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
+    assert.equal(r.cut, true);
+    assert.match(r.first, /lost text/, 'names the first cut node for the console');
+  });
+
+  test('the tolerance is honored — a hair over the line is not a cut', () => {
+    const leaves = [leaf('grazing', rect(900, 1008))];
+    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
+    assert.equal(r.cut, false, '8px past a 12px tolerance must not fire');
+  });
+
+  test('the marker its own tab draws is never the evidence', () => {
+    // The tab is appended INSIDE the section and sits at the bottom edge; counting it
+    // would make the marker self-justifying — draw a tab, measure the tab, keep it.
+    const leaves = [leaf('Content clipped', rect(980, 1040), ['overflow-tab'])];
+    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
+    assert.equal(r.cut, false);
+  });
+
+  test('a bounded content CELL is probed, not just the section', () => {
+    // The section fits; the cell inside it clips its own content. This is the shape
+    // the geometry probe exists for, and the content probe has to see it too.
+    const cut = leaf('cell text past the edge', rect(480, 620));
+    const cell = box(rect(0, 500), [cut]);
+    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), [], [cell]), CLIP_CELL_SELECTOR, 12));
+    assert.equal(r.cut, true, 'a clipping cell hides its overflow from the section');
+  });
+
+  test('CONTENT_CLIPPED_SRC is injectable — no template literal in the source', () => {
+    // lattice-emulator.js interpolates this source INTO a template literal, so a
+    // backtick or ${ here silently breaks the entire injected watcher.
+    assert.equal(typeof CONTENT_CLIPPED_SRC, 'string');
+    assert.ok(!CONTENT_CLIPPED_SRC.includes('`'), 'no backtick may appear in the injected source');
+    assert.ok(!CONTENT_CLIPPED_SRC.includes('${'), 'no ${ may appear in the injected source');
   });
 });

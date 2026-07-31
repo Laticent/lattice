@@ -564,7 +564,7 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
-const { CLIP_CELL_SELECTOR, PROBE_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
   OVERFLOW_TAB_TEXT_SRC,
@@ -2087,6 +2087,7 @@ ${stateChartScript}
   var MARKER_LEVEL = ${JSON.stringify(OVERFLOW_MARKER.marker)};
   var overflowTabText = ${OVERFLOW_TAB_TEXT_SRC};
   var probeSectionOverflow = ${PROBE_SRC};
+  var probeContentClipped = ${CONTENT_CLIPPED_SRC};
   var probeFigureLegibility = ${LEGIBILITY_SRC};
   // The legibility tab's LABEL and its add/update/remove decision are injected from the
   // same policy module the live runtime imports (lib/runtime/fluid-view-policy.js), not
@@ -2104,20 +2105,36 @@ ${stateChartScript}
       if (s.getAttribute('data-lattice-overflow-marker') !== MARKER_LEVEL) {
         s.setAttribute('data-lattice-overflow-marker', MARKER_LEVEL);
       }
+      // WHAT THE READER IS TOLD is a narrower question than what the author is shown.
+      // "author" keeps pure geometry: an over-subscribed box is a defect to fix whether
+      // or not today's copy happens to fit inside the spill. "reader" asks whether the
+      // clip actually CUT something readable or visible, because the pill makes a claim
+      // to a recipient and a recipient can only check it by looking. On the shipped
+      // corpus 18 bare-kpi slides overflow by 282-416px of pure padding with every
+      // glyph inside the frame -- a "Content clipped" tag there is not true.
+      // (lib/core/overflow-probe.js probeContentClipped.)
+      var tell = over && (MARKER_LEVEL === 'author' || probeContentClipped(s, CLIP_CELL_SELECTOR, TOL).cut);
       // The overflow tab. The ring is colour-only (WCAG 1.4.1), so the condition is
       // named in text -- and the text differs by level, which is the whole setting.
       // The "off" level draws none; the strip pass below clears the class too.
       if (MARKER_LEVEL !== 'off') {
         var oTab = s.querySelector(':scope > .overflow-tab');
-        if (over && !oTab) {
+        if (tell && !oTab) {
           oTab = document.createElement('div');
           oTab.className = 'overflow-tab';
           oTab.textContent = overflowTabText(MARKER_LEVEL === 'author');
           s.appendChild(oTab);
-        } else if (!over && oTab) {
+        } else if (!tell && oTab) {
           oTab.remove();
         }
       }
+      // The RING follows the same answer at reader level. The overflow class is toggled
+      // above on geometry (autosplit and the console report both key off it, and both
+      // want the geometric truth), so at reader a section that overflows without cutting
+      // anything would still take base.modifiers.css's treatment. Mark the difference on
+      // the section so the CSS can tell "over" from "worth telling a reader about".
+      // (No backticks in this comment -- it is injected into a template literal.)
+      s.classList.toggle('overflow-silent', over && !tell);
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
@@ -2615,7 +2632,12 @@ async function renderBody(browser, g, closeBrowser) {
     // while this path was hard-wired to strip everything. It reads the setting now,
     // so it has to report what it actually did.
     const marked = {
-      reader: 'The export marks the clipped slides with a "Content clipped" tag.',
+      // Deliberately hedged: at `reader` the export tags only the slides where the clip
+      // actually CUT something readable or visible, so on a slide that overflows by
+      // padding alone there is no tag and this warning is the whole signal. Saying "the
+      // export marks the clipped slides" flatly would be the same overclaim in the
+      // console that the pill itself was making on the page.
+      reader: 'The export tags the ones that actually lose content with a "Content clipped" tag; a slide that overflows by padding alone is not tagged, so this warning is its only channel.',
       author: 'The export draws the full authoring signal (red ring, "Overflows" flag) on them.',
       off: 'The export stays clean — no overflow marker is printed, so this warning is the only channel.',
     }[OVERFLOW_MARKER.marker];
