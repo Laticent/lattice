@@ -316,11 +316,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; prob
 		why: 'a directive comment without the `_` spot prefix applies to its slide AND every one after, so a slice loses what it inherited',
 		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
 	},
-	{
-		fact: 'divider',
-		why: 'dividers drive the progress dot rail and the watermark section glyph, both counted across the deck (progress.transform.js is a no-op without them)',
-		probes: [/<!--\s*_?class\s*:[^>]*\bdivider\b/],
-	},
+
 	{
 		fact: 'glossary: auto',
 		why: 'appends a derived appendix slide built from terms across the whole deck, changing the slide count',
@@ -394,6 +390,33 @@ function positionIsTrustworthy(deck: string, slideCount: number | undefined): bo
 	return true;
 }
 
+/**
+ * Which divider-delimited SECTION the shown slide sits in, and how many the deck has.
+ *
+ * The progress rail and the watermark glyph both derive this by walking every section
+ * (`progress.transform.js`, `watermark.transform.js`), which is why a deck with dividers had to
+ * re-render in full on every keystroke — 63ms of engine work per keypress on a 40-slide gallery
+ * deck, against 3ms for a deck without them. It is the same positional metadata the page number
+ * is, so the caller supplies it rather than making the engine recount.
+ *
+ * Only ever called behind `positionIsTrustworthy`, which is what guarantees chunk k IS section k.
+ * `index` counts dividers at or before the shown slide, matching exactly where the transform's
+ * own walk would have arrived; `total` is the deck's divider count. Both zero → no rail, which is
+ * also what a deck with no dividers gets.
+ */
+function deckSectionFor(deck: string, slideIndex: number): { index: number; total: number } | undefined {
+	const body = String(deck ?? '')
+		.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '')
+		.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '');
+	const chunks = body.split(/\n-{3,}\n/);
+	const isDivider = (c: string) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(c);
+	const total = chunks.filter(isDivider).length;
+	if (!total) return undefined;
+	let index = 0;
+	for (let i = 0; i <= slideIndex && i < chunks.length; i++) if (isDivider(chunks[i])) index += 1;
+	return { index, total };
+}
+
 function needsDeckContext(deck: string): boolean {
 	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)));
 }
@@ -424,6 +447,35 @@ function needsDeckContext(deck: string): boolean {
 // engine stages ran — the perf overlay tells the truth rather than a fabricated breakdown.
 type DeckRender = { html: string; css: string; width?: number; height?: number };
 let deckMemo: { key: string; out: DeckRender } | null = null;
+// SLICE CACHE — a small LRU of single-slide renders.
+//
+// The whole-deck memo made NAVIGATION nearly free: one memoized deck parse served all 40 slides,
+// so changing the shown index cost a re-narrow and nothing more. Rendering slices instead is what
+// took typing from 63ms of engine work per keystroke to 4ms, but it gave that back on navigation —
+// every slide change became its own parse (~5.7ms on a gallery deck) where it used to be ~0.2ms.
+//
+// This restores it for the case that actually recurs: revisiting a slide. Presenting walks back and
+// forth, the overview grid shows the same slides repeatedly, and an edit-then-return is the common
+// authoring loop — all hits. A first linear pass still pays per slide, which is the honest floor for
+// not parsing the deck.
+//
+// Bounded at 24 entries, ~1 slide of HTML each rather than a whole deck's worth, so the memory
+// profile is smaller than the single whole-deck entry it supplements. Insertion-ordered Map: the
+// oldest key is evicted, and a hit re-inserts to keep it warm.
+const SLICE_CACHE_MAX = 24;
+const sliceCache = new Map<string, DeckRender>();
+function sliceCacheGet(key: string): DeckRender | undefined {
+	const hit = sliceCache.get(key);
+	if (!hit) return undefined;
+	sliceCache.delete(key); // re-insert so recency is the eviction order
+	sliceCache.set(key, hit);
+	return hit;
+}
+function sliceCachePut(key: string, out: DeckRender): void {
+	if (sliceCache.has(key)) sliceCache.delete(key);
+	sliceCache.set(key, out);
+	if (sliceCache.size > SLICE_CACHE_MAX) sliceCache.delete(sliceCache.keys().next().value as string);
+}
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
 	return `${theme}|${mode}|${hashString(markdown)}|${markdown.length}|${hashString(extraCss)}|${hashString(extraThemeCss)}`;
@@ -431,6 +483,7 @@ function memoKey(markdown: string, theme: string, mode: string, extraCss: string
 /** Drop the memo — used by tests, and safe to call at any time (it only costs a re-render). */
 export function clearDeckMemo(): void {
 	deckMemo = null;
+	sliceCache.clear();
 }
 
 // Scan the just-rendered slide for dropped-to-black SVG chart paint (the #956
@@ -723,7 +776,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					typeof opts?.slideIndex === 'number' &&
 					opts.slideIndex >= 0 &&
 					positionIsTrustworthy(markdown, opts?.slideCount)
-						? { offset: opts.slideIndex, total: opts.slideCount as number }
+						? {
+								offset: opts.slideIndex,
+								total: opts.slideCount as number,
+								deckSection: deckSectionFor(markdown, opts.slideIndex),
+							}
 						: undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
@@ -748,9 +805,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// deck positions render differently now (they print different numbers), so a
 					// key over source alone would serve slide 7 the number it cached for slide 3.
 					const key = typeof opts?.slideIndex === 'number'
-						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}` : ''}`
+						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
 						: null;
-					if (key !== null && deckMemo?.key === key) {
+					// Two caches, because the two paths cache different things: the whole-deck memo
+					// holds ONE un-narrowed deck render, the slice cache holds up to 24 single
+					// slides. A slice render never populates the deck memo and vice versa.
+					const sliceHit = key !== null && slicePage ? sliceCacheGet(key) : undefined;
+					if (sliceHit) {
+						out = { ...sliceHit };
+						engineMs = performance.now() - tEngine;
+					} else if (key !== null && !slicePage && deckMemo?.key === key) {
 						out = { ...deckMemo.out };
 						engineMs = performance.now() - tEngine; // the real (near-zero) cost
 					} else {
@@ -761,7 +825,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
 						// deck-context render populates it (`key !== null`) — see the gate above.
-						if (key !== null) deckMemo = { key, out: { html: out.html, css: out.css, width: out.width, height: out.height } };
+						if (key !== null) {
+							const snapshot = { html: out.html, css: out.css, width: out.width, height: out.height };
+							// A slice render goes in the LRU; a whole-deck render in the single memo.
+							if (slicePage) sliceCachePut(key, snapshot);
+							else deckMemo = { key, out: snapshot };
+						}
 					}
 					// engineMs brackets the WHOLE renderMarkdown call, which also does the
 					// math prescan + (cold) KaTeX load before the engine's own render. Fold

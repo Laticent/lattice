@@ -116,6 +116,28 @@ in patch versions.
 
 ### Fixed
 
+- **A deck with dividers re-parsed in full on every keystroke.** The progress dot-rail and the
+  watermark section glyph both derive their section by walking every section of the document, so
+  any deck with a `divider` slide forced the preview onto the whole-deck render path — 63ms of
+  engine work per keypress on a 40-slide gallery deck, against 3ms for a deck without them, and the
+  last regression left from the deck-context work.
+
+  A section number is `section k of n`: deck-positional metadata the caller already holds, exactly
+  like the page number. It is now supplied (`page.deckSection`) rather than recounted, and `divider`
+  is no longer a deck-context trigger. Both tiles fall back to their own walk when nothing is
+  supplied, so every full-deck and export path is byte-identical.
+
+  A bounded LRU of single-slide renders (24 entries) restores what the whole-deck memo used to give
+  navigation for free: one memoized deck parse served all 40 slides, so a rail click cost a
+  re-narrow and nothing more. Slice renders don't share that, so revisiting a slide — presenting
+  back and forth, the overview grid, edit-then-return — hits the cache instead of re-parsing.
+
+  Measured same-machine (`studio-preview-perf.spec.ts`, TOTAL p50, 40 slides, 4x CPU), gallery deck:
+  typing **74.2ms -> 15.2ms**, of which engine RENDER **63.2ms -> 4.9ms**. Navigation is 11.8 ->
+  13.1ms — a real if small cost, since navigation used to ride the whole-deck memo. Every other
+  measured combination improved or held: default navigation 11.0 -> 8.1ms, prose navigation 12.7 ->
+  9.7ms, prose typing 12.1 -> 11.2ms.
+
 - **A preview showing one slide no longer re-parses the whole deck just to number it.** A page
   number is `slide k of N` — positional metadata the caller already holds — but the engine derived
   it by counting the sections of whatever document it was handed, so every paginated deck paid a
