@@ -13,6 +13,7 @@ import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
 import { TableControls } from './table-controls';
@@ -727,7 +728,20 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// `useVisualViewport` publishes the keyboard geometry only here, so desktop pays nothing.
 	const railLayout = useRailLayout();
 	const mobileShell = visible && railLayout && !failed;
-	const { inset } = useVisualViewport(mobileShell);
+	// MEASURE the keyboard on any device that HAS one, not only at rail widths. A
+	// software keyboard is a property of the input device, not of viewport width, and
+	// gating the measurement on `max-width: 699px` meant a TABLET got none of it: no
+	// `--cs-kb-inset`, so nothing reserved scroll room under the caret, so when the
+	// keyboard rose the browser satisfied "reveal the caret" by scrolling the LAYOUT
+	// viewport — carrying the top nav and the editor's own toolbar off-screen with it.
+	// Giving the scroller room below the caret lets the browser scroll THAT instead,
+	// and the fixed chrome stays where it is.
+	//
+	// The typing-mode chrome COLLAPSE stays gated on `mobileShell`: that is the phone
+	// treatment (fold the top bands away for a full writing surface) and a tablet has
+	// the room not to need it. Measurement and collapse are separate concerns.
+	const keyboardCapable = visible && !failed && !hasFinePointer();
+	const { inset } = useVisualViewport(keyboardCapable);
 	const keyboardUp = inset > 0;
 
 	// TYPING MODE — when the software keyboard is up, the shell's top chrome collapses so the
