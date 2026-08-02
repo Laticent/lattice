@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { readComponentEffort, writeComponentEffort } from './drawing-board-settings.js';
+import { readComponentEffort, writeComponentEffort } from './spend.js';
 
 // The component-generation effort dial (2026-07-19-component-effort-dial.md). The
 // user-facing DEFAULT is `medium` (one design self-refine out of the box); the reader

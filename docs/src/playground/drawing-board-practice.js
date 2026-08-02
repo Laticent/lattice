@@ -14,6 +14,9 @@
 // source of truth and centres a single slide with flex + a uniform scale, so a
 // rehearsal slide looks identical to the same slide in the preview.
 
+import { budgetStatus, readBudgetCap, readBudgetMode, readSpend, recordSpend } from '../components/studio/ai/spend.js';
+import { buildStageDoc } from '../components/studio/present/presenter-window.js';
+import { createRehearsalPlanner, metasFromSections, metasFromSource, overBeat } from '../components/studio/present/rehearsal.js';
 // Shared theme registration (WRAP, DON'T REINVENT): walks the transitive
 // `@import` closure so a multi-level theme (a11y-* → a11y-base → onyx → lattice)
 // registers fully — the one tested path, not a re-inlined copy.
@@ -22,10 +25,7 @@ import { createChartInteract } from './chart-interact.js';
 import { A11Y_DEFS, KATEX_URL, MERMAID_URL, splitSections } from './deck-preview.js';
 import { isCapableTier } from './drawing-board-chat.js';
 import { initPracticeTour } from './drawing-board-practice-tour.js';
-import { createRehearsalPlanner, metasFromSections, metasFromSource, overBeat } from './drawing-board-rehearsal.js';
-import { budgetStatus, readBudgetCap, readBudgetMode, readSpend, recordSpend } from './drawing-board-settings.js';
 import { toursAllowedHere } from './guided-tour.js';
-import { buildStageDoc } from './presenter-window.js';
 import { toursEnabled } from './tour-prefs.js';
 
 const BEAT_LABEL = { pause: 'Pause', eye: 'Look up', breathe: 'Breathe', transition: 'Transition', emphasis: 'Emphasize', over: 'Over time' };

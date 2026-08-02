@@ -1,7 +1,5 @@
 import { ChevronDown, Loader2, PlayCircle } from 'lucide-react';
 import * as React from 'react';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import {
 	emptyTtsMessage,
 	priceTier,
@@ -9,7 +7,9 @@ import {
 	TTS_VIEWS,
 	ttsModelGroups,
 	ttsPriceLabel,
-} from '@/playground/tts-catalog.js';
+} from '@/components/studio/ai/tts-catalog.js';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { OrVoiceModel } from './read-aloud';
 
 // The OpenRouter TTS-model picker — the speech-model twin of ModelPicker.tsx (text

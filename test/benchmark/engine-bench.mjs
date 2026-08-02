@@ -170,7 +170,7 @@ async function exportTier() {
 //   · "print re-place (assemble)"      — assemble the SAME cached PNGs onto a fresh sheet
 //     → what a paper change costs NOW (assemble only, no re-rasterize).
 // jsPDF is a docs dependency (browser bundle), so it is resolved from docs/node_modules.
-// The assemble mirrors assembleSheetPdf (docs/src/playground/drawing-board-export.js) —
+// The assemble mirrors assembleSheetPdf (docs/src/components/studio/export/deck-export.js) —
 // duplicated here (not imported) because that module's transitive imports are browser-only.
 const PRINT_SAFE_PX = Math.round(9 * (96 / 25.4)); // 9mm @96dpi — matches the kernel
 function assembleFromImages(jsPDF, images, geom, sheet) {

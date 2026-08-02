@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // A controllable fake of the architect model module — same shape as finish-ai.test.ts.
 const state: { generation: string; reply: string } = { generation: 'floor', reply: '' };
 
-vi.mock('@/playground/architect-model.js', () => ({
+vi.mock('@/components/studio/ai/architect-model.js', () => ({
 	createArchitectModel: () => ({
 		availability: () => ({ generation: state.generation, promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false, modelOn: true }),
 		refreshAvailability: async () => {},

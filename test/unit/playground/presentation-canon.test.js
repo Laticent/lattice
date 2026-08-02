@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/playground/presentation-canon.js');
+  return import('../../../docs/src/components/studio/ai/presentation-canon.js');
 }
 
 describe('canonForFinding', () => {

@@ -6,7 +6,7 @@
 // answer. The conversational surface lives in the separate "Converse" mode (a
 // real model). See the Coach-vs-Converse design decision doc.
 
-import { pacing, structureCheck, theAsk, topFixes, weakestSlide } from './coach-actions.js';
+import { pacing, structureCheck, theAsk, topFixes, weakestSlide } from '../components/studio/coach/coach-actions.js';
 
 const CHIPS = [
   { id: 'fixes', label: 'Top fixes', run: (c) => topFixes(c.assessment) },

@@ -11,16 +11,16 @@
 // Voiced as "the Architect" per the naming decision.
 
 import Fuse from 'fuse.js';
-import { applyEdit, diffLines, sliceSlide } from './architect-edits.js';
-import { requestSlideFix } from './architect-fix.js';
-import { orSupportsCache } from './architect-model.js';
-import { cosineRank } from './architect-retrieval.js';
+import { applyEdit, diffLines, sliceSlide } from '../components/studio/ai/architect-edits.js';
+import { requestSlideFix } from '../components/studio/ai/architect-fix.js';
+import { orSupportsCache } from '../components/studio/ai/architect-model.js';
+import { cosineRank } from '../components/studio/ai/architect-retrieval.js';
+import { budgetStatus, readBudgetCap, readBudgetMode, readCachingEnabled, readSpend, recordSpend } from '../components/studio/ai/spend.js';
 // The pure authoring cores (lib/authoring/*) are CommonJS; consume them through
 // the esbuild bundle so they load in `astro dev` too (a direct /@fs import of a
 // source CJS file has no `default` export in dev — see tools/build-authoring-core.js).
 import { lintCore, reviewCore, scorecard } from './authoring-core.generated.js';
 import { isCapableTier } from './drawing-board-chat.js';
-import { budgetStatus, readBudgetCap, readBudgetMode, readCachingEnabled, readSpend, recordSpend } from './drawing-board-settings.js';
 import { buildVocabSets, chunkStartLines } from './editor-diagnostics.js';
 // The pure exemplar tier-filter (lib/exemplars/tier-filter.js), bundled for the
 // browser so the Drafting picker can trim a worked deck to the chosen length.

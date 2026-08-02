@@ -15,11 +15,11 @@
 // preview palette is borrowed from the Theme Studio core so a component previews
 // on a real, contrast-clean theme without the author choosing one.
 
+import { deleteAsset, listAssets, putAsset } from '../components/studio/library/asset-store.js';
 // The SINGLE choke point every docs surface calls the engine's render()
 // through — see render-engine.ts's header comment.
 import { renderMarkdown } from '../lib/render-engine';
 import { createThemeFetcher } from '../lib/theme-fetch';
-import { deleteAsset, listAssets, putAsset } from './asset-store.js';
 import { hashString, renderDeck } from './deck-preview.js';
 import {
   collidesWithShipped,

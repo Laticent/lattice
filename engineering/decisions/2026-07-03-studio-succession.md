@@ -252,6 +252,29 @@ boundary has three tiers:
    vitest resolve. **P1's acceptance check: the executed-test count across
    both runners is unchanged.**
 
+   > **P1 landed (2026-08-02) — three corrections the exhaustive inventory forced.**
+   > The tier table was rebuilt from the real import graph rather than from this
+   > table, and three claims above did not survive contact with the tree:
+   >
+   > 1. **`voice-model.js` + `kokoro-worker.js` do NOT move — they are tier 2.**
+   >    The table sends them to `present/`, but `/cadenza/` and `/suono/` (both
+   >    surviving pages) and `docs/src/lib/cadenza/{cadence,track}.test.ts` import
+   >    `voice-model.js` directly. Moving it would have pulled a Studio path into
+   >    two unrelated surviving surfaces. They stay put — which also disposes of
+   >    the worker-URL trap for that pair.
+   > 2. **`drawing-board-pane.js` is retiring-only — no rename, P5 deletes it.**
+   >    The claim that the surviving Playground imports it (#717) is stale:
+   >    `PlaygroundApp.tsx` only *mentions* the file in a comment about the
+   >    Drawing Board's `setPane` ordering. Its sole importer is
+   >    `drawing-board-render.js`.
+   > 3. **`chat-markdown.js` does not move — it dies.** The Studio already ships
+   >    its own `chat-markdown.ts`; the playground copy is Drawing-Board-only.
+   >
+   > Two additions the graph forced: `tts-catalog.js` moves (Studio-only, and it
+   > imports `or-catalog.js`, which moves — leaving it behind would point the
+   > Playground tree at the Studio's), and `chart-interact.js` was already
+   > renamed on `main`, so P5's rename list is empty.
+
    ⚠ **The inventory is exhaustive or it is wrong (red-team BLOCKER).** This
    table plus tier 1/2 must assign a tier to *every* file under
    `docs/src/playground/` — including Web Workers spawned via

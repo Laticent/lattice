@@ -1,8 +1,8 @@
 import DOMPurify from 'dompurify';
 import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
 import * as React from 'react';
+import { diffLines, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { cn } from '@/lib/utils';
-import { diffLines, sliceSlide } from '@/playground/architect-edits.js';
 import { applyProposedEdits, architectSpend, type ChatTurn, chatComplete, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';

@@ -22,9 +22,9 @@
 //     second screen. Framework-agnostic — the Drawing Board (vanilla) and the
 //     Studio (React, via a thin wrapper) both pass closures into their state.
 
-import { fitScale, padInset } from '../../../lib/core/present-transport.mjs';
-import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
-import { slideBox } from './frame-css.js';
+import { fitScale, padInset } from '../../../../../lib/core/present-transport.mjs';
+import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
+import { slideBox } from '../../../playground/frame-css.js';
 
 /**
  * The single-slide stage document — one `<section>` of `html` shown at a time,

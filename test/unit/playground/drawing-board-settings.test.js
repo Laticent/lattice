@@ -23,7 +23,7 @@ describe('per-Lattice spend tally (recordSpend / readSpend)', () => {
   test('accumulates session + all-time from usage.cost; ignores junk/non-positive', async () => {
     global.localStorage = memStore();
     global.sessionStorage = memStore();
-    const { recordSpend, readSpend } = await import('../../../docs/src/playground/drawing-board-settings.js');
+    const { recordSpend, readSpend } = await import('../../../docs/src/components/studio/ai/spend.js');
 
     assert.deepEqual(readSpend(), { total: 0, session: 0, totalTokens: 0, sessionTokens: 0 });
 
@@ -56,7 +56,7 @@ describe('per-Lattice spend tally (recordSpend / readSpend)', () => {
     global.localStorage = local;
     global.sessionStorage = memStore(); // fresh "tab" — empty session
     local.setItem('lattice-db-spend-total', '5.00'); // pretend prior sessions spent $5
-    const { readSpend } = await import('../../../docs/src/playground/drawing-board-settings.js');
+    const { readSpend } = await import('../../../docs/src/components/studio/ai/spend.js');
     const s = readSpend();
     assert.equal(s.total, 5);
     assert.equal(s.session, 0, 'a new tab starts the session tally at 0');
@@ -67,7 +67,7 @@ describe('per-Lattice spend tally (recordSpend / readSpend)', () => {
 
 describe('budgetStatus (pure budget evaluation)', () => {
   let budgetStatus;
-  test('load', async () => { ({ budgetStatus } = await import('../../../docs/src/playground/drawing-board-settings.js')); });
+  test('load', async () => { ({ budgetStatus } = await import('../../../docs/src/components/studio/ai/spend.js')); });
 
   test('no cap, no account → always ok, never blocked', () => {
     const s = budgetStatus({ sessionSpend: 999 });

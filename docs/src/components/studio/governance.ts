@@ -18,7 +18,7 @@
 // Settings/preferences (handle style, validation, language, onboarding…) are
 // deliberately NOT part of any Privacy & Data action — this clears data, not prefs.
 
-import { deleteAsset, listAssets } from '@/playground/asset-store.js';
+import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { disconnectOpenRouter } from './architect';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';

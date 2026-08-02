@@ -2,13 +2,13 @@ import { ChevronLeft, ChevronRight, EyeOff, Grid2x2, Monitor, Pause, Play, Spark
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
+import { createPresenterController } from '@/components/studio/present/presenter-window.js';
+import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import { Tip } from '@/components/ui/tooltip';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
-import { buildPlanFromMetas, metasFromSource } from '@/playground/drawing-board-rehearsal.js';
-import { createPresenterController } from '@/playground/presenter-window.js';
 // The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
 // bundled to the browser via read-along-core — the SAME kernel the CLI/export
 // narrates chart slides from, so a given chart slide narrates identically on both

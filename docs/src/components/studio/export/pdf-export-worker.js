@@ -30,7 +30,7 @@
 // interleave their awaits and embed pages out of order.
 
 import { jsPDF } from 'jspdf';
-import { addPageStickyNotes } from './pdf-sticky-notes.js';
+import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 
 let pdf = null;
 let page = null;

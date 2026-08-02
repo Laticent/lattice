@@ -8,7 +8,7 @@
  * Same rationale as the other cores (tools/build-*-core.js): the lib module is
  * CommonJS (so the CLI lattice-emulator.js and the Node unit tests share it), which
  * Vite's dev server can't transform in an arbitrary source file. esbuild resolves it
- * into one ESM module with named exports for docs/src/playground/drawing-board-export.js's
+ * into one ESM module with named exports for docs/src/components/studio/export/deck-export.js's
  * "Images" (image-set ZIP) export. ONE source (the same the unit tests run) — this is
  * only a packaging step. The kernel is pure + dependency-free, so the bundle is tiny.
  *
