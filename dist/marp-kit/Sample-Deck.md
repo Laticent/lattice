@@ -25,18 +25,14 @@ Read it in your editor and in the render side by side — they are the same thin
 
 ## This deck documents itself.
 
-Every slide shows a component **and** the Markdown that made it. Nothing here is
-a screenshot, a template engine, or a build step — it is the text you are looking at.
+Every slide shows a component **and** the Markdown that made it.
 
 1. One file
-   - `Sample-Deck.md` is the whole deck. No project, no config to write.
-   - Delete a slide, add a slide, ship it.
+   - The whole deck. Nothing else to set up.
 2. One folder
-   - The CSS, the runtime, the fonts and Mermaid sit beside this file.
-   - Copy them together and nothing needs installing.
-3. One vocabulary
-   - A slide picks its layout with `<!-- _class: name -->`.
-   - Sixty-one layouts, all palette-blind, all driven by the same tokens.
+   - Everything it needs sits beside it.
+3. One line
+   - Picks the layout. Sixty-one to choose from.
 
 ---
 
@@ -79,9 +75,13 @@ marp: true          # activates the Marp extension / marp-cli
 theme: cuoio        # the palette; cuoio is the default
 paginate: true      # page numbers
 size: hd            # 16:9 at 1280x720
+class: dark         # optional — flips the whole deck to dark
 header: "Lattice · Sample Deck"
 footer: "Copy this folder. Edit this file."
 ```
+
+`class:` is Marp's own key: whatever you put there lands on every slide, so
+`class: dark` reaches Lattice's `dark` styling with nothing else to configure.
 
 Then each slide opens with one comment naming its layout — `_class: kpi`,
 `_class: diagram`, `_class: quote`. That comment is the entire API.
@@ -92,9 +92,9 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 
 ## What the folder costs you.
 
-1. 9
-   - files to copy
-   - the whole kit `Complete`
+1. 1
+   - folder to copy
+   - keep it together `Complete`
 2. 5 MB
    - on disk, minified
    - CSS + runtime + fonts
@@ -161,7 +161,7 @@ open this deck in VS Code and you will know.
 
 <!-- _class: math -->
 
-`Typeset with KaTeX`
+`Typeset by whichever engine your tool uses`
 
 ## Equations are inline in the Markdown.
 
@@ -169,27 +169,29 @@ $$ \sigma(z)_i = \frac{e^{z_i}}{\sum_{j=1}^{K} e^{z_j}} $$
 
 - $z$ — the raw score vector, length $K$
 - $\sigma(z)_i$ — probability assigned to class $i$
-- $\sum_j e^{z_j}$ — the normalizer; makes the outputs sum to 1
-- Written as `$$ … $$` between two blank lines
+- $\sum_j e^{z_j}$ — the normalizer; outputs sum to 1
+- Written as `$$ … $$` between blank lines
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: list-tabular -->
 
-## The nine files, and what each one does.
+## The parts you will touch, and what each one does.
 
-- `Sample-Deck.md`
-  - This deck. Your starting point — edit it in place.
-- `lattice.min.css`
-  - The engine. Every layout and token lives here.
-- `cuoio.min.css`
-  - The palette. Swap it to restyle the whole deck.
-- `lattice-runtime.min.js`
-  - Builds charts and diagrams in the browser.
-- `mermaid-v11.min.js`
-  - Third-party. Required for diagram slides.
-- `fonts/`
-  - Thirty-seven files. Without them, type falls back to system serif.
+1. `Sample-Deck.md`
+   - This deck. Your starting point — edit it in place.
+2. `lattice.min.css`
+   - The engine. Every layout and token lives here.
+3. `cuoio.min.css`
+   - The palette. A dark one ships beside it.
+4. `lattice-runtime.min.js`
+   - Builds charts and diagrams in the browser.
+5. `mermaid-v11.min.js`
+   - Third party. Required for diagram slides.
+6. `fonts/`
+   - Thirty-seven files. Drop them and type falls back.
+
+The config files and `NOTICE.md` are listed in the README.
 
 ---
 

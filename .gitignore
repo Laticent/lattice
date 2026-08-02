@@ -18,6 +18,11 @@ tokenization/
 !lib/components/**/*.pdf
 !lib/base/**/*.pdf
 !lib/integrations/**/*.pdf
+# The Marp kit's sample deck, rendered through real marp-cli — the HARD RULE #9
+# artifact for a feature colocated with its implementation. Reviewable in the
+# diff, which is the point: the first version of this deck shipped with a blank
+# trailing page and three truncated slides that no unit test could see.
+!kit/*.pdf
 !test/integration/baseline-decks/*.pdf
 !docs/*.pdf
 !themes/*.pdf

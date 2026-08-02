@@ -542,32 +542,68 @@ in patch versions.
   the characters, so a slide documenting Lattice's own syntax showed `<!-- _class: kpi -->` as
   arrow-glyph soup — **a reader could not retype what they saw.** A deck that teaches syntax and
   then lies about it is worse than one that omits it. `lib/base/base.elements.css` now sets
-  `font-variant-ligatures: none` plus the low-level `font-feature-settings` fallback (the runtime
-  bundle targets chrome91) on `code`, `pre`, `marp-pre`, `kbd` and `samp`. This is the token's own
-  stated contract — `base.tokens.css` calls `--font-mono` the face where *"data must remain
-  unambiguous"*, and ligatures trade exactly that for pretty. Found by rendering
-  `dist/marp-kit/Sample-Deck.md` through real marp-cli and reading the slide; verified fixed the
-  same way, with the literal surviving into the PDF text layer.
+  `font-variant-ligatures: none` on `code`, `pre`, `marp-pre`, `kbd` and `samp`. This is the
+  token's own stated contract — `base.tokens.css` calls `--font-mono` the face where *"data must
+  remain unambiguous"*, and ligatures trade exactly that for pretty. Coverage extends past those
+  elements to every mono surface that quotes a literal: the Mermaid error headline (which echoes
+  source built out of `-->`), the math and function-plot error messages, and state-chart edge
+  labels (`approve -> ship`). Found by rendering `dist/marp-kit/Sample-Deck.md` through real
+  marp-cli and reading the slide; verified fixed the same way, with the literal surviving into
+  the PDF text layer.
+
+- **Math is renderer-agnostic — MathJax is styled, not just tolerated.** Lattice prefers KaTeX and
+  still defaults to it, but marp-core typesets with MathJax, and every math layout gated its hero
+  equation on `p:has(> .katex-display)` — a selector that can never match a MathJax render. The
+  result was not a metric difference, it was a layout that never engaged: a postage-stamp equation
+  in 45% dead space. All 8 variants now target both structures, which map 1:1 (`.katex-display` ↔
+  `mjx-container[display="true"]`, `.katex-display > .katex` ↔ `… > svg`, `.katex` ↔
+  `mjx-container`). `lib/core/marp-fidelity.js` records what is still unequal: marp-core emits no
+  assistive MathML, so exported math is invisible to a screen reader — marp-core's output, not
+  something CSS can repair.
+
+- **Every exported PDF of a deck containing a flowchart ended on a blank page.** Mermaid appends
+  `<div class="mermaidTooltip">` to `document.body` on its first flowchart — outside the deck root,
+  ~6px tall, permanently empty in a static render. In print that pushed document height past the
+  deck's own and Chrome spilled one more sheet (measured: 13 sections, body 7800px, document
+  7806px, 14 pages). The runtime now removes it after each render settles. It **cannot** be fixed
+  from theme CSS, which is the obvious first attempt: Marpit scopes theme rules to the deck root,
+  so an unscoped `.mermaidTooltip{display:none}` is rewritten to a selector that can never match a
+  body-level node — shipped, measured doing nothing, and reverted.
 
 - **`dist/marp-kit/` — copy the folder, open VS Code, start editing.** No export, no build step,
   nothing to install. `npm run build` generates it like every other `dist/` artifact and
-  `build:check` fails when it goes stale. 46 files, 5 MB: `lattice.min.css`, `cuoio.min.css` and
-  its dark variant, `lattice-runtime.min.js`, `mermaid-v11.min.js`, **37 fonts**, a
-  `marp.config.cjs`, a `.vscode/settings.json`, a README, and **`Sample-Deck.md`** — a 14-slide
-  deck that documents its own authoring. The builder reads the same `STATIC_ASSETS` and
-  `fontAssetsFor()` walker as `lib/core/marp-bundle.js`, so the kit cannot drift from the export.
-  **Verified by rendering the shipped kit through real marp-cli** — copied out of `dist/` as a
-  recipient would, 14 pages in 3s, with the Mermaid diagram, the runtime-built radar, the
-  matrix-grid swatches and the split-panel all correct, and the runtime `<script>` tags surviving
-  unescaped. Three findings came out of that render and are baked into the kit: `size: hd` rather
-  than `4k` (at 4k the same deck never finished rendering; at hd it takes 3s, and a copy-and-go kit
-  has to work first try on a modest machine), scripts loaded **last** in the deck (Marp emits raw
-  HTML inline in document order, so a `<script>` at the top lands inside slide 1 and runs before
-  the other slides exist), and **mono ligatures are now off** (the entry above — found by
-  rendering this very deck). `test/unit/tools/marp-kit.test.js` locks the failures that are
-  SILENT: a missing font falls back to system serif, a dropped `html: true` prints the script
-  tags as text, a minifier that strips the `@theme` comment yields unstyled slides — each shipped
-  undetected in #1256. `engineering/decisions/2026-08-02-marp-reference-register.md` §5b.
+  `build:check` fails when it goes stale. 48 files, 5.1 MB: `lattice.min.css`, `cuoio.min.css` and
+  a dark palette beside it, `lattice-runtime.min.js`, `mermaid-v11.min.js`, **37 fonts**, a
+  `marp.config.cjs`, a `.vscode/settings.json`, a README, `NOTICE.md` + `LICENSE`, and
+  **`Sample-Deck.md`** — a 13-slide deck that documents its own authoring, committed alongside its
+  rendered PDF (HARD RULE #9) so the artifact a recipient sees is reviewable in the diff.
+  The builder **imports** `STATIC_ASSETS` and `fontAssetsFor()` from `lib/core/marp-bundle.js`, so
+  the kit cannot drift from the export.
+  - **Licensing, which the first cut simply omitted.** The kit is engine object code handed over
+    loose for reuse, which `LICENSE-EXCEPTIONS` §Limits explicitly withholds the output exception
+    from — so it is a plain AGPL-3.0 conveyance and now carries the full `LICENSE`, a copyright
+    notice, and attribution for Mermaid (MIT), the KaTeX fonts (MIT) and the five OFL text
+    families. It previously shipped 1 MB of engine and 37 third-party font files with none of
+    that, while inviting the recipient to redistribute the lot.
+  - **Verified by rendering the shipped kit through real marp-cli**, copied out of `dist/` as a
+    recipient would: 13 pages for 13 slides, every slide read at 60dpi. That is how the blank
+    trailing page, the collapsed math slide, and slide 2's truncated rows were found — none of
+    which any unit test could see, and all of which the first cut shipped.
+  - Findings baked into the kit: `size: hd` rather than `4k` (at 4k the same deck never finished
+    rendering; at hd it takes seconds, and a copy-and-go kit has to work first try on a modest
+    machine), scripts loaded **last** (Marp emits raw HTML inline in document order, so a
+    `<script>` at the top lands inside slide 1 and runs before the other slides exist), and
+    **`class: dark`, not `color-mode:`**, for dark mode — `class:` is Marp's own key and stamps
+    every slide, while Lattice's richer deck registers are read from a block only the full export
+    writes, so in a hand-authored deck they do nothing. The README said the opposite.
+  - `test/unit/tools/marp-kit.test.js` locks the failures that are SILENT: a missing font falls
+    back to system serif, a dropped `html: true` prints the script tags as text, a minifier that
+    strips the `@theme` comment yields unstyled slides — each shipped undetected in #1256. The
+    font check derives its expectation independently from the `@font-face` blocks rather than
+    calling the builder's own walker, which made it a tautology, and now runs in both directions
+    so a file the builder stopped producing cannot sit in the shipped folder unnoticed.
+
+  `engineering/decisions/2026-08-02-marp-reference-register.md` §5b.
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a

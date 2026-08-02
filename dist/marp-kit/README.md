@@ -1,53 +1,74 @@
 # Lattice — the copy-and-go Marp kit
 
-Copy this folder next to your Markdown and you are working. There is nothing to
-install and no build step.
+Copy this folder and you are working. There is nothing to install and no build
+step.
 
 ## Start here
 
-1. Copy this whole folder. Keep the files together — every path is relative.
-2. Open the folder as your VS Code workspace root, with the
-   **Marp for VS Code** extension installed.
-3. Open `Sample-Deck.md`. It is a real deck that documents how it is written.
+**Open THIS FOLDER as your VS Code workspace root**, with the **Marp for VS
+Code** extension installed, then open `Sample-Deck.md`.
 
-Render it from the command line instead:
+That is not a style preference. `.vscode/settings.json` registers the
+stylesheets by workspace-relative path (`./lattice.min.css`), so if the kit sits
+as a sub-folder beside a deck somewhere else, those paths do not resolve and you
+get unstyled slides **with no error**. Put your deck in here, next to
+`Sample-Deck.md`, rather than putting this folder next to your deck.
+
+From the command line instead:
 
 ```sh
-npx @marp-team/marp-cli Sample-Deck.md --config-file marp.config.cjs --allow-local-files -o deck.pdf
+npx @marp-team/marp-cli@^4.3.1 Sample-Deck.md --config-file marp.config.cjs --allow-local-files -o deck.pdf
 ```
+
+The version is pinned on purpose — that is the range Lattice tests against.
 
 ## What is in here
 
 | File | What it does |
 |---|---|
-| `Sample-Deck.md` | A 14-slide deck that documents itself. Your starting point. |
+| `Sample-Deck.md` | A 13-slide deck that documents itself. Your starting point. |
 | `lattice.min.css` | The engine — every layout and token. |
 | `cuoio.min.css` | The default palette. Swap it to restyle the deck. |
-| `cuoio-dark.min.css` | Its dark variant, for `color-mode:` decks. |
+| `cuoio-dark.min.css` | A second palette. Select it with `theme: cuoio-dark`. |
 | `lattice-runtime.min.js` | Builds charts and diagrams in the browser. |
 | `mermaid-v11.min.js` | Third party. Diagram slides need it. |
 | `fonts/` | 37 files. **Do not drop these** — without them type falls back to system serif, silently. |
-| `marp.config.cjs` | Registers the themes for marp-cli. |
+| `marp.config.cjs` | Registers the stylesheets for marp-cli. |
 | `.vscode/settings.json` | Registers them for the VS Code extension. |
+| `NOTICE.md` · `LICENSE` | The terms these files come under. Worth two minutes. |
 
-## Two things that will bite you
+## Three things that will bite you
 
 **Scripts belong at the END of the deck.** Marp emits raw HTML inline, in
 document order, so a `<script>` at the top lands inside slide 1 and runs before
-the rest of the deck exists. At the bottom it lands after every slide, and the
-runtime can see them all. `Sample-Deck.md` does this — copy the pattern.
+the rest of the deck exists. At the bottom it runs once the whole deck is parsed.
+`Sample-Deck.md` does this — copy the pattern.
 
 **`html: true` is required, not optional.** marp-core escapes raw HTML by
 default, which turns the deck's `<script>` tags into visible text and leaves
 every chart and diagram unbuilt. Both config files here set it.
 
+**Dark mode is `class: dark`, not `color-mode:`.** `class:` is Marp's own
+front-matter key and it stamps every slide, which is exactly what Lattice's dark
+styling keys off. Lattice's richer deck registers (`color-mode:`, `finish:`,
+`logo:`, …) are read from a block that only the full export pipeline writes, so
+in a hand-authored deck like this one they do nothing.
+
 ## Fidelity
 
 `marp --pdf` and `marp --html` drive a real headless browser, so the runtime
-runs and diagrams and charts are built. Whether the VS Code **preview pane**
-executes the deck's scripts is not something this project can confirm — see the
-deck's own "What renders where" slide. Layout, palette and typography are
-correct on every surface.
+runs and diagrams and charts are built. Everything in `Sample-Deck.md` is verified on
+that path.
+
+The VS Code **preview pane** is a different surface and a weaker one. It runs
+marp-core directly, without Lattice's markdown-it plugins, so anything built by a
+transform rather than by CSS — split-panel's counters, matrix-grid's checkboxes —
+will not be assembled there. Whether the preview executes the deck's `<script>`
+tags at all is genuinely unsettled in this project's own notes, so treat charts
+and diagrams there as unknown rather than promised. CSS is the part that always
+holds: layout, palette and typography are correct on every surface.
+
+Render the deck for anything you need to trust.
 
 If a render hangs on a machine with a small `/dev/shm` (containers, CI), pass
 `--browser-args="--no-sandbox --disable-dev-shm-usage"`.

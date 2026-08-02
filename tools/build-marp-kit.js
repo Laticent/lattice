@@ -17,10 +17,19 @@
  * WHY IT SHARES THE EXPORT'S ASSET LIST. `lib/core/marp-bundle.js` already knows
  * which files a Marp render needs — it learned the hard way (#1256 shipped a
  * bundle with no fonts, so every title slide fell back to system serif). This
- * builder reads the SAME `STATIC_ASSETS` and the SAME `fontAssetsFor()` walker,
- * so the kit cannot drift from the export. A kit that omits a font is not a
- * cosmetic bug: `lattice.css` references fonts `url(fonts/…)`-relative, and a
- * missing file degrades SILENTLY.
+ * builder IMPORTS that module's `STATIC_ASSETS` and its `fontAssetsFor()` walker
+ * rather than restating them, so the kit cannot drift from the export. A kit that
+ * omits a font is not a cosmetic bug: `lattice.css` references fonts
+ * `url(fonts/…)`-relative, and a missing file degrades SILENTLY.
+ *
+ * The first version of this file only CLAIMED that. It required nothing but `fs`
+ * and `path` and kept private copies of both — and the copied font regex was
+ * strictly narrower than the original (`[A-Za-z0-9._-]{1,64}` against
+ * `[^)'"\s]{1,256}`, and no comment-stripping), so a face named `my+font.woff2`,
+ * or one referenced from inside a CSS comment, diverged in one direction or the
+ * other. Latent on today's corpus, and exactly the #1256 failure mode the comment
+ * promised immunity from. Caught by the adversarial trio; the sentence is now
+ * true by construction instead of by assertion.
  *
  * MINIFIED BUILDS ONLY, and the `.min` names are KEPT. The export bundle renames
  * `lattice.min.css` → `lattice.css`; this does not. Someone grabbing files by
@@ -38,6 +47,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { STATIC_ASSETS, fontAssetsFor } = require('../lib/core/marp-bundle.js');
+
 const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'dist', 'marp-kit');
 const DECK = 'Sample-Deck.md';
@@ -47,28 +58,34 @@ const THEME = 'cuoio';
 
 /**
  * Files copied verbatim. `from` is repo-relative, `to` is kit-relative.
- * `cuoio-dark.min.css` is NOT optional: a deck using `color-mode:` renders
- * broken without it, and naming only the light variant would ship that gap.
+ *
+ * The engine assets come from the export's own `STATIC_ASSETS`, so adding one
+ * there supplies it here too. Only the DESTINATION NAME differs by design: the
+ * export renames `lattice.min.css` → `lattice.css`, the kit keeps the `.min`
+ * basename, because someone grabbing files by hand should see what they took.
+ *
+ * The palettes are the kit's own addition. The export adds them per-deck (which
+ * palette ships depends on the deck); a copy-and-go folder has no deck to ask,
+ * so it carries the default pair. `cuoio-dark.min.css` rides along for a deck
+ * that sets `class: dark` — see the README's note on what that does and does not
+ * reach.
  */
 const ASSETS = [
-  { from: 'dist/lattice.min.css', to: 'lattice.min.css' },
+  ...STATIC_ASSETS.map(({ from }) => ({ from, to: path.basename(from) })),
   { from: `dist/themes/${THEME}.min.css`, to: `${THEME}.min.css` },
   { from: `dist/themes/${THEME}-dark.min.css`, to: `${THEME}-dark.min.css` },
-  { from: 'dist/lattice-runtime.min.js', to: 'lattice-runtime.min.js' },
-  { from: 'mermaid-v11.min.js', to: 'mermaid-v11.min.js' },
   { from: `kit/${DECK}`, to: DECK },
 ];
 
-/** A stylesheet-relative font reference: `url(fonts/<file>)`, optionally quoted. */
-const FONT_URL = /url\(\s*['"]?fonts\/([A-Za-z0-9._-]{1,64})['"]?\s*\)/g;
-
-/** Every `dist/fonts/` file the kit's CSS actually references. */
+/**
+ * Every `dist/fonts/` file the kit's CSS references, via the EXPORT's walker.
+ * `fontAssetsFor` strips CSS comments first and bounds the filename charset at
+ * `[^)'"\s]{1,256}` — both hard-won, and both were lost in the copy this replaces.
+ */
 function fontFiles(cssTexts) {
   const files = new Set();
   for (const css of cssTexts) {
-    FONT_URL.lastIndex = 0;
-    let m;
-    while ((m = FONT_URL.exec(css))) files.add(m[1]);
+    for (const { to } of fontAssetsFor(css)) files.add(to.replace(/^fonts\//, ''));
   }
   return [...files].sort();
 }
@@ -121,57 +138,139 @@ function vscodeSettings() {
   )}\n`;
 }
 
+/**
+ * `NOTICE.md` — the license facts a recipient needs, and cannot get from the kit
+ * without them.
+ *
+ * This folder is NOT covered by Lattice's output exception, and that is not a
+ * technicality. `LICENSE-EXCEPTIONS` §Limits withholds the exception from "(a)
+ * the Lattice engine itself or any of its source or object form distributed
+ * other than inside a rendered deck" and "(b) the embedded assets extracted or
+ * separated from a rendered deck for reuse". A folder whose entire pitch is
+ * "copy this folder" is both at once — so the kit is a plain AGPL-3.0
+ * conveyance of engine object code, and it has to carry the license with it.
+ *
+ * The first version shipped 1 MB of minified engine and 37 third-party font
+ * files with no LICENSE, no copyright notice, and no font attribution, while
+ * inviting the recipient to redistribute the lot. The recipient was the one left
+ * exposed. Found by the red team.
+ */
+function notice(fonts) {
+  return `# Notices
+
+## Lattice
+
+Copyright (c) 2025-2026 SlideWright. Licensed under the **GNU Affero General
+Public License, version 3** — the full text is in \`LICENSE\`, beside this file.
+
+\`lattice.min.css\`, \`${THEME}.min.css\`, \`${THEME}-dark.min.css\` and
+\`lattice-runtime.min.js\` are the Lattice engine in object form.
+
+**The output exception does not apply to this folder.** Lattice grants an
+exception for engine assets its export pipeline embeds *inside a rendered deck*.
+This kit is deliberately the other thing — the engine handed over loose, for
+reuse — so the AGPL applies to it in full. Slides you write are yours and were
+never covered either way; the terms here are about redistributing these files.
+
+If you only want to make decks, nothing about this constrains you. If you plan to
+redistribute the kit, or ship a service built on it, read \`LICENSE\`.
+
+## Third-party components
+
+Bundled unmodified, under their own terms. Their licenses govern them, not the
+AGPL above.
+
+| Component | Files | License |
+|---|---|---|
+| Mermaid | \`mermaid-v11.min.js\` | MIT — Copyright (c) 2014-2022 Knut Sveidqvist |
+| KaTeX fonts | \`fonts/KaTeX_*.woff2\` (${fonts.filter((f) => f.startsWith('KaTeX')).length} files) | MIT — Copyright (c) 2013-2020 Khan Academy and contributors |
+| Outfit | \`fonts/outfit-*.woff2\` | SIL Open Font License 1.1 |
+| Playfair Display | \`fonts/playfair-*.woff2\` | SIL Open Font License 1.1 |
+| JetBrains Mono | \`fonts/jetbrains-*.woff2\` | SIL Open Font License 1.1 |
+| Caveat | \`fonts/caveat-*.woff2\` | SIL Open Font License 1.1 |
+| Shantell Sans | \`fonts/shantell-*.woff2\` | SIL Open Font License 1.1 |
+
+The OFL permits bundling and redistribution with the notice above kept intact.
+It does not permit selling the font files on their own.
+
+---
+
+Generated by \`tools/build-marp-kit.js\`.
+`;
+}
+
 function readme(fonts) {
   return `# Lattice — the copy-and-go Marp kit
 
-Copy this folder next to your Markdown and you are working. There is nothing to
-install and no build step.
+Copy this folder and you are working. There is nothing to install and no build
+step.
 
 ## Start here
 
-1. Copy this whole folder. Keep the files together — every path is relative.
-2. Open the folder as your VS Code workspace root, with the
-   **Marp for VS Code** extension installed.
-3. Open \`${DECK}\`. It is a real deck that documents how it is written.
+**Open THIS FOLDER as your VS Code workspace root**, with the **Marp for VS
+Code** extension installed, then open \`${DECK}\`.
 
-Render it from the command line instead:
+That is not a style preference. \`.vscode/settings.json\` registers the
+stylesheets by workspace-relative path (\`./lattice.min.css\`), so if the kit sits
+as a sub-folder beside a deck somewhere else, those paths do not resolve and you
+get unstyled slides **with no error**. Put your deck in here, next to
+\`${DECK}\`, rather than putting this folder next to your deck.
+
+From the command line instead:
 
 \`\`\`sh
-npx @marp-team/marp-cli ${DECK} --config-file marp.config.cjs --allow-local-files -o deck.pdf
+npx @marp-team/marp-cli@^4.3.1 ${DECK} --config-file marp.config.cjs --allow-local-files -o deck.pdf
 \`\`\`
+
+The version is pinned on purpose — that is the range Lattice tests against.
 
 ## What is in here
 
 | File | What it does |
 |---|---|
-| \`${DECK}\` | A 14-slide deck that documents itself. Your starting point. |
+| \`${DECK}\` | A 13-slide deck that documents itself. Your starting point. |
 | \`lattice.min.css\` | The engine — every layout and token. |
 | \`${THEME}.min.css\` | The default palette. Swap it to restyle the deck. |
-| \`${THEME}-dark.min.css\` | Its dark variant, for \`color-mode:\` decks. |
+| \`${THEME}-dark.min.css\` | A second palette. Select it with \`theme: ${THEME}-dark\`. |
 | \`lattice-runtime.min.js\` | Builds charts and diagrams in the browser. |
 | \`mermaid-v11.min.js\` | Third party. Diagram slides need it. |
 | \`fonts/\` | ${fonts.length} files. **Do not drop these** — without them type falls back to system serif, silently. |
-| \`marp.config.cjs\` | Registers the themes for marp-cli. |
+| \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
 | \`.vscode/settings.json\` | Registers them for the VS Code extension. |
+| \`NOTICE.md\` · \`LICENSE\` | The terms these files come under. Worth two minutes. |
 
-## Two things that will bite you
+## Three things that will bite you
 
 **Scripts belong at the END of the deck.** Marp emits raw HTML inline, in
 document order, so a \`<script>\` at the top lands inside slide 1 and runs before
-the rest of the deck exists. At the bottom it lands after every slide, and the
-runtime can see them all. \`${DECK}\` does this — copy the pattern.
+the rest of the deck exists. At the bottom it runs once the whole deck is parsed.
+\`${DECK}\` does this — copy the pattern.
 
 **\`html: true\` is required, not optional.** marp-core escapes raw HTML by
 default, which turns the deck's \`<script>\` tags into visible text and leaves
 every chart and diagram unbuilt. Both config files here set it.
 
+**Dark mode is \`class: dark\`, not \`color-mode:\`.** \`class:\` is Marp's own
+front-matter key and it stamps every slide, which is exactly what Lattice's dark
+styling keys off. Lattice's richer deck registers (\`color-mode:\`, \`finish:\`,
+\`logo:\`, …) are read from a block that only the full export pipeline writes, so
+in a hand-authored deck like this one they do nothing.
+
 ## Fidelity
 
 \`marp --pdf\` and \`marp --html\` drive a real headless browser, so the runtime
-runs and diagrams and charts are built. Whether the VS Code **preview pane**
-executes the deck's scripts is not something this project can confirm — see the
-deck's own "What renders where" slide. Layout, palette and typography are
-correct on every surface.
+runs and diagrams and charts are built. Everything in \`${DECK}\` is verified on
+that path.
+
+The VS Code **preview pane** is a different surface and a weaker one. It runs
+marp-core directly, without Lattice's markdown-it plugins, so anything built by a
+transform rather than by CSS — split-panel's counters, matrix-grid's checkboxes —
+will not be assembled there. Whether the preview executes the deck's \`<script>\`
+tags at all is genuinely unsettled in this project's own notes, so treat charts
+and diagrams there as unknown rather than promised. CSS is the part that always
+holds: layout, palette and typography are correct on every surface.
+
+Render the deck for anything you need to trust.
 
 If a render hangs on a machine with a small \`/dev/shm\` (containers, CI), pass
 \`--browser-args="--no-sandbox --disable-dev-shm-usage"\`.
@@ -199,6 +298,9 @@ function buildKit() {
   out.set('marp.config.cjs', marpConfig());
   out.set('.vscode/settings.json', vscodeSettings());
   out.set('README.md', readme(fonts));
+  out.set('NOTICE.md', notice(fonts));
+  // Verbatim, not summarized: an AGPL conveyance has to carry the actual text.
+  out.set('LICENSE', fs.readFileSync(path.join(ROOT, 'LICENSE')));
   return out;
 }
 

@@ -47,11 +47,40 @@ test('carries every font its own CSS references — the silent #1256 failure', (
   // lattice.css points at fonts with `url(fonts/…)`, relative to the stylesheet.
   // A kit without them does not error; it falls back to system serif, which is
   // exactly how the export shipped broken title slides for months.
+  //
+  // The obvious version of this test is a TAUTOLOGY and used to be one: calling
+  // the builder's own `fontFiles()` and asserting the kit ships what it returned
+  // is `X ⊆ X`, and any face the walker misses is invisible to both sides. So
+  // the expectation is derived INDEPENDENTLY here — straight from the @font-face
+  // blocks in the shipped CSS, by a different expression than the builder uses.
   const css = [...KIT.keys()].filter((k) => k.endsWith('.css')).map(text);
-  const needed = fontFiles(css);
-  assert.ok(needed.length > 0, 'expected the CSS to reference bundled fonts');
-  for (const f of needed) {
-    assert.ok(KIT.has(`fonts/${f}`), `kit references fonts/${f} but does not ship it`);
+  const declared = new Set();
+  for (const sheet of css) {
+    for (const m of sheet.matchAll(/@font-face[^{]*\{[^}]*\}/g)) {
+      for (const u of m[0].matchAll(/url\([ \t]*['"]?fonts\/([^)'"\s]+)['"]?[ \t]*\)/g)) {
+        declared.add(u[1]);
+      }
+    }
+  }
+  assert.ok(declared.size > 0, 'expected @font-face blocks referencing bundled fonts');
+  for (const f of declared) {
+    assert.ok(KIT.has(`fonts/${f}`), `an @font-face references fonts/${f} but the kit omits it`);
+  }
+  // …and the builder's own walker must agree with that independent reading, which
+  // is what actually pins the two implementations together.
+  assert.deepEqual(fontFiles(css).slice().sort(), [...declared].sort());
+});
+
+test('ships no font nothing asks for — the reverse direction', () => {
+  // The check above is one-directional: it cannot see a file on disk that no
+  // stylesheet references. A retired face would ride along in the kit forever.
+  const referenced = new Set(
+    fontFiles([...KIT.keys()].filter((k) => k.endsWith('.css')).map(text)),
+  );
+  for (const k of KIT.keys()) {
+    if (!k.startsWith('fonts/')) continue;
+    const f = k.slice('fonts/'.length);
+    assert.ok(referenced.has(f), `kit ships fonts/${f} but no stylesheet references it`);
   }
 });
 
@@ -114,7 +143,7 @@ test('the sample deck declares front matter Marp can actually read', () => {
   const fm = text(DECK).split('---')[1];
   assert.match(fm, /marp:\s*true/, 'without this the VS Code extension never activates');
   assert.match(fm, /theme:\s*cuoio/, 'must name the palette the kit ships');
-  // `size: hd` is deliberate: at 4k this 14-slide deck did not finish rendering
+  // `size: hd` is deliberate: at 4k this 13-slide deck did not finish rendering
   // through marp-cli, while hd completes in seconds. A copy-and-go kit has to
   // work on a modest machine the first time.
   assert.match(fm, /size:\s*hd/);
@@ -151,5 +180,20 @@ test('the committed dist/marp-kit matches what the builder produces', () => {
     assert.ok(fs.existsSync(p), `dist/marp-kit is missing ${rel} — run npm run build`);
     const want = Buffer.isBuffer(body) ? body : Buffer.from(String(body), 'utf8');
     assert.ok(fs.readFileSync(p).equals(want), `dist/marp-kit/${rel} is stale`);
+  }
+  // Both directions. Walking only kit→disk cannot see a file the builder no
+  // longer produces, so a dropped font or a stray artifact would sit in the
+  // shipped folder forever and this test would stay green.
+  const onDisk = [];
+  const walk = (dir, prefix) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(path.join(dir, e.name), rel);
+      else onDisk.push(rel);
+    }
+  };
+  walk(root, '');
+  for (const rel of onDisk) {
+    assert.ok(KIT.has(rel), `dist/marp-kit/${rel} is not produced by the builder — stale artifact`);
   }
 });
