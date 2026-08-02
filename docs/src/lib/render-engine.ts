@@ -38,7 +38,14 @@ export type RenderMarkdownOpts = {
 	 *  `offset` slides precede it, the deck holds `total`. Lets a preview render the
 	 *  shown slide ALONE and still print a true page number, instead of re-parsing the
 	 *  whole deck to recompute a position the caller already knows. */
-	page?: { offset: number; total?: number };
+	page?: {
+		offset: number;
+		total?: number;
+		/** Which divider-delimited section the slide sits in, and how many the deck has —
+		 *  what the progress rail and watermark glyph would otherwise recount by walking
+		 *  every section of the whole deck. */
+		deckSection?: { index: number; total: number };
+	};
 };
 export type RenderMarkdownResult = { html: string; css: string; width?: number; height?: number; stats?: import('@/playground/render-metrics').RenderStats };
 

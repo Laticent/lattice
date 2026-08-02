@@ -288,7 +288,13 @@ function narrowToSlide(html: string, index: number, slideCount?: number): string
 // because it is cheap to write. Each entry widens a real latency cliff for every deck that
 // matches it. A false negative renders wrong output, which is still worse — that is why the
 // bias exists at all — but the trade is a trade, not a freebie.
-export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; probes: RegExp[] }> = [
+export const DECK_DERIVED_FACTS: ReadonlyArray<{
+	fact: string;
+	why: string;
+	probes: RegExp[];
+	/** For a fact no single regex can express. Checked after `probes`. */
+	test?: (deck: string) => boolean;
+}> = [
 	{
 		// NOT pagination. The page number is `slide k of N` — positional metadata the caller
 		// already holds, so it is SUPPLIED to the engine (`page` on the render opts) rather than
@@ -316,10 +322,22 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{ fact: string; why: string; prob
 		why: 'a directive comment without the `_` spot prefix applies to its slide AND every one after, so a slice loses what it inherited',
 		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
 	},
+
 	{
-		fact: 'divider',
-		why: 'dividers drive the progress dot rail and the watermark section glyph, both counted across the deck (progress.transform.js is a no-op without them)',
-		probes: [/<!--\s*_?class\s*:[^>]*\bdivider\b/],
+		// The section number is SUPPLIED (deckSectionFor), so an ordinary divider deck keeps the
+		// cheap slice path — that is this change's whole point. This entry catches only the case
+		// where the count cannot be trusted: a deck where a `_class: divider` appears inside code,
+		// so the raw and code-stripped readings disagree.
+		//
+		// It exists because supplying INVERTS the gate's failure direction. As a probe, matching a
+		// divider mentioned in prose cost a wasted parse and produced correct output. As a counter
+		// the same match paints an extra dot and bumps the watermark glyph — wrong output. When the
+		// reading is ambiguous we pay the parse and let the engine count for itself, which is right
+		// by construction.
+		fact: 'ambiguous divider count',
+		why: 'a `_class: divider` inside code makes the raw and code-stripped counts disagree, so a supplied section could paint the wrong rail',
+		probes: [],
+		test: (deck) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck) && deckSectionFor(deck, 0) === undefined,
 	},
 	{
 		fact: 'glossary: auto',
@@ -394,8 +412,67 @@ function positionIsTrustworthy(deck: string, slideCount: number | undefined): bo
 	return true;
 }
 
+/**
+ * Which divider-delimited SECTION the shown slide sits in, and how many the deck has.
+ *
+ * The progress rail and the watermark glyph both derive this by walking every section
+ * (`progress.transform.js`, `watermark.transform.js`), which is why a deck with dividers had to
+ * re-render in full on every keystroke — 63ms of engine work per keypress on a 40-slide gallery
+ * deck, against 3ms for a deck without them. It is the same positional metadata the page number
+ * is, so the caller supplies it rather than making the engine recount.
+ *
+ * Only ever called behind `positionIsTrustworthy`, which is what guarantees chunk k IS section k.
+ * `index` counts dividers at or before the shown slide, matching exactly where the transform's
+ * own walk would have arrived; `total` is the deck's divider count. Both zero → no rail, which is
+ * also what a deck with no dividers gets.
+ */
+function deckSectionFor(deck: string, slideIndex: number): { index: number; total: number } | undefined {
+	const stripFm = String(deck ?? '').replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '');
+	// Blank every form of code the engine renders literally. A `_class: divider` inside a code
+	// SAMPLE is documentation, not a directive — and decks that teach Lattice authoring are full of
+	// them (examples/speaker-notes.md, split-headings.md, debug.md, …).
+	const blankCode = (t: string) =>
+		t
+			.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '') // fenced
+			.replace(/^(?: {4}|\t)[^\n]*$/gm, '') // indented block
+			.replace(/`[^`\n]*`/g, ' '); // inline span
+
+	// TOKEN-TEST the class value, exactly as the tiles do (`cls.split(/\s+/).includes('divider')`
+	// in progress.transform.js / watermark.transform.js). A substring match counts `divider-lite`
+	// and `section-divider` as dividers where the engine does not — the counter has to agree with
+	// the consumer it is standing in for, not merely look similar.
+	const dividerTokens = (chunk: string): boolean => {
+		const directives = [...chunk.matchAll(/<!--\s*_?class\s*:\s*([\s\S]*?)-->/g)];
+		if (!directives.length) return false;
+		const last = directives[directives.length - 1][1]; // last wins, as the engine resolves it
+		return last.trim().split(/\s+/).includes('divider');
+	};
+
+	const chunks = blankCode(stripFm).split(/\n-{3,}\n/);
+	const total = chunks.filter(dividerTokens).length;
+
+	// FAIL SAFE, NOT FAIL WRONG. This is the property the gate design rests on, and it INVERTS the
+	// moment a fact stops being a probe and becomes a counter. As a probe, matching a `divider`
+	// mentioned in prose merely forced the whole-deck render: a wasted parse, correct output. As a
+	// counter the same match paints an extra dot and bumps the watermark glyph — wrong output.
+	// Found by an inversion review, reproduced: a slide showing `<!-- _class: divider -->` in an
+	// inline code span rendered "02" against the deck's "01".
+	//
+	// The question is ONLY "does a divider appear inside code?", so compare the divider COUNTS with
+	// and without code blanked. An earlier cut also compared chunk counts, which was wrong for a
+	// different reason: a `---` inside a mermaid fence changes the chunk count without touching any
+	// divider, and that bailed on gallery.md — the very deck the performance numbers measure,
+	// silently reverting the win. Caught by two independent reviewers.
+	if (stripFm.split(/\n-{3,}\n/).filter(dividerTokens).length !== total) return undefined;
+	if (!total) return undefined;
+
+	let index = 0;
+	for (let i = 0; i <= slideIndex && i < chunks.length; i++) if (dividerTokens(chunks[i])) index += 1;
+	return { index, total };
+}
+
 function needsDeckContext(deck: string): boolean {
-	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)));
+	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)) || (f.test ? f.test(deck) : false));
 }
 
 // ── Whole-deck render memo — ONE entry, module-level ─────────────────────────
@@ -424,11 +501,49 @@ function needsDeckContext(deck: string): boolean {
 // engine stages ran — the perf overlay tells the truth rather than a fabricated breakdown.
 type DeckRender = { html: string; css: string; width?: number; height?: number };
 let deckMemo: { key: string; out: DeckRender } | null = null;
+// SLICE CACHE — a small LRU of single-slide renders.
+//
+// The whole-deck memo made NAVIGATION nearly free: one memoized deck parse served all 40 slides,
+// so changing the shown index cost a re-narrow and nothing more. Rendering slices instead is what
+// took typing from 63ms of engine work per keystroke to 4ms, but it gave that back on navigation —
+// every slide change became its own parse (~5.7ms on a gallery deck) where it used to be ~0.2ms.
+//
+// This restores it for the case that actually recurs: revisiting a slide. Presenting walks back and
+// forth, the overview grid shows the same slides repeatedly, and an edit-then-return is the common
+// authoring loop — all hits. A first linear pass still pays per slide, which is the honest floor for
+// not parsing the deck.
+//
+// Bounded at 24 entries, ~1 slide of HTML each rather than a whole deck's worth, so the memory
+// profile is smaller than the single whole-deck entry it supplements. Insertion-ordered Map: the
+// oldest key is evicted, and a hit re-inserts to keep it warm.
+const SLICE_CACHE_MAX = 24;
+const sliceCache = new Map<string, DeckRender>();
+/** Drop the slice cache. Separate from `clearDeckMemo` on purpose — see the note there. */
+export function clearSliceCache(): void {
+	sliceCache.clear();
+}
+function sliceCacheGet(key: string): DeckRender | undefined {
+	const hit = sliceCache.get(key);
+	if (!hit) return undefined;
+	sliceCache.delete(key); // re-insert so recency is the eviction order
+	sliceCache.set(key, hit);
+	return hit;
+}
+function sliceCachePut(key: string, out: DeckRender): void {
+	if (sliceCache.has(key)) sliceCache.delete(key);
+	sliceCache.set(key, out);
+	if (sliceCache.size > SLICE_CACHE_MAX) sliceCache.delete(sliceCache.keys().next().value as string);
+}
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
 	return `${theme}|${mode}|${hashString(markdown)}|${markdown.length}|${hashString(extraCss)}|${hashString(extraThemeCss)}`;
 }
-/** Drop the memo — used by tests, and safe to call at any time (it only costs a re-render). */
+/** Drop the whole-deck memo — used by tests, and safe to call at any time (it only costs a
+ *  re-render). Deliberately does NOT touch `sliceCache`: `dispose()` calls this, and `dispose()`
+ *  is PER-RENDERER while the slice cache is module-level and shared. Clearing it here meant one
+ *  `DeckPreview` unmounting — leaving Present, closing the overview grid, a mobile pane swap —
+ *  wiped every other host's entries, which is precisely the three cases the cache exists for.
+ *  Use `clearSliceCache()` when you genuinely want it gone (tests). */
 export function clearDeckMemo(): void {
 	deckMemo = null;
 }
@@ -723,7 +838,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					typeof opts?.slideIndex === 'number' &&
 					opts.slideIndex >= 0 &&
 					positionIsTrustworthy(markdown, opts?.slideCount)
-						? { offset: opts.slideIndex, total: opts.slideCount as number }
+						? {
+								offset: opts.slideIndex,
+								total: opts.slideCount as number,
+								deckSection: deckSectionFor(markdown, opts.slideIndex),
+							}
 						: undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
@@ -748,9 +867,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// deck positions render differently now (they print different numbers), so a
 					// key over source alone would serve slide 7 the number it cached for slide 3.
 					const key = typeof opts?.slideIndex === 'number'
-						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}` : ''}`
+						? `${memoKey(renderSource, theme, mode, extraCss || '', extra?.css || '')}|${samplesBase}|${slicePage ? `${slicePage.offset}/${slicePage.total ?? ''}/${slicePage.deckSection ? `${slicePage.deckSection.index}of${slicePage.deckSection.total}` : ''}` : ''}`
 						: null;
-					if (key !== null && deckMemo?.key === key) {
+					// Two caches, because the two paths cache different things: the whole-deck memo
+					// holds ONE un-narrowed deck render, the slice cache holds up to 24 single
+					// slides. A slice render never populates the deck memo and vice versa.
+					const sliceHit = key !== null && slicePage ? sliceCacheGet(key) : undefined;
+					if (sliceHit) {
+						out = { ...sliceHit };
+						engineMs = performance.now() - tEngine;
+					} else if (key !== null && !slicePage && deckMemo?.key === key) {
 						out = { ...deckMemo.out };
 						engineMs = performance.now() - tEngine; // the real (near-zero) cost
 					} else {
@@ -761,7 +887,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// Store the UN-narrowed render; the copy keeps the memo immune to the
 						// mutation below and to any caller that edits what it received. Only a
 						// deck-context render populates it (`key !== null`) — see the gate above.
-						if (key !== null) deckMemo = { key, out: { html: out.html, css: out.css, width: out.width, height: out.height } };
+						if (key !== null) {
+							const snapshot = { html: out.html, css: out.css, width: out.width, height: out.height };
+							// A slice render goes in the LRU; a whole-deck render in the single memo.
+							if (slicePage) sliceCachePut(key, snapshot);
+							else deckMemo = { key, out: snapshot };
+						}
 					}
 					// engineMs brackets the WHOLE renderMarkdown call, which also does the
 					// math prescan + (cold) KaTeX load before the engine's own render. Fold

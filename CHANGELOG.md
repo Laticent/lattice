@@ -116,6 +116,39 @@ in patch versions.
 
 ### Fixed
 
+- **A deck with dividers re-parsed in full on every keystroke.** The progress dot-rail and the
+  watermark section glyph both derive their section by walking every section of the document, so
+  any deck with a `divider` slide forced the preview onto the whole-deck render path — 63ms of
+  engine work per keypress on a 40-slide gallery deck, against 3ms for a deck without them, and the
+  last regression left from the deck-context work.
+
+  A section number is `section k of n`: deck-positional metadata the caller already holds, exactly
+  like the page number. It is now supplied (`page.deckSection`) rather than recounted, and `divider`
+  is no longer a deck-context trigger. Both tiles fall back to their own walk when nothing is
+  supplied, so every full-deck and export path is byte-identical.
+
+  A bounded LRU of single-slide renders (24 entries) restores what the whole-deck memo used to give
+  navigation for free: one memoized deck parse served all 40 slides, so a rail click cost a
+  re-narrow and nothing more. Slice renders don't share that, so revisiting a slide hits the cache
+  instead of re-parsing — **within a 24-slide window**. Simulated against the real policy, that is
+  ~50% of a back-and-forth walk on a 24-slide deck, ~30% on 40 slides, ~10% on 117, and **0% for
+  the overview grid** on any deck longer than the cache, since a sequential scan longer than an LRU
+  is its textbook worst case. An earlier draft of this entry claimed those three workloads were
+  "all hits", which is true only for short decks.
+
+  Measured same-machine (`studio-preview-perf.spec.ts`, TOTAL p50, 40 slides, 4x CPU), gallery deck:
+  typing **74.2ms -> 15.2ms**, of which engine RENDER **63.2ms -> 4.9ms**. That figure is a 12x
+  move on a mechanism that changed outright, and it crosses `createFrameScheduler`'s 50ms threshold,
+  so it is the one number here worth trusting.
+
+  The rest moved within noise on a machine that drifted measurably slower across the session, and
+  are recorded rather than claimed as wins: default navigation 11.0 -> 8.1ms, prose navigation
+  12.7 -> 9.7ms, prose typing 12.1 -> 11.2ms, **default typing 8.6 -> 10.3ms** (i.e. one of them is
+  a small regression, not the clean sweep an earlier draft of this entry implied), and gallery
+  navigation 11.8 -> 13.1ms. The navigation figures are also measured on a bimodal sample — the
+  harness walks the same ten slides twice, so with the slice cache the second pass is all hits —
+  which makes p50 land near the fastest cache miss and understate cold navigation.
+
 - **A preview showing one slide no longer re-parses the whole deck just to number it.** A page
   number is `slide k of N` — positional metadata the caller already holds — but the engine derived
   it by counting the sections of whatever document it was handed, so every paginated deck paid a

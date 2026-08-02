@@ -25,7 +25,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { clearDeckMemo, createSingleSlideRenderer, DECK_DERIVED_FACTS } from './single-slide-render';
+import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer, DECK_DERIVED_FACTS } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -38,7 +38,7 @@ const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 // lever into that path. It is a DIVIDER deck, not a paginated one: pagination stopped forcing a
 // deck render once the position became something the caller supplies, so `paginate: true` here
 // would quietly take the slice path and these tests would stop exercising narrowing at all.
-const DECK_SCOPED = '<!-- _class: divider -->\n\ndeck body';
+const DECK_SCOPED = '<!-- header: Q3 Review -->\n\ndeck body';
 
 // A 3-slide deck exactly as the engine emits one: an `<article class="lattice">` wrapper, one
 // `<section>` per slide carrying its positional `id`, its `data-lattice-pagination` ordinal, the
@@ -68,6 +68,7 @@ beforeEach(() => {
 	// produce identical html. A test that re-mocks DIFFERENT html for the same markdown would
 	// otherwise be served the previous test's render, so drop the memo between cases.
 	clearDeckMemo();
+	clearSliceCache(); // module-level and shared — dispose() no longer wipes it, so tests must
 	mockRender(DECK);
 });
 afterEach(() => {
@@ -272,7 +273,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const host = mountHost();
 		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
 		mock.mockClear();
-		const deck = '<!-- _class: divider -->\n\nbody\n\n---\n\nmore';
+		const deck = '<!-- header: Q3 -->\n\nbody\n\n---\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(mock.mock.calls[0][1]).toBe(deck);
 		expect(mock.mock.calls[0][3]?.page).toBeUndefined();
@@ -288,13 +289,19 @@ describe('deck-context gate (needsDeckContext)', () => {
 		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
 	});
 
-	it('renders the DECK when a divider drives the progress rail', async () => {
+	it('renders the SLICE for a divider deck — the SECTION position is supplied too', async () => {
+		// The rail and the watermark glyph both derived their section by walking every section,
+		// which is why a divider deck re-parsed in full on every keystroke (63ms on a 40-slide
+		// gallery deck). The section number is deck-positional like the page number, so it is
+		// handed over instead.
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		const seen = recordRenders();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
 		const deck = '<!-- _class: divider -->\n\n# Part One\n\n---\n\nbody';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
-		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
+		expect(mock.mock.calls[0][1]).toBe('THE SLICE');
+		expect(mock.mock.calls[0][3]?.page?.deckSection).toEqual({ index: 1, total: 1 });
 	});
 
 	it('a SPOT `_paginate` also takes the slice path — same reasoning', async () => {
@@ -342,8 +349,8 @@ describe('whole-deck memo boundedness', () => {
 		// `slideCount: 3` matches the mocked DECK's three sections — with a mismatch `narrowToSlide`
 		// fails closed and the renderer falls back to the slice, which adds a second render per round
 		// and makes the counts unreadable. (It did, the first time this was written.)
-		const deckA = '<!-- _class: divider -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
-		const deckB = '<!-- _class: divider -->\n\nbeta\n\n---\n\ntwo\n\n---\n\nthree';
+		const deckA = '<!-- header: Q3 Review -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
+		const deckB = '<!-- header: B -->\n\nbeta\n\n---\n\ntwo\n\n---\n\nthree';
 		const arg = { slideIndex: 1, slideCount: 3, slideMarkdown: 'SLICE' };
 		for (let i = 0; i < 6; i++) await r.renderInto(host, i % 2 ? deckA : deckB, false, undefined, undefined, undefined, undefined, arg);
 		// Six alternating renders, six engine calls: a two-entry cache would have served four of them
@@ -359,7 +366,7 @@ describe('whole-deck memo boundedness', () => {
 		const arg = { slideIndex: 1, slideCount: 3, slideMarkdown: 'SLICE' };
 		// A DIVIDER deck, not a paginated one: `paginate` no longer forces the whole-deck render
 		// (the position is supplied instead), so it would take the slice path and never touch the memo.
-		const deck = '<!-- _class: divider -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
+		const deck = '<!-- header: Q3 Review -->\n\nalpha\n\n---\n\ntwo\n\n---\n\nthree';
 		for (let i = 0; i < 4; i++) await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, arg);
 		expect(seen).toEqual([deck]);
 	});
@@ -422,7 +429,7 @@ describe('deck-derived fact registry', () => {
 		for (const f of DECK_DERIVED_FACTS) {
 			expect(f.fact, 'fact needs a name').toBeTruthy();
 			expect(f.why.length, `${f.fact} needs a stated reason`).toBeGreaterThan(20);
-			expect(f.probes.length, `${f.fact} needs a probe`).toBeGreaterThan(0);
+			expect(f.probes.length + (f.test ? 1 : 0), `${f.fact} needs a probe or a predicate`).toBeGreaterThan(0);
 		}
 	});
 
@@ -444,7 +451,7 @@ describe('deck-derived fact registry', () => {
 	// is a real remaining gap (see the note in single-slide-render.ts).
 	it('the registry holds exactly the expected facts — deleting one FAILS here', () => {
 		expect(DECK_DERIVED_FACTS.map((f) => f.fact).sort()).toEqual([
-			'divider',
+			'ambiguous divider count',
 			'glossary: auto',
 			'running-global directive',
 			'slide expander (1→N)',
@@ -458,13 +465,13 @@ describe('deck-derived fact registry', () => {
 			'<!-- _focusSteps: a | b -->\n\nbody',
 			'---\nsplit: headings\n---\n\nbody',
 			'<!-- header: Q3 -->\n\nbody',
-			'<!-- _class: divider -->\n\nbody',
 			'---\nglossary: auto\n---\n\nbody',
 			'<!-- _class: split-panel proof -->\n\nbody',
 			'<!-- _class: split-panel capstone -->\n\nbody',
 			'---\nclass: split-panel proof\n---\n\nbody',
 		];
 		for (const f of DECK_DERIVED_FACTS) {
+			if (!f.probes.length) continue; // predicate-only facts are covered behaviorally
 			for (const p of f.probes) {
 				expect(samples.some((s) => p.test(s)), `${f.fact}: probe ${p} matches none of the samples`).toBe(true);
 			}
@@ -534,5 +541,132 @@ describe('supplied position is verified, not trusted', () => {
 
 	it('a heading nested in a list does not count as a split', async () => {
 		expect((await run('---\npaginate: true\n---\n\n# A\n\n- item\n  # nested\n\n---\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+	});
+});
+
+// The rail and the watermark glyph derive their section by walking every section, which is why a
+// deck with dividers re-parsed in full on every keystroke — 63ms of engine work per keypress on a
+// 40-slide gallery deck, against 3ms for a deck without them. The section number is deck-positional
+// like the page number, so it is supplied. These lock what the caller hands over.
+describe('supplied SECTION position (the progress rail)', () => {
+	const pageSent = async (deck: string, slideIndex: number, slideCount: number) => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex, slideCount, slideMarkdown: 'THE SLICE' });
+		return mock.mock.calls[0][3]?.page;
+	};
+	const TWO_SECTIONS = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n<!-- _class: divider -->\n\n# Two\n\n---\n\nmore';
+
+	it('counts the dividers at or before the shown slide — where the walk would have arrived', async () => {
+		expect((await pageSent(TWO_SECTIONS, 1, 4))?.deckSection).toEqual({ index: 1, total: 2 });
+		expect((await pageSent(TWO_SECTIONS, 3, 4))?.deckSection).toEqual({ index: 2, total: 2 });
+	});
+
+	it('a slide BEFORE the first divider is in section 0 — no rail, as in the full deck', async () => {
+		const deck = 'intro\n\n---\n\n<!-- _class: divider -->\n\n# One\n\n---\n\nbody';
+		expect((await pageSent(deck, 0, 3))?.deckSection).toEqual({ index: 0, total: 1 });
+	});
+
+	it('omits it entirely for a deck with no dividers', async () => {
+		expect((await pageSent('a\n\n---\n\nb', 1, 2))?.deckSection).toBeUndefined();
+	});
+
+	it('a divider inside a fenced sample is not a divider', async () => {
+		const deck = 'a\n\n```\n<!-- _class: divider -->\n```\n\n---\n\nb';
+		expect((await pageSent(deck, 1, 2))?.deckSection).toBeUndefined();
+	});
+});
+
+// Supplying a count INVERTS the gate's failure direction: as a probe, a `divider` mentioned in
+// prose cost a wasted parse and produced correct output; as a counter the same match paints an
+// extra dot and bumps the watermark glyph. So an ambiguous deck goes back to the whole-deck render.
+describe('an ambiguous divider count falls back to the deck render', () => {
+	const rendered = async (deck: string) => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 2, slideCount: 3, slideMarkdown: 'THE SLICE' });
+		return { source: mock.mock.calls[0][1], page: mock.mock.calls[0][3]?.page };
+	};
+	const REAL = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n## Tail.\n';
+
+	it('renders the DECK when a divider is mentioned in an inline code span', async () => {
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\nWrite `<!-- _class: divider -->` here.\n\n---\n\n## Tail.\n';
+		expect((await rendered(deck)).source).toBe(deck);
+	});
+
+	it('renders the DECK when a divider is mentioned in an indented code block', async () => {
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n    <!-- _class: divider -->\n\n---\n\n## Tail.\n';
+		expect((await rendered(deck)).source).toBe(deck);
+	});
+
+	it('still takes the SLICE for an unambiguous divider deck — the optimization survives', async () => {
+		const out = await rendered(REAL);
+		expect(out.source).toBe('THE SLICE');
+		expect(out.page?.deckSection).toEqual({ index: 1, total: 1 });
+	});
+});
+
+// BOUNDEDNESS IS STRUCTURAL, SO TEST IT STRUCTURALLY — the same reasoning the whole-deck memo's
+// own boundedness test records. This cache holds 24 entries of cross-host state where the memo
+// holds one, so it earns the test more, not less.
+describe('slice cache boundedness', () => {
+	const renderSlide = async (r: ReturnType<typeof createSingleSlideRenderer>, host: HTMLElement, deck: string, i: number, n: number) =>
+		r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: i, slideCount: n, slideMarkdown: `SLICE ${i}` });
+
+	it('serves a revisited slide from the cache — the navigation case it exists for', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const deck = '---\npaginate: true\n---\n\na\n\n---\n\nb\n\n---\n\nc';
+		const seen = recordRenders();
+		await renderSlide(r, host, deck, 0, 3);
+		await renderSlide(r, host, deck, 1, 3);
+		await renderSlide(r, host, deck, 0, 3); // revisit
+		expect(seen).toEqual(['SLICE 0', 'SLICE 1']); // the revisit did NOT re-render
+	});
+
+	it('evicts past its cap rather than growing without bound', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const n = 40; // > the 24-entry cap
+		const deck = `---\npaginate: true\n---\n\n${Array.from({ length: n }, (_, i) => `slide ${i}`).join('\n\n---\n\n')}`;
+		for (let i = 0; i < n; i++) await renderSlide(r, host, deck, i, n);
+		const seen = recordRenders();
+		await renderSlide(r, host, deck, 0, n); // evicted long ago
+		expect(seen).toEqual(['SLICE 0']); // so it re-renders, proving the cap holds
+	});
+});
+
+// Two regressions the trio caught in the fix ABOVE, pinned so neither returns.
+describe('the ambiguity guard is narrow enough to keep the win', () => {
+	const sectionFor = async (deck: string, slideIndex: number) => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex, slideCount: 3, slideMarkdown: 'THE SLICE' });
+		return { source: mock.mock.calls[0][1], deckSection: mock.mock.calls[0][3]?.page?.deckSection };
+	};
+
+	it('a `---` inside a fence does NOT make the count ambiguous', async () => {
+		// The first cut compared CHUNK counts as well as divider counts. A mermaid block carries its
+		// own `---` front matter, which changes the chunk count without touching any divider — and
+		// that bailed on gallery.md, the deck the performance numbers are measured on, silently
+		// reverting the entire win. The question is only "does a divider appear inside code?".
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n```mermaid\n---\ntitle: x\n---\nflowchart LR\n  A --> B\n```\n\n---\n\n<!-- _class: form -->\n\nbody';
+		const out = await sectionFor(deck, 2);
+		expect(out.source).toBe('THE SLICE'); // still the cheap path
+		expect(out.deckSection).toEqual({ index: 1, total: 1 });
+	});
+
+	it('counts the class value by TOKEN, as the tiles do — `divider-lite` is not a divider', async () => {
+		// The tiles test `cls.split(/\s+/).includes('divider')`. A substring match counted
+		// `divider-lite` and `section-divider`, so the counter disagreed with the consumer it
+		// stands in for.
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n<!-- _class: divider-lite -->\n\nbody\n\n---\n\n<!-- _class: form -->\n\ntail';
+		expect((await sectionFor(deck, 2)).deckSection).toEqual({ index: 1, total: 1 });
 	});
 });
