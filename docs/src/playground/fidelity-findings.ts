@@ -14,7 +14,10 @@ export type FidelityPath = 'slice' | 'whole-deck';
 
 export type FidelityComparison =
 	| { equal: true }
-	| { equal: false; cause: string; at: number; got: string; want: string }
+	/** `got`/`want` are the WHOLE normalized sections, not a pre-cut window: the overlay breaks them
+	 *  into NAMED differences (`diffSections`), which it cannot do from a fragment. Cutting the window
+	 *  here once left the panel parsing half an attribute and labeling it "text". */
+	| { equal: false; cause: string; got: string; want: string }
 	/** The comparison could not be run (no deck context, engine error) — never a silent pass. */
 	| { equal: null; why: string };
 

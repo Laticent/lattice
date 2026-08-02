@@ -25,7 +25,6 @@
 
 import {
 	classifyDivergence,
-	firstDivergence,
 	normalizeSection,
 	SHIPPED_NEUTRALIZERS,
 	sectionsOf,
@@ -1042,8 +1041,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										const a = normalizeSection(sectionsOf(sliceOut.html)[0] ?? '', SHIPPED_NEUTRALIZERS);
 										const b = normalizeSection(want, SHIPPED_NEUTRALIZERS);
 										if (a === b) return { equal: true };
-										const d = firstDivergence(a, b);
-										return { equal: false, cause: classifyDivergence(a, b), at: d?.at ?? 0, got: d?.got ?? '', want: d?.want ?? '' };
+										// Hand over the WHOLE sections. Cutting a character window here left the panel
+										// with a fragment it could not parse into named differences — it reported half an
+										// attribute as a wording change. The core does the windowing, but only as its
+										// last-resort fallback when nothing more specific explains the difference.
+										return { equal: false, cause: classifyDivergence(a, b), got: a, want: b };
 									} catch (e) {
 										return { equal: null, why: String((e as Error)?.message || e) };
 									}

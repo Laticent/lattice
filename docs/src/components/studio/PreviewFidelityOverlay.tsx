@@ -42,6 +42,7 @@ import {
 	onFidelityOverlayEnabledChange,
 	setFidelityOverlayEnabled,
 } from '@/playground/fidelity-overlay-prefs';
+import { contrastValues, diffSections } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 
 // Per-overlay singleton token — a duplicate include of THIS overlay still shows one.
 const claim: OverlayClaim = { held: false };
@@ -186,6 +187,14 @@ function Overlay() {
 	};
 	const v = verdict();
 
+	// The named differences, derived once per verdict. `markup` is the fallback kind — it means the
+	// bodies differ in a way no attribute / class / text comparison explains.
+	// The `.mjs` core is untyped from here, so the shape is asserted once at the boundary.
+	const diffs: Diff[] = cmp?.equal === false ? (diffSections(cmp.got, cmp.want) as Diff[]) : [];
+	// What the LEFT side is, said in the author's terms. On the fast route it is the slide they are
+	// looking at; on the slow route it is a counterfactual that was never painted.
+	const leftLabel = report?.path === 'slice' ? 'this preview' : 'the fast route';
+
 	const rowProps = (key: string) => ({
 		expanded: open === key || (canHover.current && hover === key),
 		pinned: open === key,
@@ -244,15 +253,30 @@ function Overlay() {
 								}
 								{...rowProps('verdict')}
 							/>
-							{/* The first place the two renders part company. A verdict says something is off;
-							    this says WHAT, which is the difference between a report and a diagnostic. */}
-							{cmp?.equal === false && (
-								<div className="mt-1 flex flex-col gap-1 text-[10px] leading-[1.35]">
-									<p className="m-0 text-muted-foreground">{cmp.cause}</p>
-									<Side term={report.path === 'slice' ? 'this preview' : 'fast route'} text={cmp.got} />
-									<Side term="full deck" text={cmp.want} />
-								</div>
+							{/* WHAT differs, by name. The first cut quoted a window of raw markup here — honest,
+							    but it lands mid-attribute and reads as `ndaco" data-lattice-pagination="2" style=`,
+							    which an author cannot act on. `diffSections` names the thing instead (an
+							    attribute, a class token, the words), so each difference becomes an ordinary row
+							    in the same catalog shape as everything above it. */}
+							{/* Collapsible-whitespace-only differences leave nothing NAMED to show. Say that
+							    rather than render an empty group under a "differs" verdict. */}
+							{cmp?.equal === false && diffs.length === 0 && (
+								<p className="m-0 mt-1 text-[10px] leading-[1.35] text-muted-foreground">The two renders differ only in whitespace — nothing that changes what is painted.</p>
 							)}
+							{cmp?.equal === false &&
+								diffs.map((d) => (
+									<Row
+										key={`${d.kind}:${d.name}`}
+										// `data-header` is the ENGINE's spelling of a directive the author wrote as
+										// `<!-- header: … -->`. Dropping the prefix names it the way they typed it, and
+										// keeps the label column from wrapping on every attribute row.
+										label={d.name.replace(/^data-/, '')}
+										value={diffSummary(d)}
+										what={DIFF_WHAT[d.kind]}
+										rel={sentence(`${d.kind === 'attribute' ? `Written as ${d.name}. ` : ''}${leftLabel} ${sideText(d.got)}; the full deck ${sideText(d.want)}.`)}
+										{...rowProps(`diff:${d.kind}:${d.name}`)}
+									/>
+								))}
 							<button
 								type="button"
 								onClick={run}
@@ -335,7 +359,7 @@ function Row({
 				<span aria-hidden className={`shrink-0 self-center text-[8px] text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}>
 					▶
 				</span>
-				<span className="w-[52px] shrink-0 text-muted-foreground">{label}</span>
+				<span className="w-[64px] shrink-0 text-muted-foreground">{label}</span>
 				<span className={`min-w-0 flex-1 break-words ${warn && !expanded ? 'text-[color:var(--fail,#c0392b)]' : 'text-popover-foreground'}`}>{value}</span>
 			</button>
 			{expanded && (
@@ -349,12 +373,36 @@ function Row({
 	);
 }
 
-// One side of the quoted difference — the engine HTML around the first parting point.
-function Side({ term, text }: { term: string; text: string }) {
-	return (
-		<div>
-			<span className="block text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{term}</span>
-			<span className="block max-h-[52px] overflow-y-auto whitespace-pre-wrap break-all text-popover-foreground">{text}</span>
-		</div>
-	);
+// ─── Naming a difference ───────────────────────────────────────────────────────────────
+type Diff = { kind: 'attribute' | 'class' | 'text' | 'markup'; name: string; got?: string; want?: string };
+
+// What each KIND of difference means, in the author's terms — the tap explanation, same role as a
+// metric's `what`. Deliberately about consequences, not about the HTML.
+const DIFF_WHAT: Record<Diff['kind'], string> = {
+	attribute:
+		'A setting the engine writes onto the slide. Most come from a directive — a running header, a lens, a background — so one missing here usually means the slide inherited it from an earlier slide and a lone render never saw it.',
+	class: 'A style token on the slide. `cat-N` is the categorical color a proof panel takes from its place in the run, so a difference here is a slide showing the wrong hue.',
+	text: 'The words on the slide differ, not just its markup — the strongest signal that the two renders are not the same slide at all.',
+	markup: 'The bodies differ in a way no attribute, class, or wording explains — a nested element, or reordered content. This is the raw window, shown because nothing more specific fits.',
+};
+
+// The row's one-line value. `missing` and `extra` carry more at a glance than either raw value
+// would, and the values themselves are one tap away.
+function diffSummary(d: Diff): string {
+	if (d.got === undefined) return '⚠ missing';
+	if (d.want === undefined) return '⚠ extra';
+	// Shortened around the PARTING POINT, not the start — two style attributes sharing 40 characters
+	// of custom properties would otherwise both read `--paginate:tr…` and show nothing useful.
+	const c = contrastValues(d.got, d.want) as { got: string; want: string };
+	return `${c.got} ≠ ${c.want}`;
+}
+
+// One side of a difference, as a clause — so `rel` reads as the sentence the other rows use.
+function sideText(v: string | undefined): string {
+	return v === undefined ? 'does not have it' : `has “${v}”`;
+}
+
+// Capitalize after a leading clause, so `Written as data-header. the fast route …` doesn't ship.
+function sentence(s: string): string {
+	return s.replace(/(^|\.\s+)([a-z])/g, (_m, lead, ch) => lead + ch.toUpperCase());
 }

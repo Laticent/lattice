@@ -156,3 +156,80 @@ test('firstDivergence reports a pure truncation', () => {
   assert.equal(d.got, '<section>'.slice(-12));
   assert.match(d.want, /<p>more<\/p>/);
 });
+
+// ── diffSections — naming what differs, instead of quoting raw markup ─────────
+// The readout these feed is the whole point: an author cannot act on a window of HTML that lands
+// mid-attribute. Each case pins that a real, recognizable difference comes back NAMED.
+
+test('diffSections names a missing section attribute', () => {
+  const got = '<section class="lattice"><p>x</p></section>';
+  const want = '<section class="lattice" data-header="Q3 Board Review"><p>x</p></section>';
+  const d = core.diffSections(got, want);
+  assert.deepEqual(d, [{ kind: 'attribute', name: 'data-header', got: undefined, want: 'Q3 Board Review' }]);
+});
+
+test('diffSections names a changed attribute with both values', () => {
+  const d = core.diffSections('<section data-lattice-pagination="1"></section>', '<section data-lattice-pagination="4"></section>');
+  assert.deepEqual(d, [{ kind: 'attribute', name: 'data-lattice-pagination', got: '1', want: '4' }]);
+});
+
+test('diffSections compares class TOKENS, not the whole string', () => {
+  // The cat-N case: one token differs, and reporting the whole class string would make it read as
+  // a wholesale rewrite. Only the tokens each side uniquely carries come back.
+  const d = core.diffSections('<section class="split-panel proof cat-1"></section>', '<section class="split-panel proof cat-3"></section>');
+  assert.deepEqual(d, [{ kind: 'class', name: 'class', got: 'cat-1', want: 'cat-3' }]);
+});
+
+test('diffSections reports several attributes at once, name-sorted', () => {
+  const got = '<section data-b="1"></section>';
+  const want = '<section data-a="2" data-b="9"></section>';
+  assert.deepEqual(
+    core.diffSections(got, want).map((d) => d.name),
+    ['data-a', 'data-b'],
+  );
+});
+
+test('diffSections names a wording difference, tags stripped', () => {
+  const d = core.diffSections('<section><p>Second slide</p></section>', '<section><p>Second   slide</p></section>');
+  // Whitespace inside the words is collapsed — a re-wrap is not a copy change.
+  assert.equal(d.length, 0);
+  const d2 = core.diffSections('<section><h1>Opening</h1></section>', '<section><h1>Closing</h1></section>');
+  assert.deepEqual(d2, [{ kind: 'text', name: 'text', got: 'Opening', want: 'Closing' }]);
+});
+
+test('diffSections falls back to a raw window only when nothing named explains it', () => {
+  // Same words, same section tag — the difference is on a nested element.
+  const got = '<section><p class="a">x</p></section>';
+  const want = '<section><p class="b">x</p></section>';
+  const d = core.diffSections(got, want);
+  assert.equal(d.length, 1);
+  assert.equal(d[0].kind, 'markup');
+  assert.match(d[0].want, /class="b"/);
+});
+
+test('diffSections returns nothing for identical sections', () => {
+  const s = '<section class="lattice" data-x="1"><p>same</p></section>';
+  assert.deepEqual(core.diffSections(s, s), []);
+});
+
+test('sectionText strips tags and collapses whitespace', () => {
+  assert.equal(core.sectionText('<section>\n  <h1>Hi</h1>\n  <p>there</p>\n</section>'), 'Hi there');
+});
+
+test('contrastValues shortens around the parting point, not the start', () => {
+  // The `style` case: 40 shared characters before the difference. Head-truncation would show the
+  // same string on both sides and tell the reader nothing.
+  const a = '--paginate:true;--theme:indaco;--x:1';
+  const b = '--paginate:true;--theme:indaco;--x:2';
+  const c = core.contrastValues(a, b);
+  assert.notEqual(c.got, c.want);
+  assert.match(c.got, /1$/);
+  assert.match(c.want, /2$/);
+  assert.match(c.got, /^…/); // elision marked, so a shortened value is never read as the whole one
+});
+
+test('contrastValues does not elide when the difference is at the start', () => {
+  const c = core.contrastValues('Opening', 'Closing');
+  assert.equal(c.got, 'Opening');
+  assert.equal(c.want, 'Closing');
+});
