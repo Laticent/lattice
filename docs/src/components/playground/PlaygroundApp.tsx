@@ -1244,8 +1244,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// (it can't scale a 0-width box). This effect runs AFTER the attribute above
 		// makes the pane visible, so re-running the in-iframe FIT agent now measures
 		// the real width and flips the deck visible. Direct (not a re-render) so it
-		// can't race the fresh srcdoc write on a gallery/pick load. Mirrors the
-		// Drawing Board, whose setPane sets data-pane THEN renders (drawing-board-pane.js).
+		// can't race the fresh srcdoc write on a gallery/pick load. (The Drawing Board's
+		// pane machine did the same — set data-pane THEN render — before it was removed.)
 		if (pane === 'preview') frameRef.current?.contentWindow?.__latticeFit?.();
 	}, [pane]);
 	React.useEffect(() => () => document.body.removeAttribute('data-pane'), []);

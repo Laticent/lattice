@@ -2536,15 +2536,13 @@ function checkLenteBoundary(errors) {
 // (`.speak({…})` / `.playBlob()`) — those are the hand-rolled scheduler Suono
 // replaced (2026-07-12-suono-audio-library.md §slice 2). Consumers build a
 // `stage.sequence({ produce: voice.synthOne, … })` instead (read-aloud.ts,
-// cadenza.astro). Two entries are grandfathered while their surfaces retire:
-//   • voice-model.js — the legacy provider (owns the raw context + DEFINES
-//     speak/playBlob); removed in slice 2c-final once no consumer needs it.
-//   • drawing-board-practice.js — the frozen Drawing Board (2026-07-03-studio-
-//     succession.md); its `voice.speak({…})` dies with the surface's removal,
-//     not a migration. When the Drawing Board is `git rm`'d, drop this entry.
+// cadenza.astro). Both files that were once grandfathered here are gone from the
+// list: voice-model.js became a byte source in slice 2c-final, and
+// drawing-board-practice.js was deleted with the Drawing Board's route
+// (2026-07-03-studio-succession.md P5). The allowlist reached zero and stays there.
 // Allowlist + anti-rot (same shape as #22): a NEW violator fails (migrate it to
 // Suono), and a stale entry — a listed file that no longer plays audio — fails,
-// so the list shrinks to zero as the frozen surfaces go and can't silently rot.
+// so the list can't silently rot.
 const RAW_AUDIO_PATTERNS = [
   /\bnew\s+(?:window\.)?AudioContext\s*\(/, // raw WebAudio context
   /\bnew\s+(?:window\.)?webkitAudioContext\s*\(/,

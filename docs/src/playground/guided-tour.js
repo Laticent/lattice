@@ -9,8 +9,8 @@
 // framework-agnostic, which matches this site's vanilla-JS / plain-CSS
 // stack exactly.
 //
-// Per-page step decks live beside this file (playground-tour.js,
-// workbench-tour.js, drawing-board-tour.js); they describe WHICH elements to
+// Per-page step decks live beside this file (today playground-tour.js; the
+// workbench and drawing-board decks went with their routes); they describe WHICH elements to
 // spotlight and, via `onReveal`, how to bring a target on screen — the
 // workspaces show one pane at a time on mobile, so a step's target may sit in
 // an inactive tab. This module owns HOW the tour runs.

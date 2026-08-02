@@ -5,7 +5,7 @@ import { expect, gotoStudio, openInspector, railButtons, slideCount, test, toast
 // just land in a library. Component: saved → insertable into the deck (a new
 // slide carrying it). Theme: saved → listed and selectable from Look.
 //
-// Saved artifacts persist in the shared Workbench store (IndexedDB
+// Saved artifacts persist in the shared library store (IndexedDB
 // `lattice-workbench`); every test gets a fresh browser context, so the store
 // starts empty and the names below are deterministic.
 

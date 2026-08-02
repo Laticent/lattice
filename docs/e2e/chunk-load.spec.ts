@@ -50,7 +50,7 @@ test('a lazy chunk that never loads offers a reload that actually reloads (#1242
 // through one catch that used to echo the engine's raw text, hashed asset URL and all.
 test('an export whose chunk never loads blames the load, not the deck (#1242)', async ({ page }) => {
 	await gotoStudio(page);
-	await page.route(/\/_astro\/drawing-board-export\.[^/]*\.js/, (route) => route.fulfill({ status: 404, body: '' }));
+	await page.route(/\/_astro\/deck-export\.[^/]*\.js/, (route) => route.fulfill({ status: 404, body: '' }));
 
 	await page.getByRole('button', { name: 'Share' }).click();
 	await page.getByRole('button', { name: /Markdown/ }).first().click();
