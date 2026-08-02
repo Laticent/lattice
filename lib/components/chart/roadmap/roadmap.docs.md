@@ -12,7 +12,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ## Agent contract
 
-**Capacity** ~4 columns (crowds past 5, overflows past 5) — past that, split across slides.
+**Capacity** ~4 columns (over 5 overflows) — past that, split across slides.
 
 ### Slots
 

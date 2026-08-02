@@ -13,18 +13,23 @@
  * Eighteen slides in the shipped corpus clipped on it, every one of them a THREE-metric
  * slide paying for a fourth row that held nothing.
  *
- * Three source invariants keep that from coming back, and they are load-bearing together:
+ * Three source invariants keep that from coming back:
  *
- *   1. the list declares `min-height: 0` — the block size is definite, so `1fr` divides
- *      the stage;
- *   2. no ROW track is `minmax(0, …)` — a definite grid whose rows can shrink to zero
- *      squeezes a row under its own content and overprints the next one, which trades a
- *      visible clip for a silent overlap. Every row track carries a `min-content` floor,
- *      so the ledger yields, then spills, and the stage's clip + the export's overflow
- *      report make the failure visible. (COLUMN tracks may still be `minmax(0, 1fr)` —
- *      an inline track shrinking below content is how a long label wraps.)
- *   3. the briefing and spotlight row COUNTS are keyed on the metrics actually authored,
- *      via `:has()`, rather than hard-coded at three.
+ *   1. the briefing and spotlight row COUNTS are keyed on the metrics actually authored,
+ *      via `:has()`, rather than hard-coded at three. THIS is the fix — the corpus goes
+ *      27 clipped slides to 9 on it alone;
+ *   2. no ROW track is `minmax(0, …)` — a row that can shrink to zero overprints its
+ *      neighbor instead of spilling. Every row track carries a `min-content` floor, so
+ *      the ledger yields only to what its content needs. (COLUMN tracks may still be
+ *      `minmax(0, 1fr)` — an inline track shrinking below content is how a label wraps.)
+ *   3. the base list does NOT declare `min-height: 0`. Round two of this fix added one,
+ *      and it passed the corpus too — but clamping the list to the stage does not remove
+ *      the overflow, it moves it INSIDE the frame where the stage's clip cannot catch it:
+ *      it sheared the ledger's head at tall/strip, and painted the grid on top of a
+ *      trailing `.below-note` (25px of text over text) with the stage probe reading 0.
+ *      Both silent to every gate. The list must be free to grow so the STAGE clips it
+ *      and the probe reports it. `compliance` keeps a LOCAL min-height:0 — it is a flex
+ *      column that re-flows rather than overprinting — so this checks the base rule only.
  *
  * A SOURCE check, deliberately. The geometry itself is guarded corpus-wide by the overflow
  * ratchet (`npm run overflow:check` against test/integration/overflow-baseline.json), which
@@ -64,21 +69,26 @@ function blockContaining(css, needle) {
 describe('components: the kpi ledger divides its stage', () => {
   const css = normalize(fs.readFileSync(KPI_CSS, 'utf8'));
 
-  test('the stage list yields to the stage — min-height: 0, not the auto floor', () => {
+  test('the base list keeps its auto floor — it must be free to grow past the stage', () => {
     const block = blockContaining(css, 'section.kpi > .cell-stage > ol, section.kpi > .cell-stage > ul');
     assert.match(block, /flex:\s*1\b/, 'the list still fills the stage');
-    assert.match(
+    assert.doesNotMatch(
       block,
       /min-height:\s*0\b/,
-      'the list must declare min-height: 0 — without it the auto floor makes the list size '
-        + 'from its own content and the grid rows equalize instead of dividing the stage (#1277)',
+      'the BASE list must not clamp to the stage. Clamping does not remove the overflow, it '
+        + 'moves it inside the frame: it shears the ledger head at tall/strip and overprints a '
+        + 'trailing .below-note, both with the stage probe reading 0. Let it grow so the stage '
+        + 'clips it and the probe reports it (#1277). compliance opts in locally; the base does not.',
     );
   });
 
   test('no ROW track can shrink below its content (yield, then spill — never overlap)', () => {
     const offenders = [];
     for (const prop of ['grid-template-rows', 'grid-auto-rows']) {
-      const re = new RegExp(`${prop}\\s*:([^;]*);`, 'g');
+      // Stop at `;` OR `}` — a final declaration written without a trailing semicolon
+      // would otherwise let `[^;]*` run past the closing brace into the next rule, which
+      // turns a missing floor into a false pass instead of a clean failure.
+      const re = new RegExp(`${prop}\\s*:([^;}]*)[;}]`, 'g');
       for (const m of css.matchAll(re)) {
         if (/minmax\(\s*0/.test(m[1])) offenders.push(`${prop}:${m[1].trim()}`);
       }
@@ -93,7 +103,7 @@ describe('components: the kpi ledger divides its stage', () => {
 
   test('briefing and spotlight size their row count to the metrics authored', () => {
     // Both variants place the hero with `grid-row: 1 / -1`, so the explicit row count IS the
-    // number of support rows opposite it. Hard-coding three made a 3-metric slide — 67 of the
+    // number of support rows opposite it. Hard-coding three made a 3-metric slide — 68 of the
     // 81 bare-kpi slides in the corpus — reserve a row for a metric nobody wrote.
     // Literal substring checks, not a built regex: the selectors are fixed text, so
     // hand-escaping them into a pattern buys nothing and gets the escaping wrong

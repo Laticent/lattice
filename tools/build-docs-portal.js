@@ -76,7 +76,12 @@ function capacityEntry(m) {
   if (flat) return { capacity: flat };
   const fam = m.adapt?.capacity;
   if (!fam?.wide || !fam.axis) return {};
-  return { capacity: { axis: fam.axis, ...fam.wide } };
+  // `family: 'wide'` is not decoration. The prose surface says "at a wide @size";
+  // without the marker this object is a flat budget that reads as family-blind, and
+  // a consumer sizing a PORTRAIT deck against it would be reading the wrong box's
+  // number. The per-family numbers stay in `adapt.capacity` for anyone who needs
+  // them; this says which one was lifted.
+  return { capacity: { axis: fam.axis, ...fam.wide, family: 'wide' } };
 }
 
 // A component's user-facing variant looks: its declared `variants` narrowed to the

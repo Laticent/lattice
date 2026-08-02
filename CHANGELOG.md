@@ -102,26 +102,30 @@ in patch versions.
   actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
   the conversion path, so it is fixed rather than filed.
 
-- **`kpi` sizes its ledger to the metrics you wrote, and yields to the stage instead of spilling
-  past it — 18 of the corpus's 27 clipped slides were this one variant.** The metric list is a flex
-  child of the bounded stage, and it carried `flex: 1` with no `min-height`, so its `min-height:
-  auto` floor stayed live and its used height was the *larger* of the stage it was flexed into and
-  its own content height. A grid variant computes that content height against an **indefinite**
-  block size, where `1fr` rows cannot divide a stage they have not been given and instead equalize
-  to the tallest row — so the list demanded three rows of the tallest support regardless of the
-  stage, and regardless of how many supports were authored. It measured the same 1485px against a
+- **`kpi` sizes its ledger to the metrics you wrote — 18 of the corpus's 27 clipped slides were
+  this one variant.** The briefing grid hard-coded three support rows regardless of how many
+  metrics were authored, so a **three**-metric slide (hero + TWO supports) reserved a row for a
+  metric nobody wrote and then billed the stage for it. With `1fr` rows sized against an indefinite
+  block, that demand came out as `3 × tallest-support` — the identical 1484.58px against a
   1069–1203px stage on twelve different decks by twelve different authors, because the number was a
   property of the component rather than of anyone's content. Every one of the 18 clipped slides was
-  a **three**-metric slide paying for a fourth row that held nothing (67 of the 81 bare-`kpi` slides
-  in the corpus are that shape). Three changes, load-bearing together: the list declares
-  `min-height: 0` so its block size is definite and `1fr` divides the stage; every **row** track
-  gains a `min-content` floor so a definite grid can never squeeze a row under its content and
-  overprint the next metric — the ledger yields, then spills, and the stage's clip plus the export's
-  overflow report keep the failure visible; and `briefing`/`spotlight` key their row **count** on
-  the metrics actually authored (`:has()`) instead of hard-coding three. `compliance`'s local
-  `min-height: 0` folds into the shared base rule. Visible effect on fitting slides: supports now
-  divide the full column instead of huddling at the top of it, which also closes a dead third of the
-  right column on every 3-metric `briefing` and `spotlight` slide. Fixes #1277.
+  that shape (68 of the 81 bare-`kpi` slides in the corpus are). `briefing`/`spotlight` now key
+  their row **count** on the metrics actually authored (`:has()`), which drops the demand to two
+  rows and fits: **27 → 9** clipped slides corpus-wide on that change alone. Row tracks also regain
+  a `min-content` floor (round one had swapped it for `minmax(0, 1fr)`, which lets a row squeeze
+  under its content and overprint its neighbor instead of spilling), and a lone support top-aligns
+  under its own hairline rule instead of floating in the middle of a full-height column. Visible
+  effect on fitting slides: supports divide the full column instead of huddling in its top third.
+  Fixes #1277.
+  **Deliberately NOT changed: the list keeps its `min-height: auto` floor.** An earlier cut of this
+  fix clamped the list to the stage as well. That also passed the corpus — and it was wrong in the
+  expensive direction, because clamping does not remove the overflow, it moves it *inside* the
+  frame where the stage's clip can no longer catch it: at `tall`/`strip` the centred list threw
+  content off the **top** (the ledger opened mid-metric, and a cut head announces itself to nobody),
+  and with a trailing source line it painted the grid **on top of** the note — 25px of text over
+  text, with the stage probe reading 0. Both were silent to every gate. Letting the list grow so the
+  **stage** clips it keeps the failure visible and reported. `compliance` keeps its local
+  `min-height: 0`; it is a flex column that re-flows rather than overprinting.
 - **`kpi` states its allowance, measured rather than asserted.** The variant had no documented
   answer to "how many metrics, at what label and title length, does this hold?", so an author had no
   way to stay inside it. Measured across a 54-case matrix (metric count × support shape × title
@@ -239,9 +243,10 @@ in patch versions.
   read a correspondingly generous ceiling. It now emits value / label / target-and-pills, matching
   the manifest skeleton and every kpi slide that ships. The measured `wide` ceiling moves 4 → 3.
   Only kpi's calibration is affected; `BUILDERS` is keyed per component. Note the same builder backs
-  `calibrate-density`, so kpi's density basis shifted with it — the per-item total still lands near
-  `w` (label `w-5` + value + a 4-word target line), so `density.soft: 8 / hard: 14` are unchanged,
-  but they were not re-measured against the new shape.
+  `calibrate-density`, so kpi's density basis shifted with it. `density.soft: 8 / hard: 14` are
+  unchanged and were NOT re-measured against the new shape: the per-item total is now roughly
+  `w + 3` (label `w-5`, plus the value, a 4-token target line, and two status pills), so the basis
+  moved slightly against the author rather than for them.
 
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The

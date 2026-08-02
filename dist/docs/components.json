@@ -4818,7 +4818,8 @@
           "stats",
           "split across slides"
         ],
-        "note": "a 4th metric needs one pill, no eyebrow, and a one-line title"
+        "note": "a 4th metric needs one pill, no eyebrow, and a one-line title",
+        "family": "wide"
       },
       "density": {
         "axis": "item",
@@ -4865,11 +4866,11 @@
         },
         {
           "title": "A fifth metric — or a fourth that is not terse",
-          "body": "The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead, so the ceiling there is the manifest's own per-family number.)"
+          "body": "The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead of clipping, so a long ledger there is divided into a run rather than cut.)"
         },
         {
-          "title": "Reaching for attention or spotlight to carry four-plus metrics",
-          "body": "`attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Both spend the stage on a single tile, so the hierarchy collapses before the geometry does — treat three as the ceiling for these two."
+          "title": "Reaching for attention or spotlight to carry a fifth metric",
+          "body": "`attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Both spend most of the stage on a single tile, so past four the hierarchy they exist to create collapses — split into two slides rather than crowding the hero."
         },
         {
           "title": "No targets, no trends",
@@ -5034,7 +5035,8 @@
         "axis": "item",
         "sweet": 5,
         "soft": 6,
-        "hard": 6
+        "hard": 6,
+        "family": "wide"
       },
       "density": {
         "axis": "item",

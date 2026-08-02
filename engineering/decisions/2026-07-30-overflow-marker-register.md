@@ -178,9 +178,10 @@ is *"can I find what's missing?"*. Measured on the corpus this gate covers:
 | `exemplars/nonprofit/grant-report.md` p12 | 416px | **0** |
 
 The spill is padding and background. Cross-tabulating the whole ratchet by component:
-**18 of 27 clipping slides are bare `kpi`, and all 20 `kpi compact` slides fit** — a perfect
+**18 of 27 clipping slides are bare `kpi` (excluding `compact`), and all 20 `kpi compact` slides fit** — a perfect
 separation, so this is one component's flex floor (`kpi.styles.css` keeps `min-height: auto`
-on the `<ol>` deliberately, for the grid variants), not 17 authoring accidents. Four more are
+on the `<ol>` deliberately, for the grid variants — **no longer true as of the #1277 follow-up
+below; the list now declares `min-height: 0`**), not 17 authoring accidents. Four more are
 `wifi`, three are the feature's own demo deck. The remaining two are genuine.
 
 So `reader` now asks the reader's question — `probeContentClipped`: is any content-bearing
@@ -483,26 +484,47 @@ the number was a property of the component, not of anyone's content.
 And the reason it was **three-metric** slides that clipped — every one of the 18 — is
 that the hero spans `grid-row: 1 / -1`, so the explicit row count IS the number of
 support rows opposite it. Hard-coding three meant a hero + **two** supports reserved a
-third row for a metric nobody wrote, then billed the stage for it. 67 of the 81
+third row for a metric nobody wrote, then billed the stage for it. 68 of the 81
 bare-`kpi` slides in the corpus are that shape.
 
-### Why `min-height: 0` alone was the wrong fix (round two, correctly)
+### Round two was also wrong, and the trio is what caught it
 
 `kpi.styles.css` recorded a previous attempt at this symptom, which is why the issue
-asked for a redesign rather than a patch. The obvious one-liner reproduces the trap:
-with `min-height: 0` the corpus stops clipping, but the rows — still
-`minmax(0, 1fr)` — squeeze **under** their content. Measured on `grant-report` p3/p12
-after that change alone: support `li`s overflowing their rows by 23px and 46px, with
-`overflow: visible`, i.e. metrics silently overprinting their neighbours while the
-stage probe reports `over = 0`. That trades a visible failure for an invisible one,
-which is exactly what the issue warned against.
+asked for a redesign rather than a patch. Round two's first cut paired the count fix
+with `min-height: 0` on the base list rule, making the list's block size definite.
+It passed the corpus. It was still wrong.
 
-The shipped fix is the pair: `min-height: 0` **and** a `min-content` floor on every row
-track. The ledger yields down to the height its content genuinely needs and no further;
-past that it spills, the stage clips it, and the export's overflow report names the
-page. Yield, then spill — never overlap. A 54-case matrix confirms zero intra-row
-overlap at every count, label shape, and title length tested, including well past the
-allowance.
+**The count fix alone is what fixes the corpus.** Measured both ways: with count-aware
+rows and NO `min-height: 0`, `overflow:check` is 9 — the same 27 → 9. The clamp bought
+nothing and cost three regressions, all self-inflicted, all invisible to every gate
+here (the ratchet, the 54-case matrix and the unit test are `wide`; the corpus has no
+2-metric kpi slide; and auto-split hides the portrait case in the export path but NOT
+in the live preview or an export-to-Marp bundle, where nothing re-paginates):
+
+| what the clamp did | measured |
+|---|---|
+| **Sheared the ledger's HEAD** at `tall`/`strip`, where the linearized list centers | first metric 425px **above** the stage top; main starts it at 496 = the top |
+| **Overprinted a trailing `.below-note`** — an engine-supported shape on 26 shipped slides — because the grid still floors at its content | +25.2px of text over text, with the stage probe reading **0** |
+| Stranded a lone support's hairline rule 157px above the number it heads | 2-metric slides, now the default shape after count-awareness |
+
+The first two are the same defect in two directions: **a clamped box overflows inside
+the frame, where the stage's clip is no longer the thing that catches it.** Growing
+past the stage and letting the STAGE clip is the honest failure — visible, and the
+probe reports it. That is why the base list keeps `min-height: auto` and only
+`compliance` (a flex column that re-flows rather than overprinting) opts out locally.
+
+The naive `min-height: 0` + `minmax(0, 1fr)` combination the issue warned about
+reproduces exactly as predicted, and is recorded here because it is the shape a future
+reader will reach for first: support `li`s overflowing their rows by 23px and 46px on
+`grant-report` p3/p12, `overflow: visible`, metrics overprinting their neighbors, and
+the stage probe reporting `over = 0`. Every route through this bug that clamps a box
+ends in silent overlap. The row `min-content` floor and the count are the two halves
+that don't.
+
+**Process note.** One checker caught a defect in the docs generator. It took the full
+adversarial trio — red team, Munger inversion, independent checker — to find that the
+central mechanism was half wrong, and the inversion and the checker reached the
+`tall`/`strip` shear independently. HARD RULE #25's top rung earned its cost here.
 
 ### The allowance, measured
 

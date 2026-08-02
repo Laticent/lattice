@@ -1300,7 +1300,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 6, overflows past 6) — past that, split across slides.
+**Capacity** ~4 items (over 6 overflows) — past that, split across slides.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short agenda line, not a description.
 
@@ -1561,7 +1561,7 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 
 #### Agent contract
 
-**Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
+**Capacity** ~3 items (over 4 overflows) — past that, list-tabular / split across slides.
 
 **Density** aim ~15 words per item; past ~24 it reads as a wall of text — a card body is one short clause, not a paragraph.
 
@@ -1718,7 +1718,7 @@ Use when the items want vertical reading order — sequential exploration rather
 
 #### Agent contract
 
-**Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
+**Capacity** ~3 items (over 4 overflows) — past that, list-tabular / split across slides.
 
 **Density** aim ~16 words per item; past ~26 it reads as a wall of text — a stacked card is a short paragraph at most.
 
@@ -2173,7 +2173,7 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 #### Agent contract
 
-**Capacity** ~5 items at a wide @size (crowds past 6, overflows past 6).
+**Capacity** ~5 items at a wide @size (over 6 overflows).
 
 **Density** aim ~14 words per item; past ~20 it reads as a wall of text — one statement per line, not a paragraph.
 
@@ -4088,7 +4088,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 5) — past that, timeline-list / split across slides.
+**Capacity** ~4 items (over 5 overflows) — past that, timeline-list / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph.
 
@@ -4414,7 +4414,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 #### Agent contract
 
-**Capacity** ~3 items at a wide @size (crowds past 4, overflows past 4) — past that, stats / split across slides.
+**Capacity** ~3 items at a wide @size (over 4 overflows) — past that, stats / split across slides.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 
@@ -4449,8 +4449,8 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 #### When NOT to use
 
 - **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
-- **A fifth metric — or a fourth that is not terse.** The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead, so the ceiling there is the manifest's own per-family number.)
-- **Reaching for attention or spotlight to carry four-plus metrics.** `attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Both spend the stage on a single tile, so the hierarchy collapses before the geometry does — treat three as the ceiling for these two.
+- **A fifth metric — or a fourth that is not terse.** The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead of clipping, so a long ledger there is divided into a run rather than cut.)
+- **Reaching for attention or spotlight to carry a fifth metric.** `attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Both spend most of the stage on a single tile, so past four the hierarchy they exist to create collapses — split into two slides rather than crowding the hero.
 - **No targets, no trends.** If the KPIs carry only current values, the slide is a stats row, not a kpi dashboard. Use stats and reclaim the room.
 
 #### Authoring
@@ -6731,7 +6731,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 #### Agent contract
 
-**Capacity** ~4 columns (crowds past 5, overflows past 5) — past that, split across slides.
+**Capacity** ~4 columns (over 5 overflows) — past that, split across slides.
 
 ##### Slots
 
@@ -8391,7 +8391,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 #### Agent contract
 
-**Capacity** ~3 items (crowds past 3, overflows past 3) — past that, list-criteria / split across slides.
+**Capacity** ~3 items (over 3 overflows) — past that, list-criteria / split across slides.
 
 **Density** aim ~20 words per item; past ~28 it reads as a wall of text — one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip.
 

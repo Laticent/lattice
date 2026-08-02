@@ -61,26 +61,33 @@ section.kpi h2 {
 section.kpi > .cell-stage > ol,
 section.kpi > .cell-stage > ul {
   list-style: none; padding: 0; margin: 0;
-  /* flex:1 fills the stage, and min-height:0 makes the filled height DEFINITE.
+  /* flex:1 fills the stage. The `min-height:auto` floor STAYS — deliberately, and
+   * #1277 is the record of what happens when it doesn't.
    *
-   * This pair is the whole fix for #1277, and the min-height is the half that was
-   * missing. Without it the list keeps its `min-height:auto` floor, so its used
-   * height is the LARGER of (the stage it was flexed into) and (its own content
-   * height) — and for a grid variant that content height is computed with an
-   * INDEFINITE block size, where `1fr` rows can't divide a stage they haven't been
-   * given and instead equalize to the tallest row's content. Three rows of a
-   * 494.86px support measured 1484.58px against a 1203px stage on every bare-kpi
-   * slide in the corpus: the same 1485 on twelve different decks, because the
-   * number was a property of the component, not of anyone's content.
+   * The bug that issue names was real: every bare-kpi slide demanded 1484.58px
+   * against a 1069–1203px stage, the identical number on twelve unrelated decks.
+   * But the cause was the row COUNT, not this floor. The briefing grid hard-coded
+   * three support rows, so a 3-metric slide (hero + TWO supports — 68 of the 81
+   * bare-kpi slides in the corpus) billed the stage for a row that held nothing.
+   * Size the template to the metrics actually authored and the demand drops to two
+   * rows, which fits: the shipped corpus goes 27 clipped slides to 9 on that change
+   * alone, MEASURED both ways.
    *
-   * With min-height:0 the list is exactly the stage, the block size is definite,
-   * and every variant's `1fr` rows divide the stage the way they always read as
-   * doing. What made this safe — and what the previous round (see the minmax note
-   * below) lacked — is that the rows now carry a `min-content` FLOOR, so a definite
-   * grid can never squeeze a row under its own content and overprint the next one.
-   * Yield, then spill; never overlap. */
+   * Round two of this fix added `min-height: 0` here as well. It also passed the
+   * corpus — and it was wrong, in the expensive direction. Clamping the list to the
+   * stage does not remove the overflow, it MOVES it inside the frame, where the
+   * stage's clip can no longer be the thing that catches it:
+   *   · at tall/strip the linearized list centers, so a clamped list threw content
+   *     off the TOP — the ledger opened mid-metric, and a cut head announces itself
+   *     to nobody (a cut tail does);
+   *   · with a trailing source line (`.below-note`, an engine-supported shape on 26
+   *     shipped slides) the grid still floors at its content, so it painted ON TOP
+   *     of the note — 25px of text over text, with the stage probe reading 0.
+   * Both were silent to every gate here. Growing past the stage and letting the
+   * STAGE clip is the honest failure: it is visible, and the probe reports it.
+   * `compliance` keeps a local `min-height: 0` (see it) because it is a flex column
+   * that re-flows rather than overprinting. */
   flex: 1;
-  min-height: 0;
 }
 section.kpi > .cell-stage > :where(ol, ul) > li::marker { content: ''; }
 section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) {
@@ -169,19 +176,17 @@ section.kpi.briefing > .cell-stage > ol,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-  /* Rows: `minmax(min-content, 1fr)` — share the stage evenly, never below content.
+  /* Rows: `minmax(min-content, 1fr)` — divide the stage, never below content.
    *
    * ROUND ONE of this bug swapped bare `1fr` (= minmax(auto,1fr)) for minmax(0,1fr)
-   * to let the rows shrink. It didn't help, because the list still floored at its
-   * own content height (see the min-height note on the base list rule), so the rows
-   * never had a definite stage to divide — and it would have been the wrong trade
-   * anyway: a row that CAN shrink to 0 overprints its neighbour instead of spilling.
-   * With the list's block size now definite, `min-content` is the floor that keeps
-   * a squeezed ledger honest — rows yield down to the height their content needs,
-   * and past that the list spills, the stage clips it, and the export's overflow
-   * report names the page. A visible failure, never a silent one.
+   * to let the rows shrink. It did not help — the demand was the row COUNT, not the
+   * row sizing (see the base list rule) — and it was the wrong trade regardless: a
+   * row that CAN shrink to 0 overprints its neighbor instead of spilling. The
+   * min-content floor restores the original semantics and states them: rows yield
+   * only to the height their content needs, and past that the list grows, the stage
+   * clips it, and the export's overflow report names the page. Visible, never silent.
    *
-   * The COUNT is set below, from the metrics actually authored. */
+   * The COUNT — the actual fix — is set below, from the metrics actually authored. */
   grid-template-rows: minmax(min-content, 1fr);
   grid-auto-rows: minmax(min-content, 1fr);
   gap: 0 var(--sp-2xl);
@@ -191,10 +196,19 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
  * 3-metric slide (hero + TWO supports) reserved a third row for nothing and then
  * demanded 3 × the tallest support from a stage that only ever offered ~2.4 of
  * them. That phantom row is the entire 18-slide overflow in the shipped corpus:
- * every one of the 18 is a 3-metric slide, and 67 of the 81 bare-kpi slides across
- * the corpus are that shape. Sizing the grid to the content it actually has is the
+ * every one of the 18 is a 3-metric slide, and 68 of the 81 bare-kpi slides across
+ * the corpus are that shape (67 on this `ol` grid; one is authored as a `ul`, so it
+ * takes the flex path below instead). Sizing the grid to the content it actually has is the
  * fix; the min-content floor above is what keeps it honest when it genuinely
- * doesn't fit. A 5th+ metric lands on grid-auto-rows, same sizing. */
+ * doesn't fit.
+ *
+ * A 5th+ metric auto-places onto `grid-auto-rows`, which sizes it like the others —
+ * but the HERO does not follow it down: `grid-row: 1 / -1` counts `-1` from the last
+ * EXPLICIT line, so the hero spans the three declared rows and stops there, leaving
+ * the 5th support beside empty space (measured: rows summing 569px, hero 428px).
+ * That is cosmetic only because a 5-metric slide is past the stated allowance and
+ * clips anyway — the ledger is already telling the author to split. Do not read this
+ * as the layout extending gracefully; it does not, by design and by declaration. */
 section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
   grid-template-rows: repeat(2, minmax(min-content, 1fr));
@@ -239,6 +253,20 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
   display: flex; flex-direction: column;
   justify-content: center;
   padding: var(--sp-xs) 0;
+}
+/* ONE support (a 2-metric slide) — top-align it under its own rule.
+ *
+ * Every support centers in its row, which is right when two or three of them divide
+ * the column: each sits in the middle of its band, directly under the hairline that
+ * heads it. With a SINGLE support the row is the whole column, so centering strands
+ * that hairline ~157px above the number it introduces — a rule heading nothing, and
+ * a number belonging to nothing. Count-aware rows are what exposed this (before, a
+ * 2-metric slide borrowed the hard-coded 3-row template and the support landed in a
+ * short row 1), so it ships with them. The corpus has no 2-metric kpi slide to catch
+ * it — but it is now the shape a downstream author gets by default. */
+section.kpi.briefing > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:first-child),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:first-child) {
+  justify-content: start;
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(2),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(2) {
@@ -330,8 +358,12 @@ section.kpi.compliance > .cell-stage > ol {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  /* (The local `min-height: 0` this variant used to carry is now on the base list
-   * rule — every variant yields to the bounded stage, not just this one.) */
+  /* Yield to the bounded stage so the trailing source line (a sibling <p>) stays on
+   * canvas — without it the list's min-height:auto floor pushes the source past the
+   * clip. Safe HERE and only here: this variant is a flex column whose rows have no
+   * fixed track sizing, so a shorter list re-flows rather than overprinting. The base
+   * rule deliberately does NOT take this (see the note there). */
+  min-height: 0;
 }
 section.kpi.compliance > .cell-stage > ol > li {
   display: grid;
@@ -549,8 +581,22 @@ section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage
   display: flex;
   flex-direction: column;
   /* The list keeps `flex: 1` (fills the slide below the title), so centre the
-   * metrics WITHIN it — centring the section can't, the list absorbs the slack. */
-  justify-content: center;
+   * metrics WITHIN it — centring the section can't, the list absorbs the slack.
+   *
+   * SAFE centering, and the `safe` is load-bearing. Plain `center` on an overflowing
+   * flex column throws content off BOTH ends, and block-START overflow is the worst
+   * kind this engine has: it shears the ledger's HEAD — a portrait slide one metric
+   * over opened mid-metric-4, on a dangling target line with no number above it —
+   * and a reader cannot tell anything is missing above the fold the way a cut-off
+   * bottom announces itself. The list can grow (its `min-height:auto` floor stays),
+   * so overflow already goes DOWNWARD — this is the belt to that braces, and it is
+   * what makes the centering safe to keep at all. `safe` says: center while it fits, fall
+   * back to `start` the moment it doesn't. Losing the tail is recoverable, losing the
+   * head is not. (#1277 — found by the inversion lens, not by any gate: the corpus
+   * ratchet, the 54-case matrix and the unit test are all `wide`, and auto-split
+   * hides it in the export — but NOT in the live preview or an export-to-Marp
+   * bundle, where nothing re-paginates.) */
+  justify-content: safe center;
   gap: var(--sp-md);
   align-content: normal;
 }

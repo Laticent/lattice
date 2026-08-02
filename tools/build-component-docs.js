@@ -237,7 +237,14 @@ function emitAgentContract(m, lines) {
     const sweet = c.sweet != null ? c.sweet : c.soft;
     const esc = Array.isArray(c.escalateTo) && c.escalateTo.length ? ` — past that, ${c.escalateTo.join(' / ')}` : '';
     const at = family ? ` at a ${family} @size` : '';
-    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (crowds past ${c.soft}, overflows past ${c.hard})${esc}.`);
+    // When `soft` and `hard` are equal the crowd band `(soft, hard]` is EMPTY — the
+    // component never warns "crowded", it goes straight from fine to over. Printing
+    // "crowds past 4, overflows past 4" describes a band nobody can occupy and reads
+    // as if 4 were comfortable; say the one thing that is true instead. Eight
+    // components ship this configuration today, so this is a shared correction, not
+    // a kpi special case.
+    const band = c.soft === c.hard ? `over ${c.hard} overflows` : `crowds past ${c.soft}, overflows past ${c.hard}`;
+    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (${band})${esc}.`);
     lines.push('');
   }
   if (hasDensity) {

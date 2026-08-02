@@ -10,7 +10,7 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 
 ## Agent contract
 
-**Capacity** ~5 items at a wide @size (crowds past 6, overflows past 6).
+**Capacity** ~5 items at a wide @size (over 6 overflows).
 
 **Density** aim ~14 words per item; past ~20 it reads as a wall of text — one statement per line, not a paragraph.
 
