@@ -1,6 +1,5 @@
 // Fixed chrome constants for the Studio preview box — the CSS-fixed dimensions of the topbar,
-// pane padding, per-stop header/footer, the comfort-width cap, and the split's default preview
-// share. Measured from the live app (docs at 2026-07-21); identical across breakpoints, so they
+// pane padding, per-stop header/footer, and the split's default preview share. Measured from the live app (docs at 2026-07-21); identical across breakpoints, so they
 // live here as the shared contract. The pre-hydration shell's first-load COMPUTE fallback
 // (studio.astro) uses these to derive the Nacre box's rect when there is NO persisted preview rect
 // to replay; the shell's preferred rect-REPLAY path uses the persisted viewport fractions instead
@@ -24,6 +23,11 @@ export const PREVIEW_CHROME = {
 	headerWrite: 47,
 	footerRead: 49,
 	footerWrite: 81.6,
-	cap: 760, // the comfort width cap; LIFTED at the chromeless (read/cinema) stop
+	// (`cap: 760` — the old comfort width cap — is RETIRED. The app no longer caps the
+	//  preview box at all: the splitter grows and shrinks the slide continuously and the
+	//  letterbox math bounds it (#1283). Keeping the constant here would have re-created
+	//  the exact drift this file exists to prevent — the shell computing a <=760px box
+	//  that the hydrated app then widens, which reads as the placeholder painting and the
+	//  split line jumping straight after.)
 	defaultPreviewFrac: 0.54, // editor|preview split — preview's share (ResizablePanel defaultSize 54)
 } as const;

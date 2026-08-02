@@ -483,8 +483,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	React.useEffect(() => {
 		if (!open) { setRehearse(false); setElapsed(0); setPlaying(false); setAutoplay(false); presenterRef.current?.close(); }
 	}, [open]);
-	const goNext = React.useCallback(() => { setShowHint(false); setIdx((i) => Math.min(i + 1, count - 1)); }, [count]);
-	const goPrev = React.useCallback(() => { setShowHint(false); setIdx((i) => Math.max(i - 1, 0)); }, []);
+	const dismissHint = React.useCallback(() => {
+		setShowHint(false);
+		try { window.localStorage.setItem('lattice-present-hint', '1'); } catch {}
+	}, []);
+	const goNext = React.useCallback(() => { dismissHint(); setIdx((i) => Math.min(i + 1, count - 1)); }, [count, dismissHint]);
+	const goPrev = React.useCallback(() => { dismissHint(); setIdx((i) => Math.max(i - 1, 0)); }, [dismissHint]);
 
 	// ── Quiet Bloom reveal (S4) ────────────────────────────────────────────────
 	// `wake()` reveals the bloom chrome and arms a fold-back timer; a pointer over the
@@ -540,18 +544,22 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		else goPrev();
 	}, [wake, goNext, goPrev, overviewOpen]);
 
-	// First-run hint — teach the bloom + gestures exactly once (persisted), auto-fading.
+	// First-run hint — teach the bloom + gestures exactly once, then never again.
+	//
+	// It is retired by the USER, not by a clock. The old version auto-faded after
+	// 5.2s and marked itself seen the moment it APPEARED, so the two failure modes
+	// were opposite and both bad: a reader who looked away lost it forever, and a
+	// reader who reloaded inside those five seconds never saw it at all. Now it
+	// stays until dismissed, and only dismissing writes the flag — so "seen" means
+	// seen. Navigating counts as dismissal: someone who just swiped has learned the
+	// gesture the cue exists to teach.
 	React.useEffect(() => {
 		if (!open) { setShowHint(false); return; }
 		// Default to "seen" so a broken/blocked localStorage never nags (the init IS the
 		// fallback used when getItem throws — the empty catch leaves it true).
 		let seen = true;
 		try { seen = !!window.localStorage.getItem('lattice-present-hint'); } catch {}
-		if (seen) return;
-		setShowHint(true);
-		try { window.localStorage.setItem('lattice-present-hint', '1'); } catch {}
-		const id = window.setTimeout(() => setShowHint(false), 5200);
-		return () => window.clearTimeout(id);
+		if (!seen) setShowHint(true);
 	}, [open]);
 
 	React.useEffect(() => {
@@ -699,8 +707,15 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				)}
 				{/* First-run cue — teaches the bloom + gestures once, then never again. */}
 				{showHint && (
+					// `pointer-events-auto` on the pill only — the row stays transparent to
+					// taps so a swipe over it still reaches the gesture layer. The dismiss
+					// control is what retires the cue for good, so it must be reachable:
+					// an icon button with a real accessible name, not a bare glyph.
 					<div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 motion-reduce:hidden">
-						<span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">Swipe or use ← → to move · controls reveal as you go</span>
+						<span className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border bg-card/90 py-1.5 pl-3.5 pr-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">
+							Swipe or use ← → to move · controls reveal as you go
+							<button type="button" onClick={dismissHint} aria-label="Dismiss this tip" className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><X className="size-3.5" /></button>
+						</span>
 					</div>
 				)}
 				{readAloudDebug && (
