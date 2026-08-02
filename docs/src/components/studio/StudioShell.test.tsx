@@ -104,9 +104,32 @@ describe('StudioShell — smoke', () => {
 	});
 });
 
+// Read is no longer the DERIVED first-visit stop — a fresh visitor now boots into
+// Write, because Read hides the editor and the Studio is a deck-making tool (#1286).
+// Read remains a first-class stop: reachable from the dial and restored from an
+// explicit stored preference (the Workspace "Starting mode" row writes it). These
+// tests therefore SEED the stop instead of relying on the fresh-visitor default —
+// the surface and the Read→Write step they cover are unchanged.
+const seedPosture = (posture: 'read' | 'write' | 'build') => {
+	localStorage.clear();
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture }));
+};
+
 describe('StudioShell — the posture dial (persona experiences)', () => {
-	it('a fresh visitor lands on the Read home — the sample deck + one "Edit this slide", no banner', () => {
+	it('a fresh visitor boots into Write — the editor surface, not the Read home', () => {
 		localStorage.clear(); // a true fresh visitor — no seed, no prior use
+		render(<StudioShell options={options} />);
+		// Write, not Read: no "Edit this slide" overlay to dismiss before you can work.
+		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
+		expect(screen.getAllByText('Edit').length).toBeGreaterThan(0);
+		// Still the calm middle — Build's activity-bar launcher stays hidden.
+		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
+		// The boot stop is persisted once (R1).
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+	});
+
+	it('the Read home — the sample deck + one "Edit this slide", no banner', () => {
+		seedPosture('read');
 		render(<StudioShell options={options} />);
 		// The crafted intro deck is the active deck, shown full-bleed.
 		expect(within(screen.getByRole('banner')).getByText('Markdown for the boardroom')).toBeInTheDocument(); // the header names the deck by its own cover heading
@@ -123,7 +146,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 	});
 
 	it('"Edit this slide" steps the newcomer from Read into Write and retires the hint', async () => {
-		localStorage.clear();
+		seedPosture('read');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
 		await user.click(screen.getByRole('button', { name: 'Edit this slide' }));
@@ -162,10 +185,10 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 	});
 
 	it('Write keeps deck navigation — the switcher (Switch + New deck) rides the slim header; Read stays a calm label', async () => {
-		localStorage.clear();
+		seedPosture('read');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		// Read (fresh boot): the deck is a calm label, not a switcher — no deck-CRUD affordance.
+		// Read: the deck is a calm label, not a switcher — no deck-CRUD affordance.
 		expect(document.querySelector('[data-demo="deck-switcher"]')).toBeNull();
 		// Dial to Write: the switcher appears. Deck-switching + New deck are the Write persona's
 		// most basic navigation — not strippable chrome (they used to be reachable NOWHERE in Write:
@@ -177,8 +200,8 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(screen.getByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
 	});
 
-	it('mobile: a fresh phone visitor gets Read — "Edit this slide" swaps to the editor + persists Write', async () => {
-		localStorage.clear();
+	it('mobile: the Read home — "Edit this slide" swaps to the editor + persists Write', async () => {
+		seedPosture('read');
 		setViewport('mobile');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
@@ -544,8 +567,10 @@ describe('StudioShell — responsive layout', () => {
 		expect(inertWrap('studio-pane-preview')).not.toBeNull(); // preview now inert (still mounted)
 	});
 
-	it('mobile: tapping the Source cell from a fresh Read boot steps Read→Write (round-1 regression: a prior wiring spec carried this step on only ONE of the two edit-entry handlers)', async () => {
-		localStorage.clear(); // a true fresh visitor — boots on Read, per the posture-dial block above
+	it('mobile: tapping the Source cell from Read steps Read→Write (round-1 regression: a prior wiring spec carried this step on only ONE of the two edit-entry handlers)', async () => {
+		// Seeded, not derived — Read is an explicit stop now, not the first-visit default (#1286).
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'read' }));
 		setViewport('mobile');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
@@ -556,8 +581,9 @@ describe('StudioShell — responsive layout', () => {
 		expect(saved.readHintSeen).toBe(true);
 	});
 
-	it('mobile: tapping the Compose cell from a fresh Read boot ALSO steps Read→Write — the same posture step, on the OTHER handler', async () => {
+	it('mobile: tapping the Compose cell from Read ALSO steps Read→Write — the same posture step, on the OTHER handler', async () => {
 		localStorage.clear();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'read' }));
 		setViewport('mobile');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);

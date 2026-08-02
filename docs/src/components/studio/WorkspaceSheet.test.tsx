@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ArchitectStatus } from './architect';
 import * as readAloud from './read-aloud';
+import { loadSettings } from './studio-store';
 import { WorkspaceSheet } from './WorkspaceSheet';
 
 // G6 — the Workspace AI tab (Model + Spend sections) against a CONNECTED (mocked)
@@ -457,5 +458,27 @@ describe('WorkspaceSheet — General tab install group', () => {
 		} finally {
 			(window as Window & { __latticeInstallPrompt?: unknown }).__latticeInstallPrompt = null;
 		}
+	});
+});
+
+// #1286 — the starting posture used to be DERIVED only (first visit → Read) and
+// then silently pinned by the first use of the header dial, so there was no way
+// to state a preference. It is now an explicit workspace setting.
+describe('WorkspaceSheet — General tab starting mode', () => {
+	it('shows the three stops with Write preselected for a fresh workspace', async () => {
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		expect(sheet.getByText('Starting mode')).toBeInTheDocument();
+		expect(sheet.getByRole('radio', { name: /Write/ })).toBeChecked();
+		expect(sheet.getByRole('radio', { name: /Read/ })).not.toBeChecked();
+		expect(sheet.getByRole('radio', { name: /Build/ })).not.toBeChecked();
+	});
+
+	it('picking a stop persists it, so the Studio opens there next time', async () => {
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		await user.click(sheet.getByRole('radio', { name: /Read/ }));
+		expect(loadSettings().posture).toBe('read');
+		expect(sheet.getByRole('radio', { name: /Read/ })).toBeChecked();
 	});
 });
