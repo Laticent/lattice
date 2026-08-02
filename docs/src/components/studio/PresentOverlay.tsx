@@ -39,14 +39,6 @@ import { buildPresenterStageDoc } from './studio-presenter';
 // engine render.
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-// The band at the bottom of the slide row kept clear for the two transient overlay
-// pills (the rehearsal coach beat, `bottom-2`, and the first-run gesture cue,
-// `bottom-3`). Both are positioned against the ROW, so the slide card is sized to
-// the row height minus this — the invariant being that nothing is ever drawn on top
-// of the slide. Covers the taller of the two (py-2 + 13px text + border ≈ 40px) plus
-// its 8px offset, with a few px of breathing room.
-const OVERLAY_CLEARANCE = 56;
-
 // The narration-source priority read-aloud speaks: a slide's speaker note (the real
 // talk track) — else a recognized chart's computed facts — else the component-aware
 // DOM projection (`projectDeckSpeech`, the SAME shared kernel the CLI export narrates,
@@ -112,10 +104,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// touch), then folds back. `revealed` drives the bloom; `showHint` is the one-time cue.
 	const [revealed, setRevealed] = React.useState(true);
 	const [showHint, setShowHint] = React.useState(false);
-	// The slide sizes to the AVAILABLE row height (16:9), so the caption/controls/rail
-	// dock always keeps its space and the slide never creeps into the chrome or clips.
-	const slideRowRef = React.useRef<HTMLDivElement>(null);
-	const [slideMaxW, setSlideMaxW] = React.useState(960);
 	// Chart mark-detail reveal on the delivery slide. Present's card is pointer-events-none (a swipe
 	// surface), so the reveal runs in PINNED mode — a parent hit-surface (pointer-events:auto) over the
 	// current chart, re-pinned after each slide render (onRender → onSlide), plus number-key reveal
@@ -520,38 +508,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		};
 	}, [open, wake]);
 
-	// Measure the slide row and cap the slide width so a 16:9 box fits the available
-	// height (`rowH × 16/9`). A ResizeObserver keeps it live as the caption band grows
-	// on Play (which shrinks the row) or the viewport changes — no chrome overlap, no clip.
-	React.useEffect(() => {
-		if (!open) return;
-		const row = slideRowRef.current;
-		if (!row || typeof ResizeObserver === 'undefined') return;
-		// No upper cap: the slide takes the row height it is given, minus the reserved
-		// overlay band. A hard `min(960, …)` used to hold it to 960×540 however big the
-		// window was, and because the row is `flex-1 items-center` the surplus split
-		// above and below — a band of dead space over the slide, while Read mode
-		// (uncapped) filled the same window (#1282).
-		//
-		// NOTHING MAY SIT ON TOP OF THE SLIDE. The row's two transient pills — the
-		// rehearsal coach beat and the first-run gesture cue — are `absolute … bottom-2/3`
-		// against THE ROW, not against the card. Under the old cap they landed in the
-		// dead band below a 960px card and so never touched the slide; that was luck, not
-		// design, and it already failed on any viewport short enough for the cap not to
-		// bind. Removing the cap made the card fill the row and put those pills on the
-		// slide. So the band they occupy is now RESERVED here: the card is sized to the
-		// row height LESS that band, which keeps the pills clear of the slide at every
-		// viewport — including the small ones where this was already broken.
-		//
-		// Reserved unconditionally rather than only while a pill is up: making it
-		// conditional would resize the slide mid-presentation the moment a coach beat
-		// appeared, which is a worse artifact than the ~7% of height it costs.
-		const measure = () => setSlideMaxW(Math.max(240, Math.floor(((row.clientHeight - 12 - OVERLAY_CLEARANCE) * 16) / 9)));
-		measure();
-		const ro = new ResizeObserver(measure);
-		ro.observe(row);
-		return () => ro.disconnect();
-	}, [open]);
 
 	// Swipe (touch) + wheel (desktop) navigation, alongside the keyboard. Swipe reuses the
 	// shared kernel's geometry (threshold/ratio) so it matches the export player exactly;
@@ -682,48 +638,35 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			{/* Slide row. The slide centers in the space above the dock (flex-1 guarantees the
 			    caption + controls + rail dock its full height, so the slide never crowds it).
 			    Circular arrows flank the slide in the gutter — never over it. */}
-			{/* TOP-ALIGNED, not centered. The slide keeps its natural 16:9 ratio, so on a
-			    PORTRAIT phone it is bound by WIDTH (398px of a 430px screen) and simply
-			    cannot grow taller — which left ~516px of leftover split into two voids, one
-			    above the slide and one below, with the slide marooned between them. Centering
-			    is what split it. Aligning to the top collects the leftover in ONE place, below
-			    the slide, so the space above is reclaimed and the caption / controls / rail
-			    keep exactly the space and position they already had. On desktop the slide is
-			    height-bound and fills the row, so there is ~12px of slack and this is a no-op
-			    there. The flanking arrows are `self-center` so they stay centered on the row
-			    rather than jumping to its top edge (they are `hidden … sm:block`, so they do
-			    not exist on the phone case this is for).
+{/* The slide is CENTERED and takes the largest 16:9 box its space allows — in
+			    BOTH axes, so whatever room exists above and below is filled by the slide
+			    itself rather than left as dead space (#1282).
 
-			    The overlay band is PADDING, not merely slack in the height budget. Subtracting
-			    the clearance from the card's size alone is not enough: this row is
-			    `items-center`, so the freed space splits evenly above and below the card and
-			    only half of it lands where the pills actually are — measured, the cue still
-			    overlapped the slide by 11px. Real bottom padding puts the whole band under the
-			    card, and because an absolutely-positioned child resolves against the PADDING
-			    box, the `bottom-2` / `bottom-3` pills sit inside that band, clear of the slide. */}
-			<div ref={slideRowRef} style={{ paddingBottom: OVERLAY_CLEARANCE }} className="relative flex min-h-0 w-full flex-1 items-start justify-center gap-3 px-4 sm:gap-5 sm:px-6">
-				<button type="button" onClick={goPrev} disabled={clamped === 0} className={cn('self-center', arrowCls(clamped === 0))} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-				{/* The slide is a true flex child: its width is capped to what the AVAILABLE ROW
-				    HEIGHT allows at 16:9 (`rowH × 16/9`), so it shrinks to reserve the caption /
-				    controls / rail space instead of creeping into the chrome or getting clipped.
-				    DeckPreview fits the slide to its box WIDTH, so the box must stay 16:9 — hence a
-				    measured width cap on this sizer, not `max-height` (which would clip).
-				    `items-center` is LOAD-BEARING, not cosmetic (#1227). Default `stretch` makes the card
-				    a stretch target, and a stretched item's cross size is DEFINITE — which beats
-				    `aspect-ratio` per spec, so `aspect-video` stops applying. That is engine-agnostic:
-				    given a definite-height parent, Chromium flattens the ratio exactly as WebKit does.
-				    What differs is WHEN the stretched height is resolved. WebKit resolved it against the
-				    FIRST-layout `max-width` — the initial `slideMaxW` of 960, before the ResizeObserver
-				    measured the row — and never re-resolved it, so on an iPad in landscape the card was
-				    stuck at 960x9/16 = 540px tall at every width (910x540, then 775x540 with the caption
-				    band open), riding over the header and under the caption crawl. The in-flow
-				    `height:100%` child (DeckPreview's `figure.size-full`) is a co-factor: remove it and
-				    the stale stretch disappears. Centering the item removes the stretch — and with it the
-				    whole class — for BOTH branches below. */}
-				<div className="flex w-full min-w-0 items-center justify-center" style={{ maxWidth: slideMaxW }}>
+			    This is pure layout: no ResizeObserver, no measured width in React state, no
+			    inline geometry. The sizer is a SIZE container and the card asks for
+			    `min(100cqw, 100cqh × 16/9)` — the identical formula the old JS computed, but
+			    resolved by the engine at layout time. That removes a whole class of bug the
+			    measured version had: a first paint at the stale 960px seed, a resize the
+			    observer hasn't seen yet, and the iPad stretch case (#1227) where WebKit
+			    resolved a stretched height against that first-layout max-width and never
+			    re-resolved it. There is nothing left to go stale.
+
+			    `pb-14` is the band kept clear for the row's two transient pills (the
+			    rehearsal coach beat and the first-run cue), which are `absolute … bottom-2/3`
+			    against THE ROW, not the card. Because the sizer stretches to the row's
+			    CONTENT box, the card can never reach into that band — nothing is ever drawn
+			    on top of the slide — while an absolutely-positioned child still resolves
+			    against the PADDING box and so lands inside it.
+
+			    `items-center` on the sizer stays LOAD-BEARING (#1227): default `stretch`
+			    makes a flex item's cross size definite, which beats `aspect-ratio` per spec
+			    and would flatten the card. Centering the card removes the stretch. */}
+			<div className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 pb-14 sm:gap-5 sm:px-6">
+				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
+				<div className="flex min-h-0 w-full min-w-0 items-center justify-center self-stretch [container-type:size]">
 					{unavailable ? (
 						// Fail-closed: a withheld lens NEVER renders deck content — it renders why it's withheld.
-						<div role="status" className="relative flex aspect-video w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+						<div role="status" className="relative flex aspect-video w-[min(100cqw,calc(100cqh*16/9))] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<EyeOff className="size-8 text-muted-foreground" />
 							<div className="text-[15px] font-semibold text-[var(--text-heading)]">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).title}</div>
 							<p className="max-w-[420px] text-[13px] leading-relaxed text-muted-foreground">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).body}</p>
@@ -738,7 +681,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						<div ref={cardRef} className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+						<div ref={cardRef} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<DeckPreview focused options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
