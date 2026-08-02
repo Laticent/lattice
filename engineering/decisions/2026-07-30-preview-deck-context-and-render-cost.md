@@ -517,3 +517,66 @@ Absent `page`, numbering is counted off the document exactly as before, so no ex
 which supplies it — can move. Guarded on the real surface by
 `docs/e2e/supplied-page-position.spec.ts`, which walks the real Present overlay on a paginated deck
 and asserts the PAINTED badge matches the player's counter.
+
+## Amendment 3 (2026-08-02): the instrument, and why it has two surfaces
+
+§5 was designed against a measurement that lived in `.scratch/` and was lost. When its numbers were
+later questioned nobody could re-examine the residual, so the rate was restated three times (~99%,
+92.6%, 96.5%) as successive passes found bugs in the *probe* rather than in the engine. Two of those
+bugs are worth naming, because both were the class where the instrument is wrong and still looks
+plausible: the corpus walk read only the top level of `examples/`, silently measuring 111 of 125
+decks and calling it "the corpus"; and normalizing the pagination *attribute* but not its painted
+span read 34.2% where the truth was 90.5%.
+
+The instrument is now committed, and it has **two surfaces over one pure core**
+(`lib/diagnostics/slice-equivalence-core.mjs`):
+
+- **Headless** — `tools/slice-equivalence.mjs` (`npm run equiv` / `equiv:bless` / `equiv:check`).
+  Sweeps every committed deck against a baseline with a 1.5-point band. On-demand, **not a CI gate**:
+  it measures a prototype with no production consumer, so a drop means "the prototype moved", not "a
+  user broke". Same shape as `bench` and `quality`, and catalogued in `engineering/capabilities.md`
+  so the next person does not rebuild it — the failure that lost the original measurement.
+  Reads **1104/1201 slides (91.9%)**, residual concentrated in generated ids / `cat-N` (49 slides,
+  the `seedRenderIds` row) and unclassified (46).
+- **Author-facing** — the Studio's **Preview fidelity** overlay
+  (`docs/src/components/studio/PreviewFidelityOverlay.tsx`, Workspace → Diagnostics, or
+  `?fidelity`). Reports which route the shown slide took, which registry fact forced it, and what
+  position was supplied; a button renders the slide both ways and quotes the first divergence.
+
+**Why both, rather than either.** The headless half is the one that can be scripted, scheduled, and
+gated without a browser. The author-facing half is the one that answers the question *at the moment
+it is asked* — a number or a color looks wrong on the deck in front of you — which a corpus rate
+never can. They are not the same tool aimed at two audiences; they ask the same question about
+different subjects.
+
+**The one place they must NOT agree.** Both compare normalized renders, but they neutralize
+different things, and this is load-bearing rather than incidental:
+
+| | headless sweep | author overlay |
+|---|---|---|
+| positional `id="N"` | hidden | hidden (no shipped repair yet) |
+| pagination attr + painted span | **hidden** | **kept** |
+| progress rail | **hidden** | **kept** |
+| inter-block whitespace | hidden | hidden |
+
+The sweep hides the repairs that already ship (#1272, #1280) so they do not flatter the *prototype
+prelude*'s score. The overlay keeps them, because a wrong page number or a wrong rail is precisely
+the finding an author turns it on for — hiding them would blind it to its main use. The asymmetry is
+pinned by `test/unit/diagnostics/slice-equivalence-core.test.js`, which fails if either set drifts
+toward the other.
+
+**A difference means opposite things on the two routes**, and the overlay says which:
+
+- On the **slice** route the slide on screen *is* the fast render, so a difference is a live bug —
+  the registry has a hole.
+- On the **whole-deck** route the preview already shows the full render; the fast route was never
+  taken. A difference there means the gate is earning its cost; a *match* means it over-triggered on
+  this slide and paid for a deck parse it did not need.
+
+**Verified on the real Studio** (HARD RULE #23), typing a two-slide deck whose first slide sets a
+running `<!-- header: … -->`: route reads `the whole deck (slow)` because `running-global directive`;
+compare on slide 1 reports the fast route *would have matched*; compare on slide 2 reports it *would
+differ*, quoting the exact loss — `data-header="Q3 Board Review"` present in the deck render, absent
+from the slice. That is §5's thesis rendered visible: it is precisely what the prelude synthesizer
+would repair. The fourth branch — slice route *and* a difference — was **not** reachable on a real
+deck, since producing it requires a registry hole; it is UNVERIFIED on a real surface.

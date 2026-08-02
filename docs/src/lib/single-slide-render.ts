@@ -23,9 +23,17 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import {
+	classifyDivergence,
+	firstDivergence,
+	normalizeSection,
+	SHIPPED_NEUTRALIZERS,
+	sectionsOf,
+} from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, splitSections } from '../playground/deck-preview.js';
+import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
@@ -469,6 +477,15 @@ function deckSectionFor(deck: string, slideIndex: number): { index: number; tota
 	let index = 0;
 	for (let i = 0; i <= slideIndex && i < chunks.length; i++) if (dividerTokens(chunks[i])) index += 1;
 	return { index, total };
+}
+
+/**
+ * WHICH deck-derived facts this deck trips, by name. `needsDeckContext` is "is this list
+ * non-empty" — one source of truth, so the author-facing diagnostic can report the REASON the
+ * preview took the expensive path without re-implementing the match.
+ */
+export function deckDerivedFactsFor(deck: string): string[] {
+	return DECK_DERIVED_FACTS.filter((f) => f.probes.some((p) => p.test(deck)) || (f.test ? f.test(deck) : false)).map((f) => f.fact);
 }
 
 function needsDeckContext(deck: string): boolean {
@@ -958,6 +975,48 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					}
 					// No fallback markdown supplied → show the whole render rather than nothing. Only
 					// reachable from a caller that passed slideIndex without slideMarkdown.
+				}
+				// PREVIEW FIDELITY report — free, and only while the overlay is subscribed.
+				// Everything published here was already computed to make the render happen: which
+				// path this deck took, which registry facts forced it, and what position (if any) was
+				// trusted enough to supply. The EXPENSIVE half — actually rendering both ways and
+				// diffing them — hangs off `compare()`, which the overlay calls on a button press.
+				// Running it per keystroke would reintroduce exactly the whole-deck cost this
+				// machinery exists to remove.
+				if (hasFidelityListeners() && typeof opts?.slideIndex === 'number') {
+					const slideIndex = opts.slideIndex;
+					const slideMarkdown = opts.slideMarkdown;
+					recordFidelity({
+						path: wantsContext ? 'whole-deck' : 'slice',
+						facts: wantsContext ? deckDerivedFactsFor(markdown) : [],
+						page: slicePage,
+						// The slice path with NO supplied position means positionIsTrustworthy said no,
+						// so the slide numbered itself 1 of 1 — honest, but not the deck's truth.
+						positionWithheld: !wantsContext && !slicePage,
+						at: performance.now(),
+						compare: slideMarkdown
+							? async () => {
+									try {
+										const [sliceOut, deckOut] = await Promise.all([
+											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: slicePage }),
+											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase }),
+										]);
+										const want = sectionsOf(deckOut.html)[slideIndex];
+										if (want === undefined)
+											return { equal: null, why: 'the deck renders a different number of sections than the editor counts — no slide to compare against' };
+										// SHIPPED_NEUTRALIZERS, not the headless sweep's: a wrong page number or
+										// rail is precisely what an author turns this on to find, so those stay in.
+										const a = normalizeSection(sectionsOf(sliceOut.html)[0] ?? '', SHIPPED_NEUTRALIZERS);
+										const b = normalizeSection(want, SHIPPED_NEUTRALIZERS);
+										if (a === b) return { equal: true };
+										const d = firstDivergence(a, b);
+										return { equal: false, cause: classifyDivergence(a, b), at: d?.at ?? 0, got: d?.got ?? '', want: d?.want ?? '' };
+									} catch (e) {
+										return { equal: null, why: String((e as Error)?.message || e) };
+									}
+								}
+							: undefined,
+					});
 				}
 				// Stash the resolved slide box so scaleFrame divides by the right width.
 				const geom: Geom = { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H };

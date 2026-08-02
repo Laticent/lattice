@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
+import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
@@ -181,6 +182,13 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	React.useEffect(() => {
 		setVizOverlay(vizOverlayEnabled());
 		return onVizOverlayEnabledChange(setVizOverlay);
+	}, []);
+	// Preview-fidelity overlay — same shared-pref pattern; the `?fidelity` URL param and
+	// the overlay's own × write the same flag.
+	const [fidelityOverlay, setFidelityOverlay] = React.useState(false);
+	React.useEffect(() => {
+		setFidelityOverlay(fidelityOverlayEnabled());
+		return onFidelityOverlayEnabledChange(setFidelityOverlay);
 	}, []);
 	// Viewport-debug overlay — same shared-pref pattern; the `?vvdebug` URL param and
 	// the overlay's own × write the same flag.
@@ -571,6 +579,15 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<span className="min-w-0">
 												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Viz diagnostics</span>
 												<span className="block text-[11px] text-muted-foreground">A live readout on the slide you're editing: SVG chart paint (map/quadrant/radar/…) that resolved to black because a themed color dropped — a scoping or token break. The on-device twin of the <code>check:render</code> CI guard; also via <code>?viz</code>.</span>
+											</span>
+										</label>
+									)}
+									{FIDELITY_OVERLAY_AVAILABLE && (
+										<label htmlFor="ws-fidelity-overlay" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+											<Switch id="ws-fidelity-overlay" aria-label="Preview fidelity" checked={fidelityOverlay} onCheckedChange={(next) => { setFidelityOverlay(next); setFidelityOverlayEnabled(next); notify(next ? 'Preview fidelity on — shows how this slide is being rendered.' : 'Preview fidelity off.'); }} />
+											<span className="min-w-0">
+												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Preview fidelity</span>
+												<span className="block text-[11px] text-muted-foreground">The preview renders one slide, not the whole deck — so anything a slide gets from its neighbors (page number, progress rail, the color of a proof panel) has to be handed to it. This shows which route your slide took and why, and compares it against the full-deck render on demand. Reach for it when a number or a color looks wrong. The on-device twin of <code>npm run equiv</code>; also via <code>?fidelity</code>.</span>
 											</span>
 										</label>
 									)}

@@ -137,6 +137,9 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `bench:bless` | Write the committed perf baseline (test/benchmark/baseline.json) from a fresh bench run — the ratchet a perf PR updates (HARD RULE #19). |
 | `bench:check` | Re-run the bench and compare vs the committed baseline; flags a regression only beyond the variance band (max of tolerancePct and combined RME). On-demand, not a blocking CI gate. |
 | `bless` | Re-render the gallery goldens (the regression gate baseline) and overwrite them; commit the refreshed PDFs. `-- --only <name>` for one. |
+| `equiv` | Slice/deck equivalence sweep — for every slide of every committed deck, does rendering it ALONE (behind a synthesized directive prelude) match rendering it inside the deck? The headless half of the preview-fidelity diagnostic; the author-facing half is the Studio's "Preview fidelity" overlay. On-demand, not a CI gate. |
+| `equiv:bless` | Write the committed slice/deck equivalence baseline (test/benchmark/slice-equivalence.json) from a fresh `equiv` run. |
+| `equiv:check` | Re-run `equiv` and compare vs the committed baseline; fails on a drop beyond 1.5 points. On-demand, not a blocking CI gate. |
 | `geometry:check` | Assert a slide measures identically on every surface — real emulator render, real Chromium at four window sizes, sections optionally transform-scaled the way a preview pane scales them. Catches a bare cq* on the section itself or a getBoundingClientRect() that ignores the host transform. |
 | `oracle:bless` | Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component's derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11). |
 | `oracle:check` | Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift. |
@@ -231,9 +234,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
-| `equiv` | **TODO: describe `equiv` in tools/build-capabilities.js (SCRIPT_META).** |
-| `equiv:bless` | **TODO: describe `equiv:bless` in tools/build-capabilities.js (SCRIPT_META).** |
-| `equiv:check` | **TODO: describe `equiv:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -374,4 +374,4 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/golden-diff.mjs` | Post a PR comment + before/after montage of the gallery slides whose committed golden moved vs the base branch. |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
-| `tools/slice-equivalence.js` | Slice/deck equivalence — the instrument for structural gating |
+| `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |

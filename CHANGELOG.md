@@ -55,6 +55,45 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
+  Studio and on the command line.** The preview renders ONE slide, not the deck, because
+  re-parsing the whole deck on every keystroke costs ~46ms per keypress on a 40-slide deck. But
+  a slide can render things whose value comes from OTHER slides — its page number, its section
+  on the progress rail, the color of a proof panel — so the engine is handed the positional ones
+  and a registry of deck-derived facts forces the full render for the rest. Until now that
+  machinery was invisible: when a number or a color looked wrong there was nothing to ask.
+  - **In the Studio** (Workspace → General → Diagnostics → *Preview fidelity*, or `?fidelity`):
+    a draggable readout of which route the shown slide took, *why* — the registry fact by name —
+    and what deck position it was handed. A **Compare with full deck** button renders the slide
+    both ways and reports whether they agree, quoting the first place they part company. The
+    comparison is a button, not a subscription: running it live would reintroduce the exact
+    whole-deck cost the machinery removes. A difference is read against the route it is on — on
+    the fast route it means the preview is wrong; on the whole-deck route it means the full
+    render is earning its cost.
+  - **Headless**, for automating and gating without a browser: `npm run equiv` sweeps every
+    committed deck and reports a rate, `equiv:bless` writes the baseline
+    (`test/benchmark/slice-equivalence.json`), `equiv:check` fails on a drop beyond 1.5 points.
+    On-demand, not a CI gate — the same shape as `bench` and `quality`.
+  - Both sit on one pure core (`lib/diagnostics/slice-equivalence-core.mjs`), so the browser and
+    the terminal cannot drift into disagreeing about what "the same" means. They deliberately
+    neutralize *different* things: the sweep hides the repairs that already ship, to score the
+    prototype prelude in isolation; the overlay leaves them in, because a wrong page number is
+    precisely what an author turns it on to find.
+
+### Fixed
+
+- **The Studio's welcome deck said 53 components; the engine ships 61 — and the landing page now
+  points every visitor at that deck.** The count is corrected, and a drift test
+  (`test/unit/playground/welcome-deck-counts.test.js`) holds it to `loadAll().length` so the two
+  can't separate again silently — the deck is a hand-written module and the catalog is generated,
+  which is exactly how they drifted apart with nothing to catch it. The same deck also carried
+  three pieces of the auto-generation vocabulary the copy review retired everywhere else
+  ("composes itself", "designs itself", "instantly"); those are rewritten with the engine as the
+  actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
+  the conversion path, so it is fixed rather than filed.
+
 ### Changed
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
