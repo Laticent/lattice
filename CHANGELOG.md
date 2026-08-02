@@ -15,43 +15,13 @@ in patch versions.
 > | Category in `## Unreleased` | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-> | `### Added`, `### Changed
-
-- **word-cloud and radar small-multiples follow the piechart's portrait + container-fill model.**
-  Two behaviors the pie has had since #598 and these two did not. (a) **Key below at portrait.**
-  word-cloud's `size = frequency` key moves from a side rail to a band UNDER the cloud, with the
-  horizontal accent rule and a left→right A-ramp — `svg-legend.js buildPortrait`'s model, threaded
-  through `ctx.orientation` the way roadmap already does. In a tall box the scarce axis is width, so
-  a rail squeezed the cloud AND cramped the key; the cloud now packs the full width against a taller
-  portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
-  (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
-  before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
-  context, pinning it to `85.9375cqi × 25cqi`. The svg box now fills 88.9% × 87.2% of its chart
-  body, matching the piechart — though the box was already 88.9% wide, so only the height fill
-  changed and the LANDSCAPE drawing is the same size as before. The real gain is portrait, where the
-  cloud's word ink goes **5% → 25%** of the body (biggest word 89px → 134px), which needed the word
-  sizes scaled with the taller canvas — enlarging the canvas alone bought emptier canvas.
-  radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`) that
-  divides the body on both axes: portrait fill goes **23% → 43%** at six series. Landscape is
-  deliberately unchanged — four minis already fill the row width, and square tiles in a 2.4:1 body
-  cannot do better. The grid also repairs a **pre-existing** defect: across a 36-case sweep the
-  baseline tree clipped 12 (every 5–8-series deck with a below-note, and all 9-series decks, by up to
-  150px); the tip clips none. Trade to know about: the mini's diagram is no longer a fixed physical
-  size (351.6px at 1–2 series, 188.1px at four, 78.6px at nine with a note) and nothing enforces a
-  legibility floor at the top of that range.
-
-  A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
-  chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
-  them — measured **607.8px against a 449.1px stage, clipping 115.8px of chart off the top**. The grid
-  gives every cell the same width whatever row it lands in, and `1fr` rows split the height, so the
-  same deck now fits with 130px to spare.
-`, `### Deprecated` | **minor** |
+> | `### Added`, `### Changed`, `### Deprecated` | **minor** |
 > | `### Fixed`, `### Security` | **patch** |
 >
 > Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
 > `## Unreleased` means there is nothing to release. Flag a breaking change
 > by leading the bullet with `**Breaking:**` so it counts as major even
-> under `
+> under `### Changed`.
 
 ## Unreleased
 
@@ -537,6 +507,47 @@ in patch versions.
   unchanged and were NOT re-measured against the new shape: the per-item total is now roughly
   `w + 3` (label `w-5`, plus the value, a 4-token target line, and two status pills), so the basis
   moved slightly against the author rather than for them.
+- **word-cloud and radar small-multiples follow the piechart's portrait + container-fill model.**
+  Two behaviors the pie has had since #598 and these two did not. (a) **Key below at portrait.**
+  word-cloud's `size = frequency` key moves from a side rail to a band UNDER the cloud, with the
+  horizontal accent rule and a left→right A-ramp — `svg-legend.js buildPortrait`'s model, threaded
+  through `ctx.orientation` the way roadmap already does. In a tall box the scarce axis is width, so
+  a rail squeezed the cloud AND cramped the key; the cloud now packs the full width against a taller
+  portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
+  (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
+  before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
+  context, pinning it to `85.9375cqi × 25cqi`. The svg box now fills 88.9% × 87.2% of its chart
+  body, matching the piechart — though the box was already 88.9% wide, so only the height fill
+  changed and the LANDSCAPE drawing is the same size as before. The real gain is portrait, where the
+  cloud's word ink goes **5% → 25%** of the body (biggest word 89px → 134px), which needed the word
+  sizes scaled with the taller canvas — enlarging the canvas alone bought emptier canvas.
+  radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`) that
+  divides the body on both axes: portrait fill goes **23% → 43%** at six series. Landscape is
+  deliberately unchanged — four minis already fill the row width, and square tiles in a 2.4:1 body
+  cannot do better. The grid also repairs a **pre-existing** defect: across a 36-case sweep the
+  baseline tree clipped 12 (every 5–8-series deck with a below-note, and all 9-series decks, by up to
+  150px); the tip clips none. Trade to know about: the mini's diagram is no longer a fixed physical
+  size (351.6px at 1–2 series, 188.1px at four, 78.6px at nine with a note) and nothing enforces a
+  legibility floor at the top of that range.
+
+  A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
+  chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
+  them — measured **607.8px against a 449.1px stage, clipping 115.8px of chart off the top**. The grid
+  gives every cell the same width whatever row it lands in, and `1fr` rows split the height, so the
+  same deck now fits with 130px to spare.
+
+- **Ligatures are off wherever the mono face carries a literal — `<!--` rendered as an arrow.**
+  `--font-mono` is JetBrains Mono, which ships programming ligatures on by default (`liga` +
+  `calt`), and nothing in the engine turned them off. Those features rewrite the **glyphs**, not
+  the characters, so a slide documenting Lattice's own syntax showed `<!-- _class: kpi -->` as
+  arrow-glyph soup — **a reader could not retype what they saw.** A deck that teaches syntax and
+  then lies about it is worse than one that omits it. `lib/base/base.elements.css` now sets
+  `font-variant-ligatures: none` plus the low-level `font-feature-settings` fallback (the runtime
+  bundle targets chrome91) on `code`, `pre`, `marp-pre`, `kbd` and `samp`. This is the token's own
+  stated contract — `base.tokens.css` calls `--font-mono` the face where *"data must remain
+  unambiguous"*, and ligatures trade exactly that for pretty. Found by rendering
+  `dist/marp-kit/Sample-Deck.md` through real marp-cli and reading the slide; verified fixed the
+  same way, with the literal surviving into the PDF text layer.
 
 - **`dist/marp-kit/` — copy the folder, open VS Code, start editing.** No export, no build step,
   nothing to install. `npm run build` generates it like every other `dist/` artifact and
@@ -552,12 +563,11 @@ in patch versions.
   than `4k` (at 4k the same deck never finished rendering; at hd it takes 3s, and a copy-and-go kit
   has to work first try on a modest machine), scripts loaded **last** in the deck (Marp emits raw
   HTML inline in document order, so a `<script>` at the top lands inside slide 1 and runs before
-  the other slides exist), and no inline `` `<!-- … -->` `` literals (the mono stack's arrow
-  ligatures render them as `←!—`, mangling the very syntax the deck teaches — fenced blocks are
-  unaffected). `test/unit/tools/marp-kit.test.js` locks the failures that are SILENT: a missing
-  font falls back to system serif, a dropped `html: true` prints the script tags as text, a
-  minifier that strips the `@theme` comment yields unstyled slides — each shipped undetected in
-  #1256. `engineering/decisions/2026-08-02-marp-reference-register.md` §5b.
+  the other slides exist), and **mono ligatures are now off** (the entry above — found by
+  rendering this very deck). `test/unit/tools/marp-kit.test.js` locks the failures that are
+  SILENT: a missing font falls back to system serif, a dropped `html: true` prints the script
+  tags as text, a minifier that strips the `@theme` comment yields unstyled slides — each shipped
+  undetected in #1256. `engineering/decisions/2026-08-02-marp-reference-register.md` §5b.
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a
