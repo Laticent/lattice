@@ -204,17 +204,21 @@ Four of the seven steps happen before you touch a keyboard, and they are the one
 title: the seven steps, with the paths back
 ---
 flowchart TB
-  S1["1 · Work an example"] --> S2["2 · Write it out"]
-  S2 --> S3["3 · Generalize"]
-  S3 --> S4["4 · Test by hand"]
-  S4 --> S5["5 · Translate to code"]
-  S5 --> S6["6 · Test"]
+  subgraph paper["Steps 1–4 · on paper"]
+    S1["1 · Work an example"] --> S2["2 · Write it out"]
+    S2 --> S3["3 · Generalize"]
+    S3 --> S4["4 · Test by hand"]
+    S4 -->|"wrong answer"| S3
+    S3 -->|"no pattern yet"| S1
+  end
+  subgraph machine["Steps 5–7 · at the keyboard"]
+    S5["5 · Translate to code"] --> S6["6 · Test"]
+    S6 -->|"a case fails"| S7["7 · Debug"]
+    S7 -->|"code is wrong"| S5
+  end
+  S4 --> S5
   S6 --> OK(["Working code"])
-  S6 -->|"a case fails"| S7["7 · Debug"]
-  S4 -->|"wrong answer"| S3
-  S3 -->|"no pattern yet"| S1
   S7 -->|"algorithm is wrong"| S3
-  S7 -->|"code is wrong"| S5
 ```
 
 ---
