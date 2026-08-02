@@ -10,12 +10,20 @@ import { Eyebrow } from './sections';
 // Copy contract: the H1 positions AGAINST auto-generation language ("builds
 // itself" is the AI-generator promise) — deterministic design is the claim.
 // See engineering/decisions/2026-07-02-website-copy-positioning.md §3, §5.1.
+//
+// The fold offers exactly TWO doors — browser and machine — and names the job
+// of each. Three doors in the fold is the failure this router line exists to
+// prevent: a visitor who can't tell which of engine/Playground/Studio is theirs
+// reads the page as three products. The Playground keeps its own entrances
+// where it is genuinely the right tool (the single-slide field cards, next
+// steps) and stays a top-level nav item on every page.
+// See engineering/decisions/2026-07-30-landing-studio-promotion.md §0 F1, §3.1.
 
 export function HeroCopy({
-	playgroundHref,
+	studioHref,
 	getStartedHref,
 	galleryHref,
-}: { playgroundHref: string; getStartedHref: string; galleryHref: string }) {
+}: { studioHref: string; getStartedHref: string; galleryHref: string }) {
 	return (
 		<div className="lx-ui min-w-0">
 			<div className="mb-[18px]">
@@ -30,16 +38,23 @@ export function HeroCopy({
 			</p>
 			<div className="flex flex-wrap items-center gap-3">
 				<Button asChild size="lg">
-					<a href={playgroundHref}>
-						Try it in your browser <ArrowRight aria-hidden="true" />
+					<a href={studioHref}>
+						Open the Studio <ArrowRight aria-hidden="true" />
 					</a>
 				</Button>
 				<Button asChild variant="outline" size="lg">
 					<a href={getStartedHref}>Get started</a>
 				</Button>
 			</div>
-			<p className="m-0 mt-4 text-[13px] text-muted-foreground">
-				No install to try it. Runs on your laptop or in CI. Fully offline. Open source{' '}
+			{/* The two-door router: which door is yours, and why they're the same
+			    product. It carries the "laptop or CI" clause the trust line below
+			    used to hold — the fact does more work here, attached to a door. */}
+			<p className="m-0 mt-4 max-w-[46ch] text-[13px] text-muted-foreground">
+				The Studio writes, reviews, and presents a deck in a browser tab. The CLI renders the same deck from your
+				laptop or your CI job. <span className="font-semibold text-foreground">Same engine, same output.</span>
+			</p>
+			<p className="m-0 mt-2 text-[13px] text-muted-foreground">
+				No install to try it. Nothing to sign up for. Fully offline. Open source{' '}
 				<span className="whitespace-nowrap">(AGPL-3.0)</span>.
 			</p>
 			<p className="m-0 mt-2 text-[13px] text-muted-foreground">

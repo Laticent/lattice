@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import type * as React from 'react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 // Static marketing sections — rendered to HTML server-side (NO client:
@@ -159,7 +160,12 @@ export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: st
 							href={playgroundHref}
 							data-open-deck={c.live}
 						>
-							Edit this deck <ArrowRight aria-hidden="true" className="size-3.5" />
+							{/* Names the Playground where it is genuinely the right tool: each
+							    card holds ONE component's sample, and "paste a slide, watch it
+							    render" is a slide verb, not a deck verb. This is the other half
+							    of moving the Playground out of the hero — it doesn't lose a job,
+							    it gets the right one. */}
+							Edit this in the playground <ArrowRight aria-hidden="true" className="size-3.5" />
 						</a>
 					</CardContent>
 				</Card>
@@ -264,30 +270,152 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 	);
 }
 
-// ── "Bring your own model" section ──────────────────────────────────────────
-// The agent-workflow wedge: the split-layers argument from /comparison,
-// surfaced on the landing. The eyebrow does the disclaiming at skim altitude —
-// this is NOT an AI deck generator, the model never renders anything.
-export function ByomSection({ featuresHref }: { featuresHref: string }) {
+// ── The Studio section ──────────────────────────────────────────────────────
+// The page's "what is behind the browser door" answer, at position 3 — AFTER
+// "How it works", so the visitor reads the text-file → named-layout → one-command
+// model BEFORE they learn there is an app. That order is deliberate: at position
+// 2 the page would read "web app that also has a CLI"; at 3 it reads "engine,
+// and here is the room it lives in."
+//
+// It ABSORBS the former ByomSection. Every asset of that section survives
+// verbatim — the `Bring your own model` eyebrow (red-teamed in the copy doc
+// §5.5 precisely to disclaim at skim altitude), the `Point your copilot at
+// Lattice.` heading words, the whole body paragraph, and the `How AI authoring
+// works →` link and its #ai-authoring target. It loses only its h2 altitude and
+// its own band. The page therefore carries ONE AI conversation instead of two in
+// two registers, and it is the one wearing the disclaiming eyebrow.
+//
+// Server-rendered, zero JS. The live preview column arrives as `children` (the
+// one island), so the section still costs nothing on the critical path if that
+// preview is ever deferred or dropped.
+// See engineering/decisions/2026-07-30-landing-studio-promotion.md §3.2, §6.1.
+const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
+	{ label: 'Edit', body: 'An editor with inline lint, beside a live preview of the real render.' },
+	{
+		label: 'Review',
+		// The load-bearing row. It is what makes "web slide app" impossible to say
+		// about the Studio: the review is the ENGINE's, it is deterministic, and it
+		// is the same core the CLI runs (studio/coach/coach-core.ts runs the
+		// generated `scorecard.scoreDeck` over `lintCore` + `reviewCore` findings —
+		// the Studio's old 3-check heuristic was deleted when that landed).
+		body: 'The same deterministic review the command line runs — a scorecard, and a named fix for each finding.',
+	},
+	{
+		label: 'Present & ship',
+		body: 'A dual-screen presenter window, a rehearsal plan, and export to PDF, PowerPoint, or a self-contained webpage.',
+	},
+];
+
+// The section's prose: eyebrow, headline, lead, and the three capability rows.
+//
+// Astro owns the panel and the grid around it (so the live preview can sit
+// beside this as a SIBLING island — a `client:` island nested inside a
+// server-rendered React component's children is not a shape Astro supports),
+// exactly as the hero already splits HeroCopy / HeroPreview.
+//
+// The CTAs are deliberately NOT here — they are their own grid child
+// (`StudioActions`) so that when the grid stacks below `lg`, the button lands
+// directly under the preview rather than above it. The impulse to open the
+// Studio peaks the moment the visitor has seen the slide; a scroll between the
+// proof and the button spends that impulse.
+export function StudioCopy() {
 	return (
-		<div className="max-w-[62ch]">
+		<div className="lx-ui min-w-0">
 			<div className="mb-3">
-				<Eyebrow>Bring your own model</Eyebrow>
-			</div>
-			<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
-				Point your copilot at Lattice.
-			</h2>
-			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-				Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or any
-				agent can draft a valid deck. The engine renders that draft deterministically — the design was finished long
-				before the model arrived.
-			</p>
+						{/* The same six words as nav.mjs's Studio `desc`, so a visitor who
+						    opened the mobile menu and a visitor who scrolled learn one phrase. */}
+						<Eyebrow>Write, review, present — in the browser</Eyebrow>
+					</div>
+					<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+						The Studio puts the engine in a window.
+					</h2>
+					<p className="m-0 mb-6 max-w-[46ch] text-[17px] leading-[1.6] text-foreground">
+						Same renderer, same layouts, same palettes as the command line — with an editor, a deck library, and
+						Present mode wrapped around them. Your decks live in this browser: no account, nothing to install.
+					</p>
+
+					{/* Three beats, echoing the "How it works" band two sections up so the
+					    page reads as one voice. Three rather than four: mobile pays for
+					    every row, and this section already costs it the most. */}
+					<dl className="m-0 flex flex-col gap-3">
+						{STUDIO_ROWS.map((r) => (
+							<div key={r.label} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2.5">
+								<dt className="flex-none text-[15px] font-semibold text-[var(--text-heading)] sm:w-[8.5rem]">
+									{r.label}
+								</dt>
+								<dd className="m-0 text-[15px] leading-[1.5] text-foreground">{r.body}</dd>
+							</div>
+						))}
+					</dl>
+
+		</div>
+	);
+}
+
+// The section's CTAs — its own grid child so the stacked (< lg) order puts the
+// button immediately under the live preview. See StudioCopy's note.
+export function StudioActions({ studioHref, newDeckHref }: { studioHref: string; newDeckHref: string }) {
+	return (
+		<div className="lx-ui flex flex-wrap items-center gap-x-5 gap-y-3">
+			<Button asChild size="lg" className="max-sm:w-full">
+				<a href={studioHref}>
+					Open the Studio <ArrowRight aria-hidden="true" />
+				</a>
+			</Button>
+			{/* py-2 inline-block keeps this tap target ≥44px on a phone. */}
 			<a
-				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
-				href={featuresHref}
+				className="inline-block py-2 text-[14px] font-semibold text-primary hover:underline focus-visible:underline"
+				href={newDeckHref}
 			>
-				How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
+				Or start a blank deck <ArrowRight aria-hidden="true" className="inline size-3.5" />
 			</a>
+		</div>
+	);
+}
+
+// The section's two honesty blocks, spanning the full panel under the columns.
+// Block A converts the nav's `Preview` badge from a STABILITY doubt into a SCOPE
+// statement, with the escape hatch in the same breath. Block B is the absorbed
+// "Bring your own model" section, every string verbatim.
+export function StudioHonesty({ featuresHref }: { featuresHref: string }) {
+	return (
+		<div className="lx-ui mt-8 grid grid-cols-1 gap-8 border-t border-border pt-8 md:grid-cols-2">
+			<div>
+					<div className="mb-2.5">
+						<Eyebrow>Why the nav says Preview</Eyebrow>
+					</div>
+					<p className="m-0 text-[15px] leading-[1.55] text-foreground">
+						The Studio is still growing, and the badge stays until it stops. What ships today runs the same engine
+						that rendered every slide on this page — and everything you write exports, or backs up whole, in one
+						click.
+					</p>
+				</div>
+				<div>
+					<div className="mb-2.5">
+						{/* Verbatim from the absorbed section — this eyebrow is the page's
+						    skim-altitude disclaimer that Lattice is not an AI deck generator. */}
+						<Eyebrow>Bring your own model</Eyebrow>
+					</div>
+					<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
+						Point your copilot at Lattice.
+					</h3>
+					<p className="m-0 mb-3 text-[15px] leading-[1.55] text-foreground">
+						Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or
+						any agent can draft a valid deck. The engine renders that draft deterministically — the design was
+						finished long before the model arrived.
+					</p>
+					<p className="m-0 mb-3 text-[15px] leading-[1.55] text-foreground">
+						In the Studio the same rule holds: chat and fixes are optional, and they run on your own account —
+						connect OpenRouter in one click, or download a model that runs on your device. Switch the AI off
+						entirely and the Studio still edits, reviews, presents, and exports.
+					</p>
+					<a
+						className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary hover:underline"
+						href={featuresHref}
+					>
+						How AI authoring works <ArrowRight aria-hidden="true" className="size-3.5" />
+					</a>
+				</div>
 		</div>
 	);
 }
@@ -339,7 +467,59 @@ export function WaitlistForm() {
 // Most cards are a single whole-card link. A card flagged `form` instead holds
 // an inline CTA link plus the waitlist form — a form can't nest inside the
 // card's <a>, so that card renders as a <div>.
-type NextStep = { href: string; title: string; body: string; cta: string; form?: boolean };
+// `body` is a ReactNode, not a string, so a card can carry an inline link — the
+// Studio card needs to name the playground mid-sentence without spending its
+// own CTA on it.
+type NextStep = { href: string; title: string; body: React.ReactNode; cta: string; form?: boolean };
+
+/**
+ * The four next-step cards. This lives here rather than in `index.astro`
+ * because card 4's body carries an inline link, and JSX cannot appear in Astro
+ * frontmatter — which is also the more consistent home, since every other block
+ * of landing copy (HOW_STEPS, FIELD_CARDS, WHY_CARDS) is already in this file.
+ * The base-aware `url` helper is passed in so the module stays free of
+ * `import.meta.env`.
+ */
+export function nextStepsFor(url: (p: string) => string): NextStep[] {
+	return [
+		{
+			href: url('getting-started/'),
+			title: 'Get started',
+			body: 'Install the toolchain and render your first deck in a few minutes.',
+			cta: 'Getting started',
+		},
+		{
+			href: url('guides/authoring/'),
+			title: 'Author decks',
+			body: "See every layout, what it's for, and the Markdown that feeds it.",
+			cta: 'Authoring guide',
+		},
+		{
+			href: url('components/'),
+			title: 'Browse the layouts',
+			body: 'Every layout (the reference calls them components) with a live preview and an in-browser editor — themable in all palettes.',
+			cta: 'Layout reference',
+		},
+		{
+			href: url('studio/'),
+			// Keeps its P3-persona hook ("can't install anything?") and gains the
+			// two-door split: the Studio for a whole deck, the playground for a quick
+			// paste-and-render.
+			title: "Can't install anything?",
+			body: (
+				<>
+					The Studio runs the whole deck in your browser — nothing to install. For a quick paste-and-render there's{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('playground/')}>
+						the playground
+					</a>
+					.
+				</>
+			),
+			cta: 'Open the Studio',
+			form: true,
+		},
+	];
+}
 
 export function NextSteps({ links }: { links: NextStep[] }) {
 	return (
