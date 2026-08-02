@@ -609,6 +609,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const showCaption = !rehearse && captionsOn && reader.playing && reader.track.cues.length > 0;
 	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
 	// dim when the slide edge is reached, full on reveal.
+	// Is a transient overlay pill occupying the band below the slide? Keyed on the
+	// rehearsal SESSION rather than the current beat — see the row's note below.
+	const overlayPillUp = showHint || (rehearse && playing);
 	const arrowCls = (disabled: boolean) => cn('hidden shrink-0 rounded-full border border-border bg-card/85 p-2.5 text-foreground shadow-[0_4px_16px_rgba(10,22,40,.12)] backdrop-blur transition-opacity duration-300 hover:text-[var(--accent)] motion-reduce:transition-none sm:block', disabled ? 'pointer-events-none opacity-20' : cn('pointer-events-auto', revealed ? 'opacity-100' : 'opacity-40'));
 	// Two stacked fixed layers under the studio root: the opaque backdrop (z-100, which
 	// carries the gesture/wake handlers) and this chrome dialog (z-102, which holds Present's
@@ -659,17 +662,26 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			    resolved a stretched height against that first-layout max-width and never
 			    re-resolved it. There is nothing left to go stale.
 
-			    `pb-14` is the band kept clear for the row's two transient pills (the
-			    rehearsal coach beat and the first-run cue), which are `absolute … bottom-2/3`
-			    against THE ROW, not the card. Because the sizer stretches to the row's
-			    CONTENT box, the card can never reach into that band — nothing is ever drawn
-			    on top of the slide — while an absolutely-positioned child still resolves
-			    against the PADDING box and so lands inside it.
+			    Vertical padding matches the READ stop's preview holder (`p-4 sm:p-5`), so
+			    the slide sits in the same frame in both places.
+
+			    The bottom grows to `pb-14` ONLY while a transient pill is up — the
+			    first-run cue, or a rehearsal in progress. Those pills are `absolute …
+			    bottom-2/3` against THE ROW, not the card; because the sizer stretches to the
+			    row's CONTENT box the card can never reach into that band (nothing is ever
+			    drawn on top of the slide) while an absolutely-positioned child resolves
+			    against the PADDING box and lands inside it. Reserving it unconditionally
+			    cost the slide ~56px it could otherwise fill, for a cue shown once ever.
+			    The reserve is keyed on `rehearse && playing`, not on the current coach BEAT:
+			    a beat comes and goes as you cross its mark, so keying on the beat would
+			    resize the slide repeatedly mid-rehearsal. Keyed on the session it is one
+			    transition in and one out — the same shape as the caption band appearing on
+			    Play, which is the responsive behavior this is modeled on.
 
 			    `items-center` on the sizer stays LOAD-BEARING (#1227): default `stretch`
 			    makes a flex item's cross size definite, which beats `aspect-ratio` per spec
 			    and would flatten the card. Centering the card removes the stretch. */}
-			<div className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 pb-14 sm:gap-5 sm:px-6">
+			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', overlayPillUp ? 'pb-14' : 'pb-4 sm:pb-5')}>
 				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
 				<div className="flex min-h-0 w-full min-w-0 items-center justify-center self-stretch [container-type:size]">
 					{unavailable ? (
