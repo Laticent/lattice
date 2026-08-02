@@ -1060,6 +1060,23 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ## Mermaid
 
+### A mermaid `click` directive is inert (and used to be an XSS)
+
+- **Symptom:** `click A "https://…"` or `click A call fn()` does nothing in the
+  live preview. Nothing errors; the node just isn't interactive.
+- **Cause:** the runtime pins Mermaid to `securityLevel: 'strict'`, which disables
+  `click` handling. That is deliberate and not negotiable: under the previous
+  `'loose'`, `click A "javascript:…"` rendered as `<a xlink:href="javascript:…">`
+  inside the SVG, which the runtime assigns straight to `innerHTML` — so clicking
+  the node executed the script, inside the docs Studio's SAME-ORIGIN, un-sandboxed
+  preview frame that renders shared and AI-generated decks. That is the HARD
+  RULE #22 threat model (XSS there is OpenRouter-key theft). Found by CodeQL
+  (`js/xss-through-dom`) on #1314 and confirmed exploitable on the real Playground.
+- **Note:** `strict` is Mermaid's OWN default; the PDF path (mmdc) never
+  overrode it, so the runtime was the only surface that opted out.
+- **Not the cause:** `<br/>` in a node label still works under `strict`. An older
+  comment claimed `loose` was required for it; that was wrong on Mermaid 11.
+
 ### A diagram with an `%%{init}%%` renders in Mermaid's stock colors (yellow clusters)
 
 - **Symptom:** One diagram in an otherwise on-theme deck comes out with a pale

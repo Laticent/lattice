@@ -116,6 +116,20 @@ in patch versions.
   `DIAGRAM_FONT_STACK` the PDF path has always used — closing a pre-existing divergence where
   preview drew diagrams in Outfit and the exported PDF drew them in JetBrains Mono. (#1311)
 
+- **Breaking: the live preview pins Mermaid to `securityLevel: 'strict'`, closing an XSS.** The
+  runtime set `'loose'` — the one surface that opted out of Mermaid's own default (the PDF path
+  never overrode it). Under `'loose'`, a `click X "javascript:…"` directive renders as
+  `<a xlink:href="javascript:…">` inside the SVG, and the runtime assigns that straight to
+  `innerHTML`: clicking the node executed the script, inside the docs Studio's **same-origin,
+  un-sandboxed** preview frame — the frame that renders shared and AI-generated decks, where XSS is
+  OpenRouter-key theft (HARD RULE #22's threat model). Surfaced by CodeQL (`js/xss-through-dom`) on
+  #1314 and confirmed exploitable on the real Playground before fixing; script tags, iframes,
+  `onload` and `onerror` were already stripped, `javascript:` hrefs were not. **What this costs:**
+  Mermaid's `click` interactivity is now inert in preview — it is the attack vector itself, and no
+  deck in this repo uses it. **What it does not cost:** `<br/>` in a node label still renders; the
+  old comment claiming `'loose'` was required for that was wrong on Mermaid 11. Pre-existing
+  (`ab11680`), fixed here because it sits on the path of this change. (#1311)
+
 - **Two security defects in the new `%%{init}%%` parser, caught by CodeQL on the PR.** (a) **Denial of
   service via a malformed directive.** The payload group was wrapped in `\s*` on both sides, so
   whitespace was matchable by two adjacent quantifiers — a directive with a long whitespace run and no
