@@ -206,14 +206,14 @@ test('the neutralizer set KEEPS the progress rail — same reason', () => {
 test('the neutralizer set hides exactly the two residuals with no shipped repair', () => {
   // Named, and compared as a whole set rather than key-by-key: an ADDED key re-blinds a surface to
   // a repair that ships, which is the regression this pair of files is built to prevent. Removing
-  // one is the good direction (`ids` is what seedRenderIds would take off), so it is meant to fail
+  // one is the good direction, so it is meant to fail
   // here and be re-pinned deliberately.
   assert.deepEqual(core.RESIDUAL_NEUTRALIZERS, { ids: true, whitespace: true });
   assert.equal(core.PROTOTYPE_NEUTRALIZERS, undefined, 'the prototype/shipped split is retired — one set, both surfaces');
   assert.equal(core.SHIPPED_NEUTRALIZERS, undefined, 'the prototype/shipped split is retired — one set, both surfaces');
 });
 
-test('the neutralizer set still drops the positional id — the residual seedRenderIds would close', () => {
+test('the neutralizer set still drops the positional id — the one residual left unrepaired', () => {
   const a = '<section id="3"><p>x</p></section>';
   const b = '<section id="9"><p>x</p></section>';
   assert.equal(core.normalizeSection(a, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(b, core.RESIDUAL_NEUTRALIZERS));
@@ -404,7 +404,7 @@ test('classifyDivergence names a cat-N hue difference on its own', () => {
 test('classifyDivergence names a generated-id difference on its own', () => {
   assert.equal(
     core.classifyDivergence('<section><svg aria-labelledby="lat-svgt-1"></svg></section>', '<section><svg aria-labelledby="lat-svgt-2"></svg></section>'),
-    'generated ids (seedRenderIds row)',
+    'generated ids (unscoped counter)',
   );
 });
 
@@ -430,7 +430,7 @@ test('classifyDivergence names the chart `<defs>` id family too, not just the a1
   ]) {
     assert.equal(
       core.classifyDivergence(`<section><defs><linearGradient id="${a}"/></defs></section>`, `<section><defs><linearGradient id="${b}"/></defs></section>`),
-      'generated ids (seedRenderIds row)',
+      'generated ids (unscoped counter)',
       a,
     );
   }

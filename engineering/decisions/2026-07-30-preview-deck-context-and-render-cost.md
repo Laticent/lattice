@@ -861,6 +861,68 @@ for it is weaker than it first looks:
   entity-encoded id; `renderIdPrefix` was written against those two lessons). Changing the shape
   means re-earning both guards against their documented attacks.
 
-So the state of step 2 is: the residual is measured, fully attributed, and no longer inflating
-`unclassified`; the repair is designed and costed; the decision to spend an export-byte change on an
-invisible difference is the human's. Recorded here rather than half-built.
+**Decision: the fourth route was taken, on the human's call.** Ids are now scoped by the shown
+slide's ABSOLUTE deck position — the same `page.offset` the page number already rides on:
+
+```
+lat-svgt-1   ->  lat-svgt-<slide>-<n>       (svg-a11y-names.js)
+pie-wedge-1  ->  pie-wedge-<slide>-<n>      (render-ids.js, all five families)
+```
+
+`<n>` restarts within each slide, so section *k* of a deck render and a slice rendered at offset *k*
+mint the same strings. Uniqueness within a document is preserved by construction (slide × ordinal),
+which is the trap the whole module exists for. `nextRenderSeq` returns a STRING rather than a number
+so every call site keeps its template verbatim and the shape stays readable in an export diff — the
+reason these were ordinals and not hashes in the first place.
+
+Two plumbing points:
+
+- `applyToRenderedHtml` counts **every** top-level section, not just the chart-bearing ones. Counting
+  only the interesting ones would number them 1,2,3… and a slice would land on a different slide than
+  the deck did.
+- `svgA11yNames.applyToHtml` probes for its unique prefix over the WHOLE document (an author's
+  squatting `id` can live on any slide) and only then walks section by section. A section-less
+  fragment keeps the old bare ordinal — there is no slide to scope by, and inventing one would be a
+  guess.
+
+**Result: 91.9% → 99.2%.** The `generated ids` bucket goes 87 → 0. What is left is the 5 `cat-N`
+slides and the 5 rail slides, both explained above.
+
+### What the export change actually was, measured
+
+`examples/chart-legends.md` — the chart-heaviest example — rendered from the pre-change commit and
+from this one, same machine:
+
+| surface | result |
+|---|---|
+| exported HTML | differs **only** in the generated id strings; normalize those and the two files are byte-identical |
+| exported PDF, light | **0 changed pixels**, all 8 pages (`pdftoppm` 72dpi + ImageMagick `compare -metric AE`) |
+| exported PDF, dark (`indaco-dark`) | **0 changed pixels**, all 8 pages |
+
+PDF *bytes* differ, but they differ between two runs of the *same* code too (Chromium stamps a
+document id and a timestamp), so bytes are not the instrument here — pixels are. Sent for sign-off
+before merge, per the QUALITY BAR's export rule.
+
+### The two anti-squat guards, re-earned rather than assumed
+
+Both id namespaces carry a guard against an author (or, in the Studio, an untrusted shared deck)
+declaring the id the engine is about to mint. Each has been broken twice by a change that looked
+unrelated to it, so neither was taken on trust:
+
+- **`uniquePrefix` (svg-a11y-names).** New test squats `lat-svgt-2-1` — the shape the engine now
+  mints — in both the literal and the entity-encoded spelling. Watched fail: disabling the probe
+  turns it red, along with the pre-existing decoy-token and steal-the-name cases.
+- **`safePrefix` / `renderIdPrefix` (render-ids).** The end-to-end squat fixture had gone VACUOUS: it
+  squatted `pie-wedge-1`, which the new shape can no longer collide with, so its duplicate-id
+  assertion would have passed with the guard removed. The fixture now squats `pie-wedge-2-1` and
+  `pie-wedge-2-2` — exactly what its chart slide mints — and disabling the namespace shift reports
+  `render 1 has duplicate ids, so the squat landed: pie-wedge-2-1, pie-wedge-2-2`.
+
+Plus a third mutation on the repair itself: disabling `setRenderSection` moves `equiv:check` 99.2% →
+95.3% and fails. All three falsifications from Amendment 4 still fire against the re-blessed
+baseline, harder than before: `positionIsTrustworthy → false` now reads **10.3% (−88.9)**, and
+`deckSectionFor → undefined` reads **73.1% (−26.1)**.
+
+**The browser DOM path is deliberately untouched.** `applyToDom` never enters slide scope, so its ids
+keep the bare document-start ordinal they have always had — there is no deck there to be positioned
+within, and the climbing module counter is what keeps them unique in a live document.

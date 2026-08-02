@@ -102,6 +102,29 @@ in patch versions.
     from `render-ids.js` — the core takes no imports — and a test reads both sources and fails if
     they diverge.
 
+- **Generated SVG ids are scoped to their slide, so a preview and an export of the same slide are
+  the same bytes.** A chart's `<title>`/`<desc>` wiring (`lat-svgt-N`) and its `<defs>` gradients
+  (`pie-wedge-N`, `radar-area-N`, `chart-spine-N`, `gantt-fill-*-N`, `q-tint-N`) were numbered from
+  the start of whatever document was being rendered — so the same chart was `-1` previewed alone and
+  `-3` inside its deck. Nothing announced or painted wrongly (each document wires itself correctly,
+  and an id is minted together with every reference to it), but it was 87 of the 97 slides where
+  `npm run equiv` found a preview and a deck render disagreeing, and it is the drift a per-slide
+  render cache's `incremental === whole` guard has to be able to assert away. The ids now carry the
+  shown slide's absolute deck position — `pie-wedge-<slide>-<n>`, with `<n>` restarting per slide —
+  which comes from the same `page.offset` the page number already rides on. A *count* could not be
+  handed in (a lone slice would have to know how many gradients the earlier slides emitted, which
+  only rendering them reveals); a *position* is metadata the caller already holds.
+  - **Exported bytes change; exported pixels do not.** On `examples/chart-legends.md` the exported
+    HTML differs only in the id strings — normalize those and it is byte-identical — and the PDF
+    shows **0 changed pixels across all 8 pages in both light and dark**.
+  - Uniqueness within a document is preserved by construction (slide × per-slide ordinal), which is
+    the SVG duplicate-id trap this machinery exists for. Both anti-squat guards were re-earned
+    against the new shape rather than assumed: the end-to-end fixture had gone vacuous (it squatted
+    an id the new shape can no longer collide with) and now squats what the engine actually mints.
+  - The browser runtime's DOM path is untouched — it has no deck to be positioned within, and its
+    climbing counter is what keeps its ids unique in a live document.
+  - `npm run equiv` goes **91.9% → 99.2%**; the `generated ids` bucket goes 87 → 0.
+
 - **The two slide splitters, reconciled — and the alignment invariant's three copies collapsed to
   one.** The engine breaks slides on any markdown-it `hr` after a full parse; the Studio scans text
   for `\n---\n` on every keystroke, before the engine bundle has loaded. Those stay two — routing

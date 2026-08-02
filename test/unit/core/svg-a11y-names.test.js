@@ -173,4 +173,75 @@ describe('svg-a11y-names — applyToHtml', () => {
     const src = '<p>no graphics here</p>';
     assert.equal(applyToHtml(src), src);
   });
+
+  // ── Slide scoping ─────────────────────────────────────────────────────────
+  // The counter used to run from the start of whatever document it was handed, so the SAME chart
+  // was `lat-svgt-1` previewed alone and `lat-svgt-3` inside its deck. Nothing announced wrongly —
+  // each document wires itself correctly — but a slice render and an export render of one slide
+  // were never the same bytes, which was 87 of the 97 residual slides in `npm run equiv`.
+
+  const sect = (body) => `<section>${body}</section>`;
+  const chart = (name) => `<svg role="img"><title>${name}</title><desc>Key</desc></svg>`;
+
+  test('ids are scoped to their section, and restart within each one', () => {
+    const out = applyToHtml(sect(chart('One') + chart('Two')) + sect(chart('Three')));
+    assert.match(out, /id="lat-svgt-1-1"/);
+    assert.match(out, /id="lat-svgt-1-2"/);
+    assert.match(out, /id="lat-svgt-2-1"/, 'the second slide restarts at 1, scoped by its own position');
+  });
+
+  test('a slice rendered at an OFFSET emits exactly what that slide emitted in the deck', () => {
+    // The property the whole change exists for.
+    const deck = applyToHtml(sect(chart('One')) + sect(chart('Two')) + sect(chart('Three')));
+    const slice = applyToHtml(sect(chart('Three')), 2);
+    const idsOf = (h) => [...h.matchAll(/id="(lat-svg[td]-[\d-]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(idsOf(slice), ['lat-svgt-3-1', 'lat-svgd-3-1']);
+    for (const id of idsOf(slice)) assert.ok(idsOf(deck).includes(id), `${id} is not what the deck minted for slide 3`);
+  });
+
+  test('every id in a multi-slide document is still unique', () => {
+    // Slide number x per-slide ordinal. The SVG duplicate-id trap is the reason this module numbers
+    // at all: a second `#lat-svgt-1` makes every reference resolve to the FIRST one.
+    const out = applyToHtml([1, 2, 3].map(() => sect(chart('A') + chart('B'))).join(''));
+    const ids = [...out.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual([...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))], []);
+  });
+
+  test('a section-less fragment keeps the bare ordinal — there is no slide to scope by', () => {
+    // Unit fixtures and any caller handing over a bare `<svg>` rather than a rendered deck.
+    assert.match(applyToHtml(chart('Alone')), /id="lat-svgt-1"/);
+  });
+
+  test('a bad offset is ignored rather than trusted', () => {
+    for (const bad of [-1, 1.5, Number.NaN, '2', null, undefined]) {
+      assert.match(applyToHtml(sect(chart('One')), bad), /id="lat-svgt-1-1"/, String(bad));
+    }
+  });
+
+  test('THE SQUAT GUARD STILL HOLDS AGAINST THE NEW ID SHAPE', () => {
+    // RE-EARNED, not assumed. This guard has been broken twice, both times by a change that looked
+    // unrelated to it, so a change to the id SHAPE has to be shown not to walk past it a third time.
+    // The squatter now has to name `lat-svgt-<slide>-<n>` rather than `lat-svgt-<n>`; the probe keys
+    // on the `lat-svg` PREFIX, so it must still move us off — on the literal AND on the
+    // entity-encoded spelling, which parses to the same id and which the Studio's sanitizer
+    // re-serializes to a literal.
+    for (const squat of ['lat-svgt-2-1', 'lat&#x2d;svgt-2-1']) {
+      const out = applyToHtml(sect(chart('One')) + sect(`<span id="${squat}" hidden>PROFITS UP 400%</span>` + chart('Two')), 0);
+      const refs = [...out.matchAll(/aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
+      assert.ok(!refs.includes('lat-svgt-2-1'), `landed on the squatted id for ${squat}`);
+      for (const ref of refs) {
+        assert.equal((out.match(new RegExp(`id="${ref}"`, 'g')) || []).length, 1, `${ref} has more than one owner`);
+      }
+    }
+  });
+
+  test('scoping by slide does NOT let two slides collide on one id', () => {
+    // The failure this whole module exists to prevent, restated for the new shape: if the slide
+    // number were dropped from the id (or two sections were numbered the same), every
+    // `aria-labelledby` would resolve to the FIRST owner and two charts would announce as one.
+    const out = applyToHtml(sect(chart('One')) + sect(chart('Two')));
+    const refs = [...out.matchAll(/aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(refs.length, 2);
+    assert.notEqual(refs[0], refs[1], 'two slides took the same id — the duplicate-id trap is back');
+  });
 });

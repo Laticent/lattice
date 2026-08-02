@@ -180,7 +180,9 @@ console.log(`slides given a SUPPLIED deck position: ${r.positions}${r.positions 
 // The active neutralizer set, printed for the same reason the counts above are: it is an ASSERTION
 // ABOUT WHAT CANNOT BE REPAIRED YET, and nothing pins it to reality. It is now short — `pagination`
 // and `rail` left it when the sweep started supplying the position that fixes them — and it should
-// only ever get shorter. `ids` is what `seedRenderIds` would take off it.
+// only ever get shorter — `pagination` and `rail` left it when the position started being supplied,
+// and the generated-id counters left it when they became slide-scoped. What is left is `ids`, the
+// positional `id="N"` on the section itself, which a supplied position does NOT repair.
 console.log(`ignoring (no shipped repair): ${Object.keys(RESIDUAL_NEUTRALIZERS).join(', ')}`);
 console.log(`decks measured: ${r.decks}${r.skipped.length ? `  ·  skipped ${r.skipped.length}: ${r.skipped.join(', ')}` : ''}\n`);
 console.log('residual by cause:');
