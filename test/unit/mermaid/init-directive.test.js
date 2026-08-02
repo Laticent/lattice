@@ -261,7 +261,7 @@ describe('mermaid init-directive: engineInitDirective', () => {
     assert.equal(payload.themeVariables.fontFamily, DIAGRAM_FONT_STACK);
   });
 
-  test('every colour form the engine actually emits survives the charset', () => {
+  test('every color form the engine actually emits survives the charset', () => {
     for (const v of ['#E8F0F7', 'rgb(242, 245, 250)', 'rgba(0, 0, 0, 0.5)', '14px']) {
       assert.match(v, DIRECTIVE_VALUE_OK, `${v} must survive sanitizeDirective`);
     }
@@ -337,13 +337,13 @@ describe('mermaid init-directive: withEngineInit', () => {
 /**
  * Structural guards on the two render paths.
  *
- * These are SOURCE assertions, not behavioural proof — they pin the wiring
+ * These are SOURCE assertions, not behavioral proof — they pin the wiring
  * decisions that make the two paths agree, which is exactly the kind of thing a
  * later edit undoes by accident without any test going red. Neither engine file
  * can be `require()`d in-process (both have side-effecting top levels; see
  * test/unit/parsing/source-parse.test.js), so they are read as text.
  *
- * The behaviour itself is covered by
+ * The behavior itself is covered by
  * test/integration/mermaid/mermaid-init-merge.test.js (PDF path, through mmdc).
  * The live-preview path is exercised by hand against the real Playground —
  * there is no automated coverage of it here.
@@ -362,7 +362,7 @@ describe('mermaid init-directive: render-path wiring', () => {
   });
 
   test('the look re-bake asks whether the author PINNED a theme, not whether a directive exists', () => {
-    // A colour-neutral directive keeps the engine palette, so it re-bakes like
+    // A color-neutral directive keeps the engine palette, so it re-bakes like
     // any other diagram. Testing for the mere presence of `%%{init` here would
     // silently drop it from the re-bake and over-report "kept their own colors".
     const src = read('lattice-emulator.js');
