@@ -596,6 +596,17 @@ in patch versions.
     **`class: dark`, not `color-mode:`**, for dark mode — `class:` is Marp's own key and stamps
     every slide, while Lattice's richer deck registers are read from a block only the full export
     writes, so in a hand-authored deck they do nothing. The README said the opposite.
+  - **The quote slide was authored against the wrong contract and did not render as a quote at
+    all.** `quote` takes a `blockquote` plus a following attribution paragraph; the slide used an
+    `h2` and a body paragraph, so it came out as a plain titled slide with small centered text
+    floating in dead space. Now `quote bare` — the variant the component documents for an
+    unsourced line — with the blockquote and an italic credit. A `radar` slide likewise carried a
+    third-level bullet that the component silently drops, so that sentence never reached a reader.
+    Both were HARD RULE #6 violations: the deck was authored without opening the component docs.
+    Every one of the 13 slides has now been checked against its manifest skeleton and read in the
+    render; `matrix-grid` and `split-panel` were suspected and cleared against their own component
+    galleries (fill, not glyphs, is matrix-grid's language; split-panel's footer sits inside the
+    dark panel there too).
   - `test/unit/tools/marp-kit.test.js` locks the failures that are SILENT: a missing font falls
     back to system serif, a dropped `html: true` prints the script tags as text, a minifier that
     strips the `@theme` comment yields unstyled slides — each shipped undetected in #1256. The

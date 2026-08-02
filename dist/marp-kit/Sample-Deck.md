@@ -132,7 +132,6 @@ flowchart LR
 
 - This deck
   - Portability `9`
-    - One folder, relative paths, nothing installed
   - Fidelity `8`
   - Editability `10`
   - Setup cost `10`
@@ -195,12 +194,11 @@ The config files and `NOTICE.md` are listed in the README.
 
 ---
 
-<!-- _class: quote -->
+<!-- _class: quote bare -->
 
-## "Write the deck in Markdown, render it through a real browser."
+> Write the deck in Markdown, render it through a real browser.
 
-That is the one idea Lattice keeps from Marp. Everything else — the layouts, the
-tokens, the charts — is what gets added on top of it.
+*The one idea Lattice keeps from Marp*
 
 ---
 
