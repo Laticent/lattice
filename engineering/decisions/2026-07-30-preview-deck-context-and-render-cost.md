@@ -888,20 +888,37 @@ Two plumbing points:
 **Result: 91.9% → 99.2%.** The `generated ids` bucket goes 87 → 0. What is left is the 5 `cat-N`
 slides and the 5 rail slides, both explained above.
 
-### What the export change actually was, measured
+### What the export change actually was, measured over the WHOLE blast radius
 
-`examples/chart-legends.md` — the chart-heaviest example — rendered from the pre-change commit and
-from this one, same machine:
+The first pass measured one deck and generalized. It was re-measured over the exact set of decks
+that mint one of these ids — computed by rendering all 127 committed decks and keeping the ones
+whose HTML contains a generated id: **27 decks**. Each was rendered from `origin/main` and from this
+branch on the same machine, then compared page by page:
 
-| surface | result |
+| | result |
 |---|---|
-| exported HTML | differs **only** in the generated id strings; normalize those and the two files are byte-identical |
-| exported PDF, light | **0 changed pixels**, all 8 pages (`pdftoppm` 72dpi + ImageMagick `compare -metric AE`) |
-| exported PDF, dark (`indaco-dark`) | **0 changed pixels**, all 8 pages |
+| decks compared | **27** (every deck that mints a generated id) |
+| pages pixel-compared | **386** |
+| decks with any pixel change | **0** |
+| total changed pixels | **0** |
+| exported HTML: byte-identical | 0 |
+| exported HTML: differs ONLY in the generated id strings | **27** |
+| exported HTML: differs in anything else | **0** |
 
-PDF *bytes* differ, but they differ between two runs of the *same* code too (Chromium stamps a
-document id and a timestamp), so bytes are not the instrument here — pixels are. Sent for sign-off
-before merge, per the QUALITY BAR's export rule.
+`pdftoppm -r 60` + ImageMagick `compare -metric AE`; the id-only test normalizes every family's
+discriminator and re-diffs. PDF *bytes* differ, but they differ between two runs of the *same* code
+too (Chromium stamps a document id and a timestamp), so bytes are not the instrument here — pixels
+are. `examples/chart-legends.md` was additionally rendered in **dark** (`indaco-dark`): 0 changed
+pixels across its 8 pages there too. Sent for sign-off before merge, per the QUALITY BAR's export
+rule.
+
+Two more claims that had been reasoned rather than measured, now measured across the same corpus:
+
+- **id uniqueness** — 1762 ids across 127 rendered decks, **0 duplicates**. Slide × per-slide
+  ordinal holds on real content, not just on the synthetic fixtures.
+- **the two section walkers** — `sectionsOf` (which `narrowToSlide` now uses, so that the alignment
+  guard judges the list it is actually handed) against the filmstrip's `splitSections`: 1230
+  sections across 127 decks, **0 disagreements**.
 
 ### The two anti-squat guards, re-earned rather than assumed
 
@@ -923,9 +940,27 @@ Plus a third mutation on the repair itself: disabling `setRenderSection` moves `
 baseline, harder than before: `positionIsTrustworthy → false` now reads **10.3% (−88.9)**, and
 `deckSectionFor → undefined` reads **73.1% (−26.1)**.
 
-**The browser DOM path is deliberately untouched.** `applyToDom` never enters slide scope, so its ids
-keep the bare document-start ordinal they have always had — there is no deck there to be positioned
-within, and the climbing module counter is what keeps them unique in a live document.
+**The browser DOM path is deliberately untouched** — but saying so was not the same as it being
+true, and checking it turned up a defect. `applyToDom` never enters slide scope, so its ids keep the
+bare document-start ordinal they have always had. That is true of the DOM path itself and was false
+of the process it runs in: `slide` is MODULE state, `applyToRenderedHtml` set it per section, and
+nothing released it. Measured:
+
+```
+eng.render(<two-section deck>)
+nextRenderSeq('pie-wedge')   ->  "2-3"      // wanted "1"
+```
+
+So the next mint after any render inherited the LAST section number of the document before it. Not
+observed as a live defect — the preview iframe is a separate realm, so the runtime's copy of the
+module starts fresh — but it is a trap of exactly the class this module's own KNOWN LIMIT 2 records:
+per-render state is safe only if it is RELEASED, not merely set. `applyToRenderedHtml` now leaves
+scope after its walk, guarded by a unit test that drives the real engine and was watched fail
+against the missing release.
+
+Worth naming as a pattern: every claim in this section that was *reasoned* rather than *measured*
+turned out to hide something — the one-deck pixel generalization, the id-shape coupling in
+`reidClone`, and this. The ones that were measured did not.
 
 ### What the id change broke, and what it turned up — found by CI, not by review
 
