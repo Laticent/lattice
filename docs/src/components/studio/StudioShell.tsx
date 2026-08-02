@@ -63,6 +63,7 @@ import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides,
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { PresentOverlay } from './PresentOverlay';
+import { PREVIEW_RECT_KEY } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
