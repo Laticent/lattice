@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 668 files carry one — 3,151 prose/code lines plus 253 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (37 files, intended), the FILE FORMAT (197 files — LFM is Marpit-compatible by design, so these can never leave without breaking the format), the marp-vscode live-preview compatibility tax (295 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (120). Actual drift was small and is now fixed: 12 files that described the owned engine as Marp or cited a render path retired in P4, and 1 dead reference to the deleted marp.config.js. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
+summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 668 files carry one — 3,154 prose/code lines plus 253 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (37 files, intended), the FILE FORMAT (197 files — LFM is Marpit-compatible by design, so these can never leave without breaking the format), the marp-vscode live-preview compatibility tax (295 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (120). Actual drift was small and is now fixed: 12 files that described the owned engine as Marp or cited a render path retired in P4, and 1 dead reference to the deleted marp.config.js. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
 ---
 
 # The Marp reference register — what is left, and what each piece is for
@@ -15,7 +15,7 @@ candidate for removal or rewrite and relevant for export."
 
 The premise is right — Lattice is far removed from Marp. Zero `@marp-team`
 packages, no Marp render path, `lib/engine/` re-implements the Marpit pipeline
-natively. And yet **668 tracked files mention Marp**: 3,151 prose/code lines
+natively. And yet **668 tracked files mention Marp**: 3,154 prose/code lines
 plus 253 `marp: true` front-matter keys.
 
 That gap is not one thing rotting. It is **four different things wearing the
@@ -31,15 +31,17 @@ tree stands **after** this change's fixes — re-run the tool to confirm:
 | **Actual drift** | *(13, fixed here)* | **Gone — 0 actionable files remain** |
 
 The headline: **the largest bucket is not the export target and not residue —
-it is the VS Code live preview.** 295 files (239 of them just a `marp: true`
-key on a deck) exist so that opening a `.md` in the "Marp for VS Code"
+it is the VS Code live preview.** 295 files (236 of them nothing but a `marp: true`
+key on a deck, 3 more carrying it alongside prose) exist so that opening a `.md` in the "Marp for VS Code"
 extension shows something recognizable. That surface runs raw `marp-core`, not
 our engine. It is the single lever that would meaningfully cut the Marp
 footprint, it was explicitly considered and **kept** on 2026-07-10, and nothing
 has changed since to reopen it. §5.
 
-Only **71 lines across 13 files** were genuinely wrong — 2% of the total. They
-are fixed here.
+Genuinely wrong: **13 files**, all fixed here. (An earlier draft put a line
+count on that — "71 lines" — which its own checker could not reproduce by any
+method, because the tool did not exist before the fixes. The file count is
+solid; the line count was not, so it is gone rather than restated.)
 
 ## Method — and why it is a tool, not a list
 
@@ -81,7 +83,7 @@ row in either is the signal that something drifted.
 | `interop` | 197 | 467 | 10 | **KEEP** — Marpit file-format compatibility |
 | `provenance` | 11 | 184 | — | **KEEP** — porting attribution in `lib/engine/` |
 | `history` | 109 | 1,296 | — | **KEEP FROZEN** — dated records |
-| `preview` | 295 | 542 | 239 | **CONTINGENT** — the marp-vscode tax |
+| `preview` | 295 | 545 | 239 | **CONTINGENT** — the marp-vscode tax |
 | `rewrite` | 0 | 0 | — | **REWRITE** — wrong about what renders Lattice (12 fixed here) |
 | `remove` | 0 | 0 | — | **REMOVE** — points at a deleted file (1 fixed here) |
 | `generated` | 19 | 327 | 3 | **GENERATED** — follows source (HARD RULE #2) |
@@ -92,11 +94,14 @@ The one-way handoff. `lib/core/marp-bundle.js` builds the recipient bundle,
 `lib/core/marp-fidelity.js` is the ledger of what a Marp render does *not*
 reproduce, `tools/export-marp.js` and the Studio/Drawing Board export menus are
 the entry points, and the `test/unit/core/marp-bundle.test.js` /
-`marp-fidelity.test.js` / `tools/export-marp.test.js` trio holds them.
-`.claude/settings.json`'s `Bash(marp*)` allowance belongs here too: it exists so
-an agent can render an exported bundle and *look at it*, which
+`marp-fidelity.test.js` / `test/unit/tools/export-marp.test.js` trio holds them.
+`.claude/settings.json`'s two `Bash(marp*)` / `Bash(npx marp*)` allowances
+(`:30-31`) sit here as the best available reading, flagged as such: **nothing
+records why they were added.** They landed inside an unrelated theming commit
+(`c186442`, #1177) with no annotation, and JSON carries no comments. The
+plausible purpose is rendering an exported bundle to check it — which
 `2026-07-29-export-to-marp-broken.md` established is the only check this
-boundary has.
+boundary has — but that is inference, not evidence.
 
 Nothing to do. This is what the user is asking to preserve, and it is
 self-contained.
@@ -155,9 +160,14 @@ below exists to make that third-party preview show something recognizable:
 - **239 decks carry `marp: true`** front matter. The owned engine ignores the
   key (`lib/engine/directives.js` parses it and moves on). It is there so the
   extension activates. That is the entire reason.
-- **`lib/runtime/index.js`** (~800 lines) re-implements front-matter parsing and
-  deck-wide register propagation on the live DOM, and selects on `marp-pre` —
-  marp-core's custom `<pre is="marp-pre">` element.
+- **`lib/runtime/index.js`** (**2,064 lines**, measured) re-implements
+  front-matter parsing and deck-wide register propagation on the live DOM, and
+  selects on `marp-pre` — marp-core's custom `<pre is="marp-pre">` element.
+  *(`engineering/marp-independence.md` Cost 3 has said "~800 lines" since
+  2026-07-09; nobody re-measured it, and this register repeated the figure
+  before its own checker caught it. Corrected in both places — the mirror is
+  **2.6× larger** than the number the keep-marp-vscode decision was weighed
+  against.)*
 - **`tools/build-runtime.js`** caps the *whole* runtime bundle at `chrome91`
   because the extension's webview trails stable Chromium — a ceiling paid by the
   web-export bundle too.
@@ -165,9 +175,10 @@ below exists to make that third-party preview show something recognizable:
   `compare-code.styles.css`, `diagram.styles.css` and the chart family, plus a
   standing constraint that theme rules avoid a leading `:is(section…)` because
   Marpit's scoper cannot resolve it.
-- **`engineering/gotchas.md`'s "VS Code / marp-vscode" section** — 158 Marp
-  lines, the densest single file in the repo, several ending in "no path works
-  in the marp-vscode preview."
+- **`engineering/gotchas.md`'s "VS Code / marp-vscode" section** (`:1448-1688`)
+  — 48 Marp lines, part of the 159 in that file. One entry elsewhere in the file
+  (`:312`) ends in "no path works in the marp-vscode preview," after three
+  implementation attempts at the `logo:` directive.
 
 **This was already put on the table and kept.** The 2026-07-09 audit's §5(b)
 proposed retiring marp-vscode as a first-party preview surface; the call on
@@ -177,26 +188,44 @@ proposed retiring marp-vscode as a first-party preview surface; the call on
 
 Two things are worth knowing before anyone reopens it:
 
-1. **The re-evaluation trigger is live but not yet due.** §5(b) set a fixed
-   90-day mark from 2026-07-09 — **2026-10-07** — or 5 rows in the gotchas
-   preview-gaps register, whichever came first. Today is 2026-08-02 and the
-   register holds **1** row. Neither condition has fired.
+1. **There is NO live re-evaluation timer — and one doc still says there is.**
+   An earlier draft of this register claimed a 90-day trigger fires 2026-10-07.
+   That is wrong, and the checker caught it: the 90-day/5-row trigger sits
+   inside a `<details>` block the 2026-07-09 audit marked *"superseded
+   2026-07-10, kept for record,"* and the decision above it retires the timer in
+   as many words — *"kept as historical record … **not as a live plan**. Revisit
+   only if the calculus actually changes … **not on a timer**."* Revisiting
+   marp-vscode is condition-driven (the preview genuinely stops working, or
+   Studio/Playground readiness becomes a live question), not calendar-driven.
+   **`engineering/gotchas.md` had not caught up** — it told readers "the real
+   backstop is the calendar, not this list … at a fixed 90-day mark." Corrected
+   in this change; it was on the path of this audit, so it is fixed here rather
+   than logged (HARD RULE #18).
 2. **A load-bearing fact underneath it is still UNVERIFIED and contested.**
    Whether the marp-vscode webview executes the deck's scripts decides whether
-   `lattice-runtime.js` does anything at all on that surface.
-   `engineering/gotchas.md:1513` says the CSS-only reading "has never been
-   tested against a real VS Code," and a 2026-07-29 field report describes
-   structural components rendering correctly there — which would require the
-   runtime to run. `marp-independence.md`'s Cost 3 asserts the opposite as
-   settled. **Both cannot be right, and the cheapest possible experiment — open
-   a deck in a real VS Code and look — has never been run from here.**
+   `lattice-runtime.js` does anything at all on that surface. The disagreement
+   is **internal to `engineering/gotchas.md`**, which is the part an earlier
+   draft of this section got wrong by framing it as a two-file contradiction:
+   - `gotchas.md:1547-1556` states the CSS-only reading **flatly** — the webview
+     has "a strict Content Security Policy that disallows script execution."
+   - `gotchas.md:1520` then says of that same claim: *"Status of this claim:
+     UNVERIFIED and contested … has never been tested against a real VS Code,"*
+     and cites a 2026-07-29 field report describing structural components
+     rendering correctly there — which would require the runtime to run.
+   - `marp-independence.md` Cost 3 (`:108`) simply agrees with the unhedged
+     half, unhedged.
 
-That contradiction is the highest-value open item in this register. It does not
-change the §5(b) decision today, but it means the cost of that decision is
-currently unknown to within "a ~800-line runtime mirror either works there or
-does nothing there." Per HARD RULE #23 this is marked **UNVERIFIED**, not
-resolved: a headless sandbox cannot drive the VS Code extension host, so it is
-not something this pass could settle.
+   So it is not "both cannot be right" — one passage asserts a fact, another
+   says that fact is untested. What is genuinely unresolved is its **epistemic
+   status**, and three passages (not two) would need correcting once it is
+   settled.
+
+This is the highest-value open item in the register. It does not change the
+§5(b) decision, but it means the cost of that decision is unknown to within
+"a **2,064-line** runtime mirror either works on that surface or does nothing
+there" — and the cheapest possible experiment, opening a deck in a real VS Code
+and looking, has never been run. Per HARD RULE #23 this is **UNVERIFIED**, not
+resolved: a headless sandbox cannot drive the VS Code extension host.
 
 ## §6 — `rewrite` (12 files, 70 lines): all fixed here
 
@@ -214,14 +243,14 @@ that landed after it.
 | `docs/src/pages/drawing-board.astro:178,1220` | "The marp render engine bundle" |
 | `docs/src/lib/load-engine.ts:1` | "the irreducible marp render engine" |
 | `docs/src/lib/prefetch-engine.ts:1` | "the marp render engine bundle" |
-| `design/design-principles.md:129,198,224,228` | Four errors. Attributes `data-lattice-pagination` to "the Marp CLI engine" **twice** — it is emitted by `lib/engine/slides.js:219`, and Marp CLI emits `data-marpit-pagination`, an attribute that appears nowhere in this repo. Heading "Part 2: Marp Directives" frames the owned vocabulary as Marp's. "For the custom renderer (non-Marp CLI)" casts the owned engine as the deviation. |
-| `lib/engine/css.js:308` | Same mis-attribution inside the engine itself: "the page number **Marpit** injects via `attr(data-lattice-pagination)`". |
+| `design/design-principles.md:129,198,224,228` | Four errors. Attributes `data-lattice-pagination` to "the Marp CLI engine" **twice** — it is emitted by `lib/engine/slides.js:219`, and Marp CLI emits `data-marpit-pagination`, an attribute that appeared nowhere in this repo before this change introduced it as a contrast. Heading "Part 2: Marp Directives" frames the owned vocabulary as Marp's. "For the custom renderer (non-Marp CLI)" casts the owned engine as the deviation. |
+| `lib/engine/css.js:309` | Same mis-attribution inside the engine itself: "the page number **Marpit** injects via `attr(data-lattice-pagination)`". |
 | `design/forms.md:484-486` | "all three render paths (emulator, marp-cli plugins, runtime)" and "the cross-renderer parity gate" — both retired |
 | `lib/core/resolve-finish.js:6` | "the three render paths read it"; there are two |
-| `examples/sketch.md:124,128` | **Shipped slide content**: "Keeps the three renderers honest" / "Guards cross-renderer parity so the emulator, marp-cli, and runtime never drift" |
+| `examples/sketch.md:127,128` | **Shipped slide content**: "Keeps the three renderers honest" / "Guards cross-renderer parity so the emulator, marp-cli, and runtime never drift" |
 | `.github/workflows/ci.yml:166` | Integration tier called "the Marp/Puppeteer/emulator pipeline" |
 
-Five of the eleven are on the **website**, which is what the user saw. The
+Five of the twelve are on the **website**, which is what the user saw. The
 docs-site engine loader chain — `load-engine.ts` → `prefetch-engine.ts` →
 three page-level callers — described the owned bundle as Marp in every link.
 
@@ -246,16 +275,22 @@ generator inlined, which is why it greps as Marp-heavy.
 **Does:** ships `tools/marp-inventory.mjs` and this register; fixes all 12
 `rewrite` files and the 1 `remove` file; rebuilds `examples/sketch.pdf`
 (page 8 re-rendered and inspected). After the fixes the tool reports
-**0 actionable files**, and the audited paths are pinned in its `OVERRIDES`
-table to their true post-fix class — so a `rewrite` signal firing on one of
-them again means a regression, not a relapse of the original defect.
+**0 actionable files**.
+
+Of the 13 audited files, **8 still mention Marp** and each is pinned in the
+tool's `OVERRIDES` table to its true post-fix class — so a `rewrite` signal
+firing on one of those means a regression, not a relapse. The other **5**
+(`index.astro`, `playground.astro`, `load-engine.ts`, `prefetch-engine.ts`,
+`tools/preview.js`) no longer contain the string at all, so they have left the
+inventory entirely and there is nothing to pin. An earlier draft of this section
+claimed all of them were pinned; they were not, and the checker caught it.
 
 **Does not:**
 
 - **Touch the `preview` bucket.** §5(b) decided on 2026-07-10 to keep
-  marp-vscode; neither re-evaluation trigger has fired. Cutting 295 files on an
+  marp-vscode, and reopening it is condition-driven. Cutting 295 files on an
   audit's own initiative would be reversing a human call, not executing one.
-- **Resolve the webview-executes-scripts contradiction (§5).** It needs a real
+- **Resolve whether the webview executes scripts (§5).** It needs a real
   VS Code. Marked UNVERIFIED per HARD RULE #23, logged below.
 - **Reword the `interop` bucket.** Naming Marpit constructs by their real names
   is accurate; renaming them to reduce a grep count would make the docs worse.
@@ -264,12 +299,19 @@ them again means a regression, not a relapse of the original defect.
 
 - **Verify whether the marp-vscode webview executes scripts.** Open a Lattice
   deck in a real VS Code with the Marp extension and look. It decides whether
-  `lib/runtime/index.js`'s mirror does anything on that surface, and therefore
-  what §5's 295 files actually buy. `gotchas.md:1513` and
-  `marp-independence.md` Cost 3 currently contradict each other; whichever way
-  it lands, both need correcting. **Unreachable from a headless sandbox.**
-- **§5(b)'s 90-day re-evaluation fires 2026-10-07.** This register is the
-  evidence base when it does — re-run the tool and compare.
+  `lib/runtime/index.js`'s 2,064-line mirror does anything on that surface, and
+  therefore what §5's 295 files actually buy. Three passages move when it lands:
+  `gotchas.md:1547-1556` (asserts CSS-only flatly), `gotchas.md:1520` (says that
+  assertion is untested), and `marp-independence.md:108` (agrees with the
+  unhedged half). **Unreachable from a headless sandbox.**
+- **There is no scheduled re-evaluation of §5(b), by design.** Do not wait for
+  one — the 90-day timer an earlier draft of this register cited was retired on
+  2026-07-10. Reopening marp-vscode is condition-driven, and this register is
+  the evidence base if a condition trips: re-run the tool and compare.
+- **Re-measure before re-citing.** The "~800 lines" figure survived from
+  2026-07-09 to 2026-08-02 across two audits because each one quoted the last.
+  Any load-bearing number in this file (line counts, file counts, register rows)
+  is cheap to recompute and was wrong at least once.
 - **189 files are default-placed into `interop`.** Each run prints them. Not a
   defect; triage them opportunistically when touching the file, and add an
   `OVERRIDES` entry when a placement is worth pinning.

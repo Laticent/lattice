@@ -73,6 +73,12 @@ in patch versions.
   path and a cross-renderer parity gate, both retired in P4; and `tools/preview.js` still
   watched the deleted `marp.config.js`. New `tools/marp-inventory.mjs` regenerates the whole
   classification on demand — the two prior audits were hand-written and stale within days.
+  An independent fact-check of the register then corrected two canonical docs it had trusted:
+  `engineering/marp-independence.md` has priced the runtime DOM mirror at "~800 lines" since
+  2026-07-09 when `lib/runtime/index.js` is **2,064** (2.6× off — it is the number the
+  keep-marp-vscode decision was weighed against), and `engineering/gotchas.md` told readers a
+  90-day re-evaluation timer was "the real backstop" when that timer had been explicitly
+  retired ("not on a timer") on 2026-07-10.
   `engineering/decisions/2026-08-02-marp-reference-register.md`.
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the

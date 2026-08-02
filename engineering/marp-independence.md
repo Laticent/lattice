@@ -100,10 +100,15 @@ are shared and stay — the honest delta is the marp tree only.)
 2. **Ecosystem labor** — community, plugins, docs, and browser-compat are ours alone.
 3. **Marp-compatibility tax** — marp-core is a genuinely different renderer,
    and every difference is ours to absorb. A `lattice-runtime.js` DOM mirror
-   is the only way to make a transform look right on any Marp surface (~800
-   lines, a dozen dual-kernel test files, a permanent CSS-selector ban, a
+   is the only way to make a transform look right on any Marp surface (**2,064
+   lines**, a dozen dual-kernel test files, a permanent CSS-selector ban, a
    Chromium-91 feature ceiling on the whole runtime bundle) — all still real,
-   still paid. **Corrected 2026-07-29 (#1256):** this line used to say the
+   still paid. **Corrected 2026-08-02:** this line said "~800 lines" from
+   2026-07-09 until a checker re-measured `lib/runtime/index.js` and found
+   **2,064**. Nobody had recounted it, and the figure had propagated into a
+   downstream audit. It is the number that prices this cost line and that the
+   keep-marp-vscode call was weighed against, so it is worth re-measuring
+   rather than re-citing (`engineering/decisions/2026-08-02-marp-reference-register.md` §5). **Corrected 2026-07-29 (#1256):** this line used to say the
    mirror makes a transform look right "in the vscode preview." It does not —
    that webview executes no scripts, so the preview is CSS-only no matter how
    many mirrors we write. What a mirror actually buys is the exported HTML and

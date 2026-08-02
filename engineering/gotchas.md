@@ -1511,10 +1511,16 @@ substitute: **when you ship a transform engine-only and know it won't render
 correctly (or will render differently) in the VS Code preview, add one line
 below.** Nothing enforces this — an empty table means either "no known gaps"
 or "nobody's logged one," and there's no way to tell which from the table
-alone. Don't read empty as reassurance; the real backstop is the calendar,
-not this list: the audit doc §5(b) re-evaluates whether marp-vscode is still
-worth supporting as a live-preview surface at a fixed 90-day mark regardless
-of how many rows are here.
+alone. Don't read empty as reassurance — **and don't wait for a calendar,
+because there isn't one.** This paragraph used to say "the real backstop is the
+calendar … a fixed 90-day mark"; that was already stale when written. The
+90-day/5-row trigger lives inside a `<details>` block the audit marked
+"superseded 2026-07-10," and the decision above it retires the timer explicitly
+("not as a live plan … **not on a timer**"). Revisiting marp-vscode is
+condition-driven — the preview genuinely stops working, or Studio/Playground
+readiness becomes a live question on its own merits. So this list has **no**
+backstop behind it: a gap nobody logs is a gap nobody knows about. Corrected
+2026-08-02 (`engineering/decisions/2026-08-02-marp-reference-register.md` §5).
 
 | Transform | Symptom on a Marp-rendered surface | Added |
 |---|---|---|

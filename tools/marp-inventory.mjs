@@ -4,8 +4,8 @@
  *
  * Two prior audits (`engineering/decisions/2026-07-09-marp-legacy-audit.md`,
  * `engineering/decisions/2026-07-10-marp-audit-doc-framing.md`) shipped
- * hand-written inventories that
- * were stale within days, because a Marp reference is created by ordinary work
+ * hand-written inventories that were stale within days, because a Marp
+ * reference is created by ordinary work
  * — a comment, a compat note, a spec line — and nothing recounted them. This
  * tool is the recount: it walks the tracked tree and assigns every file that
  * mentions Marp one of eight dispositions, so "what Marp is still doing here"
@@ -97,7 +97,7 @@ const OVERRIDES = {
   ],
   'design/design-principles.md': [
     'interop',
-    'Audited 2026-08-02. Three errors corrected: `data-lattice-pagination` attributed to "the Marp CLI engine" (it is emitted by lib/engine/slides.js), the heading "Part 2: Marp Directives", and "the custom renderer (non-Marp CLI)". What remains is the `--marp-slide-*` token bridge and the scaffold `!important` note.',
+    'Audited 2026-08-02. Four errors corrected: `data-lattice-pagination` mis-attributed to Marp CLI TWICE (it is emitted by lib/engine/slides.js:219), the heading "Part 2: Marp Directives", and "the custom renderer (non-Marp CLI)". What remains is the `--marp-slide-*` token bridge and the scaffold `!important` note.',
   ],
   'design/forms.md': [
     'interop',
@@ -106,6 +106,10 @@ const OVERRIDES = {
   'lib/core/resolve-finish.js': [
     'interop',
     'Audited 2026-08-02. "The three render paths" corrected to two. The remaining line states that Marpit has no native `finish:`, which is true.',
+  ],
+  'lib/engine/css.js': [
+    'provenance',
+    'Audited 2026-08-02. Attributed `data-lattice-pagination` to Marpit; the engine emits it (lib/engine/slides.js:219) and Marpit\'s own is `data-marpit-pagination`. Corrected. The path rule would also land this on `provenance` — pinned anyway so the audit is recorded, not inferred.',
   ],
   'examples/sketch.md': [
     'interop',
@@ -126,7 +130,7 @@ const OVERRIDES = {
   'docs/src/content/docs/spec/lfm.md': ['interop', 'Docs-site copy of the LFM spec.'],
   '.claude/settings.json': [
     'export',
-    'Allows `marp`/`npx marp` so an agent can render an exported bundle and check it — the one check the export boundary has.',
+    'Allows `marp`/`npx marp`. NOTHING records why — the entries landed in an unrelated theming commit (c186442) with no annotation, and JSON carries no comments. Rendering an exported bundle to check it is the plausible purpose and the reason for this placement, but it is inference, not evidence.',
   ],
 };
 
