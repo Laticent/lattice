@@ -68,11 +68,15 @@ const { ensureContrast } = require('../lib/theme/color.js');
 // deliberately skipped: `matrix-2x2` and `split-compare` retired theirs, and with
 // no countable axis lint-core enforces nothing, so publishing a number would state
 // a promise nothing keeps. See the capacityBlock() note in build-component-docs.js.
-function capacityFor(m) {
-  if (m.capacity) return m.capacity;
+// Returns the spread-ready entry (`{ capacity }` or `{}`) rather than the value, so
+// the catalog's object literal derives it in ONE call — the `...(f(m) ? {k: f(m)} : {})`
+// shape reads fine but evaluates twice, and drifts the moment the helper grows.
+function capacityEntry(m) {
+  const flat = m.capacity;
+  if (flat) return { capacity: flat };
   const fam = m.adapt?.capacity;
-  if (!fam?.wide || !fam.axis) return null;
-  return { axis: fam.axis, ...fam.wide };
+  if (!fam?.wide || !fam.axis) return {};
+  return { capacity: { axis: fam.axis, ...fam.wide } };
 }
 
 // A component's user-facing variant looks: its declared `variants` narrowed to the
@@ -580,7 +584,7 @@ function renderPortalJson(manifests) {
     effectiveVariants: effectiveVariants(m),
     familyModifiers: familyModifiersFor(m),
     ...(Array.isArray(m.focusAxes) && m.focusAxes.length ? { focusAxes: m.focusAxes } : {}),
-    ...(capacityFor(m) ? { capacity: capacityFor(m) } : {}),
+    ...capacityEntry(m),
     ...(m.density ? { density: m.density } : {}),
     slots: m.slots || {},
     skeleton: m.skeleton,

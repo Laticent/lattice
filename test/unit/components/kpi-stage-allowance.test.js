@@ -41,12 +41,18 @@ const path = require('node:path');
 const ROOT = path.join(__dirname, '..', '..', '..');
 const KPI_CSS = path.join(ROOT, 'lib', 'components', 'evidence', 'kpi', 'kpi.styles.css');
 
-/** Strip comments so prose about `minmax(0, 1fr)` never trips a declaration check. */
-function stripComments(css) {
-  return css.replace(/\/\*[\s\S]*?\*\//g, '');
+/**
+ * Comments stripped (so prose about `minmax(0, 1fr)` never trips a declaration check)
+ * and runs of whitespace collapsed to one space. The collapse keeps these assertions
+ * about SEMANTICS: a selector list is matched by its text, and without normalizing, a
+ * whitespace-only reformat of kpi.styles.css — a line rewrapped, a selector list put on
+ * one line — would red the suite with nothing behavioral changed.
+ */
+function normalize(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ');
 }
 
-/** The declaration block a selector-substring opens, comments removed. */
+/** The declaration block a selector-substring opens. */
 function blockContaining(css, needle) {
   const at = css.indexOf(needle);
   assert.notEqual(at, -1, `expected kpi.styles.css to contain ${needle}`);
@@ -56,10 +62,10 @@ function blockContaining(css, needle) {
 }
 
 describe('components: the kpi ledger divides its stage', () => {
-  const css = stripComments(fs.readFileSync(KPI_CSS, 'utf8'));
+  const css = normalize(fs.readFileSync(KPI_CSS, 'utf8'));
 
   test('the stage list yields to the stage — min-height: 0, not the auto floor', () => {
-    const block = blockContaining(css, 'section.kpi > .cell-stage > ol,\nsection.kpi > .cell-stage > ul');
+    const block = blockContaining(css, 'section.kpi > .cell-stage > ol, section.kpi > .cell-stage > ul');
     assert.match(block, /flex:\s*1\b/, 'the list still fills the stage');
     assert.match(
       block,
