@@ -163,8 +163,8 @@ describe('createThemeFetcher — relative font url() rewriting', () => {
 	});
 
 	// Documents a real assumption: every current caller's themeBase ends in the
-	// literal 'themes/' (studio.astro/workbench.astro/playground.astro/
-	// drawing-board.astro/index.astro/Specimen.astro all build it via
+	// literal 'themes/' (studio.astro/playground.astro/index.astro/Specimen.astro
+	// all build it via
 	// `joinBase(base, 'themes/')`), so `.replace(/themes\/$/, 'katex/fonts/')`
 	// always fires. A themeBase WITHOUT that trailing segment does NOT error
 	// and does NOT no-op either — `.replace()` returns themeBase UNCHANGED when

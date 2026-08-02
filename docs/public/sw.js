@@ -33,14 +33,17 @@
  * becomes wrong — and a bump would force a needless one-time full re-download of the
  * whole cache (the very storm this reduces).
  *
- * v1 → v2 (2026-08-02): the /drawing-board/ and /workbench/ routes were DELETED. The
- * runtime page cache is not purged by a deploy, so an offline visitor with either page
- * cached would keep being served a dead shell whose JS chunks are gone — a half-evicted
- * route that fails in place rather than redirecting. Dropping the old caches on activate
- * is the only way to retire them; the cost is one full re-download, accepted deliberately.
+ * 2026-08-02: the /drawing-board/ and /workbench/ routes were DELETED, and the first
+ * attempt at retiring their cached pages bumped VERSION to v2. That was the wrong tool and
+ * rested on a false premise: /_astro/ chunks are served CACHE-FIRST and are NOT
+ * version-evicted (see the dispatch comment below), so an offline visitor's cached
+ * /drawing-board/ would have kept WORKING, not failed half-evicted. A VERSION bump drops all
+ * three caches — up to 60 pages + 800 assets + 40 fonts — to retire TWO page entries, which
+ * is exactly the re-download storm the 2026-07-21 note above declined to cause. RETIRE THE
+ * TWO ENTRIES DIRECTLY instead (see `activate`), and leave VERSION alone.
  */
 
-const VERSION = 'v2';
+const VERSION = 'v1';
 const PAGES = `lattice-${VERSION}-pages`;
 const ASSETS = `lattice-${VERSION}-assets`;
 const FONTS = `lattice-${VERSION}-fonts`;
@@ -51,6 +54,9 @@ const ALL_CACHES = [PAGES, ASSETS, FONTS];
 // a navigation (redirect mode 'manual') — the fallback would break on the
 // PR-preview host. /offline/ serves 200 on every host we deploy to.
 const OFFLINE_URL = '/offline/';
+// Routes deleted from the site. Their cached pages are dropped on activate (above) so an
+// offline visitor gets the redirect rather than a shell for a page that no longer ships.
+const RETIRED_PAGES = ['/drawing-board/', '/workbench/'];
 // Never runtime-cache these: large, download-manager territory.
 const SKIP_EXTENSIONS = /\.(pdf|pptx|zip)$/i;
 // Per-cache entry caps — a coarse FIFO trim keeps storage bounded.
@@ -91,6 +97,15 @@ self.addEventListener('activate', (event) => {
 			caches
 				.open(PAGES)
 				.then((cache) => cache.add(OFFLINE_URL))
+				.catch(() => {}),
+			// Retire the pages of routes that no longer exist. A deploy never purges the
+			// runtime page cache, so without this an offline visitor keeps being served a
+			// cached /drawing-board/ or /workbench/ instead of the redirect. Targeted, so it
+			// costs those two entries rather than the whole cache a VERSION bump would drop.
+			// Safe to re-run and safe when absent; drop entries here as routes retire.
+			caches
+				.open(PAGES)
+				.then((cache) => Promise.all(RETIRED_PAGES.map((u) => cache.delete(u))))
 				.catch(() => {}),
 		]).then(() => self.clients.claim()),
 	);

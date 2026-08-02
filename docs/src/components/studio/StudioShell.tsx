@@ -30,6 +30,7 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-sli
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -1570,6 +1571,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// A guided "watch it drive itself" tour: a fake cursor + captions play a
 	// storyboard against the LIVE Studio, driving real setters (not synthetic
 	// events), and hand the wheel back the instant the viewer clicks or types.
+	// The shared cross-surface guided-tours flag (tour-prefs). Its switch lives in
+	// Workspace → General and its copy promises "hide them everywhere" — which was untrue
+	// here: the Studio's own Show-me menu ignored it. Subscribed, so a flip made from the
+	// Playground (or the sheet) takes effect without a reload.
+	const [toursOn, setToursOn] = React.useState(true);
+	React.useEffect(() => {
+		setToursOn(toursEnabled());
+		const off = onToursEnabledChange(setToursOn);
+		return () => {
+			off();
+		};
+	}, []);
 	const { demoActive, startDemo } = useStudioDemo(rootRef, {
 		palette,
 		createFirstDeck: createDemoFirstDeck,
@@ -3310,7 +3323,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    title (2026-07-03 decision). */}
 				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
-				{!mobile && (
+				{!mobile && toursOn && (
 					<DropdownMenu>
 						<Tooltip>
 							<TooltipTrigger asChild>

@@ -1,5 +1,6 @@
 import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
+import { orSupportsCache } from '@/components/studio/ai/architect-model.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
 import { readCachingEnabled, readDedupEnabled, writeCachingEnabled, writeDedupEnabled } from '@/components/studio/ai/spend.js';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEn
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
-import { setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
+import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
@@ -171,7 +172,13 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [caching, setCaching] = React.useState(true);
 	React.useEffect(() => { setCaching(readCachingEnabled()); }, []);
 	const [tours, setTours] = React.useState(true);
-	React.useEffect(() => { setTours(toursEnabled()); }, []);
+	React.useEffect(() => {
+		setTours(toursEnabled());
+		const off = onToursEnabledChange(setTours);
+		return () => {
+			off();
+		};
+	}, []);
 
 	// Performance overlay — wired to the shared cross-surface pref (SSOT), NOT a
 	// StudioSettings field: one flag governs the Studio and the Playground alike,
@@ -223,6 +230,10 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
 	const ai = useArchitectStatus(pulse);
+	// Only a connected model whose vendor takes an EXPLICIT cache breakpoint can honor the
+	// switch — `withCachedSystem` no-ops for everyone else, and the auto-caching vendors
+	// cache server-side whatever this says. Gate the control rather than lie about it.
+	const cacheUsable = ai.openRouterReady && orSupportsCache(ai.modelId ?? '');
 	const [genView, setGenView] = React.useState<GenView>('cloud');
 	const userPickedView = React.useRef(false);
 	const [instructions, setInstructions] = React.useState(loadInstructions);
@@ -861,11 +872,21 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 
 							<AiSection>
 								<GroupLabel icon={<Zap className="size-3.5" />}>Prompt caching</GroupLabel>
-									<label htmlFor="ws-caching" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-										<Switch id="ws-caching" aria-label="Reuse the cached prompt" checked={caching} onCheckedChange={(next) => { setCaching(next); writeCachingEnabled(next); }} />
+									{/* Honesty gate: the switch only does something on a model that takes an
+									    explicit cache breakpoint. The panel this replaced disabled it otherwise;
+									    losing that turned `orSupportsCache` into dead code and left the control
+									    promising a saving it could not deliver on most of the catalog. */}
+									<label htmlFor="ws-caching" className={cn('mt-2 flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5', cacheUsable ? 'cursor-pointer' : 'opacity-60')}>
+										<Switch id="ws-caching" aria-label="Reuse the cached prompt" disabled={!cacheUsable} checked={caching} onCheckedChange={(next) => { setCaching(next); writeCachingEnabled(next); }} />
 										<span className="min-w-0">
 											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Reuse the cached prompt</span>
-											<span className="block text-[11px] text-muted-foreground">Chat re-sends a large, unchanging preamble every turn. Caching it bills that part at about a tenth on later turns, at the cost of a small surcharge the first time. Worth leaving on unless you only ever send one-off messages.</span>
+											<span className="block text-[11px] text-muted-foreground">
+												{cacheUsable
+													? 'Chat re-sends a large, unchanging preamble every turn. Caching it bills that part at about a tenth on later turns, for a small surcharge the first time — worth leaving on for any real conversation.'
+													: ai.openRouterReady
+														? 'This model does not take a cache breakpoint, so the setting has no effect on it. Anthropic and Google models do.'
+														: 'Connect a cloud model in Model above and this applies to it.'}
+											</span>
 										</span>
 									</label>
 							</AiSection>

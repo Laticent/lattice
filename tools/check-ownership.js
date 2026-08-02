@@ -1936,7 +1936,7 @@ const PREVIEW_BUILDER_MARKER = /['"]<scr['"]\s*\+\s*['"]ipt/;
 const SANITIZE_CALL = /sanitizeSlideHtml\s*\(/;
 const SANCTIONED_PREVIEW_BUILDERS = [
   { file: 'docs/src/playground/deck-preview.js', why: 'buildSrcdoc + renderDeck (the latter also sanitizes the patchSections innerHTML path).' },
-  { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / workbench single-slide preview.' },
+  { file: 'docs/src/lib/single-slide-render.ts', why: 'srcdoc() — landing islands / specimens / the Studio\'s single-slide preview.' },
   { file: 'docs/src/components/studio/present/presenter-window.js', why: 'buildStageDoc — the Studio\'s dual-screen presenter AND rehearsal stage.' },
 ];
 

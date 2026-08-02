@@ -116,7 +116,12 @@ in patch versions.
   Studio reads the very same `lattice-workbench` IndexedDB store the Workbench wrote to; that
   name is user data and deliberately does not change. Any decks left in the Drawing Board's
   `lattice-drawing-board` store are **not deleted** — the removal drops no stores, and the
-  origin's IndexedDB outlives the page that wrote it. Two smaller capabilities retire with the
+  origin's IndexedDB outlives the page that wrote it. Be aware, though, that **there is no
+  in-product way to get those decks back out**: no importer shipped, so recovering one means
+  reading the store by hand (DevTools → Application → IndexedDB → `lattice-drawing-board` →
+  `decks` → the `source` field) or waiting for an importer to be built. If you have decks there
+  and want them, say so — the data is intact and an importer can still be written against it.
+  Two smaller capabilities retire with the
   surfaces rather than moving: the Architect's **worked-example tier picker** (Short · Standard ·
   Full, with live slide counts) has no Studio equivalent, and the **"Export chart" SVG** item from
   the Drawing Board's Export menu loses its button — its kernel and the `tools/export-chart-svg.js`
@@ -135,7 +140,7 @@ in patch versions.
   prefix (persona + canon + edit protocol + primer) that stays byte-identical turn to turn and
   carries the prompt-cache breakpoint, and a dynamic tail (assessment + retrieved canon + any
   per-turn constraint) that does not. Appending the assessment to the prefix instead — the obvious
-  port — would re-write the whole ~10K-token prefix to cache on every turn at the 1.25x write
+  port — would re-write the whole ~17K-token prefix to cache on every turn at the 1.25x write
   premium and never read a hit. The author's **standing instructions and output language survive
   the split** (they ride a third, uncached part), and the on-device tier is deliberately spared the
   primer, which would swamp a small model's context. The **prompt-caching opt-out now works, and has
@@ -143,7 +148,18 @@ in patch versions.
   toggle did nothing; the model layer reads it per turn now, and since that panel retired with its
   route the switch moved to **Workspace → AI**. It governs the Coach's per-finding Fix too, which
   had been paying the cache-write surcharge regardless. **Guided tours** moved for the same reason —
-  its only switch was on the Drawing Board, and the Playground's tour still reads the flag.
+  its only switch was on the Drawing Board, and the Playground's tour still reads the flag; unlike
+  before, it now also governs the Studio's own "Show me" tours, which its copy always claimed.
+  Both switches are honest about when they do nothing: the caching one is disabled unless the
+  connected model actually takes a cache breakpoint.
+- **What the grounding costs, stated plainly.** The primer is ~17K tokens, so a first cloud chat
+  turn writes a substantially bigger prompt than before — the caching is what pays that back from
+  turn two, which is why the switch above matters. The Coach's per-finding **Fix** shares the same
+  primer and got the same increase, and it is a one-shot path that does not amortize the way a
+  conversation does. Independently of the model, the component catalog the primer is built from is
+  serialized into `/studio/`'s initial HTML, which grew by ~66 KB (~16 KB gzipped) — paid by every
+  visitor to the page, including those who never open the chat. Reducing that is follow-up work,
+  not something this change does.
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a
@@ -7272,7 +7288,7 @@ in patch versions.
   to the proven tier. OpenRouter is OpenAI-compatible and streams; it's treated
   as a capable tier (full Lattice dossier + edit protocol), same as Puter/WebLLM.
   On the OpenRouter (Anthropic) path the static prompt prefix — persona + the
-  Lattice primer + the edit protocol, ~10K tokens identical every turn — carries
+  Lattice primer + the edit protocol, ~17K tokens identical every turn — carries
   an `ephemeral` prompt-cache breakpoint (1-hour TTL, so it survives think-gaps
   across an authoring session rather than expiring after the default 5 minutes),
   so repeat turns bill that slice at ~10%

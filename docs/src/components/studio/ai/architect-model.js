@@ -227,8 +227,16 @@ export function orPricePerM(raw) {
 // that does nothing) rather than a correctness one. Keyed on the vendor prefix —
 // the providers OpenRouter documents as supporting prompt caching.
 const OR_CACHE_VENDORS = new Set(['anthropic', 'openai', 'deepseek', 'google', 'x-ai']);
+// The vendor prefix, with OpenRouter's ALIAS marker stripped. Both Studio defaults are
+// aliases (`~anthropic/claude-haiku-latest`, `~anthropic/claude-sonnet-latest`) so that the
+// id can't rot as models are superseded — but `'~anthropic/…'.split('/')[0]` is
+// `'~anthropic'`, which matched neither vendor set. Every caching decision below silently
+// took the "not supported" branch for the models we actually ship: no breakpoint was ever
+// emitted, so Anthropic (which caches ONLY what you mark) cached nothing, and the whole
+// static-prefix seam was inert out of the box. Normalize once, here.
+const vendorOf = (id) => String(id || '').replace(/^~/, '').split('/')[0];
 export function orSupportsCache(id) {
-  return OR_CACHE_VENDORS.has(String(id || '').split('/')[0]);
+  return OR_CACHE_VENDORS.has(vendorOf(id));
 }
 
 // The vendors whose prompt caching needs an EXPLICIT `cache_control` breakpoint to
@@ -247,7 +255,7 @@ const OR_CACHE_BREAKPOINT_VENDORS = new Set(['anthropic', 'google']);
 // returns a new array, inputs untouched; a string `content` becomes the one-text-part
 // array form OpenRouter expects the `cache_control` field on.
 export function withCachedSystem(messages, modelId, ttl) {
-  if (!OR_CACHE_BREAKPOINT_VENDORS.has(String(modelId || '').split('/')[0])) return messages;
+  if (!OR_CACHE_BREAKPOINT_VENDORS.has(vendorOf(modelId))) return messages;
   const mark = ttl ? { type: 'ephemeral', ttl } : { type: 'ephemeral' };
   let marked = false;
   return (messages || []).map((m) => {
@@ -433,7 +441,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       const cacheOn = readCachingEnabled();
       // `cacheTtl` opts a caller into a LONGER breakpoint than the provider default (5 min).
       // The chat asks for '1h': a conversation has think-gaps, and a 1h write costs 2x base
-      // input against 1.25x for 5m — but one avoided re-write of the ~10K-token prefix more
+      // input against 1.25x for 5m — but one avoided re-write of the ~17K-token prefix more
       // than pays that back, so it wins after a single gap longer than five minutes. Ported
       // with its reasoning from the Drawing Board's chat, which set it explicitly.
       const body = { model: this.getModel(), messages: cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages, stream: !!onToken, usage: { include: true } };
@@ -823,7 +831,14 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       if (!json) return (out && String(out).trim()) || fallback || '';
       const parsed = extractJson(out);
       return parsed ?? (fallback ?? {}); // validate-or-floor
-    } catch {
+    } catch (e) {
+      // An explicit user Stop is NOT a model failure — it must reach the caller, which
+      // keeps the streamed partial and charges an estimate for tokens already spent
+      // (architect.ts chatComplete). Falling through to the floor here swallowed the
+      // abort, discarded the reply, and recorded $0 for a request the provider had
+      // already billed — so a hard-stop budget cap could be evaded by repeatedly
+      // starting and stopping turns. Every OTHER failure still floors.
+      if (e?.name === 'AbortError') throw e;
       return floorBackend.complete(opts); // any model failure → the floor
     }
   }

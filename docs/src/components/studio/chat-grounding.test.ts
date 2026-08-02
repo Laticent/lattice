@@ -6,7 +6,7 @@
 //   1. The user's INSTRUCTIONS vanish. `withStudioVoice` merges the language directive
 //      + standing instructions into a *string* system turn; grounding splits that turn
 //      into content-parts first, so a naive port drops the voice on the floor.
-//   2. The user's MONEY burns. The static prefix (persona + canon + ~10K-token primer)
+//   2. The user's MONEY burns. The static prefix (persona + canon + ~17K-token primer)
 //      must stay byte-identical turn to turn so the cache breakpoint lands after it.
 //      Appending the live assessment to that prefix would re-write the whole thing to
 //      cache every turn at the 1.25x write premium, with zero hits.
@@ -44,7 +44,9 @@ describe('buildChatSystem — the static/dynamic split', () => {
 	it('puts the assessment in the DYNAMIC tail, never the cacheable prefix', () => {
 		const { staticPrefix, dynamicTail } = buildChatSystem('openrouter', { scorecard: SCORECARD, findings: FINDINGS });
 		expect(dynamicTail).toContain('A− (87/100)');
-		expect(dynamicTail).toContain('Slide opens without a title (slide 2)');
+		// JSON-quoted on purpose: the message quotes the author's deck, and the deck can be
+		// untrusted. The quoting is the containment, so pin it rather than the bare text.
+		expect(dynamicTail).toContain('"Slide opens without a title" (slide 2)');
 		// The whole point: the volatile half must not touch the cached half.
 		expect(staticPrefix).not.toContain('87');
 		expect(staticPrefix).not.toContain('Slide opens without a title');
@@ -62,7 +64,7 @@ describe('buildChatSystem — the static/dynamic split', () => {
 		const cloud = buildChatSystem('openrouter', { catalog: CATALOG });
 		const local = buildChatSystem('webllm', { catalog: CATALOG });
 		expect(cloud.staticPrefix).toContain('actors');
-		// A 10K-token primer makes a small on-device model lose the thread.
+		// A 17K-token primer makes a small on-device model lose the thread.
 		expect(local.staticPrefix).not.toContain('You know Lattice, the Markdown slide engine');
 	});
 
@@ -150,7 +152,7 @@ describe('the cache breakpoint lands after the static prefix (failure mode 2)', 
 	});
 
 	// The chat asks for a 1-hour breakpoint rather than the provider's 5-minute default.
-	// A conversation has think-gaps; at the 5m default the ~10K-token prefix is re-written
+	// A conversation has think-gaps; at the 5m default the ~17K-token prefix is re-written
 	// after every lull, which is most turns. Ported with its cost reasoning from the
 	// Drawing Board's chat, where it was explicit — and dropped silently in the first port,
 	// because the test that pinned it was deleted along with its subject.

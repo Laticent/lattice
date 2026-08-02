@@ -2,7 +2,7 @@
 // through — so an engine-loading gate is ONE edit, not N.
 //
 // WHY THIS EXISTS. Every docs render surface (single-slide-render.ts,
-// playground-engine.ts, theme-studio.js, component-studio.js, share-export.ts
+// playground-engine.ts, the Studio's Fabricate faculties, share-export.ts
 // — the Workbench studios and the Studio's Share/export pipeline) used to call
 // `window.LatticePlayground.render(...)` directly. That stopped being enough
 // once KaTeX needed to load lazily (~78.5KB gz, was 13.5% of the engine bundle
@@ -18,13 +18,10 @@
 // loaded here only when a pre-scan (lib/engine/math-detect.mjs's
 // sourceHasMath, KaTeX-free by construction) finds math syntax in the source.
 //
-// (The Drawing Board's `PG.render()` call sites are NOT migrated here: the
-// Drawing Board is frozen — engineering/decisions/2026-07-03-studio-
-// succession.md — and ordinary functional/perf work isn't one of its three
-// narrow exemptions. Its page shell instead eagerly loads the KaTeX provider
-// unconditionally, same as its pre-existing behavior — see drawing-board.astro
-// and issue #870, which logged the same call-site-migration exemption for a
-// different fix.)
+// (The Drawing Board used to carry an un-migrated `PG.render()` call site here,
+// exempted while that surface was frozen; it retired with the route in the Studio
+// succession — engineering/decisions/2026-07-03-studio-succession.md P5 — so the
+// exemption is moot and every remaining call site goes through this module.)
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';

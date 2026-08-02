@@ -84,3 +84,36 @@ describe('architect-model — prompt-cache breakpoint (#610)', () => {
 		expect(out[0].content).toEqual(preMarked.content); // left as authored, no second breakpoint
 	});
 });
+
+// The ids the product ACTUALLY ships are OpenRouter aliases — `architect.ts`'s
+// `defaultModel: '~anthropic/claude-haiku-latest'` and this module's own
+// `DEFAULT_OR_MODEL = '~anthropic/claude-sonnet-latest'`. The vendor split used to read
+// `'~anthropic'`, so no breakpoint was emitted for either, and Anthropic caches only what
+// you mark: the entire static-prefix seam was inert for the default model while every test
+// here passed against a bare `anthropic/…` id nobody is served. Test the shipped ids.
+describe('architect-model — the alias prefix does not defeat caching', () => {
+	for (const id of ['~anthropic/claude-haiku-latest', '~anthropic/claude-sonnet-latest', '~google/gemini-2.5-pro']) {
+		it(`marks the system block for the shipped alias ${id}`, () => {
+			const out = withCachedSystem([SYS, USER], id);
+			expect(Array.isArray(out[0].content)).toBe(true);
+			expect(out[0].content).toEqual([{ type: 'text', text: SYS.content, cache_control: { type: 'ephemeral' } }]);
+			expect(out[1]).toEqual(USER);
+		});
+	}
+
+	it('carries the chat’s 1h TTL through an alias id too', () => {
+		const out = withCachedSystem([SYS, USER], '~anthropic/claude-haiku-latest', '1h');
+		expect((out[0].content as { cache_control?: unknown }[])[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
+	});
+
+	it('reports alias ids as cache-capable to the UI-honesty gate', () => {
+		expect(orSupportsCache('~anthropic/claude-haiku-latest')).toBe(true);
+		expect(orSupportsCache('~openai/gpt-5')).toBe(true);
+		expect(orSupportsCache('~meta-llama/llama-3-70b')).toBe(false);
+	});
+
+	it('leaves an auto-caching vendor alone whether or not it is aliased', () => {
+		expect(withCachedSystem([SYS, USER], '~openai/gpt-5')).toEqual([SYS, USER]);
+	});
+});
+

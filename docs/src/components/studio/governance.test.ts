@@ -63,7 +63,7 @@ afterEach(() => {
 
 describe('governance — stats', () => {
 	it('splits Cache Storage names into "downloaded models" (ours excluded) vs "cache" (ours only)', async () => {
-		stubCaches({ 'lattice-v2-pages': [], 'lattice-v2-assets': [], 'webllm/model-cache': [], 'transformers-cache': [] });
+		stubCaches({ 'lattice-v1-pages': [], 'lattice-v1-assets': [], 'webllm/model-cache': [], 'transformers-cache': [] });
 		const stats = await loadGovernanceStats();
 		expect(stats.siteCache.count).toBe(2);
 		expect(stats.models.count).toBe(2);
@@ -81,7 +81,7 @@ describe('governance — stats', () => {
 	});
 
 	it('falls back to reading the blob when a cached response has no content-length', async () => {
-		stubCaches({ 'lattice-v2-pages': [{ url: 'https://x/page', size: 4096, noContentLength: true }] });
+		stubCaches({ 'lattice-v1-pages': [{ url: 'https://x/page', size: 4096, noContentLength: true }] });
 		const stats = await loadGovernanceStats();
 		expect(stats.siteCache.bytes).toBe(4096);
 	});
@@ -103,7 +103,7 @@ describe('governance — stats', () => {
 	it('totalBytes sums decks + Library + models + site cache (OpenRouter carries no size)', async () => {
 		stubCaches({
 			'webllm/model-cache': [{ url: 'https://x/shard.bin', size: 10 * 1024 * 1024 }],
-			'lattice-v2-assets': [{ url: 'https://x/app.js', size: 2048 }],
+			'lattice-v1-assets': [{ url: 'https://x/app.js', size: 2048 }],
 		});
 		const stats = await loadGovernanceStats();
 		expect(stats.totalBytes).toBe(stats.decks.bytes + stats.library.bytes + stats.models.bytes + stats.siteCache.bytes);
@@ -121,30 +121,30 @@ describe('governance — clear actions', () => {
 	});
 
 	it('clearDownloadedModels deletes only non-site caches, leaving the PWA cache alone', async () => {
-		const deleted = stubCaches({ 'lattice-v2-pages': [], 'webllm/model-cache': [] });
+		const deleted = stubCaches({ 'lattice-v1-pages': [], 'webllm/model-cache': [] });
 		await clearDownloadedModels();
 		expect(deleted).toEqual(['webllm/model-cache']);
 	});
 
 	it('clearSiteCache deletes only the site caches, leaving a model cache alone', async () => {
-		const deleted = stubCaches({ 'lattice-v2-pages': [], 'lattice-v2-fonts': [], 'webllm/model-cache': [] });
+		const deleted = stubCaches({ 'lattice-v1-pages': [], 'lattice-v1-fonts': [], 'webllm/model-cache': [] });
 		await clearSiteCache();
-		expect(deleted.sort()).toEqual(['lattice-v2-fonts', 'lattice-v2-pages']);
+		expect(deleted.sort()).toEqual(['lattice-v1-fonts', 'lattice-v1-pages']);
 	});
 
 	it('clearEverything clears decks (back to the built-in seed), the Library, and both cache buckets — and reports every category as succeeded', async () => {
-		stubCaches({ 'lattice-v2-pages': [], 'webllm/model-cache': [] });
+		stubCaches({ 'lattice-v1-pages': [], 'webllm/model-cache': [] });
 		createDeck('Will be cleared');
 		const result = await clearEverything();
 		// An emptied index re-seeds from the built-ins on the next read — never zero.
 		expect(deckContentStats().count).toBe(DECKS.length);
 		expect(deleteSpy).toHaveBeenCalledTimes(2); // the two mocked library assets
-		expect(result.succeeded.sort()).toEqual(['cache', 'decks', 'library', 'models', 'openrouter'].sort());
+		expect(result.succeeded.sort()).toEqual(['cache', 'decks', 'library', 'models', 'openrouter', 'retired'].sort());
 		expect(result.failed).toEqual([]);
 	});
 
 	it('clearEverything reports a partial failure honestly — decks stay cleared, and the other categories are attempted independently (allSettled, not fail-fast)', async () => {
-		stubCaches({ 'lattice-v2-pages': [], 'webllm/model-cache': [] });
+		stubCaches({ 'lattice-v1-pages': [], 'webllm/model-cache': [] });
 		createDeck('Will still be cleared even if another category fails');
 		listSpy.mockRejectedValueOnce(new Error('IndexedDB unavailable')); // clearLibraryAssets's listAssets() call throws
 		const result = await clearEverything();
