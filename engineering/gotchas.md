@@ -849,6 +849,34 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   check the rendered HTML — `marp deck.md --html -o out.html` then grep the emitted
   prelude — rather than assuming the selector survived.
 
+### A CSS reset declaration silently does nothing — the value doesn't exist
+
+- **Symptom:** a declaration written to OVERRIDE an inherited or lower-specificity
+  one has no effect. The rule matches, specificity is right, the bundle builds, every
+  golden renders pixel-identical, and the regression gate stays green. Found on
+  `text-wrap: normal`, written to strip `text-wrap: balance` from a bookend eyebrow
+  (#1309); both exclusions were dead and the eyebrows kept balancing.
+- **Cause:** the value is not in the property's grammar, so the declaration is
+  **invalid at parse time and dropped**. `text-wrap` is a shorthand over
+  `text-wrap-mode` (`wrap | nowrap`) and `text-wrap-style` (`auto | balance | stable
+  | pretty`) — `normal` is in neither, and `CSS.supports('text-wrap','normal')` is
+  `false`. Nothing in the toolchain objects: it is valid *syntax*, so `checkCssSyntax`
+  passes, and a no-op override often changes no pixels, so no golden moves. The CSS
+  reads as a working reset and the comment above it describes an empty declaration.
+- **Fix:** prove an override by reading the **computed** value on a real render, not
+  by observing that you wrote the property — and read it with
+  `getComputedStyle(el).getPropertyValue('text-wrap')`, not the camel-cased
+  `.textWrap`. Both work in the Chromium the render paths use, but the string form
+  cannot silently return `undefined` on an engine whose IDL attribute for a newer
+  property lags. For a **shorthand**, read the longhands instead — here
+  `getPropertyValue('text-wrap-mode')` and `('text-wrap-style')` — which say *which
+  half* actually applied rather than collapsing both into one token. And run
+  `CSS.supports(prop, value)` for any value you have not used before. Here the
+  correct reset is `text-wrap: wrap` (mode `wrap`, style `auto`).
+  This class of bug is invisible to every gate the repo has, so it rides on
+  verification discipline (HARD RULE #23).
+  See `engineering/decisions/2026-08-02-sovereign-bookend-measures.md`.
+
 ### A committed render golden doesn't match a fresh render — check staleness FIRST
 
 - **Symptom:** a committed gallery golden
