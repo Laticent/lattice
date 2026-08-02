@@ -216,11 +216,84 @@ are in the guard even though the scoping already excludes their wrapped tables,
 because the rule that is easy to state is the one that stays true: *a component
 that styles `<table>` owns its tables, and base stands off.*
 
-The guard is gated (`checkUniversalTableGuard`, `tools/check-ownership.js`): it
-reads the deny list back out of the stylesheet, fails on a table-styling component
-with no entry, and fails on a stale entry — so it cannot rot. Verified: the corpus
-ratchet holds at 27 across 248 decks, and the three specialists on the probe deck
-pixel-diff to **0**.
+**Two entries are variant-scoped, and the gate enforces that.** `math` styles a
+table only under `.derivation`, `statute-stack` only under `.lane`. A
+name-granularity entry for either withholds the default from a bare `_class: math`
+slide — reintroducing raw browser defaults on the exact surface this section
+exists to fix. Caught by rendering it, not by reading it. So the guard denies
+`.math.derivation` / `.statute-stack.lane`, and `checkUniversalTableGuard` fails
+three ways: a claim with no entry, a **stale** entry, and an **over-broad** entry
+(`:not(.math)` when only `.math.derivation` claims a table). Eleven unit tests,
+including the wired-into-`run()` assertion the rest of that file's gates carry.
+
+**No first-column emphasis.** An earlier cut gave `td:first-child` heading ink and
+600 weight, mirroring compare-table and obligation-matrix. Those two can assert it
+— their manifests declare the first column IS the row label. Base cannot: it sets
+the identical property pair as `section strong`, so `**bold**` in column one
+becomes a no-op with no way to opt out, and it is simply wrong on a leading
+ordinal, a status tick, a citation index, or a single-column table (every cell
+bold). Dropped.
+
+**Cell padding is half `--sp-xs`, and that number was earned.** The first cut used
+the full token and made rows 15% taller (38.2px → 43.9px) — the compact type saved
+less than the padding spent. Measured on a plain `content` slide, that moved the
+clip threshold from **11 rows to 10**: a ten-row table that fit on `main` exported
+with its last row *silently gone*, because a plain table has no capacity axis and
+the Fit Spine cannot split it. That is a HARD RULE #18 break the corpus ratchet
+could never have caught (see below). At half the token the threshold is **12 rows**
+— one better than before this block existed.
+
+| | row height | clips at |
+|---|---|---|
+| `main` (unstyled) | 38.2px | 11 rows |
+| first cut (`--sp-xs`) | 43.9px | **10 rows** ← regression |
+| shipped (`--sp-xs` × 0.5) | — | 12 rows |
+
+#### What was verified, and what the instruments actually prove
+
+- **Contrast, all 61 components** (`tools/check-slide-contrast.js` over a probe
+  deck putting the same table on every component): 66 sub-AA runs → **39**, and
+  **zero** table cells. The 27 that cleared were a **pre-existing** defect this
+  change fixes — see §6.
+- **Three specialists pixel-diff to 0** on the probe deck.
+- **Corpus ratchet holds at 27 across 249 decks** (249, not 248 — the demo deck
+  this change adds is itself in the corpus glob). Say plainly what that is worth:
+  the shipped corpus contained **zero** authored tables on a non-owning slide before
+  this change, so the ratchet's denominator for the affected set is zero. It proves
+  the deny guard and the figure-scoping did not disturb the tables that already
+  existed — and the seven specialist galleries pixel-diff to 0 across 76 pages,
+  which is the real form of that proof. It does **not** evidence the treatment's
+  quality, and it structurally could not have caught the row-capacity regression
+  above. That evidence is the contrast sweep, the fit rig, and rendered review.
+
+**The `:where()` guard survives selector scoping.** Both render paths re-scope
+theme CSS under the slide root, and `gotchas.md` §"Marpit theme prefixer mangles
+`:is(...)`/`:where(...)`" documents a real trap there — but only for a selector
+that *leads* with the function. This guard leads with `section`, the form that
+section explicitly calls safe, and `base.modifiers.css` already ships six rules in
+it. Verified on the owned engine by running the real `packTheme`
+(`lib/engine/css.js`) over all three shapes — the `:where()` guard, the
+`:where(.cell-stage)` arm, and the `:is()` bookend support rule — each scopes to
+`article.lattice > section…` intact. Export through **real marp-cli is
+UNVERIFIED**: `@marp-team/marp-core` is not installed in this sandbox.
+
+#### Recorded, not fixed
+
+- A table inside `split-panel` / `split-compare` / `compare-code` / `image` lands
+  in a side frame, not the slide body's top level, so it gets nothing. The frame
+  set is already maintained in one place — `CLIP_CELL_SELECTOR`
+  (`lib/core/overflow-probe.js`), which `collections.js` reads rather than
+  duplicating, precisely so "a new clip-cell class can't silently fall through the
+  way `.panel-right` originally did." This CSS hardcodes `.cell-stage` and cannot
+  read that JS constant. Widening it is a real improvement and a wider blast
+  radius; it belongs in its own change with its own render pass.
+- `_class: sketch` now draws machine-straight table hairlines that
+  `base.sketch.css` has no rule to roughen — it enumerates the four table
+  components and a plain table was never in scope because it drew no lines.
+- The zebra reads `--accent` directly rather than the `--spectrum-structure`
+  register `base.variants.css` documents for in-content accent lines, so
+  `spectrum: off` does not flatten it. Inherited from obligation-matrix's
+  identical expression; newly universalized.
 
 ### 5. An `# H1` is invisible on a light-theme slide that has no dark panel
 
@@ -231,12 +304,17 @@ un-classed slide "already works". `base.elements.css` sets
 section h1 { …; color: var(--text-display); … }
 ```
 
-and `--text-display` is, in **all thirteen** light themes, a near-white ink: indaco
-`#FFFFFF` ("on dark surfaces — 11.29:1 on bg-dark"), cuoio `#FAF7F2`, carbone
-`#F5F5F2`, and so on. It is correct for every component that puts its `h1` on a
-dark panel — `title`, `divider`, `closing`, `big-number` — which is every component
-that uses `h1` today. On a bare slide, or any slide whose `h1` sits on the theme's
-light `--bg`, the heading renders **white on white**.
+and `--text-display` is a near-white ink in **all thirteen** light palettes —
+indaco `#FFFFFF` ("on dark surfaces — 11.29:1 on bg-dark"), cuoio `#FAF7F2`,
+atelier `#F0EDE6`, burgundy `#F0E2CE`, and so on down to mustard `#F0E5C8`.
+(Thirteen, not fourteen: `carbone` is the one dark-only palette and is excluded —
+which is also #1302.)
+
+**`title` is the only component that styles `h1` at all.** `divider` and `closing`
+style `h2`; `big-number` uses neither `h1` nor `--text-display` nor a dark panel.
+So the near-white ink has exactly one correct consumer, and every other `h1` in
+the engine — which means every `h1` an author writes on a slide `title` did not
+claim — renders **white on white**.
 
 Reproduced on a two-slide probe with no `_class` at all: the `##` slide renders its
 heading correctly, the `#` slide renders body copy under an empty masthead.

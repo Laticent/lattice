@@ -70,13 +70,13 @@ Markdown's `:---`, `:---:` and `---:` alignment survives untouched — the treat
 
 ## A specialist is untouched
 
-A component that styles `<table>` owns its tables, and base stands off. Seven do: compare-table, glossary, obligation-matrix, statute-stack, math, roadmap and matrix-grid.
+A component that styles `<table>` owns its tables, and base stands off. Seven do — and two of them only under a variant, so a bare `math` or `statute-stack` slide still gets the default.
 
 | Dimension | Owned engine | Marp |
 | --- | --- | --- |
 | Layout source | lattice.css | marp-core |
 | Overflow | Fit Spine | none |
-| Themes | 26 | 3 |
+| Themes | 32 | 3 |
 
 *Byte-identical to how this slide rendered before the change.*
 
@@ -100,4 +100,4 @@ A component that styles `<table>` owns its tables, and base stands off. Seven do
 
 ## The deny list cannot rot
 
-An ownership gate fails the build on a component that styles a table element without a deny entry, and on a stale entry naming a component that no longer styles one. The list stays honest without anyone having to remember it.
+An ownership gate fails the build three ways: on a component that styles a table with no deny entry, on a stale entry, and on an entry broader than the claim it names — which would silently withhold the default from every slide missing the variant.

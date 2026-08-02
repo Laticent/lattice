@@ -99,6 +99,9 @@ const {
   listWorkflowFiles,
   AGENT_MODELS,
   run,
+  checkUniversalTableGuard,
+  universalTableDenyEntries,
+  subjectIsTableElement,
 } = require('../../../tools/check-ownership');
 const { loadAll } = require('../../../lib/components');
 const fs = require('node:fs');
@@ -596,6 +599,196 @@ describe('check-ownership', () => {
     test('the live tree clusters cleanly', () => {
       const { errors } = run();
       assert.ok(!errors.some((e) => /tag/.test(e)), errors.filter((e) => /tag/.test(e)).join('\n'));
+    });
+  });
+
+  // ── HARD-RULE-adjacent: the universal table treatment's deny guard ──────────
+  // base.elements.css § UNIVERSAL TABLE gives every slide a default <table>
+  // treatment; the deny guard withholds it from components that style their own.
+  // Fixture trees, so every assertion drives the REAL gate and reads its ACTUAL
+  // errors — a test that re-implements the gate stays green when the gate is
+  // deleted (the #1187 lesson, see the model-pinning block below).
+  describe('universal-table deny guard (base.elements.css § UNIVERSAL TABLE)', () => {
+    // One entry per :not(); a dotted entry ('math.derivation') is ONE compound
+    // entry, not two — that distinction is exactly what the gate must respect.
+    const GUARD = (denies) =>
+      `section:where(${denies.map((d) => `:not(.${d})`).join('')}) > table td { color:red; }`;
+
+    const withFixture = (guardCss, componentCss, assertions) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-utable-'));
+      try {
+        const lib = path.join(dir, 'lib');
+        fs.mkdirSync(lib, { recursive: true });
+        const guardPath = path.join(lib, 'base.elements.css');
+        fs.writeFileSync(guardPath, guardCss);
+        for (const [rel, body] of Object.entries(componentCss)) {
+          const abs = path.join(lib, rel);
+          fs.mkdirSync(path.dirname(abs), { recursive: true });
+          fs.writeFileSync(abs, body);
+        }
+        const errors = [];
+        checkUniversalTableGuard(
+          [{ name: 'compare-table' }, { name: 'math' }, { name: 'kpi' }],
+          errors,
+          { libDir: lib, guardCss: guardPath },
+        );
+        assertions(errors);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+
+    test('the live tree raises no universal-table violations', () => {
+      const errors = [];
+      checkUniversalTableGuard(loadAll(), errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('run() actually invokes the gate — it is wired into build:check', () => {
+      // Deleting `checkUniversalTableGuard(manifests, errors)` from run() is
+      // invisible to any test that only calls the gate directly.
+      const real = fs.readFileSync;
+      let errors;
+      try {
+        fs.readFileSync = (p, ...rest) => (String(p).endsWith(path.join('lib', 'base', 'base.elements.css'))
+          ? 'section > table td { color:red; }' // a guard with NO :not() entries
+          : real(p, ...rest));
+        ({ errors } = run());
+      } finally {
+        fs.readFileSync = real;
+      }
+      assert.ok(
+        errors.some((e) => e.includes('declares no universal-table deny guard')),
+        `run() did not surface the universal-table gate:\n${errors.join('\n')}`,
+      );
+    });
+
+    test('a component styling a table with no deny entry fails', () => {
+      withFixture(GUARD(['math.derivation']), {
+        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+      }, (errors) => {
+        const hit = errors.filter((e) => e.includes("'compare-table' styles a table element"));
+        assert.equal(hit.length, 1, errors.join('\n'));
+        assert.match(hit[0], /Add ':not\(\.compare-table\)'/);
+      });
+    });
+
+    test('an OVER-BROAD entry fails, naming the real granularity', () => {
+      // ':not(.math)' when only '.math.derivation' claims a table would withhold
+      // the default from a bare `_class: math` slide — the defect the block closes.
+      withFixture(GUARD(['math']), {
+        'c/math.styles.css': 'section.math.derivation td { padding:1px; }',
+      }, (errors) => {
+        const hit = errors.filter((e) => e.includes('over-broad universal-table deny entry'));
+        assert.equal(hit.length, 1, errors.join('\n'));
+        assert.match(hit[0], /:not\(\.derivation\.math\)/);
+      });
+    });
+
+    test('a variant-scoped entry matching a variant-scoped claim passes', () => {
+      withFixture(GUARD(['math.derivation']), {
+        'c/math.styles.css': 'section.math.derivation td { padding:1px; }',
+      }, (errors) => assert.deepEqual(errors, [], errors.join('\n')));
+    });
+
+    test('a broader claim is covered by a narrower entry (modifier stacking)', () => {
+      // `section.sketch.compare-table table` must NOT demand its own entry —
+      // ':not(.compare-table)' already denies every slide carrying that class.
+      withFixture(GUARD(['compare-table']), {
+        'c/compare-table.styles.css': 'section.compare-table table { width:100%; }',
+        'base.sketch.css': 'section.sketch.compare-table table { filter:none; }',
+      }, (errors) => assert.deepEqual(errors, [], errors.join('\n')));
+    });
+
+    test('a stale entry fails', () => {
+      withFixture(GUARD(['compare-table', 'kpi']), {
+        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+      }, (errors) => {
+        const hit = errors.filter((e) => e.includes('stale universal-table deny entry'));
+        assert.equal(hit.length, 1, errors.join('\n'));
+        assert.match(hit[0], /:not\(\.kpi\)/);
+      });
+    });
+
+    test('a rule that drops ONE entry fails — the guard is per-rule, not unioned', () => {
+      // The block repeats the guard on every rule. A union would call
+      // '.math.derivation' guarded while the `td` rule alone had lost it — which is
+      // exactly the edit that doubles math.derivation's cell borders.
+      const guard =
+        'section:where(:not(.compare-table):not(.math.derivation)) > table thead th { color:red; }\n' +
+        'section:where(:not(.compare-table)) > table td { color:red; }\n';
+      withFixture(guard, {
+        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+        'c/math.styles.css': 'section.math.derivation td { padding:1px; }',
+      }, (errors) => {
+        const hit = errors.filter((e) => e.includes('does not carry the full deny guard'));
+        assert.equal(hit.length, 1, errors.join('\n'));
+        assert.match(hit[0], /:not\(\.derivation\.math\)/);
+        assert.match(hit[0], /> table td/);
+      });
+    });
+
+    test('an UNGUARDED new table rule in the guard file itself fails', () => {
+      const guard =
+        'section:where(:not(.compare-table)) > table td { color:red; }\n' +
+        'section > table caption { color:red; }\n'; // no guard at all
+      withFixture(guard, {
+        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+      }, (errors) => {
+        assert.ok(
+          errors.some((e) => e.includes('does not carry the full deny guard') && e.includes('caption')),
+          errors.join('\n'),
+        );
+      });
+    });
+
+    test("an `:is(td, th)` subject is a claim — base.focus's resident idiom", () => {
+      withFixture(GUARD(['compare-table']), {
+        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+        'c/kpi.styles.css': 'section.kpi > .cell-stage > :is(td, th) { border-bottom:1px solid red; }',
+      }, (errors) => {
+        assert.ok(
+          errors.some((e) => e.includes("'kpi' styles a table element")),
+          errors.join('\n'),
+        );
+      });
+    });
+
+    test('a non-subject table mention is not a claim', () => {
+      // base.modifiers' below-note promotion styles the <p>, not the table.
+      withFixture(GUARD(['compare-table']), {
+        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+        'base.modifiers.css': 'section.kpi > :is(ul, ol, table) + p { color:red; }',
+      }, (errors) => assert.deepEqual(errors, [], errors.join('\n')));
+    });
+
+    test('base SUPPORT rules written with :is() are not claims', () => {
+      // The dark-bookend ink rebind rebinds colour for the UNIVERSAL treatment;
+      // it must not read as those components owning <table>.
+      withFixture(GUARD(['compare-table']), {
+        'c/compare-table.styles.css': 'section.compare-table td { padding:1px; }',
+        'base.modifiers.css': 'section:is(.kpi, .math) > table td { color:white; }',
+      }, (errors) => assert.deepEqual(errors, [], errors.join('\n')));
+    });
+
+    test('subjectIsTableElement keys on the SUBJECT, not any mention', () => {
+      assert.equal(subjectIsTableElement('section.x td'), true);
+      assert.equal(subjectIsTableElement('section.x tbody tr:nth-child(odd)'), true);
+      assert.equal(subjectIsTableElement('section.x > :is(ul, table) + p'), false);
+      assert.equal(subjectIsTableElement('section.x tr.lat-focus > :is(td, th)'), true);
+      assert.equal(subjectIsTableElement('section.x table::after'), false);
+      assert.equal(subjectIsTableElement('section.x td:not(:first-child) > *'), false);
+    });
+
+    test('deny entries are read back out of the real stylesheet, PER rule', () => {
+      const perRule = universalTableDenyEntries(
+        'section:where(:not(.a):not(.b.c)) > table td { color:red; }\n' +
+        'section:where(:not(.a)) > table thead th { color:red; }\n' +
+        'section:where(:not(.ignored)) > p { color:red; }\n', // not a table subject
+      );
+      assert.equal(perRule.length, 2, 'only table-subject rules are read');
+      assert.deepEqual([...perRule[0].entries].sort(), ['a', 'b.c']);
+      assert.deepEqual([...perRule[1].entries].sort(), ['a'], 'the short rule is reported as-is');
     });
   });
 

@@ -62,25 +62,45 @@ in patch versions.
   under a base modifier rendered at raw browser defaults — no rules, no cell padding, no header
   weight, columns scattered across the slide. `base.elements.css` now gives it the treatment the
   specialists already agree on: label-cased column heads over the `--spectrum-structure` rule,
-  `--border` hairlines under each row, a 4%-accent zebra, `--fs-body-compact` cells, and the first
-  column emphasized as the row's label. Author alignment (`:---` / `:---:` / `---:`) is untouched.
+  `--border` hairlines under each row, a 4%-accent zebra, and `--fs-body-compact` cells. Author
+  alignment (`:---` / `:---:` / `---:`) is untouched, and nothing is emphasized for you — `**bold**`
+  stays the only emphasis, in any cell.
+  - **Also fixes a pre-existing accessibility defect on the three dark bookends.** `title`,
+    `divider` and `closing` paint `--surface-inverse` WITHOUT flipping `color-scheme`, so any
+    element whose ink is not named explicitly inherits dark ink onto a dark panel. A table there
+    measured **1.02:1** on `main` — effectively invisible. `base.modifiers.css` now binds the
+    universal treatment's ink to `--on-dark-*` for those three, the same way the eyebrow block
+    beside it already does. Measured with `tools/check-slide-contrast.js` over a table on all 61
+    components: **66 sub-AA text runs before, 39 after, and zero of them a table cell.**
+  - **Row capacity goes UP, not down.** Cell padding is half `--sp-xs` vertically, and that number
+    was measured rather than chosen: at the full token, rows grew 15% (38.2px → 43.9px) and the clip
+    threshold on a plain `content` slide fell from 11 rows to **10** — a table that fit before would
+    have exported with its last row silently gone, since a plain table has no capacity axis for the
+    Fit Spine to split on. At half, the compact type saves more than the padding spends and the
+    threshold is **12**.
   - **Every existing table renders byte-identically.** The treatment is scoped to the *stage's own
     child*, so a table a transform generated inside a `<figure>` (roadmap, matrix-grid) never sees
     it; and a **deny guard** withholds it from the seven components that style `<table>`
-    themselves — `compare-table`, `glossary`, `obligation-matrix`, `statute-stack`, `math`,
-    `roadmap`, `matrix-grid`. Specificity alone was NOT enough to make that safe, which is the
-    trap worth naming: a component rule `(0,1,N)` beats a base element rule `(0,0,N)` only for the
-    properties it actually *declares*, so a universal zebra lands unopposed on compare-table and
-    statute-stack.lane (neither declares one), and a universal `td { border-bottom }` doubles
-    math.derivation's lines (it borders `tbody tr`, not `td`). Verified: the corpus overflow
-    ratchet holds at its 27-slide baseline across 248 decks, and the three table specialists
-    pixel-diff to zero.
+    themselves — `compare-table`, `glossary`, `obligation-matrix`, `roadmap`, `matrix-grid`, plus
+    `math derivation` and `statute-stack lane` at **variant** granularity, because a
+    name-granularity entry for those two would withhold the default from a bare `_class: math`
+    slide and reintroduce the very defect. Specificity alone was NOT enough to make any of this
+    safe, which is the trap worth naming: a component rule `(0,1,N)` beats a base element rule
+    `(0,0,N)` only for the properties it actually *declares*, so a universal zebra lands unopposed
+    on compare-table and statute-stack.lane (neither declares one), and a universal
+    `td { border-bottom }` doubles math.derivation's lines (it borders `tbody tr`, not `td`).
   - **The deny list is gated**, not remembered: `checkUniversalTableGuard`
     (`tools/check-ownership.js`, via `build:check`) reads the list back out of the stylesheet and
-    fails on a component that styles a table element without an entry, AND on a stale entry naming
-    a component that no longer styles one. Cross-cutting decoration that names no component
-    (`base.focus`'s `[data-focus-*]` row treatments) is deliberately out of scope — it decorates
-    whatever table it lands on and claims no ownership.
+    fails four ways — a table-styling component with no entry, a stale entry, an entry *broader*
+    than the claim it names, and a rule inside the block that drops an entry the others carry (the
+    guard is only as strong as its weakest rule, so it is checked per-rule, never unioned). Covered
+    by 14 unit tests including the wired-into-`run()` assertion. Known blind spots are recorded in
+    the gate header rather than implied away: attribute-before-class scoping, native CSS nesting,
+    `themes/*.css`, and a component the Studio generates at runtime.
+  - **Not treated, deliberately:** a table inside `split-panel` / `split-compare` / `compare-code` /
+    `image`, which lands in a side frame rather than the slide body's top level. Those frames are
+    enumerated in `CLIP_CELL_SELECTOR` (`lib/core/overflow-probe.js`), the maintained source this
+    CSS does not yet read; logged in the decision note rather than hand-duplicated here.
   - Demo deck: `examples/universal-table.md`. Rationale and measurements:
     `engineering/decisions/2026-08-02-default-slide-layout.md` §4.
 

@@ -409,10 +409,9 @@ component's `<name>.docs.md`).
 
 ## Tables
 
-A plain GFM pipe table gets a house treatment on **any** slide — no class
-needed. Write the table, and it renders with label-cased column heads over
-the spectrum rule, hairline row rules, a quiet accent zebra, compact cell
-type, and the first column emphasized as the row's label.
+A plain GFM pipe table written at the top level of the slide body gets a house
+treatment — no class needed. It renders with label-cased column heads over the
+spectrum rule, hairline row rules, a quiet accent zebra, and compact cell type.
 
 ```markdown
 | Region | Q3 revenue | Q4 revenue | Change |
@@ -422,22 +421,30 @@ type, and the first column emphasized as the row's label.
 ```
 
 Column alignment comes from the source and is never overridden — `:---`,
-`:---:` and `---:` all survive.
+`:---:` and `---:` all survive. Nothing is emphasized for you: `**bold**` is
+the only emphasis, and it works in any cell, including the first column.
 
-**Seven components style their own table and are excluded from this
-treatment entirely:** `compare-table`, `glossary`, `obligation-matrix`,
-`statute-stack`, `math`, `roadmap`, `matrix-grid`. Reach for one of them when
-the table IS the slide; the universal treatment is for a table that supports
-prose. A component that styles `<table>` owns its tables, and base stands off
-— `checkUniversalTableGuard` fails the build if that list and the engine's CSS
-ever disagree.
+**Where it does NOT apply.** Base stands off wherever a component owns the
+table, and it only reaches the slide body's own top level:
 
-The treatment applies to a table the author wrote at the top level of the
-slide body. A table a *transform* generates inside a `<figure>` (roadmap,
-matrix-grid) is the owning component's business, not base's.
+| Not treated | Why |
+| --- | --- |
+| `compare-table` · `glossary` · `obligation-matrix` · `roadmap` · `matrix-grid` | the component styles its own table |
+| `math derivation` · `statute-stack lane` | same, but only under that variant — a bare `math` or `statute-stack` slide DOES get the treatment |
+| a table inside `split-panel`, `split-compare`, `compare-code` or `image` | it lands in a side frame, not the slide body's top level |
+| a table a chart transform generated | it is wrapped in a `<figure>`, and belongs to the chart |
 
-A short paragraph directly after a table is promoted to a **Below-Note** (see
-above), so a source line or caveat gets the hairline treatment for free.
+Reach for one of the owning components when the table IS the slide — they carry
+row capacity, autosplit and the portrait card reshape that a plain table does
+not. The universal treatment is for a table that *supports* prose.
+
+`checkUniversalTableGuard` fails the build if that list and the engine's CSS
+ever disagree, in either direction and at variant granularity.
+
+A short paragraph directly after a table is **not** promoted to a Below-Note on
+an un-classed or `content` slide. Promotion is an allow-list of named components
+(see above), and neither is on it — the trailing paragraph renders as body prose.
+Reach for a component on that list if you want the hairline treatment.
 
 ---
 
