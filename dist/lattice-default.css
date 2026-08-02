@@ -6547,12 +6547,27 @@ section.kanban.chart-frame .chart-body, figure.kanban.chart-frame .chart-body{
   border-radius: 0.85cqi;
   padding: 0.75cqi var(--sp-sm);
   /* Soft drop-shadow in light; in dark a top inset highlight reads as elevation
-   * where a drop-shadow on near-black cannot. */
+   * where a drop-shadow on near-black cannot.
+   *
+   * Every layer is present in both modes and light-dark() switches its COLOR —
+   * the layer that does not apply resolves to `transparent` and paints nothing.
+   * It cannot wrap the shadow VALUES, which is what this replaces: light-dark()
+   * resolves a `<color>` and nothing else (CSS Color 5), so a whole
+   * `0 0.1cqi 0.2cqi <color>` argument made the function invalid and the entire
+   * `box-shadow` was DROPPED — kanban cards rendered with no elevation at all,
+   * in either mode, while this comment said otherwise. Nothing caught it: valid
+   * syntax, so checkCssSyntax passed, and the goldens were blessed with the
+   * shadow already missing. Same shape base.tokens.css --elevation-recipe uses
+   * (fixed geometry, light-dark on the colors).
+   * engineering/gotchas.md "A CSS reset declaration silently does nothing". */
   box-shadow:
-    light-dark(0 0.1cqi 0.2cqi color-mix(in oklab, black 7%, transparent),
-               inset 0 0.09cqi 0 color-mix(in oklab, white 13%, transparent)),
-    light-dark(0 0.32cqi 0.7cqi color-mix(in oklab, black 8%, transparent),
-               0 0.4cqi 1cqi color-mix(in oklab, black 32%, transparent));
+    /* light — soft contact drop */
+    0 0.1cqi 0.2cqi light-dark(color-mix(in oklab, black 7%, transparent), transparent),
+    /* dark — top inset highlight */
+    inset 0 0.09cqi 0 light-dark(transparent, color-mix(in oklab, white 13%, transparent)),
+    /* the float, tuned per canvas */
+    0 0.32cqi 0.7cqi light-dark(color-mix(in oklab, black 8%, transparent), transparent),
+    0 0.4cqi 1cqi light-dark(transparent, color-mix(in oklab, black 32%, transparent));
   display: flex;
   flex-direction: column;
   gap: 0.62cqi;
@@ -19365,12 +19380,19 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
    * (no second background) and the glass is read from the soft dark float
    * shadow + a crisp hairline edge + the white top rim. On a DARK slide a
    * translucent WHITE frost veil reads cleanly (lighter than the canvas), so
-   * the fill is a faint white gradient. light-dark() picks the right one. */
-  background: light-dark(
-    transparent,
-    linear-gradient(180deg,
-      color-mix(in oklab, white 13%, transparent) 0%,
-      color-mix(in oklab, white 5%, transparent) 100%));
+   * the fill is a faint white gradient.
+   *
+   * light-dark() sits on the COLOR STOPS, not around the gradient. It resolves a
+   * `<color>` and nothing else (CSS Color 5), so `light-dark(transparent,
+   * linear-gradient(…))` — a color against an <image> — is invalid, and the whole
+   * declaration was DROPPED: no frost veil rendered on dark, in silence, since a
+   * dropped declaration errors nowhere and moved no golden. Keeping one gradient
+   * and switching its stops gets the documented behavior: fully transparent on
+   * light (identical to the `transparent` this replaces), the frost on dark.
+   * engineering/gotchas.md "A CSS reset declaration silently does nothing". */
+  background-image: linear-gradient(180deg,
+    light-dark(transparent, color-mix(in oklab, white 13%, transparent)) 0%,
+    light-dark(transparent, color-mix(in oklab, white 5%, transparent)) 100%);
   /* The glass EDGE: a faint cool hairline on light, a luminous edge on dark. */
   border: var(--chart-hairline) solid light-dark(
     color-mix(in oklab, var(--text-heading) 10%, transparent),

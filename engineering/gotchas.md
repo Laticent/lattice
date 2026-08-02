@@ -855,7 +855,13 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   one has no effect. The rule matches, specificity is right, the bundle builds, every
   golden renders pixel-identical, and the regression gate stays green. Found on
   `text-wrap: normal`, written to strip `text-wrap: balance` from a bookend eyebrow
-  (#1309); both exclusions were dead and the eyebrows kept balancing.
+  (#1309); both exclusions were dead and the eyebrows kept balancing. The first
+  sweep for the class found two more, both `light-dark()` given something that is
+  not a `<color>`: `box-shadow: light-dark(<shadow>, <shadow>)` on the kanban card
+  (cards rendered with **no elevation at all**, in either mode) and
+  `background: light-dark(transparent, linear-gradient(…))` on the chart glass
+  pane. `light-dark()` resolves a `<color>` and nothing else — put it on the
+  colors (a stop, a shadow's color) and keep the geometry outside it.
 - **Cause:** the value is not in the property's grammar, so the declaration is
   **invalid at parse time and dropped**. `text-wrap` is a shorthand over
   `text-wrap-mode` (`wrap | nowrap`) and `text-wrap-style` (`auto | balance | stable
@@ -873,8 +879,11 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   half* actually applied rather than collapsing both into one token. And run
   `CSS.supports(prop, value)` for any value you have not used before. Here the
   correct reset is `text-wrap: wrap` (mode `wrap`, style `auto`).
-  This class of bug is invisible to every gate the repo has, so it rides on
-  verification discipline (HARD RULE #23).
+  There is now a gate for it: `npm run css:values` asks the rendering engine
+  (`CSS.supports`) about every value in `lib/**` and `themes/**` and fails on any
+  it would drop, with a `SANCTIONED` allowlist for deliberate cross-engine pairs.
+  It is **on-demand, not in `build:check`** — that gate is contractually
+  render-free and its CI job has no browser — so run it when you touch CSS.
   See `engineering/decisions/2026-08-02-sovereign-bookend-measures.md`.
 
 ### A committed render golden doesn't match a fresh render — check staleness FIRST

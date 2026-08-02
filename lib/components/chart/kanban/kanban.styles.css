@@ -98,12 +98,27 @@
   border-radius: 0.85cqi;
   padding: 0.75cqi var(--sp-sm);
   /* Soft drop-shadow in light; in dark a top inset highlight reads as elevation
-   * where a drop-shadow on near-black cannot. */
+   * where a drop-shadow on near-black cannot.
+   *
+   * Every layer is present in both modes and light-dark() switches its COLOR —
+   * the layer that does not apply resolves to `transparent` and paints nothing.
+   * It cannot wrap the shadow VALUES, which is what this replaces: light-dark()
+   * resolves a `<color>` and nothing else (CSS Color 5), so a whole
+   * `0 0.1cqi 0.2cqi <color>` argument made the function invalid and the entire
+   * `box-shadow` was DROPPED — kanban cards rendered with no elevation at all,
+   * in either mode, while this comment said otherwise. Nothing caught it: valid
+   * syntax, so checkCssSyntax passed, and the goldens were blessed with the
+   * shadow already missing. Same shape base.tokens.css --elevation-recipe uses
+   * (fixed geometry, light-dark on the colors).
+   * engineering/gotchas.md "A CSS reset declaration silently does nothing". */
   box-shadow:
-    light-dark(0 0.1cqi 0.2cqi color-mix(in oklab, black 7%, transparent),
-               inset 0 0.09cqi 0 color-mix(in oklab, white 13%, transparent)),
-    light-dark(0 0.32cqi 0.7cqi color-mix(in oklab, black 8%, transparent),
-               0 0.4cqi 1cqi color-mix(in oklab, black 32%, transparent));
+    /* light — soft contact drop */
+    0 0.1cqi 0.2cqi light-dark(color-mix(in oklab, black 7%, transparent), transparent),
+    /* dark — top inset highlight */
+    inset 0 0.09cqi 0 light-dark(transparent, color-mix(in oklab, white 13%, transparent)),
+    /* the float, tuned per canvas */
+    0 0.32cqi 0.7cqi light-dark(color-mix(in oklab, black 8%, transparent), transparent),
+    0 0.4cqi 1cqi light-dark(transparent, color-mix(in oklab, black 32%, transparent));
   display: flex;
   flex-direction: column;
   gap: 0.62cqi;

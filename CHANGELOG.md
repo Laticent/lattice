@@ -25,6 +25,25 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **Kanban cards had no elevation at all, and nothing could see it.** `box-shadow` wrapped whole
+  shadow values in `light-dark()`, which resolves a `<color>` and nothing else — so the function
+  was invalid, the whole declaration was **dropped at parse time**, and the cards rendered flat in
+  both light and dark while the CSS comment described a drop shadow. The same mistake sat in the
+  chart glass pane (`background: light-dark(transparent, linear-gradient(…))`), though inertly:
+  its selector never matches (#1316). Both now put `light-dark()` on the **colors** and keep the
+  geometry outside it, which is the shape `--elevation-recipe` already used.
+  **New gate, `npm run css:values`:** it asks the rendering engine (`CSS.supports` in the same
+  Chromium the PDF/HTML paths use) whether every value in `lib/**` and `themes/**` is actually in
+  its property's grammar, and fails on any the browser would drop. This class is invisible to
+  every other gate — valid *syntax*, so `checkCssSyntax` passes; usually no pixel movement, so no
+  golden drifts. It swept 1,209 distinct (property, value) pairs and found these two plus five
+  deliberate cross-engine pairs, which are sanctioned with justifications (a stale sanction fails
+  too). **On-demand, not in `build:check`** — that gate is contractually render-free and its CI
+  job ships no browser. Prompted by #1309's `text-wrap: normal`, the first known instance.
+  `engineering/gotchas.md` "A CSS reset declaration silently does nothing".
+
 ### Added
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
