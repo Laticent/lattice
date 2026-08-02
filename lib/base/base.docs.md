@@ -420,9 +420,35 @@ spectrum rule, hairline row rules, a quiet accent zebra, and compact cell type.
 | EMEA | $3.8M | $3.9M | +3% |
 ```
 
-Column alignment comes from the source and is never overridden — `:---`,
-`:---:` and `---:` all survive. Nothing is emphasized for you: `**bold**` is
-the only emphasis, and it works in any cell, including the first column.
+**Column alignment is native markdown's, always.** `:---`, `:---:` and `---:`
+compile to an inline `style="text-align:…"` on every cell in the column, header
+included, and an inline style outranks the treatment — so the engine sets no
+`text-align` on `td` at all. The one default it does set is on an *unaligned*
+header, replacing the browser's centered default with left. Nothing is emphasized
+for you either: `**bold**` is the only emphasis, and it works in any cell.
+
+### Two switches
+
+Both are custom properties, so they can be set from CSS at any level a property
+reaches — a theme's `:root`, a deck's `style:` block, a component — and the class
+is just the author-facing spelling.
+
+| `_class` | Property | Effect |
+| --- | --- | --- |
+| `table-plain` | `--table-zebra: transparent` | Turns row striping off; the hairlines carry the rhythm alone. |
+| `table-fill` | `--table-grow: 1` (+ `--table-valign: middle`) | The table takes the leftover stage height and its rows spread to use it, centered in their band. |
+
+They are independent, not an axis — `table-plain table-fill` is a legitimate
+pair. Neither reaches a component that owns its own table.
+
+```markdown
+<!-- _class: table-plain table-fill -->
+```
+
+```css
+/* or deck-wide, with no class on any slide */
+:root { --table-zebra: transparent; }
+```
 
 **Where it does NOT apply.** Base stands off wherever a component owns the
 table, and it only reaches the slide body's own top level:

@@ -1157,6 +1157,11 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
 section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
   width:100%; table-layout:auto; border-collapse:collapse;
   font-size:var(--fs-body-compact); line-height:var(--lh-snug);
+  /* Vertical fill is a TOGGLE, off by default (`flex:0 1 auto` is a flex item's
+   * own default, so this declaration changes nothing until --table-grow is set).
+   * On, the table takes the leftover stage height and its rows spread to use it —
+   * compare-table's behavior, now available to a plain table. */
+  flex:var(--table-grow, 0) 1 auto;
 }
 section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead tr,
 section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead tr {
@@ -1170,17 +1175,26 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
   word-wrap:break-word; overflow-wrap:break-word;
 }
 /* Zebra BEFORE the cell rule so a `td` background (a treatment, a state pill)
- * always paints over it — the row wash is the bottom-most layer. */
+ * always paints over it — the row wash is the bottom-most layer.
+ * The wash is a TOKEN, not a literal, so it is switchable from CSS at any level a
+ * custom property reaches: a theme's `:root`, a deck's `style:` block, a slide.
+ * `table-plain` sets it transparent; see base.variants.css. */
 section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table tbody tr:nth-child(odd),
 section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table tbody tr:nth-child(odd) {
-  background:color-mix(in srgb, var(--accent) 4%, transparent);
+  background:var(--table-zebra, color-mix(in srgb, var(--accent) 4%, transparent));
 }
 section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table td,
 section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td {
   padding:calc(var(--sp-xs) * 0.5) var(--sp-sm); border-bottom:1px solid var(--border);
-  color:var(--text-body); vertical-align:top;
+  color:var(--text-body); vertical-align:var(--table-valign, top);
   word-wrap:break-word; overflow-wrap:break-word;
 }
+/* COLUMN ALIGNMENT IS THE AUTHOR'S, ALWAYS. markdown-it compiles `:---` / `:---:` /
+ * `---:` to an inline `style="text-align:…"` on the cell, which outranks anything
+ * here — so nothing in this block sets `text-align` on `td` at all. The one
+ * `text-align` above is on `thead th`, and it only replaces the browser's centered
+ * default for a column the author left unaligned; the moment they write an
+ * alignment marker, their inline style wins on the header too. */
 /* NO first-column emphasis here, deliberately. compare-table and
  * obligation-matrix both give `td:first-child` heading ink and 600 weight, and it
  * is right for them: their manifests declare the first column IS the row label.
@@ -22125,6 +22139,27 @@ section.insight-our-view     { --insight-label: 'OUR VIEW'; }
 section.insight-implication  { --insight-label: 'IMPLICATION'; }
 section.insight-next-step    { --insight-label: 'NEXT STEP'; }
 section.insight-why          { --insight-label: 'WHY IT MATTERS'; }
+
+/* ── TABLE TOGGLES ────────────────────────────────────────────────────────
+ * Two switches over the universal table treatment (base.elements.css § UNIVERSAL
+ * TABLE). Both are plain custom properties, so the switch is available to CSS at
+ * every level — a theme's `:root`, a deck's `style:` block, a component, or this
+ * per-slide class — and the class is only the author-facing spelling of it.
+ *
+ *   --table-zebra   the odd-row wash. `transparent` turns striping off.
+ *   --table-grow    flex-grow on the table. `1` makes it fill the stage
+ *                   vertically, so rows spread instead of stacking at the top.
+ *   --table-valign  cell vertical-align. Defaults to `top`, which is right when
+ *                   rows are their own height; `table-fill` flips it to `middle`,
+ *                   because a stretched row with its text pinned to the top reads
+ *                   as a gap rather than as a band.
+ *
+ * Independent flags, not an axis: `table-plain table-fill` is a legitimate pair
+ * (an unstriped table that still fills the slide). Neither reaches a component
+ * that owns its own table — those are excluded from the treatment entirely, so a
+ * `table-plain` on a `compare-table` slide is inert by construction. */
+section.table-plain { --table-zebra: transparent; }
+section.table-fill  { --table-grow: 1; --table-valign: middle; }
 
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
  * footer Cells, and the stage fill discipline — used to live here. It is now

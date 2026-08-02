@@ -64,6 +64,22 @@ Markdown's `:---`, `:---:` and `---:` alignment survives untouched — the treat
 
 ---
 
+<!-- _class: table-plain table-fill -->
+
+`Two switches`
+
+## Striping off, vertical fill on
+
+`table-plain` clears the row wash; `table-fill` lets the table take the leftover stage height so its rows spread instead of stacking at the top. Both are custom properties underneath — `--table-zebra` and `--table-grow` — so a theme or a deck's `style:` block can set them without touching a slide.
+
+| Workstream | Owner | Q3 | Q4 |
+| --- | --- | --- | --- |
+| Migration | Platform | Complete | — |
+| Attestation | Legal | In flight | Complete |
+| Key rotation | Security | Not started | In flight |
+
+---
+
 <!-- _class: compare-table -->
 
 `Standing off`

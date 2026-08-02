@@ -226,6 +226,22 @@ three ways: a claim with no entry, a **stale** entry, and an **over-broad** entr
 (`:not(.math)` when only `.math.derivation` claims a table). Eleven unit tests,
 including the wired-into-`run()` assertion the rest of that file's gates carry.
 
+**Two switches, at the owner's direction.** Striping and vertical fill are both
+toggleable, and both are custom properties rather than classes-with-CSS-inside, so
+the switch is reachable from a theme `:root`, a deck `style:` block, a component,
+or a per-slide class — `--table-zebra: transparent` and `--table-grow: 1`
+(`table-plain` / `table-fill` are the author-facing spelling). They are independent
+flags, not an exclusive axis. `table-fill` also sets `--table-valign: middle`,
+found by rendering it: a stretched row with its text pinned to the top reads as a
+gap rather than a band.
+
+**Column alignment is native markdown's, and always was.** Verified in the emitted
+HTML rather than asserted: `:---` / `:---:` / `---:` compile to an inline
+`style="text-align:…"` on every cell in the column, `th` included, which outranks
+anything in the treatment. The block sets no `text-align` on `td` at all; its one
+`text-align` is the `thead th` default that replaces the browser's centered
+default for a column the author left unaligned.
+
 **No first-column emphasis.** An earlier cut gave `td:first-child` heading ink and
 600 weight, mirroring compare-table and obligation-matrix. Those two can assert it
 — their manifests declare the first column IS the row label. Base cannot: it sets

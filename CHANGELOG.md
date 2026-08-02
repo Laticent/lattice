@@ -72,6 +72,17 @@ in patch versions.
     universal treatment's ink to `--on-dark-*` for those three, the same way the eyebrow block
     beside it already does. Measured with `tools/check-slide-contrast.js` over a table on all 61
     components: **66 sub-AA text runs before, 39 after, and zero of them a table cell.**
+  - **Two switches, both CSS-level.** `--table-zebra` turns the row striping off
+    (`transparent`), `--table-grow: 1` makes the table fill the stage vertically so its rows spread
+    instead of stacking at the top — and because they are custom properties, a theme's `:root` or a
+    deck's `style:` block can set them with no class on any slide. `_class: table-plain` and
+    `_class: table-fill` are the author-facing spelling; they are independent flags, not an axis, so
+    the pair is legitimate. `table-fill` also flips cells to `vertical-align: middle`, since a
+    stretched row with its text pinned to the top reads as a gap rather than a band.
+  - **Column alignment stays native markdown's.** `:---` / `:---:` / `---:` compile to an inline
+    `style="text-align:…"` on every cell in the column, header included, which outranks the
+    treatment — so the engine sets no `text-align` on `td` at all, and the one default it sets on
+    `thead th` applies only to a column the author left unaligned.
   - **Row capacity goes UP, not down.** Cell padding is half `--sp-xs` vertically, and that number
     was measured rather than chosen: at the full token, rows grew 15% (38.2px → 43.9px) and the clip
     threshold on a plain `content` slide fell from 11 rows to **10** — a table that fit before would

@@ -444,6 +444,27 @@ section.insight-implication  { --insight-label: 'IMPLICATION'; }
 section.insight-next-step    { --insight-label: 'NEXT STEP'; }
 section.insight-why          { --insight-label: 'WHY IT MATTERS'; }
 
+/* ── TABLE TOGGLES ────────────────────────────────────────────────────────
+ * Two switches over the universal table treatment (base.elements.css § UNIVERSAL
+ * TABLE). Both are plain custom properties, so the switch is available to CSS at
+ * every level — a theme's `:root`, a deck's `style:` block, a component, or this
+ * per-slide class — and the class is only the author-facing spelling of it.
+ *
+ *   --table-zebra   the odd-row wash. `transparent` turns striping off.
+ *   --table-grow    flex-grow on the table. `1` makes it fill the stage
+ *                   vertically, so rows spread instead of stacking at the top.
+ *   --table-valign  cell vertical-align. Defaults to `top`, which is right when
+ *                   rows are their own height; `table-fill` flips it to `middle`,
+ *                   because a stretched row with its text pinned to the top reads
+ *                   as a gap rather than as a band.
+ *
+ * Independent flags, not an axis: `table-plain table-fill` is a legitimate pair
+ * (an unstriped table that still fills the slide). Neither reaches a component
+ * that owns its own table — those are excluded from the treatment entirely, so a
+ * `table-plain` on a `compare-table` slide is inert by construction. */
+section.table-plain { --table-zebra: transparent; }
+section.table-fill  { --table-grow: 1; --table-valign: middle; }
+
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
  * footer Cells, and the stage fill discipline — used to live here. It is now
  * self-contained per Cell under lib/forms/cell/<id>/<id>.css (stage · masthead ·
