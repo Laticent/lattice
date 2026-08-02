@@ -39,6 +39,20 @@ describe('slideEditableOffset — where the caret lands on a slide jump', () => 
 		expect(at(src, 0)).toBe('<!-- a speaker note');
 	});
 
+	// A directive may carry inline HTML. A `[^>]*` body stops matching at the first
+	// tag, so the line read as content and the caret parked inside the directive —
+	// exactly what this helper exists to prevent (flagged in review on #1301).
+	it('recognizes a directive that carries inline HTML', () => {
+		const src = '<!-- _class: title -->\n<!-- _footer: <sup>1</sup> Draft -->\n\n# Hello\n';
+		expect(at(src, 0)).toBe('# Hello');
+	});
+
+	it('still lands on a directive line that has trailing content after it', () => {
+		// That line DOES carry something to write on, so it is a valid landing spot.
+		const src = '<!-- _class: content --> a stray note\n\n# Later\n';
+		expect(at(src, 0)).toBe('<!-- _class: content --> a stray note');
+	});
+
 	it('falls back to the slide start when a slide is nothing but directives', () => {
 		const src = '<!-- _class: divider -->\n';
 		expect(slideEditableOffset(src, 0)).toBe(slideStartOffset(src, 0));

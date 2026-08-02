@@ -180,7 +180,15 @@ export function slideEditableOffset(src: string, index: number): number {
 		const line = src.slice(at, lineEnd).trim();
 		// A directive comment opens AND closes on its own line; a multi-line HTML
 		// comment is authored content (a speaker note), so it is a landing spot.
-		const isDirective = /^<!--[^>]*-->$/.test(line);
+		//
+		// The body is "any run that does not itself contain `-->`", NOT `[^>]*`: a
+		// directive may legitimately carry inline HTML (`<!-- _footer: <sup>1</sup> -->`),
+		// and a `>`-excluding body stops matching at the first tag — so the line read as
+		// content and the caret parked inside the directive after all, which is the exact
+		// failure this function exists to prevent. The negative lookahead also keeps
+		// `<!-- _class: kpi --> trailing text` correctly OUT of the directive set: that
+		// line does carry content, so it IS a valid landing spot.
+		const isDirective = /^<!--(?:(?!-->).)*-->$/.test(line);
 		if (line && !isDirective) return at;
 		if (nl === -1) break;
 		at = nl + 1;
