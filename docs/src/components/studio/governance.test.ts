@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // jsdom has no IndexedDB — mirror the established pattern (component-library.test.ts)
 // of mocking the asset-store boundary rather than reaching for a polyfill.
-vi.mock('@/playground/asset-store.js', () => ({
+vi.mock('@/components/studio/library/asset-store.js', () => ({
 	listAssets: vi.fn(async () => [
 		{ id: 't1', kind: 'theme', name: 'a' },
 		{ id: 'c1', kind: 'component', name: 'b' },
@@ -12,7 +12,7 @@ vi.mock('@/playground/asset-store.js', () => ({
 	deleteAsset: vi.fn(async () => {}),
 }));
 
-import { deleteAsset, listAssets } from '@/playground/asset-store.js';
+import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { DECKS } from './decks';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, loadGovernanceStats, SITE_CACHE_PREFIX } from './governance';
 import { createDeck, deckContentStats } from './studio-store';
@@ -139,7 +139,7 @@ describe('governance — clear actions', () => {
 		// An emptied index re-seeds from the built-ins on the next read — never zero.
 		expect(deckContentStats().count).toBe(DECKS.length);
 		expect(deleteSpy).toHaveBeenCalledTimes(2); // the two mocked library assets
-		expect(result.succeeded.sort()).toEqual(['cache', 'decks', 'library', 'models', 'openrouter'].sort());
+		expect(result.succeeded.sort()).toEqual(['cache', 'decks', 'library', 'models', 'openrouter', 'retired'].sort());
 		expect(result.failed).toEqual([]);
 	});
 

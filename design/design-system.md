@@ -489,7 +489,7 @@ via the group's `buckets` (when the family is genuinely bucket-wide):
 | Chart | `canvas` | the `chart` bucket |
 
 `familyModifiersFor(manifest)` resolves the in-scope set, which the
-docs-portal hands to the catalog so the Drawing Board / playground
+docs-portal hands to the catalog so the Studio / playground
 autocomplete offers them **only on the layouts they apply to** (right
 after the component's own variants). The linter accepts the flat union
 (`FAMILY_MODIFIER_TOKENS`) everywhere, and the autocomplete-parity test
@@ -596,7 +596,7 @@ AI agents authoring decks get a discovery surface and a validation loop:
   component's optional `density` block (`{ axis, soft, hard }`) declares how many
   WORDS each element gets: `soft` is the brevity target, past `hard` it overflows.
   Universal chrome carries its own budgets regardless of layout — eyebrow ≤ 5
-  words, title ≤ 10, subtitle ≤ 12, key-insight ≤ 18, pill ≤ 2. The Drawing Board
+  words, title ≤ 10, subtitle ≤ 12, key-insight ≤ 18, pill ≤ 2. The deterministic
   reviewer flags overruns as suggestions (`density-crowd` / `density-overflow`,
   `verbose-eyebrow` / `verbose-subtitle` / `verbose-key-insight`); writing tight
   up front is the fix. See
@@ -613,7 +613,7 @@ AI agents authoring decks get a discovery surface and a validation loop:
   rules run in `validate()`; the repo-wide commit gate is
   `test/unit/components/deck-authoring.test.js`. All checks live in the pure,
   browser-safe `lib/authoring/lint-core.js` — the single source shared by the
-  CLI, `validate()`, and the Drawing Board / coach Architect panel.
+  CLI, `validate()`, and the Studio's Coach / Architect panels.
 - **`AGENTS.md`** (repo root) — the vendor-neutral entrypoint pointing any
   agent at `design/skill.md`, the catalog, and the linter.
 

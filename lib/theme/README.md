@@ -1,13 +1,13 @@
 # `lib/theme/` — the Theme Studio deterministic core
 
-The pure, model-free engine behind the Workbench's **Theme Studio** (Faculty 1
+The pure, model-free engine behind the Studio's **Theme** faculty (Fabricate,
 of `engineering/decisions/2026-06-10-design-studio-themes-layouts.md`). It turns
 a small author-facing **essential set** into a complete, **contrast-clean**
 Lattice palette, and proves it against the same WCAG predicate the shipped
 palette gate asserts.
 
 No `fs`, no dependencies, CommonJS — it bundles for the browser exactly like
-`lib/authoring/lint-core.js`, so the same code runs in the Workbench UI and in
+`lib/authoring/lint-core.js`, so the same code runs in the Studio UI and in
 Node tooling. **No model is required to run any of this** (the model, once
 wired, only ever proposes an *essential set*; this core disposes).
 
@@ -59,7 +59,7 @@ Every pair the shipped gate asserts is repaired to AA in both modes — see
 
 **Deliberately deferred (need a render session to verify visually):**
 
-1. **The Workbench UI + live preview.** Wiring `deriveTheme` to the editing
+1. **The Studio UI + live preview.** Wiring `deriveTheme` to the editing
    surface and `PG.addThemes([cssText])` so an author *sees the style in
    action*. Pure logic is done; the browser surface is the next slice and must
    be checked visually (per CLAUDE.md "when you can't see the result").

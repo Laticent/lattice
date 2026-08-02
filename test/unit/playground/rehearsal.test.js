@@ -11,7 +11,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  return import('../../../docs/src/playground/drawing-board-rehearsal.js');
+  return import('../../../docs/src/components/studio/present/rehearsal.js');
 }
 
 const DECK = [

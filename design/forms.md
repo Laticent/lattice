@@ -345,7 +345,7 @@ bled.**
   authoring aid that the whole composition overflows (a z4 review-plane cue),
   drawn once per slide as a red ring **plus a labelled "OVERFLOWS" tab** (text,
   so it doesn't rely on colour alone — WCAG 1.4.1). The **loud** form is where the
-  author is fixing (VS Code / Drawing Board / playground); a red box in front of a
+  author is fixing (VS Code / the Studio / playground); a red box in front of a
   board is worse than the subtle clipping, so an **export** does not carry it by
   default. What an export carries is the `overflow-marker` setting's answer —
   `reader` (default) tags the slide "Content clipped", `author` keeps the loud
@@ -381,7 +381,7 @@ colour:
 | | **Theme** | **Form** |
 |---|---|---|
 | Owned by | designer | designer |
-| Authored in | theme tooling | the Workbench (a future Frame studio, AI-assisted) |
+| Authored in | theme tooling | the Studio's Fabricate tab (a future Frame studio, AI-assisted) |
 | Author action | *selects* a theme | *selects* a Frame (`form: <name>`) |
 | Supplies | colour tokens | structure (the coordinate frame + Cells) |
 | Consumer is blind to it | layouts are palette-blind | Tiles are frame-blind |
@@ -393,7 +393,7 @@ its Cells.
 
 > **What ships vs. what's proposed:** author *selection* of a Frame exists today
 > (the `form:` toggle — §10, **default-on since 2026-06-26**). The designer-facing
-> **Workbench Frame studio** and **AI-assisted Frame generation** are future work,
+> A **Frame studio** in the Studio's Fabricate tab and **AI-assisted Frame generation** are future work,
 > not built.
 
 **The containment contract is the guardrail that makes this safe.** Because
@@ -561,7 +561,7 @@ reviewer's eye: the per-component galleries (light + dark page counts asserted) 
 ## 11. Why Form is first-class — the manifest
 
 The gap this doc closes is not just naming. Form was **hidden**: the model lived
-only in a dated decision note and a one-line Drawing-Board tooltip, while the
+only in a dated decision note and a one-line editor tooltip, while the
 slicer catalog (the twelve forms) was a frozen constant + prose with no manifest,
 and every Tile was injected by hand-written code in each render path. That is
 an Open/Closed violation and a single-source-of-truth violation at once.

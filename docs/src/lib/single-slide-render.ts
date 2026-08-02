@@ -10,9 +10,8 @@
 // for the React islands; specimen.js consumes the function form directly).
 //
 // SIBLINGS (kept divergent on purpose): src/playground/deck-preview.js is the
-// MULTI-slide filmstrip superset (playground, drawing-board, both studios). The
-// drawing-board inline controller + practice/focus builders are Tier 2 and own
-// their surface-specific srcdoc. This module is the SINGLE-slide twin only.
+// MULTI-slide filmstrip superset (the Playground and the Studio). This module is
+// the SINGLE-slide twin only.
 //
 // THE FONT FIX (carried from live-render, now landing gets it too): the engine's
 // Google-Fonts @import is inert inside the srcdoc <style> (it lands after the

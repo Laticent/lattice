@@ -16,7 +16,7 @@ import { coerceRecipe } from './finish-generate';
 // drive the `complete()` reply; availability decides offline vs connected.
 const state: { generation: string; reply: string } = { generation: 'floor', reply: '' };
 
-vi.mock('@/playground/architect-model.js', () => ({
+vi.mock('@/components/studio/ai/architect-model.js', () => ({
 	createArchitectModel: () => ({
 		availability: () => ({ generation: state.generation, promptApi: 'unknown', webgpu: false, webllmReady: false, universalReady: false, openRouterReady: false, modelOn: true }),
 		refreshAvailability: async () => {},

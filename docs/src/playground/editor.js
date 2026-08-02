@@ -267,7 +267,7 @@ const latticeTheme = EditorView.theme({
 	'::selection': { backgroundColor: 'var(--cm-selection)' },
 	'.cm-matchingBracket': { backgroundColor: 'var(--cm-match)', outline: 'none' },
 	// Inline validation underlines — palette-blind, matched to the Architect panel's
-	// severity tokens (defined on body.db-page) so the inline and panel views of the
+	// severity tokens (defined by the host surface) so the inline and panel views of the
 	// lint stream read as one system. We replace CodeMirror's fixed-colour wavy SVG
 	// with a text-decoration squiggle painted in the brand severity colour. The hex
 	// is a last-resort fallback for a surface without the studio tokens (where the

@@ -251,7 +251,7 @@ export function PrintOptionsPanel({
 		if (!render) throw new Error('deck not ready');
 		if (builtPdf && builtPdf.render === render && builtPdf.paper === paper && builtPdf.orientation === orientation && builtPdf.layout === layout) return builtPdf.url;
 		const s = resolvePrintSheet(render.geom.w, render.geom.h, { paper, orientation });
-		const ex = await import('@/playground/drawing-board-export.js');
+		const ex = await import('@/components/studio/export/deck-export.js');
 		// Reuse the rasterized slide images when only paper/orientation/layout moved (render
 		// unchanged) — the assemble below re-places them, no re-rasterize. N-up and the notes
 		// handout change only placement, so they too ride the cache. Otherwise rasterize once.

@@ -1,6 +1,7 @@
 import { ArrowUp, Check, ChevronDown, ChevronRight, Cloud, Download, Film, Info, LayoutGrid, Loader2, Moon, Palette, RotateCcw, Search, Sparkles, Sun, Text, TriangleAlert, X } from 'lucide-react';
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { readComponentEffort, writeComponentEffort } from '@/components/studio/ai/spend.js';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,7 +9,6 @@ import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
-import { readComponentEffort, writeComponentEffort } from '@/playground/drawing-board-settings.js';
 // The REAL layout gate — the deterministic core the engine uses for components
 // (lib/layout/*, bundled). The Component tab's Name/Save/Export now live in this
 // shared header, so Fabricate owns the gate run that the body renders.

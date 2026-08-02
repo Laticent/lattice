@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assembleSheetPdf } from './drawing-board-export.js';
+import { assembleSheetPdf } from './deck-export.js';
 
 // The rasterize → assemble split (item 1 of 2026-06-14-deck-print-styling.md).
 // `rasterizeDeckImages` needs a real browser rasterizer (html-to-image), so it is

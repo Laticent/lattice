@@ -18,7 +18,7 @@
 // Settings/preferences (handle style, validation, language, onboarding…) are
 // deliberately NOT part of any Privacy & Data action — this clears data, not prefs.
 
-import { deleteAsset, listAssets } from '@/playground/asset-store.js';
+import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { disconnectOpenRouter } from './architect';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
@@ -32,6 +32,12 @@ import { clearAllDecks, deckContentStats } from './studio-store';
 // VERSION bumps whenever the caching strategy changes, and nothing else enforces
 // the two staying in sync; a silent drift would misclassify every cache entry.
 export const SITE_CACHE_PREFIX = 'lattice-v1-';
+// The retired Drawing Board's IndexedDB. Its owning module was deleted with the route
+// (2026-07-03-studio-succession.md P5), which left the database live on the origin with no
+// code able to see or remove it — while this panel's "Delete everything" claimed to erase
+// everything it manages. Deleting it is the only operation we still offer on it; the decks
+// inside are NOT imported (no importer shipped), so this is a real erase, not a migration.
+const RETIRED_DB = 'lattice-drawing-board';
 
 async function cacheNames(): Promise<string[]> {
 	if (typeof caches === 'undefined') return [];
@@ -130,6 +136,38 @@ export type ClearEverythingResult = { succeeded: string[]; failed: string[] };
  * ALREADY irreversibly gone — the caller needs to know exactly what did and
  * didn't clear, not a single all-or-nothing error.
  */
+/** Erase the retired Drawing Board's IndexedDB and its orphaned preference keys.
+ *  Nothing else in the app can reach either any more — the modules that owned them were
+ *  deleted with the route — so without this "Delete everything" silently left a database
+ *  and two localStorage keys behind on the user's origin. Best-effort: a blocked delete
+ *  (another tab holding the DB open) resolves rather than failing the whole erase. */
+export async function clearRetiredDrawingBoardData(): Promise<void> {
+	try {
+		// The Drawing Board's standing-instructions key. ORPHANED, not live: the Studio keeps
+		// its own in `lattice-studio-instructions` (studio-store) and never adopted this one,
+		// and its last reader was removed from the spend kernel. Clearing it therefore erases
+		// Drawing-Board residue, not a current preference.
+		localStorage.removeItem('lattice-db-architect-instructions');
+	} catch {
+		/* storage unavailable */
+	}
+	if (typeof indexedDB === 'undefined') return;
+	await new Promise<void>((resolve) => {
+		let req: IDBOpenDBRequest;
+		try {
+			req = indexedDB.deleteDatabase(RETIRED_DB);
+		} catch {
+			resolve();
+			return;
+		}
+		req.onsuccess = () => resolve();
+		req.onerror = () => resolve();
+		// `blocked` fires when another tab still holds it open; the delete completes when
+		// they close, and we must not hang the erase waiting for that.
+		req.onblocked = () => resolve();
+	});
+}
+
 export async function clearEverything(): Promise<ClearEverythingResult> {
 	clearAllDecks();
 	const tasks: [string, () => Promise<void>][] = [
@@ -137,6 +175,7 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 		['openrouter', disconnectOpenRouter],
 		['models', clearDownloadedModels],
 		['cache', clearSiteCache],
+		['retired', clearRetiredDrawingBoardData],
 	];
 	const results = await Promise.allSettled(tasks.map(([, fn]) => fn()));
 	const succeeded = ['decks'];

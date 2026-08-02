@@ -21,9 +21,9 @@
 //
 // Decision: engineering/decisions/2026-07-18-anima-motion-faculty-modes.md §4.
 
+import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
 import { parseScene, type Scene } from '@/lib/anima';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
-import { deleteAsset, listAssets, putAsset } from '@/playground/asset-store.js';
 
 /** A saved scene as the Studio uses it. The `spec` is canonical; `poster` is a
  *  regenerable, token-preserving thumbnail (kept as `var(--token)`, never theme-frozen —

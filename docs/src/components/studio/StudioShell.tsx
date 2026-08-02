@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import DeckPreview from '@/components/DeckPreview';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
+import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -29,7 +30,7 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-sli
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
-import { sliceSlide } from '@/playground/architect-edits.js';
+import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -1570,6 +1571,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// A guided "watch it drive itself" tour: a fake cursor + captions play a
 	// storyboard against the LIVE Studio, driving real setters (not synthetic
 	// events), and hand the wheel back the instant the viewer clicks or types.
+	// The shared cross-surface guided-tours flag (tour-prefs). Its switch lives in
+	// Workspace → General and its copy promises "hide them everywhere" — which was untrue
+	// here: the Studio's own Show-me menu ignored it. Subscribed, so a flip made from the
+	// Playground (or the sheet) takes effect without a reload.
+	const [toursOn, setToursOn] = React.useState(true);
+	React.useEffect(() => {
+		setToursOn(toursEnabled());
+		const off = onToursEnabledChange(setToursOn);
+		return () => {
+			off();
+		};
+	}, []);
 	const { demoActive, startDemo } = useStudioDemo(rootRef, {
 		palette,
 		createFirstDeck: createDemoFirstDeck,
@@ -2562,7 +2575,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// icon + drawer (no tab-switching cognitive load). Reader-views (Lenses) + Library
 	// are their own panels too; all share the one mutually-exclusive assistant slot.
 	const coachBody = <div className="flex min-h-0 flex-1 flex-col overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>;
-	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
+	// The chat grounds on the SAME deterministic facts the Coach panel shows — the engine
+	// scorecard and findings — so the two can never argue from different truths, plus the
+	// component catalog the Lattice primer is built from.
+	const chatGrounding = React.useMemo(
+		() => ({ scorecard, findings, catalog: components }),
+		[scorecard, findings, components],
+	);
+	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
@@ -3303,7 +3323,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    title (2026-07-03 decision). */}
 				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
-				{!mobile && (
+				{!mobile && toursOn && (
 					<DropdownMenu>
 						<Tooltip>
 							<TooltipTrigger asChild>

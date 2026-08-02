@@ -17,7 +17,7 @@ natively re-implements the Marpit core, `npm install @slidewright/lattice`
 pulls **zero** `@marp-team` packages, and the BYO marp-cli config (`marp.config.js`)
 is **retired** (no marp-cli render path ships, and nothing of ours uses
 marp-core for parity/verification). Lattice is a *superset* of Marp; the
-one-way **export target** (`export:marp`, the Drawing Board) is a clean
+one-way **export target** (`export:marp`, the Studio) is a clean
 handoff behind a boundary — its own thing.
 
 **One caveat this scorecard used to omit:** the third-party **"Marp for

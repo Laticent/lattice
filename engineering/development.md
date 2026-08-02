@@ -279,8 +279,7 @@ Recommended VS Code extensions:
 ## Previewing the docs site (Astro) + screenshots
 
 The docs site under `docs/` (Astro + Starlight) hosts the landing page, the
-**Drawing Board**, the **Workbench**, the **Playground**, and the component
-pages. **You can build, run, AND screenshot it in the cloud sandbox** — this
+**Studio**, the **Playground**, and the component pages. **You can build, run, AND screenshot it in the cloud sandbox** — this
 is the visual-verification path for any web-UI change (the counterpart to
 `tools/rasterize-for-review.sh` for PDFs). Don't claim a web-UI change is
 unverifiable here; run the site and look.
@@ -311,14 +310,14 @@ cd docs && npm run dev > /tmp/astro.log 2>&1 &
 # 3. Screenshot any route, then VIEW the PNG with the Read tool (renders
 #    inline) or SendUserFile.
 cd ..   # back to repo root (puppeteer lives in the ROOT node_modules)
-node tools/screenshot.js http://127.0.0.1:4321/drawing-board/ \
-  .scratch/shots/drawing-board.png --width 1440 --height 900
+node tools/screenshot.js http://127.0.0.1:4321/studio/ \
+  .scratch/shots/studio.png --width 1440 --height 900
 ```
 
 `tools/screenshot.js` drives the puppeteer-cached Chromium
 (`--no-sandbox`; resolves the binary from `CHROME_PATH` or the puppeteer
 cache). Flags: `--width`/`--height`, `--full` (full-page), `--wait <css>`
-(wait for a selector — useful for the Drawing Board's hydrated panels),
+(wait for a selector — useful for the Studio's hydrated panels),
 `--delay <ms>`. Write PNGs under `.scratch/` (gitignored, 14-day GC).
 
 ### Routes
@@ -326,7 +325,7 @@ cache). Flags: `--width`/`--height`, `--full` (full-page), `--wait <css>`
 | Route | URL |
 | --- | --- |
 | Landing | `http://127.0.0.1:4321/` |
-| Drawing Board | `…/drawing-board/` |
+| Studio | `…/studio/` |
 | Playground | `…/playground/` |
 | Components index | `…/components/` |
 
@@ -397,7 +396,7 @@ only** and self-unregisters in dev; Playwright blocks it globally except
 **The installed app is the Studio**: the manifest launches `/studio/` under
 the name "Lattice Studio" (scope stays site-wide so docs open inside the app
 window), tapping the icon focuses a running Studio rather than opening a
-second copy, and the icon carries New deck / Drawing Board / Docs shortcuts.
+second copy, and the icon carries New deck / Docs shortcuts.
 Install is offered in-app (Workspace → General → Install the app;
 `install-app.ts` + the `beforeinstallprompt` capture in `PwaHead.astro`).
 Identity rationale: `engineering/decisions/2026-07-03-pwa-studio-identity.md`.
@@ -571,8 +570,8 @@ consumers share it, so edit the rule THERE, never duplicate it:
    name/modifier vocab from the live manifests and delegates.
 2. `lib/components/index.js`'s `validate()` — re-imports the detectors + layout
    sets from lint-core.
-3. The **Drawing Board** docs-site editor (`docs/src/pages/drawing-board.astro`
-   + `docs/src/playground/drawing-board-architect.js`) — runs the *same*
+3. The **Studio** docs-site editor (`docs/src/pages/studio.astro` +
+   `docs/src/components/studio/`) — runs the *same*
    lint-core client-side, with the vocab precomputed at docs-build time. Astro's
    `vite.build.commonjsOptions` applies the CJS→ESM transform so the browser
    imports the CommonJS core.

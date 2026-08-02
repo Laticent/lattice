@@ -6,9 +6,9 @@
 // assembles the inputs (engine render + the vendored fonts + KaTeX/Mermaid/a11y
 // assets) the way single-slide-render.ts does for the in-page preview.
 
+import { buildStageDoc } from '@/components/studio/present/presenter-window.js';
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
 import { A11Y_DEFS, KATEX_URL, MERMAID_URL } from '@/playground/deck-preview.js';
-import { buildStageDoc } from '@/playground/presenter-window.js';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
 /**

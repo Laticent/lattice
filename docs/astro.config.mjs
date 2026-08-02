@@ -78,7 +78,14 @@ export default defineConfig({
 	// so existing links (forms.md §11, the form-manifest ADR) don't 404. The site
 	// serves at the root base in every environment, so the destination is a plain
 	// root-relative path.
-	redirects: { '/spec/form-model': '/model/form-model/' },
+	// The Drawing Board and the Workbench were retired in favour of the Studio, which
+	// succeeds both (2026-07-03-studio-succession.md P5). Old links, bookmarks and the
+	// installed PWA's app shortcuts land on the successor rather than a 404.
+	redirects: {
+		'/spec/form-model': '/model/form-model/',
+		'/drawing-board': '/studio/',
+		'/workbench': '/studio/',
+	},
 	// HTML navigation is cheap, so warm it everywhere: every internal <a>
 	// prefetches its destination on hover/focus (the `hover` strategy). The one
 	// expensive asset — the ~554KB-gz engine bundle — is NOT covered here; it
@@ -97,7 +104,7 @@ export default defineConfig({
 	vite: {
 		server: { fs: { allow: ['..'] } },
 		// Module (ESM) workers, not the default IIFE: the PDF export worker
-		// (src/playground/pdf-export-worker.js) bundles jspdf, whose internal
+		// (src/components/studio/export/pdf-export-worker.js) bundles jspdf, whose internal
 		// dynamic imports force a code-splitting worker build — which Rollup
 		// refuses under IIFE. Every browser that has OffscreenCanvas (the worker
 		// path's feature gate) also has module workers, and the main thread falls

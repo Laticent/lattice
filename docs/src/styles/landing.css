@@ -53,9 +53,9 @@
 	 * are opaque, so a fill:none outline masks correctly. To add an icon, drop
 	 * its Lucide <path>/<circle> children into a new --icon-<name> here.
 	 * The chrome menu glyph (--icon-menu) lives in chrome-icons.css, shared with
-	 * the docs skin; the Drawing-Board glyphs below stay here. */
+	 * the docs skin; the app glyphs below stay here. */
 
-	/* Drawing Board glyphs — Lucide (ISC), same mask technique as above. */
+	/* App glyphs — Lucide (ISC), same mask technique as above. */
 	--icon-volume-2: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolygon points='11 5 6 9 2 9 2 15 6 15 11 19 11 5'/%3e%3cpath d='M15.54 8.46a5 5 0 0 1 0 7.07'/%3e%3cpath d='M19.07 4.93a10 10 0 0 1 0 14.14'/%3e%3c/svg%3e");
 	--icon-settings: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'/%3e%3ccircle cx='12' cy='12' r='3'/%3e%3c/svg%3e");
 	/* Lucide `layout-grid` — a 2×2 grid of slides; reads as "gallery / browse decks". */
@@ -355,7 +355,7 @@ code {
 	background-size: 220% 100%;
 	pointer-events: none;
 }
-/* The playground/workbench wraps aren't `position: relative` by default — the
+/* The playground/studio wraps aren't `position: relative` by default — the
    ::after is absolutely positioned, so anchor it. Harmless on the landing
    figures (already relative). */
 .pg-preview-wrap,

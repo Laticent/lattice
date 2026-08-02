@@ -7,7 +7,7 @@ import { deleteRefDoc, listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc }
 const putAsset = vi.fn(async (r: Record<string, unknown>) => ({ ...r, id: 'r_1' }));
 const listAssets = vi.fn(async (_kind: string) => [] as RefDocRecord[]);
 const deleteAsset = vi.fn(async (_id: string) => {});
-vi.mock('@/playground/asset-store.js', () => ({
+vi.mock('@/components/studio/library/asset-store.js', () => ({
 	putAsset: (r: Record<string, unknown>) => putAsset(r),
 	listAssets: (k: string) => listAssets(k),
 	deleteAsset: (id: string) => deleteAsset(id),

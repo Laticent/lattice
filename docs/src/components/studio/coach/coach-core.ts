@@ -70,7 +70,8 @@ export async function assessDeck(source: string, lintVocab: unknown, components:
 	}
 }
 
-// ── Deterministic coach action cards (ported from coach-actions.js) ──────────────
+// ── Deterministic coach action cards ─────────────────────────────────────────────
+// (ported from the Drawing Board's coach-actions.js, which was deleted with that surface)
 // Each returns a result card computed entirely from the deck + assessment — no model,
 // instant, free, honest. Findings are ranked by SEVERITY (not a forked grade-impact
 // model — the scorer's weights are private to the engine, and a grade-impact sort lies

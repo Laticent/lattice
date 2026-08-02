@@ -63,7 +63,7 @@ Write each card / row / step to ~`soft` words; push detail to speaker notes.
 **Universal chrome has its own word budgets** regardless of component — keep the
 **eyebrow ≤ 5 words** (a label, not a sentence), the **slide title ≤ 10**, the
 **subtitle ≤ 12**, a **key-insight ≤ 18** (one memorable sentence), and a
-**status pill to one or two words**. The Drawing Board reviewer flags overruns as
+**status pill to one or two words**. The deterministic reviewer flags overruns as
 suggestions (`density-crowd` / `density-overflow`, `verbose-eyebrow` /
 `verbose-subtitle` / `verbose-key-insight`); writing tight up front is the fix.
 See `engineering/decisions/2026-06-30-prose-density-budget.md`.

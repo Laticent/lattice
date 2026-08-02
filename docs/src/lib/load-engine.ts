@@ -6,7 +6,7 @@
 // The shadcn migration loaded this bundle EAGERLY via `<script defer src>` in
 // the <head> of every app page, so it competed with first paint and tanked
 // mobile LCP even though the live preview is below the fold (landing) or after
-// first paint (playground/workbench). This module injects the same script
+// first paint (playground/studio). This module injects the same script
 // ON DEMAND — the first time a surface actually needs the engine (island in
 // view, app mounted, idle) — and resolves once `window.LatticePlayground` is
 // set. The existing bridges/studios already poll for that global and tolerate

@@ -60,7 +60,7 @@ export function hasFinePointer(): boolean {
 // that state — landscape, short, touch — so the Studio can lock it to a full-bleed
 // PREVIEW (no editor, so no keyboard). The `max-height: 500px` + `orientation:
 // landscape` + `pointer: coarse` triad is the SAME signal the presenter view already
-// uses for landscape phones (drawing-board.css `@media (orientation: landscape) and
+// used for landscape phones (`@media (orientation: landscape) and
 // (max-height: 500px)`); `pointer: coarse` additionally excludes a short desktop
 // window. A small tablet in landscape (iPad mini ~744px tall) clears max-height and
 // keeps the full layout. Width-independent by design: the phone's landscape WIDTH

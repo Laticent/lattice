@@ -1,7 +1,7 @@
 // Slide-context detection + completion logic for the editor's autocomplete.
 //
 // Pure and import-free (no CodeMirror) so the Node unit suite can exercise it
-// directly — the same split focus-block.js uses against drawing-board-focus.js.
+// directly — the same pure-core/wiring split the editor uses elsewhere.
 // The CodeMirror wiring lives in complete.js; this module is just the grammar.
 //
 // "Slide context" = the `<!-- _class: name modifier* -->` directive that

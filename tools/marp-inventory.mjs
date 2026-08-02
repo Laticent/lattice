@@ -93,7 +93,7 @@ const OVERRIDES = {
     'interop',
     'Audited 2026-08-02. Its header called the OWNED CLI a "Marp-faithful HTML renderer" for "lattice.css (written for Marp)" and told end users to run Marp CLI instead — corrected. What remains is format-accurate: the Marpit-compatible HTML shape, the `style:` and `lang:` directives, and Marp-equivalent pagination chrome.',
   ],
-  'docs/src/pages/drawing-board.astro': [
+  'docs/src/pages/studio.astro': [
     'export',
     'Audited 2026-08-02. "The marp render engine bundle" corrected to name the Lattice engine. What remains is the Export-to-Marp menu wiring plus an accurate historical note about theme-set registration.',
   ],
@@ -147,7 +147,7 @@ const PATH_RULES = [
   [/^docs\/public\//, 'generated'],
   [/\.generated\.js$/, 'generated'],
   [/^docs\/src\/lib\/cadenza\/dist\//, 'generated'],
-  [/marp-bundle|marp-fidelity|export-marp|drawing-board-export|share-export/, 'export'],
+  [/marp-bundle|marp-fidelity|export-marp|deck-export|share-export/, 'export'],
   [/^lib\/engine\//, 'provenance'],
 ];
 

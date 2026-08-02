@@ -58,12 +58,13 @@
 // `adopt()` then fails after the next reload, and the module falls back to the
 // orphan-accumulating behavior described above.
 //
-// FOUR call sites still do this — two pass `null`, two pass `{}`, and `{}` wipes the marker
-// just as thoroughly:
+// TWO call sites still do this, both passing `null`:
 //
 //   PlaygroundApp.tsx:1139,1141   null   effect keyed on [view, walk]
-//   playground/theme-studio.js:535  {}   URL tidy
-//   pages/drawing-board.astro:796   {}   URL tidy
+//
+// Two more (`theme-studio.js` and `drawing-board.astro`, both `{}` URL tidies — `{}` wipes
+// the marker just as thoroughly as `null`) went away with the Workbench and Drawing Board
+// routes, not by being fixed (2026-07-03-studio-succession.md P5).
 //
 // Two were fixed while building a deck URL that was NOT merged (#1244): `StudioShell.tsx`'s
 // `?new=1` scrub and `architect.ts`'s OAuth scrub now both pass `history.state` through.
@@ -73,7 +74,7 @@
 // wrong three commits running. What changed is that the invariant now holds by construction
 // there instead of by the order two unrelated effects happen to run in.
 //
-// The four remaining are the same shape: all URL tidies, all at boot in practice. The
+// The two remaining are the same shape: a URL tidy, at boot in practice. The
 // PlaygroundApp pair is the one to watch, because its effect is keyed on `[view, walk]` and
 // the Playground's sheets are `modal={false}` — nothing structurally prevents a `walk` change
 // while a registered sheet is open. This roster is hand-maintained and has been wrong before;

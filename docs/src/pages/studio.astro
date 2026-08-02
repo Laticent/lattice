@@ -21,6 +21,7 @@ import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
+import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY } from '../components/studio/preview-rect';
@@ -59,6 +60,23 @@ try {
 	// the catch silently empties the catalog (disabling Insert). This mirrors the
 	// lintVocab read below, which already resolves from process.cwd().
 	const catalog = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
+	// Variants whose AUTHORING GRAMMAR differs from the base skeleton (e.g.
+	// `list-tabular metric` → ``1. Name `value```) are not in components.json — they are
+	// derived from the live manifest by `pickGrammarVariants`. The Lattice primer's own
+	// authoring rules TELL the model to match a variant's own skeleton when one is shown,
+	// so shipping the primer without these instructs it to look for content that is never
+	// there (succession doc §2.3; the primer is fed from this payload).
+	let variantSkeletonsByName = {};
+	try {
+		const req = createRequire(import.meta.url);
+		const { loadAll } = req(join(process.cwd(), '..', 'lib/components', 'index.js'));
+		for (const m of loadAll()) {
+			const picked = pickGrammarVariants(m);
+			if (picked?.length) variantSkeletonsByName[m.name] = picked;
+		}
+	} catch {
+		variantSkeletonsByName = {};
+	}
 	components = (catalog.components || [])
 		.map((c) => ({
 			name: c.name,
@@ -73,6 +91,19 @@ try {
 			tags: Array.isArray(c.tags) ? c.tags : [],
 			purpose: c.purpose || '',
 			description: c.description || '',
+			// The Lattice primer (architect-knowledge.js `layoutBlock`) reads `summary`,
+			// `slots`, `capacity` and `variantSkeletons` — none of which reached it when the
+			// Studio took the chat over, so the model was told every layout's NAME with none of
+			// the contract it needs to author one. `slots` needs reshaping: components.json
+			// keys it by slot name, the primer walks an array.
+			summary: c.description || '',
+			...(c.capacity ? { capacity: c.capacity } : {}),
+			slots: Object.entries(c.slots || {}).map(([slotName, v]) => ({
+				name: slotName,
+				required: !!v.required,
+				description: String(v.description || '').slice(0, 240),
+			})),
+			...(variantSkeletonsByName[c.name] ? { variantSkeletons: variantSkeletonsByName[c.name] } : {}),
 			// Prose-density budget (axis/soft/hard). The engine review's density findings
 			// key off it via `densityOf`; without it those findings silently vanish from the
 			// Coach's assessment (succession doc §2.1). Present in components.json.

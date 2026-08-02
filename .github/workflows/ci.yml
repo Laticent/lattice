@@ -71,9 +71,8 @@ jobs:
               - 'dist/**'
               - 'themes/**'
               - 'lib/**'
-              # The Drawing Board's Drafting picker stages + maps the worked
-              # exemplar decks; the docs vitest gates the archetype→deck mapping,
-              # so an exemplars-only change must re-run the docs job.
+              # The exemplar decks are staged into the docs build; keep an
+              # exemplars-only change re-running the docs job.
               - 'exemplars/**'
               - '.github/workflows/ci.yml'
 

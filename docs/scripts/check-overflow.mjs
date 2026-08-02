@@ -49,28 +49,19 @@ const CASES = [
 		],
 	},
 	{
-		name: 'workbench',
-		path: '/lattice/workbench/',
-		// the regression surface: the studio panes only overflow once shown.
+		// The Studio SUCCEEDED the Workbench and Drawing Board cases that used to sit here.
+		// Both were removed in the succession (2026-07-03-studio-succession.md P5); leaving
+		// their entries behind would not have gone red — their paths now serve a redirect
+		// stub, so this guard would have measured /studio/ twice under two wrong names with
+		// every `find()` returning null, reporting coverage it wasn't providing. The
+		// interaction states matter here for the same reason they did on the Workbench:
+		// panes and drawers only overflow once shown.
+		name: 'studio',
+		path: '/lattice/studio/',
 		steps: [
-			{ label: 'theme/preview', find: () => [...document.querySelectorAll('.studio:not(.studio-layout) .studio-tab')].find((b) => /Preview/i.test(b.textContent)) },
-			{ label: 'theme/contrast', find: () => [...document.querySelectorAll('.studio:not(.studio-layout) .studio-tab')].find((b) => /Contrast/i.test(b.textContent)) },
-			{ label: 'layout-faculty', find: () => document.querySelectorAll('[role=tab]')[1] },
-			{ label: 'layout/preview', find: () => [...document.querySelectorAll('.studio-layout .studio-tab')].find((b) => /Preview/i.test(b.textContent)) },
-			{ label: 'layout/gate', find: () => [...document.querySelectorAll('.studio-layout .studio-tab')].find((b) => /Gate/i.test(b.textContent)) },
-		],
-	},
-	{
-		name: 'drawing-board',
-		path: '/lattice/drawing-board/',
-		// The topbar (React deck-theme picker + mode toggle + hamburger) is the
-		// overflow-prone row at mobile/tablet; the drawers + the export DropdownMenu
-		// + the mobile pane switches are the interaction states that can push width.
-		steps: [
-			{ label: 'decks-drawer', find: () => document.querySelector('#db-decks-open') },
-			{ label: 'pane-preview', find: () => document.querySelector('.db-mobile-tab[data-pane="preview"]') },
-			{ label: 'pane-architect', find: () => document.querySelector('.db-mobile-tab[data-pane="architect"]') },
-			{ label: 'export-menu', find: () => document.querySelector('#db-export') },
+			{ label: 'coach', find: () => [...document.querySelectorAll('button')].find((b) => /Toggle Coach/.test(b.getAttribute('aria-label') || '')) },
+			{ label: 'chat', find: () => [...document.querySelectorAll('button')].find((b) => /Toggle Chat/.test(b.getAttribute('aria-label') || '')) },
+			{ label: 'workspace', find: () => [...document.querySelectorAll('button')].find((b) => /Workspace launcher/.test(b.getAttribute('aria-label') || '')) },
 		],
 	},
 	{
@@ -158,6 +149,14 @@ async function main() {
 							await el.click();
 							await new Promise((r) => setTimeout(r, 600));
 							await record(s.label);
+						} else {
+							// A step whose target is missing used to vanish without a trace, so a
+							// case pointed at a dead route reported "checked" while exercising
+							// nothing (the retired Workbench/Drawing Board entries did exactly
+							// that until 2026-08-02). Name the miss so disguised coverage is
+							// visible; still not a failure, since a step can legitimately be
+							// absent at one breakpoint.
+							console.warn(`  · ${c.name} @${bp}: step "${s.label}" found no target — not exercised`);
 						}
 					} catch {
 						/* best-effort: a missing target is not a failure */

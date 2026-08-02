@@ -6,7 +6,7 @@
 // persistence + record shapes are the trusted cores; this module only maps to
 // the Studio's view model and degrades gracefully when IndexedDB is unavailable.
 
-import { deleteAsset, listAssets, putAsset } from '@/playground/asset-store.js';
+import { deleteAsset, listAssets, putAsset } from '@/components/studio/library/asset-store.js';
 import { componentAsset } from '@/playground/layout-core.generated.js';
 
 /** A saved local component as the Studio uses it. */

@@ -1,7 +1,7 @@
 /**
  * The ONE controller for the site's palette + light/dark controls.
  *
- * Every surface (landing, playground, drawing board, workbench, the component
+ * Every surface (landing, playground, the Studio, the component
  * reference, and the Starlight docs header) used to re-implement this wiring
  * inline. They now all drive the shared React `PaletteControls` island, which
  * goes through this module — so the read/write contract lives in exactly one

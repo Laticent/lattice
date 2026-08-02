@@ -470,7 +470,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Which model an agent runs on — one tier, why tiering was retired (HARD RULE #27) | `engineering/model-policy.md` |
 | A self-driving UI walkthrough / product tour (the **Vetrina** library) | `docs/src/lib/vetrina/README.md` + `engineering/decisions/2026-07-05-vetrina-walkthrough-library.md` |
 | Release / publish | `RELEASE.md` |
-| The Drawing Board / Workbench (**FROZEN** — no feature work; the Studio succeeds them) | `engineering/decisions/2026-07-03-studio-succession.md` |
+| The Studio's succession of the Drawing Board + Workbench (both **REMOVED**; their routes redirect) | `engineering/decisions/2026-07-03-studio-succession.md` |
 | Durable investigation notes | `engineering/decisions/YYYY-MM-DD-topic.md` |
 
 The 13 component buckets: anchor, statement, inventory, comparison, progression,

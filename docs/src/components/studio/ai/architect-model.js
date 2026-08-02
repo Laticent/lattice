@@ -14,8 +14,11 @@
 // heavy runtimes load from CDN on demand (no npm deps) and how this is verified
 // without real hardware (a MockBackend exercises the model-on path in CI).
 //
-// Sibling render-path note: this is docs-only (the Drawing Board); it does not
-// touch the three engine render paths.
+// Sibling render-path note: this is docs-site app code (the Studio's AI cluster —
+// it moved here from the Drawing Board's tree in the succession's P1); it does not
+// touch the engine render paths.
+
+import { readCachingEnabled } from './spend.js';
 
 // CDN entrypoints for the heavy, opt-in runtimes. Swap these for bundled
 // import()s if a future deployment needs self-hosted weights — the adapter
@@ -224,8 +227,16 @@ export function orPricePerM(raw) {
 // that does nothing) rather than a correctness one. Keyed on the vendor prefix —
 // the providers OpenRouter documents as supporting prompt caching.
 const OR_CACHE_VENDORS = new Set(['anthropic', 'openai', 'deepseek', 'google', 'x-ai']);
+// The vendor prefix, with OpenRouter's ALIAS marker stripped. Both Studio defaults are
+// aliases (`~anthropic/claude-haiku-latest`, `~anthropic/claude-sonnet-latest`) so that the
+// id can't rot as models are superseded — but `'~anthropic/…'.split('/')[0]` is
+// `'~anthropic'`, which matched neither vendor set. Every caching decision below silently
+// took the "not supported" branch for the models we actually ship: no breakpoint was ever
+// emitted, so Anthropic (which caches ONLY what you mark) cached nothing, and the whole
+// static-prefix seam was inert out of the box. Normalize once, here.
+const vendorOf = (id) => String(id || '').replace(/^~/, '').split('/')[0];
 export function orSupportsCache(id) {
-  return OR_CACHE_VENDORS.has(String(id || '').split('/')[0]);
+  return OR_CACHE_VENDORS.has(vendorOf(id));
 }
 
 // The vendors whose prompt caching needs an EXPLICIT `cache_control` breakpoint to
@@ -243,15 +254,16 @@ const OR_CACHE_BREAKPOINT_VENDORS = new Set(['anthropic', 'google']);
 // cacheable size the breakpoint is a silent no-op, so marking is always safe. Pure —
 // returns a new array, inputs untouched; a string `content` becomes the one-text-part
 // array form OpenRouter expects the `cache_control` field on.
-export function withCachedSystem(messages, modelId) {
-  if (!OR_CACHE_BREAKPOINT_VENDORS.has(String(modelId || '').split('/')[0])) return messages;
+export function withCachedSystem(messages, modelId, ttl) {
+  if (!OR_CACHE_BREAKPOINT_VENDORS.has(vendorOf(modelId))) return messages;
+  const mark = ttl ? { type: 'ephemeral', ttl } : { type: 'ephemeral' };
   let marked = false;
   return (messages || []).map((m) => {
     if (marked || !m || m.role !== 'system') return m;
     // Plain string system prompt: wrap it as one cached text part.
     if (typeof m.content === 'string') {
       marked = true;
-      return { ...m, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
+      return { ...m, content: [{ type: 'text', text: m.content, cache_control: mark }] };
     }
     // A canon/voice split (withStudioVoice's cloud path emits the system as
     // [stable canon, volatile voice] text parts): put the breakpoint on the FIRST
@@ -261,7 +273,7 @@ export function withCachedSystem(messages, modelId) {
     // authored.
     if (Array.isArray(m.content) && m.content.length && m.content[0] && typeof m.content[0].text === 'string' && !m.content.some((p) => p?.cache_control)) {
       marked = true;
-      const content = m.content.map((p, i) => (i === 0 ? { ...p, cache_control: { type: 'ephemeral' } } : p));
+      const content = m.content.map((p, i) => (i === 0 ? { ...p, cache_control: mark } : p));
       return { ...m, content };
     }
     return m;
@@ -415,14 +427,24 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, maxTokens, plugins }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, maxTokens, plugins, cacheTtl }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
       // (USD) rides back in the response — the source of the per-Lattice spend tally.
       // Cache the static system prefix (the big authoring canon) so a fan-out of
-      // calls re-reads it at ~0.1x instead of re-paying full input each time.
-      const body = { model: this.getModel(), messages: withCachedSystem(messages, this.getModel()), stream: !!onToken, usage: { include: true } };
+      // calls re-reads it at ~0.1x instead of re-paying full input each time — unless
+      // the author opted OUT in settings. The opt-out is a real user choice (a cache
+      // WRITE costs 1.25x, so a user who sends one-off turns rather than bursts pays
+      // more for caching than they save); it was previously written but never read,
+      // so the toggle did nothing. Consulted per turn so a change takes effect next send.
+      const cacheOn = readCachingEnabled();
+      // `cacheTtl` opts a caller into a LONGER breakpoint than the provider default (5 min).
+      // The chat asks for '1h': a conversation has think-gaps, and a 1h write costs 2x base
+      // input against 1.25x for 5m — but one avoided re-write of the ~17K-token prefix more
+      // than pays that back, so it wins after a single gap longer than five minutes. Ported
+      // with its reasoning from the Drawing Board's chat, which set it explicitly.
+      const body = { model: this.getModel(), messages: cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages, stream: !!onToken, usage: { include: true } };
       // Optional plugins (e.g. the file-parser plugin that extracts an inlined
       // reference PDF server-side, #640). Passed through verbatim when present.
       if (plugins?.length) body.plugins = plugins;
@@ -809,7 +831,14 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
       if (!json) return (out && String(out).trim()) || fallback || '';
       const parsed = extractJson(out);
       return parsed ?? (fallback ?? {}); // validate-or-floor
-    } catch {
+    } catch (e) {
+      // An explicit user Stop is NOT a model failure — it must reach the caller, which
+      // keeps the streamed partial and charges an estimate for tokens already spent
+      // (architect.ts chatComplete). Falling through to the floor here swallowed the
+      // abort, discarded the reply, and recorded $0 for a request the provider had
+      // already billed — so a hard-stop budget cap could be evaded by repeatedly
+      // starting and stopping turns. Every OTHER failure still floors.
+      if (e?.name === 'AbortError') throw e;
       return floorBackend.complete(opts); // any model failure → the floor
     }
   }

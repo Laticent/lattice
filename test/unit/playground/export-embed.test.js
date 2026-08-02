@@ -13,7 +13,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-	return import('../../../docs/src/playground/drawing-board-export.js');
+	return import('../../../docs/src/components/studio/export/deck-export.js');
 }
 
 const THEME_CSS = "/* @theme mine */\n@import 'lattice';\n:where(:root){color-scheme:light}\n:root{--accent:#246;}";

@@ -1,5 +1,8 @@
 import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
+import { orSupportsCache } from '@/components/studio/ai/architect-model.js';
+import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
+import { readCachingEnabled, readDedupEnabled, writeCachingEnabled, writeDedupEnabled } from '@/components/studio/ai/spend.js';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
@@ -7,12 +10,11 @@ import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
-import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
+import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
@@ -167,10 +169,20 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [tab, setTab] = React.useState<Tab>('AI');
 	const [dedup, setDedup] = React.useState(true);
 	React.useEffect(() => { setDedup(readDedupEnabled()); }, []);
+	const [caching, setCaching] = React.useState(true);
+	React.useEffect(() => { setCaching(readCachingEnabled()); }, []);
+	const [tours, setTours] = React.useState(true);
+	React.useEffect(() => {
+		setTours(toursEnabled());
+		const off = onToursEnabledChange(setTours);
+		return () => {
+			off();
+		};
+	}, []);
 
 	// Performance overlay — wired to the shared cross-surface pref (SSOT), NOT a
-	// StudioSettings field: one flag governs the Studio, Playground, and Drawing
-	// Board alike, and the ?perf URL param writes the same thing. Subscribe so the
+	// StudioSettings field: one flag governs the Studio and the Playground alike,
+	// and the ?perf URL param writes the same thing. Subscribe so the
 	// switch tracks a flip made elsewhere (the × on the overlay, ?perf).
 	const [perfOverlay, setPerfOverlay] = React.useState(false);
 	React.useEffect(() => {
@@ -218,6 +230,10 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
 	const ai = useArchitectStatus(pulse);
+	// Only a connected model whose vendor takes an EXPLICIT cache breakpoint can honor the
+	// switch — `withCachedSystem` no-ops for everyone else, and the auto-caching vendors
+	// cache server-side whatever this says. Gate the control rather than lie about it.
+	const cacheUsable = ai.openRouterReady && orSupportsCache(ai.modelId ?? '');
 	const [genView, setGenView] = React.useState<GenView>('cloud');
 	const userPickedView = React.useRef(false);
 	const [instructions, setInstructions] = React.useState(loadInstructions);
@@ -595,9 +611,24 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								)}
 							</div>
 
+							{/* Guided tours — a shared cross-surface flag the PLAYGROUND's tour reads
+							    (playground-tour.js → guided-tour.js). Its only switch used to live in the
+							    Drawing Board's settings panel, so when that route was deleted anyone who
+							    had turned tours off could never turn them back on. It lives here now. */}
+							<div className="mt-6">
+								<GroupLabel icon={<LifeBuoy className="size-3.5" />}>Guided tours</GroupLabel>
+								<label htmlFor="ws-tours" className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<Switch id="ws-tours" aria-label="Guided tours" checked={tours} onCheckedChange={(next) => { setTours(next); setToursEnabled(next); }} />
+									<span className="min-w-0">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Guided tours</span>
+										<span className="block text-[11px] text-muted-foreground">First-visit walkthroughs and the “Tour” button on the Playground. Turn off to hide them everywhere.</span>
+									</span>
+								</label>
+							</div>
+
 							{/* Diagnostics — the live performance overlay. Off by default; the
 							    switch drives the shared cross-surface pref, so it also governs
-							    the Playground/Drawing Board and mirrors the ?perf URL param. */}
+							    the Playground and mirrors the ?perf URL param. */}
 							{PERF_OVERLAY_AVAILABLE && (
 								<div className="mt-6">
 									<GroupLabel icon={<Cpu className="size-3.5" />}>Diagnostics</GroupLabel>
@@ -835,6 +866,27 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										<span className="min-w-0">
 											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Suggest similar components</span>
 											<span className="block text-[11px] text-muted-foreground">Before generating, surface near-duplicate components so you can reuse instead of adding another.</span>
+										</span>
+									</label>
+							</AiSection>
+
+							<AiSection>
+								<GroupLabel icon={<Zap className="size-3.5" />}>Prompt caching</GroupLabel>
+									{/* Honesty gate: the switch only does something on a model that takes an
+									    explicit cache breakpoint. The panel this replaced disabled it otherwise;
+									    losing that turned `orSupportsCache` into dead code and left the control
+									    promising a saving it could not deliver on most of the catalog. */}
+									<label htmlFor="ws-caching" className={cn('mt-2 flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5', cacheUsable ? 'cursor-pointer' : 'opacity-60')}>
+										<Switch id="ws-caching" aria-label="Reuse the cached prompt" disabled={!cacheUsable} checked={caching} onCheckedChange={(next) => { setCaching(next); writeCachingEnabled(next); }} />
+										<span className="min-w-0">
+											<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Reuse the cached prompt</span>
+											<span className="block text-[11px] text-muted-foreground">
+												{cacheUsable
+													? 'Chat re-sends a large, unchanging preamble every turn. Caching it bills that part at about a tenth on later turns, for a small surcharge the first time — worth leaving on for any real conversation.'
+													: ai.openRouterReady
+														? 'This model does not take a cache breakpoint, so the setting has no effect on it. Anthropic and Google models do.'
+														: 'Connect a cloud model in Model above and this applies to it.'}
+											</span>
 										</span>
 									</label>
 							</AiSection>

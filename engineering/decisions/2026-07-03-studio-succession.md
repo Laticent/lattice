@@ -1,11 +1,44 @@
 ---
-status: proposed
+status: in-progress
 summary: The Studio succeeds the Drawing Board and the Workbench. Three decisions in one plan. (1) COACHING PARITY — the brief said the Studio "is missing the coaching and conversation features that apply changes and fixes"; the audit corrects that: apply-a-fix conversation ALREADY ships in the Studio (ArchitectChat diff cards, per-finding AI fix, selection Refine). The real gaps are depth, not existence — the Studio scores decks with a 3-check local heuristic (`lint.ts scoreDeck`) while the Drawing Board runs the engine's real deterministic review (`reviewCore` scorecard, the thing that named 3 specific fixable problems on a real deck); the Studio chat prompt carries none of the Drawing Board's grounding (Lattice primer, live assessment, presentation-canon pack, cacheable prefix, streaming); and the deterministic Coach action chips (top fixes / weakest slide / structure / the ask / pacing) have no Studio equivalent. The migration is KERNEL ADOPTION, not UI ports: adopt reviewCore as the one deck assessment (delete scoreDeck), port the pure coach-actions kernel behind React result cards, close the chat-grounding gap, and keep the Studio's honesty contract (no fake deterministic chat floor — Coach-vs-Converse holds). (2) CODE OWNERSHIP — a three-tier boundary: engine cores (generated bundles) stay shared per HARD RULE #1; site infra shared with SURVIVING surfaces (Playground, landing, chrome) stays shared; the AI/coaching/present/export cluster that only the Studio needs going forward (~18 modules, architect-*.js + drawing-board-{settings,refine,rehearsal,export}.js + presenter-window.js + voice-model.js + asset-store.js + or-catalog.js + coach kernels + their two Web-Worker companions…) MOVES into the Studio's tree now, renamed off the drawing-board- prefix, with the frozen surfaces importing FROM the Studio until deletion — the dependency arrow flips, so removal day is `git rm`, zero Studio churn. Storage names are user data and never change (`lattice-workbench` IndexedDB, `lattice-studio-*`, the shared OpenRouter token). (3) FREEZE + REMOVAL — the Drawing Board and Workbench are development-frozen as of this doc (features never; security + data-integrity fixes and mechanical retirement refactors still land), and removal follows a phased plan whose hard gate is USER DATA: a Studio importer for `lattice-drawing-board` IndexedDB decks ships BEFORE the deprecation banners point people at the Studio, and both ship before any route is deleted. Inversion-derived invariants and an independent-checker pass are folded in below.
 ---
 
 # Studio succession — coaching parity, code ownership, and retiring the Drawing Board + Workbench (2026-07-03)
 
-> Status: **design model, no code yet** (CLAUDE.md design-before-code). Hardened
+> ## ⚠ What actually shipped (2026-08-02, PR #1306) — read this before the plan below
+>
+> The plan below is preserved as written. Three things about it are now false, and the
+> rest of the document still speaks in the future tense as if nothing had been built:
+>
+> 1. **P3 (the deck importer) and P4 (the deprecation banners) were SKIPPED**, on the
+>    owner's decision that no real user has decks in the `lattice-drawing-board`
+>    IndexedDB store (the npm package is unpublished and the site has no analytics, so
+>    the premise could not be checked from the repo). §7's first invariant — importer
+>    before banners before removal — was therefore **NOT satisfied**. It reads below as
+>    if it were binding; it was overridden.
+> 2. **§5's importer does not exist.** That section describes it in the present tense
+>    ("The Studio ships an **importer**…") with a full paragraph of fresh-context
+>    IndexedDB discipline. None of it was built. The store is intact and readable —
+>    the removal deletes no stores — but there is **no in-product path to get a deck
+>    out**, and no banner ever told anyone so (see §2.4, which claims the banner
+>    stated it).
+> 3. **P1, P2b and P5 landed in ONE PR**, overriding §7's "six slices, each green and
+>    standalone". That PR offered per-phase `git revert` as the mitigation; the
+>    mitigation is **false** — a later cross-phase fix commit deletes a file P1 created
+>    and P5's revert restores an importer of it — and it is void under this repo's
+>    squash-merge default in any case (`workflow.md`).
+> 4. **P2b shipped only its chat half.** §2.4's "**AI plan refinement**
+>    (`createRehearsalPlanner.refine`) — **adopt** — small delta on the existing Rehearse
+>    (P2b)" was NOT built. The chat grounding landed; the rehearsal refinement did not.
+>
+> Phase status, for the avoidance of doubt: **P1 shipped · P2a shipped (earlier) ·
+> P2b shipped in part (chat only) · P3 SKIPPED · P4 SKIPPED · P5 shipped.**
+>
+> §6's phase list, §8's removal-timing recommendation, and §4's freeze governance all
+> describe a world with two surfaces that no longer exist. Treat the sections below as
+> the reasoning that produced the work, not as a description of the system.
+
+> Status when written: **design model, no code yet** (CLAUDE.md design-before-code) — see the shipped note above for what has since landed. Hardened
 > by an independent checker pass and an inversion red-team pass, run
 > independently against the codebase; their verified corrections are folded in
 > and marked ⚠. The red-team's three most-plausible killers — an inventory that
@@ -178,7 +211,7 @@ the chat composer stays model-gated. `floorReply` is **dropped**.
 | Focus fenced-block sub-editor (`drawing-board-focus.js`) | drop, recorded — CodeMirror + inline lint + live preview covers it; revisit on demand |
 | Guided tours (`drawing-board-tour`, `workbench-tour`, `drawing-board-practice-tour`) | drop with the surfaces (Studio uses the welcome cue). ⚠ `guided-tour.js` + `driver.js` themselves SURVIVE — the Playground tour runs on them (red-team catch) |
 | Deck revisions rail | covered — Studio version history/checkpoints |
-| Per-deck chat persistence (IndexedDB) | covered — Studio localStorage chat (cap 60); Drawing Board chat threads are **not migrated** (§5, stated in the banner) |
+| Per-deck chat persistence (IndexedDB) | covered — Studio localStorage chat (cap 60); Drawing Board chat threads are **not migrated** (§5; ⚠ the banner that was to state this never shipped — the CHANGELOG carries it instead) |
 | Settings panel (`createModelSettings` UI) | covered — WorkspaceSheet; the *pure* budget/spend kernel moves (§3) |
 | Export (`drawing-board-export.js`) | already the Studio's engine via `share-export.ts` — moves + renames (§3) |
 | Chart hover/interactivity in preview (`drawing-board-chart-interact.js`) | out of scope for coaching; Playground keeps it. The Studio preview lacking chart-interact is a **pre-existing, off-path gap — logged here** (HARD RULE #18) as a tracked parity item, not pulled into this plan. |
@@ -251,6 +284,29 @@ boundary has three tiers:
    (Node-resolvable) — never rewritten to the `@/` alias, which only Vite and
    vitest resolve. **P1's acceptance check: the executed-test count across
    both runners is unchanged.**
+
+   > **P1 landed (2026-08-02) — three corrections the exhaustive inventory forced.**
+   > The tier table was rebuilt from the real import graph rather than from this
+   > table, and three claims above did not survive contact with the tree:
+   >
+   > 1. **`voice-model.js` + `kokoro-worker.js` do NOT move — they are tier 2.**
+   >    The table sends them to `present/`, but `/cadenza/` and `/suono/` (both
+   >    surviving pages) and `docs/src/lib/cadenza/{cadence,track}.test.ts` import
+   >    `voice-model.js` directly. Moving it would have pulled a Studio path into
+   >    two unrelated surviving surfaces. They stay put — which also disposes of
+   >    the worker-URL trap for that pair.
+   > 2. **`drawing-board-pane.js` is retiring-only — no rename, P5 deletes it.**
+   >    The claim that the surviving Playground imports it (#717) is stale:
+   >    `PlaygroundApp.tsx` only *mentions* the file in a comment about the
+   >    Drawing Board's `setPane` ordering. Its sole importer is
+   >    `drawing-board-render.js`.
+   > 3. **`chat-markdown.js` does not move — it dies.** The Studio already ships
+   >    its own `chat-markdown.ts`; the playground copy is Drawing-Board-only.
+   >
+   > Two additions the graph forced: `tts-catalog.js` moves (Studio-only, and it
+   > imports `or-catalog.js`, which moves — leaving it behind would point the
+   > Playground tree at the Studio's), and `chart-interact.js` was already
+   > renamed on `main`, so P5's rename list is empty.
 
    ⚠ **The inventory is exhaustive or it is wrong (red-team BLOCKER).** This
    table plus tier 1/2 must assign a tier to *every* file under
@@ -335,7 +391,8 @@ carry it; if the freeze must hold past a quarter, revisit.
 
 - **Decks:** Drawing Board decks live in IndexedDB `lattice-drawing-board`
   (the `decks` records carry `source` directly, so "latest source per deck"
-  reads straight from that store). The Studio ships an **importer** (Workspace
+  reads straight from that store). ⚠ **NOT BUILT — P3 was skipped; everything from
+  here to the end of this bullet is unimplemented design.** The Studio ships an **importer** (Workspace
   sheet: "Import from the Drawing Board") that reads it, creates Studio decks
   from each deck's latest source, and drops one checkpoint ("imported from the
   Drawing Board") per deck. ⚠ **Fresh-context IndexedDB discipline (red-team
@@ -379,8 +436,9 @@ carry it; if the freeze must hold past a quarter, revisit.
 - **P2b — conversational depth.** Chat grounding (primer + assessment + canon
   + cache split + streaming); rehearsal AI refinement. Spend behavior verified
   against the budget gauge (BYOK — HARD RULE #24 untouched).
-- **P3 — the importer** (§5). Ships **before** any banner points at the Studio.
-- **P4 — deprecation UX.** Banners on both old surfaces ("frozen — the Studio
+- **P3 — the importer** (§5). ⚠ **SKIPPED** (owner decision, 2026-08-02) — see the
+  note at the top. Ships **before** any banner points at the Studio.
+- **P4 — deprecation UX.** ⚠ **SKIPPED** (owner decision, 2026-08-02). Banners on both old surfaces ("frozen — the Studio
   is the successor; import your decks; chat history does not carry over"), nav
   demotion (Studio loses the "Preview" badge; Drawing Board/Workbench gain
   "Retiring"), landing/features/comparison footer updates. Website change →
@@ -416,7 +474,7 @@ the flip is the cheapest de-risking of everything after it.
 
 | The failure that would kill it | The invariant it forces |
 |---|---|
-| A user's decks vanished with the route | The importer (P3) ships before the banners (P4), both before removal (P5); the importer reads IndexedDB with the §5 fresh-context discipline (no version, no upgrade handler) and survives the route's deletion; the removal PR deletes no stores. |
+| A user's decks vanished with the route | ⚠ **THIS INVARIANT WAS NOT HONORED.** The plan: the importer (P3) ships before the banners (P4), both before removal (P5). What shipped: P3 and P4 were skipped on the owner's "nobody has decks there" decision, and P5 landed alone. What still holds: the removal PR deletes no stores, so `lattice-drawing-board` survives intact and same-origin — a rescue is possible by hand or by a later importer, but nothing in the product offers one. |
 | ⚠ P5 deleted a file a surviving surface still imported (the red-team's top killer: the workers, `font-embed.js`, `drawing-board-pane.js`) | Every file under `docs/src/playground/` carries an explicit tier assignment derived from the real import graph — workers via `new URL`, dynamic `import()`s, CSS included — and P5 deletes an enumerated list of names, never "the remainder" (§3). |
 | ⚠ The "mechanical" move silently shed the kernels' test coverage | The movers' tests live in `test/unit/playground/` (node:test) — they re-point, or convert to vitest, explicitly; moved modules keep relative internal imports (Node can't resolve `@/`); P1's acceptance check is an unchanged executed-test count across both runners (§3). |
 | "Stop sharing" forked the engine — two lint/review/gate truths | The tier-1/tier-2 boundary (§3): generated cores and surviving-surface infra are never forked or moved into a surface tree. The Studio's `scoreDeck` is the live cautionary example of exactly this drift — and this plan deletes it (§2.1). |
@@ -432,7 +490,8 @@ the flip is the cheapest de-risking of everything after it.
 
 ## 8. Open questions (for the user; recommendations attached)
 
-1. **Removal timing.** Recommendation: P5 lands no sooner than one release
+1. **Removal timing.** ⚠ MOOT — P4 never shipped, so "one release after P4" had
+   nothing to count from; P5 landed directly. Original recommendation: P5 lands no sooner than one release
    after P4 (banners + importer live for a full cycle). The gate is yours.
 2. **The Tauri wrapper.** Confirm the SlideWright desktop app embeds the
    engine/Studio and not the Drawing Board route. If it does embed it, its

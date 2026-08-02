@@ -187,7 +187,7 @@ starlight-menu-button[aria-expanded='true'] button {
 
 /* ── Site nav group inside the mobile sidebar menu ──────────────────────────
  * Injected at the top of Sidebar.astro so the hamburger menu starts with the
- * full set of site destinations (incl. Home + Workbench). Hidden on desktop,
+ * full set of site destinations (incl. Home). Hidden on desktop,
  * where the header nav carries them. */
 .lx-sitenav {
 	display: block;

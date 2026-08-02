@@ -66,7 +66,7 @@ itself a finding.
 - The docs website — `docs/src/content/docs/**` (`introduction`,
   `overview.mdx`, `getting-started`, `principles`, `guides/*`) and the
   `docs/src/pages/**` Astro pages (landing `index.astro`, the component
-  index/detail pages, `playground`, `drawing-board`).
+  index/detail pages, `playground`, `studio`).
 - Generated, human-facing: `dist/docs/components.md`, per-component
   `<name>.docs.md`, per-bucket galleries.
 

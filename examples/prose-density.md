@@ -91,4 +91,4 @@ footer: "Budget the words, not just the elements"
 
 ## Write tight; the reviewer has your back.
 
-`components.json` carries each layout's `density`; the Drawing Board flags an overrun as a suggestion. We recommend writing to the budget up front — that, not the warning, is the real fix.
+`components.json` carries each layout's `density`; the Studio's Coach flags an overrun as a suggestion. We recommend writing to the budget up front — that, not the warning, is the real fix.
