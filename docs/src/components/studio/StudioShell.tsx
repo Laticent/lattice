@@ -36,7 +36,7 @@ import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineAc
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import { ComposeView } from './ComposeView';
+import { type ComposeHandle, ComposeView } from './ComposeView';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -653,6 +653,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		return () => window.removeEventListener(SETTINGS_EVENT, sync);
 	}, []);
 	const editorRef = React.useRef<EditorHandle>(null);
+	const composeRef = React.useRef<ComposeHandle>(null);
 	// Warm the lazy Editor chunk right after hydration (off the critical path, but
 	// eagerly once the island is live) so the CodeMirror module is cached and the
 	// component mounts within ~a frame of the default markdown view — keeping
@@ -1493,7 +1494,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		const idx = Math.max(0, Math.min(i, viewSlides.length - 1));
 		setActiveSlide(idx);
 		const fullIdx = composeLens === 'full' ? idx : slides.indexOf(viewSlides[idx]);
-		if (fullIdx >= 0) editorRef.current?.revealSlide(fullIdx);
+		if (fullIdx < 0) return;
+		// Drive WHICHEVER editor is mounted, and FOCUS it: picking a slide in the
+		// preview is intent to work on that slide, so the caret lands on its first
+		// editable line and the next keystroke edits what you just chose (#1288,
+		// #1291). Only one of the two is mounted at a time (editMode), so the
+		// no-op call on the other is free.
+		editorRef.current?.revealSlide(fullIdx, { focus: true });
+		composeRef.current?.revealSlide(fullIdx, { focus: true });
 	}
 	// Switch the reader lens for the preview; restart at the top of the reshaped set.
 	function setLens(next: PresentLens) {
@@ -2869,7 +2877,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			</div>
 			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} />
+				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
