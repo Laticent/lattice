@@ -3,9 +3,10 @@
  * lattice-emulator.js — the Lattice CLI: HTML renderer + PDF exporter
  *
  * This is the package's `bin` and `main` (built to dist/lattice-emulator.js).
- * It renders on the OWNED engine (lib/engine/) — the canonical and only
- * first-party render path. It emits the section elements, pagination
- * attribute, and header/footer structure that lattice.css targets.
+ * It renders on the OWNED engine (lib/engine/), which is canonical for every
+ * first-party render path — this CLI and the browser runtime both interpret it.
+ * It emits the section elements, pagination attribute, and header/footer
+ * structure that lattice.css targets.
  *
  * The name is historical. The file began as a Marp CLI stand-in during the
  * migration, and the HTML shape it emits stays Marpit-compatible on purpose

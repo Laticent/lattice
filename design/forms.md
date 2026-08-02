@@ -165,9 +165,8 @@ goes. Each letter answers a question this design was interrogated against:
 
 One honest caveat: these are **declarative manifests + CSS**, not runtime
 objects. The manifests are an **AST**; `render`/`subdivide` are realized by the
-engine's transform kernels + CSS grid; the three render paths are **three
-interpreters of that one AST** — which is what HARD RULE 1 ("three render paths
-must agree") demands. The Composite pattern only pays off if there is a single
+engine's transform kernels + CSS grid; the render paths are **interpreters of that one AST** — which is what HARD RULE 1
+(land transforms in the shared kernel so every path agrees) demands. The Composite pattern only pays off if there is a single
 shared tree to interpret. That tree is the manifest (§11); hand-coding it in the
 kernels is writing the pattern three times and praying they stay in sync.
 
@@ -484,10 +483,9 @@ Two cautions that governed the sweep (left as a record): (1) **`form` is a subst
 `applyToRenderedHtml`). The `form:` axis stayed, so there was no "form" sweep; only
 `island` / `berth` / `isl-*` were retired, which are unique tokens. (2) The rename landed
 in **both render paths** (the owned engine and the browser runtime) in lock-step
-(HARD RULE 1), with the per-component galleries asserting no pixel drift. (At the
-time of the sweep a third path — marp-cli plugins — and a cross-renderer parity
-gate also existed; both were retired in P4,
-`engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md`.)
+(HARD RULE 1), with the per-component galleries asserting no pixel drift. (A third path and a
+renderer-comparison gate also existed at the time of the sweep; both were retired
+in P4 — `engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md`.)
 
 What ships **today** is the masthead lift, the `meta` / `progress` / `watermark`
 injectors, and the `form:` toggle with its skip-list — **now on by default**
@@ -507,8 +505,9 @@ engine render paths; a Marp-rendered surface (the marp-vscode preview, or an
 export-to-Marp bundle rendered by the user's `marp`) doesn't run the toggle at all,
 so the runtime composes Form there regardless — a per-slide `no-form` still opts a
 slide out, since it is DOM-visible. See
-`engineering/decisions/2026-07-08-runtime-form-default.md`. The cross-renderer parity
-gate and per-component galleries hold because page counts are section-count-stable.
+`engineering/decisions/2026-07-08-runtime-form-default.md`. The per-component
+galleries hold because page counts are section-count-stable. (They used to be
+backed by a renderer-comparison gate too; it was retired in P4.)
 
 ### How bodies are bounded: the flex cell-tree (grid was retired; flex reopened `.cell-stage`)
 
@@ -564,7 +563,7 @@ reviewer's eye: the per-component galleries (light + dark page counts asserted) 
 The gap this doc closes is not just naming. Form was **hidden**: the model lived
 only in a dated decision note and a one-line Drawing-Board tooltip, while the
 slicer catalog (the twelve forms) was a frozen constant + prose with no manifest,
-and every Tile was injected by hand-written code in three render paths. That is
+and every Tile was injected by hand-written code in each render path. That is
 an Open/Closed violation and a single-source-of-truth violation at once.
 
 The fix is to treat Form exactly like the component model: a **single source of

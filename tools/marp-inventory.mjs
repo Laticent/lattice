@@ -171,21 +171,72 @@ const SELF = new Set([
   'engineering/decisions/2026-08-02-marp-reference-register.md',
 ]);
 
-const files = execFileSync('git', ['ls-files'], { encoding: 'utf8', maxBuffer: 64 << 20 })
+/**
+ * Phantom-render-path phrases. These describe a THIRD render path (marp-cli
+ * plugins) and a cross-renderer parity gate, both retired in P4
+ * (`engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md`).
+ *
+ * Scanned SEPARATELY from the Marp inventory, over every tracked text file,
+ * because these sentences usually do NOT contain the word "marp" — so a scan
+ * restricted to Marp-mentioning lines cannot see them. That was a real defect
+ * in the first version of this tool: it reported "0 actionable" while 40 files
+ * carried a live false claim, including four siblings of a file it did flag
+ * (`lib/core/resolve-finish.js`, caught only because that one line happened to
+ * say "Marpit"). Never narrow this scan to the Marp row set.
+ */
+const PHANTOM_RE = /three render paths|three renderers|three-renderer|cross-renderer parity/i;
+
+// Dated records and the generated changelog describe the past accurately.
+const PHANTOM_EXEMPT = /^(engineering\/decisions\/|CHANGELOG\.md$|dist\/|docs\/public\/)/;
+
+// `git ls-files` prints paths relative to CWD, which would silently void every
+// `^`-anchored path rule and every OVERRIDES key when run from a subdirectory.
+// Anchor to the repo root so the output is identical from anywhere.
+const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+  encoding: 'utf8',
+}).trim();
+
+const files = execFileSync('git', ['ls-files'], {
+  encoding: 'utf8',
+  maxBuffer: 64 << 20,
+  cwd: ROOT,
+})
   .split('\n')
   .filter(Boolean)
   .filter((f) => !SELF.has(f));
 
+/**
+ * Decide binary-ness by DECODABILITY, not by the presence of a NUL byte.
+ * `lib/engine/themes.js` uses a literal NUL as a cache-key separator, and a
+ * naive `includes(0)` test dropped that engine source from the inventory
+ * entirely — silently, in the exact area the register claims to enumerate.
+ */
+function isBinary(buf) {
+  const head = buf.subarray(0, 8000).toString('utf8');
+  // U+FFFD only appears when the bytes were not valid UTF-8.
+  return head.includes('�');
+}
+
 const rows = [];
+const phantoms = [];
 for (const file of files) {
   let buf;
   try {
-    buf = readFileSync(file);
+    buf = readFileSync(`${ROOT}/${file}`);
   } catch {
     continue;
   }
-  if (buf.subarray(0, 8000).includes(0)) continue;
+  if (isBinary(buf)) continue;
   const text = buf.toString('utf8');
+
+  if (PHANTOM_RE.test(text) && !PHANTOM_EXEMPT.test(file)) {
+    const lines = [];
+    text.split('\n').forEach((line, i) => {
+      if (PHANTOM_RE.test(line)) lines.push({ line: i + 1, text: line.trim() });
+    });
+    phantoms.push({ file, lines });
+  }
+
   if (!/marp/i.test(text)) continue;
 
   const hits = [];
@@ -205,17 +256,33 @@ for (const file of files) {
   const byPath = PATH_RULES.find(([re]) => re.test(file))?.[1];
   const bySignal = SIGNALS.find(([re]) => re.test(joined))?.[1];
 
-  // `marp: true` with no prose is the deck-authoring convention: it exists so a
-  // deck opens in the VS Code preview, which makes it preview-contingent, not
-  // interop the engine needs. The owned engine ignores the key.
+  // `marp: true` and nothing else. This is the deck-authoring convention that
+  // `design/skills/deck.md` and `engineering/workflow.md` prescribe. It serves
+  // BOTH surfaces — the VS Code preview activates on it, and
+  // `docs/src/playground/deck-config.js:334` leads every exported block with it
+  // "so an exported .md renders" through the recipient's marp-cli. Classified
+  // `preview` because that is the surface it can be RETIRED with; it is not
+  // free to delete, since the export path emits it too.
   const fmOnly = !hits.length;
-  const cls = forced ?? (fmOnly ? 'preview' : (byPath ?? bySignal ?? 'interop'));
+
+  // A `rewrite`/`remove` signal OUTRANKS an override. Overrides pin a file's
+  // resting class after an audit; they must never be able to hide fresh drift,
+  // or the "a rewrite signal firing again means a regression" guarantee is
+  // unreachable by construction — which it was, in the first version.
+  //
+  // It does NOT outrank `history`/`generated`, though: a dated decision record
+  // QUOTING the old "three render paths" language is being accurate about its
+  // own date, and a generated bundle inlines whatever its source says.
+  const frozen = byPath === 'history' || byPath === 'generated';
+  const drift = !frozen && (bySignal === 'rewrite' || bySignal === 'remove') ? bySignal : null;
+  const cls = drift ?? forced ?? (byPath ?? (fmOnly ? 'preview' : (bySignal ?? 'interop')));
 
   rows.push({
     file,
     class: cls,
     reason: why ?? null,
-    triaged: Boolean(forced ?? byPath ?? bySignal ?? fmOnly),
+    pinned: Boolean(forced),
+    triaged: Boolean(drift ?? forced ?? byPath ?? bySignal ?? fmOnly),
     lines: hits.length,
     frontMatter,
     hits,
@@ -224,57 +291,83 @@ for (const file of files) {
 
 rows.sort((a, b) => b.lines - a.lines || a.file.localeCompare(b.file));
 
+// NO process.exit() anywhere in this file. Node discards buffered stdout on
+// exit() when stdout is a PIPE, which is exactly how a machine reader consumes
+// `--json` — the first version truncated to one 64KB buffer (3% of the payload)
+// and still exited 0. Guard the human report instead, and let the process end
+// naturally so the writes flush.
 if (WANT_JSON) {
-  console.log(JSON.stringify({ generated: rows.length, rows }, null, 2));
-  process.exit(0);
+  console.log(JSON.stringify({ generated: rows.length, rows, phantoms }, null, 2));
 }
 
-const tally = Object.fromEntries(CLASSES.map((c) => [c, { files: 0, lines: 0, fm: 0 }]));
-for (const r of rows) {
-  const t = tally[r.class];
-  t.files++;
-  t.lines += r.lines;
-  t.fm += r.frontMatter;
-}
+if (!WANT_JSON) {
+  const tally = Object.fromEntries(CLASSES.map((c) => [c, { files: 0, lines: 0, fm: 0 }]));
+  for (const r of rows) {
+    const t = tally[r.class];
+    t.files++;
+    t.lines += r.lines;
+    t.fm += r.frontMatter;
+  }
 
-const totalLines = rows.reduce((a, r) => a + r.lines, 0);
-const totalFm = rows.reduce((a, r) => a + r.frontMatter, 0);
+  const totalLines = rows.reduce((a, r) => a + r.lines, 0);
+  const totalFm = rows.reduce((a, r) => a + r.frontMatter, 0);
 
-console.log(`# Marp reference inventory\n`);
-console.log(
-  `${rows.length} tracked files carry a Marp reference: ` +
-    `${totalLines} prose/code lines + ${totalFm} \`marp: true\` front-matter keys.\n`,
-);
-console.log('| Disposition | Files | Lines | `marp: true` | Meaning |');
-console.log('|---|---:|---:|---:|---|');
-for (const c of CLASSES) {
-  const t = tally[c];
-  if (!t.files) continue;
-  console.log(`| \`${c}\` | ${t.files} | ${t.lines} | ${t.fm || '—'} | ${BLURB[c]} |`);
-}
-
-const actionable = rows.filter((r) => r.class === 'rewrite' || r.class === 'remove');
-console.log(`\n## Actionable — ${actionable.length} files\n`);
-for (const r of actionable) {
-  console.log(`### \`${r.file}\` — **${r.class.toUpperCase()}**`);
-  if (r.reason) console.log(`\n${r.reason}\n`);
-  for (const h of r.hits) console.log(`  ${r.file}:${h.line}  ${h.text.slice(0, 150)}`);
-  console.log('');
-}
-
-const untriaged = rows.filter((r) => !r.triaged);
-if (untriaged.length) {
-  console.log(`\n## Untriaged — ${untriaged.length} files fell through to \`interop\`\n`);
-  for (const r of untriaged) console.log(`  ${r.file} (${r.lines})`);
-}
-
-if (WANT_FULL) {
+  console.log(`# Marp reference inventory\n`);
+  console.log(
+    `${rows.length} tracked files carry a Marp reference: ` +
+      `${totalLines} prose/code lines + ${totalFm} \`marp: true\` front-matter keys.\n`,
+  );
+  console.log('| Disposition | Files | Lines | `marp: true` | Meaning |');
+  console.log('|---|---:|---:|---:|---|');
   for (const c of CLASSES) {
-    const group = rows.filter((r) => r.class === c);
-    if (!group.length) continue;
-    console.log(`\n## \`${c}\` — ${group.length} files\n`);
-    for (const r of group) {
-      console.log(`  ${String(r.lines).padStart(4)}  ${r.file}${r.frontMatter ? '  (marp: true)' : ''}`);
+    const t = tally[c];
+    if (!t.files) continue;
+    console.log(`| \`${c}\` | ${t.files} | ${t.lines} | ${t.fm || '—'} | ${BLURB[c]} |`);
+  }
+
+  console.log(
+    '\n**Scope:** files containing the literal string `marp`. A sentence that is ' +
+      'wrong about Marp WITHOUT naming it is invisible to that scan, which is what ' +
+      'the separate phantom-path section below exists to catch. "0 actionable" ' +
+      'means only "no Marp-mentioning file matches a drift signal".',
+  );
+
+  const actionable = rows.filter((r) => r.class === 'rewrite' || r.class === 'remove');
+  console.log(`\n## Actionable — ${actionable.length} files\n`);
+  for (const r of actionable) {
+    console.log(`### \`${r.file}\` — **${r.class.toUpperCase()}**`);
+    if (r.reason) console.log(`\n${r.reason}\n`);
+    for (const h of r.hits) console.log(`  ${r.file}:${h.line}  ${h.text.slice(0, 150)}`);
+    console.log('');
+  }
+
+  const phantomLines = phantoms.reduce((a, p) => a + p.lines.length, 0);
+  console.log(
+    `\n## Phantom render paths — ${phantoms.length} files, ${phantomLines} lines\n`,
+  );
+  console.log(
+    'Claims of a THIRD render path or a cross-renderer parity gate, both retired\n' +
+      'in P4. Scanned over every tracked text file, NOT just Marp-mentioning ones.\n' +
+      'Dated decision records and the CHANGELOG are exempt.\n',
+  );
+  for (const p of phantoms) {
+    for (const l of p.lines) console.log(`  ${p.file}:${l.line}  ${l.text.slice(0, 140)}`);
+  }
+
+  const untriaged = rows.filter((r) => !r.triaged);
+  if (untriaged.length) {
+    console.log(`\n## Untriaged — ${untriaged.length} files fell through to \`interop\`\n`);
+    for (const r of untriaged) console.log(`  ${r.file} (${r.lines})`);
+  }
+
+  if (WANT_FULL) {
+    for (const c of CLASSES) {
+      const group = rows.filter((r) => r.class === c);
+      if (!group.length) continue;
+      console.log(`\n## \`${c}\` — ${group.length} files\n`);
+      for (const r of group) {
+        console.log(`  ${String(r.lines).padStart(4)}  ${r.file}${r.frontMatter ? '  (marp: true)' : ''}`);
+      }
     }
   }
 }

@@ -78,7 +78,17 @@ in patch versions.
   2026-07-09 when `lib/runtime/index.js` is **2,064** (2.6× off — it is the number the
   keep-marp-vscode decision was weighed against), and `engineering/gotchas.md` told readers a
   90-day re-evaluation timer was "the real backstop" when that timer had been explicitly
-  retired ("not on a timer") on 2026-07-10.
+  retired ("not on a timer") on 2026-07-10. An independent checker then found the
+  tool itself was near-blind: its drift signals only matched lines already containing
+  "marp", so 40 files carrying a live "three render paths" claim went unreported while
+  it printed "0 actionable"; its overrides outranked the drift signal, making the
+  promised regression guarantee unreachable; `--json` truncated to 3% of its payload
+  through a pipe; and a NUL byte in `lib/engine/themes.js` dropped an engine source
+  from the inventory. All fixed, plus 7 more drifted files the repaired tool exposed —
+  four sibling resolvers, `lib/engine/css.js`, more of `design/forms.md`, and
+  `lib/integrations/markdown-it/markdown-it.docs.md`, which opened "**Marp is the
+  foundation**. Every component, every render path, every slide assumes Marp" and
+  described the deleted `marp.config.js` as live config.
   `engineering/decisions/2026-08-02-marp-reference-register.md`.
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
