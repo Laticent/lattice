@@ -611,7 +611,21 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// dim when the slide edge is reached, full on reveal.
 	// Is a transient overlay pill occupying the band below the slide? Keyed on the
 	// rehearsal SESSION rather than the current beat — see the row's note below.
-	const overlayPillUp = showHint || (rehearse && playing);
+	//
+	// `plan`, not `coach`: the coach pill only renders when there is a rehearsal plan,
+	// so rehearsing WITHOUT one used to reserve 56px for a pill that never appears.
+	// `plan` is session-stable while `coach` changes per beat and per slide, so this
+	// closes the empty-band case without reintroducing a band that flickers as you
+	// cross beats — which is the whole reason this is keyed on the session.
+	const coachPillUp = rehearse && playing && !!plan;
+	// The band the row reserves BELOW the slide, sized to the pill that will occupy it.
+	// It has to be per-pill, because the two are not the same height: the first-run cue
+	// is one short line, while a coach beat is real prose that wraps. A single `pb-14`
+	// for both was measured drawing the coach pill 9–28px ON TOP of the slide (57px and
+	// 76px pills against a 48px clearance) — the one thing this layout promises never
+	// happens. The coach pill is clamped to two lines to make its ceiling knowable;
+	// `--present-band` and that clamp are set together, so neither can drift alone.
+	const bandCls = coachPillUp ? 'pb-[4.75rem]' : showHint ? 'pb-14' : 'pb-4 sm:pb-5';
 	const arrowCls = (disabled: boolean) => cn('hidden shrink-0 rounded-full border border-border bg-card/85 p-2.5 text-foreground shadow-[0_4px_16px_rgba(10,22,40,.12)] backdrop-blur transition-opacity duration-300 hover:text-[var(--accent)] motion-reduce:transition-none sm:block', disabled ? 'pointer-events-none opacity-20' : cn('pointer-events-auto', revealed ? 'opacity-100' : 'opacity-40'));
 	// Two stacked fixed layers under the studio root: the opaque backdrop (z-100, which
 	// carries the gesture/wake handlers) and this chrome dialog (z-102, which holds Present's
@@ -681,7 +695,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			    `items-center` on the sizer stays LOAD-BEARING (#1227): default `stretch`
 			    makes a flex item's cross size definite, which beats `aspect-ratio` per spec
 			    and would flatten the card. Centering the card removes the stretch. */}
-			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', overlayPillUp ? 'pb-14' : 'pb-4 sm:pb-5')}>
+			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', bandCls)}>
 				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
 				<div className="flex min-h-0 w-full min-w-0 items-center justify-center self-stretch [container-type:size]">
 					{unavailable ? (
@@ -714,7 +728,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				    active timed beat surfacing as you cross its mark in the slide. */}
 				{rehearse && playing && coach && (
 					<div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-4">
-						<span className="inline-flex max-w-[680px] items-center gap-2 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg))] px-3.5 py-2 text-center text-[13px] font-semibold text-[var(--text-heading)] shadow-[0_8px_24px_rgba(10,22,40,.14)]"><Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" />{coach}</span>
+						<span className="inline-flex max-w-[680px] items-center gap-2 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg))] px-3.5 py-2 text-center text-[13px] font-semibold leading-[1.35] text-[var(--text-heading)] shadow-[0_8px_24px_rgba(10,22,40,.14)]"><Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="line-clamp-2">{coach}</span></span>
 					</div>
 				)}
 				{/* First-run cue — teaches the bloom + gestures once, then never again. */}
@@ -723,7 +737,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					// taps so a swipe over it still reaches the gesture layer. The dismiss
 					// control is what retires the cue for good, so it must be reachable:
 					// an icon button with a real accessible name, not a bare glyph.
-					<div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 motion-reduce:hidden">
+					//
+					// NOT `motion-reduce:hidden`. That was correct when the cue auto-faded —
+					// hiding an animation from someone who asked for no animation. The cue no
+					// longer animates at all; it is a static pill that waits to be dismissed.
+					// Keeping the hide meant a reduced-motion presenter paid the reserved band
+					// for an invisible pill AND could never clear it, because the dismiss button
+					// lives inside the element being hidden.
+					<div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
 						<span className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border bg-card/90 py-1.5 pl-3.5 pr-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">
 							Swipe or use ← → to move · controls reveal as you go
 							<button type="button" onClick={dismissHint} aria-label="Dismiss this tip" className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><X className="size-3.5" /></button>

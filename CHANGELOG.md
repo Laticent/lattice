@@ -246,13 +246,22 @@ in patch versions.
   your OS and keeps following it as the OS flips, rather than resolving once at load and freezing
   on the first toggle with no way back; an explicit light/dark pick still wins forever after. The
   header control cycles system → light → dark, ordered against your OS so the first press always
-  repaints. The self-driving demo reskins to **carbone** instead of cuoio, so the flourish is still
+  repaints — and so does ⌘K's "Color mode", which now names the stops it can actually reach
+  instead of quietly pinning you off System. A deck-authoring surface (the Studio top bar, the
+  Drawing Board) stays a two-stop light/dark switch, and the demo pages honor a `system`
+  preference on load rather than falling back to their CSS default. The self-driving demo reskins to **carbone** instead of cuoio, so the flourish is still
   a visible change rather than a repaint in the colors the deck already wears. The engine's own
   default (a deck with no `theme:`) is unchanged. (#1285)
-- **A slide with no `_class` renders as a `content` slide, not as unstyled markdown.** There is no
-  such thing as a layout-less slide, and the catch-all is a layout. Any section whose resolved
-  class list names no component now gets `content` on both render paths. A slide that names a
-  component, or a deck whose `class:` register names one, is untouched. (#1292)
+- **Breaking: a slide with no `_class` renders as a `content` slide, not as unstyled markdown.**
+  There is no such thing as a layout-less slide, and the catch-all is a layout. Any section whose
+  resolved class list names no component now gets `content` on both render paths. A slide that
+  names a component, or a deck whose `class:` register names one, is untouched. **Existing decks
+  re-render:** an un-classed slide picks up `content`'s prose size (`--fs-message`, up from the
+  base `--fs-body`), its 72cqi measure, and real list markers — so a deck that relied on the
+  unstyled fallback will look different and may need trimming. The two render paths agree,
+  including the ordering against a deck-wide `class:` register: the runtime sequences its pass
+  after front-matter propagation rather than merely being written below it, so a deck-wide
+  component is never doubled up with the catch-all. (#1292)
 - **Per-slide settings say "Auto" where they used to say "Inherit".** `inherit` is a CSS keyword,
   not a word an author should have to know. Every axis head now reads Auto and names what it
   resolves to — "Auto — Rainbow" — so the deck's value is legible without opening the deck
@@ -502,7 +511,12 @@ in patch versions.
   one-way. The slide now tracks the pane continuously in both directions. (#1283)
 - **Present mode fills the window.** The presented slide was capped at 960×540 however large the
   window was, leaving a band of dead space above it while Read mode filled the same screen. The
-  caption, controls and rail below keep their space. (#1282)
+  caption, controls and rail below keep their space. The band under the slide is reserved only
+  while something is actually in it, and is sized to the pill that will occupy it — a rehearsal
+  coach beat wraps to two lines and used to draw on top of the slide. The first-run swipe cue is
+  no longer hidden under `prefers-reduced-motion`: it stopped animating when it became
+  dismiss-to-retire, so hiding it only cost those readers the band and the dismiss button.
+  (#1282)
 - **The editor gives you room past the last line.** Both editors were pinned to the container
   edge, so the line you are most often working on was the least comfortable to read. (#1290)
 - **A collapsed slide in Compose shows its title, not its eyebrow.** Collapsing showed the slide's

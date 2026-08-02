@@ -16,8 +16,8 @@
 // storage-accumulation-diagnostic.md): the origin's storage-quota usage, the
 // Studio's localStorage footprint broken down by category (sources, checkpoints,
 // chats, snapshots, comments), the service-worker Cache Storage entry counts, and a
-// LIVE full-scan timing — the same O(n) boot-path cost (hasPriorStudioUse /
-// deckContentStats / loadDeckList) that grows as the store fills.
+// LIVE full-scan timing — the same O(n) boot-path cost (deckContentStats /
+// loadDeckList) that grows as the store fills.
 //
 // Default is OFF — this is a diagnostics aid, opt-in only.
 const KEY = 'lattice-storage-overlay';

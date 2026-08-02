@@ -8,8 +8,8 @@
 // re-scans on every boot. Private browsing starts each session empty, so it never
 // pays that tax: that's the whole reason an incognito reload stays fast while a
 // normal one slowly degrades. This module measures the footprint AND the live
-// O(n) scan cost (the same shape as studio-store's hasPriorStudioUse /
-// deckContentStats / loadDeckList), so the accumulation is visible, not folklore.
+// O(n) scan cost (the same shape as deckContentStats / loadDeckList), so the
+// accumulation is visible, not folklore.
 // See engineering/decisions/2026-07-21-storage-accumulation-diagnostic.md.
 //
 // Kept free of any Studio import (studio-store et al.) so the overlay stays light
