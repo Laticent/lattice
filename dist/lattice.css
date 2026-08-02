@@ -196,6 +196,41 @@
    * deck. See engineering/typography.md §7. */
   --fs-scale: 1;
 
+  /* ── Sovereign-bookend measures ────────────────────────────────────────
+   * The ONLY width caps on framing text in the engine. `title` / `closing` /
+   * `divider` are the sovereign bookends: their heading and subtitle ARE the
+   * slide's content, not a frame around someone else's, so a composed measure
+   * is theirs to make. Every OTHER component's framing fills its masthead band
+   * and takes its behavior from `headline:` — do not reach for these there
+   * (engineering/decisions/2026-07-30-masthead-framing-fills-the-band.md).
+   *
+   * `em`, NOT `cqi`, and that is the whole point. A measure is a property of
+   * the TYPE — characters per line — while `cqi` is a fraction of the SLIDE.
+   * Those agree only while the type size is fixed, and it isn't: --fs-* is
+   * curated PER ORIENTATION (lib/typography/scale.js), so one `cqi` cap set
+   * ~22 characters on landscape and ~12 on portrait. `em` resolves against the
+   * element's own font-size, so one number means one measure everywhere — and
+   * it stays resolution-independent for free, because --fs-* is itself cqi.
+   *
+   * Sized to the classic ranges: a display line wants 20–35 characters, a
+   * reading line 45–75. Measured landscape frames are ~37 characters wide for
+   * a bookend heading and ~90 for a lede, so the heading cap trims the longest
+   * titles back to a block with side air and the lede cap holds a sign-off
+   * inside the reading range.
+   *
+   * Where they bind, measured: landscape only, with ONE exception. Portrait
+   * frames are narrower than either token, so both go inert; on square the
+   * heading measure does too (frame 972px vs a 1088.6px cap). The square lede
+   * is inert at 982.8px inside `closing`'s 972px frame — but `divider.light`
+   * drops divider's left inset (`padding-left:0` below), so ITS frame is
+   * 1026px and the lede measure binds there by about 1em. That is the one
+   * place a cap still tightens a narrow frame, and it is a consequence of the
+   * light variant's own framing rather than of the measure. Override per deck
+   * (front-matter `style:`) to compose differently.
+   * engineering/decisions/2026-08-02-sovereign-bookend-measures.md */
+  --measure-bookend-heading: 16em;  /* ≈33 characters at the display tier   */
+  --measure-bookend-lede:    26em;  /* ≈56 characters at the statement tier */
+
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
@@ -2695,23 +2730,28 @@ section.citation-card > .cell-stage {
 section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
-/* Measures widened so a normal closing line holds together: at --fs-h1 the old
- * 54.7cqi cap broke a six-word sign-off onto a second line with one orphan word,
- * and the 42.2cqi body cap ran a three-clause sentence to five short lines. Both
- * are still measures (they cap, they don't stretch) — just set where the type
- * tier actually sits rather than where a smaller tier once did. */
-section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
-section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:48.4cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
+/* The shared sovereign-bookend measures (base.tokens.css), mirroring title.
+ * They replace a pair of hand-set `cqi` caps that named a fraction of the SLIDE
+ * where they meant a count of CHARACTERS — so one declaration allowed ~23
+ * characters per heading line on landscape and ~12 on portrait, and the subtitle's
+ * allowed ~43 and ~18, which is what ran a three-clause sentence to six short
+ * lines on a portrait sign-off. `text-wrap: balance` handles
+ * the break positions the cap can't (closing.styles.css' predecessor comment
+ * blamed the cap for an orphan word that was always balance's job). */
+section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
+section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:var(--measure-bookend-lede); text-wrap:balance; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 
 /* Mirror of title: the inline-code paragraph after the heading is the
  * eyebrow, rendered visually ABOVE the heading via flex order (overriding
  * the italic subtitle rule). The heading slot is h2 — closing is a section
  * of the deck, not its document title; the lone h1 belongs to `title`.
  * max-width:none — the eyebrow is a single-line label and must NOT inherit the
- * subtitle's readable-width cap (42cqi), which the portrait type-boost overflows
- * into a two-line wrap with a dangling separator. (title's subtitle has no cap,
- * so its eyebrow never wrapped — this restores parity.) */
-section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; }
+ * subtitle's readable-width cap (--measure-bookend-lede), which the portrait
+ * type-boost overflows into a two-line wrap with a dangling separator. (title's
+ * subtitle has no cap, so its eyebrow never wrapped — this restores parity.)
+ * text-wrap:normal — balance on a one-line label is a no-op at best, and if a
+ * long eyebrow ever does wrap, an even split reads as a heading, not a label. */
+section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; text-wrap:normal; }
 section.closing h2 + p:has(> code:only-child) > code {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
@@ -2772,12 +2812,20 @@ section.closing :is(ul,ol) {
   list-style:none; padding:0; margin:0;
   display:flex; flex-direction:column; align-items:var(--headline-justify, center);
   gap:var(--sp-xs); padding-top:var(--sp-md);
-  max-width:60cqi;
 }
+/* The measure sits on the ROW, not on the list. It used to cap the `ul`
+ * (60cqi, and 62cqi on `.index` — a 3% split with no intent behind it), which
+ * put an `em`-shaped decision on the one box in the stack that does NOT declare
+ * a type tier: a `ul` inherits the section's body size while its rows render at
+ * --fs-message, so a measure written there would have counted characters of the
+ * wrong tier. Capping the `li` puts the measure on the text it measures. The
+ * list is a shrink-to-fit column (align-items is always flex-start/center/
+ * flex-end, never stretch), so it still tracks its widest row. */
 section.closing :is(ul,ol) li {
   color:var(--on-dark-secondary);
   font-size:var(--fs-message); font-style:normal;
   line-height:var(--lh-snug); text-align:var(--headline-align, center);
+  max-width:var(--measure-bookend-lede);
 }
 /* Inline-code chips ride on-dark already — base.modifiers.css rebinds
  * `section.closing code` to --on-dark-primary, so the wash follows the
@@ -2788,7 +2836,7 @@ section.closing :is(ul,ol) li {
  * refined "see also" / "next steps". Keeps closing's centered bookend
  * symmetry; adds a little more air above the set and gives the leading key
  * a mono meta-chip so it reads as a reference key. */
-section.closing.index :is(ul,ol) { gap:var(--sp-xs); padding-top:var(--sp-lg); max-width:62cqi; }
+section.closing.index :is(ul,ol) { gap:var(--sp-xs); padding-top:var(--sp-lg); }
 section.closing.index :is(ul,ol) li code {
   font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:600;
 }
@@ -4221,7 +4269,13 @@ section.divider { border-top: none; }
 /* Section heading slot is h2 — a divider names a section of the deck, not
  * its document title; the lone h1 belongs to `title`. Rendered at --fs-h1
  * so the section headline keeps its full dark-canvas weight. */
-section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62.5cqi; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
+/* The shared sovereign-bookend measure (base.tokens.css) + `text-wrap: balance`,
+ * mirroring title and closing. The 62.5cqi cap this replaces was the hardest-
+ * biting width in the engine — measured, it bound on 13 of 13 divider slides in
+ * the gallery corpus and cost 12 of them a line, which is a width masquerading
+ * as a measure. Left-aligned by default, so a short break heading simply sits on
+ * one line and the cap never shows. */
+section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
 
 /* light variant — former `subtopic` component (anchor.divider.light)
  *
@@ -4232,8 +4286,30 @@ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-widt
 /* The light variant CENTERS by default — its fallbacks encode center, so `auto` is
  * byte-identical while head-left/right still re-anchor it. */
 section.divider.light { background:var(--bg); padding-left:0; justify-content:center; align-items:var(--headline-justify, center); }
-section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
-section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
+/* The light heading keeps `max-width:none` — it renders a tier down (--fs-h2),
+ * so the frame is already a sane measure for it and a cap only ever costs a
+ * line. It still takes `balance`, which spends no width: measured across the
+ * corpus this heading never binds, but it does wrap, and an even split is the
+ * difference between a sub-section break and a ragged one. */
+section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
+section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-bookend-lede); text-wrap:balance; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
+/* Every eyebrow shape is out of the subtitle's measure, matching what closing
+ * already does for its own. `section.divider.light p` above is written for the
+ * SUBTITLE but matches every paragraph on the slide, so it also caught the
+ * eyebrow — a single-line label that must never inherit a reading measure.
+ * Latent rather than live (a realistic eyebrow is far too short to reach 26em,
+ * and was too short to reach the 46.875cqi this replaced), but the straddle is
+ * real and closing's is already excluded.
+ *
+ * Matched on the CODE-ONLY paragraph itself, deliberately, rather than on a
+ * heading-adjacency form. `divider.light` accepts THREE eyebrow shapes —
+ * base.modifiers.css gives it the before-heading rules for `+ h2` AND `+ h1`
+ * (:153-154) plus the after-heading `h1 +` / `h2 +` pair (:79-80), the last of
+ * which divider.docs.md explicitly tells authors still renders. A selector
+ * copying divider's usual before-heading form would have excluded one of the
+ * three and left the other two capped; the shape they all share is a paragraph
+ * whose only child is a code span, so that is what this matches. */
+section.divider.light p:has(> code:only-child) { max-width:none; text-wrap:normal; }
 
 /* === lib/components/chart/funnel/funnel.styles.css === */
 /* funnel — tapering stage chart (chart-family series member).
@@ -15433,9 +15509,13 @@ section.title { justify-content:center; align-items:var(--headline-justify, cent
 section.title { border-top: none; }
 /* A measure on the deck title: uncapped, a long title runs the full frame width
  * as one thin line that reads as a banner rather than a title block. Capped, it
- * breaks into a centered two-line stack with the subtitle beneath — the bookend
- * proportion. Closing carries the matching cap. */
-section.title h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:59.4cqi; padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
+ * breaks into a centered stack with the subtitle beneath — the bookend
+ * proportion. Closing and divider carry the matching cap.
+ * `text-wrap: balance` does the OTHER half, and the two are independent: the
+ * cap decides HOW WIDE the block is, balance decides WHERE the breaks fall
+ * inside it. Without balance a capped title orphans its last word onto a stub
+ * line ("From Remembering to / Creating"); with it the lines come out even. */
+section.title h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
 section.title hr { background:var(--accent); height:1px; width:64px; margin:0; }
 section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:var(--headline-align, center); }
 /* Title layout: inline-code after h1 = eyebrow, rendered visually above h1 via flex order.

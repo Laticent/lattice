@@ -27,7 +27,7 @@
     "heading": {
       "selector": "h2",
       "required": true,
-      "description": "Section name."
+      "description": "Section name. Capped at `--measure-bookend-heading` (16em ≈ 33 characters); `text-wrap: balance` evens the lines. Left-aligned by default, so a short section name simply sits on one line and the cap never shows. Override the token in front-matter `style:` — never hand-break with `<br>`."
     },
     "eyebrow": {
       "selector": "p > code",

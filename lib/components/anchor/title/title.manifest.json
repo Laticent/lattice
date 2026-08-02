@@ -27,7 +27,7 @@
     "heading": {
       "selector": "h1",
       "required": true,
-      "description": "Deck title."
+      "description": "Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`."
     },
     "eyebrow": {
       "selector": "p > code",
@@ -37,7 +37,7 @@
     "subtitle": {
       "selector": "p",
       "required": false,
-      "description": "Optional plain-paragraph subtitle below the h1."
+      "description": "Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`."
     }
   },
   "skeleton": "<!-- _class: title -->\n<!-- _paginate: false -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",

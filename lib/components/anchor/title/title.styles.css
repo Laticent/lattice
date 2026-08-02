@@ -14,9 +14,13 @@ section.title { justify-content:center; align-items:var(--headline-justify, cent
 section.title { border-top: none; }
 /* A measure on the deck title: uncapped, a long title runs the full frame width
  * as one thin line that reads as a banner rather than a title block. Capped, it
- * breaks into a centered two-line stack with the subtitle beneath — the bookend
- * proportion. Closing carries the matching cap. */
-section.title h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:59.4cqi; padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
+ * breaks into a centered stack with the subtitle beneath — the bookend
+ * proportion. Closing and divider carry the matching cap.
+ * `text-wrap: balance` does the OTHER half, and the two are independent: the
+ * cap decides HOW WIDE the block is, balance decides WHERE the breaks fall
+ * inside it. Without balance a capped title orphans its last word onto a stub
+ * line ("From Remembering to / Creating"); with it the lines come out even. */
+section.title h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
 section.title hr { background:var(--accent); height:1px; width:64px; margin:0; }
 section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:var(--headline-align, center); }
 /* Title layout: inline-code after h1 = eyebrow, rendered visually above h1 via flex order.

@@ -20,7 +20,13 @@ section.divider { border-top: none; }
 /* Section heading slot is h2 — a divider names a section of the deck, not
  * its document title; the lone h1 belongs to `title`. Rendered at --fs-h1
  * so the section headline keeps its full dark-canvas weight. */
-section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62.5cqi; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
+/* The shared sovereign-bookend measure (base.tokens.css) + `text-wrap: balance`,
+ * mirroring title and closing. The 62.5cqi cap this replaces was the hardest-
+ * biting width in the engine — measured, it bound on 13 of 13 divider slides in
+ * the gallery corpus and cost 12 of them a line, which is a width masquerading
+ * as a measure. Left-aligned by default, so a short break heading simply sits on
+ * one line and the cap never shows. */
+section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
 
 /* light variant — former `subtopic` component (anchor.divider.light)
  *
@@ -31,5 +37,27 @@ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-widt
 /* The light variant CENTERS by default — its fallbacks encode center, so `auto` is
  * byte-identical while head-left/right still re-anchor it. */
 section.divider.light { background:var(--bg); padding-left:0; justify-content:center; align-items:var(--headline-justify, center); }
-section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
-section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
+/* The light heading keeps `max-width:none` — it renders a tier down (--fs-h2),
+ * so the frame is already a sane measure for it and a cap only ever costs a
+ * line. It still takes `balance`, which spends no width: measured across the
+ * corpus this heading never binds, but it does wrap, and an even split is the
+ * difference between a sub-section break and a ragged one. */
+section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
+section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-bookend-lede); text-wrap:balance; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
+/* Every eyebrow shape is out of the subtitle's measure, matching what closing
+ * already does for its own. `section.divider.light p` above is written for the
+ * SUBTITLE but matches every paragraph on the slide, so it also caught the
+ * eyebrow — a single-line label that must never inherit a reading measure.
+ * Latent rather than live (a realistic eyebrow is far too short to reach 26em,
+ * and was too short to reach the 46.875cqi this replaced), but the straddle is
+ * real and closing's is already excluded.
+ *
+ * Matched on the CODE-ONLY paragraph itself, deliberately, rather than on a
+ * heading-adjacency form. `divider.light` accepts THREE eyebrow shapes —
+ * base.modifiers.css gives it the before-heading rules for `+ h2` AND `+ h1`
+ * (:153-154) plus the after-heading `h1 +` / `h2 +` pair (:79-80), the last of
+ * which divider.docs.md explicitly tells authors still renders. A selector
+ * copying divider's usual before-heading form would have excluded one of the
+ * three and left the other two capped; the shape they all share is a paragraph
+ * whose only child is a code span, so that is what this matches. */
+section.divider.light p:has(> code:only-child) { max-width:none; text-wrap:normal; }

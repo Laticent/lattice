@@ -14,9 +14,9 @@ First slide of every deck. Sets the topic and the visual tone. Suppresses header
 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
-| `heading` | `h1` | yes | Deck title. |
+| `heading` | `h1` | yes | Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
 | `eyebrow` | `p > code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
-| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. |
+| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`. |
 
 ### Common mistakes
 

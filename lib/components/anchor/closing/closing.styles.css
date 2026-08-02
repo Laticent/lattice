@@ -14,23 +14,28 @@
 section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
-/* Measures widened so a normal closing line holds together: at --fs-h1 the old
- * 54.7cqi cap broke a six-word sign-off onto a second line with one orphan word,
- * and the 42.2cqi body cap ran a three-clause sentence to five short lines. Both
- * are still measures (they cap, they don't stretch) — just set where the type
- * tier actually sits rather than where a smaller tier once did. */
-section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
-section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:48.4cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
+/* The shared sovereign-bookend measures (base.tokens.css), mirroring title.
+ * They replace a pair of hand-set `cqi` caps that named a fraction of the SLIDE
+ * where they meant a count of CHARACTERS — so one declaration allowed ~23
+ * characters per heading line on landscape and ~12 on portrait, and the subtitle's
+ * allowed ~43 and ~18, which is what ran a three-clause sentence to six short
+ * lines on a portrait sign-off. `text-wrap: balance` handles
+ * the break positions the cap can't (closing.styles.css' predecessor comment
+ * blamed the cap for an orphan word that was always balance's job). */
+section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
+section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:var(--measure-bookend-lede); text-wrap:balance; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 
 /* Mirror of title: the inline-code paragraph after the heading is the
  * eyebrow, rendered visually ABOVE the heading via flex order (overriding
  * the italic subtitle rule). The heading slot is h2 — closing is a section
  * of the deck, not its document title; the lone h1 belongs to `title`.
  * max-width:none — the eyebrow is a single-line label and must NOT inherit the
- * subtitle's readable-width cap (42cqi), which the portrait type-boost overflows
- * into a two-line wrap with a dangling separator. (title's subtitle has no cap,
- * so its eyebrow never wrapped — this restores parity.) */
-section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; }
+ * subtitle's readable-width cap (--measure-bookend-lede), which the portrait
+ * type-boost overflows into a two-line wrap with a dangling separator. (title's
+ * subtitle has no cap, so its eyebrow never wrapped — this restores parity.)
+ * text-wrap:normal — balance on a one-line label is a no-op at best, and if a
+ * long eyebrow ever does wrap, an even split reads as a heading, not a label. */
+section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; text-wrap:normal; }
 section.closing h2 + p:has(> code:only-child) > code {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
@@ -91,12 +96,20 @@ section.closing :is(ul,ol) {
   list-style:none; padding:0; margin:0;
   display:flex; flex-direction:column; align-items:var(--headline-justify, center);
   gap:var(--sp-xs); padding-top:var(--sp-md);
-  max-width:60cqi;
 }
+/* The measure sits on the ROW, not on the list. It used to cap the `ul`
+ * (60cqi, and 62cqi on `.index` — a 3% split with no intent behind it), which
+ * put an `em`-shaped decision on the one box in the stack that does NOT declare
+ * a type tier: a `ul` inherits the section's body size while its rows render at
+ * --fs-message, so a measure written there would have counted characters of the
+ * wrong tier. Capping the `li` puts the measure on the text it measures. The
+ * list is a shrink-to-fit column (align-items is always flex-start/center/
+ * flex-end, never stretch), so it still tracks its widest row. */
 section.closing :is(ul,ol) li {
   color:var(--on-dark-secondary);
   font-size:var(--fs-message); font-style:normal;
   line-height:var(--lh-snug); text-align:var(--headline-align, center);
+  max-width:var(--measure-bookend-lede);
 }
 /* Inline-code chips ride on-dark already — base.modifiers.css rebinds
  * `section.closing code` to --on-dark-primary, so the wash follows the
@@ -107,7 +120,7 @@ section.closing :is(ul,ol) li {
  * refined "see also" / "next steps". Keeps closing's centered bookend
  * symmetry; adds a little more air above the set and gives the leading key
  * a mono meta-chip so it reads as a reference key. */
-section.closing.index :is(ul,ol) { gap:var(--sp-xs); padding-top:var(--sp-lg); max-width:62cqi; }
+section.closing.index :is(ul,ol) { gap:var(--sp-xs); padding-top:var(--sp-lg); }
 section.closing.index :is(ul,ol) li code {
   font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:600;
 }

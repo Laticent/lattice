@@ -900,7 +900,49 @@ down to make a slide fit), never a width cap's.
 
 The **sovereign bookends are the exception**: on `title` / `closing` / `divider` the heading and
 subtitle *are* the slide's content rather than a frame around it, so a composed measure there
-is the component's own call and those caps stand.
+is the component's own call.
+
+##### The two bookend measures
+
+Those three components share **two tokens**, and they are the only width caps on framing text
+left in the engine. They are named, documented, and yours to override:
+
+| Token | Default | ≈ | Applies to |
+|---|---|---|---|
+| `--measure-bookend-heading` | `16em` | 33 characters | `title` h1, `closing` h2, `divider` h2 |
+| `--measure-bookend-lede` | `26em` | 56 characters | `closing` subtitle + list rows, `divider.light` subtitle |
+
+**They bind on landscape, with one exception.** Portrait frames are narrower than either token,
+so both go inert there; on square the heading measure does too. The square lede clears `closing`'s
+frame by ~10px — but `divider.light` drops divider's left inset, so its frame is ~54px wider and
+the lede measure binds there by about 1em. Change the bookend proportion for a whole deck from
+front-matter:
+
+```yaml
+---
+marp: true
+style: |
+  :root { --measure-bookend-heading: 22em; }   /* a wider title block */
+---
+```
+
+**Deck-level is the only supported scope.** There is no `_style:` spot directive — `style` is a
+global-only front-matter key, so a per-slide override would need its own selector, and the only
+hook for one is a class token `lint:deck --strict` rejects as unknown. If a single bookend needs
+a different proportion, that is a signal the *deck's* measure is wrong; change it once in
+front-matter.
+
+They are written in `em`, not `cqi`, and that is load-bearing rather than incidental. A measure
+is a count of *characters*, so it belongs to the type; `cqi` is a fraction of the *slide*. The
+two agree only while the type size holds still, and it doesn't — the scale is curated per
+orientation, so the `cqi` caps these replaced allowed ~22 characters per line on landscape and
+~12 on portrait. `em` costs nothing in resolution-independence, because `--fs-*` is itself `cqi`.
+Full reasoning: `engineering/typography.md` §8 and
+`engineering/decisions/2026-08-02-sovereign-bookend-measures.md`.
+
+A measure is also **not** line balance. The cap decides how wide the block is; `text-wrap:
+balance` decides where the breaks fall inside it. Every bookend heading carries both — widening
+a cap to cure an orphaned last word only moves the orphan, and buys a longer line for nothing.
 
 #### The `lift:` front-matter register (card elevation)
 

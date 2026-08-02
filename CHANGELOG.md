@@ -132,6 +132,31 @@ in patch versions.
 
 ### Changed
 
+- **A sovereign-bookend measure is now a count of characters, not a fraction of the slide.**
+  `title` / `closing` / `divider` capped their heading and subtitle in `cqi` — a fraction of the
+  SLIDE — where they meant a count of CHARACTERS. Those agree only while the type size holds
+  still, and `--fs-*` is curated per orientation (`lib/typography/scale.js`), so one declaration
+  allowed **~22 characters per line on landscape and ~12 on portrait**. That arithmetic is the
+  whole reported bug: a portrait divider subtitle ran to 10 lines where 4 would do (44 ch → 18 ch
+  is 2.4×, and 4 × 2.4 ≈ 10). Six declarations now read two named `em` tokens, across eight rules
+  that change — `--measure-bookend-heading: 16em` (≈33 characters) and `--measure-bookend-lede:
+  26em` (≈56) — so one number means one measure on every slide shape. Both go inert on portrait,
+  and the heading measure on square too; the one place a cap still binds a narrow frame is
+  `divider.light`'s subtitle, whose frame is ~54px wider than every other bookend's because the
+  light variant drops divider's left inset. Every bookend heading also gains `text-wrap: balance`,
+  which is a *complement*, not an alternative: across the corpus it changed the break
+  positions of 60 headings and the line count of none — the cap decides how wide the block is,
+  balance decides where the breaks fall inside it. Measured over 48 text boxes × 3 orientations:
+  **469 → 306 rendered lines**, **12 → 3 clipped bookend slides** (all three survivors
+  pre-existing), and **not one box gained a line**. `closing`'s trailing-list caps moved from the
+  `ul` to the `li`, where the type tier is actually declared, and `divider.light`'s eyebrow is now
+  held out of the subtitle's measure the way `closing`'s already was. **Bookend slides re-wrap, so
+  76 gallery goldens are re-blessed**; a deck that wants the old proportion sets the tokens in
+  front-matter `style:`.
+  Landscape was NOT held byte-identical — an em-parity rewrite that did so was tested and
+  declined, because it would have preserved the too-tight number the audit found. Closes #1303.
+  `engineering/decisions/2026-08-02-sovereign-bookend-measures.md`, `engineering/typography.md` §8.
+
 - **The Studio's Architect chat now argues from the same facts the Coach shows, and stops
   re-buying its own prompt every turn.** The chat sent a persona plus the bare deck; it now also
   carries the **Lattice primer** (every layout, its variants, slot contracts, and an authoring

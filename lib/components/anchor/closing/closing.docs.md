@@ -14,9 +14,9 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
-| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
+| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. Capped at `--measure-bookend-heading` (16em ≈ 33 characters), mirroring title; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
 | `eyebrow` | `p > code` | no | Optional category label. |
-| `subtitle` | `p` | no | Optional supporting line. |
+| `subtitle` | `p` | no | Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure. |
 
 ### Variant decision rule
 
