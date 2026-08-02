@@ -125,9 +125,10 @@ in patch versions.
   surfaces rather than moving: the Architect's **worked-example tier picker** (Short · Standard ·
   Full, with live slide counts) has no Studio equivalent, and the **"Export chart" SVG** item from
   the Drawing Board's Export menu loses its button — its kernel and the `tools/export-chart-svg.js`
-  CLI both remain, so the capability is reachable, just not from the UI. The **service worker version is bumped
-  to v2**, which drops the old runtime caches: without it an offline visitor would keep being
-  served a cached shell for a route whose code no longer ships.
+  CLI both remain, so the capability is reachable, just not from the UI. The **service worker retires the two
+  cached pages directly** on activate, so an offline visitor gets the redirect instead of a shell
+  for a route that no longer ships. (A version bump would have done it too, but at the cost of
+  dropping every cached page, asset and font — a full re-download to retire two entries.)
 
 ### Changed
 

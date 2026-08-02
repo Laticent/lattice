@@ -14,7 +14,11 @@
 // Module-scope so `chatComplete` can import the readers and feed them into the
 // request — the controls are useless until the chat actually consumes them.
 export const OR_CACHE_KEY = 'lattice-db-or-cache'; // prompt-caching opt-out (default on)
-export const OR_INSTR_KEY = 'lattice-db-architect-instructions'; // standing instructions
+// NOTE: the Drawing-Board-era standing-instructions key ('lattice-db-architect-instructions')
+// used to be read here. The Studio keeps its own instructions in `lattice-studio-instructions`
+// (studio-store) and deliberately does NOT adopt the old one (see architect.ts), so the reader
+// and the key were removed rather than left looking live — governance's "delete everything"
+// clears the orphaned key.
 const DEDUP_KEY = 'lattice-db-dedup'; // component-gen dedup suggestions (default on)
 export const readCachingEnabled = () => { try { return localStorage.getItem(OR_CACHE_KEY) !== 'off'; } catch { return true; } };
 // The opt-out needs a WRITER on a surviving surface. Its only one was the Drawing Board's
@@ -35,7 +39,6 @@ const EFFORT_KEY = 'lattice-db-component-effort';
 const EFFORTS = ['low', 'medium', 'high', 'maximum'];
 export const readComponentEffort = () => { try { const v = localStorage.getItem(EFFORT_KEY); return EFFORTS.includes(v) ? v : 'medium'; } catch { return 'medium'; } };
 export const writeComponentEffort = (level) => { try { if (EFFORTS.includes(level)) localStorage.setItem(EFFORT_KEY, level); } catch { /* unavailable */ } };
-export const readStandingInstructions = () => { try { return localStorage.getItem(OR_INSTR_KEY) || ''; } catch { return ''; } };
 
 // Per-Lattice spend tally — accumulated locally from each reply's authoritative
 // `usage.cost` (USD). All-time persists (localStorage); session resets per tab

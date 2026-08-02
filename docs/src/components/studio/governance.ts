@@ -143,6 +143,10 @@ export type ClearEverythingResult = { succeeded: string[]; failed: string[] };
  *  (another tab holding the DB open) resolves rather than failing the whole erase. */
 export async function clearRetiredDrawingBoardData(): Promise<void> {
 	try {
+		// The Drawing Board's standing-instructions key. ORPHANED, not live: the Studio keeps
+		// its own in `lattice-studio-instructions` (studio-store) and never adopted this one,
+		// and its last reader was removed from the spend kernel. Clearing it therefore erases
+		// Drawing-Board residue, not a current preference.
 		localStorage.removeItem('lattice-db-architect-instructions');
 	} catch {
 		/* storage unavailable */

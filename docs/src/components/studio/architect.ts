@@ -1232,8 +1232,8 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	// `withStudioVoice` then appends the language directive + standing instructions AFTER
 	// both — its array branch handles a pre-split turn, so the author's instructions
 	// survive the grounding. The Studio's own instruction store feeds that; the moved
-	// spend kernel's `readStandingInstructions` is deliberately NOT adopted, so stale
-	// Drawing-Board-era instructions cannot resurrect.
+	// Drawing-Board-era instructions store is deliberately NOT adopted (its reader was
+	// dropped from the spend kernel), so stale instructions cannot resurrect.
 	const { staticPrefix, dynamicTail } = buildChatSystem(generation, opts?.grounding, factGuard);
 	const systemContent: MsgContent =
 		generation === 'openrouter'
