@@ -11,12 +11,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const TOOL = path.join(REPO, 'tools', 'export-marp.js');
 const { localizeAssets, readTheme } = require(TOOL);
 const latticeEngine = require('../../../lib/engine');
+const { JSDOM } = require('jsdom');
+const { readExportSettings } = require('../../../lib/core/export-settings');
 
 describe('export-marp helpers', () => {
   test('readTheme reads the front-matter palette, or null', () => {
@@ -126,15 +128,25 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.match(latticeEngine.createEngine().render(deck).html, /lattice-bg/);
   });
 
-  test('deck ends with the BAKED front matter, carrying the deck-wide registers', () => {
+  test('deck carries the BAKED front matter, with the deck-wide registers', () => {
     const baked = fs.readFileSync(path.join(dest, 'split-headings.md'), 'utf8');
-    const m = baked.match(/<script type="application\/lattice-front-matter">([\s\S]*?)<\/script>\s*$/);
-    assert.ok(m, 'the baked front-matter block is the last thing in the deck');
-    const fm = JSON.parse(m[1]);
+    // Parsed through a real HTML parser rather than a tag-shaped regex: the trailer
+    // now holds TWO data blocks (the front-matter snapshot and this export's own
+    // settings), and an end-anchored regex silently spanned both.
+    const doc = new JSDOM(`<body>${baked}</body>`).window.document;
+    const el = doc.querySelector('script[type="application/lattice-front-matter"]');
+    assert.ok(el, 'the deck carries a baked front-matter block');
+    const fm = JSON.parse(el.textContent);
     assert.match(fm, /^marp: true$/m);
     assert.match(fm, /^theme: indaco$/m);
     // It is the EXPORTED front matter, so it states the baked split mode.
     assert.match(fm, /^split: rule$/m);
+    // …and it does NOT carry the export's own settings. They are a different kind
+    // of thing — the producer's choices, not the author's deck — so they ride in
+    // their own block (lib/core/export-settings.js).
+    assert.doesNotMatch(fm, /overflow-marker/);
+    assert.ok(doc.querySelector('script[type="application/lattice-export-settings"]'),
+      'the export-settings block is there too, separately');
   });
 
   test('baked deck.md states split: rule and divides into the same slides', () => {
@@ -232,5 +244,116 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.ok(!fs.existsSync(path.join(d, 'agent')), 'no agent/ folder');
     assert.doesNotMatch(fs.readFileSync(path.join(d, 'README.md'), 'utf8'), /Extend it with an AI agent/);
     fs.rmSync(lean, { recursive: true, force: true });
+  });
+});
+
+/**
+ * The overflow-marker EXPORT SETTING the bundle ships with.
+ *
+ * An Export-to-Marp bundle renders through the browser RUNTIME inside marp-cli's
+ * headless browser, so before this it inherited the runtime's authoring default: a
+ * recipient opening a delivered deck saw a red ring, an "Overflows" tab, and
+ * per-cell "Fix Me" overlays. The fix is not to hide the overflow — that ships a
+ * clipped slide that looks finished — but to say who the signal is for.
+ *
+ * It is resolved from EXPORT inputs only: `--overflow-marker` for this one export,
+ * `LATTICE_OVERFLOW_MARKER` for every export from this checkout. Never from the
+ * deck — the level is a property of the render target, and a deck key would make a
+ * one-time "quiet this for the board" choice a permanent, inherited property of
+ * every deck derived from that bundle.
+ */
+describe('export-marp — the overflow-marker export setting', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'exp-ovf-'));
+  const DECK = path.join(REPO, 'examples', 'split-headings.md');
+  after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  // Both streams: the policy line is stdout, the `off` warning is stderr (the
+  // same split lattice-emulator.js uses for its own overflow report).
+  const exportWith = (slug, args = [], { deck = DECK, env = {} } = {}) => {
+    const out = path.join(tmp, slug);
+    const r = spawnSync('node', [TOOL, deck, out, ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, LATTICE_OVERFLOW_MARKER: '', ...env },
+    });
+    assert.equal(r.status, 0, `export failed:\n${r.stderr}`);
+    const dir = path.join(out, path.basename(deck).replace(/\.md$/, ''));
+    return { said: r.stdout + r.stderr, md: fs.readFileSync(path.join(dir, `${path.basename(deck, '.md')}.md`), 'utf8') };
+  };
+  const settingsIn = (md) => readExportSettings(new JSDOM(`<body>${md}</body>`).window.document);
+
+  test('defaults to reader, recorded in the export-settings block', () => {
+    const { md, said } = exportWith('default');
+    assert.match(said, /overflow marker: reader \(default\)/);
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'reader' });
+    // Nothing that looks like an authoring key — that was the altitude error.
+    assert.doesNotMatch(md, /^overflow-marker:/m);
+  });
+
+  test('the flag decides this one export, leaving the source deck untouched', () => {
+    const { md, said } = exportWith('flag', ['--overflow-marker=off']);
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'off' });
+    assert.match(said, /overflow marker: off \(--overflow-marker\)/);
+    assert.equal(fs.readFileSync(DECK, 'utf8').includes('overflow-marker'), false, 'the source deck is untouched');
+  });
+
+  // The CLI's workspace-level answer — what the Studio's settings toggle is for.
+  test('LATTICE_OVERFLOW_MARKER is the standing choice for every export', () => {
+    const { md, said } = exportWith('env', [], { env: { LATTICE_OVERFLOW_MARKER: 'author' } });
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'author' });
+    // Names the INPUT, not an abstract tier — the CLI has no "workspace".
+    assert.match(said, /overflow marker: author \(LATTICE_OVERFLOW_MARKER\)/);
+  });
+
+  test('the flag beats the workspace setting', () => {
+    const { md } = exportWith('both', ['--overflow-marker=off'], { env: { LATTICE_OVERFLOW_MARKER: 'author' } });
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'off' });
+  });
+
+  // A stored setting can go stale. It must not break the export, and it must not
+  // be swallowed — the deck-key version fell back silently.
+  test('a stale standing value falls back AND is named', () => {
+    const { md, said } = exportWith('stale', [], { env: { LATTICE_OVERFLOW_MARKER: 'quiet' } });
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'reader' });
+    assert.match(said, /LATTICE_OVERFLOW_MARKER='quiet' ignored/);
+  });
+
+  // `off` is a real level, but never a STANDING one: a silence applying to every
+  // future export from this checkout, with nothing to notice it by, is the failure
+  // the whole setting exists to prevent. Refused loudly, not downgraded quietly.
+  test('LATTICE_OVERFLOW_MARKER=off is refused, and says why', () => {
+    const { md, said } = exportWith('env-off', [], { env: { LATTICE_OVERFLOW_MARKER: 'off' } });
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'reader' }, 'it does not become the standing answer');
+    assert.match(said, /cannot be a standing default — choose it per export/);
+    // …while the per-export flag still honors it.
+    const one = exportWith('env-off-flag', ['--overflow-marker=off'], { env: { LATTICE_OVERFLOW_MARKER: 'off' } });
+    assert.deepEqual(settingsIn(one.md), { overflowMarker: 'off' });
+  });
+
+  // `off` is the only level where the artifact itself will not tell anyone, so the
+  // console has to — and it has to admit that this export did not measure.
+  test('off warns on the console and does not claim to have checked', () => {
+    const { said } = exportWith('off-warn', ['--overflow-marker=off']);
+    assert.match(said, /ONLY channel/);
+    assert.match(said, /does not render, so it cannot measure overflow/);
+    assert.match(said, /lattice-emulator\.js/, 'and names the command that does measure');
+  });
+
+  // A deck key is not an input any more. It does nothing, and `lint:deck` says so
+  // (findStrayOverflowMarker) rather than leaving the author to wonder.
+  test("a deck's own overflow-marker key is IGNORED", () => {
+    const deck = path.join(tmp, 'authored.md');
+    fs.writeFileSync(deck, ['---', 'marp: true', 'theme: indaco', 'overflow-marker: author', '---', '', '# A', ''].join('\n'));
+    const { md, said } = exportWith('authored', [], { deck });
+    assert.deepEqual(settingsIn(md), { overflowMarker: 'reader' }, 'the export default, not the deck key');
+    assert.match(said, /overflow marker: reader \(default\)/);
+  });
+
+  test('a mistyped flag is a usage error, not a silent fallback', () => {
+    for (const bad of ['--overflow-marker=quiet', '--overflow-markerZZZ=off', '--overflow-marker']) {
+      const r = spawnSync('node', [TOOL, DECK, path.join(tmp, 'bad'), bad], { encoding: 'utf8' });
+      assert.equal(r.status, 1, `expected '${bad}' to be rejected`);
+    }
+    const dupe = spawnSync('node', [TOOL, DECK, path.join(tmp, 'dupe'), '--overflow-marker=off', '--overflow-marker=author'], { encoding: 'utf8' });
+    assert.equal(dupe.status, 1, 'a repeated flag is ambiguous, not first-wins');
   });
 });

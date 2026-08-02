@@ -128,10 +128,12 @@ describe('export-formats', () => {
   }
 
   test('warns on overflow but keeps the ring out of the exported PDF — even when the deck loads the live runtime', { timeout: TIMEOUT }, () => {
-    // The overflow signal (a red inset ring + "OVERFLOWS" tab) is an authoring
-    // aid for the live preview; the deliverable must stay clean — a red box in
-    // front of a board is worse than the silent clip overflow:hidden already
-    // applies. Two mechanisms can paint it: the emulator's own inline watcher
+    // The red inset ring + "OVERFLOWS" tab is the AUTHORING signal; a delivered PDF
+    // must not carry it — a red QA box in front of a board is worse than the silent
+    // clip overflow:hidden already applies. That is now the DEFAULT (`reader`)
+    // rather than a hard-wire: the emulator reads the overflow-marker setting, and
+    // the level-aware behavior is pinned in the test below this one. What this test
+    // guards is that the default never regresses to the loud signal. Two mechanisms can paint it: the emulator's own inline watcher
     // (the ring, via the `.overflow` class — removed by the export strip) and
     // the live-preview runtime (lattice-runtime.js — the ring AND the tab, on a
     // MutationObserver/ResizeObserver/rAF loop that would re-mark during print
@@ -156,7 +158,10 @@ describe('export-formats', () => {
 
     const out = path.join(dir, 'overflow.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
-      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      // Neutralize the ambient standing default — this test is about the DEFAULT,
+      // so a developer with LATTICE_OVERFLOW_MARKER set in their shell must not
+      // change what it measures.
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     assert.match(r.stderr, /OVERFLOW/, 'expected the emulator to warn about overflow on stderr');
@@ -165,6 +170,113 @@ describe('export-formats', () => {
     execFileSync('pdftoppm', ['-r', '96', '-f', '1', '-l', '1', out, path.join(dir, 'page')]);
     const ring = ringRedPixels(path.join(dir, 'page-1.ppm'));
     assert.ok(ring < 50, `overflow ring leaked into the export: ${ring} danger-red edge pixels (expected ~0)`);
+  });
+
+  // The setting is READ on this path — the point of wiring it here. A setting the
+  // primary export ignores is not a setting, and `--overflow-marker=author` silently
+  // doing nothing in a PDF was the state before this.
+  test('the emulator reads --overflow-marker: author draws the ring, off draws nothing', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'lvl.md');
+    const wall = Array.from({ length: 40 }, (_, i) =>
+      `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
+    ).join('\n');
+    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+
+    const render = (level) => {
+      const out = path.join(dir, `${level}.pdf`);
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', `--overflow-marker=${level}`], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `emulator failed at ${level}: ${r.stderr}`);
+      // The console channel is unconditional — it is the author's, at every level.
+      assert.match(r.stderr, /OVERFLOW/, `${level} must still warn on stderr`);
+      execFileSync('pdftoppm', ['-r', '96', '-f', '1', '-l', '1', out, path.join(dir, `${level}-page`)]);
+      // TEXT as well as pixels. The ring oracle cannot tell `reader` from `off` —
+      // neither draws one — so on its own it left the behavior that actually
+      // CHANGED (a delivered PDF now carries a "Content clipped" tag where it
+      // carried nothing) with no coverage: deleting the tag entirely kept both
+      // assertions green. The tab is real text in the PDF, so read it back.
+      const text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+      return { ring: ringRedPixels(path.join(dir, `${level}-page-1.ppm`)), text };
+    };
+
+    // `author` PAINTS the danger ring and names the defect — the assertion that
+    // proves the setting is read, and the exact inverse of the default test above.
+    const author = render('author');
+    assert.ok(author.ring > 500, 'author must draw the danger ring in the PDF');
+    // Case-insensitive: the author tab is `text-transform: uppercase`, and Chromium
+    // applies that to the PDF's TEXT layer, so it extracts as "OVERFLOWS".
+    assert.match(author.text, /overflows/i, 'author names the defect in text');
+
+    // `reader` is the DEFAULT and the whole point: no ring, but the loss is stated.
+    const reader = render('reader');
+    assert.ok(reader.ring < 50, 'reader must not draw the danger ring');
+    assert.match(reader.text, /content clipped/i, 'reader states the loss plainly');
+
+    // `off` draws nothing at all — neither ring nor text.
+    const off = render('off');
+    assert.ok(off.ring < 50, 'off must leave no ring');
+    assert.doesNotMatch(off.text, /content clipped|overflows/i, 'off leaves no marker text');
+  });
+
+  // The self-contained player is the one export that cannot READ the setting at view
+  // time — player-core.mjs drops every inline script from the document it is handed —
+  // so the level has to be BAKED into its DOM at export. It was not: the player was
+  // assembled from the pre-browser static render, which no overflow watcher had ever
+  // touched, so `--player` was permanently equal to `off` whatever the flag said. That
+  // is invisible from the PDF assertions above, hence its own test.
+  // THREE full player renders, so it gets three times the budget. At the shared
+  // per-test TIMEOUT this measured 59.2s of 60s — a runner 10% slower than this box
+  // red-lines, and the failure is misleading: spawnSync carries the same timeout, so
+  // a slow render returns status null and the assertion reports "render failed" with
+  // an empty stderr, which reads as a render bug rather than a clock.
+  test('--player bakes the resolved overflow-marker level into the shipped HTML', { timeout: TIMEOUT * 3 }, () => {
+    const dir = tmpDir();
+    const src = path.join(dir, 'pl.md');
+    const wall = Array.from({ length: 40 }, (_, i) =>
+      `- Point ${i + 1}: a deliberately long line of body copy engineered to push this slide's content well past the bottom of the frame so the overflow watcher fires.`,
+    ).join('\n');
+    fs.writeFileSync(src, `<!-- _class: content -->\n\n## A slide that cannot possibly fit\n\n${wall}\n`);
+
+    const play = (level) => {
+      const out = path.join(dir, `${level}.pdf`);
+      const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--player', `--overflow-marker=${level}`], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_OVERFLOW_MARKER: '' }, timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `player render failed at ${level}: ${r.stderr}`);
+      return fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+    };
+
+    // The attribute is what base.modifiers.css keys the treatment off, and the tab text
+    // is what a recipient actually reads — assert both, so a baked attribute with no tab
+    // (or a tab carrying the wrong register's wording) still fails.
+    // Every attribute assertion is anchored to `<section …` on purpose. The bare
+    // string `data-lattice-overflow-marker="reader"` ALSO occurs in the inlined
+    // lattice.css, inside base.modifiers.css's
+    //   section.overflow:not([…="reader"]):not([…="off"]) { box-shadow: … }
+    // so an unanchored regex passes on a player whose sections carry NO marker
+    // attribute at all — which is the one state that renders the 4px red author ring
+    // in a reader artifact. The assertion has to prove the SECTION carries it.
+    const author = play('author');
+    assert.match(author, /<section[^>]*data-lattice-overflow-marker="author"/, 'author level must be baked onto the section');
+    assert.match(author, /class="overflow-tab"[^>]*>Overflows</, 'author bakes the "Overflows" flag');
+    assert.match(author, /<section[^>]*class="[^"]*\boverflow\b/, 'author bakes the ring class');
+
+    const reader = play('reader');
+    assert.match(reader, /<section[^>]*data-lattice-overflow-marker="reader"/, 'reader level must be baked onto the section');
+    assert.match(reader, /class="overflow-tab"[^>]*>Content clipped</, 'reader bakes the calm tag');
+
+    // `off` is the level that used to be indistinguishable from every other one here.
+    // Match the ELEMENT form (`class="overflow-tab"`), never the bare token: the token
+    // appears 4x in the inlined lattice.css, and it is absent from a shipped `off`
+    // player only because the P6 CSS prune removed it. That prune is best-effort and
+    // silent by design (it launches a second Chromium and gives up on a small
+    // container), so the bare-token form would fail a CORRECT `off` bake whenever a
+    // size optimization happened not to run.
+    const off = play('off');
+    assert.match(off, /<section[^>]*data-lattice-overflow-marker="off"/, 'off level must be baked onto the section');
+    assert.doesNotMatch(off, /class="overflow-tab"/, 'off bakes no tab element at all');
   });
 
   // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────

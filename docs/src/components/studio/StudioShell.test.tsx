@@ -346,8 +346,14 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(sheet.getByRole('button', { name: /all formats/i }));
 		await user.click(sheet.getByText('PowerPoint'));
 		expect(shareSpies.sharePptx).toHaveBeenCalled();
+		// Marp now opens its own pre-export Options step (who a clipped slide's
+		// overflow marker speaks to), same shape as PDF above; Download runs it.
 		await user.click(sheet.getByText('Marp bundle'));
+		await user.click(sheet.getByRole('button', { name: /download bundle/i }));
 		expect(shareSpies.shareMarp).toHaveBeenCalled();
+		// …and it carries the chosen level (7th arg), defaulted from workspace settings.
+		expect((shareSpies.shareMarp.mock.calls.at(-1) as unknown[] | undefined)?.[6]).toBe('reader');
+		await user.click(sheet.getByRole('button', { name: /all formats/i }));
 		await user.click(sheet.getByText('Print source'));
 		expect(shareSpies.sharePrintSource).toHaveBeenCalled();
 	});

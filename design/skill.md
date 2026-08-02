@@ -96,6 +96,60 @@ see [theming.md § Dark mode](./theming.md#dark-mode).
 
 ---
 
+## When a slide overflows (quick reference)
+
+A slide whose content exceeds the frame is **clipped** — the overflow is not
+scrollable and it is not printed. Lattice never lets that happen quietly: the
+overflowing slide is marked. **While you are editing you always see the full
+signal** — a red ring, an "Overflows" tag, per-cell "Fix Me" overlays — because you
+are the one who can fix it. The marker is drawn over the slide and never changes
+its layout. It is a label on a loss, not a way to recover it: trim the content, or
+move it to a layout with more room.
+
+**Who the marker speaks to in a deck you EXPORT is a setting, not a deck key.** The
+same source is previewed while authoring, exported for a recipient, and printed to
+PDF, and those three want different answers — so it belongs to what you are
+producing, not to the deck. There is nothing to write in your front matter (and
+`lint:deck` will tell you so if you try).
+
+| level | an overflowing slide shows |
+|---|---|
+| `reader` | a calm "Content clipped" pill, no ring — **the export default** |
+| `author` | the red ring, the "Overflows" flag and the small-type alarm, for a deck you are still working on. The per-cell "Fix Me" tags stay preview-only — they need the runtime an export does not carry |
+| `off` | nothing. Only for a deck you have already checked fits |
+
+**Every export path reads it** — a PDF, a PNG set, a PPTX, and a Marp bundle alike.
+Your live preview is the exception, and deliberately: you are the one who can fix a
+clipped slide, so it always shows the full editing signal. There is nothing to write
+in your deck either (`lint:deck` will tell you so if you try) — it is chosen where
+the export is.
+
+Choose it per export, or once for everything:
+
+```sh
+node lattice-emulator.js <deck.md> <out.pdf> --overflow-marker=off   # this PDF
+node tools/export-marp.js <deck.md> <out> --overflow-marker=author   # this bundle
+LATTICE_OVERFLOW_MARKER=author node lattice-emulator.js …            # every export here
+```
+
+`off` is per-export only. A standing default cannot be `off` — a silence applying to
+every future export, with nothing to notice it by, is the thing this setting exists
+to prevent — so the standing channels take `reader` or `author`, and both refuse
+`off` out loud rather than downgrading it quietly.
+
+In the Studio it is both: **Share → Marp bundle** has a pre-export step where you
+pick it for that one export (including "No marker"), and **Workspace settings** holds
+the standing default that step starts from, beside the PDF page-format choice.
+
+**Whatever you choose, the console still tells you.** `lattice-emulator.js` renders,
+so it names the clipped pages on stderr at every level — including `off`, where it is
+the only channel. `export-marp` does not render, so it says so rather than implying a
+check it never ran.
+
+Design record: [2026-07-30-overflow-marker-register.md](../engineering/decisions/2026-07-30-overflow-marker-register.md).
+
+---
+
 ## Custom logo (quick reference)
 
 Discreet top-right brand mark; the img is desaturated to a faint

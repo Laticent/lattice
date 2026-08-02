@@ -11,9 +11,7 @@ header: "Lattice · overflow cause highlighting"
 
 # See what's overflowing, not just that it is.
 
-The existing red "Overflows" ring names the slide. This adds a yellow tag
-that names the specific element responsible — "Fix Me" when the cause can
-be proven, "Likely fix" when it's the best available guess.
+The red "Overflows" ring names the slide. The yellow tag names the element responsible — "Fix Me" when the cause can be proven, "Likely fix" when it is the best available guess.
 
 ---
 
@@ -23,26 +21,16 @@ be proven, "Likely fix" when it's the best available guess.
 
 ## A deliberately over-stuffed comparison.
 
-This slide exists to demonstrate the Fix-Me overlay — open it in a live
-preview (Playground, Drawing Board, Studio, or the VS Code marp preview) to
-see the red ring and the yellow tag land on "Preferred option" alone, not
-"Alternative option" or the whole panel. A static export shows neither: the
-export strips both markers and clips the content instead, so this page
-prints a clean but visibly cut-off card.
+This slide overflows on purpose: in a live preview the ring and the yellow tag land on "Preferred option" alone, never on the whole panel.
 
 - Alternative option
-  - A short first fact about the alternative
-  - A short second fact about the alternative
+  - Ships in six weeks on the existing contract
+  - No new vendor review, no new security sign-off
 - Preferred option
-  - This option's second bullet is written long on purpose, padding well
-    past what the panel comfortably holds so the bounded content cell
-    genuinely clips it — the exact case the overlay is built to catch,
-    padding padding padding padding padding padding padding padding.
-  - A third fact, still padding this option out further so the compare-right
-    cell overflows for real, not just in theory, padding padding padding
-    padding padding padding padding padding padding padding padding.
+  - Ships in nine weeks but retires the parallel intake queue entirely, which is the cost center three of the last four quarterly reviews flagged, and it removes the manual reconciliation step that currently consumes roughly a day and a half of finance time every close.
+  - Carries a twelve-month support commitment from the vendor, renegotiated down from the eighteen-month floor they opened with, and folds the migration tooling into the base license rather than billing it as professional services at the usual blended rate.
 
-> The recommendation in one decisive sentence.
+> Recommend the preferred option: three weeks of delay buys a permanent reduction in close-cycle effort.
 
 ---
 
@@ -55,14 +43,9 @@ prints a clean but visibly cut-off card.
 - Short card two
   - Another short line here.
 - The oversized card
-  - This card's body is written deliberately long, forcing its row to grow
-    far taller than its neighbor and threatening to push the whole grid
-    past the frame, padding padding padding padding padding padding padding
-    padding padding padding padding padding padding padding padding padding
-    padding padding padding padding padding padding padding padding padding.
+  - This body is written long enough to force its row taller than its neighbor and push the grid past the frame, which is exactly the shape the overlay exists to identify: one outlier in a collection of otherwise well-behaved siblings, where naming the slide tells you nothing useful and naming the card tells you precisely where to cut. A reviewer looking at four cards should not have to measure them to find the one that broke the layout, and an author who has just pasted a paragraph into the wrong place should be told which paragraph rather than which slide.
 - Short card four
-  - The last short line — stretched to match its tall row-mate, but not
-    the cause.
+  - The last short line — stretched to match its tall row-mate, but not the cause.
 
 ---
 
@@ -80,18 +63,11 @@ A bounded content cell (`.cell-stage`, `.panel-right`, `.compare-right`) that ov
 
 ## Which milestone actually blew the budget?
 
-`timeline-list` is never wrapped in a bounded cell, so a clip-cell probe
-finds nothing here even though this slide genuinely overflows — the exact
-gap Case B closes. Open this in a live preview: the yellow tag reads
-"Likely fix," not "Fix Me," because a word count past budget is the best
-available guess, never a geometric certainty.
+`timeline-list` is never wrapped in a bounded cell, so a clip-cell probe finds nothing even though the slide genuinely overflows. The yellow tag reads "Likely fix," not "Fix Me" — a word count past budget is the best available guess, never a geometric certainty.
 
 1. `Q1` Kickoff `on-track`
    - One clause says what changed here.
-2. `Q2` The scope quietly tripled after every stakeholder demanded their own
-   pet feature get bolted onto the roadmap, and nobody on the steering
-   committee was willing to say no to any of it, so the plan just kept
-   absorbing more work every single week
+2. `Q2` Scope creep — the plan absorbed a new stakeholder request every week and nobody on the steering committee was willing to say no `slipped`
    - A tag names the milestone's kind.
 3. `Q3` Recovery `at-risk`
    - Sixteen words is each entry's budget.
@@ -110,8 +86,6 @@ A slide with no bounded cell falls back to the component's own word budget: whic
 
 <!-- _class: closing -->
 
-# Preview-only. Never in the deliverable.
+# The overlay is for you. The export isn't.
 
-The overlay lives entirely in the runtime script every live preview loads
-— never in the export pipeline — so a shipped PDF, PPTX, or HTML export is
-byte-identical whether a slide overflowed during authoring or not.
+The Fix-Me tags and the red ring are the *authoring* signal. An export carries a calm "Content clipped" tag instead, because a slide that loses content should say so — and whichever marker you pick, the console names the clipped pages.

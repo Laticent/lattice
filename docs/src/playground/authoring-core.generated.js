@@ -96,10 +96,126 @@ var require_slide_split = __commonJS({
   }
 });
 
+// lib/core/resolve-overflow-marker.js
+var require_resolve_overflow_marker = __commonJS({
+  "lib/core/resolve-overflow-marker.js"(exports, module) {
+    var OVERFLOW_MARKER_LEVELS = Object.freeze(["author", "reader", "off"]);
+    var EXPORT_DEFAULT_MARKER = "reader";
+    var AUTHORING_DEFAULT_MARKER = "author";
+    function isKnownOverflowMarker(value) {
+      return typeof value === "string" && OVERFLOW_MARKER_LEVELS.includes(value.trim().toLowerCase());
+    }
+    function resolveOverflowMarker(value, fallback = EXPORT_DEFAULT_MARKER) {
+      const safeFallback = isKnownOverflowMarker(fallback) ? fallback.trim().toLowerCase() : EXPORT_DEFAULT_MARKER;
+      if (!isKnownOverflowMarker(value)) return safeFallback;
+      return value.trim().toLowerCase();
+    }
+    var STANDING_MARKER_LEVELS = Object.freeze(["author", "reader"]);
+    function isStandingOverflowMarker(value) {
+      return typeof value === "string" && STANDING_MARKER_LEVELS.includes(value.trim().toLowerCase());
+    }
+    module.exports = {
+      OVERFLOW_MARKER_LEVELS,
+      STANDING_MARKER_LEVELS,
+      isStandingOverflowMarker,
+      EXPORT_DEFAULT_MARKER,
+      AUTHORING_DEFAULT_MARKER,
+      isKnownOverflowMarker,
+      resolveOverflowMarker
+    };
+  }
+});
+
+// lib/core/data-block.js
+var require_data_block = __commonJS({
+  "lib/core/data-block.js"(exports, module) {
+    var esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    function dataBlock(type, note = "") {
+      const head = note ? `${note}
+` : "";
+      const notePrefix = note ? `(?:${esc(note)}\\n)?` : "";
+      const blockRe = new RegExp(
+        `${notePrefix}<script type="${esc(type)}">[^<]*<\\/script>\\n?`,
+        "g"
+      );
+      return {
+        TYPE: type,
+        NOTE: note,
+        BLOCK_RE: blockRe,
+        /** The block for `value`, or '' when there is nothing to carry. */
+        write(value) {
+          if (value === void 0 || value === null || value === "") return "";
+          const payload = JSON.stringify(value).replace(/</g, "\\u003c");
+          return `${head}<script type="${type}">${payload}<\/script>
+`;
+        },
+        /** Strip any previously written block (and its note) from a deck source. */
+        strip(deckSource) {
+          return String(deckSource || "").replace(blockRe, "");
+        },
+        /**
+         * Read the block out of a live document AND REMOVE IT, or null.
+         *
+         * The LAST block wins: a producer replaces rather than stacks, so a document
+         * should hold one — but a hand-edited or concatenated deck can hold more, and
+         * the newest is the one to trust. Taking the first would prefer the stalest.
+         * Removal is hygiene: consumed state should not linger where something may copy,
+         * serialize, or sanitize it (the docs-site Studio re-hosts slide HTML — HARD
+         * RULE #22), and the payload cannot then be read twice.
+         */
+        read(doc) {
+          if (!doc || typeof doc.querySelectorAll !== "function") return null;
+          const nodes = [...doc.querySelectorAll(`script[type="${type}"]`)];
+          if (!nodes.length) return null;
+          const raw = nodes[nodes.length - 1].textContent || "";
+          for (const node of nodes) node.remove();
+          try {
+            return JSON.parse(raw);
+          } catch (_e) {
+            return null;
+          }
+        }
+      };
+    }
+    module.exports = { dataBlock };
+  }
+});
+
+// lib/core/export-settings.js
+var require_export_settings = __commonJS({
+  "lib/core/export-settings.js"(exports, module) {
+    var { dataBlock } = require_data_block();
+    var EXPORT_SETTINGS_TYPE = "application/lattice-export-settings";
+    var BLOCK = dataBlock(EXPORT_SETTINGS_TYPE);
+    function exportSettingsBlock(settings) {
+      const keep = {};
+      for (const [k, v] of Object.entries(settings || {})) {
+        if (v !== void 0 && v !== null && v !== "") keep[k] = v;
+      }
+      return Object.keys(keep).length ? BLOCK.write(keep) : "";
+    }
+    function withoutExportSettingsBlock(deckSource) {
+      return BLOCK.strip(deckSource);
+    }
+    function readExportSettings(doc) {
+      const parsed = BLOCK.read(doc);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    }
+    module.exports = {
+      EXPORT_SETTINGS_TYPE,
+      exportSettingsBlock,
+      withoutExportSettingsBlock,
+      readExportSettings
+    };
+  }
+});
+
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
     var { splitTopLevel, separatorLines } = require_slide_split();
+    var { OVERFLOW_MARKER_LEVELS } = require_resolve_overflow_marker();
+    var { EXPORT_SETTINGS_TYPE } = require_export_settings();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
@@ -629,7 +745,7 @@ ${indent}   - ${body.trim()}`;
                   // lattice-emulator.js), so the only signal outside this warning is a build-time
                   // stderr line. An earlier draft of this string promised "clipped and ringed"; the
                   // ring never reaches the artifact.
-                  fix: `${capacityFix(cap)} Nothing will divide it for you at a landscape @size, and the export carries no overflow marker \u2014 check the rendered page, or present at a portrait/square @size, where it paginates.`
+                  fix: `${capacityFix(cap)} Nothing will divide it for you at a landscape @size, and the export tags the clipped slide "Content clipped" rather than dividing it \u2014 check the rendered page, or present at a portrait/square @size, where it paginates.`
                 });
                 continue;
               }
@@ -867,6 +983,7 @@ ${indent}   - ${body.trim()}`;
       findings.push(...findRetiredBackdrop(source));
       findings.push(...findSingleLetterLexiconKeys(source));
       findings.push(...findRetiredFormMinimal(source));
+      findings.push(...findStrayOverflowMarker(source));
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
@@ -1414,6 +1531,34 @@ ${indent}   - ${body.trim()}`;
         message: "`form: minimal` is retired \u2014 it resolves to `standard` now (the progress rail returns)",
         fix: "Drop the `form: minimal` key (Form is on by default) and hide just the rail with the `no-progress` chrome control \u2014 deck-wide `class: no-progress`, or per-slide `no-progress`."
       }];
+    }
+    function findStrayOverflowMarker(source) {
+      const src = String(source || "");
+      const findings = [];
+      const fmBlock = src.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+      if (fmBlock && /^overflow-marker:/m.test(fmBlock[1])) {
+        findings.push({
+          slide: 0,
+          rule: "stray-overflow-marker",
+          severity: "warning",
+          classToken: "overflow-marker",
+          line: "overflow-marker:",
+          message: "`overflow-marker:` is not a deck key \u2014 it is an export setting, and this line does nothing",
+          fix: `Drop the key. Choose the level when you export: \`--overflow-marker=${OVERFLOW_MARKER_LEVELS.join("|")}\` on tools/export-marp.js (or \`LATTICE_OVERFLOW_MARKER\` for every export from this checkout; the Studio has a per-export step and a workspace default).`
+        });
+      }
+      if (src.includes(`<script type="${EXPORT_SETTINGS_TYPE}">`)) {
+        findings.push({
+          slide: 0,
+          rule: "stray-export-settings",
+          severity: "warning",
+          classToken: "overflow-marker",
+          line: `<script type="${EXPORT_SETTINGS_TYPE}">`,
+          message: "this deck carries an EXPORT-SETTINGS block \u2014 a record of some other export, not a setting for this deck",
+          fix: "Delete the block. Lattice strips it when rendering, but it survives into a Marp bundle built from this source, where it silently decides that bundle's overflow marker. It is generated by an export; a source deck should never contain one."
+        });
+      }
+      return findings;
     }
     function findUnknownSplit(source, splitNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);

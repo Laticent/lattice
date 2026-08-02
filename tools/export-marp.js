@@ -13,6 +13,9 @@
  *                            and the BAKED FRONT MATTER appended
  *                            (lib/core/deck-front-matter.js — the deck-wide registers
  *                            Marp strips and `fetch` can't recover over `file://`)
+ *                            plus this export's OWN settings block
+ *                            (lib/core/export-settings.js — today the overflow-marker
+ *                            level; producer choices, not deck front matter)
  *     lattice.css          — the palette-blind engine stylesheet (minified)
  *     fonts/*.woff2        — every face lattice.css's @font-face srcs point at
  *     themes/<palette>.css — the deck's palette (+ -dark), minified (from dist/themes/)
@@ -28,6 +31,19 @@
  *
  * Usage:
  *   node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette]
+ *                             [--no-agent] [--overflow-marker=author|reader|off]
+ *
+ * `--overflow-marker` decides who the overflow signal in the rendered bundle is
+ * addressed to — see lib/core/resolve-overflow-marker.js. It is an EXPORT setting,
+ * never a deck key: the same source is previewed while authoring, exported for a
+ * recipient, and printed to PDF, and those three want different answers. Resolution
+ * is `--overflow-marker` (this export) → `LATTICE_OVERFLOW_MARKER` (every export
+ * from this checkout) → `reader`. The console says which one won.
+ *
+ * The chosen level is recorded in the bundle's export-settings block, NOT in the
+ * deck's front matter — so re-exporting a bundle's own `.md` starts from your
+ * current inputs rather than inheriting the previous export's, and Lattice's own
+ * render paths strip the block so a bundle-derived deck cannot inherit it either.
  *
  * Fidelity: the baked `.md` + themes + fonts split, style, and TYPESET correctly
  * in ANY Marp tool. The generated marp.config.cjs sets `html: true` — without it
@@ -49,9 +65,10 @@ const { execFileSync } = require('child_process');
 const { bakeSplits } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
+const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, MARP_CONFIG_CJS, withRuntimeScripts, packageJson,
-  safeName, vscodeSettings, readme, agentsMd,
+  safeName, vscodeSettings, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
 } = require('../lib/core/marp-bundle');
 
 const ROOT = path.join(__dirname, '..');
@@ -161,14 +178,79 @@ function copyCssInto(srcAbs, destAbs) {
   fs.writeFileSync(destAbs, marpScopableCss(fs.readFileSync(srcAbs, 'utf8')));
 }
 
+/**
+ * Say — on the author's console, every export — which overflow policy the bundle
+ * ships with and how to find out whether it will actually fire.
+ *
+ * WHY A DISCLOSURE AND NOT A MEASUREMENT. export-marp never renders: it bakes
+ * source transforms and copies files, which is why it finishes in about a second.
+ * Measuring overflow needs a real layout in a real browser, and the tool that
+ * does that already exists — `lattice-emulator.js` prints the
+ * "⚠ OVERFLOW — N slides … CLIPPED … pages X, Y" line from the same probe
+ * (lib/core/overflow-probe.js) the runtime uses. So this line states what the
+ * export KNOWS (the policy it just wrote) and names the command that knows the
+ * rest, rather than implying a check it did not run (HARD RULE #23).
+ *
+ * `off` gets a louder line than the other two, because it is the only level where
+ * the artifact itself will not tell anyone: a clipped slide looks finished.
+ */
+function printOverflowPolicy(marker, source, deckPath) {
+  const WHAT = {
+    author: 'the red ring, an "Overflows" tab, per-cell "Fix Me" overlays, and the type-floor alarm',
+    reader: 'a calm "Content clipped" pill — the loss is stated plainly, with no QA chrome',
+    off: 'nothing — a clipped slide will look finished',
+  };
+  console.log(`  overflow marker: ${marker} (${source}) — a reader sees ${WHAT[marker]}.`);
+  if (marker === 'off') {
+    console.warn('  ⚠ With `off`, this console is the ONLY channel that can tell you a slide clips,');
+    console.warn('    and this export did not render, so it did not check.');
+  }
+  // Quoted: an unquoted `Q3 Board Review.md` printed a command that fails on its
+  // first argument — the exact bug lib/core/marp-bundle.js's `safeName` records.
+  console.log(`    export-marp does not render, so it cannot measure overflow. To check: `
+    + `\`node lattice-emulator.js "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
+}
+
 function main(argv) {
   // The agent kit (AGENTS.md + the component catalog) ships by DEFAULT so a
   // recipient's AI agent can extend the deck; `--no-agent` produces a lean,
   // Marp-only bundle.
   const includeAgent = !argv.includes('--no-agent');
+  // `--overflow-marker=<level>` — this export's answer. `LATTICE_OVERFLOW_MARKER`
+  // below is the standing one for this checkout. Neither reads the deck.
+  const markerArgs = argv.filter((a) => a === '--overflow-marker' || a.startsWith('--overflow-marker='));
+  const strayMarker = argv.find((a) => a.startsWith('--overflow-marker') && !markerArgs.includes(a));
+  if (strayMarker) die(`unknown flag '${strayMarker}' (did you mean --overflow-marker=…?)`);
+  if (markerArgs.length > 1) die('--overflow-marker given more than once');
+  const markerFlag = markerArgs.length
+    ? markerArgs[0].slice('--overflow-marker'.length).replace(/^=/, '')
+    : null;
   const [deckPath, outArg, paletteArg] = argv.filter((a) => !a.startsWith('--'));
   if (!deckPath || !outArg) {
-    die('usage: node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette] [--no-agent]');
+    die('usage: node tools/export-marp.js <deck.md> <out-dir-or-zip> [palette] [--no-agent] '
+      + `[--overflow-marker=${OVERFLOW_MARKER_LEVELS.join('|')}]`);
+  }
+  if (markerFlag !== null && !isKnownOverflowMarker(markerFlag)) {
+    die(`--overflow-marker must be one of ${OVERFLOW_MARKER_LEVELS.join(', ')} (got '${markerFlag}')`);
+  }
+  // The CLI's WORKSPACE-level answer — the standing choice for every export from
+  // this checkout, where the Studio has a settings toggle beside `pdfPages`. An env
+  // var rather than a config file: there is no lattice config format to add a key
+  // to, and inventing one for a single setting is the larger change. A stale value
+  // here falls back rather than dying (unlike the flag, which you just typed).
+  const resolvedMarker = resolveExportOverflowMarker({
+    chosen: markerFlag,
+    workspace: process.env.LATTICE_OVERFLOW_MARKER ?? null,
+  });
+  const marker = resolvedMarker.marker;
+  // Name the INPUT, not the abstract tier. `resolveExportOverflowMarker` speaks in
+  // tiers because the Studio shares it, but the CLI has no "workspace" — printing
+  // that word sent a reader looking for a setting this tool does not have.
+  const markerSource = { 'this export': '--overflow-marker', 'workspace setting': 'LATTICE_OVERFLOW_MARKER' }[resolvedMarker.source]
+    || resolvedMarker.source;
+  for (const bad of resolvedMarker.ignored) {
+    const where = bad.tier === 'this export' ? '--overflow-marker' : 'LATTICE_OVERFLOW_MARKER';
+    console.warn(`  ⚠ ${where}='${bad.value}' ignored — ${bad.reason || `not one of ${OVERFLOW_MARKER_LEVELS.join(', ')}`}.`);
   }
   if (!fs.existsSync(deckPath)) die(`deck not found: ${deckPath}`);
   // Validate the agent-kit inputs UP FRONT (before writing anything), so a
@@ -229,13 +311,17 @@ function main(argv) {
   //    emitted `.md` renders identically on any Marp tool and stays editable.
   const baked = bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels);
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
-  const fm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
+  const localizedFm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;
+  const fm = localizedFm;
   // Append the runtime scripts + the baked front matter (the deck-wide registers
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  fs.writeFileSync(path.join(dest, `${file}.md`), withRuntimeScripts(fm + bakedBody));
+  fs.writeFileSync(
+    path.join(dest, `${file}.md`),
+    withRuntimeScripts(fm + bakedBody, { overflowMarker: marker }),
+  );
 
   // 3) the deck's palette (+ -dark) under themes/, MINIFIED (from dist/themes/),
   //    under the readable `<palette>.css` name marp/VS Code register by @theme.
@@ -278,7 +364,7 @@ function main(argv) {
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
   fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));
-  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent }));
+  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent, overflowMarker: marker }));
 
   // 6) the agent kit (default on): a bundle-tailored AGENTS.md at the root +
   //    the component catalog under agent/, so a recipient's AI agent can extend
@@ -304,6 +390,7 @@ function main(argv) {
   console.log(
     `  deck: ${file}.md (splits baked) · palette: ${palette} · assets: ${localized.count} · fonts: ${fontCount}`,
   );
+  printOverflowPolicy(marker, markerSource, deckPath);
   return 0;
 }
 

@@ -208,6 +208,19 @@ OPTIONS
                           panel), so the deck can be re-rendered from the PDF
                           alone. Note: ships your source (including speaker
                           notes) inside the artifact.
+      --overflow-marker <author|reader|off>
+                          Who a clipped slide's marker speaks to in the exported
+                          artifact. A slide with more content than fits is CLIPPED
+                          (not scrollable, not printed), so the export says so
+                          rather than losing it quietly. 'reader' (default) draws a
+                          calm "Content clipped" tag; 'author' draws the red ring,
+                          the "Overflows" flag and the small-type alarm (the
+                          per-cell "Fix Me" tags are preview-only — they need the
+                          runtime script an export does not carry); 'off' draws
+                          nothing, for a deck you have already
+                          checked fits. LATTICE_OVERFLOW_MARKER sets a standing
+                          default ('off' is per-render only). The overflow warning
+                          on stderr is printed at every level.
       --keep-vector-images
                           Keep SVG images as vectors in the PDF. By default SVG
                           <img>/background images are rasterized to 2x PNG at
@@ -311,6 +324,9 @@ function parseArgs(argv) {
     '--image-format': 'image-format', '--image-size': 'image-size',
     '--image-quality': 'image-quality', '--thumb-width': 'thumb-width',
     '--image-mode': 'image-mode', '--svg-background': 'svg-background',
+    // Who a clipped slide's marker speaks to in THIS render — the same export
+    // setting tools/export-marp.js takes (lib/core/resolve-overflow-marker.js).
+    '--overflow-marker': 'overflow-marker',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -402,9 +418,36 @@ function stripSharedSource(src, noteBodies) {
   if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out);
   return out;
 }
+const {
+  OVERFLOW_MARKER_LEVELS, isKnownOverflowMarker,
+} = require('./lib/core/resolve-overflow-marker');
+const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
+const { exportSettingsBlock } = require('./lib/core/export-settings');
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
+// Who the overflow marker in the printed artifact is addressed to. Same setting,
+// same kernel and same precedence as the Marp exporter — `--overflow-marker` for
+// this render, `LATTICE_OVERFLOW_MARKER` as the standing answer, else `reader`.
+//
+// This path used to be hard-wired to the equivalent of `off`: it stripped every
+// marker and warned the author on stderr. That was defensible on its own, but it
+// made the setting one that the PRIMARY export did not read — so `--overflow-marker=author`
+// silently did nothing in a PDF, and a clipped slide in the most-used artifact went
+// out looking finished while the same deck exported to Marp said "Content clipped".
+// engineering/decisions/2026-07-30-overflow-marker-register.md
+const OVERFLOW_MARKER = resolveExportOverflowMarker({
+  chosen: typeof flags['overflow-marker'] === 'string' ? flags['overflow-marker'] : null,
+  workspace: process.env.LATTICE_OVERFLOW_MARKER ?? null,
+});
+if (flags['overflow-marker'] !== undefined && !isKnownOverflowMarker(flags['overflow-marker'])) {
+  console.error(`lattice: --overflow-marker must be one of ${OVERFLOW_MARKER_LEVELS.join(', ')}`);
+  process.exit(1);
+}
+for (const bad of OVERFLOW_MARKER.ignored) {
+  const where = bad.tier === 'this export' ? '--overflow-marker' : 'LATTICE_OVERFLOW_MARKER';
+  console.warn(`  ⚠ ${where}='${bad.value}' ignored — ${bad.reason || 'not a known level'}.`);
+}
 // PRESENT is resolved below, once the deck front matter is parsed (it can be
 // enabled by `--present` OR a `present: true` front-matter key, mirroring --fluid).
 // FLUID_VIEW is resolved below, once the deck front matter is parsed (it can be
@@ -521,9 +564,10 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
-const { CLIP_CELL_SELECTOR, PROBE_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
+  OVERFLOW_TAB_TEXT_SRC,
   LEGIBILITY_TAB_TEXT_SRC,
   LEGIBILITY_TAB_ACTION_SRC,
 } = require('./lib/runtime/fluid-view-policy');
@@ -2036,7 +2080,14 @@ ${stateChartScript}
 (function(){
   var TOL = 12;
   var CLIP_CELL_SELECTOR = ${JSON.stringify(CLIP_CELL_SELECTOR)};
+  // The resolved overflow-marker level, stamped on every slide so base.modifiers.css
+  // can pick the TONE (author = red ring + "Overflows"; reader = no ring + a calm
+  // "Content clipped" pill). Same attribute the browser runtime stamps.
+  // (No backticks in this string -- it is injected into a template literal.)
+  var MARKER_LEVEL = ${JSON.stringify(OVERFLOW_MARKER.marker)};
+  var overflowTabText = ${OVERFLOW_TAB_TEXT_SRC};
   var probeSectionOverflow = ${PROBE_SRC};
+  var probeContentClipped = ${CONTENT_CLIPPED_SRC};
   var probeFigureLegibility = ${LEGIBILITY_SRC};
   // The legibility tab's LABEL and its add/update/remove decision are injected from the
   // same policy module the live runtime imports (lib/runtime/fluid-view-policy.js), not
@@ -2049,12 +2100,57 @@ ${stateChartScript}
     document.querySelectorAll('section[data-lattice-slide]').forEach(function(s){
       // Cell-aware probe — a clipping content cell hides its overflow from the
       // section, so probe the cells too (lib/core/overflow-probe.js).
-      var over = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL).over;
+      var probed = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL);
+      var over = probed.over;
       s.classList.toggle('overflow', over);
+      if (s.getAttribute('data-lattice-overflow-marker') !== MARKER_LEVEL) {
+        s.setAttribute('data-lattice-overflow-marker', MARKER_LEVEL);
+      }
+      // WHAT THE READER IS TOLD is a narrower question than what the author is shown.
+      // "author" keeps pure geometry: an over-subscribed box is a defect to fix whether
+      // or not today's copy happens to fit inside the spill. "reader" asks whether the
+      // clip actually CUT something readable or visible, because the pill makes a claim
+      // to a recipient and a recipient can only check it by looking. On the shipped
+      // corpus 18 bare-kpi slides overflow by 282-416px of pure padding with every
+      // glyph inside the frame -- a "Content clipped" tag there is not true.
+      // (lib/core/overflow-probe.js probeContentClipped.)
+      // OVERPRINT counts as lost content even though it crosses no box edge: a
+      // flex-shrunk child paints over its next sibling, so a reader gets text on top
+      // of text. probeContentClipped cannot see it (no rect leaves a clip box), so
+      // ask the geometry probe, which already measures it, for the number.
+      var tell = over && (MARKER_LEVEL === 'author'
+        || probed.squeezed > TOL
+        || probeContentClipped(s, CLIP_CELL_SELECTOR, TOL).cut);
+      // The overflow tab. The ring is colour-only (WCAG 1.4.1), so the condition is
+      // named in text -- and the text differs by level, which is the whole setting.
+      // The "off" level draws none; the strip pass below clears the class too.
+      if (MARKER_LEVEL !== 'off') {
+        var oTab = s.querySelector(':scope > .overflow-tab');
+        if (tell && !oTab) {
+          oTab = document.createElement('div');
+          oTab.className = 'overflow-tab';
+          oTab.textContent = overflowTabText(MARKER_LEVEL === 'author');
+          s.appendChild(oTab);
+        } else if (!tell && oTab) {
+          oTab.remove();
+        }
+      }
+      // The RING follows the same answer at reader level. The overflow class is toggled
+      // above on geometry (autosplit and the console report both key off it, and both
+      // want the geometric truth), so at reader a section that overflows without cutting
+      // anything would still take base.modifiers.css's treatment. Mark the difference on
+      // the section so the CSS can tell "over" from "worth telling a reader about".
+      // (No backticks in this comment -- it is injected into a template literal.)
+      s.classList.toggle('overflow-silent', over && !tell);
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
-      var leg = probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_RATIO});
+      // AUTHOR-ONLY, matching the overflow branch above and the runtime's own gate
+      // (lib/runtime/index.js). A reader cannot resize a figure, so "Type 3px ·
+      // floor 8.4px" is a QA diagnostic in front of an audience. Ungated, it rode
+      // into the exported .html -- which is written BEFORE the level-aware strip
+      // runs, so nothing cleaned it up there.
+      var leg = MARKER_LEVEL === 'author' ? probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_RATIO}) : null;
       var under = !!(leg && leg.under);
       s.classList.toggle('illegible', under);
       // The labelled tab — the ring is colour-only (WCAG 1.4.1), so name the condition in text,
@@ -2279,24 +2375,11 @@ async function renderBody(browser, g, closeBrowser) {
       await document.fonts.ready;
     } catch (_e) { /* fonts API unavailable — proceed with whatever loaded */ }
   }), 'load fonts');
-  // Bake dynamic components for the self-contained player: `state-chart` (inline
-  // script) and `function-plot` (file:// script) draw their SVGs in the BROWSER at
-  // load. Capture the inflated DOM NOW — after load, before the raster's SVG-image
-  // swap mutates it — so the player ships static SVG (§A2b) instead of a dead
-  // `file://`/inline script the player would strip (leaving the diagram blank).
+  // The self-contained player's DOM is captured further down, immediately after the
+  // overflow-marker level is applied — see "Bake the player's DOM" below. Declared
+  // here only because the autosplit loop between here and there may re-render the
+  // page, and a capture taken before that would be stale.
   let inflatedPlayerHtml = null;
-  if (PLAYER && (hasStateChart || hasFunctionPlot)) {
-    try {
-      await page.evaluate(() => new Promise((r) => setTimeout(r, 200))); // let async inflaters settle
-      inflatedPlayerHtml = await page.evaluate(() => {
-        // Clone (never mutate the live page — the raster below still needs it) and
-        // drop the authoring overflow ring the watcher may have toggled on.
-        const root = document.documentElement.cloneNode(true);
-        for (const s of root.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-        return `<!DOCTYPE html>\n${root.outerHTML}`;
-      });
-    } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
-  }
   // Detect sections whose content exceeds the 1280×720 frame, to WARN the
   // author (with exact pages) — but keep the EXPORT itself clean: the red ring
   // + "OVERFLOWS" tab are NOT burned into the deliverable PDF. A loud red box in
@@ -2527,7 +2610,12 @@ async function renderBody(browser, g, closeBrowser) {
       illegible.map((o) => `page ${o.slide} at ${o.illegible.minPx}px (${o.illegible.pct}%)`).join(', ') + '.');
     console.warn('    A container-responsive figure never overflows — it scales its own labels instead, so the');
     console.warn('    overflow check cannot see this. Simplify the figure (fewer labels, shorter text), give it a');
-    console.warn('    bigger box, or split it across slides. The export stays clean — no ring is printed.');
+    // Level-aware, like the OVERFLOW line below. `author` keeps the amber ring in
+    // the artifact, so claiming a clean export there was the tool stating the
+    // opposite of what it had just done, on the same run.
+    console.warn(`    bigger box, or split it across slides. ${OVERFLOW_MARKER.marker === 'author'
+      ? 'The export carries the amber ring and its tag.'
+      : 'The export stays clean — no ring is printed, so this warning is the only channel.'}`);
   }
   // …and the figures the floor could not judge AT ALL. Mermaid's `htmlLabels` emit
   // `<foreignObject>` HTML rather than SVG `<text>`, which the probe cannot size — so a
@@ -2546,24 +2634,84 @@ async function renderBody(browser, g, closeBrowser) {
   if (overflowing.length) {
     const n = overflowing.length;
     console.warn(`  ⚠ OVERFLOW — ${n} slide${n > 1 ? 's' : ''} exceed the frame and ${n > 1 ? 'are' : 'is'} CLIPPED in this export: page${n > 1 ? 's' : ''} ${overflowing.join(', ')}.`);
-    console.warn(`    Fix ${n > 1 ? 'them' : 'it'} before delivering (trim content, or use a layout/fill that fits). The export stays clean — no overflow marker is printed.`);
+    // What the ARTIFACT does about it depends on the level — this line used to say
+    // "The export stays clean — no overflow marker is printed", which was true only
+    // while this path was hard-wired to strip everything. It reads the setting now,
+    // so it has to report what it actually did.
+    const marked = {
+      // Deliberately hedged: at `reader` the export tags only the slides where the clip
+      // actually CUT something readable or visible, so on a slide that overflows by
+      // padding alone there is no tag and this warning is the whole signal. Saying "the
+      // export marks the clipped slides" flatly would be the same overclaim in the
+      // console that the pill itself was making on the page.
+      reader: 'The export tags the ones that actually lose content with a "Content clipped" tag; a slide that overflows by padding alone is not tagged, so this warning is its only channel.',
+      author: 'The export draws the full authoring signal (red ring, "Overflows" flag) on them.',
+      off: 'The export stays clean — no overflow marker is printed, so this warning is the only channel.',
+    }[OVERFLOW_MARKER.marker];
+    console.warn(`    Fix ${n > 1 ? 'them' : 'it'} before delivering (trim content, or use a layout/fill that fits). ${marked}`);
   }
   // Strip the authoring-only overflow signal before exporting. The injected
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on
   // any `.overflow` section — invaluable while authoring in the live preview,
   // but a red box in front of a board is worse than the silent clip that
-  // overflow:hidden already applies. The author was warned on stderr above; the
-  // PDF / PNG / PPTX deliverable stays clean, matching the contract documented
-  // at the detection pass. (Removing the class also hides the .overflow-tab via
+  // overflow:hidden already applies. The author is warned on stderr at EVERY level;
+  // what the artifact shows is the `overflow-marker` setting's job, resolved above. (Removing the class also hides the .overflow-tab via
   // `section:not(.overflow) > .overflow-tab { display:none }`.)
-  await g(() => page.evaluate(() => {
-    for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-    // The §8 rule 8 TYPE-FLOOR marker is the same kind of authoring-only signal (an amber ring
-    // plus a tab naming the measured px against the floor), and it leaves the deliverable for the
-    // same reason. The stderr warning above is the author's channel.
-    for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');
-    for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
-  }), 'strip overflow marker');
+  const level = OVERFLOW_MARKER.marker;
+  await g(() => page.evaluate((lvl) => {
+    // `off` — the historical behavior of this path, now a CHOICE rather than the
+    // only option: clear the ring so the deliverable carries no marker at all. The
+    // stderr warning above is then the author's only channel, which is why `off` is
+    // never a standing default (lib/core/resolve-overflow-marker.js).
+    if (lvl === 'off') {
+      for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
+      for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
+    }
+    // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:
+    // a reader cannot resize a figure, so an amber alarm reading "Type 3px · floor
+    // 8.4px" is a QA diagnostic in front of a boardroom. The stderr warning is the
+    // author's channel for it.
+    if (lvl !== 'author') {
+      for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');
+      for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
+    }
+  }, level), 'apply overflow marker level');
+  // Bake the player's DOM NOW — after the level above is applied, before the raster's
+  // SVG-image swap mutates the page. One capture carries two things:
+  //
+  //   · THE OVERFLOW MARKER. The player ships no runtime (player-core.mjs drops every
+  //     inline script from this doc — "authoring watcher etc."), so whatever the marker
+  //     looks like at this instant is what the shared file shows forever. The old base
+  //     was the PRE-BROWSER static render, which no watcher had ever touched — so
+  //     `--player` was silently equal to `off` at every level, a second export path
+  //     that ignored the setting. That is precisely the failure the settings block
+  //     exists to prevent (lib/core/export-settings.js).
+  //   · DYNAMIC COMPONENTS. `state-chart` (inline script) and `function-plot`
+  //     (file:// script) draw their SVGs in the BROWSER at load, so the player ships
+  //     baked static SVG (§A2b) rather than a dead script it would strip, leaving the
+  //     diagram blank. This used to be its own earlier capture; taking it here instead
+  //     also makes it survive an autosplit re-render.
+  //
+  // Never fail-hard: a failed capture falls back to the clean static render, which is
+  // exactly the behavior that shipped before.
+  if (PLAYER) {
+    try {
+      if (hasStateChart || hasFunctionPlot) {
+        // Through the render guard like every other page call in this file: a CDP
+        // response that never arrives would otherwise hang to the outer CI timeout
+        // instead of failing fast into the hardened retry (lib/engine/render-guard.js).
+        // The old capture was unguarded too, but it ran only for dynamic-component
+        // decks; this one runs for EVERY --player render, on the largest DOMs the
+        // tool serializes, so the unguarded window is no longer narrow.
+        await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 200))), 'player capture: settle inflaters');
+      }
+      inflatedPlayerHtml = await g(() => page.evaluate(() => {
+        // Clone — never mutate the live page; the raster below still needs it.
+        const root = document.documentElement.cloneNode(true);
+        return `<!DOCTYPE html>\n${root.outerHTML}`;
+      }), 'player capture: serialize baked DOM');
+    } catch (_e) { inflatedPlayerHtml = null; /* fall back to the static render */ }
+  }
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
   // clipped/cropped placements Chromium prints for them emit shading-pattern /
   // transparency-group constructs that iOS Quartz viewers partially render or
@@ -2993,9 +3141,10 @@ async function renderBody(browser, g, closeBrowser) {
               : csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm) ? 'dark'
                 : 'light';
       const { html: playerHtml, report } = await buildPlayerHtml({
-        // Prefer the browser-inflated DOM when the deck has dynamic components, so
-        // state-chart / function-plot ship as baked static SVG (§A2b); else the
-        // clean static render (fast path, no re-serialize).
+        // The browser-baked DOM (captured after the overflow-marker level was applied,
+        // with state-chart / function-plot inflated to static SVG). Falls back to the
+        // clean static render only if that capture failed — which also means no marker,
+        // so the fallback is announced rather than silent.
         docHtml: inflatedPlayerHtml || cleanDocHtml,
         // The envelope carries verbatim source for lossless re-import — but under
         // `--strip-notes` / `--strip-captions` that source is re-serialized WITHOUT the
@@ -3045,11 +3194,30 @@ async function renderBody(browser, g, closeBrowser) {
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);
         for (const n of pruneNotes) console.log(n);
       }
+      // Say so rather than let the level go quietly missing: without the baked DOM the
+      // player falls back to the pre-browser render, which carries no marker at all.
+      //
+      // UNGATED by --quiet, matching the mermaid re-render warnings above ("so an
+      // automated pipeline sees them"): --quiet is exactly the mode a pipeline runs in,
+      // and this is the only signal that a delivered artifact silently lost its marker.
+      // Gated on there being something to mark, so a clean deck whose capture failed is
+      // not told it is missing a marker that was never going to appear.
+      if (!inflatedPlayerHtml && level !== 'off' && overflowing.length) {
+        console.warn(`  honesty: the player DOM could not be captured — this player shows no overflow marker, not \`${level}\`.`);
+      }
     } catch (err) {
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
     }
   } else if (FLUID_VIEW) {
-    fs.writeFileSync(outHtml, toFluidViewer(cleanDocHtml));
+    // The fluid viewer runs the BUNDLED RUNTIME, which resolves the overflow level
+    // from an export-settings block and otherwise falls back to `reader`. Without
+    // the block the flag was silently ignored here: `--overflow-marker=off` still
+    // drew a pill, and `author` drew a reader-styled pill with author wording.
+    // Emitting it is the same channel the Marp bundle uses (lib/core/export-settings.js).
+    fs.writeFileSync(
+      outHtml,
+      toFluidViewer(cleanDocHtml) + exportSettingsBlock({ overflowMarker: OVERFLOW_MARKER.marker }),
+    );
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
   }
   // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next to the deck,

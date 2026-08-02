@@ -108,6 +108,88 @@ in patch versions.
   **F8 / Shift-F8 / Ctrl-Shift-M / Alt-Shift-F** lint shortcuts in the Playground, which is the only
   surface whose editor binds `lintKeymap`; and the **Deck setup** drawer in the Playground, with the
   Studio's equivalent called out as the Deck inspector.
+- **An Export-to-Marp bundle stops shipping QA chrome, and the overflow marker becomes an
+  EXPORT SETTING.** A delivered bundle put a red ring, an "OVERFLOWS" flag, and per-cell
+  "FIX ME" overlays on every clipped slide — it renders through the browser runtime inside
+  marp-cli, so it inherited the runtime's AUTHORING default by accident. The marker was not
+  a false positive (detection accuracy was established earlier in this swimlane), so the fix
+  is not to hide it but to say who it is addressed to. Three levels — `author` (the full
+  editing signal), `reader` (**the export default**: no ring, a calm **"Content clipped"**
+  pill, so a clipped slide still says so while the artifact is not a bug report), and `off`
+  (nothing; opt-in only). An authoring surface is not configurable — you are the one who can
+  fix it, so the live preview always shows the full signal.
+  **It is a setting, not a deck key**: the same source is previewed, exported, and printed,
+  and those want three different answers, so it belongs to the render target (the reasoning
+  that retired `autosplit:` a day earlier). Choose it with `--overflow-marker=<level>` on
+  `tools/export-marp.js` for one export, `LATTICE_OVERFLOW_MARKER` for every export from a
+  checkout, or — in the Studio — the new **Share → Marp bundle** pre-export step (the same
+  options step PDF, Webpage, Print and Image set already have), which starts from a new
+  Workspace setting beside the PDF page format. **`off` is per-export only**: a standing
+  default cannot be `off`, because a silence applying to every future export with nothing
+  to notice it by is the failure the setting exists to prevent. The level
+  travels in the bundle's own generated settings block — never front matter — so a re-export
+  cannot silently inherit the previous export's choice. A stray `overflow-marker:` in a deck
+  is flagged by `lint:deck`. `export-marp` also prints the policy in effect and says plainly
+  that it did not render and therefore did not measure overflow, naming `lattice-emulator.js`
+  as the command that does. **Every export path honors the setting**, including
+  `lattice-emulator.js` (PDF / PNG / PPTX / HTML / `--fluid` / `--player`), which takes
+  the same `--overflow-marker` flag — a setting the primary export ignored would not have
+  been a setting. Its default is unchanged in effect (a delivered PDF still carries no red
+  QA ring) and the overflow warning on stderr is unconditional at every level.
+  The self-contained **`--player`** is the one surface that cannot read anything at view
+  time (`player-core.mjs` drops every inline script it is handed), so the level is *baked*
+  into its DOM: the emulator now captures the page after applying the level, where it used
+  to build the player from the pre-browser static render — which no watcher had ever
+  touched, making `--player` permanently equal to `off` whatever the setting said. That
+  capture also replaces the separate dynamic-component bake, so state-chart / function-plot
+  SVGs now survive an autosplit re-render too.
+  `engineering/decisions/2026-07-30-overflow-marker-register.md`.
+- **The reader marker now fires only when the clip actually loses something.** `author` and
+  `reader` were asking the same GEOMETRIC question — did a box's content extent exceed the
+  box — and that is the right question for only one of them. An author can open devtools, so
+  an over-subscribed box is a defect worth flagging whether or not today's copy happens to fit
+  inside the spill. A recipient holding a PDF can only check the claim by looking, and on
+  **18 of the 27 slides the corpus ratchets** the answer they get is "nothing is missing":
+  `exemplars/nonprofit/grant-report.md` p3 overflows its `.cell-stage` by 282px and p12 by
+  416px with **every text-bearing leaf inside the frame** — the spill is padding and
+  background. All 18 are bare `kpi`; all 20 `kpi compact` slides fit, a perfect split. So the
+  shipped default's first act was to stamp "Content clipped" on intact slides, and a warning
+  that cries wolf teaches its reader to reach for `off`.
+  `reader` now asks the reader's question instead (`probeContentClipped` in
+  `lib/core/overflow-probe.js`): is any CONTENT-BEARING box — non-empty text, or a replaced
+  element, because an oversized chart cut in half is a real loss with no text involved — cut by
+  a clipping ancestor? `author` is untouched and still pure geometry. `.overflow` still lands on
+  the section either way, because autosplit and the console report both key off it and both want
+  the geometric truth; only the reader TREATMENT yields, via a new `.overflow-silent` class both
+  watchers stamp. The console warning is hedged to match, rather than repeating the same
+  overclaim in a different channel. Net effect on the shipped artifacts: **22 false pills
+  removed** (all 12 exemplars now carry none) and **every true cut kept** — `logo`, `wifi`,
+  `image-set-export` and the `overflow-fix-me` demo all still say so.
+  The probe walks **text nodes**, not element leaves. That distinction is the whole
+  correctness of it in this engine: `lib/engine/index.js` sets marp-core's `breaks: true`, so
+  every soft-wrapped paragraph and list item carries `<br>` children — which means the
+  text-owning element is not a leaf. A first cut of this probe skipped exactly those
+  elements and therefore went blind to most prose in the product, answering "nothing was cut"
+  on a cell the render was slicing mid-glyph, and making the answer depend on whether the
+  author happened to press Enter inside a paragraph. Text lives in text nodes, so they are
+  what gets measured (per-line `Range` client rects, which is what a clip actually cuts);
+  replaced elements are collected separately. All four box edges are checked, and the
+  tolerance is scaled into rect space like its sibling probe rather than being 1/k too large
+  on a transformed slide.
+  It also treats **overprint** as loss. `probeSectionOverflow` has a squeezed-child branch
+  written for a shipped defect — a flex-shrunk `overflow: visible` child painting its content
+  straight over its next sibling, text on top of text — and that case crosses no box edge, so a
+  probe asking "did a rect leave a clip box" is blind to it by construction. Intersecting the
+  two measures would have re-silenced exactly the defect the older branch exists to catch, on
+  the default level of the default export. The geometry probe now reports its `squeezed`
+  measure and both watchers treat it as telling.
+
+- **The overflow marker's reader wording no longer promises something false.** The calm
+  variant read "More below ↓", which is a scroll affordance — but `section` is
+  `overflow: hidden` and the body cell is `overflow: clip`, which creates no scroll container
+  at all, and the fluid viewer's scroll-snap sends a downward scroll to the *next slide*.
+  The content is gone, not below. It now reads **"Content clipped"**, with no arrow, on every
+  surface including the fluid viewer.
 
 - **Masthead framing text now FILLS the band on every non-sovereign component; how it behaves is
   the deck's call, through `headline:` alignment.** The eyebrow, heading and subtitle take the width
@@ -145,6 +227,27 @@ in patch versions.
   anchors at the offset the heading vacated — the string equivalent of the DOM kernel's
   `h2.nextElementSibling`, which was always immune, so this was also a live HARD RULE #1 engine↔web
   split (live but unexercised: every deck in the shipped corpus places its notes after the heading).
+- **18 committed PDFs are regenerated, and they now show the clips they always had.** The
+- **20 committed PDFs are regenerated, and they now show the clips they always had.** The
+  emulator's default moved from "print no marker" to `reader`, so every shipped artifact whose
+  deck clips gains the calm "Content clipped" pill. That is 20 PDFs across 18 decks: the 18 that
+  `test/integration/overflow-baseline.json` ratchets (3 examples — one of which, `examples/README.md`,
+  ships no PDF — 12 exemplars, and the `connect` + `wifi` galleries in both moods), **plus
+  `lib/base/_logo/logo.gallery.{light,dark}.pdf`**, which clip page 3 and which **three separate
+  gates are all blind to**: `tools/check-overflow-corpus.js`'s glob covers `examples/`,
+  `exemplars/`, `lib/components/**`, `design/*.gallery.md` and the baseline deck but not
+  `lib/base/**`; no gallery builder owns those two files (`build-galleries.js` walks
+  `lib/components/**`, `build-bucket-galleries.js` the buckets); and `tools/golden-diff.mjs:75`
+  pathspec-limits its diff to `-- lib/components`, so their pixels move without a montage — as this
+  very commit demonstrates, since it changes both PDFs and golden-diff reported 4 gallery·moods, not
+  6. They were found by diffing `git ls-files '*.pdf'` against the ratchet rather than trusting the
+  ratchet to be complete. The hole itself is pre-existing and off this change's path, so it is
+  recorded here rather than widened in this diff.
+  The ratchet is unchanged: no new slide clips, the same 27 do, and they are now visible in the
+  artifact instead of only on stderr. Note that `build:galleries:check` compares mtimes rather than
+  content, so it would not have caught any of these going stale.
+  `examples/overflow-fix-me.md`'s closing slide is also trimmed: the copy this branch gave it ran
+  two lines past the frame, which made a deck *about* overflow ship a clipped conclusion.
 
 - **Breaking (rendering): the export now resolves every token at DESIGN size, so exported
   PDFs render stage content ~11% larger than before — and agree with the preview.** The

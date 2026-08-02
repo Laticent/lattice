@@ -660,6 +660,27 @@ export type HandleStyle = 'knob' | 'reticle';
 // mathematically lossless). A fidelity-vs-speed call that belongs to the USER,
 // so it lives here as a workspace preference rather than a hardcoded default.
 export type PdfPages = 'png' | 'jpeg';
+// `overflowMarker` — who the overflow signal is addressed to in a deck you EXPORT.
+// A slide whose content exceeds the frame is clipped (not scrollable, not printed),
+// so the artifact says so; this decides in whose language. 'reader' (default) is a
+// calm "Content clipped" pill for a recipient; 'author' is the full authoring signal
+// (red ring, per-cell "Fix Me" overlays) you see while editing; 'off' shows nothing
+// and is for a deck you have already checked fits.
+//
+// A workspace preference rather than a deck key, deliberately: one deck source is
+// previewed while authoring, exported for a recipient, and printed to PDF, and those
+// three want different answers — so it is a property of what you are producing, not
+// of the deck. Same altitude as `pdfPages` above. It reaches Share → Marp bundle and
+// nothing else — the other export formats have their own options steps.
+//
+// `off` is a valid LEVEL but never a valid STANDING default (the Workspace card does
+// not offer it, and lib/core/resolve-overflow-marker.js rejects it there): a silence
+// that applies to every future export with nothing to notice it by is the failure
+// this setting exists to prevent. Choose it per export in the Share step instead.
+// engineering/decisions/2026-07-30-overflow-marker-register.md
+export type OverflowMarker = 'author' | 'reader' | 'off';
+/** The subset a stored workspace default may take. */
+export type StandingOverflowMarker = Exclude<OverflowMarker, 'off'>;
 // `lensDefaults` — whether decks INHERIT the workspace default reader views (the curated two,
 // workspace-lenses.ts). ON by default: a fresh deck shows the two starter views in its Lenses panel
 // without baking anything into its source (the delta model — see workspace-lenses.ts). Turning it off
@@ -673,8 +694,8 @@ const isPosture = (v: unknown): v is Posture => POSTURES.includes(v as Posture);
 // orientation hint on the Read stop is shown until the newcomer edits or dismisses
 // it, then never again. (It is content attached to the Edit button, not a banner —
 // it points INTO the app, never recurs, and blocks nothing.)
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: 'read', readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; overflowMarker: StandingOverflowMarker; lensDefaults: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: 'read', readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing

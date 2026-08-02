@@ -33,6 +33,7 @@ import {
 	markBackupTaken,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	type PdfPages,
+	type StandingOverflowMarker,
 	saveInstructions,
 	saveOnDeviceInstructions,
 	saveSettings,
@@ -111,6 +112,18 @@ const HANDLE_CHOICES: { value: HandleStyle; title: string; blurb: string }[] = [
 const PDF_PAGE_CHOICES: { value: PdfPages; title: string; blurb: string }[] = [
 	{ value: 'png', title: 'Lossless', blurb: 'PNG pages — pixel-perfect, the default' },
 	{ value: 'jpeg', title: 'Fast', blurb: 'JPEG pages — ~2× faster export, much smaller file' },
+];
+
+// Who the overflow marker speaks to in a bundle you export. A clipped slide is
+// always marked here — this is the tone, not whether.
+//
+// "No marker" is deliberately ABSENT. It is available per export (the Share → Marp
+// bundle step), never as a standing default: a persistent silence nobody can see is
+// the failure this setting exists to prevent, and a workspace preference would apply
+// it to every future export with nothing to notice it by.
+const OVERFLOW_MARKER_CHOICES: { value: StandingOverflowMarker; title: string; blurb: string }[] = [
+	{ value: 'reader', title: 'For the reader', blurb: 'A calm "Content clipped" tag — the default' },
+	{ value: 'author', title: 'For me', blurb: 'The full editing signal: red ring, "Fix Me" tags' },
 ];
 
 // A miniature of each handle style for the picker card (accent-toned).
@@ -200,6 +213,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
 	// Share → PDF page-image format (lossless PNG / fast JPEG).
 	const [pdfPages, setPdfPages] = React.useState<PdfPages>(() => loadSettings().pdfPages);
+	const [overflowMarker, setOverflowMarker] = React.useState<StandingOverflowMarker>(() => loadSettings().overflowMarker);
 	// Whether decks inherit the workspace default reader views (the curated two — Bottom line + The evidence).
 	const [lensDefaults, setLensDefaults] = React.useState(() => loadSettings().lensDefaults);
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
@@ -476,6 +490,36 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									})}
 								</div>
 								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to Share → PDF in this Studio; PowerPoint and Print are unaffected.</p>
+							</div>
+
+							<div className="mt-6">
+								<GroupLabel icon={<Download className="size-3.5" />}>Overflow marker on export</GroupLabel>
+								<p className="mb-3 text-xs text-muted-foreground">A slide with more content than fits is <strong>clipped</strong> — the overflow is not scrollable and does not print. Exported decks say so rather than losing it quietly. This is who the marker speaks to, not whether it appears.</p>
+								<div className="grid gap-2.5">
+									{OVERFLOW_MARKER_CHOICES.map((c) => {
+										const active = overflowMarker === c.value;
+										return (
+											<label
+												key={c.value}
+												className={cn('flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)]', active ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'border-border bg-background hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+											>
+												<input
+													type="radio"
+													name="overflow-marker"
+													value={c.value}
+													checked={active}
+													onChange={() => { setOverflowMarker(c.value); saveSettings({ overflowMarker: c.value }); notify(`Overflow marker on export: ${c.title.toLowerCase()}.`); }}
+													className="sr-only"
+												/>
+												<span className="flex flex-col gap-0.5">
+													<span className="text-[13px] font-semibold text-[var(--text-heading)]">{c.title}</span>
+													<span className="text-[11px] leading-snug text-muted-foreground">{c.blurb}</span>
+												</span>
+											</label>
+										);
+									})}
+								</div>
+								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to Share → Marp bundle in this Studio; the other formats are unaffected. You can change it for one export in that step, and while editing here you always see the full signal.</p>
 							</div>
 
 							{/* Install the app — the Studio IS the app (the manifest launches here).

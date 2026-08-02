@@ -69,8 +69,27 @@ describe('marp-bundle spec', () => {
 
   test('withRuntimeScripts appends the lint-ignored mermaid + runtime tags', () => {
     const out = withRuntimeScripts('# A\n\n## B\n');
-    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\s*$/);
+    // The tags open the trailer; the data blocks follow them. (This used to be
+    // `$`-anchored — true only while a marker-less export emitted no settings block,
+    // which is the block-less state the runtime reads as "authoring surface" and the
+    // choke point now refuses to produce.)
+    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11\.min\.js"><\/script>\n<script src="lattice-runtime\.min\.js"><\/script>\n/);
     assert.ok(RUNTIME_SCRIPTS.includes('lattice-runtime.min.js'));
+    // Nothing but generated data blocks may follow — no stray deck content. Asserted as
+    // EXACT EQUALITY rather than "strip the script tags and check for leftovers": the
+    // strip form needed a `<script[\s\S]*?</script>` regex, which CodeQL reads (fairly, on
+    // shape alone) as a hand-rolled HTML sanitizer — it is not one, there is no untrusted
+    // input here, and saying so in a comment would not make the pattern stop looking like
+    // one. Equality is also the stronger assertion: the strip form passed no matter how the
+    // generated blocks were ordered or spelled.
+    const trailer = out.slice(out.indexOf('<!-- markdownlint-disable MD033 -->'));
+    assert.equal(
+      trailer,
+      '<!-- markdownlint-disable MD033 -->\n'
+      + '<script src="mermaid-v11.min.js"></script>\n'
+      + '<script src="lattice-runtime.min.js"></script>\n'
+      + `<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n`,
+    );
   });
 
   test('marp.config.cjs builds a themeSet from root lattice.css + themes/, no engine', () => {
@@ -285,5 +304,125 @@ describe('marp-bundle spec', () => {
       assert.doesNotMatch(off, /Extend it with an AI agent/);
       assert.doesNotMatch(off, /agent\/components\.json/);
     });
+  });
+});
+
+/**
+ * `resolveExportOverflowMarker` + the export-settings block.
+ *
+ * The level is an EXPORT setting, not a deck key. It shipped as `overflow-marker:`
+ * front matter for one commit and moved, for the reason `autosplit:` moved a day
+ * earlier: one deck source is previewed while authoring, exported for a recipient,
+ * and printed to PDF, and the same question has three different correct answers
+ * decided by which command you ran — a property of the render target.
+ *
+ * Two things that were DEFECTS while it was a deck key are properties here, and
+ * both are pinned below: a re-export cannot inherit the previous export's choice,
+ * and nothing in the emitted deck looks like an input the author should write.
+ */
+describe('marp bundle — the overflow-marker export setting', () => {
+  const { resolveExportOverflowMarker } = require('../../../lib/core/marp-bundle');
+  const {
+    EXPORT_SETTINGS_TYPE, readExportSettings,
+  } = require('../../../lib/core/export-settings');
+  const { JSDOM } = require('jsdom');
+  const settingsIn = (deck) => readExportSettings(new JSDOM(`<body>${deck}</body>`).window.document);
+
+  test('nothing chosen anywhere resolves to reader', () => {
+    assert.deepEqual(resolveExportOverflowMarker(), { marker: 'reader', source: 'default', ignored: [] });
+    assert.deepEqual(resolveExportOverflowMarker({}), { marker: 'reader', source: 'default', ignored: [] });
+  });
+
+  test('this export beats the workspace setting, which beats the default', () => {
+    assert.equal(resolveExportOverflowMarker({ chosen: 'off', workspace: 'author' }).marker, 'off');
+    assert.equal(resolveExportOverflowMarker({ chosen: 'off', workspace: 'author' }).source, 'this export');
+    assert.equal(resolveExportOverflowMarker({ workspace: 'author' }).marker, 'author');
+    assert.equal(resolveExportOverflowMarker({ workspace: 'author' }).source, 'workspace setting');
+  });
+
+  test('values are normalized, and a null/absent choice falls through', () => {
+    assert.equal(resolveExportOverflowMarker({ chosen: ' OFF ' }).marker, 'off');
+    assert.equal(resolveExportOverflowMarker({ chosen: null, workspace: ' Author ' }).marker, 'author');
+  });
+
+  // The choke point RESOLVES, so a producer that passes nothing cannot emit a
+  // block-LESS deck. That mattered: no block reads as "authoring surface", so the
+  // Drawing Board — which never passed a marker — shipped delivered bundles with the
+  // red QA ring and the "FIX ME" overlays, the exact defect this setting fixes.
+  test('a producer that passes NOTHING still gets a real level in the block', () => {
+    const deck = withRuntimeScripts('---\nmarp: true\n---\n\n# A\n');
+    assert.deepEqual(settingsIn(deck), { overflowMarker: 'reader' },
+      'never block-less — "the producer said nothing" must not read as "authoring surface"');
+  });
+
+  test('an invalid level from a producer is normalized, never written raw', () => {
+    assert.deepEqual(settingsIn(withRuntimeScripts('---\nmarp: true\n---\n\n# A\n', { overflowMarker: 'quiet' })),
+      { overflowMarker: 'reader' });
+    assert.deepEqual(settingsIn(withRuntimeScripts('---\nmarp: true\n---\n\n# A\n', { overflowMarker: null })),
+      { overflowMarker: 'reader' });
+  });
+
+  // A stored setting can go stale — a level renamed, a hand-edited localStorage,
+  // a typo'd env var. It must not break the export, and it must not be swallowed.
+  test('an unrecognized WORKSPACE value falls back AND is reported', () => {
+    const r = resolveExportOverflowMarker({ workspace: 'quiet' });
+    assert.equal(r.marker, 'reader');
+    assert.equal(r.source, 'default');
+    assert.deepEqual(r.ignored.map((i) => i.value), ['quiet'], 'the caller can name what it ignored');
+  });
+
+  // The first cut only looked at `workspace`, and only when nothing else won — so a
+  // stale standing value beside a good flag was swallowed, which is precisely the
+  // case its docstring claimed to cover.
+  test('a bad value is reported even when another tier wins', () => {
+    const r = resolveExportOverflowMarker({ chosen: 'off', workspace: 'quiet' });
+    assert.equal(r.marker, 'off');
+    assert.deepEqual(r.ignored.map((i) => i.tier), ['standing default']);
+    const bothBad = resolveExportOverflowMarker({ chosen: 'nope', workspace: 'quiet' });
+    assert.deepEqual(bothBad.ignored.map((i) => i.tier), ['this export', 'standing default']);
+    assert.equal(bothBad.marker, 'reader');
+  });
+
+  // `off` is a real level but never a STANDING default: a silence that applies to
+  // every future export, with nothing to notice it by, is the failure this whole
+  // change exists to prevent. Rejected loudly rather than downgraded in silence.
+  test('`off` is refused as a standing default, and says why', () => {
+    const r = resolveExportOverflowMarker({ workspace: 'off' });
+    assert.equal(r.marker, 'reader', 'it does not become the standing answer');
+    assert.equal(r.source, 'default');
+    assert.match(r.ignored[0].reason, /cannot be a standing default/);
+    // …but it is perfectly valid for ONE export.
+    assert.equal(resolveExportOverflowMarker({ chosen: 'off' }).marker, 'off');
+    assert.deepEqual(resolveExportOverflowMarker({ chosen: 'off' }).ignored, []);
+  });
+
+  test('an empty workspace value is absence, not a bad value', () => {
+    assert.deepEqual(resolveExportOverflowMarker({ workspace: '' }), { marker: 'reader', source: 'default', ignored: [] });
+  });
+
+  test('the level rides in the export-settings block, not the front matter', () => {
+    const deck = withRuntimeScripts('---\nmarp: true\n---\n\n# A\n', { overflowMarker: 'off' });
+    assert.deepEqual(settingsIn(deck), { overflowMarker: 'off' });
+    assert.doesNotMatch(deck, /^overflow-marker:/m, 'nothing in the deck looks like a key to write');
+    assert.match(deck, new RegExp(EXPORT_SETTINGS_TYPE));
+  });
+
+  // The stickiness bug, pinned. As a front-matter key, `off` chosen once for one
+  // board meeting became a permanent property of every deck derived from that
+  // bundle — inherited by every re-export, watched by nothing.
+  test('a re-export does NOT inherit the previous export\'s level', () => {
+    const first = withRuntimeScripts('---\nmarp: true\n---\n\n# A\n', { overflowMarker: 'off' });
+    const second = withRuntimeScripts(first);
+    assert.deepEqual(settingsIn(second), { overflowMarker: 'reader' },
+      'the previous `off` is gone and the default takes over — not carried forward, and not block-less');
+    const third = withRuntimeScripts(first, { overflowMarker: 'author' });
+    assert.deepEqual(settingsIn(third), { overflowMarker: 'author' }, 'and an explicit choice replaces it');
+  });
+
+  test('re-exporting at the same level is byte-identical, with one block', () => {
+    const once = withRuntimeScripts('---\nmarp: true\n---\n\n# A\n', { overflowMarker: 'reader' });
+    const twice = withRuntimeScripts(once, { overflowMarker: 'reader' });
+    assert.equal(twice, once);
+    assert.equal((twice.match(new RegExp(EXPORT_SETTINGS_TYPE, 'g')) || []).length, 1);
   });
 });

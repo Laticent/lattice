@@ -13,6 +13,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   CLIP_CELL_SELECTOR, probeSectionOverflow, PROBE_SRC,
+  probeContentClipped, CONTENT_CLIPPED_SRC,
   probeFigureLegibility, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO,
 } = require('../../../lib/core/overflow-probe');
 
@@ -595,5 +596,137 @@ describe('overflow-probe: scale invariance (the host may transform the slide)', 
     } finally {
       global.getComputedStyle = prev;
     }
+  });
+});
+
+describe('probeContentClipped — did the clip actually CUT anything?', () => {
+  // A REAL DOM, not element fakes. The first implementation of this probe walked
+  // element leaves, and fakes shaped `{ children: [], textContent }` made that look
+  // correct — while in the real engine `breaks: true` gives every wrapped paragraph
+  // <br> children, so the text-owning element is not a leaf and the probe went blind
+  // to most prose in the product. The fixtures could not express the bug, so they
+  // could not catch it. These build actual nodes and stub only the geometry, which
+  // jsdom does not compute.
+  const { JSDOM } = require('jsdom');
+
+  // Text occupies its parent element's box — enough to model "does this line cross
+  // the clip edge" without a layout engine.
+  function mount(html, rects, { clipBoxes = [] } = {}) {
+    const dom = new JSDOM('<!doctype html><body>' + html + '</body>');
+    const { window } = dom;
+    const doc = window.document;
+    for (const [sel, r] of Object.entries(rects)) {
+      for (const el of doc.querySelectorAll(sel)) el.__rect = r;
+    }
+    window.Element.prototype.getBoundingClientRect = function () {
+      return this.__rect || { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 };
+    };
+    window.Range.prototype.getClientRects = function () {
+      const host = this.startContainer.parentElement;
+      const r = host?.__rect;
+      return r ? [r] : [];
+    };
+    const clipSet = new Set(clipBoxes.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    const prevGCS = global.getComputedStyle;
+    global.getComputedStyle = (el) => ({
+      overflowY: clipSet.has(el) ? 'clip' : 'visible',
+      overflowX: 'visible',
+      position: el.dataset?.pos || 'static',
+      display: 'block',
+      visibility: 'visible',
+    });
+    return { doc, restore: () => { global.getComputedStyle = prevGCS; } };
+  }
+  const rect = (top, bottom, left = 0, right = 100) => ({
+    top, bottom, left, right, width: right - left, height: bottom - top,
+  });
+  const run = (html, rects, opts) => {
+    const { doc, restore } = mount(html, rects, opts);
+    try {
+      return probeContentClipped(doc.querySelector('section'), CLIP_CELL_SELECTOR, 12);
+    } finally { restore(); }
+  };
+
+  test('padding-only overflow is NOT a cut — the kpi case', () => {
+    const r = run(
+      '<section><p id="a">218</p><p id="b">Adults enrolled</p></section>',
+      { section: rect(0, 1000), '#a': rect(100, 300), '#b': rect(300, 380) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, false, 'no text crosses the clip line, so nothing was cut');
+  });
+
+  test('text past the clip line IS a cut, and it is named', () => {
+    const r = run(
+      '<section><p id="a">fine</p><p id="b">lost text</p></section>',
+      { section: rect(0, 1000), '#a': rect(100, 300), '#b': rect(900, 1100) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, true);
+    assert.match(r.first, /lost text/);
+  });
+
+  test('WRAPPED prose is seen — the <br> blindness that shipped a silent PDF', () => {
+    // marp-core's breaks:true turns a soft-wrapped paragraph into text + <br> + text.
+    // The element walk skipped the <p> (it has children) and the <br>s (no text), so a
+    // cell of ordinary prose reported zero bearers and answered "nothing was cut".
+    const r = run(
+      '<section><p id="a">first line<br>second line<br>third line</p></section>',
+      { section: rect(0, 1000), '#a': rect(900, 1100) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, true, 'a wrapped paragraph carrying <br> children must still be measured');
+  });
+
+  test('the tolerance is honored — a hair over the line is not a cut', () => {
+    const r = run(
+      '<section><p id="a">grazing</p></section>',
+      { section: rect(0, 1000), '#a': rect(900, 1008) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, false, '8px past a 12px tolerance must not fire');
+  });
+
+  test('the marker its own tab draws is never the evidence', () => {
+    const r = run(
+      '<section><div class="overflow-tab" id="a">Content clipped</div></section>',
+      { section: rect(0, 1000), '#a': rect(980, 1040) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, false, 'counting the tab would make the marker self-justifying');
+  });
+
+  test('a bounded content CELL is probed, not just the section', () => {
+    const r = run(
+      '<section><div class="cell-stage"><p id="a">cell text past the edge</p></div></section>',
+      { section: rect(0, 1000), '.cell-stage': rect(0, 500), '#a': rect(480, 620) },
+      { clipBoxes: ['.cell-stage'] },
+    );
+    assert.equal(r.cut, true, 'a clipping cell hides its overflow from the section');
+  });
+
+  test('a replaced element cut by the box counts, with no text involved', () => {
+    const r = run(
+      '<section><div class="cell-stage"><img id="a" alt=""></div></section>',
+      { section: rect(0, 1000), '.cell-stage': rect(0, 500), '#a': rect(100, 900) },
+      { clipBoxes: ['.cell-stage'] },
+    );
+    assert.equal(r.cut, true, 'a chart or image sliced in half loses plenty with no text in it');
+  });
+
+  test('CONTENT_CLIPPED_SRC is injectable — no script-terminating sequence', () => {
+    // The REAL hazard for a source string embedded in a <script> element is a literal
+    // `</script>` (or `<!--`), which ends the element early — the same hazard
+    // lattice-emulator.js already escapes with \\x3C when it inlines the runtime.
+    //
+    // This test used to assert "no backtick, no dollar-brace" on the theory that either
+    // would terminate the template literal the source is interpolated into. That theory
+    // is wrong — interpolation is a runtime string operation — and the sibling sources
+    // injected into the SAME literal disprove it outright: PROBE_SRC carries 52
+    // backticks and has always worked. The old assertion certified nothing while
+    // constraining how this function could be written.
+    assert.equal(typeof CONTENT_CLIPPED_SRC, 'string');
+    assert.ok(!/<\/script/i.test(CONTENT_CLIPPED_SRC), 'a literal </script> would end the injected element early');
+    assert.ok(!CONTENT_CLIPPED_SRC.includes('<!--'), 'a literal <!-- would open a comment in the injected element');
   });
 });
