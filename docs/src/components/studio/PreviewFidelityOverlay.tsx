@@ -442,6 +442,8 @@ function causeRel(cause: string): string {
 	if (cause.startsWith('cat-N')) return '⚠ a categorical color differs — this is a VISIBLE difference on the slide, not a benign one. If this slide took the fast route, the registry is missing an entry for whatever assigns it.';
 	if (cause.startsWith('generated ids')) return 'an internal counter that restarts when a slide renders alone. Invisible on the slide; the `seedRenderIds` repair is the one still owed.';
 	if (cause === 'watermark glyph') return 'the section glyph differs — visible, and it means the supplied section position disagreed with the deck.';
+	if (cause === 'progress rail absent')
+		return 'the progress rail is on one render and not the other — visible. No section position was supplied, which happens when the deck\'s divider count is ambiguous (a `divider` class shown inside code), so it refused to guess rather than paint an extra dot.';
 	return 'not a shape this readout recognizes yet — the rows below are the raw finding.';
 }
 

@@ -399,6 +399,52 @@ test('a visible hue difference is NOT hidden behind an invisible id difference',
   assert.match(core.classifyDivergence(got, want), /cat-N/);
 });
 
+test('classifyDivergence names the chart `<defs>` id family too, not just the a11y one', () => {
+  // 51 corpus slides read `unclassified` while their ENTIRE difference was a counter offset,
+  // because the bucket knew only `lat-svgt`/`lat-svgd` and not the five chart `<defs>` families.
+  // `gantt-fill-pass-N` is the shape that proves the point: the family name is a PREFIX of the id,
+  // so a pattern anchoring `-\d+` straight to it matches nothing.
+  for (const [a, b] of [
+    ['pie-wedge-1', 'pie-wedge-6'],
+    ['radar-area-1', 'radar-area-4'],
+    ['chart-spine-1', 'chart-spine-2'],
+    ['gantt-fill-pass-1', 'gantt-fill-pass-5'],
+    ['q-tint-1', 'q-tint-3'],
+  ]) {
+    assert.equal(
+      core.classifyDivergence(`<section><defs><linearGradient id="${a}"/></defs></section>`, `<section><defs><linearGradient id="${b}"/></defs></section>`),
+      'generated ids (seedRenderIds row)',
+      a,
+    );
+  }
+});
+
+test('the generated-id family list matches render-ids.js — the duplicate cannot rot', () => {
+  // The core takes NO imports (its header says why) and render-ids.js is CommonJS, so its FAMILIES
+  // list is duplicated rather than shared. Read BOTH sources and require the same family names, so
+  // a sixth family added there fails here instead of quietly landing corpus slides in
+  // `unclassified` — which is exactly how the five above went unnamed.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '../../..');
+  const families = (src, name) => {
+    const m = new RegExp(`${name}\\s*=\\s*/(?:\\\\b)?(?:\\(\\?:)?([^/]*?)(?:\\)(?:\\[\\\\w-\\]\\*)?(?:-\\\\d\\+)?(?:\\\\b)?)?/g?`).exec(src);
+    assert.ok(m, `could not read ${name}`);
+    return new Set(m[1].split('|').filter((f) => /^[a-z]/.test(f)));
+  };
+  const mint = families(fs.readFileSync(path.join(root, 'lib/core/render-ids.js'), 'utf8'), 'const FAMILIES');
+  const known = families(fs.readFileSync(path.join(root, 'lib/diagnostics/slice-equivalence-core.mjs'), 'utf8'), 'const GENERATED_ID');
+  assert.deepEqual([...mint].sort(), [...known].filter((f) => f !== 'lat-svg[td]').sort());
+});
+
+test('classifyDivergence names a missing progress rail rather than shrugging', () => {
+  // `unclassified` is useless to an author. A rail on one side and not the other has a specific
+  // meaning: no section position was supplied, because the deck's divider count was ambiguous.
+  const withRail = '<section><div class="tile-progress"><span class="dot on"></span></div></section>';
+  const without = '<section></section>';
+  assert.equal(core.classifyDivergence(without, withRail), 'progress rail absent');
+});
+
 // ── alignmentFailure — the guard the compare closure depends on ───────────────
 // Extracted from the compare because nothing at any tier executed it: not the unit suite, not the
 // PR gate, not even the nightly e2e. It is the check that stops an index-based lookup from quoting

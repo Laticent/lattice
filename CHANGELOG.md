@@ -92,6 +92,15 @@ in patch versions.
     stale. It stays on-demand because its subject is a diagnostic prototype and a corpus edit moves
     it; the gates for user-visible behavior remain the unit tier, the Studio e2e specs, and the
     overlay.
+  - **Every difference it finds is now named.** The cause buckets knew the `<svg>` title/desc id
+    family and not the five chart `<defs>` gradient families, so **51 of 97** residual slides read
+    `unclassified` when their entire difference was a counter offset — and `gantt-fill-pass-N` shows
+    why: the family name is a *prefix* of the id, so a pattern anchored straight to it matches
+    nothing. A missing progress rail gets its own bucket too, with the reason (the deck's divider
+    count was ambiguous, so no section position was supplied) instead of a shrug. `unclassified` is
+    now **0** across the corpus: 87 generated ids, 5 `cat-N`, 5 rail. The family list is duplicated
+    from `render-ids.js` — the core takes no imports — and a test reads both sources and fails if
+    they diverge.
 
 ### Fixed
 
