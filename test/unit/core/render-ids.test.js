@@ -62,6 +62,22 @@ test('render-ids: the slide OFFSET shifts the numbering, so a slice lands on its
 	assert.deepEqual(slice, ['3-1', '3-2']);
 });
 
+test('render-ids: a finished render RELEASES its slide scope', () => {
+	// MODULE STATE, so setting it is only half the job. `applyToRenderedHtml` walks the sections and
+	// scopes each one; if it never leaves scope, the NEXT mint in this process inherits the last
+	// section number of whatever document was rendered before it. The browser runtime's DOM pass is
+	// exactly that next caller — it never calls `resetRenderIds`, and it is supposed to get the bare
+	// document-start ordinal because there is no deck there to be positioned within.
+	//
+	// Measured before the release existed: a mint straight after a two-section render returned
+	// `2-3`. Same class as this module's own "renderHtml must not be RE-ENTERED" note — per-render
+	// state has to be released, not just set.
+	const { createEngine } = require('../../../lib/engine/index.js');
+	const e = createEngine();
+	e.render('# A\n\n---\n\n<!-- _class: piechart -->\n\n## Pie\n\n- Alpha 40\n- Beta 60\n', 'lattice');
+	assert.equal(nextRenderSeq('pie-wedge'), '1', 'the slide scope leaked past the end of the render');
+});
+
 test('render-ids: a non-integer or negative offset is ignored rather than trusted', () => {
 	for (const bad of [-1, 1.5, Number.NaN, '2', null, undefined]) {
 		resetRenderIds(undefined, bad);
