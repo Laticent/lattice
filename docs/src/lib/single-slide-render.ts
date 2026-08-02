@@ -429,33 +429,45 @@ function positionIsTrustworthy(deck: string, slideCount: number | undefined): bo
 function deckSectionFor(deck: string, slideIndex: number): { index: number; total: number } | undefined {
 	const stripFm = String(deck ?? '').replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '');
 	// Blank every form of code the engine renders literally. A `_class: divider` inside a code
-	// SAMPLE is documentation, not a directive — and decks that teach Lattice authoring are full
-	// of them (examples/speaker-notes.md, split-headings.md, debug.md, …).
-	const body = stripFm
-		.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '') // fenced
-		.replace(/^(?: {4}|\t)[^\n]*$/gm, '') // indented block
-		.replace(/`[^`\n]*`/g, ' '); // inline span
-	const chunks = body.split(/\n-{3,}\n/);
-	const isDivider = (c: string) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(c);
-	const total = chunks.filter(isDivider).length;
+	// SAMPLE is documentation, not a directive — and decks that teach Lattice authoring are full of
+	// them (examples/speaker-notes.md, split-headings.md, debug.md, …).
+	const blankCode = (t: string) =>
+		t
+			.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '') // fenced
+			.replace(/^(?: {4}|\t)[^\n]*$/gm, '') // indented block
+			.replace(/`[^`\n]*`/g, ' '); // inline span
 
-	// FAIL SAFE, NOT FAIL WRONG. This is the property the whole gate design rests on, and it
-	// INVERTS the moment a fact stops being a probe and becomes a counter. As a probe, matching a
-	// `divider` mentioned in prose merely forced the whole-deck render — a wasted parse and correct
-	// output. As a counter the same match paints an extra dot and bumps the watermark glyph, which
-	// is wrong output. Found by an inversion review, reproduced: a slide whose body shows
-	// `<!-- _class: divider -->` in an inline code span rendered "02" against the deck's "01".
+	// TOKEN-TEST the class value, exactly as the tiles do (`cls.split(/\s+/).includes('divider')`
+	// in progress.transform.js / watermark.transform.js). A substring match counts `divider-lite`
+	// and `section-divider` as dividers where the engine does not — the counter has to agree with
+	// the consumer it is standing in for, not merely look similar.
+	const dividerTokens = (chunk: string): boolean => {
+		const directives = [...chunk.matchAll(/<!--\s*_?class\s*:\s*([\s\S]*?)-->/g)];
+		if (!directives.length) return false;
+		const last = directives[directives.length - 1][1]; // last wins, as the engine resolves it
+		return last.trim().split(/\s+/).includes('divider');
+	};
+
+	const chunks = blankCode(stripFm).split(/\n-{3,}\n/);
+	const total = chunks.filter(dividerTokens).length;
+
+	// FAIL SAFE, NOT FAIL WRONG. This is the property the gate design rests on, and it INVERTS the
+	// moment a fact stops being a probe and becomes a counter. As a probe, matching a `divider`
+	// mentioned in prose merely forced the whole-deck render: a wasted parse, correct output. As a
+	// counter the same match paints an extra dot and bumps the watermark glyph — wrong output.
+	// Found by an inversion review, reproduced: a slide showing `<!-- _class: divider -->` in an
+	// inline code span rendered "02" against the deck's "01".
 	//
-	// So when the two readings disagree — anything that looks like a divider in the raw source but
-	// not after code is blanked, or vice versa — return nothing. The caller then supplies no
-	// section, the gate keeps the whole-deck render, and the rail is right by construction. The
-	// cost of being unsure is a parse; the cost of guessing is a lie.
-	const rawChunks = stripFm.split(/\n-{3,}\n/);
-	if (rawChunks.length !== chunks.length || rawChunks.filter(isDivider).length !== total) return undefined;
+	// The question is ONLY "does a divider appear inside code?", so compare the divider COUNTS with
+	// and without code blanked. An earlier cut also compared chunk counts, which was wrong for a
+	// different reason: a `---` inside a mermaid fence changes the chunk count without touching any
+	// divider, and that bailed on gallery.md — the very deck the performance numbers measure,
+	// silently reverting the win. Caught by two independent reviewers.
+	if (stripFm.split(/\n-{3,}\n/).filter(dividerTokens).length !== total) return undefined;
 	if (!total) return undefined;
 
 	let index = 0;
-	for (let i = 0; i <= slideIndex && i < chunks.length; i++) if (isDivider(chunks[i])) index += 1;
+	for (let i = 0; i <= slideIndex && i < chunks.length; i++) if (dividerTokens(chunks[i])) index += 1;
 	return { index, total };
 }
 

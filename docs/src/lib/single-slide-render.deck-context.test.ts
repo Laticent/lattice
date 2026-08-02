@@ -639,3 +639,34 @@ describe('slice cache boundedness', () => {
 		expect(seen).toEqual(['SLICE 0']); // so it re-renders, proving the cap holds
 	});
 });
+
+// Two regressions the trio caught in the fix ABOVE, pinned so neither returns.
+describe('the ambiguity guard is narrow enough to keep the win', () => {
+	const sectionFor = async (deck: string, slideIndex: number) => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex, slideCount: 3, slideMarkdown: 'THE SLICE' });
+		return { source: mock.mock.calls[0][1], deckSection: mock.mock.calls[0][3]?.page?.deckSection };
+	};
+
+	it('a `---` inside a fence does NOT make the count ambiguous', async () => {
+		// The first cut compared CHUNK counts as well as divider counts. A mermaid block carries its
+		// own `---` front matter, which changes the chunk count without touching any divider — and
+		// that bailed on gallery.md, the deck the performance numbers are measured on, silently
+		// reverting the entire win. The question is only "does a divider appear inside code?".
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n```mermaid\n---\ntitle: x\n---\nflowchart LR\n  A --> B\n```\n\n---\n\n<!-- _class: form -->\n\nbody';
+		const out = await sectionFor(deck, 2);
+		expect(out.source).toBe('THE SLICE'); // still the cheap path
+		expect(out.deckSection).toEqual({ index: 1, total: 1 });
+	});
+
+	it('counts the class value by TOKEN, as the tiles do — `divider-lite` is not a divider', async () => {
+		// The tiles test `cls.split(/\s+/).includes('divider')`. A substring match counted
+		// `divider-lite` and `section-divider`, so the counter disagreed with the consumer it
+		// stands in for.
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n<!-- _class: divider-lite -->\n\nbody\n\n---\n\n<!-- _class: form -->\n\ntail';
+		expect((await sectionFor(deck, 2)).deckSection).toEqual({ index: 1, total: 1 });
+	});
+});
