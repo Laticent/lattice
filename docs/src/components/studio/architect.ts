@@ -6,7 +6,9 @@ import Fuse from 'fuse.js';
 import * as React from 'react';
 import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { requestSlideFix } from '@/components/studio/ai/architect-fix.js';
+import { buildLatticePrimer } from '@/components/studio/ai/architect-knowledge.js';
 import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
+import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { parseScene } from '@/lib/anima/schema';
@@ -1138,13 +1140,69 @@ export type ChatResult =
 	| { status: 'offline' }
 	| { status: 'blocked'; reply: string };
 
+/** What the Coach knows, handed to the chat so the model argues from the SAME facts
+ *  the author is looking at (the deterministic scorecard + findings) rather than from
+ *  the deck text alone. `catalog` is the component dossier the Lattice primer is built
+ *  from. All optional — a caller that passes nothing gets the pre-grounding prompt. */
+export type ChatGrounding = {
+	scorecard?: { overall: number; band: string } | null;
+	findings?: { message: string; slide?: number }[];
+	catalog?: unknown[];
+};
+
+/**
+ * The chat system turn, split at ONE seam: a STATIC prefix (persona + canon + edit
+ * protocol + the Lattice primer) that is byte-identical turn to turn and therefore
+ * cacheable, and a DYNAMIC tail (the live assessment + the canon retrieved for THIS
+ * deck's findings + any per-turn constraint) that changes on every edit.
+ *
+ * The split is the whole point. The primer is ~10K tokens; appending the assessment to
+ * it as one growing string would re-write that entire prefix to cache every turn at the
+ * 1.25x write premium and never read a hit. Keeping the volatile half in a separate
+ * content-part lets `withCachedSystem` put its breakpoint after the prefix, so calls
+ * 2..N re-pay only the short tail. Pure + exported so the seam is testable without a model.
+ */
+export function buildChatSystem(generation: string, grounding?: ChatGrounding, factGuard = ''): { staticPrefix: string; dynamicTail: string } {
+	// The cloud tier gets the full grounding; a small on-device model gets the deck and
+	// the findings only — a 10K-token primer makes it lose the thread (same reasoning as
+	// deckSystem's canon tiering).
+	const rich = generation === 'openrouter';
+	const catalog = grounding?.catalog ?? [];
+	const primer = rich && catalog.length ? `\n\n${buildLatticePrimer(catalog)}` : '';
+	const staticPrefix =
+		`${deckSystem(generation)}\n\nConverse with the author. Answer questions directly. ` +
+		`Only emit edit blocks when they actually want a change to the deck.${primer}`;
+
+	const all = grounding?.findings ?? [];
+	const findings = all
+		.slice(0, rich ? 12 : 5)
+		.map((f) => `- ${f.message}${f.slide ? ` (slide ${f.slide})` : ''}`)
+		.join('\n');
+	// Canon principles retrieved for THIS deck's findings. Findings-derived, so it rides
+	// the DYNAMIC tail — caching it would break the prefix every turn, and the retrieved
+	// set is a few hundred tokens by design. Cloud tier only (presentation-canon.js).
+	// presentation-canon.js is untyped JS whose `findings = []` default infers as never[];
+	// the cast states the real contract rather than widening the module's own signature.
+	const canonFor = buildCanonContext as (o: { findings?: { message: string; slide?: number }[]; limit?: number }) => string;
+	// Only when the caller actually grounds: with no grounding at all this must degrade to
+	// exactly the pre-P2b prompt, and buildCanonContext returns a default principles block
+	// for an empty findings list rather than nothing.
+	const canon = rich && grounding ? canonFor({ findings: all }) : '';
+	const blocks: string[] = [];
+	if (grounding?.scorecard) blocks.push(`The deck scores ${grounding.scorecard.band} (${grounding.scorecard.overall}/100).`);
+	if (grounding) blocks.push(findings ? `Mechanical issues the deterministic review found:\n${findings}` : 'No mechanical issues found.');
+	if (canon) blocks.push(canon);
+	const dynamicTail = (blocks.length ? `\n\n${blocks.join('\n\n')}` : '') + factGuard;
+	return { staticPrefix, dynamicTail };
+}
+
 /**
  * One turn of the Architect chat. Runs the conversation through the connected
  * model with the deck in context; if the reply proposes edit blocks, returns the
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: { onToken?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean }): Promise<ChatResult> {
+export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: { onToken?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean; grounding?: ChatGrounding }): Promise<ChatResult> {
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
 	const generation = model.availability().generation;
@@ -1160,9 +1218,25 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	const factGuard = opts?.constrainFacts
 		? '\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.'
 		: '';
+	// The grounded system turn, split static/dynamic (buildChatSystem). On the cloud tier
+	// the two halves stay SEPARATE content-parts so the cache breakpoint can land between
+	// them; on-device backends read `content` as a string, so they get the halves joined.
+	// `withStudioVoice` then appends the language directive + standing instructions AFTER
+	// both — its array branch handles a pre-split turn, so the author's instructions
+	// survive the grounding. The Studio's own instruction store feeds that; the moved
+	// spend kernel's `readStandingInstructions` is deliberately NOT adopted, so stale
+	// Drawing-Board-era instructions cannot resurrect.
+	const { staticPrefix, dynamicTail } = buildChatSystem(generation, opts?.grounding, factGuard);
+	const systemContent: MsgContent =
+		generation === 'openrouter'
+			? [
+					{ type: 'text', text: staticPrefix },
+					{ type: 'text', text: dynamicTail },
+				]
+			: `${staticPrefix}${dynamicTail}`;
 	// Ground the final user turn in the reference doc (#640).
 	const ground = groundMessages(withStudioVoice([
-		{ role: 'system', content: `${deckSystem(generation)}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.${factGuard}` },
+		{ role: 'system', content: systemContent },
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');

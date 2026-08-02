@@ -2562,7 +2562,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// icon + drawer (no tab-switching cognitive load). Reader-views (Lenses) + Library
 	// are their own panels too; all share the one mutually-exclusive assistant slot.
 	const coachBody = <div className="flex min-h-0 flex-1 flex-col overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>;
-	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
+	// The chat grounds on the SAME deterministic facts the Coach panel shows — the engine
+	// scorecard and findings — so the two can never argue from different truths, plus the
+	// component catalog the Lattice primer is built from.
+	const chatGrounding = React.useMemo(
+		() => ({ scorecard, findings, catalog: components }),
+		[scorecard, findings, components],
+	);
+	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (

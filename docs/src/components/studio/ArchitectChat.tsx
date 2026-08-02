@@ -3,7 +3,7 @@ import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unloc
 import * as React from 'react';
 import { diffLines, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { cn } from '@/lib/utils';
-import { applyProposedEdits, architectSpend, type ChatTurn, chatComplete, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
+import { applyProposedEdits, architectSpend, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { useReferenceDoc } from './reference-doc-ui';
@@ -43,7 +43,7 @@ function AssistantBody({ text, streaming }: { text: string; streaming: boolean }
 	);
 }
 
-export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onManageDocs, notify }: { deckId: string; source: string; aiReady: boolean; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
+export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, notify }: { deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
@@ -66,6 +66,12 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 	deckIdRef.current = deckId;
 	const inputRef = React.useRef(input);
 	inputRef.current = input;
+	// The Coach's live assessment + the component catalog, read at SEND time rather than
+	// captured in the send closure — the deck is re-assessed on a 400ms debounce, so a
+	// send that fires mid-edit must ground on the newest findings, not the ones that
+	// happened to be current when the handler was created.
+	const groundingRef = React.useRef(grounding);
+	groundingRef.current = grounding;
 	const mountedRef = React.useRef(true);
 	const abortRef = React.useRef<AbortController | null>(null);
 	const bufferRef = React.useRef('');
@@ -130,7 +136,7 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 		};
 		try {
 			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal, constrainFacts: factsLocked });
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal, constrainFacts: factsLocked, grounding: groundingRef.current });
 			if (out.status === 'offline') {
 				setNotice({ kind: 'offline', text: 'Connect a model in Workspace → AI and I can answer and edit your deck.' });
 				onConnect();

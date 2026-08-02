@@ -104,6 +104,21 @@ in patch versions.
 
 ### Changed
 
+- **The Studio's Architect chat now argues from the same facts the Coach shows, and stops
+  re-buying its own prompt every turn.** The chat sent a persona plus the bare deck; it now also
+  carries the **Lattice primer** (every layout, its variants, slot contracts, and an authoring
+  skeleton — so the model stops guessing `_class` names), the **live deterministic assessment**
+  (the engine scorecard's grade and its findings, the same ones the Coach panel renders), and the
+  **presentation canon** retrieved for those findings. The grounding is split at one seam: a static
+  prefix (persona + canon + edit protocol + primer) that stays byte-identical turn to turn and
+  carries the prompt-cache breakpoint, and a dynamic tail (assessment + retrieved canon + any
+  per-turn constraint) that does not. Appending the assessment to the prefix instead — the obvious
+  port — would re-write the whole ~10K-token prefix to cache on every turn at the 1.25x write
+  premium and never read a hit. The author's **standing instructions and output language survive
+  the split** (they ride a third, uncached part), and the on-device tier is deliberately spared the
+  primer, which would swamp a small model's context. The **prompt-caching opt-out in settings now
+  actually works** — it was written but never read, so the toggle did nothing.
+
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a
   lowering "does not exist." **Both are false.** `tools/export-marp.js` runs five transformation

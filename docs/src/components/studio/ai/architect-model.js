@@ -14,8 +14,11 @@
 // heavy runtimes load from CDN on demand (no npm deps) and how this is verified
 // without real hardware (a MockBackend exercises the model-on path in CI).
 //
-// Sibling render-path note: this is docs-only (the Drawing Board); it does not
-// touch the three engine render paths.
+// Sibling render-path note: this is docs-site app code (the Studio's AI cluster —
+// it moved here from the Drawing Board's tree in the succession's P1); it does not
+// touch the engine render paths.
+
+import { readCachingEnabled } from './spend.js';
 
 // CDN entrypoints for the heavy, opt-in runtimes. Swap these for bundled
 // import()s if a future deployment needs self-hosted weights — the adapter
@@ -421,8 +424,13 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
       // (USD) rides back in the response — the source of the per-Lattice spend tally.
       // Cache the static system prefix (the big authoring canon) so a fan-out of
-      // calls re-reads it at ~0.1x instead of re-paying full input each time.
-      const body = { model: this.getModel(), messages: withCachedSystem(messages, this.getModel()), stream: !!onToken, usage: { include: true } };
+      // calls re-reads it at ~0.1x instead of re-paying full input each time — unless
+      // the author opted OUT in settings. The opt-out is a real user choice (a cache
+      // WRITE costs 1.25x, so a user who sends one-off turns rather than bursts pays
+      // more for caching than they save); it was previously written but never read,
+      // so the toggle did nothing. Consulted per turn so a change takes effect next send.
+      const cacheOn = readCachingEnabled();
+      const body = { model: this.getModel(), messages: cacheOn ? withCachedSystem(messages, this.getModel()) : messages, stream: !!onToken, usage: { include: true } };
       // Optional plugins (e.g. the file-parser plugin that extracts an inlined
       // reference PDF server-side, #640). Passed through verbatim when present.
       if (plugins?.length) body.plugins = plugins;
