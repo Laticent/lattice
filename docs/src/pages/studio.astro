@@ -394,33 +394,29 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							var vw2 = window.innerWidth, vh2 = window.innerHeight;
 							var bpMobile = vw2 <= 699;
 							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
-							// stored posture wins; otherwise a returning visitor (prior deck index or any
-							// edited-source key) derives to 'write' (the editor|preview split), a fresh one to
-							// 'read'. Defaulting to 'read' made every upgrading user's first load compute a
-							// full-bleed box while the app rendered the split — a hand-off jump.
+							// stored posture wins; otherwise EVERYONE derives to 'write' — the
+							// editor|preview split — since a fresh visitor now boots there too (#1286).
+							// This mirror is load-bearing: deriving a stop the app won't render makes the
+							// first load compute a full-bleed box against a split (or the reverse), and the
+							// hand-off shows as a jump.
 							var posture = null;
 							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
-							if (!posture) {
-								var prior = false;
-								try {
-									if (localStorage.getItem('lattice-studio-deck-index')) prior = true;
-									else { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { prior = true; break; } } }
-								} catch (e6) {}
-								posture = prior ? 'write' : 'read';
-							}
+							if (!posture) posture = 'write';
 							var chromeless = posture === 'read';
 							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
 							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);
 							var headerH = chromeless ? C.headerRead : C.headerWrite;
 							var footerH = chromeless ? C.footerRead : C.footerWrite;
-							var cap = chromeless ? Infinity : C.cap;
+							// No width cap — the app stopped capping the preview box (#1283), so a cap
+							// here would paint a narrower skeleton than the box the hydrated app
+							// measures, and the hand-off would show as a jump.
 							var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
 							var paneX, paneW;
 							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
 							var paneH = vh2 - paneTop;
 							var ar2 = rr[0] / rr[1];
 							var cw = paneW - 2 * pad, ch = paneH - headerH - footerH - 2 * pad;
-							var bw2 = Math.max(0, Math.min(cw, ch * ar2, cap));
+							var bw2 = Math.max(0, Math.min(cw, ch * ar2));
 							var bh2 = bw2 / ar2;
 							if (bw2 > 1 && bh2 > 1) {
 								r.style.setProperty('--sb-l', (paneX + pad + (cw - bw2) / 2) + 'px');

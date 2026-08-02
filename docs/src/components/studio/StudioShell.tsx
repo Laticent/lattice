@@ -27,7 +27,7 @@ import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensI
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
-import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { sliceSlide } from '@/playground/architect-edits.js';
 import { AcronymEditor } from './AcronymEditor';
@@ -1495,13 +1495,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setActiveSlide(idx);
 		const fullIdx = composeLens === 'full' ? idx : slides.indexOf(viewSlides[idx]);
 		if (fullIdx < 0) return;
-		// Drive WHICHEVER editor is mounted, and FOCUS it: picking a slide in the
-		// preview is intent to work on that slide, so the caret lands on its first
-		// editable line and the next keystroke edits what you just chose (#1288,
-		// #1291). Only one of the two is mounted at a time (editMode), so the
-		// no-op call on the other is free.
-		editorRef.current?.revealSlide(fullIdx, { focus: true });
-		composeRef.current?.revealSlide(fullIdx, { focus: true });
+		// Drive WHICHEVER editor is mounted (only one is, per editMode, so the other
+		// call is a free no-op) — but take FOCUS only where focus is cheap.
+		//
+		// With a mouse, focusing is the whole point: picking a slide in the preview is
+		// intent to work on it, so the caret lands on its first editable line and the
+		// next keystroke edits what you just chose (#1288, #1291). On a TOUCH device
+		// the same call raises the software keyboard, which covers half a tablet and
+		// has to be dismissed by hand — on every single slide selection. That turns
+		// navigation into a chore, so touch gets the reveal WITHOUT the focus: the
+		// slide still scrolls into view, and tapping into the text (a deliberate act,
+		// with the keyboard as its expected consequence) is what starts editing.
+		const focus = hasFinePointer();
+		editorRef.current?.revealSlide(fullIdx, { focus });
+		composeRef.current?.revealSlide(fullIdx, { focus });
 	}
 	// Switch the reader lens for the preview; restart at the top of the reshaped set.
 	function setLens(next: PresentLens) {

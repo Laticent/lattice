@@ -34,6 +34,25 @@ export function useBreakpoint(): Breakpoint {
 	return bp;
 }
 
+/**
+ * Does this device have a real POINTER — a mouse or trackpad, with hover?
+ *
+ * The question is about INPUT capability, not screen size, so it must not be
+ * derived from a width breakpoint: a large tablet is `desktop`-wide and still has
+ * no mouse. Use it to gate behavior that is free with a pointer but costly with a
+ * touchscreen — above all, taking keyboard FOCUS: on a tablet, focusing a text
+ * editor raises the software keyboard, which covers half the screen and has to be
+ * dismissed by hand. Doing that on every slide selection makes navigation feel
+ * heavy (#1301 review). The same `(hover: hover) and (pointer: fine)` query already
+ * gates Compose's floating selection bar, so this is one idiom, not a second one.
+ *
+ * Not a hook: callers ask at the moment of the action, and the answer cannot change
+ * between a pointer event and its handler.
+ */
+export function hasFinePointer(): boolean {
+	return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+}
+
 // A phone held in LANDSCAPE is the one viewport the width-based breakpoints can't
 // serve: it's wide (~844–932px → the two-pane 'tablet' layout) but only ~360–430px
 // TALL, so the editor|preview split is already cramped and the software keyboard
