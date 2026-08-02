@@ -6,6 +6,15 @@
  * the preview shows one slide, so does that slide rendered ALONE come out the same as it does
  * rendered inside the whole deck? This sweeps every committed deck and answers it as a rate.
  *
+ * READ THE PRELUDE COUNT, NOT JUST THE RATE. Each slice is rendered behind a synthesized prelude —
+ * the running directives an earlier slide set and this one inherits. On the CURRENT corpus that
+ * prelude is EMPTY for every single slide: no committed deck sets an in-vocabulary running global
+ * outside front matter (which is prepended verbatim anyway), because real decks write directives in
+ * the `_` spot form. So today's rate measures the residual left by the repairs that already ship —
+ * NOT the prelude prototype's contribution, which this corpus does not exercise at all. The header
+ * line prints the count so that claim cannot quietly become false again; it was stated three ways in
+ * the docs before anyone counted.
+ *
  * The author-facing twin is the Studio's PREVIEW FIDELITY overlay (Workspace → Diagnostics), which
  * asks the same question about the one slide in front of the author. Same core, two surfaces: this
  * one needs no browser, so it can be scripted, scheduled, and gated.
@@ -61,6 +70,7 @@ function measure() {
 
 	let slides = 0;
 	let matched = 0;
+	let preludes = 0;
 	const byDeck = new Map();
 	const byCause = new Map();
 
@@ -79,6 +89,7 @@ function measure() {
 
 		chunks.forEach((chunk, k) => {
 			const prelude = synthesizePrelude(chunks, k, VOCAB);
+			if (prelude) preludes += 1;
 			let got;
 			try {
 				got = sectionsOf(eng.render(`${fm}${prelude ? `${prelude}\n\n` : ''}${chunk}`, 'lattice').html)[0] ?? '';
@@ -98,13 +109,14 @@ function measure() {
 			byCause.set(cause, (byCause.get(cause) || 0) + 1);
 		});
 	}
-	return { slides, matched, rate: +((matched / slides) * 100).toFixed(1), byDeck, byCause };
+	return { slides, matched, preludes, rate: +((matched / slides) * 100).toFixed(1), byDeck, byCause };
 }
 
 const r = measure();
 const mode = process.argv[2] || process.argv.find((a) => a.startsWith('--'));
 
-console.log(`\nslice/deck equivalence — prelude only: ${r.matched}/${r.slides} slides (${r.rate}%)\n`);
+console.log(`\nslice/deck equivalence: ${r.matched}/${r.slides} slides (${r.rate}%)`);
+console.log(`slides given a NON-EMPTY prelude: ${r.preludes}${r.preludes === 0 ? '  — the prelude prototype is UNEXERCISED by this corpus' : ''}\n`);
 console.log('residual by cause:');
 for (const [c, n] of [...r.byCause].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${c}`);
 console.log('\nresidual by deck (top 8):');
@@ -112,7 +124,7 @@ for (const [d, n] of [...r.byDeck].sort((a, b) => b[1] - a[1]).slice(0, 8)) cons
 
 if (mode === '--bless') {
 	fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
-	fs.writeFileSync(BASELINE, `${JSON.stringify({ slides: r.slides, matched: r.matched, rate: r.rate }, null, 2)}\n`);
+	fs.writeFileSync(BASELINE, `${JSON.stringify({ slides: r.slides, matched: r.matched, preludes: r.preludes, rate: r.rate }, null, 2)}\n`);
 	console.log(`\nblessed → ${path.relative(ROOT, BASELINE)}`);
 } else if (mode === '--check') {
 	if (!fs.existsSync(BASELINE)) {

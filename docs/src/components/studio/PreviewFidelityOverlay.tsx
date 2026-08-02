@@ -59,11 +59,17 @@ function Overlay() {
 	const [report, setReport] = React.useState<FidelityReport | null>(() => latestFidelity());
 	const [cmp, setCmp] = React.useState<FidelityComparison | null>(null);
 	const [busy, setBusy] = React.useState(false);
+	// GENERATION TOKEN. A compare renders the whole deck, which takes hundreds of ms on a throttled
+	// phone — long enough for the author to keep typing or move to the next slide. Clearing `cmp` on
+	// the new report is not enough on its own: the in-flight promise still resolves afterwards and
+	// would paint a verdict computed from the PREVIOUS source into a panel now describing a
+	// different slide. A divergence the keystroke just introduced would read as a green all-clear.
+	const gen = React.useRef(0);
 
-	// A new render invalidates the last comparison — it was about a slide that no longer exists.
 	React.useEffect(
 		() =>
 			onFidelity((r) => {
+				gen.current += 1;
 				setReport(r);
 				setCmp(null);
 			}),
@@ -72,11 +78,13 @@ function Overlay() {
 
 	const run = async () => {
 		if (!report?.compare || busy) return;
+		const mine = gen.current;
 		setBusy(true);
 		try {
-			setCmp(await report.compare());
+			const result = await report.compare();
+			if (gen.current === mine) setCmp(result);
 		} finally {
-			setBusy(false);
+			if (gen.current === mine) setBusy(false);
 		}
 	};
 
@@ -108,13 +116,21 @@ function Overlay() {
 
 					{/* WHY the slow route — the registry fact by name, so "my preview got sluggish"
 					    has an answer an author can act on (drop the directive, or accept the cost). */}
-					{report.facts.length > 0 && (
+					{report.path === 'whole-deck' && (
 						<Row label="because">
-							<ul className="m-0 list-none p-0">
-								{report.facts.map((f) => (
-									<li key={f}>{f}</li>
-								))}
-							</ul>
+							{report.facts.length > 0 ? (
+								<ul className="m-0 list-none p-0">
+									{report.facts.map((f) => (
+										<li key={f}>{f}</li>
+									))}
+								</ul>
+							) : (
+								// Reachable with an EMPTY fact list: a host that asks to narrow to a slide
+								// without handing over that slide's markdown has no slice to fall back to, so
+								// it keeps the deck render regardless of the registry. Saying nothing here left
+								// the slow route looking unexplained.
+								<span className="text-muted-foreground">this view has no single-slide source to render from</span>
+							)}
 						</Row>
 					)}
 

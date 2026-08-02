@@ -67,6 +67,14 @@ test('synthesizePrelude keeps the LAST value of a re-set global', () => {
   assert.equal(core.synthesizePrelude(slides, 2, VOCAB), '<!-- header: B -->');
 });
 
+test('synthesizePrelude THROWS without a vocabulary — the one failure that must be loud', () => {
+  // Defaulting to empty sets would synthesize an empty prelude for every slide, which reads as a
+  // plausible equivalence rate and moves the sweep's baseline band by 0.0 points. Nothing anywhere
+  // would catch a caller that dropped the argument, so the only detectable failure is a throw.
+  assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1), TypeError);
+  assert.throws(() => core.synthesizePrelude(['<!-- header: Q3 -->', '# Two'], 1, { known: new Set() }), TypeError);
+});
+
 test('synthesizePrelude at slide 0 is empty — nothing precedes it', () => {
   assert.equal(core.synthesizePrelude(['<!-- header: Q3 -->'], 0, VOCAB), '');
 });

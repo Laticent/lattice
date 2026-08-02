@@ -488,6 +488,25 @@ export function deckDerivedFactsFor(deck: string): string[] {
 	return DECK_DERIVED_FACTS.filter((f) => f.probes.some((p) => p.test(deck)) || (f.test ? f.test(deck) : false)).map((f) => f.fact);
 }
 
+/**
+ * The deck position that COULD be supplied for this slide, independent of which route the render
+ * actually takes.
+ *
+ * Split out because the answer has two consumers with different gates. The render path supplies it
+ * only on the slice route (a whole-deck render counts for itself; an offset there would shift every
+ * section). The preview-fidelity diagnostic needs the same answer on EITHER route, because its job
+ * is to render the counterfactual — "what would the fast route have produced here?" — and the fast
+ * route would have supplied it. Computing it inline meant the diagnostic re-rendered the slice with
+ * NO position on the whole-deck route and then reported the resulting pagination mismatch as a
+ * finding, on any deck that paginates. 115 of 126 committed decks do; the deck the overlay was first
+ * verified on happened not to, which is why it looked clean.
+ */
+function supplyablePosition(deck: string, slideIndex: number | undefined, slideCount: number | undefined) {
+	return typeof slideIndex === 'number' && slideIndex >= 0 && positionIsTrustworthy(deck, slideCount)
+		? { offset: slideIndex, total: slideCount as number, deckSection: deckSectionFor(deck, slideIndex) }
+		: undefined;
+}
+
 function needsDeckContext(deck: string): boolean {
 	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)) || (f.test ? f.test(deck) : false));
 }
@@ -850,17 +869,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Supplied ONLY when the caller's indices are provably engine section indices
 				// (positionIsTrustworthy). Otherwise omit it and let the slide number itself 1 of 1 —
 				// the honest fallback, never a plausible wrong number.
-				const slicePage =
-					renderSource !== markdown &&
-					typeof opts?.slideIndex === 'number' &&
-					opts.slideIndex >= 0 &&
-					positionIsTrustworthy(markdown, opts?.slideCount)
-						? {
-								offset: opts.slideIndex,
-								total: opts.slideCount as number,
-								deckSection: deckSectionFor(markdown, opts.slideIndex),
-							}
-						: undefined;
+				const supplyable = supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount);
+				const slicePage = renderSource !== markdown ? supplyable : undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
 				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
@@ -956,10 +966,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// option existed. The engine `stats` above deliberately still describe the WHOLE render
 				// — that is the work the engine actually did, and what its timing covers.
 				// Narrowing only applies when we actually rendered the deck.
+				// Set when a whole-deck render could not be narrowed and fell back to a lone slice.
+				// The route the DIAGNOSTIC reports has to be the one that produced the pixels, not the
+				// one the gate intended: on a 1→N deck the gate says "whole deck" and the author is
+				// looking at a slice.
+				let fellBackToSlice = false;
 				if (wantsContext && typeof opts?.slideIndex === 'number') {
 					const narrowed = narrowToSlide(out.html, opts.slideIndex, opts.slideCount);
 					if (narrowed !== null) out.html = narrowed;
 					else if (opts.slideMarkdown) {
+						fellBackToSlice = true;
 						// The engine's sections do not correspond 1:1 to the caller's slides (a
 						// `_focusSteps` / `split: headings` expansion, or a separator the two splitters
 						// disagree about), so an index cannot identify the shown slide. Re-render that
@@ -986,24 +1002,41 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				if (hasFidelityListeners() && typeof opts?.slideIndex === 'number') {
 					const slideIndex = opts.slideIndex;
 					const slideMarkdown = opts.slideMarkdown;
+					const slideCount = opts.slideCount;
+					// The ROUTE THAT PAINTED THE SLIDE, not the one the gate asked for — see fellBackToSlice.
+					const painted = wantsContext && !fellBackToSlice ? 'whole-deck' : 'slice';
 					recordFidelity({
-						path: wantsContext ? 'whole-deck' : 'slice',
-						facts: wantsContext ? deckDerivedFactsFor(markdown) : [],
-						page: slicePage,
-						// The slice path with NO supplied position means positionIsTrustworthy said no,
-						// so the slide numbered itself 1 of 1 — honest, but not the deck's truth.
-						positionWithheld: !wantsContext && !slicePage,
+						path: painted,
+						facts: painted === 'whole-deck' ? deckDerivedFactsFor(markdown) : [],
+						page: painted === 'slice' ? slicePage : undefined,
+						// A slice with NO supplied position numbered itself 1 of 1 — honest, but not the
+						// deck's truth. Reported on the fallback slice too, which supplies nothing at all.
+						positionWithheld: painted === 'slice' && !slicePage,
 						at: performance.now(),
 						compare: slideMarkdown
 							? async () => {
 									try {
 										const [sliceOut, deckOut] = await Promise.all([
-											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: slicePage }),
+											// The COUNTERFACTUAL fast route, rendered the way the fast route would
+											// really render it — including the position it would really supply. Passing
+											// the route-gated `slicePage` here meant omitting the position on the
+											// whole-deck route, and then reporting the pagination mismatch that caused
+											// as a finding, on any deck that paginates.
+											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: supplyable }),
 											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase }),
 										]);
-										const want = sectionsOf(deckOut.html)[slideIndex];
+										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an
+										// index-based lookup into the deck's sections silently picks a slide the author
+										// did not select when a plugin expands 1→N (`_focusSteps`, `split: headings`).
+										// Without it, on examples/focus.md — 11 authored slides, 14 engine sections —
+										// the panel quoted a `_focusSteps` clone of slide 10 and called it slide 11's
+										// full-deck render. Fail honestly instead of confidently comparing the wrong pair.
+										const sections = sectionsOf(deckOut.html);
+										if (typeof slideCount === 'number' && sections.length !== slideCount)
+											return { equal: null, why: `the deck renders ${sections.length} slides where the editor counts ${slideCount}, so an index can't identify this one` };
+										const want = sections[slideIndex];
 										if (want === undefined)
-											return { equal: null, why: 'the deck renders a different number of sections than the editor counts — no slide to compare against' };
+											return { equal: null, why: 'the deck renders no slide at this index' };
 										// SHIPPED_NEUTRALIZERS, not the headless sweep's: a wrong page number or
 										// rail is precisely what an author turns this on to find, so those stay in.
 										const a = normalizeSection(sectionsOf(sliceOut.html)[0] ?? '', SHIPPED_NEUTRALIZERS);

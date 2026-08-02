@@ -78,9 +78,12 @@ in patch versions.
     On-demand, not a CI gate — the same shape as `bench` and `quality`.
   - Both sit on one pure core (`lib/diagnostics/slice-equivalence-core.mjs`), so the browser and
     the terminal cannot drift into disagreeing about what "the same" means. They deliberately
-    neutralize *different* things: the sweep hides the repairs that already ship, to score the
-    prototype prelude in isolation; the overlay leaves them in, because a wrong page number is
-    precisely what an author turns it on to find.
+    neutralize *different* things: the sweep hides the repairs that already ship; the overlay leaves
+    them in, because a wrong page number is precisely what an author turns it on to find.
+  - The sweep also prints **how many slices got a non-empty directive prelude — currently 0 of
+    1201**. No committed deck sets an in-vocabulary running global outside front matter, so 91.9%
+    measures the residual left by the shipped repairs and the prelude prototype is unexercised by
+    this corpus. Printed on every run so the claim cannot quietly go stale.
 
 ### Fixed
 

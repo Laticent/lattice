@@ -543,6 +543,39 @@ The instrument is now committed, and it has **two surfaces over one pure core**
   `?fidelity`). Reports which route the shown slide took, which registry fact forced it, and what
   position was supplied; a button renders the slide both ways and quotes the first divergence.
 
+### The prelude is empty for every slide in the corpus — so 91.9% is not the prototype's score
+
+This amendment first claimed, and the CHANGELOG and capability index repeated, that the sweep scores
+the *prototype prelude*. **It does not.** Counting directly over the corpus:
+
+```
+measured slides:                    1201
+slides given a NON-EMPTY prelude:      0
+```
+
+Every running-directive comment in the committed decks is outside the engine's vocabulary (`note`,
+`describe`, `caption`), and every in-vocabulary directive is written in the `_` spot form, which is
+slide-local by definition and correctly not carried forward. The deck-level ones (`header:`,
+`paginate:`) live in front matter, which the harness already prepends verbatim.
+
+So **91.9% is slice-vs-deck equivalence with the prelude mechanism contributing nothing** — a useful
+number, and the right denominator for the `seedRenderIds` row, but it says nothing about whether the
+general mechanism works. Step 3's own corpus evidence is currently zero, and that is the honest state
+of §5.
+
+Two consequences, both now fixed rather than noted:
+
+1. **The sweep prints the prelude count on every run**, so the claim cannot silently go stale again.
+   It is in the blessed baseline too.
+2. **`synthesizePrelude` throws when its vocabulary argument is missing**, instead of defaulting to
+   empty sets. A caller that dropped it would have synthesized empty preludes for all 1201 slides and
+   moved `equiv:check`'s band by **0.0 points** — undetectable by construction. This was found by
+   asking whether the injected-vocabulary design had a footgun; it did, and it was already live.
+
+The *author-facing* half is where the mechanism does get exercised, because an author's in-progress
+deck is not the committed corpus: the running-header deck below produces exactly the divergence a
+prelude would repair. That asymmetry is itself an argument for having built both surfaces.
+
 **Why both, rather than either.** The headless half is the one that can be scripted, scheduled, and
 gated without a browser. The author-facing half is the one that answers the question *at the moment
 it is asked* — a number or a color looks wrong on the deck in front of you — which a corpus rate
@@ -559,8 +592,8 @@ different things, and this is load-bearing rather than incidental:
 | progress rail | **hidden** | **kept** |
 | inter-block whitespace | hidden | hidden |
 
-The sweep hides the repairs that already ship (#1272, #1280) so they do not flatter the *prototype
-prelude*'s score. The overlay keeps them, because a wrong page number or a wrong rail is precisely
+The sweep hides the repairs that already ship (#1272, #1280) so the rate isolates what is still
+UNREPAIRED — the residual step 3 would have to close. The overlay keeps them, because a wrong page number or a wrong rail is precisely
 the finding an author turns it on for — hiding them would blind it to its main use. The asymmetry is
 pinned by `test/unit/diagnostics/slice-equivalence-core.test.js`, which fails if either set drifts
 toward the other.
