@@ -56,16 +56,29 @@ test('the presented slide card stays a 16:9 box inside its row (#1227) @webkit-t
 		const header = document.querySelector('[role="dialog"][aria-label="Present"]')?.firstElementChild;
 		if (!card || !row || !header) return null;
 		const c = card.getBoundingClientRect();
+		const sizer = card.parentElement as HTMLElement;
+		const s = sizer.getBoundingClientRect();
 		return {
 			ratio: c.width / c.height,
 			coversHeader: c.top < header.getBoundingClientRect().bottom - 0.5,
 			overflowsRow: c.height - row.getBoundingClientRect().height,
+			// How much of the sizer each axis uses. A 16:9 card in a non-16:9 box is
+			// bound by exactly ONE axis and leaves slack in the other, so the binding
+			// axis must come out at ~1.
+			fillW: c.width / s.width,
+			fillH: c.height / s.height,
 		};
 	});
 	expect(box).not.toBeNull();
 	expect(box?.ratio).toBeCloseTo(16 / 9, 2);
 	expect(box?.coversHeader).toBe(false);
 	expect(box?.overflowsRow).toBeLessThanOrEqual(0);
+	// …and it FILLS the box it is given (#1282). The ratio assertions above all pass on a
+	// card that is correctly-shaped but needlessly small — which is the exact state Present
+	// shipped in before #1282, when the card was width-bound only and left the band above it
+	// empty. `min(100cqw, 100cqh*16/9)` means the binding axis saturates the container, so
+	// whichever one binds must measure ~100%. Without this, a reintroduced cap goes green.
+	expect(Math.max(box?.fillW ?? 0, box?.fillH ?? 0)).toBeGreaterThan(0.99);
 });
 
 test('the slide overview opens with the G key and lists every slide', async ({ page }) => {

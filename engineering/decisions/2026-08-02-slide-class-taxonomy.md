@@ -52,6 +52,7 @@ tree (`buildVocab()` in `lib/authoring/lint.js`):
 | **declared exclusive axes** | **5** — `tone`, `insight`, `scale`, `period`, `claim` |
 | universal groups | 9 — `mood`, `decoration`, `typography`, `chrome`, `social`, `state`, `tone`, `insight`, `claim` |
 | variant tokens declared by components | **179**, across 38 of the 61 components |
+| variant tokens that collide with a component NAME | **3** — `decision` (compare-prose), `stats` (math), `quadrant` (radar) |
 
 Two gaps follow directly.
 
@@ -74,21 +75,42 @@ The rest are undeclared:
   `pinned`, `revised`) — a slide carries ONE state stamp; two tokens render two
   badges.
 - `decoration` (6: the `tint-*` / `mark-*` treatments) — one treatment per slide.
-- `mood` (`dark` / `light`) — genuinely exclusive, and already special-cased by
-  hand in `plugins.js` (`colorModeSet`) and again in `lib/runtime/index.js`.
-  Two hand-maintained copies of a fact that should be declared once.
+- `mood` (`dark` / `light`) — genuinely exclusive, and **already solved the way
+  this record argues for**, which makes it the counter-example rather than the
+  tell. Both render paths build a `colorModeSet` from the same
+  `lib/core/color-mode.js` (`plugins.js:45`/`307`, `lib/runtime/index.js:56`/`1237`),
+  and that module says so in its own docstring. It is one declaration with two
+  readers, not two hand-maintained copies.
 - `chrome` (7) and `social` (1) — these really ARE additive, except the
   `form` / `no-form` pair, which is a toggle.
 
-`mood` is the tell. The exclusivity is known; it is just written as a private
-guard in two render paths instead of as a property of the vocabulary, so a third
-consumer gets it wrong.
+**`mood` is the proof the shape works, and the measure of what is missing.** Its
+exclusivity is declared once, in a shared module, and every consumer that needs
+it reads it from there — which is exactly what this record proposes for the other
+groups. The gap is not that `mood` is done badly; it is that `mood` is the ONLY
+group done this way, and the mechanism it uses is bespoke to the color axis
+rather than something a new group can join.
+
+Two consequences for the proposal, both learned from looking at `mood` properly:
+
+- **The color guards must not be "derived from the `mood` axis."** An earlier
+  draft of this record proposed exactly that. It would drop tokens:
+  `UNIVERSAL_GROUPS.mood` is `['dark']`, while `COLOR_MODE_TOKENS` is `['dark',
+  'light', 'color-light', 'color-system', 'color-inherited', 'print']`. The
+  taxonomy must READ `lib/core/color-mode.js` as the authority for that axis, not
+  replace it.
+- **`mood` cannot simply be declared as a sixth exclusive axis.**
+  `test/unit/components/exclusive-axes.test.js` requires every axis token to be a
+  real universal/semi-universal and every axis to have ≥2 members; `light` is a
+  `BASE_MODIFIERS` entry, deliberately kept out of the universals so it stays
+  clear of `divider.light`. So `mood: ['dark','light']` fails that test as
+  written, and the count below is four new axes, not five.
 
 ## The proposal
 
 **One generated taxonomy, classifying every token in the vocabulary.** Extend the
-vocabulary build (`lib/authoring/lint.js` `buildVocab`) to emit a `tokenKind` map
-alongside the existing sets, where every token resolves to exactly one of:
+vocabulary build (`lib/authoring/lint.js` `buildVocab`) to emit a `tokenKind`
+resolver alongside the existing sets, classifying each token as one of:
 
 - **`component`** — the layout. Exactly one per slide; a second REPLACES the
   first. (The default-component rule, `lib/core/resolve-component.js`, already
@@ -98,13 +120,37 @@ alongside the existing sets, where every token resolves to exactly one of:
   component; meaningless on any other, which is the fact autocomplete needs in
   order to stop offering `ops` on a `quote` slide.
 - **`axis:<name>`** — a member of a pick-one register (`tone`, `state`,
-  `decoration`, `mood`, `insight`, `scale`, `period`, `claim`). Exclusive within
-  the axis; the existing five axes become eight when the undeclared families are
-  declared.
+  `decoration`, `insight`, `scale`, `period`, `claim`). Exclusive within the
+  axis; the existing five become seven once `state` and `decoration` are
+  declared. `mood` is NOT in that list — it keeps its own declaration in
+  `lib/core/color-mode.js`, which the taxonomy reads rather than restates (see
+  above).
 - **`flag`** — genuinely additive (`no-header`, `no-paginate`, `numbered`,
   `safe`). Stacks freely.
 - **`toggle:<name>`** — a paired on/off flag (`form` / `no-form`,
   `lifted` / `flat`). Exclusive within the pair.
+
+**It cannot be a flat map, and that is the design's sharpest constraint.** Three
+tokens are already claimed twice: `compare-prose` declares a variant `decision`,
+`math` declares `stats`, and `radar` declares `quadrant` — and `decision`,
+`stats` and `quadrant` are each *also* a shipped component name. A global
+`token → kind` table would have to pick one meaning for each and would be wrong
+on the other, which is exactly the "one private answer per writer" failure this
+whole record exists to end. So the taxonomy is a **function, not a lookup**:
+`tokenKind(token, component)`, resolved against the slide's own component. On a
+`radar` slide `quadrant` is `variant:radar`; anywhere else it is the `quadrant`
+component. The component is resolved FIRST (that is what
+`lib/core/resolve-component.js` already does), and every other token is
+classified in its light.
+
+This also fixes the gate. `checkClassTaxonomy` cannot assert "every token
+resolves to exactly one kind" — the three collisions above would fail it on the
+day it lands. What it can assert, and what actually protects the invariant, is:
+every token resolves to exactly one kind **per component**; no token is claimed
+by two axes; and a collision between a component name and some component's
+variant is *declared* rather than discovered — an allowlist entry, in the house
+style of `SANCTIONED_*`, so a fourth one is a deliberate decision and a stale
+entry fails the gate.
 
 Then **one writer**. `setGroupToken` already implements "replace within a group";
 the change is that every writer routes through a single `applyClassToken(chunk,
@@ -124,18 +170,22 @@ The two consumers then fall out:
   would do), not as additions. What autocomplete cannot do today is not a
   missing feature — it is a missing input.
 
-**Gate it.** A `checkClassTaxonomy` guard in `tools/check-ownership.js`: every
-token in the vocabulary resolves to exactly one kind, no token is claimed by two
-axes, and the hand-written `colorModeSet` guards in `plugins.js` /
-`lib/runtime/index.js` are derived from the `mood` axis rather than restated. The
-rot this closes is the reason the gap exists at all.
+**Gate it.** A `checkClassTaxonomy` guard in `tools/check-ownership.js`, asserting
+the three things named above — one kind per token *per component*, no token in two
+axes, name/variant collisions declared not discovered — plus: every exclusive
+group in the taxonomy has exactly one declaration, and `lib/core/color-mode.js`
+stays that declaration for the color axis rather than being duplicated into it.
+The rot this closes is the reason the gap exists at all.
 
 ### Sequencing
 
-The taxonomy lands first and alone, with the two hand-maintained `mood` guards
-migrated onto it as proof it is load-bearing. #1281 and #1284 are then mechanical
-and independently reviewable. Neither should be attempted before it — both would
-otherwise grow a third and fourth private copy of the classification.
+The taxonomy lands first and alone, with `state` and `decoration` — the two
+groups that are exclusive in fact and declared nowhere — migrated onto it as
+proof it is load-bearing. (`mood` is not the migration candidate: it is already
+declared once and read by both paths, which is the shape being generalized, not
+a debt being paid.) #1281 and #1284 are then mechanical and independently
+reviewable. Neither should be attempted before it — both would otherwise grow a
+third and fourth private copy of the classification.
 
 ## The two deferred features
 

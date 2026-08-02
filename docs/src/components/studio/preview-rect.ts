@@ -11,6 +11,25 @@
 // rect-REPLAY of the app's own measured rect whenever a persisted rect exists). See
 // `engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`.)
 
+/**
+ * Where the app persists its measured preview box (as viewport FRACTIONS) for the
+ * pre-paint shell to replay. One declaration, read by the writer (StudioShell) and
+ * the reader (studio.astro's seed, via define:vars).
+ *
+ * VERSIONED, and the version is load-bearing. A stored rect is a measurement taken
+ * under the geometry rules in force at the time, and replaying one taken under
+ * DIFFERENT rules paints a skeleton the hydrated app then corrects — which is the
+ * jump this whole replay path exists to remove. Retiring the 760px comfort cap
+ * (#1283) is exactly such a rule change: every returning user on a monitor wider
+ * than ~1500px had a capped rect stored, so the shell would have painted a 760px
+ * box and the app would have snapped it to as much as 1342px on first hydration.
+ *
+ * Bump the suffix whenever a change moves the box for the SAME inputs. A stale rect
+ * under a new key is simply absent, and absent means the compute fallback runs —
+ * correct by construction, at the cost of one un-replayed load.
+ */
+export const PREVIEW_RECT_KEY = 'lattice-studio-preview-rect-v2';
+
 export const PREVIEW_CHROME = {
 	topbarH: 54, // the studio topbar (StudioShell `header` h-[54px])
 	mobileBarH: 53, // mobile only: the pane-toggle bar below the topbar (pane starts at 107)

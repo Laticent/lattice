@@ -257,10 +257,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const postureRef = React.useRef(posture);
 	postureRef.current = posture;
 	const setPosture = React.useCallback((p: Posture) => { setPostureState(p); saveSettings({ posture: p }); }, []);
-	// Persist a fresh visitor's DERIVED boot stop exactly once (R1). Without this, a
-	// first-session action that trips hasPriorStudioUse() (creating a deck) would
-	// silently re-derive Read→Write next boot — the ratchet, relocated. Posture then
-	// only ever moves by an explicit dial interaction, as promised.
+	// Persist a fresh visitor's DERIVED boot stop exactly once (R1), so posture only
+	// ever moves by an explicit dial interaction.
+	//
+	// It mattered more when `derivePosture` read prior activity: a first-session act
+	// like creating a deck changed the derivation's own input, so the stop silently
+	// ratcheted at the next boot. Today's derivation is constant for every non-legacy
+	// browser (#1286), so that specific drift is gone — but this stays, because it is
+	// what makes the stored value the record. Without it a returning user's stop is
+	// re-derived on every boot, and any future change to the derivation would
+	// retroactively move people who had already settled somewhere.
 	React.useEffect(() => {
 		if (!hasStoredPosture()) saveSettings({ posture: postureRef.current });
 	}, []);
@@ -470,7 +476,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			if (r.width < 40 || r.height < 40 || vw < 1 || vh < 1) return;
 			try {
 				localStorage.setItem(
-					'lattice-studio-preview-rect',
+					PREVIEW_RECT_KEY,
 					JSON.stringify({
 						l: +(r.left / vw).toFixed(4),
 						t: +(r.top / vh).toFixed(4),

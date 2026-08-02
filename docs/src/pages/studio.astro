@@ -22,7 +22,8 @@ import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
-import { PREVIEW_CHROME } from '../components/studio/preview-rect';
+import { PREVIEW_CHROME, PREVIEW_RECT_KEY } from '../components/studio/preview-rect';
+import { BOOT_POSTURE } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -275,7 +276,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -362,7 +363,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// now, and clamped on-screen in case the viewport changed since (rotation).
 					// No saved rect (newcomer) → the CSS falls back to a centered full-bleed box.
 					try {
-						var rectRaw = localStorage.getItem('lattice-studio-preview-rect');
+						var rectRaw = localStorage.getItem(PREVIEW_RECT_KEY);
 						if (rectRaw) {
 							var q = JSON.parse(rectRaw);
 							if (q && q.w > 0.1 && q.h > 0.05 && q.l >= 0 && q.t >= 0 && q.l < 1 && q.t < 1) {
@@ -394,14 +395,15 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							var vw2 = window.innerWidth, vh2 = window.innerHeight;
 							var bpMobile = vw2 <= 699;
 							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
-							// stored posture wins; otherwise EVERYONE derives to 'write' — the
-							// editor|preview split — since a fresh visitor now boots there too (#1286).
-							// This mirror is load-bearing: deriving a stop the app won't render makes the
-							// first load compute a full-bleed box against a split (or the reverse), and the
-							// hand-off shows as a jump.
+							// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
+							// store's own constant, handed in through define:vars rather than restated
+							// here (#1286). This mirror is load-bearing: deriving a stop the app won't
+							// render makes the first load compute a full-bleed box against a split (or
+							// the reverse), and the hand-off shows as a jump — which is exactly what
+							// shipped when this line carried its own private copy of the answer.
 							var posture = null;
 							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
-							if (!posture) posture = 'write';
+							if (!posture) posture = BOOT_POSTURE;
 							var chromeless = posture === 'read';
 							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
 							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);
