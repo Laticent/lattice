@@ -10,7 +10,7 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 6, overflows past 6) — past that, split across slides.
+**Capacity** ~4 items (over 6 overflows) — past that, split across slides.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short agenda line, not a description.
 

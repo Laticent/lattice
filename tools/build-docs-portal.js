@@ -59,6 +59,31 @@ const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
 const { ensureContrast } = require('../lib/theme/color.js');
 
+// The capacity to publish, matching what `tools/build-component-docs.js` prints in
+// `<name>.docs.md` — the SAME derivation, so the prose surface and this machine
+// catalog can never state different budgets for one component. Some components
+// declare their budget only per-family under `adapt.capacity.<family>`; `wide` is
+// the family to publish (16:9 is the box a deck is authored in, and the one family
+// where nothing paginates past the budget). A per-family block with no `axis` is
+// deliberately skipped: `matrix-2x2` and `split-compare` retired theirs, and with
+// no countable axis lint-core enforces nothing, so publishing a number would state
+// a promise nothing keeps. See the capacityBlock() note in build-component-docs.js.
+// Returns the spread-ready entry (`{ capacity }` or `{}`) rather than the value, so
+// the catalog's object literal derives it in ONE call — the `...(f(m) ? {k: f(m)} : {})`
+// shape reads fine but evaluates twice, and drifts the moment the helper grows.
+function capacityEntry(m) {
+  const flat = m.capacity;
+  if (flat) return { capacity: flat };
+  const fam = m.adapt?.capacity;
+  if (!fam?.wide || !fam.axis) return {};
+  // `family: 'wide'` is not decoration. The prose surface says "at a wide @size";
+  // without the marker this object is a flat budget that reads as family-blind, and
+  // a consumer sizing a PORTRAIT deck against it would be reading the wrong box's
+  // number. The per-family numbers stay in `adapt.capacity` for anyone who needs
+  // them; this says which one was lifted.
+  return { capacity: { axis: fam.axis, ...fam.wide, family: 'wide' } };
+}
+
 // A component's user-facing variant looks: its declared `variants` narrowed to the
 // ones carrying `variantDocs` — the identical derivation the playground and the
 // component reference use (playground.astro, components/[bucket]/[name].astro). An
@@ -564,7 +589,7 @@ function renderPortalJson(manifests) {
     effectiveVariants: effectiveVariants(m),
     familyModifiers: familyModifiersFor(m),
     ...(Array.isArray(m.focusAxes) && m.focusAxes.length ? { focusAxes: m.focusAxes } : {}),
-    ...(m.capacity ? { capacity: m.capacity } : {}),
+    ...capacityEntry(m),
     ...(m.density ? { density: m.density } : {}),
     slots: m.slots || {},
     skeleton: m.skeleton,

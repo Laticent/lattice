@@ -102,6 +102,57 @@ in patch versions.
   actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
   the conversion path, so it is fixed rather than filed.
 
+- **`kpi` sizes its ledger to the metrics you wrote — 18 of the corpus's 27 clipped slides were
+  this one variant.** The briefing grid hard-coded three support rows regardless of how many
+  metrics were authored, so a **three**-metric slide (hero + TWO supports) reserved a row for a
+  metric nobody wrote and then billed the stage for it. With `1fr` rows sized against an indefinite
+  block, that demand came out as `3 × tallest-support` — the identical 1484.58px against a
+  1069–1203px stage on twelve different decks by twelve different authors, because the number was a
+  property of the component rather than of anyone's content. Every one of the 18 clipped slides was
+  that shape (68 of the 81 bare-`kpi` slides in the corpus are). `briefing`/`spotlight` now key
+  their row **count** on the metrics actually authored (`:has()`), which drops the demand to two
+  rows and fits: **27 → 9** clipped slides corpus-wide on that change alone. Row tracks also regain
+  a `min-content` floor (round one had swapped it for `minmax(0, 1fr)`, which lets a row squeeze
+  under its content and overprint its neighbor instead of spilling), and a lone support top-aligns
+  under its own hairline rule instead of floating in the middle of a full-height column. Visible
+  effect on fitting slides: supports divide the full column instead of huddling in its top third.
+  Fixes #1277.
+  **Deliberately NOT changed: the list keeps its `min-height: auto` floor.** An earlier cut of this
+  fix clamped the list to the stage as well. That also passed the corpus — and it was wrong in the
+  expensive direction, because clamping does not remove the overflow, it moves it *inside* the
+  frame where the stage's clip can no longer catch it: at `tall`/`strip` the centred list threw
+  content off the **top** (the ledger opened mid-metric, and a cut head announces itself to nobody),
+  and with a trailing source line it painted the grid **on top of** the note — 25px of text over
+  text, with the stage probe reading 0. Both were silent to every gate. Letting the list grow so the
+  **stage** clips it keeps the failure visible and reported. `compliance` keeps its local
+  `min-height: 0`; it is a flex column that re-flows rather than overprinting.
+- **`kpi` states its allowance, measured rather than asserted.** The variant had no documented
+  answer to "how many metrics, at what label and title length, does this hold?", so an author had no
+  way to stay inside it. Measured across a 54-case matrix (metric count × support shape × title
+  lines × eyebrow): **three metrics is the allowance**, at up to a two-line title, with or without an
+  eyebrow; a **fourth** fits only when everything is terse (one status pill, no eyebrow, a one-line
+  title — the shape the component gallery ships); a **fifth never fits**, at any label length. Past
+  it, split across slides or use `stats` (now declared as `escalateTo`, so `lint:deck` says so too).
+  `adapt.capacity.wide` drops from sweet 4 / soft 4 / hard 5 to **sweet 3 / soft 4 / hard 4** — the
+  old `hard: 5` promised a metric that fits at no label length. **Stated plainly because the two
+  numbers disagree:** `tools/calibrate-capacity.js` holds words at `density.soft` (8) with the
+  documented two-pill target line, measures a `wide` ceiling of **3**, and flags `hard: 4` as
+  exceeding it. Both are right — 4 is the terse corner, which is exactly the shape the component
+  gallery and the manifest's own `sample` ship, and they render clean. Declaring 3 would put the
+  component's own specimen outside its own budget. The caveat is carried in the manifest's capacity
+  `note` (so it reaches the lint message) rather than left implied. New demo deck
+  `examples/kpi-allowance.md`.
+- **`kpi` and `list` docs stated no capacity while the linter enforced one.** Both declare their
+  budget only as per-family numbers under `adapt.capacity.<family>`; `lib/authoring/lint.js` lifts
+  those into the vocab and `lint-core` warns against them, but `tools/build-component-docs.js` only
+  ever looked at the flat `capacity` block — so their `*.docs.md` printed no **Capacity** line at
+  all, and an author was held to a budget the doc never stated. Both the prose generator and
+  `tools/build-docs-portal.js` (the machine catalog `AGENTS.md` points agents at) now fall back to
+  the `wide` family numbers, by the same derivation, so the two surfaces cannot state different
+  budgets. `matrix-2x2` and `split-compare` declare per-family numbers too but carry `axisRetired`
+  instead of `axis` — with no countable axis `lint-core` enforces nothing, so they are deliberately
+  left unpublished rather than promising a budget nothing keeps.
+
 ### Removed
 
 - **Breaking: the Drawing Board (`/drawing-board/`) and the Workbench (`/workbench/`) are
@@ -186,6 +237,17 @@ in patch versions.
   serialized into `/studio/`'s initial HTML, which grew by ~66 KB (~16 KB gzipped) — paid by every
   visitor to the page, including those who never open the chat. Reducing that is follow-up work,
   not something this change does.
+- **`tools/lib/calibrate-core.js`'s `kpi` element builder renders the kpi contract.** It emitted a
+  value and ONE nested bullet — which is a `stats` row, not a `kpi` — dropping the mono target line
+  and the status pills, so it measured a support tile about a third shorter than the real one and
+  read a correspondingly generous ceiling. It now emits value / label / target-and-pills, matching
+  the manifest skeleton and every kpi slide that ships. The measured `wide` ceiling moves 4 → 3.
+  Only kpi's calibration is affected; `BUILDERS` is keyed per component. Note the same builder backs
+  `calibrate-density`, so kpi's density basis shifted with it. `density.soft: 8 / hard: 14` are
+  unchanged and were NOT re-measured against the new shape: the per-item total is now roughly
+  `w + 3` (label `w-5`, plus the value, a 4-token target line, and two status pills), so the basis
+  moved slightly against the author rather than for them.
+
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a

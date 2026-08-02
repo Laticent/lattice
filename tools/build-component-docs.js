@@ -187,8 +187,41 @@ function emitDocsHeader(m, lines) {
  * sits, not what it says — the three-subsection difference is limited
  * to the pilot components that declare the new fields.
  */
+/**
+ * The capacity block to DOCUMENT, for a component that declares one.
+ *
+ * Four components carry their budget only as per-family numbers under
+ * `adapt.capacity.<family>` and no flat `capacity` block, so the docs generator —
+ * which only ever read the flat block — printed no capacity for them at all. For
+ * `kpi` and `list` that is a real gap: `lib/authoring/lint.js` lifts the same
+ * per-family numbers into the vocab and `lint-core` warns against them, so an
+ * author was held to a budget the doc never stated. That is the gap #1277 named
+ * for kpi ("the variant has no stated allowance").
+ *
+ * THE AXIS IS THE GATE, and it is not a formality. `matrix-2x2` and
+ * `split-compare` also declare per-family numbers, but they carry `axisRetired`
+ * instead of `axis` — each with a paragraph of rationale for having no countable
+ * item axis (a 2×2 read is destroyed by splitting between quadrants; a
+ * split-compare's meaning lives in the cross-column read). With no axis,
+ * `lint-core`'s `countPrimaryCollection` returns 0 and the capacity rule breaks
+ * out before it can find anything — so those budgets are NOT enforced, and
+ * publishing them would state a promise nothing keeps. Requiring `axis` documents
+ * exactly the set the linter actually holds an author to, and no more.
+ *
+ * `wide` is the family to print: 16:9 is the box a deck is authored in, and it is
+ * the one family where nothing paginates past the budget (lint-core's
+ * capacity-overflow arm) — so it is both the default and the strictest promise.
+ */
+function capacityBlock(m) {
+  if (m.capacity) return { c: m.capacity, family: null };
+  const fam = m.adapt?.capacity;
+  if (!fam?.wide || !fam.axis) return null;
+  return { c: { axis: fam.axis, ...fam.wide }, family: 'wide' };
+}
+
 function emitAgentContract(m, lines) {
-  const hasCapacity = Boolean(m.capacity);
+  const capacity = capacityBlock(m);
+  const hasCapacity = Boolean(capacity);
   const hasDensity = Boolean(m.density);
   const hasSlots = Boolean(m.slots && Object.keys(m.slots).length);
   const hasVariantRule = Array.isArray(m.variantDecisionRule) && m.variantDecisionRule.length > 0;
@@ -200,15 +233,23 @@ function emitAgentContract(m, lines) {
   lines.push('');
 
   if (hasCapacity) {
-    const c = m.capacity;
+    const { c, family } = capacity;
     const sweet = c.sweet != null ? c.sweet : c.soft;
     const esc = Array.isArray(c.escalateTo) && c.escalateTo.length ? ` — past that, ${c.escalateTo.join(' / ')}` : '';
-    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)} (crowds past ${c.soft}, overflows past ${c.hard})${esc}.`);
+    const at = family ? ` at a ${family} @size` : '';
+    // When `soft` and `hard` are equal the crowd band `(soft, hard]` is EMPTY — the
+    // component never warns "crowded", it goes straight from fine to over. Printing
+    // "crowds past 4, overflows past 4" describes a band nobody can occupy and reads
+    // as if 4 were comfortable; say the one thing that is true instead. Eight
+    // components ship this configuration today, so this is a shared correction, not
+    // a kpi special case.
+    const band = c.soft === c.hard ? `over ${c.hard} overflows` : `crowds past ${c.soft}, overflows past ${c.hard}`;
+    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (${band})${esc}.`);
     lines.push('');
   }
   if (hasDensity) {
     const d = m.density;
-    const axis = d.axis || m.capacity?.axis || 'item';
+    const axis = d.axis || capacity?.c.axis || 'item';
     const note = d.note ? ` — ${d.note}` : '';
     lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${note}.`);
     lines.push('');

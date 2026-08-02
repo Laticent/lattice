@@ -10,7 +10,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 
 ## Agent contract
 
-**Capacity** ~3 items (crowds past 3, overflows past 3) — past that, list-criteria / split across slides.
+**Capacity** ~3 items (over 3 overflows) — past that, list-criteria / split across slides.
 
 **Density** aim ~20 words per item; past ~28 it reads as a wall of text — one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip.
 
