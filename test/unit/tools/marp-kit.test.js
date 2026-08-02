@@ -130,8 +130,17 @@ test('inline `<!-- … -->` literals survive — ligatures are off on mono', () 
   assert.match(text(DECK), /`<!-- _class: [a-z-]+ -->`/, 'deck should show the real syntax inline');
   const css = text('lattice.min.css');
   assert.match(css, /font-variant-ligatures:\s*none/, 'engine CSS must disable mono ligatures');
-  // The minifier normalizes quote style, so accept either.
-  assert.match(css, /["']liga["']\s*0/, 'and the low-level fallback for chrome91');
+  // The STANDARD property alone, deliberately. `font-variant-ligatures: none`
+  // already implies `no-contextual`, so a `font-feature-settings: 'calt' 0`
+  // companion is measurably redundant — and worse than redundant: the standard
+  // property preserves ligatures a script REQUIRES to shape correctly, and the
+  // raw feature tag does not. An earlier revision shipped that pair; this asserts
+  // it stays gone, so nobody "restores" it as a well-meaning fallback.
+  assert.doesNotMatch(
+    css,
+    /font-feature-settings:[^;}]*["']calt["']\s*0/,
+    "raw 'calt' 0 must not come back — it breaks Arabic/Indic shaping for zero gain",
+  );
 });
 
 test('the committed dist/marp-kit matches what the builder produces', () => {

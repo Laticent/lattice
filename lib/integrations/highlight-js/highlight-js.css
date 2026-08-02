@@ -133,7 +133,11 @@ section.diagram > .cell-stage > .mermaid-error-label,
   text-transform:uppercase;
   color:var(--fail);
 }
-.mermaid-error-msg    { font-family:var(--font-mono); color:var(--text-heading); }
+/* Ligatures off: this headline echoes the author's own Mermaid source, which is
+ * built out of `-->`. On mono that renders as an arrow GLYPH, so the error tells
+ * the author their diagram broke and then misquotes the line that broke it. The
+ * `<pre>` sibling below is covered by base.elements.css; a bare <span> is not. */
+.mermaid-error-msg    { font-family:var(--font-mono); color:var(--text-heading); font-variant-ligatures:none; }
 .mermaid-error-detail {
   margin:0; padding:var(--sp-xs) var(--sp-sm);
   background:var(--bg);

@@ -337,6 +337,10 @@ section.state-chart .state-edge-arrow[data-dir="back"] {
  * the label with a clear gap on each side. */
 section.state-chart .state-edge-label {
   fill: var(--state-node-ink);
+  /* Ligatures off. Authors write transition labels as literals — `approve -> ship`,
+   * `>= 3 days` — and mono would render those as arrow/relational GLYPHS. This is an
+   * SVG <text>, so base.elements.css's code/pre/kbd/samp rule cannot reach it. */
+  font-variant-ligatures: none;
   /* Floored — but the floor is NOT the whole story here, and this rule must not
    * be read as a legibility guarantee.
    *

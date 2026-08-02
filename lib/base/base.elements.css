@@ -100,14 +100,22 @@ section :is(pre, marp-pre) code { background:none; border:none; padding:0; borde
  * that trades unambiguous for pretty, so they are off wherever mono renders a
  * literal — inline chips, fenced blocks, kbd and samp.
  *
- * Both properties on purpose: `font-variant-ligatures` is the standard control,
- * and the `font-feature-settings` pair is the fallback for engines that honor
- * only the low-level tags (the runtime bundle targets chrome91). Discretionary
- * ligatures are dropped too — mono faces should not be substituting glyphs in
- * data at all. */
+ * The STANDARD property only, deliberately. `font-variant-ligatures: none` already
+ * means `no-common no-discretionary no-historical no-contextual`, so the obvious
+ * `font-feature-settings: 'liga' 0, 'calt' 0, …` companion adds nothing — measured,
+ * not assumed: rendering this text with both, with each alone, and with neither
+ * gives three identical bitmaps and one different one (only "neither" differs).
+ *
+ * It is not merely redundant, it is worse. The standard property is defined to
+ * keep ligatures that a script REQUIRES for correct shaping; raw `'calt' 0`
+ * bypasses that guarantee, and `calt` is required in Arabic and several Indic
+ * scripts. So the low-level pair bought a measured zero and put non-Latin
+ * shaping at risk. An earlier revision of this rule shipped it, justified by
+ * "the runtime bundle targets chrome91" — which is wrong twice over: this file
+ * is compiled by tools/build-css.js, not by the runtime's esbuild target, and
+ * `font-variant-ligatures` has been supported since Chrome 31 regardless. */
 section :is(code, pre, marp-pre, kbd, samp) {
   font-variant-ligatures: none;
-  font-feature-settings: 'liga' 0, 'clig' 0, 'calt' 0, 'dlig' 0;
 }
 /* Centred rule. Horizontal centre via flex `align-self` (the stage flow is a flex
  * column), NOT `margin:auto` (HARD RULE #20); vertical space comes from the stage
