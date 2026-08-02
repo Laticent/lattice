@@ -451,3 +451,93 @@ hard for a case to restore the deck key and did not find one); the separate bloc
 rather than folding producer settings into the author's front-matter snapshot;
 writing the block unconditionally; the lint rule's existence and its reason; and the
 console disclosure that names what it did *not* measure.
+
+---
+
+## Follow-up (2026-08-02) — #1277: the `kpi` ledger now divides its stage
+
+The section above logged 18 of the 27 clipping slides as "one component's flex floor"
+and left it, correctly, off #1275's path. This is that follow-up. It is worth reading
+because the mechanism was **not** the one the note above assumed.
+
+### What it actually was
+
+`kpi`'s metric list is a flex child of the bounded stage Cell with `flex: 1` and no
+`min-height`. The live `min-height: auto` floor made its used height the **larger** of
+the stage it was flexed into and its own content height — and a grid variant computes
+that content height against an **indefinite** block size, where `1fr` rows cannot
+divide a stage they have not been given and instead equalize to the tallest row.
+
+So the list demanded `3 × tallest-support` no matter what the stage offered, and no
+matter how many supports were authored. Measured:
+
+| slide | stage | list demanded | over |
+|---|---|---|---|
+| `grant-report.md` p3 | 1203px | 1484.58px | 282px |
+| `grant-report.md` p12 | 1069px | 1484.58px | 416px |
+
+Rows resolved to `494.859px 494.859px 494.859px` on **every** bare-`kpi` slide across
+twelve decks by twelve authors. The constant the earlier note flagged is explained:
+the number was a property of the component, not of anyone's content.
+
+And the reason it was **three-metric** slides that clipped — every one of the 18 — is
+that the hero spans `grid-row: 1 / -1`, so the explicit row count IS the number of
+support rows opposite it. Hard-coding three meant a hero + **two** supports reserved a
+third row for a metric nobody wrote, then billed the stage for it. 67 of the 81
+bare-`kpi` slides in the corpus are that shape.
+
+### Why `min-height: 0` alone was the wrong fix (round two, correctly)
+
+`kpi.styles.css` recorded a previous attempt at this symptom, which is why the issue
+asked for a redesign rather than a patch. The obvious one-liner reproduces the trap:
+with `min-height: 0` the corpus stops clipping, but the rows — still
+`minmax(0, 1fr)` — squeeze **under** their content. Measured on `grant-report` p3/p12
+after that change alone: support `li`s overflowing their rows by 23px and 46px, with
+`overflow: visible`, i.e. metrics silently overprinting their neighbours while the
+stage probe reports `over = 0`. That trades a visible failure for an invisible one,
+which is exactly what the issue warned against.
+
+The shipped fix is the pair: `min-height: 0` **and** a `min-content` floor on every row
+track. The ledger yields down to the height its content genuinely needs and no further;
+past that it spills, the stage clips it, and the export's overflow report names the
+page. Yield, then spill — never overlap. A 54-case matrix confirms zero intra-row
+overlap at every count, label shape, and title length tested, including well past the
+allowance.
+
+### The allowance, measured
+
+The issue's real ask: the variant had no stated answer to "how much does this hold?",
+so an author had no way to stay inside it. Measured across metric count × support shape
+× title lines × eyebrow (all four axes monotonic):
+
+| metrics | holds |
+|---|---|
+| **3** | at up to a two-line title, with or without an eyebrow — the aim |
+| **4** | only terse: one status pill, no eyebrow, a one-line title |
+| **5** | never, at any label length |
+
+The model predicts the shipped corpus exactly: the component gallery's 4-metric slides
+sit precisely on the terse / no-eyebrow / one-line-title corner, and they fit.
+`adapt.capacity.wide` moves from sweet 4 / soft 4 / hard 5 to **sweet 3 / soft 4 /
+hard 4** — the old `hard: 5` promised a metric the geometry cannot hold.
+
+Two instrument defects were fixed to get a number worth quoting, both of which had
+made the allowance unmeasurable rather than merely undocumented:
+
+- `tools/lib/calibrate-core.js`'s `kpi` builder emitted a value and ONE nested bullet —
+  a `stats` row, not a `kpi` — so it measured a support about a third short and read a
+  generous ceiling. The `wide` ceiling moves 4 → 3 once it renders the real contract.
+- `tools/build-component-docs.js` read only the flat `capacity` block, so the four
+  components that declare theirs per-family (`kpi`, `list`, `matrix-2x2`,
+  `split-compare`) printed **no** Capacity line while `lint:deck` enforced one against
+  them.
+
+### What HARD RULE #23 caught here
+
+The first draft of the demo deck asserted "three metrics fit at every label and title
+length". Rendering it clipped three of its eight slides. The matrix behind the claim
+had omitted the **eyebrow**, which every exemplar carries and which costs a masthead
+line; the same draft also claimed `compliance` as the escalation path, and `compliance`
+measured a ceiling of **three**, not more. Both corrections came from rendering the
+deck and looking at it, not from the reasoning that produced it. The escalation is
+`stats` or a split, which is what the manifest's `strip` family already said.

@@ -75,7 +75,16 @@ const BUILDERS = {
   agenda: (w) => `1. ${cap(words(w))} \`p.3\``,
   checklist: (w) => `- [x] ${cap(words(w))}`,
   stats: (w) => `1. 73%\n   - ${cap(words(w))}`,
-  kpi: (w) => `1. 42%\n   - ${cap(words(w))}`,
+  // A kpi metric is value / label / target-trend-and-pills — three lines, matching
+  // its manifest skeleton and every kpi slide that ships. The builder used to emit
+  // only the value and ONE nested bullet, which is a `stats` row, not a kpi: it
+  // dropped the mono target line AND the status pills, so it measured a support
+  // tile roughly a third shorter than the real one and read a correspondingly
+  // generous ceiling. That mattered — the ceiling this rig prints is the evidence
+  // behind kpi's stated allowance (#1277), so it has to render the contract the
+  // allowance is about. The variable words go to the label, which is the part that
+  // varies in real decks; the target line is fixed cost, as it is in practice.
+  kpi: (w) => `1. 42%\n   - ${cap(words(Math.max(1, w - 5)))}\n   - target 40% · +2pp \`On plan\` \`Board\``,
   list: (w) => `- ${cap(words(w))}.`,
   glossary: (w) => `- ${cap(words(1))}\n  - ${cap(words(w - 1))}.`,
   'list-criteria': (w) => `1. ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,

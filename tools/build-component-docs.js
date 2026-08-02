@@ -187,8 +187,31 @@ function emitDocsHeader(m, lines) {
  * sits, not what it says — the three-subsection difference is limited
  * to the pilot components that declare the new fields.
  */
+/**
+ * The capacity block to DOCUMENT, for a component that declares one.
+ *
+ * Four components (kpi, list, matrix-2x2, split-compare) carry their budget only
+ * as per-family numbers under `adapt.capacity.<family>` and no flat `capacity`
+ * block. `lib/authoring/lint.js` reads that shape and warns against it, so those
+ * budgets are ENFORCED — but the docs generator only ever looked at the flat
+ * block, so their docs.md stated no capacity at all. An author reading the doc
+ * had no way to learn the number the linter would hold them to, which is the gap
+ * #1277 named for kpi ("the variant has no stated allowance").
+ *
+ * `wide` is the family to print: 16:9 is the box a deck is authored in, and it is
+ * the one family where nothing paginates past the budget (lint-core's
+ * capacity-overflow arm) — so it is both the default and the strictest promise.
+ */
+function capacityBlock(m) {
+  if (m.capacity) return { c: m.capacity, family: null };
+  const fam = m.adapt?.capacity;
+  if (!fam?.wide) return null;
+  return { c: { axis: fam.axis, ...fam.wide }, family: 'wide' };
+}
+
 function emitAgentContract(m, lines) {
-  const hasCapacity = Boolean(m.capacity);
+  const capacity = capacityBlock(m);
+  const hasCapacity = Boolean(capacity);
   const hasDensity = Boolean(m.density);
   const hasSlots = Boolean(m.slots && Object.keys(m.slots).length);
   const hasVariantRule = Array.isArray(m.variantDecisionRule) && m.variantDecisionRule.length > 0;
@@ -200,15 +223,16 @@ function emitAgentContract(m, lines) {
   lines.push('');
 
   if (hasCapacity) {
-    const c = m.capacity;
+    const { c, family } = capacity;
     const sweet = c.sweet != null ? c.sweet : c.soft;
     const esc = Array.isArray(c.escalateTo) && c.escalateTo.length ? ` — past that, ${c.escalateTo.join(' / ')}` : '';
-    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)} (crowds past ${c.soft}, overflows past ${c.hard})${esc}.`);
+    const at = family ? ` at a ${family} @size` : '';
+    lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)}${at} (crowds past ${c.soft}, overflows past ${c.hard})${esc}.`);
     lines.push('');
   }
   if (hasDensity) {
     const d = m.density;
-    const axis = d.axis || m.capacity?.axis || 'item';
+    const axis = d.axis || capacity?.c.axis || 'item';
     const note = d.note ? ` — ${d.note}` : '';
     lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${note}.`);
     lines.push('');

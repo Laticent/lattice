@@ -230,8 +230,10 @@ Executive KPI system — one base, five layout modifiers.
 
 - Decorative pills without status semantics
   - The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
-- More than four KPIs in attention or spotlight
-  - `attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Past four KPIs the visual hierarchy collapses — split into two slides.
+- A fifth metric — or a fourth that is not terse
+  - The supports divide whatever the title and eyebrow leave them, so count trades against label length. Three is the allowance: a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth never fits, at any label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows.
+- Reaching for attention or spotlight to carry four-plus metrics
+  - `attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Both spend the stage on a single tile, so the hierarchy collapses before the geometry does — treat three as the ceiling for these two.
 - No targets, no trends
   - If the KPIs carry only current values, the slide is a stats row, not a kpi dashboard. Use stats and reclaim the room.
 

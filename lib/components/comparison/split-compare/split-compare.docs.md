@@ -10,6 +10,8 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 
 ## Agent contract
 
+**Capacity** ~2 undefineds at a wide @size (crowds past 2, overflows past 2).
+
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — a terse point per line.
 
 ### Slots

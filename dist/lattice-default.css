@@ -6573,11 +6573,26 @@ section.kpi h2 {
 section.kpi > .cell-stage > ol,
 section.kpi > .cell-stage > ul {
   list-style: none; padding: 0; margin: 0;
-  /* flex:1 fills the stage. NB: no `min-height:0` here — the grid variants
-   * (briefing/spotlight) size their `1fr` rows against this list's grown height, and
-   * removing the min-height:auto floor collapses the grid to content. The flex
-   * variants that need to yield (compliance) opt into min-height:0 locally. */
+  /* flex:1 fills the stage, and min-height:0 makes the filled height DEFINITE.
+   *
+   * This pair is the whole fix for #1277, and the min-height is the half that was
+   * missing. Without it the list keeps its `min-height:auto` floor, so its used
+   * height is the LARGER of (the stage it was flexed into) and (its own content
+   * height) — and for a grid variant that content height is computed with an
+   * INDEFINITE block size, where `1fr` rows can't divide a stage they haven't been
+   * given and instead equalize to the tallest row's content. Three rows of a
+   * 494.86px support measured 1484.58px against a 1203px stage on every bare-kpi
+   * slide in the corpus: the same 1485 on twelve different decks, because the
+   * number was a property of the component, not of anyone's content.
+   *
+   * With min-height:0 the list is exactly the stage, the block size is definite,
+   * and every variant's `1fr` rows divide the stage the way they always read as
+   * doing. What made this safe — and what the previous round (see the minmax note
+   * below) lacked — is that the rows now carry a `min-content` FLOOR, so a definite
+   * grid can never squeeze a row under its own content and overprint the next one.
+   * Yield, then spill; never overlap. */
   flex: 1;
+  min-height: 0;
 }
 section.kpi > .cell-stage > :where(ol, ul) > li::marker { content: ''; }
 section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) {
@@ -6666,12 +6681,39 @@ section.kpi.briefing > .cell-stage > ol,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-  /* minmax(0,1fr), not bare 1fr: bare 1fr is minmax(auto,1fr), whose auto floor
-   * can't shrink below the row's content min-height — against the shorter bounded
-   * stage (flex cell-tree §6) that overran and clipped the last metric. minmax(0,…)
-   * lets the three rows share the stage evenly and fill it without spilling. */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  /* Rows: `minmax(min-content, 1fr)` — share the stage evenly, never below content.
+   *
+   * ROUND ONE of this bug swapped bare `1fr` (= minmax(auto,1fr)) for minmax(0,1fr)
+   * to let the rows shrink. It didn't help, because the list still floored at its
+   * own content height (see the min-height note on the base list rule), so the rows
+   * never had a definite stage to divide — and it would have been the wrong trade
+   * anyway: a row that CAN shrink to 0 overprints its neighbour instead of spilling.
+   * With the list's block size now definite, `min-content` is the floor that keeps
+   * a squeezed ledger honest — rows yield down to the height their content needs,
+   * and past that the list spills, the stage clips it, and the export's overflow
+   * report names the page. A visible failure, never a silent one.
+   *
+   * The COUNT is set below, from the metrics actually authored. */
+  grid-template-rows: minmax(min-content, 1fr);
+  grid-auto-rows: minmax(min-content, 1fr);
   gap: 0 var(--sp-2xl);
+}
+/* Row count = support count. The hero spans `1 / -1`, so the explicit row count IS
+ * the number of support rows opposite it — and hard-coding three of them meant a
+ * 3-metric slide (hero + TWO supports) reserved a third row for nothing and then
+ * demanded 3 × the tallest support from a stage that only ever offered ~2.4 of
+ * them. That phantom row is the entire 18-slide overflow in the shipped corpus:
+ * every one of the 18 is a 3-metric slide, and 67 of the 81 bare-kpi slides across
+ * the corpus are that shape. Sizing the grid to the content it actually has is the
+ * fix; the min-content floor above is what keeps it honest when it genuinely
+ * doesn't fit. A 5th+ metric lands on grid-auto-rows, same sizing. */
+section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
+  grid-template-rows: repeat(2, minmax(min-content, 1fr));
+}
+section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(4)),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(4)) {
+  grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) {
@@ -6759,9 +6801,9 @@ section.kpi.attention > .cell-stage > ol > li:nth-child(1)::after {
 section.kpi.ops > .cell-stage > ol {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  /* minmax(0,1fr): let the 2×2 cells share the bounded stage and shrink to fit
-   * instead of overflowing it (see briefing note above). */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  /* minmax(min-content,1fr): the 2×2 cells share the bounded stage, and floor at
+   * their own content rather than overprinting each other (see briefing note). */
+  grid-template-rows: repeat(2, minmax(min-content, 1fr));
   gap: var(--sp-md);
   /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
   padding: var(--elevation-berth);
@@ -6800,10 +6842,8 @@ section.kpi.compliance > .cell-stage > ol {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  /* Yield to the bounded stage so the trailing source line (a sibling <p>) stays on
-   * canvas — without it the list's min-height:auto floor pushes the source past the
-   * clip. Safe here because this variant is a flex column, not a 1fr grid. */
-  min-height: 0;
+  /* (The local `min-height: 0` this variant used to carry is now on the base list
+   * rule — every variant yields to the bounded stage, not just this one.) */
 }
 section.kpi.compliance > .cell-stage > ol > li {
   display: grid;
@@ -6864,12 +6904,13 @@ section.kpi.compliance > .cell-stage > p:last-of-type {
 section.kpi.trajectory > .cell-stage > ol {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  /* minmax(0,1fr) rows, not max-content + align-content:center — the cards FILL the
+  /* Flexible rows, not max-content + align-content:center — the cards FILL the
    * bounded stage (flex cell-tree §6) the way the ops 2×2 and spotlight supports do,
-   * instead of huddling at natural height in the top third. Each card centres its own
+   * instead of huddling at natural height in the top third. Each card centers its own
    * content (justify-content:center below), so a full-height card reads as a deliberate
-   * tile, not a stretched box. */
-  grid-auto-rows: minmax(0, 1fr);
+   * tile, not a stretched box. The min-content floor is the shared family rule (see
+   * the briefing note): fill the stage, but never squeeze a card under its content. */
+  grid-auto-rows: minmax(min-content, 1fr);
   gap: var(--sp-md);
   /* berth so the stage clip doesn't shear the tile elevation (base.tokens.css). */
   padding: var(--elevation-berth);
@@ -6903,12 +6944,20 @@ section.kpi.trajectory > .cell-stage > ol > li {
 section.kpi.spotlight > .cell-stage > ol {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  /* minmax(0,1fr): the hero spans all three rows; bounding the rows lets the side
-   * supports share the stage and fill it without the third row clipping (see
-   * briefing note above). */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  /* The hero spans every row; the side supports divide the stage beside it. Same
+   * sizing model as briefing — flexible rows with a min-content floor, and a row
+   * COUNT that follows the supports actually authored rather than a hard-coded
+   * three (see the briefing note above for both). */
+  grid-template-rows: minmax(min-content, 1fr);
+  grid-auto-rows: minmax(min-content, 1fr);
   align-items: stretch;
   gap: var(--sp-2xl);
+}
+section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nth-child(4))) {
+  grid-template-rows: repeat(2, minmax(min-content, 1fr));
+}
+section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(4)) {
+  grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;

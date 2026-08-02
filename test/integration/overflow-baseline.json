@@ -1,6 +1,6 @@
 {
   "$comment": "Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it.",
-  "totalSlides": 27,
+  "totalSlides": 9,
   "decks": {
     "examples/README.md": [
       1
@@ -12,48 +12,6 @@
       2,
       3,
       5
-    ],
-    "exemplars/corporate/budget-request.md": [
-      8
-    ],
-    "exemplars/corporate/customer-case-study.md": [
-      8,
-      9
-    ],
-    "exemplars/corporate/sales-deck.md": [
-      9
-    ],
-    "exemplars/corporate/strategy-proposal.md": [
-      9
-    ],
-    "exemplars/general-team/proposal.md": [
-      7
-    ],
-    "exemplars/government-public/rfp-response.md": [
-      10,
-      11
-    ],
-    "exemplars/nonprofit/donor-pitch.md": [
-      12
-    ],
-    "exemplars/nonprofit/fundraising-capital-campaign.md": [
-      14
-    ],
-    "exemplars/nonprofit/grant-report.md": [
-      3,
-      12
-    ],
-    "exemplars/nonprofit/impact-annual-report.md": [
-      3,
-      14
-    ],
-    "exemplars/nonprofit/nonprofit-board-meeting.md": [
-      4,
-      12
-    ],
-    "exemplars/nonprofit/program-overview.md": [
-      5,
-      12
     ],
     "lib/components/connect/connect.gallery.md": [
       3

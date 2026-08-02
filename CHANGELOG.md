@@ -102,6 +102,43 @@ in patch versions.
   actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
   the conversion path, so it is fixed rather than filed.
 
+- **`kpi` sizes its ledger to the metrics you wrote, and yields to the stage instead of spilling
+  past it — 18 of the corpus's 27 clipped slides were this one variant.** The metric list is a flex
+  child of the bounded stage, and it carried `flex: 1` with no `min-height`, so its `min-height:
+  auto` floor stayed live and its used height was the *larger* of the stage it was flexed into and
+  its own content height. A grid variant computes that content height against an **indefinite**
+  block size, where `1fr` rows cannot divide a stage they have not been given and instead equalize
+  to the tallest row — so the list demanded three rows of the tallest support regardless of the
+  stage, and regardless of how many supports were authored. It measured the same 1485px against a
+  1069–1203px stage on twelve different decks by twelve different authors, because the number was a
+  property of the component rather than of anyone's content. Every one of the 18 clipped slides was
+  a **three**-metric slide paying for a fourth row that held nothing (67 of the 81 bare-`kpi` slides
+  in the corpus are that shape). Three changes, load-bearing together: the list declares
+  `min-height: 0` so its block size is definite and `1fr` divides the stage; every **row** track
+  gains a `min-content` floor so a definite grid can never squeeze a row under its content and
+  overprint the next metric — the ledger yields, then spills, and the stage's clip plus the export's
+  overflow report keep the failure visible; and `briefing`/`spotlight` key their row **count** on
+  the metrics actually authored (`:has()`) instead of hard-coding three. `compliance`'s local
+  `min-height: 0` folds into the shared base rule. Visible effect on fitting slides: supports now
+  divide the full column instead of huddling at the top of it, which also closes a dead third of the
+  right column on every 3-metric `briefing` and `spotlight` slide. Fixes #1277.
+- **`kpi` states its allowance, measured rather than asserted.** The variant had no documented
+  answer to "how many metrics, at what label and title length, does this hold?", so an author had no
+  way to stay inside it. Measured across a 54-case matrix (metric count × support shape × title
+  lines × eyebrow): **three metrics is the allowance**, at up to a two-line title, with or without an
+  eyebrow; a **fourth** fits only when everything is terse (one status pill, no eyebrow, a one-line
+  title — the shape the component gallery ships); a **fifth never fits**, at any label length. Past
+  it, split across slides or use `stats`. `adapt.capacity.wide` drops from sweet 4 / soft 4 / hard 5
+  to **sweet 3 / soft 4 / hard 4** — the old `hard: 5` promised a metric the geometry cannot hold,
+  and `lint:deck` now warns at the right count. New demo deck `examples/kpi-allowance.md`.
+- **Four components' docs stated no capacity while the linter enforced one.** `kpi`, `list`,
+  `matrix-2x2` and `split-compare` declare their budget only as per-family numbers under
+  `adapt.capacity.<family>`; `lib/authoring/lint.js` reads that shape and warns against it, but
+  `tools/build-component-docs.js` only ever looked at the flat `capacity` block — so those four
+  `*.docs.md` printed no **Capacity** line at all. The generator now falls back to the `wide` family
+  numbers (16:9 is the box a deck is authored in, and the one family where nothing paginates past
+  the budget), labelled with the @size it applies to.
+
 ### Removed
 
 - **Breaking: the Drawing Board (`/drawing-board/`) and the Workbench (`/workbench/`) are
@@ -186,6 +223,13 @@ in patch versions.
   serialized into `/studio/`'s initial HTML, which grew by ~66 KB (~16 KB gzipped) — paid by every
   visitor to the page, including those who never open the chat. Reducing that is follow-up work,
   not something this change does.
+- **`tools/lib/calibrate-core.js`'s `kpi` element builder renders the kpi contract.** It emitted a
+  value and ONE nested bullet — which is a `stats` row, not a `kpi` — dropping the mono target line
+  and the status pills, so it measured a support tile about a third shorter than the real one and
+  read a correspondingly generous ceiling. It now emits value / label / target-and-pills, matching
+  the manifest skeleton and every kpi slide that ships. The measured `wide` ceiling moves 4 → 3.
+  Only kpi's calibration is affected; `BUILDERS` is keyed per component.
+
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a
