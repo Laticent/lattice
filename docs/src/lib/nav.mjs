@@ -16,12 +16,10 @@
 //                Features, Comparison. Always inline on desktop.
 //   • libraries — the framework-free sibling libraries, one disclosure.
 //
-// The Drawing Board (`/drawing-board/`) and the Workbench (`/workbench/`) are
-// DELIBERATELY ABSENT. Both are development-frozen and superseded by the
-// Studio (engineering/decisions/2026-07-03-studio-succession.md §4). Their
-// routes still resolve — this is a nav demotion, not a removal — so an old
-// link or bookmark keeps working until the routes are deleted (§6 P5). Do not
-// re-add them here.
+// The Drawing Board and the Workbench are GONE — the Studio succeeded both and
+// their routes were deleted (2026-07-03-studio-succession.md P5). `/drawing-board`
+// and `/workbench` now redirect to `/studio/` (astro.config.mjs), so old links and
+// bookmarks still land somewhere useful. Do not re-add them here.
 //
 // `match` lists the path segments that mark an item "current" (aria-current).
 // Docs is a SECTION: any of its pages light up the single Docs entry. Callers

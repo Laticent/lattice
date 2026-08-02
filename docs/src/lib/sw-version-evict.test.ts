@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 const SW_SRC = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'sw.js'), 'utf8');
 const ORIGIN = 'https://lattice.test';
-const ASSETS = 'lattice-v1-assets';
+const ASSETS = 'lattice-v2-assets';
 
 class MockCache {
 	store = new Map<string, unknown>();

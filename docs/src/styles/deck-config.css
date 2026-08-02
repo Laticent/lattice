@@ -1,11 +1,11 @@
 /* deck-config.css — the universal deck-setup panel (createConfigPanel in
  * docs/src/playground/deck-config.js), styled for the surfaces that DON'T already
- * carry the Drawing Board's full stylesheet: the Playground and the Workbench.
+ * carry a surface's own full stylesheet — today the Playground and the Studio.
  *
- * The Drawing Board styles the same `db-*` panel classes itself (drawing-board.css,
+ * The Drawing Board used to style the same `db-*` panel classes itself (in its own
  * unscoped). Here they're scoped under a `.deck-config` host wrapper, so the two
- * never collide: a DB panel (no wrapper) uses drawing-board.css; a Playground /
- * Workbench panel (host has `.deck-config`) uses this. All values resolve through
+ * never collided: a DB panel (no wrapper) used that sheet; a host carrying
+ * `.deck-config` uses this. All values resolve through
  * the page palette tokens, present on every route. */
 
 .deck-config .db-settings-note {

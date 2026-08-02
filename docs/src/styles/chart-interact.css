@@ -1,7 +1,7 @@
 /* Chart interaction popover — SHARED across every surface that mounts
-   createChartInteract (chart-interact.js): the Drawing Board
+   createChartInteract (chart-interact.js): the Drawing Board (now removed)
    (present/practice + live preview) AND the Playground live preview. It lived in
-   drawing-board.css, so the Playground rendered the popover UNSTYLED (a
+   its own stylesheet, so the Playground rendered the popover UNSTYLED (a
    full-width block off-screen). Keep it here and import it from every page that
    hosts the interaction so the popover looks the same everywhere.
 

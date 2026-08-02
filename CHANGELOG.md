@@ -102,6 +102,24 @@ in patch versions.
   actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
   the conversion path, so it is fixed rather than filed.
 
+### Removed
+
+- **Breaking: the Drawing Board (`/drawing-board/`) and the Workbench (`/workbench/`) are
+  gone — the Studio succeeds both.** Both routes now redirect to `/studio/`, so existing
+  links, bookmarks and the installed app's shortcuts still land somewhere useful, but the
+  surfaces themselves no longer exist. The Studio has matched or exceeded them for some time
+  (the Workbench's Theme and Layout studios are re-implemented more deeply in Fabricate, over
+  the same generated cores and saving to the same library), and both had been
+  development-frozen. What does **not** carry over: the Drawing Board's per-deck **chat
+  history**, which lived in its own IndexedDB store. Everything else is either shared already
+  or unaffected — **library assets (themes, components, finishes) are untouched**, because the
+  Studio reads the very same `lattice-workbench` IndexedDB store the Workbench wrote to; that
+  name is user data and deliberately does not change. Any decks left in the Drawing Board's
+  `lattice-drawing-board` store are **not deleted** — the removal drops no stores, and the
+  origin's IndexedDB outlives the page that wrote it. The **service worker version is bumped
+  to v2**, which drops the old runtime caches: without it an offline visitor would keep being
+  served a cached shell for a route whose code no longer ships.
+
 ### Changed
 
 - **The Studio's Architect chat now argues from the same facts the Coach shows, and stops

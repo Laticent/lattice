@@ -14,8 +14,8 @@
  *                                            [--delay <ms>]
  *
  * Example (after starting the docs dev server on :4321):
- *   node tools/screenshot.js http://127.0.0.1:4321/lattice/drawing-board/ \
- *     .scratch/drawing-board.png --width 1440 --height 900
+ *   node tools/screenshot.js http://127.0.0.1:4321/lattice/studio/ \
+ *     .scratch/studio.png --width 1440 --height 900
  *
  * Then view the PNG with the Read tool (it renders inline) or SendUserFile.
  *

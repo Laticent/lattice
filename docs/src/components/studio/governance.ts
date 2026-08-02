@@ -31,7 +31,7 @@ import { clearAllDecks, deckContentStats } from './studio-store';
 // assert this literal still matches sw.js's VERSION — sw.js's own comment says
 // VERSION bumps whenever the caching strategy changes, and nothing else enforces
 // the two staying in sync; a silent drift would misclassify every cache entry.
-export const SITE_CACHE_PREFIX = 'lattice-v1-';
+export const SITE_CACHE_PREFIX = 'lattice-v2-';
 
 async function cacheNames(): Promise<string[]> {
 	if (typeof caches === 'undefined') return [];

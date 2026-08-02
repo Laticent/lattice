@@ -32,9 +32,15 @@
  * is bump-EXEMPT: it only changes HOW already-valid IMMUTABLE entries are served — none
  * becomes wrong — and a bump would force a needless one-time full re-download of the
  * whole cache (the very storm this reduces).
+ *
+ * v1 → v2 (2026-08-02): the /drawing-board/ and /workbench/ routes were DELETED. The
+ * runtime page cache is not purged by a deploy, so an offline visitor with either page
+ * cached would keep being served a dead shell whose JS chunks are gone — a half-evicted
+ * route that fails in place rather than redirecting. Dropping the old caches on activate
+ * is the only way to retire them; the cost is one full re-download, accepted deliberately.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const PAGES = `lattice-${VERSION}-pages`;
 const ASSETS = `lattice-${VERSION}-assets`;
 const FONTS = `lattice-${VERSION}-fonts`;

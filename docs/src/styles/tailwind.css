@@ -176,8 +176,7 @@
 	 * that arm cannot reach them at all — tracked separately.)
 	 *
 	 * SCOPE, measured: controls inside an `.lx-ui` island, on EVERY surface and at
-	 * every width — ~205 nodes in the Studio on a phone, and the Workbench (37) and
-	 * Drawing Board's export menu (7) too, both frozen apps. It is not touch-only and
+	 * every width — ~205 nodes in the Studio on a phone. It is not touch-only and
 	 * not Studio-only. Prose stays selectable: the editor, chat transcript, code
 	 * blocks, panel bodies, inputs, and sheet headings (a drawer's <h2> still selects).
 	 * One case sits on the line and is accepted deliberately: the Studio slide rail's

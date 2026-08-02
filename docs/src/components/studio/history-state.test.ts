@@ -64,12 +64,11 @@ describe('history.state is preserved by the URL scrubs', () => {
 		// The roster is prose in a header, and its own text records having been wrong three
 		// commits running. This checks the count it claims against the tree.
 		const roster = read('lib/overlay-back.ts');
-		const claimed = /FOUR call sites still do this/.test(roster);
+		const claimed = /TWO call sites still do this/.test(roster);
 		expect(claimed, 'the roster wording changed — re-count and update this test with it').toBe(true);
 
 		const files = [
 			'components/playground/PlaygroundApp.tsx',
-			'playground/theme-studio.js',
 			'components/studio/StudioShell.tsx',
 			'components/studio/architect.ts',
 		];
@@ -78,11 +77,11 @@ describe('history.state is preserved by the URL scrubs', () => {
 				.filter((arg) => !/history\.state/.test(arg))
 				.map(() => rel),
 		);
-		// PlaygroundApp has two; theme-studio one; the two fixed sites contribute none.
+		// PlaygroundApp has two; the two fixed sites contribute none. theme-studio.js was
+		// the third, and it was deleted with the Workbench rather than fixed.
 		expect(dropping.sort()).toEqual([
 			'components/playground/PlaygroundApp.tsx',
 			'components/playground/PlaygroundApp.tsx',
-			'playground/theme-studio.js',
 		]);
 	});
 });

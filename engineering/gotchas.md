@@ -665,7 +665,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
     `container-type: size` element cannot query itself, so a bare `cqi`/`cqh` in a
     declaration applied to the `<section>` falls back to the initial containing block
     — the HOST VIEWPORT in a browser. `docs/src/playground/deck-preview.js` (the
-    filmstrip: Playground, Drawing Board) gives its iframe the PANE's width and scales
+    filmstrip: Playground, Studio) gives its iframe the PANE's width and scales
     each `<section>` inside it, while `docs/src/lib/single-slide-render.ts` (the
     Studio, the landing hero, component specimens) pins its iframe to the slide box and
     scales the IFRAME ELEMENT. So `--frame-inset-y` — and `--footer-reserve`, which is
@@ -922,18 +922,18 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Lesson:** "the slot selector doesn't match the render" usually means the slot
   documents *input*, not *output* — not that the component is broken.
 
-### Charts export black/unstyled from the Studio / Drawing Board image PDF or PPTX
+### Charts export black/unstyled from the Studio image PDF or PPTX
 
 - **Symptom:** A deck exported through the browser's one-click image PDF (or PPTX) renders every CSS-only slide perfectly, but SVG **chart** slides come out corrupted: radar/pie shapes solid black, gradient fills gone, the chart drawn at the wrong scale, axis/label text huge and overlapping in default black. The same deck renders the charts perfectly in the live preview AND through lattice-emulator.
 - **Cause:** html-to-image (the export rasterizer's clone step) inlines computed styles onto **HTMLElements only** — nested `SVGElement`s keep just their classes/attributes. Chart styling lives in the stylesheet (`chart-family.css`) and gradient `<stop>`s carry raw `var()` expressions, so the serialized clone loses all of it: unspecified `fill` paints SVG-default black, unresolvable `var()` stops go black, the CSS-sized root (viewBox, no width/height attributes) rescales, and label font-sizes vanish. Mermaid/function-plot survive because they embed their own `<style>` **inside** the svg, which `cloneNode` keeps.
-- **Mitigation:** `flattenChartSvgs` (drawing-board-export.js `sectionsOf`) bakes every stylesheet-styled chart `<svg>` in the capture frame with `flattenSvgStyles` — the "download chart as SVG" kernel (`standalone-svg.js`): computed paint/text inlined, gradient stops probe-resolved to literal rgb — and pins the root's layout box. Skips svgs that carry their own `<style>`. If you add a NEW way for deck content to depend on document-level CSS from inside an `<svg>` (or a new svg-emitting component), it must either self-style or be covered by this flatten; the `chart-export` e2e journey pins the mechanism. For any export-pipeline change, eyeball `test/fixtures/export-coverage-deck.md` through the real Share → PDF (see `engineering/visual-review.md` § The export surface).
+- **Mitigation:** `flattenChartSvgs` (studio/export/deck-export.js `sectionsOf`) bakes every stylesheet-styled chart `<svg>` in the capture frame with `flattenSvgStyles` — the "download chart as SVG" kernel (`standalone-svg.js`): computed paint/text inlined, gradient stops probe-resolved to literal rgb — and pins the root's layout box. Skips svgs that carry their own `<style>`. If you add a NEW way for deck content to depend on document-level CSS from inside an `<svg>` (or a new svg-emitting component), it must either self-style or be covered by this flatten; the `chart-export` e2e journey pins the mechanism. For any export-pipeline change, eyeball `test/fixtures/export-coverage-deck.md` through the real Share → PDF (see `engineering/visual-review.md` § The export surface).
 - **Triggered by:** Any stylesheet-styled inline `<svg>` (the chart family) in a deck exported via the browser image pipeline. Found exporting the jargon gallery on an iPhone — masked until the export-crash fix (#709) let large decks finish; pre-existing all along.
 - **Removable when:** html-to-image inlines computed styles for SVGElements too (upstream), or the capture pipeline is replaced by something that carries the document stylesheet.
 - **Commits:** The chart-flatten branch (#715); mechanism regression-pinned by `docs/e2e/journeys/chart-export.spec.ts` (verified to fail on the pre-fix build).
 
-### Drawing Board PDF/PPTX export shows fallback type on some slides
+### Studio PDF/PPTX export shows fallback type on some slides
 
-- **Symptom:** A deck exported from the docs-site Drawing Board (Export →
+- **Symptom:** A deck exported from the docs-site Studio (Share →
   PDF or PowerPoint) renders *most* type correctly but a face drops to a
   system fallback on a subset of slides — classically, a `finish: sketch`
   deck keeps its Caveat headings but the Shantell Sans **body** goes clean
@@ -941,7 +941,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   This is the **web-export** twin of the offline-font fallback gotcha
   above ("A rendered PDF shows serif/fallback type") — same symptom,
   different render path and fix.
-- **Cause:** The image exporters (`docs/src/playground/drawing-board-
+- **Cause:** The image exporters (`docs/src/components/studio/export/deck-
   export.js`) rasterize every slide through `html-to-image`, including
   off-screen ones they force-visible mid-loop. Marp's template lazy-loads
   each web-font face only when the *active* slide needs it, and the export
@@ -968,7 +968,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Note:** This is docs-export-scoped. The published engine and its
   Google-Fonts `@import` are unchanged; npm consumers load from Google.
 
-### Drawing Board / playground LIVE PREVIEW shows hand-body decks in a system sans
+### Studio / playground LIVE PREVIEW shows hand-body decks in a system sans
 
 - **Symptom:** A `finish: sketch` deck in the docs-site live preview shows
   hand-drawn *headings* but a clean-sans *body* (and clean eyebrows, pills,
@@ -993,7 +993,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   'Shantell Sans'")` resolves to `0 face(s)` — proof the face isn't registered.
   `document.fonts.check(...)` is a trap here: it returns `true` for an
   unregistered family (it reports the system fallback as "ready").
-- **Fix:** Register the vendored faces in the iframe directly. The Drawing Board
+- **Fix:** Register the vendored faces in the iframe directly. The preview host
   passes a `@font-face` block (built from `previewFontFaceCss()`, referencing the
   bundled woff2 by URL) through `data.previewFontCss` into `writeFrame`'s srcdoc;
   `single-slide-render.ts` (hero / restyle / field-card islands / specimens)
@@ -1069,9 +1069,9 @@ iframe touch, and re-resolves `cqi` under `zoom`; real iOS does none of these). 
 is the index; each row points to its detailed entry below.
 
 **The preview builders** (`SANCTIONED_PREVIEW_BUILDERS`, `tools/check-ownership.js`):
-`deck-preview.js` (Playground + Drawing Board filmstrip — scales each `<section>`),
+`deck-preview.js` (Playground + Studio filmstrip — scales each `<section>`),
 `single-slide-render.ts` (Studio — scales the iframe ELEMENT), `presenter-window.js`
-(Present), `drawing-board-practice.js` / `drawing-board-focus.js` (rehearsal/focus).
+(Present + rehearsal stage).
 Non-browser render paths (the emulator/PDF export, VS Code marp preview) have their
 own traps, flagged where relevant.
 
@@ -1094,7 +1094,7 @@ own traps, flagged where relevant.
 |---|---|---|
 | iOS won't deliver a touch **INTO** a transform-scaled iframe | any scaled | **parent-hosted capture surface** + `elementsFromPoint` mapping (undo scale with math, not event delivery) — `debug-overlay.js`; decision `2026-07-01-debug-bounding-boxes.md` |
 | `position:fixed` doesn't track an iframe's **internal** scroll on iOS → overlay strands | filmstrip | `position:absolute` at **document coordinates** (`getBoundingClientRect + scrollY`) so it scrolls with content |
-| Tapping an in-slide external `<a href>` **navigates the frame → blank** (frame-blocked site) | filmstrip (Playground + Drawing Board) | preview-only **link guard** (`linkGuardAgent`) opens `http(s)` taps in a real top-level tab (§ "Tapping an in-slide link blanks") |
+| Tapping an in-slide external `<a href>` **navigates the frame → blank** (frame-blocked site) | filmstrip (Playground + Studio) | preview-only **link guard** (`linkGuardAgent`) opens `http(s)` taps in a real top-level tab (§ "Tapping an in-slide link blanks") |
 | Preview won't scroll after opening a modal sheet on iOS | Playground | make preview-side sheets **non-modal** (§ "won't scroll after … settings sheet") |
 | Focusing a **sub-16px text control auto-zooms the whole page** on iOS | any standalone page | global coarse-pointer ≥16px net in `landing.css` + per-CodeMirror-theme bump (§ "Tapping an input zooms the page on iOS") |
 
@@ -1103,7 +1103,7 @@ own traps, flagged where relevant.
 | Trap | Surfaces | Workaround |
 |---|---|---|
 | **Live iframe embeds (video playback, arbitrary HTML) are stripped from slide HTML** | all | `sanitizeSlideHtml` `FORBID_TAGS` (`iframe`/`object`/`embed`) + the DSL gate — **BY DESIGN** (HARD RULE #22). You can NEVER put a live embed inside a slide. **To play video anyway → mount the player in the PARENT, over the poster** (`docs/src/playground/video-overlay.js`, `createVideoOverlay`): the in-iframe link guard calls `window.__videoPlay(poster)`, the parent builds an **allow-listed** provider embed (`embedSrc` — nocookie URL from the parsed video id ONLY, never the raw href) and positions a real `<iframe>` player over the poster's mapped rect. Sidesteps #22 (player isn't slide HTML → never sanitized), the iOS scaled-iframe touch trap (player is unscaled parent DOM — works over the scaled filmstrip, no unscaled-Present surface needed), and nested-iframe (no embed inside the srcdoc). Export keeps the static poster. Same parent-hosted pattern as debug-overlay / chart-interact. |
-| `@font-face` `@import` order in the srcdoc drops the vendored sketch faces | Drawing Board | register the vendored faces in the iframe directly (§ "shows hand-body decks in a system sans") |
+| `@font-face` `@import` order in the srcdoc drops the vendored sketch faces | filmstrip hosts | register the vendored faces in the iframe directly (§ "shows hand-body decks in a system sans") |
 | Reusing one iframe via `document.write` strands window state | any embedder | use `iframe.srcdoc` (a fresh browsing context per write) |
 | A new preview builder that skips `sanitizeSlideHtml` | all | run it before injecting (gate: § "not a sanctioned preview builder") |
 
@@ -1959,28 +1959,6 @@ means "no gap logged for the runtime route", never "the preview is complete.
   `pre code` or eyebrow code.
 - **Commits:** introduced c5512e04, reverted in this change.
 
-### Drawer close buttons jammed left — a `.db-spacer` flex rule scoped to the wrong parent
-
-- **Symptom:** In the Drawing Board's slide-in drawers (Settings, Decks),
-  the close button (`×`) sat immediately to the right of the panel title
-  instead of being pushed to the far right edge of the drawer head — most
-  obvious on mobile, where the title and `×` huddle on the left and a wide
-  gap yawns to the right.
-- **Cause:** Each drawer head (`.db-drawer-head`) is a flex row that uses a
-  `<span class="db-spacer">` to shove the close button to the end. But the
-  only rule giving the spacer flex-grow was scoped **`.db-panel-head
-  .db-spacer { flex: 1 1 auto }`** — i.e. only when the spacer's parent was
-  `.db-panel-head` (the editor/Architect/Slides panel headers). Inside a
-  `.db-drawer-head` the same `.db-spacer` had zero growth, collapsed to 0px,
-  and the close button fell back against the title.
-- **Mitigation:** Generalize the rule to plain **`.db-spacer { flex: 1 1
-  auto }`** (`docs/src/styles/drawing-board.css`). A "spacer" should grow in
-  *any* flex row; in a non-flex parent `flex` is simply inert, so the
-  un-scoping is safe. Both drawer heads now right-align their close buttons.
-- **Triggered by:** Opening the Settings or Decks drawer in the Drawing
-  Board (`docs/src/pages/drawing-board.astro`).
-- **Removable when:** Never — this is the correct rule, not a workaround.
-
 ### `var(--fg)` is undefined — SVG `fill`/`stroke` silently falls back to black/none
 
 - **Symptom:** An SVG element styled with `fill: var(--fg)` renders solid
@@ -2640,14 +2618,13 @@ means "no gap logged for the runtime route", never "the preview is complete.
 
 ### Docs-site preview/export rendered 4K decks oversized + cropped
 
-- **Symptom:** A `size: 4K` deck in the docs-site **Drawing Board** or
-  **Playground** (not VS Code — the browser preview) rendered ~3× too large and
-  overflowed the pane; the Drawing Board's PDF/PPTX export captured only the
-  top-left ninth of each slide. HD looked fine.
+- **Symptom:** A `size: 4K` deck in a docs-site browser preview (not VS Code)
+  rendered ~3× too large and overflowed the pane; the image PDF/PPTX export
+  captured only the top-left ninth of each slide. HD looked fine.
 - **Cause:** The owned engine resolves `@size` correctly and emits a real
   `article.lattice > section { width: 3840px; height: 2160px }`, but every browser
-  host that fit-scales and exports the slide **hardcoded 1280×720**: the Drawing
-  Board FIT used `sc = w / 1280`, `frame-css.js` pinned `.lattice>section{width:
+  host that fit-scales and exports the slide **hardcoded 1280×720**: the filmstrip
+  FIT used `sc = w / 1280`, `frame-css.js` pinned `.lattice>section{width:
   1280px}` (which silently LOST to the engine scaffold's `article.lattice > section`
   at 0,1,2 vs 0,1,1 — so the box was really 3840 but scaled as if 1280), and the
   exporter rasterized a 1280×720 crop onto a 1280×720 jsPDF page. At HD every
@@ -2657,10 +2634,10 @@ means "no gap logged for the runtime route", never "the preview is complete.
   host derives its fit divisor, intrinsic/`contain-intrinsic-size` box, `@page`
   size, and export raster/page size from that. `frame-css.js` exposes
   `slideBox(w,h)` / `singleSlideFrame(w,h)` (the HD constants stay for the
-  fixed-specimen studios). The Drawing Board + Playground inject
-  `window.__SLIDE_W/H` into the iframe for FIT/SYNC; the Drawing Board also folds
-  the geometry into its preview rebuild `sig`, so a `size:` edit triggers a full
-  srcdoc rewrite (not a section-only patch that would leave stale globals).
+  fixed-specimen studios). The filmstrip hosts inject `window.__SLIDE_W/H` into
+  the iframe for FIT/SYNC, and fold the geometry into the preview rebuild `sig`,
+  so a `size:` edit triggers a full srcdoc rewrite (not a section-only patch that
+  would leave stale globals).
 - **Triggered by:** Any non-HD `size:` (`4K`, `standard`/4:3) in a browser host.
   The owned engine's emulator PDF path was unaffected (it sizes the Puppeteer
   viewport from `@size`).
@@ -2669,7 +2646,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 
 ### Playground preview won't scroll on iOS after opening a settings sheet
 
-- **Symptom:** On the **/playground** (Workbench) — NOT the Drawing Board — load a
+- **Symptom:** On the **/playground** — load a
   deck (e.g. the jargon gallery), scroll the preview (fine), open **Galleries** or
   **Deck setup**, change something (e.g. slide size), close the sheet → the preview
   is now frozen. It scrolls again only once focus leaves it (tap elsewhere) or after
@@ -2681,8 +2658,8 @@ means "no gap logged for the runtime route", never "the preview is complete.
   adds non-passive `touchmove` `preventDefault` listeners to block background scroll
   (iOS ignores `overflow:hidden` for touch). On iOS Safari that touch-block lingers
   after the dialog closes until a focus change or a long timeout, freezing the
-  preview. The vanilla **Drawing Board** uses no Radix dialog, so it's immune — the
-  tell that distinguished the two surfaces. Confirmed in Playwright WebKit:
+  preview. The (now removed) vanilla Drawing Board used no Radix dialog and was
+  immune — the tell that originally distinguished the two surfaces. Confirmed in Playwright WebKit:
   `body[data-scroll-locked]` was `"1"` while the modal Deck-setup sheet was open.
 - **Fix:** Make the playground's preview-side sheets **non-modal** — `modal={false}`
   on the `<Sheet>` Root + `overlay={false}` on `<SheetContent>` (a new opt-out prop
@@ -2783,7 +2760,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
   against a later rule re-enabling selection — unlayered CSS outranks `@layer base`) and
   measured in `docs/e2e/touch-chrome.spec.ts` on the `webkit-phone` project.
 - **Note the boundary:** this only reaches `.lx-ui` islands. A surface outside them —
-  the Drawing Board's tab bars, the site header menu, anchors styled as buttons — still
+  tab bars, the site header menu, anchors styled as buttons — still
   selects on long press. For an anchor that is usually *wanted* (iOS's link action sheet
   offers Open / Copy Link); for a non-`.lx-ui` control it is the same bug, unfixed.
 
@@ -2819,7 +2796,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 
 ### Tapping an in-slide link blanks the live preview on iOS
 
-- **Symptom:** On the **/playground** (or Drawing Board filmstrip) on an iPhone,
+- **Symptom:** On the **/playground** (or Studio filmstrip) on an iPhone,
   pick a component that carries a real link — the `video` poster is the obvious one
   (a big `<a href="https://youtube…">` tap target), but `contact`/`qr`/`closing`
   links do it too — the slide renders fine, then **tapping the link blanks the whole
@@ -2943,12 +2920,13 @@ justification. The same gate also fires if a *listed* builder drops its
 that only assigns a builder's output to `.srcdoc` (no `<script>` injection of its
 own) is not a builder and needs no entry.
 
-### Drawing Board Architect/Coach panels dead in `astro dev` (CJS over `/@fs`)
+### A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)
 
-- **Symptom:** In `astro dev` (local docs preview), the Drawing Board's whole
-  left rail — the Architect, the Coach chips, the config drawer — is inert:
-  `window.__dbArchitect` and `window.__dbConfig` are `undefined`, while
-  `__dbStore`/`__dbEditor` are fine. The console shows
+- **Symptom:** In `astro dev` (local docs preview), a whole `<script>` block's
+  panels are inert while their neighbours are fine. Originally seen on the (now
+  removed) Drawing Board, whose entire left rail went dark; the trap is not
+  surface-specific and bites any docs surface that imports a repo CJS core
+  directly. The console shows
   `The requested module '/@fs/.../lib/authoring/lint-core.js' does not provide
   an export named 'default'`. The **deployed/built** site works — it's dev-only.
 - **Cause:** That `<script>` block imported the repo's pure CommonJS authoring
@@ -3013,7 +2991,7 @@ own) is not a builder and needs no entry.
 ### Playground preview serves a STALE engine bundle (a 200, not a 404)
 
 - **Symptom:** In `astro dev`, after you rebuild the engine (`npm run build`
-  at the repo root, or any edit under `lib/`), the Playground/Workbench preview
+  at the repo root, or any edit under `lib/`), the Playground/Studio preview
   renders with the **old** engine: front matter shows up as visible text,
   `finishes:` / deck-class directives don't apply, and `window.LatticePlayground`
   is missing newer API. Nothing 404s — the network tab is all 200s — so it
@@ -3047,7 +3025,7 @@ own) is not a builder and needs no entry.
 
 
 
-- **Symptom:** An agent concludes a web-UI change (Drawing Board, Workbench,
+- **Symptom:** An agent concludes a web-UI change (the Studio, the Playground,
   landing) is "unverifiable in this headless environment" and hands off to a
   desktop session for the visual check. **This is wrong** — the sandbox can
   build, run, and screenshot the Astro site.

@@ -330,8 +330,8 @@ hand-written transforms + CSS above, not manifest-driven placement; see `forms.m
 ## Docs-site render bridges
 
 The docs site (`docs/`, a separate Astro + React package) renders live deck
-previews on five surfaces (landing, playground, drawing board, both workbench
-studios, component specimens). After the shadcn migration (#319–#325) and the
+previews on three surfaces (landing, playground, the Studio, plus component
+specimens). After the shadcn migration (#319–#325) and the
 deck-preview consolidation (#331/#335) these share one render stack — a render
 fix lands once, not per surface (see
 `engineering/decisions/2026-06-14-deck-preview-consolidation.md`):
@@ -362,12 +362,10 @@ fix lands once, not per surface (see
   `docs/src/lib/single-slide-render.alignment.test.ts` and the "A live preview
   prints 1 as the page number" entry in `engineering/gotchas.md`.
 - **Multi-slide filmstrip** — `docs/src/playground/deck-preview.js` (patch-vs-
-  rewrite, FIT/SYNC agents, content-visibility). Backs the playground, drawing
-  board, and both workbench studios (see `2026-06-13-shared-deck-preview.md`).
-- **Drawing-board controller** — `docs/src/playground/drawing-board-render.js`
-  (`createRenderController`): the render loop over `deck-preview.js` plus the
-  DB-specific token-flip (universal vocabulary) and cursor↔slide sync. The
-  `.astro` page is a thin deferred-module bootstrap that imports it.
+  rewrite, FIT/SYNC agents, content-visibility). Backs the playground and the
+  Studio (see `2026-06-13-shared-deck-preview.md`). The Drawing Board's vanilla
+  render controller was deleted with its route (P5 of the Studio succession);
+  the Studio drives the same filmstrip from React.
 
 This is docs-site plumbing, distinct from the engine transform kernels above.
 

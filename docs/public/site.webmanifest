@@ -16,7 +16,6 @@
 	],
 	"shortcuts": [
 		{ "name": "New deck", "url": "/studio/?new=1", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-		{ "name": "Drawing Board", "url": "/drawing-board/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
 		{ "name": "Docs", "url": "/overview/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
 	]
 }

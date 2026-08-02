@@ -11,7 +11,7 @@
  * Scope is deliberately the chrome controls only. Today that's just the menu
  * glyph (the component-reference drawer toggle, .cnav-toggle-bars) — the site
  * header's own icons are lucide-react inside the <NavActions> island. The
- * larger inline-icon set (the `.ico` system, Drawing-Board glyphs) stays in
+ * larger inline-icon set (the `.ico` system) stays in
  * landing.css — it's used in standalone-page markup the docs zone doesn't
  * render. To add a chrome icon, drop its Lucide children into a new
  * `--icon-<name>` here. */

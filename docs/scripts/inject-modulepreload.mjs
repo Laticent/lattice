@@ -59,7 +59,6 @@ const ENTRIES = [
 		// feature a user opts into, unlike Fabricate's lazy tab.
 		eagerDynamicImportSuffixes: ['src/playground/authoring-core.generated.js'],
 	},
-	{ page: 'workbench/index.html', sourceSuffix: 'src/components/workbench/WorkbenchApp.tsx' },
 	// PlaygroundIsland is the StrictMode wrapper the astro-island loads; it
 	// statically imports PlaygroundApp, so the app + its deps stay covered.
 	{ page: 'playground/index.html', sourceSuffix: 'src/components/playground/PlaygroundIsland.tsx' },
