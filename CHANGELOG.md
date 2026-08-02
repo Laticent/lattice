@@ -169,6 +169,7 @@ in patch versions.
   transformation at the export boundary, never in the format, with a copy-paste Marp kit
   and a template deck shipping in `dist/`.
   `engineering/decisions/2026-08-02-marp-reference-register.md`.
+
 - **The landing page leads with the Studio — two doors into one engine, not three products.** The
   hero's primary call to action moves from the Playground to **Open the Studio** and gains a router
   line that assigns each door its job ("Write, review, and present a deck in a browser tab — that's
@@ -210,6 +211,7 @@ in patch versions.
   resolves to — "Auto — Rainbow" — so the deck's value is legible without opening the deck
   Inspector. (#1293)
 >>>>>>> 5c01de0 (docs(decisions): record the slide class taxonomy, and scope the four deferred issues)
+
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
   Playground are now inline top-level links on every surface — Studio first, keeping its honest
