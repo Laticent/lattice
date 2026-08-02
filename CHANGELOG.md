@@ -202,6 +202,17 @@ in patch versions.
   - Demo deck: `examples/universal-table.md`. Rationale and measurements:
     `engineering/decisions/2026-08-02-default-slide-layout.md` §4.
 
+- **`examples/seven-steps-problem-to-code.md`** — a 17-slide teaching deck of The Seven Steps,
+  the problem-to-code methodology from Hilton, Lipp & Rodger (Duke ECE and CS). Written for
+  mentees rather than as a component showcase, and shaped like `bloom-engineering-journey`: a
+  run of seven `split-panel proof` slides walks the steps one per slide (closing on `capstone`
+  for Debug), split at the method's real seam — steps 1–4 happen on paper, 5–7 at the keyboard.
+  A `diagram` slide carries the paper's own flowchart with its back-edges, and a `compare-table`
+  turns those back-edges into a diagnostic ("where you are → what it feels like → go back to").
+  Exercises `split-panel proof`/`capstone`'s automatic categorical tint sequence at seven
+  entries — one past the six the bloom deck runs. The paper-side `premise` ledger is four rows
+  rather than all seven: `premise` warns at seven (soft capacity 6), and `list-tabular`, its
+  documented escalation, overflows the frame at seven rows of this density.
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because
   re-parsing the whole deck on every keystroke costs ~46ms per keypress on a 40-slide deck. But
