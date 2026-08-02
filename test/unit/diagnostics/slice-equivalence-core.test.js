@@ -79,6 +79,87 @@ test('synthesizePrelude at slide 0 is empty — nothing precedes it', () => {
   assert.equal(core.synthesizePrelude(['<!-- header: Q3 -->'], 0, VOCAB), '');
 });
 
+// ── The supplied deck position ───────────────────────────────────────────────
+// These three moved here from docs/src/lib/single-slide-render.ts, where they had NO direct unit
+// coverage at all — they were exercised only through a browser render path and three Playwright
+// specs. They are the shipped repair for the "1 of 1" bug, and the headless sweep now calls the
+// same copy, so a change here moves `npm run equiv` as well as the Studio.
+
+test('positionIsTrustworthy needs a slide count it can compare against', () => {
+  assert.equal(core.positionIsTrustworthy('# One', undefined), false);
+  assert.equal(core.positionIsTrustworthy('# One', 0), false);
+});
+
+test('positionIsTrustworthy accepts a plain deck whose chunk count the caller agrees with', () => {
+  assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two\n\n---\n\n# Three', 3), true);
+});
+
+test('positionIsTrustworthy refuses when the caller counts a different number of slides', () => {
+  // The two splitters already disagree, so "slide k" does not identify section k.
+  assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two', 3), false);
+});
+
+test('positionIsTrustworthy refuses a `_focusSteps` deck — one slide becomes one per step', () => {
+  assert.equal(core.positionIsTrustworthy('<!-- _focusSteps: 3 -->\n# One', 1), false);
+});
+
+test('positionIsTrustworthy refuses every hr form the `\\n---\\n` splitter cannot see', () => {
+  // markdown-it breaks on all of these; the caller's splitter breaks on none. Either side
+  // miscounts, so the position must not be supplied.
+  for (const rule of ['***', '___', '- - -', '--- ']) {
+    assert.equal(core.positionIsTrustworthy(`# One\n\n${rule}\n\n# Two`, 1), false, rule);
+  }
+});
+
+test('positionIsTrustworthy refuses a chunk carrying two top-level headings — heading split is the DEFAULT', () => {
+  // The bug this pins: gating on a `split: headings` PROBE let this through, because heading
+  // splitting needs no directive. The engine renders three sections; the caller counts two slides;
+  // the preview printed "2 of 2" where the truth was "3 of 3".
+  assert.equal(core.positionIsTrustworthy('# One\n\n## Also One\n\n---\n\n# Two', 2), false);
+});
+
+test('positionIsTrustworthy accepts that same deck once it opts OUT of heading splitting', () => {
+  const deck = '---\nsplit: rule\n---\n\n# One\n\n## Also One\n\n---\n\n# Two';
+  assert.equal(core.positionIsTrustworthy(deck, 2), true);
+});
+
+test('positionIsTrustworthy ignores a heading inside a fence', () => {
+  assert.equal(core.positionIsTrustworthy('# One\n\n```md\n# Not a heading\n```\n', 1), true);
+});
+
+test('deckSectionFor is undefined for a deck with no dividers — no rail to supply', () => {
+  assert.equal(core.deckSectionFor('# One\n\n---\n\n# Two', 1), undefined);
+});
+
+test('deckSectionFor counts dividers at or before the shown slide', () => {
+  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- _class: divider -->\n# B\n\n---\n\n# b1';
+  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 2 });
+  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 2 });
+  assert.deepEqual(core.deckSectionFor(deck, 2), { index: 2, total: 2 });
+  assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 });
+});
+
+test('deckSectionFor bails when a divider appears inside code — FAIL SAFE, not fail wrong', () => {
+  // As a probe, matching a divider in prose cost a wasted parse and produced correct output. As a
+  // COUNTER the same match paints an extra dot and bumps the watermark glyph — wrong output.
+  const deck = '<!-- _class: divider -->\n# A\n\n---\n\nWrite `<!-- _class: divider -->` to divide.';
+  assert.equal(core.deckSectionFor(deck, 1), undefined);
+});
+
+test('deckSectionFor token-tests the class, exactly as the tiles do', () => {
+  // `divider-lite` and `section-divider` are not `divider`; a substring match would count them.
+  assert.equal(core.deckSectionFor('<!-- _class: divider-lite -->\n# A\n\n---\n\n# B', 1), undefined);
+  assert.deepEqual(core.deckSectionFor('<!-- _class: cover divider -->\n# A\n\n---\n\n# B', 1), { index: 1, total: 1 });
+});
+
+test('supplyablePosition composes the three fields, or hands over nothing', () => {
+  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1';
+  assert.deepEqual(core.supplyablePosition(deck, 1, 2), { offset: 1, total: 2, deckSection: { index: 1, total: 1 } });
+  assert.equal(core.supplyablePosition(deck, undefined, 2), undefined);
+  assert.equal(core.supplyablePosition(deck, -1, 2), undefined);
+  assert.equal(core.supplyablePosition(deck, 1, 5), undefined, 'an untrusted count supplies nothing at all');
+});
+
 // ── normalizeSection ─────────────────────────────────────────────────────────
 const PAGED_A = '<section id="3" data-lattice-pagination="3"><span class="lat-pagination">3</span></section>';
 const PAGED_B = '<section id="7" data-lattice-pagination="9"><span class="lat-pagination">9</span></section>';
@@ -88,35 +169,43 @@ test('normalizeSection hides nothing by default', () => {
   assert.match(core.normalizeSection(PAGED_A), /id="3"/);
 });
 
-test('the sweep neutralizers collapse a page-number difference — that is their job', () => {
-  assert.equal(core.normalizeSection(PAGED_A, core.PROTOTYPE_NEUTRALIZERS), core.normalizeSection(PAGED_B, core.PROTOTYPE_NEUTRALIZERS));
+test('the neutralizer set KEEPS a page-number difference — that is the finding, on both surfaces', () => {
+  // THE PIN THAT MATTERS. `pagination` used to be neutralized for the headless sweep, back when the
+  // sweep could not repair it: the supply functions lived in docs/src and the sweep rendered every
+  // slice with no position. Hiding it there meant breaking `positionIsTrustworthy` outright moved
+  // `equiv:check` by 0.0 points. Now both surfaces supply the position, so a page number that still
+  // differs is a REAL failure of the repair — and this assertion is what keeps it visible. If this
+  // ever equals, the sweep is back to measuring the pre-#1272 engine and the overlay has gone blind
+  // to the single most likely thing it exists to catch.
+  assert.notEqual(core.normalizeSection(PAGED_A, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(PAGED_B, core.RESIDUAL_NEUTRALIZERS));
 });
 
-test('the overlay neutralizers KEEP a page-number difference — that is the finding', () => {
-  // The load-bearing asymmetry. If this ever equals, the author-facing overlay has gone blind to
-  // a wrong page number, which is the single most likely thing it exists to catch.
-  assert.notEqual(core.normalizeSection(PAGED_A, core.SHIPPED_NEUTRALIZERS), core.normalizeSection(PAGED_B, core.SHIPPED_NEUTRALIZERS));
-});
-
-test('the overlay neutralizers still drop the positional id — the one unshipped residual', () => {
-  const a = '<section id="3"><p>x</p></section>';
-  const b = '<section id="9"><p>x</p></section>';
-  assert.equal(core.normalizeSection(a, core.SHIPPED_NEUTRALIZERS), core.normalizeSection(b, core.SHIPPED_NEUTRALIZERS));
-});
-
-test('the sweep neutralizers drop the progress rail; the overlay keeps it', () => {
+test('the neutralizer set KEEPS the progress rail — same reason', () => {
   const withRail = '<section><div class="tile-progress"><i></i></div><p>x</p></section>';
   const without = '<section><p>x</p></section>';
-  assert.equal(core.normalizeSection(withRail, core.PROTOTYPE_NEUTRALIZERS), core.normalizeSection(without, core.PROTOTYPE_NEUTRALIZERS));
-  assert.notEqual(core.normalizeSection(withRail, core.SHIPPED_NEUTRALIZERS), core.normalizeSection(without, core.SHIPPED_NEUTRALIZERS));
+  assert.notEqual(core.normalizeSection(withRail, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(without, core.RESIDUAL_NEUTRALIZERS));
 });
 
-test('whitespace between blocks is neutralized on both surfaces', () => {
+test('the neutralizer set hides exactly the two residuals with no shipped repair', () => {
+  // Named, and compared as a whole set rather than key-by-key: an ADDED key re-blinds a surface to
+  // a repair that ships, which is the regression this pair of files is built to prevent. Removing
+  // one is the good direction (`ids` is what seedRenderIds would take off), so it is meant to fail
+  // here and be re-pinned deliberately.
+  assert.deepEqual(core.RESIDUAL_NEUTRALIZERS, { ids: true, whitespace: true });
+  assert.equal(core.PROTOTYPE_NEUTRALIZERS, undefined, 'the prototype/shipped split is retired — one set, both surfaces');
+  assert.equal(core.SHIPPED_NEUTRALIZERS, undefined, 'the prototype/shipped split is retired — one set, both surfaces');
+});
+
+test('the neutralizer set still drops the positional id — the residual seedRenderIds would close', () => {
+  const a = '<section id="3"><p>x</p></section>';
+  const b = '<section id="9"><p>x</p></section>';
+  assert.equal(core.normalizeSection(a, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(b, core.RESIDUAL_NEUTRALIZERS));
+});
+
+test('whitespace between blocks is neutralized', () => {
   const a = '<section>\n\t<p>x</p>\n</section>';
   const b = '<section><p>x</p></section>';
-  for (const set of [core.PROTOTYPE_NEUTRALIZERS, core.SHIPPED_NEUTRALIZERS]) {
-    assert.equal(core.normalizeSection(a, set), core.normalizeSection(b, set));
-  }
+  assert.equal(core.normalizeSection(a, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(b, core.RESIDUAL_NEUTRALIZERS));
 });
 
 // ── sectionsOf / classifyDivergence / firstDivergence ────────────────────────
@@ -354,10 +443,12 @@ test('splitSlides handles CRLF decks', () => {
 });
 
 test('the rail neutralizer survives a nested <div> inside the rail', () => {
-  // lib/core/split-envelope.js documents and refuses the non-greedy form for exactly this.
+  // lib/core/split-envelope.js documents and refuses the non-greedy form for exactly this. No
+  // caller passes `rail: true` today — both surfaces keep the rail visible — but the option is the
+  // depth-aware one, and the day something needs it again the trap must not have been re-laid.
   const withRail = '<section><div class="tile-progress"><div><i></i></div></div><p>x</p></section>';
   const without = '<section><p>x</p></section>';
-  assert.equal(core.normalizeSection(withRail, core.PROTOTYPE_NEUTRALIZERS), core.normalizeSection(without, core.PROTOTYPE_NEUTRALIZERS));
+  assert.equal(core.normalizeSection(withRail, { rail: true }), core.normalizeSection(without, { rail: true }));
 });
 
 test('synthesizePrelude ignores a directive shown inside a fenced code block', () => {

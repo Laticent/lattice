@@ -578,6 +578,11 @@ prelude would repair. That asymmetry is itself an argument for having built both
 
 ### What the sweep cannot detect — measured, and load-bearing
 
+> **CLOSED by Amendment 4 (2026-08-02).** Both findings below were true when written and are no
+> longer: the sweep now runs the shipped repair and neutralizes neither `pagination` nor `rail`.
+> The section is kept verbatim because the *measurements* in it are what justified the fix, and
+> because "a diagnostic that cannot fail" is a class worth being able to recognize again.
+
 A Munger inversion of the shipped diagnostic asked what would have to be true for the headless half
 to be *incapable* of catching a real defect. Two things, and both are true:
 
@@ -630,6 +635,10 @@ different subjects.
 **The one place they must NOT agree.** Both compare normalized renders, but they neutralize
 different things, and this is load-bearing rather than incidental:
 
+> **RETIRED by Amendment 4 (2026-08-02).** The asymmetry below existed only because the sweep
+> could not repair what it hid. Once it supplies the position, both surfaces neutralize the same
+> two residuals and the pair collapsed to one `RESIDUAL_NEUTRALIZERS`.
+
 | | headless sweep | author overlay |
 |---|---|---|
 | positional `id="N"` | hidden | hidden (no shipped repair yet) |
@@ -658,3 +667,85 @@ differ*, quoting the exact loss — `data-header="Q3 Board Review"` present in t
 from the slice. That is §5's thesis rendered visible: it is precisely what the prelude synthesizer
 would repair. The fourth branch — slice route *and* a difference — was **not** reachable on a real
 deck, since producing it requires a registry hole; it is UNVERIFIED on a real surface.
+
+---
+
+## Amendment 4 (2026-08-02): the sweep now runs the code that ships, and it can fail
+
+Amendment 3 recorded two properties of the headless sweep that together made it incapable of
+catching a regression in anything a user touches: it never executed the shipped repair, and ~81 of
+its 91.9 points were neutralizer. Both are now closed, and the fix was one change with two halves
+that only work together.
+
+**The supply functions moved to the shared core.** `positionIsTrustworthy`, `deckSectionFor` and
+`supplyablePosition` were pure string functions over the deck source that happened to live in
+`docs/src/lib/single-slide-render.ts` — a browser module the Node CLI cannot import. That accident
+of placement, not any design decision, is what left the sweep rendering all 1201 corpus slides with
+no supplied position. They now live in `lib/diagnostics/slice-equivalence-core.mjs` beside the rest
+of the shared core, the Studio imports them, and the corpus walk hands the engine the same `page`
+the Studio's slice route does (HARD RULE #1). `DECK_DERIVED_FACTS` deliberately did **not** move:
+the sweep renders every slide as a slice on purpose, because that is what makes its rate the
+*residual*.
+
+**The neutralizer pair retired.** `PROTOTYPE_NEUTRALIZERS` hid `pagination` and `rail`;
+`SHIPPED_NEUTRALIZERS` kept them. With the position supplied, hiding them would neutralize exactly
+the difference a broken repair produces — so both sets collapsed to one `RESIDUAL_NEUTRALIZERS`
+(`ids`, `whitespace`), which is what neither surface can repair yet. The asymmetry the unit tests
+pinned was never a design principle; it was a symptom of the sweep's blindness, and it went away
+with the blindness.
+
+### The falsification, which is the actual deliverable
+
+A green run proves nothing about a guard. Two mutations, each run against the re-blessed baseline:
+
+| mutation | `positions` | rate | `equiv:check` |
+|---|---|---|---|
+| none | 1201 | 91.9% | passes |
+| `positionIsTrustworthy` → `return false` | **0** | **10.4%** (−81.5) | **FAILS** |
+| `deckSectionFor` → `return undefined` | 1201 | **67.5%** (−24.4) | **FAILS** |
+
+The first mutation is the originally reported bug fully restored — every slide back to "1 of 1".
+Against the tool as it shipped in #1298 it moved **0.0 points and passed**. The second is the check
+that the rate *alone* carries weight, not just the exact-field comparison: `positions` is untouched
+there and the 1.5-point band still catches it by 16×.
+
+`positions` joins `decks` / `slides` / `preludes` as an exact-match field in the baseline, for the
+same reason those are: it is the number that tells a reader whether the percentage means anything.
+At 0, the tool is measuring the pre-#1272 engine no matter how healthy the rate looks — which is
+precisely the state it was in when Amendment 3 was written, undetected.
+
+### What the rate did, and why it barely moved
+
+91.9% → 91.9%, and the coincidence is worth reading rather than glossing:
+
+| bucket | before | after |
+|---|---|---|
+| generated ids (`seedRenderIds` row) | 44 | 41 |
+| unclassified | 46 | 51 |
+| `cat-N` (categorical hue) | 5 | 5 |
+| watermark glyph | 2 | 0 |
+
+The supplied position repairs pagination and the rail on very nearly the same slides the
+neutralizers used to hide them on — that is what "the neutralizer asserts what ships" meant, and the
+assertion turns out to have been accurate. The watermark bucket going to zero is the visible gain:
+those two slides differed on a glyph driven by the running divider count, which `deckSectionFor` now
+supplies. What the number no longer is, is *free*: it is now 91.9% because the repair works, not
+because the difference was hidden.
+
+### Still not a CI gate, but for a different reason
+
+Amendment 3 argued it could not produce a true alarm at its own resolution. That argument is gone —
+a broken repair now moves it by 24 to 81 points against a 1.5-point band. What is left is weaker and
+honest: the sweep's subject is a diagnostic prototype rather than a shipped surface, and a corpus
+edit moves the rate, so it stays on-demand alongside `bench` and `quality`. The gates for
+user-visible behavior remain the unit tier, the Studio e2e specs, and the author-facing overlay
+(HARD RULE #23 — a rate is not a painted pixel).
+
+### Coverage the move bought for free
+
+`positionIsTrustworthy` and `deckSectionFor` had **no direct unit coverage** in `docs/src`. They
+were exercised only through a browser render path and three Playwright specs, which meant every rule
+in them — the `_focusSteps` bail, the four unrecognized `hr` forms, the default-heading-split count,
+the divider-inside-code fail-safe, the `divider-lite` token test — rode on an end-to-end assertion
+about a painted number. In the pure core they are directly testable, and
+`test/unit/diagnostics/slice-equivalence-core.test.js` now pins each of those rules by name.

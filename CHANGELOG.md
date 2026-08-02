@@ -78,16 +78,19 @@ in patch versions.
     (`test/benchmark/slice-equivalence.json`), `equiv:check` fails on a drop beyond 1.5 points.
     On-demand, not a CI gate — the same shape as `bench` and `quality`.
   - Both sit on one pure core (`lib/diagnostics/slice-equivalence-core.mjs`), so the browser and
-    the terminal cannot drift into disagreeing about what "the same" means. They deliberately
-    neutralize *different* things: the sweep hides the repairs that already ship; the overlay leaves
-    them in, because a wrong page number is precisely what an author turns it on to find.
-  - **The sweep is not a regression gate, and now says so.** It imports only the engine and the
-    shared core — never the shipped repair in the preview path — so breaking that repair outright
-    moves its number 0.0 points. Most of the rate is neutralizer besides: 91.9% blessed, 11.0%
-    without the pagination neutralizer, 67.5% without the rail one. It prints the active neutralizer
-    set and the prelude count (**0 of 1201** — no committed deck exercises the prototype) on every
-    run, so neither claim can quietly go stale. What it measures is the residual for the *general
-    mechanism*; the gates for user-visible behavior are the unit tier, the Studio e2e specs, and the
+    the terminal cannot drift into disagreeing about what "the same" means — including *what may be
+    handed to a slice render*: `positionIsTrustworthy`, `deckSectionFor` and `supplyablePosition`
+    are shared, so the sweep applies the same repair the Studio does before it compares anything.
+  - **The sweep can fail, and that was verified by breaking it.** Its first cut could not: it
+    imported only the engine and the shared core, while the repair lived in the preview path, so
+    every one of the 1201 corpus slides was rendered with no supplied position and stubbing that
+    repair out moved the number **0.0 points**. Now stubbing `positionIsTrustworthy` to `return
+    false` — every slide back to "1 of 1", the original bug in full — takes it **91.9% → 10.4%**,
+    and stubbing the rail supply takes it to **67.5%**, against a 1.5-point band. The run header
+    prints the supplied-position count, the prelude count (**0 of 1201** — no committed deck
+    exercises the prelude prototype) and the neutralizer set, so none of those claims can quietly go
+    stale. It stays on-demand because its subject is a diagnostic prototype and a corpus edit moves
+    it; the gates for user-visible behavior remain the unit tier, the Studio e2e specs, and the
     overlay.
 
 ### Fixed
