@@ -2,13 +2,13 @@ import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
-import { ChangeSet, EditorSelection as CmSelection, Compartment, EditorState } from '@codemirror/state';
+import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, scrollPastEnd } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
 import { editorTheme } from './editor-theme';
-import { slideEditableOffset, slideIndexAt, slideStartOffset } from './lint';
+import { slideEditableOffset, slideIndexAt } from './lint';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
 // lazily imported the first time the editor validates — surfaces that never lint
@@ -255,18 +255,22 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const v = viewRef.current;
 			if (!v) return;
 			const doc = v.state.doc.toString();
-			const from = Math.min(slideStartOffset(doc, index), v.state.doc.length);
-			const nextStart = slideStartOffset(doc, index + 1);
-			const to = Math.min(nextStart > from ? nextStart - 1 : v.state.doc.length, v.state.doc.length);
-			// Framing parks the caret at the slide START (cheap, and the framing effect
-			// below is what the eye follows). A FOCUSING reveal — the preview picker —
-			// instead lands on the first editable line, so the caret is somewhere worth
-			// typing rather than inside the `_class` directive (#1291).
-			const caret = opts?.focus ? Math.min(slideEditableOffset(doc, index), v.state.doc.length) : from;
+			const caret = Math.min(slideEditableOffset(doc, index), v.state.doc.length);
 			lastSlideRef.current = index;
+			// Put the slide's first EDITABLE line at the top of the viewport, and park the
+			// caret on it. Two things this deliberately does NOT do:
+			//
+			//   • It does not center the whole slide range. Centering means the slide you
+			//     just picked shows up mid-screen with the PREVIOUS slide's tail above it,
+			//     and how much of it you see depends on how long it happens to be. `y:
+			//     'start'` on the editable line is the same answer every time.
+			//   • It does not gate the caret on `focus`. Setting a selection costs nothing
+			//     on a touch device — only `.focus()` raises the software keyboard — so
+			//     bundling the two (as this did) silently removed the caret placement on
+			//     tablets along with the keyboard, which is the regression that followed.
 			v.dispatch({
 				selection: { anchor: caret },
-				effects: EditorView.scrollIntoView(CmSelection.range(from, to), { y: 'center' }),
+				effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }),
 			});
 			if (opts?.focus) v.focus();
 		},
