@@ -59,5 +59,12 @@ section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-
  * which divider.docs.md explicitly tells authors still renders. A selector
  * copying divider's usual before-heading form would have excluded one of the
  * three and left the other two capped; the shape they all share is a paragraph
- * whose only child is a code span, so that is what this matches. */
-section.divider.light p:has(> code:only-child) { max-width:none; text-wrap:normal; }
+ * whose only child is a code span, so that is what this matches.
+ *
+ * `text-wrap:wrap`, NOT `normal`: `text-wrap` is a shorthand over text-wrap-mode
+ * (wrap|nowrap) and text-wrap-style (auto|balance|stable|pretty), and `normal` is
+ * in neither — the declaration parses as invalid and is DROPPED, leaving the
+ * eyebrow with the subtitle rule's `balance`. `wrap` resets both halves
+ * (mode:wrap, style:auto). Caught by review; the first cut shipped the dead
+ * `normal`. */
+section.divider.light p:has(> code:only-child) { max-width:none; text-wrap:wrap; }

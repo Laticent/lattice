@@ -33,9 +33,16 @@ section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message)
  * subtitle's readable-width cap (--measure-bookend-lede), which the portrait
  * type-boost overflows into a two-line wrap with a dangling separator. (title's
  * subtitle has no cap, so its eyebrow never wrapped — this restores parity.)
- * text-wrap:normal — balance on a one-line label is a no-op at best, and if a
- * long eyebrow ever does wrap, an even split reads as a heading, not a label. */
-section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; text-wrap:normal; }
+ * text-wrap:wrap — balance on a one-line label is a no-op at best, and if a
+ * long eyebrow ever does wrap, an even split reads as a heading, not a label.
+ * `wrap`, NOT `normal`: `text-wrap` is a shorthand over text-wrap-mode
+ * (wrap|nowrap) and text-wrap-style (auto|balance|stable|pretty), and `normal`
+ * is in neither list — `CSS.supports('text-wrap','normal')` is false, so the
+ * declaration parses as invalid, is DROPPED, and the eyebrow silently keeps the
+ * subtitle rule's `balance`. `wrap` resets both halves (mode:wrap, style:auto),
+ * which is the reset this wants. Caught by review; the first cut shipped the
+ * dead `normal`. */
+section.closing h2 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; max-width:none; text-wrap:wrap; }
 section.closing h2 + p:has(> code:only-child) > code {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
