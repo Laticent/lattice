@@ -111,16 +111,49 @@ describe('mermaid init-directive: readAuthorInit', () => {
       { theme: 'base' });
   });
 
-  test('a malformed directive with a long whitespace run parses in linear time', () => {
-    // The old pattern wrapped the payload group in `\s*` on both sides, so
-    // whitespace was matchable by two adjacent quantifiers: with no closing
-    // `}%%`, 2 000 spaces did not finish in two minutes — one bad fence could
-    // hang a build. 200 000 chars must now be effectively instant.
-    const hostile = `%%{init: ${' '.repeat(200000)}X`;
-    const started = Date.now();
-    assert.deepEqual(readAuthorInit(hostile), { present: true, config: null });
-    const elapsed = Date.now() - started;
-    assert.ok(elapsed < 1000, `expected linear scan, took ${elapsed}ms`);
+  test('every hostile-input class scans in linear time', () => {
+    // Locating directives is an indexOf walk, not a regex, because EVERY regex
+    // of the shape `%%\{…:(payload-until-`}%%`)\}%%` is polynomial on author
+    // text: with no terminator, the engine rescans to end-of-string from every
+    // candidate start. Measured before the rewrite: 20 000 repeated `%%{init:`
+    // prefixes took 5.9 s, on the build path, from deck source.
+    const N = 50000;
+    const hostile = {
+      'repeated opener':   '%%{init:'.repeat(N),
+      'whitespace run':    `%%{init: ${' '.repeat(N)}X`,
+      'brace run':         `%%{init:${'}'.repeat(N)}`,
+      'bare openers':      '%%{'.repeat(N),
+      'openers + payload': `${'%%{init:'.repeat(N)}{"theme":"forest"}}%%`,
+    };
+    for (const [name, input] of Object.entries(hostile)) {
+      const started = Date.now();
+      readAuthorInit(input);
+      const elapsed = Date.now() - started;
+      assert.ok(elapsed < 1000, `${name}: expected a linear scan, took ${elapsed}ms`);
+    }
+  });
+
+  test('a deeply nested payload degrades instead of exhausting the call stack', () => {
+    // deepMerge recurses, and this runs on author deck content (including
+    // untrusted Playground input) — so an uncaught RangeError is a crash, not a
+    // bad diagram. TWO deep directives are needed to make it recurse at all: with
+    // one, the first assignment short-circuits because the destination key is
+    // absent. Reported by Copilot on #1314.
+    const D = 40000;
+    const deep = `${'{"a":'.repeat(D)}1${'}'.repeat(D)}`;
+    const src = `%%{init: ${deep}}%%\n%%{init: ${deep}}%%\nflowchart TB`;
+    assert.deepEqual(readAuthorInit(src), { present: true, config: null });
+    assert.doesNotThrow(() => authorPinsTheme(src));
+    assert.doesNotThrow(() => withEngineInit(src, ENGINE));
+  });
+
+  test('`initfoo:` is not an init directive', () => {
+    // We require the keyword to stand alone. Mermaid's own type test is an
+    // UNANCHORED /init\b/, so it is looser here — being stricter is the safe
+    // direction: an undetected directive means we inject ours FIRST and mermaid
+    // still lets the author's win, so the palette lands either way.
+    assert.equal(readAuthorInit('%%{initfoo: {"theme":"forest"}}%%').present, false);
+    assert.match(withEngineInit('%%{initfoo: {"theme":"forest"}}%%', ENGINE), /^%%\{init: /);
   });
 
   test('payload whitespace is trimmed in code, since the regex no longer does it', () => {

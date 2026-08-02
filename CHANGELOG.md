@@ -121,7 +121,11 @@ in patch versions.
   whitespace was matchable by two adjacent quantifiers — a directive with a long whitespace run and no
   closing `}%%` sent the regex engine into quadratic backtracking, and one bad fence could hang a
   build (measured: 2 000 spaces did not finish in two minutes; 200 000 now parse in 2 ms). The group
-  is bounded by its literal terminator alone and the payload is trimmed in code. (b) **Prototype-
+  is now located by a linear `indexOf` walk rather than a regex at all: every pattern of the shape
+  `%%{…:(payload-until-`}%%`)}%%` rescans to end-of-string from each candidate start, so a fence with
+  many `%%{init:` prefixes cost O(n²) — 20 000 of them took 5.9 s. Bounding a quantifier only caps
+  the constant; the walk removes the class (50 000 now scan in 1 ms). A deeply nested payload also
+  degrades to "unparseable" instead of exhausting the call stack. (b) **Prototype-
   polluting assignment.** `JSON.parse` creates a real own `__proto__` property, so merging a payload
   with `out[k] = v` replaced the merged config's prototype with author-controlled data —
   `%%{init: {"__proto__": {"theme": "forest"}}}%%` would have made `config.theme` read `forest` off
