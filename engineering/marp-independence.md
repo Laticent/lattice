@@ -39,7 +39,7 @@ cataloged in full in
 | First-party render (CLI · emulator · playground) | **owned engine** | `lib/engine/` |
 | `marp.config.js` (BYO marp-cli render path) | **retired** | deleted; the owned engine is the only render path |
 | Export-to-Marp (#250 / #257) | **stays — generates recipient bundles** | the bundle pins marp-cli for the *recipient*, not for us; its generated config ships no engine — the deck is **rendered by the recipient's Marp**, and the bundle carries the minified `lattice.css` + themes, the browser runtime, and Mermaid for fidelity. There is **no bundled emulator** (`lib/core/marp-bundle.js`). |
-| VS Code live preview | **clean handoff, KNOWN CEILING** | the Export-to-Marp bundle is self-contained — anyone who wants Marp tooling exports it and runs Marp on the far side of the boundary. What the handoff delivers is now measured, not assumed: `npm run pdf` / `npm run html` in the bundle carry every component layout, the deck-wide registers, and Mermaid (marp-cli drives a real headless browser, so the runtime executes) with **the exceptions `lib/core/marp-fidelity.js` enumerates** (deliberately not a number here — it moved from six to seven to six again inside two changes, and a hardcoded count in prose drifts silently); the ledger is the source and the generated bundle README prints it; the marp-vscode PREVIEW pane is palette + CSS only, because its webview executes no scripts. See §5 Cost 3 and `engineering/gotchas.md`. |
+| VS Code live preview | **clean handoff, KNOWN CEILING** | the Export-to-Marp bundle is self-contained — anyone who wants Marp tooling exports it and runs Marp on the far side of the boundary. What the handoff delivers is now measured, not assumed: `npm run pdf` / `npm run html` in the bundle carry every component layout, the deck-wide registers, and Mermaid (marp-cli drives a real headless browser, so the runtime executes) with **the exceptions `lib/core/marp-fidelity.js` enumerates** (deliberately not a number here — it moved from six to seven to six again inside two changes, and a hardcoded count in prose drifts silently); the ledger is the source and the generated bundle README prints it; the marp-vscode PREVIEW pane is *believed* to be palette + CSS only, on the reading that its webview blocks scripts — **UNVERIFIED and contested**, see `engineering/gotchas.md`. See §5 Cost 3 and `engineering/gotchas.md`. |
 
 **Marp is fully externalized.** We render every first-party path; Marp is an
 optional *export target* a user hands off to (VS Code, marp-cli) — its own thing,
@@ -100,19 +100,24 @@ are shared and stay — the honest delta is the marp tree only.)
 2. **Ecosystem labor** — community, plugins, docs, and browser-compat are ours alone.
 3. **Marp-compatibility tax** — marp-core is a genuinely different renderer,
    and every difference is ours to absorb. A `lattice-runtime.js` DOM mirror
-   is the only way to make a transform look right on any Marp surface (**2,064
+   is the only way to make a transform look right on any Marp surface (**2,182
    lines**, a dozen dual-kernel test files, a permanent CSS-selector ban, a
    Chromium-91 feature ceiling on the whole runtime bundle) — all still real,
-   still paid. **Corrected 2026-08-02:** this line said "~800 lines" from
-   2026-07-09 until a checker re-measured `lib/runtime/index.js` and found
-   **2,064**. Nobody had recounted it, and the figure had propagated into a
-   downstream audit. It is the number that prices this cost line and that the
-   keep-marp-vscode call was weighed against, so it is worth re-measuring
-   rather than re-citing (`engineering/decisions/2026-08-02-marp-reference-register.md` §5). **Corrected 2026-07-29 (#1256):** this line used to say the
-   mirror makes a transform look right "in the vscode preview." It does not —
-   that webview executes no scripts, so the preview is CSS-only no matter how
-   many mirrors we write. What a mirror actually buys is the exported HTML and
-   marp-cli's `pdf`/`html` output. The same audit found two further taxes
+   still paid. **Corrected 2026-08-03:** this line read "~800 lines" from
+   2026-07-09 until a re-measure found **2,182** — the figure had never been
+   recounted and had propagated into a downstream audit. A first correction
+   wrote 2,064 and was stale within hours, because that branch rebased onto a
+   commit which grew the file by 148 lines. It prices this whole cost line and
+   the keep-marp-vscode call was weighed against it, so **run `wc -l` rather
+   than citing this number**
+   (`engineering/decisions/2026-08-02-marp-reference-register.md` §5).
+   **Corrected 2026-07-29 (#1256):** this line used to say the mirror makes a
+   transform look right "in the vscode preview." It does not help there *if*
+   the webview blocks scripts — a claim `engineering/gotchas.md` itself now
+   flags as **UNVERIFIED and contested**, so treat it as unsettled rather than
+   as the fact this paragraph once asserted. What a mirror definitely buys is
+   the exported HTML and marp-cli's `pdf`/`html` output, which drive a real
+   headless browser. The same audit found two further taxes
    nobody had priced: marp-core escapes raw HTML by default (so the bundle's
    own runtime `<script>` tags printed as text), and its selector scoper
    cannot handle a leading `:is(section…)` (so ~835 rules — the whole chart

@@ -26,5 +26,5 @@ state-chart · pie · quadrant · radar · timeline · word-cloud**.
   This branch carries onyx's curation and the canvas-aware fill engine work;
   indaco's `themes/indaco.css` curation is intentionally kept in the separate
   PR. Once both merge, regenerating these decks reproduces them exactly.
-- Rendered through the marp-cli path (`marp.config.js`); the emulator path
-  produces pixel-identical output for the same palette.
+- Rendered through the owned engine (`node lattice-emulator.js`). The marp-cli
+  path these decks were first rendered through was retired in P4.
