@@ -277,6 +277,29 @@ it. Verified on the owned engine by running the real `packTheme`
 `article.lattice > section…` intact. Export through **real marp-cli is
 UNVERIFIED**: `@marp-team/marp-core` is not installed in this sandbox.
 
+#### The corpus ratchet is RED on this branch, and it is `main`'s red
+
+After rebasing onto `main` at `7648100`, the ratchet reports one deck above
+baseline: `examples/marp-export-fidelity.md` p1 — a `title finish-none` slide with
+a heading and a lede, **no table on it**. Bisected against the same deck, same
+content, CSS only:
+
+```
+dist/lattice.css @ 7648100^ (before #1309)   →  no overflow
+dist/lattice.css @ 7648100  (#1309, on main) →  p1 CLIPPED
+```
+
+So it is `#1309` — *anchor(bookends): measure in em, not cqi* — regressing a
+shipped deck, and it is red on `main` today for every branch that rebases. This
+change adds **zero** clips of its own: that one deck is the entire delta, and the
+seven specialist galleries pixel-diff to 0 against the post-#1309 `main`.
+
+Deliberately **not** blessed and **not** fixed here. It is a pre-existing defect
+this branch merely found, off the path of a table treatment, and the repair is a
+judgment call about `--measure-bookend-lede` that belongs with whoever owns the
+bookend measures — pulling it into this diff would breach both HARD RULE #18's
+off-path rule and #17.
+
 #### Recorded, not fixed
 
 - A table inside `split-panel` / `split-compare` / `compare-code` / `image` lands
