@@ -600,81 +600,126 @@ describe('overflow-probe: scale invariance (the host may transform the slide)', 
 });
 
 describe('probeContentClipped — did the clip actually CUT anything?', () => {
-  // The geometry probe answers "did the box overflow"; this one answers the
-  // narrower question the READER register needs: was anything readable or visible
-  // actually cut. On the shipped corpus those disagree on 18 slides, which is the
-  // whole reason this exists — a `kpi` stage overflows by 282-416px of padding with
-  // every glyph inside the frame, and a "Content clipped" tag there is untrue.
+  // A REAL DOM, not element fakes. The first implementation of this probe walked
+  // element leaves, and fakes shaped `{ children: [], textContent }` made that look
+  // correct — while in the real engine `breaks: true` gives every wrapped paragraph
+  // <br> children, so the text-owning element is not a leaf and the probe went blind
+  // to most prose in the product. The fixtures could not express the bug, so they
+  // could not catch it. These build actual nodes and stub only the geometry, which
+  // jsdom does not compute.
+  const { JSDOM } = require('jsdom');
+
+  // Text occupies its parent element's box — enough to model "does this line cross
+  // the clip edge" without a layout engine.
+  function mount(html, rects, { clipBoxes = [] } = {}) {
+    const dom = new JSDOM('<!doctype html><body>' + html + '</body>');
+    const { window } = dom;
+    const doc = window.document;
+    for (const [sel, r] of Object.entries(rects)) {
+      for (const el of doc.querySelectorAll(sel)) el.__rect = r;
+    }
+    window.Element.prototype.getBoundingClientRect = function () {
+      return this.__rect || { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 };
+    };
+    window.Range.prototype.getClientRects = function () {
+      const host = this.startContainer.parentElement;
+      const r = host?.__rect;
+      return r ? [r] : [];
+    };
+    const clipSet = new Set(clipBoxes.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    const prevGCS = global.getComputedStyle;
+    global.getComputedStyle = (el) => ({
+      overflowY: clipSet.has(el) ? 'clip' : 'visible',
+      overflowX: 'visible',
+      position: el.dataset?.pos || 'static',
+      display: 'block',
+      visibility: 'visible',
+    });
+    return { doc, restore: () => { global.getComputedStyle = prevGCS; } };
+  }
   const rect = (top, bottom, left = 0, right = 100) => ({
     top, bottom, left, right, width: right - left, height: bottom - top,
   });
-  // A content leaf: no element children, some text, a rect.
-  const leaf = (text, r, cls = []) => ({
-    tagName: 'P', textContent: text, children: [],
-    classList: { contains: (c) => cls.includes(c) },
-    matches: () => false,
-    getBoundingClientRect: () => r,
-  });
-  // A clip box holding leaves. querySelectorAll('*') yields its leaves.
-  const box = (r, leaves) => ({
-    getBoundingClientRect: () => r,
-    querySelectorAll: (sel) => (sel === '*' ? leaves : []),
-  });
-  const section = (r, leaves, cells = []) => ({
-    getBoundingClientRect: () => r,
-    querySelectorAll: (sel) => (sel === '*' ? leaves : sel === CLIP_CELL_SELECTOR ? cells : []),
-  });
-
-  function withClipping(run) {
-    const prev = global.getComputedStyle;
-    global.getComputedStyle = () => ({ overflowY: 'clip', overflowX: 'visible', position: 'static', display: 'block', visibility: 'visible' });
-    try { return run(); } finally { global.getComputedStyle = prev; }
-  }
+  const run = (html, rects, opts) => {
+    const { doc, restore } = mount(html, rects, opts);
+    try {
+      return probeContentClipped(doc.querySelector('section'), CLIP_CELL_SELECTOR, 12);
+    } finally { restore(); }
+  };
 
   test('padding-only overflow is NOT a cut — the kpi case', () => {
-    // Box bottom 1000; every leaf ends well above it. The BOX may still overflow
-    // geometrically (that is the other probe's business); nothing was lost here.
-    const leaves = [leaf('218', rect(100, 300)), leaf('Adults enrolled', rect(300, 380))];
-    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
-    assert.equal(r.cut, false, 'no leaf crosses the clip line, so nothing was cut');
-    assert.equal(r.first, null);
+    const r = run(
+      '<section><p id="a">218</p><p id="b">Adults enrolled</p></section>',
+      { section: rect(0, 1000), '#a': rect(100, 300), '#b': rect(300, 380) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, false, 'no text crosses the clip line, so nothing was cut');
   });
 
-  test('a leaf past the clip line IS a cut, and it is named', () => {
-    const leaves = [leaf('fine', rect(100, 300)), leaf('lost text', rect(900, 1100))];
-    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
+  test('text past the clip line IS a cut, and it is named', () => {
+    const r = run(
+      '<section><p id="a">fine</p><p id="b">lost text</p></section>',
+      { section: rect(0, 1000), '#a': rect(100, 300), '#b': rect(900, 1100) },
+      { clipBoxes: ['section'] },
+    );
     assert.equal(r.cut, true);
-    assert.match(r.first, /lost text/, 'names the first cut node for the console');
+    assert.match(r.first, /lost text/);
+  });
+
+  test('WRAPPED prose is seen — the <br> blindness that shipped a silent PDF', () => {
+    // marp-core's breaks:true turns a soft-wrapped paragraph into text + <br> + text.
+    // The element walk skipped the <p> (it has children) and the <br>s (no text), so a
+    // cell of ordinary prose reported zero bearers and answered "nothing was cut".
+    const r = run(
+      '<section><p id="a">first line<br>second line<br>third line</p></section>',
+      { section: rect(0, 1000), '#a': rect(900, 1100) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, true, 'a wrapped paragraph carrying <br> children must still be measured');
   });
 
   test('the tolerance is honored — a hair over the line is not a cut', () => {
-    const leaves = [leaf('grazing', rect(900, 1008))];
-    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
+    const r = run(
+      '<section><p id="a">grazing</p></section>',
+      { section: rect(0, 1000), '#a': rect(900, 1008) },
+      { clipBoxes: ['section'] },
+    );
     assert.equal(r.cut, false, '8px past a 12px tolerance must not fire');
   });
 
   test('the marker its own tab draws is never the evidence', () => {
-    // The tab is appended INSIDE the section and sits at the bottom edge; counting it
-    // would make the marker self-justifying — draw a tab, measure the tab, keep it.
-    const leaves = [leaf('Content clipped', rect(980, 1040), ['overflow-tab'])];
-    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), leaves), CLIP_CELL_SELECTOR, 12));
-    assert.equal(r.cut, false);
+    const r = run(
+      '<section><div class="overflow-tab" id="a">Content clipped</div></section>',
+      { section: rect(0, 1000), '#a': rect(980, 1040) },
+      { clipBoxes: ['section'] },
+    );
+    assert.equal(r.cut, false, 'counting the tab would make the marker self-justifying');
   });
 
   test('a bounded content CELL is probed, not just the section', () => {
-    // The section fits; the cell inside it clips its own content. This is the shape
-    // the geometry probe exists for, and the content probe has to see it too.
-    const cut = leaf('cell text past the edge', rect(480, 620));
-    const cell = box(rect(0, 500), [cut]);
-    const r = withClipping(() => probeContentClipped(section(rect(0, 1000), [], [cell]), CLIP_CELL_SELECTOR, 12));
+    const r = run(
+      '<section><div class="cell-stage"><p id="a">cell text past the edge</p></div></section>',
+      { section: rect(0, 1000), '.cell-stage': rect(0, 500), '#a': rect(480, 620) },
+      { clipBoxes: ['.cell-stage'] },
+    );
     assert.equal(r.cut, true, 'a clipping cell hides its overflow from the section');
+  });
+
+  test('a replaced element cut by the box counts, with no text involved', () => {
+    const r = run(
+      '<section><div class="cell-stage"><img id="a" alt=""></div></section>',
+      { section: rect(0, 1000), '.cell-stage': rect(0, 500), '#a': rect(100, 900) },
+      { clipBoxes: ['.cell-stage'] },
+    );
+    assert.equal(r.cut, true, 'a chart or image sliced in half loses plenty with no text in it');
   });
 
   test('CONTENT_CLIPPED_SRC is injectable — no template literal in the source', () => {
     // lattice-emulator.js interpolates this source INTO a template literal, so a
-    // backtick or ${ here silently breaks the entire injected watcher.
+    // backtick or dollar-brace here silently breaks the entire injected watcher.
+    // This has already caught it twice, once in a comment warning about it.
     assert.equal(typeof CONTENT_CLIPPED_SRC, 'string');
     assert.ok(!CONTENT_CLIPPED_SRC.includes('`'), 'no backtick may appear in the injected source');
-    assert.ok(!CONTENT_CLIPPED_SRC.includes('${'), 'no ${ may appear in the injected source');
+    assert.ok(!CONTENT_CLIPPED_SRC.includes('${'), 'no dollar-brace may appear in the injected source');
   });
 });

@@ -153,6 +153,17 @@ in patch versions.
   overclaim in a different channel. Net effect on the shipped artifacts: **22 false pills
   removed** (all 12 exemplars now carry none) and **every true cut kept** — `logo`, `wifi`,
   `image-set-export` and the `overflow-fix-me` demo all still say so.
+  The probe walks **text nodes**, not element leaves. That distinction is the whole
+  correctness of it in this engine: `lib/engine/index.js` sets marp-core's `breaks: true`, so
+  every soft-wrapped paragraph and list item carries `<br>` children — which means the
+  text-owning element is not a leaf. A first cut of this probe skipped exactly those
+  elements and therefore went blind to most prose in the product, answering "nothing was cut"
+  on a cell the render was slicing mid-glyph, and making the answer depend on whether the
+  author happened to press Enter inside a paragraph. Text lives in text nodes, so they are
+  what gets measured (per-line `Range` client rects, which is what a clip actually cuts);
+  replaced elements are collected separately. All four box edges are checked, and the
+  tolerance is scaled into rect space like its sibling probe rather than being 1/k too large
+  on a transformed slide.
 - **The overflow marker's reader wording no longer promises something false.** The calm
   variant read "More below ↓", which is a scroll affordance — but `section` is
   `overflow: hidden` and the body cell is `overflow: clip`, which creates no scroll container
