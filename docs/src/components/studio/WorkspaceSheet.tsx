@@ -1,4 +1,4 @@
-import { Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { BookOpen, Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -33,6 +33,7 @@ import {
 	markBackupTaken,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	type PdfPages,
+	type Posture,
 	type StandingOverflowMarker,
 	saveInstructions,
 	saveOnDeviceInstructions,
@@ -100,6 +101,16 @@ function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm,
 
 // The two on-canvas placement-handle styles the General tab offers (mirrors the finish
 // designer's CanvasHandles): a familiar grab-knob, or a precise see-through reticle.
+// The three posture stops, as a WORKSPACE preference — which surface the Studio
+// opens on. Previously the boot stop was only ever DERIVED (first visit → Read)
+// and then silently pinned by the first use of the dial, so there was no way to
+// state a preference (#1286). Order matches the posture dial, quietest first.
+const POSTURE_CHOICES: { value: Posture; title: string; blurb: string; icon: React.ReactNode }[] = [
+	{ value: 'read', title: 'Read', icon: <BookOpen className="size-4" />, blurb: 'The deck, full-bleed — no editor. For reviewing and presenting.' },
+	{ value: 'write', title: 'Write', icon: <PencilLine className="size-4" />, blurb: 'Editor beside the preview. The default — enough to work, none of the extra chrome.' },
+	{ value: 'build', title: 'Build', icon: <PencilRuler className="size-4" />, blurb: 'The full surface — panels, activity bar, every tool docked.' },
+];
+
 const HANDLE_CHOICES: { value: HandleStyle; title: string; blurb: string }[] = [
 	{ value: 'knob', title: 'Familiar', blurb: 'A grab-handle knob — obviously draggable' },
 	{ value: 'reticle', title: 'Precision', blurb: 'A see-through crosshair for exact placement' },
@@ -209,6 +220,9 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	// The workspace default language every deck inherits — its document language + the
 	// language the AI writes in (seeded from the browser the first time; see studio-store).
 	const [language, setLanguage] = React.useState(() => loadSettings().language);
+	// Which posture the Studio opens on. Writing it here makes the stop an explicit
+	// CHOICE rather than something inferred from whether this browser has been used.
+	const [posture, setPostureState] = React.useState<Posture>(() => loadSettings().posture);
 	// How the Fabricate finish designer draws its on-canvas placement handles.
 	const [handleStyle, setHandleStyle] = React.useState<HandleStyle>(() => loadSettings().handleStyle);
 	// Share → PDF page-image format (lossless PNG / fast JPEG).
@@ -424,6 +438,36 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 										<span className="text-[11px] leading-snug text-muted-foreground"><strong className="font-semibold text-foreground">Bottom line</strong> (the answer) and <strong className="font-semibold text-foreground">The evidence</strong> (the proof) appear in the Lenses panel as <em>Starter</em> views you fill in and approve — nothing is written to a deck until you tag or approve one. Turn this off and any starter you haven’t touched is hidden across your decks; views you’ve tagged or approved stay put.</span>
 									</span>
 								</div>
+							</div>
+
+							<div className="mt-6">
+							<GroupLabel icon={<PencilLine className="size-3.5" />}>Starting mode</GroupLabel>
+							<p className="mb-3 text-xs text-muted-foreground">Which surface the Studio opens on. You can always move between them with the mode dial in the header — this is only where you start.</p>
+							<div className="grid grid-cols-3 gap-2.5">
+								{POSTURE_CHOICES.map((c) => {
+									const active = posture === c.value;
+									return (
+										<label
+											key={c.value}
+											className={cn('flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-center transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)]', active ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'border-border bg-background hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
+										>
+											<input
+												type="radio"
+												name="starting-posture"
+												value={c.value}
+												checked={active}
+												onChange={() => { setPostureState(c.value); saveSettings({ posture: c.value }); notify(`Studio opens on ${c.title}.`); }}
+												className="sr-only"
+											/>
+											<span className="text-[var(--accent)]" aria-hidden>{c.icon}</span>
+											<span className="flex flex-col gap-0.5">
+												<span className="text-[13px] font-semibold text-[var(--text-heading)]">{c.title}</span>
+												<span className="text-[11px] leading-snug text-muted-foreground">{c.blurb}</span>
+											</span>
+										</label>
+									);
+								})}
+							</div>
 							</div>
 
 							<div className="mt-6">

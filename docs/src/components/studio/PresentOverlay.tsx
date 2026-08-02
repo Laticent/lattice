@@ -519,7 +519,15 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		if (!open) return;
 		const row = slideRowRef.current;
 		if (!row || typeof ResizeObserver === 'undefined') return;
-		const measure = () => setSlideMaxW(Math.max(240, Math.min(960, Math.floor(((row.clientHeight - 12) * 16) / 9))));
+		// No upper cap: the slide takes the whole row height it is given. A hard
+		// `min(960, …)` used to hold it to 960×540 however big the window was, and
+		// because the row is `flex-1 items-center` the surplus split above and below —
+		// reading as a band of dead space over the slide, while Read mode (uncapped)
+		// filled the same window (#1282). The row's own width still bounds it (the
+		// sizer is `w-full min-w-0` inside the gutters), and the height term already
+		// reserves the caption / controls / rail dock below, so dropping the cap
+		// reclaims the space above without touching what sits underneath.
+		const measure = () => setSlideMaxW(Math.max(240, Math.floor(((row.clientHeight - 12) * 16) / 9)));
 		measure();
 		const ro = new ResizeObserver(measure);
 		ro.observe(row);

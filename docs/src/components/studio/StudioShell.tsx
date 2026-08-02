@@ -2928,9 +2928,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
 				    ABOVE this (debug-overlay.js), so it works regardless of this rule. */}
-				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
-				    "collapse editor" delivers the same-size slide in a sea of gutter
-				    (decision §5; landscape only — portrait binds to height already). */}
+				{/* The slide fills whatever the pane gives it — there is no fixed width cap.
+				    A 760px "comfort cap" used to apply unless the editor was FULLY collapsed,
+				    which made the splitter feel one-way: dragging it left shrank the slide, but
+				    dragging right did nothing until the editor hit zero and the cap fell off in
+				    one jump (#1283). The cap was grafted from the Stage runner-up for the
+				    opposite problem — "collapse editor" delivering the same-size slide in a sea
+				    of gutter (2026-07-02-resizable-editor-preview-panes.md §5) — and lifting it
+				    only at full collapse fixed that one case while leaving every intermediate
+				    drag capped. The letterbox math below already bounds growth (paneH × ratio),
+				    so removing the cap outright is what makes the drag continuous in BOTH
+				    directions without reintroducing the gutter it was added to prevent. */}
 				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden bg-background',
 					// On an iPhone in landscape the slide is the whole show — drop the card border
 					// + shadow, but KEEP `rounded-xl` so this backing box matches the live iframe's
@@ -2945,18 +2953,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// back to `100%` — the flex holder still centers a full-width box correctly,
 					// it's just not yet height-letterboxed for one frame.
 					// The live preview lives IN-FLOW inside this box (no hoisted host tracking it),
-					// so the box's own geometry IS the preview geometry. The 760px comfort cap
-					// applies except in the fill cases (Read full-bleed / cinema / editor collapsed).
+					// so the box's own geometry IS the preview geometry — and the loading
+					// placeholder, which fills this same box, tracks the drag with it.
 					style={{
 						aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`,
 						width: previewPaneSize
-							? `${Math.floor(
-									Math.min(
-										previewPaneSize.w,
-										previewPaneSize.h * previewRatioValue,
-										split.collapsed === 'a' || previewChromeless ? Infinity : 760,
-									),
-								)}px`
+							? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px`
 							: '100%',
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no

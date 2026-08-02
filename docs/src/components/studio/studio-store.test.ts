@@ -471,26 +471,39 @@ describe('studio-store — built-in deck titles (drift gate)', () => {
 
 describe('studio-store — settings', () => {
 	it('defaults then round-trips', () => {
-		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, posture: 'read' });
+		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' });
 		saveSettings({ pageNumbers: false });
 		expect(loadSettings().pageNumbers).toBe(false);
 		expect(loadSettings().validation).toBe(true); // untouched keys keep defaults
 	});
 
-	it('derives the boot posture across the three populations, and drops the legacy flag', () => {
+	it('derives the boot posture, and drops the legacy flag', () => {
 		// (1) A legacy engaged user (onboarded:true) reached the full surface → keep it → Build.
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: true }));
 		expect(loadSettings().posture).toBe('build');
 		// The retired flag is not re-persisted — no stale second source of truth beside posture.
 		saveSettings({ pageNumbers: false });
 		expect('onboarded' in JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}')).toBe(false);
-		// (2) Prior Studio use but no full surface (a saved deck index) → the calm middle → Write.
+		// (2) Prior Studio use, no full surface → Write.
 		localStorage.clear();
 		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'x', title: 'X', builtin: true }]));
 		expect(loadSettings().posture).toBe('write');
-		// (3) A true first visit (nothing stored) → the gentlest home → Read.
+		// (3) A true first visit → Write too. It used to derive Read, the gentlest
+		// home — but Read hides the editor, so the first act of every newcomer to a
+		// deck-making tool was working out how to leave the stop they were put on
+		// (#1286). Read stays one click away on the dial.
 		localStorage.clear();
-		expect(loadSettings().posture).toBe('read');
+		expect(loadSettings().posture).toBe('write');
+	});
+
+	it('an explicitly stored posture always wins over the derived default', () => {
+		// The Workspace "Starting mode" row writes this, so a deliberate Read choice
+		// must survive — the derived default only applies when nothing is stored.
+		for (const p of ['read', 'write', 'build'] as const) {
+			localStorage.clear();
+			saveSettings({ posture: p });
+			expect(loadSettings().posture).toBe(p);
+		}
 	});
 
 	it('seeds language from the browser the first time, then honors the saved pick', () => {
