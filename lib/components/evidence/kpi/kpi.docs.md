@@ -10,7 +10,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 ## Agent contract
 
-**Capacity** ~3 items at a wide @size (crowds past 4, overflows past 4).
+**Capacity** ~3 items at a wide @size (crowds past 4, overflows past 4) — past that, stats / split across slides.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 
@@ -45,7 +45,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 ## When NOT to use
 
 - **Decorative pills without status semantics.** The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
-- **A fifth metric — or a fourth that is not terse.** The supports divide whatever the title and eyebrow leave them, so count trades against label length. Three is the allowance: a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth never fits, at any label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows.
+- **A fifth metric — or a fourth that is not terse.** The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead, so the ceiling there is the manifest's own per-family number.)
 - **Reaching for attention or spotlight to carry four-plus metrics.** `attention` highlights the metric that needs the room; `spotlight` monumentalizes one number. Both spend the stage on a single tile, so the hierarchy collapses before the geometry does — treat three as the ceiling for these two.
 - **No targets, no trends.** If the KPIs carry only current values, the slide is a stats row, not a kpi dashboard. Use stats and reclaim the room.
 

@@ -33,7 +33,12 @@
       "wide": {
         "sweet": 3,
         "soft": 4,
-        "hard": 4
+        "hard": 4,
+        "escalateTo": [
+          "stats",
+          "split across slides"
+        ],
+        "note": "a 4th metric needs one pill, no eyebrow, and a one-line title"
       },
       "square": {
         "sweet": 4,
@@ -116,7 +121,7 @@
     },
     {
       "title": "A fifth metric — or a fourth that is not terse",
-      "body": "The supports divide whatever the title and eyebrow leave them, so count trades against label length. Three is the allowance: a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth never fits, at any label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows."
+      "body": "The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead, so the ceiling there is the manifest's own per-family number.)"
     },
     {
       "title": "Reaching for attention or spotlight to carry four-plus metrics",

@@ -190,13 +190,23 @@ function emitDocsHeader(m, lines) {
 /**
  * The capacity block to DOCUMENT, for a component that declares one.
  *
- * Four components (kpi, list, matrix-2x2, split-compare) carry their budget only
- * as per-family numbers under `adapt.capacity.<family>` and no flat `capacity`
- * block. `lib/authoring/lint.js` reads that shape and warns against it, so those
- * budgets are ENFORCED — but the docs generator only ever looked at the flat
- * block, so their docs.md stated no capacity at all. An author reading the doc
- * had no way to learn the number the linter would hold them to, which is the gap
- * #1277 named for kpi ("the variant has no stated allowance").
+ * Four components carry their budget only as per-family numbers under
+ * `adapt.capacity.<family>` and no flat `capacity` block, so the docs generator —
+ * which only ever read the flat block — printed no capacity for them at all. For
+ * `kpi` and `list` that is a real gap: `lib/authoring/lint.js` lifts the same
+ * per-family numbers into the vocab and `lint-core` warns against them, so an
+ * author was held to a budget the doc never stated. That is the gap #1277 named
+ * for kpi ("the variant has no stated allowance").
+ *
+ * THE AXIS IS THE GATE, and it is not a formality. `matrix-2x2` and
+ * `split-compare` also declare per-family numbers, but they carry `axisRetired`
+ * instead of `axis` — each with a paragraph of rationale for having no countable
+ * item axis (a 2×2 read is destroyed by splitting between quadrants; a
+ * split-compare's meaning lives in the cross-column read). With no axis,
+ * `lint-core`'s `countPrimaryCollection` returns 0 and the capacity rule breaks
+ * out before it can find anything — so those budgets are NOT enforced, and
+ * publishing them would state a promise nothing keeps. Requiring `axis` documents
+ * exactly the set the linter actually holds an author to, and no more.
  *
  * `wide` is the family to print: 16:9 is the box a deck is authored in, and it is
  * the one family where nothing paginates past the budget (lint-core's
@@ -205,7 +215,7 @@ function emitDocsHeader(m, lines) {
 function capacityBlock(m) {
   if (m.capacity) return { c: m.capacity, family: null };
   const fam = m.adapt?.capacity;
-  if (!fam?.wide) return null;
+  if (!fam?.wide || !fam.axis) return null;
   return { c: { axis: fam.axis, ...fam.wide }, family: 'wide' };
 }
 

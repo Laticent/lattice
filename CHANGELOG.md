@@ -128,16 +128,26 @@ in patch versions.
   lines × eyebrow): **three metrics is the allowance**, at up to a two-line title, with or without an
   eyebrow; a **fourth** fits only when everything is terse (one status pill, no eyebrow, a one-line
   title — the shape the component gallery ships); a **fifth never fits**, at any label length. Past
-  it, split across slides or use `stats`. `adapt.capacity.wide` drops from sweet 4 / soft 4 / hard 5
-  to **sweet 3 / soft 4 / hard 4** — the old `hard: 5` promised a metric the geometry cannot hold,
-  and `lint:deck` now warns at the right count. New demo deck `examples/kpi-allowance.md`.
-- **Four components' docs stated no capacity while the linter enforced one.** `kpi`, `list`,
-  `matrix-2x2` and `split-compare` declare their budget only as per-family numbers under
-  `adapt.capacity.<family>`; `lib/authoring/lint.js` reads that shape and warns against it, but
-  `tools/build-component-docs.js` only ever looked at the flat `capacity` block — so those four
-  `*.docs.md` printed no **Capacity** line at all. The generator now falls back to the `wide` family
-  numbers (16:9 is the box a deck is authored in, and the one family where nothing paginates past
-  the budget), labelled with the @size it applies to.
+  it, split across slides or use `stats` (now declared as `escalateTo`, so `lint:deck` says so too).
+  `adapt.capacity.wide` drops from sweet 4 / soft 4 / hard 5 to **sweet 3 / soft 4 / hard 4** — the
+  old `hard: 5` promised a metric that fits at no label length. **Stated plainly because the two
+  numbers disagree:** `tools/calibrate-capacity.js` holds words at `density.soft` (8) with the
+  documented two-pill target line, measures a `wide` ceiling of **3**, and flags `hard: 4` as
+  exceeding it. Both are right — 4 is the terse corner, which is exactly the shape the component
+  gallery and the manifest's own `sample` ship, and they render clean. Declaring 3 would put the
+  component's own specimen outside its own budget. The caveat is carried in the manifest's capacity
+  `note` (so it reaches the lint message) rather than left implied. New demo deck
+  `examples/kpi-allowance.md`.
+- **`kpi` and `list` docs stated no capacity while the linter enforced one.** Both declare their
+  budget only as per-family numbers under `adapt.capacity.<family>`; `lib/authoring/lint.js` lifts
+  those into the vocab and `lint-core` warns against them, but `tools/build-component-docs.js` only
+  ever looked at the flat `capacity` block — so their `*.docs.md` printed no **Capacity** line at
+  all, and an author was held to a budget the doc never stated. Both the prose generator and
+  `tools/build-docs-portal.js` (the machine catalog `AGENTS.md` points agents at) now fall back to
+  the `wide` family numbers, by the same derivation, so the two surfaces cannot state different
+  budgets. `matrix-2x2` and `split-compare` declare per-family numbers too but carry `axisRetired`
+  instead of `axis` — with no countable axis `lint-core` enforces nothing, so they are deliberately
+  left unpublished rather than promising a budget nothing keeps.
 
 ### Removed
 
@@ -228,7 +238,10 @@ in patch versions.
   and the status pills, so it measured a support tile about a third shorter than the real one and
   read a correspondingly generous ceiling. It now emits value / label / target-and-pills, matching
   the manifest skeleton and every kpi slide that ships. The measured `wide` ceiling moves 4 → 3.
-  Only kpi's calibration is affected; `BUILDERS` is keyed per component.
+  Only kpi's calibration is affected; `BUILDERS` is keyed per component. Note the same builder backs
+  `calibrate-density`, so kpi's density basis shifted with it — the per-item total still lands near
+  `w` (label `w-5` + value + a 4-word target line), so `density.soft: 8 / hard: 14` are unchanged,
+  but they were not re-measured against the new shape.
 
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The

@@ -527,10 +527,41 @@ made the allowance unmeasurable rather than merely undocumented:
 - `tools/lib/calibrate-core.js`'s `kpi` builder emitted a value and ONE nested bullet —
   a `stats` row, not a `kpi` — so it measured a support about a third short and read a
   generous ceiling. The `wide` ceiling moves 4 → 3 once it renders the real contract.
-- `tools/build-component-docs.js` read only the flat `capacity` block, so the four
-  components that declare theirs per-family (`kpi`, `list`, `matrix-2x2`,
-  `split-compare`) printed **no** Capacity line while `lint:deck` enforced one against
-  them.
+- `tools/build-component-docs.js` read only the flat `capacity` block, so `kpi` and
+  `list` — which declare theirs per-family — printed **no** Capacity line while
+  `lint-core` enforced one against them.
+
+### Why `hard: 4` when the rig says 3
+
+These disagree, and the disagreement is real rather than an error in either. The rig
+holds words at `density.soft` (8) with the documented **two-pill** target line and
+measures a `wide` ceiling of 3; the matrix says a fourth metric fits at the terse
+corner — one pill, no eyebrow, a one-line title.
+
+`hard: 4` is the number, for a reason that is about coherence rather than generosity:
+the component's own `sample` and its gallery ship 4-metric slides at exactly that
+corner, and they render clean. Declaring 3 would put the component's own specimen
+outside its own budget and light up `capacity-overflow` on the gallery it exists to
+demonstrate. Declaring 5 would promise a metric that fits at no label length. So the
+number is 4 and the caveat is carried in the capacity `note`, where `lint-core` inlines
+it into the warning, rather than left for the next reader to rediscover.
+
+`calibrate-capacity` will therefore keep flagging kpi's `hard`. That is the tool doing
+its job — it measures one point on a surface with four axes, and it says so.
+
+### What the independent checker changed (HARD RULE #18)
+
+The first cut of the docs-generator fallback published a Capacity line for **four**
+components. Two of them — `matrix-2x2` and `split-compare` — carry `axisRetired`
+instead of `axis`, each with a paragraph explaining why they have no countable item
+axis. With no axis, `lint-core`'s `countPrimaryCollection` returns 0 and the capacity
+rule breaks out before it can find anything, so those budgets are **not** enforced; and
+`axisNoun(undefined)` rendered the line as `~4 undefineds`. A window created by this
+change, in a file it merely passed through: the fallback now requires a live `axis`, so
+it documents exactly the set the linter actually holds an author to. The same check
+found that `tools/build-docs-portal.js` had been left behind, so the prose surface and
+the machine catalog `AGENTS.md` points agents at would have stated different budgets —
+both now derive it identically.
 
 ### What HARD RULE #23 caught here
 
