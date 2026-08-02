@@ -57,12 +57,71 @@ in patch versions.
 
 ### Changed
 
-- **Every Marp reference in the repo is now classified by disposition, and the 13 that were
-  factually wrong are fixed.** 668 tracked files mention Marp — but they mention it for four
-  unrelated reasons, and only one is the export target: the Export-to-Marp channel (37 files),
-  Marpit **file-format** compatibility that LFM specifies (197), the marp-vscode live-preview
-  compatibility tax (295, incl. 239 decks' `marp: true` key), and frozen history plus porting
-  provenance (120). Fixed: the shipped CLI's own header called itself a "Marp-faithful HTML
+- **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
+  register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a
+  lowering "does not exist." **Both are false.** `tools/export-marp.js` runs five transformation
+  steps before `withRuntimeScripts` is reached — `appendAutoGlossary` → `localizeAssets` →
+  `liftImageBgImages` → `bakeSplits` → `localizeFrontMatter` — and `lib/core/marp-fidelity.js`
+  names the mechanism with a coverage value called `baked` ("the export rewrites the SOURCE").
+  It already rewrites a Lattice-only front-matter key: `split: headings` comes out as
+  `split: rule` with a literal `---` inserted. The conclusion survives — nothing lowers the
+  *directive* vocabulary, so `_class` → `layout` still breaks the Marp render — but the reason is
+  now true and the work is smaller: **finish the lowering that ships**, don't build a new one.
+  Also corrected: "LFM is not Marp-**parseable**" overstated it (`spec/LFM-1.0.md` specifies
+  graceful degradation and L0-clean directives) — the accurate claim is *not Marp-renderable at
+  fidelity*; §5b's three carriers are not sufficient on their own (six `unmirrored` ledger rows,
+  and baking is a fourth carrier already in use); the runtime mirror is **2,182** lines, not the
+  2,064 a same-day correction wrote; and `lib/core/marp-bundle.js` was printing the contested
+  "the preview webview does not execute scripts" claim into **every exported bundle's README**,
+  with a merge-gating test pinning the unhedged wording. Both now state it as unconfirmed.
+  **Restored two release-note entries** (#1304, #1297) that #1296's rebase silently deleted.
+  Tool fixes: `isBinary` decoded only the first 8000 **bytes**, cutting multi-byte characters in
+  half and manufacturing U+FFFD — it silently dropped 12 tracked files including
+  `test/unit/core/marp-fidelity.test.js`; the `remove` disposition was still structurally
+  unreachable despite being certified fixed; `cross-renderer parity` is a **live** term
+  (`test/integration/parity/` ships 14 files) and flagging it made the backlog an instruction to
+  delete accurate docs; and an `OVERRIDES` pin could not protect a file from a drift signal, so
+  `ci.yml` printed a "this is a keep" reason beneath its own REWRITE verdict. Two genuine dead
+  references surfaced and were fixed (`lattice-emulator.js`, `examples/chart-theme-gallery/`).
+  `engineering/decisions/2026-08-02-marp-reference-register.md`,
+  `engineering/decisions/2026-08-03-export-fidelity-gate-scoping.md`.
+
+- **The Studio's welcome deck said 53 components; the engine ships 61 — and the landing page now
+  points every visitor at that deck.** The count is corrected, and a drift test
+  (`test/unit/playground/welcome-deck-counts.test.js`) holds it to `loadAll().length` so the two
+  can't separate again silently — the deck is a hand-written module and the catalog is generated,
+  which is exactly how they drifted apart with nothing to catch it. The same deck also carried
+  three pieces of the auto-generation vocabulary the copy review retired everywhere else
+  ("composes itself", "designs itself", "instantly"); those are rewritten with the engine as the
+  actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
+  the conversion path, so it is fixed rather than filed.
+
+### Changed
+
+- **The landing page leads with the Studio — two doors into one engine, not three products.** The
+  hero's primary call to action moves from the Playground to **Open the Studio** and gains a router
+  line that assigns each door its job ("Write, review, and present a deck in a browser tab — that's
+  the Studio. One command renders the same deck on your laptop or in CI. Same engine, same
+  slides."), with the trust line trimmed because its "laptop or CI" clause moved up into that
+  router. A new section 3, **"The same deck, without installing anything."**, proves the claim with
+  a live render of the deck the Studio actually boots into (title, slide count and slide all derived
+  from `DECKS[0]` at build time, so the page can't drift from the app), three capability rows, and a
+  trust line. "Bring your own model" keeps its own band at h2 altitude, moved up to sit directly
+  after the Studio so the page reads as one AI conversation, with one new sentence covering the
+  Studio's bring-your-own-key rules. The six
+  field cards say `Edit this in the playground`, and next-steps card 4 points at the Studio. The
+  hero eyebrow, H1, lead, and every protected line are untouched. Section bands re-alternate to
+  cover the removed one (Showcase gains `bg-muted`, Next steps drops it), and the restyle
+  carousel's stage moves `bg-muted` → `bg-background` so it doesn't resolve to the identical color
+  as the band it now sits on. Design record:
+  `engineering/decisions/2026-07-30-landing-studio-promotion.md`.
+
+- **Every Marp reference in the repo is now classified by disposition, and the 18 that were
+  factually wrong are fixed.** 686 tracked files mention Marp — but they mention it for four
+  unrelated reasons, and only one is the export target: the Export-to-Marp channel (45 files),
+  vocabulary LFM **borrowed** from Marpit (203), the marp-vscode live-preview
+  compatibility tax (293, incl. 237 decks' `marp: true` key), and frozen history plus porting
+  provenance (126). Fixed: the shipped CLI's own header called itself a "Marp-faithful HTML
   renderer" for "lattice.css (**written for Marp**)" and told end users to run Marp CLI instead;
   the docs-site engine loader chain (`load-engine.ts` → `prefetch-engine.ts` → the landing,
   Playground, and Drawing Board pages) called the owned bundle "the marp render engine";
@@ -75,12 +134,12 @@ in patch versions.
   classification on demand — the two prior audits were hand-written and stale within days.
   An independent fact-check of the register then corrected two canonical docs it had trusted:
   `engineering/marp-independence.md` has priced the runtime DOM mirror at "~800 lines" since
-  2026-07-09 when `lib/runtime/index.js` is **2,064** (2.6× off — it is the number the
+  2026-07-09 when `lib/runtime/index.js` is **2,182** (2.7× off — it is the number the
   keep-marp-vscode decision was weighed against), and `engineering/gotchas.md` told readers a
   90-day re-evaluation timer was "the real backstop" when that timer had been explicitly
   retired ("not on a timer") on 2026-07-10. An independent checker then found the
   tool itself was near-blind: its drift signals only matched lines already containing
-  "marp", so 40 files carrying a live "three render paths" claim went unreported while
+  "marp", so dozens of files carrying a live "three render paths" claim went unreported while
   it printed "0 actionable"; its overrides outranked the drift signal, making the
   promised regression guarantee unreachable; `--json` truncated to 3% of its payload
   through a pipe; and a NUL byte in `lib/engine/themes.js` dropped an engine source

@@ -105,7 +105,7 @@ try { katexCssAbsPath = require.resolve('katex/dist/katex.min.css'); } catch (_e
 // pre-render-then-PDF flow puppeteer uses for the rest of the deck. The
 // library is purpose-built for y=f(x), parametric, polar, implicit, and
 // vector-field plots; it parses math.js expressions and skips asymptotes
-// cleanly. Marp CLI (marp.config.js) and the VS Code preview
+// cleanly. The export bundle's Marp render and the browser runtime
 // (lattice-runtime.js) load the same bundle for path parity.
 let functionPlotJsAbsPath = '';
 try { functionPlotJsAbsPath = require.resolve('function-plot/dist/function-plot.js'); } catch (_e) { /* no script emitted */ }
@@ -1611,7 +1611,7 @@ const imageDimensions    = require('./lib/core/image-dimensions');
 
 // ── P2: the markdown→slide engine (lib/engine) is the emulator's parser ─────
 // Lattice converges on ONE markdown implementation: the owned lib/engine, the
-// same engine that powers marp.config.js. parseSlide — the bespoke regex parser
+// same engine every first-party path renders on. parseSlide — the bespoke regex parser
 // the emulator shipped with — is retired (P2 step d). The corpus flip-A/B
 // (tools/emulator-flip-ab.mjs) gated this swap to zero regressions; see
 // engineering/decisions/2026-06-11-emulator-on-engine-p2.md.

@@ -160,9 +160,11 @@ describe('marp-bundle spec', () => {
     assert.match(r, /npm run pdf/);
     assert.match(r, /--theme-set lattice\.css themes/);
     assert.match(r, /markdown\.marp\.enableHtml/);
-    // Honest about the one route that ISN'T full fidelity: the preview webview
-    // does not execute the deck's scripts, so runtime-built components stay flat.
-    assert.match(r, /does not execute the deck's\s+`<script>` tags/);
+    // Honest about the one route whose fidelity we cannot confirm. Deliberately
+    // asserts the HEDGE, not the claim: whether the preview webview executes the
+    // deck's scripts is UNVERIFIED and contested (engineering/gotchas.md). Pinning
+    // the unhedged wording would have turned CI red the day that got settled.
+    assert.match(r, /not something we can confirm/);
     assert.match(r, /\.html` opens standalone in any browser/);
     // Marp-native: the README must NOT point at a bundled emulator any more.
     assert.doesNotMatch(r, /lattice-emulator/);

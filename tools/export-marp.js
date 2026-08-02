@@ -53,9 +53,11 @@
  * marp-cli's own headless browser runs the runtime while rendering, so `npm run
  * pdf` / `npm run html` carry every component layout, the deck-wide registers, and
  * Mermaid — with the exceptions `lib/core/marp-fidelity.js` enumerates (printed
- * into the generated README; not counted here, since the count moves). The marp-vscode PREVIEW pane carries less still: its
- * webview does not execute the deck's scripts, so it shows palette + CSS layout
- * only (also documented in the generated README).
+ * into the generated README; not counted here, since the count moves). The
+ * marp-vscode PREVIEW pane may carry less still: on the reading that its webview
+ * blocks scripts it shows palette + CSS layout only — a claim `engineering/gotchas.md`
+ * flags as UNVERIFIED and contested, so the generated README states it as unconfirmed
+ * rather than as fact.
  * Exit 0 on success, 1 on usage/IO error.
  */
 

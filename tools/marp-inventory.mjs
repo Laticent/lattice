@@ -121,13 +121,17 @@ const OVERRIDES = {
     'history',
     'Audited 2026-08-02. "The Marp/Puppeteer/emulator pipeline" corrected. What remains is the deliberate tombstone explaining why the engine-parity job is gone — worth more than silence.',
   ],
+  'lib/integrations/markdown-it/markdown-it.docs.md': [
+    'interop',
+    'Audited 2026-08-02, PINNED 2026-08-03. Opened "Marp is the framework Lattice is built on … Marp is the foundation. Every component, every render path, every slide assumes Marp", described the deleted marp.config.js as live config, and claimed an @layer scaffold.css does not have (HARD RULE #26). Rewritten. It was left unpinned and fell into `export` ("KEEP — the product surface") on a `recipient` match — the same defect in a friendlier bucket. Pinned so that cannot recur.',
+  ],
   'lib/base/base.tokens.css': [
     'interop',
     'Defines the `--marp-slide-*` chrome bridge tokens by their Marp-core names so a Marp-rendered surface picks up the palette. A Marp-vocabulary name in the public token API, deliberately.',
   ],
   'spec/LFM-1.0.md': [
     'interop',
-    'The spec states Marpit compatibility as a format fact and already names the native re-implementation. Accurate.',
+    'NEEDS RECONCILING (flagged 2026-08-03). The spec is the NORMATIVE artifact and it still states LFM\'s slide model "is Marpit-compatible" (:262-263), with graceful degradation as its governing rule (:12-15). Register §2 argues LFM is proprietary and not Marp-RENDERABLE at fidelity. Those are reconcilable — parseable is not renderable — but the spec has not been updated to say so, and this entry previously certified it "Accurate", i.e. the tool blessed the exact framing the register retired. Left `interop` because the spec is not WRONG on its own terms; it is UNDER-QUALIFIED. Fixing it is a spec revision, not a comment edit — logged in register §10.',
   ],
   'docs/src/content/docs/spec/lfm.md': ['interop', 'Docs-site copy of the LFM spec.'],
   '.claude/settings.json': [
@@ -146,6 +150,40 @@ const PATH_RULES = [
   [/marp-bundle|marp-fidelity|export-marp|drawing-board-export|share-export/, 'export'],
   [/^lib\/engine\//, 'provenance'],
 ];
+
+/**
+ * DEAD-REFERENCE detector — the `remove` disposition, applied PER LINE.
+ *
+ * `remove` was structurally unreachable before this: no PATH_RULE, SIGNAL or
+ * OVERRIDES value could produce it, so half the register's advertised alarm was
+ * a dead wire (re-introducing the exact `marp.config.js` defect the register
+ * catalogs still printed "0 actionable").
+ *
+ * It is deliberately NOT a plain `marp.config` match, and it runs per line
+ * rather than over the joined hit text. `marp.config.js` was deleted in P4, so
+ * most surviving mentions are prose SAYING SO — "`marp.config.js` is retired",
+ * "was deleted in P4" — which is accurate documentation, not drift. A naive
+ * match flagged six files and five were correct. Two shapes are real:
+ *   · a bare path/regex/require referring to it as if it still exists
+ *   · prose asserting a live render path through it
+ * The generated `marp.config.cjs` the export bundle WRITES is a different file
+ * and is excluded by name.
+ */
+const RETIRED_CONTEXT =
+  /retired|deleted|removed|no longer|used to|formerly|superseded|historical|was\b/i;
+const DEAD_REF = /marp\.config\.js/i;
+const GENERATED_CFG = /marp\.config\.cjs|MARP_CONFIG_CJS/;
+
+function isDeadReference(lines, i) {
+  const line = lines[i];
+  if (!DEAD_REF.test(line)) return false;
+  if (GENERATED_CFG.test(line)) return false;
+  // Look at a small WINDOW, not the single line: retirement context routinely
+  // wraps onto the next line ("…the BYO marp-cli config (`marp.config.js`)\n
+  // is **retired**…"), and a line-only test flagged that as drift.
+  const window = lines.slice(Math.max(0, i - 2), i + 3).join(' ');
+  return !RETIRED_CONTEXT.test(window);
+}
 
 /** Content signals, most specific first, applied to a file's Marp-hit lines. */
 const SIGNALS = [
@@ -186,10 +224,16 @@ const SELF = new Set([
  * (`lib/core/resolve-finish.js`, caught only because that one line happened to
  * say "Marpit"). Never narrow this scan to the Marp row set.
  */
-const PHANTOM_RE = /three render paths|three renderers|three-renderer|cross-renderer parity/i;
+// NOT bare `cross-renderer parity`: that is a LIVE, correct term —
+// test/integration/parity/ ships 14 files asserting drift between the TWO
+// surviving paths. Flagging it turned the register's backlog into an
+// instruction to delete accurate documentation of a shipping gate.
+const PHANTOM_RE =
+  /three render paths|three renderers|three-renderer|third render path|cross-renderer parity gate/i;
 
 // Dated records and the generated changelog describe the past accurately.
-const PHANTOM_EXEMPT = /^(engineering\/decisions\/|CHANGELOG\.md$|dist\/|docs\/public\/)/;
+const PHANTOM_EXEMPT =
+  /^(?:engineering\/decisions\/|CHANGELOG\.md$|dist\/|docs\/dist\/|docs\/public\/|docs\/src\/lib\/cadenza\/dist\/)|\.generated\.js$/;
 
 // `git ls-files` prints paths relative to CWD, which would silently void every
 // `^`-anchored path rule and every OVERRIDES key when run from a subdirectory.
@@ -214,9 +258,14 @@ const files = execFileSync('git', ['ls-files'], {
  * entirely — silently, in the exact area the register claims to enumerate.
  */
 function isBinary(buf) {
-  const head = buf.subarray(0, 8000).toString('utf8');
-  // U+FFFD only appears when the bytes were not valid UTF-8.
-  return head.includes('�');
+  // Decode the WHOLE buffer. An earlier version sliced the first 8000 BYTES,
+  // which cuts a multi-byte character in half and MANUFACTURES U+FFFD — it
+  // silently dropped 12 tracked text files, including
+  // test/unit/core/marp-fidelity.test.js (16 Marp lines), which the register
+  // names as export-bucket machinery. Any file with an em-dash near byte 8000
+  // was a coin flip. Decoding costs a few ms across ~5k files; guessing cost
+  // correctness in the exact area the register claimed to enumerate.
+  return buf.toString('utf8').includes('�');
 }
 
 const rows = [];
@@ -243,7 +292,8 @@ for (const file of files) {
 
   const hits = [];
   let frontMatter = 0;
-  text.split('\n').forEach((line, i) => {
+  const lines = text.split('\n');
+  lines.forEach((line, i) => {
     if (!/marp/i.test(line)) return;
     if (/^marp:\s*true\s*$/.test(line)) {
       frontMatter++;
@@ -257,6 +307,7 @@ for (const file of files) {
   const joined = hits.map((h) => h.text).join('\n');
   const byPath = PATH_RULES.find(([re]) => re.test(file))?.[1];
   const bySignal = SIGNALS.find(([re]) => re.test(joined))?.[1];
+  const deadRef = hits.some((h) => isDeadReference(lines, h.line - 1));
 
   // `marp: true` and nothing else. This is the deck-authoring convention that
   // `design/skills/deck.md` and `engineering/workflow.md` prescribe. It serves
@@ -275,8 +326,14 @@ for (const file of files) {
   // It does NOT outrank `history`/`generated`, though: a dated decision record
   // QUOTING the old "three render paths" language is being accurate about its
   // own date, and a generated bundle inlines whatever its source says.
-  const frozen = byPath === 'history' || byPath === 'generated';
-  const drift = !frozen && (bySignal === 'rewrite' || bySignal === 'remove') ? bySignal : null;
+  // Read the OVERRIDE too, not just the path. `.github/workflows/ci.yml` is
+  // pinned `history` for its deliberate engine-parity tombstone — content the
+  // register defends BY NAME — but it matches no PATH_RULE, so a drift signal
+  // fired on it with no escape hatch, printing a "this is a keep" reason
+  // directly beneath its own REWRITE verdict.
+  const frozen =
+    byPath === 'history' || byPath === 'generated' || forced === 'history' || forced === 'generated';
+  const drift = frozen ? null : deadRef ? 'remove' : bySignal === 'rewrite' ? 'rewrite' : null;
   const cls = drift ?? forced ?? (byPath ?? (fmOnly ? 'preview' : (bySignal ?? 'interop')));
 
   rows.push({
