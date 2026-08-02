@@ -868,8 +868,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Supplied ONLY when the caller's indices are provably engine section indices
 				// (positionIsTrustworthy). Otherwise omit it and let the slide number itself 1 of 1 —
 				// the honest fallback, never a plausible wrong number.
-				const supplyable = supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount);
-				const slicePage = renderSource !== markdown ? supplyable : undefined;
+				// LAZY, and the laziness is load-bearing. `supplyablePosition` runs two regex sweeps over
+				// the WHOLE deck source (positionIsTrustworthy + deckSectionFor), measured at 0.43ms on
+				// the 40-slide deck the perf spec builds and 1.35ms on the full gallery — ×4 under the
+				// throttle those baselines were captured at. Computing it eagerly for both routes paid
+				// that on every keystroke of every deck already taking the slow path, to produce a value
+				// only the diagnostic's compare closure reads, and only on a button press. So the slice
+				// route computes it directly (the short-circuit it always had) and the counterfactual
+				// asks for it when someone actually presses the button.
+				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount) : undefined;
 				// Resolve a sample deck's `![bg](sample-image-*.svg)` against the staged samples/
 				// dir (sibling of themes/ under the hashed root). Make it ABSOLUTE — themeBase is
 				// root-relative, and the engine's WHATWG-URL resolver needs an absolute base.
@@ -1021,7 +1028,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 											// the route-gated `slicePage` here meant omitting the position on the
 											// whole-deck route, and then reporting the pagination mismatch that caused
 											// as a finding, on any deck that paginates.
-											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: supplyable }),
+											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: supplyablePosition(markdown, slideIndex, slideCount) }),
 											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase }),
 										]);
 										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an

@@ -233,3 +233,46 @@ test('contrastValues does not elide when the difference is at the start', () => 
   assert.equal(c.got, 'Opening');
   assert.equal(c.want, 'Closing');
 });
+
+// ── Parsing that must not produce a CONFIDENTLY WRONG row ─────────────────────
+// The failure direction these pin is the expensive one: a naive tag regex does not merely miss a
+// difference, it mislabels one — leaking attribute markup into a row titled "text", under a tap
+// explanation that reads "the words on the slide differ".
+
+test('diffSections survives a `>` inside an attribute value', () => {
+  const d = core.diffSections('<section data-x="a>b" data-y="1"></section>', '<section data-x="a>c" data-y="2"></section>');
+  assert.deepEqual(
+    d.map((x) => [x.kind, x.name]),
+    [
+      ['attribute', 'data-x'],
+      ['attribute', 'data-y'],
+    ],
+  );
+});
+
+test('diffSections reads single-quoted and unquoted attribute values', () => {
+  // Single-quoted `class='a b'` once parsed as three EMPTY attributes (class, a, b), inventing
+  // rows named after the class tokens themselves.
+  assert.deepEqual(core.diffSections("<section class='a b'></section>", "<section class='a c'></section>"), [
+    { kind: 'class', name: 'class', got: 'b', want: 'c' },
+  ]);
+  assert.deepEqual(core.diffSections('<section data-x=1></section>', '<section data-x=2></section>'), [
+    { kind: 'attribute', name: 'data-x', got: '1', want: '2' },
+  ]);
+});
+
+test('diffSections reports a boolean attribute as present/absent', () => {
+  assert.deepEqual(core.diffSections('<section hidden></section>', '<section></section>'), [{ kind: 'attribute', name: 'hidden', got: '', want: undefined }]);
+});
+
+test('sectionText survives a `>` inside an attribute value', () => {
+  assert.equal(core.sectionText('<section data-x="a>b">Hi</section>'), 'Hi');
+});
+
+test('a wording difference suppresses the raw-markup fallback', () => {
+  // Deliberate precedence, not an accident: the words are the bigger signal, and 755 of the
+  // corpus's 1076 real divergences carry a text row — appending a markup window under each
+  // would be noise. Pinned so the choice cannot be silently reversed.
+  const d = core.diffSections('<section><p class="a">x</p></section>', '<section><p class="b">y</p></section>');
+  assert.deepEqual(d, [{ kind: 'text', name: 'text', got: 'x', want: 'y' }]);
+});

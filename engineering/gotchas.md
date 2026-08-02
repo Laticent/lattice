@@ -2311,11 +2311,11 @@ means "no gap logged for the runtime route", never "the preview is complete.
   this means the registry has a hole, or a supplied position was wrong.
 - **Mitigation:** Turn on **Preview fidelity** (Workspace → General → Diagnostics,
   or `?fidelity`). It reports which route the shown slide took, which registry fact
-  forced it, and what position was supplied — and **Compare with full deck** renders
-  the slide both ways and quotes the first place they part company. On the *fast*
-  route a difference is the bug; on the *whole-deck* route it means the gate is
-  earning its cost. Across the whole corpus, `npm run equiv` asks the same question
-  headless.
+  forced it, and what position was supplied — and **render both ways and diff** compares
+  the two renders and names what differs: an attribute, a class token, or the words,
+  one row each. On the *fast* route a difference is the bug; on the *whole-deck* route
+  it means the gate is earning its cost. Across the whole corpus, `npm run equiv` asks
+  the same question headless.
 - **Triggered by:** Adding a feature whose value depends on other slides without
   adding a `DECK_DERIVED_FACTS` entry for it. The originally reported case was
   `split-panel proof` — `cat-N` is assigned from the slide's ordinal among the

@@ -66,8 +66,9 @@ in patch versions.
   machinery was invisible: when a number or a color looked wrong there was nothing to ask.
   - **In the Studio** (Workspace → General → Diagnostics → *Preview fidelity*, or `?fidelity`):
     a draggable readout of which route the shown slide took, *why* — the registry fact by name —
-    and what deck position it was handed. A **Compare with full deck** button renders the slide
-    both ways and reports whether they agree, quoting the first place they part company. The
+    and what deck position it was handed. A **render both ways and diff** button renders the slide
+    both ways and, when they disagree, breaks the difference into NAMED things — an attribute, a
+    class token, the words — one row each, with the meaning and both values behind a tap. The
     comparison is a button, not a subscription: running it live would reintroduce the exact
     whole-deck cost the machinery removes. A difference is read against the route it is on — on
     the fast route it means the preview is wrong; on the whole-deck route it means the full

@@ -136,6 +136,14 @@ function Overlay() {
 				gen.current += 1;
 				setReport(r);
 				setCmp(null);
+				// CLEAR `busy` HERE TOO, not only in run()'s finally. The finally is generation-guarded
+				// so a superseded compare cannot clobber a newer one's spinner — but that guard also
+				// meant a superseded compare never reset the flag at all, and nothing else did. One
+				// keystroke during a compare (hundreds of ms on a throttled phone) left the panel
+				// reading "comparing…" with its only control disabled, permanently, recoverable only by
+				// toggling the overlay off and on. A new report invalidates any in-flight compare, so
+				// this is the right place to release it.
+				setBusy(false);
 			}),
 		[],
 	);
@@ -258,10 +266,26 @@ function Overlay() {
 							    which an author cannot act on. `diffSections` names the thing instead (an
 							    attribute, a class token, the words), so each difference becomes an ordinary row
 							    in the same catalog shape as everything above it. */}
-							{/* Collapsible-whitespace-only differences leave nothing NAMED to show. Say that
-							    rather than render an empty group under a "differs" verdict. */}
+							{/* The repair-cascade bucket (classifyDivergence). The rebuild stopped painting it
+							    while the render path went on computing it — restored as a row, because it names
+							    the fix that would close the difference rather than the difference itself. */}
+							{cmp?.equal === false && (
+								<Row
+									label="cause"
+									value={cmp.cause}
+									what="Which known gap this difference falls into, from the repair cascade in the deck-context decision note. It names the fix that would close it, rather than the difference itself."
+									rel={cmp.cause === 'unclassified' ? 'not a shape this readout recognizes yet — the rows below are the raw finding.' : 'a known residual with a named repair still owed.'}
+									{...rowProps('cause')}
+								/>
+							)}
+							{/* Nothing NAMED to show. Usually whitespace, but NOT always — an attribute reorder,
+							    a duplicated class token, and whitespace inside a `<pre>` (where it DOES paint)
+							    all land here too. So the line says what this readout can and cannot see, and
+							    stops short of promising the difference is invisible. */}
 							{cmp?.equal === false && diffs.length === 0 && (
-								<p className="m-0 mt-1 text-[10px] leading-[1.35] text-muted-foreground">The two renders differ only in whitespace — nothing that changes what is painted.</p>
+								<p className="m-0 mt-1 text-[10px] leading-[1.35] text-muted-foreground">
+									The renders differ, but not in anything this readout can name — usually whitespace, sometimes attribute order. <code>npm run equiv</code> compares them raw.
+								</p>
 							)}
 							{cmp?.equal === false &&
 								diffs.map((d) => (
