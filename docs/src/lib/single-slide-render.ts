@@ -33,7 +33,7 @@ import {
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
-import { hashString, linkGuardAgent, splitSections } from '../playground/deck-preview.js';
+import { hashString, linkGuardAgent } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
@@ -212,31 +212,32 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
 // feature family already uses — `PresentOverlay.tsx` drops its narration projection wholesale
 // when "the render's section count doesn't match the slide count".
 //
-// Reuses the filmstrip's `splitSections` (HARD RULE #15) rather than a second parser.
+// ONE COPY OF THE INVARIANT, and one walker under it. This function used to spell the alignment
+// checks out inline while `alignmentFailure` (lib/diagnostics) spelled the same three out again for
+// the fidelity overlay's compare — and the copies diverged within four days of being written: this
+// one let a MISSING `slideCount` through and narrowed on the index alone, which is precisely the
+// `_focusSteps` / `split: headings` case that shows the wrong slide. Every production caller
+// (StudioShell, PresentOverlay, SlideOverview→slide-thumb) passes the count; only tests omitted it,
+// so the permissive branch protected nothing and hid a hole. Both now call `alignmentFailure`, and
+// no count means no narrowing.
+//
+// The walker moved with it, and had to: the guard is "the flat walker mis-paired", so checking it
+// against a list produced by a DIFFERENT walker guards nothing. `sectionsOf` (the same list
+// `alignmentFailure` is handed by the compare closure) replaces the filmstrip's `splitSections`
+// here — both are flat and non-greedy, and `sectionsOf` is the more robust of the two (the
+// filmstrip's `<section\b[^>]*>` stops at the first `>`, so an attribute value containing one cuts
+// the open tag in half). The filmstrip keeps its own copy because it consumes a different shape.
+//
+// The repo HAS a depth-aware walker — `lib/core/split-sections.js`, whose header says the scan
+// "survives nested sections" — but it is CommonJS and not on the browser engine bundle, so wiring
+// it here is a bundle-surface change rather than a line edit. Detect-and-degrade until then: fail
+// CLOSED on any disagreement or unusable index. `null` means "cannot prove which section is slide
+// `index`", and the caller falls back rather than guessing. Never return the whole deck — stacking
+// every section into a frame whose CSS and scale transform assume exactly one is both visibly
+// broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
 function narrowToSlide(html: string, index: number, slideCount?: number): string | null {
-	// `splitSections` is the FLAT walker: it pairs each `<section` with the NEXT `</section>`.
-	// The engine passes author raw HTML through verbatim, so a slide containing its own
-	// `<section>…</section>` mis-pairs — the walker closes the slide at the inner tag and the
-	// neighbor's markup (including its visible `.lat-pagination` number) leaks into the frame.
-	// A count agreement can't catch it: the mis-paired total often still equals the caller's
-	// slide count. So verify the walker against a raw `<section` tally, and fail closed when
-	// they disagree. The repo HAS a depth-aware walker for exactly this — `lib/core/split-sections.js`,
-	// whose own header says the scan "survives nested sections" — but it is CJS and not exposed
-	// on the browser engine bundle, so wiring it to `docs/src` is a bundle-surface change, not a
-	// line edit. Detect-and-degrade here; expose that kernel as the follow-up.
-	const opens = (html.match(/<section\b/g) || []).length;
-	const sections: string[] = splitSections(html);
-	// Fail CLOSED on any disagreement or unusable index: null means "cannot prove which section
-	// is slide `index`", and the caller falls back rather than guessing. Never return the whole
-	// deck — stacking every section into a frame whose CSS and scale transform assume exactly
-	// one is both visibly broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
-	if (opens !== sections.length) return null; // the flat walker mis-paired — nested `<section>`
-	if (typeof slideCount === 'number' && sections.length !== slideCount) return null;
-	// `Number.isInteger` is load-bearing, not defensive noise: a fractional or NaN index passes
-	// both range comparisons (`NaN < 0` and `NaN >= n` are BOTH false), then `i === index` never
-	// matches and the walk emits a wrapper with ZERO sections — a blank frame, the one outcome
-	// this whole path is supposed to make unreachable.
-	if (!Number.isInteger(index) || index < 0 || index >= sections.length) return null;
+	const sections: string[] = sectionsOf(html);
+	if (alignmentFailure(html, sections, slideCount, index)) return null;
 	if (sections.length < 2) return html;
 	let out = '';
 	let pos = 0;

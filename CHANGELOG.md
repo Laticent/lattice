@@ -102,6 +102,25 @@ in patch versions.
     from `render-ids.js` — the core takes no imports — and a test reads both sources and fails if
     they diverge.
 
+- **The two slide splitters, reconciled — and the alignment invariant's three copies collapsed to
+  one.** The engine breaks slides on any markdown-it `hr` after a full parse; the Studio scans text
+  for `\n---\n` on every keystroke, before the engine bundle has loaded. Those stay two — routing
+  the editor through the tokenizer would mean a full parse per keypress. What became single:
+  - **the separator's definition** (`slideSeparatorRe`), which had four copies whose whole job was to
+    agree — when they don't, the progress rail, the editor↔preview sync and the supplied page number
+    count different things;
+  - **the arbiter** that decides when the two splitters may disagree (`positionIsTrustworthy`), now
+    in the shared core with a unit test per rule where it previously had none;
+  - **the alignment invariant**. `narrowToSlide` now calls `alignmentFailure` instead of repeating
+    it — and the copies had diverged in the dangerous direction: `narrowToSlide` let a **missing
+    slide count** through and narrowed on the index alone, which is exactly the `_focusSteps` /
+    `split: headings` case where "slide k" is not section k and the preview paints a slide the author
+    did not select. Every production caller passes a count, so the permissive branch protected
+    nothing and hid the gap. It now falls back to the honest slice;
+  - **the walker under that invariant.** The guard is "the flat walker mis-paired", and it was
+    checking a tally against a list produced by a *different* walker. One walker now feeds the
+    invariant that judges it.
+
 ### Fixed
 
 - **A Mermaid `subgraph` box now takes the containment token every theme already curates.**

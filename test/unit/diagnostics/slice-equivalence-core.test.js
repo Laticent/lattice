@@ -11,11 +11,11 @@ test.before(async () => {
 // (`npm run equiv`) and the Studio's "Preview fidelity" overlay. Two surfaces, one definition of
 // "the same" — these pin that definition, and every case below fails if the behavior moves.
 //
-// The neutralizer cases carry the most weight. The two surfaces deliberately hide DIFFERENT things
-// (the sweep hides the shipped repairs to score the prototype in isolation; the overlay leaves them
-// in because a wrong page number is exactly what an author turns it on to find), so a change that
-// quietly made one set behave like the other would blind the overlay to its main finding without
-// breaking anything visible.
+// The neutralizer cases carry the most weight. The set hides ONLY what no shipped repair closes,
+// and it used to be a pair — the sweep hid `pagination` and `rail` because it could not repair
+// them, which is what made breaking the repair a 0.0-point event. Both surfaces now supply the
+// position and hide the same two residuals, so re-ADDING an entry silently re-blinds a surface to
+// something that ships. That is the regression these pin.
 
 test('splitSlides treats a `---` inside a fence as a rule, not a boundary', () => {
   const body = ['# One', '', '```', '---', '```', '', '---', '', '# Two'].join('\n');
@@ -84,6 +84,23 @@ test('synthesizePrelude at slide 0 is empty — nothing precedes it', () => {
 // coverage at all — they were exercised only through a browser render path and three Playwright
 // specs. They are the shipped repair for the "1 of 1" bug, and the headless sweep now calls the
 // same copy, so a change here moves `npm run equiv` as well as the Studio.
+
+test('slideSeparatorRe is a FACTORY — two callers cannot share a lastIndex', () => {
+  // The caller-side separator had four copies of its literal (lint.ts, positionIsTrustworthy,
+  // deckSectionFor twice), and their entire job is to agree: when they don't, the rail, the
+  // editor↔preview sync and the supplied page number are counting different things. One
+  // definition now — but handed out as a factory, because a shared `/g` instance carries
+  // `lastIndex` and two interleaved scans would silently skip matches.
+  const a = core.slideSeparatorRe('g');
+  const b = core.slideSeparatorRe('g');
+  assert.notEqual(a, b);
+  assert.equal(a.source, b.source);
+  a.exec('x\n---\ny');
+  assert.notEqual(a.lastIndex, 0);
+  assert.equal(b.lastIndex, 0, 'a second instance must not inherit the first\'s scan position');
+  assert.equal(core.slideSeparatorRe().flags, '', 'no flags unless asked — a global default is the footgun');
+  assert.deepEqual('a\n---\nb\n-----\nc'.split(core.slideSeparatorRe()), ['a', 'b', 'c']);
+});
 
 test('positionIsTrustworthy needs a slide count it can compare against', () => {
   assert.equal(core.positionIsTrustworthy('# One', undefined), false);

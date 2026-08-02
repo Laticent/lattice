@@ -77,6 +77,11 @@ wrong.
 divergence; it does not reconcile it. Reconciling them is the follow-up I would rank above further
 performance work, because it is the defect generator.
 
+> **Resolved in Amendment 4 (2026-08-02)** — though not the way this sentence expected. The two
+> splitters differ in KIND (token-level after a full parse vs text-level before the engine bundle
+> loads) and stay two; what became single is the separator's DEFINITION, the arbiter that decides
+> when they may disagree, and the alignment invariant. See "The two slide splitters, reconciled".
+
 ## 3. `render()` was not a pure function of its input
 
 Several chart kernels mint SVG `<defs>` ids from sequences whose purpose is uniqueness *within* a
@@ -749,3 +754,113 @@ in them — the `_focusSteps` bail, the four unrecognized `hr` forms, the defaul
 the divider-inside-code fail-safe, the `divider-lite` token test — rode on an end-to-end assertion
 about a painted number. In the pure core they are directly testable, and
 `test/unit/diagnostics/slice-equivalence-core.test.js` now pins each of those rules by name.
+
+### The two slide splitters, reconciled — and the part that must stay two
+
+§2 named "two independent slide splitters" as the defect generator and ranked reconciling them above
+further performance work. #1298 made it worse: the *alignment invariant* — the checks that decide
+whether an index may identify a section — had grown to **three copies**, and they had already
+diverged inside four days.
+
+**The part that CANNOT be merged, stated plainly, because pretending otherwise is how a fourth copy
+gets written.** The engine breaks slides on any markdown-it `hr` token (`***`, `___`, `- - -`,
+`---` with a trailing space) *after a full parse*. The Studio needs an answer on every keystroke, in
+a browser, before the engine bundle has finished loading — so it scans text for `\n---\n`. That is a
+difference in KIND (token-level-after-parse vs text-level-before-load), not a duplication, and
+routing the editor through the engine's tokenizer would mean a full parse per keypress. The two
+splitters stay two.
+
+What follows from that is where the work went:
+
+1. **One definition of the separator.** The literal `\n-{3,}\n` had four copies — `lint.ts`'s
+   `SEP_RE`, `positionIsTrustworthy`, and `deckSectionFor` twice. Their entire job is to agree: the
+   moment they don't, the progress rail, the editor↔preview sync and the supplied page number are
+   counting different things. `slideSeparatorRe()` in the shared core is now the only one. It is a
+   FACTORY, not an exported RegExp — a `/g` literal carries `lastIndex`, and two modules sharing one
+   instance interleave their scans.
+
+2. **One place that decides when the two may disagree.** `positionIsTrustworthy` already enumerated
+   the shapes on which they can (the four `hr` forms, `_focusSteps`, a chunk carrying two top-level
+   headings under the default heading split) and refused to supply a position for any of them. That
+   is the reconciliation: not one splitter, but one arbiter, failing closed. It now lives in the
+   shared core with direct unit coverage per rule, where before it had none.
+
+3. **One alignment invariant, and it was hiding a hole.** `narrowToSlide` now calls
+   `alignmentFailure` instead of repeating it. The copies had diverged in the DANGEROUS direction:
+   `narrowToSlide` let a **missing `slideCount`** through and narrowed on the index alone — exactly
+   the `_focusSteps` / `split: headings` case where "slide k" is not section k, so the preview paints
+   a slide the author did not select. Every production caller (`StudioShell`, `PresentOverlay`,
+   `SlideOverview`→`slide-thumb`) passes the count, so the permissive branch protected nothing and
+   concealed a real gap; only tests reached it. It now fails closed to the honest slice.
+
+4. **One walker under that invariant.** The guard is *"the flat walker mis-paired"*, so checking it
+   against a list produced by a DIFFERENT walker guards nothing — and that is what
+   `narrowToSlide` did, tallying `<section` opens against the filmstrip's `splitSections` while
+   `alignmentFailure` was handed `sectionsOf`. Both are flat and non-greedy; `sectionsOf` is the more
+   robust (the filmstrip's `<section\b[^>]*>` stops at the first `>`, so an attribute value
+   containing one cuts the open tag in half). One walker now feeds the invariant that judges it.
+
+**Still open, and unchanged:** the depth-aware `lib/core/split-sections.js` is CommonJS and not on
+the browser engine bundle, so `docs/src` still detect-and-degrades on nested `<section>` rather than
+walking it correctly. Exposing that kernel is a bundle-surface change, and it is the remaining item
+under §8's last bullet.
+
+### `seedRenderIds` — the residual is named and quantified, and the seed has no source
+
+With the classifier corrected (below), the corpus residual decomposes completely for the first time:
+
+| cause | slides |
+|---|---|
+| generated ids | **87** |
+| `cat-N` (categorical hue) | 5 |
+| progress rail absent | 5 |
+| **unclassified** | **0** |
+
+**51 of those 87 were reading `unclassified`.** The cause buckets knew one generated-id family — the
+`<svg>` title/desc wiring, `lat-svgt-N` / `lat-svgd-N` — and not the five chart `<defs>` gradient
+families in `render-ids.js`, so a slide whose entire difference was two counter offsets fell through
+whenever both moved together. `gantt-fill-pass-N` is the shape that proves the point: callers own
+their id TEMPLATE, so the family name is a *prefix* of the id and a pattern anchoring `-\d+` straight
+to it matches nothing. The list is duplicated (the core takes no imports; `render-ids.js` is CJS) and
+a test now reads both sources and fails if they diverge — watched fail by adding a sixth family.
+
+The 5 `progress rail absent` are `examples/state-chart.md`, and they are correct: a slide shows
+`` `<!-- _class: divider -->` `` in an inline code span, so the deck's divider count reads
+differently with and without code blanked, `deckSectionFor` hits its fail-safe, and the Studio sends
+that deck down the whole-deck route via the `ambiguous divider count` registry entry. The sweep
+renders every slide as a slice regardless — that is what makes its number the *residual* — so the
+difference is real for the sweep and absent for the user.
+
+**Why the repair is not written here.** Both families number from the document start, so the slice
+needs to know how many named `<svg>`s and how many chart gradients the PRECEDING slides emitted.
+That count is not caller-held metadata like `slide k of N` is: it is a property of what the chart
+kernels produced, derivable only by rendering the earlier slides — which is the whole-deck parse the
+slice route exists to avoid. Four routes exist and three are closed:
+
+| route | verdict |
+|---|---|
+| caller supplies the offsets | the caller would have to render the deck to know them — **circular** |
+| predict the svg count from the markdown | re-derives engine semantics, which this design has refused throughout |
+| rewrite the slice's ids after the fact | needs the same unknown offset — **circular** |
+| fold the slide's position into the id (`lat-svgt-<slide>-<n>`) | **works, and changes exported bytes** |
+
+Only the fourth is sound, and it changes the shape of every generated id on every render path,
+including the HTML export. That is the QUALITY BAR's one hard stop, so it is **not taken
+unilaterally** — and it should be argued on its merits rather than waved through, because the case
+for it is weaker than it first looks:
+
+- **The difference is invisible and each document is self-consistent.** A preview whose chart is
+  wired to `lat-svgt-1` announces correctly; so does the export's `lat-svgt-4`. Nothing reads across
+  the two.
+- **The composition case it would serve is already spoken for.** `render-ids.js`'s own KNOWN LIMIT
+  says that composing separately-rendered sections needs an assembly-time re-uniquing pass — the
+  shape `svgA11yNames.uniquePrefix` already implements. That pass fixes collisions without any
+  seeding; seeding does not remove the need for it.
+- **Both id namespaces carry anti-squat guards that key on the id SHAPE**, and each has been broken
+  twice by exactly that kind of change (`uniquePrefix` by a decoy-token loop and by an
+  entity-encoded id; `renderIdPrefix` was written against those two lessons). Changing the shape
+  means re-earning both guards against their documented attacks.
+
+So the state of step 2 is: the residual is measured, fully attributed, and no longer inflating
+`unclassified`; the repair is designed and costed; the decision to spend an export-byte change on an
+invisible difference is the human's. Recorded here rather than half-built.
