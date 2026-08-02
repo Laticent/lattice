@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 668 files carry one — 3,144 prose/code lines plus 253 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (37 files, intended), BORROWED VOCABULARY (196 files — LFM is PROPRIETARY and already NOT Marp-parseable; Marp compatibility belongs in a transformation at the export boundary, which today does not exist: the exporter passes LFM through verbatim), the marp-vscode live-preview compatibility tax (292 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (124). Actual drift: 19 files fixed here — 12 found by hand, then 7 more (four sibling resolvers, lib/engine/css.js, design/forms.md again, and lib/integrations/markdown-it/markdown-it.docs.md) surfaced only after an independent checker found the tool's rewrite detector was near-inert and its OVERRIDES were suppressing the very signal the register promised would catch a regression. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
+summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 683 files carry one — 3,371 prose/code lines plus 254 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (46 files, intended), BORROWED VOCABULARY (199 files — LFM is PROPRIETARY and already NOT Marp-parseable; Marp compatibility belongs in a transformation at the export boundary, which today does not exist: the exporter passes LFM through verbatim), the marp-vscode live-preview compatibility tax (293 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (126). Actual drift: 19 files fixed here — 12 found by hand, then 7 more (four sibling resolvers, lib/engine/css.js, design/forms.md again, and lib/integrations/markdown-it/markdown-it.docs.md) surfaced only after an independent checker found the tool's rewrite detector was near-inert and its OVERRIDES were suppressing the very signal the register promised would catch a regression. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
 ---
 
 # The Marp reference register — what is left, and what each piece is for
@@ -15,8 +15,8 @@ candidate for removal or rewrite and relevant for export."
 
 The premise is right — Lattice is far removed from Marp. Zero `@marp-team`
 packages, no Marp render path, `lib/engine/` re-implements the Marpit pipeline
-natively. And yet **668 tracked files mention Marp**: 3,144 prose/code lines
-plus 253 `marp: true` front-matter keys.
+natively. And yet **683 tracked files mention Marp**: 3,371 prose/code lines
+plus 254 `marp: true` front-matter keys.
 
 That gap is not one thing rotting. It is **four different things wearing the
 same word**, and only the first is the export target. Counts below are as the
@@ -24,14 +24,14 @@ tree stands **after** this change's fixes — re-run the tool to confirm:
 
 | What | Files | Can it go? |
 |---|---:|---|
-| **The export channel** | 37 | No — it *is* the product surface |
-| **Borrowed vocabulary** | 196 | Shrinks — LFM is proprietary; compat moves into the export transform |
-| **The marp-vscode preview tax** | 292 | **Yes — but only as a block, and only by revisiting one decision** |
-| **Frozen history + porting provenance** | 124 | No — dated records and attribution |
+| **The export channel** | 46 | No — it *is* the product surface |
+| **Borrowed vocabulary** | 199 | Shrinks — LFM is proprietary; compat moves into the export transform |
+| **The marp-vscode preview tax** | 293 | **Yes — but only as a block, and only by revisiting one decision** |
+| **Frozen history + porting provenance** | 126 | No — dated records and attribution |
 | **Actual drift** | *(19, fixed here)* | **Gone — 0 actionable files remain** |
 
 The headline: **the largest bucket is neither the export target nor residue —
-it is the VS Code live preview.** 292 files (236 of them nothing but a
+it is the VS Code live preview.** 293 files (237 of them nothing but a
 `marp: true` key on a deck) exist so that opening a `.md` in the "Marp for
 VS Code" extension shows something recognizable. That surface runs raw
 `marp-core`, not our engine.
@@ -87,16 +87,16 @@ row in either is the signal that something drifted.
 
 | Disposition | Files | Lines | `marp: true` | Verdict |
 |---|---:|---:|---:|---|
-| `export` | 37 | 358 | 1 | **KEEP** — the Export-to-Marp channel |
-| `interop` | 196 | 465 | 10 | **SHRINKS** — borrowed vocabulary, not shared format (§2) |
-| `provenance` | 10 | 142 | — | **KEEP** — porting attribution in `lib/engine/` |
-| `history` | 114 | 1,307 | 3 | **KEEP FROZEN** — dated records |
-| `preview` | 292 | 545 | 236 | **CONTINGENT** — the marp-vscode tax |
+| `export` | 46 | 430 | 1 | **KEEP** — the Export-to-Marp channel |
+| `interop` | 199 | 465 | 10 | **SHRINKS** — borrowed vocabulary, not shared format (§2) |
+| `provenance` | 11 | 162 | — | **KEEP** — porting attribution in `lib/engine/` |
+| `history` | 115 | 1,332 | 3 | **KEEP FROZEN** — dated records |
+| `preview` | 293 | 564 | 237 | **CONTINGENT** — the marp-vscode tax |
 | `rewrite` | 0 | 0 | — | **REWRITE** — wrong about what renders Lattice (18 fixed here) |
 | `remove` | 0 | 0 | — | **REMOVE** — points at a deleted file (1 fixed here) |
-| `generated` | 19 | 327 | 3 | **GENERATED** — follows source (HARD RULE #2) |
+| `generated` | 19 | 418 | 3 | **GENERATED** — follows source (HARD RULE #2) |
 
-## §1 — `export` (37 files): relevant, keep
+## §1 — `export` (46 files): relevant, keep
 
 The one-way handoff. `lib/core/marp-bundle.js` builds the recipient bundle,
 `lib/core/marp-fidelity.js` is the ledger of what a Marp render does *not*
@@ -114,7 +114,7 @@ boundary has — but that is inference, not evidence.
 Nothing to do. This is what the user is asking to preserve, and it is
 self-contained.
 
-## §2 — `interop` (196 files): borrowed vocabulary, NOT a shared format
+## §2 — `interop` (199 files): borrowed vocabulary, NOT a shared format
 
 > **Reframed 2026-08-02, after this register was drafted.** An earlier version of
 > this section called these files "the file format, not a dependency" and said
@@ -131,7 +131,7 @@ superset of Marp.** Not "will drift" — already isn't:
   `color-mode`, `finish`, `split`, `glossary`, `lift`, `form`, `validate`, plus
   `claim`, `logo`, `meta`. **Seven** of the seventeen are Marp's.
 
-What these 196 files actually record is **borrowed vocabulary** — Lattice took
+What these 199 files actually record is **borrowed vocabulary** — Lattice took
 Marpit's slide model as a starting point (`---` separators, YAML front matter, a
 class directive, `![bg]`) and then grew a format Marp cannot parse. Naming that
 inheritance in a comment is honest. Calling it *compatibility* is not.
@@ -164,7 +164,7 @@ because they serve the *Marp-rendered surface*, not our own render:
 
 Everything else here is a candidate for the decoupling pass — see §5b.
 
-## §3 — `provenance` (10 files): attribution, keep
+## §3 — `provenance` (11 files): attribution, keep
 
 `lib/engine/*` cites what each module ports: `slides.js` names
 `@marp-team/marpit`'s tokenizer as "algorithm ported, not vendored";
@@ -172,7 +172,7 @@ Everything else here is a candidate for the decoupling pass — see §5b.
 engine's citation of its source. Keep it — the alternative is an engine that
 re-implements a documented pipeline while pretending it invented it.
 
-## §4 — `history` (114 files, 1,307 lines): frozen
+## §4 — `history` (115 files, 1,332 lines): frozen
 
 `engineering/decisions/**` and `CHANGELOG.md`. The single largest line count in
 the whole inventory, and **none of it is actionable** — a dated record is
@@ -182,7 +182,7 @@ explain why a gate is absent, which is worth more than the silence would be.
 
 Rewriting history to reduce a grep count would be the actual defect.
 
-## §5 — `preview` (292 files): the answer to "why does it linger"
+## §5 — `preview` (293 files): the answer to "why does it linger"
 
 **This is the bucket that answers the question.** It is the largest by file
 count, it is the only genuinely optional one, and it has nothing to do with the
@@ -192,7 +192,7 @@ The "Marp for VS Code" extension previews `.md` decks by running **raw
 marp-core**, not Lattice's engine, and it offers no engine hook. Everything
 below exists to make that third-party preview show something recognizable:
 
-- **236 decks carry `marp: true`** and nothing else. The owned engine consumes
+- **237 decks carry `marp: true`** and nothing else. The owned engine consumes
   the key without acting on it (`lib/engine/directives.js:34,74` — a deck-level
   global, never a section attribute). The extension activates on it, which is
   why the key sits in this bucket. **It is not preview-only, though:**
@@ -225,7 +225,7 @@ below exists to make that third-party preview show something recognizable:
 audit's §5(b) proposed retiring marp-vscode as a first-party preview surface;
 the call on 2026-07-10 was explicit — *"5b is off the table for now since it
 works."* §5(a) demoted the Two-renderer rule to opt-in the same week, so the tax
-stopped *growing*, but the existing 292 files stayed by design.
+stopped *growing*, but the existing 293 files stayed by design.
 
 **That question is now answered from a different direction (2026-08-02).** It is
 not being reopened on its own merits and not on a timer — it is **decided as a
@@ -399,7 +399,7 @@ claimed all of them were pinned; they were not, and the checker caught it.
 **Does not:**
 
 - **Touch the `preview` bucket.** §5(b) decided on 2026-07-10 to keep
-  marp-vscode, and reopening it is condition-driven. Cutting 292 files on an
+  marp-vscode, and reopening it is condition-driven. Cutting 293 files on an
   audit's own initiative would be reversing a human call, not executing one.
 - **Resolve whether the webview executes scripts (§5).** It needs a real
   VS Code. Marked UNVERIFIED per HARD RULE #23, logged below.
@@ -440,7 +440,7 @@ them. It now finds them.
 - **Verify whether the marp-vscode webview executes scripts.** Open a Lattice
   deck in a real VS Code with the Marp extension and look. It decides whether
   `lib/runtime/index.js`'s 2,064-line mirror does anything on that surface, and
-  therefore what §5's 292 files actually buy. Three passages move when it lands:
+  therefore what §5's 293 files actually buy. Three passages move when it lands:
   `gotchas.md:1547-1556` (asserts CSS-only flatly), `gotchas.md:1520` (says that
   assertion is untested), and `marp-independence.md:108` (agrees with the
   unhedged half). **Unreachable from a headless sandbox.**
