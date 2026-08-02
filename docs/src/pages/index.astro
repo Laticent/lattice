@@ -25,12 +25,18 @@ import {
 	FieldCards,
 	HowItWorks,
 	NextSteps,
+	nextStepsFor,
 	ProofStrip,
 	SectionHead,
+	StudioActions,
+	StudioCopy,
+	StudioTrust,
 	WhyCards,
 } from '../components/landing/sections.tsx';
 import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
+import StudioPreview from '../components/landing/StudioPreview.tsx';
+import { DECKS } from '../components/studio/decks';
 import { assetBase } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
@@ -131,33 +137,28 @@ const restyleData = {
 	engineUrl,
 };
 
-const nextSteps = [
-	{
-		href: url('getting-started/'),
-		title: 'Get started',
-		body: 'Install the toolchain and render your first deck in a few minutes.',
-		cta: 'Getting started',
-	},
-	{
-		href: url('guides/authoring/'),
-		title: 'Author decks',
-		body: "See every layout, what it's for, and the Markdown that feeds it.",
-		cta: 'Authoring guide',
-	},
-	{
-		href: url('components/'),
-		title: 'Browse the layouts',
-		body: 'Every layout (the reference calls them components) with a live preview and an in-browser editor — themable in all palettes.',
-		cta: 'Layout reference',
-	},
-	{
-		href: url('playground/'),
-		title: "Can't install anything?",
-		body: 'Open the playground — the full engine runs in your browser, nothing to install.',
-		cta: 'Open the playground',
-		form: true,
-	},
-];
+// The Studio section's live proof. Every displayed string is DERIVED from the
+// Studio's own deck module at build time — the deck the Studio actually boots
+// into — so the landing can't drift from the app. The slide count comes from
+// `slides.length`, deliberately NOT from the deck's hand-written `meta` string,
+// which can rot independently. Same counts policy as `manifests.length` above:
+// exact where it is generated (copy doc §7.3).
+const studioDeck = DECKS[0];
+const studioSample = studioDeck.slides[0];
+const studioData = {
+	sample: studioSample,
+	mermaid: needsMermaid(studioSample),
+	deckTitle: studioDeck.title,
+	slideCount: studioDeck.slides.length,
+	themeBase,
+	runtimeUrl,
+	engineUrl,
+};
+
+// The four next-step cards now live in sections.tsx with the rest of the landing
+// copy — card 4's body carries an inline link, and JSX can't appear in Astro
+// frontmatter.
+const nextSteps = nextStepsFor(url);
 ---
 
 <!doctype html>
@@ -201,7 +202,7 @@ const nextSteps = [
 				<div class="wrap grid grid-cols-1 items-center gap-[clamp(28px,4vw,56px)] lg:grid-cols-[1.05fr_1fr]">
 					<!-- Static copy + CTAs (zero JS). -->
 					<HeroCopy
-						playgroundHref={url('playground/')}
+						studioHref={url('studio/')}
 						getStartedHref={url('getting-started/')}
 						galleryHref={url('gallery.pdf')}
 					/>
@@ -214,6 +215,56 @@ const nextSteps = [
 			<section class="border-y border-border bg-muted py-[clamp(28px,3.5vw,44px)]">
 				<div class="wrap">
 					<HowItWorks />
+				</div>
+			</section>
+
+			<!-- The Studio — the browser door, opened. Position 3 is deliberate: it
+			     sits AFTER "How it works" so the visitor reads the text-file → engine
+			     model before they learn there is an app. At position 2 the page would
+			     read "web app that also has a CLI".
+			     Plain background; the section supplies its own inset bg-card panel. -->
+			<section class="py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<!-- The inset panel is what makes this read as an OBJECT you can open
+					     rather than another prose band, and what separates it from the
+					     plain field-cards section below. Astro owns the panel + grid;
+					     React owns the content — the same split the hero uses, and the
+					     reason the preview is a SIBLING island rather than a child. -->
+					<div class="rounded-2xl border border-border bg-card p-[clamp(20px,3vw,40px)] text-card-foreground shadow-sm">
+						<!-- Same column ratio as the hero, so the page keeps one visual
+						     language and the eye recognizes "another open-it moment".
+						     THREE children, not two, so the CTA can follow the PROOF when
+						     the grid stacks: below lg the order reads prose → preview →
+						     buttons; at lg the prose and buttons sit in column 1 and the
+						     preview spans both rows in column 2. -->
+						<div class="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-7 lg:grid-cols-[1.05fr_1fr]">
+							<div class="min-w-0 lg:col-start-1 lg:row-start-1"><StudioCopy /></div>
+							<!-- The one island. client:visible — it is below the fold, and the
+							     engine bundle it needs is already in flight from the hero's
+							     client:load preview, so this adds no new network bytes. -->
+							<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+								<StudioPreview client:visible data={studioData} />
+							</div>
+							<div class="min-w-0 lg:col-start-1 lg:row-start-2">
+								<StudioActions studioHref={url('studio/')} newDeckHref={url('studio/') + '?new=1'} />
+							</div>
+						</div>
+						<StudioTrust />
+					</div>
+				</div>
+			</section>
+
+			<!-- Bring your own model — its own band again, at h2 altitude, directly
+			     after the Studio. It was briefly absorbed into the Studio section as an
+			     h3 to hold the page's section count; that trade was wrong. The eyebrow
+			     exists to disclaim AT SKIM ALTITUDE (copy doc §5.5), and a skimmer
+			     scanning h2s never sees an h3 in another section's footer. Adjacent to
+			     the Studio, the page still reads as ONE AI conversation rather than two
+			     in two registers — which was the real goal; "no net section" was only
+			     the bookkeeping. -->
+			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<ByomSection featuresHref={url('features/') + '#ai-authoring'} />
 				</div>
 			</section>
 
@@ -252,15 +303,11 @@ const nextSteps = [
 				</div>
 			</section>
 
-			<!-- Bring your own model — the agent-workflow wedge -->
+			<!-- Showcase — muted. "Bring your own model" moved UP to position 4 (see
+			     the note there), so from here the page's light/muted rhythm is one
+			     step out of phase with main: Showcase gains the band and Next steps
+			     drops it, which keeps every pair alternating. -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
-				<div class="wrap">
-					<ByomSection featuresHref={url('features/') + '#ai-authoring'} />
-				</div>
-			</section>
-
-			<!-- Showcase -->
-			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="One source, every palette" title="Change one line. Restyle the whole deck.">
 						Watch a single slide move through every palette — in light or dark. This is the one-file palette
@@ -270,8 +317,9 @@ const nextSteps = [
 				</div>
 			</section>
 
-			<!-- Next steps -->
-			<section class="border-t border-border bg-muted py-[clamp(48px,6vw,88px)]">
+			<!-- Next steps — drops bg-muted (the showcase above now carries it) but
+			     keeps its top rule, so the page still closes on a boundary. -->
+			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Where to go next" title="Pick a starting point.">
 						The engine ships today; the SlideWright desktop app is on the way.
@@ -310,7 +358,9 @@ const nextSteps = [
 		     main thread. The engine URL is wired through the island data payloads. -->
 		<!-- Warm that same bundle into cache per the connection-first policy.
 		     allowEager: this is the funnel into the apps, so a fast link fetches it
-		     on idle (priming the jump to Playground/Drawing Board); a slow link or
+		     on idle (priming the jump to the Studio/Playground — and the hero CTA
+		     now points at the Studio, so the bundle this caches is the one that
+		     destination loads on mount); a slow link or
 		     Save-Data stays hands-off. See src/lib/prefetch-engine.ts. -->
 		<EngineWarm allowEager />
 	</body>
