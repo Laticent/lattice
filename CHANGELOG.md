@@ -83,6 +83,14 @@ in patch versions.
   delete accurate docs; and an `OVERRIDES` pin could not protect a file from a drift signal, so
   `ci.yml` printed a "this is a keep" reason beneath its own REWRITE verdict. Two genuine dead
   references surfaced and were fixed (`lattice-emulator.js`, `examples/chart-theme-gallery/`).
+  §5b's `dist/` copy-paste kit is also recorded as a **full manifest** rather than a gesture —
+  it previously named the CSS, themes and runtime but omitted the third-party resources, which
+  are what decide whether a copied folder works or silently renders bare: `mermaid-v11.min.js`
+  and `dist/fonts/*` (referenced `url(fonts/…)`-relative from `lattice.css`, so a kit without
+  them falls back to system serif — the #1256 title-slide defect). `cuoio.css` is named as the
+  default theme, and a new **`sample.md`** carries Marp-legal front matter plus explicit
+  `<script>` imports for the runtime and Mermaid, exercising a diagram and a runtime-built
+  component so a broken asset path shows as a wrong slide instead of degrading quietly.
   `engineering/decisions/2026-08-02-marp-reference-register.md`,
   `engineering/decisions/2026-08-03-export-fidelity-gate-scoping.md`.
 

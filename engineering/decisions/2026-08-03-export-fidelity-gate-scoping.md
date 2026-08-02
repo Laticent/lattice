@@ -42,8 +42,11 @@ about what marp-core actually produces.
 1. Add `@marp-team/marp-cli` as a **devDependency** — quarantined to the test
    tier, never a runtime dependency. `npm install @slidewright/lattice` stays
    marp-free, which is the property `marp-independence.md` §1 actually claims.
-2. Export a fixed **template deck** through `tools/export-marp.js` — the same
-   template §5b proposes shipping in `dist/`, so the artifact does double duty.
+2. Render the **`dist/` kit's `sample.md`** (register §5b) — the same artifact a
+   recipient copy-pastes, so the gate tests the thing users actually get. It must
+   carry its own `<script>` imports for the runtime and `mermaid-v11.min.js`, and
+   exercise a Mermaid diagram plus a runtime-built component, or the gate passes
+   on a deck too simple to break.
 3. Render the bundle with **real marp-cli**.
 4. Assert the result against the engine's own render, **one assertion per
    `lib/core/marp-fidelity.js` row** — `baked` and `mirrored` rows asserted to

@@ -358,13 +358,49 @@ neither half is sufficient."* Its header also warns the ledger reads one file
 and that several engine-only HTML-stage post-processors carry no row at all —
 so "exactly the rows it tracks" is not a safe reading of coverage.
 
-**What SHOULD ship in `dist/`** (not built yet — this is the plan, and `ls dist/`
-has no such kit today) — a copy-paste kit a recipient can drop beside their own
-deck: the minified CSS, `themes/`, `lattice-runtime.min.js`, a
-`.vscode/settings.json`, a `marp.config.cjs`, a README, and a **template deck**
-that renders correctly through pure Marp. That template doubles as the fidelity
-test the export boundary has never had (`2026-07-29-export-to-marp-broken.md`:
-"a handoff nobody exercises is not verified; it is unobserved").
+### What ships in `dist/` — the copy-paste kit
+
+**Not built yet** — `ls dist/` has no such kit today. Owner's requirement, stated
+2026-08-03: a folder someone can grab, drop beside their own deck, and use in
+VS Code or marp-cli **without running an export first**. The full manifest, not a
+gesture at one:
+
+| File | Source | Why it must be there |
+|---|---|---|
+| `lattice.css` | `dist/lattice.min.css` | the engine bundle; every palette `@import`s it by name |
+| `cuoio.css` | `themes/cuoio.css` | **the default theme** — named, not "some themes" |
+| `lattice-runtime.js` | `dist/lattice-runtime.min.js` | reconstructs Lattice semantics on a Marp-rendered DOM |
+| `mermaid-v11.min.js` | repo root | **third-party**: diagrams are dead without it |
+| `fonts/*` | `dist/fonts/` | **third-party**: `lattice.css` references them `url(fonts/…)`-relative, so a kit without them silently falls back to system serif — exactly the #1256 title-slide defect |
+| `.vscode/settings.json` | generated | registers the themes **and** sets `markdown.marp.enableHtml`, without which the deck's `<script>` tags print as literal text |
+| `marp.config.cjs` | generated | `themeSet` + `allowLocalFiles` + `html: true` |
+| `README.md` | generated | how to render, and what a Marp render does **not** reproduce (from the `marp-fidelity.js` ledger) |
+| **`sample.md`** | **new** | see below |
+
+**`sample.md` is the piece that does not exist in any form today**, and it is the
+one that makes the kit self-demonstrating. It must be a *well-formed, working*
+deck, not a stub:
+
+- **front matter** carrying what Marp needs (`marp: true`, `theme: cuoio`,
+  `paginate`, `size`) — the seven-key Marp-legal subset, not LFM's seventeen;
+- **explicit `<script>` imports** for the runtime *and* every third-party
+  resource it depends on (`mermaid-v11.min.js`), because a recipient copying
+  files into their own folder has no build step to wire them;
+- content that actually exercises the kit — a Mermaid diagram, a component the
+  runtime builds, and a plain prose slide — so that a broken asset path shows up
+  as a visibly wrong slide instead of silently degrading.
+
+**Two things fall out of building it this way.** First, the kit is very nearly
+*the export bundle minus the user's deck*: `lib/core/marp-bundle.js`'s
+`STATIC_ASSETS` already copies the CSS, the runtime and `mermaid-v11.min.js`, and
+`fontAssetsFor()` already walks the stylesheet for `url(fonts/…)` references. So
+it should be **built by the same code path**, which makes it self-verifying — a
+stale kit means a stale export.
+
+Second, `sample.md` is the **fidelity test the export boundary has never had**
+(`2026-07-29-export-to-marp-broken.md`: *"a handoff nobody exercises is not
+verified; it is unobserved"*). It is the artifact the proposed gate renders — see
+`engineering/decisions/2026-08-03-export-fidelity-gate-scoping.md`.
 
 **Why this is an increment, not a new architecture.** *(Corrected 2026-08-03 —
 this paragraph previously claimed the export passes LFM through "verbatim" and
