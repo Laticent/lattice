@@ -93,7 +93,7 @@ cap it should never have carried, the other gains only `balance`.
 | `divider.light p` | `46.875cqi` | `--measure-bookend-lede` + `balance` |
 
 Both eyebrows are held **out** of the lede measure. `closing`'s already was (an explicit
-`max-width: none`); it gains `text-wrap: normal` to match, because balance on a one-line label is
+`max-width: none`); it gains `text-wrap: wrap` to match, because balance on a one-line label is
 a no-op at best and an even split on a label that *does* wrap reads as a heading.
 `divider.light`'s was **not**, and now is: `section.divider.light p` is written for the subtitle
 but matches every paragraph on the slide, so it also caught the eyebrow. That straddle was latent
@@ -236,6 +236,34 @@ sovereign exception they implement, and each of the three components' `.docs.md`
 Being tokens is what makes them overridable — a deck that wants a different bookend proportion
 sets `--measure-bookend-heading` in front-matter `style:` rather than losing to a number it cannot
 see.
+
+## `text-wrap: normal` does not exist, and fails silently
+
+Both eyebrow exclusions originally reset with `text-wrap: normal`. **There is no such value.**
+`text-wrap` is a shorthand over `text-wrap-mode` (`wrap | nowrap`) and `text-wrap-style`
+(`auto | balance | stable | pretty`), and `normal` is in neither list:
+
+```js
+CSS.supports('text-wrap', 'normal')          // false
+{ text-wrap: balance; text-wrap: normal }    // computes to balance
+```
+
+An invalid value makes the declaration invalid at parse time, so it is **dropped** — leaving both
+eyebrows with the `balance` they were written to remove. Nothing catches this: it is valid CSS
+syntax, so `checkCssSyntax` passes, the bundle builds, every gallery renders pixel-identical
+(balance on a one-line label really is a no-op), and the regression gate stays green. It reads as
+a working reset and is a comment describing an empty declaration.
+
+The fix is `text-wrap: wrap`, which resets **both** halves — `text-wrap-mode: wrap`,
+`text-wrap-style: auto` — verified in Chromium rather than inferred. `auto` computes identically;
+`wrap` is preferred as the more explicit statement of intent.
+
+Two things worth carrying out of this. First, the failure mode of an invalid CSS value is
+*silence*, not error, so a declaration whose whole job is to override an inherited one has to be
+proven by reading the **computed** value on a real render — asserting the property was written is
+not evidence it applied. Second, this shipped in the first cut, survived an independent
+maker-checker pass, and was caught by an automated PR reviewer reading the diff cold. The
+verification that found it was mechanical, not clever: *does this declaration parse?*
 
 ## Method
 
