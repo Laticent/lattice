@@ -276,3 +276,15 @@ test('a wording difference suppresses the raw-markup fallback', () => {
   const d = core.diffSections('<section><p class="a">x</p></section>', '<section><p class="b">y</p></section>');
   assert.deepEqual(d, [{ kind: 'text', name: 'text', got: 'x', want: 'y' }]);
 });
+
+test('the section parsers do not backtrack exponentially (js/redos)', () => {
+  // CodeQL flagged both quote-aware patterns high: with a `[^>]` catch-all a quote is matchable by
+  // BOTH the quoted branch and the catch-all, so a run of `""` decomposes exponentially many ways.
+  // The catch-all is now `[^>"']`, leaving exactly one parse. This input hangs the ambiguous form.
+  const evil = `<section ${'""'.repeat(600)}`;
+  const t0 = process.hrtime.bigint();
+  core.sectionText(evil);
+  core.diffSections(evil, `${evil}x`);
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.ok(ms < 500, `parsing took ${ms.toFixed(1)}ms — the alternatives are ambiguous again`);
+});
