@@ -286,8 +286,24 @@ section.chart-frame,
  * spacing) exactly as for every other component. The old in-flow `.chart-header`
  * container and its decorative `::after` hairline are retired (the element no longer
  * exists). The per-role chrome styling that remains distinct to charts (eyebrow
- * mono/uppercase, title max-width, subtitle italic) survives via the descendant
- * selectors below, which still match once the elements live inside `.masthead-lede`. */
+ * mono/uppercase, subtitle italic) survives via the descendant selectors below, which
+ * still match once the elements live inside `.masthead-lede`.
+ *
+ * NO WIDTH HERE. The framing assets (eyebrow, heading, subtitle) FILL the masthead band:
+ * the `.masthead-lede` grid track is the constraint, and it already reserves the right
+ * bay (`meta:` / `logo:`), so the band computes the available width and the text takes it.
+ * A per-component cap used to sit on the heading (70.3125cqi) and the subtitle (68.75cqi);
+ * both are gone. They were invisible, undocumented, and — because `cqi` resolves against
+ * the SECTION (`section{container-type:size}`, the one container in the engine) and never
+ * against the lede — blind to the bay: measured with a `meta:` line docked, the lede track
+ * was 885.9px and the heading still clamped to 810px. Across the corpus the pair held 42
+ * framing boxes below their band and cost 30 of them an extra line.
+ *
+ * How a chart's framing behaves is the DECK's call, not this file's, and the lever is
+ * alignment — the `headline:` register (`head-left` / `head-center` / `head-right`,
+ * base.accent-finish.css), which the lede reads as `--headline-align` /
+ * `--headline-justify`. Do not reintroduce a width here; a component does not compose its
+ * own chrome. (Fit is autosplit + atomization's job, not a cap's.) */
 
 section.chart-frame .chart-eyebrow {
   margin: 0;
@@ -305,13 +321,8 @@ section.chart-frame .chart-eyebrow > code {
   text-transform: uppercase;
 }
 
-section.chart-frame .masthead-lede h2 {
-  max-width: 70.3125cqi;
-}
-
 section.chart-frame .chart-subtitle {
   margin: 0;
-  max-width: 68.75cqi;
   font-size: var(--fs-body);
   font-style: italic;
   color: var(--text-secondary);

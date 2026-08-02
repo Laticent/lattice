@@ -3724,10 +3724,23 @@ section.contact > .cell-stage > .qr-card {
 
 section.content h3 { padding-bottom:0.3125cqi; }
 section.content h2 { padding-bottom:var(--sp-sm); }
-/* Cap line length: at --fs-message a full-canvas paragraph runs ~90 chars,
- * past the comfortable maximum. 72cqi ≈ 65–75 chars. */
-section.content h2 { max-width:72cqi; }
+/* NO width on the heading: the framing assets FILL the masthead band, whose
+ * `.masthead-lede` track is the constraint (it already reserves the right bay). A
+ * 72cqi cap used to sit here and held the heading below its band on 21 of 28 measured
+ * slides, costing 18 of them an extra line. Framing behavior is the deck's call via
+ * the `headline:` alignment register, not a per-component bake. */
+/* BODY prose keeps a reading measure — 72cqi ≈ 65–75 chars, where an uncapped
+ * full-canvas paragraph at --fs-message runs ~90. */
 section.content p  { font-size:var(--fs-message); line-height:var(--lh-relaxed); max-width:72cqi; }
+/* …but NOT in the masthead band: the bare rule above also matched content's eyebrow and
+ * subtitle once they HOIST into `.masthead-lede`, capping framing text with a body rule
+ * (measured, a portrait eyebrow wrapped to two lines for want of 2.6px). Un-capped by
+ * exclusion rather than by re-scoping the rule to `> .cell-stage`: the stage only exists
+ * when the masthead lift runs, and the lift is opt-OUT-able (`form: off` deck-wide,
+ * `no-form` per slide — plugins.js readFormMode/formToggleClass). A stage-scoped measure
+ * silently dropped body prose back to ~90-char lines on exactly those decks, and left
+ * lists capped while paragraphs were not. Specificity (0,2,2) beats the (0,1,2) above. */
+section.content .cell-masthead p { max-width:none; }
 /* Vertical placement is no longer baked here — it's the author's call via the
  * universal alignment modifiers (align-top default · align-middle · align-bottom,
  * #527). content defaults to top like every frame; a deck that wants the old
@@ -3969,10 +3982,14 @@ section.cycle.lat-split-native > .cell-stage > ul > li:only-child {
  * edge — visually unified, signalling that they all support the verdict.
  * ──────────────────────────────────────────────────────────────────────── */
 section.decision > .cell-stage { display:flex; flex-direction:column; }
+/* No width: the heading FILLS the masthead band, whose `.masthead-lede` track already
+ * reserves the right bay. A 70.3125cqi cap used to sit here; it held the verdict heading
+ * below its band on 8 of 12 measured slides and cost every one of them an extra line
+ * (`compare-prose decision` — the authored pairing — included). Framing behavior is the
+ * deck's call via the `headline:` alignment register, not a per-component bake. */
 section.decision h2 {
   font-size:var(--fs-h2);
   line-height:var(--lh-tight);
-  max-width:70.3125cqi;
 }
 section.decision > .cell-stage > ul,
 section.decision > .cell-stage > ol {
@@ -18479,8 +18496,24 @@ section.chart-frame,
  * spacing) exactly as for every other component. The old in-flow `.chart-header`
  * container and its decorative `::after` hairline are retired (the element no longer
  * exists). The per-role chrome styling that remains distinct to charts (eyebrow
- * mono/uppercase, title max-width, subtitle italic) survives via the descendant
- * selectors below, which still match once the elements live inside `.masthead-lede`. */
+ * mono/uppercase, subtitle italic) survives via the descendant selectors below, which
+ * still match once the elements live inside `.masthead-lede`.
+ *
+ * NO WIDTH HERE. The framing assets (eyebrow, heading, subtitle) FILL the masthead band:
+ * the `.masthead-lede` grid track is the constraint, and it already reserves the right
+ * bay (`meta:` / `logo:`), so the band computes the available width and the text takes it.
+ * A per-component cap used to sit on the heading (70.3125cqi) and the subtitle (68.75cqi);
+ * both are gone. They were invisible, undocumented, and — because `cqi` resolves against
+ * the SECTION (`section{container-type:size}`, the one container in the engine) and never
+ * against the lede — blind to the bay: measured with a `meta:` line docked, the lede track
+ * was 885.9px and the heading still clamped to 810px. Across the corpus the pair held 42
+ * framing boxes below their band and cost 30 of them an extra line.
+ *
+ * How a chart's framing behaves is the DECK's call, not this file's, and the lever is
+ * alignment — the `headline:` register (`head-left` / `head-center` / `head-right`,
+ * base.accent-finish.css), which the lede reads as `--headline-align` /
+ * `--headline-justify`. Do not reintroduce a width here; a component does not compose its
+ * own chrome. (Fit is autosplit + atomization's job, not a cap's.) */
 
 section.chart-frame .chart-eyebrow {
   margin: 0;
@@ -18498,13 +18531,8 @@ section.chart-frame .chart-eyebrow > code {
   text-transform: uppercase;
 }
 
-section.chart-frame .masthead-lede h2 {
-  max-width: 70.3125cqi;
-}
-
 section.chart-frame .chart-subtitle {
   margin: 0;
-  max-width: 68.75cqi;
   font-size: var(--fs-body);
   font-style: italic;
   color: var(--text-secondary);

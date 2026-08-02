@@ -886,6 +886,22 @@ fallback, so `auto` is byte-identical to today's render. Alignment is `text-alig
 component must opt in (a rot-guard test pins the covered set). Two layouts don't route their
 heading through the seam yet: `split-panel` / `split-compare` (no `masthead-lede`).
 
+**Width is not a component's to set — alignment is the only lever.** The framing assets
+(eyebrow, heading, subtitle, heading rule) **fill the masthead band**: the `.masthead-lede`
+grid track is the constraint, and it already reserves the right bay, so a `meta:` or `logo:`
+line narrows the track and the framing follows. A component must **not** add its own
+`max-width` to framing text — that is a bespoke composition decision about chrome that frames
+someone else's content, and the deck owns it through this register. Four components used to
+(chart-family's heading + subtitle, `content`'s heading, `decision`'s heading); across the
+gallery corpus they held 42 framing boxes below their own band and cost 30 of them a line, and
+because `cqi` resolves against the section they could not see the bay at all. They are gone —
+don't reintroduce the pattern. Fit is **autosplit + atomization**'s job (which may step type
+down to make a slide fit), never a width cap's.
+
+The **sovereign bookends are the exception**: on `title` / `closing` / `divider` the heading and
+subtitle *are* the slide's content rather than a frame around it, so a composed measure there
+is the component's own call and those caps stand.
+
 #### The `lift:` front-matter register (card elevation)
 
 `lift:` is the **opt-in card-elevation control** for the "Struck" lift — the box-shadow
