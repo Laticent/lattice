@@ -70,7 +70,9 @@ in patch versions.
   with every string verbatim, so the page now carries one AI conversation instead of two. The six
   field cards say `Edit this in the playground`, and next-steps card 4 points at the Studio. The
   hero eyebrow, H1, lead, and every protected line are untouched. Section bands re-alternate to
-  cover the removed one (Showcase gains `bg-muted`, Next steps drops it). Design record:
+  cover the removed one (Showcase gains `bg-muted`, Next steps drops it), and the restyle
+  carousel's stage moves `bg-muted` → `bg-background` so it doesn't resolve to the identical color
+  as the band it now sits on. Design record:
   `engineering/decisions/2026-07-30-landing-studio-promotion.md`.
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the

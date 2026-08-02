@@ -124,24 +124,49 @@ Next steps drops `bg-muted` while keeping its top rule.
 
 ## 7. Verification status — what is and isn't checked
 
-**Done:** `npm run typecheck` (docs), `npm run lint`, the landing vitest specs
-(including a new `StudioPreview.test.tsx` that pins the derived slide count),
-and full-page + per-section captures at 1440 / 820 / 390 in **both** light and
-dark, with the island scrolled into view so it actually hydrates.
+**Done:** `npm run typecheck` (docs), `npm run lint`, `npm run build:check`, the
+unit suite (4,749 tests), the landing vitest specs (including a new
+`StudioPreview.test.tsx` that pins the derived slide count), and full-page +
+per-section captures at 1440 / 820 / 390 in **both** light and dark, with the
+island scrolled into view so it actually hydrates.
 
-**NOT done — this is a prototype, not a shipped change:**
+### The band change DID create a regression, and it is fixed
 
-- Only the `indaco` palette was viewed. The design asks for at least one warm
-  and one cool palette, because the band-alternation change and the `bg-card`
-  panel are exactly what reads differently across palettes.
-- The **restyle-carousel edge check** is outstanding: that figure is `bg-muted`
-  on a section that is now *also* muted, and may lose edge definition. The
-  pre-agreed fix is one class (`bg-muted` → `bg-card` on the figure).
-- No perf measurement. The "zero new network bytes" claim is reasoning.
-- `npm run build:check`, the unit suite, and the docs vitest suite in full have
-  not been re-run since the last edits.
-- No adversarial trio (HARD RULE #25) has been run on this design.
-- Nothing has been tapped on a real device.
+The predicted risk was real. The restyle carousel's stage was `bg-muted`, and
+this change moved that section onto a `bg-muted` band — so the figure's fill
+resolved to the **exact same color** as the band behind it. Measured, not
+eyeballed, in two palettes × two modes:
+
+| | band | figure (before) |
+|---|---|---|
+| indaco light | `rgb(242,245,250)` | `rgb(242,245,250)` |
+| indaco dark | `rgb(0,40,71)` | `rgb(0,40,71)` |
+| cuoio light | `rgb(243,237,228)` | `rgb(243,237,228)` |
+| cuoio dark | `rgb(30,26,21)` | `rgb(30,26,21)` |
+
+**The design's pre-agreed fix (`bg-muted` → `bg-card`) does not work**, and that
+is worth recording: in this token bridge `--card` and `--muted` resolve to the
+same value, so the swap is a no-op that *looks* like a fix. The applied fix is
+`bg-background`, which genuinely differs on both sides (light 255,255,255 vs
+242,245,250; dark 0,29,51 vs 0,40,71). Re-measured: distinct in all four
+combinations.
+
+**Scope of the symptom, honestly:** it only shows in the pre-render window —
+once the engine paints, the slide's own palette background fills the figure, so
+a rendered carousel looked fine throughout. But that window is exactly what a
+slow connection sits in, and a same-tone tripwire that only a border rescues is
+the kind of thing that rots. Fixed rather than filed, per HARD RULE #18, because
+this change caused it.
+
+**Still NOT done:**
+
+- Only `indaco` and `cuoio` were viewed — a cool and a warm palette, not all 14.
+- No perf measurement. The "zero new network bytes" claim is reasoning from the
+  fact that the hero's `client:load` preview already fetches the engine bundle,
+  not a captured waterfall.
+- No adversarial trio (HARD RULE #25) has been run on this design, and the two
+  returned competition critiques (13 + 14 findings) are still unapplied.
+- Nothing has been tapped on a real device; 390px is emulation (HARD RULE #23).
 
 **Pre-existing, not caused here:** the docs dev server logs an
 `Invalid hook call` warning during SSR of the landing page. It reproduces on
