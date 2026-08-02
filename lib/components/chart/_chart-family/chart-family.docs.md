@@ -166,11 +166,13 @@ stylesheet renders **black, unstyled, serif**. The export resolves this:
   [-o out.svg] [--all]`. Renders through `window.LatticePlayground.render` in a
   puppeteer page, embeds the engine fonts from disk
   (`tools/lib/chart-font-embed.js`), writes the file.
-- **Drawing Board** — a **"Chart SVG"** entry in the Export menu, shown **only
-  when the cursor's slide carries a chart** (gated on the `.db-active` section),
-  exporting that one chart. Reuses the same core in the browser via the esbuild
-  ESM bundle `standalone-svg.generated.js`, embedding fonts through
-  `docs/src/playground/font-embed.js`.
+- **In the browser** — the kernel ships in the Studio's export module
+  (`docs/src/components/studio/export/deck-export.js` `exportChart`), reusing the same
+  core via the esbuild ESM bundle `standalone-svg.generated.js` and embedding fonts
+  through `docs/src/playground/font-embed.js`. It currently has **no UI entry point**:
+  the "Chart SVG" item lived in the Drawing Board's Export menu, which retired with that
+  route (2026-07-03-studio-succession.md P5). Use the CLI above until a Share entry is
+  added.
 
 **Caveats.** Resolved colours come out as `oklab()` where the source used
 `color-mix(in oklab, …)` — every current browser (and Inkscape ≥1.0 / resvg)

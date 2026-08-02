@@ -212,7 +212,7 @@ describe('review-core: prose-density budgets (2026-06-30)', () => {
 });
 
 describe('review-core: shared ask + pacing (one definition for Coach + scorecard)', () => {
-  test('exports ASK_RE and pacingVerdict so coach-actions reuses them', async () => {
+  test('exports ASK_RE and pacingVerdict so the Coach action cards reuse them', async () => {
     const { ASK_RE, pacingVerdict } = require('../../../lib/authoring/review-core');
     assert.ok(ASK_RE instanceof RegExp);
     assert.match('we recommend funding APAC', ASK_RE);

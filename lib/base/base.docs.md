@@ -624,7 +624,7 @@ classes — so it would silently ship the baseline — which is why `npm run
 lint:deck` flags it (`unknown-finish` / `unknown-mode`).
 
 **Reserved finish classes — do not author by hand.** `lattice-exporting` is an
-**engine-reserved class**: the Studio raster export (`drawing-board-export.js`)
+**engine-reserved class**: the Studio raster export (`studio/export/deck-export.js`)
 stamps it on every section right before `html-to-image` capture, which flips the
 finish compositor to its opaque export face (`base.finish.css`, the OPAQUE FLIP).
 Never put `lattice-exporting` in deck source — a slide carrying it would render

@@ -83,7 +83,7 @@ function readSignals(): WarmSignals {
 
 // App routes that actually instantiate the engine. Intent on a link into any
 // of these warms the bundle a beat before the navigation lands.
-const ENGINE_ROUTE = /\/(playground|drawing-board|workbench|components)(?:\/|$|[?#])/;
+const ENGINE_ROUTE = /\/(playground|studio|components)(?:\/|$|[?#])/;
 
 // Engine URLs already scheduled (eager) or armed (intent) on this page, so a
 // repeat call — or a second <EngineWarm> instance — can't double-arm and leak

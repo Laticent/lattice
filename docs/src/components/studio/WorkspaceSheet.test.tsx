@@ -482,3 +482,31 @@ describe('WorkspaceSheet — General tab starting mode', () => {
 		expect(sheet.getByRole('radio', { name: /Read/ })).toBeChecked();
 	});
 });
+
+// Two cross-surface switches whose ONLY control used to live in the Drawing Board's
+// settings panel. That panel died with its route, so until they landed here a user who
+// had turned either off could never turn it back on — and for prompt caching that meant
+// silently paying full input price on every turn, forever. Both write the same keys the
+// old panel wrote (they are user data, and the names do not change).
+describe('WorkspaceSheet — settings rehomed from the retired Drawing Board panel', () => {
+	it('prompt caching: reflects the stored value and writes it back', async () => {
+		localStorage.setItem('lattice-db-or-cache', 'off');
+		const { user, sheet } = openSheet();
+		const sw = sheet.getByRole('switch', { name: 'Reuse the cached prompt' });
+		expect(sw).toHaveAttribute('aria-checked', 'false');
+		await user.click(sw);
+		expect(localStorage.getItem('lattice-db-or-cache')).toBe('on');
+		await user.click(sw);
+		expect(localStorage.getItem('lattice-db-or-cache')).toBe('off');
+	});
+
+	it('guided tours: reflects the stored value and writes it back', async () => {
+		localStorage.setItem('lattice-tour-enabled', 'off');
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		const sw = sheet.getByRole('switch', { name: 'Guided tours' });
+		expect(sw).toHaveAttribute('aria-checked', 'false');
+		await user.click(sw);
+		expect(localStorage.getItem('lattice-tour-enabled')).not.toBe('off');
+	});
+});

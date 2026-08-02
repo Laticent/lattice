@@ -20,6 +20,25 @@ const FINDINGS = [
 	{ message: 'Body prose exceeds the density budget', slide: 5 },
 ];
 const SCORECARD = { overall: 87, band: 'A−' };
+// Shaped like the payload `studio.astro` actually ships — every field `layoutBlock`
+// reads, so a payload that drops one fails here instead of silently thinning the prompt.
+const CATALOG = [
+	{
+		name: 'actors',
+		bucket: 'inventory',
+		summary: 'Roster of responsibilities owned by named actors.',
+		description: 'Roster of responsibilities owned by named actors.',
+		skeleton: '<!-- _class: actors -->\n\n## Title\n\n- Row',
+		variants: ['compact'],
+		capacity: { axis: 'item', soft: 6, hard: 7 },
+		density: { soft: 14 },
+		slots: [
+			{ name: 'title', required: true, description: 'Slide heading.' },
+			{ name: 'rows', required: true, description: 'One row per responsibility.' },
+		],
+		variantSkeletons: [{ name: 'compact', caption: 'tighter rows', sample: '<!-- _class: actors compact -->\n\n## Title\n\n1. Name `value`' }],
+	},
+];
 
 describe('buildChatSystem — the static/dynamic split', () => {
 	it('puts the assessment in the DYNAMIC tail, never the cacheable prefix', () => {
@@ -40,12 +59,26 @@ describe('buildChatSystem — the static/dynamic split', () => {
 	});
 
 	it('grounds the cloud tier in the Lattice primer, and spares on-device models', () => {
-		const catalog = [{ name: 'headline', bucket: 'anchor', description: 'A cover statement.' }];
-		const cloud = buildChatSystem('openrouter', { catalog });
-		const local = buildChatSystem('webllm', { catalog });
-		expect(cloud.staticPrefix).toContain('headline');
+		const cloud = buildChatSystem('openrouter', { catalog: CATALOG });
+		const local = buildChatSystem('webllm', { catalog: CATALOG });
+		expect(cloud.staticPrefix).toContain('actors');
 		// A 10K-token primer makes a small on-device model lose the thread.
 		expect(local.staticPrefix).not.toContain('You know Lattice, the Markdown slide engine');
+	});
+
+	// The primer is built from the payload `studio.astro` ships. Asserting only that a
+	// layout NAME appears passes on a payload carrying nothing else — which is exactly
+	// what shipped: `summary`, `slots`, `capacity` and `variantSkeletons` all reached
+	// `layoutBlock` as undefined, so the model got 61 names and no authoring contract.
+	// These pin the four fields by their rendered shape, not by the fixture's own keys.
+	it('carries the authoring contract, not just the layout names', () => {
+		const { staticPrefix } = buildChatSystem('openrouter', { catalog: CATALOG });
+		expect(staticPrefix).toContain('### actors — Roster of responsibilities owned by named actors.');
+		expect(staticPrefix).toContain('- `rows`: One row per responsibility.');
+		expect(staticPrefix).toContain('Budget: ≤ 6 items');
+		// AUTHORING_RULES tells the model to match a variant's OWN skeleton where one is
+		// shown; without this the instruction points at content that is never emitted.
+		expect(staticPrefix).toContain('is authored differently');
 	});
 
 	it('reports "no mechanical issues" rather than silently omitting the section', () => {
@@ -113,6 +146,25 @@ describe('the cache breakpoint lands after the static prefix (failure mode 2)', 
 		);
 		const parts = marked[0].content as { text: string; cache_control?: unknown }[];
 		expect(parts[0].cache_control).toEqual({ type: 'ephemeral' });
+		expect(parts[1].cache_control).toBeUndefined();
+	});
+
+	// The chat asks for a 1-hour breakpoint rather than the provider's 5-minute default.
+	// A conversation has think-gaps; at the 5m default the ~10K-token prefix is re-written
+	// after every lull, which is most turns. Ported with its cost reasoning from the
+	// Drawing Board's chat, where it was explicit — and dropped silently in the first port,
+	// because the test that pinned it was deleted along with its subject.
+	it('gives the chat prefix a 1-hour TTL, not the 5-minute default', () => {
+		const marked = withCachedSystem(
+			[
+				{ role: 'system', content: [{ type: 'text', text: 'PREFIX' }, { type: 'text', text: 'TAIL' }] },
+				{ role: 'user', content: 'hi' },
+			],
+			'anthropic/claude-3.5-sonnet',
+			'1h',
+		);
+		const parts = marked[0].content as { cache_control?: unknown }[];
+		expect(parts[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
 		expect(parts[1].cache_control).toBeUndefined();
 	});
 });

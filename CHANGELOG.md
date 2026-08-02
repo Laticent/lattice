@@ -116,7 +116,11 @@ in patch versions.
   Studio reads the very same `lattice-workbench` IndexedDB store the Workbench wrote to; that
   name is user data and deliberately does not change. Any decks left in the Drawing Board's
   `lattice-drawing-board` store are **not deleted** — the removal drops no stores, and the
-  origin's IndexedDB outlives the page that wrote it. The **service worker version is bumped
+  origin's IndexedDB outlives the page that wrote it. Two smaller capabilities retire with the
+  surfaces rather than moving: the Architect's **worked-example tier picker** (Short · Standard ·
+  Full, with live slide counts) has no Studio equivalent, and the **"Export chart" SVG** item from
+  the Drawing Board's Export menu loses its button — its kernel and the `tools/export-chart-svg.js`
+  CLI both remain, so the capability is reachable, just not from the UI. The **service worker version is bumped
   to v2**, which drops the old runtime caches: without it an offline visitor would keep being
   served a cached shell for a route whose code no longer ships.
 
@@ -134,8 +138,12 @@ in patch versions.
   port — would re-write the whole ~10K-token prefix to cache on every turn at the 1.25x write
   premium and never read a hit. The author's **standing instructions and output language survive
   the split** (they ride a third, uncached part), and the on-device tier is deliberately spared the
-  primer, which would swamp a small model's context. The **prompt-caching opt-out in settings now
-  actually works** — it was written but never read, so the toggle did nothing.
+  primer, which would swamp a small model's context. The **prompt-caching opt-out now works, and has
+  somewhere to live** — it was written by the Drawing Board's settings panel but never read, so the
+  toggle did nothing; the model layer reads it per turn now, and since that panel retired with its
+  route the switch moved to **Workspace → AI**. It governs the Coach's per-finding Fix too, which
+  had been paying the cache-write surcharge regardless. **Guided tours** moved for the same reason —
+  its only switch was on the Drawing Board, and the Playground's tour still reads the flag.
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a

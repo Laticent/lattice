@@ -104,7 +104,7 @@ export default defineConfig({
 	vite: {
 		server: { fs: { allow: ['..'] } },
 		// Module (ESM) workers, not the default IIFE: the PDF export worker
-		// (src/playground/pdf-export-worker.js) bundles jspdf, whose internal
+		// (src/components/studio/export/pdf-export-worker.js) bundles jspdf, whose internal
 		// dynamic imports force a code-splitting worker build — which Rollup
 		// refuses under IIFE. Every browser that has OffscreenCanvas (the worker
 		// path's feature gate) also has module workers, and the main thread falls

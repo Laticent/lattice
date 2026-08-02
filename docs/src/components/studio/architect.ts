@@ -10,7 +10,7 @@ import { buildLatticePrimer } from '@/components/studio/ai/architect-knowledge.j
 import { cosineRank } from '@/components/studio/ai/architect-retrieval.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
-import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
 import { parseScene } from '@/lib/anima/schema';
 import type { Scene } from '@/lib/anima/types';
 import { AXES, MOTION_VERBS, PRIMITIVES, VERB_SOURCE } from '@/lib/anima/vocabulary';
@@ -181,7 +181,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[] }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[]; cacheTtl?: string }) => Promise<string>;
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
@@ -1102,7 +1102,7 @@ export async function requestFindingFix(source: string, finding: Finding, catalo
 	try {
 		const res = await requestSlideFix({
 			model: voicedModel(model, generation, deckOutputLang(source)),
-			gate: { cache: () => generation === 'openrouter', onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
+			gate: { cache: () => generation === 'openrouter' && readCachingEnabled(), onUsage: (u: Usage) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)) },
 			source,
 			finding,
 			catalog,
@@ -1208,10 +1208,6 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	const generation = model.availability().generation;
 	if (generation === 'floor') return { status: 'offline' };
 	const last = history[history.length - 1];
-	if (generation === 'openrouter') {
-		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs));
-		if (blk) return { status: 'blocked', reply: blk };
-	}
 	// "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
 	// model may improve wording/structure but must not alter any number, date, name, or
 	// claim; if a fix would require changing a fact, it explains instead of editing.
@@ -1234,6 +1230,16 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 					{ type: 'text', text: dynamicTail },
 				]
 			: `${staticPrefix}${dynamicTail}`;
+	// The budget gate runs AFTER the system turn is built, and counts it. Grounding added
+	// ~8K tokens (the primer) to every turn; estimating from the user message and the deck
+	// alone would under-count a chat turn several-fold and let a hard-stop cap sail past the
+	// ceiling it exists to hold. The tally itself was always authoritative (recordSpend uses
+	// the returned `usage.cost`) — this is the pre-send ESTIMATE catching up to the prompt.
+	if (generation === 'openrouter') {
+		const systemTokens = Math.ceil((staticPrefix.length + dynamicTail.length) / 4);
+		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs) + systemTokens);
+		if (blk) return { status: 'blocked', reply: blk };
+	}
 	// Ground the final user turn in the reference doc (#640).
 	const ground = groundMessages(withStudioVoice([
 		{ role: 'system', content: systemContent },
@@ -1250,6 +1256,13 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 			messages: ground.messages,
 			plugins: ground.plugins,
 			fallback: '',
+			// A CONVERSATION has think-gaps, so the static prefix gets a 1-hour cache
+			// breakpoint instead of the provider's 5-minute default: at 5m the ~10K-token
+			// prefix is re-written after almost every lull. A 1h write costs 2x base input
+			// against 1.25x for 5m, and one avoided re-write more than repays that — it wins
+			// after a single gap over five minutes. Chat only; the one-shot edit paths keep
+			// the default. Ported with its reasoning from the Drawing Board's chat.
+			cacheTtl: '1h',
 			// Streaming: tokens are painted live by the caller. All tiers that emit a chat
 			// reply stream (OpenRouter SSE, Prompt API, WebLLM, Transformers); floor never
 			// reaches here (offline above). Only an explicit Stop aborts (signal).

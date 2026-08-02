@@ -52,7 +52,7 @@ vi.mock('./architect', () => ({
 }));
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
-const COMPONENTS = [{ name: 'headline', bucket: 'anchor', description: 'A cover statement.' }];
+const COMPONENTS = [{ name: 'headline', bucket: 'anchor', description: 'A cover statement.', skeleton: '<!-- _class: headline -->\n\n# Title' }];
 
 beforeEach(() => {
 	localStorage.clear();
@@ -79,7 +79,7 @@ describe('Studio — the chat is grounded in what the Coach knows', () => {
 		await user.click(screen.getByRole('button', { name: 'Send' }));
 
 		await vi.waitFor(() => expect(chatSpy).toHaveBeenCalled());
-		const opts = chatSpy.mock.calls[0][3] as { grounding?: { scorecard?: unknown; findings?: unknown[]; catalog?: unknown[] } };
+		const opts = (chatSpy.mock.calls[0] as unknown[])[3] as { grounding?: { scorecard?: unknown; findings?: unknown[]; catalog?: unknown[] } };
 		expect(opts?.grounding, 'chatComplete was called with no grounding — the prop is not wired through').toBeTruthy();
 		expect(opts.grounding?.scorecard).toEqual(SCORECARD);
 		expect(opts.grounding?.findings).toEqual([FINDING]);

@@ -17,6 +17,11 @@ export const OR_CACHE_KEY = 'lattice-db-or-cache'; // prompt-caching opt-out (de
 export const OR_INSTR_KEY = 'lattice-db-architect-instructions'; // standing instructions
 const DEDUP_KEY = 'lattice-db-dedup'; // component-gen dedup suggestions (default on)
 export const readCachingEnabled = () => { try { return localStorage.getItem(OR_CACHE_KEY) !== 'off'; } catch { return true; } };
+// The opt-out needs a WRITER on a surviving surface. Its only one was the Drawing Board's
+// settings panel, which died with that route — leaving anyone who had ever ticked it off
+// stuck paying full input price on every turn with no way back. The Studio's Workspace
+// sheet owns the control now.
+export const writeCachingEnabled = (on) => { try { localStorage.setItem(OR_CACHE_KEY, on ? 'on' : 'off'); } catch { /* unavailable */ } };
 // When on (default), AI component generation suggests near-duplicate components
 // before generating, so the author reuses rather than bloats the catalog (§5/§8).
 export const readDedupEnabled = () => { try { return localStorage.getItem(DEDUP_KEY) !== 'off'; } catch { return true; } };

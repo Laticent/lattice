@@ -246,15 +246,16 @@ const OR_CACHE_BREAKPOINT_VENDORS = new Set(['anthropic', 'google']);
 // cacheable size the breakpoint is a silent no-op, so marking is always safe. Pure —
 // returns a new array, inputs untouched; a string `content` becomes the one-text-part
 // array form OpenRouter expects the `cache_control` field on.
-export function withCachedSystem(messages, modelId) {
+export function withCachedSystem(messages, modelId, ttl) {
   if (!OR_CACHE_BREAKPOINT_VENDORS.has(String(modelId || '').split('/')[0])) return messages;
+  const mark = ttl ? { type: 'ephemeral', ttl } : { type: 'ephemeral' };
   let marked = false;
   return (messages || []).map((m) => {
     if (marked || !m || m.role !== 'system') return m;
     // Plain string system prompt: wrap it as one cached text part.
     if (typeof m.content === 'string') {
       marked = true;
-      return { ...m, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
+      return { ...m, content: [{ type: 'text', text: m.content, cache_control: mark }] };
     }
     // A canon/voice split (withStudioVoice's cloud path emits the system as
     // [stable canon, volatile voice] text parts): put the breakpoint on the FIRST
@@ -264,7 +265,7 @@ export function withCachedSystem(messages, modelId) {
     // authored.
     if (Array.isArray(m.content) && m.content.length && m.content[0] && typeof m.content[0].text === 'string' && !m.content.some((p) => p?.cache_control)) {
       marked = true;
-      const content = m.content.map((p, i) => (i === 0 ? { ...p, cache_control: { type: 'ephemeral' } } : p));
+      const content = m.content.map((p, i) => (i === 0 ? { ...p, cache_control: mark } : p));
       return { ...m, content };
     }
     return m;
@@ -418,7 +419,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, maxTokens, plugins }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, maxTokens, plugins, cacheTtl }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -430,7 +431,12 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // more for caching than they save); it was previously written but never read,
       // so the toggle did nothing. Consulted per turn so a change takes effect next send.
       const cacheOn = readCachingEnabled();
-      const body = { model: this.getModel(), messages: cacheOn ? withCachedSystem(messages, this.getModel()) : messages, stream: !!onToken, usage: { include: true } };
+      // `cacheTtl` opts a caller into a LONGER breakpoint than the provider default (5 min).
+      // The chat asks for '1h': a conversation has think-gaps, and a 1h write costs 2x base
+      // input against 1.25x for 5m — but one avoided re-write of the ~10K-token prefix more
+      // than pays that back, so it wins after a single gap longer than five minutes. Ported
+      // with its reasoning from the Drawing Board's chat, which set it explicitly.
+      const body = { model: this.getModel(), messages: cacheOn ? withCachedSystem(messages, this.getModel(), cacheTtl) : messages, stream: !!onToken, usage: { include: true } };
       // Optional plugins (e.g. the file-parser plugin that extracts an inlined
       // reference PDF server-side, #640). Passed through verbatim when present.
       if (plugins?.length) body.plugins = plugins;
