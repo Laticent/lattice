@@ -194,7 +194,15 @@
 			// Theme toggle (shared docs key).
 			const THEME_LS = 'lattice-docs-mode';
 			const applyTheme = (t) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
-			try { applyTheme(localStorage.getItem(THEME_LS)); } catch {}
+			// `lattice-docs-mode` holds the user's PREFERENCE, which since #1285 has a third
+			// value: `system` follows the OS. Resolve it here rather than testing for
+			// light/dark only — that test treats a stored `system` as "nothing stored" and
+			// drops the page to its CSS default, so a visitor following the OS in dark lands
+			// on a light demo. Writing a pinned light/dark from this button is intended: like
+			// the Studio top bar, this is a two-stop surface, and the site header is where the
+			// three-stop cycle lives.
+			const resolveThemePref = (t) => (t === 'light' || t === 'dark' ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+			try { applyTheme(resolveThemePref(localStorage.getItem(THEME_LS))); } catch {}
 			$('#themeBtn').addEventListener('click', () => {
 				const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 				const next = cur === 'dark' ? 'light' : 'dark';

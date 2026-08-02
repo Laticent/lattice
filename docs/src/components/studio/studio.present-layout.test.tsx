@@ -22,21 +22,67 @@ vi.mock('./studio-presenter', () => ({ buildPresenterStageDoc: vi.fn(async () =>
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 const slides = ['<!-- _class: title -->\n\n# One\n\nThe first slide.', '<!-- _class: kpi -->\n\n# Two\n\nThe second slide.'];
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => { localStorage.clear(); vi.clearAllMocks(); });
 
 describe('Present — slide box', () => {
 	it('sizes the slide card 16:9 and never lets it be stretched (#1227)', () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
 		const dialog = screen.getByRole('dialog', { name: 'Present' });
-		// Find the sizer by what DEFINES it — the measured `rowH x 16/9` width cap — rather
-		// than as `card.parentElement`: a wrapper inserted between the two would otherwise
-		// silently move this assertion onto the wrong element (passing while the real sizer
-		// goes unguarded).
-		const sizer = [...dialog.querySelectorAll<HTMLElement>('[style*="max-width"]')].find((el) => el.querySelector('.aspect-video'));
+		// Find the sizer by what DEFINES it — it is the SIZE CONTAINER the card measures
+		// itself against — rather than as `card.parentElement`: a wrapper inserted between
+		// the two would otherwise silently move this assertion onto the wrong element
+		// (passing while the real sizer goes unguarded). The marker used to be the inline
+		// `max-width` the ResizeObserver wrote; the sizing is pure CSS now, so the
+		// container declaration is what identifies it.
+		const sizer = [...dialog.querySelectorAll<HTMLElement>('[class*="container-type:size"]')].find((el) => el.querySelector('.aspect-video'));
 		expect(sizer).toBeTruthy();
 		// The card must be CENTERED in it, never stretched to its cross size.
 		expect(sizer?.className).toMatch(/\bitems-center\b/);
-		// And the box it wraps is the 16:9 card itself.
-		expect(sizer?.querySelector('.aspect-video')).toBeTruthy();
+		// It must also have a DEFINITE height for `100cqh` to resolve against — the sizer
+		// stretches to the row's content box. Without this the card's height term is
+		// meaningless and it falls back to being width-bound everywhere.
+		expect(sizer?.className).toMatch(/\bself-stretch\b/);
+		// And the box it wraps is the 16:9 card itself, sized from the container in BOTH
+		// axes — `min(100cqw, 100cqh x 16/9)` is what makes it fill the space it is given
+		// instead of only the width (#1282).
+		const card = sizer?.querySelector<HTMLElement>('.aspect-video');
+		expect(card).toBeTruthy();
+		expect(card?.className).toMatch(/100cqw/);
+		expect(card?.className).toMatch(/100cqh/);
+	});
+
+	const rowOf = (dialog: HTMLElement) =>
+		[...dialog.querySelectorAll<HTMLElement>('[class*="container-type:size"]')].find((el) => el.querySelector('.aspect-video'))?.parentElement;
+
+	it('reserves the band below the slide only WHILE an overlay pill is up (#1282)', () => {
+		// A clean store means the first-run cue shows, so the band is reserved. The row's
+		// transient pills are `absolute … bottom-2/3` against IT, resolving against its
+		// PADDING box while the card is confined to the content box — the bottom padding
+		// is the whole reason they cannot overlap. jsdom computes no layout, so the class
+		// carrying the invariant is what is asserted.
+		localStorage.clear();
+		const { unmount } = render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		expect(rowOf(screen.getByRole('dialog', { name: 'Present' }))?.className).toMatch(/\bpb-14\b/);
+		unmount();
+
+		// Cue already dismissed and no rehearsal → nothing occupies the band, so the slide
+		// gets it back. Reserving it unconditionally cost ~56px of height for a cue shown
+		// once ever (#1301 review).
+		localStorage.setItem('lattice-present-hint', '1');
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		const row = rowOf(screen.getByRole('dialog', { name: 'Present' }));
+		expect(row?.className).not.toMatch(/\bpb-14\b/);
+		expect(row?.className).toMatch(/\bpb-4\b/);
+	});
+
+	it('frames the slide with the READ stop\'s padding, so both surfaces match', () => {
+		localStorage.setItem('lattice-present-hint', '1');
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		const row = rowOf(screen.getByRole('dialog', { name: 'Present' }));
+		// Read's preview holder is `p-4 sm:p-5`; Present matches it vertically.
+		expect(row?.className).toMatch(/\bpt-4\b/);
+		expect(row?.className).toMatch(/\bsm:pt-5\b/);
+		expect(row?.className).toMatch(/\bsm:pb-5\b/);
+		expect(row?.className).toMatch(/\brelative\b/);
 	});
 });

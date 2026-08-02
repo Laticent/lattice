@@ -181,6 +181,21 @@ function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { val
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/**
+ * The label for a per-slide axis's HEAD option — the "no token here, follow the
+ * deck" choice. The house word is **Auto**, never "inherit" (HARD-won house rule:
+ * `inherit` is a CSS keyword, not something an author should have to know —
+ * #1293).
+ *
+ * `resolved` is what Auto currently lands on, so the head reads "Auto — Rainbow"
+ * and the author can see the consequence without opening the deck Inspector.
+ * Four catalogs (spectrum-card, motion-speed, rule, headline) carry a value that
+ * is ITSELF labeled "Auto"; naming the head Auto too would render "Auto — Auto".
+ * That stutter collapses to a bare "Auto" — which is not a fudge but the honest
+ * reading: whichever of the two you mean, the answer is auto.
+ */
+const autoHead = (resolved: string): string =>
+	!resolved.trim() || /^auto$/i.test(resolved.trim()) ? 'Auto' : `Auto — ${resolved}`;
 const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--muted-foreground,#888)' };
 
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
@@ -286,11 +301,11 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const deck = React.useMemo(() => deckDefaults(source), [source]);
 
 	// Finish: the SAME shared selector the deck Inspector uses (CatalogSelect), fed
-	// the shared finish groups — Inherit (only when the deck sets one) + None heads,
+	// the shared finish groups — Auto (only when the deck sets one) + None heads,
 	// then the catalog presets and your saved finishes, each with its swatch preview.
 	const finishValue = finish.state === 'inherited' ? '__inherit__' : finish.state === 'off' ? '__none__' : (finish.value ?? '__none__');
 	const finishHeads: CatalogOption[] = [
-		...(finish.inheritable ? [{ value: '__inherit__', label: `Inherit — ${cap(deck.finish ?? '')}`, swatch: finishSwatchFor(deck.finish) }] : []),
+		...(finish.inheritable ? [{ value: '__inherit__', label: autoHead(cap(deck.finish ?? '')), swatch: finishSwatchFor(deck.finish) }] : []),
 		{ value: '__none__', label: 'None', swatch: finishSwatchFor('none') },
 	];
 	const finishGroups = finishSelectGroups({ heads: finishHeads, saved: savedFinish, savedValue: (n) => n });
@@ -298,12 +313,12 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
-	// deck sets off/solid the head reads "Inherit — <deck>"; otherwise it's the rainbow.
+	// deck sets off/solid the head reads "Auto — <deck>"; otherwise it's the rainbow.
 	const spectrum = React.useMemo(() => spectrumProvenance(chunk, source), [chunk, source]);
 	const spectrumValue = spectrum.state === 'on' ? (spectrum.value ?? '__inherit__') : '__inherit__';
 	const spectrumOptions: CatalogOption[] = [
 		spectrum.inheritable
-			? { label: `Inherit — ${cap(spectrum.deckValue ?? '')}`, value: '__inherit__', swatch: activeSpectrum(spectrum.deckValue ?? 'on').swatch }
+			? { label: autoHead(cap(spectrum.deckValue ?? '')), value: '__inherit__', swatch: activeSpectrum(spectrum.deckValue ?? 'on').swatch }
 			: { label: 'Rainbow', value: '__inherit__', swatch: activeSpectrum('on').swatch },
 		{ label: 'Solid accent', value: 'solid', swatch: activeSpectrum('solid').swatch },
 		{ label: 'Duo', value: 'duo', swatch: activeSpectrum('duo').swatch },
@@ -322,8 +337,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		active: (v: string | null | undefined) => { label: string; swatch: NonNullable<CatalogOption['swatch']> },
 	): { value: string; options: CatalogOption[] } => {
 		const head: CatalogOption = prov.inheritable
-			? { label: `Inherit — ${cap(prov.deckValue ?? '')}`, value: '__inherit__', swatch: active(prov.deckValue).swatch }
-			: { label: `Inherit — ${active(defaultName).label}`, value: '__inherit__', swatch: active(defaultName).swatch };
+			? { label: autoHead(cap(prov.deckValue ?? '')), value: '__inherit__', swatch: active(prov.deckValue).swatch }
+			: { label: autoHead(active(defaultName).label), value: '__inherit__', swatch: active(defaultName).swatch };
 		const options = [head, ...entries.filter((e) => e.name !== defaultName).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }))];
 		return { value: prov.state === 'on' ? (prov.value ?? '__inherit__') : '__inherit__', options };
 	};
@@ -340,7 +355,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline);
 	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
 	// Card rail STYLE — a full off/auto/solid/duo/mono/rainbow axis, INDEPENDENT of the bar.
-	// Inherit follows the deck; every catalog value is an explicit per-slide choice (auto/off
+	// Auto follows the deck; every catalog value is an explicit per-slide choice (auto/off
 	// included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
 	// previews each fill.
 	const cardProv = React.useMemo(() => spectrumCardProvenance(chunk, source), [chunk, source]);
@@ -349,8 +364,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		: has('spectrum-card-off') ? 'off' : '__inherit__';
 	const cardOptions: CatalogOption[] = [
 		cardProv.inheritable
-			? { label: `Inherit — ${cap(cardProv.deckValue ?? '')}`, value: '__inherit__', swatch: activeSpectrumCard(cardProv.deckValue).swatch }
-			: { label: 'Inherit — None', value: '__inherit__', swatch: activeSpectrumCard('off').swatch },
+			? { label: autoHead(cap(cardProv.deckValue ?? '')), value: '__inherit__', swatch: activeSpectrumCard(cardProv.deckValue).swatch }
+			: { label: autoHead('None'), value: '__inherit__', swatch: activeSpectrumCard('off').swatch },
 		...SPECTRUM_CARDS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
 	const onCard = (v: string) => onMutate((c) => setSpectrumCard(c, v === '__inherit__' ? null : v));
@@ -361,21 +376,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const onCardEdge = (v: string) => onMutate((c) => setSpectrumCardEdge(c, v === '__inherit__' ? null : v));
 	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
 	// Structural trim — a three-tier axis (Quiet / Restrained / Spectrum) with an explicit
-	// opt-out. Inherit follows the deck; every catalog value is an explicit per-slide choice.
+	// opt-out. Auto follows the deck; every catalog value is an explicit per-slide choice.
 	const trimProv = React.useMemo(() => spectrumTrimProvenance(chunk, source), [chunk, source]);
 	const trimValue: string = trimProv.state === 'on'
 		? (trimProv.value ?? '__inherit__')
 		: has('spectrum-trim-off') ? 'off' : '__inherit__';
 	const trimOptions: CatalogOption[] = [
 		trimProv.inheritable
-			? { label: `Inherit — ${activeSpectrumTrim(trimProv.deckValue).label}`, value: '__inherit__', swatch: activeSpectrumTrim(trimProv.deckValue).swatch }
-			: { label: 'Inherit — Quiet', value: '__inherit__', swatch: activeSpectrumTrim('off').swatch },
+			? { label: autoHead(activeSpectrumTrim(trimProv.deckValue).label), value: '__inherit__', swatch: activeSpectrumTrim(trimProv.deckValue).swatch }
+			: { label: autoHead('Quiet'), value: '__inherit__', swatch: activeSpectrumTrim('off').swatch },
 		...SPECTRUM_TRIMS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
 	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : v));
 
 	// Motion — three axes for a chart on THIS slide, each overriding the matching deck default.
-	// PLAY (Inherit / On / Off), STYLE (Inherit / Build / Together / Rise), SPEED (Inherit / Auto / …).
+	// PLAY (Auto / On / Off), STYLE (Auto / Build / Together / Rise), SPEED (Auto / Slow / …).
 	const motionPlayProv = React.useMemo(() => motionPlayProvenance(chunk, source), [chunk, source]);
 	const motionStyleProv = React.useMemo(() => motionStyleProvenance(chunk, source), [chunk, source]);
 	const motionSpeedProv = React.useMemo(() => motionSpeedProvenance(chunk, source), [chunk, source]);
@@ -384,16 +399,16 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const motionStyleValue = motionStyleProv.state === 'on' ? (motionStyleProv.value ?? '__inherit__') : '__inherit__';
 	const motionStyleOptions: CatalogOption[] = [
 		motionStyleProv.inheritable
-			? { label: `Inherit — ${activeMotionStyle(motionStyleProv.deckValue).label}`, value: '__inherit__', swatch: activeMotionStyle(motionStyleProv.deckValue).swatch }
-			: { label: 'Inherit — Build', value: '__inherit__', swatch: activeMotionStyle('build').swatch },
+			? { label: autoHead(activeMotionStyle(motionStyleProv.deckValue).label), value: '__inherit__', swatch: activeMotionStyle(motionStyleProv.deckValue).swatch }
+			: { label: autoHead('Build'), value: '__inherit__', swatch: activeMotionStyle('build').swatch },
 		...MOTION_STYLE_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
 	const onMotionStyle = (v: string) => onMutate((c) => setMotionStyle(c, v === '__inherit__' ? null : v));
 	const motionSpeedValue = motionSpeedProv.state === 'on' ? (motionSpeedProv.value ?? '__inherit__') : '__inherit__';
 	const motionSpeedOptions: CatalogOption[] = [
 		motionSpeedProv.inheritable
-			? { label: `Inherit — ${activeMotionSpeed(motionSpeedProv.deckValue).label}`, value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch }
-			: { label: 'Inherit — Auto', value: '__inherit__', swatch: activeMotionSpeed('auto').swatch },
+			? { label: autoHead(activeMotionSpeed(motionSpeedProv.deckValue).label), value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch }
+			: { label: autoHead('Auto'), value: '__inherit__', swatch: activeMotionSpeed('auto').swatch },
 		...MOTION_SPEED_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
 	const onMotionSpeed = (v: string) => onMutate((c) => setMotionSpeed(c, v === '__inherit__' ? null : v));
@@ -428,14 +443,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 
 	// Marker SHAPE pickers — the deck `stamp:` / `tone:` register's per-slide override.
 	// Orthogonal to WHICH marker shows (the chips above): these pick the shape it renders
-	// in. Provenance-aware, so an inherited deck default reads as "Inherit — <name>" and a
+	// in. Provenance-aware, so an inherited deck default reads as "Auto — <name>" and a
 	// per-slide pick overrides it. The boardroom subset leads; the wider range follows.
 	const stampStyles = vocab.stampStyles ?? { boardroom: [], range: [] };
 	const hasStampStyles = stampStyles.boardroom.length > 0 || stampStyles.range.length > 0;
 	const stampStyle = React.useMemo(() => stampStyleProvenance(chunk, source), [chunk, source]);
 	const stampStyleValue = stampStyle.state === 'inherited' ? '__inherit__' : stampStyle.state === 'off' ? '__default__' : (stampStyle.value ?? '__default__');
 	const stampStyleHead = stampStyle.inheritable
-		? [{ label: `Inherit — ${cap(stampStyle.deckValue ?? '')}`, value: '__inherit__' }]
+		? [{ label: autoHead(cap(stampStyle.deckValue ?? '')), value: '__inherit__' }]
 		: [{ label: 'Default — tab', value: '__default__' }];
 	const stampStyleGroups = [
 		{ label: 'Boardroom', options: stampStyles.boardroom.map((n) => ({ label: cap(n), value: n })) },
@@ -448,7 +463,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const toneStyleValue = toneStyle.state === 'inherited' ? '__inherit__' : toneStyle.state === 'off' ? '__default__' : (toneStyle.value ?? '__default__');
 	const toneStyleOptions = [
 		...(toneStyle.inheritable
-			? [{ label: `Inherit — ${cap(toneStyle.deckValue ?? '')}`, value: '__inherit__' }]
+			? [{ label: autoHead(cap(toneStyle.deckValue ?? '')), value: '__inherit__' }]
 			: [{ label: 'Default — rail', value: '__default__' }]),
 		...toneStyleTokens.map((t) => { const n = t.replace('tone-', ''); return { label: cap(n), value: n }; }),
 	];
@@ -618,7 +633,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 									options={[{ label: 'M', value: null }, { label: 'L', value: 'scale-l' }, { label: 'XL', value: 'scale-xl' }, { label: '2XL', value: 'scale-2xl' }]}
 								/>
 							</Row>
-							<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined} desc="A backdrop texture behind the content — a soft gradient or grain. Inherited from the deck unless you override it here.">
+							<Row label="Finish" hint={finish.state === 'inherited' ? 'from deck' : undefined} desc="A backdrop texture behind the content — a soft gradient or grain. Comes from the deck unless you override it here.">
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} />
 							</Row>
 							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
@@ -636,12 +651,12 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 					{activeTab === 'motion' && (
 						<div className="py-1">
 							<TabIntro>How a chart on this slide animates in place. Each axis inherits the deck's Motion unless you override it here. Preview-only — the exported PDF/PPTX is unchanged.</TabIntro>
-							<Row label="Play" hint={motionPlayProv.state === 'inherited' ? 'from deck' : undefined} desc="Animate this slide's chart. Inherit follows the deck; On forces it; Off pins this one slide static.">
+							<Row label="Play" hint={motionPlayProv.state === 'inherited' ? 'from deck' : undefined} desc="Animate this slide's chart. Auto follows the deck; On forces it; Off pins this one slide static.">
 								<Seg
 									ariaLabel="Chart motion"
 									value={motionPlayValue}
 									onChange={onMotionPlay}
-									options={[{ label: 'Inherit', value: null }, { label: 'On', value: 'on' }, { label: 'Off', value: 'off' }]}
+									options={[{ label: 'Auto', value: null }, { label: 'On', value: 'on' }, { label: 'Off', value: 'off' }]}
 								/>
 							</Row>
 							<Row label="Style" hint={motionStyleProv.state === 'inherited' ? 'from deck' : undefined} desc="How it moves — Build reveals in reading order, Together fades in at once, Rise lifts marks into place.">
@@ -664,7 +679,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Bar placement" hint={edgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge the brand bar sits on for this slide — top, left, right, bottom, or off.">
 								<Picker ariaLabel="Bar placement" value={edge.value} onChange={onEdge} options={edge.options} />
 							</Row>
-							<Row label="Card rail" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A spectrum rail on this slide's card surfaces, tunable independently of the brand bar. Inherit follows the deck; Auto follows the bar, or pin a variant.">
+							<Row label="Card rail" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A spectrum rail on this slide's card surfaces, tunable independently of the brand bar. Auto follows the deck; pick Auto in the list to follow the bar, or pin a variant.">
 								<Picker ariaLabel="Card rail" value={cardValue} onChange={onCard} options={cardOptions} />
 							</Row>
 							{cardRailOn && (

@@ -9,7 +9,7 @@
 //   data-palette — which of the 14 palettes
 //   data-theme   — Starlight's own switch (its base CSS + code-block themes);
 //                  kept in lockstep with data-mode.
-// Falls back to the OS colour-scheme for mode and to indaco for palette.
+// Falls back to the OS color-scheme for mode and to cuoio for palette (#1285).
 //
 // Keeps a no-op StarlightThemeProvider global so any leftover Starlight code
 // that calls updatePickers() (e.g. if a default picker is ever re-introduced)
@@ -31,8 +31,11 @@ import PwaHead from './site/PwaHead.astro';
 		}
 		var palette = read('lattice-docs-palette');
 		if (palette) root.setAttribute('data-palette', palette);
-		else if (!root.getAttribute('data-palette')) root.setAttribute('data-palette', 'indaco');
+		else if (!root.getAttribute('data-palette')) root.setAttribute('data-palette', 'cuoio');
 
+		// 'system' (the default, and an explicit stored choice) resolves from the OS.
+		// Only a PINNED 'light'/'dark' is taken literally — data-mode never carries
+		// 'system'. Kept in step with docs/src/lib/site-chrome.ts.
 		var mode = read('lattice-docs-mode');
 		if (mode !== 'light' && mode !== 'dark') {
 			mode = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

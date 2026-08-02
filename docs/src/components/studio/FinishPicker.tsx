@@ -16,7 +16,7 @@ export type SavedFinishMenuEntry = { id: string; name: string; label: string; sw
  * Shared finish option groups for the CatalogSelect — used by BOTH the deck
  * Inspector and the slide Inspector, so the finish selector is ONE component,
  * swatches and all. `heads` are the caller's leading options (deck: None; slide:
- * Inherit + None) with their own value convention; `savedValue` maps a saved
+ * Auto + None) with their own value convention; `savedValue` maps a saved
  * finish's slug to that convention (the deck writes the `finish-<slug>` register
  * token, the slide writes the bare slug as a per-slide class). Presets carry their
  * catalog swatch; saved finishes carry the generated recipe swatch the caller passes in.
@@ -42,7 +42,7 @@ export function finishSelectGroups({
 }
 
 /** The catalog swatch for a built-in finish name (or the deck default), for a
- *  caller building its own head option (e.g. the slide's "Inherit — <deck>"). */
+ *  caller building its own head option (e.g. the slide's "Auto — <deck>"). */
 export function finishSwatchFor(name: string | undefined | null): FinishEntry['swatch'] {
 	return activeFinish(name).swatch;
 }

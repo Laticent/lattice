@@ -299,28 +299,6 @@ function saveIndex(index: IndexEntry[]): void {
 	write(INDEX_LS, index);
 }
 
-/**
- * Has this browser used the Studio before? True if a deck index was ever saved
- * (new/rename/delete) or any deck source was edited.
- *
- * Feeds the posture migration: `derivePosture` consults this to route a
- * prior-use-but-not-onboarded browser to `'write'` rather than the fresh-visitor
- * `'read'` (the hardened three-population form, R4/R6). It formerly gated the
- * retired `onboarded` runtime check, before the dial replaced it.
- */
-export function hasPriorStudioUse(): boolean {
-	try {
-		if (localStorage.getItem(INDEX_LS)) return true;
-		for (let i = 0; i < localStorage.length; i++) {
-			const k = localStorage.key(i);
-			if (k?.startsWith(SRC_PREFIX)) return true;
-		}
-	} catch {
-		/* storage unavailable — treat as a fresh visitor */
-	}
-	return false;
-}
-
 /** Edited source for a deck, or null if it has never been edited. */
 export function loadSource(id: string): string | null {
 	return read<string>(SRC_PREFIX + id);
@@ -502,7 +480,7 @@ export function deckContentStats(): { count: number; bytes: number } {
 			const k = localStorage.key(i);
 			if (!k) continue;
 			// 'lattice-studio-comments-' is slide-comments.ts's PREFIX — kept in sync
-			// by hand, the same way hasPriorStudioUse above scans SRC_PREFIX directly.
+			// by hand, scanning SRC_PREFIX directly.
 			if (k === INDEX_LS || k === ACTIVE_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
 				bytes += k.length + (localStorage.getItem(k)?.length ?? 0);
 			}
@@ -689,26 +667,46 @@ export type StandingOverflowMarker = Exclude<OverflowMarker, 'off'>;
 // this union in a later milestone; today's two stops map to the existing surfaces.)
 export type Posture = 'read' | 'write' | 'build';
 const POSTURES: readonly Posture[] = ['read', 'write', 'build'];
+/**
+ * The stop a browser with no explicitly-stored posture boots on — the ONE
+ * declaration of that answer.
+ *
+ * It has to be one, because three places need it and they are not free to
+ * disagree: `DEFAULT_SETTINGS` below, `derivePosture` below that, and the
+ * pre-paint seed in `studio.astro` (which receives it through `define:vars`).
+ * The seed computes the skeleton's preview box from the stop it expects the app
+ * to render, so a seed that derives a DIFFERENT stop than the store paints a
+ * full-bleed box against a split — or the reverse — and the hand-off to the
+ * hydrated app shows as a jump. That drift is not hypothetical: it shipped twice
+ * during #1286/#1283, once per constant that was written down more than once.
+ */
+export const BOOT_POSTURE: Posture = 'write';
 const isPosture = (v: unknown): v is Posture => POSTURES.includes(v as Posture);
 // `readHintSeen` — the one-time "this sample deck is yours → Edit this slide"
 // orientation hint on the Read stop is shown until the newcomer edits or dismisses
 // it, then never again. (It is content attached to the Edit button, not a banner —
 // it points INTO the app, never recurs, and blocks nothing.)
 export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; overflowMarker: StandingOverflowMarker; lensDefaults: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: 'read', readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
 // user is never demoted): an explicit legacy `onboarded:true` (they reached the
-// full surface) → keep it → 'build'; a browser with prior Studio use but no full
-// surface → the calm middle 'write'; a true first visit → the gentlest home,
-// 'read'. Once derived for a fresh visitor, the boot stop is persisted ONCE (see
-// hasStoredPosture + the mount effect in StudioShell) so a first-session action
-// like creating a deck can never silently re-derive it upward.
+// full surface) → keep it → 'build'; everyone else → 'write'. Once derived for a
+// fresh visitor, the boot stop is persisted ONCE (see hasStoredPosture + the
+// mount effect in StudioShell) so a first-session action like creating a deck
+// can never silently re-derive it upward.
+//
+// A true first visit used to land on 'read' — the gentlest home. That is the
+// wrong default for what the Studio IS: people arrive to make a deck, and Read
+// hides the editor, so the first act of every newcomer was to work out how to
+// leave the stop they were put on (#1286). Write is the calm middle — editor
+// plus preview, no Build chrome — so it orients without hiding the point. Read
+// remains one click away on the posture dial, and is still what an explicitly
+// stored 'read' restores.
 function derivePosture(legacyOnboarded: boolean | undefined): Posture {
 	if (legacyOnboarded === true) return 'build';
-	if (hasPriorStudioUse()) return 'write';
-	return 'read';
+	return BOOT_POSTURE;
 }
 // True only when a posture was EXPLICITLY written to storage (not merely derived).
 // The mount effect uses this to persist a fresh visitor's derived stop exactly once.

@@ -2,13 +2,13 @@ import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
-import { ChangeSet, EditorSelection as CmSelection, Compartment, EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers } from '@codemirror/view';
+import { ChangeSet, Compartment, EditorState } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, scrollPastEnd } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
 import { editorTheme } from './editor-theme';
-import { slideIndexAt, slideStartOffset } from './lint';
+import { slideEditableOffset, slideIndexAt } from './lint';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
 // lazily imported the first time the editor validates — surfaces that never lint
@@ -80,7 +80,10 @@ function makeLinter(known: Set<string>) {
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
 export type EditorHandle = {
 	fixAll: () => void;
-	revealSlide: (index: number) => void;
+	/** Frame a slide. `focus` additionally takes keyboard focus and parks the caret on
+	 *  the slide's first line of real content — what picking a slide in the preview
+	 *  should do, so the next keystroke edits the slide you just chose (#1291). */
+	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
 	/** The current primary selection (text + range). `empty` when nothing is selected. */
 	getSelection: () => EditorSelection;
 	/** Replace the current selection with `text` as one undoable transaction, then
@@ -248,18 +251,28 @@ export const Editor = React.forwardRef<EditorHandle, {
 		// lastSlideRef so the resulting selectionSet echoes the SAME index → onCursorSlide
 		// no-ops, no sync loop. A single scroll effect — NO end→start caret hop (that
 		// parked the caret in slide index+1 and flickered the preview).
-		revealSlide(index: number) {
+		revealSlide(index: number, opts?: { focus?: boolean }) {
 			const v = viewRef.current;
 			if (!v) return;
 			const doc = v.state.doc.toString();
-			const from = Math.min(slideStartOffset(doc, index), v.state.doc.length);
-			const nextStart = slideStartOffset(doc, index + 1);
-			const to = Math.min(nextStart > from ? nextStart - 1 : v.state.doc.length, v.state.doc.length);
+			const caret = Math.min(slideEditableOffset(doc, index), v.state.doc.length);
 			lastSlideRef.current = index;
+			// Put the slide's first EDITABLE line at the top of the viewport, and park the
+			// caret on it. Two things this deliberately does NOT do:
+			//
+			//   • It does not center the whole slide range. Centering means the slide you
+			//     just picked shows up mid-screen with the PREVIOUS slide's tail above it,
+			//     and how much of it you see depends on how long it happens to be. `y:
+			//     'start'` on the editable line is the same answer every time.
+			//   • It does not gate the caret on `focus`. Setting a selection costs nothing
+			//     on a touch device — only `.focus()` raises the software keyboard — so
+			//     bundling the two (as this did) silently removed the caret placement on
+			//     tablets along with the keyboard, which is the regression that followed.
 			v.dispatch({
-				selection: { anchor: from },
-				effects: EditorView.scrollIntoView(CmSelection.range(from, to), { y: 'center' }),
+				selection: { anchor: caret },
+				effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }),
 			});
+			if (opts?.focus) v.focus();
 		},
 		getSelection(): EditorSelection {
 			const v = viewRef.current;
@@ -315,6 +328,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 						lintComp.current.of(buildLint()),
 						lintGutter(),
 						editorTheme,
+						// Room to breathe past the last line — the give Monaco has by default
+						// (`scrollBeyondLastLine`) and CodeMirror ships as a one-line extension.
+						// Without it the final line is pinned to the container edge, so the line
+						// an author is most often working on is the least comfortable to read
+						// (#1290). Not reinvented as padding: `scrollPastEnd` teaches the
+						// scroller its real extent, so `scrollIntoView` (revealSlide, the demo's
+						// typeTail) can still center the last slide instead of clamping short.
+						scrollPastEnd(),
 						EditorView.lineWrapping,
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
 						EditorView.updateListener.of((u) => {

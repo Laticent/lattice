@@ -12,12 +12,16 @@ function paletteAttr(page: import('@playwright/test').Page): Promise<string | nu
 	return page.evaluate(() => document.documentElement.getAttribute('data-palette'));
 }
 
+// The target must NOT be the default palette (cuoio since #1285), or the
+// `data-palette` half of the oracle is satisfied by the default and proves nothing
+// about the picker. Burgundy is curated and unambiguously not the default.
 test('topbar theme picker sets the active palette and persists it', async ({ page }) => {
+	await expect.poll(() => paletteAttr(page)).toBe('cuoio'); // the default we are moving OFF
 	await page.getByRole('button', { name: 'Theme' }).click();
-	await page.getByRole('menuitem', { name: 'Cuoio' }).click();
+	await page.getByRole('menuitem', { name: 'Burgundy' }).click();
 
-	await expect.poll(() => readStorage(page, 'lattice-studio-palette')).toBe('cuoio');
-	await expect.poll(() => paletteAttr(page)).toBe('cuoio');
+	await expect.poll(() => readStorage(page, 'lattice-studio-palette')).toBe('burgundy');
+	await expect.poll(() => paletteAttr(page)).toBe('burgundy');
 });
 
 test('the command palette also switches the theme', async ({ page }) => {

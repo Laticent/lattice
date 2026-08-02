@@ -1,0 +1,252 @@
+---
+status: proposed
+summary: >
+  #1292 asked for `content` to be the layout a slide gets when it declares none.
+  Shipping that verbatim clipped 9 slides across 5 decks that render clean on
+  main, and the investigation found why: `content` is the statement-prose layout,
+  not the generic one. It is one of 18 of the 61 components with no `flex:1`
+  body fill, so its trailing annotation floats 202px above the stage bottom where
+  every other component's sits flush at 0px; it is on `below-note.js` EXCLUDED,
+  so a trailing note is never promoted or styled; and its prose sits at
+  `--fs-message` (21pt) while Key Insight is deliberately pinned to `--fs-body`
+  (16pt) to read as a peer of body prose — so as the default it renders a summary
+  24% smaller than the thing it summarizes. Separately, NOTHING in the engine
+  styles a plain markdown table. This note proposes four changes that make
+  `content` the layout #1292 actually describes, and records the measurements
+  behind each.
+builds-on: 2026-08-02-slide-class-taxonomy.md, 2026-06-27-stage-flow-no-margins.md
+---
+
+# The default slide layout — what a slide gets when it declares nothing
+
+## The ask, and what happened
+
+#1292: *"if there is a slide created in the editor without `_class` declaration it
+doesn't get styled. We need to make content the default component if `_class` is
+absent."*
+
+The intent behind it, stated by the owner during review:
+
+> content [is] the default layout. people could add common markdown supported
+> structures to it, and be legible and feel [a] natural fit to other deck
+> layouts/components. it is not exempt [from] content constraints and good
+> authoring. it's not supposed to allow a wall of text. it should allow for
+> paragraphs, eyebrow, header, footer, title, subtitle, pagination, rail,
+> minimalistic styled table and lists and other markdown structures like block
+> quote that isn't a key point, key point and below note and other universal
+> lattice semantics.
+
+Implemented literally — append `content` to any section whose resolved class list
+names no component — this regressed the shipped corpus. Verified with the repo's
+own ratchet on the branch against an `origin/main` worktree:
+
+```
+branch:  ✗ 5 decks clip MORE than baseline — 9 slides
+         mode-frontmatter p2,p4,p6 · debug p3,p4 · finish-backdrops p2
+         chart-theme-gallery/README p1,p2 · exemplars/README p1
+main:    ✓ 0 clipped slides, none above baseline (27)
+```
+
+56 slides across 29 decks re-render. The clipping ones are all the same shape:
+heading + lede paragraph + a nested card list.
+
+## What an un-classed slide actually inherits today
+
+The premise in #1292's title — that it "doesn't get styled" — is not accurate,
+and correcting it is what makes the rest of this note tractable. An un-classed
+slide inherits the **base layer** (`lib/base/base.elements.css`), which is
+element-selector-only and applies to every slide:
+
+- `section` — theme `--bg`, `--text-body` ink, `--font-body`, `--fs-body`,
+  `--lh-base`, slide padding, the `--spectrum` border-top
+- `h1`–`h6` — `--font-display` on the full 6-token heading scale
+- `code` — the accent inline chip · `hr` — the centered accent rule
+
+It also carries `form` regardless of component, so the masthead lift and the
+`.cell-stage` flow apply. Rendering the owner's full list of universal semantics
+un-classed on main versus with `content`:
+
+```
+cell-masthead   main 4  ·  content 4     (eyebrow, title, subtitle, header)
+cell-stage      main 4  ·  content 4     (the flow + its gap)
+below-note      main 3  ·  content 1     ← content LOSES two
+```
+
+**Eyebrow, subtitle, header, footer, pagination and the masthead lift are base and
+form features, not component features.** They already work with no `_class`. So
+the fidelity gap is narrower than assumed, and — critically — `content` is not a
+superset of base. It trades.
+
+## The four findings
+
+### 1. `content` has no body fill, so annotations float
+
+Components that carry a trailing annotation do not pin the annotation. They put
+`flex:1` on the **body block**, which expands to fill the bounded stage and
+pushes the annotation down; the annotation carries `flex-shrink:0` so it holds
+its height. `compare-prose.styles.css` states it:
+
+```css
+/* The stage is a flex column so the comparison list (`> :is(ul,ol) { flex:1 }`)
+   fills the bounded stage (flex cell-tree §6) */
+.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; }
+```
+
+`quadrant` and `radar` do the same with `height:100%` on the chart body.
+
+**43 of the 61 components use the `flex:1` fill idiom. `content` is one of the 18
+that do not** — no `flex:1`, no `flex-shrink`, nothing.
+
+Measured on identical markdown at an identical 438px stage height:
+
+| | annotation element | gap below it |
+|---|---|---|
+| `compare-prose` | `DIV.below-note` | **0px** — flush to the stage bottom |
+| `content` | bare `<P>` | **202px** — floating, a third of the slide empty |
+
+### 2. `content` is excluded from below-note promotion, and does not need to be
+
+`lib/core/below-note.js` lists `content` in `EXCLUDED`, with the stated reason:
+layouts *"that claim their trailing `<p>` for something else (caption,
+attribution, **main content**)."* For a prose layout the trailing paragraph is
+body copy, so the concern is real on its face.
+
+But both promotion paths already guard on the preceding sibling being
+**structural**, and nothing else can promote:
+
+```js
+const STRUCTURAL = new Set(['DIV', 'UL', 'OL', 'TABLE', 'PRE', 'BLOCKQUOTE']);
+// DOM path
+if (!prev || !STRUCTURAL.has(prev.tagName)) continue;
+// HTML path — the same set, as a regex anchor
+/((?:<\/div>|<\/ul>|<\/ol>|<\/table>|<\/pre>|<\/blockquote>)\s*)<p>…<\/p>\s*…$/
+```
+
+A paragraph following a paragraph is never promoted. **The exclusion guards a case
+the `STRUCTURAL` check already prevents.** Verified by removing `content` from
+`EXCLUDED` and rendering:
+
+| slide shape | promoted? | correct? |
+|---|---|---|
+| heading + p + p (pure prose) | **no** | ✅ the trailing `<p>` stays body copy |
+| heading + list + p | **yes** | ✅ an annotation after a structural block |
+| heading + table + p | **yes** | ✅ same |
+
+Below-note totals returned to exact parity with base (3 on each probe deck, the
+same count main produces).
+
+The cost of the exclusion is not only placement. Because the note never becomes
+`.below-note`, it gets none of that wrapper's treatment — no hairline accent rule,
+no muted ink, no `--fs-body` sizing. It renders as ordinary body prose.
+
+### 3. The statement tier inverts the Key Insight relationship
+
+Key Insight is universal: any `> blockquote` on a section that is not
+`quote`/`math`/`citation-card`/`policy-recommendation` becomes one, on base and on
+`content` alike. `base.modifiers.css:223` pins its size deliberately:
+
+> *Body tier, NOT `--fs-message` (the 21pt slide-statement tier). A Key Insight
+> SUMMARIZES the body above it, so it must not out-shout the very content it
+> distills — it reads as a **peer of the body prose**, never louder.*
+
+On base, body prose is also `--fs-body` — peers, as designed. Under `content` the
+body becomes `--fs-message` and the insight stays `--fs-body`, so **the
+distillation renders 24% smaller than what it distills.** The same applies to a
+below-note, which the `.below-note p` rule also sizes at `--fs-body` for the same
+stated reason.
+
+The type contract itself names the tiers (`base.tokens.css`):
+
+```
+Card / list / inline prose    → --fs-body      (default; 18pt projection)
+Slide-level statement body    → --fs-message   (statement, quote, lead, divider sub)
+```
+
+`content` lives in the **statement** bucket, and its 21pt prose is correct *for a
+slide-level statement*. It is the wrong tier for the generic case, and it is what
+caused the clipping: the slides that broke are card lists, which the contract
+assigns to `--fs-body`.
+
+Measured — moving `content`'s prose and list items to `--fs-body` and re-running
+the corpus ratchet over the five regressed decks:
+
+```
+8 of the 9 clipped slides clear.
+```
+
+The one that remains, `finish-backdrops.md` p2, renders **119 words** — 3× the
+~40-word body budget `content.docs.md` sets — and is structurally a card list. It
+is over budget by the layout's own contract, which is the constraint working
+rather than failing.
+
+### 4. Nothing styles a plain markdown table
+
+There is **no universal table CSS in the engine.** Every table rule is scoped to
+`compare-table`, `glossary`, `list-tabular` or `obligation-matrix`. A markdown
+table on any other slide — base or `content` — gets raw browser defaults: no
+borders, no zebra, no cell padding, no header weight.
+
+This is a boardroom-bar defect independent of the default-layout question. It is
+broken on base today and would remain broken under `content`.
+
+## Proposal
+
+Four changes. (1)–(3) are `content`; (4) is base and benefits every slide and
+every future component.
+
+1. **`flex:1` on `content`'s body block**, with `flex-shrink:0` on the
+   annotation — the idiom 43 of the other 60 components already use. Annotations land at the
+   stage bottom instead of floating.
+2. **Remove `content` from `below-note.js` `EXCLUDED`.** The `STRUCTURAL` guard
+   makes it unnecessary; §2 shows pure prose is still never promoted.
+3. **`content`'s prose and top-level list items move to `--fs-body`.** Nested
+   items already step to `--fs-body`; they would need a distinct step
+   (`--fs-body-compact`) to keep the support relationship legible. This restores
+   Key Insight and below-note to peers of body prose, and clears 8 of 9 clipped
+   slides.
+4. **A minimal universal table treatment in base** — hairline rules, header
+   weight, zebra at low alpha, cell padding, `--fs-body-compact` — with the four
+   specialist components overriding as they already do (component selectors
+   `(0,1,N)` beat base element rules `(0,0,N)`, so no existing table changes).
+
+### What this does NOT change
+
+- The 72cqi reading measure, which is the other genuine base gap and is correct
+  as it stands.
+- List markers. Base strips them globally and only 2 of the 61 components restore
+  real bullets (`content` and `split-compare`), because the house treatment is that a list is raw material a
+  component turns into structure. `content` restoring them is right for the
+  generic case and should stay.
+- The overflow oracle. Discipline is already visible when over-authored: on a
+  5-slide probe covering prose · table+note · paragraph+list+insight+note ·
+  list+insight · a deliberately over-authored slide, only the last clips and it is
+  tagged **"Content clipped"** on base and `content` alike.
+
+### Sequencing
+
+(4) is independent and can land first — it fixes a real gap regardless of what is
+decided about defaults. (1)–(3) are one coherent change to `content` and should
+land together, because (3) alone would leave annotations floating and (1) alone
+would leave them unpromoted.
+
+Whether the default-component rule itself ships is a separate call from whether
+these four are right: (1)–(3) improve `content` for authors who write
+`_class: content` today, and (4) improves every slide, independent of #1292.
+
+### Cost
+
+(1)–(3) alter the rendering of every existing `content` slide plus, if the default
+rule ships, 56 slides across 29 decks. That is an export-bytes change under the
+QUALITY BAR and needs owner sign-off with rendered dark + light artifacts, plus a
+corpus sweep and regenerated committed PDFs. (4) alters every slide carrying a
+markdown table and is subject to the same gate.
+
+## Open question
+
+**Should annotations pin to the bottom of the *slide*, or the bottom of the
+content?** (1) delivers the latter — the body fills the stage, so on a short slide
+the annotation still ends up at the bottom edge, but that is a consequence of the
+fill rather than a stated rule. No component pins an annotation directly, and
+HARD RULE #20 bars the `margin-top:auto` that would be the obvious way to. If the
+intent is "annotations are footer-weight and always sit at the slide's bottom",
+that is a stage-flow change affecting every component and belongs in its own note.

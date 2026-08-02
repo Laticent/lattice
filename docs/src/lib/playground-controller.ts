@@ -335,5 +335,5 @@ export function renderSig(theme: string, mode: string, w: number, h: number): st
  */
 export function sanitizePalette(palette: string, valid: string[]): string {
 	if (!valid.length || valid.includes(palette)) return palette;
-	return valid.includes('indaco') ? 'indaco' : valid[0];
+	return valid.includes('cuoio') ? 'cuoio' : valid[0];
 }

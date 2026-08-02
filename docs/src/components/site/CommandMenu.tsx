@@ -13,7 +13,7 @@ import {
 	CommandShortcut,
 } from '@/components/ui/command';
 import { useOverlayBack } from '@/lib/overlay-back';
-import { setPalette, toggleMode } from '@/lib/site-chrome';
+import { cycleModePref, setPalette } from '@/lib/site-chrome';
 import { useIsPhone } from '@/lib/use-breakpoint';
 
 export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string };
@@ -104,10 +104,19 @@ export function CommandMenu({
 		else setPalette(name);
 		onOpenChange(false);
 	};
+	// Which control this command IS depends on the surface, and the copy has to
+	// follow the handler — a label naming a stop the handler cannot reach is worse
+	// than no third stop. A deck-authoring surface (Drawing Board, via the chrome
+	// bus) is a two-stop light/dark pin by design; the docs site is the three-stop
+	// preference cycle that owns System (#1285). Calling `toggleMode` under the
+	// three-stop copy silently DESTROYED a `system` preference — it writes a pinned
+	// light/dark, `watchSystemMode` stops re-stamping on OS flips, and no number of
+	// further presses gets back, because this command is not the header control.
+	const deckSurface = typeof window !== 'undefined' && !!window.__dbChrome;
 	const flipMode = () => {
 		const bus = window.__dbChrome;
 		if (bus) bus.toggleMode();
-		else toggleMode();
+		else cycleModePref();
 		onOpenChange(false);
 	};
 
@@ -167,12 +176,16 @@ export function CommandMenu({
 	const appearance = [
 		{
 			key: 'toggle-light-dark',
-			label: 'Toggle light dark appearance',
+			// The copy is derived from the handler above, not written next to it: on the
+			// site this cycles three stops (System joined in #1285, and System has no
+			// opposite, so it "cycles" rather than "toggles"); on a deck surface it is
+			// still the two-stop pin, and must not advertise a stop it won't reach.
+			label: deckSurface ? 'Toggle light dark color mode appearance' : 'Cycle color mode system light dark appearance',
 			node: (
 				<>
 					<Sun className="dark:hidden" />
 					<Moon className="hidden dark:block" />
-					Toggle light / dark
+					{deckSurface ? 'Color mode — light / dark' : 'Color mode — system / light / dark'}
 				</>
 			),
 			onSelect: flipMode,

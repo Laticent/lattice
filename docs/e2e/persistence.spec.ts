@@ -25,11 +25,14 @@ test('a deck edit survives a reload', async ({ page }) => {
 	await expect.poll(() => persistedSource(page)).toContain('PERSISTMARKER');
 });
 
+// Deliberately NOT the default palette (cuoio since #1285): restoring the default
+// after a reload is what happens with an empty store, so a default target would let
+// this pass without anything being persisted or restored at all.
 test('the palette choice survives a reload', async ({ page }) => {
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Theme' }).click();
-	await page.getByRole('menuitem', { name: 'Cuoio' }).click();
-	await expect.poll(() => readStorage(page, 'lattice-studio-palette')).toBe('cuoio');
+	await page.getByRole('menuitem', { name: 'Burgundy' }).click();
+	await expect.poll(() => readStorage(page, 'lattice-studio-palette')).toBe('burgundy');
 
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitReady(page);
@@ -37,5 +40,5 @@ test('the palette choice survives a reload', async ({ page }) => {
 	// The app re-applied the persisted palette on load.
 	await expect
 		.poll(() => page.evaluate(() => document.documentElement.getAttribute('data-palette')))
-		.toBe('cuoio');
+		.toBe('burgundy');
 });

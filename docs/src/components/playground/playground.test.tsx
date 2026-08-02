@@ -111,9 +111,9 @@ describe('sanitizePalette', () => {
 		expect(sanitizePalette('cuoio', valid)).toBe('cuoio');
 		expect(sanitizePalette('indaco', valid)).toBe('indaco');
 	});
-	it('falls back to indaco for a retired/unknown palette (the stale-localStorage blank)', () => {
-		expect(sanitizePalette('zaffre-legacy', valid)).toBe('indaco');
-		expect(sanitizePalette('', valid)).toBe('indaco');
+	it('falls back to the default palette for a retired/unknown one (the stale-localStorage blank)', () => {
+		expect(sanitizePalette('zaffre-legacy', valid)).toBe('cuoio');
+		expect(sanitizePalette('', valid)).toBe('cuoio');
 	});
 	it('falls back to the first palette when indaco is absent', () => {
 		expect(sanitizePalette('gone', ['cuoio', 'onyx'])).toBe('cuoio');

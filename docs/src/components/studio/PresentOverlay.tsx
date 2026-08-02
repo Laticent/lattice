@@ -104,10 +104,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// touch), then folds back. `revealed` drives the bloom; `showHint` is the one-time cue.
 	const [revealed, setRevealed] = React.useState(true);
 	const [showHint, setShowHint] = React.useState(false);
-	// The slide sizes to the AVAILABLE row height (16:9), so the caption/controls/rail
-	// dock always keeps its space and the slide never creeps into the chrome or clips.
-	const slideRowRef = React.useRef<HTMLDivElement>(null);
-	const [slideMaxW, setSlideMaxW] = React.useState(960);
 	// Chart mark-detail reveal on the delivery slide. Present's card is pointer-events-none (a swipe
 	// surface), so the reveal runs in PINNED mode — a parent hit-surface (pointer-events:auto) over the
 	// current chart, re-pinned after each slide render (onRender → onSlide), plus number-key reveal
@@ -487,8 +483,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	React.useEffect(() => {
 		if (!open) { setRehearse(false); setElapsed(0); setPlaying(false); setAutoplay(false); presenterRef.current?.close(); }
 	}, [open]);
-	const goNext = React.useCallback(() => { setShowHint(false); setIdx((i) => Math.min(i + 1, count - 1)); }, [count]);
-	const goPrev = React.useCallback(() => { setShowHint(false); setIdx((i) => Math.max(i - 1, 0)); }, []);
+	const dismissHint = React.useCallback(() => {
+		setShowHint(false);
+		try { window.localStorage.setItem('lattice-present-hint', '1'); } catch {}
+	}, []);
+	const goNext = React.useCallback(() => { dismissHint(); setIdx((i) => Math.min(i + 1, count - 1)); }, [count, dismissHint]);
+	const goPrev = React.useCallback(() => { dismissHint(); setIdx((i) => Math.max(i - 1, 0)); }, [dismissHint]);
 
 	// ── Quiet Bloom reveal (S4) ────────────────────────────────────────────────
 	// `wake()` reveals the bloom chrome and arms a fold-back timer; a pointer over the
@@ -512,19 +512,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		};
 	}, [open, wake]);
 
-	// Measure the slide row and cap the slide width so a 16:9 box fits the available
-	// height (`rowH × 16/9`). A ResizeObserver keeps it live as the caption band grows
-	// on Play (which shrinks the row) or the viewport changes — no chrome overlap, no clip.
-	React.useEffect(() => {
-		if (!open) return;
-		const row = slideRowRef.current;
-		if (!row || typeof ResizeObserver === 'undefined') return;
-		const measure = () => setSlideMaxW(Math.max(240, Math.min(960, Math.floor(((row.clientHeight - 12) * 16) / 9))));
-		measure();
-		const ro = new ResizeObserver(measure);
-		ro.observe(row);
-		return () => ro.disconnect();
-	}, [open]);
 
 	// Swipe (touch) + wheel (desktop) navigation, alongside the keyboard. Swipe reuses the
 	// shared kernel's geometry (threshold/ratio) so it matches the export player exactly;
@@ -557,18 +544,22 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		else goPrev();
 	}, [wake, goNext, goPrev, overviewOpen]);
 
-	// First-run hint — teach the bloom + gestures exactly once (persisted), auto-fading.
+	// First-run hint — teach the bloom + gestures exactly once, then never again.
+	//
+	// It is retired by the USER, not by a clock. The old version auto-faded after
+	// 5.2s and marked itself seen the moment it APPEARED, so the two failure modes
+	// were opposite and both bad: a reader who looked away lost it forever, and a
+	// reader who reloaded inside those five seconds never saw it at all. Now it
+	// stays until dismissed, and only dismissing writes the flag — so "seen" means
+	// seen. Navigating counts as dismissal: someone who just swiped has learned the
+	// gesture the cue exists to teach.
 	React.useEffect(() => {
 		if (!open) { setShowHint(false); return; }
 		// Default to "seen" so a broken/blocked localStorage never nags (the init IS the
 		// fallback used when getItem throws — the empty catch leaves it true).
 		let seen = true;
 		try { seen = !!window.localStorage.getItem('lattice-present-hint'); } catch {}
-		if (seen) return;
-		setShowHint(true);
-		try { window.localStorage.setItem('lattice-present-hint', '1'); } catch {}
-		const id = window.setTimeout(() => setShowHint(false), 5200);
-		return () => window.clearTimeout(id);
+		if (!seen) setShowHint(true);
 	}, [open]);
 
 	React.useEffect(() => {
@@ -618,6 +609,23 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const showCaption = !rehearse && captionsOn && reader.playing && reader.track.cues.length > 0;
 	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
 	// dim when the slide edge is reached, full on reveal.
+	// Is a transient overlay pill occupying the band below the slide? Keyed on the
+	// rehearsal SESSION rather than the current beat — see the row's note below.
+	//
+	// `plan`, not `coach`: the coach pill only renders when there is a rehearsal plan,
+	// so rehearsing WITHOUT one used to reserve 56px for a pill that never appears.
+	// `plan` is session-stable while `coach` changes per beat and per slide, so this
+	// closes the empty-band case without reintroducing a band that flickers as you
+	// cross beats — which is the whole reason this is keyed on the session.
+	const coachPillUp = rehearse && playing && !!plan;
+	// The band the row reserves BELOW the slide, sized to the pill that will occupy it.
+	// It has to be per-pill, because the two are not the same height: the first-run cue
+	// is one short line, while a coach beat is real prose that wraps. A single `pb-14`
+	// for both was measured drawing the coach pill 9–28px ON TOP of the slide (57px and
+	// 76px pills against a 48px clearance) — the one thing this layout promises never
+	// happens. The coach pill is clamped to two lines to make its ceiling knowable;
+	// `--present-band` and that clamp are set together, so neither can drift alone.
+	const bandCls = coachPillUp ? 'pb-[4.75rem]' : showHint ? 'pb-14' : 'pb-4 sm:pb-5';
 	const arrowCls = (disabled: boolean) => cn('hidden shrink-0 rounded-full border border-border bg-card/85 p-2.5 text-foreground shadow-[0_4px_16px_rgba(10,22,40,.12)] backdrop-blur transition-opacity duration-300 hover:text-[var(--accent)] motion-reduce:transition-none sm:block', disabled ? 'pointer-events-none opacity-20' : cn('pointer-events-auto', revealed ? 'opacity-100' : 'opacity-40'));
 	// Two stacked fixed layers under the studio root: the opaque backdrop (z-100, which
 	// carries the gesture/wake handlers) and this chrome dialog (z-102, which holds Present's
@@ -655,29 +663,44 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			{/* Slide row. The slide centers in the space above the dock (flex-1 guarantees the
 			    caption + controls + rail dock its full height, so the slide never crowds it).
 			    Circular arrows flank the slide in the gutter — never over it. */}
-			<div ref={slideRowRef} className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 sm:gap-5 sm:px-6">
+{/* The slide is CENTERED and takes the largest 16:9 box its space allows — in
+			    BOTH axes, so whatever room exists above and below is filled by the slide
+			    itself rather than left as dead space (#1282).
+
+			    This is pure layout: no ResizeObserver, no measured width in React state, no
+			    inline geometry. The sizer is a SIZE container and the card asks for
+			    `min(100cqw, 100cqh × 16/9)` — the identical formula the old JS computed, but
+			    resolved by the engine at layout time. That removes a whole class of bug the
+			    measured version had: a first paint at the stale 960px seed, a resize the
+			    observer hasn't seen yet, and the iPad stretch case (#1227) where WebKit
+			    resolved a stretched height against that first-layout max-width and never
+			    re-resolved it. There is nothing left to go stale.
+
+			    Vertical padding matches the READ stop's preview holder (`p-4 sm:p-5`), so
+			    the slide sits in the same frame in both places.
+
+			    The bottom grows to `pb-14` ONLY while a transient pill is up — the
+			    first-run cue, or a rehearsal in progress. Those pills are `absolute …
+			    bottom-2/3` against THE ROW, not the card; because the sizer stretches to the
+			    row's CONTENT box the card can never reach into that band (nothing is ever
+			    drawn on top of the slide) while an absolutely-positioned child resolves
+			    against the PADDING box and lands inside it. Reserving it unconditionally
+			    cost the slide ~56px it could otherwise fill, for a cue shown once ever.
+			    The reserve is keyed on `rehearse && playing`, not on the current coach BEAT:
+			    a beat comes and goes as you cross its mark, so keying on the beat would
+			    resize the slide repeatedly mid-rehearsal. Keyed on the session it is one
+			    transition in and one out — the same shape as the caption band appearing on
+			    Play, which is the responsive behavior this is modeled on.
+
+			    `items-center` on the sizer stays LOAD-BEARING (#1227): default `stretch`
+			    makes a flex item's cross size definite, which beats `aspect-ratio` per spec
+			    and would flatten the card. Centering the card removes the stretch. */}
+			<div className={cn('relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 pt-4 sm:gap-5 sm:px-6 sm:pt-5', bandCls)}>
 				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-				{/* The slide is a true flex child: its width is capped to what the AVAILABLE ROW
-				    HEIGHT allows at 16:9 (`rowH × 16/9`), so it shrinks to reserve the caption /
-				    controls / rail space instead of creeping into the chrome or getting clipped.
-				    DeckPreview fits the slide to its box WIDTH, so the box must stay 16:9 — hence a
-				    measured width cap on this sizer, not `max-height` (which would clip).
-				    `items-center` is LOAD-BEARING, not cosmetic (#1227). Default `stretch` makes the card
-				    a stretch target, and a stretched item's cross size is DEFINITE — which beats
-				    `aspect-ratio` per spec, so `aspect-video` stops applying. That is engine-agnostic:
-				    given a definite-height parent, Chromium flattens the ratio exactly as WebKit does.
-				    What differs is WHEN the stretched height is resolved. WebKit resolved it against the
-				    FIRST-layout `max-width` — the initial `slideMaxW` of 960, before the ResizeObserver
-				    measured the row — and never re-resolved it, so on an iPad in landscape the card was
-				    stuck at 960x9/16 = 540px tall at every width (910x540, then 775x540 with the caption
-				    band open), riding over the header and under the caption crawl. The in-flow
-				    `height:100%` child (DeckPreview's `figure.size-full`) is a co-factor: remove it and
-				    the stale stretch disappears. Centering the item removes the stretch — and with it the
-				    whole class — for BOTH branches below. */}
-				<div className="flex w-full min-w-0 items-center justify-center" style={{ maxWidth: slideMaxW }}>
+				<div className="flex min-h-0 w-full min-w-0 items-center justify-center self-stretch [container-type:size]">
 					{unavailable ? (
 						// Fail-closed: a withheld lens NEVER renders deck content — it renders why it's withheld.
-						<div role="status" className="relative flex aspect-video w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+						<div role="status" className="relative flex aspect-video w-[min(100cqw,calc(100cqh*16/9))] flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<EyeOff className="size-8 text-muted-foreground" />
 							<div className="text-[15px] font-semibold text-[var(--text-heading)]">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).title}</div>
 							<p className="max-w-[420px] text-[13px] leading-relaxed text-muted-foreground">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).body}</p>
@@ -692,7 +715,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						<div ref={cardRef} className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+						<div ref={cardRef} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<DeckPreview focused options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
@@ -700,18 +723,32 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						</div>
 					)}
 				</div>
-				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>
+				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={cn('self-center', arrowCls(clamped >= count - 1))} aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				{/* Real delivery coaching — the plan's role-specific guidance, with the
 				    active timed beat surfacing as you cross its mark in the slide. */}
 				{rehearse && playing && coach && (
 					<div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center px-4">
-						<span className="inline-flex max-w-[680px] items-center gap-2 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg))] px-3.5 py-2 text-center text-[13px] font-semibold text-[var(--text-heading)] shadow-[0_8px_24px_rgba(10,22,40,.14)]"><Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" />{coach}</span>
+						<span className="inline-flex max-w-[680px] items-center gap-2 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg))] px-3.5 py-2 text-center text-[13px] font-semibold leading-[1.35] text-[var(--text-heading)] shadow-[0_8px_24px_rgba(10,22,40,.14)]"><Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="line-clamp-2">{coach}</span></span>
 					</div>
 				)}
 				{/* First-run cue — teaches the bloom + gestures once, then never again. */}
 				{showHint && (
-					<div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4 motion-reduce:hidden">
-						<span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/90 px-3.5 py-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">Swipe or use ← → to move · controls reveal as you go</span>
+					// `pointer-events-auto` on the pill only — the row stays transparent to
+					// taps so a swipe over it still reaches the gesture layer. The dismiss
+					// control is what retires the cue for good, so it must be reachable:
+					// an icon button with a real accessible name, not a bare glyph.
+					//
+					// NOT `motion-reduce:hidden`. That was correct when the cue auto-faded —
+					// hiding an animation from someone who asked for no animation. The cue no
+					// longer animates at all; it is a static pill that waits to be dismissed.
+					// Keeping the hide meant a reduced-motion presenter paid the reserved band
+					// for an invisible pill AND could never clear it, because the dismiss button
+					// lives inside the element being hidden.
+					<div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
+						<span className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border bg-card/90 py-1.5 pl-3.5 pr-1.5 text-[12px] font-medium text-muted-foreground shadow-[0_6px_20px_rgba(10,22,40,.12)] backdrop-blur">
+							Swipe or use ← → to move · controls reveal as you go
+							<button type="button" onClick={dismissHint} aria-label="Dismiss this tip" className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"><X className="size-3.5" /></button>
+						</span>
 					</div>
 				)}
 				{readAloudDebug && (

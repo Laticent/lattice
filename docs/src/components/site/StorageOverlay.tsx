@@ -4,8 +4,8 @@
 // (engineering/decisions/2026-07-21-storage-accumulation-diagnostic.md). It shows
 // the origin's storage-quota usage, the Studio's localStorage footprint broken
 // down by category, the service-worker Cache Storage entry counts, and a LIVE
-// full-scan timing — the same O(n) boot-path cost (hasPriorStudioUse /
-// deckContentStats / loadDeckList) that grows as the store fills.
+// full-scan timing — the same O(n) boot-path cost (deckContentStats /
+// loadDeckList) that grows as the store fills.
 //
 // Mirrors PerfOverlay.tsx / ViewportDebugOverlay.tsx: a React island that renders
 // NOTHING (and measures nothing) until the shared pref is on (storage-overlay-
@@ -239,7 +239,7 @@ function Overlay() {
 						label="scan"
 						value={formatMs(local.scanMs)}
 						rating={scanRating}
-						what="How long it just took to READ every localStorage entry — the O(n) scan the boot path pays (like hasPriorStudioUse / deckContentStats). The per-deck parse the boot ALSO does (splitSlides / JSON.parse in loadDeckList) costs more and isn't counted here, so treat this as a floor, not the whole boot. Near zero on an empty store; climbs as it fills."
+						what="How long it just took to READ every localStorage entry — the O(n) scan the boot path pays (like deckContentStats). The per-deck parse the boot ALSO does (splitSlides / JSON.parse in loadDeckList) costs more and isn't counted here, so treat this as a floor, not the whole boot. Near zero on an empty store; climbs as it fills."
 						rel={`over ${local.keys} key${local.keys === 1 ? '' : 's'}. Browsers coarsen this timer (Firefox private rounds it hard), so read it as a threshold, not a stopwatch. Clear decks in Workspace → Privacy & Data to reset it.`}
 					/>
 

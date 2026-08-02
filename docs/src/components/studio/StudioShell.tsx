@@ -26,8 +26,8 @@ import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
-import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
-import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
+import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { sliceSlide } from '@/playground/architect-edits.js';
 import { AcronymEditor } from './AcronymEditor';
@@ -36,7 +36,7 @@ import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineAc
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import { ComposeView } from './ComposeView';
+import { type ComposeHandle, ComposeView } from './ComposeView';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
@@ -63,6 +63,7 @@ import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides,
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { PresentOverlay } from './PresentOverlay';
+import { PREVIEW_RECT_KEY } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
@@ -257,10 +258,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const postureRef = React.useRef(posture);
 	postureRef.current = posture;
 	const setPosture = React.useCallback((p: Posture) => { setPostureState(p); saveSettings({ posture: p }); }, []);
-	// Persist a fresh visitor's DERIVED boot stop exactly once (R1). Without this, a
-	// first-session action that trips hasPriorStudioUse() (creating a deck) would
-	// silently re-derive Read→Write next boot — the ratchet, relocated. Posture then
-	// only ever moves by an explicit dial interaction, as promised.
+	// Persist a fresh visitor's DERIVED boot stop exactly once (R1), so posture only
+	// ever moves by an explicit dial interaction.
+	//
+	// It mattered more when `derivePosture` read prior activity: a first-session act
+	// like creating a deck changed the derivation's own input, so the stop silently
+	// ratcheted at the next boot. Today's derivation is constant for every non-legacy
+	// browser (#1286), so that specific drift is gone — but this stays, because it is
+	// what makes the stored value the record. Without it a returning user's stop is
+	// re-derived on every boot, and any future change to the derivation would
+	// retroactively move people who had already settled somewhere.
 	React.useEffect(() => {
 		if (!hasStoredPosture()) saveSettings({ posture: postureRef.current });
 	}, []);
@@ -470,7 +477,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			if (r.width < 40 || r.height < 40 || vw < 1 || vh < 1) return;
 			try {
 				localStorage.setItem(
-					'lattice-studio-preview-rect',
+					PREVIEW_RECT_KEY,
 					JSON.stringify({
 						l: +(r.left / vw).toFixed(4),
 						t: +(r.top / vh).toFixed(4),
@@ -516,9 +523,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
 	const [palette, setPalette] = React.useState(() => {
 		try {
-			return localStorage.getItem('lattice-studio-palette') || 'indaco';
+			return localStorage.getItem('lattice-studio-palette') || DEFAULT_PALETTE;
 		} catch {
-			return 'indaco';
+			return DEFAULT_PALETTE;
 		}
 	});
 	const [mobilePane, setMobilePane] = React.useState<'edit' | 'preview'>('preview');
@@ -547,7 +554,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				// rendering an unresolvable name. Checked AFTER the list resolves, so a
 				// valid saved slug is never reset mid-load.
 				const p = paletteRef.current;
-				if (!BUILTIN_PALETTES.includes(p) && !list.some((t) => t.name === p)) applyPalette('indaco');
+				if (!BUILTIN_PALETTES.includes(p) && !list.some((t) => t.name === p)) applyPalette(DEFAULT_PALETTE);
 			})
 			.catch(() => setSavedThemes([]));
 	}, []);
@@ -653,6 +660,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		return () => window.removeEventListener(SETTINGS_EVENT, sync);
 	}, []);
 	const editorRef = React.useRef<EditorHandle>(null);
+	const composeRef = React.useRef<ComposeHandle>(null);
 	// Warm the lazy Editor chunk right after hydration (off the critical path, but
 	// eagerly once the island is live) so the CodeMirror module is cached and the
 	// component mounts within ~a frame of the default markdown view — keeping
@@ -1478,7 +1486,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	function removeTheme(t: StudioTheme) {
 		deleteStudioTheme(t.id).then(() => {
 			refreshThemes();
-			if (palette === t.name) applyPalette('indaco');
+			if (palette === t.name) applyPalette(DEFAULT_PALETTE);
 			notify(`Removed “${t.label}” from your library.`);
 		});
 	}
@@ -1493,7 +1501,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		const idx = Math.max(0, Math.min(i, viewSlides.length - 1));
 		setActiveSlide(idx);
 		const fullIdx = composeLens === 'full' ? idx : slides.indexOf(viewSlides[idx]);
-		if (fullIdx >= 0) editorRef.current?.revealSlide(fullIdx);
+		if (fullIdx < 0) return;
+		// Drive WHICHEVER editor is mounted (only one is, per editMode, so the other
+		// call is a free no-op) — but take FOCUS only where focus is cheap.
+		//
+		// With a mouse, focusing is the whole point: picking a slide in the preview is
+		// intent to work on it, so the caret lands on its first editable line and the
+		// next keystroke edits what you just chose (#1288, #1291). On a TOUCH device
+		// the same call raises the software keyboard, which covers half a tablet and
+		// has to be dismissed by hand — on every single slide selection. That turns
+		// navigation into a chore, so touch gets the reveal WITHOUT the focus: the
+		// slide still scrolls into view, and tapping into the text (a deliberate act,
+		// with the keyboard as its expected consequence) is what starts editing.
+		const focus = hasFinePointer();
+		editorRef.current?.revealSlide(fullIdx, { focus });
+		composeRef.current?.revealSlide(fullIdx, { focus });
 	}
 	// Switch the reader lens for the preview; restart at the top of the reshaped set.
 	function setLens(next: PresentLens) {
@@ -2869,7 +2891,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			</div>
 			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} />
+				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
@@ -2928,9 +2950,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
 				    ABOVE this (debug-overlay.js), so it works regardless of this rule. */}
-				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
-				    "collapse editor" delivers the same-size slide in a sea of gutter
-				    (decision §5; landscape only — portrait binds to height already). */}
+				{/* The slide fills whatever the pane gives it — there is no fixed width cap.
+				    A 760px "comfort cap" used to apply unless the editor was FULLY collapsed,
+				    which made the splitter feel one-way: dragging it left shrank the slide, but
+				    dragging right did nothing until the editor hit zero and the cap fell off in
+				    one jump (#1283). The cap was grafted from the Stage runner-up for the
+				    opposite problem — "collapse editor" delivering the same-size slide in a sea
+				    of gutter (2026-07-02-resizable-editor-preview-panes.md §5) — and lifting it
+				    only at full collapse fixed that one case while leaving every intermediate
+				    drag capped. The letterbox math below already bounds growth (paneH × ratio),
+				    so removing the cap outright is what makes the drag continuous in BOTH
+				    directions without reintroducing the gutter it was added to prevent. */}
 				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden bg-background',
 					// On an iPhone in landscape the slide is the whole show — drop the card border
 					// + shadow, but KEEP `rounded-xl` so this backing box matches the live iframe's
@@ -2945,18 +2975,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// back to `100%` — the flex holder still centers a full-width box correctly,
 					// it's just not yet height-letterboxed for one frame.
 					// The live preview lives IN-FLOW inside this box (no hoisted host tracking it),
-					// so the box's own geometry IS the preview geometry. The 760px comfort cap
-					// applies except in the fill cases (Read full-bleed / cinema / editor collapsed).
+					// so the box's own geometry IS the preview geometry — and the loading
+					// placeholder, which fills this same box, tracks the drag with it.
 					style={{
 						aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`,
 						width: previewPaneSize
-							? `${Math.floor(
-									Math.min(
-										previewPaneSize.w,
-										previewPaneSize.h * previewRatioValue,
-										split.collapsed === 'a' || previewChromeless ? Infinity : 760,
-									),
-								)}px`
+							? `${Math.floor(Math.min(previewPaneSize.w, previewPaneSize.h * previewRatioValue))}px`
 							: '100%',
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no

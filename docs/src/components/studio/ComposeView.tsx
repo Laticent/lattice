@@ -4,7 +4,7 @@ import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirr
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { EditorState, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
@@ -13,6 +13,7 @@ import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
 import { TableControls } from './table-controls';
@@ -639,7 +640,17 @@ function buildPlugins() {
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
 // pane, else it would paint over the live preview (the body-portal render-gate).
-export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, onInsertBelow }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; onInsertBelow?: (index: number) => void }) {
+/**
+ * Compose's imperative surface — the twin of the markdown Editor's EditorHandle,
+ * so the shell can drive either editor through the same two verbs.
+ */
+export type ComposeHandle = {
+	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
+	 *  caret at the slide's first editable position (#1288). */
+	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
+};
+
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, onInsertBelow, onCursorSlide }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -677,12 +688,60 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		}
 	}, []);
 
+	// The shell's handle onto this editor. `revealSlide` is the mirror of the markdown
+	// Editor's: scroll the slide into view, and on a FOCUSING reveal put the caret at
+	// the slide's first editable position so the next keystroke edits the slide the
+	// preview picker just chose (#1288).
+	React.useImperativeHandle(ref, () => ({
+		revealSlide(index: number, opts?: { focus?: boolean }) {
+			const v = viewRef.current;
+			if (!v) return;
+			const doc = v.state.doc;
+			if (index < 0 || index >= doc.childCount) return;
+			let pos = 0;
+			for (let i = 0; i < index; i++) pos += doc.child(i).nodeSize;
+			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
+			// nearest real text position from there — the slide's first editable spot,
+			// whatever block happens to open it.
+			const sel = Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size)));
+			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
+			v.dispatch(v.state.tr.setSelection(sel));
+			// Scroll the HOST explicitly rather than riding ProseMirror's
+			// `tr.scrollIntoView()`. Measured: with that flag the caret moved to the right
+			// slide and `.cs-host` never scrolled at all — the target sat at y=1283 in a
+			// 100–1024 viewport — so picking a slide in the preview left Compose showing a
+			// different part of the deck. Positioning the slide's own node at the top of
+			// the scroller is also the same answer every time, where a
+			// scroll-the-caret-into-view would depend on where the caret happened to land.
+			const node = v.nodeDOM(pos) as HTMLElement | null;
+			const host = hostRef.current;
+			if (node?.getBoundingClientRect && host) {
+				const top = node.getBoundingClientRect().top - host.getBoundingClientRect().top;
+				host.scrollTop += top - 8; // the same 8px breathing room the markdown editor leaves
+			}
+			if (opts?.focus) v.focus();
+		},
+	}), []);
+
 	// The mobile shell (coarse pointer / ≤699px) drives the TYPING-MODE chrome collapse: when the
 	// software keyboard is up, the shell's top bands collapse for a full writing surface.
 	// `useVisualViewport` publishes the keyboard geometry only here, so desktop pays nothing.
 	const railLayout = useRailLayout();
 	const mobileShell = visible && railLayout && !failed;
-	const { inset } = useVisualViewport(mobileShell);
+	// MEASURE the keyboard on any device that HAS one, not only at rail widths. A
+	// software keyboard is a property of the input device, not of viewport width, and
+	// gating the measurement on `max-width: 699px` meant a TABLET got none of it: no
+	// `--cs-kb-inset`, so nothing reserved scroll room under the caret, so when the
+	// keyboard rose the browser satisfied "reveal the caret" by scrolling the LAYOUT
+	// viewport — carrying the top nav and the editor's own toolbar off-screen with it.
+	// Giving the scroller room below the caret lets the browser scroll THAT instead,
+	// and the fixed chrome stays where it is.
+	//
+	// The typing-mode chrome COLLAPSE stays gated on `mobileShell`: that is the phone
+	// treatment (fold the top bands away for a full writing surface) and a tablet has
+	// the room not to need it. Measurement and collapse are separate concerns.
+	const keyboardCapable = visible && !failed && !hasFinePointer();
+	const { inset } = useVisualViewport(keyboardCapable);
 	const keyboardUp = inset > 0;
 
 	// TYPING MODE — when the software keyboard is up, the shell's top chrome collapses so the
@@ -692,6 +751,13 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// typing (a scroll-up away), which answers the inversion's keyboard-only-reachability objection.
 	const onTypingRef = React.useRef(onTypingCollapse);
 	onTypingRef.current = onTypingCollapse;
+	// The caret's slide, published to the shell so the PREVIEW follows the slide you
+	// are writing in — the direction Compose never had (#1288). Ref-backed (the
+	// construct-once dispatchTransaction closes over it) and edge-triggered on
+	// `lastSlideRef`, so it fires when the caret CROSSES a slide, not per keystroke.
+	const onCursorSlideRef = React.useRef(onCursorSlide);
+	onCursorSlideRef.current = onCursorSlide;
+	const lastSlideRef = React.useRef(-1);
 	// Ref-backed so the construct-once NodeView factory always calls the CURRENT handler.
 	const onOpenSlideSettingsRef = React.useRef(onOpenSlideSettings);
 	onOpenSlideSettingsRef.current = onOpenSlideSettings;
@@ -777,6 +843,14 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
 						onChangeRef.current(src);
+					}
+					// The caret's slide index — the top-level `slide` node it sits in. Edge-
+					// triggered so the shell only hears about real crossings.
+					const { $from } = next.selection;
+					const slideIdx = $from.depth >= 1 ? next.doc.resolve($from.before(1)).index() : -1;
+					if (slideIdx >= 0 && slideIdx !== lastSlideRef.current) {
+						lastSlideRef.current = slideIdx;
+						onCursorSlideRef.current?.(slideIdx);
 					}
 					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
 					// abort the transaction and swallow the emit above.
@@ -901,7 +975,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			{tableMount && createPortal(<TableControls view={viewRef.current as EditorView} stateful={tableMount.stateful} />, tableMount.slot)}
 		</div>
 	);
-}
+});
 
 // The Quiet Page — serif writing surface + the quiet grammar gutter, on the studio
 // tokens so it themes light + dark with the shell.
@@ -912,7 +986,13 @@ function ComposeStyles() {
 			.cs-frame{display:flex;height:100%}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
-			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(72px + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
+			/* The bottom give — the Compose twin of the markdown editor's scrollPastEnd
+			   (#1290). 72px was barely four lines, so the last slide sat jammed against the
+			   pane edge exactly where authors do most of their work. A viewport-proportional
+			   clamp reads the same on a laptop and a phone. min-height:100% + border-box
+			   means this padding only COSTS scroll on a doc that already overflows: a short
+			   deck still ends flush, with no phantom empty scroll. */
+			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(clamp(72px,38vh,520px) + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
 			/* THE DIVIDER = the slide's control bar, as a COLUMN: a full-width hairline carrying circular
 			   STRUCTURAL caps (collapse left, delete right) on EVERY slide, and — only on the ACTIVE slide —
@@ -926,9 +1006,13 @@ function ComposeStyles() {
 			.cs-sc-cap{position:relative;z-index:1;flex:none;width:22px;height:22px;padding:0;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,border-color .12s,background .12s}
 			.cs-sc-cap svg{display:block;width:13px;height:13px}
 			.cs-sc-cap:hover{color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-			.cs-sc-delete:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 90%)}
+			/* The danger caps tint OVER the surface, never toward transparency: a cap sits ON the
+			   hairline, so a translucent hover background lets the 2px rule read straight through the
+			   button (#1289). Mixing the same proportion of --fail into --bg keeps the identical wash
+			   while staying opaque — the collapse cap's behavior, which was always correct. */
+			.cs-sc-delete:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 10%,var(--bg,#fff))}
 			.cs-sc-confirm{color:var(--fail,#b3261e);border-color:color-mix(in oklab,var(--fail,#b3261e),transparent 55%)}
-			.cs-sc-confirm:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
+			.cs-sc-confirm:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 12%,var(--bg,#fff))}
 			/* delete → in-place confirm: "Delete?" + check/x, on a bg chip masking the line behind it */
 			.cs-sb-danger{position:relative;z-index:1;display:flex;align-items:center;gap:4px}
 			.cs-sb-danger.cs-confirming{background:var(--bg,#fff);border-radius:999px;padding-left:9px}
@@ -958,9 +1042,19 @@ function ComposeStyles() {
 			.cs-pill-btn{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
 			.cs-pill-btn svg{display:block;width:13px;height:13px}
 			.cs-pill-btn:hover{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-			/* collapsed: keep the first block, hide the rest behind an ellipsis */
-			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
-			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
+			/* COLLAPSED — the slide's TITLE, with the ellipsis riding the same line.
+			   Keeping merely the FIRST block showed the eyebrow instead (an eyebrow is
+			   p:has(> code:only-child) placed BEFORE the heading — see lib/base/base.docs.md),
+			   so a collapsed slide announced "Q4 · FINANCE" rather than what it is, and the
+			   block-level ⋯ cost a second line (#1287). Now: the first heading wins, whatever
+			   precedes it; a slide with no heading at all falls back to its first block so the
+			   row is never blank; and ⋯ is an inline ::after on whichever of those is shown. */
+			.cs-slide.cs-collapsed .cs-slide-content > *{display:none}
+			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4){display:block}
+			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4) ~ :is(h1,h2,h3,h4){display:none}
+			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child{display:block}
+			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4)::after,
+			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child::after{content:" ⋯";color:var(--text-muted,#6b7f9a);font-weight:400}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
 			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
 			.cs-host .cs-slide-locked{position:relative;opacity:.72}

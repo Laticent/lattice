@@ -357,7 +357,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				return;
 			}
 			const root = document.documentElement;
-			const rawPalette = root.getAttribute('data-palette') || 'indaco';
+			const rawPalette = root.getAttribute('data-palette') || 'cuoio';
 			// Self-heal a stale persisted palette: `lattice-docs-palette` (seeded onto
 			// data-palette pre-hydration) can hold a theme that no longer exists — a
 			// renamed/retired palette from an earlier session. Its theme CSS 404s and
@@ -468,7 +468,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const snap = captureFirstSectionFromFrame(fr, {
 				w: lastGeomRef.current.w,
 				h: lastGeomRef.current.h,
-				palette: root.getAttribute('data-palette') || 'indaco',
+				palette: root.getAttribute('data-palette') || 'cuoio',
 				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
 				// Hash the RENDERED source (matches the captured html). The replay recomputes
 				// fp(SOURCE_KEY) next load; if the user edited after this render, the hashes

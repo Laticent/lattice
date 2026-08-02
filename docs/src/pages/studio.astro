@@ -23,7 +23,8 @@ import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
-import { PREVIEW_CHROME } from '../components/studio/preview-rect';
+import { PREVIEW_CHROME, PREVIEW_RECT_KEY } from '../components/studio/preview-rect';
+import { BOOT_POSTURE } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -244,7 +245,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 ---
 
 <!doctype html>
-<html lang="en" data-palette="indaco" data-mode="light">
+<html lang="en" data-palette="cuoio" data-mode="light">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -276,7 +277,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -288,7 +289,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 				r.setAttribute('data-ssr-shell', 'on');
 				try {
 					var p = localStorage.getItem('lattice-studio-palette');
-					var palette = 'indaco';
+					var palette = 'cuoio';
 					// KNOWN_PALETTES is injected from the shared ../components/studio/palettes
 					// list (define:vars), so EVERY built-in palette is honored at first paint —
 					// not the stale 8-of-18 subset that dropped a returning visitor on a
@@ -363,7 +364,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// now, and clamped on-screen in case the viewport changed since (rotation).
 					// No saved rect (newcomer) → the CSS falls back to a centered full-bleed box.
 					try {
-						var rectRaw = localStorage.getItem('lattice-studio-preview-rect');
+						var rectRaw = localStorage.getItem(PREVIEW_RECT_KEY);
 						if (rectRaw) {
 							var q = JSON.parse(rectRaw);
 							if (q && q.w > 0.1 && q.h > 0.05 && q.l >= 0 && q.t >= 0 && q.l < 1 && q.t < 1) {
@@ -395,33 +396,30 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							var vw2 = window.innerWidth, vh2 = window.innerHeight;
 							var bpMobile = vw2 <= 699;
 							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
-							// stored posture wins; otherwise a returning visitor (prior deck index or any
-							// edited-source key) derives to 'write' (the editor|preview split), a fresh one to
-							// 'read'. Defaulting to 'read' made every upgrading user's first load compute a
-							// full-bleed box while the app rendered the split — a hand-off jump.
+							// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
+							// store's own constant, handed in through define:vars rather than restated
+							// here (#1286). This mirror is load-bearing: deriving a stop the app won't
+							// render makes the first load compute a full-bleed box against a split (or
+							// the reverse), and the hand-off shows as a jump — which is exactly what
+							// shipped when this line carried its own private copy of the answer.
 							var posture = null;
 							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
-							if (!posture) {
-								var prior = false;
-								try {
-									if (localStorage.getItem('lattice-studio-deck-index')) prior = true;
-									else { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { prior = true; break; } } }
-								} catch (e6) {}
-								posture = prior ? 'write' : 'read';
-							}
+							if (!posture) posture = BOOT_POSTURE;
 							var chromeless = posture === 'read';
 							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
 							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);
 							var headerH = chromeless ? C.headerRead : C.headerWrite;
 							var footerH = chromeless ? C.footerRead : C.footerWrite;
-							var cap = chromeless ? Infinity : C.cap;
+							// No width cap — the app stopped capping the preview box (#1283), so a cap
+							// here would paint a narrower skeleton than the box the hydrated app
+							// measures, and the hand-off would show as a jump.
 							var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
 							var paneX, paneW;
 							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
 							var paneH = vh2 - paneTop;
 							var ar2 = rr[0] / rr[1];
 							var cw = paneW - 2 * pad, ch = paneH - headerH - footerH - 2 * pad;
-							var bw2 = Math.max(0, Math.min(cw, ch * ar2, cap));
+							var bw2 = Math.max(0, Math.min(cw, ch * ar2));
 							var bh2 = bw2 / ar2;
 							if (bw2 > 1 && bh2 > 1) {
 								r.style.setProperty('--sb-l', (paneX + pad + (cw - bw2) / 2) + 'px');

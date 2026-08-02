@@ -217,6 +217,47 @@ in patch versions.
   and a template deck shipping in `dist/`.
   `engineering/decisions/2026-08-02-marp-reference-register.md`.
 
+- **The landing page leads with the Studio — two doors into one engine, not three products.** The
+  hero's primary call to action moves from the Playground to **Open the Studio** and gains a router
+  line that assigns each door its job ("Write, review, and present a deck in a browser tab — that's
+  the Studio. One command renders the same deck on your laptop or in CI. Same engine, same
+  slides."), with the trust line trimmed because its "laptop or CI" clause moved up into that
+  router. A new section 3, **"The same deck, without installing anything."**, proves the claim with
+  a live render of the deck the Studio actually boots into (title, slide count and slide all derived
+  from `DECKS[0]` at build time, so the page can't drift from the app), three capability rows, and a
+  trust line. "Bring your own model" keeps its own band at h2 altitude, moved up to sit directly
+  after the Studio so the page reads as one AI conversation, with one new sentence covering the
+  Studio's bring-your-own-key rules. The six
+  field cards say `Edit this in the playground`, and next-steps card 4 points at the Studio. The
+  hero eyebrow, H1, lead, and every protected line are untouched. Section bands re-alternate to
+  cover the removed one (Showcase gains `bg-muted`, Next steps drops it), and the restyle
+  carousel's stage moves `bg-muted` → `bg-background` so it doesn't resolve to the identical color
+  as the band it now sits on. Design record:
+  `engineering/decisions/2026-07-30-landing-studio-promotion.md`.
+
+- **The Studio opens on Write, and the starting mode is yours to set.** A first visit used to
+  derive the Read stop, which hides the editor — so in a deck-making tool the first act of every
+  newcomer was working out how to leave the surface they were put on. Fresh visitors now boot into
+  Write (editor beside preview, none of Build's chrome), and a **Starting mode** row in Workspace →
+  General makes the stop an explicit preference rather than something inferred from whether the
+  browser has been used before. Read is unchanged and one click away on the mode dial. (#1286)
+- **Cuoio is the default theme, and System joins light/dark as the default color mode.** The
+  site, Studio, Playground and Drawing Board all start on cuoio. The new **System** stop follows
+  your OS and keeps following it as the OS flips, rather than resolving once at load and freezing
+  on the first toggle with no way back; an explicit light/dark pick still wins forever after. The
+  header control cycles system → light → dark, ordered against your OS so the first press always
+  repaints — and so does ⌘K's "Color mode", which now names the stops it can actually reach
+  instead of quietly pinning you off System. A deck-authoring surface (the Studio top bar, the
+  Drawing Board) stays a two-stop light/dark switch, and the demo pages honor a `system`
+  preference on load rather than falling back to their CSS default. The self-driving demo reskins to **carbone** instead of cuoio, so the flourish is still
+  a visible change rather than a repaint in the colors the deck already wears. The engine's own
+  default (a deck with no `theme:`) is unchanged. (#1285)
+- **Per-slide settings say "Auto" where they used to say "Inherit".** `inherit` is a CSS keyword,
+  not a word an author should have to know. Every axis head now reads Auto and names what it
+  resolves to — "Auto — Rainbow" — so the deck's value is legible without opening the deck
+  Inspector. (#1293)
+
+
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
   Playground are now inline top-level links on every surface — Studio first, keeping its honest
   `Preview` badge — instead of sitting two hops deep behind a "Tools" disclosure. The frozen
@@ -448,6 +489,31 @@ in patch versions.
   navigation 11.8 -> 13.1ms. The navigation figures are also measured on a bimodal sample — the
   harness walks the same ten slides twice, so with the slice cache the second pass is all hits —
   which makes p50 land near the fastest cache miss and understate cold navigation.
+
+- **Picking a slide in the preview now moves the editor to it — and puts the caret where you can
+  type.** Compose had no sync with the preview in either direction: writing in a slide never moved
+  the previewed slide, and picking one never moved Compose. Both directions work now, in Compose
+  and in the markdown editor, and the caret lands on the slide's first line of real content rather
+  than inside the `_class` directive comment, where the first keystroke would corrupt it.
+  (#1288, #1291)
+- **Dragging the splitter grows the slide, not just shrinks it.** The preview was held to 760px
+  until the editor was fully collapsed, when the cap fell away in one jump — so the drag felt
+  one-way. The slide now tracks the pane continuously in both directions. (#1283)
+- **Present mode fills the window.** The presented slide was capped at 960×540 however large the
+  window was, leaving a band of dead space above it while Read mode filled the same screen. The
+  caption, controls and rail below keep their space. The band under the slide is reserved only
+  while something is actually in it, and is sized to the pill that will occupy it — a rehearsal
+  coach beat wraps to two lines and used to draw on top of the slide. The first-run swipe cue is
+  no longer hidden under `prefers-reduced-motion`: it stopped animating when it became
+  dismiss-to-retire, so hiding it only cost those readers the band and the dismiss button.
+  (#1282)
+- **The editor gives you room past the last line.** Both editors were pinned to the container
+  edge, so the line you are most often working on was the least comfortable to read. (#1290)
+- **A collapsed slide in Compose shows its title, not its eyebrow.** Collapsing showed the slide's
+  first block — which for any slide with an eyebrow is the eyebrow — and put the ellipsis on a
+  second line. It now reads "Where the leverage is …" on one line. (#1287)
+- **The Compose delete button no longer shows the divider line through it.** Its hover background
+  was translucent, so the hairline it sits on read straight through the button. (#1289)
 
 - **A preview showing one slide no longer re-parses the whole deck just to number it.** A page
   number is `slide k of N` — positional metadata the caller already holds — but the engine derived
@@ -1608,7 +1674,7 @@ in patch versions.
 - **A state chart's status never reached assistive technology, and its state IDs were
   hidden outright.** The index badge put `aria-label="on-track"` on a bare `<span>` —
   whose implicit role is `generic`, where ARIA says a label is **ignored**. So the
-  status was conveyed to sighted users by colour alone (WCAG 1.4.1) and to everyone
+  status was conveyed to sighted users by color alone (WCAG 1.4.1) and to everyone
   else not at all. Two more problems in the same three lines: a status-*less* badge was
   `aria-hidden="true"`, hiding the state's identifier — the number every transition
   routes by, not decoration — and had the label applied, it would have *replaced* the
@@ -3635,7 +3701,7 @@ in patch versions.
   surfaces lift off the slide; per slide, `_class: lifted` lifts one slide in a flat
   deck and `_class: flat` drops one out of a lifted deck. **Off by default** —
   no existing deck changes unless it asks. A single shared `--elevation-card` token (a
-  zero-blur box-shadow whose per-layer colours flip via CSS `light-dark()`) casts a
+  zero-blur box-shadow whose per-layer colors flip via CSS `light-dark()`) casts a
   crisp offset shadow on a light canvas and a 1px white rim-light on the top edge on a
   dark canvas — Material's "elevation is light from above", expressed as an edge
   highlight so the **card fill never changes**. Every
@@ -5263,14 +5329,14 @@ in patch versions.
   (always `var(--token)` so color follows the palette + keeps WCAG AA) was enforced only on the
   Layout-Studio authoring path; it now runs over the engine's layout CSS (`lib/**`, minus
   `*.tokens.css`) via `build:check`, reusing `lib/layout/gate.js`'s `findHexLiterals`. Budget 0 +
-  a small `SANCTIONED_HEX` allowlist for the genuinely fixed colours (the overflow-warning red, the
+  a small `SANCTIONED_HEX` allowlist for the genuinely fixed colors (the overflow-warning red, the
   always-white status-stamp ink), with `var(--token, #fallback)` defaults exempt. Shipped CSS was
   already clean, so it lands green and ratchets — a stray hex now fails the build instead of shipping.
 - **Studio — a unified authoring surface on the docs site (`/studio/`).** A
   React-island redesign that folds composing, theming, presenting, and sharing
   into one workspace, wired to the real engine — not placeholders:
   - **Fabricate** derives a complete, contrast-repaired theme from four picked
-    core colours via the shared theme engine (`deriveTheme`/`auditBoth`/
+    core colors via the shared theme engine (`deriveTheme`/`auditBoth`/
     `serializeTheme`), with a live WCAG audit that can fail and a specimen
     rendered in the derived theme; Export downloads a real `themes/*.css`.
   - **Present read-aloud** is a real synchronized teleprompter (each sentence
@@ -5406,7 +5472,7 @@ in patch versions.
     header row.
   - **Theme Studio depth — editable data-viz band on a live canvas.** The Theme
     studio now surfaces the engine's full **chart + diagram band** (the categorical
-    colours charts and Mermaid cycle through): the 8 chart series, the 12
+    colors charts and Mermaid cycle through): the 8 chart series, the 12
     categorical fill/mark pairs, and the diagram / chart-state tokens. They're
     edited on a **live canvas** — a slide, a pie chart and a Mermaid flow render
     side by side and re-render on every edit, with a docked tray to select a band
@@ -5477,7 +5543,7 @@ in patch versions.
   classes/regions, …) now also render *inline* in the CodeMirror editor as wavy
   underlines with a hover tooltip (message + fix) and a one-click quick-fix for the
   mechanical cases — the same deterministic `lib/authoring/lint-core.js` the Node CLI
-  and the panel run, surfaced where the cursor is. Severity colours come from shared
+  and the panel run, surfaced where the cursor is. Severity colors come from shared
   brand tokens (`--db-sev-error` / `--db-sev-warning`, token-first off `--fail`/`--warn`)
   so the underlines, the hover, and the panel read as one palette-blind system. Adds a
   severity gutter, keyboard navigation (F8 / Shift-F8 between findings, Ctrl-Shift-M for
@@ -6122,7 +6188,7 @@ in patch versions.
   in front matter, or the Drawing Board theme picker's "Accessibility" group). No
   separate accessibility axis, directive, or override resolver: an accessibility
   need is met by picking the theme. Because color alone distinguishes only ~1–2
-  categories under dichromacy, each pairs **CVD-tuned status colours** (pass/warn/
+  categories under dichromacy, each pairs **CVD-tuned status colors** (pass/warn/
   fail moved off the deficiency's confusion axis, verified distinct + AA) with
   **redundant non-color encoding**: ✓/!/✗ **glyphs** on status pills, a distinct
   **texture pattern** per categorical slot on diagram fills (Mermaid `.section-N`
@@ -6359,7 +6425,7 @@ in patch versions.
   `<svg>` — now you can lift one out of a deck as a self-contained file that
   opens correctly anywhere. `node tools/export-chart-svg.js <deck.md> [--slide N]
   [--mode dark] [-o out.svg]` (or `--all`) renders through the same engine the
-  Drawing Board uses, flattens the theme colours to literals so the detached file
+  Drawing Board uses, flattens the theme colors to literals so the detached file
   needs no stylesheet, and embeds the fonts it uses as data-URIs. In the Drawing
   Board the same core powers a **"Chart SVG"** entry in the Export menu that
   appears **only when the cursor's slide has a chart**, exporting that one. See
@@ -6792,7 +6858,7 @@ in patch versions.
   without it crowding the topbar. Drawing Board (docs-site) only — no engine or
   package change.
 - **The Workbench — Theme Studio (Faculty 1).** A new docs-site page
-  (`/workbench`) where you craft a palette from a handful of essential colours
+  (`/workbench`) where you craft a palette from a handful of essential colors
   and watch it derived, contrast-audited, and rendered live on a specimen deck,
   then copy or download a droppable `themes/<name>.css`. Backed by a new pure,
   dependency-free engine module **`lib/theme/`** (`color`, `derive`, `contrast`,
@@ -6917,7 +6983,7 @@ in patch versions.
   face. Every glyph of prose
   takes a hand face — including label pills/badges (via the `--pill-font` seam);
   only real inline `code` stays monospace. It is palette-blind —
-  every stroke resolves through `var(--token)`, so any theme colours it. Default
+  every stroke resolves through `var(--token)`, so any theme colors it. Default
   is full handwriting; `sketch-clean-body` returns prose to the clean engine face
   for text-dense slides. New tokens: `--sketch-font-display`, `--sketch-font-body`,
   `--sketch-ink`, the engine-level `--font-label` label-voice seam, and
@@ -7124,7 +7190,7 @@ in patch versions.
   (width ∝ value), flanks each with its label and value, and prints the
   stage-to-stage conversion % in the gaps. Each stage takes a distinct hue
   from the categorical chart palette, rotating `--catN` exactly like the
-  piechart wedges — so the colours are on-brand per theme (cuoio's curated
+  piechart wedges — so the colors are on-brand per theme (cuoio's curated
   earth pigments, etc.) and a funnel reads like the rest of the chart family.
   Labels and values sit on the canvas, so the fills never affect text contrast.
   New chart-family kernel module (`funnel.transform.js`) wired through the
@@ -7147,7 +7213,7 @@ in patch versions.
   *our funders* (nonprofit), *participating agencies* (government). Author a
   bulleted list of inline images (`- ![Brand](brand.svg)`); marks render
   desaturated and uniform (the same grayscale treatment as the corner deck
-  logo) so mismatched brand colours don't fight. Variants: `color` (keep brand
+  logo) so mismatched brand colors don't fight. Variants: `color` (keep brand
   hues for insignia / crests), `dense` (six columns for a longer roster).
   Pure CSS — no transform. Demo deck: `examples/logo-wall.md`.
 - **The emulator now renders inline content images (`![alt](url)`).** Previously
@@ -7184,10 +7250,10 @@ in patch versions.
   `checks-knockout`, `checks-bold`, `checks-outline`, `checks-tonal`).** A
   universal section modifier (per-slide or per-deck) that switches the
   state-token disc treatment for `checklist` / `verdict-grid` /
-  `obligation-matrix` without changing the marks or status colours. Each
+  `obligation-matrix` without changing the marks or status colors. Each
   variant flips only scalar CSS knobs (`--state-fill-pct`, `--state-ring-*`,
   `--state-mark-pct`, `--state-disc-scale`) at section scope; the leaf disc
-  mixes the real colours from `--state-color` + `--bg`, so variants stay
+  mixes the real colors from `--state-color` + `--bg`, so variants stay
   theme-aware. The default, **Ringed Solid**, adds a hairline darker ring so a
   disc stays crisp on its own status-tinted row.
 - **State-token mark tokens (`--mark-check`, `--mark-dash`, `--mark-x`,
@@ -7414,7 +7480,7 @@ in patch versions.
   same helper called from `lattice-emulator.js`'s post-render pass
   (emulator), and `applyDeckLogoFromFrontMatter` in
   `lattice-runtime.js` (published HTML). `logo-style: brand` keeps
-  the logo's original colours on a soft `--bg-alt` plate;
+  the logo's original colors on a soft `--bg-alt` plate;
   `logo-on: title` restricts the mark to the cover slide.
   Build-time-only — does not render in marp-vscode preview because
   the extension doesn't load workspace `marp.config.js` plugins;
@@ -8156,12 +8222,12 @@ in patch versions.
   older in-app-browser WebKit couldn't resolve that cross-block indirection, so
   `--bg` went guaranteed-invalid and `background: var(--bg,#fff)` fell back to
   white — a white page and white slides that no tap could fix, even though the
-  accent colours (whose dark value is a literal) came through. The export now
+  accent colors (whose dark value is a literal) came through. The export now
   **flattens** every dark value to a literal at build time (`--bg:#001D33`, zero
   indirection); a `var()` that points at a token redefined *within* the dark block
   (e.g. `var(--accent)`) is deliberately kept. The dark/light toggle also now
   **stamps the `data-lp-scheme` attribute at load** (from `matchMedia`) so the
-  deck's colours ride only on a plain attribute selector + literals — never the
+  deck's colors ride only on a plain attribute selector + literals — never the
   CSS `light-dark()` function, a `var()` chain, or a `prefers-color-scheme` media
   query (kept only as a no-JS fallback). Every feature this now needs predates
   2016 WebKit. Proven by stripping every `--scheme-dark-*` definition from a real
@@ -9073,7 +9139,7 @@ in patch versions.
   root), so nothing matched once re-hosted and each node fell to SVG's black initial fill. The
   guard is now `:is(section, figure) ` — element-only, so it's specificity-identical (0,0,1) to
   the old `section ` and leaves every slide/PDF cascade byte-unchanged, while the `figure` arm
-  colours the re-hosted diagram (mermaid's class names are unique to a mermaid SVG, so it can
+  colors the re-hosted diagram (mermaid's class names are unique to a mermaid SVG, so it can
   never leak onto another figure). With color restored, diagram figures drop the temporary
   prose-width hold from the responsive pass and break out like the other charts. Verified the
   article diagram renders identically to the slide (nodes, edges, labels) in light and dark.
@@ -10144,7 +10210,7 @@ in patch versions.
   that hides the inactive pane). A tab click synced both; a programmatic switch
   (`applyDeck({ toPreview })`) synced only the first. `pane` is now the single source of
   truth, with `body[data-pane]` mirrored from one effect, so the layout follows the tab no
-  matter how the pane changed. Guarded by a behavioural + property-based (fast-check
+  matter how the pane changed. Guarded by a behavioral + property-based (fast-check
   model-based, `fc.commands`) test of the toolbar — `PlaygroundApp.test.tsx` — that fuzzes
   random user journeys and asserts the tab and layout never desync (the bug shrinks to the
   one-step counterexample "load a gallery from Edit view"). The Drawing Board's mobile pane
@@ -10365,8 +10431,8 @@ in patch versions.
   renders.** A full manifest-vs-CSS audit found ~30 drifted claims; the prose is
   now aligned. Highlights: `checklist` `[ ]` is a hollow ring (not an "x");
   `title` eyebrow renders *above* the h1 (CSS reorders it); `kpi` pills are
-  coloured by row position, not by recognised text; `journey` swimlane dots are
-  *coloured* by mood, not sized; `timeline-list` is a horizontal spine with
+  colored by row position, not by recognised text; `journey` swimlane dots are
+  *colored* by mood, not sized; `timeline-list` is a horizontal spine with
   stacked items (not left/middle/right); `split-panel watermark` rubric is an
   `h3`; `roadmap` `horizons`/`milestones`, `piechart` donut, `obligation-matrix`
   `asymmetric`, `stats`, and `image museum` captions reworded to the real
@@ -11099,7 +11165,7 @@ in patch versions.
   `--c-accent-warm`) living in the *native* radar component's stylesheet even
   though it styles *Mermaid* output. It now lives with the other Mermaid type
   overrides in `mermaid.css` and paints each series from `--c1-dark`…`--c8-dark`,
-  so a radar with up to eight curves gets distinct, theme-flavoured colours that
+  so a radar with up to eight curves gets distinct, theme-flavoured colors that
   flip per canvas — not two fixed brand accents.
 - **Pie wedge borders were off-by-one from their fills.** The piechart SVG
   emits `<defs>` (per-wedge gradients) as its first child, so the
@@ -11685,7 +11751,7 @@ in patch versions.
   `engineering/decisions/2026-07-18-compose-mobile-keyboard-rail.md`.)
 - **The performance overlay's FPS now rates against your display's refresh ceiling, not a fixed 60.**
   A steady 30fps on a 30Hz panel — or under an iOS/tablet power-saver or a backgrounded-tab throttle —
-  is the device's ceiling, not jank, but the overlay was colouring it "poor" and sending people
+  is the device's ceiling, not jank, but the overlay was coloring it "poor" and sending people
   hunting for a bug that wasn't there. FPS is now rated as a fraction of the highest rate seen this
   session (the way MEM rates against the heap limit), so it reads healthy at the ceiling and only
   flags when the rate DROPS below it while you interact; the metric's explanation says so. Born from
@@ -12418,7 +12484,7 @@ in patch versions.
   (`container-type: inline-size`, content-driven height, unlike the aspect-locked word cloud) —
   and each component's CSS is broadened `section.<comp>` → `:is(section.<comp>, figure.<comp>)`
   (specificity-preserving; the `section` arm keeps every slide render byte-identical) so the board
-  paints in the figure exactly as on the slide, variant modifiers and `--chart-cat-*` colours and
+  paints in the figure exactly as on the slide, variant modifiers and `--chart-cat-*` colors and
   all. The figure breaks out to the ~1200px cap; a wide roadmap on a narrow viewport scrolls in
   its own box, never the page. Verified light + dark at 390 / 1440px with no page overflow.
   *(journey and state-chart stay on the placeholder — they bake pixel geometry / height-relative
@@ -13279,7 +13345,7 @@ in patch versions.
   every affected slide now passes the overflow probe in both moods. (The underlying capacity question
   — a default `kpi` holding four rows under a two-line headline — is tracked separately for a layout
   fix rather than papered over here.)
-- **`logo-wall` marks are now token-coloured silhouettes — palette-driven, theme/mode-adaptive,
+- **`logo-wall` marks are now token-colored silhouettes — palette-driven, theme/mode-adaptive,
   AA on any ground.** A mark was a desaturated `<img>` (a CSS `filter` grey that couldn't follow
   the palette and fell below AA on a dark canvas). The new `logo-marks` transformer
   (`lib/transformers/logo-marks.js`) rewrites each mark to a `<span class="logo-mark">` whose SVG
@@ -13487,7 +13553,7 @@ in patch versions.
 
 - **The `kanban` board is redesigned to spend color on STATUS, not category.**
   The default board is now a calm grid of uniform, elevated, neutral cards
-  ("premium card"): the per-card lane gradient, the 3px coloured left stripe, the
+  ("premium card"): the per-card lane gradient, the 3px colored left stripe, the
   color dot, and the bordered size chip are gone, and color on the card surface
   is reserved for the status vocabulary — so a flagged card is the focal point
   instead of a paint-swatch patchwork. Category color coding is retained as **two
@@ -13788,7 +13854,7 @@ in patch versions.
   the warm themes), and the block's interactive accents — focus ring, copy
   button, active-tab indicator, selection, scrollbar — bind to the palette
   accent. The frame already tracked the palette via Starlight's UI theme
-  colours. The topbar's chrome glyphs (menu / moon / sun) now live in one
+  colors. The topbar's chrome glyphs (menu / moon / sun) now live in one
   shared `chrome-icons.css` imported by both the standalone pages and the docs
   skin (so the two topbars can't drift), and the docs mobile menu button is
   restyled to the same bordered-square toggle the rest of the site uses.
@@ -13809,7 +13875,7 @@ in patch versions.
   base-less root-relative links and a `rehype-base-links` plugin prefixes the
   active base at build, so they resolve under both deploy targets; a branded,
   navigable **404** page replaces the dead-end. **Card icon tiles** keep their
-  distinct per-card colours, but now drawn from each palette's own curated
+  distinct per-card colors, but now drawn from each palette's own curated
   categorical series (`--chart-cat1…8`, tuned per palette AND light/dark, newly
   exposed to the docs) instead of Starlight's fixed rainbow — so they stay
   distinct yet on-palette with AA contrast in every theme and mode.
@@ -14008,7 +14074,7 @@ in patch versions.
 - **`roadmap` state markers are now color-blind-safe.** The retired
   fill-level glyphs — the half-filled disc (`in flight`) and the hollow
   outline ring (`planned`) — are replaced by shape-distinct white marks on the
-  state-coloured disc: **check / dash / cross / slash** for
+  state-colored disc: **check / dash / cross / slash** for
   shipped / in-flight / planned / out-of-scope, across the default, `horizons`,
   and `status` treatments. Each state now reads in greyscale and for
   color-vision-deficient viewers (color is the redundant channel, not the
@@ -14198,7 +14264,7 @@ in patch versions.
 
 - **State markers (`[x]`/`[-]`/`[ ]`/`[/]`) redesigned as color + a distinct
   in-disc mark.** Across `checklist`, `verdict-grid`, and `obligation-matrix`
-  every state is now the same status-coloured circle carrying a unique mark —
+  every state is now the same status-colored circle carrying a unique mark —
   **check / dash / x / slash** — replacing the old fill-level discs
   (filled / half / outline / slashed) and the layout-specific Unicode glyphs.
   The mark *shape* carries the meaning independently of color, so the states
@@ -14229,7 +14295,7 @@ in patch versions.
   chart-status (bar-matching semi-round + gradient), list-tabular `register`
   (wide stamp), redline `.annotated` (footnote superscript / positioned
   counter) — but route everything non-deliberate through the same tokens.
-  Pill colours and semantics are unchanged.
+  Pill colors and semantics are unchanged.
 - **`--text-muted` is now decorative-only and a `light-dark()` pair.** It is
   reserved for genuinely decorative / de-emphasized marks — chrome
   (pagination/header/footer), empty-cell dashes, skipped/struck state, quote
@@ -14308,7 +14374,7 @@ in patch versions.
   documented **future variant** (see `chart-family.style.md` › "Fill finish").
 
 
-- **Categorical charts recoloured onto a shared fill/mark model.**
+- **Categorical charts recolored onto a shared fill/mark model.**
   Quadrant, piechart, radar, and progress now draw from one chart-family
   color contract (`--catN-fill` / `--catN-ink`, defined in
   `_chart-family.css`): each slot is a single curated hue rendered as a
@@ -14321,7 +14387,7 @@ in patch versions.
   hue and the relationship flips automatically with the canvas, so the
   charts stay refined and on-palette in both modes. Quadrant
   cells map reading-order to slots 1–4; piechart wedges/legend swatches
-  gain coloured borders; radar curves now draw from the chart spectrum
+  gain colored borders; radar curves now draw from the chart spectrum
   (`--catN-hue`) like the other members, in both modes; progress's neutral
   bar uses the first slot hue (status bars still use pass/warn/fail).
   Quadrant text labels are neutral `--text-heading` ink (AA-safe) with a
@@ -14546,7 +14612,7 @@ in patch versions.
     → `--diagram-active/done/critical/today/note` (+ `-mark`)
   - surfaces / scheme: `--bg-dark` → `--surface-inverse`; `--dark-*` → `--scheme-dark-*`
 
-  Resolved colours are byte-identical (a pure rename, verified zero-pixel-drift).
+  Resolved colors are byte-identical (a pure rename, verified zero-pixel-drift).
   The old→new map lives in `lib/tokens/crosswalk.js` + the ADR §7 table; the
   Drawing-Board `tokens: current` option migrates a legacy-authored deck.
 - **Breaking: the sequential color-ramp tokens `--scale-50 … --scale-900` are
@@ -14554,7 +14620,7 @@ in patch versions.
   group 1 — see `engineering/decisions/2026-06-11-universal-token-system.md`
   §11). The ramp is now anchored on `--seq-500` (themes set it; `base.tokens.css`
   derives the other nine stops via OKLab `color-mix`), and consumers already read
-  `--seq-*`. Resolved colours are byte-identical — this is a pure rename that
+  `--seq-*`. Resolved colors are byte-identical — this is a pure rename that
   frees "scale" from colliding with the typographic multiplier `--fs-scale`. **If
   a BYO theme sets `--scale-500`, or a deck reads `var(--scale-NNN)`, rename to
   `--seq-*`.** (The Drawing-Board `tokens:` toggle resolves both vocabularies for
