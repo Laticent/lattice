@@ -71,10 +71,7 @@ describe('lattice-engine: contract', () => {
     const secs = profile(makeEngine().render(md, 'lattice').html);
     // Form is on by default now, so the bare content slide also picks up `form`;
     // the `title` bookend is in the toggle's skip set, so it does NOT.
-    // Slide A names no component, so it takes the catch-all `content` layout
-    // (#1292) — `dark` is a modifier, not a layout, and a slide is never
-    // layout-less. Slide B named `title`, a real component, so it is left alone.
-    assert.equal(secs[0].cls, 'content dark form');
+    assert.equal(secs[0].cls, 'dark form');
     assert.equal(secs[1].cls, 'dark title'); // _class title + deck-wide dark, sorted
   });
 

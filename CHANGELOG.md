@@ -252,16 +252,6 @@ in patch versions.
   preference on load rather than falling back to their CSS default. The self-driving demo reskins to **carbone** instead of cuoio, so the flourish is still
   a visible change rather than a repaint in the colors the deck already wears. The engine's own
   default (a deck with no `theme:`) is unchanged. (#1285)
-- **Breaking: a slide with no `_class` renders as a `content` slide, not as unstyled markdown.**
-  There is no such thing as a layout-less slide, and the catch-all is a layout. Any section whose
-  resolved class list names no component now gets `content` on both render paths. A slide that
-  names a component, or a deck whose `class:` register names one, is untouched. **Existing decks
-  re-render:** an un-classed slide picks up `content`'s prose size (`--fs-message`, up from the
-  base `--fs-body`), its 72cqi measure, and real list markers — so a deck that relied on the
-  unstyled fallback will look different and may need trimming. The two render paths agree,
-  including the ordering against a deck-wide `class:` register: the runtime sequences its pass
-  after front-matter propagation rather than merely being written below it, so a deck-wide
-  component is never doubled up with the catch-all. (#1292)
 - **Per-slide settings say "Auto" where they used to say "Inherit".** `inherit` is a CSS keyword,
   not a word an author should have to know. Every axis head now reads Auto and names what it
   resolves to — "Auto — Rainbow" — so the deck's value is legible without opening the deck
