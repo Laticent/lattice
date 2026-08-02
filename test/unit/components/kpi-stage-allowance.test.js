@@ -89,13 +89,18 @@ describe('components: the kpi ledger divides its stage', () => {
     // Both variants place the hero with `grid-row: 1 / -1`, so the explicit row count IS the
     // number of support rows opposite it. Hard-coding three made a 3-metric slide — 67 of the
     // 81 bare-kpi slides in the corpus — reserve a row for a metric nobody wrote.
+    // Literal substring checks, not a built regex: the selectors are fixed text, so
+    // hand-escaping them into a pattern buys nothing and gets the escaping wrong
+    // (CodeQL js/incomplete-sanitization — the `[()]` replace left backslashes alone).
     for (const marker of ['li:nth-child(3)', 'li:nth-child(4)']) {
-      assert.match(
-        css,
-        new RegExp(`ol:has\\(>\\s*${marker.replace(/[()]/g, '\\$&')}\\)`),
+      assert.ok(
+        css.includes(`ol:has(> ${marker})`),
         `expected a :has(> ${marker}) rule keying the row count on the authored metric count`,
       );
     }
-    assert.match(css, /section\.kpi\.spotlight > \.cell-stage > ol:has\(/, 'spotlight is count-aware too');
+    assert.ok(
+      css.includes('section.kpi.spotlight > .cell-stage > ol:has('),
+      'spotlight is count-aware too',
+    );
   });
 });
