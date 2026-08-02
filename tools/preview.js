@@ -102,13 +102,12 @@ const PATTERNS = Object.freeze({
     /^lib\/components\/(?:[a-z][a-z0-9-]*\/)?[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.manifest\.json$/,
     /^lib\/components\/(?:[a-z][a-z0-9-]*\/)?[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.docs\.md$/,
   ],
-  // Full diff triggers — shared CSS, theme, three-renderer paths.
+  // Full diff triggers — shared CSS, theme, both render paths.
   fullDiff: [
     /^lib\/_(legacy|scaffold|universal|semi-universal|base|root|theme|diagram-overrides)\.css$/,
     /^themes\//,
     /^lattice-emulator\.js$/,
     /^dist\/lattice-runtime\.js$/,
-    /^marp\.config\.js$/,
     /^lib\/components\/chart\/_chart-family\/chart-family\.js$/,
     /^lib\/match-section\.js$/,
     /^lib\/slot-label-lift\.js$/,

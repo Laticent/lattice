@@ -1,15 +1,22 @@
 # marp
 
-Lattice's integration with [Marp](https://marp.app/) — the framework
-Lattice is built on. Marp is the slide engine: it parses the slide
-syntax (`---` separators), runs registered themes, calls plugins, and
-emits HTML/PDF/PPTX/PNG.
+Lattice's compatibility layer for [Marp](https://marp.app/). **Marp is not the
+engine and not a dependency** — `lib/engine/` natively re-implements the Marpit
+pipeline and is the only first-party render path
+(`engineering/marp-independence.md`).
 
-Unlike `mermaid` / `highlight-js` / `katex` which are *optional*
-integrations for specific features, **Marp is the foundation**. Every
-component, every render path, every slide assumes Marp. This folder
-holds Lattice's adapter layer — the small surface where Lattice's
-conventions meet Marp's defaults.
+What this folder holds is the seam where Lattice's own render meets *Marpit's
+file format*, which LFM is deliberately compatible with (`---` separators, YAML
+front matter, `<!-- _class: -->` directives), plus the override layer a deck
+needs when it is rendered by REAL marp-core — the Export-to-Marp bundle
+(`lib/core/marp-bundle.js`).
+
+> **Corrected 2026-08-02.** This page used to open "Marp is the framework
+> Lattice is built on … **Marp is the foundation**. Every component, every
+> render path, every slide assumes Marp," and described the deleted
+> `marp.config.js` as a live config — while contradicting itself thirty lines
+> later. It was the most misleading Marp doc in the tree and sat in a KEEP
+> bucket. See `engineering/decisions/2026-08-02-marp-reference-register.md` §6.
 
 **External dep:** `@marp-team/marp-cli` — **BYO** (no longer bundled; P4 retired
 it). The owned engine
@@ -19,7 +26,7 @@ it). The owned engine
 
 | File | What it implements |
 |---|---|
-| `scaffold.css` | Marp Core override layer. Two rules using `!important` to win the cascade fight against Marp's scaffold defaults that load after the theme. Lives in `@layer scaffold`. |
+| `scaffold.css` | Marp Core override layer. Two rules using `!important` to win the cascade fight against real marp-core's scaffold defaults, which load after the theme in an Export-to-Marp render. NOT wrapped in `@layer` — engine CSS layers nothing (HARD RULE #26). |
 
 Two related files live elsewhere (intentionally, with reason):
 
@@ -47,7 +54,7 @@ Two CSS rules, both using `!important`:
 
 Both rules use `!important` because Marp Core's scaffold CSS loads
 AFTER the theme in the cascade, so equal-specificity rules lose to
-Marp. `@layer scaffold` flips cascade order in our favor when
+Marp. (An earlier version of this page claimed the rules live in `@layer scaffold`; they do not, and HARD RULE #26 bars a partial layer.) Cascade order would be flipped by layers when
 `!important` is present.
 
 This is the only file in Lattice that uses `!important` for
@@ -93,9 +100,12 @@ front-matter `theme:` directive.
 
 ---
 
-## What the owned engine wires
+## What the Export-to-Marp bundle wires
 
-The config file at the repo root carries:
+`marp.config.js` was DELETED in P4 — there is no config file at the repo root
+and no marp-cli render path. What follows describes the config
+`lib/core/marp-bundle.js` GENERATES into an exported bundle, for the recipient's
+own marp-cli to read:
 
 - **`themeSet`**: list of `.css` files Marp registers as themes
   (lattice.css + every palette).

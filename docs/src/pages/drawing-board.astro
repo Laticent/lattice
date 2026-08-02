@@ -175,7 +175,7 @@ const dbData = JSON.stringify({
 	// (exemplars/<bucket>/<slug>.md, staged hashed by sync-playground-assets.mjs).
 	// Trimmed to the chosen tier in the browser before loading into the editor.
 	exemplarBase: url(pg + 'exemplars/'),
-	// The marp render engine bundle — loaded ON DEMAND (load-engine.ts) after the
+	// The Lattice render engine bundle — loaded ON DEMAND (load-engine.ts) after the
 	// chrome paints, not eagerly in <head>. See the engine <script> near the body
 	// end + engineering/decisions/2026-06-09-shadcn-migration.md (perf phase).
 	engineUrl: url(pg + 'lattice-playground.js'),
@@ -1217,7 +1217,7 @@ const dbData = JSON.stringify({
 			window.LatticeDeckPreview = { renderDeck };
 		</script>
 
-		<!-- The marp render engine (window.LatticePlayground) loads ON DEMAND via
+		<!-- The Lattice render engine (window.LatticePlayground) loads ON DEMAND via
 		     load-engine.ts (triggered on idle below, after the chrome + editor
 		     paint), NOT eagerly here — so the topbar + editor host paint without the
 		     ~500KB-gz bundle blocking first paint / mobile LCP. The render loop polls

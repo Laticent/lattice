@@ -1,4 +1,4 @@
-// Connection-first warming for the marp render engine bundle
+// Connection-first warming for the Lattice render engine bundle
 // (`lattice-playground.js`, ~1.8MB / ~554KB-gz). This is the ONLY heavy thing
 // on the site; the pages themselves are cheap (Astro's built-in `prefetch`
 // handles HTML hover-prefetch). WRAP, DON'T REINVENT — this never loads or

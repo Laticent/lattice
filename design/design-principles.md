@@ -126,7 +126,7 @@ Accent colors for categories, levels, or themes extend this palette — they don
 
 ---
 
-# Part 2: Marp Directives
+# Part 2: Deck Directives
 
 ## 2.1 Frontmatter
 
@@ -195,9 +195,9 @@ section footer {
 }
 
 /* Pagination — single mechanism across both rendering paths.
-   The Marp CLI engine emits `data-lattice-pagination="N"` on each <section>;
-   the custom renderer (lattice-emulator.js) emits the identical attribute. Both paths
-   render the page number via the same `section::after` pseudo-element rule. */
+   The owned engine emits `data-lattice-pagination="N"` on each <section>
+   (lib/engine/slides.js); the browser runtime reads the identical attribute. Both
+   paths render the page number via the same `section::after` pseudo-element rule. */
 section[data-lattice-pagination]::after {
   content: attr(data-lattice-pagination);
 }
@@ -221,11 +221,11 @@ section::after {
 
 **Critical — !important is deliberate.** Marp's scaffold CSS injects `section::after { padding: inherit; }` and font defaults that load *after* the theme stylesheet at equal specificity, so the cascade order favours the scaffold. `!important` on padding, position, and font properties is the override that makes the theme rule win regardless of load order. This is one of the few places in the system where `!important` is the right tool.
 
-**Single mechanism — no DOM span.** Earlier versions of lattice-emulator.js injected a `<span class="marp-slide-pagination">N</span>` element with its own positioning CSS, creating two divergent pagination paths. That has been removed: lattice-emulator.js now emits the same `data-lattice-pagination` attribute Marp CLI does, and the single `section::after` rule handles both. Any new pagination styling lives on `section::after` only.
+**Single mechanism — no DOM span.** Earlier versions of lattice-emulator.js injected a `<span class="marp-slide-pagination">N</span>` element with its own positioning CSS, creating two divergent pagination paths. That has been removed: the engine emits a single `data-lattice-pagination` attribute (`lib/engine/slides.js`) — the Lattice-namespaced counterpart of Marpit's own `data-marpit-pagination` — and the single `section::after` rule handles both paths. Any new pagination styling lives on `section::after` only.
 
 **CSS variables:** `--marp-slide-pagination-color` and `--marp-slide-pagination-font-size` are defined in `:root` for reference but the values above are set directly so the !important overrides apply. Update both if the variables are ever wired through.
 
-For the custom renderer (non-Marp CLI): parse header/footer from frontmatter, inject into each slide's HTML, position via CSS. Respect per-slide overrides.
+In the owned engine: parse header/footer from front matter, inject into each slide's HTML, position via CSS. Respect per-slide overrides.
 
 ---
 
