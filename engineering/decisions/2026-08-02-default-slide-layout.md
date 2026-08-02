@@ -11,9 +11,10 @@ summary: >
   `--fs-message` (21pt) while Key Insight is deliberately pinned to `--fs-body`
   (16pt) to read as a peer of body prose — so as the default it renders a summary
   24% smaller than the thing it summarizes. Separately, NOTHING in the engine
-  styles a plain markdown table. This note proposes four changes that make
-  `content` the layout #1292 actually describes, and records the measurements
-  behind each.
+  styled a plain markdown table (§4, now SHIPPED), and an `# H1` is invisible on
+  every light theme unless a component puts it on a dark panel (§5, pre-existing,
+  logged not fixed). This note proposes four changes that make `content` the
+  layout #1292 actually describes, and records the measurements behind each.
 builds-on: 2026-08-02-slide-class-taxonomy.md, 2026-06-27-stage-flow-no-margins.md
 ---
 
@@ -77,7 +78,7 @@ form features, not component features.** They already work with no `_class`. So
 the fidelity gap is narrower than assumed, and — critically — `content` is not a
 superset of base. It trades.
 
-## The four findings
+## The findings
 
 ### 1. `content` has no body fill, so annotations float
 
@@ -179,15 +180,75 @@ The one that remains, `finish-backdrops.md` p2, renders **119 words** — 3× th
 is over budget by the layout's own contract, which is the constraint working
 rather than failing.
 
-### 4. Nothing styles a plain markdown table
+### 4. Nothing styles a plain markdown table — **SHIPPED**
 
-There is **no universal table CSS in the engine.** Every table rule is scoped to
-`compare-table`, `glossary`, `list-tabular` or `obligation-matrix`. A markdown
-table on any other slide — base or `content` — gets raw browser defaults: no
-borders, no zebra, no cell padding, no header weight.
+There was **no universal table CSS in the engine.** Every table rule was scoped to
+a component. A markdown table on any other slide — base or `content` — got raw
+browser defaults: no borders, no zebra, no cell padding, no header weight.
 
-This is a boardroom-bar defect independent of the default-layout question. It is
-broken on base today and would remain broken under `content`.
+This is a boardroom-bar defect independent of the default-layout question. It was
+broken on base and would have remained broken under `content`.
+
+**Landed** in `lib/base/base.elements.css` § UNIVERSAL TABLE. Two corrections to
+this record's first draft, both found while implementing:
+
+**The specialist count was four; it is seven.** The draft named `compare-table`,
+`glossary`, `list-tabular` and `obligation-matrix`. `list-tabular` renders an
+`<ol>`, not a `<table>`, so it was never a table component at all. The actual set
+that styles a table element is `compare-table`, `glossary`, `obligation-matrix`,
+`statute-stack`, `math`, `roadmap`, `matrix-grid`.
+
+**"Component selectors `(0,1,N)` beat base element rules `(0,0,N)`, so no existing
+table changes" was wrong**, and it is the sharpest thing this section has to say.
+Specificity settles a contest only over a property BOTH rules declare. A base rule
+setting a property the specialist never declared has no contest to lose:
+
+| base declares | specialist that declares nothing for it | result without a guard |
+|---|---|---|
+| `tbody tr:nth-child(odd){background}` | compare-table, statute-stack.lane, math.derivation | a zebra wash they never asked for |
+| `td{border-bottom}` | math.derivation (it borders `tbody tr`) | doubled row lines |
+
+So the treatment carries a **deny guard** — `:where(:not(.compare-table)…)`, zero
+specificity, one entry per table-owning component — and is scoped to the **stage's
+own child** (`> table`, `> .cell-stage > table`), which excludes every
+transform-generated table inside a `<figure>` for free. `roadmap` and `matrix-grid`
+are in the guard even though the scoping already excludes their wrapped tables,
+because the rule that is easy to state is the one that stays true: *a component
+that styles `<table>` owns its tables, and base stands off.*
+
+The guard is gated (`checkUniversalTableGuard`, `tools/check-ownership.js`): it
+reads the deny list back out of the stylesheet, fails on a table-styling component
+with no entry, and fails on a stale entry — so it cannot rot. Verified: the corpus
+ratchet holds at 27 across 248 decks, and the three specialists on the probe deck
+pixel-diff to **0**.
+
+### 5. An `# H1` is invisible on a light-theme slide that has no dark panel
+
+Found while rendering §4's probe, and it undercuts this record's own claim that an
+un-classed slide "already works". `base.elements.css` sets
+
+```css
+section h1 { …; color: var(--text-display); … }
+```
+
+and `--text-display` is, in **all thirteen** light themes, a near-white ink: indaco
+`#FFFFFF` ("on dark surfaces — 11.29:1 on bg-dark"), cuoio `#FAF7F2`, carbone
+`#F5F5F2`, and so on. It is correct for every component that puts its `h1` on a
+dark panel — `title`, `divider`, `closing`, `big-number` — which is every component
+that uses `h1` today. On a bare slide, or any slide whose `h1` sits on the theme's
+light `--bg`, the heading renders **white on white**.
+
+Reproduced on a two-slide probe with no `_class` at all: the `##` slide renders its
+heading correctly, the `#` slide renders body copy under an empty masthead.
+
+This is a **pre-existing** defect (`main` has it), not a regression from §4, and it
+is off the path of the table change — logged here rather than folded into it, per
+HARD RULE #18. But it belongs with (1)–(3), not after them: "a slide with no
+`_class` doesn't get styled" (#1292's premise, which §"What an un-classed slide
+actually inherits" pushed back on) is *more* right than this record allowed, and
+the strongest single piece of evidence for it is that the title disappears. Any
+fix is a `--text-display` binding question — surface-aware ink, the way
+`--code-inline-fg` already works — not an `h1` question.
 
 ## Proposal
 
@@ -205,9 +266,14 @@ every future component.
    Key Insight and below-note to peers of body prose, and clears 8 of 9 clipped
    slides.
 4. **A minimal universal table treatment in base** — hairline rules, header
-   weight, zebra at low alpha, cell padding, `--fs-body-compact` — with the four
-   specialist components overriding as they already do (component selectors
-   `(0,1,N)` beat base element rules `(0,0,N)`, so no existing table changes).
+   weight, zebra at low alpha, cell padding, `--fs-body-compact` — withheld from
+   the seven specialist components by an explicit deny guard. **SHIPPED**; see §4
+   for the two things this line originally got wrong (the count, and the belief
+   that specificity alone made a guard unnecessary).
+
+Plus one finding that is **not** a proposal, because it is a pre-existing defect
+rather than a change to weigh: §5, an `# H1` renders white-on-white on every light
+theme unless a component puts it on a dark panel.
 
 ### What this does NOT change
 
@@ -224,7 +290,7 @@ every future component.
 
 ### Sequencing
 
-(4) is independent and can land first — it fixes a real gap regardless of what is
+(4) is independent and **landed first** — it fixes a real gap regardless of what is
 decided about defaults. (1)–(3) are one coherent change to `content` and should
 land together, because (3) alone would leave annotations floating and (1) alone
 would leave them unpromoted.

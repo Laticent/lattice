@@ -2,7 +2,10 @@
  *
  * Extracted from lib/_legacy.css in Phase 2 of the destination map.
  * Element selectors only (section, h1-h5, p, strong, em, code, hr, ul,
- * ol, blockquote) — no class selectors, no token definitions.
+ * ol, blockquote, table) — no token definitions. The ONE place a class
+ * appears is the universal table treatment at the foot of this file, and
+ * it appears only inside `:where()` (zero specificity) as a DENY guard,
+ * so every rule here still resolves at element specificity.
  *
  * Bundle order: lib/_base.css comes BEFORE lib/_root.css in the head
  * sources (see tools/build-css.js HEAD_SOURCES). Both run before
@@ -79,3 +82,83 @@ section hr { border:none; height:0.15625cqi; background:var(--spectrum-structure
 section ul { list-style:none; padding:0; margin:0; }
 section ol { padding:0; margin:0; }
 section blockquote { margin:0; padding:0; border:none; }
+
+/* ── UNIVERSAL TABLE ──────────────────────────────────────────────────────
+ * A plain GFM pipe table on a slide that is not one of the seven table-owning
+ * components used to render at raw browser defaults: no rules, no padding, no
+ * header weight, columns scattered across the slide. Every table rule in the
+ * engine was scoped to a component, so `_class: content`, a base modifier, or
+ * no class at all got nothing. This is that missing default.
+ *
+ * The vocabulary is the one the specialists already agree on, so a plain table
+ * reads as the same family as a `compare-table`: the `--spectrum-structure`
+ * thead underline (unanimous across compare-table / glossary /
+ * obligation-matrix / statute-stack), label-cased column heads at `--fs-meta`,
+ * `--border` hairlines under each row, `--fs-body-compact` cells (the type
+ * contract's "dense reference cell" tier), and a low-alpha accent zebra.
+ *
+ * TWO scoping decisions, both load-bearing:
+ *
+ * 1. DIRECT STAGE CHILD ONLY (`> table` when the slide is `no-form`,
+ *    `> .cell-stage > table` when it carries `form`). An author's markdown table
+ *    lands exactly there. A table a TRANSFORM generated does not: roadmap wraps
+ *    its table in `.roadmap-figure` and matrix-grid in `.matrix-grid-figure`, and
+ *    a chart's `<figure>` is never the stage's own child. Scoping to the stage
+ *    child keeps every generated table out for free — including a future chart
+ *    that follows the same wrap.
+ *
+ * 2. A DENY GUARD for the seven components that style `<table>` themselves.
+ *    Specificity alone is NOT enough here, and that is the trap: a component rule
+ *    (0,1,N) beats these element rules (0,0,N) only for the properties it
+ *    actually DECLARES. compare-table, math.derivation and statute-stack.lane
+ *    declare no zebra, so a universal `tbody tr:nth-child(odd)` background would
+ *    land on them unopposed; math.derivation puts its row rule on `tbody tr` and
+ *    not on `td`, so a universal `td { border-bottom }` would double its lines.
+ *    roadmap and matrix-grid are listed even though decision (1) already excludes
+ *    their wrapped tables, because the rule that is easy to state is the one that
+ *    stays true: A COMPONENT THAT STYLES `<table>` OWNS ITS TABLES, AND BASE
+ *    STANDS OFF. `:where()` keeps the guard at zero specificity, so every
+ *    component still overrides this block exactly as it did before.
+ *
+ * The guard is gated — `checkUniversalTableGuard` in tools/check-ownership.js
+ * fails on a component that styles a table element without an entry here, AND on
+ * a stale entry, so the list cannot rot the way an unguarded deny list would.
+ * Cross-cutting decoration that is not component-scoped (base.focus's
+ * `[data-focus-*]` row/cell treatments) is deliberately out of the gate's scope:
+ * it decorates whatever table it lands on and claims no ownership.
+ * See engineering/decisions/2026-08-02-default-slide-layout.md §4. */
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > table,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > :where(.cell-stage) > table {
+  width:100%; table-layout:auto; border-collapse:collapse;
+  font-size:var(--fs-body-compact); line-height:var(--lh-snug);
+}
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > table thead tr,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > :where(.cell-stage) > table thead tr {
+  background:var(--spectrum-structure) bottom / 100% 2px no-repeat;
+}
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > table thead th,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > :where(.cell-stage) > table thead th {
+  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600;
+  letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label);
+  padding:var(--sp-xs) var(--sp-sm); text-align:left;
+  word-wrap:break-word; overflow-wrap:break-word;
+}
+/* Zebra BEFORE the cell rule so a `td` background (a treatment, a state pill)
+ * always paints over it — the row wash is the bottom-most layer. */
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > table tbody tr:nth-child(odd),
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > :where(.cell-stage) > table tbody tr:nth-child(odd) {
+  background:color-mix(in srgb, var(--accent) 4%, transparent);
+}
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > table td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > :where(.cell-stage) > table td {
+  padding:var(--sp-xs) var(--sp-sm); border-bottom:1px solid var(--border);
+  color:var(--text-body); vertical-align:top;
+  word-wrap:break-word; overflow-wrap:break-word;
+}
+/* The first column is the row's label in nearly every authored table — the same
+ * emphasis compare-table and obligation-matrix give it. NO `white-space:nowrap`
+ * here: those two can demand short row labels, a generic table cannot. */
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > table td:first-child,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math):not(.obligation-matrix):not(.roadmap):not(.statute-stack)) > :where(.cell-stage) > table td:first-child {
+  color:var(--text-heading); font-weight:600;
+}

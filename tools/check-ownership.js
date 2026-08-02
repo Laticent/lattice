@@ -3546,10 +3546,110 @@ function checkCssSyntax(errors) {
   }
 }
 
+// ── Universal table guard (anti-rot for base.elements.css's deny list) ───────
+//
+// base.elements.css gives every slide a default `<table>` treatment — the gap
+// #1292 exposed: until it landed, EVERY table rule in the engine was scoped to a
+// component, so a plain GFM table on a `content` slide, a base-modifier slide, or
+// an un-classed slide rendered at raw browser defaults.
+//
+// That default is scoped to the stage's own child AND guarded by a deny list of
+// the components that style `<table>` themselves. The deny list is the fragile
+// part, and specificity does NOT make it optional — a component rule (0,1,N)
+// beats the base element rules (0,0,N) only for the properties it DECLARES, so a
+// universal zebra or cell border lands unopposed on a specialist that never
+// declared one (compare-table and statute-stack.lane declare no zebra;
+// math.derivation borders `tbody tr`, not `td`). A NEW table component that
+// forgets the deny entry therefore ships silently double-styled.
+//
+// So the list is gated the way #22/#24 gate theirs: a component that styles a
+// table element and is NOT denied fails, and a denied component that no longer
+// styles one fails as stale.
+//
+// COVERAGE BOUNDARY (be honest): the gate keys on a rule whose SUBJECT — the last
+// compound in the selector — is a table element, scoped to a known component
+// class. Two things are deliberately out of scope. Rules that merely MENTION a
+// table in a non-subject position (base.modifiers' `:is(ul,ol,blockquote,table)
+// + p` below-note promotion) style the `<p>`, not the table. And cross-cutting
+// decoration that names no component (base.focus's `[data-focus-*] tr.lat-focus`
+// row/cell treatments) decorates whatever table it lands on and claims no
+// ownership, so it needs no entry.
+const TABLE_ELEMENTS = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'caption', 'col', 'colgroup']);
+const UNIVERSAL_TABLE_CSS = path.join(ROOT, 'lib', 'base', 'base.elements.css');
+
+/** The element name a compound selector targets ('' when it starts with . # : [ or *). */
+function compoundElement(compound) {
+  const m = /^([a-z][a-z0-9-]*)/.exec(compound.trim());
+  return m ? m[1] : '';
+}
+
+/** True when the selector's SUBJECT (its last compound) targets a table element. */
+function subjectIsTableElement(sel) {
+  const compounds = splitCompounds(sel);
+  return TABLE_ELEMENTS.has(compoundElement(compounds[compounds.length - 1] || ''));
+}
+
+function checkUniversalTableGuard(manifests, errors) {
+  const componentNames = new Set(manifests.map((m) => m.name));
+  const guardCss = stripComments(fs.readFileSync(UNIVERSAL_TABLE_CSS, 'utf8'));
+
+  // The deny list, read back OUT of the CSS so the gate and the stylesheet can
+  // never disagree: every `:not(.x)` inside the universal-table guard.
+  const denied = new Set();
+  for (const sel of topLevelSelectors(guardCss).flatMap(splitTopLevel)) {
+    if (!subjectIsTableElement(sel)) continue;
+    for (const m of sel.matchAll(/:not\(\.([a-z][a-z0-9-]*)\)/g)) denied.add(m[1]);
+  }
+  if (denied.size === 0) {
+    errors.push(
+      `${path.relative(ROOT, UNIVERSAL_TABLE_CSS)} declares no universal-table deny guard. The ` +
+      `default table treatment must exclude the components that style <table> themselves — see ` +
+      `the UNIVERSAL TABLE block's header for why specificity alone does not do it.`,
+    );
+    return;
+  }
+
+  // Every component that styles a table element must be denied.
+  const owners = new Map(); // component name -> first "file:selector" that proves it
+  for (const file of listCssFiles(LIB_DIR)) {
+    if (file === UNIVERSAL_TABLE_CSS) continue;
+    const rel = path.relative(ROOT, file);
+    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    for (const sel of topLevelSelectors(css).flatMap(splitTopLevel)) {
+      if (!subjectIsTableElement(sel)) continue;
+      // Component classes are the ones bound to a `section`/`figure` compound.
+      for (const m of sel.matchAll(/(?:section|figure)((?:\.[a-z][a-z0-9-]*)+)/g)) {
+        for (const cls of m[1].split('.').filter(Boolean)) {
+          if (componentNames.has(cls) && !owners.has(cls)) owners.set(cls, `${rel} — ${sel.trim()}`);
+        }
+      }
+    }
+  }
+
+  for (const [name, where] of owners) {
+    if (denied.has(name)) continue;
+    errors.push(
+      `component '${name}' styles a table element (${where}) but is not in the universal-table ` +
+      `deny guard in lib/base/base.elements.css. base's default table treatment would land on it ` +
+      `for every property '${name}' does not itself declare (a zebra wash, a cell border), which ` +
+      `is silent double-styling. Add ':not(.${name})' to each guard in the UNIVERSAL TABLE block.`,
+    );
+  }
+  for (const name of denied) {
+    if (owners.has(name)) continue;
+    errors.push(
+      `stale universal-table deny entry ':not(.${name})' in lib/base/base.elements.css — no engine ` +
+      `CSS scopes a table-element rule to '${name}' any more, so the guard is now withholding the ` +
+      `default table treatment from a component that has nothing of its own. Remove the entry.`,
+    );
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
   checkCssSyntax(errors);
+  checkUniversalTableGuard(manifests, errors);
   checkTransformerNames(errors);
   checkLayoutOwnership(errors);
   checkComponentNames(manifests, errors);

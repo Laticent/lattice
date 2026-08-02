@@ -407,6 +407,40 @@ component's `<name>.docs.md`).
 
 ---
 
+## Tables
+
+A plain GFM pipe table gets a house treatment on **any** slide — no class
+needed. Write the table, and it renders with label-cased column heads over
+the spectrum rule, hairline row rules, a quiet accent zebra, compact cell
+type, and the first column emphasized as the row's label.
+
+```markdown
+| Region | Q3 revenue | Q4 revenue | Change |
+| --- | --- | --- | --- |
+| North America | $4.2M | $5.1M | +21% |
+| EMEA | $3.8M | $3.9M | +3% |
+```
+
+Column alignment comes from the source and is never overridden — `:---`,
+`:---:` and `---:` all survive.
+
+**Seven components style their own table and are excluded from this
+treatment entirely:** `compare-table`, `glossary`, `obligation-matrix`,
+`statute-stack`, `math`, `roadmap`, `matrix-grid`. Reach for one of them when
+the table IS the slide; the universal treatment is for a table that supports
+prose. A component that styles `<table>` owns its tables, and base stands off
+— `checkUniversalTableGuard` fails the build if that list and the engine's CSS
+ever disagree.
+
+The treatment applies to a table the author wrote at the top level of the
+slide body. A table a *transform* generates inside a `<figure>` (roadmap,
+matrix-grid) is the owning component's business, not base's.
+
+A short paragraph directly after a table is promoted to a **Below-Note** (see
+above), so a source line or caveat gets the hairline treatment for free.
+
+---
+
 ## Universal variants
 
 Opt-in via `_class:`. Compose with any layout. The full set is defined

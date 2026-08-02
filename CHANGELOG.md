@@ -57,6 +57,33 @@ in patch versions.
 
 ### Added
 
+- **A plain markdown table is styled on every slide.** Until now every table rule in the engine
+  was scoped to a component, so a GFM pipe table on an un-classed slide, on `_class: content`, or
+  under a base modifier rendered at raw browser defaults — no rules, no cell padding, no header
+  weight, columns scattered across the slide. `base.elements.css` now gives it the treatment the
+  specialists already agree on: label-cased column heads over the `--spectrum-structure` rule,
+  `--border` hairlines under each row, a 4%-accent zebra, `--fs-body-compact` cells, and the first
+  column emphasized as the row's label. Author alignment (`:---` / `:---:` / `---:`) is untouched.
+  - **Every existing table renders byte-identically.** The treatment is scoped to the *stage's own
+    child*, so a table a transform generated inside a `<figure>` (roadmap, matrix-grid) never sees
+    it; and a **deny guard** withholds it from the seven components that style `<table>`
+    themselves — `compare-table`, `glossary`, `obligation-matrix`, `statute-stack`, `math`,
+    `roadmap`, `matrix-grid`. Specificity alone was NOT enough to make that safe, which is the
+    trap worth naming: a component rule `(0,1,N)` beats a base element rule `(0,0,N)` only for the
+    properties it actually *declares*, so a universal zebra lands unopposed on compare-table and
+    statute-stack.lane (neither declares one), and a universal `td { border-bottom }` doubles
+    math.derivation's lines (it borders `tbody tr`, not `td`). Verified: the corpus overflow
+    ratchet holds at its 27-slide baseline across 248 decks, and the three table specialists
+    pixel-diff to zero.
+  - **The deny list is gated**, not remembered: `checkUniversalTableGuard`
+    (`tools/check-ownership.js`, via `build:check`) reads the list back out of the stylesheet and
+    fails on a component that styles a table element without an entry, AND on a stale entry naming
+    a component that no longer styles one. Cross-cutting decoration that names no component
+    (`base.focus`'s `[data-focus-*]` row treatments) is deliberately out of scope — it decorates
+    whatever table it lands on and claims no ownership.
+  - Demo deck: `examples/universal-table.md`. Rationale and measurements:
+    `engineering/decisions/2026-08-02-default-slide-layout.md` §4.
+
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because
   re-parsing the whole deck on every keystroke costs ~46ms per keypress on a 40-slide deck. But
