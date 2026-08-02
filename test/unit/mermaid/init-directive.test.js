@@ -371,20 +371,34 @@ describe('mermaid init-directive: render-path wiring', () => {
       'no surviving raw `%%{init` regex test on a diagram definition');
   });
 
-  test('the runtime carries the palette in the diagram source, not in mermaid.initialize', () => {
+  test('the runtime keeps the palette on the GLOBAL config, not in the diagram source', () => {
+    // The runtime is in-process, so mermaid's own `updateCurrentConfig` merges an
+    // author `%%{init}%%` OVER siteConfig on every render — the #1311 guarantee
+    // comes free, with no per-diagram injection. Only the PDF path needs the
+    // kernel, because mmdc is a separate process and its config has to travel in
+    // the diagram source. Injecting into runtime sources too was tried and
+    // reverted: a directive's themeVariables go through mermaid's much stricter
+    // `sanitizeDirective`, which blanked the hyphenated font stack and left
+    // Mermaid measuring in one font while the page rendered in another.
     const src = read('lib/runtime/index.js');
-    assert.match(src, /const authored = reorientMermaidForPortrait\(/,
-      'the fence text is reoriented first');
-    assert.match(src, /const source = withEngineInit\(authored, engineInitFor\(\)\);/,
-      'and THEN given the engine directive');
-    // The regression this blocks: re-adding themeVariables to initialize would
-    // put the palette back into mermaid's `configFromInitialize`, which an
-    // author `theme:` directive folds in as user overrides — so the preview
-    // would paint e.g. `forest` in the deck's palette while the PDF path
-    // rendered forest clean. One mechanism, or the two paths drift again.
-    const initializeCall = /mermaid\.initialize\(\{[\s\S]*?\n {4}\}\);/.exec(src);
-    assert.ok(initializeCall, 'found the mermaid.initialize call');
-    assert.doesNotMatch(initializeCall[0], /^\s*themeVariables:/m,
-      'mermaid.initialize must not carry themeVariables');
+    assert.match(src, /themeVariables: buildMermaidThemeVars\(\),/,
+      'the global config carries the palette');
+    assert.doesNotMatch(src, /withEngineInit/,
+      'the runtime does not inject the palette into diagram sources');
+    assert.match(src, /const source = reorientMermaidForPortrait\(/,
+      'the fence source reaches mermaid.render as authored (plus reorientation)');
   });
-});
+
+  test('the runtime pins Mermaid to strict — a click directive was live XSS', () => {
+    // `loose` let `click X "javascript:…"` reach innerHTML as a working anchor in
+    // the docs Studio's same-origin, un-sandboxed preview frame (HARD RULE #22).
+    // strict is also mermaid's own default, which the PDF path never overrode.
+    const src = read('lib/runtime/index.js');
+    assert.match(src, /securityLevel: "strict"/);
+    assert.doesNotMatch(src, /securityLevel: "loose"/);
+  });
+
+  test('both paths read the cluster fill from the containment token', () => {
+    assert.match(read('lattice-emulator.js'), /clusterBkg:\s*\{ var: 'c-container' \}/);
+    assert.match(read('lib/runtime/index.js'), /clusterBkg:\s*contain,/);
+  });});

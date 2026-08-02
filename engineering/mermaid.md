@@ -48,11 +48,18 @@ Use different shapes for different hierarchy levels to aid visual scanning.
 
 ## 5.3 Theme matching, and your own `%%{init}%%`
 
-**Do not hand-copy theme variables into your diagram.** The engine already
-injects the whole set — 150-odd keys resolved from the active palette — as a
-`%%{init}%%` directive on the diagram source, on both paths. Hand-copying
-freezes a snapshot of one palette: the diagram then ignores a theme switch, a
-dark slide, and the print look.
+**Do not hand-copy theme variables into your diagram.** The engine already hands
+Mermaid the whole set — 150-odd keys resolved from the active palette — on both
+paths. Hand-copying freezes a snapshot of one palette: the diagram then ignores a
+theme switch, a dark slide, and the print look.
+
+The two paths deliver it differently, because they have to. The **live preview**
+is in-process, so it sets the palette once on the global config
+(`mermaid.initialize`); Mermaid then merges your in-source `%%{init}%%` over that
+per render, which is where the guarantee below comes from. The **PDF path** shells
+out to `mmdc`, one process per diagram, so its config can only travel *in* the
+diagram source — hence the merge kernel described at the end of this section. What
+the two share is the token→variable map, not the plumbing.
 
 The mapping is `MERMAID_VAR_MAP` in `lattice-emulator.js` (build path) and
 `buildMermaidThemeVars()` in `lib/runtime/index.js` (preview path); a unit test
@@ -90,17 +97,18 @@ label ink. Same for `layout`, `defaultRenderer`, per-diagram-type config, or a
 partial `themeVariables` override — name `lineColor` alone and only `lineColor`
 changes.
 
-**The diagram font is not palette-driven, on either path.** Diagrams are set in
-`"JetBrains Mono", monospace` (`DIAGRAM_FONT_STACK` in the kernel), not
-`--font-body`. Monospace is deliberate — predictable character widths, so
-Mermaid's measure pass and its render pass agree and labels don't overflow their
-nodes — and it is also the only kind of stack that *can* ride in a directive:
-`sanitizeDirective`'s allow-list for `themeVariables` values
-(`/^[\d "#%(),.;A-Za-z]+$/`) has no hyphen, so `system-ui` / `sans-serif` are
-silently replaced with `""`. The kernel drops any value that filter would blank
-rather than shipping one to be emptied, because a blank font is worse than an
-absent one: Mermaid then measures in the host's default font while the page
-renders in the inherited one, and labels clip mid-word.
+**The two paths use different diagram fonts, and there is a constraint behind it.**
+The preview uses `--font-body`; the PDF path uses `"JetBrains Mono", monospace`
+(`DIAGRAM_FONT_STACK` in the kernel). That is not arbitrary: `sanitizeDirective`'s
+allow-list for `themeVariables` values (`/^[\d "#%(),.;A-Za-z]+$/`) has **no
+hyphen**, so a stack containing `system-ui` / `sans-serif` is silently replaced
+with `""` the moment it rides in a directive — and a blank font is worse than an
+absent one, because Mermaid then measures labels in the host's default font while
+the page renders them in the inherited one, and they clip mid-word. The preview
+escapes this only because `mermaid.initialize` runs the far more permissive
+`sanitize`. The kernel drops any value the directive filter would blank rather
+than shipping one to be emptied. (Preview and export therefore disagree on
+diagram font — a real, pre-existing WYSIWYG gap, tracked separately.)
 
 The one thing that *does* stand the engine down is naming a Mermaid **theme** in
 a `%%{init}%%` directive:

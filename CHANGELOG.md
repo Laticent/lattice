@@ -104,18 +104,6 @@ in patch versions.
   `mermaid.css`'s band cycle, and no committed deck ships a subgraph, so no baseline shifts.
   `--c-subcontainer` (the next rung down, kanban ticket) is untouched. (#1311)
 
-- **Diagram labels no longer clip mid-word in the live preview, and preview/export agree on the
-  diagram font.** Fallout caught in review of the `%%{init}%%` work below: config passed to
-  `mermaid.initialize` goes through Mermaid's permissive `sanitize`, but a *directive* goes through
-  `sanitizeDirective`, whose allow-list for `themeVariables` values (`/^[\d "#%(),.;A-Za-z]+$/`) has
-  **no hyphen** — so moving the palette into the source blanked `--font-body`'s
-  `system-ui`/`sans-serif` stack to `""`. A blank font is worse than none: Mermaid then MEASURES
-  labels in the host's default font while the page RENDERS them in the inherited one, so nodes came
-  out too narrow and labels were cut off mid-word. The kernel now drops any value that filter would
-  blank rather than shipping one to be emptied, and the preview uses the same monospace
-  `DIAGRAM_FONT_STACK` the PDF path has always used — closing a pre-existing divergence where
-  preview drew diagrams in Outfit and the exported PDF drew them in JetBrains Mono. (#1311)
-
 - **Breaking: the live preview pins Mermaid to `securityLevel: 'strict'`, closing an XSS.** The
   runtime set `'loose'` — the one surface that opted out of Mermaid's own default (the PDF path
   never overrode it). Under `'loose'`, a `click X "javascript:…"` directive renders as
@@ -160,12 +148,17 @@ in patch versions.
   theme rather than on the mere presence of a directive — and the stand-down matches Mermaid on
   CASE (its directive scanner is case-insensitive but its init-type filter is not, so an uppercase
   `%%{INIT: …}%%` is invisible to Mermaid; reading it as an author theme pin would have left the
-  diagram with no palette from anyone). The reconciliation is one shared kernel
-  (`lib/integrations/mermaid/init-directive.js`) both paths call, and the **live preview moved onto
-  the same mechanism**: the palette rides in each diagram's source instead of `mermaid.initialize`,
-  so preview and export agree about what a directive overrides (they previously diverged on a pinned
-  theme — the preview painted `forest` in the deck's palette, the PDF rendered `forest` clean), and
-  the preview's render cache is now palette-aware. Two things worth knowing: `engineering/mermaid.md`
+  diagram with no palette from anyone). The reconciliation is a kernel
+  (`lib/integrations/mermaid/init-directive.js`) the **PDF path** calls. The live preview needs no
+  kernel and is unchanged here: it is in-process, so it sets the palette once on
+  `mermaid.initialize` and Mermaid's own `updateCurrentConfig` merges an author directive over that
+  siteConfig per render — the same guarantee, for free. The PDF path shells out to `mmdc`, one
+  process per diagram, so its config can only travel in the diagram source, which is why the merge
+  is done by hand there. Injecting into preview sources too was tried on this branch and reverted:
+  a directive's `themeVariables` go through Mermaid's far stricter `sanitizeDirective`, whose
+  allow-list has no hyphen, which blanked `--font-body`'s `system-ui`/`sans-serif` stack to `""` and
+  left Mermaid measuring labels in one font while the page rendered them in another — clipping them
+  mid-word. Paying that on the common path to align one edge case was a bad trade. Two things worth knowing: `engineering/mermaid.md`
   §5.3 was telling authors to hand-write exactly the directive that triggered this, and is rewritten
   (§5.1's "use `<div class="mermaid">`, not a fence" was also wrong — that div renders on neither
   path); and `layout: 'elk'` is still not reachable — the directive survives now, but elk is an
