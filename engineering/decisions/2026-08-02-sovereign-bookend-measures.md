@@ -251,8 +251,8 @@ CSS.supports('text-wrap', 'normal')          // false
 An invalid value makes the declaration invalid at parse time, so it is **dropped** — leaving both
 eyebrows with the `balance` they were written to remove. Nothing catches this: it is valid CSS
 syntax, so `checkCssSyntax` passes, the bundle builds, every gallery renders pixel-identical
-(balance on a one-line label really is a no-op), and the regression gate stays green. It reads as
-a working reset and is a comment describing an empty declaration.
+(balance on a one-line label really is a no-op), and the regression gate stays green. The rule
+reads as a working reset, and the comment above it explains a declaration that does nothing.
 
 The fix is `text-wrap: wrap`, which resets **both** halves — `text-wrap-mode: wrap`,
 `text-wrap-style: auto` — verified in Chromium rather than inferred. `auto` computes identically;

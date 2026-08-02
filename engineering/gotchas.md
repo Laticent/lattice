@@ -864,9 +864,15 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   passes, and a no-op override often changes no pixels, so no golden moves. The CSS
   reads as a working reset and the comment above it describes an empty declaration.
 - **Fix:** prove an override by reading the **computed** value on a real render, not
-  by observing that you wrote the property — `getComputedStyle(el).textWrap` on the
-  actual element, and `CSS.supports(prop, value)` for any value you have not used
-  before. Here the correct reset is `text-wrap: wrap` (mode `wrap`, style `auto`).
+  by observing that you wrote the property — and read it with
+  `getComputedStyle(el).getPropertyValue('text-wrap')`, not the camel-cased
+  `.textWrap`. Both work in the Chromium the render paths use, but the string form
+  cannot silently return `undefined` on an engine whose IDL attribute for a newer
+  property lags. For a **shorthand**, read the longhands instead — here
+  `getPropertyValue('text-wrap-mode')` and `('text-wrap-style')` — which say *which
+  half* actually applied rather than collapsing both into one token. And run
+  `CSS.supports(prop, value)` for any value you have not used before. Here the
+  correct reset is `text-wrap: wrap` (mode `wrap`, style `auto`).
   This class of bug is invisible to every gate the repo has, so it rides on
   verification discipline (HARD RULE #23).
   See `engineering/decisions/2026-08-02-sovereign-bookend-measures.md`.
