@@ -120,17 +120,18 @@ test('the sample deck declares front matter Marp can actually read', () => {
   assert.match(fm, /size:\s*hd/);
 });
 
-test('no inline `<!-- … -->` literal in the deck — the mono font ligates it', () => {
-  // Inline code spans render `<!--` as an arrow glyph in the mono stack, which
-  // mangles the very syntax this deck exists to document. Fenced blocks are
-  // unaffected, so literals belong there.
-  const deck = text(DECK);
-  const inlineComment = /`[^`\n]*<!--[^`\n]*`/.exec(deck);
-  assert.equal(
-    inlineComment,
-    null,
-    `inline comment literal would render as an arrow glyph: ${inlineComment?.[0]}`,
-  );
+test('inline `<!-- … -->` literals survive — ligatures are off on mono', () => {
+  // JetBrains Mono ships programming ligatures on by default, which rewrote
+  // `<!--` into arrow GLYPHS: a deck teaching Lattice's syntax rendered
+  // `<!-- _class: kpi -->` as something a reader could not retype. An earlier
+  // version of this test banned inline literals as a workaround. The engine now
+  // disables ligatures wherever mono carries a literal (lib/base/base.elements.css),
+  // so the deck is expected to USE the literal — and this asserts both halves.
+  assert.match(text(DECK), /`<!-- _class: [a-z-]+ -->`/, 'deck should show the real syntax inline');
+  const css = text('lattice.min.css');
+  assert.match(css, /font-variant-ligatures:\s*none/, 'engine CSS must disable mono ligatures');
+  // The minifier normalizes quote style, so accept either.
+  assert.match(css, /["']liga["']\s*0/, 'and the low-level fallback for chrome91');
 });
 
 test('the committed dist/marp-kit matches what the builder produces', () => {

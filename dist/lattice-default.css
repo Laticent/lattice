@@ -1107,6 +1107,29 @@ section code { font-family:var(--font-mono); font-size:0.85em; color:var(--code-
  * the marp-pre branch, mermaid source blocks render briefly as inline-code
  * chips in VS Code preview before the upgrade lands. */
 section :is(pre, marp-pre) code { background:none; border:none; padding:0; border-radius:0; color:inherit; font-size:inherit; white-space:pre; }
+/* LIGATURES OFF on every surface that carries literal text.
+ *
+ * --font-mono is 'JetBrains Mono', which ships programming ligatures enabled by
+ * default (`liga` + `calt`). Those rewrite the GLYPHS, not the characters — so a
+ * deck documenting Lattice's own syntax rendered `<!-- _class: kpi -->` as
+ * `<-!- _class: kpi -->` with arrow glyphs, and a reader could not retype what
+ * they saw. A slide that teaches syntax and then lies about it is worse than one
+ * that omits it.
+ *
+ * This is the token's own stated contract: base.tokens.css calls --font-mono the
+ * face where "data must remain unambiguous". Ligatures are exactly the feature
+ * that trades unambiguous for pretty, so they are off wherever mono renders a
+ * literal — inline chips, fenced blocks, kbd and samp.
+ *
+ * Both properties on purpose: `font-variant-ligatures` is the standard control,
+ * and the `font-feature-settings` pair is the fallback for engines that honor
+ * only the low-level tags (the runtime bundle targets chrome91). Discretionary
+ * ligatures are dropped too — mono faces should not be substituting glyphs in
+ * data at all. */
+section :is(code, pre, marp-pre, kbd, samp) {
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'clig' 0, 'calt' 0, 'dlig' 0;
+}
 /* Centred rule. Horizontal centre via flex `align-self` (the stage flow is a flex
  * column), NOT `margin:auto` (HARD RULE #20); vertical space comes from the stage
  * gap like any other block. In a non-flex context it falls back to left-aligned —

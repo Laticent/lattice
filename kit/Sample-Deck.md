@@ -35,7 +35,7 @@ a screenshot, a template engine, or a build step — it is the text you are look
    - The CSS, the runtime, the fonts and Mermaid sit beside this file.
    - Copy them together and nothing needs installing.
 3. One vocabulary
-   - A slide picks its layout with one HTML comment naming a class.
+   - A slide picks its layout with `<!-- _class: name -->`.
    - Sixty-one layouts, all palette-blind, all driven by the same tokens.
 
 ---
@@ -62,7 +62,7 @@ a screenshot, a template engine, or a build step — it is the text you are look
 Everything else stays Markdown.
 
 - A comment names the layout
-  - One HTML comment per slide. The next page shows the exact syntax.
+  - `<!-- _class: kpi -->` and the next slide is a KPI row.
 - Headings carry the argument
   - Write the heading as a sentence, not a label. It is the slide's claim.
 - Lists become structure
