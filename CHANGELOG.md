@@ -87,7 +87,13 @@ in patch versions.
   it previously named the CSS, themes and runtime but omitted the third-party resources, which
   are what decide whether a copied folder works or silently renders bare: `mermaid-v11.min.js`
   and `dist/fonts/*` (referenced `url(fonts/…)`-relative from `lattice.css`, so a kit without
-  them falls back to system serif — the #1256 title-slide defect). `cuoio.css` is named as the
+  them falls back to system serif — the #1256 title-slide defect). All assets are the **minified**
+  builds already in `dist/` — `lattice.min.css` 564 KB vs 1.34 MB and `lattice-runtime.min.js`
+  466 KB vs 3.23 MB, a 7× difference on the file a recipient loads — keeping their `.min` names
+  rather than renaming them away as the export bundle does, so someone grabbing files by hand can
+  see what they took. (Minification is safe only because `tools/minify-css.js` preserves the
+  `@theme`/`@size` directive comments a stock minifier strips; verified on the shipped artifacts.)
+  `cuoio.min.css` and its dark variant are named as the
   default theme, and a new **`sample.md`** carries Marp-legal front matter plus explicit
   `<script>` imports for the runtime and Mermaid, exercising a diagram and a runtime-built
   component so a broken asset path shows as a wrong slide instead of degrading quietly.
