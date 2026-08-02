@@ -18,6 +18,8 @@ const fs     = require('fs');
 const path   = require('path');
 
 const {
+  DIRECTIVE_VALUE_OK,
+  DIAGRAM_FONT_STACK,
   readAuthorInit,
   authorPinsTheme,
   engineInitConfig,
@@ -125,22 +127,37 @@ describe('mermaid init-directive: authorPinsTheme', () => {
   test('true when the directive is unparseable — unknown contents, hands off', () => {
     assert.equal(authorPinsTheme('%%{init: {broken}}%%\nflowchart TB'), true);
   });
+
+  test('an UPPERCASE %%{INIT}%% is not an init directive — mermaid ignores it, so do we', () => {
+    // mermaid's outer directiveRegex is /gi, but detectInit filters types with
+    // /(?:init\b)|(?:initialize\b)/ — no `i`. So mermaid applies NOTHING from
+    // `%%{INIT: …}%%`. Reading it case-insensitively would make us see an author
+    // theme pin, stand down, and leave the diagram with no palette from anyone.
+    assert.equal(authorPinsTheme("%%{INIT: {'theme':'forest'}}%%\nflowchart TB"), false);
+    assert.equal(readAuthorInit("%%{INIT: {'theme':'forest'}}%%\nflowchart TB").present, false);
+    assert.equal(authorPinsTheme("%%{Init: {'theme':'forest'}}%%\nflowchart TB"), false);
+    // …and the engine directive still goes in, so the palette lands.
+    assert.match(withEngineInit("%%{INIT: {'theme':'forest'}}%%\nflowchart TB", ENGINE), /^%%\{init: /);
+  });
 });
 
 describe('mermaid init-directive: engineInitDirective', () => {
   test('emits no single quotes — one would break mermaid\'s JSON.parse of the payload', () => {
     // detectDirective swaps EVERY ' for " across the text before parsing, so a
     // quoted font name inside a value invalidates the payload and mermaid drops
-    // every directive in the diagram — palette included.
+    // every directive in the diagram — palette included. (Hyphen-free stack, so
+    // the charset filter isn't what's under test here.)
     const out = engineInitDirective(engineInitConfig({
-      fontFamily: "'Outfit', system-ui, sans-serif",
+      fontFamily: "'JetBrains Mono', monospace",
     }));
     assert.equal(out.includes("'"), false, 'no apostrophe survives into the directive');
-    assert.equal(firstPayload(out).themeVariables.fontFamily, 'Outfit, system-ui, sans-serif');
+    assert.equal(firstPayload(out).themeVariables.fontFamily, 'JetBrains Mono, monospace');
   });
 
   test('the emitted payload survives mermaid\'s quote-swap + JSON.parse round trip', () => {
-    const out = engineInitDirective(engineInitConfig({ fontFamily: "'Outfit', sans-serif", clusterBkg: '#F2F5FA' }));
+    const out = engineInitDirective(engineInitConfig({
+      fontFamily: "'JetBrains Mono', monospace", clusterBkg: '#E8F0F7',
+    }));
     const payload = /%%\{\s*init:\s*([\s\S]*?)\}%%/.exec(out)[1];
     assert.doesNotThrow(() => JSON.parse(payload.replace(/'/g, '"')));
   });
@@ -150,6 +167,36 @@ describe('mermaid init-directive: engineInitDirective', () => {
       primaryColor: 'rgb(1, 2, 3)', lineColor: '', textColor: '   ',
     })));
     assert.deepEqual(payload.themeVariables, { primaryColor: 'rgb(1, 2, 3)' });
+  });
+
+  test("drops a value mermaid's sanitizeDirective would blank — a hyphenated font stack", () => {
+    // /^[\d "#%(),.;A-Za-z]+$/ has no hyphen, so `Outfit, system-ui, sans-serif`
+    // becomes "" inside mermaid. A blank fontFamily is worse than none: mermaid
+    // MEASURES labels in the host default font while the page RENDERS them in the
+    // inherited one, so nodes come out too narrow and labels clip mid-word.
+    const payload = firstPayload(engineInitDirective(engineInitConfig({
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      clusterBkg: '#E8F0F7',
+    })));
+    assert.equal('fontFamily' in payload.themeVariables, false,
+      'the hyphenated stack is dropped, not shipped to be blanked');
+    assert.equal(payload.themeVariables.clusterBkg, '#E8F0F7', 'clean values still ship');
+  });
+
+  test('the shared diagram font stack DOES survive the directive charset', () => {
+    // The reason diagrams are monospace is partly this: quotes, spaces and
+    // letters are allowed, hyphens are not.
+    assert.match(DIAGRAM_FONT_STACK, DIRECTIVE_VALUE_OK);
+    const payload = firstPayload(engineInitDirective(engineInitConfig({
+      fontFamily: DIAGRAM_FONT_STACK,
+    })));
+    assert.equal(payload.themeVariables.fontFamily, DIAGRAM_FONT_STACK);
+  });
+
+  test('every colour form the engine actually emits survives the charset', () => {
+    for (const v of ['#E8F0F7', 'rgb(242, 245, 250)', 'rgba(0, 0, 0, 0.5)', '14px']) {
+      assert.match(v, DIRECTIVE_VALUE_OK, `${v} must survive sanitizeDirective`);
+    }
   });
 
   test('drops themeVariables entirely when nothing resolved', () => {
@@ -189,8 +236,13 @@ describe('mermaid init-directive: withEngineInit', () => {
     // Engine directive FIRST, author's second: mermaid merges init directives in
     // source order with the later one winning, so the author's `curve` overrides
     // ours and every key they did not set keeps the palette.
-    assert.ok(out.indexOf('%%{init: {"theme":"base"') < out.indexOf('"curve": "linear"'),
-      'engine directive precedes the author directive');
+    const engineAt = out.indexOf('%%{init: {"theme":"base"');
+    const authorAt = out.indexOf('"curve": "linear"');
+    // Both must be PRESENT: `indexOf` returns -1 for a missing needle, so a bare
+    // `a < b` would pass when the engine directive was never emitted at all.
+    assert.ok(engineAt >= 0, 'engine directive is present');
+    assert.ok(authorAt >= 0, 'author directive is present');
+    assert.ok(engineAt < authorAt, 'engine directive precedes the author directive');
     assert.ok(out.includes(src), 'the author source is preserved verbatim');
     assert.equal(firstPayload(out).themeVariables.clusterBkg, '#F2F5FA');
   });
@@ -198,7 +250,10 @@ describe('mermaid init-directive: withEngineInit', () => {
   test('front matter AND an author directive: engine directive lands between them', () => {
     const out = withEngineInit('---\ntitle: T\n---\n%%{init: {"layout":"elk"}}%%\nflowchart TB', ENGINE);
     assert.match(out, /^---\ntitle: T\n---\n%%\{init: \{"theme":"base"/);
-    assert.ok(out.indexOf('"theme":"base"') < out.indexOf('"layout":"elk"'));
+    const engineAt = out.indexOf('"theme":"base"');
+    const authorAt = out.indexOf('"layout":"elk"');
+    assert.ok(engineAt >= 0 && authorAt >= 0, 'both directives are present');
+    assert.ok(engineAt < authorAt, 'engine directive precedes the author directive');
   });
 
   test('an author-pinned theme is left completely alone', () => {
@@ -250,8 +305,10 @@ describe('mermaid init-directive: render-path wiring', () => {
 
   test('the runtime carries the palette in the diagram source, not in mermaid.initialize', () => {
     const src = read('lib/runtime/index.js');
-    assert.match(src, /withEngineInit\(\s*\n\s*reorientMermaidForPortrait\(/,
-      'the fence source is reoriented and THEN given the engine directive');
+    assert.match(src, /const authored = reorientMermaidForPortrait\(/,
+      'the fence text is reoriented first');
+    assert.match(src, /const source = withEngineInit\(authored, engineInitFor\(\)\);/,
+      'and THEN given the engine directive');
     // The regression this blocks: re-adding themeVariables to initialize would
     // put the palette back into mermaid's `configFromInitialize`, which an
     // author `theme:` directive folds in as user overrides — so the preview

@@ -59,6 +59,16 @@ The mapping is `MERMAID_VAR_MAP` in `lattice-emulator.js` (build path) and
 (`test/unit/mermaid/mermaid-var-map.test.js`) asserts every token it names
 resolves in every shipped palette.
 
+**A `subgraph` box takes `--c-container`, the per-theme containment rung** — not
+`--bg-alt`, which is the deck's *card* fill. The distinction matters because a
+cluster sits *behind* the categorical node fills and must not compete with them,
+which is a different job from a card sitting on the canvas. `--c-container` is
+part of the 91-token per-theme contract, so every theme curates it (they differ
+sharply — indaco `#E8F0F7`, concrete `#A8A8A8`). This only reaches PLAIN
+clusters: a `.section-N` cluster (mindmap, timeline, kanban) is overridden to
+`--cat-N-fill` by `mermaid.css`'s band cycle. Its sibling `--c-subcontainer` is
+the next rung down, currently used by the kanban ticket.
+
 ### Writing your own directive
 
 An `%%{init}%%` of your own is fine and costs nothing — the engine's directive
@@ -75,12 +85,25 @@ flowchart TB
 ```
 ````
 
-Renders with `curve: linear` **and** the theme's cluster fill, node fills, label
-ink, and font. Same for `layout`, `defaultRenderer`, per-diagram-type config, or
-a partial `themeVariables` override — name `lineColor` alone and only `lineColor`
+Renders with `curve: linear` **and** the theme's cluster fill, node fills and
+label ink. Same for `layout`, `defaultRenderer`, per-diagram-type config, or a
+partial `themeVariables` override — name `lineColor` alone and only `lineColor`
 changes.
 
-The one thing that *does* stand the engine down is naming a Mermaid **theme**:
+**The diagram font is not palette-driven, on either path.** Diagrams are set in
+`"JetBrains Mono", monospace` (`DIAGRAM_FONT_STACK` in the kernel), not
+`--font-body`. Monospace is deliberate — predictable character widths, so
+Mermaid's measure pass and its render pass agree and labels don't overflow their
+nodes — and it is also the only kind of stack that *can* ride in a directive:
+`sanitizeDirective`'s allow-list for `themeVariables` values
+(`/^[\d "#%(),.;A-Za-z]+$/`) has no hyphen, so `system-ui` / `sans-serif` are
+silently replaced with `""`. The kernel drops any value that filter would blank
+rather than shipping one to be emptied, because a blank font is worse than an
+absent one: Mermaid then measures in the host's default font while the page
+renders in the inherited one, and labels clip mid-word.
+
+The one thing that *does* stand the engine down is naming a Mermaid **theme** in
+a `%%{init}%%` directive:
 
 ````markdown
 ```mermaid
@@ -92,6 +115,18 @@ The one thing that *does* stand the engine down is naming a Mermaid **theme**:
 you get Mermaid's stock `forest` — off-palette by definition, immune to a theme
 switch, and reported as "kept their own colors" by the export's look re-bake.
 Reach for it only when you genuinely want a diagram outside the deck's palette.
+
+**Two spellings the stand-down does NOT cover**, both pre-dating #1311:
+
+- **`%%{INIT: …}%%` in caps.** Mermaid's directive scanner is case-insensitive
+  but its init-type filter is not, so Mermaid applies nothing from an uppercase
+  directive. The engine matches that case-sensitively and injects as if it
+  weren't there — the palette lands, and your directive is ignored by both of us.
+  Write it lowercase.
+- **A theme set in YAML front matter** (`---\nconfig:\n  theme: forest\n---`).
+  Mermaid merges front-matter config *under* the directive, so the engine's
+  `theme: base` wins and you get the palette, not `forest`. The stand-down reads
+  the `%%{init}%%` spelling only. Use the directive form to opt out.
 
 The reconciliation lives in one shared kernel,
 `lib/integrations/mermaid/init-directive.js`, so both render paths apply the same

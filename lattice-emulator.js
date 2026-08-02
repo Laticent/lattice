@@ -711,10 +711,23 @@ if (explicitSize) {
 // CSS custom properties in themes/<n>.css and the same mapping resolves
 // against the new values.
 //
+// The `%%{init}%%` reconciliation kernel (#1311) — how the engine palette and an
+// author's own directive coexist, shared with the runtime (HARD RULE #1).
+// Required HERE, above MERMAID_VAR_MAP: the mermaid pre-pass runs during module
+// evaluation, so everything it reaches for must already be bound (the same
+// hazard the local escapeHtml below works around).
+const {
+  withEngineInit, engineInitConfig, authorPinsTheme,
+  DIAGRAM_FONT_STACK: MERMAID_DIAGRAM_FONT,
+} = require('./lib/integrations/mermaid/init-directive');
+
 // Reference for the variable inventory: https://mermaid.js.org/config/theming.html
 const MERMAID_VAR_MAP = {
   // Typography (literal — fonts are structural, not palette-specific)
-  fontFamily: { literal: '"JetBrains Mono", monospace' },
+  // Shared with the runtime (HARD RULE #1) — see DIAGRAM_FONT_STACK in
+  // lib/integrations/mermaid/init-directive.js for why diagrams are monospace
+  // and why a hyphenated body stack cannot ride in a directive at all.
+  fontFamily: { literal: MERMAID_DIAGRAM_FONT },
   fontSize:   { literal: '14px' },
 
   // Canvas
@@ -754,7 +767,15 @@ const MERMAID_VAR_MAP = {
   mainBkg:                  { var: 'cat-1-fill' },
   nodeBorder:               { var: 'diagram-stroke' },
   nodeTextColor:            { var: 'cat-on-fill' },   // flowchart node text, on fill
-  clusterBkg:               { var: 'bg-alt' },
+  // A subgraph box is a CONTAINMENT surface, not deck chrome: it sits behind the
+  // categorical node fills and must not compete with them. That is what the
+  // per-theme `--c-container` rung is curated for (its own declaration comment
+  // names "flowchart cluster, sankey area, kanban column") — but nothing read it
+  // until #1311, so the cluster borrowed `--bg-alt`, whose job is the CARD fill.
+  // Theme authors were tuning a surface that never rendered. Note this only
+  // reaches PLAIN clusters: a `.section-N` cluster (mindmap, timeline, kanban)
+  // is overridden to `--cat-N-fill` by mermaid.css's band cycle.
+  clusterBkg:               { var: 'c-container' },
   clusterBorder:            { var: 'diagram-stroke' },
 
   // cScale (mid-tone band) — kanban lighten brings to L≈70
@@ -1171,14 +1192,6 @@ function mermaidKindLabel(definition) {
   }
   return 'Diagram';
 }
-
-// Required HERE, not down with the other mermaid helpers: the mermaid pre-pass
-// runs during module evaluation, so anything renderMermaidOne reaches for has
-// to be bound before this point (same hazard the local escapeHtml above works
-// around).
-const {
-  withEngineInit, engineInitConfig, authorPinsTheme,
-} = require('./lib/integrations/mermaid/init-directive');
 
 function renderMermaidOne(definition, themeVars, extraClass) {
   // Prepend the Mermaid init block if not already present.

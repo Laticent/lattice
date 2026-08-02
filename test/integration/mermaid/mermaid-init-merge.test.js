@@ -32,8 +32,10 @@ describe('mermaid-init-merge', () => {
 
   const TIMEOUT = 120000;
 
-  // indaco, resolved: --bg-alt / --diagram-stroke / --text-heading.
-  const INDACO_CLUSTER_BKG    = '#F2F5FA';
+  // indaco, resolved: --c-container / --diagram-stroke / --text-heading.
+  // A subgraph box is a CONTAINMENT surface, so it takes the per-theme
+  // `--c-container` rung, not `--bg-alt` (the deck's card fill).
+  const INDACO_CLUSTER_BKG    = '#E8F0F7';
   const INDACO_CLUSTER_BORDER = '#1F4A6E';
   const INDACO_LABEL_INK      = '#0A1628';
   // Mermaid stock (theme 'base' with nothing injected).

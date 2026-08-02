@@ -92,6 +92,30 @@ in patch versions.
 
 ### Fixed
 
+- **A Mermaid `subgraph` box now takes the containment token every theme already curates.**
+  `clusterBkg` was fed `--bg-alt` — the deck's *card* fill — while `--c-container`, the per-theme
+  containment rung whose own declaration comment names "flowchart cluster, sankey area, kanban
+  column", had **zero readers anywhere in the codebase**. Theme authors have been curating a surface
+  that never rendered, and it is part of the 91-token contract, so every theme fills it: indaco
+  `#E8F0F7` vs `#F2F5FA`, concrete `#A8A8A8` vs `#D5D5D2`. The distinction is real — a cluster sits
+  *behind* the categorical node fills and must not compete with them, which is a different job from
+  a card sitting on the canvas. Both render paths re-pointed. Only PLAIN clusters move: a
+  `.section-N` cluster (mindmap, timeline, kanban) is already overridden to `--cat-N-fill` by
+  `mermaid.css`'s band cycle, and no committed deck ships a subgraph, so no baseline shifts.
+  `--c-subcontainer` (the next rung down, kanban ticket) is untouched. (#1311)
+
+- **Diagram labels no longer clip mid-word in the live preview, and preview/export agree on the
+  diagram font.** Fallout caught in review of the `%%{init}%%` work below: config passed to
+  `mermaid.initialize` goes through Mermaid's permissive `sanitize`, but a *directive* goes through
+  `sanitizeDirective`, whose allow-list for `themeVariables` values (`/^[\d "#%(),.;A-Za-z]+$/`) has
+  **no hyphen** — so moving the palette into the source blanked `--font-body`'s
+  `system-ui`/`sans-serif` stack to `""`. A blank font is worse than none: Mermaid then MEASURES
+  labels in the host's default font while the page RENDERS them in the inherited one, so nodes came
+  out too narrow and labels were cut off mid-word. The kernel now drops any value that filter would
+  blank rather than shipping one to be emptied, and the preview uses the same monospace
+  `DIAGRAM_FONT_STACK` the PDF path has always used — closing a pre-existing divergence where
+  preview drew diagrams in Outfit and the exported PDF drew them in JetBrains Mono. (#1311)
+
 - **An author's own `%%{init}%%` no longer costs a diagram its palette.** Any `%%{init}%%` inside a
   ```` ```mermaid ```` fence used to make the export path skip the injected `themeVariables`
   entirely, so a directive that touched nothing but curve style dropped the whole set and the figure
@@ -103,7 +127,10 @@ in patch versions.
   works the same way: name `lineColor` and only `lineColor` changes). Naming a Mermaid `theme:`
   other than `base` still reads as an explicit opt-out and is left untouched, which keeps the
   export's "kept their own colors" look-re-bake warning honest — that warning now fires on a pinned
-  theme rather than on the mere presence of a directive. The reconciliation is one shared kernel
+  theme rather than on the mere presence of a directive — and the stand-down matches Mermaid on
+  CASE (its directive scanner is case-insensitive but its init-type filter is not, so an uppercase
+  `%%{INIT: …}%%` is invisible to Mermaid; reading it as an author theme pin would have left the
+  diagram with no palette from anyone). The reconciliation is one shared kernel
   (`lib/integrations/mermaid/init-directive.js`) both paths call, and the **live preview moved onto
   the same mechanism**: the palette rides in each diagram's source instead of `mermaid.initialize`,
   so preview and export agree about what a directive overrides (they previously diverged on a pinned
