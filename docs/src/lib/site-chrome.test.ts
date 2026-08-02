@@ -157,6 +157,34 @@ describe('site-chrome — the system color-mode stop', () => {
 		stop();
 	});
 
+	// Safari < 14's MediaQueryList predates EventTarget and exposes only the
+	// deprecated addListener/removeListener pair. Calling addEventListener there
+	// throws, and this runs inside the header control's mount effect — so it would
+	// take the whole palette/mode controller down (flagged in review on #1301).
+	it('falls back to the legacy addListener API without throwing', () => {
+		const listeners = new Set<() => void>();
+		const mq = {
+			matches: false,
+			addListener: (fn: () => void) => void listeners.add(fn),
+			removeListener: (fn: () => void) => void listeners.delete(fn),
+		};
+		vi.stubGlobal('matchMedia', () => mq);
+		setModePref('system');
+		let stop = () => {};
+		expect(() => { stop = watchSystemMode(); }).not.toThrow();
+		expect(listeners.size).toBe(1);
+		mq.matches = true;
+		for (const fn of listeners) fn();
+		expect(document.documentElement.getAttribute('data-mode')).toBe('dark');
+		stop();
+		expect(listeners.size).toBe(0);
+	});
+
+	it('degrades to a no-op when the MediaQueryList supports neither subscribe API', () => {
+		vi.stubGlobal('matchMedia', () => ({ matches: true }));
+		expect(() => watchSystemMode()()).not.toThrow();
+	});
+
 	it('survives an environment with no matchMedia at all', () => {
 		vi.stubGlobal('matchMedia', undefined);
 		expect(systemMode()).toBe('light');

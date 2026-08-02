@@ -39,6 +39,14 @@ import { buildPresenterStageDoc } from './studio-presenter';
 // engine render.
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+// The band at the bottom of the slide row kept clear for the two transient overlay
+// pills (the rehearsal coach beat, `bottom-2`, and the first-run gesture cue,
+// `bottom-3`). Both are positioned against the ROW, so the slide card is sized to
+// the row height minus this — the invariant being that nothing is ever drawn on top
+// of the slide. Covers the taller of the two (py-2 + 13px text + border ≈ 40px) plus
+// its 8px offset, with a few px of breathing room.
+const OVERLAY_CLEARANCE = 56;
+
 // The narration-source priority read-aloud speaks: a slide's speaker note (the real
 // talk track) — else a recognized chart's computed facts — else the component-aware
 // DOM projection (`projectDeckSpeech`, the SAME shared kernel the CLI export narrates,
@@ -519,15 +527,26 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		if (!open) return;
 		const row = slideRowRef.current;
 		if (!row || typeof ResizeObserver === 'undefined') return;
-		// No upper cap: the slide takes the whole row height it is given. A hard
-		// `min(960, …)` used to hold it to 960×540 however big the window was, and
-		// because the row is `flex-1 items-center` the surplus split above and below —
-		// reading as a band of dead space over the slide, while Read mode (uncapped)
-		// filled the same window (#1282). The row's own width still bounds it (the
-		// sizer is `w-full min-w-0` inside the gutters), and the height term already
-		// reserves the caption / controls / rail dock below, so dropping the cap
-		// reclaims the space above without touching what sits underneath.
-		const measure = () => setSlideMaxW(Math.max(240, Math.floor(((row.clientHeight - 12) * 16) / 9)));
+		// No upper cap: the slide takes the row height it is given, minus the reserved
+		// overlay band. A hard `min(960, …)` used to hold it to 960×540 however big the
+		// window was, and because the row is `flex-1 items-center` the surplus split
+		// above and below — a band of dead space over the slide, while Read mode
+		// (uncapped) filled the same window (#1282).
+		//
+		// NOTHING MAY SIT ON TOP OF THE SLIDE. The row's two transient pills — the
+		// rehearsal coach beat and the first-run gesture cue — are `absolute … bottom-2/3`
+		// against THE ROW, not against the card. Under the old cap they landed in the
+		// dead band below a 960px card and so never touched the slide; that was luck, not
+		// design, and it already failed on any viewport short enough for the cap not to
+		// bind. Removing the cap made the card fill the row and put those pills on the
+		// slide. So the band they occupy is now RESERVED here: the card is sized to the
+		// row height LESS that band, which keeps the pills clear of the slide at every
+		// viewport — including the small ones where this was already broken.
+		//
+		// Reserved unconditionally rather than only while a pill is up: making it
+		// conditional would resize the slide mid-presentation the moment a coach beat
+		// appeared, which is a worse artifact than the ~7% of height it costs.
+		const measure = () => setSlideMaxW(Math.max(240, Math.floor(((row.clientHeight - 12 - OVERLAY_CLEARANCE) * 16) / 9)));
 		measure();
 		const ro = new ResizeObserver(measure);
 		ro.observe(row);
@@ -663,7 +682,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			{/* Slide row. The slide centers in the space above the dock (flex-1 guarantees the
 			    caption + controls + rail dock its full height, so the slide never crowds it).
 			    Circular arrows flank the slide in the gutter — never over it. */}
-			<div ref={slideRowRef} className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 sm:gap-5 sm:px-6">
+			{/* The overlay band is PADDING, not merely slack in the height budget. Subtracting
+			    the clearance from the card's size alone is not enough: this row is
+			    `items-center`, so the freed space splits evenly above and below the card and
+			    only half of it lands where the pills actually are — measured, the cue still
+			    overlapped the slide by 11px. Real bottom padding puts the whole band under the
+			    card, and because an absolutely-positioned child resolves against the PADDING
+			    box, the `bottom-2` / `bottom-3` pills sit inside that band, clear of the slide. */}
+			<div ref={slideRowRef} style={{ paddingBottom: OVERLAY_CLEARANCE }} className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 sm:gap-5 sm:px-6">
 				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
 				{/* The slide is a true flex child: its width is capped to what the AVAILABLE ROW
 				    HEIGHT allows at 16:9 (`rowH × 16/9`), so it shrinks to reserve the caption /

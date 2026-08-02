@@ -176,8 +176,28 @@ export function watchSystemMode(onChange?: (mode: Mode) => void): () => void {
 		stampMode(mode);
 		onChange?.(mode);
 	};
-	mq.addEventListener('change', handler);
-	return () => mq.removeEventListener('change', handler);
+	// Subscribe defensively. A MediaQueryList predating the EventTarget interface
+	// (Safari < 14) exposes only the deprecated `addListener`/`removeListener` pair,
+	// so calling `addEventListener` unconditionally THROWS — and this runs inside the
+	// header control's mount effect, which would take the whole palette/mode
+	// controller down with it on a browser that merely can't do live OS-following.
+	// Degrade instead: the last of the three paths still resolves the OS mode at
+	// load, it just stops tracking a mid-session flip.
+	type LegacyMql = MediaQueryList & { addListener?: (fn: () => void) => void; removeListener?: (fn: () => void) => void };
+	const legacy = mq as LegacyMql;
+	try {
+		if (typeof mq.addEventListener === 'function') {
+			mq.addEventListener('change', handler);
+			return () => mq.removeEventListener('change', handler);
+		}
+		if (typeof legacy.addListener === 'function') {
+			legacy.addListener(handler);
+			return () => legacy.removeListener?.(handler);
+		}
+	} catch {
+		/* subscription unavailable — fall through to the no-op unsubscribe */
+	}
+	return () => {};
 }
 
 /**
