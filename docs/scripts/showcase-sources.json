@@ -92,12 +92,12 @@
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "a28703e29bc221bda47d5876f6bc94927fd1f47e6f9d208db105471a97bbb53d"
+		"srcSha256": "bbaa7cd555e8c65d327a29d36f0416adfb433d95fe86cb5d27b15188e747c4de"
 	},
 	"kpi.dark": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "5ae93d2d5e7be5f23dbc65667b7362b834acbc1b044fcbb064369ebfa97030ca"
+		"srcSha256": "147c7c7720a82946169f6e71b02d5e8bec8e099792bda00cffc7d0c001d80c7b"
 	},
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
