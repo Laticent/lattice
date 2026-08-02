@@ -25,7 +25,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { clearDeckMemo, createSingleSlideRenderer, DECK_DERIVED_FACTS } from './single-slide-render';
+import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer, DECK_DERIVED_FACTS } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -68,6 +68,7 @@ beforeEach(() => {
 	// produce identical html. A test that re-mocks DIFFERENT html for the same markdown would
 	// otherwise be served the previous test's render, so drop the memo between cases.
 	clearDeckMemo();
+	clearSliceCache(); // module-level and shared — dispose() no longer wipes it, so tests must
 	mockRender(DECK);
 });
 afterEach(() => {
@@ -428,7 +429,7 @@ describe('deck-derived fact registry', () => {
 		for (const f of DECK_DERIVED_FACTS) {
 			expect(f.fact, 'fact needs a name').toBeTruthy();
 			expect(f.why.length, `${f.fact} needs a stated reason`).toBeGreaterThan(20);
-			expect(f.probes.length, `${f.fact} needs a probe`).toBeGreaterThan(0);
+			expect(f.probes.length + (f.test ? 1 : 0), `${f.fact} needs a probe or a predicate`).toBeGreaterThan(0);
 		}
 	});
 
@@ -450,6 +451,7 @@ describe('deck-derived fact registry', () => {
 	// is a real remaining gap (see the note in single-slide-render.ts).
 	it('the registry holds exactly the expected facts — deleting one FAILS here', () => {
 		expect(DECK_DERIVED_FACTS.map((f) => f.fact).sort()).toEqual([
+			'ambiguous divider count',
 			'glossary: auto',
 			'running-global directive',
 			'slide expander (1→N)',
@@ -469,6 +471,7 @@ describe('deck-derived fact registry', () => {
 			'---\nclass: split-panel proof\n---\n\nbody',
 		];
 		for (const f of DECK_DERIVED_FACTS) {
+			if (!f.probes.length) continue; // predicate-only facts are covered behaviorally
 			for (const p of f.probes) {
 				expect(samples.some((s) => p.test(s)), `${f.fact}: probe ${p} matches none of the samples`).toBe(true);
 			}
@@ -573,5 +576,66 @@ describe('supplied SECTION position (the progress rail)', () => {
 	it('a divider inside a fenced sample is not a divider', async () => {
 		const deck = 'a\n\n```\n<!-- _class: divider -->\n```\n\n---\n\nb';
 		expect((await pageSent(deck, 1, 2))?.deckSection).toBeUndefined();
+	});
+});
+
+// Supplying a count INVERTS the gate's failure direction: as a probe, a `divider` mentioned in
+// prose cost a wasted parse and produced correct output; as a counter the same match paints an
+// extra dot and bumps the watermark glyph. So an ambiguous deck goes back to the whole-deck render.
+describe('an ambiguous divider count falls back to the deck render', () => {
+	const rendered = async (deck: string) => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const mock = renderMarkdown as unknown as ReturnType<typeof vi.fn>;
+		mock.mockClear();
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 2, slideCount: 3, slideMarkdown: 'THE SLICE' });
+		return { source: mock.mock.calls[0][1], page: mock.mock.calls[0][3]?.page };
+	};
+	const REAL = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n## Tail.\n';
+
+	it('renders the DECK when a divider is mentioned in an inline code span', async () => {
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\nWrite `<!-- _class: divider -->` here.\n\n---\n\n## Tail.\n';
+		expect((await rendered(deck)).source).toBe(deck);
+	});
+
+	it('renders the DECK when a divider is mentioned in an indented code block', async () => {
+		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n    <!-- _class: divider -->\n\n---\n\n## Tail.\n';
+		expect((await rendered(deck)).source).toBe(deck);
+	});
+
+	it('still takes the SLICE for an unambiguous divider deck — the optimization survives', async () => {
+		const out = await rendered(REAL);
+		expect(out.source).toBe('THE SLICE');
+		expect(out.page?.deckSection).toEqual({ index: 1, total: 1 });
+	});
+});
+
+// BOUNDEDNESS IS STRUCTURAL, SO TEST IT STRUCTURALLY — the same reasoning the whole-deck memo's
+// own boundedness test records. This cache holds 24 entries of cross-host state where the memo
+// holds one, so it earns the test more, not less.
+describe('slice cache boundedness', () => {
+	const renderSlide = async (r: ReturnType<typeof createSingleSlideRenderer>, host: HTMLElement, deck: string, i: number, n: number) =>
+		r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: i, slideCount: n, slideMarkdown: `SLICE ${i}` });
+
+	it('serves a revisited slide from the cache — the navigation case it exists for', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const deck = '---\npaginate: true\n---\n\na\n\n---\n\nb\n\n---\n\nc';
+		const seen = recordRenders();
+		await renderSlide(r, host, deck, 0, 3);
+		await renderSlide(r, host, deck, 1, 3);
+		await renderSlide(r, host, deck, 0, 3); // revisit
+		expect(seen).toEqual(['SLICE 0', 'SLICE 1']); // the revisit did NOT re-render
+	});
+
+	it('evicts past its cap rather than growing without bound', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const n = 40; // > the 24-entry cap
+		const deck = `---\npaginate: true\n---\n\n${Array.from({ length: n }, (_, i) => `slide ${i}`).join('\n\n---\n\n')}`;
+		for (let i = 0; i < n; i++) await renderSlide(r, host, deck, i, n);
+		const seen = recordRenders();
+		await renderSlide(r, host, deck, 0, n); // evicted long ago
+		expect(seen).toEqual(['SLICE 0']); // so it re-renders, proving the cap holds
 	});
 });

@@ -18,7 +18,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { clearDeckMemo, createSingleSlideRenderer } from './single-slide-render';
+import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -36,7 +36,8 @@ beforeEach(() => {
 	(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = RO;
 	(window as unknown as { LatticePlayground: unknown }).LatticePlayground = { hasTheme: () => false, addThemes: () => {} };
 	(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockReset();
-	clearDeckMemo(); // module-level whole-deck memo — drop it so each case really hits the engine mock
+	clearDeckMemo();
+	clearSliceCache(); // module-level and shared — dispose() no longer wipes it, so tests must // module-level whole-deck memo — drop it so each case really hits the engine mock
 	(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ html: '<section></section>', css: '' }));
 });
 afterEach(() => {
