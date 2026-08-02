@@ -93,6 +93,7 @@ const SCRIPT_META = {
   'snippets:check':           ['Build & bundle', 'Freshness gate for the VS Code snippets.'],
   'dist-readme:build':        ['Build & bundle', 'Generate dist/README.md — the distribution-folder index.'],
   'dist-readme:check':        ['Build & bundle', 'Freshness gate for dist/README.md.'],
+  'marp-kit:build':           ['Build & bundle', 'Build dist/marp-kit — the copy-and-go Marp folder (CSS, runtime, fonts, Mermaid, configs, Sample-Deck.md). No export needed.'],
   'capabilities:build':       ['Build & bundle', 'Generate engineering/capabilities.md — the index of every script, tool, and framework.'],
   'capabilities:check':       ['Build & bundle', 'Freshness gate for capabilities.md; fails on drift or any undescribed script/tool.'],
   'docs:components':          ['Build & bundle', 'Generate per-component docs.md + gallery.md siblings from each manifest.'],

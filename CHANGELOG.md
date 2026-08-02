@@ -538,6 +538,26 @@ in patch versions.
   `w + 3` (label `w-5`, plus the value, a 4-token target line, and two status pills), so the basis
   moved slightly against the author rather than for them.
 
+- **`dist/marp-kit/` — copy the folder, open VS Code, start editing.** No export, no build step,
+  nothing to install. `npm run build` generates it like every other `dist/` artifact and
+  `build:check` fails when it goes stale. 46 files, 5 MB: `lattice.min.css`, `cuoio.min.css` and
+  its dark variant, `lattice-runtime.min.js`, `mermaid-v11.min.js`, **37 fonts**, a
+  `marp.config.cjs`, a `.vscode/settings.json`, a README, and **`Sample-Deck.md`** — a 14-slide
+  deck that documents its own authoring. The builder reads the same `STATIC_ASSETS` and
+  `fontAssetsFor()` walker as `lib/core/marp-bundle.js`, so the kit cannot drift from the export.
+  **Verified by rendering the shipped kit through real marp-cli** — copied out of `dist/` as a
+  recipient would, 14 pages in 3s, with the Mermaid diagram, the runtime-built radar, the
+  matrix-grid swatches and the split-panel all correct, and the runtime `<script>` tags surviving
+  unescaped. Three findings came out of that render and are baked into the kit: `size: hd` rather
+  than `4k` (at 4k the same deck never finished rendering; at hd it takes 3s, and a copy-and-go kit
+  has to work first try on a modest machine), scripts loaded **last** in the deck (Marp emits raw
+  HTML inline in document order, so a `<script>` at the top lands inside slide 1 and runs before
+  the other slides exist), and no inline `` `<!-- … -->` `` literals (the mono stack's arrow
+  ligatures render them as `←!—`, mangling the very syntax the deck teaches — fenced blocks are
+  unaffected). `test/unit/tools/marp-kit.test.js` locks the failures that are SILENT: a missing
+  font falls back to system serif, a dropped `html: true` prints the script tags as text, a
+  minifier that strips the `@theme` comment yields unstyled slides — each shipped undetected in
+  #1256. `engineering/decisions/2026-08-02-marp-reference-register.md` §5b.
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a

@@ -134,6 +134,7 @@
     "suono-lib:check": "node tools/build-suono-lib.js --check",
     "dist-readme:build": "node tools/build-dist-readme.js",
     "dist-readme:check": "node tools/build-dist-readme.js --check",
+    "marp-kit:build": "node tools/build-marp-kit.js",
     "capabilities:build": "node tools/build-capabilities.js",
     "capabilities:check": "node tools/build-capabilities.js --check",
     "release": "node tools/release.js",
