@@ -285,10 +285,15 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 // its own band. The page therefore carries ONE AI conversation instead of two in
 // two registers, and it is the one wearing the disclaiming eyebrow.
 //
-// Server-rendered, zero JS. The live preview column arrives as `children` (the
-// one island), so the section still costs nothing on the critical path if that
-// preview is ever deferred or dropped.
-// See engineering/decisions/2026-07-30-landing-studio-promotion.md §3.2, §6.1.
+// These three exports are ALL server-rendered, zero JS. They do not compose the
+// section: `index.astro` owns the panel and the grid, and places `StudioCopy`,
+// the `StudioPreview` island, and `StudioActions` into it as siblings. That
+// split is forced — a `client:` island passed as `children` to a server-rendered
+// React component throws an invalid-hook-call during SSR — and it is the same
+// shape the hero already uses (HeroCopy beside HeroPreview). It also means the
+// live preview can be deferred or dropped without touching this module.
+// See engineering/decisions/2026-07-30-landing-studio-promotion.md §3.2, §6.1
+// and its "Deviations" section.
 const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
 	{ label: 'Edit', body: 'An editor with inline lint, beside a live preview of the real render.' },
 	{
