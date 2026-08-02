@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 673 files carry one — 3,148 prose/code lines plus 253 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (36 files, intended), the FILE FORMAT (192 files — LFM is Marpit-compatible by design, so these can never leave without breaking the format), the marp-vscode live-preview compatibility tax (295 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (119). Actual drift is small and now fixed: 11 files that described the owned engine as Marp or cited a render path retired in P4, and 1 dead reference to the deleted marp.config.js. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
+summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 668 files carry one — 3,151 prose/code lines plus 253 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (37 files, intended), the FILE FORMAT (197 files — LFM is Marpit-compatible by design, so these can never leave without breaking the format), the marp-vscode live-preview compatibility tax (295 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (120). Actual drift was small and is now fixed: 12 files that described the owned engine as Marp or cited a render path retired in P4, and 1 dead reference to the deleted marp.config.js. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
 ---
 
 # The Marp reference register — what is left, and what each piece is for
@@ -15,19 +15,20 @@ candidate for removal or rewrite and relevant for export."
 
 The premise is right — Lattice is far removed from Marp. Zero `@marp-team`
 packages, no Marp render path, `lib/engine/` re-implements the Marpit pipeline
-natively. And yet **673 tracked files mention Marp**: 3,148 prose/code lines
+natively. And yet **668 tracked files mention Marp**: 3,151 prose/code lines
 plus 253 `marp: true` front-matter keys.
 
 That gap is not one thing rotting. It is **four different things wearing the
-same word**, and only the first is the export target:
+same word**, and only the first is the export target. Counts below are as the
+tree stands **after** this change's fixes — re-run the tool to confirm:
 
 | What | Files | Can it go? |
 |---|---:|---|
-| **The export channel** | 36 | No — it *is* the product surface |
-| **The file format** | 192 | No — LFM is Marpit-compatible *by design* |
+| **The export channel** | 37 | No — it *is* the product surface |
+| **The file format** | 197 | No — LFM is Marpit-compatible *by design* |
 | **The marp-vscode preview tax** | 295 | **Yes — but only as a block, and only by revisiting one decision** |
-| **Frozen history + porting provenance** | 119 | No — dated records and attribution |
-| **Actual drift** | 13 | **Yes — fixed in this change** |
+| **Frozen history + porting provenance** | 120 | No — dated records and attribution |
+| **Actual drift** | *(13, fixed here)* | **Gone — 0 actionable files remain** |
 
 The headline: **the largest bucket is not the export target and not residue —
 it is the VS Code live preview.** 295 files (239 of them just a `marp: true`
@@ -70,18 +71,22 @@ any number here.
 
 ## The eight dispositions
 
+Two of the eight — `rewrite` and `remove` — are empty as of this change. They
+are listed because they are the classes the tool exists to surface: a non-zero
+row in either is the signal that something drifted.
+
 | Disposition | Files | Lines | `marp: true` | Verdict |
 |---|---:|---:|---:|---|
-| `export` | 36 | 328 | 1 | **KEEP** — the Export-to-Marp channel |
-| `interop` | 192 | 423 | 9 | **KEEP** — Marpit file-format compatibility |
+| `export` | 37 | 335 | 1 | **KEEP** — the Export-to-Marp channel |
+| `interop` | 197 | 467 | 10 | **KEEP** — Marpit file-format compatibility |
 | `provenance` | 11 | 184 | — | **KEEP** — porting attribution in `lib/engine/` |
-| `history` | 108 | 1,275 | — | **KEEP FROZEN** — dated records |
+| `history` | 109 | 1,296 | — | **KEEP FROZEN** — dated records |
 | `preview` | 295 | 542 | 239 | **CONTINGENT** — the marp-vscode tax |
-| `rewrite` | 11 | 68 | 1 | **REWRITE** — wrong about what renders Lattice |
-| `remove` | 1 | 1 | — | **REMOVE** — points at a deleted file |
+| `rewrite` | 0 | 0 | — | **REWRITE** — wrong about what renders Lattice (12 fixed here) |
+| `remove` | 0 | 0 | — | **REMOVE** — points at a deleted file (1 fixed here) |
 | `generated` | 19 | 327 | 3 | **GENERATED** — follows source (HARD RULE #2) |
 
-## §1 — `export` (36 files): relevant, keep
+## §1 — `export` (37 files): relevant, keep
 
 The one-way handoff. `lib/core/marp-bundle.js` builds the recipient bundle,
 `lib/core/marp-fidelity.js` is the ledger of what a Marp render does *not*
@@ -96,7 +101,7 @@ boundary has.
 Nothing to do. This is what the user is asking to preserve, and it is
 self-contained.
 
-## §2 — `interop` (192 files): the file format, not a dependency
+## §2 — `interop` (197 files): the file format, not a dependency
 
 This is the bucket most likely to be mistaken for residue, and it is the reason
 the raw count is startling. **LFM's slide model is Marpit-compatible on
@@ -127,7 +132,7 @@ Nothing to do. Removing these would break the format, not clean it up.
 engine's citation of its source. Keep it — the alternative is an engine that
 re-implements a documented pipeline while pretending it invented it.
 
-## §4 — `history` (108 files, 1,275 lines): frozen
+## §4 — `history` (109 files, 1,296 lines): frozen
 
 `engineering/decisions/**` and `CHANGELOG.md`. The single largest line count in
 the whole inventory, and **none of it is actionable** — a dated record is
@@ -193,7 +198,7 @@ does nothing there." Per HARD RULE #23 this is marked **UNVERIFIED**, not
 resolved: a headless sandbox cannot drive the VS Code extension host, so it is
 not something this pass could settle.
 
-## §6 — `rewrite` (12 files, 70 lines): fixed here
+## §6 — `rewrite` (12 files, 70 lines): all fixed here
 
 Factually wrong today — each describes the owned engine as Marp, or cites a
 render path or gate retired in P4

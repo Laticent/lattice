@@ -3,7 +3,8 @@
  * marp-inventory — classify every Marp reference in the repo by DISPOSITION.
  *
  * Two prior audits (`engineering/decisions/2026-07-09-marp-legacy-audit.md`,
- * `2026-07-10-marp-audit-doc-framing.md`) shipped hand-written inventories that
+ * `engineering/decisions/2026-07-10-marp-audit-doc-framing.md`) shipped
+ * hand-written inventories that
  * were stale within days, because a Marp reference is created by ordinary work
  * — a comment, a compat note, a spec line — and nothing recounted them. This
  * tool is the recount: it walks the tracked tree and assigns every file that
@@ -154,9 +155,22 @@ const SIGNALS = [
   [/ported|provenance|upstream|reference:/i, 'provenance'],
 ];
 
+/**
+ * The instrument and its report are ABOUT Marp references, not instances of
+ * them: this file carries the phantom-phrase patterns as regex literals (so it
+ * classifies itself `rewrite`), and the register quotes every defect verbatim
+ * as evidence. Counting either inflates every total and manufactures a false
+ * positive. Excluded by name, not by pattern, so nothing else hides here.
+ */
+const SELF = new Set([
+  'tools/marp-inventory.mjs',
+  'engineering/decisions/2026-08-02-marp-reference-register.md',
+]);
+
 const files = execFileSync('git', ['ls-files'], { encoding: 'utf8', maxBuffer: 64 << 20 })
   .split('\n')
-  .filter(Boolean);
+  .filter(Boolean)
+  .filter((f) => !SELF.has(f));
 
 const rows = [];
 for (const file of files) {

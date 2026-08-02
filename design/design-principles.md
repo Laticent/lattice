@@ -196,7 +196,7 @@ section footer {
 
 /* Pagination — single mechanism across both rendering paths.
    The owned engine emits `data-lattice-pagination="N"` on each <section>
-   (lib/engine/css.js); the browser runtime reads the identical attribute. Both
+   (lib/engine/slides.js); the browser runtime reads the identical attribute. Both
    paths render the page number via the same `section::after` pseudo-element rule. */
 section[data-lattice-pagination]::after {
   content: attr(data-lattice-pagination);
