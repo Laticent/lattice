@@ -51,6 +51,19 @@ describe('ComposeView — preview sync', () => {
 		expect(caretSlide(view.container)).toBeLessThan(3);
 	});
 
+	// The regression this guards: `focus` once gated BOTH taking keyboard focus and
+	// placing the caret. Suppressing it on touch (so a tablet's software keyboard stays
+	// down) therefore also stopped the caret moving to the slide, so picking a slide in
+	// the preview left the editor where it was. Setting a selection costs nothing on
+	// touch — only `.focus()` raises the keyboard — so the two must stay independent.
+	it('moves the caret to the slide WITHOUT focus, not only with it', () => {
+		const { ref, view } = mount();
+		ref.current?.revealSlide(2); // no opts at all — the touch path
+		expect(caretSlide(view.container)).toBe(2);
+		ref.current?.revealSlide(1, { focus: false }); // explicitly unfocused
+		expect(caretSlide(view.container)).toBe(1);
+	});
+
 	it('focuses the editor only when asked', () => {
 		const { ref, view } = mount();
 		const pm = view.container.querySelector('.ProseMirror') as HTMLElement | null;

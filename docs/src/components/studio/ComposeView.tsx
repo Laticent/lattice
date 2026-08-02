@@ -704,7 +704,20 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// whatever block happens to open it.
 			const sel = Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size)));
 			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
-			v.dispatch(v.state.tr.setSelection(sel).scrollIntoView());
+			v.dispatch(v.state.tr.setSelection(sel));
+			// Scroll the HOST explicitly rather than riding ProseMirror's
+			// `tr.scrollIntoView()`. Measured: with that flag the caret moved to the right
+			// slide and `.cs-host` never scrolled at all — the target sat at y=1283 in a
+			// 100–1024 viewport — so picking a slide in the preview left Compose showing a
+			// different part of the deck. Positioning the slide's own node at the top of
+			// the scroller is also the same answer every time, where a
+			// scroll-the-caret-into-view would depend on where the caret happened to land.
+			const node = v.nodeDOM(pos) as HTMLElement | null;
+			const host = hostRef.current;
+			if (node?.getBoundingClientRect && host) {
+				const top = node.getBoundingClientRect().top - host.getBoundingClientRect().top;
+				host.scrollTop += top - 8; // the same 8px breathing room the markdown editor leaves
+			}
 			if (opts?.focus) v.focus();
 		},
 	}), []);
