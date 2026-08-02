@@ -268,11 +268,14 @@ function projectStats(stage) {
 }
 function reidClone(html) {
   if (!html || html.indexOf("svg") === -1) return html;
-  const MINTED = /lat-(?:x\d+-)?svg[td]-\d+/;
-  return html.replace(/\bid="(lat-(?:x\d+-)?svg[td]-\d+)"/g, 'id="$1-a"').replace(/\b(aria-labelledby|aria-describedby)="([^"]*)"/g, (_m, attr, refs) => {
-    const next = refs.split(/\s+/).map((r) => MINTED.test(r) ? `${r}-a` : r).join(" ");
+  const defined = /* @__PURE__ */ new Set();
+  for (const m of html.matchAll(/\sid="([^"]*)"/g)) if (m[1]) defined.add(m[1]);
+  if (!defined.size) return html;
+  const suffixed = (id) => `${id}-a`;
+  return html.replace(/(\sid=")([^"]*)(")/g, (m, open, id, close) => defined.has(id) ? open + suffixed(id) + close : m).replace(/\b(aria-labelledby|aria-describedby)="([^"]*)"/g, (_m, attr, refs) => {
+    const next = refs.split(/\s+/).map((r) => defined.has(r) ? suffixed(r) : r).join(" ");
     return `${attr}="${next}"`;
-  });
+  }).replace(/url\(#([^)"'\s]+)\)/g, (m, id) => defined.has(id) ? `url(#${suffixed(id)})` : m);
 }
 function projectMedia(stage, heading, component) {
   const visual = stage.querySelector(":scope svg, :scope img, :scope .katex-display, :scope figure");

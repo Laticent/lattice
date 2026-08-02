@@ -84,6 +84,52 @@ test('media component (chart) re-hosts the SVG as a captioned <figure>', () => {
 	);
 });
 
+// ── reidClone: the cloned chart must not duplicate an id, or dangle a reference ──────────
+// The Read·Article view re-hosts each chart by cloning it into a SECOND copy in the SAME document.
+// Every id in that copy has to move, and every reference to it has to move with it.
+
+test('a cloned chart suffixes EVERY id it defines, whatever the id looks like', () => {
+	// SHAPE-AGNOSTIC IS THE POINT. The first cut matched the id shape
+	// (`/lat-(?:x\d+-)?svg[td]-\d+/`), and the shapes moved out from under it when ids became
+	// slide-scoped — `lat-svgt-80-1`. Its two halves then disagreed: the anchored `id="…"` pattern
+	// no longer matched so the id stayed put, while the UNANCHORED reference test still matched
+	// `lat-svgt-80` inside it and suffixed the reference. Result: a duplicate `<title id>` AND an
+	// `aria-labelledby` pointing at nothing — a chart with no accessible name, worse than the
+	// duplicate this exists to prevent. So the ids below are deliberately three different shapes.
+	const secs = sections(
+		`<section data-lattice-slide class="piechart"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Revenue mix</h2></div>
+			<svg class="lattice-chart" role="img" aria-labelledby="lat-svgt-80-1" aria-describedby="lat-x0-svgd-3">
+				<title id="lat-svgt-80-1">Pie chart</title><desc id="lat-x0-svgd-3">Key</desc>
+				<defs><linearGradient id="pie-wedge-80-2"/></defs>
+				<circle fill="url(#pie-wedge-80-2)" style="stroke:url(#pie-wedge-80-2)"/>
+			</svg>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	for (const id of ['lat-svgt-80-1', 'lat-x0-svgd-3', 'pie-wedge-80-2']) {
+		assert.match(articleHtml, new RegExp(`id="${id}-a"`), `${id} was not suffixed in the clone`);
+		assert.doesNotMatch(articleHtml, new RegExp(`id="${id}"`), `${id} is duplicated by the clone`);
+	}
+	// And every reference follows the id — an aria ref, a `fill="url(#…)"`, and one inside `style`.
+	assert.match(articleHtml, /aria-labelledby="lat-svgt-80-1-a"/);
+	assert.match(articleHtml, /aria-describedby="lat-x0-svgd-3-a"/);
+	assert.equal((articleHtml.match(/url\(#pie-wedge-80-2-a\)/g) || []).length, 2, 'both url(#…) forms follow the id');
+});
+
+test('a cloned chart leaves a reference to an id it does NOT define alone', () => {
+	// A document-level `<defs>` lives outside the clone, so its id does not move and neither may
+	// the reference — suffixing it would dangle.
+	const secs = sections(
+		`<section data-lattice-slide class="piechart"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Shared</h2></div>
+			<svg class="lattice-chart" role="img"><circle fill="url(#deck-level-gradient)"/></svg>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	assert.match(articleHtml, /url\(#deck-level-gradient\)/, 'an outside reference must not be rewritten');
+});
+
 test('a SPATIAL chart (state-chart) goes to the placeholder, NOT a broken SVG re-host', () => {
 	// state-chart is a node-and-edge graph: its only SVG is the edge layer (arrows to
 	// absolutely-positioned HTML nodes), and its node list is raw layout noise. It must

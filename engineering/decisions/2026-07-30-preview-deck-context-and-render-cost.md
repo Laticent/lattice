@@ -926,3 +926,48 @@ baseline, harder than before: `positionIsTrustworthy → false` now reads **10.3
 **The browser DOM path is deliberately untouched.** `applyToDom` never enters slide scope, so its ids
 keep the bare document-start ordinal they have always had — there is no deck there to be positioned
 within, and the climbing module counter is what keeps them unique in a live document.
+
+### What the id change broke, and what it turned up — found by CI, not by review
+
+The unit tier, `build:check`, the docs suite and `equiv` were all green; the **integration** tier was
+not. `test/integration/invariants/axe-a11y.test.js` failed on the `--player` shell with
+`duplicate-id-aria (critical, 14 nodes)` quoting `<title id="lat-svgt-80-1">`.
+
+**The cause was a shape-matching regex, and it failed in the worst available direction.** The
+Read·Article view re-hosts every chart by cloning it into a second copy of the same document, and
+`reidClone` (`lib/transformers/prose-projection.mjs`) moved the copy's ids aside by matching what an
+id LOOKS like — `/lat-(?:x\d+-)?svg[td]-\d+/`. Slide scoping made ids `lat-svgt-80-1`, and the
+function's two halves then disagreed with each other:
+
+| half | pattern | on `lat-svgt-80-1` |
+|---|---|---|
+| the definition | `id="(lat-…svg[td]-\d+)"` — anchored by the closing quote | **no match**, id left in place |
+| the reference | `MINTED.test(ref)` — unanchored | matches `lat-svgt-80` **inside** it, suffix appended |
+
+So the clone kept a duplicate `<title id>` *and* pointed its `aria-labelledby` at an id that existed
+nowhere — a chart with no accessible name, which is worse than the duplication the function exists to
+prevent. Counted on the real player build of `gallery.md`: 14 duplicated ARIA ids and 14 dangling
+references, against 0 of each on `main`.
+
+**Fixed shape-agnostically**, because the defect is the shape-matching itself: collect the ids the
+cloned subtree DEFINES, suffix those, and rewrite every reference to them. Nothing in it knows what an
+id looks like, so the next shape change cannot reach it.
+
+**And it turned up a defect that predates all of this.** The same clone also carries the chart's
+`<defs>` gradients, which `reidClone` never handled at all — **45 duplicated ids in the shipped
+player, on `main` today**. The axe gate could not see them: `duplicate-id-aria` inspects only ids used
+in ARIA, and a gradient is referenced through `url(#…)`. They resolved correctly purely by luck, since
+SVG's first-def-wins rule happened to land on an identical gradient — exactly the "correct by luck"
+this function's own header objects to. Rewriting `url(#…)` was the same line of the same function, so
+it was fixed in place rather than logged (HARD RULE #18, on-path). The player goes 45 → 0.
+
+| | duplicated ids | dangling ARIA refs |
+|---|---|---|
+| `main` | 45 | 0 |
+| this branch, before the fix | 59 | 14 |
+| this branch, after | **0** | **0** |
+
+**Two things worth keeping from this.** First, an id-shape change has a blast radius beyond the
+minter: anything that PARSES those ids is coupled to the shape, and grep for the shape rather than for
+the module. Second, the axe gate found the half that ARIA could see and was structurally blind to the
+half it could not — a green a11y gate bounds what the rule set inspects, not what is correct.

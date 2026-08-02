@@ -125,6 +125,19 @@ in patch versions.
     climbing counter is what keeps its ids unique in a live document.
   - `npm run equiv` goes **91.9% → 99.2%**; the `generated ids` bucket goes 87 → 0.
 
+- **Fixed: the Read·Article view's cloned charts no longer duplicate an id — including 45 that
+  predate this change.** That view re-hosts each chart by cloning it into a second copy in the same
+  document, and `reidClone` matched the id SHAPE to move the copy's ids aside. The shapes moved out
+  from under it, and its two halves then disagreed: the anchored `id="…"` pattern stopped matching so
+  the id stayed put, while the unanchored reference test still matched a prefix of it and suffixed
+  the reference — leaving a duplicate `<title id>` AND an `aria-labelledby` pointing at nothing, i.e.
+  a chart with no accessible name at all. It is now shape-agnostic: it collects the ids the subtree
+  DEFINES and moves those plus every reference to them, so the next id-shape change cannot break it.
+  `url(#…)` is rewritten too, which closes a **pre-existing** defect the axe gate could not see —
+  `duplicate-id-aria` only inspects ids used in ARIA, so the clone's 45 duplicated `<defs>` gradients
+  went unreported and resolved correctly only by luck (SVG's first-def-wins rule happened to pick an
+  identical gradient). The shipped player goes from **45 duplicated ids to 0**.
+
 - **The two slide splitters, reconciled — and the alignment invariant's three copies collapsed to
   one.** The engine breaks slides on any markdown-it `hr` after a full parse; the Studio scans text
   for `\n---\n` on every keystroke, before the engine bundle has loaded. Those stay two — routing
