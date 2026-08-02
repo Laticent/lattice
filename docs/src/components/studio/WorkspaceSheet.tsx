@@ -584,10 +584,10 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									)}
 									{FIDELITY_OVERLAY_AVAILABLE && (
 										<label htmlFor="ws-fidelity-overlay" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
-											<Switch id="ws-fidelity-overlay" aria-label="Preview fidelity" checked={fidelityOverlay} onCheckedChange={(next) => { setFidelityOverlay(next); setFidelityOverlayEnabled(next); notify(next ? 'Preview fidelity on — shows how this slide is being rendered.' : 'Preview fidelity off.'); }} />
+											<Switch id="ws-fidelity-overlay" aria-label="Preview fidelity" checked={fidelityOverlay} onCheckedChange={(next) => { setFidelityOverlay(next); setFidelityOverlayEnabled(next); notify(next ? 'Preview fidelity on — shows how this slide was rendered, and whether it matches the deck.' : 'Preview fidelity off.'); }} />
 											<span className="min-w-0">
 												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Preview fidelity</span>
-												<span className="block text-[11px] text-muted-foreground">The preview renders one slide, not the whole deck — so anything a slide gets from its neighbors (page number, progress rail, the color of a proof panel) has to be handed to it. This shows which route your slide took and why, and compares it against the full-deck render on demand. Reach for it when a number or a color looks wrong. The on-device twin of <code>npm run equiv</code>; also via <code>?fidelity</code>.</span>
+												<span className="block text-[11px] text-muted-foreground">A live readout of how the slide you're editing was rendered: which route ran (that slide alone, or the whole deck), which deck-wide fact forced it, and the page/section position it was handed — plus an on-demand diff against the full-deck render. Reach for it when a page number, a progress rail, or a panel color looks wrong. The on-device twin of <code>npm run equiv</code>; drag to reposition, also via <code>?fidelity</code>.</span>
 											</span>
 										</label>
 									)}
