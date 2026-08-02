@@ -682,15 +682,27 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			{/* Slide row. The slide centers in the space above the dock (flex-1 guarantees the
 			    caption + controls + rail dock its full height, so the slide never crowds it).
 			    Circular arrows flank the slide in the gutter — never over it. */}
-			{/* The overlay band is PADDING, not merely slack in the height budget. Subtracting
+			{/* TOP-ALIGNED, not centered. The slide keeps its natural 16:9 ratio, so on a
+			    PORTRAIT phone it is bound by WIDTH (398px of a 430px screen) and simply
+			    cannot grow taller — which left ~516px of leftover split into two voids, one
+			    above the slide and one below, with the slide marooned between them. Centering
+			    is what split it. Aligning to the top collects the leftover in ONE place, below
+			    the slide, so the space above is reclaimed and the caption / controls / rail
+			    keep exactly the space and position they already had. On desktop the slide is
+			    height-bound and fills the row, so there is ~12px of slack and this is a no-op
+			    there. The flanking arrows are `self-center` so they stay centered on the row
+			    rather than jumping to its top edge (they are `hidden … sm:block`, so they do
+			    not exist on the phone case this is for).
+
+			    The overlay band is PADDING, not merely slack in the height budget. Subtracting
 			    the clearance from the card's size alone is not enough: this row is
 			    `items-center`, so the freed space splits evenly above and below the card and
 			    only half of it lands where the pills actually are — measured, the cue still
 			    overlapped the slide by 11px. Real bottom padding puts the whole band under the
 			    card, and because an absolutely-positioned child resolves against the PADDING
 			    box, the `bottom-2` / `bottom-3` pills sit inside that band, clear of the slide. */}
-			<div ref={slideRowRef} style={{ paddingBottom: OVERLAY_CLEARANCE }} className="relative flex min-h-0 w-full flex-1 items-center justify-center gap-3 px-4 sm:gap-5 sm:px-6">
-				<button type="button" onClick={goPrev} disabled={clamped === 0} className={arrowCls(clamped === 0)} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
+			<div ref={slideRowRef} style={{ paddingBottom: OVERLAY_CLEARANCE }} className="relative flex min-h-0 w-full flex-1 items-start justify-center gap-3 px-4 sm:gap-5 sm:px-6">
+				<button type="button" onClick={goPrev} disabled={clamped === 0} className={cn('self-center', arrowCls(clamped === 0))} aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
 				{/* The slide is a true flex child: its width is capped to what the AVAILABLE ROW
 				    HEIGHT allows at 16:9 (`rowH × 16/9`), so it shrinks to reserve the caption /
 				    controls / rail space instead of creeping into the chrome or getting clipped.
@@ -734,7 +746,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						</div>
 					)}
 				</div>
-				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>
+				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={cn('self-center', arrowCls(clamped >= count - 1))} aria-label="Next slide"><ChevronRight className="size-5" /></button>
 				{/* Real delivery coaching — the plan's role-specific guidance, with the
 				    active timed beat surfacing as you cross its mark in the slide. */}
 				{rehearse && playing && coach && (
