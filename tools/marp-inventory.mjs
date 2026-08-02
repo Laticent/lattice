@@ -16,11 +16,13 @@
  *
  *   export      the one-way Export-to-Marp channel (bundle, fidelity ledger,
  *               the CLI/Studio export commands). KEEP — this is the product.
- *   interop     Marp/Marpit FORMAT compatibility a deck or a Marp-rendered
- *               surface depends on: the `marp:` directive key, `![bg]` syntax,
- *               `--marp-slide-*` chrome tokens, `@theme`/`@size` theme files,
- *               Marpit note semantics. KEEP — it is the file format, not a
- *               dependency.
+ *   interop     Marp/Marpit vocabulary Lattice BORROWED, plus the genuine
+ *               boundary machinery (`--marp-slide-*` chrome tokens, the plain
+ *               `:root` Marpit-scoper constraint). NOT a shared format — LFM is
+ *               proprietary and ALREADY un-parseable by Marp (`_focus`,
+ *               `_build`, `_lens`; 10 of 17 front-matter keys are ours).
+ *               SHRINKS as an export-boundary lowering takes over the compat
+ *               job — register §2 / §5b.
  *   provenance  "algorithm ported from @marp-team/marpit, not vendored"
  *               attribution in `lib/engine/*`. KEEP — the engine's citation.
  *   history     `engineering/decisions/**` and `CHANGELOG.md`. KEEP FROZEN —
@@ -66,7 +68,7 @@ const CLASSES = [
 
 const BLURB = {
   export: 'KEEP — the Export-to-Marp channel. This is the product surface.',
-  interop: 'KEEP — Marp/Marpit file-format compatibility a deck depends on.',
+  interop: 'SHRINKS — vocabulary LFM borrowed, plus real boundary machinery.',
   provenance: 'KEEP — porting attribution in the owned engine.',
   history: 'KEEP FROZEN — dated records, accurate as of their date.',
   preview: 'CONTINGENT — the marp-vscode preview tax; retires only as a block.',
