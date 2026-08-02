@@ -128,6 +128,41 @@
    * deck. See engineering/typography.md §7. */
   --fs-scale: 1;
 
+  /* ── Sovereign-bookend measures ────────────────────────────────────────
+   * The ONLY width caps on framing text in the engine. `title` / `closing` /
+   * `divider` are the sovereign bookends: their heading and subtitle ARE the
+   * slide's content, not a frame around someone else's, so a composed measure
+   * is theirs to make. Every OTHER component's framing fills its masthead band
+   * and takes its behavior from `headline:` — do not reach for these there
+   * (engineering/decisions/2026-07-30-masthead-framing-fills-the-band.md).
+   *
+   * `em`, NOT `cqi`, and that is the whole point. A measure is a property of
+   * the TYPE — characters per line — while `cqi` is a fraction of the SLIDE.
+   * Those agree only while the type size is fixed, and it isn't: --fs-* is
+   * curated PER ORIENTATION (lib/typography/scale.js), so one `cqi` cap set
+   * ~22 characters on landscape and ~12 on portrait. `em` resolves against the
+   * element's own font-size, so one number means one measure everywhere — and
+   * it stays resolution-independent for free, because --fs-* is itself cqi.
+   *
+   * Sized to the classic ranges: a display line wants 20–35 characters, a
+   * reading line 45–75. Measured landscape frames are ~37 characters wide for
+   * a bookend heading and ~90 for a lede, so the heading cap trims the longest
+   * titles back to a block with side air and the lede cap holds a sign-off
+   * inside the reading range.
+   *
+   * Where they bind, measured: landscape only, with ONE exception. Portrait
+   * frames are narrower than either token, so both go inert; on square the
+   * heading measure does too (frame 972px vs a 1088.6px cap). The square lede
+   * is inert at 982.8px inside `closing`'s 972px frame — but `divider.light`
+   * drops divider's left inset (`padding-left:0` below), so ITS frame is
+   * 1026px and the lede measure binds there by about 1em. That is the one
+   * place a cap still tightens a narrow frame, and it is a consequence of the
+   * light variant's own framing rather than of the measure. Override per deck
+   * (front-matter `style:`) to compose differently.
+   * engineering/decisions/2026-08-02-sovereign-bookend-measures.md */
+  --measure-bookend-heading: 16em;  /* ≈33 characters at the display tier   */
+  --measure-bookend-lede:    26em;  /* ≈56 characters at the statement tier */
+
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;

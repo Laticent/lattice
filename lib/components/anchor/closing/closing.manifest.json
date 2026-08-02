@@ -29,7 +29,7 @@
     "heading": {
       "selector": "h2",
       "required": true,
-      "description": "Closing line — takeaway, thank-you, or call to action."
+      "description": "Closing line — takeaway, thank-you, or call to action. Capped at `--measure-bookend-heading` (16em ≈ 33 characters), mirroring title; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`."
     },
     "eyebrow": {
       "selector": "p > code",
@@ -39,7 +39,7 @@
     "subtitle": {
       "selector": "p",
       "required": false,
-      "description": "Optional supporting line."
+      "description": "Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure."
     }
   },
   "skeleton": "<!-- _class: closing -->\n<!-- _paginate: false -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",

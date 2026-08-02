@@ -725,7 +725,7 @@
         "heading": {
           "selector": "h2",
           "required": true,
-          "description": "Closing line — takeaway, thank-you, or call to action."
+          "description": "Closing line — takeaway, thank-you, or call to action. Capped at `--measure-bookend-heading` (16em ≈ 33 characters), mirroring title; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`."
         },
         "eyebrow": {
           "selector": "p > code",
@@ -735,7 +735,7 @@
         "subtitle": {
           "selector": "p",
           "required": false,
-          "description": "Optional supporting line."
+          "description": "Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure."
         }
       },
       "requiredSlots": [
@@ -1528,7 +1528,7 @@
         "heading": {
           "selector": "h2",
           "required": true,
-          "description": "Section name."
+          "description": "Section name. Capped at `--measure-bookend-heading` (16em ≈ 33 characters); `text-wrap: balance` evens the lines. Left-aligned by default, so a short section name simply sits on one line and the cap never shows. Override the token in front-matter `style:` — never hand-break with `<br>`."
         },
         "eyebrow": {
           "selector": "p > code",
@@ -4788,7 +4788,7 @@
         "heading": {
           "selector": "h1",
           "required": true,
-          "description": "Deck title."
+          "description": "Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`."
         },
         "eyebrow": {
           "selector": "p > code",
@@ -4798,7 +4798,7 @@
         "subtitle": {
           "selector": "p",
           "required": false,
-          "description": "Optional plain-paragraph subtitle below the h1."
+          "description": "Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`."
         }
       },
       "requiredSlots": [

@@ -160,6 +160,12 @@ delivered by the `\`label\`` inline-code paragraph modifier in
 - **Using an h-tag for the display tier.** `--fs-hero` is class-driven
   (`<div class="hero">…</div>`), never bound to `<h1>`. h1 is the
   *title* of the slide; hero is *the slide is this one number*.
+- **Writing a measure in `cqi`.** A line-length cap is a count of
+  characters, so it belongs in `em` (§8). `max-width: 62cqi` is a
+  fraction of the *slide*, and the two agree only while the type size
+  holds still — which it doesn't, because the scale is curated per
+  orientation (§1.4). The same declaration set ~22 characters on
+  landscape and ~12 on portrait until 2026-08-02.
 - **Raw cqi font-sizes.** `font-size: 1.484375cqi` bypasses the token
   system. A few layouts legitimately need a size *between* tokens and
   use an explicit cqi value with a comment explaining why — the
@@ -209,6 +215,8 @@ are documented in their component CSS.
 
 ## 6 — Cross-references
 
+- `engineering/decisions/2026-08-02-sovereign-bookend-measures.md` — measure
+  (§8) as a contract; why a `cqi` line-length cap is orientation-dependent.
 - `engineering/decisions/2026-05-19-typography-token-refactor.md` — solver,
   audit, migration plan, risk register.
 - `lib/base/base.tokens.css` — the canonical declarations.
@@ -319,3 +327,94 @@ fix the element's token (§2) — don't scale the whole slide to fix one
 heading. And if a slide overflows at a higher scale, it had too much
 content for that magnitude: split it or step the scale back down, the
 same as any overflow (§4).
+
+## 8 — Measure (line length)
+
+Size is how tall a letter is. **Measure is how many characters fit on a
+line**, and it is the other half of readable type. The two are governed
+separately here, and confusing them is a live source of bugs.
+
+### The unit rule
+
+**A measure is written in `em`. Never in `cqi`.**
+
+`em` resolves against the element's own `font-size`, so `max-width: 16em`
+means "sixteen letter-heights of line" wherever it lands. `cqi` is a
+fraction of the **slide**, so it fixes a pixel width and lets the
+character count fall where it may.
+
+Those two agree only while the type size holds still — and in this engine
+it does not. The scale is **curated per orientation** (§1.4): portrait
+runs much larger type on a much narrower frame, by design. So one `cqi`
+cap resolves to a different measure on every slide shape. Measured before
+the 2026-08-02 fix, a single declaration on the bookend headings allowed:
+
+| | landscape | square | portrait |
+|---|---|---|---|
+| `max-width: 62.5cqi` | ≈22 characters | ≈17 | **≈12** |
+
+Twelve characters per line. The same rule, the same slide, a different
+shape. Writing it as `16em` makes it ≈33 characters everywhere.
+
+`em` costs nothing in resolution-independence, which is the usual reason
+to reach for `cqi`: `--fs-*` is *itself* `cqi`, so an `em` measure rides
+the curated scale and renders identically at 4K and 8K for free.
+
+### The ranges
+
+Conventional, and what the tokens below are sized to:
+
+| Tier | Measure | Why |
+|---|---|---|
+| Display (a heading) | **20–35 characters** | Short enough to take in as one shape; long enough not to shatter into stubs. |
+| Reading (prose, a lede) | **45–75 characters** | The classic body range. Past ~75 the eye loses the line return. |
+
+### Where measures live
+
+The engine keeps **very few**, on purpose. Framing text on an ordinary
+component *fills its masthead band* and takes its behavior from the
+`headline:` register — a component does not compose its own chrome
+(`engineering/decisions/2026-07-30-masthead-framing-fills-the-band.md`).
+Fit is autosplit + atomization's job, never a width cap's.
+
+The **sovereign bookends** are the exception: on `title` / `closing` /
+`divider` the heading and subtitle *are* the slide's content, so a
+composed measure is theirs. Two tokens serve all three
+(`lib/base/base.tokens.css`):
+
+| Token | Value | ≈ | Applies to |
+|---|---|---|---|
+| `--measure-bookend-heading` | `16em` | 33 ch | `title h1`, `closing h2`, `divider h2` |
+| `--measure-bookend-lede` | `26em` | 56 ch | `closing p`, `closing` list rows, `divider.light p` |
+
+**Where they bind: landscape, with one exception.** Portrait frames are
+narrower than either token, so both go inert; on square the heading
+measure does too. The square lede is inert inside `closing`'s frame by a
+margin of ~10px — but `divider.light` drops divider's left inset, so its
+frame is ~54px wider and the lede measure binds there by about 1em. That
+one case follows from the light variant's own framing, not from the
+measure. Override either in a deck's front-matter `style:` to compose
+differently.
+
+Body-prose measures elsewhere (`content`'s stage prose, `imagery`'s `ch`
+caps, `quote`'s blockquote) are a separate concern and stay: a reading
+measure on body copy is not a component composing its chrome.
+
+### Measure is not line balance
+
+They are orthogonal, and each fixes what the other cannot:
+
+- **The measure** decides how wide the block is.
+- **`text-wrap: balance`** decides where the breaks fall inside it.
+
+Widening a cap to cure an orphaned last word does not cure it — it moves
+it, and buys a longer line for nothing. Reach for `balance` on any
+heading that can wrap; it spends no width. It is on every bookend heading,
+on `imagery/image` + `imagery/scene`, and on the shared split note
+(`base.modifiers.css`).
+
+### Cross-reference
+
+`engineering/decisions/2026-08-02-sovereign-bookend-measures.md` — the
+measurement behind the two tokens, and why landscape was deliberately
+*not* held byte-identical.
