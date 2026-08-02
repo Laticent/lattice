@@ -197,7 +197,7 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				const cur = bindRef.current;
 				// The deck is NOT restored (the newcomer keeps "My First Deck"). Only the
 				// global flourishes are undone — close any stage the demo left open, and put
-				// the palette + mode back the way we found them (the demo reskins to cuoio and
+				// the palette + mode back the way we found them (the demo reskins to carbone and
 				// flips mode purely for show). Every terminal path routes here; the reason
 				// only picks the toast. Runs AFTER teardown (I7); the hook resets `active`.
 				cur.setPresentOpen(false);

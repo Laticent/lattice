@@ -167,12 +167,15 @@ export function CommandMenu({
 	const appearance = [
 		{
 			key: 'toggle-light-dark',
-			label: 'Toggle light dark appearance',
+			// Three stops now — system → light → dark (#1285) — so the copy says
+			// "cycle", not "toggle": naming the opposite stopped being possible the
+			// moment System joined, since System has no opposite.
+			label: 'Cycle color mode system light dark appearance',
 			node: (
 				<>
 					<Sun className="dark:hidden" />
 					<Moon className="hidden dark:block" />
-					Toggle light / dark
+					Color mode — system / light / dark
 				</>
 			),
 			onSelect: flipMode,

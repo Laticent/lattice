@@ -26,7 +26,7 @@ import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
-import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
+import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { sliceSlide } from '@/playground/architect-edits.js';
@@ -516,9 +516,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
 	const [palette, setPalette] = React.useState(() => {
 		try {
-			return localStorage.getItem('lattice-studio-palette') || 'indaco';
+			return localStorage.getItem('lattice-studio-palette') || DEFAULT_PALETTE;
 		} catch {
-			return 'indaco';
+			return DEFAULT_PALETTE;
 		}
 	});
 	const [mobilePane, setMobilePane] = React.useState<'edit' | 'preview'>('preview');
@@ -547,7 +547,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				// rendering an unresolvable name. Checked AFTER the list resolves, so a
 				// valid saved slug is never reset mid-load.
 				const p = paletteRef.current;
-				if (!BUILTIN_PALETTES.includes(p) && !list.some((t) => t.name === p)) applyPalette('indaco');
+				if (!BUILTIN_PALETTES.includes(p) && !list.some((t) => t.name === p)) applyPalette(DEFAULT_PALETTE);
 			})
 			.catch(() => setSavedThemes([]));
 	}, []);
@@ -1478,7 +1478,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	function removeTheme(t: StudioTheme) {
 		deleteStudioTheme(t.id).then(() => {
 			refreshThemes();
-			if (palette === t.name) applyPalette('indaco');
+			if (palette === t.name) applyPalette(DEFAULT_PALETTE);
 			notify(`Removed “${t.label}” from your library.`);
 		});
 	}

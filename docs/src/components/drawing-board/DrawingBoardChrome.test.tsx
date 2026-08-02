@@ -15,7 +15,7 @@ afterEach(() => {
 describe('PaletteControls on the Drawing Board (deck-theme picker via __dbChrome)', () => {
 	it('renders the deck-theme select + mode toggle', () => {
 		render(<PaletteControls palettes={['indaco', 'cuoio']} />);
-		expect(screen.getByRole('button', { name: /toggle light \/ dark/i })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /color mode/i })).toBeInTheDocument();
 		expect(screen.getByRole('combobox', { name: /theme/i })).toBeInTheDocument();
 	});
 
@@ -84,7 +84,7 @@ describe('PaletteControls on the Drawing Board (deck-theme picker via __dbChrome
 			toggleMode,
 		};
 		render(<PaletteControls palettes={['indaco']} />);
-		fireEvent.click(screen.getByRole('button', { name: /toggle light \/ dark/i }));
+		fireEvent.click(screen.getByRole('button', { name: /color mode/i }));
 		expect(toggleMode).toHaveBeenCalled();
 	});
 });

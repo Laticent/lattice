@@ -140,7 +140,7 @@ const pgData = {
 ---
 
 <!doctype html>
-<html lang="en" data-palette="indaco" data-mode="light" data-tours={previewDeploy ? 'off' : 'on'}>
+<html lang="en" data-palette="cuoio" data-mode="light" data-tours={previewDeploy ? 'off' : 'on'}>
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -212,7 +212,7 @@ const pgData = {
 				var root = document.documentElement;
 				var box = document.getElementById('pg-ssr-slidebox');
 				if (!box) return;
-				var palette = root.getAttribute('data-palette') || 'indaco';
+				var palette = root.getAttribute('data-palette') || 'cuoio';
 				var mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
 				// djb2 hex — byte-identical to `fingerprint` in playground-controller.ts, the
 				// same hash the capture stamps, so the two agree on the draft's identity.
