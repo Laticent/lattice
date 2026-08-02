@@ -3,9 +3,11 @@
 // and dependency-free so every surface can read it cheaply and the settings drawer can
 // import it without dragging the overlay/compare code into the bundle.
 //
-// Mirrors viz-overlay-prefs.ts and perf-overlay-prefs.ts: the flag is global
-// (localStorage), so flipping the "Preview fidelity" switch in the Studio (Workspace →
-// General → Diagnostics) governs the Playground and Studio preview alike. Same-page
+// Mirrors viz-overlay-prefs.ts and perf-overlay-prefs.ts, with one difference worth stating: the
+// flag is global (localStorage), but only `studio.astro` mounts this overlay, so the switch governs
+// the STUDIO preview only. With no subscriber on the Playground `hasFidelityListeners()` is false
+// and the render pipeline reports nothing there. (The sibling prefs modules claim Playground reach
+// too; whether that holds for them is their own question, pre-existing and off this path.) Same-page
 // listeners let the overlay mount / unmount live when the switch flips, and the
 // `?fidelity` URL param writes this same flag (so a phone can turn it on without
 // reaching the settings drawer). The render pipeline (single-slide-render.ts) only

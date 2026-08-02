@@ -2310,7 +2310,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
   (`DECK_DERIVED_FACTS`) forces the whole-deck render for the rest. A symptom like
   this means the registry has a hole, or a supplied position was wrong.
 - **Mitigation:** Turn on **Preview fidelity** (Workspace → General → Diagnostics,
-  or `?fidelity`). It reports which route the shown slide took, which registry fact
+  or `?fidelity`) — **Studio only**; the overlay is not mounted on the Playground. It reports which route the shown slide took, which registry fact
   forced it, and what position was supplied — and **render both ways and diff** compares
   the two renders and names what differs: an attribute, a class token, or the words,
   one row each. On the *fast* route a difference is the bug; on the *whole-deck* route

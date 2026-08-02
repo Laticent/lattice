@@ -24,6 +24,7 @@
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
 import {
+	alignmentFailure,
 	classifyDivergence,
 	normalizeSection,
 	SHIPPED_NEUTRALIZERS,
@@ -506,8 +507,9 @@ function supplyablePosition(deck: string, slideIndex: number | undefined, slideC
 		: undefined;
 }
 
+/** "Is that list non-empty" — literally, so the two cannot drift apart. */
 function needsDeckContext(deck: string): boolean {
-	return DECK_DERIVED_FACTS.some((f) => f.probes.some((p) => p.test(deck)) || (f.test ? f.test(deck) : false));
+	return deckDerivedFactsFor(deck).length > 0;
 }
 
 // ── Whole-deck render memo — ONE entry, module-level ─────────────────────────
@@ -810,7 +812,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		//   · `slideMarkdown` — the shown slide alone (front matter + that slide). Rendered as
 		//     the fallback when the counts disagree: the right slide, numbered 1 of 1.
 		// Existing callers omit all of it → the whole render is shown, unchanged.
-		opts?: { slideIndex?: number; slideCount?: number; slideMarkdown?: string },
+		opts?: {
+			slideIndex?: number;
+			slideCount?: number;
+			slideMarkdown?: string;
+			/** Marks THE preview the author is looking at — the one the fidelity overlay may describe.
+			 *  Opt-IN, and it fails closed: see the report gate below. */
+			focused?: boolean;
+		},
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
@@ -869,9 +878,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// (positionIsTrustworthy). Otherwise omit it and let the slide number itself 1 of 1 —
 				// the honest fallback, never a plausible wrong number.
 				// LAZY, and the laziness is load-bearing. `supplyablePosition` runs two regex sweeps over
-				// the WHOLE deck source (positionIsTrustworthy + deckSectionFor), measured at 0.43ms on
-				// the 40-slide deck the perf spec builds and 1.35ms on the full gallery — ×4 under the
-				// throttle those baselines were captured at. Computing it eagerly for both routes paid
+				// the WHOLE deck source (positionIsTrustworthy + deckSectionFor). Measured in Node,
+				// unthrottled: ~0.14ms on the 40-slide deck the perf spec builds, ~0.31ms on the full
+				// gallery — so roughly 0.5ms and 1.3ms at the 4× throttle the 46.3ms p50 baseline was
+				// captured under. (Node timings, not a Playwright measurement, and no committed bench
+				// scenario covers it.) Computing it eagerly for both routes paid
 				// that on every keystroke of every deck already taking the slow path, to produce a value
 				// only the diagnostic's compare closure reads, and only on a button press. So the slice
 				// route computes it directly (the short-circuit it always had) and the counterfactual
@@ -1005,13 +1016,25 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// diffing them — hangs off `compare()`, which the overlay calls on a button press.
 				// Running it per keystroke would reintroduce exactly the whole-deck cost this
 				// machinery exists to remove.
-				if (hasFidelityListeners() && typeof opts?.slideIndex === 'number') {
+				// OPT-IN, and deliberately fail-closed. Three surfaces drive this renderer with a
+				// `slideIndex` — the editor preview, the Present overlay, and EVERY VISIBLE TILE of the
+				// slide-overview grid — and the findings store is one module-level slot. Publishing from
+				// all of them meant opening the overview re-pointed the panel at whichever tile rendered
+				// last, and it kept describing that tile after the modal closed: a confident, wrong,
+				// actionable readout about a slide the author is not looking at. The generation token
+				// prevents that ACROSS TIME; it does nothing across HOSTS.
+				//
+				// A host must now say it is the focused preview. An unmarked host renders exactly as
+				// before and simply does not publish, so the failure mode of forgetting the flag is a
+				// silent panel — visible and honest — rather than a lie.
+				if (hasFidelityListeners() && opts?.focused && typeof opts?.slideIndex === 'number') {
 					const slideIndex = opts.slideIndex;
 					const slideMarkdown = opts.slideMarkdown;
 					const slideCount = opts.slideCount;
 					// The ROUTE THAT PAINTED THE SLIDE, not the one the gate asked for — see fellBackToSlice.
 					const painted = wantsContext && !fellBackToSlice ? 'whole-deck' : 'slice';
 					recordFidelity({
+						slideIndex,
 						path: painted,
 						facts: painted === 'whole-deck' ? deckDerivedFactsFor(markdown) : [],
 						page: painted === 'slice' ? slicePage : undefined,
@@ -1047,16 +1070,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										// the argument for reconciling the two slide splitters, logged in the decision
 										// note rather than widened here.)
 										const sections = sectionsOf(deckOut.html);
-										const opens = (deckOut.html.match(/<section\b/g) || []).length;
-										if (opens !== sections.length)
-											return { equal: null, why: 'the deck contains nested or unbalanced `<section>` markup, so the slides cannot be told apart' };
-										if (typeof slideCount !== 'number')
-											return { equal: null, why: 'this view does not know how many slides the deck has, so an index cannot identify one' };
-										if (sections.length !== slideCount)
-											return { equal: null, why: `the deck renders ${sections.length} slides where the editor counts ${slideCount}, so an index can't identify this one` };
+										const why = alignmentFailure(deckOut.html, sections, slideCount, slideIndex);
+										if (why) return { equal: null, why };
 										const want = sections[slideIndex];
-										if (want === undefined)
-											return { equal: null, why: 'the deck renders no slide at this index' };
 										// SHIPPED_NEUTRALIZERS, not the headless sweep's: a wrong page number or
 										// rail is precisely what an author turns this on to find, so those stay in.
 										const a = normalizeSection(sectionsOf(sliceOut.html)[0] ?? '', SHIPPED_NEUTRALIZERS);

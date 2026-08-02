@@ -22,6 +22,10 @@ export type FidelityComparison =
 	| { equal: null; why: string };
 
 export type FidelityReport = {
+	/** WHICH slide this report describes. Carried so the panel can say so rather than leaving the
+	 *  reader to assume it means the slide they are looking at — see the `focused` gate in
+	 *  single-slide-render.ts for why that assumption was not safe. */
+	slideIndex: number;
 	path: FidelityPath;
 	/** Names of the DECK_DERIVED_FACTS that forced the whole-deck render. Empty on the slice path. */
 	facts: string[];

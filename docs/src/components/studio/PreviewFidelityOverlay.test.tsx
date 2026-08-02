@@ -52,7 +52,7 @@ describe('PreviewFidelityOverlay — the compare cannot get stuck', () => {
 
 		// A report the overlay can act on. `compare` never settles until this test says so.
 		await act(async () => {
-			recordFidelity({ path: 'slice', facts: [], page: { offset: 0, total: 3 }, at: 1, compare: () => first.promise });
+			recordFidelity({ slideIndex: 0, path: 'slice', facts: [], page: { offset: 0, total: 3 }, at: 1, compare: () => first.promise });
 		});
 		expect(diffButton()).not.toBeDisabled();
 
@@ -66,7 +66,7 @@ describe('PreviewFidelityOverlay — the compare cannot get stuck', () => {
 		// A NEW render lands while the compare is still open. This is the whole defect: the compare
 		// is now superseded, so its generation-guarded finally will decline to touch anything.
 		await act(async () => {
-			recordFidelity({ path: 'slice', facts: [], page: { offset: 1, total: 3 }, at: 2, compare: () => deferred<{ equal: true }>().promise });
+			recordFidelity({ slideIndex: 0, path: 'slice', facts: [], page: { offset: 1, total: 3 }, at: 2, compare: () => deferred<{ equal: true }>().promise });
 		});
 
 		// The superseded compare finally settles, into the branch that ignores it.
@@ -88,13 +88,13 @@ describe('PreviewFidelityOverlay — the compare cannot get stuck', () => {
 		const stale = deferred<{ equal: true }>();
 		render(<PreviewFidelityOverlay />);
 		await act(async () => {
-			recordFidelity({ path: 'slice', facts: [], page: { offset: 0, total: 2 }, at: 1, compare: () => stale.promise });
+			recordFidelity({ slideIndex: 0, path: 'slice', facts: [], page: { offset: 0, total: 2 }, at: 1, compare: () => stale.promise });
 		});
 		await act(async () => {
 			diffButton().click();
 		});
 		await act(async () => {
-			recordFidelity({ path: 'slice', facts: [], page: { offset: 1, total: 2 }, at: 2, compare: () => deferred<{ equal: true }>().promise });
+			recordFidelity({ slideIndex: 0, path: 'slice', facts: [], page: { offset: 1, total: 2 }, at: 2, compare: () => deferred<{ equal: true }>().promise });
 		});
 		await act(async () => {
 			stale.resolve({ equal: true });
@@ -112,7 +112,7 @@ describe('PreviewFidelityOverlay — the compare cannot get stuck', () => {
 		const only = deferred<{ equal: true }>();
 		render(<PreviewFidelityOverlay />);
 		await act(async () => {
-			recordFidelity({ path: 'slice', facts: [], page: { offset: 0, total: 2 }, at: 1, compare: () => only.promise });
+			recordFidelity({ slideIndex: 0, path: 'slice', facts: [], page: { offset: 0, total: 2 }, at: 1, compare: () => only.promise });
 		});
 		await act(async () => {
 			diffButton().click();

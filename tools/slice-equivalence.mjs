@@ -95,6 +95,8 @@ function measure() {
 	let slides = 0;
 	let matched = 0;
 	let preludes = 0;
+	let measured = 0;
+	const skipped = [];
 	const byDeck = new Map();
 	const byCause = new Map();
 
@@ -109,8 +111,15 @@ function measure() {
 			continue;
 		}
 		// 1→N expanders (`_focusSteps`, `split: headings`) have no 1:1 slide↔section pairing.
-		if (full.length !== chunks.length) continue;
+		// COUNTED, not just skipped: a deck leaving the measurement changes the DENOMINATOR, and
+		// because the skipped decks tend to be the badly-matching ones, a change that makes the worst
+		// deck unmeasurable reads as an improvement. Three decks / 13 slides drop out today.
+		if (full.length !== chunks.length) {
+			skipped.push(`${path.basename(file)} (${chunks.length} chunks, ${full.length} sections)`);
+			continue;
+		}
 
+		measured += 1;
 		chunks.forEach((chunk, k) => {
 			const prelude = synthesizePrelude(chunks, k, VOCAB);
 			if (prelude) preludes += 1;
@@ -133,7 +142,7 @@ function measure() {
 			byCause.set(cause, (byCause.get(cause) || 0) + 1);
 		});
 	}
-	return { slides, matched, preludes, rate: +((matched / slides) * 100).toFixed(1), byDeck, byCause };
+	return { slides, matched, preludes, decks: measured, skipped, rate: +((matched / slides) * 100).toFixed(1), byDeck, byCause };
 }
 
 const r = measure();
@@ -145,7 +154,8 @@ console.log(`slides given a NON-EMPTY prelude: ${r.preludes}${r.preludes === 0 ?
 // ASSERTION ABOUT WHAT SHIPS ("pagination and rail are repaired, so ignore them"), nothing pins it
 // to reality, and it is worth ~81 of the 91.9 points. A reader who cannot see it cannot judge the
 // number. When the next repair lands (`seedRenderIds`), this list is what has to change.
-console.log(`ignoring (already repaired): ${Object.keys(PROTOTYPE_NEUTRALIZERS).join(', ')}\n`);
+console.log(`ignoring (already repaired): ${Object.keys(PROTOTYPE_NEUTRALIZERS).join(', ')}`);
+console.log(`decks measured: ${r.decks}${r.skipped.length ? `  ·  skipped ${r.skipped.length}: ${r.skipped.join(', ')}` : ''}\n`);
 console.log('residual by cause:');
 for (const [c, n] of [...r.byCause].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${c}`);
 console.log('\nresidual by deck (top 8):');
@@ -153,7 +163,7 @@ for (const [d, n] of [...r.byDeck].sort((a, b) => b[1] - a[1]).slice(0, 8)) cons
 
 if (mode === '--bless') {
 	fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
-	fs.writeFileSync(BASELINE, `${JSON.stringify({ slides: r.slides, matched: r.matched, preludes: r.preludes, rate: r.rate }, null, 2)}\n`);
+	fs.writeFileSync(BASELINE, `${JSON.stringify({ decks: r.decks, slides: r.slides, matched: r.matched, preludes: r.preludes, rate: r.rate }, null, 2)}\n`);
 	console.log(`\nblessed → ${path.relative(ROOT, BASELINE)}`);
 } else if (mode === '--check') {
 	if (!fs.existsSync(BASELINE)) {
@@ -163,6 +173,16 @@ if (mode === '--bless') {
 	const base = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
 	const delta = +(r.rate - base.rate).toFixed(1);
 	console.log(`\nbaseline ${base.rate}%  ->  now ${r.rate}%  (${delta >= 0 ? '+' : ''}${delta})`);
+	// THE DENOMINATOR IS PART OF THE CLAIM. Comparing the rate alone let three things through
+	// silently: a deck dropping out of the measurement (which makes the rate go UP, because the
+	// skipped decks are the badly-matching ones), the corpus growing or shrinking, and the prelude
+	// count going 0 → 1201 (the synthesizer over-firing). All four blessed fields are now compared;
+	// only `rate` gets a band, because only `rate` is expected to drift.
+	const exact = ['decks', 'slides', 'preludes'].filter((k) => base[k] !== undefined && base[k] !== r[k]);
+	if (exact.length) {
+		for (const k of exact) console.error(`FAIL — ${k}: baseline ${base[k]}, now ${r[k]}. The measurement changed shape, so the rate is not comparable.`);
+		process.exit(1);
+	}
 	if (delta < -BAND) {
 		console.error(`FAIL — dropped more than ${BAND} points. Re-bless only with a reason.`);
 		process.exit(1);

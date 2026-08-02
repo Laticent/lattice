@@ -309,3 +309,66 @@ test('a visible hue difference is NOT hidden behind an invisible id difference',
   assert.equal(core.classifyDivergence(got, want), 'cat-N + generated ids');
   assert.match(core.classifyDivergence(got, want), /cat-N/);
 });
+
+// ── alignmentFailure — the guard the compare closure depends on ───────────────
+// Extracted from the compare because nothing at any tier executed it: not the unit suite, not the
+// PR gate, not even the nightly e2e. It is the check that stops an index-based lookup from quoting
+// a slide the author did not select (examples/focus.md: 11 authored slides, 14 engine sections).
+
+const SECT = (n) => Array.from({ length: n }, (_, i) => `<section>${i}</section>`);
+
+test('alignmentFailure passes when the counts agree and the index is in range', () => {
+  const html = SECT(3).join('');
+  assert.equal(core.alignmentFailure(html, core.sectionsOf(html), 3, 1), undefined);
+});
+
+test('alignmentFailure catches a 1→N expansion', () => {
+  const html = SECT(14).join('');
+  assert.match(core.alignmentFailure(html, core.sectionsOf(html), 11, 10), /renders 14 slides where the editor counts 11/);
+});
+
+test('alignmentFailure catches nested `<section>` markup the flat split mis-pairs', () => {
+  // Two opens, one non-greedy match — the count check alone would not see this.
+  const html = '<section><section>inner</section></section>';
+  const sections = core.sectionsOf(html);
+  assert.equal(sections.length, 1);
+  assert.match(core.alignmentFailure(html, sections, 1, 0), /nested or unbalanced/);
+});
+
+test('alignmentFailure refuses when the caller does not know the slide count', () => {
+  const html = SECT(3).join('');
+  assert.match(core.alignmentFailure(html, core.sectionsOf(html), undefined, 0), /does not know how many slides/);
+});
+
+test('alignmentFailure refuses an out-of-range or fractional index', () => {
+  const html = SECT(3).join('');
+  for (const i of [3, -1, 1.5, Number.NaN]) assert.match(core.alignmentFailure(html, core.sectionsOf(html), 3, i), /no slide at this index/);
+});
+
+// ── The core fixes a hostile read turned up ──────────────────────────────────
+
+test('splitSlides handles CRLF decks', () => {
+  // Without `\r?` on the boundary a CRLF deck collapses to one chunk, misaligns, and is dropped
+  // from the sweep with no output — a corpus can shrink invisibly.
+  assert.equal(core.splitSlides('# One\r\n\r\n---\r\n\r\n# Two\r\n').length, 2);
+});
+
+test('the rail neutralizer survives a nested <div> inside the rail', () => {
+  // lib/core/split-envelope.js documents and refuses the non-greedy form for exactly this.
+  const withRail = '<section><div class="tile-progress"><div><i></i></div></div><p>x</p></section>';
+  const without = '<section><p>x</p></section>';
+  assert.equal(core.normalizeSection(withRail, core.PROTOTYPE_NEUTRALIZERS), core.normalizeSection(without, core.PROTOTYPE_NEUTRALIZERS));
+});
+
+test('synthesizePrelude ignores a directive shown inside a fenced code block', () => {
+  const slides = ['# Teaching\n\n```md\n<!-- header: Example -->\n```\n', '# Two'];
+  assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '');
+});
+
+test('a page-number difference is an attribute row, not a "the words differ" row', () => {
+  const got = '<section data-lattice-pagination="1"><p>Same words</p><span class="lat-pagination">1</span></section>';
+  const want = '<section data-lattice-pagination="3"><p>Same words</p><span class="lat-pagination">3</span></section>';
+  const kinds = core.diffSections(got, want).map((d) => d.kind);
+  assert.ok(kinds.includes('attribute'), 'the pagination attribute must be named');
+  assert.ok(!kinds.includes('text'), 'the words are identical — reporting "text" tells the author these are different slides');
+});

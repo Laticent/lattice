@@ -87,7 +87,11 @@ const METRICS: Metric[] = [
 			// Reachable with an EMPTY fact list: a host that asks to narrow to a slide without handing
 			// over that slide's markdown has no slice to fall back to, so it keeps the deck render
 			// whatever the registry says. Saying nothing here left the slow route looking unexplained.
-			return r.facts.length ? 'remove what it names and this deck returns to the fast route.' : 'this view has no single-slide source to render from, so the deck render is the only option.';
+			// NOT "remove what it names": a probe can match a directive shown inside a code span on a
+			// deck that teaches Lattice authoring, and then there is nothing to remove. Over-triggering
+			// used to be invisible (a wasted parse, correct output); naming it to the author makes a
+			// wrong-but-confident instruction possible, so the wording stays descriptive.
+			return r.facts.length ? 'the deck matched this probe — including, occasionally, a directive merely SHOWN in example code.' : 'this view has no single-slide source to render from, so the deck render is the only option.';
 		},
 	},
 	{
@@ -96,7 +100,10 @@ const METRICS: Metric[] = [
 		value: (r) => {
 			if (r.path === 'whole-deck') return 'counted';
 			if (!r.page) return 'withheld';
-			const sec = r.page.deckSection ? ` · sec ${r.page.deckSection.index}/${r.page.deckSection.total}` : '';
+			// index 0 means "before the first divider" — the engine reads that as NO section, so printing
+			// `sec 0/1` reads as an off-by-one in a readout whose only job is legibility.
+			const ds = r.page.deckSection;
+			const sec = ds && ds.index > 0 ? ` · sec ${ds.index}/${ds.total}` : '';
 			return `${r.page.offset + 1}${r.page.total ? ` of ${r.page.total}` : ''}${sec}`;
 		},
 		what: 'The place in the deck handed to the engine, so a slide drawn alone still prints a true page number and lights the right dot on the progress rail. On the slow route the engine counts for itself instead.',
@@ -218,7 +225,7 @@ function Overlay() {
 	return (
 		<DiagnosticPanel
 			posKey="lattice-fidelity-overlay-pos"
-			label="preview fidelity · live"
+			label={`preview fidelity · slide ${report ? report.slideIndex + 1 : '—'}`}
 			onClose={() => setFidelityOverlayEnabled(false)}
 			closeLabel="Hide preview fidelity"
 			testId="preview-fidelity-overlay"
