@@ -55,6 +55,18 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **The Studio's welcome deck said 53 components; the engine ships 61 — and the landing page now
+  points every visitor at that deck.** The count is corrected, and a drift test
+  (`test/unit/playground/welcome-deck-counts.test.js`) holds it to `loadAll().length` so the two
+  can't separate again silently — the deck is a hand-written module and the catalog is generated,
+  which is exactly how they drifted apart with nothing to catch it. The same deck also carried
+  three pieces of the auto-generation vocabulary the copy review retired everywhere else
+  ("composes itself", "designs itself", "instantly"); those are rewritten with the engine as the
+  actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
+  the conversion path, so it is fixed rather than filed.
+
 ### Changed
 
 - **The landing page leads with the Studio — two doors into one engine, not three products.** The
