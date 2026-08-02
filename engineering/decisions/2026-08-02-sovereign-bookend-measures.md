@@ -1,20 +1,6 @@
 ---
 status: shipped
-summary: >
-  The sovereign bookends' width caps were a fraction of the SLIDE (`cqi`) where they meant a
-  count of CHARACTERS, so one declaration set ~22 characters on landscape and ~12 on portrait —
-  `--fs-*` is curated per orientation, and the two only agree while the type size holds still.
-  Re-expressed as two named `em` tokens — `--measure-bookend-heading: 16em` (≈33 characters) and
-  `--measure-bookend-lede: 26em` (≈56) — so one number means one measure on every slide shape,
-  plus `text-wrap: balance` on the headings, which fixes the orphan the cap was wrongly blamed
-  for. Six declarations read the tokens, across eight rules that change, in `title` / `closing` /
-  `divider`. Measured over 48 text boxes × 3 orientations: 469 → 306 rendered lines, clipped
-  bookend slides 12 → 3 (all three survivors pre-existing), and NOT ONE box gained a line. Both
-  tokens go inert on portrait, and the heading measure on square too; the one place a cap still
-  binds a narrow frame is `divider.light`'s subtitle, whose frame is wider than every other
-  bookend's because the light variant drops divider's left inset. Landscape was NOT held
-  byte-identical — that was available and was declined, because holding it would have meant
-  keeping the same too-tight number.
+summary: The sovereign bookends' width caps were a fraction of the SLIDE (`cqi`) where they meant a count of CHARACTERS, so one declaration set ~22 characters per line on landscape and ~12 on portrait — `--fs-*` is curated per orientation, and the two only agree while the type size holds still. Re-expressed as two named `em` tokens, `--measure-bookend-heading: 16em` (~33 characters) and `--measure-bookend-lede: 26em` (~56), so one number means one measure on every slide shape; plus `text-wrap: balance` on the headings, which fixes the orphan the cap was wrongly blamed for. Six declarations read the tokens across eight rules that change, in title / closing / divider. Measured over 48 text boxes x 3 orientations: 469 -> 306 rendered lines, clipped bookend slides 12 -> 3 (all three survivors pre-existing), and not one box gained a line. Both tokens go inert on portrait and the heading measure on square too; the one place a cap still binds a narrow frame is divider.light's subtitle, whose frame is wider than every other bookend's because the light variant drops divider's left inset. Landscape was NOT held byte-identical — that was available and was declined, because holding it would have meant keeping the same too-tight number.
 ---
 
 # A bookend measure is a count of characters, not a fraction of the slide
