@@ -231,6 +231,9 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
+| `equiv` | **TODO: describe `equiv` in tools/build-capabilities.js (SCRIPT_META).** |
+| `equiv:bless` | **TODO: describe `equiv:bless` in tools/build-capabilities.js (SCRIPT_META).** |
+| `equiv:check` | **TODO: describe `equiv:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -371,3 +374,4 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/golden-diff.mjs` | Post a PR comment + before/after montage of the gallery slides whose committed golden moved vs the base branch. |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
+| `tools/slice-equivalence.js` | Slice/deck equivalence — the instrument for structural gating |
