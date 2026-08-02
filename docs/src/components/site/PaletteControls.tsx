@@ -1,9 +1,9 @@
-import { Moon, Sun } from 'lucide-react';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import * as React from 'react';
 import { PaletteSelectItems } from '@/components/site/PaletteSelectItems';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MODE_KEY, type Mode, PALETTE_KEY, setPalette, syncFromStorage, toggleMode } from '@/lib/site-chrome';
+import { cycleModePref, DEFAULT_PALETTE, MODE_KEY, type Mode, type ModePref, PALETTE_KEY, setPalette, syncFromStorage, watchSystemMode } from '@/lib/site-chrome';
 
 // The Drawing Board's deck-theme-writing chrome bus (present ONLY on that route).
 // When it exists, a pick WRITES the deck's `theme:` front matter (authoring) and
@@ -42,8 +42,11 @@ declare global {
  * picking there moves to the command palette and the mobile menu.
  */
 export default function PaletteControls({ palettes, compact = false }: { palettes: string[]; compact?: boolean }) {
-	const [palette, setPaletteState] = React.useState(palettes[0] ?? 'indaco');
+	const [palette, setPaletteState] = React.useState(palettes[0] ?? DEFAULT_PALETTE);
 	const [mode, setModeState] = React.useState<Mode>('light');
+	// The PREFERENCE, tracked beside the resolved mode: 'system' and a pin that happens
+	// to match the OS render identically, and the control has to tell them apart (#1285).
+	const [pref, setPrefState] = React.useState<ModePref>('system');
 	// The Drawing Board bus can push a richer list (e.g. saved Workbench library
 	// themes) after mount; start from the SSR set and let the bus widen it.
 	const [opts, setOpts] = React.useState(palettes);
@@ -56,6 +59,9 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 			if (!b) return false;
 			setPaletteState(b.getPalette());
 			setModeState(b.getMode());
+			// The deck-authoring bus speaks only light/dark; there is no OS-following
+			// stop to report on that surface, so show the resolved mode as a pin.
+			setPrefState(b.getMode());
 			const ps = b.getPalettes();
 			if (ps.length) setOpts(ps);
 			return true;
@@ -64,6 +70,7 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 			const s = syncFromStorage();
 			setPaletteState(s.palette);
 			setModeState(s.mode);
+			setPrefState(s.pref);
 		};
 		// Prefer the bus when it's already wired (Drawing Board); else read storage.
 		if (!pullBus()) syncChrome();
@@ -72,6 +79,7 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 			if (!d) return void pullBus();
 			setPaletteState(d.palette);
 			setModeState(d.mode);
+			setPrefState(d.mode);
 			if (d.palettes?.length) setOpts(d.palettes);
 		};
 		const onShow = () => {
@@ -82,11 +90,16 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 			if (!bus()) syncChrome();
 		};
 		// db-chrome-* fire only on the Drawing Board; storage only matters off it.
+		// A 'system' preference must keep following the OS, not freeze on the value it
+		// resolved to at mount — otherwise System means only "the OS's answer when this
+		// tab loaded", which is the frozen behavior the stop exists to fix.
+		const unwatch = watchSystemMode(setModeState);
 		window.addEventListener('db-chrome-ready', pullBus);
 		window.addEventListener('db-chrome-sync', onSync as EventListener);
 		window.addEventListener('pageshow', onShow);
 		window.addEventListener('storage', onStorage);
 		return () => {
+			unwatch();
 			window.removeEventListener('db-chrome-ready', pullBus);
 			window.removeEventListener('db-chrome-sync', onSync as EventListener);
 			window.removeEventListener('pageshow', onShow);
@@ -102,9 +115,28 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 	};
 	const onMode = () => {
 		const b = window.__dbChrome;
-		const next = b ? b.toggleMode() : toggleMode();
-		if (next) setModeState(next);
+		if (b) {
+			// Deck-authoring surface: two stops only (it writes a deck's own mode).
+			const next = b.toggleMode();
+			if (next) {
+				setModeState(next);
+				setPrefState(next);
+			}
+			return;
+		}
+		const nextPref = cycleModePref();
+		setPrefState(nextPref);
+		// cycleModePref has already stamped <html>; read the resolved value back off
+		// it rather than re-deriving what 'system' means a second time.
+		setModeState(document.documentElement.getAttribute('data-mode') === 'dark' ? 'dark' : 'light');
 	};
+
+	// Names the CURRENT stop, and for System says what it currently resolves to —
+	// otherwise "System" and a pin to the same value are indistinguishable to a
+	// screen reader as well as to the eye. It deliberately does NOT promise the
+	// next stop: the cycle order is derived from the OS (see cycleModePref), so a
+	// hardcoded "click for dark" would be wrong half the time.
+	const modeLabel = `Color mode: ${pref === 'system' ? `System (${mode})` : pref === 'light' ? 'Light' : 'Dark'} — click to change`;
 
 	return (
 		<div className="flex items-center gap-2">
@@ -132,10 +164,13 @@ export default function PaletteControls({ palettes, compact = false }: { palette
 				variant="outline"
 				size="icon-sm"
 				onClick={onMode}
-				aria-label="Toggle light / dark"
-				title="Toggle light / dark"
+				aria-label={modeLabel}
+				title={modeLabel}
 			>
-				{mode === 'dark' ? <Sun /> : <Moon />}
+				{/* The icon names the CURRENT stop, not the next one — System has no
+				    opposite to point at, so "what happens if I click" stops being
+				    expressible the moment there are three stops. */}
+				{pref === 'system' ? <Monitor /> : pref === 'dark' ? <Moon /> : <Sun />}
 			</Button>
 		</div>
 	);

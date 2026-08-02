@@ -119,7 +119,7 @@ export type SingleSlideOptions = {
 export function currentPaletteMode(paletteOverride?: string): { palette: string; mode: 'light' | 'dark' } {
 	const root = document.documentElement;
 	return {
-		palette: paletteOverride || root.getAttribute('data-palette') || 'indaco',
+		palette: paletteOverride || root.getAttribute('data-palette') || 'cuoio',
 		mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
 	};
 }

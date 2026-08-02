@@ -90,7 +90,7 @@ export function createEngineBridge(
 	 */
 	function prefetchTheme(): void {
 		const root = document.documentElement;
-		const palette = root.getAttribute('data-palette') || 'indaco';
+		const palette = root.getAttribute('data-palette') || 'cuoio';
 		const mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
 		void themes.fetch('lattice').catch(() => {});
 		void themes.fetch(palette).catch(() => {});

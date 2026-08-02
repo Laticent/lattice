@@ -152,6 +152,16 @@ export function revealSlide(
 	];
 }
 
+/** The palette the demo reskins TO. It must not be the default palette, or the
+ *  flourish repaints the deck in the colors it is already wearing and the beat
+ *  reads as a no-op. Carbone is the deliberate opposite of the cuoio default: an
+ *  industrial graphite that is unmistakably a different deck (#1285). Note it is
+ *  the one dark-PINNED palette (themes/carbone.css), so this beat also lands as a
+ *  dark deck regardless of the site's light/dark mode — which is the point of the
+ *  "layouts hold, only the palette moves" claim, and is why the following step
+ *  still has a mode flip to show. */
+const RESKIN_PALETTE = 'carbone';
+
 /** Reskin the deck via a theme, then flip light/dark — the "layouts hold, only the palette moves"
  *  beat. The theme picker (`[aria-label="Choose deck theme"]`) lives INSIDE the deck-scope Inspector on
  *  BOTH surfaces (a docked column on desktop, a sheet on a phone), so open it first — otherwise the
@@ -160,7 +170,7 @@ export function revealSlide(
 export function reskin(mobile: boolean, say: string, modeSay: string): TourStep[] {
 	return [
 		{ say, read: true, act: (a) => a.openInspector(true), settle: mobile ? 500 : 400 },
-		{ point: SEL.theme, click: true, act: (a) => a.setPalette('cuoio'), circle: SEL.preview, settle: 800 },
+		{ point: SEL.theme, click: true, act: (a) => a.setPalette(RESKIN_PALETTE), circle: SEL.preview, settle: 800 },
 		{
 			say: modeSay,
 			read: true,

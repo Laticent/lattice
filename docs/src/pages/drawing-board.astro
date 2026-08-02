@@ -179,7 +179,7 @@ const dbData = JSON.stringify({
 	// chrome paints, not eagerly in <head>. See the engine <script> near the body
 	// end + engineering/decisions/2026-06-09-shadcn-migration.md (perf phase).
 	engineUrl: url(pg + 'lattice-playground.js'),
-	defaultPalette: 'indaco',
+	defaultPalette: 'cuoio',
 	// Self-hosted @font-face block for the preview iframe. The engine's
 	// Google-Fonts @import is inert inside the srcdoc <style> (it lands after
 	// other rules; CSS ignores an @import that isn't first), so the iframe loads
@@ -200,7 +200,7 @@ const dbData = JSON.stringify({
 ---
 
 <!doctype html>
-<html lang="en" data-palette="indaco" data-mode="light" data-tours={isPreviewDeploy ? 'off' : 'on'}>
+<html lang="en" data-palette="cuoio" data-mode="light" data-tours={isPreviewDeploy ? 'off' : 'on'}>
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
