@@ -42,10 +42,12 @@ test('switching the palette re-themes every slide with no overflow', async ({ pa
 	const accentBefore = await slideToken(page, '--accent');
 	expect(accentBefore).not.toBe('');
 
-	// Re-brand: pick a different palette from the topbar.
+	// Re-brand: pick a different palette from the topbar. It must differ from the
+	// DEFAULT (cuoio since #1285) — the assertion below is that the resolved accent
+	// CHANGES, which a re-pick of the palette already in effect cannot satisfy.
 	await page.getByRole('button', { name: 'Theme' }).click();
-	await page.getByRole('menuitem', { name: 'Cuoio' }).click();
-	await expect.poll(() => readStorage(page, 'lattice-studio-palette')).toBe('cuoio');
+	await page.getByRole('menuitem', { name: 'Burgundy' }).click();
+	await expect.poll(() => readStorage(page, 'lattice-studio-palette')).toBe('burgundy');
 
 	// The cause propagated INTO the render: the resolved accent actually changed.
 	await expect.poll(() => slideToken(page, '--accent')).not.toBe(accentBefore);
