@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 665 files carry one — 3,123 prose/code lines plus 253 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (37 files, intended), the FILE FORMAT (195 files — LFM is Marpit-compatible by design, so these can never leave without breaking the format), the marp-vscode live-preview compatibility tax (292 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (122). Actual drift: 19 files fixed here — 12 found by hand, then 7 more (four sibling resolvers, lib/engine/css.js, design/forms.md again, and lib/integrations/markdown-it/markdown-it.docs.md) surfaced only after an independent checker found the tool's rewrite detector was near-inert and its OVERRIDES were suppressing the very signal the register promised would catch a regression. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
+summary: Every Marp reference in the tracked tree, classified by disposition and made regenerable. 665 files carry one — 3,123 prose/code lines plus 253 `marp: true` front-matter keys. The answer to "why does Marp linger beyond being an export target" is that it lingers in four separate ways, and only one of them is the export target: the export channel (37 files, intended), BORROWED VOCABULARY (195 files — LFM is PROPRIETARY and already NOT Marp-parseable; Marp compatibility belongs in a transformation at the export boundary, which today does not exist: the exporter passes LFM through verbatim), the marp-vscode live-preview compatibility tax (292 files, the largest bucket, and the ONLY genuinely optional one — it exists solely because the 2026-07-09 audit's §5(b) decided on 2026-07-10 to keep marp-vscode as a first-party preview surface), and frozen history plus porting provenance (122). Actual drift: 19 files fixed here — 12 found by hand, then 7 more (four sibling resolvers, lib/engine/css.js, design/forms.md again, and lib/integrations/markdown-it/markdown-it.docs.md) surfaced only after an independent checker found the tool's rewrite detector was near-inert and its OVERRIDES were suppressing the very signal the register promised would catch a regression. `node tools/marp-inventory.mjs` regenerates the whole register, which is the point — the two prior audits were hand-written and stale within days.
 ---
 
 # The Marp reference register — what is left, and what each piece is for
@@ -25,18 +25,24 @@ tree stands **after** this change's fixes — re-run the tool to confirm:
 | What | Files | Can it go? |
 |---|---:|---|
 | **The export channel** | 37 | No — it *is* the product surface |
-| **The file format** | 195 | No — LFM is Marpit-compatible *by design* |
+| **Borrowed vocabulary** | 195 | Shrinks — LFM is proprietary; compat moves into the export transform |
 | **The marp-vscode preview tax** | 292 | **Yes — but only as a block, and only by revisiting one decision** |
 | **Frozen history + porting provenance** | 122 | No — dated records and attribution |
 | **Actual drift** | *(19, fixed here)* | **Gone — 0 actionable files remain** |
 
-The headline: **the largest bucket is not the export target and not residue —
-it is the VS Code live preview.** 292 files (236 of them nothing but a `marp: true`
-key on a deck, 3 more carrying it alongside prose) exist so that opening a `.md` in the "Marp for VS Code"
-extension shows something recognizable. That surface runs raw `marp-core`, not
-our engine. It is the single lever that would meaningfully cut the Marp
-footprint, it was explicitly considered and **kept** on 2026-07-10, and nothing
-has changed since to reopen it. §5.
+The headline: **the largest bucket is neither the export target nor residue —
+it is the VS Code live preview.** 292 files (236 of them nothing but a
+`marp: true` key on a deck) exist so that opening a `.md` in the "Marp for
+VS Code" extension shows something recognizable. That surface runs raw
+`marp-core`, not our engine.
+
+**The direction set on 2026-08-02 changes what that bucket even means.** Marp
+becomes a pure export target reached by an explicit transformation, and LFM is
+free to evolve — starting with `_class` → `layout`. Once LFM is no longer
+Marp-parseable, previewing *our source* in marp-vscode is impossible **by
+construction**, so the bucket collapses to "preview the **exported** bundle."
+That also dissolves the UNVERIFIED webview question in §5: it stops mattering
+for our source. §2 and §5b carry the reasoning.
 
 Genuinely wrong: **19 files**, all fixed here — 12 found by hand, then 7 more
 that only surfaced once an independent checker showed the tool could not see
@@ -82,7 +88,7 @@ row in either is the signal that something drifted.
 | Disposition | Files | Lines | `marp: true` | Verdict |
 |---|---:|---:|---:|---|
 | `export` | 37 | 358 | 1 | **KEEP** — the Export-to-Marp channel |
-| `interop` | 195 | 464 | 10 | **KEEP** — Marpit file-format compatibility |
+| `interop` | 195 | 464 | 10 | **SHRINKS** — borrowed vocabulary, not shared format (§2) |
 | `provenance` | 10 | 142 | — | **KEEP** — porting attribution in `lib/engine/` |
 | `history` | 112 | 1,287 | 3 | **KEEP FROZEN** — dated records |
 | `preview` | 292 | 545 | 236 | **CONTINGENT** — the marp-vscode tax |
@@ -108,28 +114,55 @@ boundary has — but that is inference, not evidence.
 Nothing to do. This is what the user is asking to preserve, and it is
 self-contained.
 
-## §2 — `interop` (195 files): the file format, not a dependency
+## §2 — `interop` (195 files): borrowed vocabulary, NOT a shared format
 
-This is the bucket most likely to be mistaken for residue, and it is the reason
-the raw count is startling. **LFM's slide model is Marpit-compatible on
-purpose** (`spec/LFM-1.0.md` §"Marpit / Marp"): `---` separators, YAML front
-matter, `<!-- _class: -->` directives, `![bg]` background syntax, and Marpit's
-`magicCommentMatchers` note semantics. A comment saying "Marp's slide
-separator" is not drift — it is naming the format the engine implements.
+> **Reframed 2026-08-02, after this register was drafted.** An earlier version of
+> this section called these files "the file format, not a dependency" and said
+> removing them "would break the format." **That was wrong, and it is exactly the
+> confusion this register was supposed to end.** The correction came from the
+> owner, and the repo backs it up.
 
-Two entries worth calling out because they look like leaks and are not:
+**LFM is a proprietary format. It is not Marp-compatible, and it is not a
+superset of Marp.** Not "will drift" — already isn't:
+
+- **Directives Marp has never heard of** (`lib/engine/directives.js`): `_focus`,
+  `_focusStyle`, `_focusSteps`, `_build`, `_debug`, `_lens`.
+- **Front matter that is ours** (`deck-config.js` `EMIT_ORDER`, 17 keys): `mode`,
+  `color-mode`, `finish`, `split`, `glossary`, `lift`, `form`, `validate`, plus
+  `claim`, `logo`, `meta`. **Seven** of the seventeen are Marp's.
+
+What these 195 files actually record is **borrowed vocabulary** — Lattice took
+Marpit's slide model as a starting point (`---` separators, YAML front matter, a
+class directive, `![bg]`) and then grew a format Marp cannot parse. Naming that
+inheritance in a comment is honest. Calling it *compatibility* is not.
+
+**Where Marp compatibility actually lives — or will:** in a **transformation at
+the export boundary**, never in the format. Today it does not live there at all.
+`lib/core/marp-bundle.js`'s `withRuntimeScripts()` takes the LFM source
+**verbatim**, appends two `<script>` tags, and re-bakes the front matter — so
+**marp-core parses our proprietary format directly.** That passthrough is the
+root cause behind every scar in the record: `html: true` is load-bearing because
+marp-core would otherwise escape our injected tags; ~835 CSS rules were dead to
+Marpit's selector scoper; the bundle shipped broken for months (#1256). It works
+only for as long as LFM happens to avoid syntax Marp cannot chew.
+
+**The consequence that matters:** renaming `_class` to `layout` does not *risk*
+breaking the export — it breaks it **by construction, today**. The freedom to
+evolve the format is precisely what passthrough forbids. Decoupling is therefore
+not cleanup; it is the precondition for the format moving at all.
+
+Two entries in this bucket are genuine boundary machinery and stay either way,
+because they serve the *Marp-rendered surface*, not our own render:
 
 - **`lib/base/base.tokens.css:182-186`** defines `--marp-slide-header-color`,
-  `--marp-slide-footer-color`, `--marp-slide-pagination-color`. These are
-  marp-core's *own* variable names, carried deliberately so a Marp-rendered
-  surface picks up the Lattice palette. It is a Marp-vocabulary name sitting in
-  the public token API — a real, accepted exception to HARD RULE #11's
-  role-based naming, and it earns its place at the format boundary.
-- **`lib/base/base.tokens.css:756-773`** requires a plain `:root` block rather
-  than `:where(:root)`, because Marpit's scoper mishandles the wrapped form.
-  A live constraint on shipped CSS, imposed by the format.
+  `--marp-slide-footer-color`, `--marp-slide-pagination-color` — marp-core's own
+  variable names, so a Marp render picks up the Lattice palette. A
+  Marp-vocabulary name in the public token API, and an accepted exception to
+  HARD RULE #11.
+- **`lib/base/base.tokens.css:756-773`** requires a plain `:root` rather than
+  `:where(:root)`, because Marpit's scoper mishandles the wrapped form.
 
-Nothing to do. Removing these would break the format, not clean it up.
+Everything else here is a candidate for the decoupling pass — see §5b.
 
 ## §3 — `provenance` (10 files): attribution, keep
 
@@ -188,13 +221,21 @@ below exists to make that third-party preview show something recognizable:
   (`:312`) ends in "no path works in the marp-vscode preview," after three
   implementation attempts at the `logo:` directive.
 
-**This was already put on the table and kept.** The 2026-07-09 audit's §5(b)
-proposed retiring marp-vscode as a first-party preview surface; the call on
-2026-07-10 was explicit — *"5b is off the table for now since it works."*
-§5(a) demoted the Two-renderer rule to opt-in the same week, so the tax stopped
-*growing*, but the existing 292 files stayed by design.
+**This was put on the table once and kept — then superseded.** The 2026-07-09
+audit's §5(b) proposed retiring marp-vscode as a first-party preview surface;
+the call on 2026-07-10 was explicit — *"5b is off the table for now since it
+works."* §5(a) demoted the Two-renderer rule to opt-in the same week, so the tax
+stopped *growing*, but the existing 292 files stayed by design.
 
-Two things are worth knowing before anyone reopens it:
+**That question is now answered from a different direction (2026-08-02).** It is
+not being reopened on its own merits and not on a timer — it is **decided as a
+consequence** of the format decoupling in §2. When LFM stops being
+Marp-parseable, live-previewing our source in marp-vscode cannot work no matter
+what we do about it. So this bucket is not a standing cost to re-litigate; it is
+a thing the decoupling retires. What replaces it: **preview the exported
+bundle**, and ship a copy-paste Marp kit in `dist/` (§5b).
+
+One thing is still worth knowing, and one no longer is:
 
 1. **There is NO live re-evaluation timer — and one doc still says there is.**
    An earlier draft of this register claimed a 90-day trigger fires 2026-10-07.
@@ -228,12 +269,74 @@ Two things are worth knowing before anyone reopens it:
    status**, and three passages (not two) would need correcting once it is
    settled.
 
-This is the highest-value open item in the register. It does not change the
-§5(b) decision, but it means the cost of that decision is unknown to within
-"a **2,064-line** runtime mirror either works on that surface or does nothing
-there" — and the cheapest possible experiment, opening a deck in a real VS Code
-and looking, has never been run. Per HARD RULE #23 this is **UNVERIFIED**, not
-resolved: a headless sandbox cannot drive the VS Code extension host.
+**This mattered a great deal until 2026-08-02, and now matters much less.** It
+priced the preview tax for *our own source*, which the decoupling retires. It is
+still live for the **export** path, though, and there it is load-bearing in the
+other direction: the lowering leans on `lattice-runtime.js` to reconstruct
+Lattice semantics on a Marp-rendered surface, so whether the marp-vscode webview
+executes scripts sets the fidelity ceiling **of the exported bundle's preview**.
+marp-cli's `pdf`/`html` routes are unaffected either way — they drive a real
+headless browser, so the runtime runs.
+
+Per HARD RULE #23 this stays **UNVERIFIED**: a headless sandbox cannot drive the
+VS Code extension host. It is a ten-minute experiment for anyone with VS Code
+open, and the `dist/` template deck (§5b) is the natural thing to run it on.
+
+## §5b — The direction: Marp is an export target, reached by a transformation
+
+**Set by the owner, 2026-08-02**, in response to this register's first draft:
+
+> "so want full independence from marp, it is export target. i want to be free to
+> change `_class` to `layout` and freedom to have custom front matter. LFM and
+> `.lattice` are not marp compatible. We transform our proprietary format to a
+> format compatible with marp… keeping marp around poisons our codebase and
+> confuses other llms and you!"
+
+The one rule, which everything below follows from:
+
+> **Marp compatibility is a property of the TRANSFORMATION, never of the format.**
+
+```
+.lattice / LFM  →  [owned engine]      →  PDF / PPTX / HTML   (first-party, no Marp)
+                →  [to-marp lowering]  →  Marp-safe .md + dist/marp assets
+```
+
+**What is Marp-compatible, and nothing more:** the front matter Marp needs, the
+`lattice-runtime.js` bundle, and the VS Code settings file that registers our
+themes. That is the whole surface.
+
+**How the lowering works — smart, not janky.** Fidelity comes from the carriers
+that already exist, not from pre-rendering markdown into HTML blobs:
+
+1. **Deck-level `class:` front matter** carries the deck-wide registers.
+2. **Per-slide `_class:`** carries the slide's layout and modifiers.
+3. **`lattice-runtime.js`** reconstructs the rest on the live DOM.
+
+The recipient keeps an **editable markdown deck**. Only constructs built while
+the deck is PARSED — earlier than any Marp tool lets a plugin in — need more than
+this, and those are exactly the rows `lib/core/marp-fidelity.js` already tracks.
+
+**What ships in `dist/`** — a copy-paste kit a recipient can drop beside their own
+deck: the minified CSS, `themes/`, `lattice-runtime.min.js`, a
+`.vscode/settings.json`, a `marp.config.cjs`, a README, and a **template deck**
+that renders correctly through pure Marp. That template doubles as the fidelity
+test the export boundary has never had (`2026-07-29-export-to-marp-broken.md`:
+"a handoff nobody exercises is not verified; it is unobserved").
+
+**Why this is a precondition, not cleanup.** Today `withRuntimeScripts()` passes
+LFM through **verbatim** and marp-core parses our proprietary format directly
+(§2). So renaming `_class` → `layout` does not *risk* breaking the export — it
+breaks it **by construction**. The format cannot move until the transformation
+exists.
+
+**Sequencing (decided 2026-08-02):** the `_class` → `layout` rename is
+**deferred** — settle the format boundary first, then rename. The rename is the
+proof the decoupling worked, not the first step. It touches ~719 files and gets
+its own pass under HARD RULE #17.
+
+**This register's job in that work** is to be the map: `interop` (§2) is the
+bucket the decoupling shrinks, and `node tools/marp-inventory.mjs` is how anyone
+measures whether it actually did.
 
 ## §6 — `rewrite` (12 files, 70 lines): all fixed here
 

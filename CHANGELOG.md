@@ -89,6 +89,13 @@ in patch versions.
   `lib/integrations/markdown-it/markdown-it.docs.md`, which opened "**Marp is the
   foundation**. Every component, every render path, every slide assumes Marp" and
   described the deleted `marp.config.js` as live config.
+  The register's own framing was then corrected by the owner and re-verified against the
+  repo: **LFM is proprietary and already NOT Marp-parseable** (`_focus`/`_build`/`_lens`
+  directives; 10 of 17 front-matter keys are ours), and the exporter passes LFM through
+  **verbatim** rather than transforming it — so `_class` → `layout` would break the export
+  by construction. Direction recorded in §5b: Marp compatibility belongs in a
+  transformation at the export boundary, never in the format, with a copy-paste Marp kit
+  and a template deck shipping in `dist/`.
   `engineering/decisions/2026-08-02-marp-reference-register.md`.
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
