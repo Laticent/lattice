@@ -116,6 +116,18 @@ in patch versions.
   `DIAGRAM_FONT_STACK` the PDF path has always used — closing a pre-existing divergence where
   preview drew diagrams in Outfit and the exported PDF drew them in JetBrains Mono. (#1311)
 
+- **Two security defects in the new `%%{init}%%` parser, caught by CodeQL on the PR.** (a) **Denial of
+  service via a malformed directive.** The payload group was wrapped in `\s*` on both sides, so
+  whitespace was matchable by two adjacent quantifiers — a directive with a long whitespace run and no
+  closing `}%%` sent the regex engine into quadratic backtracking, and one bad fence could hang a
+  build (measured: 2 000 spaces did not finish in two minutes; 200 000 now parse in 2 ms). The group
+  is bounded by its literal terminator alone and the payload is trimmed in code. (b) **Prototype-
+  polluting assignment.** `JSON.parse` creates a real own `__proto__` property, so merging a payload
+  with `out[k] = v` replaced the merged config's prototype with author-controlled data —
+  `%%{init: {"__proto__": {"theme": "forest"}}}%%` would have made `config.theme` read `forest` off
+  an inherited object and stood the engine down. `__proto__` / `constructor` / `prototype` keys are
+  now dropped; Mermaid has no legitimate config key by those names. (#1311)
+
 - **An author's own `%%{init}%%` no longer costs a diagram its palette.** Any `%%{init}%%` inside a
   ```` ```mermaid ```` fence used to make the export path skip the injected `themeVariables`
   entirely, so a directive that touched nothing but curve style dropped the whole set and the figure

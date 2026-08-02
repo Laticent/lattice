@@ -93,6 +93,41 @@ describe('mermaid init-directive: readAuthorInit', () => {
     assert.equal(config, null);
   });
 
+  test('a __proto__ key in a payload cannot touch the merged config\'s prototype', () => {
+    // JSON.parse is one of the few things that creates a real OWN `__proto__`
+    // property, and a plain `out[k] = v` would hit Object.prototype's setter and
+    // swap the config's prototype for author-controlled data — so `config.theme`
+    // would read `forest` off an inherited object and stand the engine down.
+    const src = '%%{init: {"__proto__": {"theme": "forest"}}}%%\nflowchart TB';
+    const { config } = readAuthorInit(src);
+    assert.equal(Object.getPrototypeOf(config), Object.prototype, 'prototype untouched');
+    assert.deepEqual(config, {}, 'the unsafe key is dropped, not merged');
+    assert.equal(authorPinsTheme(src), false, 'no theme was actually pinned');
+    assert.equal({}.theme, undefined, 'Object.prototype is clean');
+  });
+
+  test('`constructor` and `prototype` payload keys are dropped too', () => {
+    assert.deepEqual(readAuthorInit('%%{init: {"constructor": {"x": 1}, "theme": "base"}}%%').config,
+      { theme: 'base' });
+  });
+
+  test('a malformed directive with a long whitespace run parses in linear time', () => {
+    // The old pattern wrapped the payload group in `\s*` on both sides, so
+    // whitespace was matchable by two adjacent quantifiers: with no closing
+    // `}%%`, 2 000 spaces did not finish in two minutes — one bad fence could
+    // hang a build. 200 000 chars must now be effectively instant.
+    const hostile = `%%{init: ${' '.repeat(200000)}X`;
+    const started = Date.now();
+    assert.deepEqual(readAuthorInit(hostile), { present: true, config: null });
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed < 1000, `expected linear scan, took ${elapsed}ms`);
+  });
+
+  test('payload whitespace is trimmed in code, since the regex no longer does it', () => {
+    assert.deepEqual(readAuthorInit('%%{init:   {"theme":"forest"}   }%%').config, { theme: 'forest' });
+    assert.deepEqual(readAuthorInit('%%{init:\n  {"theme":"dark"}\n}%%').config, { theme: 'dark' });
+  });
+
   test('an unterminated directive still counts as present', () => {
     assert.deepEqual(readAuthorInit('%%{init: {"theme":"forest"\nflowchart TB'), { present: true, config: null });
   });
