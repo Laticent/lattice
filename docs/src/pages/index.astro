@@ -11,7 +11,7 @@
 // (HeroPreview), the field-card live previews (FieldCardsLive), and the restyle
 // carousel (RestyleShowcase). Each WRAPS the irreducible engine via the shared
 // <DeckPreview> bridge (src/components/DeckPreview.tsx → src/lib/single-slide-render.ts)
-// — it never reimplements the marp render.
+// — it never reimplements the engine render.
 // See engineering/decisions/2026-06-09-shadcn-migration.md §0.
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -351,7 +351,7 @@ const nextSteps = nextStepsFor(url);
 			</div>
 		</footer>
 
-		<!-- The marp render engine (window.LatticePlayground) is NOT loaded here
+		<!-- The Lattice render engine (window.LatticePlayground) is NOT loaded here
 		     anymore — it's injected ON DEMAND by load-engine.ts the first time a
 		     live island needs to render (hero mount, field/restyle in view), so the
 		     static hero text paints without the ~554KB-gz bundle competing for the

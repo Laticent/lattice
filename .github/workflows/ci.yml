@@ -163,7 +163,7 @@ jobs:
   # ── Integration — code changes only ────────────────────────────────────
   # The only tier that renders, so the only one that needs Chromium — cached
   # across runs (keyed on the lockfile, which moves when puppeteer bumps).
-  # Runs once: the Marp/Puppeteer/emulator pipeline doesn't vary by Node.
+  # Runs once: the engine/Puppeteer render pipeline doesn't vary by Node.
   # The PR-blocking slice of the render tier: shared-kernel cross-path WIRING
   # (parity/), the export pipeline (export/), and the per-component computed-style
   # correctness gate (invariants/). The heavier fresh-render REGRESSION suites

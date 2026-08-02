@@ -483,9 +483,11 @@ Two cautions that governed the sweep (left as a record): (1) **`form` is a subst
 `transform`** — and the engine is full of *transform* (`lib/transformers/`,
 `applyToRenderedHtml`). The `form:` axis stayed, so there was no "form" sweep; only
 `island` / `berth` / `isl-*` were retired, which are unique tokens. (2) The rename landed
-in **all three render paths** (emulator, marp-cli plugins, runtime) in lock-step
-(HARD RULE 1), with the cross-renderer parity gate and the per-component galleries
-asserting no pixel drift.
+in **both render paths** (the owned engine and the browser runtime) in lock-step
+(HARD RULE 1), with the per-component galleries asserting no pixel drift. (At the
+time of the sweep a third path — marp-cli plugins — and a cross-renderer parity
+gate also existed; both were retired in P4,
+`engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md`.)
 
 What ships **today** is the masthead lift, the `meta` / `progress` / `watermark`
 injectors, and the `form:` toggle with its skip-list — **now on by default**

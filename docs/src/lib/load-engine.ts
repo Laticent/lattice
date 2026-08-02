@@ -1,4 +1,4 @@
-// Shared on-demand loader for the irreducible marp render engine
+// Shared on-demand loader for the irreducible Lattice render engine
 // (window.LatticePlayground, the ~1.8MB/554KB-gz `lattice-playground.js`
 // bundle). WRAP, DON'T REINVENT — this never reimplements the engine; it only
 // controls *when* the existing classic <script> is injected.

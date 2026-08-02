@@ -1,6 +1,6 @@
 ---
 // Lattice playground — a standalone Astro route (like the landing) that runs
-// the marp-cli render path client-side via docs/public/playground/
+// the owned Lattice engine client-side via docs/public/playground/
 // lattice-playground.js. Type Lattice markdown, pick a component template, see
 // it render live in the chosen palette.
 //
@@ -293,7 +293,7 @@ const pgData = {
 			window.LatticeDeckPreview = { renderDeck };
 		</script>
 
-		<!-- The marp render engine (window.LatticePlayground) is loaded ON DEMAND by
+		<!-- The Lattice render engine (window.LatticePlayground) is loaded ON DEMAND by
 		     load-engine.ts (PlaygroundApp triggers it on idle, after the chrome
 		     paints), not eagerly here — so the toolbar + editor host paint without
 		     the ~554KB-gz bundle blocking. The render loop polls for the global. -->

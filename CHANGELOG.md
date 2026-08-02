@@ -55,37 +55,25 @@ in patch versions.
 
 ## Unreleased
 
-### Fixed
-
-- **The Studio's welcome deck said 53 components; the engine ships 61 — and the landing page now
-  points every visitor at that deck.** The count is corrected, and a drift test
-  (`test/unit/playground/welcome-deck-counts.test.js`) holds it to `loadAll().length` so the two
-  can't separate again silently — the deck is a hand-written module and the catalog is generated,
-  which is exactly how they drifted apart with nothing to catch it. The same deck also carried
-  three pieces of the auto-generation vocabulary the copy review retired everywhere else
-  ("composes itself", "designs itself", "instantly"); those are rewritten with the engine as the
-  actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
-  the conversion path, so it is fixed rather than filed.
-
 ### Changed
 
-- **The landing page leads with the Studio — two doors into one engine, not three products.** The
-  hero's primary call to action moves from the Playground to **Open the Studio** and gains a router
-  line that assigns each door its job ("Write, review, and present a deck in a browser tab — that's
-  the Studio. One command renders the same deck on your laptop or in CI. Same engine, same
-  slides."), with the trust line trimmed because its "laptop or CI" clause moved up into that
-  router. A new section 3, **"The same deck, without installing anything."**, proves the claim with
-  a live render of the deck the Studio actually boots into (title, slide count and slide all derived
-  from `DECKS[0]` at build time, so the page can't drift from the app), three capability rows, and a
-  trust line. "Bring your own model" keeps its own band at h2 altitude, moved up to sit directly
-  after the Studio so the page reads as one AI conversation, with one new sentence covering the
-  Studio's bring-your-own-key rules. The six
-  field cards say `Edit this in the playground`, and next-steps card 4 points at the Studio. The
-  hero eyebrow, H1, lead, and every protected line are untouched. Section bands re-alternate to
-  cover the removed one (Showcase gains `bg-muted`, Next steps drops it), and the restyle
-  carousel's stage moves `bg-muted` → `bg-background` so it doesn't resolve to the identical color
-  as the band it now sits on. Design record:
-  `engineering/decisions/2026-07-30-landing-studio-promotion.md`.
+- **Every Marp reference in the repo is now classified by disposition, and the 13 that were
+  factually wrong are fixed.** 668 tracked files mention Marp — but they mention it for four
+  unrelated reasons, and only one is the export target: the Export-to-Marp channel (37 files),
+  Marpit **file-format** compatibility that LFM specifies (197), the marp-vscode live-preview
+  compatibility tax (295, incl. 239 decks' `marp: true` key), and frozen history plus porting
+  provenance (120). Fixed: the shipped CLI's own header called itself a "Marp-faithful HTML
+  renderer" for "lattice.css (**written for Marp**)" and told end users to run Marp CLI instead;
+  the docs-site engine loader chain (`load-engine.ts` → `prefetch-engine.ts` → the landing,
+  Playground, and Drawing Board pages) called the owned bundle "the marp render engine";
+  `design/design-principles.md` and `lib/engine/css.js` attributed `data-lattice-pagination` to
+  Marp CLI (it is emitted by `lib/engine/slides.js`; Marpit's own attribute is
+  `data-marpit-pagination`, which appears nowhere here); `design/forms.md`,
+  `lib/core/resolve-finish.js`, and a shipped `examples/sketch.md` slide cited a third render
+  path and a cross-renderer parity gate, both retired in P4; and `tools/preview.js` still
+  watched the deleted `marp.config.js`. New `tools/marp-inventory.mjs` regenerates the whole
+  classification on demand — the two prior audits were hand-written and stale within days.
+  `engineering/decisions/2026-08-02-marp-reference-register.md`.
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
   Playground are now inline top-level links on every surface — Studio first, keeping its honest

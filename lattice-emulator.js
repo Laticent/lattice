@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
- * lattice-emulator.js — Marp-faithful HTML renderer + PDF exporter
+ * lattice-emulator.js — the Lattice CLI: HTML renderer + PDF exporter
  *
- * Emulates the HTML structure that Marp CLI produces so that
- * lattice.css (written for Marp) renders correctly without
- * modification. Produces section elements with the same
- * attributes, pagination span, and header/footer structure
- * that Marp CLI v4 outputs.
+ * This is the package's `bin` and `main` (built to dist/lattice-emulator.js).
+ * It renders on the OWNED engine (lib/engine/) — the canonical and only
+ * first-party render path. It emits the section elements, pagination
+ * attribute, and header/footer structure that lattice.css targets.
+ *
+ * The name is historical. The file began as a Marp CLI stand-in during the
+ * migration, and the HTML shape it emits stays Marpit-compatible on purpose
+ * (that compatibility is what LFM specifies and what Export-to-Marp hands
+ * off) — but nothing here defers to Marp, and lattice.css is written for
+ * this engine, not for Marp. See engineering/marp-independence.md.
  *
  * Mermaid diagrams (```mermaid blocks) are rendered to SVG via mmdc
  * with theme variables mapped to the Lattice palette.
@@ -19,9 +24,11 @@
  * pass an explicit `.css` path only to override the layout engine (rare —
  * for layout-engine development, not deck authoring).
  *
- * NOTE: This script exists only because Marp CLI cannot be installed
- * in this build environment. End users should use Marp CLI directly:
- *   marp deck.md --pdf --allow-local-files   # picks up marp.config.js
+ * Want a copy someone can render with Marp instead? That is a one-way
+ * EXPORT, not a render path: `npm run export:marp` (lib/core/marp-bundle.js)
+ * produces a self-contained bundle the recipient renders with their own
+ * marp-cli. What such a render does and does not reproduce is the ledger in
+ * lib/core/marp-fidelity.js.
  */
 
 const fs            = require('fs');

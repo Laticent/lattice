@@ -124,8 +124,8 @@ _The finish roughens every line the deck draws itself — and stops at content i
 
 - Owns the visual contract `Design Lead`
   - Holds `lattice.css` and signs off every token change before it ships.
-- Keeps the three renderers honest `Engine Owner`
-  - Guards cross-renderer parity so the emulator, marp-cli, and runtime never drift.
+- Keeps both renderers honest `Engine Owner`
+  - Guards parity so the owned engine and the browser runtime never drift apart.
 - Carries the editorial voice `Narrative Lead`
   - Edits every shipped deck so the prose reads aloud without a stumble.
 
