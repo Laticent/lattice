@@ -51,7 +51,7 @@ in patch versions.
 > Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
 > `## Unreleased` means there is nothing to release. Flag a breaking change
 > by leading the bullet with `**Breaking:**` so it counts as major even
-> under `### Changed`.
+> under `
 
 ## Unreleased
 
@@ -94,9 +94,11 @@ in patch versions.
   see what they took. (Minification is safe only because `tools/minify-css.js` preserves the
   `@theme`/`@size` directive comments a stock minifier strips; verified on the shipped artifacts.)
   `cuoio.min.css` and its dark variant are named as the
-  default theme, and a new **`sample.md`** carries Marp-legal front matter plus explicit
-  `<script>` imports for the runtime and Mermaid, exercising a diagram and a runtime-built
-  component so a broken asset path shows as a wrong slide instead of degrading quietly.
+  default theme, and the spec calls for a **`sample.md`** — **not built here; no such file exists yet** — carrying
+  Marp-legal front matter plus explicit `<script>` imports for the runtime and Mermaid, and
+  exercising a diagram and a runtime-built component so a broken asset path shows as a wrong
+  slide instead of degrading quietly. The kit itself is **specified, not shipped**: this change
+  records the manifest so building it cannot quietly omit the third-party half again.
   `engineering/decisions/2026-08-02-marp-reference-register.md`,
   `engineering/decisions/2026-08-03-export-fidelity-gate-scoping.md`.
 
@@ -109,9 +111,6 @@ in patch versions.
   ("composes itself", "designs itself", "instantly"); those are rewritten with the engine as the
   actor, and the test fails on their return. Pre-existing, but `site(landing)` (#1297) put it on
   the conversion path, so it is fixed rather than filed.
-
-### Changed
-
 - **The landing page leads with the Studio — two doors into one engine, not three products.** The
   hero's primary call to action moves from the Playground to **Open the Studio** and gains a router
   line that assigns each door its job ("Write, review, and present a deck in a browser tab — that's

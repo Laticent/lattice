@@ -257,15 +257,20 @@ const files = execFileSync('git', ['ls-files'], {
  * naive `includes(0)` test dropped that engine source from the inventory
  * entirely — silently, in the exact area the register claims to enumerate.
  */
-function isBinary(buf) {
-  // Decode the WHOLE buffer. An earlier version sliced the first 8000 BYTES,
-  // which cuts a multi-byte character in half and MANUFACTURES U+FFFD — it
-  // silently dropped 12 tracked text files, including
-  // test/unit/core/marp-fidelity.test.js (16 Marp lines), which the register
-  // names as export-bucket machinery. Any file with an em-dash near byte 8000
-  // was a coin flip. Decoding costs a few ms across ~5k files; guessing cost
-  // correctness in the exact area the register claimed to enumerate.
-  return buf.toString('utf8').includes('�');
+function decodeText(buf) {
+  // Decode ONCE and let the caller reuse it. A previous version sliced the
+  // first 8000 BYTES to sniff for binary, which cuts a multi-byte character in
+  // half and MANUFACTURES U+FFFD — it silently dropped 12 tracked text files,
+  // including test/unit/core/marp-fidelity.test.js (16 Marp lines), which the
+  // register names as export-bucket machinery. Any file with an em-dash near
+  // byte 8000 was a coin flip.
+  //
+  // The fix decoded the whole buffer, but in a separate isBinary() the caller
+  // then decoded a SECOND time — doubling the work across ~5k files for no
+  // gain. One decode, one verdict: a U+FFFD anywhere means the bytes were not
+  // valid UTF-8, so treat it as binary and skip.
+  const text = buf.toString('utf8');
+  return text.includes('�') ? null : text;
 }
 
 const rows = [];
@@ -277,8 +282,8 @@ for (const file of files) {
   } catch {
     continue;
   }
-  if (isBinary(buf)) continue;
-  const text = buf.toString('utf8');
+  const text = decodeText(buf);
+  if (text === null) continue;
 
   if (PHANTOM_RE.test(text) && !PHANTOM_EXEMPT.test(file)) {
     const lines = [];
