@@ -29,7 +29,7 @@ export const DECKS: StudioDeck[] = [
 			`<!-- _class: title -->\n\n# Markdown for the boardroom\n\n\`Lattice · A guided tour\`\n\nWrite plain text. Ship a deck with the taste built in.`,
 			`<!-- _class: big-number -->\n\n\`The whole idea\`\n\n- 0\n  - boxes to drag — you write Markdown, the engine designs the slide.`,
 			// The component count is checked against the live manifest catalog by
-			// `test/unit/studio/welcome-deck.test.js` — it read 53 while the engine
+			// `test/unit/playground/welcome-deck-counts.test.js` — it read 53 while the engine
 			// shipped 61, and the landing page now points visitors straight at this
 			// deck, so a stale number here is a stale number on the conversion path.
 			// If that test fails, update the number here; don't relax the test.
