@@ -164,6 +164,14 @@ in patch versions.
   replaced elements are collected separately. All four box edges are checked, and the
   tolerance is scaled into rect space like its sibling probe rather than being 1/k too large
   on a transformed slide.
+  It also treats **overprint** as loss. `probeSectionOverflow` has a squeezed-child branch
+  written for a shipped defect — a flex-shrunk `overflow: visible` child painting its content
+  straight over its next sibling, text on top of text — and that case crosses no box edge, so a
+  probe asking "did a rect leave a clip box" is blind to it by construction. Intersecting the
+  two measures would have re-silenced exactly the defect the older branch exists to catch, on
+  the default level of the default export. The geometry probe now reports its `squeezed`
+  measure and both watchers treat it as telling.
+
 - **The overflow marker's reader wording no longer promises something false.** The calm
   variant read "More below ↓", which is a scroll affordance — but `section` is
   `overflow: hidden` and the body cell is `overflow: clip`, which creates no scroll container

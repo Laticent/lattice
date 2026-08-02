@@ -714,12 +714,19 @@ describe('probeContentClipped — did the clip actually CUT anything?', () => {
     assert.equal(r.cut, true, 'a chart or image sliced in half loses plenty with no text in it');
   });
 
-  test('CONTENT_CLIPPED_SRC is injectable — no template literal in the source', () => {
-    // lattice-emulator.js interpolates this source INTO a template literal, so a
-    // backtick or dollar-brace here silently breaks the entire injected watcher.
-    // This has already caught it twice, once in a comment warning about it.
+  test('CONTENT_CLIPPED_SRC is injectable — no script-terminating sequence', () => {
+    // The REAL hazard for a source string embedded in a <script> element is a literal
+    // `</script>` (or `<!--`), which ends the element early — the same hazard
+    // lattice-emulator.js already escapes with \\x3C when it inlines the runtime.
+    //
+    // This test used to assert "no backtick, no dollar-brace" on the theory that either
+    // would terminate the template literal the source is interpolated into. That theory
+    // is wrong — interpolation is a runtime string operation — and the sibling sources
+    // injected into the SAME literal disprove it outright: PROBE_SRC carries 52
+    // backticks and has always worked. The old assertion certified nothing while
+    // constraining how this function could be written.
     assert.equal(typeof CONTENT_CLIPPED_SRC, 'string');
-    assert.ok(!CONTENT_CLIPPED_SRC.includes('`'), 'no backtick may appear in the injected source');
-    assert.ok(!CONTENT_CLIPPED_SRC.includes('${'), 'no dollar-brace may appear in the injected source');
+    assert.ok(!/<\/script/i.test(CONTENT_CLIPPED_SRC), 'a literal </script> would end the injected element early');
+    assert.ok(!CONTENT_CLIPPED_SRC.includes('<!--'), 'a literal <!-- would open a comment in the injected element');
   });
 });

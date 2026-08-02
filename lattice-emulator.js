@@ -2100,7 +2100,8 @@ ${stateChartScript}
     document.querySelectorAll('section[data-lattice-slide]').forEach(function(s){
       // Cell-aware probe — a clipping content cell hides its overflow from the
       // section, so probe the cells too (lib/core/overflow-probe.js).
-      var over = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL).over;
+      var probed = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL);
+      var over = probed.over;
       s.classList.toggle('overflow', over);
       if (s.getAttribute('data-lattice-overflow-marker') !== MARKER_LEVEL) {
         s.setAttribute('data-lattice-overflow-marker', MARKER_LEVEL);
@@ -2113,7 +2114,13 @@ ${stateChartScript}
       // corpus 18 bare-kpi slides overflow by 282-416px of pure padding with every
       // glyph inside the frame -- a "Content clipped" tag there is not true.
       // (lib/core/overflow-probe.js probeContentClipped.)
-      var tell = over && (MARKER_LEVEL === 'author' || probeContentClipped(s, CLIP_CELL_SELECTOR, TOL).cut);
+      // OVERPRINT counts as lost content even though it crosses no box edge: a
+      // flex-shrunk child paints over its next sibling, so a reader gets text on top
+      // of text. probeContentClipped cannot see it (no rect leaves a clip box), so
+      // ask the geometry probe, which already measures it, for the number.
+      var tell = over && (MARKER_LEVEL === 'author'
+        || probed.squeezed > TOL
+        || probeContentClipped(s, CLIP_CELL_SELECTOR, TOL).cut);
       // The overflow tab. The ring is colour-only (WCAG 1.4.1), so the condition is
       // named in text -- and the text differs by level, which is the whole setting.
       // The "off" level draws none; the strip pass below clears the class too.
