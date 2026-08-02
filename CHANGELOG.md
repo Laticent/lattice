@@ -92,6 +92,29 @@ in patch versions.
 
 ### Fixed
 
+- **An author's own `%%{init}%%` no longer costs a diagram its palette.** Any `%%{init}%%` inside a
+  ```` ```mermaid ```` fence used to make the export path skip the injected `themeVariables`
+  entirely, so a directive that touched nothing but curve style dropped the whole set and the figure
+  fell back to Mermaid stock — `#ffffde` clusters, stock node fills, `#333` label ink, the wrong
+  font. It failed silently: the diagram still rendered, just off-theme, and nothing gated it. The
+  engine now merges instead of standing down — its directive goes in ahead of the author's, and
+  Mermaid merges init directives in source order with the later one winning, so you get the option
+  you asked for AND every key you didn't name keeps the palette (a partial `themeVariables` override
+  works the same way: name `lineColor` and only `lineColor` changes). Naming a Mermaid `theme:`
+  other than `base` still reads as an explicit opt-out and is left untouched, which keeps the
+  export's "kept their own colors" look-re-bake warning honest — that warning now fires on a pinned
+  theme rather than on the mere presence of a directive. The reconciliation is one shared kernel
+  (`lib/integrations/mermaid/init-directive.js`) both paths call, and the **live preview moved onto
+  the same mechanism**: the palette rides in each diagram's source instead of `mermaid.initialize`,
+  so preview and export agree about what a directive overrides (they previously diverged on a pinned
+  theme — the preview painted `forest` in the deck's palette, the PDF rendered `forest` clean), and
+  the preview's render cache is now palette-aware. Two things worth knowing: `engineering/mermaid.md`
+  §5.3 was telling authors to hand-write exactly the directive that triggered this, and is rewritten
+  (§5.1's "use `<div class="mermaid">`, not a fence" was also wrong — that div renders on neither
+  path); and `layout: 'elk'` is still not reachable — the directive survives now, but elk is an
+  unregistered layout package, and Mermaid falls back to dagre with a `log.warn` nobody sees rather
+  than failing. (#1311)
+
 - **The Studio's welcome deck said 53 components; the engine ships 61 — and the landing page now
   points every visitor at that deck.** The count is corrected, and a drift test
   (`test/unit/playground/welcome-deck-counts.test.js`) holds it to `loadAll().length` so the two

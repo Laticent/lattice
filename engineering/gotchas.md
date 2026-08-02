@@ -1060,6 +1060,29 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ## Mermaid
 
+### A diagram with an `%%{init}%%` renders in Mermaid's stock colors (yellow clusters)
+
+- **Symptom:** One diagram in an otherwise on-theme deck comes out with a pale
+  yellow cluster box (`#ffffde`), unfamiliar node fills, `#333` label ink and the
+  wrong font. No error, no warning — it renders, it just renders off-palette. The
+  only thing different about that fence is an `%%{init: …}%%` line.
+- **Cause:** the export path treated ANY init directive as "the author owns this
+  diagram's theme" and skipped the injected `themeVariables` wholesale — even for
+  a directive that named nothing but `flowchart.curve`. `engineering/mermaid.md`
+  §5.3 was, at the same time, telling authors to write exactly such a directive.
+- **Mitigation:** fixed in #1311 — `lib/integrations/mermaid/init-directive.js`
+  merges instead: the engine directive is emitted ahead of the author's, and
+  Mermaid merges init directives in source order (later wins), so an author's
+  keys override ours and everything else keeps the palette. Both render paths
+  call the same kernel.
+- **Still expected:** `%%{init: {'theme': 'forest'}}%%` (any `theme:` that isn't
+  `base`) is an explicit opt-out — the engine stands down and you get stock
+  Mermaid colors on purpose. If that is NOT what you wanted, drop the `theme:`
+  key; every other key in your directive keeps working.
+- **Related:** `layout: 'elk'` looks like it works and doesn't. Mermaid falls
+  back to dagre for an unregistered layout with a `log.warn` you never see, so
+  the diagram renders on-palette in the wrong layout.
+
 ### Playground: Mermaid (and all DOM transforms) stop rendering after the first edit
 
 - **Symptom:** In the docs playground, add a ```mermaid fence and nothing

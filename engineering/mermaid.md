@@ -2,15 +2,35 @@
 
 ## 5.1 Diagrams in Markdown
 
-Always use `<div class="mermaid">`, NOT fenced code blocks. Fenced blocks rely on Marp's built-in Mermaid which is unreliable in PDF export.
+Write a fenced ` ```mermaid ` block. That is the whole authoring surface — the
+engine owns the render on both paths, and neither one is Marp's built-in Mermaid:
 
-```html
-<div class="mermaid-box">
-  <div class="mermaid">mindmap root{{Root}} [Category] (Item)</div>
-</div>
+````markdown
+<!-- _class: diagram -->
+
+## How signals move from input to decision.
+
+```mermaid
+flowchart LR
+  A[Input] --> B[Process]
+  B --> C{Decision}
 ```
+````
 
-For the PDF pipeline, these divs are for browser preview only. The actual PDF uses pre-rendered SVGs.
+| Path | Who renders | When |
+| --- | --- | --- |
+| PDF / export (`lattice-emulator.js`) | `mmdc` (Mermaid's CLI, one process per diagram) | build time, pre-rendered to inline SVG |
+| Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode |
+
+Component contract, slots, and the anti-patterns:
+`lib/components/diagram/diagram/diagram.docs.md`.
+
+A hand-written `<div class="mermaid">` renders on NEITHER path and is a silent
+no-op: the emulator's pre-pass matches fences only
+(`preprocessMermaid`, `lattice-emulator.js`), and the runtime picks up
+`pre > code.language-mermaid` and treats a sibling `div.mermaid` purely as the
+SVG *target* it inserts itself (`lib/runtime/index.js`). Earlier advice here to
+prefer that div over a fence was wrong; use the fence.
 
 ## 5.2 Node Shapes Reference
 
@@ -26,22 +46,68 @@ For the PDF pipeline, these divs are for browser preview only. The actual PDF us
 
 Use different shapes for different hierarchy levels to aid visual scanning.
 
-## 5.3 Mermaid Theme Matching
+## 5.3 Theme matching, and your own `%%{init}%%`
 
-Match the Mermaid theme variables to the slide CSS palette:
+**Do not hand-copy theme variables into your diagram.** The engine already
+injects the whole set — 150-odd keys resolved from the active palette — as a
+`%%{init}%%` directive on the diagram source, on both paths. Hand-copying
+freezes a snapshot of one palette: the diagram then ignores a theme switch, a
+dark slide, and the print look.
 
-```text
-%%{init: {'theme': 'base', 'themeVariables': {
-  'primaryColor': '<--bg-alt value>',
-  'primaryTextColor': '<--text-heading value>',
-  'primaryBorderColor': '<--border value>',
-  'lineColor': '<--text-muted value>',
-  'secondaryColor': '<--bg value>',
-  'tertiaryColor': '<--bg value>',
-  'fontFamily': '<--font-body value>',
-  'fontSize': '14px'
-}}}%%
+The mapping is `MERMAID_VAR_MAP` in `lattice-emulator.js` (build path) and
+`buildMermaidThemeVars()` in `lib/runtime/index.js` (preview path); a unit test
+(`test/unit/mermaid/mermaid-var-map.test.js`) asserts every token it names
+resolves in every shipped palette.
+
+### Writing your own directive
+
+An `%%{init}%%` of your own is fine and costs nothing — the engine's directive
+goes in ahead of yours and Mermaid merges init directives in source order, later
+winning. So you set what you name; everything you don't name keeps the palette:
+
+````markdown
+```mermaid
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
+flowchart TB
+  subgraph g["Group"]
+    A["A"] --> B["B"]
+  end
 ```
+````
+
+Renders with `curve: linear` **and** the theme's cluster fill, node fills, label
+ink, and font. Same for `layout`, `defaultRenderer`, per-diagram-type config, or
+a partial `themeVariables` override — name `lineColor` alone and only `lineColor`
+changes.
+
+The one thing that *does* stand the engine down is naming a Mermaid **theme**:
+
+````markdown
+```mermaid
+%%{init: {'theme': 'forest'}}%%
+```
+````
+
+`theme:` ≠ `base` reads as an explicit opt-out, so the engine injects nothing and
+you get Mermaid's stock `forest` — off-palette by definition, immune to a theme
+switch, and reported as "kept their own colors" by the export's look re-bake.
+Reach for it only when you genuinely want a diagram outside the deck's palette.
+
+The reconciliation lives in one shared kernel,
+`lib/integrations/mermaid/init-directive.js`, so both render paths apply the same
+rule. Before #1311 they did not: ANY directive made the build path skip the
+injected palette entirely, and the diagram silently fell back to Mermaid stock
+(`#ffffde` clusters, `#333` label ink). If you are looking at an off-theme
+diagram with a directive in it, that regression is what
+`test/integration/mermaid/mermaid-init-merge.test.js` guards.
+
+**`layout: 'elk'` still does nothing — and says so only in a log.** The directive
+now survives the merge, but elk ships as a separate package
+(`@mermaid-js/layout-elk`) that neither `mmdc` nor the runtime bundle registers.
+Mermaid does not fail on an unregistered algorithm: `getRegisteredLayoutAlgorithm`
+falls back to dagre with a `log.warn` you never see, so the diagram renders
+on-palette, laid out by dagre, looking like the directive worked. Verified on
+Mermaid 11.14. Installing elk is separate work from #1311.
 
 ---
 
