@@ -257,7 +257,6 @@ in patch versions.
   not a word an author should have to know. Every axis head now reads Auto and names what it
   resolves to — "Auto — Rainbow" — so the deck's value is legible without opening the deck
   Inspector. (#1293)
->>>>>>> 5c01de0 (docs(decisions): record the slide class taxonomy, and scope the four deferred issues)
 
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
