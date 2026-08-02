@@ -295,19 +295,34 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 // See engineering/decisions/2026-07-30-landing-studio-promotion.md §3.2, §6.1
 // and its "Deviations" section.
 const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
-	{ label: 'Edit', body: 'An editor with inline lint, beside a live preview of the real render.' },
+	// Written as what the reader DOES and GETS, not as a parts list. An earlier
+	// draft named five engine-internal nouns here ("inline lint", "scorecard",
+	// "renderer", "the real render", "self-contained webpage") — two of which the
+	// Studio's own UI never shows a user, which made the rows both jargon-heavy
+	// and off-label.
+	{ label: 'Edit', body: 'An editor that underlines mistakes as you type, beside a live preview of the finished slide.' },
 	{
 		label: 'Review',
-		// The load-bearing row. It is what makes "web slide app" impossible to say
-		// about the Studio: the review is the ENGINE's, it is deterministic, and it
-		// is the same core the CLI runs (studio/coach/coach-core.ts runs the
-		// generated `scorecard.scoreDeck` over `lintCore` + `reviewCore` findings —
-		// the Studio's old 3-check heuristic was deleted when that landed).
-		body: 'The same deterministic review the command line runs — a scorecard, and a named fix for each finding.',
+		// The load-bearing row — what makes "web slide app" impossible to say about
+		// the Studio. Its claim is now scoped to what is actually true, because the
+		// first draft overclaimed in two places:
+		//   • the CHECKS are genuinely shared — coach-core.ts runs lintCore +
+		//     reviewCore out of authoring-core.generated.js, the same files
+		//     tools/lint-deck.js requires;
+		//   • the SCORE is not. `scoreDeck` has no CLI caller at all, so "the same
+		//     review the command line runs — a scorecard" was false. The score is
+		//     the Studio's own, and its panel is titled "Board readiness".
+		//   • the deterministic per-finding fix surfaces in the EDITOR's inline
+		//     diagnostics (editor-diagnostics.js appends "Fix: …"), not in the
+		//     review list — whose fix affordance is AI-gated, i.e. the opposite of
+		//     deterministic. So the fix is credited to the editor, where it is.
+		body: 'The same deterministic checks the command line runs, plus a board-readiness score. Every issue is named, and the editor underlines where to fix it.',
 	},
 	{
 		label: 'Present & ship',
-		body: 'A dual-screen presenter window, a rehearsal plan, and export to PDF, PowerPoint, or a self-contained webpage.',
+		// Split from one 21-word sentence carrying six list items. Formats stay in
+		// the plain register the "How it works" band already uses two sections up.
+		body: 'A presenter window on your second screen, with a rehearsal plan. Export a PDF, a PowerPoint, or a single web page that works offline.',
 	},
 ];
 
@@ -331,12 +346,25 @@ export function StudioCopy() {
 						    opened the mobile menu and a visitor who scrolled learn one phrase. */}
 						<Eyebrow>Write, review, present — in the browser</Eyebrow>
 					</div>
+					{/* Reader-facing, like every other H2 on this page ("Your field already
+					    has a notation", "Change one line. Restyle the whole deck."). An
+					    earlier draft read "The Studio puts the engine in a window." — the
+					    only H2 whose subject AND object were both Lattice internals, and
+					    "puts X in a window" is developer idiom for wrapping a library in a
+					    GUI. The engine-subordination that answers "yet another web slide
+					    app" is carried by the lead below, where it belongs. */}
 					<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
-						The Studio puts the engine in a window.
+						The same deck, without installing anything.
 					</h2>
+					{/* No "renderer" — the page already owns one word for this and it is
+					    "engine"; a second name one line under the H2 reads as a second
+					    thing. No second "command line" either (the Review row carries it).
+					    And not "a deck library": the Studio's Library holds themes,
+					    components and finishes — decks live in the workspace, so the old
+					    wording named a real surface that holds something else. */}
 					<p className="m-0 mb-6 max-w-[46ch] text-[17px] leading-[1.6] text-foreground">
-						Same renderer, same layouts, same palettes as the command line — with an editor, a deck library, and
-						Present mode wrapped around them. Your decks live in this browser: no account, nothing to install.
+						The same engine that renders your PDFs, running in a browser tab — with an editor, your saved decks, and
+						Present mode around it. Your decks live in this browser: no account, nothing to install.
 					</p>
 
 					{/* Three beats, echoing the "How it works" band two sections up so the
@@ -372,55 +400,80 @@ export function StudioActions({ studioHref, newDeckHref }: { studioHref: string;
 				className="inline-block py-2 text-[14px] font-semibold text-primary hover:underline focus-visible:underline"
 				href={newDeckHref}
 			>
-				Or start a blank deck <ArrowRight aria-hidden="true" className="inline size-3.5" />
+				{/* "a new deck", not "a blank deck": `?new=1` seeds a title slide
+				    (studio-store `newDeckSource`), so "blank" promised something the
+				    click does not deliver. */}
+				Or start a new deck <ArrowRight aria-hidden="true" className="inline size-3.5" />
 			</a>
 		</div>
 	);
 }
 
-// The section's two honesty blocks, spanning the full panel under the columns.
-// Block A converts the nav's `Preview` badge from a STABILITY doubt into a SCOPE
-// statement, with the escape hatch in the same breath. Block B is the absorbed
-// "Bring your own model" section, every string verbatim.
-export function StudioHonesty({ featuresHref }: { featuresHref: string }) {
+// The section's trust footer, spanning the full panel under the columns.
+//
+// It deliberately carries NO eyebrow and does not name the nav's `Preview`
+// badge. An earlier draft opened with "Why the nav says Preview" and "The Studio
+// is still growing" — which is the move the 2026-07-02 review already killed for
+// the Marp disclaimer on getting-started: it answers a question no newcomer
+// asked and plants a doubt they did not have, at headline weight. It also had no
+// gate tying it to `nav.mjs`'s badge, so the day the badge is dropped the
+// homepage would have quietly started lying. The payload below does all of the
+// trust work with none of the doubt, and stays true whatever the nav says.
+export function StudioTrust() {
 	return (
-		<div className="lx-ui mt-8 grid grid-cols-1 gap-8 border-t border-border pt-8 md:grid-cols-2">
-			<div>
-					<div className="mb-2.5">
-						<Eyebrow>Why the nav says Preview</Eyebrow>
-					</div>
-					<p className="m-0 text-[15px] leading-[1.55] text-foreground">
-						The Studio is still growing, and the badge stays until it stops. What ships today runs the same engine
-						that rendered every slide on this page — and everything you write exports, or backs up whole, in one
-						click.
-					</p>
-				</div>
-				<div>
-					<div className="mb-2.5">
-						{/* Verbatim from the absorbed section — this eyebrow is the page's
-						    skim-altitude disclaimer that Lattice is not an AI deck generator. */}
-						<Eyebrow>Bring your own model</Eyebrow>
-					</div>
-					<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
-						Point your copilot at Lattice.
-					</h3>
-					<p className="m-0 mb-3 text-[15px] leading-[1.55] text-foreground">
-						Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or
-						any agent can draft a valid deck. The engine renders that draft deterministically — the design was
-						finished long before the model arrived.
-					</p>
-					<p className="m-0 mb-3 text-[15px] leading-[1.55] text-foreground">
-						In the Studio the same rule holds: chat and fixes are optional, and they run on your own account —
-						connect OpenRouter in one click, or download a model that runs on your device. Switch the AI off
-						entirely and the Studio still edits, reviews, presents, and exports.
-					</p>
-					<a
-						className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary hover:underline"
-						href={featuresHref}
-					>
-						How AI authoring works <ArrowRight aria-hidden="true" className="size-3.5" />
-					</a>
-				</div>
+		<div className="lx-ui mt-8 max-w-[62ch] border-t border-border pt-8">
+			{/* "One click saves a copy" — the whole-workspace backup genuinely is one
+			    click; an export is two (open Share, pick a format), so the earlier
+			    "everything you write exports … in one click" overstated it. */}
+			<p className="m-0 text-[15px] leading-[1.55] text-foreground">
+				Every slide on this page was rendered by what ships today. Your work is yours: export any deck, or save a
+				copy of everything you have written, in one click.
+			</p>
+		</div>
+	);
+}
+
+// ── "Bring your own model" — its own band again ─────────────────────────────
+// This was briefly absorbed into the Studio section as an h3 in a two-column
+// footer, which held the page's section count. That trade was wrong: the eyebrow
+// exists to disclaim AT SKIM ALTITUDE (copy doc §5.5, red-teamed into being
+// precisely so an AI-burned skeptic does not file Lattice with the deck
+// generators), and a skimmer scanning h2s never sees an h3 in someone else's
+// panel. Worse, sat beside a screenshot of an editor it stopped reading as "the
+// engine is agent-addressable" and started reading as "our web app has AI chat"
+// — the exact adjacency §3 exists to prevent.
+//
+// Every string is the original, verbatim, at its original altitude. It sits
+// immediately AFTER the Studio section so the page still holds one AI
+// conversation rather than two in two registers.
+export function ByomSection({ featuresHref }: { featuresHref: string }) {
+	return (
+		<div className="max-w-[62ch]">
+			<div className="mb-3">
+				<Eyebrow>Bring your own model</Eyebrow>
+			</div>
+			<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+				Point your copilot at Lattice.
+			</h2>
+			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
+				Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or any
+				agent can draft a valid deck. The engine renders that draft deterministically — the design was finished long
+				before the model arrived.
+			</p>
+			{/* The one new sentence. "The split holds", not "the same rule holds" —
+			    the paragraph above describes a split (the model drafts, the engine
+			    renders), it never states a rule. */}
+			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
+				The split holds in the Studio too: chat and fixes are optional, and they run on your own account. Connect
+				OpenRouter in one click, or download a model that runs on your device. Switch the AI off entirely and
+				nothing else changes.
+			</p>
+			<a
+				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
+				href={featuresHref}
+			>
+				How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
+			</a>
 		</div>
 	);
 }

@@ -59,15 +59,15 @@ in patch versions.
 
 - **The landing page leads with the Studio — two doors into one engine, not three products.** The
   hero's primary call to action moves from the Playground to **Open the Studio** and gains a router
-  line that assigns each door its job ("The Studio writes, reviews, and presents a deck in a browser
-  tab. The CLI renders the same deck from your laptop or your CI job. Same engine, same output."),
-  with the trust line trimmed because its "laptop or CI" clause moved up into that router. A new
-  section 3, **"The Studio puts the engine in a window."**, proves the claim with a live render of
-  the deck the Studio actually boots into (title, slide count and slide all derived from `DECKS[0]`
-  at build time, so the page can't drift from the app), three capability rows, and two honesty
-  blocks — one explaining what the nav's `Preview` badge does and doesn't mean, one carrying the
-  bring-your-own-key rules. **It costs no net section:** "Bring your own model" is absorbed into it
-  with every string verbatim, so the page now carries one AI conversation instead of two. The six
+  line that assigns each door its job ("Write, review, and present a deck in a browser tab — that's
+  the Studio. One command renders the same deck on your laptop or in CI. Same engine, same
+  slides."), with the trust line trimmed because its "laptop or CI" clause moved up into that
+  router. A new section 3, **"The same deck, without installing anything."**, proves the claim with
+  a live render of the deck the Studio actually boots into (title, slide count and slide all derived
+  from `DECKS[0]` at build time, so the page can't drift from the app), three capability rows, and a
+  trust line. "Bring your own model" keeps its own band at h2 altitude, moved up to sit directly
+  after the Studio so the page reads as one AI conversation, with one new sentence covering the
+  Studio's bring-your-own-key rules. The six
   field cards say `Edit this in the playground`, and next-steps card 4 points at the Studio. The
   hero eyebrow, H1, lead, and every protected line are untouched. Section bands re-alternate to
   cover the removed one (Showcase gains `bg-muted`, Next steps drops it), and the restyle

@@ -122,6 +122,56 @@ Next steps drops `bg-muted` while keeping its top rule.
   flight from the hero's `client:load` preview, so this adds no new network
   bytes — but that is an argument, not a measurement (§7).
 
+## 6a. The copy audit — three independent passes, four refuted claims
+
+After the first build, the owner's reaction was that the copy read too
+technical: *"now I see technical stuff like engine."* The same review process
+the landing copy was originally put through (`2026-07-02` §9 — prose check,
+adversarial/fact re-verification, Munger inversion) was re-run against every new
+string. It found more than a register problem.
+
+**On "engine" itself the complaint was half right.** The word is *pre-existing*
+landing vocabulary — it appears four times on `main`, including in the protected
+line `You choose meaning; the engine owns the pixels.` What this change did was
+**promote** it: 4 → 7 uses, one of them an H2, three landing within a screen and
+a half. The felt change was real; the diagnosis wasn't.
+
+**Four claims were refuted against the tree, two of them load-bearing:**
+
+| Claim as written | Verdict |
+|---|---|
+| *"the same deterministic review the command line runs — **a scorecard**, and a named fix for each finding"* | **Refuted twice.** The *checks* are genuinely shared (`coach-core.ts` runs `lintCore` + `reviewCore` from the same `authoring-core.generated.js` that `tools/lint-deck.js` requires). The **score is not**: `scoreDeck` has no CLI caller at all, and the Studio's panel is titled "Board readiness". And the **named fix does not appear in the review** — `FindingCard.tsx` never renders `finding.fix`; the deterministic fix surfaces in the *editor's* inline diagnostics, while the review's fix pill is AI-gated, i.e. the opposite of deterministic. |
+| *"Same engine, **same output**."* | **Refuted for the artifact.** The command line emits a vector PDF (`page.pdf({…})`, annotated `# vector PDF` in `getting-started.md:75`) with selectable text and note annotations; the Studio's one-click PDF is a 2× raster (`share-export.ts:479`). Same engine, materially different file. Now reads **"Same engine, same slides."** |
+| *"Or start a **blank** deck"* | **Refuted.** `?new=1` seeds a title slide (`studio-store newDeckSource`). Now "a new deck". |
+| *"everything you write exports … **in one click**"* | **Imprecise.** The whole-workspace backup is one click; an export is two. Reworded. |
+
+§7's earlier claim that the Review row was "verified true" was itself the error
+HARD RULE #23 exists to prevent: the Studio half was checked, the command-line
+half was not, and "verified" was written anyway.
+
+**Four editorial decisions, taken by the owner:**
+
+1. **H2** → `The same deck, without installing anything.` The earlier
+   `The Studio puts the engine in a window.` was the only H2 on the page whose
+   subject *and* object were Lattice internals; every other one addresses the
+   reader or their deck. The engine-subordination moved to the lead.
+2. **"Why the nav says Preview" is gone.** It repeated the Marp-disclaimer move
+   the `2026-07-02` review already killed — answering a question no newcomer
+   asked — and had no gate tying it to `nav.mjs`'s badge, so it would have
+   become false the day the badge dropped. Its trust payload survives as
+   `StudioTrust`, which stays true whatever the nav says.
+3. **"Bring your own model" is its own band again**, at h2 altitude, directly
+   after the Studio section. Absorbing it held the section count but cost the
+   eyebrow its skim altitude — the one thing §5.5 created it to do. The page
+   still reads as one AI conversation; only the "no net section" bookkeeping is
+   given up. Section count is now 9.
+4. **Field cards keep** `Edit this in the playground`.
+
+**Jargon removed:** `CLI`, `renderer`, `scorecard`, `lint`, one of two
+`command line`s, `self-contained webpage`, and `a deck library` (the Studio's
+Library holds themes and components — decks live in the workspace, so that
+phrase named a real surface holding something else).
+
 ## 7. Verification status — what is and isn't checked
 
 **Done:** `npm run typecheck` (docs), `npm run lint`, `npm run build:check`, the

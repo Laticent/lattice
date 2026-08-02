@@ -49,9 +49,17 @@ export function HeroCopy({
 			{/* The two-door router: which door is yours, and why they're the same
 			    product. It carries the "laptop or CI" clause the trust line below
 			    used to hold — the fact does more work here, attached to a door. */}
+			{/* Reader-facing verbs, not the app's: the H1 hands "write" to the visitor,
+			    and a fold that lets the product write the deck is the auto-generation
+			    echo this page exists to avoid (§7.1).
+			    "Same slides", NOT "same output" — the engine is shared, but the
+			    artifacts differ: the command line emits a vector PDF with selectable
+			    text and note annotations, while the Studio's one-click PDF is a 2x
+			    raster. "Same output" is the kind of parity claim a reader tests first,
+			    and our own getting-started page contradicts it. */}
 			<p className="m-0 mt-4 max-w-[46ch] text-[13px] text-muted-foreground">
-				The Studio writes, reviews, and presents a deck in a browser tab. The CLI renders the same deck from your
-				laptop or your CI job. <span className="font-semibold text-foreground">Same engine, same output.</span>
+				Write, review, and present a deck in a browser tab — that's the Studio. One command renders the same deck on
+				your laptop or in CI. <span className="font-semibold text-foreground">Same engine, same slides.</span>
 			</p>
 			<p className="m-0 mt-2 text-[13px] text-muted-foreground">
 				No install to try it. Nothing to sign up for. Fully offline. Open source{' '}

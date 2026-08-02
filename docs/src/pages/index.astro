@@ -21,6 +21,7 @@ import SiteHeader from '../components/site/SiteHeader.astro';
 import { HeroCopy } from '../components/landing/HeroCopy.tsx';
 import HeroPreview from '../components/landing/HeroPreview.tsx';
 import {
+	ByomSection,
 	FieldCards,
 	HowItWorks,
 	NextSteps,
@@ -29,7 +30,7 @@ import {
 	SectionHead,
 	StudioActions,
 	StudioCopy,
-	StudioHonesty,
+	StudioTrust,
 	WhyCards,
 } from '../components/landing/sections.tsx';
 import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
@@ -248,8 +249,22 @@ const nextSteps = nextStepsFor(url);
 								<StudioActions studioHref={url('studio/')} newDeckHref={url('studio/') + '?new=1'} />
 							</div>
 						</div>
-						<StudioHonesty featuresHref={url('features/') + '#ai-authoring'} />
+						<StudioTrust />
 					</div>
+				</div>
+			</section>
+
+			<!-- Bring your own model — its own band again, at h2 altitude, directly
+			     after the Studio. It was briefly absorbed into the Studio section as an
+			     h3 to hold the page's section count; that trade was wrong. The eyebrow
+			     exists to disclaim AT SKIM ALTITUDE (copy doc §5.5), and a skimmer
+			     scanning h2s never sees an h3 in another section's footer. Adjacent to
+			     the Studio, the page still reads as ONE AI conversation rather than two
+			     in two registers — which was the real goal; "no net section" was only
+			     the bookkeeping. -->
+			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<ByomSection featuresHref={url('features/') + '#ai-authoring'} />
 				</div>
 			</section>
 
@@ -288,14 +303,10 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- "Bring your own model" is no longer its own section — it was ABSORBED
-			     into the Studio section above, every string verbatim, so the page
-			     carries ONE AI conversation instead of two in two registers. The
-			     sections below inherit its band to keep the light/muted rhythm
-			     alternating (removing a muted band would otherwise leave Proof and
-			     Showcase adjacent and both plain). -->
-
-			<!-- Showcase — inherits the vacated muted band (see the note above). -->
+			<!-- Showcase — muted. "Bring your own model" moved UP to position 4 (see
+			     the note there), so from here the page's light/muted rhythm is one
+			     step out of phase with main: Showcase gains the band and Next steps
+			     drops it, which keeps every pair alternating. -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="One source, every palette" title="Change one line. Restyle the whole deck.">
