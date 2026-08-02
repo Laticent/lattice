@@ -81,10 +81,14 @@ in patch versions.
     the terminal cannot drift into disagreeing about what "the same" means. They deliberately
     neutralize *different* things: the sweep hides the repairs that already ship; the overlay leaves
     them in, because a wrong page number is precisely what an author turns it on to find.
-  - The sweep also prints **how many slices got a non-empty directive prelude — currently 0 of
-    1201**. No committed deck sets an in-vocabulary running global outside front matter, so 91.9%
-    measures the residual left by the shipped repairs and the prelude prototype is unexercised by
-    this corpus. Printed on every run so the claim cannot quietly go stale.
+  - **The sweep is not a regression gate, and now says so.** It imports only the engine and the
+    shared core — never the shipped repair in the preview path — so breaking that repair outright
+    moves its number 0.0 points. Most of the rate is neutralizer besides: 91.9% blessed, 11.0%
+    without the pagination neutralizer, 67.5% without the rail one. It prints the active neutralizer
+    set and the prelude count (**0 of 1201** — no committed deck exercises the prototype) on every
+    run, so neither claim can quietly go stale. What it measures is the residual for the *general
+    mechanism*; the gates for user-visible behavior are the unit tier, the Studio e2e specs, and the
+    overlay.
 
 ### Fixed
 

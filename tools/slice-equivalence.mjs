@@ -19,6 +19,30 @@
  * asks the same question about the one slide in front of the author. Same core, two surfaces: this
  * one needs no browser, so it can be scripted, scheduled, and gated.
  *
+ * WHAT THIS NUMBER IS NOT, and read this before quoting it.
+ *
+ * 1. IT CANNOT SEE THE SHIPPED REPAIR. This file imports `lib/diagnostics` and `lib/engine` only.
+ *    The repair that actually fixes the preview — `supplyablePosition`, `positionIsTrustworthy`,
+ *    `deckSectionFor`, `DECK_DERIVED_FACTS` — lives in `docs/src/lib/single-slide-render.ts` and is
+ *    never executed here. Every slice below is rendered with NO supplied position, i.e. this
+ *    faithfully reproduces the pre-#1272 behavior on all 1201 slides. Break
+ *    `positionIsTrustworthy` outright and `equiv:check` moves 0.0 points and passes. **This sweep
+ *    is not a regression gate for anything a user touches.** The gate for that is the unit tier
+ *    (test/unit/diagnostics), the Studio e2e specs, and the author-facing overlay.
+ * 2. MOST OF THE RATE IS NEUTRALIZER. Measured on this corpus: 91.9% blessed, 11.0% with the
+ *    pagination neutralizer removed, 67.5% with the rail neutralizer removed. So ~81 of the 91.9
+ *    points are differences agreed to be ignored because their repairs already ship. The header
+ *    prints the active set for that reason.
+ * 3. IT CANNOT PRODUCE A TRUE ALARM AT ITS OWN RESOLUTION. The `--check` band is 1.5 points, which
+ *    over 1201 slides is 18 slides. Breaking `cat-N` on every proof slide in the corpus moves it
+ *    5 slides — 0.4 points. It passes. This is the real reason it is not a CI gate, and it is a
+ *    stronger reason than "it measures a prototype": promoting it would not catch the defect class
+ *    it was built around.
+ *
+ * What it IS: the residual for step 3 — how far a slice is from its deck section once the repairs
+ * that already shipped are set aside. That is the number that tells you whether the general
+ * mechanism is worth building, and nothing more.
+ *
  * ON-DEMAND, NOT A CI GATE — the same shape as `bench` and `quality`:
  *   npm run equiv          report the current reconciliation rate + the biggest residual
  *   npm run equiv:bless    write test/benchmark/slice-equivalence.json
@@ -116,7 +140,12 @@ const r = measure();
 const mode = process.argv[2] || process.argv.find((a) => a.startsWith('--'));
 
 console.log(`\nslice/deck equivalence: ${r.matched}/${r.slides} slides (${r.rate}%)`);
-console.log(`slides given a NON-EMPTY prelude: ${r.preludes}${r.preludes === 0 ? '  — the prelude prototype is UNEXERCISED by this corpus' : ''}\n`);
+console.log(`slides given a NON-EMPTY prelude: ${r.preludes}${r.preludes === 0 ? '  — the prelude prototype is UNEXERCISED by this corpus' : ''}`);
+// The active neutralizer set, printed for the same reason the prelude count is: it is an
+// ASSERTION ABOUT WHAT SHIPS ("pagination and rail are repaired, so ignore them"), nothing pins it
+// to reality, and it is worth ~81 of the 91.9 points. A reader who cannot see it cannot judge the
+// number. When the next repair lands (`seedRenderIds`), this list is what has to change.
+console.log(`ignoring (already repaired): ${Object.keys(PROTOTYPE_NEUTRALIZERS).join(', ')}\n`);
 console.log('residual by cause:');
 for (const [c, n] of [...r.byCause].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${c}`);
 console.log('\nresidual by deck (top 8):');

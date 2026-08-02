@@ -171,7 +171,12 @@ function Overlay() {
 		if (cmp.equal === null) return { chip: '—', tone: 'muted', line: 'could not compare', what: cmp.why };
 		if (report.path === 'slice') {
 			return cmp.equal
-				? { chip: '✓', tone: 'pass', line: 'matches the full deck', what: 'This slide drawn alone came out identical to the same slide drawn inside the deck. What you see is what exports.' }
+				? {
+						chip: '✓',
+						tone: 'pass',
+						line: 'matches the full deck',
+						what: 'This slide drawn alone produced the same engine HTML as the same slide drawn inside the deck. That is the whole of the check: it does NOT compare theme CSS, fonts, the in-frame runtime (fitting, chart frames, overflow), or the export pipeline — and it reads the HTML before the preview sanitizes it, so it is not literally the markup on screen. A green here means the deck contributed nothing this slide was missing; it is not a statement about your PDF.',
+					}
 				: {
 						chip: 'differs',
 						tone: 'fail',
@@ -274,7 +279,7 @@ function Overlay() {
 									label="cause"
 									value={cmp.cause}
 									what="Which known gap this difference falls into, from the repair cascade in the deck-context decision note. It names the fix that would close it, rather than the difference itself."
-									rel={cmp.cause === 'unclassified' ? 'not a shape this readout recognizes yet — the rows below are the raw finding.' : 'a known residual with a named repair still owed.'}
+									rel={causeRel(cmp.cause)}
 									{...rowProps('cause')}
 								/>
 							)}
@@ -419,6 +424,18 @@ function diffSummary(d: Diff): string {
 	// of custom properties would otherwise both read `--paginate:tr…` and show nothing useful.
 	const c = contrastValues(d.got, d.want) as { got: string; want: string };
 	return `${c.got} ≠ ${c.want}`;
+}
+
+// The cause row's relationship line. NOT one reassuring sentence for everything that is not
+// "unclassified" — that is what it used to be, and it meant an author whose proof panel was showing
+// the wrong hue read "a known residual with a named repair still owed" and stopped looking. A hue
+// is VISIBLE and is the bug this feature line exists to catch; a generated id counter is invisible
+// and genuinely benign. They get opposite lines.
+function causeRel(cause: string): string {
+	if (cause.startsWith('cat-N')) return '⚠ a categorical color differs — this is a VISIBLE difference on the slide, not a benign one. If this slide took the fast route, the registry is missing an entry for whatever assigns it.';
+	if (cause.startsWith('generated ids')) return 'an internal counter that restarts when a slide renders alone. Invisible on the slide; the `seedRenderIds` repair is the one still owed.';
+	if (cause === 'watermark glyph') return 'the section glyph differs — visible, and it means the supplied section position disagreed with the deck.';
+	return 'not a shape this readout recognizes yet — the rows below are the raw finding.';
 }
 
 // One side of a difference, as a clause — so `rel` reads as the sentence the other rows use.

@@ -576,6 +576,51 @@ The *author-facing* half is where the mechanism does get exercised, because an a
 deck is not the committed corpus: the running-header deck below produces exactly the divergence a
 prelude would repair. That asymmetry is itself an argument for having built both surfaces.
 
+### What the sweep cannot detect — measured, and load-bearing
+
+A Munger inversion of the shipped diagnostic asked what would have to be true for the headless half
+to be *incapable* of catching a real defect. Two things, and both are true:
+
+**It never runs the code that ships.** `tools/slice-equivalence.mjs` imports `lib/diagnostics` and
+`lib/engine` only. The repair that actually fixes the preview — `supplyablePosition`,
+`positionIsTrustworthy`, `deckSectionFor`, `DECK_DERIVED_FACTS` — lives in
+`docs/src/lib/single-slide-render.ts` and is never executed by the sweep. Every slice is rendered
+with **no supplied position**, so the sweep faithfully reproduces the pre-#1272 behavior on all 1201
+slides. Change `positionIsTrustworthy` to `return false` — every Studio slide back to "1 of 1", the
+originally reported bug fully restored — and `equiv:check` moves **0.0 points and passes.**
+
+**Most of the rate is neutralizer.** Measured on this corpus:
+
+| regime | rate |
+|---|---|
+| blessed (`PROTOTYPE_NEUTRALIZERS`) | **91.9%** (1104/1201) |
+| minus the `pagination` neutralizer | **11.0%** (132/1201) |
+| minus the `rail` neutralizer | **67.5%** (811/1201) |
+
+So roughly **81 of the 91.9 points are differences agreed to be ignored**, because their repairs
+already ship. The tool now prints the active neutralizer set on every run, for the same reason it
+prints the prelude count: the set is an *assertion about what ships*, nothing pins it to reality,
+and a reader who cannot see it cannot judge the number.
+
+**This also replaces the stated reason for keeping it off CI.** The old argument — it measures a
+prototype with no production consumer — is weak now that the same core powers the shipped overlay.
+The real reason is that **it cannot produce a true alarm at its own resolution**: the `--check` band
+is 1.5 points, which over 1201 slides is 18 slides, and breaking `cat-N` on every proof slide in the
+corpus moves it 5 slides — 0.4 points, a pass. Promoting it to a gate would not catch the defect
+class it was built around. That is a property, not a scheduling choice.
+
+**What the sweep IS**, then: the residual for step 3 — how far a slice sits from its deck section
+once the shipped repairs are set aside. It says whether the general mechanism is worth building. It
+is not, and cannot be, a regression gate for user-visible behavior; the gates for that are the unit
+tier, the Studio e2e specs, and the author-facing overlay.
+
+**Next slice, not this one.** Making the sweep measure what ships means porting `positionIsTrustworthy`
+and `deckSectionFor` into `lib/diagnostics/` (both are pure string functions), supplying `page` in the
+corpus walk, and dropping `pagination`/`rail` from the neutralizer set. The rate would stop being
+mostly-neutralizer and start *falling* when a shipped repair breaks. That is a change to the shipped
+render path's ownership and a re-blessed baseline, so it is logged here rather than widened into this
+PR (HARD RULE #17).
+
 **Why both, rather than either.** The headless half is the one that can be scripted, scheduled, and
 gated without a browser. The author-facing half is the one that answers the question *at the moment
 it is asked* — a number or a color looks wrong on the deck in front of you — which a corpus rate

@@ -125,11 +125,7 @@ test('sectionsOf returns each section in order, and [] for none', () => {
   assert.deepEqual(core.sectionsOf('<p>no sections</p>'), []);
 });
 
-test('classifyDivergence names a generated-id / cat-N difference', () => {
-  const got = '<section class="cat-1"><svg aria-labelledby="lat-svgt-1"></svg></section>';
-  const want = '<section class="cat-3"><svg aria-labelledby="lat-svgt-2"></svg></section>';
-  assert.equal(core.classifyDivergence(got, want), 'generated ids / cat-N (seedRenderIds row)');
-});
+
 
 test('classifyDivergence names a watermark-glyph difference', () => {
   assert.equal(core.classifyDivergence('<section><div class="tile-watermark">1</div></section>', '<section></section>'), 'watermark glyph');
@@ -287,4 +283,29 @@ test('the section parsers do not backtrack exponentially (js/redos)', () => {
   core.diffSections(evil, `${evil}x`);
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
   assert.ok(ms < 500, `parsing took ${ms.toFixed(1)}ms — the alternatives are ambiguous again`);
+});
+
+// ── The cause buckets, split ─────────────────────────────────────────────────
+// These were ONE bucket named "generated ids / cat-N". On the corpus that fused 44 invisible id
+// counters with 5 `cat-N` — and `cat-N` is the VISIBLE bug this whole feature line exists to catch
+// (a proof panel showing the wrong hue), presented to the author under the id bucket's reassuring
+// "a known repair is still owed". Most-visible-first ordering is the property; these pin it.
+
+test('classifyDivergence names a cat-N hue difference on its own', () => {
+  assert.equal(core.classifyDivergence('<section class="proof cat-1"></section>', '<section class="proof cat-3"></section>'), 'cat-N (categorical hue)');
+});
+
+test('classifyDivergence names a generated-id difference on its own', () => {
+  assert.equal(
+    core.classifyDivergence('<section><svg aria-labelledby="lat-svgt-1"></svg></section>', '<section><svg aria-labelledby="lat-svgt-2"></svg></section>'),
+    'generated ids (seedRenderIds row)',
+  );
+});
+
+test('a visible hue difference is NOT hidden behind an invisible id difference', () => {
+  // The regression that matters: when both move, the bucket must not read as the benign one.
+  const got = '<section class="cat-1"><svg aria-labelledby="lat-svgt-1"></svg></section>';
+  const want = '<section class="cat-3"><svg aria-labelledby="lat-svgt-2"></svg></section>';
+  assert.equal(core.classifyDivergence(got, want), 'cat-N + generated ids');
+  assert.match(core.classifyDivergence(got, want), /cat-N/);
 });

@@ -1037,8 +1037,22 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										// Without it, on examples/focus.md — 11 authored slides, 14 engine sections —
 										// the panel quoted a `_focusSteps` clone of slide 10 and called it slide 11's
 										// full-deck render. Fail honestly instead of confidently comparing the wrong pair.
+										//
+										// MIRRORED IN FULL, both checks. An earlier cut carried only the slideCount
+										// comparison and skipped even that when slideCount was absent, so it was a WEAKER
+										// copy of the invariant it cited — three days old and already diverging. The raw
+										// `<section` tally catches what the count cannot: a nested or author-authored
+										// `<section>` makes the non-greedy split mis-pair, so `sections` is the wrong
+										// list before any index is applied. (That the invariant now has three copies is
+										// the argument for reconciling the two slide splitters, logged in the decision
+										// note rather than widened here.)
 										const sections = sectionsOf(deckOut.html);
-										if (typeof slideCount === 'number' && sections.length !== slideCount)
+										const opens = (deckOut.html.match(/<section\b/g) || []).length;
+										if (opens !== sections.length)
+											return { equal: null, why: 'the deck contains nested or unbalanced `<section>` markup, so the slides cannot be told apart' };
+										if (typeof slideCount !== 'number')
+											return { equal: null, why: 'this view does not know how many slides the deck has, so an index cannot identify one' };
+										if (sections.length !== slideCount)
 											return { equal: null, why: `the deck renders ${sections.length} slides where the editor counts ${slideCount}, so an index can't identify this one` };
 										const want = sections[slideIndex];
 										if (want === undefined)
