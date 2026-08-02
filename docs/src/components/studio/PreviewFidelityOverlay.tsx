@@ -15,7 +15,7 @@
 // pays nothing; the render pipeline only reports while this is mounted (fidelity-findings.ts
 // hasFidelityListeners gate). The draggable shell + the enable/singleton gate are the shared
 // diagnostic-overlay chassis (diagnostic-overlay.tsx); the group separator is the shared Sep.
-// The house readout shape is followed exactly: a verdict-chip strip, `Sep`-labelled groups, and
+// The house readout shape is followed exactly: a verdict-chip strip, `Sep`-labeled groups, and
 // tap/hover rows that reveal a plain-language definition plus a live relationship line.
 //
 // THE COMPARE IS A BUTTON, NOT A SUBSCRIPTION — the one deliberate departure from the "live"
