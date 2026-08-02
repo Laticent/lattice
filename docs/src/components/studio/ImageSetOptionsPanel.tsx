@@ -20,14 +20,14 @@ type Mode = 'inherit' | 'light' | 'dark' | 'print';
 type SvgBg = 'inherit' | 'light' | 'dark' | 'print';
 
 const MODES: { value: Mode; label: string; hint: string }[] = [
-	{ value: 'inherit', label: 'Inherit', hint: 'The deck’s current light/dark mode.' },
+	{ value: 'inherit', label: 'Auto', hint: 'The deck’s current light/dark mode.' },
 	{ value: 'light', label: 'Light', hint: 'Force the light palette.' },
 	{ value: 'dark', label: 'Dark', hint: 'Force the dark palette.' },
 	{ value: 'print', label: 'Print', hint: 'B&W-safe ink-on-white handout mode.' },
 ];
 
 const SVG_BGS: { value: SvgBg; label: string; hint: string }[] = [
-	{ value: 'inherit', label: 'Inherit', hint: 'Follow the slides’ color mode; no canvas — drops onto anything.' },
+	{ value: 'inherit', label: 'Auto', hint: 'Follow the slides’ color mode; no canvas — drops onto anything.' },
 	{ value: 'light', label: 'Light', hint: 'Render the chart/diagram in color on a white canvas.' },
 	{ value: 'dark', label: 'Dark', hint: 'Render the chart/diagram in color on a dark canvas.' },
 	{ value: 'print', label: 'Print', hint: 'Render B&W (grayscale + textures) on white — print-ready vectors.' },

@@ -6,7 +6,7 @@
 // a simple on/off: removing `dark` from a slide whose deck says `class: dark` does
 // nothing (it re-appends), and "off" for finish/mode is an explicit OPT-OUT token
 // (`finish-none` / `boardroom`), not an absence. This module computes the effective
-// state — Inherited (deck) / On (this slide) / Off — and the writes that realize each,
+// state — Auto (from the deck) / On (this slide) / Off — and the writes that realize each,
 // so the drawer's controls tell the truth. Pure; mirrors the engine's resolution.
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 

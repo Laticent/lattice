@@ -137,11 +137,25 @@ describe('SlideContextBody controls', () => {
 		expect(applied()).toContain('spectrum-off');
 	});
 
-	it('reads the brand bar as inherited from the deck `spectrum:` register', async () => {
+	// The head option is worded "Auto", never "Inherit" — `inherit` is a CSS keyword,
+	// not a word an author should have to know (#1293). It names what Auto RESOLVES to,
+	// so the deck's value is readable without opening the deck Inspector.
+	it('reads the brand bar as Auto, naming the deck `spectrum:` value it resolves to', async () => {
 		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
 		goTab('Accent');
-		expect(await selectedOptionText(/brand bar/i)).toMatch(/inherit/i);
+		const label = await selectedOptionText(/brand bar/i);
+		expect(label).toMatch(/^Auto — Solid$/);
+		expect(label).not.toMatch(/inherit/i);
+	});
+
+	// Four catalogs (heading rule, headline alignment, card rail, motion speed) carry a
+	// value that is ITSELF labeled "Auto". Naming the head "Auto" too would render
+	// "Auto — Auto"; the stutter collapses to a bare "Auto" (#1293).
+	it('collapses the head to a bare "Auto" when the value it resolves to is also Auto', async () => {
+		setup('<!-- _class: kpi -->\n\n# Hi');
+		goTab('Accent');
+		expect(await selectedOptionText(/heading rule/i)).toBe('Auto');
 	});
 
 	it('overrides the stamp SHAPE from the Stamp style picker', async () => {
@@ -167,11 +181,13 @@ describe('SlideContextBody controls', () => {
 		expect(toks).toContain('tone-edge');
 	});
 
-	it('reads the stamp shape as inherited from the deck `stamp:` register', async () => {
+	it('reads the stamp shape as Auto, naming the deck `stamp:` value it resolves to', async () => {
 		const src = '---\nstamp: seal\n---\n\n<!-- _class: kpi confidential -->\n\n# Hi';
 		setup('<!-- _class: kpi confidential -->\n\n# Hi', src);
 		goTab('Status');
-		expect(await selectedOptionText(/stamp style/i)).toMatch(/inherit/i);
+		const label = await selectedOptionText(/stamp style/i);
+		expect(label).toMatch(/^Auto — Seal$/);
+		expect(label).not.toMatch(/inherit/i);
 	});
 
 	it('toggles the silent chrome switch', () => {

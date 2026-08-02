@@ -3,7 +3,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { ChangeSet, EditorSelection as CmSelection, Compartment, EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, scrollPastEnd } from '@codemirror/view';
 import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
@@ -315,6 +315,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 						lintComp.current.of(buildLint()),
 						lintGutter(),
 						editorTheme,
+						// Room to breathe past the last line — the give Monaco has by default
+						// (`scrollBeyondLastLine`) and CodeMirror ships as a one-line extension.
+						// Without it the final line is pinned to the container edge, so the line
+						// an author is most often working on is the least comfortable to read
+						// (#1290). Not reinvented as padding: `scrollPastEnd` teaches the
+						// scroller its real extent, so `scrollIntoView` (revealSlide, the demo's
+						// typeTail) can still center the last slide instead of clamping short.
+						scrollPastEnd(),
 						EditorView.lineWrapping,
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
 						EditorView.updateListener.of((u) => {

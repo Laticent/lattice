@@ -912,7 +912,13 @@ function ComposeStyles() {
 			.cs-frame{display:flex;height:100%}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
-			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(72px + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
+			/* The bottom give — the Compose twin of the markdown editor's scrollPastEnd
+			   (#1290). 72px was barely four lines, so the last slide sat jammed against the
+			   pane edge exactly where authors do most of their work. A viewport-proportional
+			   clamp reads the same on a laptop and a phone. min-height:100% + border-box
+			   means this padding only COSTS scroll on a doc that already overflows: a short
+			   deck still ends flush, with no phantom empty scroll. */
+			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(clamp(72px,38vh,520px) + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
 			/* THE DIVIDER = the slide's control bar, as a COLUMN: a full-width hairline carrying circular
 			   STRUCTURAL caps (collapse left, delete right) on EVERY slide, and — only on the ACTIVE slide —
@@ -926,9 +932,13 @@ function ComposeStyles() {
 			.cs-sc-cap{position:relative;z-index:1;flex:none;width:22px;height:22px;padding:0;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,border-color .12s,background .12s}
 			.cs-sc-cap svg{display:block;width:13px;height:13px}
 			.cs-sc-cap:hover{color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-			.cs-sc-delete:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 90%)}
+			/* The danger caps tint OVER the surface, never toward transparency: a cap sits ON the
+			   hairline, so a translucent hover background lets the 2px rule read straight through the
+			   button (#1289). Mixing the same proportion of --fail into --bg keeps the identical wash
+			   while staying opaque — the collapse cap's behavior, which was always correct. */
+			.cs-sc-delete:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 10%,var(--bg,#fff))}
 			.cs-sc-confirm{color:var(--fail,#b3261e);border-color:color-mix(in oklab,var(--fail,#b3261e),transparent 55%)}
-			.cs-sc-confirm:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
+			.cs-sc-confirm:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 12%,var(--bg,#fff))}
 			/* delete → in-place confirm: "Delete?" + check/x, on a bg chip masking the line behind it */
 			.cs-sb-danger{position:relative;z-index:1;display:flex;align-items:center;gap:4px}
 			.cs-sb-danger.cs-confirming{background:var(--bg,#fff);border-radius:999px;padding-left:9px}
@@ -958,9 +968,19 @@ function ComposeStyles() {
 			.cs-pill-btn{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
 			.cs-pill-btn svg{display:block;width:13px;height:13px}
 			.cs-pill-btn:hover{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-			/* collapsed: keep the first block, hide the rest behind an ellipsis */
-			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
-			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
+			/* COLLAPSED — the slide's TITLE, with the ellipsis riding the same line.
+			   Keeping merely the FIRST block showed the eyebrow instead (an eyebrow is
+			   p:has(> code:only-child) placed BEFORE the heading — see lib/base/base.docs.md),
+			   so a collapsed slide announced "Q4 · FINANCE" rather than what it is, and the
+			   block-level ⋯ cost a second line (#1287). Now: the first heading wins, whatever
+			   precedes it; a slide with no heading at all falls back to its first block so the
+			   row is never blank; and ⋯ is an inline ::after on whichever of those is shown. */
+			.cs-slide.cs-collapsed .cs-slide-content > *{display:none}
+			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4){display:block}
+			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4) ~ :is(h1,h2,h3,h4){display:none}
+			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child{display:block}
+			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4)::after,
+			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child::after{content:" ⋯";color:var(--text-muted,#6b7f9a);font-weight:400}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
 			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
 			.cs-host .cs-slide-locked{position:relative;opacity:.72}
