@@ -2296,6 +2296,34 @@ means "no gap logged for the runtime route", never "the preview is complete.
 
 ## Lattice internals
 
+### A page number / progress rail / proof-panel color looks wrong in the preview, right in the export
+
+- **Symptom:** The Studio or Playground preview shows a slide numbered `1 of 1`
+  when the deck has twelve, or a progress rail with the wrong dot lit, or every
+  `split-panel proof` slide in one hue where the export gives each level its own.
+  Export the same deck and it is correct.
+- **Cause:** The preview renders **one slide, not the deck** — re-parsing the whole
+  deck on every keystroke costs ~46ms per keypress on a 40-slide deck. Anything a
+  slide gets from its NEIGHBORS is therefore missing unless it was handed over:
+  the page number and the section index are supplied by the caller
+  (`docs/src/lib/single-slide-render.ts`), and a registry of **deck-derived facts**
+  (`DECK_DERIVED_FACTS`) forces the whole-deck render for the rest. A symptom like
+  this means the registry has a hole, or a supplied position was wrong.
+- **Mitigation:** Turn on **Preview fidelity** (Workspace → General → Diagnostics,
+  or `?fidelity`) — **Studio only**; the overlay is not mounted on the Playground. It reports which route the shown slide took, which registry fact
+  forced it, and what position was supplied — and **render both ways and diff** compares
+  the two renders and names what differs: an attribute, a class token, or the words,
+  one row each. On the *fast* route a difference is the bug; on the *whole-deck* route
+  it means the gate is earning its cost. Across the whole corpus, `npm run equiv` asks
+  the same question headless.
+- **Triggered by:** Adding a feature whose value depends on other slides without
+  adding a `DECK_DERIVED_FACTS` entry for it. The originally reported case was
+  `split-panel proof` — `cat-N` is assigned from the slide's ordinal among the
+  deck's proof slides, so a lone slice is always "the first" and takes `cat-1`.
+- **Commits:** #1262, #1272, #1280; see
+  [engineering/decisions/2026-07-30-preview-deck-context-and-render-cost.md](decisions/2026-07-30-preview-deck-context-and-render-cost.md)
+  §5 + Amendment 3.
+
 ### Editing a manifest `sample` staled the bucket survey gallery
 
 - **Symptom:** `npm run test:integration` fails in `bucket-galleries`

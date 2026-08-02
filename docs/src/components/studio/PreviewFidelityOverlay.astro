@@ -1,0 +1,15 @@
+---
+// Preview fidelity overlay — mounts the React island (PreviewFidelityOverlay.tsx) that
+// reports whether the slide on screen is what the full deck would render: which route the
+// preview took (this slide alone, or the whole deck), why, what deck position it was handed,
+// and on demand whether the two routes agree. The live twin of `npm run equiv`, which asks
+// the same question headless across every committed deck.
+//
+// client:only — browser-only (reads localStorage, subscribes to the render pipeline's
+// findings store). Renders NOTHING until the shared pref is on (fidelity-overlay-prefs.ts:
+// the Studio "Preview fidelity" switch + the `?fidelity` param), so a normal view pays
+// nothing. A module-level singleton claim makes a double include a no-op.
+import PreviewFidelityOverlay from './PreviewFidelityOverlay.tsx';
+---
+
+<PreviewFidelityOverlay client:only="react" />

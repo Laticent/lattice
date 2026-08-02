@@ -517,3 +517,144 @@ Absent `page`, numbering is counted off the document exactly as before, so no ex
 which supplies it — can move. Guarded on the real surface by
 `docs/e2e/supplied-page-position.spec.ts`, which walks the real Present overlay on a paginated deck
 and asserts the PAINTED badge matches the player's counter.
+
+## Amendment 3 (2026-08-02): the instrument, and why it has two surfaces
+
+§5 was designed against a measurement that lived in `.scratch/` and was lost. When its numbers were
+later questioned nobody could re-examine the residual, so the rate was restated three times (~99%,
+92.6%, 96.5%) as successive passes found bugs in the *probe* rather than in the engine. Two of those
+bugs are worth naming, because both were the class where the instrument is wrong and still looks
+plausible: the corpus walk read only the top level of `examples/`, silently measuring 111 of 125
+decks and calling it "the corpus"; and normalizing the pagination *attribute* but not its painted
+span read 34.2% where the truth was 90.5%.
+
+The instrument is now committed, and it has **two surfaces over one pure core**
+(`lib/diagnostics/slice-equivalence-core.mjs`):
+
+- **Headless** — `tools/slice-equivalence.mjs` (`npm run equiv` / `equiv:bless` / `equiv:check`).
+  Sweeps every committed deck against a baseline with a 1.5-point band. On-demand, **not a CI gate**:
+  it measures a prototype with no production consumer, so a drop means "the prototype moved", not "a
+  user broke". Same shape as `bench` and `quality`, and catalogued in `engineering/capabilities.md`
+  so the next person does not rebuild it — the failure that lost the original measurement.
+  Reads **1104/1201 slides (91.9%)**, residual concentrated in generated ids / `cat-N` (49 slides,
+  the `seedRenderIds` row) and unclassified (46).
+- **Author-facing** — the Studio's **Preview fidelity** overlay
+  (`docs/src/components/studio/PreviewFidelityOverlay.tsx`, Workspace → Diagnostics, or
+  `?fidelity`). Reports which route the shown slide took, which registry fact forced it, and what
+  position was supplied; a button renders the slide both ways and quotes the first divergence.
+
+### The prelude is empty for every slide in the corpus — so 91.9% is not the prototype's score
+
+This amendment first claimed, and the CHANGELOG and capability index repeated, that the sweep scores
+the *prototype prelude*. **It does not.** Counting directly over the corpus:
+
+```
+measured slides:                    1201
+slides given a NON-EMPTY prelude:      0
+```
+
+Every running-directive comment in the committed decks is outside the engine's vocabulary (`note`,
+`describe`, `caption`), and every in-vocabulary directive is written in the `_` spot form, which is
+slide-local by definition and correctly not carried forward. The deck-level ones (`header:`,
+`paginate:`) live in front matter, which the harness already prepends verbatim.
+
+So **91.9% is slice-vs-deck equivalence with the prelude mechanism contributing nothing** — a useful
+number, and the right denominator for the `seedRenderIds` row, but it says nothing about whether the
+general mechanism works. Step 3's own corpus evidence is currently zero, and that is the honest state
+of §5.
+
+Two consequences, both now fixed rather than noted:
+
+1. **The sweep prints the prelude count on every run**, so the claim cannot silently go stale again.
+   It is in the blessed baseline too.
+2. **`synthesizePrelude` throws when its vocabulary argument is missing**, instead of defaulting to
+   empty sets. A caller that dropped it would have synthesized empty preludes for all 1201 slides and
+   moved `equiv:check`'s band by **0.0 points** — undetectable by construction. This was found by
+   asking whether the injected-vocabulary design had a footgun; it did, and it was already live.
+
+The *author-facing* half is where the mechanism does get exercised, because an author's in-progress
+deck is not the committed corpus: the running-header deck below produces exactly the divergence a
+prelude would repair. That asymmetry is itself an argument for having built both surfaces.
+
+### What the sweep cannot detect — measured, and load-bearing
+
+A Munger inversion of the shipped diagnostic asked what would have to be true for the headless half
+to be *incapable* of catching a real defect. Two things, and both are true:
+
+**It never runs the code that ships.** `tools/slice-equivalence.mjs` imports `lib/diagnostics` and
+`lib/engine` only. The repair that actually fixes the preview — `supplyablePosition`,
+`positionIsTrustworthy`, `deckSectionFor`, `DECK_DERIVED_FACTS` — lives in
+`docs/src/lib/single-slide-render.ts` and is never executed by the sweep. Every slice is rendered
+with **no supplied position**, so the sweep faithfully reproduces the pre-#1272 behavior on all 1201
+slides. Change `positionIsTrustworthy` to `return false` — every Studio slide back to "1 of 1", the
+originally reported bug fully restored — and `equiv:check` moves **0.0 points and passes.**
+
+**Most of the rate is neutralizer.** Measured on this corpus:
+
+| regime | rate |
+|---|---|
+| blessed (`PROTOTYPE_NEUTRALIZERS`) | **91.9%** (1104/1201) |
+| minus the `pagination` neutralizer | **11.0%** (132/1201) |
+| minus the `rail` neutralizer | **67.5%** (811/1201) |
+
+So roughly **81 of the 91.9 points are differences agreed to be ignored**, because their repairs
+already ship. The tool now prints the active neutralizer set on every run, for the same reason it
+prints the prelude count: the set is an *assertion about what ships*, nothing pins it to reality,
+and a reader who cannot see it cannot judge the number.
+
+**This also replaces the stated reason for keeping it off CI.** The old argument — it measures a
+prototype with no production consumer — is weak now that the same core powers the shipped overlay.
+The real reason is that **it cannot produce a true alarm at its own resolution**: the `--check` band
+is 1.5 points, which over 1201 slides is 18 slides, and breaking `cat-N` on every proof slide in the
+corpus moves it 5 slides — 0.4 points, a pass. Promoting it to a gate would not catch the defect
+class it was built around. That is a property, not a scheduling choice.
+
+**What the sweep IS**, then: the residual for step 3 — how far a slice sits from its deck section
+once the shipped repairs are set aside. It says whether the general mechanism is worth building. It
+is not, and cannot be, a regression gate for user-visible behavior; the gates for that are the unit
+tier, the Studio e2e specs, and the author-facing overlay.
+
+**Next slice, not this one.** Making the sweep measure what ships means porting `positionIsTrustworthy`
+and `deckSectionFor` into `lib/diagnostics/` (both are pure string functions), supplying `page` in the
+corpus walk, and dropping `pagination`/`rail` from the neutralizer set. The rate would stop being
+mostly-neutralizer and start *falling* when a shipped repair breaks. That is a change to the shipped
+render path's ownership and a re-blessed baseline, so it is logged here rather than widened into this
+PR (HARD RULE #17).
+
+**Why both, rather than either.** The headless half is the one that can be scripted, scheduled, and
+gated without a browser. The author-facing half is the one that answers the question *at the moment
+it is asked* — a number or a color looks wrong on the deck in front of you — which a corpus rate
+never can. They are not the same tool aimed at two audiences; they ask the same question about
+different subjects.
+
+**The one place they must NOT agree.** Both compare normalized renders, but they neutralize
+different things, and this is load-bearing rather than incidental:
+
+| | headless sweep | author overlay |
+|---|---|---|
+| positional `id="N"` | hidden | hidden (no shipped repair yet) |
+| pagination attr + painted span | **hidden** | **kept** |
+| progress rail | **hidden** | **kept** |
+| inter-block whitespace | hidden | hidden |
+
+The sweep hides the repairs that already ship (#1272, #1280) so the rate isolates what is still
+UNREPAIRED — the residual step 3 would have to close. The overlay keeps them, because a wrong page number or a wrong rail is precisely
+the finding an author turns it on for — hiding them would blind it to its main use. The asymmetry is
+pinned by `test/unit/diagnostics/slice-equivalence-core.test.js`, which fails if either set drifts
+toward the other.
+
+**A difference means opposite things on the two routes**, and the overlay says which:
+
+- On the **slice** route the slide on screen *is* the fast render, so a difference is a live bug —
+  the registry has a hole.
+- On the **whole-deck** route the preview already shows the full render; the fast route was never
+  taken. A difference there means the gate is earning its cost; a *match* means it over-triggered on
+  this slide and paid for a deck parse it did not need.
+
+**Verified on the real Studio** (HARD RULE #23), typing a two-slide deck whose first slide sets a
+running `<!-- header: … -->`: route reads `the whole deck (slow)` because `running-global directive`;
+compare on slide 1 reports the fast route *would have matched*; compare on slide 2 reports it *would
+differ*, quoting the exact loss — `data-header="Q3 Board Review"` present in the deck render, absent
+from the slice. That is §5's thesis rendered visible: it is precisely what the prelude synthesizer
+would repair. The fourth branch — slice route *and* a difference — was **not** reachable on a real
+deck, since producing it requires a registry hole; it is UNVERIFIED on a real surface.
