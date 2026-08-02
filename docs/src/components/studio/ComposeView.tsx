@@ -4,7 +4,7 @@ import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirr
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { EditorState, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
@@ -639,7 +639,17 @@ function buildPlugins() {
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
 // pane, else it would paint over the live preview (the body-portal render-gate).
-export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, onInsertBelow }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; onInsertBelow?: (index: number) => void }) {
+/**
+ * Compose's imperative surface — the twin of the markdown Editor's EditorHandle,
+ * so the shell can drive either editor through the same two verbs.
+ */
+export type ComposeHandle = {
+	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
+	 *  caret at the slide's first editable position (#1288). */
+	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
+};
+
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, onInsertBelow, onCursorSlide }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -677,6 +687,28 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		}
 	}, []);
 
+	// The shell's handle onto this editor. `revealSlide` is the mirror of the markdown
+	// Editor's: scroll the slide into view, and on a FOCUSING reveal put the caret at
+	// the slide's first editable position so the next keystroke edits the slide the
+	// preview picker just chose (#1288).
+	React.useImperativeHandle(ref, () => ({
+		revealSlide(index: number, opts?: { focus?: boolean }) {
+			const v = viewRef.current;
+			if (!v) return;
+			const doc = v.state.doc;
+			if (index < 0 || index >= doc.childCount) return;
+			let pos = 0;
+			for (let i = 0; i < index; i++) pos += doc.child(i).nodeSize;
+			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
+			// nearest real text position from there — the slide's first editable spot,
+			// whatever block happens to open it.
+			const sel = Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size)));
+			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
+			v.dispatch(v.state.tr.setSelection(sel).scrollIntoView());
+			if (opts?.focus) v.focus();
+		},
+	}), []);
+
 	// The mobile shell (coarse pointer / ≤699px) drives the TYPING-MODE chrome collapse: when the
 	// software keyboard is up, the shell's top bands collapse for a full writing surface.
 	// `useVisualViewport` publishes the keyboard geometry only here, so desktop pays nothing.
@@ -692,6 +724,13 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// typing (a scroll-up away), which answers the inversion's keyboard-only-reachability objection.
 	const onTypingRef = React.useRef(onTypingCollapse);
 	onTypingRef.current = onTypingCollapse;
+	// The caret's slide, published to the shell so the PREVIEW follows the slide you
+	// are writing in — the direction Compose never had (#1288). Ref-backed (the
+	// construct-once dispatchTransaction closes over it) and edge-triggered on
+	// `lastSlideRef`, so it fires when the caret CROSSES a slide, not per keystroke.
+	const onCursorSlideRef = React.useRef(onCursorSlide);
+	onCursorSlideRef.current = onCursorSlide;
+	const lastSlideRef = React.useRef(-1);
 	// Ref-backed so the construct-once NodeView factory always calls the CURRENT handler.
 	const onOpenSlideSettingsRef = React.useRef(onOpenSlideSettings);
 	onOpenSlideSettingsRef.current = onOpenSlideSettings;
@@ -777,6 +816,14 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
 						onChangeRef.current(src);
+					}
+					// The caret's slide index — the top-level `slide` node it sits in. Edge-
+					// triggered so the shell only hears about real crossings.
+					const { $from } = next.selection;
+					const slideIdx = $from.depth >= 1 ? next.doc.resolve($from.before(1)).index() : -1;
+					if (slideIdx >= 0 && slideIdx !== lastSlideRef.current) {
+						lastSlideRef.current = slideIdx;
+						onCursorSlideRef.current?.(slideIdx);
 					}
 					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
 					// abort the transaction and swallow the emit above.
@@ -901,7 +948,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			{tableMount && createPortal(<TableControls view={viewRef.current as EditorView} stateful={tableMount.stateful} />, tableMount.slot)}
 		</div>
 	);
-}
+});
 
 // The Quiet Page — serif writing surface + the quiet grammar gutter, on the studio
 // tokens so it themes light + dark with the shell.

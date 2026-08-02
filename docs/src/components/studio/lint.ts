@@ -154,6 +154,40 @@ export function slideStartOffset(src: string, index: number): number {
 	return r ? r.start : 0;
 }
 
+/**
+ * Where the caret should land when you jump to a slide: the start of its first
+ * line of actual CONTENT.
+ *
+ * A slide's first lines are usually machinery — the `<!-- _class: … -->` directive
+ * and its siblings (`<!-- _footer: … -->`, `<!-- _key … -->`), plus blank lines.
+ * Parking the caret at the raw slide start therefore drops you into a comment you
+ * did not come to edit, and a first keystroke there corrupts the directive
+ * (#1288/#1291). This walks past directive comments and blank lines to the first
+ * line that carries something to write on.
+ *
+ * Falls back to the slide start when a slide is nothing BUT directives — there is
+ * no better place to be, and the caret must still be inside the right slide.
+ */
+export function slideEditableOffset(src: string, index: number): number {
+	const start = slideStartOffset(src, index);
+	const ranges = slideRanges(src);
+	const r = ranges[Math.min(Math.max(index, 0), ranges.length - 1)];
+	const end = r ? r.end : src.length;
+	let at = start;
+	while (at < end) {
+		const nl = src.indexOf('\n', at);
+		const lineEnd = nl === -1 || nl > end ? end : nl;
+		const line = src.slice(at, lineEnd).trim();
+		// A directive comment opens AND closes on its own line; a multi-line HTML
+		// comment is authored content (a speaker note), so it is a landing spot.
+		const isDirective = /^<!--[^>]*-->$/.test(line);
+		if (line && !isDirective) return at;
+		if (nl === -1) break;
+		at = nl + 1;
+	}
+	return start;
+}
+
 /** A reader-lens id. Any string so a deck-defined `lenses:` registry (projected by @slidewright/lente)
  *  can name its own lenses. `full` is always the identity; every other id is a registry (tag-driven,
  *  author-approved) lens. The old author-blind `exec`/`onepager` heuristics are RETIRED. */

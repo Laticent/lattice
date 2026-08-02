@@ -8,7 +8,7 @@ import * as React from 'react';
 import { buildVocabSets, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type CompletionComponent, makeStudioCompletion } from './editor-complete';
 import { editorTheme } from './editor-theme';
-import { slideIndexAt, slideStartOffset } from './lint';
+import { slideEditableOffset, slideIndexAt, slideStartOffset } from './lint';
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
 // lazily imported the first time the editor validates — surfaces that never lint
@@ -80,7 +80,10 @@ function makeLinter(known: Set<string>) {
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
 export type EditorHandle = {
 	fixAll: () => void;
-	revealSlide: (index: number) => void;
+	/** Frame a slide. `focus` additionally takes keyboard focus and parks the caret on
+	 *  the slide's first line of real content — what picking a slide in the preview
+	 *  should do, so the next keystroke edits the slide you just chose (#1291). */
+	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
 	/** The current primary selection (text + range). `empty` when nothing is selected. */
 	getSelection: () => EditorSelection;
 	/** Replace the current selection with `text` as one undoable transaction, then
@@ -248,18 +251,24 @@ export const Editor = React.forwardRef<EditorHandle, {
 		// lastSlideRef so the resulting selectionSet echoes the SAME index → onCursorSlide
 		// no-ops, no sync loop. A single scroll effect — NO end→start caret hop (that
 		// parked the caret in slide index+1 and flickered the preview).
-		revealSlide(index: number) {
+		revealSlide(index: number, opts?: { focus?: boolean }) {
 			const v = viewRef.current;
 			if (!v) return;
 			const doc = v.state.doc.toString();
 			const from = Math.min(slideStartOffset(doc, index), v.state.doc.length);
 			const nextStart = slideStartOffset(doc, index + 1);
 			const to = Math.min(nextStart > from ? nextStart - 1 : v.state.doc.length, v.state.doc.length);
+			// Framing parks the caret at the slide START (cheap, and the framing effect
+			// below is what the eye follows). A FOCUSING reveal — the preview picker —
+			// instead lands on the first editable line, so the caret is somewhere worth
+			// typing rather than inside the `_class` directive (#1291).
+			const caret = opts?.focus ? Math.min(slideEditableOffset(doc, index), v.state.doc.length) : from;
 			lastSlideRef.current = index;
 			v.dispatch({
-				selection: { anchor: from },
+				selection: { anchor: caret },
 				effects: EditorView.scrollIntoView(CmSelection.range(from, to), { y: 'center' }),
 			});
+			if (opts?.focus) v.focus();
 		},
 		getSelection(): EditorSelection {
 			const v = viewRef.current;
