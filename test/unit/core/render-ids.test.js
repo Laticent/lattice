@@ -156,6 +156,17 @@ test('render-ids: an ENTITY-ENCODED family name shifts the namespace too', () =>
 	assert.equal(renderIdPrefix(), 'lat-r0-', 'decimal character references are part of the same syntax');
 });
 
+test('render-ids: a 10-digit prefix cannot be forced past the probe', () => {
+  // Red team. `\d{1,9}` capped what the probe could SEE, so mentioning `lat-r999999999-` made
+  // `max+1` return `lat-r1000000000-` — ten digits, structurally invisible to the same probe. Squat
+  // that and SVG's first-def-wins paints the real chart's wedge with the author's fill while the
+  // legend still reads correctly: the "chart that lies". The one candidate the guard could not test
+  // was the one it returned, which is precisely the failure its own header claims to have closed.
+  resetRenderIds('<span data-x="lat-r999999999-pie-wedge"></span><radialGradient id="lat-r1000000000-pie-wedge-2-1"/>');
+  assert.notEqual(renderIdPrefix(), 'lat-r1000000000-', 'returned the one candidate it could not see');
+  assert.ok(renderIdPrefix().startsWith('lat-r'), 'still a lat-r namespace');
+});
+
 test('engine: a squatting deck gets zero duplicate ids, on every render', () => {
 	// End to end through the real engine, four renders in one process — the surface where the old
 	// accidental escape used to kick in from render 2.
@@ -165,13 +176,17 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 		fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8'),
 		fs.readFileSync(path.join(ROOT, 'themes/indaco.css'), 'utf8'),
 	]);
-	// SQUATTING THE SHAPE THE ENGINE ACTUALLY MINTS. Since ids became slide-scoped
-	// (`pie-wedge-<slide>-<n>`), a squat on the old bare `pie-wedge-1` cannot collide with anything —
-	// so a fixture using it would make the duplicate-id assertion below pass VACUOUSLY while the
-	// guard it is testing was gone. The chart lives on slide 2 of this deck, so `pie-wedge-2-1` and
-	// `pie-wedge-2-2` are exactly what it will mint. The old bare forms are kept alongside: the probe
-	// fires on the family NAME, so a mere mention must still move us.
-	const squat = ['pie-wedge-2-1', 'pie-wedge-2-2', 'pie-wedge-1', 'chart-spine-1']
+	// THE SQUAT IS HARVESTED FROM A REAL RENDER, NOT HARD-CODED. A previous version wrote
+	// `pie-wedge-2-1` with the comment "the chart lives on slide 2 of this deck" — so adding ONE slide
+	// to the fixture moved the engine to `pie-wedge-3-1`, the squat stopped colliding, and the
+	// duplicate-id assertion below would pass with the guard removed. That is the same vacuous-fixture
+	// defect this test was rewritten to fix, reintroduced with a SHORTER fuse: the old fixture rotted
+	// when the id shape changed (rare); that one rotted when anyone edited the deck (routine).
+	// Render once with no squat, take the ids the engine actually minted, squat exactly those.
+	const probeDeck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
+	const minted = [...e.render(probeDeck, 'indaco').html.matchAll(/\sid="((?:lat-)?[a-z][\w-]*-\d+(?:-\d+)?)"/g)].map((m) => m[1]);
+	assert.ok(minted.length >= 2, `fixture broken: the probe render minted ${minted.length} ids`);
+	const squat = minted
 		.map((id) => `<radialGradient id="${id}"><stop offset="0%" stop-color="#ff0000"/></radialGradient>`)
 		.join('');
 	const deck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n<svg width="1" height="1" aria-hidden="true"><defs>${squat}</defs></svg>\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
@@ -184,7 +199,7 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 		assert.deepEqual(dupes, [], `render ${render} has duplicate ids, so the squat landed: ${dupes.join(', ')}`);
 		// Fixture guard: if the raw <svg> stopped surviving to the output there would be nothing to
 		// collide with and the assertion above would pass vacuously.
-		assert.ok(html.includes('id="pie-wedge-2-1"'), 'fixture broken: the squatting defs did not reach the output');
+		for (const id of minted) assert.ok(html.includes(`id="${id}"`), `fixture broken: the squat on ${id} never reached the output`);
 		assert.ok(/id="lat-r0-pie-wedge-\d+-\d+"/.test(html), 'the engine did not shift its own namespace');
 		if (previous !== null) assert.equal(html, previous, `render ${render} differs from the one before — the guard is not deterministic`);
 		previous = html;

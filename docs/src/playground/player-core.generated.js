@@ -269,13 +269,19 @@ function projectStats(stage) {
 function reidClone(html) {
   if (!html || html.indexOf("svg") === -1) return html;
   const defined = /* @__PURE__ */ new Set();
-  for (const m of html.matchAll(/\sid="([^"]*)"/g)) if (m[1]) defined.add(m[1]);
+  for (const m of html.matchAll(/\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+    const id = m[1] ?? m[2];
+    if (id) defined.add(id);
+  }
   if (!defined.size) return html;
   const suffixed = (id) => `${id}-a`;
-  return html.replace(/(\sid=")([^"]*)(")/g, (m, open, id, close) => defined.has(id) ? open + suffixed(id) + close : m).replace(/\b(aria-labelledby|aria-describedby)="([^"]*)"/g, (_m, attr, refs) => {
-    const next = refs.split(/\s+/).map((r) => defined.has(r) ? suffixed(r) : r).join(" ");
-    return `${attr}="${next}"`;
-  }).replace(/url\(#([^)"'\s]+)\)/g, (m, id) => defined.has(id) ? `url(#${suffixed(id)})` : m);
+  const move = (id) => defined.has(id) ? suffixed(id) : id;
+  let out = html.replace(/(\sid\s*=\s*)(["'])([^"']*)\2/g, (m, lead, q, id) => defined.has(id) ? `${lead}${q}${suffixed(id)}${q}` : m).replace(new RegExp(`\\b(${IDREF_LIST_ATTRS.join("|")})\\s*=\\s*(["'])([^"']*)\\2`, "g"), (_m, attr, q, refs) => `${attr}=${q}${refs.split(/\s+/).filter(Boolean).map(move).join(" ")}${q}`).replace(new RegExp(`\\b(${SINGLE_IDREF_ATTRS.join("|")})\\s*=\\s*(["'])#([^"']*)\\2`, "g"), (m, attr, q, id) => defined.has(id) ? `${attr}=${q}#${suffixed(id)}${q}` : m).replace(/\b(for)\s*=\s*(["'])([^"']*)\2/g, (m, attr, q, id) => defined.has(id) ? `${attr}=${q}${suffixed(id)}${q}` : m).replace(URL_REF, (m, q, id) => defined.has(id) ? `url(${q ?? ""}#${suffixed(id)}${q ?? ""})` : m);
+  for (const id of [...defined].sort((a, b) => b.length - a.length)) {
+    if (!/[()[\]{}*+?.^$|\\]/.test(id)) continue;
+    for (const q of ["", "'", '"']) out = out.split(`url(${q}#${id}${q})`).join(`url(${q}#${suffixed(id)}${q})`);
+  }
+  return out;
 }
 function projectMedia(stage, heading, component) {
   const visual = stage.querySelector(":scope svg, :scope img, :scope .katex-display, :scope figure");
@@ -549,7 +555,7 @@ function projectDeckToSpeech(sections) {
     return normalizeProjected([leadStr, body].filter(Boolean).join("\n\n"));
   });
 }
-var SKIP_SELECTOR, MEDIA_COMPONENTS, FLOW_CHART_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_BOUNDED_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, SCHEME_MODIFIERS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
+var SKIP_SELECTOR, MEDIA_COMPONENTS, FLOW_CHART_COMPONENTS, CHART_TOKEN_COMPONENTS, SPATIAL_BOUNDED_COMPONENTS, SPATIAL_PLACEHOLDER_COMPONENTS, IDREF_LIST_ATTRS, SINGLE_IDREF_ATTRS, URL_REF, SCHEME_MODIFIERS, WORD_MAPS, STATE_SHAPE_RE, STATE_SEM_RE, prose_projection_default;
 var init_prose_projection = __esm({
   "lib/transformers/prose-projection.mjs"() {
     SKIP_SELECTOR = "header, footer, .cell-footer, .masthead-bay, .lat-pagination, aside, script, style, .lattice-notes, .lattice-description";
@@ -571,6 +577,9 @@ var init_prose_projection = __esm({
     CHART_TOKEN_COMPONENTS = /* @__PURE__ */ new Set(["funnel", "map", "piechart", "quadrant", "radar"]);
     SPATIAL_BOUNDED_COMPONENTS = /* @__PURE__ */ new Set(["word-cloud"]);
     SPATIAL_PLACEHOLDER_COMPONENTS = /* @__PURE__ */ new Set(["journey", "state-chart"]);
+    IDREF_LIST_ATTRS = ["aria-labelledby", "aria-describedby", "aria-controls", "aria-owns", "aria-flowto", "aria-details", "aria-errormessage", "headers"];
+    SINGLE_IDREF_ATTRS = ["href", "xlink:href"];
+    URL_REF = /url\(\s*(["']|&quot;|&#0*34;|&#0*39;|&apos;)?#([^)"'&\s]+)\1?\s*\)/g;
     SCHEME_MODIFIERS = /* @__PURE__ */ new Set(["dark", "light"]);
     WORD_MAPS = {
       checklist: { pass: "done", warn: "partial", skip: "skipped", todo: "to do", fail: "not done" },

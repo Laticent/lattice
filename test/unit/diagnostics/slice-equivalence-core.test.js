@@ -135,6 +135,42 @@ test('positionIsTrustworthy refuses a chunk carrying two top-level headings — 
   assert.equal(core.positionIsTrustworthy('# One\n\n## Also One\n\n---\n\n# Two', 2), false);
 });
 
+test('positionIsTrustworthy refuses a SETEXT heading — the hole that shipped a wrong page number', () => {
+  // Found by the red team. `Interlude` over a row of `=` is an h1 to markdown-it and invisible to an
+  // ATX-only `^#{1,2}` scan, so a 3-chunk deck rendered FOUR sections while this returned true — and
+  // the preview painted "3" on the slide the deck numbers 4. Refusing is the answer rather than
+  // counting them: whether an underline is a heading depends on the paragraph above it, which is a
+  // parse, not a scan.
+  assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two\n\ntext\n\nInterlude\n=========\n\nmore\n', 2), false);
+  assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two\n\ntext\n\nInterlude\n=\n\nmore\n', 2), false);
+  // The `-` underline is the worse half: `Text` over `---` is a setext h2 to markdown-it and a SLIDE
+  // SEPARATOR to the caller — the two disagree about the same three characters.
+  assert.equal(core.positionIsTrustworthy('# One\n\nParagraph\n---\n\nmore\n', 2), false);
+});
+
+test('positionIsTrustworthy refuses ATX indented 1-3 spaces — markdown allows it, column 0 missed it', () => {
+  assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two\n\n  ## Also\n\ntext\n', 2), false);
+  assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two\n\n   # Also\n\ntext\n', 2), false);
+});
+
+test('positionIsTrustworthy refuses a `---` inside an HTML comment — the caller splits, the engine does not', () => {
+  assert.equal(core.positionIsTrustworthy('# One\n\n<!-- a\n---\nb -->\n\ntext\n', 2), false);
+});
+
+test('the comment check does not span an intervening `-->` — it silently refused 126 of 128 decks', () => {
+  // A lazy `[\s\S]*?` matched from the FIRST `<!--`, across a real separator, to a LATER `-->` — so
+  // any deck with directive comments either side of a separator was refused and the whole
+  // optimization switched off with every test still green. This is the shape that caught it.
+  const deck = '<!-- _class: title -->\n# One\n\n---\n\n<!-- _class: content -->\n# Two\n';
+  assert.equal(core.positionIsTrustworthy(deck, 2), true);
+});
+
+test('positionIsTrustworthy still accepts the ordinary shapes — an over-refusing guard is a dead optimization', () => {
+  assert.equal(core.positionIsTrustworthy('# One\n\n- a\n- b\n\n---\n\n# Two\n', 2), true, 'a dash list is not a setext underline');
+  assert.equal(core.positionIsTrustworthy('# One\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n---\n\n# Two\n', 2), true, 'a table delimiter row is not a setext underline');
+  assert.equal(core.positionIsTrustworthy('# One\n\n```\n---\n```\n\n---\n\n# Two\n', 2), true, 'a fenced `---` is neither');
+});
+
 test('positionIsTrustworthy accepts that same deck once it opts OUT of heading splitting', () => {
   const deck = '---\nsplit: rule\n---\n\n# One\n\n## Also One\n\n---\n\n# Two';
   assert.equal(core.positionIsTrustworthy(deck, 2), true);

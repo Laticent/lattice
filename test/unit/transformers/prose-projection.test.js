@@ -117,6 +117,26 @@ test('a cloned chart suffixes EVERY id it defines, whatever the id looks like', 
 	assert.equal((articleHtml.match(/url\(#pie-wedge-80-2-a\)/g) || []).length, 2, 'both url(#…) forms follow the id');
 });
 
+test('a cloned chart moves EVERY reference form, not just the two the first cut knew', () => {
+  // The first "shape-agnostic" cut claimed "a new reference form cannot be missed" and missed seven.
+  // Each row below had its DEFINITION renamed and its REFERENCE left behind — which is worse than
+  // the duplicate this function exists to prevent, because the reference then resolves to the
+  // slide's copy (or to nothing). `url('#g')` was confirmed dangling on a real `--player` export.
+  const rows = [
+    ["url('#g')", `<defs><linearGradient id="g1"/></defs><rect style="fill:url('#g1')"/>`, 'g1'],
+    ['use href', `<path id="p1"/><use href="#p1"/>`, 'p1'],
+    ['xlink:href', `<path id="p2"/><use xlink:href="#p2"/>`, 'p2'],
+    ['id with parens', `<defs><linearGradient id="a.b(c)"/></defs><rect fill="url(#a.b(c))"/>`, 'a.b(c)'],
+  ];
+  for (const [label, inner, id] of rows) {
+    const secs = sections(`<section data-lattice-slide class="piechart"><div class="cell-stage"><div class="masthead-lede"><h2>H</h2></div><svg class="lattice-chart" role="img"><title>T</title>${inner}</svg></div></section>`);
+    const { articleHtml } = project(secs);
+    const fig = articleHtml.slice(articleHtml.indexOf('<figure'), articleHtml.indexOf('</figure>'));
+    assert.ok(fig.includes(`id="${id}-a"`), `${label}: the definition did not move`);
+    assert.ok(!new RegExp(`[#"']${id.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&')}["')\\s]`).test(fig.replace(`id="${id}-a"`, '')), `${label}: a reference was left behind`);
+  }
+});
+
 test('a cloned chart leaves a reference to an id it does NOT define alone', () => {
 	// A document-level `<defs>` lives outside the clone, so its id does not move and neither may
 	// the reference — suffixing it would dangle.

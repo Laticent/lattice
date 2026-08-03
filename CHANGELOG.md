@@ -83,11 +83,11 @@ in patch versions.
     are shared, so the sweep applies the same repair the Studio does before it compares anything.
   - **The sweep can fail, and that was verified by breaking it.** Its first cut could not: it
     imported only the engine and the shared core, while the repair lived in the preview path, so
-    every one of the 1201 corpus slides was rendered with no supplied position and stubbing that
+    every corpus slide was rendered with no supplied position and stubbing that
     repair out moved the number **0.0 points**. Now stubbing `positionIsTrustworthy` to `return
     false` — every slide back to "1 of 1", the original bug in full — takes it **91.9% → 10.4%**,
     and stubbing the rail supply takes it to **67.5%**, against a 1.5-point band. The run header
-    prints the supplied-position count, the prelude count (**0 of 1201** — no committed deck
+    prints the supplied-position count, the prelude count (**0** — no committed deck
     exercises the prelude prototype) and the neutralizer set, so none of those claims can quietly go
     stale. It stays on-demand because its subject is a diagnostic prototype and a corpus edit moves
     it; the gates for user-visible behavior remain the unit tier, the Studio e2e specs, and the
@@ -114,9 +114,10 @@ in patch versions.
   which comes from the same `page.offset` the page number already rides on. A *count* could not be
   handed in (a lone slice would have to know how many gradients the earlier slides emitted, which
   only rendering them reveals); a *position* is metadata the caller already holds.
-  - **Exported bytes change; exported pixels do not.** On `examples/chart-legends.md` the exported
-    HTML differs only in the id strings — normalize those and it is byte-identical — and the PDF
-    shows **0 changed pixels across all 8 pages in both light and dark**.
+  - **Exported bytes change; exported pixels do not.** Measured over the exact blast radius — the
+    27 decks (of 127) whose HTML contains a generated id — rendered from `main` and from this branch:
+    **386 pages pixel-compared, 0 changed pixels**, and all 27 exports differ *only* in the id
+    strings. `chart-legends.md` additionally in dark: 0 changed pixels.
   - Uniqueness within a document is preserved by construction (slide × per-slide ordinal), which is
     the SVG duplicate-id trap this machinery exists for. Both anti-squat guards were re-earned
     against the new shape rather than assumed: the end-to-end fixture had gone vacuous (it squatted
