@@ -190,6 +190,23 @@
 
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
+  /* The Mermaid subgraph box's corner — the containment tier's radius, and the
+   * one radius on this scale that is NOT container-relative. It cannot be:
+   * `rx`/`ry` are SVG GEOMETRY properties, so their value is read in the
+   * diagram's own viewBox USER SPACE, never in CSS pixels. A `cqi` here would be
+   * resolved against the slide and then re-scaled by the SVG's viewBox fit, so
+   * the corner would land at a different size on every diagram.
+   *
+   * User space is also the RIGHT space for it. Everything else inside the SVG is
+   * in user units too — 14-unit type, 8-unit dagre margins, 1-unit strokes — so a
+   * user-space radius stays proportional to the box it rounds and to the label
+   * inside it at every scale the diagram is fitted to. It is the same choice the
+   * chart transforms already make (`barRx: 3`, chart-family.js).
+   *
+   * 7 is `--radius-md` rendered: the diagram SVGs on examples/containment-tier.md
+   * are fitted at 1.40x-2.17x (median 1.64), and 7 x 1.64 = 11.5px against
+   * --radius-md's 10.8px at hd. Consumed by lib/integrations/mermaid/mermaid.css. */
+  --diagram-cluster-radius:7px;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────

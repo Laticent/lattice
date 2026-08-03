@@ -196,6 +196,37 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .radarLegendBox-7 { fill: var(--cat-8-mark) !important; }
 
 /* ──────────────────────────────────────────────────────────────────────
+ * CONTAINMENT BOX — the subgraph cluster's corner
+ * ──────────────────────────────────────────────────────────────────────
+ * A subgraph box is a containment SURFACE — the same role a Lattice card
+ * plays — and it was the one such surface in the system with square
+ * corners. `border-radius` does nothing to an SVG <rect>; rounding is
+ * `rx`/`ry`, and Chromium accepts those as CSS geometry properties, which
+ * is what lets ONE rule reach both render paths: the mmdc-produced SVG is
+ * embedded inline in the exported HTML, so the same bundle cascades onto
+ * it that the live preview already applies. Mermaid offers no cluster-`rx`
+ * config for flowcharts (`node.rx` is undefined for a subgraph, so the
+ * attribute is never written), so CSS is not merely convenient here — it
+ * is the only lever. Nothing is being overridden: there is no presentation
+ * attribute to beat.
+ *
+ * See --diagram-cluster-radius in lib/base/base.tokens.css for why the
+ * value is in SVG user space rather than on the `cqi` radius scale.
+ *
+ * SCOPED TO THE CONTAINMENT TIER, deliberately. A `.section-N` cluster
+ * (kanban column, timeline period, mindmap level) is painted from the
+ * CATEGORICAL band by the cycle below, not from `--c-container` — a
+ * different tier, and Mermaid already rounds those itself at rx=5. Whether
+ * they should adopt this radius too is a live question for a human, not an
+ * assumption to bury in a selector, so they are left exactly as they
+ * render today.
+ */
+:is(section, figure) g.cluster:not([class*="section-"]) > rect {
+  rx: var(--diagram-cluster-radius);
+  ry: var(--diagram-cluster-radius);
+}
+
+/* ──────────────────────────────────────────────────────────────────────
  * BAND CYCLE — sections / clusters / category panels
  * ──────────────────────────────────────────────────────────────────────
  * The `.section-N` class is emitted by timeline, kanban, mindmap, and

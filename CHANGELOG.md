@@ -144,6 +144,28 @@ in patch versions.
   exactly like a defect, so the scope is now stated in `base.tokens.css`, in kanban's common
   mistakes, and in an amendment to `engineering/decisions/2026-07-12-struck-elevation.md`.
 
+### Changed
+
+- **The Mermaid subgraph box now has rounded corners and Lattice's node padding.** A subgraph is a
+  containment surface — the role a Lattice card plays — and it was the one such surface in the
+  system still drawn with square corners. `border-radius` does nothing to an SVG `<rect>`, and
+  Mermaid writes no `rx` for a flowchart cluster, so the corner comes from a CSS `rx`/`ry` geometry
+  property in `mermaid.css`; because the mmdc-produced SVG is embedded inline in the exported HTML,
+  that one rule reaches the export and the live preview alike. The radius (`--diagram-cluster-radius`,
+  7) is in SVG user space rather than on the `cqi` scale — geometry properties are always read in the
+  diagram's own coordinates — and 7 is `--radius-md` rendered at the fitted scale diagrams actually
+  get. Node label padding moves to one shared constant at 10, `--sp-sm` rendered: the export took
+  Mermaid's built-in 8 and the preview set 15, so the same deck's nodes were two different sizes
+  depending on where you looked. `.section-N` clusters — kanban columns, timeline periods, mindmap
+  levels — are painted from the categorical band rather than the containment tier and are left
+  exactly as they render today, at Mermaid's own `rx=5`.
+- **The live preview stopped clipping subgraph titles in half.** It set
+  `flowchart.subGraphTitleMargin: { top: 10, bottom: 100 }`; any non-zero value there shifts the
+  title out of the box Mermaid has already sized, so it renders cut through the middle, and the
+  `bottom` term added 100 user units of dead space inside the box. Dropped rather than re-tuned —
+  it is the only Mermaid config that reaches the cluster's internal space, and it is not usable.
+  The export never set it, so this also puts the two paths back in step.
+
 ### Added
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose

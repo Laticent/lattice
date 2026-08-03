@@ -184,6 +184,52 @@ Mermaid 11.14. Installing elk is separate work from #1311.
 
 ---
 
+## 5.3c The subgraph box — corner, and what "padding" can and cannot reach
+
+The cluster (`subgraph`) box is a **containment surface**: `--c-container` fill,
+`--c-container-edge` border, `--c-on-container` label ink. Its corner is
+`--diagram-cluster-radius`, applied by `mermaid.css` as a CSS `rx`/`ry`:
+
+```css
+:is(section, figure) g.cluster:not([class*="section-"]) > rect {
+  rx: var(--diagram-cluster-radius); ry: var(--diagram-cluster-radius);
+}
+```
+
+Three things about that rule are load-bearing:
+
+- **`border-radius` does nothing to an SVG `<rect>`.** Rounding is `rx`/`ry`, and
+  Chromium accepts both as CSS geometry properties. Mermaid writes no `rx` for a
+  flowchart cluster (`node.rx` is undefined for a subgraph), so there is no
+  presentation attribute to fight and no config knob to use instead — CSS is the
+  only lever.
+- **One rule covers both render paths.** The mmdc SVG is embedded inline in the
+  exported HTML, so the same bundle cascades onto it that the preview applies.
+- **The value is in SVG USER SPACE, not `cqi`.** A geometry property is read in
+  the diagram's own viewBox coordinates and then scaled by the fit, so a
+  container-relative unit would land at a different size on every diagram. User
+  space is also the right space: 14-unit type, 8-unit dagre margins and 1-unit
+  strokes all live there, so the corner stays proportional to the box at any
+  scale.
+
+`.section-N` clusters are excluded: kanban columns, timeline periods and mindmap
+levels are painted from the **categorical band**, not the containment tier, and
+Mermaid already rounds them at `rx=5`.
+
+**Padding — read this before reaching for `flowchart.padding`.**
+
+| what you want | the knob | reality |
+|---|---|---|
+| space between a node's label and its border | `flowchart.padding` | works — `DIAGRAM_NODE_PADDING`, one constant, both paths |
+| the cluster's own inset from its children | — | **hardcoded** `marginx/marginy: 8` on the sub-graph Mermaid hands to dagre. No config reaches it. |
+| space between the subgraph title and its content | `flowchart.subGraphTitleMargin` | **do not use** — any non-zero value shifts the title out of the box Mermaid already sized, and it renders clipped in half |
+
+`flowchart.padding` is a **node** inset despite the name. Raising it from 8 to 24
+leaves cluster-minus-node constant at 70 × 100 user units — it grows the nodes,
+and the cluster only follows because its children got bigger.
+
+---
+
 ## 5.3b Which band a diagram is baked for
 
 A Mermaid SVG **bakes** its colors: `themeVariables` are resolved to literal hex
