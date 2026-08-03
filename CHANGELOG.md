@@ -213,15 +213,14 @@ in patch versions.
   entries — one past the six the bloom deck runs. The paper-side `premise` ledger is four rows
   rather than all seven: `premise` warns at seven (soft capacity 6), and `list-tabular`, its
   documented escalation, overflows the frame at seven rows of this density.
-  **Known palette debt, tracked by #1311:** the loop diagram is the repo's first fence to opt
-  into Mermaid's elk layout, which is the only way to get `direction` honored inside a subgraph
-  when edges cross the subgraph boundary — dagre ignores it, collapsing the grouped figure into
-  a thin strip. elk is reachable only through an in-source `%%{init}%%`, and that directive
-  currently wipes the engine's injected `themeVariables`, so this one diagram renders on
-  Mermaid's stock palette (pale-yellow clusters, non-mono labels) instead of the deck's. No
-  colours are hand-set here, so the diagram picks the theme back up automatically once #1311
-  lands. elk's layered pass also orders the in-lane nodes around the back-edge cycles rather
-  than 1→2→3→4; the back-edges are dotted so the forward spine still reads.
+  The loop diagram is the repo's first fence to opt into Mermaid's elk layout, which is the only
+  way to get `direction` honored inside a subgraph when edges cross the subgraph boundary —
+  dagre ignores it outright, collapsing the grouped figure into a thin strip. elk is reachable
+  only through an in-source `%%{init}%%`, so this deck is also the first consumer of the
+  author-directive/palette merge (#1314): it renders on the deck's own tokens with no colours
+  hand-set here, which is what keeps it correct under a palette swap. One elk trait to know
+  about: its layered pass orders the in-lane nodes around the back-edge cycles rather than
+  1→2→3→4, so the back-edges are dotted to keep the forward spine legible.
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because
   re-parsing the whole deck on every keystroke costs ~46ms per keypress on a 40-slide deck. But
