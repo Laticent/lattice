@@ -102,8 +102,49 @@ function listCss(dir, out = []) {
   return out;
 }
 
-// Blank comments out rather than deleting them, so reported line numbers stay true.
-const stripComments = (css) => String(css || '').replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+/**
+ * Blank comments out rather than deleting them, so reported line numbers stay true.
+ *
+ * STRING-AWARE, and that is load-bearing rather than fastidious. The obvious
+ * `replace(/\/\*[\s\S]*?\*\//g, …)` is not: a `/*` inside a quoted value — say
+ * `content: "/*"` — reads as a comment OPEN, and everything up to the next `*​/`
+ * anywhere in the file is blanked. A test case proves the damage is silent and
+ * total: given
+ *     a { content: "/*"; color: red; }
+ *     b { color: notacolor; }
+ *     c { content: "*​/"; }
+ * the regex erases the whole middle rule, so `color: notacolor` — a genuine
+ * invalid value — never reaches the oracle and the gate reports clean. A
+ * verification tool that can blind itself this way is worse than no tool, so this
+ * one tracks quotes and backslash escapes and blanks only real comments. Nothing
+ * shipped today carries `/*` in a string; this is about the gate staying true when
+ * something does. (test/unit/tools/check-css-values.test.js pins it.)
+ */
+function stripComments(css) {
+  const s = String(css || '');
+  let out = '', quote = null, i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (quote) {
+      if (c === '\\' && i + 1 < s.length) { out += c + s[i + 1]; i += 2; continue; }
+      out += c;
+      if (c === quote) quote = null;
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'") { quote = c; out += c; i++; continue; }
+    if (c === '/' && s[i + 1] === '*') {
+      const end = s.indexOf('*/', i + 2);
+      const stop = end === -1 ? s.length : end + 2; // an unterminated comment runs to EOF, as CSS says
+      for (let k = i; k < stop; k++) out += s[k] === '\n' ? '\n' : ' ';
+      i = stop;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
 
 /**
  * Every `prop: value` declaration in a stylesheet, with its line.
@@ -146,10 +187,27 @@ function declarations(css) {
   return out;
 }
 
+/**
+ * Resolve a Chromium, or return undefined so the caller can exit cleanly.
+ *
+ * Guarded because both halves can fail in ways that would otherwise crash with a
+ * TypeError instead of the "no Chrome found" message: `CHROME_PATH` can point at
+ * a binary that has since been cleaned up (the sandbox's puppeteer cache is not
+ * durable), and `spawnSync` returns `stdout: null` when the spawn itself fails —
+ * no bash on the box, ENOENT, a hit resource limit. A stale `CHROME_PATH` falls
+ * through to the cache probe rather than failing outright, since the probe is
+ * exactly what the hook would have found. Same shape as tools/check-geometry-parity.js.
+ */
 function chromePath() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  return spawnSync('bash', ['-lc', 'ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1'])
-    .stdout.toString().trim() || undefined;
+  const env = process.env.CHROME_PATH;
+  if (env && fs.existsSync(env)) return env;
+  try {
+    const r = spawnSync('bash', ['-lc', 'ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1']);
+    const found = (r.stdout ? r.stdout.toString() : '').trim();
+    return found && fs.existsSync(found) ? found : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function main() {
@@ -249,4 +307,10 @@ async function main() {
   process.exit(offences.length || unused.length ? 1 : 0);
 }
 
-main();
+// Exported for test/unit/tools/check-css-values.test.js. The two helpers below
+// decide what the oracle ever gets to see, so their correctness gates the gate's:
+// a stripComments that eats a rule, or a declarations() that mis-splits one, makes
+// this tool report clean on CSS it never actually looked at.
+module.exports = { stripComments, declarations };
+
+if (require.main === module) main();
