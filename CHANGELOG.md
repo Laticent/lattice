@@ -30,7 +30,7 @@ in patch versions.
 - **A `compare-code` slide with one long line pushed the other pane off the frame.** The two panes
   were never equal-width: `.code-cols` used `grid-template-columns: 1fr 1fr`, and a grid track's
   implicit floor is `min-content` — which for a `<pre>` set to `white-space: pre` is its **longest
-  unwrapped line**. So one long line widened its own track past its half and shoved its neighbour
+  unwrapped line**. So one long line widened its own track past its half and shoved its neighbor
   out. Measured on a two-pane slide with a single realistic 110-character line: the left pane grew
   to ~1700px inside a 1920px stage, the right pane was reduced to a sliver at the edge, and the
   export tagged the slide "Content clipped". Fixed with `minmax(0, 1fr)` tracks plus
