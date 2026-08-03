@@ -70,7 +70,7 @@
    * case it is meant to fix. (CAT_INK, the near-black the textures overlay, was the
    * tempting choice for consistency and would have silently restyled the label ink
    * of every a11y deck ever rendered — a change nobody asked for.) Clears AA on the
-   * darkest chip by a wide margin (#868686, 5.92:1). */
+   * darkest chip by a wide margin (#868686, 5.77:1). */
   --cat-on-fill: #000000;
 
   /* Categorical cycle — fixed greyscale value ramp. The approved textures

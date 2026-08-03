@@ -572,6 +572,7 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
+const { deckPrintBand } = require('./lib/core/resolve-color-mode');
 const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
@@ -1378,30 +1379,6 @@ const MERMAID_REBAKE_DEFS = [];
 // stale bake mode for the wrong deck's diagram.
 const MERMAID_REBAKE_MODES = [];
 
-/**
- * THE predicate for "this render bakes the B&W print band into Mermaid".
- *
- * There must be exactly one. The Mermaid bake and the `data-lattice-print` marker
- * that stands the texture pins down are two halves of one decision — CSS repaints
- * the chip but can never touch the ink already baked into the SVG — and they were
- * briefly derived from two different conditions: the marker from `WANT_PRINT` (the
- * CLI flag / image-set mode), the bake from a wider test that also honors
- * front-matter `class: print` and `color-mode: print`. A deck using those keys
- * therefore baked print ink while the marker never appeared, so a `_class: dark`
- * slide pinned a dark chip under it — 1.28:1 on onyx, worse than the 2.7:1 this
- * guard was introduced to fix. Both callers now read this one function.
- *
- * `--print` and `--image-mode print` are covered without naming them: withPrintClass
- * merges `class: print` into the front matter before this ever sees the source.
- * `flags.print` stays as a belt-and-braces term.
- */
-function deckPrintBand(source) {
-  const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
-  const fm = fmMatch ? fmMatch[0] : '';
-  const cmKey = ((/^\s*color-mode:\s*["']?([A-Za-z]+)\b/im.exec(fm) || [])[1] || '').toLowerCase();
-  return !!flags.print || cmKey === 'print' || /^\s*class:\s*["']?[^"'\n]*\bprint\b/im.test(fm);
-}
-
 function preprocessMermaid(source) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
@@ -1426,7 +1403,7 @@ function preprocessMermaid(source) {
   // COLOR_MODE_TOKENS). That slide keeps `dark`, loses `print`, and still gets a
   // print-BAKED diagram from this branch — which is exactly why the texture pins need
   // the data-lattice-print marker to stand down. Shared predicate, one source of truth.
-  const globalPrint = deckPrintBand(source);
+  const globalPrint = deckPrintBand(source, !!flags.print);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
@@ -1993,7 +1970,7 @@ const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), raw
 // emulator's own unpacked CSS. Same trap as the `reader` overflow ring; the fix is
 // the one engineering/gotchas.md prescribes. The themes therefore gate on
 // `section…:not([data-lattice-print])`, which packs correctly everywhere.
-const slidesWithMeta2 = deckPrintBand(md)
+const slidesWithMeta2 = deckPrintBand(md, !!flags.print)
   ? slidesWithMeta2Raw.replace(/<section\b/g, '<section data-lattice-print')
   : slidesWithMeta2Raw;
 

@@ -310,21 +310,33 @@ describe('texture-polarity', () => {
       assert.ok(guarded > 0, `themes/${theme}.css declares no pinned texture rules at all`);
     }
 
-    // ONE predicate, both halves. The marker and the Mermaid bake are two halves of a
-    // single decision, and they were briefly derived from two different conditions —
-    // the marker from the CLI flag, the bake from a wider test that also honors
-    // front-matter `class: print` / `color-mode: print`. Such a deck baked print ink
-    // with no marker, so a `_class: dark` slide pinned a dark chip under it at 1.28:1.
-    const emulator = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
-    assert.match(emulator, /function deckPrintBand\(source\)/,
-      'lattice-emulator.js lost deckPrintBand() — the single predicate the Mermaid print '
-      + 'bake and the data-lattice-print marker must BOTH derive from');
-    assert.match(emulator, /const globalPrint = deckPrintBand\(source\);/,
-      'the Mermaid bake no longer reads deckPrintBand() — if the bake and the marker '
-      + 'diverge again, a print-banded deck pins a dark chip under print-baked dark ink');
-    assert.match(emulator, /deckPrintBand\(md\)\s*\?\s*slidesWithMeta2Raw\.replace\(/,
-      'the section marker no longer reads deckPrintBand() — a deck that authors '
-      + '`class: print` / `color-mode: print` would bake print ink with the pins still live');
+    // ONE predicate, both halves — asserted as BEHAVIOR, not as text in a file.
+    // The previous form here was three `assert.match` calls against the emulator's
+    // SOURCE. They could not fail for any semantic error: renaming the stamped
+    // attribute, and stubbing the predicate to `false`, each left the guard dead
+    // with this suite fully green. The predicate now lives in the shared kernel so
+    // it can be exercised directly, which immediately caught a real bug — routing
+    // `color-mode: print` through the four-value register silently dropped it.
+    const { deckPrintBand } = require('../../../lib/core/resolve-color-mode');
+    const fm = (body) => `---\n${body}\n---\n\n# slide\n`;
+
+    for (const [src, want, label] of [
+      [fm('marp: true\nclass: print'), true, 'front-matter `class: print`'],
+      [fm('marp: true\ncolor-mode: print'), true, 'front-matter `color-mode: print`'],
+      [fm('marp: true\ncolor-mode: Print'), true, 'color-mode is case-insensitive'],
+      [fm('marp: true\nclass: "print"'), true, 'a quoted class value'],
+      [fm('marp: true\nclass: print dark'), true, 'print inside a class LIST'],
+      [fm('marp: true\nclass: printable'), false, '`printable` must not match `print`'],
+      [fm('marp: true\nclass: dark'), false, 'a dark deck is not a print deck'],
+      [fm('marp: true\ntheme: onyx'), false, 'a plain deck'],
+      ['# no front matter\n\nclass: print', false, 'the words in BODY text'],
+    ]) {
+      assert.equal(deckPrintBand(src), want,
+        `deckPrintBand() got ${!want} for ${label} — the Mermaid bake and the texture `
+        + 'guard both read this, so a wrong answer puts baked ink on a mismatched chip');
+    }
+    assert.equal(deckPrintBand(fm('marp: true'), true), true,
+      'the explicit flag term no longer forces the print band');
   });
 
   test('each slot maps to its OWN pattern — the mapping is injective', () => {
@@ -394,6 +406,22 @@ describe('texture-polarity', () => {
         }
       }
       assert.ok(sawPin, `${theme}: packTheme emitted no scheme-pinned texture rule — the pins vanished`);
+    }
+  });
+
+  test('no --cat-N-texture declaration uses !important', () => {
+    // The cascade resolver below models specificity and source order — NOT
+    // `!important`, which outranks both. An `!important` on onyx's pin therefore
+    // beats a11y's re-assertion no matter how the specificities are balanced,
+    // recreating the 1.55:1 a11y regression with this suite fully green. Rather
+    // than teach the resolver a whole extra cascade tier for a declaration nothing
+    // here needs, ban it on this channel and keep the model honest.
+    for (const theme of ['onyx', 'concrete', 'a11y-base']) {
+      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'));
+      for (const [, decl] of css.matchAll(/(--cat-\d+-texture\s*:[^;]*!important[^;]*);/g)) {
+        assert.fail(`themes/${theme}.css declares "${decl.trim()}" — !important outranks both `
+          + 'specificity and source order, which this gate models and the pins depend on');
+      }
     }
   });
 
