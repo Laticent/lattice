@@ -209,6 +209,7 @@ in patch versions.
   for Debug), split at the method's real seam — steps 1–4 happen on paper, 5–7 at the keyboard.
   A `diagram` slide carries the paper's own flowchart with its back-edges, and a `compare-table`
   turns those back-edges into a diagnostic ("where you are → what it feels like → go back to").
+  Ships on `theme: cuoio` + `color-mode: dark`.
   Exercises `split-panel proof`/`capstone`'s automatic categorical tint sequence at seven
   entries — one past the six the bloom deck runs. The paper-side `premise` ledger is four rows
   rather than all seven: `premise` warns at seven (soft capacity 6), and `list-tabular`, its
@@ -324,6 +325,21 @@ in patch versions.
 
 ### Fixed
 
+- **A deck-wide `color-mode: dark` now reaches the Mermaid bake on slides that name a component
+  class.** The static pre-bake decided a diagram's scheme with
+  `classDirectives.length ? /\bdark\b/.test(lastClass) : globalDark` — reading the mere PRESENCE of
+  a `_class:` directive as an opt-out of the deck's color mode. So on a `color-mode: dark` deck,
+  `<!-- _class: diagram -->` baked a LIGHT diagram, which then rendered against the dark canvas:
+  a pale cluster plate carrying the dark canvas's cream ink, i.e. a subgraph label invisible
+  against its own background. Every real deck names component classes, so deck-wide dark reached
+  essentially no diagram. The predicate now mirrors `deckClassPropagate`'s own
+  `slideHasOwnColorMode` guard off the shared `COLOR_MODE_TOKENS` list (`lib/core/color-mode.js`):
+  a slide leaves the deck's scheme only by naming its OWN `dark` / `light` token — a component
+  class is not on the color axis. `print` is untouched: the emulator deliberately bakes deck-wide
+  print even where the engine drops the class, and the texture pins' `data-lattice-print` marker
+  is built around that. Caught by `examples/seven-steps-problem-to-code.md`, which was the only
+  committed deck combining a dark color-mode with a Mermaid fence — so no other committed artifact
+  changes.
 - **A per-slide `dark` / `light` on a textured palette no longer leaves diagram node labels
   unreadable.** Categorical node fill is `var(--cat-N-texture, var(--cat-N-fill))`, so on a textured
   palette the chip a reader sees is an SVG `<pattern>`, not the token. Patterns are emitted once at

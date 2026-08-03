@@ -1,7 +1,8 @@
 ---
 marp: true
 size: 4K
-theme: indaco
+theme: cuoio
+color-mode: dark
 paginate: true
 header: "The Seven Steps · Problem to code"
 acronyms:

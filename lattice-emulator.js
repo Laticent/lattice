@@ -573,6 +573,7 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
 const { deckPrintBand, stampSlideBake } = require('./lib/core/resolve-color-mode');
+const { COLOR_MODE_TOKENS } = require('./lib/core/color-mode');
 const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
@@ -1415,7 +1416,16 @@ function preprocessMermaid(source) {
     const classDirectives = [...before.matchAll(/<!--\s*_class:\s*([^>]*?)\s*-->/g)];
     const lastClass = classDirectives.length ? classDirectives[classDirectives.length - 1][1] : '';
     const slidePrint = globalPrint || /\bprint\b/.test(lastClass);
-    const slideDark = classDirectives.length ? /\bdark\b/.test(lastClass) : globalDark;
+    // A slide opts out of the deck-wide scheme only by naming its OWN color-mode token —
+    // exactly deckClassPropagate's `slideHasOwnColorMode` guard, off the same
+    // COLOR_MODE_TOKENS list. Testing `classDirectives.length` instead read ANY component
+    // class (`_class: diagram`) as an opt-out, so on a `color-mode: dark` deck every
+    // classed slide baked a LIGHT diagram onto a dark canvas — a light cluster plate with
+    // the dark canvas's cream ink on it, i.e. an invisible subgraph label. Only a slide's
+    // own `dark` / `light` decides; a component class is not on the color axis.
+    const slideClassTokens = lastClass.split(/\s+/).filter(Boolean);
+    const slideHasOwnColorMode = slideClassTokens.some((t) => COLOR_MODE_TOKENS.includes(t));
+    const slideDark = slideHasOwnColorMode ? slideClassTokens.includes('dark') : globalDark;
     const slideMode = slidePrint ? 'print' : (slideDark ? 'dark' : 'light');
     if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${slideMode})...`);
     const reoriented = reorientMermaidForPortrait(def.trim(), orientation);
