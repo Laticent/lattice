@@ -547,9 +547,14 @@ in patch versions.
   remain unambiguous"*, and ligatures trade exactly that for pretty. Coverage extends past those
   elements to every mono surface that quotes a literal: the Mermaid error headline (which echoes
   source built out of `-->`), the math and function-plot error messages, and state-chart edge
-  labels (`approve -> ship`). Found by rendering `dist/marp-kit/Sample-Deck.md` through real
-  marp-cli and reading the slide; verified fixed the same way, with the literal surviving into
-  the PDF text layer.
+  labels (`approve -> ship`) and the `state-chart inline`/`horizontal` event chips, which carry
+  the SAME author-written transition string. An earlier revision of this entry claimed coverage of
+  "every mono surface"; the red team counted 109 CSS blocks that set `--font-mono` against 4 that
+  turned ligatures off, so the claim is now the enumerated list above rather than a universal. The
+  chips did not ligate in practice only because their `letter-spacing` suppresses ligature
+  formation in Chromium — an unrelated coincidence that evaporates the moment someone sets it to
+  zero. Found by rendering `dist/marp-kit/Sample-Deck.md` through real marp-cli and reading the
+  slide; verified fixed the same way, with the literal surviving into the PDF text layer.
 
 - **Math is renderer-agnostic — MathJax is styled, not just tolerated.** Lattice prefers KaTeX and
   still defaults to it, but marp-core typesets with MathJax, and every math layout gated its hero
@@ -560,15 +565,36 @@ in patch versions.
   `mjx-container`). `lib/core/marp-fidelity.js` records what is still unequal: marp-core emits no
   assistive MathML, so exported math is invisible to a screen reader — marp-core's output, not
   something CSS can repair.
+  - The first cut fixed the math COMPONENT and left `base.modifiers.css` KaTeX-only, so a `$$…$$`
+    on any *non-math* slide still lost its vertical rhythm on exactly the surface the change set
+    out to fix (measured: `16px 0` padding on the KaTeX path, `0` on MathJax). Same bug, one file
+    away, inside the same change — the "remember both halves" hazard the new file header warns
+    about, realized immediately.
+  - So the pairing is now a GATE, not a comment: **`checkMathRendererParity`** in
+    `tools/check-ownership.js` fails the build on any engine CSS selector that names `.katex` /
+    `.katex-display` without its `mjx-container` counterpart, with a `SANCTIONED_KATEX_ONLY`
+    allowlist (one entry: the KaTeX-only MathML pin in `math compare`, which has no MathJax
+    counterpart to pin). Verified to fire by reverting the fix.
+  - `math.manifest.json` — and the generated `math.docs.md` + `dist/docs/components.json` an agent
+    reads under HARD RULE #6 — no longer says "KaTeX is the entire reason this layout exists".
 
 - **Every exported PDF of a deck containing a flowchart ended on a blank page.** Mermaid appends
   `<div class="mermaidTooltip">` to `document.body` on its first flowchart — outside the deck root,
   ~6px tall, permanently empty in a static render. In print that pushed document height past the
   deck's own and Chrome spilled one more sheet (measured: 13 sections, body 7800px, document
-  7806px, 14 pages). The runtime now removes it after each render settles. It **cannot** be fixed
-  from theme CSS, which is the obvious first attempt: Marpit scopes theme rules to the deck root,
-  so an unscoped `.mermaidTooltip{display:none}` is rewritten to a selector that can never match a
-  body-level node — shipped, measured doing nothing, and reverted.
+  7806px, 14 pages). The runtime now PINS it (`position:fixed`) after each render settles, which
+  takes it out of scrollable overflow while leaving it in the DOM and working.
+  - **Pinning, not removing, is the whole point.** The first cut called `.remove()` on it. Mermaid's
+    `setupToolTips` captures that exact node in a closure during `bindFunctions()`, so removing it
+    left every hover writing into a detached div: `click A "url" "tooltip"` silently did nothing on
+    every interactive surface (the Playground, the Studio preview, the HTML player, `marp --html`
+    opened in a browser) — a live capability traded away for a symptom that only exists in print.
+    Caught by the red team, which reproduced the dead tooltip with a real `mouseover` in Chromium;
+    re-verified working after the change, with the page count still 13.
+  - It **cannot** be fixed from theme CSS, which is the obvious first attempt: Marpit scopes theme
+    rules to the deck root, so an unscoped `.mermaidTooltip{position:fixed}` is rewritten to a
+    selector that can never match a body-level node — shipped, measured doing nothing, reverted.
+    An inline style is not scoped, which is why the runtime sets one.
 
 - **`dist/marp-kit/` — copy the folder, open VS Code, start editing.** No export, no build step,
   nothing to install. `npm run build` generates it like every other `dist/` artifact and
@@ -607,6 +633,32 @@ in patch versions.
     render; `matrix-grid` and `split-panel` were suspected and cleared against their own component
     galleries (fill, not glyphs, is matrix-grid's language; split-panel's footer sits inside the
     dark panel there too).
+  - **Licensing, round two.** The first fix added `LICENSE` and an attribution table and called it
+    done. MIT requires its permission notice to travel with every copy and the OFL requires its
+    text to accompany the fonts — naming a license in a table discharges neither, and 38
+    redistributed third-party files shipped with no license text at all. The kit now carries
+    `THIRD-PARTY-LICENSES.txt` (MIT ×2 + OFL 1.1, verbatim, vendored under `assets/licenses/` so
+    they are reviewable in the diff) and `LICENSE-EXCEPTIONS`, so a recipient can check the claim
+    `NOTICE.md` makes instead of taking it on trust. 50 files.
+  - **The README's fidelity section was wrong about its own headline path.** It said `marp --pdf`
+    *and* `marp --html` "drive a real headless browser, so the runtime runs". `marp --html` launches
+    no browser — it converts in about a second and writes a file; the runtime runs later, when a
+    person opens it, and only if the two `.js` files are still beside it. Mail someone that `.html`
+    alone and they get a broken deck. It also claimed layout was "correct on every surface", while
+    four of the thirteen slides are assembled by the runtime, not by CSS. Both corrected.
+  - **Two more slides were authored against contracts their components forbid**, after a commit
+    whose thesis was that all thirteen had been checked. `list-tabular` takes `N. Name \`Meta\``
+    with the inline code as the META — the deck put the filename in the code span, so the NAME
+    column rendered EMPTY on all six rows and I read that render as correct. `matrix-grid` is
+    documented as the wrong component for pass/fail status (that is `obligation-matrix`), and the
+    slide also broke three of its stated rules: multiple filled cells per row, unlabeled `[x]`, no
+    legend. The `radar` slide ran ONE series against a component documented for comparing 2–4
+    options. Now: list-tabular authored name-first, `obligation-matrix` with a real state legend,
+    and `progress` — a single-subject chart — in place of the radar.
+  - `tools/build-marp-kit.js` held a THIRD private copy of a shared constant (`^4.3.1`) while the
+    same commit was fixing two others; it now imports `MARP_CLI_RANGE`. The README no longer claims
+    the range is "what Lattice tests against" — this project runs no automated test against
+    marp-cli at all, which is the honest thing to say.
   - `test/unit/tools/marp-kit.test.js` locks the failures that are SILENT: a missing font falls
     back to system serif, a dropped `html: true` prints the script tags as text, a minifier that
     strips the `@theme` comment yields unstyled slides — each shipped undetected in #1256. The

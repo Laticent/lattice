@@ -133,9 +133,9 @@ test('the sample deck exercises the constructs that break, not just prose', () =
   // exactly the constructs #1256 found shipping broken.
   const deck = text(DECK);
   assert.match(deck, /```mermaid/, 'needs a Mermaid diagram');
-  assert.match(deck, /_class: radar/, 'needs a runtime-built chart');
+  assert.match(deck, /_class: progress/, 'needs a runtime-built chart');
   assert.match(deck, /_class: split-panel/, 'needs a transform-driven layout');
-  assert.match(deck, /_class: matrix-grid/, 'needs the matrix-grid checkbox transform');
+  assert.match(deck, /_class: obligation-matrix/, 'needs a state-marker table transform');
   assert.match(deck, /_class: math/, 'needs KaTeX math');
 });
 

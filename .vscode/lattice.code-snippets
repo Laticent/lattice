@@ -564,7 +564,7 @@
       "- $x$ — input variable",
       "- $f$ — the relation under study"
     ],
-    "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. KaTeX-rendered equations with persona-appropriate surround."
+    "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround. Lattice typesets with KaTeX and marp-core with MathJax; the layouts style both, so you author identically either way."
   },
   "lattice: matrix-2x2": {
     "prefix": "lattice-matrix-2x2",

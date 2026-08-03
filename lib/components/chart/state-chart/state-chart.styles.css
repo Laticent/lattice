@@ -515,6 +515,12 @@ section.state-chart.horizontal .state-chip[data-dir="back"] {
 section.state-chart.inline .state-chip-event,
 section.state-chart.horizontal .state-chip-event {
   font-family: var(--font-mono);
+  /* Same author-written transition string as .state-edge-label above — `approve ->
+   * ship`, `>= 3 days` — so ligatures off for the same reason. It does not ligate
+   * TODAY only because the chip carries letter-spacing, which suppresses ligature
+   * formation in Chromium; that is an unrelated coincidence, not a guarantee, and
+   * it evaporates the moment someone sets letter-spacing to 0. */
+  font-variant-ligatures: none;
 }
 
 section.state-chart.inline .state-chip-arrow,

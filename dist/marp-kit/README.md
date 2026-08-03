@@ -20,7 +20,11 @@ From the command line instead:
 npx @marp-team/marp-cli@^4.3.1 Sample-Deck.md --config-file marp.config.cjs --allow-local-files -o deck.pdf
 ```
 
-The version is pinned on purpose — that is the range Lattice tests against.
+The version range is deliberate: it is the same range Lattice's own export bundle
+pins, so the kit and the export cannot ask for different tools. Being honest about
+what that does and does not buy you — it is a range, not a pin, so npm will resolve
+a newer 4.x over time, and this project runs no automated test against marp-cli at
+all. The render that produced the committed `Sample-Deck.pdf` used 4.3.1.
 
 ## What is in here
 
@@ -56,17 +60,24 @@ in a hand-authored deck like this one they do nothing.
 
 ## Fidelity
 
-`marp --pdf` and `marp --html` drive a real headless browser, so the runtime
-runs and diagrams and charts are built. Everything in `Sample-Deck.md` is verified on
-that path.
+**The runtime is what makes this deck complete, and it only runs in a browser.**
+Four of the thirteen slides are assembled by `lattice-runtime.min.js`, not by
+CSS: the Mermaid diagram, the chart, the matrix grid, and the split panel. Where
+that script runs, the deck is whole. Where it does not, those four are raw.
 
-The VS Code **preview pane** is a different surface and a weaker one. It runs
-marp-core directly, without Lattice's markdown-it plugins, so anything built by a
-transform rather than by CSS — split-panel's counters, matrix-grid's checkboxes —
-will not be assembled there. Whether the preview executes the deck's `<script>`
-tags at all is genuinely unsettled in this project's own notes, so treat charts
-and diagrams there as unknown rather than promised. CSS is the part that always
-holds: layout, palette and typography are correct on every surface.
+- **`marp --pdf`** drives real headless Chrome, so the runtime runs and the PDF
+  is complete. This is the path `Sample-Deck.md` is verified on, and the one to trust.
+- **`marp --html`** does NOT launch a browser — it converts in about a second
+  and writes a file. The runtime runs later, when a person opens that file, and
+  only if `lattice-runtime.min.js` and `mermaid-v11.min.js` are still sitting
+  beside it. Mail someone the `.html` on its own and they get a broken deck.
+- **The VS Code preview pane** runs marp-core directly, without Lattice's
+  markdown-it plugins. Whether it executes the deck's `<script>` tags is
+  genuinely unsettled in this project's own notes, so treat those four slides as
+  unknown there rather than promised.
+
+Everything CSS does — layout, palette, typography, every purely-CSS layout —
+holds on all three. Render the deck for anything you need to trust.
 
 Render the deck for anything you need to trust.
 

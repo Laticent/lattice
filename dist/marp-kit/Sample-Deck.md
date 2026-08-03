@@ -124,37 +124,34 @@ flowchart LR
 
 ---
 
-<!-- _class: radar -->
+<!-- _class: progress -->
 
-`Scored 0–10`
+`This kit, scored against what a deck tool should be`
 
 ## Charts are Markdown too — no image, no plugin.
 
-- This deck
-  - Portability `9`
-  - Fidelity `8`
-  - Editability `10`
-  - Setup cost `10`
-  - Version control `10`
+- Editability `100%` `on-track`
+- Setup cost `100%` `on-track`
+- Version control `100%` `on-track`
+- Portability `90%` `on-track`
+- Fidelity to the preview `70%` `at-risk`
 
 ---
 
-<!-- _class: matrix-grid -->
+<!-- _class: obligation-matrix -->
 
 ## What renders where — read this before you trust a surface.
 
-Both marp-cli routes drive a real browser, so the runtime runs and everything
-below is filled. The preview pane's two empty cells are unconfirmed, not broken —
-open this deck in VS Code and you will know.
+| Surface | Layout | Type | Diagrams | Charts |
+| ------------------- | :--: | :--: | :--: | :--: |
+| `marp --pdf`        | [x]  | [x]  | [x]  | [x]  |
+| `marp --html`       | [x]  | [x]  | [-]  | [-]  |
+| VS Code preview     | [x]  | [x]  | [ ]  | [ ]  |
 
-`Surface`  `Runtime executes`
-
-| Feature | `marp --pdf` | `marp --html` | Preview pane |
-| ---------------- | :--: | :--: | :--: |
-| Layout & palette | [x] | [x] | [x] Yes |
-| Typography       | [x] | [x] | [x] Yes |
-| Mermaid diagrams | [x] | [x] | [ ] |
-| Native charts    | [x] | [x] | [ ] |
+A filled mark works. A half mark works once the file is opened in a browser,
+with the two `.js` files still beside it. An open mark is unconfirmed. Anything
+CSS draws holds everywhere — diagrams and charts need a browser that runs the
+runtime.
 
 ---
 
@@ -177,17 +174,17 @@ $$ \sigma(z)_i = \frac{e^{z_i}}{\sum_{j=1}^{K} e^{z_j}} $$
 
 ## The parts you will touch, and what each one does.
 
-1. `Sample-Deck.md`
-   - This deck. Your starting point — edit it in place.
-2. `lattice.min.css`
-   - The engine. Every layout and token lives here.
-3. `cuoio.min.css`
-   - The palette. A dark one ships beside it.
-4. `lattice-runtime.min.js`
+1. This deck `Sample-Deck.md`
+   - Your starting point. Edit it in place.
+2. The engine `lattice.min.css`
+   - Every layout and token lives here.
+3. The palette `cuoio.min.css`
+   - Swap it to restyle. A dark one ships beside it.
+4. The runtime `lattice-runtime.min.js`
    - Builds charts and diagrams in the browser.
-5. `mermaid-v11.min.js`
+5. Mermaid `mermaid-v11.min.js`
    - Third party. Required for diagram slides.
-6. `fonts/`
+6. Type `fonts/`
    - Thirty-seven files. Drop them and type falls back.
 
 The config files and `NOTICE.md` are listed in the README.
