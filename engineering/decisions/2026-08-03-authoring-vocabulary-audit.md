@@ -8,8 +8,8 @@ summary: Lattice has THREE authoring vocabularies, not one, and only the smalles
 ## Why this exists
 
 The question that started it: *"we can't have people adding front matter for convenience or
-shortcut in an unofficial way. Front matter should be official and load-bearing and have a solicit
-value as core engine function."*
+shortcut in an unofficial way. Front matter should be official and load-bearing … as core engine
+function."*
 
 Agreed, and the standing rule from that conversation is: **anything the Studio produces is official
 by definition** — but it must be validated: how it is produced, why, how it is used, in what
@@ -112,8 +112,8 @@ is the record of what each one is for.
 | written | produced by (Studio) | affordance | why | consumed by | context |
 |---|---|---|---|---|---|
 | `<!-- _class: … -->` | `slide-directives.ts:setClass` | component picker / library | names the slide's layout | engine `resolve-component.js` | every render path |
-| `<!-- caption: … -->` | `slide-caption.ts:51 setCaption` | Slide Context → caption field | the slide's read-as line, top of the narration chain | `notes-core` → `share-export.ts` read-along, WebVTT export | export + Present |
-| `<!-- describe: … -->` | `slide-descriptions.ts:43 setDescription` | Slide Context → description field | accessibility: what the slide shows, for someone who can't see it | `notes-core` → PPTX alt text | export |
+| `<!-- caption: … -->` | `slide-caption.ts:39 setCaption` (emits at `:51`) | Slide Context → caption field | the slide's read-as line, top of the narration chain | `notes-core` → `share-export.ts` read-along, WebVTT export | export + Present |
+| `<!-- describe: … -->` | `slide-descriptions.ts:33 setDescription` (emits at `:43`) | Slide Context → description field | accessibility: what the slide shows, for someone who can't see it | `notes-core` → PPTX alt text | export |
 | `spectrum:` (+ per-slide token) | `SlideContext.tsx:314` | Brand bar picker | deck accent gradient, with per-slide override | `resolve-spectrum.js` | render + runtime |
 | `stamp:` / `tone:` | `SlideContext.tsx:444` | marker SHAPE pickers | deck-wide marker shape, per-slide override | `resolve-stamp.js`, `resolve-tone-style.js` | render + runtime |
 | `finish:` | `SlideContext.tsx:312`, `finish-generate.ts` | finish picker / generator | deck backdrop | `resolve-finish.js` | render + runtime |
