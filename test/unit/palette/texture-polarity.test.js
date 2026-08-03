@@ -84,8 +84,15 @@ function declsForSelector(css, pred) {
 }
 
 const isRoot = (s) => /^:root(:root)?$/.test(s);
-/** `section.dark:not(.print)` and friends — the pin, however it is qualified. */
-const pinMatcher = (cls) => (s) => new RegExp(`^section\\.${cls}(:not\\([.\\w]+\\))?$`).test(s);
+/**
+ * `section.dark:not(.print)` and friends — the pin, however it is qualified.
+ * The optional `html:not([data-lattice-print])` prefix is the PRINT GUARD: under
+ * `--print` the emulator bakes each diagram's label ink for the B&W band, and CSS
+ * repaints the chip but never that baked ink, so the pins must stand down.
+ */
+const PRINT_GUARD = 'html:not\\(\\[data-lattice-print\\]\\)';
+const pinMatcher = (cls) => (s) =>
+  new RegExp(`^(${PRINT_GUARD}\\s+)?section\\.${cls}(:not\\([.\\w]+\\))?$`).test(s);
 
 const BASE_VARS = declsForSelector(fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'), isRoot);
 
@@ -173,6 +180,39 @@ describe('texture-polarity', () => {
       });
     }
   }
+
+  test('a polarity pin stands down under --print, and the emulator marks the document', () => {
+    // The emulator BAKES a diagram's label ink for the band it renders — the B&W
+    // print band under `--print`. CSS repaints the chip but never that baked ink,
+    // so a pin is correct only where it agrees with the bake. On a print render a
+    // per-slide `_class` REPLACES the deck's `class: print`, so such a slide keeps
+    // `dark` and loses `print`: an ungated pin put baked print ink (dark) on a dark
+    // chip at ~2.7:1. The guard is the reason print output stays byte-identical.
+    for (const theme of ['onyx', 'concrete']) {
+      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'));
+      const re = /([^{}]+)\{([^}]*)\}/g;
+      let m;
+      let guarded = 0;
+      while ((m = re.exec(css))) {
+        // Only rules that actually select a POLARITY-PINNED set need the guard;
+        // :root's scheme-aware wiring is untouched by print.
+        if (!/url\(#latt-[a-z]+-tex-(light|dark)-\d+\)/.test(m[2])) continue;
+        for (const sel of m[1].split(',').map((s) => s.trim())) {
+          assert.match(sel, new RegExp(`^${PRINT_GUARD}\\s+section\\.`),
+            `themes/${theme}.css selects a pinned texture set from "${sel}", which is not gated on `
+            + 'the print marker — under --print this repaints the chip while the label ink stays '
+            + 'baked for the B&W band');
+          guarded++;
+        }
+      }
+      assert.ok(guarded > 0, `themes/${theme}.css declares no pinned texture rules at all`);
+    }
+
+    const emulator = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+    assert.match(emulator, /WANT_PRINT \? ' data-lattice-print' : ''/,
+      'lattice-emulator.js no longer marks the document under --print, so every guard above '
+      + 'silently stops firing and the pins come back in print output');
+  });
 
   test('a pinned slide never selects a scheme-aware pattern', () => {
     // The scheme-aware sets read :root's color-scheme, so selecting one from a

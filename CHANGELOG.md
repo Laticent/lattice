@@ -314,7 +314,12 @@ in patch versions.
   Verified non-vacuous by mutation (4, 2, 1 and 4 failures for the four ways to reintroduce it), and
   by rendering all six palettes. The texture-defs golden is re-blessed: the change is purely
   additive — the previous output is a byte-exact prefix, and the 48 new patterns carry no `<style>`,
-  so they keep the literal-hex, iOS-safe property of the a11y sets. (#1323)
+  so they keep the literal-hex, iOS-safe property of the a11y sets. The pins are gated on a new
+  `data-lattice-print` document marker: the emulator BAKES each diagram's label ink for the band it
+  renders, CSS repaints the chip but never that baked ink, and on a print render a per-slide
+  `_class` replaces the deck's `class: print` — so an ungated pin put baked print ink on a pinned
+  dark chip at 2.7:1. With the guard, `--print` output is pixel-identical to before this change.
+  (#1323)
 
 - **The containment tier gets curated ink and edge tokens in every theme, and a gate that keeps them
   legible.** `--c-container` / `--c-subcontainer` shipped in the per-theme contract with **zero

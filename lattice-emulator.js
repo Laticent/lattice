@@ -2042,7 +2042,7 @@ const deckTitle =
 
 // ── HTML document ─────────────────────────────────────────────────────────────
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
+<html lang="${escapeHtml(deckLang)}"${WANT_PRINT ? ' data-lattice-print' : ''}><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${embeddedFonts}
 ${katexCssLink}

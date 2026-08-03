@@ -301,8 +301,17 @@ section pre.hljs {
  * (#1323). `:not(.print)` so print's B&W-safe override stays authoritative on a
  * deck that is both printed and per-slide dark. `color-system`/`inherited` are
  * deliberately absent: their polarity is only known at view time, so they keep the
- * scheme-aware set. */
-section.dark:not(.print) {
+ * scheme-aware set.
+ * PRINT GUARD: the emulator BAKES each Mermaid diagram's label ink for the band it
+ * is rendering — dark tokens for a dark slide, the B&W print band under `--print`.
+ * CSS repaints the chip but never that baked ink, so a pin is only correct when it
+ * agrees with what was baked. On a print render a per-slide `_class` REPLACES the
+ * deck's `class: print`, so the slide keeps `dark` and loses `print` — baked
+ * print ink (dark) would then land on a pinned dark chip at ~2.7:1. `--print` marks
+ * the document with data-lattice-print, so the pins stand down and the light chips
+ * the print bake expects stay put. The runtime needs no such guard: print is an
+ * export band it never bakes. */
+html:not([data-lattice-print]) section.dark:not(.print) {
   --cat-1-texture: url(#latt-concrete-tex-dark-1);
   --cat-2-texture: url(#latt-concrete-tex-dark-2);
   --cat-3-texture: url(#latt-concrete-tex-dark-3);
@@ -317,8 +326,8 @@ section.dark:not(.print) {
   --cat-12-texture: url(#latt-concrete-tex-dark-12);
 }
 
-section.light:not(.print),
-section.color-light:not(.print) {
+html:not([data-lattice-print]) section.light:not(.print),
+html:not([data-lattice-print]) section.color-light:not(.print) {
   --cat-1-texture: url(#latt-concrete-tex-light-1);
   --cat-2-texture: url(#latt-concrete-tex-light-2);
   --cat-3-texture: url(#latt-concrete-tex-light-3);
