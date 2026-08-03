@@ -68,15 +68,25 @@ resolves in indaco and cuoio; the remaining palettes are covered by the CONTRACT
 list in `test/unit/palette/token-parity.test.js` (13 themes — `carta` and the
 five `a11y-*` inherit theirs through `@import`).
 
-**A `subgraph` box takes `--c-container`, the per-theme containment rung** — not
-`--bg-alt`, which is the deck's *card* fill. The distinction matters because a
+**A `subgraph` box is drawn entirely from the containment tier** — fill
+`--c-container`, boundary `--c-container-edge`, label ink `--c-on-container` (and
+the `-subcontainer` trio one rung in). Not `--bg-alt`, which is the deck's *card*
+fill; not `--diagram-stroke`, which doesn't flip with color-scheme and so went
+dark-on-dark; not `--cat-on-fill`, which is the *categorical* tier's ink. The distinction matters because a
 cluster sits *behind* the categorical node fills and must not compete with them,
 which is a different job from a card sitting on the canvas. `--c-container` is
 part of the 91-token per-theme contract, so every theme curates it (they differ
 sharply — indaco `#E8F0F7`, concrete `#A8A8A8`). This only reaches PLAIN
 clusters: a `.section-N` cluster (mindmap, timeline, kanban) is overridden to
-`--cat-N-fill` by `mermaid.css`'s band cycle. Its sibling `--c-subcontainer` is
-the next rung down, currently used by the kanban ticket.
+`--cat-N-fill` by `mermaid.css`'s band cycle.
+
+Legibility is **gated**, not assumed —
+`test/unit/palette/containment-contrast.test.js` holds every theme in both schemes
+to ink ≥ 4.5:1 on its rung and edge ≥ 3:1 on the fill it outlines. The fill is
+deliberately a barely-there step from the canvas (it is a surface, not an accent),
+which is exactly why the *boundary* is what has to carry the grouping semantic and
+is what the gate measures. Curate a new theme's edge from its own stroke hue and
+lighten it only as far as 3:1 demands; that keeps it on brand.
 
 ### Writing your own directive
 

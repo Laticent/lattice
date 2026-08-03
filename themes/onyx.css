@@ -219,6 +219,19 @@ section pre.hljs {
    * at 17.0:1 and 13.6:1. Light arms are unchanged. */
   --c-container:     light-dark(#EEEEEE, #1C1C1C);
   --c-subcontainer:  light-dark(#DFDFDF, #2E2E2E);
+
+  /* Containment INK + EDGE (#1311 follow-on). The tier had neither: the cluster
+   * label borrowed --cat-on-fill (the CATEGORICAL tier's ink) and the box was
+   * outlined in --diagram-stroke, which does not flip with color-scheme and so
+   * went dark-on-dark — no edge of a dark cluster reached 3:1 in 12 of 14 themes.
+   * Curated per theme from this palette's own stroke hue, lightened only as far
+   * as 3:1 demands. Gated by test/unit/palette/containment-contrast.test.js:
+   * ink >= 4.5:1 on its surface (AA text), edge >= 3:1 on the fill it outlines
+   * (WCAG 1.4.11 — the box carries the grouping semantic). */
+  --c-container-edge:     light-dark(#000000, #6E6E6E);
+  --c-subcontainer-edge:  light-dark(#000000, #7D7D7D);
+  --c-on-container:       light-dark(#000000, #F0F0F0);
+  --c-on-subcontainer:    light-dark(#000000, #F0F0F0);
 }
 
 /* ── Chart-family palette — slate · red · green ─────────────────────────

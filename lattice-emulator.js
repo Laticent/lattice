@@ -777,7 +777,13 @@ const MERMAID_VAR_MAP = {
   // reaches PLAIN clusters: a `.section-N` cluster (mindmap, timeline, kanban)
   // is overridden to `--cat-N-fill` by mermaid.css's band cycle.
   clusterBkg:               { var: 'c-container' },
-  clusterBorder:            { var: 'diagram-stroke' },
+  // The box's EDGE, not the universal band stroke. --diagram-stroke is a flat
+  // saturated dark hex that does not flip with color-scheme, so on a dark
+  // container it went dark-on-dark and no edge of the box reached 3:1 in 12 of
+  // 14 themes. The containment tier carries its grouping semantic in this
+  // boundary — the fill is deliberately barely-there — so it gets a scheme-aware
+  // edge of its own, gated at 3:1 by containment-contrast.test.js.
+  clusterBorder:            { var: 'c-container-edge' },
 
   // cScale (mid-tone band) — kanban lighten brings to L≈70
   cScale0:                  { var: 'cat-1-mark' },
