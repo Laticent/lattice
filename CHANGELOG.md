@@ -553,7 +553,12 @@ in patch versions.
   turned ligatures off, so the claim is now the enumerated list above rather than a universal. The
   chips did not ligate in practice only because their `letter-spacing` suppresses ligature
   formation in Chromium — an unrelated coincidence that evaporates the moment someone sets it to
-  zero. Found by rendering `dist/marp-kit/Sample-Deck.md` through real marp-cli and reading the
+  zero. The companion `font-feature-settings` pair stays removed, but the reason given for
+  removing it was wrong and is corrected here: `'calt' 0` does **not** endanger Arabic or Indic
+  shaping where the standard property protects it — CSS Fonts 4 §6.4 says `none` disables `calt`
+  too, and required ligatures ride on `rlig`, which neither form touches. The real reason is
+  precedence: `font-feature-settings` outranks `font-variant-*` and inherits, so under the old
+  pair a descendant asking for `font-variant-ligatures: normal` could never get them back. Found by rendering `dist/marp-kit/Sample-Deck.md` through real marp-cli and reading the
   slide; verified fixed the same way, with the literal surviving into the PDF text layer.
 
 - **Math is renderer-agnostic — MathJax is styled, not just tolerated.** Lattice prefers KaTeX and
@@ -577,6 +582,16 @@ in patch versions.
     counterpart to pin). Verified to fire by reverting the fix.
   - `math.manifest.json` — and the generated `math.docs.md` + `dist/docs/components.json` an agent
     reads under HARD RULE #6 — no longer says "KaTeX is the entire reason this layout exists".
+  - **The widening flipped one cascade, and two pixel-diff sweeps missed it.** On
+    `math canvas`, the caption rule `p:not(:has(.katex-display)):not(:has(img))` sat one
+    specificity unit BELOW the eyebrow rule, which is the only thing that kept the eyebrow out of
+    the caption slot. `:is()` takes its most specific argument, so adding
+    `mjx-container[display="true"]` (an attribute selector) took the caption rule from (0,3,3) to
+    (0,3,4) — a tie, resolved by source order in the caption's favour. The eyebrow silently became
+    a caption and the two rendered on top of each other. Neither the gallery nor the docs skeleton
+    gives `canvas` an eyebrow, so no committed render moved and 47 pages of AE=0 diffing saw
+    nothing; an independent cascade check found it. The separation is now stated explicitly
+    (`:not(:has(> code:only-child))`) instead of resting on a specificity coincidence.
 
 - **Every exported PDF of a deck containing a flowchart ended on a blank page.** Mermaid appends
   `<div class="mermaidTooltip">` to `document.body` on its first flowchart — outside the deck root,

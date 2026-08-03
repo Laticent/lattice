@@ -1112,14 +1112,19 @@ section :is(pre, marp-pre) code { background:none; border:none; padding:0; borde
  * not assumed: rendering this text with both, with each alone, and with neither
  * gives three identical bitmaps and one different one (only "neither" differs).
  *
- * It is not merely redundant, it is worse. The standard property is defined to
- * keep ligatures that a script REQUIRES for correct shaping; raw `'calt' 0`
- * bypasses that guarantee, and `calt` is required in Arabic and several Indic
- * scripts. So the low-level pair bought a measured zero and put non-Latin
- * shaping at risk. An earlier revision of this rule shipped it, justified by
- * "the runtime bundle targets chrome91" — which is wrong twice over: this file
- * is compiled by tools/build-css.js, not by the runtime's esbuild target, and
- * `font-variant-ligatures` has been supported since Chrome 31 regardless. */
+ * Two earlier justifications for dropping it were WRONG and are recorded here so
+ * nobody re-derives them. It is not "the fallback for engines that honor only the
+ * low-level tags (the runtime targets chrome91)" — this file is compiled by
+ * tools/build-css.js, nothing to do with the runtime's esbuild target, and
+ * `font-variant-ligatures` has shipped since Chrome 31. Nor does raw `'calt' 0`
+ * endanger Arabic or Indic shaping while the standard property protects it: CSS
+ * Fonts 4 §6.4 says `none` disables `calt` TOO, and that required ligatures ride
+ * on `rlig`, which neither form touches. The two are equivalent there.
+ *
+ * The real reason to prefer the standard property is precedence: per §7.2
+ * `font-feature-settings` outranks `font-variant-*` and is inherited, so under
+ * the old pair a descendant setting `font-variant-ligatures: normal` could not
+ * get its ligatures back. One property, one control surface. */
 section :is(code, pre, marp-pre, kbd, samp) {
   font-variant-ligatures: none;
 }
@@ -9200,7 +9205,23 @@ section.math.canvas > p:has(:is(.katex-display, mjx-container[display="true"])) 
 section.math.canvas > p:has(:is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.7em;
 }
-section.math.canvas > p:not(:has(:is(.katex-display, mjx-container[display="true"]))):not(:has(img)) {
+/* The caption is "a paragraph that is neither the equation nor an image" — and
+ * NOT the eyebrow, which is its own slot above the title (rule ~10 lines up).
+ *
+ * That last exclusion used to be implicit, and it was load-bearing by accident:
+ * the eyebrow rule out-specified this one by a single unit, so the eyebrow simply
+ * won. Widening `.katex-display` to `:is(.katex-display, mjx-container[display="true"])`
+ * for MathJax added an attribute selector, `:is()` takes its most specific
+ * argument, and this rule went (0,3,3) → (0,3,4). That TIES the eyebrow rule, and
+ * this one is later in source order — so the eyebrow silently became a caption
+ * and the two stacked in one grid cell, rendering on top of each other.
+ *
+ * Stated explicitly now, so the separation is semantic instead of a specificity
+ * coincidence one selector edit away from flipping. Neither gallery nor docs
+ * skeleton gives `canvas` an eyebrow, so no committed render moved and two
+ * pixel-diff sweeps across 47 pages missed it; it was caught by an independent
+ * cascade check. */
+section.math.canvas > p:not(:has(:is(.katex-display, mjx-container[display="true"]))):not(:has(img)):not(:has(> code:only-child)) {
   grid-area: cap;
   color: var(--text-secondary);
   text-align: center;

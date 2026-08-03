@@ -162,13 +162,17 @@ test('inline `<!-- … -->` literals survive — ligatures are off on mono', () 
   // The STANDARD property alone, deliberately. `font-variant-ligatures: none`
   // already implies `no-contextual`, so a `font-feature-settings: 'calt' 0`
   // companion is measurably redundant — and worse than redundant: the standard
-  // property preserves ligatures a script REQUIRES to shape correctly, and the
-  // raw feature tag does not. An earlier revision shipped that pair; this asserts
-  // it stays gone, so nobody "restores" it as a well-meaning fallback.
+  // property already implies `no-contextual`, so the pair is measurably redundant,
+  // and `font-feature-settings` outranks `font-variant-*` while inheriting — which
+  // means a descendant asking for `font-variant-ligatures: normal` could not get
+  // its ligatures back. An earlier revision shipped that pair (justified, wrongly,
+  // as protecting Arabic/Indic shaping — CSS Fonts 4 §6.4 says `none` disables
+  // `calt` too, and required ligatures ride on `rlig`, which neither form touches).
+  // This asserts it stays gone, so nobody "restores" it as a well-meaning fallback.
   assert.doesNotMatch(
     css,
     /font-feature-settings:[^;}]*["']calt["']\s*0/,
-    "raw 'calt' 0 must not come back — it breaks Arabic/Indic shaping for zero gain",
+    "raw 'calt' 0 must not come back — redundant, and it outranks the standard property",
   );
 });
 
