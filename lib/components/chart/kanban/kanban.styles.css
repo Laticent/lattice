@@ -108,17 +108,27 @@
    * `box-shadow` was DROPPED — kanban cards rendered with no elevation at all,
    * in either mode, while this comment said otherwise. Nothing caught it: valid
    * syntax, so checkCssSyntax passed, and the goldens were blessed with the
-   * shadow already missing. Same shape base.tokens.css --elevation-recipe uses
-   * (fixed geometry, light-dark on the colors).
-   * engineering/gotchas.md "A CSS reset declaration silently does nothing". */
+   * shadow already missing.
+   * engineering/gotchas.md "A CSS reset declaration silently does nothing".
+   *
+   * ZERO BLUR on every layer, shaped with negative SPREAD — the same technique
+   * base.tokens.css --elevation-recipe uses, and for the same reason. Chromium's
+   * printToPDF exports a *blurred* box-shadow as a raster soft-mask, which Quartz
+   * viewers (iOS Files/Preview) paint as an opaque grey box around the element:
+   * engineering/gotchas.md "Blurred `box-shadow` → opaque grey box", and the
+   * standing decision in engineering/decisions/2026-07-12-struck-elevation.md.
+   * The first cut of this repair restored the ORIGINAL blur radii and put 42 new
+   * JPEG soft-masks into kanban.gallery.light.pdf alone — trading a missing
+   * shadow for a documented export defect. Spread-only shadows export as plain
+   * vector and are safe. If you retune these, keep the third value at 0. */
   box-shadow:
-    /* light — soft contact drop */
-    0 0.1cqi 0.2cqi light-dark(color-mix(in oklab, black 7%, transparent), transparent),
-    /* dark — top inset highlight */
-    inset 0 0.09cqi 0 light-dark(transparent, color-mix(in oklab, white 13%, transparent)),
+    /* light — contact edge */
+    0 0.1cqi 0 -0.02cqi light-dark(color-mix(in oklab, black 7%, transparent), transparent),
+    /* dark — top inset rim */
+    inset 0 0.09cqi 0 0 light-dark(transparent, color-mix(in oklab, white 13%, transparent)),
     /* the float, tuned per canvas */
-    0 0.32cqi 0.7cqi light-dark(color-mix(in oklab, black 8%, transparent), transparent),
-    0 0.4cqi 1cqi light-dark(transparent, color-mix(in oklab, black 32%, transparent));
+    0 0.32cqi 0 -0.12cqi light-dark(color-mix(in oklab, black 8%, transparent), transparent),
+    0 0.4cqi 0 -0.16cqi light-dark(transparent, color-mix(in oklab, black 32%, transparent));
   display: flex;
   flex-direction: column;
   gap: 0.62cqi;

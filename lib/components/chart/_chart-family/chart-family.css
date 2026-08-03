@@ -468,8 +468,20 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
    * linear-gradient(…))` — a color against an <image> — is invalid, and the whole
    * declaration was DROPPED: no frost veil rendered on dark, in silence, since a
    * dropped declaration errors nowhere and moved no golden. Keeping one gradient
-   * and switching its stops gets the documented behavior: fully transparent on
-   * light (identical to the `transparent` this replaces), the frost on dark.
+   * and switching its stops makes it VALID — fully transparent on light (identical
+   * to the `transparent` this replaces), the frost values on dark.
+   *
+   * BUT IT STILL DOES NOT PAINT, and that is unresolved (#1316). On a real render
+   * the computed style resolves correctly (`background-image: linear-gradient(oklab(…
+   * / 0.13) 0%, …)` with `color-scheme: dark`) and the rule is confirmed as the
+   * matching one — yet the panel interior samples identical to the pre-fix broken
+   * state, and only paints after a FORCED REFLOW. First paint is the only paint an
+   * export gets, so the exported PDF is unchanged apart from border anti-aliasing.
+   * A minimal stylesheet repro of the same construct does paint, so this is not
+   * "light-dark in a gradient doesn't work" — something in the real document defers
+   * it. Do not read this rule as working: it is correct CSS with an unexplained
+   * paint failure on top. The rule also only matches a deck that opts into the
+   * `canvas` Form, which no committed deck does — which is why nothing noticed.
    * engineering/gotchas.md "A CSS reset declaration silently does nothing". */
   background-image: linear-gradient(180deg,
     light-dark(transparent, color-mix(in oklab, white 13%, transparent)) 0%,

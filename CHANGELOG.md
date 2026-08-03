@@ -30,18 +30,26 @@ in patch versions.
 - **Kanban cards had no elevation at all, and nothing could see it.** `box-shadow` wrapped whole
   shadow values in `light-dark()`, which resolves a `<color>` and nothing else — so the function
   was invalid, the whole declaration was **dropped at parse time**, and the cards rendered flat in
-  both light and dark while the CSS comment described a drop shadow. The same mistake sat in the
-  chart glass pane (`background: light-dark(transparent, linear-gradient(…))`), though inertly:
-  its selector never matches (#1316). Both now put `light-dark()` on the **colors** and keep the
-  geometry outside it, which is the shape `--elevation-recipe` already used.
+  both light and dark while the CSS comment described a drop shadow. Restored with `light-dark()`
+  on the **colors** and **zero blur on every layer**, shaped with negative spread. The blur matters:
+  Chromium's `printToPDF` exports a blurred `box-shadow` as a raster soft-mask that Quartz viewers
+  paint as an opaque grey box (`engineering/gotchas.md`), which is why
+  `base.tokens.css --elevation-recipe` is zero-blur by standing decision. A first cut of this repair
+  restored the original blur radii and put **42 JPEG soft-masks into `kanban.gallery.light.pdf`
+  alone** — trading a missing shadow for a documented export defect; the shipped version emits **0**.
   **New gate, `npm run css:values`:** it asks the rendering engine (`CSS.supports` in the same
-  Chromium the PDF/HTML paths use) whether every value in `lib/**` and `themes/**` is actually in
-  its property's grammar, and fails on any the browser would drop. This class is invisible to
-  every other gate — valid *syntax*, so `checkCssSyntax` passes; usually no pixel movement, so no
-  golden drifts. It swept 1,209 distinct (property, value) pairs and found these two plus five
-  deliberate cross-engine pairs, which are sanctioned with justifications (a stale sanction fails
-  too). **On-demand, not in `build:check`** — that gate is contractually render-free and its CI
-  job ships no browser. Prompted by #1309's `text-wrap: normal`, the first known instance.
+  Chromium the PDF/HTML paths use) whether every value in `lib/**` and `themes/**` is in its
+  property's grammar, and fails on any the browser would drop. This class is invisible to every
+  other gate — valid *syntax*, so `checkCssSyntax` passes; usually no pixel movement, so no golden
+  drifts. It swept **1,211** distinct (property, value) pairs and found two real drops plus five
+  sanctioned ones — four deliberate cross-engine pairs and one **known defect** (`speak: never`,
+  #1320) held green while it is fixed properly. Sanctions are scoped to the files they justify, so
+  the same value appearing in a new file is a fresh offence rather than silently absorbed; a stale
+  sanction fails too. **On-demand, not in `build:check`** — that gate is contractually render-free
+  and its CI job ships no browser. Prompted by #1309's `text-wrap: normal`, the first known instance.
+  The chart glass pane carried the same invalid `light-dark()` and is now valid CSS, but **the frost
+  it should paint still does not appear on first paint** — unexplained, and its rule only matches a
+  deck that opts into the `canvas` Form, which none currently do (#1316).
   `engineering/gotchas.md` "A CSS reset declaration silently does nothing".
 
 ### Added
