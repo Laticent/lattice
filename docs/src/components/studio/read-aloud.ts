@@ -113,6 +113,10 @@ export type ReadAloudState = {
 	progress: number;
 	/** The active voice rung — 'silent' (captions only) | 'openrouter-tts' | 'kokoro' | … */
 	rung: string | null;
+	/** The clocked voice wants to speak but has no audio yet — a synth/decode stall. The
+	 *  highlight HOLDS while this is true (see the tick clock), so the dock can show an
+	 *  honest "catching up" beat instead of captions crawling over silence. */
+	buffering: boolean;
 	/** Captured audio-timing events this read (debug mode only; empty otherwise). */
 	debugEvents: ReadAloudDebugEvent[];
 	/** Live clock snapshot (debug mode only; null otherwise). */
@@ -242,17 +246,102 @@ export function warmNarration(
 	lang?: string,
 	lexicon?: ReadonlyMap<string, string>,
 ): void {
-	if (!text) return;
 	// MUST pass the same `acronyms`, `lang` AND `lexicon` play() will use, or the warmed spoken
 	// sentences won't match the ones synthesized on playback — every prefetch a cache miss.
-	const track = buildTrack(text, { acronyms, lang, lexicon });
-	if (!track.cues.length) return;
-	const sentences = track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
+	const sentences = spokenSentences(text, acronyms, lang, lexicon);
+	if (!sentences.length) return;
 	// getVoice() is the SAME memoized singleton play() uses — this never spins up
 	// a second instance, and it's a no-op microtask once a reader has already
 	// warmed it on mount (the common case: Present's autoplay only calls this
 	// after a reader is already mounted and playing).
 	getVoice().then((v) => v?.warm?.(sentences, { signal }));
+}
+
+/** The spoken-sentence strings a narration text will be synthesized as — the SAME
+ *  `cue.words[].spoken` join `play()` uses, so anything derived from this lines up with
+ *  the cache keys playback will look up. Shared by the warm-ahead and the prepare pass;
+ *  a second, plainer split here would silently make every prefetch a cache miss. */
+function spokenSentences(text: string, acronyms?: ReadonlyMap<string, string>, lang?: string, lexicon?: ReadonlyMap<string, string>): string[] {
+	if (!text) return [];
+	const track = buildTrack(text, { acronyms, lang, lexicon });
+	return track.cues.map((c) => c.words.map((w) => w.spoken).join(' '));
+}
+
+/**
+ * Warm a WINDOW of upcoming slides, nearest first.
+ *
+ * Present's prefetch used to be one hardcoded slide, fired only while autoplaying — so a
+ * short slide followed by a long one left most of the long one cold, and arrow-key
+ * navigation prefetched nothing at all. This takes the resolved lookahead window and
+ * warms it in order, so the slide about to be spoken is always ahead of the ones after it
+ * in the (shared, capped) prefetch queue.
+ *
+ * Best-effort throughout: `signal` stops any FURTHER requests once the window moves.
+ */
+export function warmNarrationWindow(
+	texts: string[],
+	signal?: AbortSignal,
+	acronyms?: ReadonlyMap<string, string>,
+	lang?: string,
+	lexicon?: ReadonlyMap<string, string>,
+): void {
+	for (const text of texts) warmNarration(text, signal, acronyms, lang, lexicon);
+}
+
+/** Progress through a full-deck prepare pass. */
+export type PrepareProgress = { done: number; total: number };
+
+/**
+ * Synthesize a WHOLE deck's narration up front — the "Prepare narration" pass.
+ *
+ * Prefetching hides latency; this removes it. After a prepare, delivery reads entirely
+ * from cache (and, with the on-device store enabled, keeps doing so after a reload), so a
+ * live presentation has no network in the loop at all — which is what a boardroom
+ * actually needs from a feature whose worst case is a stall mid-sentence in front of an
+ * audience. It also makes the cost one visible, one-time spend instead of a dribble.
+ *
+ * Runs at a small fixed concurrency and reports progress per sentence. Never throws: a
+ * sentence that fails is counted as done (playback will retry it live) rather than
+ * sinking the pass. Returns the number that actually landed.
+ */
+export async function prepareNarration(
+	texts: string[],
+	opts?: {
+		onProgress?: (p: PrepareProgress) => void;
+		signal?: AbortSignal;
+		acronyms?: ReadonlyMap<string, string>;
+		lang?: string;
+		lexicon?: ReadonlyMap<string, string>;
+	},
+): Promise<{ ok: number; total: number; cancelled: boolean }> {
+	const voice = await getVoice();
+	// De-duplicate across the deck: a phrase repeated on two slides is ONE synth, one
+	// charge. The Set also collapses the empty strings contentless slides produce.
+	const sentences = [...new Set(texts.flatMap((t) => spokenSentences(t, opts?.acronyms, opts?.lang, opts?.lexicon)))].filter(Boolean);
+	const total = sentences.length;
+	if (!voice || !total) return { ok: 0, total, cancelled: false };
+	let done = 0;
+	let ok = 0;
+	let cursor = 0;
+	// Matches the in-slide playback scheduler's width. Higher would finish sooner but
+	// makes a prepare look like a burst to the provider — and this runs unattended.
+	const WIDTH = 3;
+	const worker = async () => {
+		while (cursor < total) {
+			if (opts?.signal?.aborted) return;
+			const text = sentences[cursor++];
+			try {
+				const res = await voice.synthOne({ text, signal: opts?.signal });
+				if (res?.bytes) ok++;
+			} catch {
+				/* a failed sentence is not a failed prepare — playback will try again live */
+			}
+			done++;
+			opts?.onProgress?.({ done, total });
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(WIDTH, total) }, worker));
+	return { ok, total, cancelled: !!opts?.signal?.aborted };
 }
 
 /**
@@ -296,6 +385,27 @@ export function useReadAloud(
 	const [active, setActive] = React.useState<Active | null>(null);
 	const [progress, setProgress] = React.useState(0);
 	const [rung, setRung] = React.useState<string | null>(null);
+	// Audio-starved: the sequence wants to play and has nothing yet. Mirrored into a ref
+	// because the RAF tick (deps `[]` by design) reads it every frame.
+	const [buffering, setBuffering] = React.useState(false);
+	const bufferingRef = React.useRef(false);
+	// Identity of the sequence whose starvation reports we still honor. A torn-down run
+	// clears its own watch asynchronously (Suono's `finally`), so without this token a
+	// slide change could land the OLD run's `onStarve(false)` after the NEW run already
+	// reported `true` — releasing the hold and re-opening the race this fix exists to
+	// close. Same ctl-identity discipline Suono applies to its own teardown.
+	const starveTokenRef = React.useRef<object | null>(null);
+	const setBufferingFrom = React.useCallback((token: object, starving: boolean) => {
+		if (starveTokenRef.current !== token) return; // a superseded run — its report is stale
+		bufferingRef.current = starving;
+		setBuffering(starving);
+	}, []);
+	/** Drop any hold and stop honoring the live run's reports — every teardown path. */
+	const clearBuffering = React.useCallback(() => {
+		starveTokenRef.current = null;
+		bufferingRef.current = false;
+		setBuffering(false);
+	}, []);
 	const [debugEvents, setDebugEvents] = React.useState<ReadAloudDebugEvent[]>([]);
 	const [debugLive, setDebugLive] = React.useState<ReadAloudDebugLive | null>(null);
 	// Read via refs so the tick/play closures never re-create (they're deps-`[]` by
@@ -392,12 +502,13 @@ export function useReadAloud(
 		elapsedRef.current = 0;
 		audioBaseRef.current = null;
 		modeRef.current = 'silent';
+		clearBuffering();
 		readerRef.current?.reset();
 		setActive(null);
 		setProgress(0);
 		setPlaying(false);
 		if (debugRef.current) setDebugLive(null);
-	}, [cancelRaf]);
+	}, [cancelRaf, clearBuffering]);
 
 	// Warm the voice model as soon as the reader mounts (Present opens), so it's ready
 	// to `unlock()` SYNCHRONOUSLY on the first play tap. iOS only grants audio when the
@@ -444,6 +555,7 @@ export function useReadAloud(
 				} catch {
 					/* best-effort */
 				}
+				clearBuffering();
 				setPlaying(false);
 				setActive(null);
 				onFinishRef.current?.();
@@ -471,11 +583,12 @@ export function useReadAloud(
 				/* best-effort */
 			}
 			readerRef.current = null;
+			clearBuffering();
 			setPlaying(false);
 			setActive(null);
 			setProgress(0);
 		};
-	}, [track, cancelRaf]);
+	}, [track, cancelRaf, clearBuffering]);
 
 	// One frame: advance the clock (audio or estimate), tick the reader (fires onWord /
 	// onEnd), update progress, and re-arm. Reads only refs, so it never goes stale.
@@ -495,7 +608,19 @@ export function useReadAloud(
 			// audioBase is the RAW Onset.onsetMs, so `clockMs() − base + LEAD` equals the old
 			// `audioTimeMs() − base − lat + LEAD` EXACTLY — the latency is subtracted once, by clockMs.
 			// Do NOT subtract latencyMs() again.
-			elapsedRef.current = audioBaseRef.current == null ? audioHoldMsRef.current : Math.max(0, stage.clockMs() - audioBaseRef.current + SYNC_LEAD_MS);
+			//
+			// BUFFERING HOLD: while the sequence is starved (producing/decoding, nothing playing),
+			// FREEZE the highlight instead of riding the clock. The WebAudio clock advances in real
+			// time whether or not a clip is sounding, so without this the captions crawl on through
+			// a synth stall over total silence and then snap when audio returns — the visible half
+			// of the "audio hangs" report. Holding is safe precisely because the next clip's
+			// measured onset re-anchors its cue through reader.align(): the timeline moves to meet
+			// the real audio, so a hold can never leave the highlight permanently behind.
+			if (bufferingRef.current && audioBaseRef.current != null) {
+				// hold: elapsedRef keeps its last value
+			} else {
+				elapsedRef.current = audioBaseRef.current == null ? audioHoldMsRef.current : Math.max(0, stage.clockMs() - audioBaseRef.current + SYNC_LEAD_MS);
+			}
 		} else {
 			elapsedRef.current += now - lastTRef.current;
 		}
@@ -576,6 +701,12 @@ export function useReadAloud(
 			// stage's decoded-clip cache persists across plays and a key HIT skips the byte compare, so a
 			// bare-sentence key would replay a stale-voice clip after a voice/speed/model change.
 			const keyPrefix = `${r}|${voiceLabelRef.current}|${voice.speedPref?.() ?? 1}`;
+			// This run's identity for starvation reporting (see setBufferingFrom). Claimed
+			// before the sequence exists, so the very first report already belongs to it.
+			const runToken = {};
+			starveTokenRef.current = runToken;
+			bufferingRef.current = false;
+			setBuffering(false);
 			const dbg = debugRef.current;
 			const pushEvent = (e: ReadAloudDebugEvent) => setDebugEvents((prev) => (prev.length >= 500 ? prev : [...prev, e]));
 			audioHoldMsRef.current = holdMs;
@@ -627,6 +758,7 @@ export function useReadAloud(
 						});
 					}
 				},
+				onStarve: (starving) => setBufferingFrom(runToken, starving),
 				onState: ({ playing: seqPlaying, aborted }) => {
 					// Every sentence's synth failed (no onset ever landed) — fall back to the silent estimate
 					// so the highlight never hangs. TERMINAL (playing:false), NOT a barge-in (aborted).
@@ -639,7 +771,7 @@ export function useReadAloud(
 			seqRef.current = seq;
 			seq.play();
 		},
-		[track],
+		[track, setBufferingFrom],
 	);
 	// Read startClocked through a ref so the mute/unmute effect (deps `[mutedProp]`) can resume audio
 	// without re-subscribing on every track change.
@@ -924,6 +1056,7 @@ export function useReadAloud(
 				}
 				modeRef.current = 'silent';
 				audioSuppressedRef.current = true;
+				clearBuffering(); // the silent estimate has nothing to wait for — never hold on it
 				lastTRef.current = nowMs();
 			}
 			return;
@@ -932,9 +1065,9 @@ export function useReadAloud(
 		// set and the resume is DEFERRED to the next play() (see the resume branch) — so a
 		// mute → pause → unmute → play still brings the audio back on this slide.
 		if (playingRef.current) resumeClockedFromCurrentRef.current();
-	}, [mutedProp]);
+	}, [mutedProp, clearBuffering]);
 
-	return { playing, track, active, progress, rung, debugEvents, debugLive, play, pause, toggle, stop };
+	return { playing, track, active, progress, rung, buffering, debugEvents, debugLive, play, pause, toggle, stop };
 }
 
 // ── TTS settings bridge (the Workspace AI-tab TTS section) ──────────────────

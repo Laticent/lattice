@@ -28,6 +28,8 @@ type _SequenceSetterMap = {
 	produceTimeout: 'produceTimeoutMs';
 	onItemStart: 'onItemStart';
 	onState: 'onState';
+	onStarve: 'onStarve';
+	starveGrace: 'starveGraceMs';
 };
 // Errors if any SequenceOptions key is NOT the target of some setter:
 type _EverySequenceOptionCovered = _RequireNever<Exclude<keyof SequenceOptions<unknown>, _SequenceSetterMap[keyof _SequenceSetterMap]>>;
@@ -53,6 +55,12 @@ export interface SequenceBuilder<T> {
 	onItemStart(fn: (e: SequenceItemStart) => void): this;
 	/** Lifecycle notifications. */
 	onState(fn: (e: SequenceStateEvent) => void): this;
+	/** Fired `true` when the run wants to play but has no audio yet, `false` when sound
+	 *  resumes — so a consumer riding the WebAudio clock can HOLD instead of running
+	 *  through a produce stall. Always balanced. */
+	onStarve(fn: (starving: boolean) => void): this;
+	/** How long the run may have nothing to play before `onStarve(true)` (default 250 ms). */
+	starveGrace(ms: number): this;
 
 	/** Compile to a Sequence bound to the stage. === `stage.sequence(collectedOptions)`.
 	 *  Throws if `items` / `produce` were never set (both are required by `SequenceOptions`). */
@@ -102,6 +110,14 @@ export function sequence<T>(stage: Stage): SequenceBuilder<T> {
 		},
 		onState(fn) {
 			opts.onState = fn;
+			return b;
+		},
+		onStarve(fn) {
+			opts.onStarve = fn;
+			return b;
+		},
+		starveGrace(ms) {
+			opts.starveGraceMs = ms;
 			return b;
 		},
 		build() {

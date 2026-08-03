@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: Present's narrated playback feels slow, stalls mid-slide, and races between slides. This traces each symptom to a specific mechanism in the code we ship today — no prefetch before the first Play, one slide of lookahead at concurrency 1, a memory-only audio cache that dies on reload, a 20-second silent produce timeout the reader's clock runs straight through, and a between-slide pause that is literally zero milliseconds — then proposes the design that makes playback feel instantaneous, gives the deck a deliberate presentation rhythm under workspace control, and adds a third delivery rung (Guide) where the Vetrina cursor points at the slide part being spoken while the real mouse pointer gets out of the way.
 companion:
   - ./2026-07-12-narration-pace-model.md
@@ -10,13 +10,17 @@ companion:
 
 # Present: instant audio, a real presentation pace, and a Guide rung
 
-**Status:** PROPOSED — design first, per CLAUDE.md § Design-before-code.
+**Status:** Part 2 ACCEPTED + IMPLEMENTED (2026-08-03); Parts 3–4 PROPOSED.
+Confirmed with the maintainer in one round: **both** adaptive prefetch and a full-deck
+Prepare; persist narration **on device** with a Data-tab governor; Guide targets derived
+from the **speech projection** with an author override; **three PRs, Part 2 first.**
 **Branch:** `claude/present-mode-audio-pacing-lgju0t`
 **Reporter's symptoms:** "press play … takes a long time and sometimes audio hangs";
 "pacing between slides is way too fast"; "vetrina mouse and regular mouse are both present."
 
-Everything in Part 1 is **read off the code we ship today** with file:line pointers.
-Everything in Parts 2–4 is a **proposal** — nothing here is built or verified yet.
+Part 1 is **read off the code as it stood before this branch**, with file:line pointers — the
+diagnosis. **Part 2 is now built** (see "What Part 2 actually changed", below), so its file:line
+references describe the code it replaced. Parts 3 and 4 remain proposals.
 
 ---
 
@@ -147,6 +151,12 @@ hidden, so during a tour you see both. That is a genuine gap, not a misconfigura
 
 The target is simple to state: **from the tap on Play to the first spoken word should be under
 ~200 ms, and no slide boundary should ever be audibly cold.** Seven moves, cheapest first.
+
+> **Implemented below.** §§2.1–2.6 shipped in this branch; §2.7 is guidance, not code.
+> `narration-store.js` (device cache), `narration-latency.js` (measurement),
+> `narration-prefs.js` (the workspace knobs), one shared `fetchClip` body in
+> `voice-model.js`, `onStarve` in Suono, the buffering hold in `read-aloud.ts`, and the
+> lookahead window + Prepare button in `PresentOverlay.tsx`.
 
 ### 2.1 Prefetch before the tap, not after it
 
@@ -361,11 +371,39 @@ HARD RULE #17 each is its own branch and PR rather than one stacked chain:
 Ordered by what each unblocks: Part 2 first, because a designed 1400 ms pause is unmeasurable and
 unfeelable while a random 0–20 s pause is sitting on top of it.
 
+## What Part 2 actually changed (as built)
+
+| Before | After |
+|---|---|
+| Nothing prefetched until Play; first sentence always cold | Warms the current slide + a window whenever Voice is on — so opening Present or unmuting warms before the tap |
+| Exactly 1 slide of lookahead, autoplay only | A window (default `auto`, sized from measured p95), on **every** navigation including arrow keys |
+| `WARM_CONCURRENCY = 1` | `3` (under Suono's existing ceiling of 4) |
+| Audio cache in memory only, dead on reload | IndexedDB, ~100 MB LRU, same content-complete key; Data-tab governor; switchable off |
+| 20 s flat timeout, no retry, sentence silently dropped | 6 s per attempt; one retry on a *fast* failure; a timeout is terminal |
+| Highlight rides the clock through a stall — captions over silence | `onStarve` → the highlight **holds**; the dock says *Catching up…* |
+| No latency measurement anywhere | p50/p95 per model·voice, feeding the adaptive window |
+| No way to remove the network from delivery | **Prepare** — whole-deck synthesis with progress, cancelable |
+
+Two defects surfaced while building it, both fixed here rather than filed:
+- The device cache's LRU stamped `Date.now()`, and warm-ahead writes several clips inside one
+  millisecond — so ties broke *alphabetically by sentence text* and eviction removed the wrong
+  entry. Stamps are now strictly monotonic.
+- Suono cleared its starvation watch only in the run's `finally`, but `produceBytes` doesn't race
+  the abort signal — so a `stop()` during a hung produce left the consumer frozen on an unbalanced
+  `true` for up to the produce timeout. The clear now rides `stop()` too.
+
 ## Verification note (HARD RULE #23)
 
-Nothing in Parts 2–4 is verified — none of it is built. When it is, "verified" means driving the
-**real Present surface in a real browser** with a real key: measured time-to-first-audio, a real
-slide boundary timed, the Guide cursor tracking a real voice. Unit tests and CI green will not be
-offered as evidence for any of it. Time-to-first-audio numbers against the live OpenRouter endpoint
-cannot be captured from this sandbox (no key, and HARD RULE #24 keeps ours off the per-PR path), so
-that measurement is yours to run or mine to run against a key you supply.
+**What is verified:** the logic, by test — 13 device-cache cases against `fake-indexeddb` (a real
+IDB, not a stub), 7 starvation-contract cases, 6 synth-discipline cases, and the full suites green
+(2369 docs / 5037 root / `build:check`).
+
+**What is NOT verified, and is marked UNVERIFIED:** every claim about how this *feels*. Nothing here
+has been driven on the real Present surface in a real browser with a real key. Time-to-first-audio,
+the size of a real slide boundary, whether the buffering hold reads as a beat rather than a hitch,
+and whether a Prepare pass on a real deck costs what we think — all of that needs the real surface,
+and a test suite is not evidence for any of it. Live OpenRouter timings cannot be captured from this
+sandbox (no key, and HARD RULE #24 keeps ours off the per-PR path), so those numbers are yours to
+run, or mine against a key you supply.
+
+Parts 3 (pace) and 4 (Guide) remain unbuilt.

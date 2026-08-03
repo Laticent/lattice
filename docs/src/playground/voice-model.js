@@ -26,6 +26,13 @@
 
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
+// The two on-device tiers this module writes through to. Both are plain, node-safe JS
+// with the same no-alias/no-TS constraint as this file (see the header) — the import
+// graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
+import { recordLatency } from './narration-latency.js';
+import { narrationCacheEnabled } from './narration-prefs.js';
+import { getClip, putClip } from './narration-store.js';
+
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 // Cloud voice = OpenRouter's dedicated TTS endpoint (/api/v1/audio/speech), the
@@ -203,10 +210,29 @@ const AUDIO_CACHE_LIMIT = 200;
 
 // warm()'s prefetch cap. Bounded, not unbounded fire-all: a long deck shouldn't
 // spike into dozens of simultaneous OpenRouter requests (rate limit / cost /
-// wasted work if the listener navigates away seconds in). Kept small — warm-ahead
-// only needs to win the race for the NEXT slide's first sentence or two before the
-// transition arrives, so it doesn't look like a burst attack on the API.
-const WARM_CONCURRENCY = 1;
+// wasted work if the listener navigates away seconds in).
+//
+// RAISED 1 → 3 (2026-08-03). At 1, warm-ahead fetched the next slide's sentences
+// strictly one at a time, so a 2-sentence slide (~8s of speech) followed by an
+// 8-sentence slide warmed maybe three of them and the rest were audibly cold — the
+// "long pause between slides" report. The old value was sized for a ONE-slide
+// lookahead that only had to win the race for the next slide's first sentence or
+// two; Present now warms a configurable window (default 2 slides), which that cap
+// structurally could not fill in time. 3 still sits under Suono's own
+// MAX_WARM_CONCURRENCY ceiling of 4, so the transient peak stays modest.
+const WARM_CONCURRENCY = 3;
+
+// Per-ATTEMPT synth timeout. Was a single flat 20s, which is the timeout behind the
+// "audio hangs" report: a slow sentence stalled the whole run for twenty seconds and
+// was then silently dropped with no retry, while the reader's clock (which rides the
+// WebAudio clock, not the audio) kept the captions crawling over the silence.
+//
+// 6s is comfortably above a healthy p95 for a single sentence and low enough that a
+// genuinely stuck request surfaces as a beat, not an outage.
+const SYNTH_TIMEOUT_MS = 6000;
+// Backoff before the single retry (below). Small — this covers a transient 429/5xx,
+// not a queue.
+const SYNTH_RETRY_DELAY_MS = 300;
 
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a
@@ -576,6 +602,80 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   //             this identity (Suono's `keyOf`), and so a warm/replay lines up bit-for-bit.
   // Uses this instance's shared byte cache + in-flight dedup with the same timeout discipline warm()
   // applies; playback is the caller's (Suono's) job.
+
+  /**
+   * Get ONE sentence's audio bytes, past the in-memory cache — the single body both
+   * `synthOne` (playback) and the warm queue (prefetch) run. Those two used to carry
+   * near-copies of this logic, which the file's own comments flagged; every improvement
+   * below (the persistent tier, the retry, the measurement) had to land in both places
+   * or silently apply to only half the traffic.
+   *
+   * Three tiers, in order:
+   *   1. the ON-DEVICE store — a hit here is instant and free, and is the whole reason a
+   *      rehearsed deck presents without touching the network the second time;
+   *   2. one real attempt, bounded by SYNTH_TIMEOUT_MS;
+   *   3. ONE retry, but only after a FAST failure (a 429/5xx that came back before the
+   *      timeout). A request that TIMED OUT is not retried — the model is stuck or the
+   *      link is bad, and a second 6-second wait doubles a stall the listener is already
+   *      hearing. This asymmetry is the point: retry what is likely transient, give up
+   *      quickly on what is not.
+   *
+   * Never throws and never rejects — every failure path resolves `null`, which the
+   * callers already treat as "skip this sentence".
+   */
+  async function fetchClip(rung, { text, voice, speed, signal, key }) {
+    // Tier 1 — the persistent store. Guarded by the workspace pref, and skipped entirely
+    // when this device has no IndexedDB (private mode), where getClip resolves null.
+    if (narrationCacheEnabled()) {
+      try {
+        const stored = await getClip(key);
+        if (stored) {
+          cacheSet(key, stored); // promote into the in-memory tier so a replay skips even the IDB read
+          return stored;
+        }
+      } catch {
+        /* a cold or unavailable store is a miss, never an error */
+      }
+    }
+    if (signal?.aborted) return null;
+    const voiceKey = `${rung.name}|${modelIdFor(rung.name)}|${voice || ''}`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (signal?.aborted) return null;
+      const startedAt = Date.now();
+      let timer;
+      const outcome = await Promise.race([
+        rung
+          .synth({ text, voice, speed, signal })
+          .then((blob) => ({ blob }))
+          .catch((error) => ({ error })),
+        new Promise((res) => {
+          timer = setTimeout(() => res({ timedOut: true }), SYNTH_TIMEOUT_MS);
+        }),
+      ]).finally(() => clearTimeout(timer));
+
+      if (outcome.blob) {
+        // Measure REAL work only — a cache hit returns above, so this reservoir stays a
+        // reading of the model/network rather than of our own hit rate.
+        recordLatency(voiceKey, Date.now() - startedAt);
+        cacheSet(key, outcome.blob);
+        // Write through to the device, unawaited: the caller is waiting to PLAY this, and
+        // an IndexedDB write must never sit in front of audio starting.
+        if (narrationCacheEnabled()) {
+          Promise.resolve(putClip(key, outcome.blob)).catch(() => {
+            /* a full or blocked store just means no persistence this time */
+          });
+        }
+        return outcome.blob;
+      }
+      // A timeout is terminal (see above); a fast failure earns exactly one retry.
+      if (outcome.timedOut) return null;
+      if (attempt === 0 && !signal?.aborted) {
+        await new Promise((res) => setTimeout(res, SYNTH_RETRY_DELAY_MS));
+      }
+    }
+    return null;
+  }
+
   async function synthOne({ text, voice, speed, signal } = {}) {
     const rung = pickRung();
     const effSpeed = speed ?? speedPref();
@@ -592,14 +692,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // barge-in safety speak()'s synth() documents).
     const joined = inFlightSynths.get(key);
     if (joined && !joined.sig.aborted) return { rung: rung.name, bytes: await joined.promise, key };
-    let timer;
-    const p = Promise.race([
-      rung.synth({ text, voice, speed: effSpeed, signal })
-        .then((blob) => { if (blob) cacheSet(key, blob); return blob; })
-        .catch(() => null)
-        .finally(() => clearTimeout(timer)),
-      new Promise((res) => { timer = setTimeout(() => res(null), 20000); }),
-    ]).finally(() => { if (inFlightSynths.get(key)?.promise === p) inFlightSynths.delete(key); });
+    const p = fetchClip(rung, { text, voice, speed: effSpeed, signal, key }).finally(() => {
+      if (inFlightSynths.get(key)?.promise === p) inFlightSynths.delete(key);
+    });
     inFlightSynths.set(key, { promise: p, sig: signal ?? new AbortController().signal });
     return { rung: rung.name, bytes: await p, key };
   }
@@ -690,14 +785,12 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       if (inflight && !inflight.sig.aborted) continue;
       warmActive++;
       const sig = new AbortController().signal; // this request's own lifetime — never the enqueuing caller's `signal` (see warm()'s own comment)
-      let timer;
-      const p = Promise.race([
-        item.rung.synth({ text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig }).then((blob) => {
-          if (blob) cacheSet(cacheKey, blob);
-          return blob;
-        }).catch(() => null).finally(() => clearTimeout(timer)),
-        new Promise((res) => { timer = setTimeout(() => res(null), 20000); }),
-      ]).finally(() => {
+      // The SAME body playback runs (fetchClip): one persistent-store tier, one bounded
+      // attempt, one retry on a fast failure, one latency sample. Prefetch and playback
+      // used to carry near-copies of this, so an improvement to either silently applied
+      // to only half the traffic — and a warm that skipped the on-device store would
+      // re-buy audio the device already held.
+      const p = fetchClip(item.rung, { text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig, key: cacheKey }).finally(() => {
         if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
         warmActive--;
         pumpWarmQueue(); // a slot just freed — drain whatever's queued, from ANY caller

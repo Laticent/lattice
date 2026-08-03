@@ -41,6 +41,14 @@ function sequence(stage) {
       opts.onState = fn;
       return b;
     },
+    onStarve(fn) {
+      opts.onStarve = fn;
+      return b;
+    },
+    starveGrace(ms) {
+      opts.starveGraceMs = ms;
+      return b;
+    },
     build() {
       if (!opts.items || !opts.produce) {
         throw new Error("suono sequence(): .items(\u2026) and .produce(\u2026) are required before .build()/.play()");
@@ -158,6 +166,7 @@ var DEFAULT_PRODUCE_TIMEOUT_MS = 2e4;
 var DEFAULT_WARM_CONCURRENCY = 1;
 var MAX_CONCURRENCY = 16;
 var MAX_WARM_CONCURRENCY = 4;
+var DEFAULT_STARVE_GRACE_MS = 250;
 var errStr = (e) => e?.message ? e.message : String(e || "unknown");
 function sleep(ms, signal) {
   return new Promise((res) => {
@@ -198,6 +207,32 @@ function makeSequence(stage, opts) {
   const produceTimeoutMs = opts.produceTimeoutMs ?? DEFAULT_PRODUCE_TIMEOUT_MS;
   const onItemStart = opts.onItemStart;
   const onState = opts.onState;
+  const onStarve = opts.onStarve;
+  const starveGraceMs = opts.starveGraceMs ?? DEFAULT_STARVE_GRACE_MS;
+  let starveTimer = null;
+  let starving = false;
+  const emitStarve = (next) => {
+    if (next === starving) return;
+    starving = next;
+    try {
+      onStarve?.(next);
+    } catch {
+    }
+  };
+  const armStarve = () => {
+    if (!onStarve || starving || starveTimer) return;
+    starveTimer = setTimeout(() => {
+      starveTimer = null;
+      emitStarve(true);
+    }, starveGraceMs);
+  };
+  const clearStarve = () => {
+    if (starveTimer) {
+      clearTimeout(starveTimer);
+      starveTimer = null;
+    }
+    emitStarve(false);
+  };
   const bytesCache = createBoundedCache(opts.cacheLimit ?? DEFAULT_CACHE_LIMIT);
   const inflight = createInflight();
   let liveProduce = 0;
@@ -284,6 +319,7 @@ function makeSequence(stage, opts) {
       fillSlots();
       for (let i = 0; i < items.length; i++) {
         if (sig.aborted) break;
+        armStarve();
         const bytes = await pending[i];
         if (sig.aborted) break;
         await waitIfPaused(sig);
@@ -311,7 +347,10 @@ function makeSequence(stage, opts) {
           ]).finally(() => clearTimeout(decodeTimer));
           if (sig.aborted) break;
           if (clip) {
-            const onStart = onItemStart ? ({ onsetMs, durationMs }) => onItemStart({ index: i, onsetMs, durationMs }) : void 0;
+            const onStart = ({ onsetMs, durationMs }) => {
+              clearStarve();
+              onItemStart?.({ index: i, onsetMs, durationMs });
+            };
             const handle = stage.play(clip, { onStart, signal: sig });
             activeHandle = handle;
             if (pausedGate) handle.pause?.();
@@ -325,6 +364,7 @@ function makeSequence(stage, opts) {
         }
       }
     } finally {
+      clearStarve();
       if (ctl === localCtl) {
         ctl = null;
         running = false;
@@ -397,6 +437,7 @@ function makeSequence(stage, opts) {
     releaseGate();
     running = false;
     activeHandle = null;
+    clearStarve();
     if (wasPaused) stage.resume();
     if (wasActive) emitState(false, -1, null, true);
   }

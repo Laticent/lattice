@@ -236,3 +236,98 @@ test('stop()/pause()/resume(): drive ONLY the speechSynthesis rung, and are safe
     delete globalThis.speechSynthesis;
   }
 });
+
+// ── fetchClip: the ONE synth body playback and prefetch now share ─────────────
+// Was two near-copies (synthOne's and the warm queue's), each with its own flat
+// 20s timeout and no retry — the timeout behind the "audio hangs" report. These
+// pin the discipline that replaced it: bounded attempts, retry only what is
+// plausibly transient, and never turn a slow model into a twice-as-long stall.
+
+/** A rung whose synth() is scripted per call: each entry is 'ok' | 'error' | 'hang'. */
+function ScriptedRung(script, { name = 'openrouter-tts' } = {}) {
+  let i = 0;
+  const calls = [];
+  return {
+    name,
+    ready() { return true; },
+    calls,
+    async synth({ text }) {
+      const step = script[Math.min(i++, script.length - 1)];
+      calls.push(text);
+      if (step === 'error') throw new Error('429 rate limited');
+      if (step === 'hang') return new Promise(() => {}); // never settles — the timeout must win
+      return { size: 128, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(128) };
+    },
+  };
+}
+
+test('fetchClip: retries ONCE after a fast failure, and the retry\'s bytes are returned', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['error', 'ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'A transient failure.' });
+  assert.equal(rung.calls.length, 2, 'one retry after the fast failure');
+  assert.ok(res.bytes, 'the retry\'s audio is what the caller gets');
+});
+
+test('fetchClip: gives up after the retry also fails — resolves null, never throws', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['error', 'error']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'Down hard.' });
+  assert.equal(rung.calls.length, 2, 'exactly two attempts — never an unbounded retry loop');
+  assert.equal(res.bytes, null);
+});
+
+test('fetchClip: a TIMED-OUT attempt is NOT retried — a stuck model must not cost two timeouts', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['hang', 'ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const startedAt = Date.now();
+  const res = await v.synthOne({ text: 'Never returns.' });
+  const elapsed = Date.now() - startedAt;
+  assert.equal(res.bytes, null, 'the hung attempt yields no audio');
+  assert.equal(rung.calls.length, 1, 'a timeout is terminal — the asymmetry that keeps a stall single-length');
+  // One SYNTH_TIMEOUT_MS (6s), not two. Generous bound so a loaded CI box can't flake it.
+  assert.ok(elapsed < 11000, `gave up after one timeout window (${elapsed}ms)`);
+});
+
+test('fetchClip: an aborted signal short-circuits before any request is made', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const ctl = new AbortController();
+  ctl.abort();
+  const res = await v.synthOne({ text: 'Already gone.', signal: ctl.signal });
+  assert.equal(rung.calls.length, 0, 'no request for a caller that already walked away');
+  assert.equal(res.bytes, null);
+});
+
+test('fetchClip: a second request for the same key is served from cache, not re-synthesized', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['ok', 'ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  await v.synthOne({ text: 'Say it once.' });
+  await v.synthOne({ text: 'Say it once.' });
+  assert.equal(rung.calls.length, 1, 'the in-memory tier still short-circuits before any attempt');
+});
+
+test('fetchClip: degrades cleanly with no IndexedDB and no localStorage (plain node / private mode)', async () => {
+  // The persistent tier and the latency reservoir are both best-effort by contract.
+  // This whole file runs with neither global defined, so every test above already
+  // exercises the degraded path — this one states it, so a future change that makes
+  // either a hard dependency fails here with a name that explains why.
+  const { createVoiceModel } = await load();
+  assert.equal(typeof indexedDB, 'undefined');
+  assert.equal(typeof localStorage, 'undefined');
+  const rung = ScriptedRung(['ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'Still works.' });
+  assert.ok(res.bytes, 'playback never depends on either store being present');
+});

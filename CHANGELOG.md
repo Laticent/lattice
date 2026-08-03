@@ -213,6 +213,18 @@ in patch versions.
   `auto` on `math` and `title` — so the backdrop escapes behind the section's own opaque background
   and the finish vanished on a shipped slide. See
   `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
+
+
+- **Present's narration no longer hangs silently while the captions run on without it.** A sentence
+  whose synthesis stalled was given a flat **20 seconds** and then dropped with **no retry**, while
+  the caption highlight — which rides the WebAudio clock, and that clock advances whether or not a
+  clip is sounding — crawled straight through the silence and snapped when audio returned. Three
+  changes close it: the per-attempt timeout is now **6s**, a *fast* failure (a 429/5xx that returned
+  before the timeout) earns **one retry** while a genuine timeout does not (retrying a stuck model
+  just doubles a stall the listener is already hearing), and Suono now reports **starvation** — "I
+  want to play and have nothing" — so the reader **holds** the highlight at the cue boundary instead
+  of racing ahead, and the dock says *Catching up…* rather than naming a voice that isn't sounding.
+  An invisible defect became an honest, visible beat.
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
@@ -342,6 +354,22 @@ in patch versions.
   a decoration that reports green. It also sets `CHROME_NO_SANDBOX=1`: marp-cli disables the Chromium
   sandbox for root and inside a container, but a GitHub runner is a plain non-root VM with
   unprivileged user namespaces restricted, so without it every render dies with "No usable sandbox!".
+
+- **Present narrates without waiting on the network: prefetch ahead, keep the audio, and prepare a
+  whole deck up front.** Narrated playback used to pay a cold, un-hidden synth round trip at the
+  start of every Play and at most slide boundaries, because the prefetch was one slide deep, ran one
+  sentence at a time (`WARM_CONCURRENCY` 1 → **3**), and fired **only while autoplaying** — so
+  arrow-key navigation, the way a presenter actually drives a deck, prefetched nothing at all. It now
+  warms a **window** of upcoming slides on every navigation whenever Voice is on, including the
+  CURRENT slide (so opening Present or unmuting warms it before Play is ever pressed). Depth is a
+  workspace setting under **General → Narration in Present**, defaulting to **Automatic**: sized from
+  the p95 synth latency measured for the active voice on this device, so a slow link warms deeper
+  without anyone configuring anything. Synthesized audio is also **kept on this device**
+  (IndexedDB, ~100 MB, oldest dropped first) under the same content-complete cache key playback
+  looks up, so a rehearsed deck presents instantly, offline, and without paying to synthesize the
+  same words twice — surfaced and clearable under **Data → Narration audio**, and switchable off.
+  And a **Prepare** button in the Present dock synthesizes the entire deck up front with live
+  progress, so a live room has no network in the loop at all.
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The
