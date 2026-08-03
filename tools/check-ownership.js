@@ -1289,6 +1289,104 @@ const CANONICAL_LAYER_ORDER = [
 
 // Stable sentinel the bundle must emit adjacent to the declaration so a dist reader
 // learns the layers are inert (Part B). Kept in sync with build-css.js LAYER_INERT_NOTE.
+// ── Math renderer parity (HARD RULE #1 — one source of truth across render paths) ──
+//
+// Lattice typesets with KaTeX; marp-core typesets with MathJax. A deck taken
+// through export-to-Marp or the copy-and-go kit therefore arrives with a
+// DIFFERENT DOM for the same `$$…$$`, and the two structures map 1:1:
+//
+//   .katex-display  ↔  mjx-container[display="true"]
+//   .katex          ↔  mjx-container
+//
+// Engine CSS must name both halves or the layout silently engages on one surface
+// and not the other — which is exactly how it shipped: every math hero equation
+// was gated on `p:has(> .katex-display)`, matched nothing on a MathJax render,
+// and the kit's own math slide came out a postage stamp in 45% dead space. The
+// component was then fixed and `base.modifiers.css` was NOT, so a `$$…$$` on any
+// non-math slide lost its vertical rhythm on the same surface — the same bug,
+// one file away, inside the same change.
+//
+// So the pairing is a gate, not a comment: any engine CSS selector naming a
+// `.katex*` class must carry its `mjx-container` counterpart.
+const SANCTIONED_KATEX_ONLY = [
+  {
+    file: 'lib/components/math/math/math.styles.css',
+    selector: 'section.math.compare .katex .katex-mathml',
+    why:
+      'KaTeX-only by design. This pins KaTeX\'s hidden MathML alternative out of the '
+      + 'multicol fragmentation flow. marp-core\'s MathJax emits a bare <mjx-container> '
+      + 'around an inline <svg> and NO assistive MathML at all, so there is no '
+      + 'counterpart node to pin — a mjx- half would match nothing. The absence is an '
+      + 'accessibility gap recorded in lib/core/marp-fidelity.js, not a layout one.',
+  },
+];
+
+/**
+ * Selectors in engine CSS that name a `.katex*` class without a MathJax counterpart.
+ *
+ * Reuses `topLevelSelectors` + `splitTopLevel` rather than its own regex (HARD
+ * RULE #15). The first cut matched `([^{}]+)\{[^{}]*\}`, which had two holes a
+ * reviewer caught: it never descended into `@media` / `@supports` / `@container`,
+ * so a KaTeX-only rule nested in one would bypass the gate entirely, and it
+ * treated a whole selector LIST as one string, so `a .katex, b mjx-container`
+ * passed on the strength of a counterpart that applies to a different element.
+ * Neither is reachable in today's corpus — but a gate exists to bind the author
+ * who has not written the rule yet, and both holes are exactly the drift it is
+ * here to stop.
+ *
+ * Checked PER SELECTOR, so the pairing must be inside one selector — `:is(.katex,
+ * mjx-container)`, the form the whole engine uses. A comma list that pairs across
+ * two selectors is rejected on purpose: it is indistinguishable, without resolving
+ * the elements, from two unrelated selectors that happen to share a rule body.
+ */
+function katexOnlySelectors(css) {
+  const out = [];
+  for (const rule of topLevelSelectors(css)) {
+    for (const part of splitTopLevel(rule)) {
+      const selector = part.trim().replace(/\s+/g, ' ');
+      if (!selector) continue;
+      if (!/\.katex[\w-]*/.test(selector)) continue;
+      if (/mjx-container/.test(selector)) continue;
+      out.push(selector);
+    }
+  }
+  return out;
+}
+
+function checkMathRendererParity(errors) {
+  const offences = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const rel = path.relative(ROOT, file);
+    for (const selector of katexOnlySelectors(fs.readFileSync(file, 'utf8'))) {
+      offences.push({ file: rel, selector });
+    }
+  }
+  const remaining = [...offences];
+  const stale = [];
+  for (const s of SANCTIONED_KATEX_ONLY) {
+    const i = remaining.findIndex((o) => o.file === s.file && o.selector === s.selector);
+    if (i === -1) stale.push(s);
+    else remaining.splice(i, 1);
+  }
+  if (remaining.length) {
+    const top = remaining.slice(0, 5).map((o) => `${o.file}: \`${o.selector}\``).join('; ');
+    errors.push(
+      `${remaining.length} engine CSS selector(s) style KaTeX without a MathJax counterpart. `
+      + 'Lattice renders KaTeX, marp-core renders MathJax, so a rule naming only `.katex` / '
+      + '`.katex-display` engages on one surface and silently does nothing on the other. Pair it: '
+      + '`.katex-display` ↔ `mjx-container[display="true"]`, `.katex` ↔ `mjx-container` '
+      + '(see lib/components/math/math/math.styles.css). If a rule is deliberately KaTeX-only, '
+      + `add it to SANCTIONED_KATEX_ONLY in tools/check-ownership.js with the reason. Offending: ${top}.`,
+    );
+  }
+  for (const s of stale) {
+    errors.push(
+      `stale SANCTIONED_KATEX_ONLY entry: ${s.file} \`${s.selector}\` no longer exists. `
+      + 'Remove it so the allowlist cannot rot.',
+    );
+  }
+}
+
 const LAYER_INERT_SENTINEL = 'LATTICE-LAYERS-INERT';
 
 const LAYER_BLOCK_BUDGET = 0;
@@ -3771,6 +3869,7 @@ function run() {
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
+  checkMathRendererParity(errors);
   checkSectionBoxOwnership(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
@@ -3867,6 +3966,8 @@ module.exports = {
   checkSectionBoxOwnership,
   SANCTIONED_SECTION_BOXES,
   checkMarginDiscipline,
+  checkMathRendererParity,
+  katexOnlySelectors,
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
   layerBlocksIn,

@@ -6,9 +6,28 @@
 
 /* ── MATH ──────────────────────────────────────────────────────────────────
  * Boardroom-quality math layouts for mathematicians, quants, ML researchers,
- * physicists, statisticians, and economists. KaTeX (server-side via the
- * `katex` npm package in lattice-emulator.js, native via `math: 'katex'` in
- * the engine) renders `$$…$$` (display) and `$…$` (inline). Layouts
+ * physicists, statisticians, and economists.
+ *
+ * RENDERER-AGNOSTIC. Lattice prefers KaTeX (server-side via the `katex` npm
+ * package in lattice-emulator.js, native via `math: 'katex'` in the engine) —
+ * it is smaller and faster, and it is the default everywhere we control the
+ * render. But the typesetter is the deck's choice, not ours, and on surfaces we
+ * do NOT control it is not KaTeX: marp-core defaults to MathJax, so every deck
+ * taken through export-to-Marp or the copy-and-go kit arrives typeset by it.
+ *
+ * So every layout below is written against BOTH structures, which map 1:1:
+ *
+ *   display block   .katex-display          ↔  mjx-container[display="true"]
+ *   scaling target  .katex-display > .katex ↔  mjx-container[display="true"] > svg
+ *   any math        .katex                  ↔  mjx-container
+ *
+ * The `:is(…)` pairs below are that mapping, not incidental breadth — drop half
+ * of one and the layout silently collapses on whichever surface you forgot.
+ * That is exactly how it shipped broken: `p:has(> .katex-display)` gates the
+ * hero equation, it can never match a MathJax render, and the kit's own math
+ * slide came out as a postage stamp in 45% dead space.
+ *
+ * Either renderer produces `$$…$$` (display) and `$…$` (inline). Layouts
  * surround the math with the structure each persona expects:
  *
  *   math (bare)         — defaults to `feature` (hero equation + legend)
@@ -95,24 +114,27 @@ section.math ul > li::before {
  * tier as headings (more weight than body), and display math should feel
  * monumental without overflowing 1280×720. The 1.05 multiplier on display
  * is conservative: KaTeX's own 1.21em baseline already feels large. */
-section.math .katex {
+section.math :is(.katex, mjx-container) {
   color: var(--text-heading);
   font-size: 1em;
 }
-section.math .katex-display {
+section.math :is(.katex-display, mjx-container[display="true"]) {
   margin: 0;
   padding: 0;
   overflow-x: visible;
 }
-section.math .katex-display > .katex {
+section.math :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.5em;
   line-height: 1.2;
   display: block;
   text-align: center;
 }
+/* Ligatures off — this echoes the author's own TeX back at them, and the point of
+ * an error surface is that the quote is retypeable (see base.elements.css). */
 section.math .math-error {
   color: var(--warn);
   font-family: var(--font-mono);
+  font-variant-ligatures: none;
   font-size: 0.85em;
   background: color-mix(in srgb, var(--warn) 10%, transparent);
   padding: 0.1em 0.4em;
@@ -128,7 +150,7 @@ section.math .math-error {
  *   - $X$ — design matrix, $n \times p$
  *   - $y$ — response vector
  *
- * Hero equation occupies the left 60% with `.katex-display` blown up;
+ * Hero equation occupies the left 60% with the display-math block blown up;
  * the trailing `**where**` paragraph + list anchor on the right. */
 /* Authoring convention: the body is a single `<ul>` (the variable legend);
  * the "where" label is a CSS pseudo-element on the list, so the markdown
@@ -139,8 +161,8 @@ section.math.feature {
   grid-template-columns: 3fr 2fr;
   padding-bottom: var(--sp-xl);
 }
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display),
-section.math.feature > p:has(> .katex-display) {
+section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> :is(.katex-display, mjx-container[display="true"])),
+section.math.feature > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   grid-column: 1;
   grid-row: 3;
   align-self: center;
@@ -148,8 +170,8 @@ section.math.feature > p:has(> .katex-display) {
   padding-right: var(--sp-lg);
   border-right: 1px solid var(--border);
 }
-section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display) .katex-display > .katex,
-section.math.feature > p:has(> .katex-display) .katex-display > .katex {
+section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
+section.math.feature > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.9em;
 }
 section.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol),
@@ -242,12 +264,12 @@ section.math.derivation tbody tr:last-child td:last-child {
 }
 /* Display math used as a row entry stays inline-block so it doesn't break
  * the row height. Override the default centred display behaviour. */
-section.math.derivation td .katex-display {
+section.math.derivation td :is(.katex-display, mjx-container[display="true"]) {
   display: inline-block;
   margin: 0;
   text-align: left;
 }
-section.math.derivation td .katex-display > .katex {
+section.math.derivation td :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.15em;
   display: inline-block;
   text-align: left;
@@ -341,10 +363,10 @@ section.math.theorem blockquote:nth-of-type(3n) {
 section.math.theorem blockquote:nth-of-type(3n) strong:first-child {
   color: var(--text-secondary);
 }
-section.math.theorem blockquote .katex-display {
+section.math.theorem blockquote :is(.katex-display, mjx-container[display="true"]) {
   padding: var(--sp-xs) 0;
 }
-section.math.theorem blockquote .katex-display > .katex {
+section.math.theorem blockquote :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.25em;
 }
 
@@ -396,7 +418,13 @@ section.math.compare:has(h3:nth-of-type(3)) {
  * Nothing else worked: `contain` (strict / size / layout / paint), `overflow:hidden`
  * and `column-fill:auto` all left the phantom column in place — verified in Chromium.
  * Under the slide's fit-scale `transform` the transformed ancestor is the containing
- * block, so this stays local rather than escaping to the viewport. */
+ * block, so this stays local rather than escaping to the viewport.
+ *
+ * KaTeX-only by design. marp-core's MathJax emits a bare `<mjx-container>` wrapping an
+ * inline `<svg>` and NO assistive MathML at all, so there is no absolutely-positioned
+ * descendant to fragment — and nothing for this rule to match. (That absence is an
+ * accessibility gap on the Marp surface, not a layout one; it is recorded in
+ * lib/core/marp-fidelity.js rather than papered over here.) */
 section.math.compare .katex .katex-mathml {
   position: fixed;
 }
@@ -417,15 +445,15 @@ section.math.compare > h3 {
  * label text — measurable, and outside the border just as the margin was. */
 section.math.compare > h3 + * { padding-top: var(--sp-sm); }
 section.math.compare > h3:first-of-type { break-before: avoid; }
-section.math.compare > p:has(> .katex-display) {
+section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   break-inside: avoid;
   padding-bottom: var(--sp-sm);
   text-align: center;
 }
-section.math.compare > p:has(> .katex-display) .katex-display > .katex {
+section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.4em;
 }
-section.math.compare > p:not(:has(.katex-display)) {
+section.math.compare > p:not(:has(:is(.katex-display, mjx-container[display="true"]))) {
   color: var(--text-secondary);
   padding-bottom: var(--sp-xs);
 }
@@ -460,16 +488,32 @@ section.math.canvas {
 }
 section.math.canvas > p:has(> code:only-child):has(+ h2) { grid-area: eyebrow; }
 section.math.canvas > h2              { grid-area: title; }
-section.math.canvas > p:has(.katex-display) {
+section.math.canvas > p:has(:is(.katex-display, mjx-container[display="true"])) {
   grid-area: eq;
   align-self: center;
   text-align: center;
   margin: 0;
 }
-section.math.canvas > p:has(.katex-display) .katex-display > .katex {
+section.math.canvas > p:has(:is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.7em;
 }
-section.math.canvas > p:not(:has(.katex-display)):not(:has(img)) {
+/* The caption is "a paragraph that is neither the equation nor an image" — and
+ * NOT the eyebrow, which is its own slot above the title (rule ~10 lines up).
+ *
+ * That last exclusion used to be implicit, and it was load-bearing by accident:
+ * the eyebrow rule out-specified this one by a single unit, so the eyebrow simply
+ * won. Widening `.katex-display` to `:is(.katex-display, mjx-container[display="true"])`
+ * for MathJax added an attribute selector, `:is()` takes its most specific
+ * argument, and this rule went (0,3,3) → (0,3,4). That TIES the eyebrow rule, and
+ * this one is later in source order — so the eyebrow silently became a caption
+ * and the two stacked in one grid cell, rendering on top of each other.
+ *
+ * Stated explicitly now, so the separation is semantic instead of a specificity
+ * coincidence one selector edit away from flipping. Neither gallery nor docs
+ * skeleton gives `canvas` an eyebrow, so no committed render moved and two
+ * pixel-diff sweeps across 47 pages missed it; it was caught by an independent
+ * cascade check. */
+section.math.canvas > p:not(:has(:is(.katex-display, mjx-container[display="true"]))):not(:has(img)):not(:has(> code:only-child)) {
   grid-area: cap;
   color: var(--text-secondary);
   text-align: center;
@@ -518,12 +562,12 @@ section.math.matrix {
   align-content: center;
   padding-bottom: var(--sp-lg);
 }
-section.math.matrix > p:has(> .katex-display) {
+section.math.matrix > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   grid-column: 1;
   align-self: center;
   text-align: center;
 }
-section.math.matrix > p:has(> .katex-display) .katex-display > .katex {
+section.math.matrix > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.7em;
 }
 section.math.matrix > :is(ul, ol) {
@@ -568,11 +612,11 @@ section.math.matrix.decompose > h2 {
   padding: 0 0 var(--sp-md) 0;
   text-align: left;
 }
-section.math.matrix.decompose > p:has(> .katex-display):first-of-type {
+section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
   padding-bottom: var(--sp-md);
   border-bottom: 1px solid var(--border);
 }
-section.math.matrix.decompose > p:has(> .katex-display):first-of-type .katex-display > .katex {
+section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 2.1em;
 }
 section.math.matrix.decompose > h3 {
@@ -583,13 +627,13 @@ section.math.matrix.decompose > h3 {
   padding-top: var(--sp-md);
   padding-bottom: var(--sp-sm);
 }
-section.math.matrix.decompose > p:has(> .katex-display):not(:first-of-type) {
+section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):not(:first-of-type) {
   display: inline-block;
   width: calc((100% - 2 * var(--sp-lg)) / 3);
   padding: 0 var(--sp-xs);
   vertical-align: middle;
 }
-section.math.matrix.decompose > p:has(> .katex-display):not(:first-of-type) .katex-display > .katex {
+section.math.matrix.decompose > p:has(> :is(.katex-display, mjx-container[display="true"])):not(:first-of-type) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 1.3em;
 }
 
@@ -621,11 +665,11 @@ section.math.stats > h2 {
   text-align: center;
   padding: 0 0 var(--sp-md) 0;
 }
-section.math.stats > p:has(> .katex-display):first-of-type {
+section.math.stats > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type {
   text-align: center;
   margin: 0;
 }
-section.math.stats > p:has(> .katex-display):first-of-type .katex-display > .katex {
+section.math.stats > p:has(> :is(.katex-display, mjx-container[display="true"])):first-of-type :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 2.6em;
   color: var(--accent);
   font-weight: 700;
@@ -645,7 +689,7 @@ section.math.stats > blockquote p {
   padding: 0 0 0.15em 0;
 }
 section.math.stats > blockquote::before { content: none; }
-section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
+section.math.stats > p:not(:has(> :is(.katex-display, mjx-container[display="true"]))):not(:first-of-type) {
   text-align: center;
   max-width: 60cqi;
   margin: 0;
@@ -669,8 +713,8 @@ section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
    the doubled class `.math.math` matches the variant rules' weight (and beats the
    zero-specificity `:where()` bare-math selector). */
 /* feature (+ bare): equation full-width, legend full-width beneath it. */
-section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display),
-section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) {
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])),
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) {
   grid-column: 1 / -1; grid-row: 3;
   align-self: start; padding-top: var(--sp-xl);
   border-right: none; padding-right: 0; padding-bottom: var(--sp-md);
@@ -681,13 +725,13 @@ section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > :
 }
 /* Tall frame = room for a monumental hero equation; scale it up so it owns the
    canvas instead of floating small in a void. */
-section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex,
-section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex {
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg),
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) {
   font-size: 2.7em;
 }
 /* matrix: equation full-width over properties; left rule → top rule. */
-section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) { grid-column: 1 / -1; grid-row: 3; align-self: start; padding-top: var(--sp-xl); }
-section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex { font-size: 2.4em; }
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) { grid-column: 1 / -1; grid-row: 3; align-self: start; padding-top: var(--sp-xl); }
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> :is(.katex-display, mjx-container[display="true"])) :is(.katex-display > .katex, mjx-container[display="true"] > svg) { font-size: 2.4em; }
 section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > :is(ul, ol) {
   grid-column: 1 / -1; grid-row: 4; align-self: start;
   padding-left: 0; border-left: none;
@@ -764,6 +808,8 @@ section .functionplot .function-plot .annotations text {
 section .functionplot-error {
   color: var(--warn);
   font-family: var(--font-mono);
+  /* Same reason as .math-error above: an error must quote the source literally. */
+  font-variant-ligatures: none;
   font-size: var(--fs-meta);
   padding: var(--sp-sm);
   border: 1px dashed var(--warn);

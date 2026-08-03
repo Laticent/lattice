@@ -15,43 +15,13 @@ in patch versions.
 > | Category in `## Unreleased` | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-> | `### Added`, `### Changed
-
-- **word-cloud and radar small-multiples follow the piechart's portrait + container-fill model.**
-  Two behaviors the pie has had since #598 and these two did not. (a) **Key below at portrait.**
-  word-cloud's `size = frequency` key moves from a side rail to a band UNDER the cloud, with the
-  horizontal accent rule and a left→right A-ramp — `svg-legend.js buildPortrait`'s model, threaded
-  through `ctx.orientation` the way roadmap already does. In a tall box the scarce axis is width, so
-  a rail squeezed the cloud AND cramped the key; the cloud now packs the full width against a taller
-  portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
-  (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
-  before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
-  context, pinning it to `85.9375cqi × 25cqi`. The svg box now fills 88.9% × 87.2% of its chart
-  body, matching the piechart — though the box was already 88.9% wide, so only the height fill
-  changed and the LANDSCAPE drawing is the same size as before. The real gain is portrait, where the
-  cloud's word ink goes **5% → 25%** of the body (biggest word 89px → 134px), which needed the word
-  sizes scaled with the taller canvas — enlarging the canvas alone bought emptier canvas.
-  radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`) that
-  divides the body on both axes: portrait fill goes **23% → 43%** at six series. Landscape is
-  deliberately unchanged — four minis already fill the row width, and square tiles in a 2.4:1 body
-  cannot do better. The grid also repairs a **pre-existing** defect: across a 36-case sweep the
-  baseline tree clipped 12 (every 5–8-series deck with a below-note, and all 9-series decks, by up to
-  150px); the tip clips none. Trade to know about: the mini's diagram is no longer a fixed physical
-  size (351.6px at 1–2 series, 188.1px at four, 78.6px at nine with a note) and nothing enforces a
-  legibility floor at the top of that range.
-
-  A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
-  chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
-  them — measured **607.8px against a 449.1px stage, clipping 115.8px of chart off the top**. The grid
-  gives every cell the same width whatever row it lands in, and `1fr` rows split the height, so the
-  same deck now fits with 130px to spare.
-`, `### Deprecated` | **minor** |
+> | `### Added`, `### Changed`, `### Deprecated` | **minor** |
 > | `### Fixed`, `### Security` | **patch** |
 >
 > Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
 > `## Unreleased` means there is nothing to release. Flag a breaking change
 > by leading the bullet with `**Breaking:**` so it counts as major even
-> under `
+> under `### Changed`.
 
 ## Unreleased
 
@@ -537,7 +507,181 @@ in patch versions.
   unchanged and were NOT re-measured against the new shape: the per-item total is now roughly
   `w + 3` (label `w-5`, plus the value, a 4-token target line, and two status pills), so the basis
   moved slightly against the author rather than for them.
+- **word-cloud and radar small-multiples follow the piechart's portrait + container-fill model.**
+  Two behaviors the pie has had since #598 and these two did not. (a) **Key below at portrait.**
+  word-cloud's `size = frequency` key moves from a side rail to a band UNDER the cloud, with the
+  horizontal accent rule and a left→right A-ramp — `svg-legend.js buildPortrait`'s model, threaded
+  through `ctx.orientation` the way roadmap already does. In a tall box the scarce axis is width, so
+  a rail squeezed the cloud AND cramped the key; the cloud now packs the full width against a taller
+  portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
+  (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
+  before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
+  context, pinning it to `85.9375cqi × 25cqi`. The svg box now fills 88.9% × 87.2% of its chart
+  body, matching the piechart — though the box was already 88.9% wide, so only the height fill
+  changed and the LANDSCAPE drawing is the same size as before. The real gain is portrait, where the
+  cloud's word ink goes **5% → 25%** of the body (biggest word 89px → 134px), which needed the word
+  sizes scaled with the taller canvas — enlarging the canvas alone bought emptier canvas.
+  radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`) that
+  divides the body on both axes: portrait fill goes **23% → 43%** at six series. Landscape is
+  deliberately unchanged — four minis already fill the row width, and square tiles in a 2.4:1 body
+  cannot do better. The grid also repairs a **pre-existing** defect: across a 36-case sweep the
+  baseline tree clipped 12 (every 5–8-series deck with a below-note, and all 9-series decks, by up to
+  150px); the tip clips none. Trade to know about: the mini's diagram is no longer a fixed physical
+  size (351.6px at 1–2 series, 188.1px at four, 78.6px at nine with a note) and nothing enforces a
+  legibility floor at the top of that range.
 
+  A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
+  chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
+  them — measured **607.8px against a 449.1px stage, clipping 115.8px of chart off the top**. The grid
+  gives every cell the same width whatever row it lands in, and `1fr` rows split the height, so the
+  same deck now fits with 130px to spare.
+
+- **Ligatures are off wherever the mono face carries a literal — `<!--` rendered as an arrow.**
+  `--font-mono` is JetBrains Mono, which ships programming ligatures on by default (`liga` +
+  `calt`), and nothing in the engine turned them off. Those features rewrite the **glyphs**, not
+  the characters, so a slide documenting Lattice's own syntax showed `<!-- _class: kpi -->` as
+  arrow-glyph soup — **a reader could not retype what they saw.** A deck that teaches syntax and
+  then lies about it is worse than one that omits it. `lib/base/base.elements.css` now sets
+  `font-variant-ligatures: none` on `code`, `pre`, `marp-pre`, `kbd` and `samp`. This is the
+  token's own stated contract — `base.tokens.css` calls `--font-mono` the face where *"data must
+  remain unambiguous"*, and ligatures trade exactly that for pretty. Coverage extends past those
+  elements to every mono surface that quotes a literal: the Mermaid error headline (which echoes
+  source built out of `-->`), the math and function-plot error messages, and state-chart edge
+  labels (`approve -> ship`) and the `state-chart inline`/`horizontal` event chips, which carry
+  the SAME author-written transition string. An earlier revision of this entry claimed coverage of
+  "every mono surface"; the red team counted 109 CSS blocks that set `--font-mono` against 4 that
+  turned ligatures off, so the claim is now the enumerated list above rather than a universal. The
+  chips did not ligate in practice only because their `letter-spacing` suppresses ligature
+  formation in Chromium — an unrelated coincidence that evaporates the moment someone sets it to
+  zero. The companion `font-feature-settings` pair stays removed, but the reason given for
+  removing it was wrong and is corrected here: `'calt' 0` does **not** endanger Arabic or Indic
+  shaping where the standard property protects it — CSS Fonts 4 §6.4 says `none` disables `calt`
+  too, and required ligatures ride on `rlig`, which neither form touches. The real reason is
+  precedence: `font-feature-settings` outranks `font-variant-*` and inherits, so under the old
+  pair a descendant asking for `font-variant-ligatures: normal` could never get them back. Found by rendering `dist/marp-kit/Sample-Deck.md` through real marp-cli and reading the
+  slide; verified fixed the same way, with the literal surviving into the PDF text layer.
+
+- **Math is renderer-agnostic — MathJax is styled, not just tolerated.** Lattice prefers KaTeX and
+  still defaults to it, but marp-core typesets with MathJax, and every math layout gated its hero
+  equation on `p:has(> .katex-display)` — a selector that can never match a MathJax render. The
+  result was not a metric difference, it was a layout that never engaged: a postage-stamp equation
+  in 45% dead space. All 8 variants now target both structures, which map 1:1 (`.katex-display` ↔
+  `mjx-container[display="true"]`, `.katex-display > .katex` ↔ `… > svg`, `.katex` ↔
+  `mjx-container`). `lib/core/marp-fidelity.js` records what is still unequal: marp-core emits no
+  assistive MathML, so exported math is invisible to a screen reader — marp-core's output, not
+  something CSS can repair.
+  - The first cut fixed the math COMPONENT and left `base.modifiers.css` KaTeX-only, so a `$$…$$`
+    on any *non-math* slide still lost its vertical rhythm on exactly the surface the change set
+    out to fix (measured: `16px 0` padding on the KaTeX path, `0` on MathJax). Same bug, one file
+    away, inside the same change — the "remember both halves" hazard the new file header warns
+    about, realized immediately.
+  - So the pairing is now a GATE, not a comment: **`checkMathRendererParity`** in
+    `tools/check-ownership.js` fails the build on any engine CSS selector that names `.katex` /
+    `.katex-display` without its `mjx-container` counterpart, with a `SANCTIONED_KATEX_ONLY`
+    allowlist (one entry: the KaTeX-only MathML pin in `math compare`, which has no MathJax
+    counterpart to pin). Verified to fire by reverting the fix.
+  - `math.manifest.json` — and the generated `math.docs.md` + `dist/docs/components.json` an agent
+    reads under HARD RULE #6 — no longer says "KaTeX is the entire reason this layout exists".
+  - **The widening flipped one cascade, and two pixel-diff sweeps missed it.** On
+    `math canvas`, the caption rule `p:not(:has(.katex-display)):not(:has(img))` sat one
+    specificity unit BELOW the eyebrow rule, which is the only thing that kept the eyebrow out of
+    the caption slot. `:is()` takes its most specific argument, so adding
+    `mjx-container[display="true"]` (an attribute selector) took the caption rule from (0,3,3) to
+    (0,3,4) — a tie, resolved by source order in the caption's favour. The eyebrow silently became
+    a caption and the two rendered on top of each other. Neither the gallery nor the docs skeleton
+    gives `canvas` an eyebrow, so no committed render moved and 47 pages of AE=0 diffing saw
+    nothing; an independent cascade check found it. The separation is now stated explicitly
+    (`:not(:has(> code:only-child))`) instead of resting on a specificity coincidence.
+
+- **Every exported PDF of a deck containing a flowchart ended on a blank page.** Mermaid appends
+  `<div class="mermaidTooltip">` to `document.body` on its first flowchart — outside the deck root,
+  ~6px tall, permanently empty in a static render. In print that pushed document height past the
+  deck's own and Chrome spilled one more sheet (measured: 13 sections, body 7800px, document
+  7806px, 14 pages). The runtime now PINS it (`position:fixed`) after each render settles, which
+  takes it out of scrollable overflow while leaving it in the DOM and working.
+  - **Pinning, not removing, is the whole point.** The first cut called `.remove()` on it. Mermaid's
+    `setupToolTips` captures that exact node in a closure during `bindFunctions()`, so removing it
+    left every hover writing into a detached div: `click A "url" "tooltip"` silently did nothing on
+    every interactive surface (the Playground, the Studio preview, the HTML player, `marp --html`
+    opened in a browser) — a live capability traded away for a symptom that only exists in print.
+    Caught by the red team, which reproduced the dead tooltip with a real `mouseover` in Chromium;
+    re-verified working after the change, with the page count still 13.
+  - It **cannot** be fixed from theme CSS, which is the obvious first attempt: Marpit scopes theme
+    rules to the deck root, so an unscoped `.mermaidTooltip{position:fixed}` is rewritten to a
+    selector that can never match a body-level node — shipped, measured doing nothing, reverted.
+    An inline style is not scoped, which is why the runtime sets one.
+
+- **`dist/marp-kit/` — copy the folder, open VS Code, start editing.** No export, no build step,
+  nothing to install. `npm run build` generates it like every other `dist/` artifact and
+  `build:check` fails when it goes stale. 48 files, 5.1 MB: `lattice.min.css`, `cuoio.min.css` and
+  a dark palette beside it, `lattice-runtime.min.js`, `mermaid-v11.min.js`, **37 fonts**, a
+  `marp.config.cjs`, a `.vscode/settings.json`, a README, `NOTICE.md` + `LICENSE`, and
+  **`Sample-Deck.md`** — a 13-slide deck that documents its own authoring, committed alongside its
+  rendered PDF (HARD RULE #9) so the artifact a recipient sees is reviewable in the diff.
+  The builder **imports** `STATIC_ASSETS` and `fontAssetsFor()` from `lib/core/marp-bundle.js`, so
+  the kit cannot drift from the export.
+  - **Licensing, which the first cut simply omitted.** The kit is engine object code handed over
+    loose for reuse, which `LICENSE-EXCEPTIONS` §Limits explicitly withholds the output exception
+    from — so it is a plain AGPL-3.0 conveyance and now carries the full `LICENSE`, a copyright
+    notice, and attribution for Mermaid (MIT), the KaTeX fonts (MIT) and the five OFL text
+    families. It previously shipped 1 MB of engine and 37 third-party font files with none of
+    that, while inviting the recipient to redistribute the lot.
+  - **Verified by rendering the shipped kit through real marp-cli**, copied out of `dist/` as a
+    recipient would: 13 pages for 13 slides, every slide read at 60dpi. That is how the blank
+    trailing page, the collapsed math slide, and slide 2's truncated rows were found — none of
+    which any unit test could see, and all of which the first cut shipped.
+  - Findings baked into the kit: `size: hd` rather than `4k` (at 4k the same deck never finished
+    rendering; at hd it takes seconds, and a copy-and-go kit has to work first try on a modest
+    machine), scripts loaded **last** (Marp emits raw HTML inline in document order, so a
+    `<script>` at the top lands inside slide 1 and runs before the other slides exist), and
+    **`class: dark`, not `color-mode:`**, for dark mode — `class:` is Marp's own key and stamps
+    every slide, while Lattice's richer deck registers are read from a block only the full export
+    writes, so in a hand-authored deck they do nothing. The README said the opposite.
+  - **The quote slide was authored against the wrong contract and did not render as a quote at
+    all.** `quote` takes a `blockquote` plus a following attribution paragraph; the slide used an
+    `h2` and a body paragraph, so it came out as a plain titled slide with small centered text
+    floating in dead space. Now `quote bare` — the variant the component documents for an
+    unsourced line — with the blockquote and an italic credit. A `radar` slide likewise carried a
+    third-level bullet that the component silently drops, so that sentence never reached a reader.
+    Both were HARD RULE #6 violations: the deck was authored without opening the component docs.
+    Every one of the 13 slides has now been checked against its manifest skeleton and read in the
+    render; `matrix-grid` and `split-panel` were suspected and cleared against their own component
+    galleries (fill, not glyphs, is matrix-grid's language; split-panel's footer sits inside the
+    dark panel there too).
+  - **Licensing, round two.** The first fix added `LICENSE` and an attribution table and called it
+    done. MIT requires its permission notice to travel with every copy and the OFL requires its
+    text to accompany the fonts — naming a license in a table discharges neither, and 38
+    redistributed third-party files shipped with no license text at all. The kit now carries
+    `THIRD-PARTY-LICENSES.txt` (MIT ×2 + OFL 1.1, verbatim, vendored under `assets/licenses/` so
+    they are reviewable in the diff) and `LICENSE-EXCEPTIONS`, so a recipient can check the claim
+    `NOTICE.md` makes instead of taking it on trust. 50 files.
+  - **The README's fidelity section was wrong about its own headline path.** It said `marp --pdf`
+    *and* `marp --html` "drive a real headless browser, so the runtime runs". `marp --html` launches
+    no browser — it converts in about a second and writes a file; the runtime runs later, when a
+    person opens it, and only if the two `.js` files are still beside it. Mail someone that `.html`
+    alone and they get a broken deck. It also claimed layout was "correct on every surface", while
+    four of the thirteen slides are assembled by the runtime, not by CSS. Both corrected.
+  - **Two more slides were authored against contracts their components forbid**, after a commit
+    whose thesis was that all thirteen had been checked. `list-tabular` takes `N. Name \`Meta\``
+    with the inline code as the META — the deck put the filename in the code span, so the NAME
+    column rendered EMPTY on all six rows and I read that render as correct. `matrix-grid` is
+    documented as the wrong component for pass/fail status (that is `obligation-matrix`), and the
+    slide also broke three of its stated rules: multiple filled cells per row, unlabeled `[x]`, no
+    legend. The `radar` slide ran ONE series against a component documented for comparing 2–4
+    options. Now: list-tabular authored name-first, `obligation-matrix` with a real state legend,
+    and `progress` — a single-subject chart — in place of the radar.
+  - `tools/build-marp-kit.js` held a THIRD private copy of a shared constant (`^4.3.1`) while the
+    same commit was fixing two others; it now imports `MARP_CLI_RANGE`. The README no longer claims
+    the range is "what Lattice tests against" — this project runs no automated test against
+    marp-cli at all, which is the honest thing to say.
+  - `test/unit/tools/marp-kit.test.js` locks the failures that are SILENT: a missing font falls
+    back to system serif, a dropped `html: true` prints the script tags as text, a minifier that
+    strips the `@theme` comment yields unstyled slides — each shipped undetected in #1256. The
+    font check derives its expectation independently from the `@font-face` blocks rather than
+    calling the builder's own walker, which made it a tautology, and now runs in both directions
+    so a file the builder stopped producing cannot sit in the shipped folder unnoticed.
+
+  `engineering/decisions/2026-08-02-marp-reference-register.md` §5b.
 
 - **The Marp register's own central claim was wrong, and an adversarial pass caught it.** The
   register shipped in #1296 asserting that the exporter passes LFM through "verbatim" and that a

@@ -86,6 +86,42 @@ section code { font-family:var(--font-mono); font-size:0.85em; color:var(--code-
  * the marp-pre branch, mermaid source blocks render briefly as inline-code
  * chips in VS Code preview before the upgrade lands. */
 section :is(pre, marp-pre) code { background:none; border:none; padding:0; border-radius:0; color:inherit; font-size:inherit; white-space:pre; }
+/* LIGATURES OFF on every surface that carries literal text.
+ *
+ * --font-mono is 'JetBrains Mono', which ships programming ligatures enabled by
+ * default (`liga` + `calt`). Those rewrite the GLYPHS, not the characters — so a
+ * deck documenting Lattice's own syntax rendered `<!-- _class: kpi -->` as
+ * `<-!- _class: kpi -->` with arrow glyphs, and a reader could not retype what
+ * they saw. A slide that teaches syntax and then lies about it is worse than one
+ * that omits it.
+ *
+ * This is the token's own stated contract: base.tokens.css calls --font-mono the
+ * face where "data must remain unambiguous". Ligatures are exactly the feature
+ * that trades unambiguous for pretty, so they are off wherever mono renders a
+ * literal — inline chips, fenced blocks, kbd and samp.
+ *
+ * The STANDARD property only, deliberately. `font-variant-ligatures: none` already
+ * means `no-common no-discretionary no-historical no-contextual`, so the obvious
+ * `font-feature-settings: 'liga' 0, 'calt' 0, …` companion adds nothing — measured,
+ * not assumed: rendering this text with both, with each alone, and with neither
+ * gives three identical bitmaps and one different one (only "neither" differs).
+ *
+ * Two earlier justifications for dropping it were WRONG and are recorded here so
+ * nobody re-derives them. It is not "the fallback for engines that honor only the
+ * low-level tags (the runtime targets chrome91)" — this file is compiled by
+ * tools/build-css.js, nothing to do with the runtime's esbuild target, and
+ * `font-variant-ligatures` has shipped since Chrome 31. Nor does raw `'calt' 0`
+ * endanger Arabic or Indic shaping while the standard property protects it: CSS
+ * Fonts 4 §6.4 says `none` disables `calt` TOO, and that required ligatures ride
+ * on `rlig`, which neither form touches. The two are equivalent there.
+ *
+ * The real reason to prefer the standard property is precedence: per §7.2
+ * `font-feature-settings` outranks `font-variant-*` and is inherited, so under
+ * the old pair a descendant setting `font-variant-ligatures: normal` could not
+ * get its ligatures back. One property, one control surface. */
+section :is(code, pre, marp-pre, kbd, samp) {
+  font-variant-ligatures: none;
+}
 /* Centred rule. Horizontal centre via flex `align-self` (the stage flow is a flex
  * column), NOT `margin:auto` (HARD RULE #20); vertical space comes from the stage
  * gap like any other block. In a non-flex context it falls back to left-aligned —

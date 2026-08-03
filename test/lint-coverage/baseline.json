@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "Tracked, lintable files Biome does NOT check. Exceed-only: a file LEAVING coverage fails `npm run lint:coverage` until it is recorded here. Refresh with `npm run lint:coverage:bless` and say in the PR which exclusion class the new entries are. Gate + rationale: tools/check-lint-coverage.js.",
+  "note": "Tracked, lintable files Biome does NOT check, each with the exclusion class it claims. Exceed-only: a file LEAVING coverage fails `npm run lint:coverage` until it is recorded here. Refresh with `npm run lint:coverage:bless`; a new entry lands with a null class and keeps failing until you name one of: dependency, build-output, transient, vendor, not-code, generated, unparseable. Gate + rationale: tools/check-lint-coverage.js.",
   "uncovered": [
     {
       "path": ".claude/workflows/design-competition.js",
@@ -36,6 +36,22 @@
     },
     {
       "path": "dist/lattice-runtime.min.js",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/marp-kit/.vscode/settings.json",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/marp-kit/lattice-runtime.min.js",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/marp-kit/marp.config.cjs",
+      "class": "build-output"
+    },
+    {
+      "path": "dist/marp-kit/mermaid-v11.min.js",
       "class": "build-output"
     },
     {

@@ -866,15 +866,26 @@ section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> e
 
 
 
-/* ── KaTeX in non-math layouts ──
- * Allow inline math in any layout (e.g. a stats card on a kpi slide) by
- * giving `.katex` sensible defaults so it inherits colour and doesn't
- * blow up the line-height. Display math outside `section.math.*` falls
- * back to centred + accent for visibility. */
-section:not(.math) .katex { color: inherit; }
+/* ── Rendered math in non-math layouts ──
+ * Allow inline math in any layout (e.g. a stats card on a kpi slide) by giving
+ * the rendered math sensible defaults so it inherits colour and doesn't blow up
+ * the line-height. Display math outside `section.math.*` falls back to centred +
+ * accent for visibility.
+ *
+ * BOTH RENDERERS, same 1:1 mapping as math.styles.css — `.katex` ↔ `mjx-container`
+ * and `.katex-display` ↔ `mjx-container[display="true"]`. Lattice renders KaTeX;
+ * marp-core renders MathJax, so a deck taken through export-to-Marp or the
+ * copy-and-go kit arrives typeset by the other one. These two rules were left
+ * KaTeX-only when the math COMPONENT was made renderer-agnostic, which meant a
+ * `$$…$$` on any non-math slide lost its vertical rhythm on exactly the surface
+ * the change set out to fix (measured: 16px 0 on the KaTeX path, 0 on MathJax).
+ * That is the "remember both halves" hazard the component's header warns about,
+ * realized one file away — hence checkMathRendererParity in tools/check-ownership.js,
+ * which now fails the build rather than trusting anyone to remember. */
+section:not(.math) :is(.katex, mjx-container) { color: inherit; }
 /* Vertical breathing room as padding, not margin (HARD RULE #20); the display has
  * no background so padding reads identically. */
-section:not(.math) .katex-display { padding: var(--sp-sm) 0; margin: 0; text-align: center; }
+section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding: var(--sp-sm) 0; margin: 0; text-align: center; }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL HEAT OVERLAY — palette inversion for any state-bearing layout

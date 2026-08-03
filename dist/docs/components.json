@@ -6121,8 +6121,8 @@
         "assessment",
         "reference"
       ],
-      "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. KaTeX-rendered equations with persona-appropriate surround.",
-      "purpose": "Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
+      "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround. Lattice typesets with KaTeX and marp-core with MathJax; the layouts style both, so you author identically either way.",
+      "purpose": "Use when the slide IS the equation. `$$…$$` renders as a centered display block and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).",
       "variants": [
         "feature",
         "derivation",
@@ -6209,7 +6209,7 @@
         "equation": {
           "selector": "p",
           "required": true,
-          "description": "Display equation wrapped in `$$…$$`. KaTeX renders centered."
+          "description": "Display equation wrapped in `$$…$$`. Renders centered."
         },
         "legend": {
           "selector": "ul > li",
@@ -6221,7 +6221,7 @@
       "whenToUse": [
         {
           "title": "The equation IS the argument",
-          "body": "When a single closed-form expression, identity, or estimator carries the slide. KaTeX renders it; Lattice gives it the room. For surrounding prose with one inline `$x$`, use content."
+          "body": "When a single closed-form expression, identity, or estimator carries the slide. The typesetter renders it; Lattice gives it the room. For surrounding prose with one inline `$x$`, use content."
         },
         {
           "title": "Pick the variant from the persona",
@@ -6242,8 +6242,8 @@
           "body": "An equation with three undefined symbols is a puzzle, not a claim. Either every non-trivial symbol gets a legend entry, or the equation is simple enough that the audience knows it cold."
         },
         {
-          "title": "ASCII math instead of KaTeX",
-          "body": "Writing `beta_hat = (X'X)^-1 X'y` as plain text bypasses the renderer. Always wrap math in `$$…$$` (display) or `$…$` (inline) — KaTeX is the entire reason this layout exists."
+          "title": "ASCII math instead of real math markup",
+          "body": "Writing `beta_hat = (X'X)^-1 X'y` as plain text bypasses the renderer. Always wrap math in `$$…$$` (display) or `$…$` (inline) — typeset math is the entire reason this layout exists."
         }
       ],
       "related": [

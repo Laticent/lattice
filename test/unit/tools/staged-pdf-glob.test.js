@@ -64,6 +64,13 @@ const KNOWN_UNCLASSIFIED = new Set([
   // excluded from tools/preview.js ALL_DECKS by name and rebuilt by hand. Editing
   // its markdown likewise leaves the committed PDF stale. A real gap, logged.
   'themes/palette-audit.md',
+  // The Marp kit's sample deck. Deliberately NOT classifiable: its committed PDF
+  // is rendered by real marp-cli against dist/marp-kit — the surface a recipient
+  // actually uses — not by Lattice's own renderer. Rebuilding it through the
+  // normal path would quietly replace the artifact with one produced by a
+  // DIFFERENT engine, which is exactly the comparison the PDF exists to make. It
+  // is refreshed by rendering the kit; see tools/build-marp-kit.js.
+  'kit/Sample-Deck.md',
 ]);
 
 /** The `glob:` list on lefthook's pre-commit `pdf-rebuild` job. */

@@ -86,6 +86,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
 | `lente-lib:build` | Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@slidewright/lente') and npm publish resolve — the fourth spin-off sibling's consumable artifact. |
 | `lente-lib:check` | Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts). |
+| `marp-kit:build` | Build dist/marp-kit — the copy-and-go Marp folder (CSS, runtime, fonts, Mermaid, configs, Sample-Deck.md). No export needed. |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
 | `player-core:check` | Freshness gate for the player-core Playground bundle. |
 | `player-prune:build` | Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces. |
@@ -343,6 +344,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
+| `tools/build-marp-kit.js` | build-marp-kit — assemble dist/marp-kit/, the copy-and-go folder. |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |

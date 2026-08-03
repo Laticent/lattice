@@ -1,12 +1,12 @@
 # math
 
-> Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. KaTeX-rendered equations with persona-appropriate surround.
+> Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround. Lattice typesets with KaTeX and marp-core with MathJax; the layouts style both, so you author identically either way.
 
 **Function** evidence · **Form** canvas · **Substance** prose
 
 **Tags** `formula` · `assessment` · `reference`
 
-Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
+Use when the slide IS the equation. `$$…$$` renders as a centered display block and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
 
 ## Agent contract
 
@@ -16,7 +16,7 @@ Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display 
 |---|---|---|---|
 | `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
 | `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
-| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
+| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. Renders centered. |
 | `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
 ### Variant decision rule
@@ -34,11 +34,11 @@ Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display 
 ### Common mistakes
 
 - **Eyebrow written as plain or bold text instead of inline code.** The eyebrow matches `p:has(> code:only-child):has(+ h2)` (the shared before-heading rule) — wrap it in backticks and keep it as the section's first child, immediately before the `## heading`; unwrapped it's just a plain paragraph with no eyebrow styling.
-- **Legend items lead with plain text instead of the KaTeX symbol, e.g. "beta hat — OLS coefficient" instead of the symbol wrapped in `$...$`.** Each legend `li` should lead with the symbol exactly as it appears in the display equation, wrapped in `$...$` (e.g. `$\hat\beta$` — OLS coefficient) — plain text doesn't render as math and breaks the visual match between the equation and its legend.
+- **Legend items lead with plain text instead of the rendered symbol, e.g. "beta hat — OLS coefficient" instead of the symbol wrapped in `$...$`.** Each legend `li` should lead with the symbol exactly as it appears in the display equation, wrapped in `$...$` (e.g. `$\hat\beta$` — OLS coefficient) — plain text doesn't render as math and breaks the visual match between the equation and its legend.
 
 ## When to use
 
-- **The equation IS the argument.** When a single closed-form expression, identity, or estimator carries the slide. KaTeX renders it; Lattice gives it the room. For surrounding prose with one inline `$x$`, use content.
+- **The equation IS the argument.** When a single closed-form expression, identity, or estimator carries the slide. The typesetter renders it; Lattice gives it the room. For surrounding prose with one inline `$x$`, use content.
 - **Pick the variant from the persona.** Quants reach for feature and stats. ML researchers reach for canvas (equation + plot). Pure mathematicians reach for theorem and derivation. Linear-algebra-heavy work reaches for matrix. The base layout works for everyone.
 - **Legend, not footnotes.** The `where:` list under the equation defines every symbol introduced. The audience should never have to scroll back to remember what $\hat\beta$ or $X$ stands for.
 
@@ -46,7 +46,7 @@ Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display 
 
 - **Two display equations in the base layout.** The bare math layout is built around one hero equation. For side-by-side display, use `math compare`. For a derivation chain, use `math derivation`. Stacking two `$$` blocks in the base layout breaks the visual contract.
 - **Symbols without a legend.** An equation with three undefined symbols is a puzzle, not a claim. Either every non-trivial symbol gets a legend entry, or the equation is simple enough that the audience knows it cold.
-- **ASCII math instead of KaTeX.** Writing `beta_hat = (X'X)^-1 X'y` as plain text bypasses the renderer. Always wrap math in `$$…$$` (display) or `$…$` (inline) — KaTeX is the entire reason this layout exists.
+- **ASCII math instead of real math markup.** Writing `beta_hat = (X'X)^-1 X'y` as plain text bypasses the renderer. Always wrap math in `$$…$$` (display) or `$…$` (inline) — typeset math is the entire reason this layout exists.
 
 ## Authoring
 

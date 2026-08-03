@@ -2847,7 +2847,7 @@
         "equation": {
           "selector": "p",
           "required": true,
-          "description": "Display equation wrapped in `$$…$$`. KaTeX renders centered."
+          "description": "Display equation wrapped in `$$…$$`. Renders centered."
         },
         "legend": {
           "selector": "ul > li",

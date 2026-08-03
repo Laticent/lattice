@@ -66,6 +66,7 @@ files. See the repo `README.md` for the full entry-point table.
 | `lattice-runtime.min.js` | Minified `lattice-runtime.js` — no inline source map. Production / CDN runtime drop-in. | `@slidewright/lattice/runtime/min` |
 | `lattice.css` | Engine bundle — the palette-blind layout system (layouts + modifiers, no colour tokens). | `@slidewright/lattice/css` |
 | `lattice.min.css` | Minified `lattice.css` — same engine, comments/whitespace stripped (Marp `@theme`/`@size` directives preserved). Production / CDN drop-in. | `@slidewright/lattice/css/min` |
+| `marp-kit/` | The copy-and-go Marp kit — engine, default palette, runtime, Mermaid, fonts, a marp-cli config, VS Code settings, LICENSE/NOTICE, and a self-documenting `Sample-Deck.md`. Copy the folder, open it in VS Code, start editing. | Copy `dist/marp-kit/` wholesale; see its own `README.md`. |
 | `themes/a11y-achromatopsia.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `themes/a11y-base.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `themes/a11y-deuteranopia.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |

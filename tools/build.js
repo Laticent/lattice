@@ -32,7 +32,8 @@
  *  11. layout-core bundle      tools/build-layout-core.js     (docs site Layout Studio core)
  *  12. authoring-core bundle   tools/build-authoring-core.js  (docs site Architect/Coach core)
  *  13. capability index        tools/build-capabilities.js (engineering/capabilities.md)
- *  14. dist README            tools/build-dist-readme.js (indexes dist/; runs last)
+ *  14. marp kit               tools/build-marp-kit.js (dist/marp-kit; needs dist/ fresh)
+ *  15. dist README            tools/build-dist-readme.js (indexes dist/; runs last)
  *
  * Gallery PDFs are NOT part of this build: they need Chromium, take tens
  * of seconds, and are regression artifacts rather than shipped source.
@@ -120,6 +121,10 @@ const STEPS = [
   { label: 'decision index (engineering/decisions/README.md)', script: 'build-decisions-index.js' },
   // Last — it indexes the finished dist/ folder, so every other artifact
   // must already be (re)written before it runs.
+  // The copy-and-go Marp kit. Runs LATE: it copies dist/lattice.min.css,
+  // dist/themes/, dist/lattice-runtime.min.js and dist/fonts/, so every one of
+  // those must already be fresh. Before dist README, which indexes dist/.
+  { label: 'marp kit (dist/marp-kit)', script: 'build-marp-kit.js' },
   { label: 'dist README', script: 'build-dist-readme.js' },
 ];
 
