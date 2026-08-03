@@ -122,7 +122,12 @@ function mountHost() {
 	return host;
 }
 
-/** The deck's real slide count, by the same split the renderer's caller uses. */
+/**
+ * The fixtures' slide count. NOT the canonical splitter: the Studio uses the fence-aware
+ * `splitSlides()` (`./lint`), which avoids cutting inside a fenced block. These fixtures contain no
+ * fences, so a plain separator regex is exact for them and keeps this file free of a Studio import.
+ * If a fixture ever gains a code fence, switch to `splitSlides` rather than widening this.
+ */
 const slideCountOf = (deck: string) => deck.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/, '').split(/\n-{3,}\n/).length;
 
 /** Drive ONE edit of the shown slide, exactly as the Studio's editor preview does. */

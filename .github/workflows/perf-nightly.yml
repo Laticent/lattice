@@ -273,7 +273,8 @@ jobs:
       # but it must be a MACHINE token, not English. Grepping for "ceiling" also matched the
       # no-patch-renders assertion and the spec's own comment block, so a broken harness filed as
       # "a p50 went past its budget" about a p50 nothing measured. Only the three ceiling
-      # assertions emit `::perf-ceiling-breach::`.
+      # assertions emit the breach token (see the spec's header for its exact spelling — it is
+      # deliberately not written out here, so this comment can never match its own grep).
       - name: Preview interaction ceilings (@perf)
         id: preview
         if: always()
@@ -315,8 +316,12 @@ jobs:
       #    job leaves both empty. In every one of those states the old condition held, so the step
       #    commented "Green — no tier past its band" and closed the thread. "Not measured" was
       #    being reported as health, which is this workflow's cardinal sin and the fifth instance
-      #    of the exit-code class in this file. Now both outputs must be an EXPLICIT 'false', which
-      #    only the paths that actually measured and found nothing can produce. It fails closed.
+      #    of the exit-code class in this file. So the condition now requires BOTH that each step
+      #    SUCCEEDED and that its output is an explicit 'false'. The output alone is not enough and
+      #    a first pass at this fix got that wrong: the exit-2 wiring branch and the @perf
+      #    harness-failure branch each write `false` and THEN `exit 1`, so an output-only condition
+      #    is satisfied by precisely the failures it was meant to exclude. `outcome` is the step's
+      #    own result, so a step that exited non-zero can never be read as "measured green".
       # 2. A GREEN NIGHT DOES NOT MEAN THE REGRESSION IS GONE. The comparison is head vs a base
       #    ~24h old. A regression lands on day 0; night 1 the base predates it, so the alarm fires
       #    and the issue opens; night 2 the base INCLUDES it, both arms carry it, the diff is clean
@@ -327,7 +332,7 @@ jobs:
       #    a green-night comment and stays open for a human, because a differ with a 24-hour memory
       #    cannot tell "fixed" from "now on both sides".
       - name: Stand down the rolling issue when measured green
-        if: always() && steps.compare.outputs.regressed == 'false' && steps.preview.outputs.breached == 'false'
+        if: always() && steps.compare.outcome == 'success' && steps.preview.outcome == 'success' && steps.compare.outputs.regressed == 'false' && steps.preview.outputs.breached == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
