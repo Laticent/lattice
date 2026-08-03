@@ -9,7 +9,22 @@
  */
 section.compare-code { }
 section.compare-code h2 { padding-bottom:var(--sp-sm); }
-section.compare-code .code-cols { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-md); flex:1; }
+/* `minmax(0, 1fr)`, NOT `1fr` — the same correction the family-reflow block below
+ * makes for square/tall/strip, and for the same reason. A grid track's implicit
+ * floor is min-content, and a `<pre>` with `white-space: pre` reports its LONGEST
+ * UNWRAPPED LINE as min-content, so one long line widens its own track past its
+ * half and pushes the other pane off the frame. Measured on a two-pane slide with
+ * one realistic 110-character line: the left pane grew to ~1700px inside a 1920px
+ * stage and the right pane was reduced to a sliver at the edge, tagged "Content
+ * clipped" on export.
+ *
+ * The reflow block already carried this fix but scoped it away from landscape,
+ * reasoning that "landscape keeps `pre`, where the two columns have the width the
+ * author wrote for". That is the assumption this repairs: landscape has the same
+ * implicit floor, so the columns do NOT keep the width the author wrote for — a
+ * long line takes it. It went unseen because every gallery specimen has short
+ * lines, and horizontal overflow is invisible to the vertical overflow probe. */
+section.compare-code .code-cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--sp-md); flex:1; }
 section.compare-code .code-col { display:flex; flex-direction:column; gap:var(--sp-xs); }
 /* Column label: p>code inside .code-col (JS path) or h2 ~ p>code (fallback path) */
 /* label→pre spacing is the .code-col flex parent's gap:var(--sp-xs); no padding here
@@ -28,7 +43,15 @@ section.compare-code h2 ~ p:has(> code:only-child) > code {
   background:none; border:none; padding:0; border-radius:0;
 }
 section.compare-code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
-section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
+/* Long lines WRAP rather than vanish — `pre` is `overflow:hidden`, so without this
+ * a line past the column width is cut mid-token, and a PDF has no scrollbar to
+ * recover it. A wrapped line is still readable code; a clipped one misreports what
+ * the source says. `overflow-wrap:anywhere` (not `break-word`) because it also
+ * lowers the element's min-content contribution, which is what lets the track
+ * above actually shrink; `break-word` would wrap the glyphs and still report the
+ * long line as the floor. Identical to the pair the reflow block sets for the
+ * other families. */
+section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; white-space:pre-wrap; overflow-wrap:anywhere; }
 
 /* ── COMPARE-CODE fallback ───────────────────────────────────────────────────
  * Column labels are p>code (inline code paragraphs), matching the eyebrow convention.
@@ -144,15 +167,13 @@ section.compare-code:where([data-family="square"], [data-family="tall"], [data-f
    * vertical overflow probe cannot see this, so nothing would have said so. */
   grid-template-columns: minmax(0, 1fr);
 }
-/* Long lines WRAP rather than disappear. The pair is `overflow: hidden`, so
- * without this a line past the column width is silently cut mid-token — and in a
- * PDF there is no scrollbar to recover it. A wrapped line is still readable code;
- * a clipped one is a lie about what the source says. Landscape keeps `pre`, where
- * the two columns have the width the author wrote for. */
-section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) pre > code {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
+/* The family-scoped wrap rule that used to sit here is GONE, not moved: wrapping is
+ * now unconditional on `section.compare-code pre > code` at the top of this file.
+ * It was scoped to these three families on the reasoning that "landscape keeps
+ * `pre`, where the two columns have the width the author wrote for" — which was
+ * wrong, and cost landscape the same clip this rule was written to prevent. With
+ * the base rule set, repeating it here would be a redundant override that reads as
+ * if landscape were still excluded. */
 /* The un-transformed fallback pins each block to an explicit grid column, so
  * collapsing the track is not enough — the assignments have to fold to one
  * column and the rows have to grow from four/five to six/seven. */
