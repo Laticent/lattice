@@ -246,6 +246,20 @@
   --measure-bookend-heading: 16em;  /* ≈33 characters at the display tier   */
   --measure-bookend-lede:    26em;  /* ≈56 characters at the statement tier */
 
+  /* The BODY reading measure — content's prose and lists. Same `em`, same
+   * reason: a measure is a count of characters, and `cqi` is a fraction of the
+   * slide. This was `72cqi`, which measured 61 characters at --fs-message and
+   * would have measured a different count the moment the tier moved.
+   *
+   * 36em is 66 characters, measured (not estimated) against the rendered box:
+   * 769.5px at an 11.58px average advance. 66 is the classic reading measure and
+   * the centre of the 45–75 band; the old cap's 61 sat at the narrow end of it,
+   * and holding 61 while content became the DEFAULT layout cost lines on every
+   * text-heavy slide that previously ran uncapped at base's ~90. Base having no
+   * measure at all was the defect; 61 was an over-correction.
+   * engineering/decisions/2026-08-02-default-slide-layout.md §3 */
+  --measure-body: 36em;             /* 66 characters at the body tier, measured */
+
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;
@@ -1046,7 +1060,15 @@ section {
  * `margin-bottom` — HARD RULE #20: margin is invisible to the overflow probe /
  * autosplit and margin-collapses. Headings carry no own-margin; the gap spaces
  * them from the following block. (See 2026-06-27-stage-flow-no-margins.md.) */
-section h1 { font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700; color:var(--text-display); line-height:var(--lh-tight); margin:0; border:none; }
+/* h1's ink is --text-heading, the same as h2-h6, NOT --text-display. That token
+ * is the ink for a DARK PANEL ("on dark surfaces" in every palette that defines
+ * it) and it is near-white in all thirteen light palettes. `title` is the only
+ * component that puts an h1 on a dark panel, and it sets --text-display itself
+ * (title.styles.css) — so the base default served exactly one consumer that did
+ * not need it, and rendered every OTHER author-written `# heading` white on
+ * white. Pure ink change: the box, and therefore every height the Fit Spine
+ * measures, is identical. See 2026-08-02-default-slide-layout.md §5. */
+section h1 { font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h2 { font-family:var(--font-display); font-size:var(--fs-h2); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h3 { font-family:var(--font-display); font-size:var(--fs-h3); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h4 { font-family:var(--font-body); font-size:var(--fs-h4); font-weight:700; color:var(--text-heading); margin:0; }
@@ -3930,9 +3952,18 @@ section.content h2 { padding-bottom:var(--sp-sm); }
  * 72cqi cap used to sit here and held the heading below its band on 21 of 28 measured
  * slides, costing 18 of them an extra line. Framing behavior is the deck's call via
  * the `headline:` alignment register, not a per-component bake. */
-/* BODY prose keeps a reading measure — 72cqi ≈ 65–75 chars, where an uncapped
- * full-canvas paragraph at --fs-message runs ~90. */
-section.content p  { font-size:var(--fs-message); line-height:var(--lh-relaxed); max-width:72cqi; }
+/* BODY prose reads at --fs-body, NOT --fs-message, and that is the whole of §3.
+ * --fs-message is the SLIDE-STATEMENT tier (statement, quote, lead, divider sub);
+ * content is a prose layout, and the type contract assigns "card / list / inline
+ * prose" to --fs-body. The tell is Key Insight: base.modifiers.css pins it to
+ * --fs-body deliberately, because a Key Insight SUMMARIZES the body and "must not
+ * out-shout the very content it distills". At --fs-message body prose, the
+ * distillation rendered 24% SMALLER than the thing it distills, and a trailing
+ * annotation rendered LARGER than the insight. At --fs-body they are peers, which
+ * is what the contract says they are. It is also what stopped the corpus clipping:
+ * the slides #1292 broke were card lists, which the contract assigns to --fs-body.
+ * The measure is --measure-body (em, not cqi — see base.tokens.css). */
+section.content p  { font-size:var(--fs-body); line-height:var(--lh-relaxed); max-width:var(--measure-body); }
 /* …but NOT in the masthead band: the bare rule above also matched content's eyebrow and
  * subtitle once they HOIST into `.masthead-lede`, capping framing text with a body rule
  * (measured, a portrait eyebrow wrapped to two lines for want of 2.6px). Un-capped by
@@ -3955,16 +3986,46 @@ section.content .cell-masthead p { max-width:none; }
  * it sits beside — the paragraph/list mismatch. Style lists as prose peers:
  * real markers, prose size, prose-compatible rhythm. No :has() — works in
  * every render path. */
-section.content :is(ul, ol) { margin:0; padding:0 0 var(--sp-sm) var(--sp-lg); display:flex; flex-direction:column; gap:var(--sp-2xs); max-width:72cqi; }
+section.content :is(ul, ol) { margin:0; padding:0 0 var(--sp-sm) var(--sp-lg); display:flex; flex-direction:column; gap:var(--sp-2xs); max-width:var(--measure-body); }
 section.content ul { list-style:disc; }
 section.content ol { list-style:decimal; }
-section.content :is(ul, ol) > li { font-size:var(--fs-message); color:var(--text-body); line-height:var(--lh-snug); }
+section.content :is(ul, ol) > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); }
 section.content :is(ul, ol) > li::marker { color:var(--accent); }
-/* nested level steps down to body size so sub-points read as support */
+/* Nested level steps DOWN one tier so a sub-point reads as support. It used to
+ * step --fs-message -> --fs-body; now the top level IS --fs-body, so the step
+ * moves to --fs-body-compact. Without that the two levels would render at the
+ * same size and the support relationship would go flat — the point of the step,
+ * not the specific token. */
 section.content :is(ul, ol) :is(ul, ol) { padding:var(--sp-2xs) 0 0 var(--sp-lg); margin:0; }
-section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body); line-height:var(--lh-base); }
+section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact); line-height:var(--lh-base); }
 
 
+
+/* ── The trailing group flows to the bottom (§1) ───────────────────────────
+ * content's stack packed to the TOP of a full-height stage, so a Key Insight or
+ * a below-note sat stranded mid-slide with a fifth of the stage empty beneath it
+ * — measured 101px of 524 on a four-block slide.
+ *
+ * Every other component fixes this by putting `flex:1` on its ONE body block.
+ * content has no one body block — it is heading + prose + maybe a list + maybe a
+ * table — and growing blocks was tried and rejected on the renders:
+ *   • growing every body block splits the slack across them, so a paragraph and
+ *     a table each gain a strange fraction;
+ *   • growing a TABLE is the worst of them. A table distributes extra height into
+ *     its ROWS, and not evenly — one row takes most of it. `height:0` and
+ *     `height:100%` on `tbody tr` both fail to equalize it; it is not controllable
+ *     from CSS. A table's vertical fill is the `table-fill` switch, author's call.
+ *   • growing a list or a paragraph is invisible: their content is top-aligned, so
+ *     the box grows and the dead space simply moves inside it.
+ *
+ * So the STAGE distributes and nothing stretches. Guarded on the stack actually
+ * ENDING in a trailing element, which is the whole point — the slack belongs
+ * between the body and the thing that trails it. Without the guard, a bare
+ * `lede + list` slide throws all its slack into the one gap between them and
+ * reads broken (rendered, and it does).
+ * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
+section.content > .cell-stage:has(> .below-note:last-child),
+section.content > .cell-stage:has(> blockquote:last-child) { justify-content: space-between; }
 
 /* Portrait / square (social) — cap the running-prose measure so lines don't
    sprawl the full width; the centred block reads composed. Display lines

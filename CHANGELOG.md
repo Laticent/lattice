@@ -57,6 +57,50 @@ in patch versions.
 
 ### Added
 
+- **Breaking: a slide that names no component now renders as `content`, the catch-all prose
+  layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The
+  rule keys on the RESOLVED class list, not on the presence of a directive, so a deck-wide
+  `class: kpi` counts as the slide's component and a slide carrying only modifiers (`_class: dark`)
+  still gets the default. Both render paths run it from one kernel
+  (`lib/core/resolve-component.js`), whose component vocabulary is the generated stage catalog — so
+  it cannot drift as components are added or renamed.
+  - Shipping this alone was tried and reverted once: it clipped 9 slides across 5 decks that render
+    clean on main, because `content` was the STATEMENT-prose layout rather than the generic one.
+    Four fixes had to land with it, and they are the rest of this entry.
+- **`content` reads at the body type tier, not the slide-statement tier.** Its prose and top-level
+  list items move from `--fs-message` to `--fs-body`; nested items step from `--fs-body` to
+  `--fs-body-compact` so the support relationship survives. This repairs an inversion that had been
+  shipping: Key Insight is deliberately pinned to `--fs-body` because it summarizes the body and
+  "must not out-shout the very content it distills" — at `--fs-message` body prose, the
+  distillation rendered **24% smaller** than the thing it distills, and a trailing annotation
+  rendered *larger* than the insight. They are peers now, which is what the type contract says
+  they are.
+- **The reading measure is a count of characters, not a fraction of the slide.** `content`'s
+  `max-width` moves from `72cqi` to `--measure-body: 36em` — the same `em`-not-`cqi` correction
+  #1309 made for the bookends, and for the same reason: `cqi` and a character count agree only
+  while the type size holds still, and this change moves it. 36em is **66 characters, measured**
+  against the rendered box (769.5px at an 11.58px average advance) — the classic reading measure,
+  where the old cap sat at 61 and base had no measure at all (~90 characters).
+- **A trailing annotation on `content` is promoted to a below-note.** `content` left
+  `below-note.js`'s exclusion list: the exclusion was guarding a case the `STRUCTURAL` sibling check
+  already prevents — a paragraph after a paragraph is never promoted on any layout — while costing
+  `content` the hairline, the muted ink and the `--fs-body` sizing whenever a note *did* follow a
+  list or a table. After the default rule that would have been every un-classed slide in the corpus.
+- **A Key Insight or a below-note now flows to the bottom of the slide.** `content`'s stack packed
+  to the top of a full-height stage, stranding the trailing block mid-slide with a fifth of the
+  stage empty beneath it (measured 101px of 524). The stage now distributes the slack, guarded on
+  the stack actually *ending* in a trailing element — so a bare `lede + list` slide is untouched
+  rather than throwing all its slack into one gap. Nothing stretches: growing a table was tried and
+  rejected on the renders (a table distributes extra height into its rows, unevenly, and neither
+  `height:0` nor `height:100%` on `tbody tr` equalizes it — a table's vertical fill is the
+  `table-fill` switch, the author's call).
+- **Fixed: `# H1` rendered white-on-white on every light palette.** `section h1` took its ink from
+  `--text-display`, which is the DARK-PANEL ink — near-white in all thirteen light palettes. `title`
+  is the only component that puts an h1 on a dark panel and it sets that token itself, so the base
+  default served exactly one consumer that did not need it while making every other author-written
+  `# heading` invisible. Now `--text-heading`, the same as h2–h6. Pure ink change: every height the
+  Fit Spine measures is identical.
+
 - **A plain markdown table is styled on every slide.** Until now every table rule in the engine
   was scoped to a component, so a GFM pipe table on an un-classed slide, on `_class: content`, or
   under a base modifier rendered at raw browser defaults — no rules, no cell padding, no header

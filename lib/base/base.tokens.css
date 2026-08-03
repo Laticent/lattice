@@ -163,6 +163,20 @@
   --measure-bookend-heading: 16em;  /* ≈33 characters at the display tier   */
   --measure-bookend-lede:    26em;  /* ≈56 characters at the statement tier */
 
+  /* The BODY reading measure — content's prose and lists. Same `em`, same
+   * reason: a measure is a count of characters, and `cqi` is a fraction of the
+   * slide. This was `72cqi`, which measured 61 characters at --fs-message and
+   * would have measured a different count the moment the tier moved.
+   *
+   * 36em is 66 characters, measured (not estimated) against the rendered box:
+   * 769.5px at an 11.58px average advance. 66 is the classic reading measure and
+   * the centre of the 45–75 band; the old cap's 61 sat at the narrow end of it,
+   * and holding 61 while content became the DEFAULT layout cost lines on every
+   * text-heavy slide that previously ran uncapped at base's ~90. Base having no
+   * measure at all was the defect; 61 was an over-correction.
+   * engineering/decisions/2026-08-02-default-slide-layout.md §3 */
+  --measure-body: 36em;             /* 66 characters at the body tier, measured */
+
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   --lh-tight:1.2; --lh-snug:1.5; --lh-base:1.6; --lh-relaxed:1.7;

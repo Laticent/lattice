@@ -1,20 +1,21 @@
 ---
-status: proposed
+status: shipped
 summary: >
   #1292 asked for `content` to be the layout a slide gets when it declares none.
   Shipping that verbatim clipped 9 slides across 5 decks that render clean on
-  main, and the investigation found why: `content` is the statement-prose layout,
-  not the generic one. It is one of 18 of the 61 components with no `flex:1`
-  body fill, so its trailing annotation floats 202px above the stage bottom where
-  every other component's sits flush at 0px; it is on `below-note.js` EXCLUDED,
-  so a trailing note is never promoted or styled; and its prose sits at
-  `--fs-message` (21pt) while Key Insight is deliberately pinned to `--fs-body`
-  (16pt) to read as a peer of body prose — so as the default it renders a summary
-  24% smaller than the thing it summarizes. Separately, NOTHING in the engine
-  styled a plain markdown table (§4, now SHIPPED), and an `# H1` is invisible on
-  every light theme unless a component puts it on a dark panel (§5, pre-existing,
-  logged not fixed). This note proposes four changes that make `content` the
-  layout #1292 actually describes, and records the measurements behind each.
+  main, because `content` was the STATEMENT-prose layout rather than the generic
+  one. Five changes were needed before the default rule could land, and all six
+  now have: `content`'s prose and list items moved from `--fs-message` to
+  `--fs-body` (Key Insight is pinned to `--fs-body` deliberately, so at the old
+  tier the distillation rendered 24% SMALLER than what it distills); its reading
+  measure moved from `72cqi` to `--measure-body: 36em`, a count of characters
+  rather than a fraction of the slide; `content` left `below-note.js` EXCLUDED,
+  where the exclusion guarded a case the STRUCTURAL check already prevents; the
+  stage now distributes its slack so a Key Insight or below-note flows to the
+  bottom instead of stranding mid-slide; the base layer gained a universal
+  markdown-table treatment, the first the engine has ever had; and `# H1` stopped
+  rendering white-on-white on every light palette. Each section records what was
+  measured, and §1 and §3 record what the original proposal got wrong.
 builds-on: 2026-08-02-slide-class-taxonomy.md, 2026-06-27-stage-flow-no-margins.md
 ---
 
@@ -80,7 +81,7 @@ superset of base. It trades.
 
 ## The findings
 
-### 1. `content` has no body fill, so annotations float
+### 1. `content` has no body fill, so annotations float — **SHIPPED**
 
 Components that carry a trailing annotation do not pin the annotation. They put
 `flex:1` on the **body block**, which expands to fill the bounded stage and
@@ -105,7 +106,26 @@ Measured on identical markdown at an identical 438px stage height:
 | `compare-prose` | `DIV.below-note` | **0px** — flush to the stage bottom |
 | `content` | bare `<P>` | **202px** — floating, a third of the slide empty |
 
-### 2. `content` is excluded from below-note promotion, and does not need to be
+**What shipped is NOT `flex:1` on a body block.** The proposal below assumed content had one, the
+way the other 43 components do. It does not — it is heading + prose + maybe a list + maybe a table —
+and every growing-block variant was rendered and rejected:
+
+| tried | why it failed |
+|---|---|
+| grow every body block | the slack splits across them; a paragraph and a table each gain a strange fraction |
+| grow the last body block | when that block is a **table**, the table distributes the extra height into its ROWS, and not evenly — one row takes most of it |
+| `height:0` / `height:100%` on `tbody tr` | neither equalizes the row distribution; it is not controllable from CSS |
+| grow a list or a paragraph | invisible — their content is top-aligned, so the box grows and the dead space simply moves inside it |
+
+So the **stage distributes and nothing stretches**, guarded on the stack actually ENDING in a
+trailing element. That guard is load-bearing and was also found by rendering: without it, a bare
+`lede + list` slide throws all its slack into the single gap between them and reads broken. A
+table's vertical fill stays the author's call via the `table-fill` switch.
+
+Measured after: the stack reaches the stage bottom exactly — **0px** dead space where there were
+101px — and every inter-block gap lands at a uniform 20px.
+
+### 2. `content` is excluded from below-note promotion, and does not need to be — **SHIPPED**
 
 `lib/core/below-note.js` lists `content` in `EXCLUDED`, with the stated reason:
 layouts *"that claim their trailing `<p>` for something else (caption,
@@ -140,7 +160,7 @@ The cost of the exclusion is not only placement. Because the note never becomes
 `.below-note`, it gets none of that wrapper's treatment — no hairline accent rule,
 no muted ink, no `--fs-body` sizing. It renders as ordinary body prose.
 
-### 3. The statement tier inverts the Key Insight relationship
+### 3. The statement tier inverts the Key Insight relationship — **SHIPPED**
 
 Key Insight is universal: any `> blockquote` on a section that is not
 `quote`/`math`/`citation-card`/`policy-recommendation` becomes one, on base and on
@@ -174,6 +194,21 @@ the corpus ratchet over the five regressed decks:
 ```
 8 of the 9 clipped slides clear.
 ```
+
+**Shipped with one correction the proposal missed: the reading measure had to move
+too.** `content` capped its prose at `72cqi` — a fraction of the SLIDE — which
+measured 61 characters *at `--fs-message`* and would measure something else the
+moment the tier moved. That is exactly the trap #1309 had just fixed for the
+bookends. It is now `--measure-body: 36em` = **66 characters, measured** against
+the rendered box (769.5px at an 11.58px average advance).
+
+36em rather than the 33em that would have preserved the old count, and the
+distinction matters: base has NO measure, so an un-classed slide previously ran
+~90 characters wide. Making `content` the default imposes a measure where there
+was none, and holding it at the old 61 — the narrow end of the 45–75 band — cost
+lines on every text-heavy slide and left four decks clipping. 66 is the classic
+reading measure and the centre of the band. Verified: at 33em four decks clip, at
+36em none do.
 
 The one that remains, `finish-backdrops.md` p2, renders **119 words** — 3× the
 ~40-word body budget `content.docs.md` sets — and is structurally a card list. It
@@ -334,7 +369,7 @@ off-path rule and #17.
   `spectrum: off` does not flatten it. Inherited from obligation-matrix's
   identical expression; newly universalized.
 
-### 5. An `# H1` is invisible on a light-theme slide that has no dark panel
+### 5. An `# H1` is invisible on a light-theme slide that has no dark panel — **SHIPPED**
 
 Found while rendering §4's probe, and it undercuts this record's own claim that an
 un-classed slide "already works". `base.elements.css` sets

@@ -209,7 +209,13 @@ shouldn't get card weight.
 **Supported layouts:** same set as Key Insight Panel above —
 `cards-grid`, `cards-stack`, `compare-prose`, `compare-table`, `verdict-grid`, `list`,
 `list-criteria`, `list-steps`, `list-tabular`, `timeline`,
-`principles`, `matrix-2x2`, `decision`, `actors`, `kpi`, `agenda`.
+`principles`, `matrix-2x2`, `decision`, `actors`, `kpi`, `agenda` — **plus `content`**,
+which means plus any slide that names no component at all, since that is what an
+un-classed slide resolves to (#1292).
+
+Promotion needs the paragraph to follow a **structural** block — a list, table,
+blockquote, code fence or div. A paragraph after a paragraph is body copy on every
+layout, so ordinary prose never turns into a note by accident.
 
 Renders as muted body text with a thin top border. Inherits the slide's
 text color so it reads on either light or dark canvas.
@@ -467,10 +473,9 @@ not. The universal treatment is for a table that *supports* prose.
 `checkUniversalTableGuard` fails the build if that list and the engine's CSS
 ever disagree, in either direction and at variant granularity.
 
-A short paragraph directly after a table is **not** promoted to a Below-Note on
-an un-classed or `content` slide. Promotion is an allow-list of named components
-(see above), and neither is on it — the trailing paragraph renders as body prose.
-Reach for a component on that list if you want the hairline treatment.
+A short paragraph directly after a table **is** promoted to a Below-Note (see
+above), on `content` and on an un-classed slide alike — so a source line or a
+caveat gets the hairline treatment for free.
 
 ---
 

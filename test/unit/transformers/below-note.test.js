@@ -36,9 +36,25 @@ describe('below-note — wrapSectionBody (pre-chrome kernel helper, unwired)', (
 
   test('skips excluded layouts', () => {
     const html = '<ul><li>a</li></ul><p>note</p>';
-    for (const cls of ['content', 'diagram', 'title', 'split-panel', 'code']) {
+    for (const cls of ['diagram', 'title', 'split-panel', 'code']) {
       assert.equal(belowNote.wrapSectionBody(html, cls), html, `should skip ${cls}`);
     }
+  });
+
+  // `content` LEFT the exclusion list (#1292 §2). The exclusion was guarding a
+  // case the STRUCTURAL check already prevents — and after the default-component
+  // rule, `content` is what every un-classed slide resolves to, so excluding it
+  // withheld the treatment from the whole corpus.
+  test('promotes a note on content, which is no longer excluded', () => {
+    assert.equal(
+      belowNote.wrapSectionBody('<ul><li>a</li></ul><p>note</p>', 'content'),
+      '<ul><li>a</li></ul><div class="below-note"><p>note</p></div>',
+    );
+  });
+
+  test('still never promotes a <p> after a <p> on content — the STRUCTURAL guard', () => {
+    const html = '<p>body</p><p>more body</p>';
+    assert.equal(belowNote.wrapSectionBody(html, 'content'), html);
   });
 
   test('does not wrap a <p> that follows another <p> (main content)', () => {
@@ -179,7 +195,7 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
   test('reads each section class independently', () => {
     const out = belowNote.applyToHtml(
       sec('list-checks', '<ul><li>a</li></ul><p>kept</p>') +
-      sec('content', '<ul><li>b</li></ul><p>untouched</p>'),
+      sec('title', '<ul><li>b</li></ul><p>untouched</p>'),
     );
     assert.equal(out.split(WRAP).length - 1, 1); // exactly one wrap
     assert.ok(out.includes('<p>untouched</p>'));
@@ -211,11 +227,21 @@ describe('below-note — applyToDom (runtime path)', () => {
 
   test('skips excluded sections and main-content paragraphs', () => {
     const doc = dom(
-      sec('content', '<ul><li>a</li></ul><p>x</p>') +
+      sec('title', '<ul><li>a</li></ul><p>x</p>') +
       sec('statement', '<p>body</p><p>more</p>'),
     );
     adapter.applyToDom(doc);
     assert.equal(doc.querySelector('.below-note'), null);
+  });
+
+  test('promotes on content, and still not after a bare <p> (#1292 §2)', () => {
+    const doc = dom(
+      sec('content', '<ul><li>a</li></ul><p>note</p>') +
+      sec('content', '<p>body</p><p>more body</p>'),
+    );
+    adapter.applyToDom(doc);
+    assert.equal(doc.querySelectorAll('.below-note').length, 1);
+    assert.equal(doc.querySelector('.below-note p').textContent, 'note');
   });
 
   test('is idempotent', () => {
