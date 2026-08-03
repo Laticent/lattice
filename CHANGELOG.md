@@ -28,12 +28,13 @@ in patch versions.
 ### Fixed
 
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
-  rendering changed here — the renders had already shipped, in three PRs that re-blessed two goldens
-  between them: `content` and `statement` from #1322 (body prose moved `--fs-message` → `--fs-body`),
-  `diagram` from #1321 (the `--c-container` tier reaching Mermaid's cluster boxes), and `code` ×2 +
+  engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
+  themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
+  and `statement` from #1322 (body prose moved `--fs-message` → `--fs-body`), `diagram` (component)
+  from #1321 (the `--c-container` tier reaching Mermaid's cluster boxes), and `code` ×2 +
   `compare-code` from #1321's syntax-palette ink curation. Each drift was rendered and looked at
   before blessing rather than accepted on its number: the `code` pixel-diff touches only the `//`
-  comment glyphs, confirming a colour-only change. The gate is green again, so it is a usable signal
+  comment glyphs, confirming a color-only change. The gate is green again, so it is a usable signal
   for the next branch — every PR cut from `main` had been inheriting a red run it did not cause.
   Also swept `worstFraction` across all 74 galleries to check whether the chart/diagram bucket's 1%
   tolerance floor was hiding sub-1% drift from #1325: it is not — every chart/diagram gallery sits at
