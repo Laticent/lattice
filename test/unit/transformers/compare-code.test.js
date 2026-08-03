@@ -131,11 +131,20 @@ describe('compare-code — the two panes stay equal-width and wrap (CSS contract
     // the SPLIT path — a different class that sets pre-wrap legitimately on its own
     // full-width block. Catching it would be a false positive that trains people to
     // ignore the guard.
+    // Scoped to FAMILY-narrowing specifically, not to any later declaration. The
+    // first correction over-corrected: it failed on ANY later rule touching
+    // white-space/overflow-wrap, which bans work that is legitimate — a `strip`
+    // tuning, a `verbatim` modifier that deliberately restores `pre`, a future
+    // hanging-indent scheme. Its message then told that maintainer their correct
+    // change was the bug, and a guard that misdescribes its own failure gets
+    // deleted rather than understood. What actually reopens the defect is
+    // re-narrowing to a SUBSET of families, which is the shape matched here.
     const offenders = [...after.matchAll(/section\.compare-code(?![-\w])[^{}]*pre > code\s*\{([^}]*)\}/g)]
-      .filter((m) => /white-space|overflow-wrap/.test(m[1]));
+      .filter((m) => /white-space|overflow-wrap/.test(m[1]) && /\[data-family=/.test(m[0]));
     assert.deepEqual(
       offenders.map((m) => m[0].slice(0, 90)), [],
-      'wrapping is unconditional — a later rule narrowing it to some families reopens the clip for the rest',
+      'wrapping must stay family-agnostic — narrowing it to some families reopens the clip for the rest. '
+      + 'A later rule changing wrapping for ALL families is fine and is not what this guards.',
     );
   });
 });

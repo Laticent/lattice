@@ -183,6 +183,8 @@ return signals;
   - The text shrinks below readability past 14 lines per side. Split into two slides or extract the key delta into a smaller diff.
 - Three-way comparison
   - compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`.
+- Lines wider than the pane
+  - A pane holds roughly 55 characters. A longer line WRAPS — it is no longer clipped, but a wrapped line spends two rows where its counterpart spends one, so every row below it is offset across the gutter and the line-N-to-line-N pairing this layout exists for is broken. Wrapping is the safety net, not the plan: trim the line, or move to `code` for a single full-width block.
 
 ---
 
