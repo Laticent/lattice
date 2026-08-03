@@ -135,11 +135,34 @@ the render summary, so the export path could double in cost with a green check. 
 (±50%, wider because a rasterize cycle is far more I/O-exposed than an in-process render), and only
 when the run actually produced them, so a plain `bench:check` is unchanged.
 
-## Slice 3 — emulator + runtime paint (designed)
+## Slice 3 — emulator + runtime paint (shipped, and smaller than planned)
 
-No harness exists for either. The emulator (`lattice-emulator.js`) and the in-frame runtime (fit
-spine, chart paint, overflow) need one built before they can be clocked. Largest piece; lowest
-certainty; deliberately last.
+Planned as "build two new harnesses". Investigation shrank it to one line of budget plus a finding.
+
+**The emulator needs no harness, and that is a result rather than a shortcut.**
+`lattice-emulator.js:1673` calls `latticeEngine.createEngine()` and `:1683` calls
+`engine.render()` — the P2 swap (`2026-06-11-emulator-on-engine-p2.md`) left the CLI a wrapper with
+no render path of its own. `bench`'s render tier already times exactly the code it runs, and
+`bench --export` times the PDF/rasterize tier it adds on top. An emulator bench would measure the
+same code twice and then need re-blessing twice. Recorded in `preview-budget.json` so the next
+person does not build it.
+
+**Runtime paint was already being measured and thrown away.** The `@perf` spec has collected
+`FRAME p50` on every sample since it existed — the in-frame runtime's own cost (fit spine, chart
+paint, overflow), as distinct from the engine's HTML production (`RENDER`) and the end-to-end span
+(`TOTAL`). Nothing asserted it, so a runtime change could double the cost of every keystroke in
+silence. It now carries a ceiling like the other two: healthy is 1.4–1.9ms, ceiling 15ms.
+
+So all five surfaces from the original coverage map are now covered, by three mechanisms rather
+than five harnesses:
+
+| surface | guarded by |
+|---|---|
+| Studio preview render | work-counter gate (PR) + RENDER ceiling (nightly) |
+| runtime paint | FRAME ceiling (nightly) |
+| engine render | head-vs-base same-runner compare (nightly) |
+| export / rasterize | head-vs-base same-runner compare (nightly) |
+| emulator | the engine + export rows above — it has no distinct path |
 
 ## What this does not do
 

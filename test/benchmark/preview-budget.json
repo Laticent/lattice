@@ -1,11 +1,44 @@
 {
   "version": 1,
-  "note": "CEILINGS, not a measured baseline. These are budgets a healthy run must stay under, chosen with ~5x headroom over observed healthy numbers so machine drift, a cold runner or a noisy neighbor can never fire them — and so they never need re-blessing per machine. Breaching one means an ORDER-OF-MAGNITUDE regression, not jitter. See engineering/decisions/2026-08-03-performance-guard.md.",
+  "note": "CEILINGS, not a measured baseline. These are budgets a healthy run must stay under, chosen with ~5x headroom over observed healthy numbers so machine drift, a cold runner or a noisy neighbor can never fire them \u2014 and so they never need re-blessing per machine. Breaching one means an ORDER-OF-MAGNITUDE regression, not jitter. See engineering/decisions/2026-08-03-performance-guard.md.",
   "observed": {
-    "note": "What a healthy tree measured when these ceilings were set (2026-08-03, headless Chromium, 4x CPU throttle, 40-slide decks). Recorded for context only — nothing compares against these, so they never go stale in a way that breaks a gate.",
-    "default": { "navigation": { "renderP50": 1.1, "totalP50": 10.8 }, "typing": { "renderP50": 3.7, "totalP50": 11.4 } },
-    "prose": { "navigation": { "renderP50": 0.9, "totalP50": 10.0 }, "typing": { "renderP50": 3.7, "totalP50": 10.9 } },
-    "gallery": { "navigation": { "renderP50": 1.1, "totalP50": 14.1 }, "typing": { "renderP50": 4.4, "totalP50": 16.4 } }
+    "note": "What a healthy tree measured when these ceilings were set (2026-08-03, headless Chromium, 4x CPU throttle, 40-slide decks). Recorded for context only \u2014 nothing compares against these, so they never go stale in a way that breaks a gate.",
+    "default": {
+      "navigation": {
+        "renderP50": 1.1,
+        "totalP50": 10.8,
+        "frameP50": 1.4
+      },
+      "typing": {
+        "renderP50": 3.7,
+        "totalP50": 11.4,
+        "frameP50": 1.6
+      }
+    },
+    "prose": {
+      "navigation": {
+        "renderP50": 0.9,
+        "totalP50": 10.0,
+        "frameP50": 1.6
+      },
+      "typing": {
+        "renderP50": 3.7,
+        "totalP50": 10.9,
+        "frameP50": 1.4
+      }
+    },
+    "gallery": {
+      "navigation": {
+        "renderP50": 1.1,
+        "totalP50": 14.1,
+        "frameP50": 1.4
+      },
+      "typing": {
+        "renderP50": 4.4,
+        "totalP50": 16.4,
+        "frameP50": 1.9
+      }
+    }
   },
   "regressionScale": {
     "note": "The regression these exist to catch, for scale. Before #1280 the gallery deck re-parsed the WHOLE deck on every keystroke because the progress rail and watermark glyph derived their section by walking every section.",
@@ -13,7 +46,18 @@
     "gallery typing totalP50": 74.2
   },
   "ceilings": {
-    "navigation": { "renderP50": 15, "totalP50": 45 },
-    "typing": { "renderP50": 25, "totalP50": 50 }
+    "navigation": {
+      "renderP50": 15,
+      "totalP50": 45,
+      "frameP50": 15
+    },
+    "typing": {
+      "renderP50": 25,
+      "totalP50": 50,
+      "frameP50": 15
+    }
+  },
+  "emulator": {
+    "note": "NO SEPARATE HARNESS, and this is a finding rather than an omission. lattice-emulator.js:1673 calls latticeEngine.createEngine() and :1683 calls engine.render() \u2014 the P2 swap (2026-06-11-emulator-on-engine-p2.md) left it a wrapper with no render path of its own. `bench`'s render tier already times exactly the code it runs, and `bench --export` times the PDF/rasterize tier it adds on top. Building an emulator bench would measure the same code twice and then need re-blessing twice."
   }
 }

@@ -100,7 +100,7 @@ const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (
  */
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // ESM: no __dirname
 const BUDGET = JSON.parse(fs.readFileSync(path.join(HERE, '../../test/benchmark/preview-budget.json'), 'utf8')) as {
-	ceilings: Record<string, { renderP50: number; totalP50: number }>;
+	ceilings: Record<string, { renderP50: number; totalP50: number; frameP50: number }>;
 };
 
 function report(label: string, samples: Sample[], interaction?: 'navigation' | 'typing', deck?: string): void {
@@ -123,6 +123,12 @@ function report(label: string, samples: Sample[], interaction?: 'navigation' | '
 	const totalP50 = p50(patch.map((s) => s.totalMs));
 	expect(renderP50, `${deck} ${interaction}: RENDER p50 ${f(renderP50)}ms is past the ${cap.renderP50}ms ceiling — an order-of-magnitude regression, not drift`).toBeLessThan(cap.renderP50);
 	expect(totalP50, `${deck} ${interaction}: TOTAL p50 ${f(totalP50)}ms is past the ${cap.totalP50}ms ceiling`).toBeLessThan(cap.totalP50);
+	// FRAME is the IN-FRAME RUNTIME's own cost — the fit spine, chart paint, overflow measurement
+	// inside the preview iframe, as distinct from the engine's HTML production (RENDER) and the
+	// end-to-end span (TOTAL). It has been collected on every sample since this spec existed and
+	// guarded by nothing, so a runtime change could double the cost of every keystroke silently.
+	const frameP50 = p50(patch.map((s) => s.frameMs));
+	expect(frameP50, `${deck} ${interaction}: FRAME p50 ${f(frameP50)}ms is past the ${cap.frameP50}ms ceiling — the in-frame runtime got materially more expensive`).toBeLessThan(cap.frameP50);
 }
 
 // SERIAL, and not negotiable for this file: these cases each throttle their browser to 4x CPU, so
