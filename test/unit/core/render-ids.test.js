@@ -167,6 +167,19 @@ test('render-ids: a 10-digit prefix cannot be forced past the probe', () => {
   assert.ok(renderIdPrefix().startsWith('lat-r'), 'still a lat-r namespace');
 });
 
+test('render-ids: the prefix stays DETERMINISTIC at any digit width', () => {
+  // The digit-cap repair briefly fell back to `Date.now()` for a value too large for a safe integer.
+  // That traded a squattable prefix for a NON-DETERMINISTIC render — the single property this whole
+  // module exists to provide. BigInt needs neither a cap nor a fallback, so `max + 1` is free by
+  // construction at any width, which is the rule the header states and both earlier cuts broke.
+  const huge = '<span data-x="lat-r99999999999999999999-pie-wedge"></span>';
+  resetRenderIds(huge);
+  const first = renderIdPrefix();
+  resetRenderIds(huge);
+  assert.equal(renderIdPrefix(), first, 'same input, two different prefixes');
+  assert.match(first, /^lat-r\d+-$/, 'still a probed lat-r namespace, not an invented token');
+});
+
 test('engine: a squatting deck gets zero duplicate ids, on every render', () => {
 	// End to end through the real engine, four renders in one process — the surface where the old
 	// accidental escape used to kick in from render 2.

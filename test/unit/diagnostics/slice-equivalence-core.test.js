@@ -102,6 +102,18 @@ test('slideSeparatorRe is a FACTORY — two callers cannot share a lastIndex', (
   assert.deepEqual('a\n---\nb\n-----\nc'.split(core.slideSeparatorRe()), ['a', 'b', 'c']);
 });
 
+test('slideSeparatorRe is CRLF-tolerant — the module must not disagree with itself', () => {
+  // `splitSlides` in this same module handles CRLF; the separator factory did not, so a CRLF deck
+  // cut to ONE chunk here and `positionIsTrustworthy` refused every one of them. Fail-closed, so
+  // never a wrong number — but the optimization silently off for a whole class of decks, and the
+  // single shared definition disagreeing with the splitter it is supposed to be shared WITH.
+  const crlf = '# One\r\n\r\n---\r\n\r\n# Two\r\n';
+  assert.equal(crlf.split(core.slideSeparatorRe()).length, core.splitSlides(crlf).length);
+  assert.equal(core.positionIsTrustworthy(crlf, 2), true);
+  // LF is untouched.
+  assert.equal('a\n---\nb'.split(core.slideSeparatorRe()).length, 2);
+});
+
 test('positionIsTrustworthy needs a slide count it can compare against', () => {
   assert.equal(core.positionIsTrustworthy('# One', undefined), false);
   assert.equal(core.positionIsTrustworthy('# One', 0), false);
