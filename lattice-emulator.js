@@ -572,8 +572,14 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
-const { deckPrintBand, stampSlideBake } = require('./lib/core/resolve-color-mode');
-const { COLOR_MODE_TOKENS } = require('./lib/core/color-mode');
+const { stampSlideBake } = require('./lib/core/resolve-color-mode');
+// Which band does a slide's diagram bake for — light, dark, or print. Lives in
+// the kernel so it is unit-testable as BEHAVIOR rather than as a source-text
+// assertion on this CLI; `deckPrintBand` rides along so the band question needs
+// one import and keeps one spelling. THIS PATH IS ITS ONLY CALLER TODAY — the
+// preview reads tokens through getComputedStyle, so CSS inheritance hands it the
+// band implicitly and it never resolves one. See lib/core/diagram-band.js.
+const { resolveDiagramBand, deckPrintBand } = require('./lib/core/diagram-band');
 const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
@@ -1383,28 +1389,6 @@ const MERMAID_REBAKE_MODES = [];
 function preprocessMermaid(source) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
-  // The first-class `color-mode:` key WINS (it supersedes the legacy `class:` color axis),
-  // so when a known color-mode is present the Mermaid bake follows it ALONE — otherwise a
-  // half-migrated deck (`color-mode: light` + a leftover `class: dark`) would render light
-  // slides with DARK-baked diagrams. Only `dark` bakes dark; light/system/inherited bake
-  // LIGHT (a static Mermaid SVG can't follow the OS/host — the static-export default).
-  // When no `color-mode:` key is present, fall back to the legacy `class: … dark` alias / a
-  // raw `color-scheme: dark`. Case-insensitive, matching colorModeClass + deckScheme.
-  const cmDark = /^\s*color-mode:\s*["']?([A-Za-z]+)\b/mi.exec(fm);
-  const cmKey = cmDark ? cmDark[1].toLowerCase() : '';
-  const knownCm = cmKey === 'light' || cmKey === 'dark' || cmKey === 'system' || cmKey === 'inherited' || cmKey === 'print';
-  const globalDark = knownCm
-    ? cmKey === 'dark'
-    : /^\s*class:\s*["']?[^"'\n]*\bdark\b/mi.test(fm) ||
-      /color-scheme\s*:\s*dark/i.test(fm);
-  // Print is a deck-wide canvas axis (stamped by `color-mode: print` / `class: print`
-  // / the engine --print flag) and WINS over dark — a print slide bakes ink-on-white.
-  // NOTE deck-wide print does NOT reach a slide that names its own `_class:` — `print`
-  // is on the color axis, so deckClassPropagate suppresses it there (color-mode.js
-  // COLOR_MODE_TOKENS). That slide keeps `dark`, loses `print`, and still gets a
-  // print-BAKED diagram from this branch — which is exactly why the texture pins need
-  // the data-lattice-print marker to stand down. Shared predicate, one source of truth.
-  const globalPrint = deckPrintBand(source, !!flags.print);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
@@ -1415,18 +1399,18 @@ function preprocessMermaid(source) {
     const before = source.slice(0, offset);
     const classDirectives = [...before.matchAll(/<!--\s*_class:\s*([^>]*?)\s*-->/g)];
     const lastClass = classDirectives.length ? classDirectives[classDirectives.length - 1][1] : '';
-    const slidePrint = globalPrint || /\bprint\b/.test(lastClass);
-    // A slide opts out of the deck-wide scheme only by naming its OWN color-mode token —
-    // exactly deckClassPropagate's `slideHasOwnColorMode` guard, off the same
-    // COLOR_MODE_TOKENS list. Testing `classDirectives.length` instead read ANY component
-    // class (`_class: diagram`) as an opt-out, so on a `color-mode: dark` deck every
-    // classed slide baked a LIGHT diagram onto a dark canvas — a light cluster plate with
-    // the dark canvas's cream ink on it, i.e. an invisible subgraph label. Only a slide's
-    // own `dark` / `light` decides; a component class is not on the color axis.
-    const slideClassTokens = lastClass.split(/\s+/).filter(Boolean);
-    const slideHasOwnColorMode = slideClassTokens.some((t) => COLOR_MODE_TOKENS.includes(t));
-    const slideDark = slideHasOwnColorMode ? slideClassTokens.includes('dark') : globalDark;
-    const slideMode = slidePrint ? 'print' : (slideDark ? 'dark' : 'light');
+    // ONE answer to "which band is this slide in" (lib/core/diagram-band.js).
+    // It replaced two adjacent lines here that resolved the same kind of thing
+    // and disagreed: print INHERITED the deck while dark DISCARDED it the moment
+    // a slide named any `_class:` at all — so `_class: diagram`, which says
+    // nothing about scheme, baked light ink onto a dark deck's dark chips
+    // (#1340). #1342 fixed that slide-half inline, with the same whole-token
+    // `COLOR_MODE_TOKENS` rule; this supersedes it by moving the decision into
+    // the kernel, where it is unit-testable as BEHAVIOR — and by fixing the DECK
+    // half too, which #1342 left on the loose regexes it had (see deckDarkBand:
+    // `color-mode: dark # pin`, `class: dark-mode`, and a `style:` block
+    // mentioning `color-scheme` each baked dark onto a light section).
+    const slideMode = resolveDiagramBand({ frontMatter: fm, slideClass: lastClass, flagPrint: !!flags.print });
     if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${slideMode})...`);
     const reoriented = reorientMermaidForPortrait(def.trim(), orientation);
     const idx = MERMAID_REBAKE_DEFS.push(reoriented) - 1; // keep the source def for a later re-bake

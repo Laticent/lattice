@@ -175,6 +175,44 @@ Mermaid 11.14. Installing elk is separate work from #1311.
 
 ---
 
+## 5.3b Which band a diagram is baked for
+
+A Mermaid SVG **bakes** its colors: `themeVariables` are resolved to literal hex
+before the shape reaches the page, so a later CSS restyle cannot recolor a node
+label. The chip *underneath* it — the categorical fill, the texture, the canvas —
+is live, per-section CSS. Ink and chip are two halves of one decision, and they
+agree only if both halves answer the same question the same way.
+
+`lib/core/diagram-band.js` **is** that question. `resolveDiagramBand({
+frontMatter, slideClass, flagPrint })` returns `light` | `dark` | `print`, in this
+precedence:
+
+1. **Print wins.** Paper is ink-on-white — not a color scheme, so nothing about
+   light/dark outranks it. `color-mode: print`, the legacy `class: print`, the
+   engine `--print` flag, or a per-slide `_class: print`.
+2. **A slide that names a color-mode token owns its scheme.** `_class: light` on
+   a dark deck renders light. "Names a color-mode token" is whole-token
+   membership in `COLOR_MODE_TOKENS` (`lib/core/color-mode.js`) — the same test
+   the deck-class propagation guard uses to decide what the section's class ends
+   up being.
+3. **Otherwise the slide inherits the deck.**
+
+Rule 3 is the one that was missing (#1340). The emulator used to spell rule 2 as
+*"did this slide name **any** `_class:`?"*, so `_class: diagram` — which says
+nothing about scheme, and is how every component is selected — forced light on a
+`color-mode: dark` deck. The section genuinely was `.dark`; only the bake
+disagreed.
+
+**Only the PDF path calls it.** The preview never resolves a band as such: it
+reads tokens through `getComputedStyle(section)`, so CSS inheritance hands it
+whatever the section's own classes resolved to, band included. What the preview
+*does* still get wrong is granularity — it configures Mermaid once per document,
+from the first `<section>` (`lib/runtime/index.js`), so slide 1's scheme is baked
+into every diagram in the deck. That is #1332 step 3, tracked separately; it is a
+different defect from #1340 and needs an export sign-off to change.
+
+---
+
 ## 5.4 Diagram Titles
 
 **Convention.** The slide's `## heading` is the canonical title. Mermaid's own title (whether set via YAML frontmatter `title:` or in-body `title` directive) is suppressed by CSS so the audience sees one source of truth, not two. Authors keep the `title` directive in source for portability — the diagram still makes sense if extracted — but it does not render on the slide.

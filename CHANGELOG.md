@@ -27,6 +27,17 @@ in patch versions.
 
 ### Fixed
 
+- **A deck set to dark never reached its Mermaid diagrams on any slide that named its own
+  `_class:` — so nearly every diagram in every dark deck.** `color-mode: dark` (and the legacy
+  `class: dark`) rendered a dark canvas but baked the diagram for LIGHT: light-mode label ink on
+  dark-arm chips, and edge lines that all but vanished into the canvas. It fired on any slide with
+  its own `_class:`, which is how every component is selected — `_class: diagram`, `_class: piechart`
+  — so a diagram had to be on a slide that named NO class at all to come out right. The bake asked
+  "did this slide name any `_class:`?" where it meant "did it name a COLOR-MODE one?", and a class
+  that says nothing about scheme silently forced light. A slide that pins its own scheme still wins:
+  `_class: light` on a dark deck stays light, and print still outranks both. The band decision now
+  has one home, `lib/core/diagram-band.js` (#1332 step 1), so it is unit-tested as behavior instead
+  of being re-derived by regex inside a renderer. Fixes #1340.
 - **A `compare-code` slide with one long line pushed the other pane off the frame.** The two panes
   were never equal-width: `.code-cols` used `grid-template-columns: 1fr 1fr`, and a grid track's
   implicit floor is `min-content` — which for a `<pre>` set to `white-space: pre` is its **longest
