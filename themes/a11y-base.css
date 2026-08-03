@@ -55,6 +55,24 @@
 :root:root { color-scheme: light; }
 
 :root {
+  /* Categorical INK — pinned, because this palette is mode-invariant and its
+   * chips are FIXED light grays. Inherited from onyx, --cat-on-fill is
+   * `var(--text-heading)`, a light-dark() pair: the deck-wide `color-scheme:
+   * light` pin above keeps that resolving dark, but a per-slide `_class: dark`
+   * sets color-scheme on the SECTION, which the :root pin cannot reach — the ink
+   * flipped to white while the chips stayed light, and node labels vanished
+   * (#1323). A fixed hex has no side to flip, which is what the rest of this
+   * palette already does.
+   *
+   * The value is #000000 — exactly what `var(--text-heading)` already resolved to
+   * under this palette's forced light scheme. Pinning the CURRENT value keeps every
+   * existing a11y deck byte-identical and confines this change to the dark-slide
+   * case it is meant to fix. (CAT_INK, the near-black the textures overlay, was the
+   * tempting choice for consistency and would have silently restyled the label ink
+   * of every a11y deck ever rendered — a change nobody asked for.) Clears AA on the
+   * darkest chip by a wide margin (#868686, 5.77:1). */
+  --cat-on-fill: #000000;
+
   /* Categorical cycle — fixed greyscale value ramp. The approved textures
    * overlay these to carry the distinction colour alone cannot beyond ~6 steps. */
   --cat-1-fill:  #e8e8e8;
@@ -163,3 +181,36 @@ section.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !importan
 section.radar .radar-poly[data-series="3"] { stroke-dasharray: 9 3 2 3 !important; }
 section.radar .radar-poly[data-series="4"] { stroke-dasharray: 4 3 !important; }
 section.radar .radar-poly[data-series="5"] { stroke-dasharray: 11 4 1 4 !important; }
+
+/* ── TEXTURE CHANNEL UNDER A PINNED SCHEME ──
+ * This palette @imports onyx, which points --cat-N-texture at a POLARITY-PINNED
+ * set under `section.dark` / `.light` so a per-slide scheme override gets
+ * matching chips (#1323). That is right for onyx and wrong here: an a11y palette
+ * is MODE-INVARIANT — fixed hex throughout, chips deliberately light in every
+ * scheme, ink pinned dark above. Inheriting onyx's DARK chips under a dark slide
+ * would put that dark ink on a dark chip and re-break the labels. Re-assert the
+ * one literal a11y set.
+ *
+ * The selector must MATCH onyx's pins compound-for-compound — same classes, same
+ * `:not()`s — or it loses on specificity before source order is ever consulted. That
+ * is not hypothetical: when onyx's pins briefly carried an extra `:not()` this rule
+ * did not, sat at (0,2,1) against (0,3,2), and a11y dark slides took onyx's DARK
+ * chips under this palette's black ink at 1.55:1. Keep the two in lockstep;
+ * texture-polarity.test.js resolves the real cascade (specificity first, source order
+ * as tie-break) and fails if they drift apart. */
+section.dark[data-lattice-slide-bake]:not(.print),
+section.light[data-lattice-slide-bake]:not(.print),
+section.color-light[data-lattice-slide-bake]:not(.print) {
+  --cat-1-texture: url(#latt-a11y-tex-1);
+  --cat-2-texture: url(#latt-a11y-tex-2);
+  --cat-3-texture: url(#latt-a11y-tex-3);
+  --cat-4-texture: url(#latt-a11y-tex-4);
+  --cat-5-texture: url(#latt-a11y-tex-5);
+  --cat-6-texture: url(#latt-a11y-tex-6);
+  --cat-7-texture: url(#latt-a11y-tex-7);
+  --cat-8-texture: url(#latt-a11y-tex-8);
+  --cat-9-texture: url(#latt-a11y-tex-9);
+  --cat-10-texture: url(#latt-a11y-tex-10);
+  --cat-11-texture: url(#latt-a11y-tex-11);
+  --cat-12-texture: url(#latt-a11y-tex-12);
+}

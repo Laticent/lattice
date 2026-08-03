@@ -144,8 +144,8 @@ var require_accessibility_textures = __commonJS({
     ];
     var CONCRETE_INK_LIGHT = "#8f8f8c";
     var CONCRETE_INK_DARK = "#EDEBE8";
-    function patternSet(prefix, fills, ink) {
-      return GEOMETRIES.slice(0, fills.length).map(({ mode, svg }, i) => {
+    function patternSet(prefix, fills, ink, geometries = GEOMETRIES) {
+      return geometries.slice(0, fills.length).map(({ mode, svg }, i) => {
         const n = i + 1;
         const inkAttr = mode === "fill" ? `fill="${ink}" fill-opacity="0.40"` : `fill="none" stroke="${ink}" stroke-opacity="0.45" stroke-width="1" stroke-linecap="square"`;
         return `<pattern id="${prefix}-${n}" patternUnits="userSpaceOnUse" width="8" height="8"><rect width="8" height="8" fill="${fills[i]}"/><g ${inkAttr}>${svg}</g></pattern>`;
@@ -174,7 +174,21 @@ var require_accessibility_textures = __commonJS({
         CONCRETE_INK_DARK,
         CONCRETE_GEOMETRIES
       );
-      return `<svg width="0" height="0" aria-hidden="true" style="position:absolute" class="latt-a11y-defs"><defs>${cat}${chart}${onyx}${concrete}</defs></svg>`;
+      const onyxLight = patternSet("latt-onyx-tex-light", CAT_FILLS, CAT_INK_ONYX_LIGHT);
+      const onyxDark = patternSet("latt-onyx-tex-dark", CAT_FILLS_DARK, CAT_INK_DARK);
+      const concreteLight = patternSet(
+        "latt-concrete-tex-light",
+        CONCRETE_FILLS_LIGHT,
+        CONCRETE_INK_LIGHT,
+        CONCRETE_GEOMETRIES
+      );
+      const concreteDark = patternSet(
+        "latt-concrete-tex-dark",
+        CONCRETE_FILLS_DARK,
+        CONCRETE_INK_DARK,
+        CONCRETE_GEOMETRIES
+      );
+      return `<svg width="0" height="0" aria-hidden="true" style="position:absolute" class="latt-a11y-defs"><defs>${cat}${chart}${onyx}${concrete}${onyxLight}${onyxDark}${concreteLight}${concreteDark}</defs></svg>`;
     }
     module.exports = { texturePatternDefs: texturePatternDefs2 };
   }

@@ -572,6 +572,7 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
+const { deckPrintBand, stampSlideBake } = require('./lib/core/resolve-color-mode');
 const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
@@ -1397,11 +1398,12 @@ function preprocessMermaid(source) {
       /color-scheme\s*:\s*dark/i.test(fm);
   // Print is a deck-wide canvas axis (stamped by `color-mode: print` / `class: print`
   // / the engine --print flag) and WINS over dark — a print slide bakes ink-on-white.
-  // Deck-wide print applies to EVERY slide (the propagation kernel merges it into each
-  // section), so it isn't overridden by a slide's own `_class:`.
-  const globalPrint = !!flags.print ||
-    cmKey === 'print' ||
-    /^\s*class:\s*["']?[^"'\n]*\bprint\b/mi.test(fm);
+  // NOTE deck-wide print does NOT reach a slide that names its own `_class:` — `print`
+  // is on the color axis, so deckClassPropagate suppresses it there (color-mode.js
+  // COLOR_MODE_TOKENS). That slide keeps `dark`, loses `print`, and still gets a
+  // print-BAKED diagram from this branch — which is exactly why the texture pins need
+  // the data-lattice-print marker to stand down. Shared predicate, one source of truth.
+  const globalPrint = deckPrintBand(source, !!flags.print);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
@@ -1957,7 +1959,32 @@ const highlightedSlides = slidesWithNotes.map(s => applyHighlighting(s));
 // Only deck-logo re-runs, because it keys off the data-lattice-slide attribute
 // the emulator stamps after the engine pass.
 const { applyDeckLogoToHtml } = require('./lib/integrations/markdown-it/plugins');
-const slidesWithMeta2 = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
+const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
+// PER-SLIDE BAKE MARKER — the texture pins are valid EXACTLY where a diagram's label
+// ink is baked per SLIDE, and this stamp is what says so.
+//
+// #1323 is an emulator-path bug. THIS renderer bakes each Mermaid diagram's ink for
+// the slide's own band (preprocessMermaid's `slideDark` honors `_class:`), while the
+// chip came from a page-level <pattern> that only tracks the DECK scheme — per-slide
+// ink over a deck-wide chip, hence the mismatch the pins fix.
+//
+// The RUNTIME renderer (Studio/Playground, Export-to-Marp, marp-vscode) bakes ink
+// ONCE per document, from the first section (lib/runtime/index.js buildMermaidThemeVars
+// + the __llMermaidConfigured one-shot). There, ink and chip are BOTH deck-wide, so
+// they already agree — and pinning the chip per-section is what breaks them. Pinned
+// live on those paths, a `_class: dark` slide got a dark chip under slide-1's dark
+// ink: 1.55:1 in a real marp-cli render, where before it was 17.14:1.
+//
+// So this is a POSITIVE marker, not a print guard. Absent it, the pins stand down —
+// which is correct for the runtime paths (deck-wide ink) AND for --print (deck-wide
+// print ink), the case the marker previously named. A negative print guard could not
+// express the runtime case at all, because no emulator runs there to withhold it.
+//
+// Stamped per SECTION, never on <html>: packTheme and marp-core scope a theme rule off
+// its LEFTMOST COMPOUND, so a literal leading `section` is the slide and anything else
+// becomes a slide DESCENDANT — an <html>-gated pin packs to an <html> inside a <section>
+// and silently never matches (engineering/gotchas.md).
+const slidesWithMeta2 = stampSlideBake(slidesWithMeta2Raw, deckPrintBand(md, !!flags.print));
 
 // ── KaTeX CSS link ────────────────────────────────────────────────────────
 // KaTeX's CSS references font files via relative `url(fonts/…woff2)` paths,
