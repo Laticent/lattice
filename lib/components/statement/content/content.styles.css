@@ -66,26 +66,44 @@ section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact);
  * a below-note sat stranded mid-slide with a fifth of the stage empty beneath it
  * — measured 101px of 524 on a four-block slide.
  *
- * Every other component fixes this by putting `flex:1` on its ONE body block.
- * content has no one body block — it is heading + prose + maybe a list + maybe a
- * table — and growing blocks was tried and rejected on the renders:
- *   • growing every body block splits the slack across them, so a paragraph and
- *     a table each gain a strange fraction;
- *   • growing a TABLE is the worst of them. A table distributes extra height into
- *     its ROWS, and not evenly — one row takes most of it. `height:0` and
- *     `height:100%` on `tbody tr` both fail to equalize it; it is not controllable
- *     from CSS. A table's vertical fill is the `table-fill` switch, author's call.
- *   • growing a list or a paragraph is invisible: their content is top-aligned, so
- *     the box grows and the dead space simply moves inside it.
+ * Every other component fixes this by putting `flex:1` on its ONE body block —
+ * and several of them do not even use the author's markup for it: a transform
+ * BUILDS the box (`.compare-prose-inner`, `.roadmap-figure`, `.ct-cards`) and the
+ * CSS flexes that. content has no such box. Its body is whatever was written:
+ * one paragraph, or a lede plus a table plus a list. So there is nothing
+ * deterministic to grow, and every growing-block variant was rendered and failed:
+ *   • growing every body block splits the slack across them;
+ *   • growing a TABLE is the worst — a table distributes extra height into its
+ *     ROWS, unevenly, and neither `height:0` nor `height:100%` on `tbody tr`
+ *     equalizes it. A table's vertical fill is the `table-fill` switch instead.
+ *   • growing a list or paragraph is invisible: their content is top-aligned, so
+ *     the box grows and the dead space merely moves inside it.
  *
- * So the STAGE distributes and nothing stretches. Guarded on the stack actually
- * ENDING in a trailing element, which is the whole point — the slack belongs
- * between the body and the thing that trails it. Without the guard, a bare
- * `lede + list` slide throws all its slack into the one gap between them and
- * reads broken (rendered, and it does).
+ * So the SPACER is the deterministic box content never had. A `::after` on the
+ * stage is a real, measurable flex item (unlike the `margin-top:auto` HARD RULE
+ * #20 bars, which is invisible to the height math), and `order` puts it BEFORE
+ * the trailing run rather than at the end where a pseudo would otherwise sit.
+ *
+ * This replaced `justify-content: space-between`, which was wrong in a way only a
+ * render showed: space-between spreads the slack across EVERY gap, so on
+ * `heading + lede + list + takeaway` it pulled the lede away from the list it
+ * introduces. The lede→list bond is meaning, not spacing. The spacer puts the
+ * slack in exactly one gap — the one before the trailing run — and leaves every
+ * other gap at the stage's own rhythm.
+ *
+ * SKIPPED when the author has taken the vertical axis themselves. `align-middle`
+ * / `align-bottom` / `fill-*` set `justify-content` on the stage (stage.css), and
+ * a `flex:1` spacer leaves justify-content no free space to distribute — it would
+ * silently win. Guarded here rather than by specificity, because that contest is
+ * exactly what a reader cannot see.
  * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
-section.content > .cell-stage:has(> .below-note:last-child),
-section.content > .cell-stage:has(> blockquote:last-child) { justify-content: space-between; }
+section.content > .cell-stage > :where(.below-note:last-child,
+                                       blockquote:last-child,
+                                       blockquote:has(+ .below-note:last-child)) { order: 1; }
+section.content:where(:not(.align-top):not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
+  > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child))::after {
+  content: ''; flex: 1 1 0; min-height: 0;
+}
 
 /* Portrait / square (social) — cap the running-prose measure so lines don't
    sprawl the full width; the centred block reads composed. Display lines

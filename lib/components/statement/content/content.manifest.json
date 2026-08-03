@@ -23,8 +23,8 @@
     "overview",
     "summary"
   ],
-  "description": "Generic prose slide — heading plus paragraphs or a short list.",
-  "purpose": "The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better.",
+  "description": "Generic prose slide \u2014 heading plus paragraphs or a short list.",
+  "purpose": "The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better. **`content` is also the DEFAULT**: a slide that names no component at all resolves to it (#1292), so writing nothing and writing `_class: content` are the same thing. That is why its prose reads at the body tier rather than the slide-statement tier \u2014 it has to sit correctly beside a Key Insight, a below-note and a table, all of which are body-tier.",
   "slots": {
     "heading": {
       "selector": "h2",
@@ -34,20 +34,20 @@
     "body": {
       "selector": "section > p, section > ul",
       "required": true,
-      "description": "Paragraphs or a short bullet list under the heading. Keep under ~40 words."
+      "description": "Paragraphs or a short bullet list under the heading. Keep under ~40 words \u2014 an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this."
     }
   },
   "skeleton": "<!-- _class: content -->\n\n## Slide heading.\n\nThe explanatory paragraph that develops the heading goes here. Keep the slide under forty words.\n\n- Optional supporting point one.\n- Optional supporting point two.\n",
   "anatomyBlock": "content-canvas",
-  "sample": "<!-- _class: content -->\n\n`statement · content`\n\n## The content slide is the plainest tool in the box.\n\nA heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.\n",
+  "sample": "<!-- _class: content -->\n\n`statement \u00b7 content`\n\n## The content slide is the plainest tool in the box.\n\nA heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.\n",
   "stressDoc": {
-    "summary": "Two paragraphs and a list — the ceiling.",
-    "sample": "<!-- _class: content -->\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit. This one runs two full lines to show where the measure sits and why anything denser belongs in a document.\n\nThe second paragraph stays shorter — because by now the audience is reading, not listening.\n\n- One list is allowed after prose\n- Three items is its comfortable end\n- A fourth begins to crowd the footer\n"
+    "summary": "Two paragraphs and a list \u2014 the ceiling.",
+    "sample": "<!-- _class: content -->\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit. This one runs two full lines to show where the measure sits and why anything denser belongs in a document.\n\nThe second paragraph stays shorter \u2014 because by now the audience is reading, not listening.\n\n- One list is allowed after prose\n- Three items is its comfortable end\n- A fourth begins to crowd the footer\n"
   },
   "whenToUse": [
     {
       "title": "Explanatory prose that doesn't shape",
-      "body": "A paragraph that develops one idea. No comparisons to spell out, no inventory to grid, no metric to highlight — just prose with a heading. The catch-all when shape would be forced."
+      "body": "A paragraph that develops one idea. No comparisons to spell out, no inventory to grid, no metric to highlight \u2014 just prose with a heading. The catch-all when shape would be forced."
     },
     {
       "title": "Under forty words",
@@ -55,7 +55,7 @@
     },
     {
       "title": "Optional short bullet list",
-      "body": "If the paragraph wants two or three loose qualifications, a bullet list below the prose is fine. For more than that, the content is really structured — move to a `list` or `cards-stack` slide."
+      "body": "If the paragraph wants two or three loose qualifications, a bullet list below the prose is fine. For more than that, the content is really structured \u2014 move to a `list` or `cards-stack` slide."
     }
   ],
   "antiPatterns": [
@@ -65,7 +65,7 @@
     },
     {
       "title": "Wall of text",
-      "body": "More than 40 words and the audience tunes out. The layout doesn't fight back — it'll happily render a 200-word paragraph that nobody reads. Split or trim."
+      "body": "More than 40 words and the audience tunes out. The layout doesn't fight back \u2014 it'll happily render a 200-word paragraph that nobody reads. Split or trim."
     },
     {
       "title": "Multiple headings",
@@ -75,11 +75,11 @@
   "related": [
     {
       "name": "quote",
-      "when": "the prose IS a quote — let the quotation chrome carry it"
+      "when": "the prose IS a quote \u2014 let the quotation chrome carry it"
     },
     {
       "name": "big-number",
-      "when": "the prose IS a metric — let the number carry it"
+      "when": "the prose IS a metric \u2014 let the number carry it"
     },
     {
       "name": "cards-grid",
@@ -97,7 +97,11 @@
   "commonMistakes": [
     {
       "mistake": "Nesting a second level of bullets to add sub-points, expecting them to read with the same weight as the top level.",
-      "fix": "A nested list steps DOWN to body-size text (smaller than the top-level prose size) — nested items read as supporting asides, not equal peers. If the items should carry equal weight, keep them all at the top level."
+      "fix": "A nested list steps DOWN one type tier (top level is --fs-body, nested is --fs-body-compact) \u2014 nested items read as supporting asides, not equal peers. If the items should carry equal weight, keep them all at the top level."
+    },
+    {
+      "mistake": "Expecting a trailing paragraph to stay body copy after a list or a table.",
+      "fix": "It is promoted to a below-note \u2014 hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected."
     }
   ],
   "specimenVoice": true

@@ -1246,7 +1246,7 @@
         "body": {
           "selector": "section > p, section > ul",
           "required": true,
-          "description": "Paragraphs or a short bullet list under the heading. Keep under ~40 words."
+          "description": "Paragraphs or a short bullet list under the heading. Keep under ~40 words — an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this."
         }
       },
       "requiredSlots": [

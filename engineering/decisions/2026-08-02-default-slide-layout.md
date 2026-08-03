@@ -117,13 +117,31 @@ and every growing-block variant was rendered and rejected:
 | `height:0` / `height:100%` on `tbody tr` | neither equalizes the row distribution; it is not controllable from CSS |
 | grow a list or a paragraph | invisible — their content is top-aligned, so the box grows and the dead space simply moves inside it |
 
-So the **stage distributes and nothing stretches**, guarded on the stack actually ENDING in a
-trailing element. That guard is load-bearing and was also found by rendering: without it, a bare
-`lede + list` slide throws all its slack into the single gap between them and reads broken. A
-table's vertical fill stays the author's call via the `table-fill` switch.
+**`justify-content: space-between` was the first answer and it was wrong.** It reached the stage
+floor, but it spreads the slack across EVERY gap — so on `heading + lede + list + takeaway` it
+pulled the lede away from the list it introduces. The lede→list bond is meaning, not spacing. The
+guard (`:has(> .below-note:last-child)`) did not prevent that; it only required a third block to be
+present first. Caught by the Munger inversion on a **shipped** slide,
+`examples/insight-labels.md` p3, not by any gate — the corpus ratchet is a clip oracle and this
+never clipped.
 
-Measured after: the stack reaches the stage bottom exactly — **0px** dead space where there were
-101px — and every inter-block gap lands at a uniform 20px.
+**What ships is a spacer**, and it is the owner's diagnosis: the components that do this well flex
+a box a TRANSFORM built (`.compare-prose-inner`, `.roadmap-figure`, `.ct-cards`), not the author's
+markup. `content` has no such box, so one is made — a `::after` on the stage, `flex: 1 1 0`, placed
+before the trailing run by flex `order`. A pseudo-element is a real, measurable flex item, which is
+exactly what `margin-top: auto` is not (HARD RULE #20 bars it because margin is invisible to the
+height math). The slack lands in ONE gap; every other gap keeps the stage's own rhythm.
+
+It is **skipped when the author has taken the vertical axis** — `align-middle` / `align-bottom` /
+`fill-*` set `justify-content` on the stage, and a `flex:1` spacer would leave it no free space to
+distribute, silently winning. The first cut lost that contest on specificity too:
+`:has()` takes its argument's specificity, so `:has(> .below-note:last-child)` made the rule (0,4,1)
+against the alignment modifiers' (0,3,1) — a documented author control silently ignored, verified in
+Chromium. Guarded explicitly now rather than by a specificity race a reader cannot see.
+
+Measured after: on a four-block slide the stack reaches the stage bottom exactly — **0px** dead
+space where there were 101px — and `align-middle` / `align-bottom` are respected again
+(`justify-content` resolves to `center` / `flex-end`, insight at 379px / 537px in a 178–616 stage).
 
 ### 2. `content` is excluded from below-note promotion, and does not need to be — **SHIPPED**
 
