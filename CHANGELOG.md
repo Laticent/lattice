@@ -228,6 +228,26 @@ in patch versions.
   it whatever flag was passed — and `bench:check --print` now reports a print dataset that vanished
   from the run, not just one that was renamed.
 
+- **`examples/seven-steps-problem-to-code.md`** — a 17-slide teaching deck of The Seven Steps,
+  the problem-to-code methodology from Hilton, Lipp & Rodger (Duke ECE and CS). Written for
+  mentees rather than as a component showcase, and shaped like `bloom-engineering-journey`: a
+  run of seven `split-panel proof` slides walks the steps one per slide (closing on `capstone`
+  for Debug), split at the method's real seam — steps 1–4 happen on paper, 5–7 at the keyboard.
+  A `diagram` slide carries the paper's own flowchart with its back-edges, and a `compare-table`
+  turns those back-edges into a diagnostic ("where you are → what it feels like → go back to").
+  Ships on `theme: cuoio` + `color-mode: dark`.
+  Exercises `split-panel proof`/`capstone`'s automatic categorical tint sequence at seven
+  entries — one past the six the bloom deck runs. The paper-side `premise` ledger is four rows
+  rather than all seven: `premise` warns at seven (soft capacity 6), and `list-tabular`, its
+  documented escalation, overflows the frame at seven rows of this density.
+  The loop diagram is the repo's first fence to opt into Mermaid's elk layout, which is the only
+  way to get `direction` honored inside a subgraph when edges cross the subgraph boundary —
+  dagre ignores it outright, collapsing the grouped figure into a thin strip. elk is reachable
+  only through an in-source `%%{init}%%`, so this deck is also the first consumer of the
+  author-directive/palette merge (#1314): it renders on the deck's own tokens with no colours
+  hand-set here, which is what keeps it correct under a palette swap. One elk trait to know
+  about: its layered pass orders the in-lane nodes around the back-edge cycles rather than
+  1→2→3→4, so the back-edges are dotted to keep the forward spine legible.
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because
   re-parsing the whole deck on every keystroke costs ~46ms per keypress on a 40-slide deck. But
@@ -331,6 +351,26 @@ in patch versions.
 
 ### Fixed
 
+- **A deck-wide `color-mode: dark` now reaches the Mermaid bake on slides that name a component
+  class.** The static pre-bake decided a diagram's scheme with
+  `classDirectives.length ? /\bdark\b/.test(lastClass) : globalDark` — reading the mere PRESENCE of
+  a `_class:` directive as an opt-out of the deck's color mode. So on a `color-mode: dark` deck,
+  `<!-- _class: diagram -->` baked a LIGHT diagram, which then rendered against the dark canvas:
+  a pale cluster plate carrying the dark canvas's cream ink, i.e. a subgraph label invisible
+  against its own background. Every real deck names component classes, so deck-wide dark reached
+  essentially no diagram. The predicate now mirrors `deckClassPropagate`'s own
+  `slideHasOwnColorMode` guard off the shared `COLOR_MODE_TOKENS` list (`lib/core/color-mode.js`):
+  a slide leaves the deck's scheme only by naming its OWN `dark` / `light` token — a component
+  class is not on the color axis. `print` is untouched: the emulator deliberately bakes deck-wide
+  print even where the engine drops the class, and the texture pins' `data-lattice-print` marker
+  is built around that. Caught by `examples/seven-steps-problem-to-code.md`, which was the only
+  committed deck combining a dark color-mode with a Mermaid fence — so no other committed artifact
+  changes, and nothing on the static-bake path had ever asserted a scheme. It does now:
+  `test/integration/mermaid/mermaid-deck-color-mode.test.js` renders one `color-mode: dark` deck
+  carrying `_class: diagram`, `_class: diagram light` and `_class: diagram dark`, and reads the
+  resolved `.cluster rect` fill and `.cluster-label text` ink out of the emitted SVG. The `light`
+  case is what stops the fix over-reaching into "the deck mode always wins"; the test was confirmed
+  to FAIL on the old predicate (cases 1 and 4) before being committed.
 - **A per-slide `dark` / `light` on a textured palette no longer leaves diagram node labels
   unreadable.** Categorical node fill is `var(--cat-N-texture, var(--cat-N-fill))`, so on a textured
   palette the chip a reader sees is an SVG `<pattern>`, not the token. Patterns are emitted once at
