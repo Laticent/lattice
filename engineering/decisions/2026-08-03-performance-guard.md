@@ -215,7 +215,7 @@ would have shipped:
 Planned as "build two new harnesses". Investigation shrank it to one line of budget plus a finding.
 
 **The emulator has no distinct RENDER path — but that is a narrower finding than the first cut
-claimed.** `lattice-emulator.js:1673` calls `latticeEngine.createEngine()` and `:1683` calls
+claimed.** `lattice-emulator.js:1681` calls `latticeEngine.createEngine()` and `:1691` calls
 `engine.render()`; the P2 swap (`2026-06-11-emulator-on-engine-p2.md`) left the CLI a wrapper. So
 `bench`'s render tier already times the engine work the emulator does, and a second harness for it
 would measure the same code twice and need re-blessing twice.
@@ -236,7 +236,7 @@ budget.
 **The in-frame DOM write was already being measured and thrown away.** The `@perf` spec has
 collected `FRAME p50` on every sample since it existed and asserted nothing, so a change that made
 the preview's DOM swap expensive was invisible. It now carries a ceiling like the other two:
-observed 0.4–1.9ms across six deck/interaction pairs, ceiling 15ms.
+observed 0.4–2.5ms across six deck/interaction pairs, ceiling 20ms.
 
 **What FRAME is not** — and the first cut of this slice claimed otherwise. It does **not** cover the
 resident runtime's pass (fit spine, chart paint, overflow watcher). On the patch path `frameMs` is

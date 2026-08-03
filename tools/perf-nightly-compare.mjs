@@ -10,11 +10,14 @@
  * number cannot. (engineering/decisions/2026-08-03-performance-guard.md)
  *
  * CLIFF BANDS, not tight percentages. Even same-runner, two builds are minutes apart and a
- * benchmark's own RME here runs from under 1% (render) to 66% (a 6-second rasterize cycle at two
- * iterations). A band that tries to resolve 15% will fire on noise, get ignored, and then the one
- * real regression lands in a muted channel. These catch a DOUBLING. The effective band is
- * `max(cliff, baseRME + headRME)` — the same variance-aware widening `bench:check` uses, so a
- * dataset that is genuinely noisy raises its own bar instead of crying wolf every night.
+ * benchmark's own RME here runs from under 1% (render) to over 80% (a rasterize cycle at a handful
+ * of iterations). A band that tries to resolve 15% will fire on noise, get ignored, and then the one
+ * real regression lands in a muted channel. These catch a DOUBLING — and that is a guarantee, not
+ * an aspiration. The effective band is `min(max(cliff, baseRME + headRME), 95)`: the same
+ * variance-aware widening `bench:check` uses, so a noisy dataset raises its own bar, but CAPPED
+ * below 100 so no amount of noise can let a 2x regression through. Uncapped it did exactly that —
+ * the export tier's 58-slide deck read 82% RME, giving a ±164 band on which an exact doubling
+ * reported `ok`.
  *
  * IT MUST NOT PASS WHEN IT COMPARED NOTHING. The first cut printed "No tier regressed past its
  * band" and exited 0 when head's summary was empty, and when every dataset had been renamed — both
@@ -118,14 +121,23 @@ function tier(label, baseRows = [], headRows = [], band, scale = 1, unit = 'ms')
 			continue;
 		}
 		// Variance-aware, the way `bench:check` does it: a dataset whose own measurement is noisy
-		// raises its own bar rather than false-firing every night.
-		const eff = Math.max(band, (b.rmePct ?? 0) + (h.rmePct ?? 0));
+		// raises its own bar rather than false-firing every night — but CAPPED, and the cap is not
+		// optional. Unbounded widening means the noisier the measurement, the weaker the gate, which
+		// inverts the whole point. Measured: the export tier's 58-slide deck reads 82% RME at two
+		// iterations, so `max(80, 82+82)` = ±164 and an exact 2x regression reported `ok` while this
+		// file's own header promised "these catch a DOUBLING". The cap sits below 100 so a doubling
+		// always trips, whatever the noise; when it binds, the row says so, because a measurement too
+		// noisy to trust is itself worth seeing rather than silently swallowing.
+		const CAP = 95;
+		const raw = Math.max(band, (b.rmePct ?? 0) + (h.rmePct ?? 0));
+		const eff = Math.min(raw, CAP);
+		const capped = raw > CAP;
 		const d = ((h.ms - b.ms) / b.ms) * 100;
 		const bad = d > eff;
 		if (bad) regressed = true;
 		compared += 1;
 		out.push(
-			`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | ${d >= 0 ? '+' : ''}${d.toFixed(1)} | ±${eff.toFixed(0)} | ${bad ? '**REGRESSION**' : d < -eff ? 'win' : 'ok'} |`,
+			`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | ${d >= 0 ? '+' : ''}${d.toFixed(1)} | ±${eff.toFixed(0)}${capped ? ` (capped from ±${raw.toFixed(0)})` : ''} | ${bad ? '**REGRESSION**' : d < -eff ? 'win' : 'ok'} |`,
 		);
 	}
 }

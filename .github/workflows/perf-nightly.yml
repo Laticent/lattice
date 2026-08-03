@@ -317,8 +317,17 @@ jobs:
       # Same rolling-issue pattern as the lighthouse job above, own marker so the
       # two axes do not append to each other's thread. Self-labeled for the same
       # reason (a GITHUB_TOKEN-opened issue can't trigger the triage gate).
+      # `always() &&` is LOAD-BEARING, and its absence was the third instance of this alarm going
+      # mute. GitHub applies an implicit `success()` to any `if:` containing no status function, so
+      # the bare condition read `success() && (regressed || breached)` — and this job DELIBERATELY
+      # lets steps fail: `Bench — head` has no continue-on-error, the install step runs `set -e`,
+      # and both the compare and preview steps `exit 1` on a harness failure. So a flaky
+      # `playwright install` after the compare had already recorded a genuine 3x regression would
+      # skip this step entirely and file nothing — the red-nightly-nobody-watches outcome the
+      # comment at the base-bench step says was fixed. `always()` was added to five steps and not
+      # to the one that raises the alarm.
       - name: Open / append regression issue
-        if: steps.compare.outputs.regressed == 'true' || steps.preview.outputs.breached == 'true'
+        if: always() && (steps.compare.outputs.regressed == 'true' || steps.preview.outputs.breached == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

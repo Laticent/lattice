@@ -136,8 +136,14 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 			expect(w.slices).toBe(1);
 			// The byte backstop. `wholeDeck` alone is an exact-identity check and a regression only
 			// has to change one byte to slip past it; a 40-slide deck handed to the engine is ~40x
-			// the work whether or not it is byte-identical to the source. A real slice of a
-			// 40-slide deck is well under a fifth of it even with front matter attached.
+			// the work whether or not it is byte-identical to the source.
+			//
+			// WHAT IT ACTUALLY ASSERTS, stated honestly: a fifth of these fixtures is ~330 bytes and
+			// one slide is 37, so this permits up to ~9 slides, not "roughly one". It reliably
+			// catches the regression it exists for — a whole-deck parse is 1656+ bytes, five times
+			// the threshold — but a hypothetical regression handing over a 5-slide window would pass.
+			// Tightening it further would make it brittle against a legitimately long single slide,
+			// which is a likelier failure than the 2-to-9-slide regression it would catch.
 			expect(w.bytes[0], `the engine was handed ${w.bytes[0]} of the deck's ${deck.length} bytes — that is a whole-deck parse wearing a different byte string`).toBeLessThan(deck.length / 5);
 		});
 

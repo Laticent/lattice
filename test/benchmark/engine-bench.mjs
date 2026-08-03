@@ -35,8 +35,8 @@ import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-// TWO TIERS, TWO FLAGS — because they differ by ~20x in cost and used to ride one flag.
-//   --export  rasterize tier (screenshot every slide of each deck). ~1 min. Cheap enough to run
+// TWO TIERS, TWO FLAGS — because they differ by ~6x in cost and used to ride one flag.
+//   --export  rasterize tier (screenshot every slide of each deck). ~2 min. Cheap enough to run
 //             nightly on both arms of a head-vs-base compare.
 //   --print   print re-place tier (rasterize + jsPDF assemble, 3 iterations over a 58-slide deck).
 //             ~11 min per arm — on-demand only. Blessed rows live in baseline.printDatasets.
@@ -158,7 +158,12 @@ async function exportTier() {
   // Heavy + IO-bound: a few samples is plenty, no warmup. Skip the 481-slide
   // stress deck here — thousands of screenshots would dominate runtime without
   // adding signal; render-tier already covers stress scaling.
-  const bench = new Bench({ name: 'export', warmup: false, time: 1, iterations: 2 });
+  // FOUR, not two. Two samples cannot produce a meaningful RME, and the nightly comparator widens
+  // its band by the two arms' RME — so a noisy measurement made the gate WEAKER, unboundedly. The
+  // 58-slide deck read 82% RME at two iterations, which gave a +/-164 band on which an exact 2x
+  // regression reported `ok`. The comparator now caps the widening; this halves the noise that
+  // makes the cap bind. Cost: ~96s -> ~190s per arm, which the nightly can afford.
+  const bench = new Bench({ name: 'export', warmup: false, time: 1, iterations: 4 });
   for (const d of datasets.filter((x) => !x.name.startsWith('stress'))) {
     bench.add(d.name, () => exportOnce(d));
   }
@@ -438,7 +443,7 @@ async function main() {
     checkBaseline(render.summary, print?.summary);
   }
   if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print }, null, 2));
-  const missing = [!wantExport && '--export (rasterize tier, ~1 min)', !wantPrint && '--print (print re-place tier, ~11 min)'].filter(Boolean);
+  const missing = [!wantExport && '--export (rasterize tier, ~2 min)', !wantPrint && '--print (print re-place tier, ~11 min)'].filter(Boolean);
   console.log('\nDone.' + (missing.length ? ` (pass ${missing.join(' and ')} to time them too.)` : ''));
 }
 
