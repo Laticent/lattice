@@ -298,6 +298,24 @@ jobs:
             exit 1
           fi
 
+      # CLOSE THE ROLLING ISSUE ON A GREEN NIGHT. Without this the thread is a one-way ratchet: it
+      # opens once, appends forever, and after its first firing — statistically likelier to be a
+      # harness failure than a real regression — it is triaged as "the flaky nightly" and a genuine
+      # regression three months later arrives as a comment on an already-dismissed thread. An alarm
+      # that cannot stand down is an alarm that gets filtered.
+      - name: Close the rolling issue when green
+        if: always() && steps.compare.outputs.regressed != 'true' && steps.preview.outputs.breached != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[perf-nightly-engine]'
+          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body "Green on \`${{ github.sha }}\` — no tier past its band and no ceiling breached. Closing; the next regression reopens a fresh thread rather than appending to a stale one."
+            gh issue close "$ISSUE" --reason completed
+          fi
+
       - name: Job summary
         if: always()
         run: cat "$GITHUB_WORKSPACE/engine-perf.md" >> "$GITHUB_STEP_SUMMARY" || true

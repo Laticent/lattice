@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: Performance was defended by nothing — three timing harnesses existed and none gated anything, and one reported a phantom +124% regression on a healthy tree. Wall clock cannot be the gate on a shared runner (identical code measured 93.9ms and 43.1ms in one session), but the regression that actually hurt is a COUNT, not a duration. So the PR gate counts work and hard-fails the merge, while wall clock becomes a nightly head-vs-base alarm with cliff bands and an auto-filed issue.
 ---
 
@@ -74,22 +74,30 @@ which is in `ci.needs`, so **it blocks the merge**.
 It mocks `renderMarkdown` and counts, per simulated keystroke: how many renders ran, how many were
 handed the WHOLE deck rather than a slice, and what position each slice received.
 
-| fixture deck | renders | whole-deck parses | position supplied |
-|---|---|---|---|
-| plain 40-slide | 1 | **0** | yes |
-| paginated (#1272) | 1 | **0** | yes |
-| gallery + dividers (#1280, the 63.2ms case) | 1 | **0** | yes |
-| running `header:` — **the control** | 1 | **1** | n/a |
+| fixture deck | renders | whole-deck parses | bytes to the engine | position |
+|---|---|---|---|---|
+| plain 40-slide | 1 | **0** | < deck/5 | offset + total |
+| paginated (#1272) | 1 | **0** | < deck/5 | offset + total |
+| gallery + dividers (#1280, the 63.2ms case) | 1 | **0** | < deck/5 | + deckSection |
+| `glossary: auto` — **the control** | 1 | **1** | n/a | n/a |
+| running `header:` — **tracked slow path** (#1333) | 1 | 1 | n/a | n/a |
 
-The control row is load-bearing: a running global is *text*, so there is nothing to hand over and
-the whole-deck render is correct. Without it the suite would pass just as well if the route logic
-always answered "slice", which is the failure mode of a guard that cannot fail.
+The control row is load-bearing, and it has to be a fact that is **unsliceable by construction**.
+`glossary: auto` appends a derived appendix slide, changing the deck's SLIDE COUNT, so no prefix
+scan can ever serve a slice and the engine must count for itself. Without a control the suite would
+pass just as well if the route logic always answered "slice" — the failure mode of a guard that
+cannot fail. The running-header row records today's cost separately, and its failure message says
+that going red there is the #1333 win landing rather than a regression. See "What the inversion pass
+changed" for why that distinction is the difference between a ratchet and a lock.
 
 **Mutation-checked, both halves:**
 
 - reintroduce the pre-#1280 divider probe → the two gallery rows fail, everything else stays
   green, and the message reads *"the whole deck was re-parsed — this is the per-keystroke regression"*
 - neuter `supplyablePosition` (the #1272 half) → all three position rows fail
+- hand the engine the whole deck one byte different → the three fast-route rows fail on BYTES
+- drop the supplied `deckSection` → the #1280 row fails
+- make the route logic always answer "slice" → **both control rows fail and nothing else**
 
 ## Slice 2 — the nightly alarm (shipped)
 
@@ -129,7 +137,7 @@ rolling-issue pattern with its own marker.
   against a stored number is what produced the phantom +124%. Two builds measured minutes apart on
   one machine cancels the drift. Bands are cliffs (render 60%, export 80%), widened per dataset to
   `max(cliff, baseRME + headRME)`: the committed baseline's own RMEs span 0.9% to 11.5%, and the
-  rasterize tier's charts deck reads ±66% at two iterations, so a flat band would fire on noise,
+  rasterize tier's 58-slide deck read 82% RME at two iterations, so a flat band would fire on noise,
   get ignored, and mute the one real regression. `tools/perf-nightly-compare.mjs` does the diff and
   is mutation-checked six ways: identical runs exit 0, a 3x head exits 1, an empty summary exits 1
   as NOTHING WAS COMPARED, a wholesale rename exits 1 as dataset drift, a dead arm exits 1, and a
@@ -249,15 +257,66 @@ runtime does not expose today.
 
 So the coverage map, stated as what each mechanism actually exercises:
 
+**Read this table as INTERACTIONS, not surfaces** — an inversion pass caught it claiming the
+broader thing. The work counter covers ONE interaction (editor typing into the shown slide) through
+ONE entry point, on three synthetic deck shapes. It does NOT cover the overview grid (whose N tiles
+share a single module-level memo, so its failure mode is N whole-deck parses per modal open), the
+Present overlay, or any deck already on the slow route.
+
 | surface | guarded by |
 |---|---|
-| Studio preview render | work-counter gate (PR) + RENDER ceiling (nightly) |
+| Studio preview render — editor typing | work-counter gate (PR) + RENDER ceiling (nightly) |
+| Studio preview render — overview grid, Present | **nothing** |
 | in-frame DOM write | FRAME ceiling (nightly) |
 | in-frame runtime pass | only via TOTAL — no isolated metric exists |
 | engine render | head-vs-base same-runner compare (nightly) |
 | export / rasterize | head-vs-base same-runner compare (nightly) |
 | print re-place | `bench:check --print` on demand — 11 min/arm is too costly to run nightly |
 | emulator | the engine row above covers its RENDER path, and nothing else — see below |
+
+## What the inversion pass changed, and what it left standing
+
+Lens 2 of the trio (HARD RULE #25) ran last, against what ships. It found no bug — everything works
+as written — and one thing worth changing before merge, which is the kind of finding only this lens
+produces.
+
+**The control row pinned a fixable slow path as CORRECT.** It used a running `header:` deck and
+asserted *"a deck-derived fact must still buy the whole-deck render."* But a running global is
+**text**, and text is exactly what a prefix scan can supply — the same move `supplyablePosition`
+already makes for position. Meanwhile **54 of the 58 committed decks on the slow route trip that
+one probe** (#1333). So whoever lands that optimization finds this gate red, and the natural way to
+green it — move the row into `FAST_ROUTE` — deletes the suite's only control, leaving a gate that
+passes just as well if the route logic always answers "slice". The ratchet ages into a lock.
+
+Fixed by making the control **unsliceable by construction**: `glossary: auto` appends a derived
+appendix slide, changing the deck's SLIDE COUNT, so no prefix scan can ever serve it and
+`wholeDeck === 1` is permanently true. The running-header row stays as a *tracked cost* whose
+failure message says going red is the win landing, not a regression. Mutation-checked: neutering the
+route logic to always answer "slice" fails both control rows and nothing else.
+
+**What it left standing, and why.** Three findings are recorded rather than fixed, because they are
+real but not merge-blocking:
+
+- **The counter's incentive gradient rewards whole-deck regex sweeps in the docs layer.** The route
+  decision runs five probes plus `deckSectionFor` over the whole source per keystroke — measured at
+  ~1.5ms unthrottled / ~6ms at 4x on the 119-slide gallery, against a healthy RENDER of 3.7–5.3ms.
+  It is uncounted and uncapped, so a developer adding a deck-scoped feature is rewarded for adding
+  another sweep. That is a second hand-rolled deck parser growing in `docs/`, green forever. #1333
+  carries it; the fix is a byte-budget on the route decision, which is the same trick this gate
+  already uses, applied to the cost it currently exempts.
+- **The head-vs-base arms are sequential, not interleaved.** This document's own evidence is that
+  only an interleaved A/B resolved the truth, and what shipped is head-then-base, two processes and
+  an `npm ci` apart, with a wide band absorbing the residue. An in-process interleaved A/B
+  (`engine-bench --ab <ref>`) would resolve ~10% instead of a doubling, in ~30s, with no worktree
+  and no comparator — and could plausibly gate a PR. That is the better design and it is not what
+  shipped.
+- **Guarding the fast path was the visible problem, not the hurting one.** 30% of committed decks
+  are on the slow route today. Engine render is ~0.1% of an emulator export. The nightly spends
+  ~20 min/night on the most-measured, least-impactful surface at the coarsest resolution.
+
+If `[perf-nightly-engine]` fires zero true positives and at least one harness-failure false positive
+in six months, the right move is to delete the two bench arms and the comparator and keep the
+preview ceilings — roughly 30% of the surface for most of the value.
 
 ## What this does not do
 

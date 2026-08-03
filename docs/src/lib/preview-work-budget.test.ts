@@ -54,9 +54,27 @@ const GALLERY = `---\npaginate: true\n---\n\n${slides(40, (i) => (i % 8 === 0 ? 
 const PAGINATED = `---\npaginate: true\n---\n\n${slides(40)}`;
 
 /**
- * THE CONTROL. A running-global directive is text, not a number, so there is nothing to supply and
- * the whole-deck render is CORRECT here. Without this row the suite would pass just as well if the
- * gate always reported "slice", which is the failure mode of a guard that cannot fail.
+ * THE CONTROL, and it must be a fact that is UNSLICEABLE BY CONSTRUCTION. `glossary: auto` appends a
+ * derived appendix slide built from terms across the whole deck — it changes the SLIDE COUNT, so no
+ * amount of cleverness can hand a slice what it needs; the engine has to count for itself. That
+ * makes `wholeDeck === 1` permanently true rather than true-for-now.
+ *
+ * The first cut used a running `header:` here, and that was a latent trap. A running global is
+ * TEXT, and text is precisely what a prefix scan CAN supply — the same move `supplyablePosition`
+ * already makes for position. So that row asserted "the whole-deck render is CORRECT" about a shape
+ * covering 54 committed decks that is the next thing worth optimizing (#1333). Whoever lands that
+ * optimization would find this gate red, and the natural way to green it — move the row to
+ * FAST_ROUTE — would delete the suite's only control and leave a gate that passes just as well if
+ * the route logic always answers "slice". A ratchet would have aged into a lock.
+ */
+const GLOSSARY = `---\nglossary: auto\n---\n\n${slides(40)}`;
+
+/**
+ * KNOWN-SLOW, AND TRACKED — not a requirement. This shape takes the whole-deck route today because
+ * nothing supplies inherited running-global text to a slice yet. That is a COST, not a correctness
+ * property: 54 of the 58 committed decks on the slow route trip this exact probe (#1333). If you
+ * are here because you made running globals sliceable and this row went red: that is the win
+ * landing. Move it into FAST_ROUTE, add the position assertions, and leave GLOSSARY as the control.
  */
 const RUNNING_HEADER = `<!-- header: Q3 Board Review -->\n\n${slides(40)}`;
 
@@ -170,12 +188,23 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 		expect(sec?.index, 'slide 20 sits in the third section (dividers at 0, 8, 16, 24, 32)').toBe(3);
 	});
 
-	it('running-header deck: the whole-deck render is CORRECT and still happens', async () => {
-		// The control. A running global is text, so there is no position to hand over — the deck
-		// render is the right answer here, and this row is what proves the rows above are measuring
-		// a real decision rather than always reporting "slice".
-		const w = await typeOneSlide(RUNNING_HEADER, 20);
-		expect(w.wholeDeck, 'a deck-derived fact must still buy the whole-deck render').toBe(1);
+	it('glossary deck: THE CONTROL — an unsliceable fact still buys the whole-deck render', async () => {
+		// `glossary: auto` changes the deck's slide count, so the engine must count for itself. This
+		// row is what proves the rows above measure a real decision rather than always reporting
+		// "slice" — and unlike a running global, it can never become sliceable, so it will not go
+		// red when the next optimization lands.
+		const w = await typeOneSlide(GLOSSARY, 20);
+		expect(w.wholeDeck, 'an unsliceable deck-derived fact must still buy the whole-deck render').toBe(1);
 		expect(w.slices).toBe(0);
+	});
+
+	it('running-header deck: whole-deck TODAY — a tracked cost, not a requirement (#1333)', async () => {
+		// Records the status quo so a change is visible, and says in its message that going red here
+		// is a WIN rather than a regression. See the fixture comment for what to do about it.
+		const w = await typeOneSlide(RUNNING_HEADER, 20);
+		expect(
+			w.wholeDeck,
+			'running-global decks no longer take the whole-deck route — if you made them sliceable, that is #1333 landing: move this row into FAST_ROUTE and keep GLOSSARY as the control',
+		).toBe(1);
 	});
 });
