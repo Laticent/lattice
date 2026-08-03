@@ -15,7 +15,7 @@
  *     12 of the 14 themes.
  *
  * Neither was caught by anything, because "the token is declared" was the only
- * thing under test (`token-parity`). Declaring a colour is not the same as it
+ * thing under test (`token-parity`). Declaring a color is not the same as it
  * being usable. This asserts the tier is actually READABLE:
  *
  *   ink  >= 4.5:1 on the surface it sits on   — WCAG 1.4.3, it is label text
@@ -28,7 +28,7 @@
  * surface, not an accent), which is exactly why the EDGE has to carry
  * perceivability and is gated instead.
  *
- * Both schemes are checked because `light-dark()` means one token is two colours
+ * Both schemes are checked because `light-dark()` means one token is two colors
  * and a theme can be correct on one arm and broken on the other — which is
  * precisely how onyx shipped.
  */
@@ -72,6 +72,18 @@ function toRgb(value) {
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
 }
 
+/**
+ * `toRgb` answers null for anything that isn't a hex triplet — a token left as a
+ * raw `color-mix()`, an unresolved `var()`, a typo. Going straight into the
+ * luminance math would throw a TypeError naming nothing; this fails as an
+ * assertion that names the token instead.
+ */
+function rgbOrFail(value, what) {
+  const rgb = toRgb(value);
+  assert.ok(rgb, `${what} did not resolve to a hex color (got ${JSON.stringify(value)})`);
+  return rgb;
+}
+
 function relativeLuminance(rgb) {
   const a = rgb.map((v) => {
     const c = v / 255;
@@ -81,16 +93,14 @@ function relativeLuminance(rgb) {
 }
 
 function contrast(a, b) {
-  const [ra, rb] = [toRgb(a), toRgb(b)];
-  assert.ok(ra, `not a resolvable colour: ${a}`);
-  assert.ok(rb, `not a resolvable colour: ${b}`);
+  const [ra, rb] = [rgbOrFail(a, 'foreground'), rgbOrFail(b, 'background')];
   const [hi, lo] = [relativeLuminance(ra), relativeLuminance(rb)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 }
 
 const BASE_VARS = rawRootVars(fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'));
 
-/** Every containment token in `theme`, resolved for one colour scheme. */
+/** Every containment token in `theme`, resolved for one color scheme. */
 function resolveTier(theme, isDark) {
   const themeCss = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
   const vars = { ...BASE_VARS, ...rawRootVars(themeCss) };
@@ -154,8 +164,11 @@ describe('containment-contrast', () => {
         const t = resolveTier(theme, isDark);
         const vars = { ...BASE_VARS, ...rawRootVars(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8')) };
         const canvas = resolveTokenExpr(vars.bg, vars, isDark);
-        const [lc, l1, l2] = [canvas, t.container, t.subcontainer]
-          .map((c) => relativeLuminance(toRgb(c)));
+        const [lc, l1, l2] = [
+          [canvas, `${theme}/${scheme} --bg`],
+          [t.container, `${theme}/${scheme} --c-container`],
+          [t.subcontainer, `${theme}/${scheme} --c-subcontainer`],
+        ].map(([c, what]) => relativeLuminance(rgbOrFail(c, what)));
         assert.notEqual(l1, lc,
           `${theme}/${scheme}: --c-container ${t.container} is the canvas ${canvas} — no ladder at all`);
         assert.ok((l1 - lc) * (l2 - l1) > 0,

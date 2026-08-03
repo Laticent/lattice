@@ -176,7 +176,7 @@ in patch versions.
   every theme in **both** schemes: ink ≥ 4.5:1 on the rung it sits on (WCAG 1.4.3 — it is label
   text), edge ≥ 3:1 on the fill it outlines (WCAG 1.4.11 — the box carries the grouping semantic,
   and its fill is deliberately a barely-there step from the canvas, so the boundary is what makes
-  the grouping readable), and the two rungs stepping the same direction away from the canvas. 56
+  the grouping readable), and the two rungs stepping the same direction away from the canvas. 57
   assertions; verified non-vacuous by mutation (pale ink, edge-equals-fill, and an inverted ladder
   each turn it red). The subgraph label now takes the containment tier's ink instead of borrowing
   `--cat-on-fill` from the *categorical* tier, wired through `mermaid.css` rather than by
