@@ -103,11 +103,18 @@ section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact);
  * writing the DEFAULT explicitly rendered differently from writing nothing at all
  * (measured: 257px of dead space with `align-top`, 0px without).
  * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
-section.content > .cell-stage > :where(.below-note:last-child,
-                                       blockquote:last-child,
-                                       blockquote:has(+ .below-note:last-child)) { order: 1; }
+/* The trailing run, ordered last. Both rules require the stage to ALSO hold a
+ * non-trailing child: on a slide whose whole body IS a quote and its attribution,
+ * every child is "trailing", so the spacer would land before all of them and fling
+ * the entire body to the floor under a third of a blank slide. Rendered, and it
+ * reads as a failure rather than a composition. With no body to sit under, there
+ * is no slack to place — leave the slide alone. */
+section.content > .cell-stage:where(:has(> :not(.below-note):not(blockquote)))
+  > :where(.below-note:last-child,
+           blockquote:last-child,
+           blockquote:has(+ .below-note:last-child)) { order: 1; }
 section.content:where(:not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
-  > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child))::after {
+  > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child)):where(:has(> :not(.below-note):not(blockquote)))::after {
   content: ''; flex: 1 1 0; min-height: 0;
 }
 

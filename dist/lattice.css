@@ -2917,6 +2917,15 @@ section.closing hr { margin:0; }
  * lines on a portrait sign-off. `text-wrap: balance` handles
  * the break positions the cap can't (closing.styles.css' predecessor comment
  * blamed the cap for an orphan word that was always balance's job). */
+/* An author's `# heading` lands here too — `h1` is a supported shape on this
+ * bookend (base.modifiers.css ships its before-heading eyebrow rules for `+ h1`
+ * as well as `+ h2`), and the component styles only `h2`. It used to inherit the
+ * right ink by accident, because base's `section h1` named --text-display, the
+ * DARK-PANEL ink. That default was wrong for the whole light canvas and was
+ * changed to --text-heading (#1292 §5) — which left this panel painting dark ink
+ * on a dark surface. Measured at 1.00:1 on onyx: black glyphs on black. So the
+ * ink is named here, where the panel is, exactly as `h2` above names it. */
+section.closing h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
 section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
 section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:var(--measure-bookend-lede); text-wrap:balance; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 
@@ -4039,11 +4048,18 @@ section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact);
  * writing the DEFAULT explicitly rendered differently from writing nothing at all
  * (measured: 257px of dead space with `align-top`, 0px without).
  * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
-section.content > .cell-stage > :where(.below-note:last-child,
-                                       blockquote:last-child,
-                                       blockquote:has(+ .below-note:last-child)) { order: 1; }
+/* The trailing run, ordered last. Both rules require the stage to ALSO hold a
+ * non-trailing child: on a slide whose whole body IS a quote and its attribution,
+ * every child is "trailing", so the spacer would land before all of them and fling
+ * the entire body to the floor under a third of a blank slide. Rendered, and it
+ * reads as a failure rather than a composition. With no body to sit under, there
+ * is no slack to place — leave the slide alone. */
+section.content > .cell-stage:where(:has(> :not(.below-note):not(blockquote)))
+  > :where(.below-note:last-child,
+           blockquote:last-child,
+           blockquote:has(+ .below-note:last-child)) { order: 1; }
 section.content:where(:not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
-  > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child))::after {
+  > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child)):where(:has(> :not(.below-note):not(blockquote)))::after {
   content: ''; flex: 1 1 0; min-height: 0;
 }
 
@@ -4524,6 +4540,15 @@ section.divider { border-top: none; }
  * the gallery corpus and cost 12 of them a line, which is a width masquerading
  * as a measure. Left-aligned by default, so a short break heading simply sits on
  * one line and the cap never shows. */
+/* An author's `# heading` lands here too — `h1` is a supported shape on this
+ * bookend (base.modifiers.css ships its before-heading eyebrow rules for `+ h1`
+ * as well as `+ h2`), and the component styles only `h2`. It used to inherit the
+ * right ink by accident, because base's `section h1` named --text-display, the
+ * DARK-PANEL ink. That default was wrong for the whole light canvas and was
+ * changed to --text-heading (#1292 §5) — which left this panel painting dark ink
+ * on a dark surface. Measured at 1.00:1 on onyx: black glyphs on black. So the
+ * ink is named here, where the panel is, exactly as `h2` above names it. */
+section.divider h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
 section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
 
 /* light variant — former `subtopic` component (anchor.divider.light)
@@ -4540,6 +4565,7 @@ section.divider.light { background:var(--bg); padding-left:0; justify-content:ce
  * line. It still takes `balance`, which spends no width: measured across the
  * corpus this heading never binds, but it does wrap, and an even split is the
  * difference between a sub-section break and a ragged one. */
+section.divider.light h1 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
 section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
 section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-bookend-lede); text-wrap:balance; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
 /* Every eyebrow shape is out of the subtitle's measure, matching what closing

@@ -376,7 +376,57 @@ judgment call about `--measure-bookend-lede` that belongs with whoever owns the
 bookend measures — pulling it into this diff would breach both HARD RULE #18's
 off-path rule and #17.
 
+#### What the adversarial trio found (HARD RULE #25)
+
+Eight defects across the three lenses, none of which any gate in the repo would
+have caught — the corpus ratchet is a clip oracle and not one of them clipped.
+
+| # | Found | Fixed |
+|---|---|---|
+| 1 | `# heading` on `closing`/`divider` rendered **1.00:1 — black on black** on 18 of 19 palettes, and was already baked into this branch's regenerated PDFs | yes |
+| 2 | `space-between` broke the lede→list bond, live on `examples/insight-labels.md` p3 | yes — replaced by the spacer |
+| 3 | The stage rule silently outranked `align-middle`/`align-bottom`/`fill-*` (`:has()` takes its argument's specificity) | yes |
+| 4 | `align-top`, the documented DEFAULT, rendered differently from writing nothing | yes |
+| 5 | A body that is only a quote + attribution had its whole content flung to the floor | yes |
+| 6 | `--measure-body`'s "66 characters, measured" was false — the advance came from an alphabet sample | yes — claim corrected, value kept and reframed |
+| 7 | "A paragraph after a paragraph is never promoted on any layout" was false on the HTML path; the two render paths disagreed | yes |
+| 8 | `content.docs.md` is GENERATED — the fallback role had been hand-edited there and silently overwritten | yes — moved to the manifest |
+
+**Finding 1 is the one worth remembering.** §5's fix rested on "`title` is the only
+component that styles `h1` at all" — which is TRUE, and was the wrong question.
+`closing` and `divider` style `h2`; they never styled `h1` because they *inherited*
+the right ink from base's `--text-display` default. Changing that default to serve
+the light canvas took the ink away from the two panels that were relying on it.
+The correct shape was both halves at once: a light-canvas default in base, and an
+explicit dark-panel binding on each bookend — which is what `h2` already had, two
+lines above, in the same files.
+
 #### Recorded, not fixed
+
+- **`content` slides lose a concluding paragraph to below-note promotion.** "List,
+  then a concluding sentence" is a common prose shape, and promotion turns that
+  conclusion into a footnote — muted, hairline-ruled, and now pushed to the stage
+  floor by the spacer. 5 slides across 3 decks, two of them long-running galleries.
+  This is change §2 working as designed and as every other non-excluded layout has
+  always worked, so `content` is now *consistent* rather than special — but the
+  design call deserves the owner's eye rather than a silent landing.
+- **The trailing-group fix does not reach `no-form` slides.** Both the spacer and
+  the `order` rule are scoped to `> .cell-stage`, which a `no-form` slide (or a
+  `form: off` deck) does not have. Not a regression — `main` had no fix either —
+  but the same deck composes differently across a chrome mode for a reason the
+  author cannot see.
+- **Under `align-center` the below-note's hairline shrinks to its text.**
+  `.below-note::before` is `left:0; right:0` on a shrink-to-fit box. Pre-existing;
+  §1 merely makes it reachable from more slides.
+- **The runtime path is UNVERIFIED on the surface it exists for.** `applyDefaultComponent`
+  only matters where sections arrive unstamped — the marp-vscode webview. The
+  Playground bundle carries the markdown-it plugin and stamps at parse time; the
+  emulator's sidecar arrives pre-stamped. Neither reviewer could drive marp-vscode
+  from here, and neither could I (HARD RULE #23). Also open: it runs once at
+  bootstrap and is not in `runAllContentTransforms`, so a surface that replaces
+  `<section>` elements after boot would never get the class.
+
+
 
 - A table inside `split-panel` / `split-compare` / `compare-code` / `image` lands
   in a side frame, not the slide body's top level, so it gets nothing. The frame

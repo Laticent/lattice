@@ -26,6 +26,15 @@ section.divider { border-top: none; }
  * the gallery corpus and cost 12 of them a line, which is a width masquerading
  * as a measure. Left-aligned by default, so a short break heading simply sits on
  * one line and the cap never shows. */
+/* An author's `# heading` lands here too — `h1` is a supported shape on this
+ * bookend (base.modifiers.css ships its before-heading eyebrow rules for `+ h1`
+ * as well as `+ h2`), and the component styles only `h2`. It used to inherit the
+ * right ink by accident, because base's `section h1` named --text-display, the
+ * DARK-PANEL ink. That default was wrong for the whole light canvas and was
+ * changed to --text-heading (#1292 §5) — which left this panel painting dark ink
+ * on a dark surface. Measured at 1.00:1 on onyx: black glyphs on black. So the
+ * ink is named here, where the panel is, exactly as `h2` above names it. */
+section.divider h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
 section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
 
 /* light variant — former `subtopic` component (anchor.divider.light)
@@ -42,6 +51,7 @@ section.divider.light { background:var(--bg); padding-left:0; justify-content:ce
  * line. It still takes `balance`, which spends no width: measured across the
  * corpus this heading never binds, but it does wrap, and an even split is the
  * difference between a sub-section break and a ragged one. */
+section.divider.light h1 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
 section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; text-wrap:balance; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
 section.divider.light p  { font-size:var(--fs-message); max-width:var(--measure-bookend-lede); text-wrap:balance; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
 /* Every eyebrow shape is out of the subtitle's measure, matching what closing
