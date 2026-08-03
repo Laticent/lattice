@@ -35,7 +35,16 @@ import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+// TWO TIERS, TWO FLAGS — because they differ by ~20x in cost and used to ride one flag.
+//   --export  rasterize tier (screenshot every slide of each deck). ~1 min. Cheap enough to run
+//             nightly on both arms of a head-vs-base compare.
+//   --print   print re-place tier (rasterize + jsPDF assemble, 3 iterations over a 58-slide deck).
+//             ~11 min per arm — on-demand only. Blessed rows live in baseline.printDatasets.
+// They shared `--export` until 2026-08-03, and the cost of the pair is exactly why the nightly
+// could not afford to pass it — so the export path shipped a coverage claim it did not have.
+// Each flag lazily sets up its own puppeteer, so either may be passed alone.
 const wantExport = process.argv.includes('--export');
+const wantPrint = process.argv.includes('--print');
 const asJson = process.argv.includes('--json');
 const wantBless = process.argv.includes('--bless');
 const wantCheck = process.argv.includes('--check');
@@ -157,7 +166,16 @@ async function exportTier() {
   console.log('\n=== EXPORT / RASTERIZE · per-deck screenshot cycle ===');
   console.table(bench.table());
   await browser.close();
-  return bench.table();
+  // A `{ main, summary }` shape like the render tier's, and it did NOT have one before. This tier
+  // returned a raw `bench.table()` — display rows keyed "Task name" / "Latency avg (ns)" — so
+  // `export.summary` was `undefined` and NOTHING could compare it, whatever flag was passed.
+  // `rmePct` rides along because these samples are genuinely noisy (the charts deck read ±66% at
+  // 2 iterations here) and the nightly widens its band by the two arms' RME rather than pretending
+  // a fixed percentage fits a 6-second I/O-bound cycle.
+  const summary = datasets
+    .filter((x) => !x.name.startsWith('stress'))
+    .map((d) => ({ dataset: d.name, slides: d.slides, ms: mean(bench.getTask(d.name)), rmePct: bench.getTask(d.name).result.latency.rme }));
+  return { main: bench.table(), summary };
 }
 
 // ── print re-place tier (item 1 of 2026-06-14-deck-print-styling.md) ──────────
@@ -277,7 +295,7 @@ function blessBaseline(summary, printSummary) {
   for (const s of summary) {
     out[s.dataset] = { slides: s.slides, ms: round2(s.ms), slidesPerSec: s.slidesPerSec, rmePct: round2(s.rmePct) };
   }
-  // The print re-place tier (puppeteer) only runs under --export, so a plain
+  // The print re-place tier (puppeteer) only runs under --print, so a plain
   // `bench:bless` PRESERVES any existing printDatasets rather than dropping them.
   let printOut;
   if (printSummary?.length) {
@@ -293,7 +311,7 @@ function blessBaseline(summary, printSummary) {
     datasets: out,
     // Print drawer rasterize→assemble split: full-rebuild vs cached-image re-place, per
     // deck. The re-place row being a fraction of full IS the durable record of the paper-
-    // change optimization (HARD RULE #19). Blessed via `bench:bless -- --export`.
+    // change optimization (HARD RULE #19). Blessed via `bench:bless -- --print`.
     ...(printOut ? { printDatasets: printOut } : {}),
   };
   writeFileSync(BASELINE, JSON.stringify(payload, null, 2) + '\n');
@@ -385,6 +403,17 @@ function checkBaseline(summary, printSummary) {
         `${s.dataset.padEnd(32)}${(b.ms / 1000).toFixed(1).padStart(9)}s${(s.ms / 1000).toFixed(1).padStart(9)}s${((d >= 0 ? '+' : '') + d.toFixed(1)).padStart(8)}${('±' + EXPORT_BAND + '%').padStart(8)}  ${verdict}`,
       );
     }
+    // The mirror of the render tier's MISSING pass, and it was left out of the first cut. A
+    // RENAMED print dataset is caught above (`!b` → NEW), but a REMOVED one was not: the loop
+    // only walks what this run produced, so dropping a deck from the print tier left its blessed
+    // row in baseline.json forever with nothing ever reading it — the exact rot this block exists
+    // to end. Only runs when the print tier actually ran, so a plain `bench:check` is unchanged.
+    for (const name of Object.keys(base.printDatasets ?? {})) {
+      if (!printSummary.some((s) => s.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(32)}${'—'.padStart(10)}${'absent'.padStart(10)}   MISSING (re-bless)`);
+      }
+    }
   }
   if (regressed) {
     console.error('\nPerf regression beyond the variance band. Investigate, or re-bless if the change is intentional and justified in the PR.');
@@ -400,9 +429,8 @@ function checkBaseline(summary, printSummary) {
 
 async function main() {
   const render = await renderTier();
-  // The print re-place tier shares the export tier's puppeteer setup, so it rides --export.
   const exp = wantExport ? await exportTier() : null;
-  const print = wantExport ? await printTier() : null;
+  const print = wantPrint ? await printTier() : null;
   if (wantBless) blessBaseline(render.summary, print?.summary);
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
@@ -410,7 +438,8 @@ async function main() {
     checkBaseline(render.summary, print?.summary);
   }
   if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print }, null, 2));
-  console.log('\nDone.' + (wantExport ? '' : ' (pass --export to also time the rasterize + print re-place tiers.)'));
+  const missing = [!wantExport && '--export (rasterize tier, ~1 min)', !wantPrint && '--print (print re-place tier, ~11 min)'].filter(Boolean);
+  console.log('\nDone.' + (missing.length ? ` (pass ${missing.join(' and ')} to time them too.)` : ''));
 }
 
 main();

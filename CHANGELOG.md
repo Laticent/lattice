@@ -213,14 +213,20 @@ in patch versions.
   can distinguish routes. It runs in the docs tier, which `ci.needs` requires, so it hard-fails a
   PR; and it is mutation-checked in both directions (reintroduce the pre-#1280 divider probe → the
   gallery rows fail; neuter the supplied position → the position rows fail).
-- **A nightly perf alarm for the engine, preview and export, that files an issue.** A second job in
-  `perf-nightly.yml` — whose Lighthouse job already had the head-vs-base + rolling-issue plumbing,
-  for a different axis. The preview spec now asserts **ceilings** (`test/benchmark/preview-budget.json`,
-  ~5x headroom, machine-independent) instead of printing numbers it asserted nothing about; the
-  engine bench compares head vs base built on the **same runner** rather than against the
-  machine-relative committed baseline, because a cold runner reads up to 2x high. Also closes a hole
-  where `bench:check` blessed four export timings and never compared them. Design:
+- **A nightly perf alarm for the engine, preview and export rasterize, that files an issue.** A
+  second job in `perf-nightly.yml` — whose Lighthouse job already had the head-vs-base +
+  rolling-issue plumbing, for a different axis. The preview spec now asserts **ceilings**
+  (`test/benchmark/preview-budget.json`, set against the worst of three runs, machine-independent) instead of printing
+  numbers it asserted nothing about; the engine and export-rasterize benches compare head vs base
+  built on the **same runner** rather than against the machine-relative committed baseline, because
+  a cold runner reads up to 2x high. Bands widen per dataset by the two arms' RME, and a comparison
+  that compared **nothing** now fails instead of reporting health. Design:
   `engineering/decisions/2026-08-03-performance-guard.md`.
+- **`bench` splits `--export` (rasterize, ~2 min) from `--print` (print re-place, ~11 min).** They
+  shared one flag, and the pair's cost is why the nightly could afford neither. The export tier also
+  gained a comparable `{ summary }` shape — it returned raw display rows, so nothing could compare
+  it whatever flag was passed — and `bench:check --print` now reports a print dataset that vanished
+  from the run, not just one that was renamed.
 
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because

@@ -1,19 +1,13 @@
 ---
 status: in-progress
-summary: >
-  Performance was defended by nothing: three timing harnesses exist, none gates anything, and one
-  is unreliable enough to report a phantom +124% regression on a healthy tree. Wall clock cannot be
-  the gate on shared runners — identical code measured 93.9ms and 43.1ms in one session. But the
-  regression that actually hurt (a keystroke re-parsing forty slides instead of one) is a COUNT, not
-  a duration: deterministic, machine-independent, and impossible to flake. So the PR gate counts
-  work and hard-fails the merge, while wall clock moves to a nightly alarm with cliff thresholds and
-  an auto-filed issue. Slice 1 (the counter gate) is shipped and mutation-checked; the nightly alarm
-  and an emulator/runtime harness are designed here, not built.
+summary: Performance was defended by nothing — three timing harnesses existed and none gated anything, and one reported a phantom +124% regression on a healthy tree. Wall clock cannot be the gate on a shared runner (identical code measured 93.9ms and 43.1ms in one session), but the regression that actually hurt is a COUNT, not a duration. So the PR gate counts work and hard-fails the merge, while wall clock becomes a nightly head-vs-base alarm with cliff bands and an auto-filed issue.
 ---
 
 # Guarding performance: count the work on the PR, clock it nightly
 
-**Status:** slice 1 shipped (the work-counter gate). Slices 2–3 designed, not built.
+**Status:** all three slices shipped. The work-counter gate blocks merges; the nightly alarm
+compares engine render + export rasterize head-vs-base and asserts preview/runtime ceilings.
+The print re-place tier stays on-demand — see "What this does not do".
 
 ## The problem
 
@@ -99,15 +93,22 @@ always answered "slice", which is the failure mode of a guard that cannot fail.
 
 ## Slice 2 — the nightly alarm (shipped)
 
-Extend `studio-preview-perf.spec.ts` and `bench` with committed baselines and a **cliff** band —
-roughly 5× headroom over today's numbers, not a tight percentage. The failure mode worth catching
-is 13×; a band that tries to resolve 10% will only ever produce noise on this infrastructure.
+Extend `studio-preview-perf.spec.ts` and `bench` with a **cliff** band — several times today's
+numbers, not a tight percentage. The failure mode worth catching is 13×; a band that tries to
+resolve 10% will only ever produce noise on this infrastructure.
+
+Two mechanisms, not one, because the two surfaces measure differently:
 
 ```
-gallery · typing    RENDER p50   4.9ms  → alarm above 25ms
-gallery · navigation             1.4ms  → alarm above 15ms
-engine  · normal                41.9ms  → alarm above 120ms
-export  · print full · normal   115.8s  → alarm above 300s
+PREVIEW — absolute ceilings (no base checkout needed)
+  worst healthy · typing      RENDER p50   5.3ms  → alarm above 30ms
+  worst healthy · navigation  RENDER p50   6.3ms  → alarm above 30ms
+  worst healthy · either      TOTAL  p50  20.6ms  → alarm above 70ms
+  worst healthy · either      FRAME  p50   2.5ms  → alarm above 20ms
+
+ENGINE + EXPORT — head vs base on the same runner, no absolute number at all
+  engine render   ±60%, widened to max(60, baseRME + headRME)
+  export rasterize ±80%, same widening
 ```
 
 **A nightly with issue-filing already existed and I nearly rebuilt it.** `perf-nightly.yml` runs
@@ -119,56 +120,112 @@ rolling-issue pattern with its own marker.
 **Two comparison strategies, deliberately different:**
 
 - **The preview spec asserts CEILINGS** (`test/benchmark/preview-budget.json`) — absolute budgets
-  with ~5x headroom, machine-independent by construction, so no base checkout is needed and drift
-  can never fire them. Healthy gallery typing is 4.4ms RENDER p50; the ceiling is 25ms; the
-  pre-#1280 regression was 63.2ms. Mutation-checked by lowering the ceiling to 2ms.
+  set against the WORST reading across three independent runs, machine-independent by construction,
+  so no base checkout is needed. Worst healthy gallery typing is 5.3ms RENDER p50; the ceiling is
+  30ms; the pre-#1280 regression was 63.2ms — caught at half its magnitude with 5.7x headroom.
+  Mutation-checked by lowering a ceiling below healthy.
 - **The engine bench compares HEAD vs BASE built on the SAME RUNNER**, never against the committed
   `baseline.json`. That file is machine-relative and a cold runner reads up to 2x high — comparing
   against a stored number is what produced the phantom +124%. Two builds measured minutes apart on
-  one machine cancels the drift. Bands are cliffs (render 60%, export 80%), because even same-runner
-  the bench's own RME runs 3-17% and a band that resolves 15% would fire on noise, get ignored, and
-  mute the one real regression. `tools/perf-nightly-compare.mjs` does the diff and is
-  mutation-checked: identical runs exit 0, a 2.2x head exits 1 with a per-dataset table.
+  one machine cancels the drift. Bands are cliffs (render 60%, export 80%), widened per dataset to
+  `max(cliff, baseRME + headRME)`: the committed baseline's own RMEs span 0.9% to 11.5%, and the
+  rasterize tier's charts deck reads ±66% at two iterations, so a flat band would fire on noise,
+  get ignored, and mute the one real regression. `tools/perf-nightly-compare.mjs` does the diff and
+  is mutation-checked six ways: identical runs exit 0, a 3x head exits 1, an empty summary exits 1
+  as NOTHING WAS COMPARED, a wholesale rename exits 1 as dataset drift, a dead arm exits 1, and a
+  missing argument exits 2 so a wiring bug is never filed as a regression.
 
 The `printDatasets` hole is closed too: `bench:check` blessed four export timings and looped only
 the render summary, so the export path could double in cost with a green check. It now compares them
 (±50%, wider because a rasterize cycle is far more I/O-exposed than an in-process render), and only
 when the run actually produced them, so a plain `bench:check` is unchanged.
 
+### What review changed here, because the first cut of this slice shipped a claim it did not have
+
+The adversarial pass found the nightly ran `engine-bench --json` with **no `--export`** on either
+arm, so `print` was `null`, the comparator's export table returned before printing a row, and the
+coverage claim below was false. Four things came out of fixing it, and each is a defect the original
+would have shipped:
+
+- **`--export` and `--print` are now separate flags.** They rode one flag, and the pair costs ~13
+  minutes per arm — which is exactly why the job could not afford to pass it. Split, the rasterize
+  tier is ~2 min per arm and runs nightly; the print re-place tier stays on-demand.
+- **The export tier had no comparable shape.** It returned a raw `bench.table()` — display rows
+  keyed `"Latency avg (ns)"` — so `export.summary` was `undefined` and nothing could have compared
+  it whatever flag was passed. It now returns `{ main, summary }` like the render tier.
+- **The comparator passed when it compared nothing.** Empty summaries and wholesale dataset renames
+  both printed "No tier regressed past its band" and exited 0 — indistinguishable from health.
+  Zero comparisons and dataset drift are now failures with their own wording.
+- **Bands are variance-aware**, reusing `bench:check`'s `max(cliff, baseRME + headRME)`. The
+  rasterize tier's charts deck reads ±66% RME at two iterations; a flat band would have fired on it
+  nightly until someone muted the channel.
+
 ## Slice 3 — emulator + runtime paint (shipped, and smaller than planned)
 
 Planned as "build two new harnesses". Investigation shrank it to one line of budget plus a finding.
 
-**The emulator needs no harness, and that is a result rather than a shortcut.**
-`lattice-emulator.js:1673` calls `latticeEngine.createEngine()` and `:1683` calls
-`engine.render()` — the P2 swap (`2026-06-11-emulator-on-engine-p2.md`) left the CLI a wrapper with
-no render path of its own. `bench`'s render tier already times exactly the code it runs, and
-`bench --export` times the PDF/rasterize tier it adds on top. An emulator bench would measure the
-same code twice and then need re-blessing twice. Recorded in `preview-budget.json` so the next
-person does not build it.
+**The emulator has no distinct RENDER path — but that is a narrower finding than the first cut
+claimed.** `lattice-emulator.js:1673` calls `latticeEngine.createEngine()` and `:1683` calls
+`engine.render()`; the P2 swap (`2026-06-11-emulator-on-engine-p2.md`) left the CLI a wrapper. So
+`bench`'s render tier already times the engine work the emulator does, and a second harness for it
+would measure the same code twice and need re-blessing twice.
 
-**Runtime paint was already being measured and thrown away.** The `@perf` spec has collected
-`FRAME p50` on every sample since it existed — the in-frame runtime's own cost (fit spine, chart
-paint, overflow), as distinct from the engine's HTML production (`RENDER`) and the end-to-end span
-(`TOTAL`). Nothing asserted it, so a runtime change could double the cost of every keystroke in
-silence. It now carries a ceiling like the other two: healthy is 1.4–1.9ms, ceiling 15ms.
+**That does not mean the emulator is covered.** Measured here on `examples/a11y.md`: the full CLI
+export takes **~8s wall**, of which `engine.render` is **~10ms — around 0.1%**. The other 99.9% is
+the emulator's own pipeline: `inlineLogoMarkSvg`'s per-mark file reads, the per-section image-scrim
+pass, the mermaid-cli subprocess per diagram, the in-page overflow/legibility probes, the measured
+overflow split loop, font settle, `page.pdf()`, and the pdf-lib assembly. **None of that is
+measured by anything**, and `bench --export` does not touch it — the rasterize tier drives its own
+hand-built `srcdoc` through Puppeteer and never loads `lattice-emulator.js`.
 
-So all five surfaces from the original coverage map are now covered, by three mechanisms rather
-than five harnesses:
+So: no emulator *render* bench is needed, and an emulator *pipeline* bench is a real gap. It is
+logged rather than built here, because the pipeline is dominated by subprocess and I/O time that
+head-vs-base on one runner is the only sane way to compare — i.e. it is a second job, not a line of
+budget.
+
+**The in-frame DOM write was already being measured and thrown away.** The `@perf` spec has
+collected `FRAME p50` on every sample since it existed and asserted nothing, so a change that made
+the preview's DOM swap expensive was invisible. It now carries a ceiling like the other two:
+observed 0.4–1.9ms across six deck/interaction pairs, ceiling 15ms.
+
+**What FRAME is not** — and the first cut of this slice claimed otherwise. It does **not** cover the
+resident runtime's pass (fit spine, chart paint, overflow watcher). On the patch path `frameMs` is
+taken synchronously around the `innerHTML` swap plus `scaleFrame`, and the runtime re-processes the
+swapped section from a `MutationObserver` microtask delivered *after* that span closes. The number
+says so on its face: 1.8ms at 4× CPU throttle is an `innerHTML` assignment, not a gallery slide's
+chart paint. Those costs land in `TOTAL`, which does carry a ceiling — so the surface is guarded,
+just not by the metric the claim named. Measuring the runtime pass in isolation needs a hook the
+runtime does not expose today.
+
+So the coverage map, stated as what each mechanism actually exercises:
 
 | surface | guarded by |
 |---|---|
 | Studio preview render | work-counter gate (PR) + RENDER ceiling (nightly) |
-| runtime paint | FRAME ceiling (nightly) |
+| in-frame DOM write | FRAME ceiling (nightly) |
+| in-frame runtime pass | only via TOTAL — no isolated metric exists |
 | engine render | head-vs-base same-runner compare (nightly) |
 | export / rasterize | head-vs-base same-runner compare (nightly) |
-| emulator | the engine + export rows above — it has no distinct path |
+| print re-place | `bench:check --print` on demand — 11 min/arm is too costly to run nightly |
+| emulator | the engine row above covers its RENDER path, and nothing else — see below |
 
 ## What this does not do
 
 - It does not measure time on the PR path, on purpose. A work counter cannot tell you that a render
-  got 30% slower for the same amount of work — only the nightly can, and only past a 5× cliff.
-- It counts the **preview** path. Slices 2 and 3 are what extend the discipline to engine, export,
-  emulator, and runtime.
+  got 30% slower for the same amount of work — only the nightly can, and only past a cliff.
+- **The counter counts renders, not the cost of deciding to render.** A regression inside the route
+  decision itself — `needsDeckContext`, `positionIsTrustworthy`, `deckSectionFor`, all of which run
+  per keystroke over the whole deck source — scores a perfect `calls: 1, wholeDeck: 0`. Review
+  demonstrated 13.9ms of route-decision cost, 3× the entire RENDER budget, with the gate green.
+  The preview RENDER ceiling would not see it either: it starts at the engine boundary. Only TOTAL
+  would, and only nightly.
+- **The print re-place tier is on-demand, not nightly** (`bench --print`, ~11 min per arm). Its
+  blessed rows are compared by `bench:check --print`, which nothing runs on a schedule.
+- **The emulator's own pipeline is unmeasured** — see slice 3. Its engine render is covered; the
+  ~99.9% of its wall time that is not `engine.render` is not.
+- **Ceiling headroom is 3–6×, not a uniform 5×.** Ceilings are keyed on interaction, not deck, so
+  the same cap covers a 7.4ms and a 16.0ms healthy TOTAL. The thin end is gallery TOTAL (~3×
+  against an admitted 2× session drift); the wide end means a 5× regression on a cheap deck stays
+  green. Per-deck ceilings would fix both and were not worth the re-blessing surface today.
 - The counters live in the docs tier because that is where the decision they guard lives
   (`single-slide-render.ts`). If that logic ever moves into `lib/`, the gate should move with it.

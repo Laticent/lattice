@@ -63,16 +63,23 @@ const RUNNING_HEADER = `<!-- header: Q3 Board Review -->\n\n${slides(40)}`;
 const sectionsHtml = (n: number) =>
 	`<article class="lattice">${Array.from({ length: n }, (_, i) => `<section class="form" id="${i + 1}"><div class="cell-stage"><h1>Slide ${i + 1}</h1></div></section>`).join('')}</article>`;
 
+type Page = { offset: number; total?: number; deckSection?: { index: number; total: number } };
 /** One keystroke's worth of work: every render call, and the document each was handed. */
-type Work = { calls: number; wholeDeck: number; slices: number; pages: ({ offset: number; total?: number } | undefined)[] };
+type Work = { calls: number; wholeDeck: number; slices: number; pages: (Page | undefined)[]; bytes: number[] };
 
 function recordWork(deck: string): { seen: Work } {
-	const seen: Work = { calls: 0, wholeDeck: 0, slices: 0, pages: [] };
-	(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_pg: unknown, src: string, _theme: unknown, o?: { page?: { offset: number; total?: number } }) => {
+	const seen: Work = { calls: 0, wholeDeck: 0, slices: 0, pages: [], bytes: [] };
+	(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_pg: unknown, src: string, _theme: unknown, o?: { page?: Page }) => {
 		seen.calls += 1;
 		if (src === deck) seen.wholeDeck += 1;
 		else seen.slices += 1;
 		seen.pages.push(o?.page);
+		// THE SIZE, not just the identity. `src === deck` is an exact-bytes oracle, so a regression
+		// that hands the engine a whole deck it derived or normalized first — one byte different —
+		// scores a perfect `wholeDeck: 0`. `renderMarkdown` already rewrites its input on the way
+		// in (appendAutoGlossary), so this is not hypothetical. Recording the byte count lets the
+		// budget below assert the engine was handed roughly ONE SLIDE, which is the actual claim.
+		seen.bytes.push(src.length);
 		return { html: sectionsHtml(40), css: '' };
 	});
 	return { seen };
@@ -127,6 +134,11 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 			expect(w.calls, 'one keystroke must cost exactly one engine render').toBe(1);
 			expect(w.wholeDeck, 'the whole deck was re-parsed — this is the per-keystroke regression').toBe(0);
 			expect(w.slices).toBe(1);
+			// The byte backstop. `wholeDeck` alone is an exact-identity check and a regression only
+			// has to change one byte to slip past it; a 40-slide deck handed to the engine is ~40x
+			// the work whether or not it is byte-identical to the source. A real slice of a
+			// 40-slide deck is well under a fifth of it even with front matter attached.
+			expect(w.bytes[0], `the engine was handed ${w.bytes[0]} of the deck's ${deck.length} bytes — that is a whole-deck parse wearing a different byte string`).toBeLessThan(deck.length / 5);
 		});
 
 		it(`${name}: the slice is handed its true deck position`, async () => {
@@ -139,6 +151,18 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 			expect(w.pages[0]?.total).toBe(40);
 		});
 	}
+
+	it('gallery deck: the slice is handed its SECTION position too, not just its page number', async () => {
+		// The #1280 half of the payload, and the one the position rows above do not cover: they
+		// check `offset`/`total` (the #1272 page number), so dropping `deckSection` entirely left
+		// all seven rows green. The gallery deck's progress rail and watermark glyph are derived
+		// from this — losing it is what sent the whole deck back through the parser every keystroke.
+		const w = await typeOneSlide(GALLERY, 20);
+		const sec = w.pages[0]?.deckSection;
+		expect(sec, 'the divider deck lost its supplied section — the rail would have to re-derive it from the whole deck').toBeDefined();
+		expect(sec?.total, 'dividers every 8th slide of 40 give 5 sections').toBe(5);
+		expect(sec?.index, 'slide 20 sits in the third section (dividers at 0, 8, 16, 24, 32)').toBe(3);
+	});
 
 	it('running-header deck: the whole-deck render is CORRECT and still happens', async () => {
 		// The control. A running global is text, so there is no position to hand over — the deck

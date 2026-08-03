@@ -16,9 +16,17 @@ import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } 
 // the editor's markdown auto-continuation). Reusing it is the difference between a measurement
 // and a plausible-looking zero.
 //
-// TAGGED @perf, and NOT in any project's grep, so it never runs on the PR gate: these are
-// wall-clock numbers and would be flaky as a merge blocker. Run it deliberately:
+// TAGGED @perf and NOT ON THE PR GATE — these are wall-clock numbers and would be flaky as a merge
+// blocker. What blocks a merge is the WORK COUNTER (docs/src/lib/preview-work-budget.test.ts),
+// which counts renders instead of timing them. Run this one deliberately:
 //   npx playwright test --project=desktop --grep @perf
+//
+// WHERE IT RUNS, precisely — an earlier version of this note said "not in any project's grep",
+// which was wrong. The `desktop` project's only filter is `grepInvert: /@mobile|@webkit/`, so
+// @perf IS in its default selection and any bare `test:e2e` picks it up. Since these assertions
+// became real ceilings, `studio-e2e-nightly.yml` excludes @perf explicitly (`--grep-invert @perf`)
+// so the suite runs ONCE a night, in perf-nightly.yml's engine-perf job, which is the workflow that
+// can actually file an issue about a breach.
 //
 // WHAT IT MEASURES. Both interactions that drive a preview render, separately, because the
 // deck-context render made them diverge sharply:
@@ -93,8 +101,11 @@ const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (
  * flaky gate". Half right: a wall-clock assertion that tries to resolve a PERCENTAGE is flaky —
  * this repo's own `bench:check` read 93.9ms and 43.1ms for identical code in one session. But the
  * regression worth catching is 13x (gallery typing 4.4ms healthy, 63.2ms before #1280), and a
- * ceiling with ~5x headroom cannot be tripped by drift while still catching that at less than half
- * its magnitude. So this asserts a cliff, and only a cliff.
+ * ceiling several times healthy catches that while staying well clear of drift. So this asserts a
+ * cliff, and only a cliff. Ceilings are keyed on INTERACTION, not deck, so one cap covers both a
+ * cheap prose deck and the gallery — which is why they are set against the WORST healthy reading
+ * across three runs rather than a representative one. An earlier cut sized them off a single run
+ * and left gallery navigation only 2.2x of headroom, a false alarm waiting for a slow runner.
  *
  * Ceilings never need re-blessing per machine — that is the point of a budget over a baseline.
  */
@@ -117,16 +128,29 @@ function report(label: string, samples: Sample[], interaction?: 'navigation' | '
 	// THE CLIFF. Asserted on p50, not max: one slow sample is a GC pause or a scheduler hiccup, and
 	// gating on it would be the flaky gate the old note rightly feared. A p50 past the ceiling means
 	// the typical keystroke got an order of magnitude more expensive, which is a code change.
-	if (!interaction || !patch.length) return;
+	if (!interaction) return;
+	// THE GUARD IS QUIETEST WHEN THE REGRESSION IS WORST, unless this line exists. Every ceiling
+	// below is computed over the PATCH samples only, and a change that pushes renders onto the
+	// WRITE path (a deck-memo key that always misses, a size/mermaid recompute forcing a full
+	// srcdoc rebuild — "tens to hundreds of ms" per render-metrics.ts) makes every interaction
+	// 10-50x slower AND shrinks `patch` toward zero. The early version returned before asserting
+	// anything in that case, so the worst possible outcome reported green. Typing had this
+	// backstop; navigation did not.
+	expect(patch.length, `${deck} ${interaction}: no patch renders at all — every render took the full-rebuild WRITE path, which is a far bigger regression than any ceiling here`).toBeGreaterThan(0);
 	const cap = BUDGET.ceilings[interaction];
 	const renderP50 = p50(patch.map((s) => s.engineMs));
 	const totalP50 = p50(patch.map((s) => s.totalMs));
 	expect(renderP50, `${deck} ${interaction}: RENDER p50 ${f(renderP50)}ms is past the ${cap.renderP50}ms ceiling — an order-of-magnitude regression, not drift`).toBeLessThan(cap.renderP50);
 	expect(totalP50, `${deck} ${interaction}: TOTAL p50 ${f(totalP50)}ms is past the ${cap.totalP50}ms ceiling`).toBeLessThan(cap.totalP50);
-	// FRAME is the IN-FRAME RUNTIME's own cost — the fit spine, chart paint, overflow measurement
-	// inside the preview iframe, as distinct from the engine's HTML production (RENDER) and the
-	// end-to-end span (TOTAL). It has been collected on every sample since this spec existed and
-	// guarded by nothing, so a runtime change could double the cost of every keystroke silently.
+	// FRAME is the DOM-WRITE cost inside the preview iframe: on the patch path it spans the
+	// innerHTML swap plus `scaleFrame`, taken synchronously (single-slide-render.ts). It is NOT the
+	// resident runtime's full pass — the fit spine, chart paint and overflow watcher run off a
+	// MutationObserver microtask that is delivered AFTER this span closes, so they land in TOTAL,
+	// not here. An earlier version of this comment claimed FRAME covered them; it does not, and the
+	// numbers say so (1.4-1.9ms at 4x CPU throttle is an innerHTML assignment, not a gallery
+	// slide's chart paint). What it does guard is real and was guarded by nothing: a change that
+	// makes the swap itself expensive — a heavier scaleFrame, a synchronous measure per write —
+	// shows up here and nowhere else, since RENDER stops at the engine boundary.
 	const frameP50 = p50(patch.map((s) => s.frameMs));
 	expect(frameP50, `${deck} ${interaction}: FRAME p50 ${f(frameP50)}ms is past the ${cap.frameP50}ms ceiling — the in-frame runtime got materially more expensive`).toBeLessThan(cap.frameP50);
 }

@@ -10,11 +10,23 @@
  * number cannot. (engineering/decisions/2026-08-03-performance-guard.md)
  *
  * CLIFF BANDS, not tight percentages. Even same-runner, two builds are minutes apart and a
- * benchmark's own RME here runs 3-17%. A band that tries to resolve 15% will fire on noise, get
- * ignored, and then the one real regression lands in a muted channel. These catch a DOUBLING.
+ * benchmark's own RME here runs from under 1% (render) to 66% (a 6-second rasterize cycle at two
+ * iterations). A band that tries to resolve 15% will fire on noise, get ignored, and then the one
+ * real regression lands in a muted channel. These catch a DOUBLING. The effective band is
+ * `max(cliff, baseRME + headRME)` — the same variance-aware widening `bench:check` uses, so a
+ * dataset that is genuinely noisy raises its own bar instead of crying wolf every night.
+ *
+ * IT MUST NOT PASS WHEN IT COMPARED NOTHING. The first cut printed "No tier regressed past its
+ * band" and exited 0 when head's summary was empty, and when every dataset had been renamed — both
+ * of which look identical to a healthy run in the job summary. A comparison of zero datasets is now
+ * a FAILURE, and so is dataset drift: those are the states where the alarm is blind, which is
+ * exactly when it must speak up.
  *
  * Usage: node tools/perf-nightly-compare.mjs --base a.json --head b.json --md out.md
- * Exit 1 when something regressed past its band — the workflow keys the issue off that.
+ * Exit 1 when something regressed past its band, when a tier drifted, or when nothing compared —
+ * an alarm that compared nothing is BLIND, and being blind is worth saying out loud.
+ * Exit 2 only when the tool was invoked wrong (missing paths), so a wiring bug is never filed as a
+ * performance regression.
  */
 import fs from 'node:fs';
 
@@ -26,62 +38,113 @@ const arg = (k) => {
 	return i > 0 ? process.argv[i + 1] : undefined;
 };
 /**
- * TOLERANT. `engine-bench --json` prints the object and then a human "Done." line, so a plain
- * `> file` redirect does NOT produce parseable JSON — the first cut of this script died on it.
- * Slice out the outermost balanced object rather than making the workflow massage the stream.
+ * TOLERANT, and deliberately anchored on the LAST balanced object rather than the first `{` in the
+ * stream. `engine-bench --json` prints its tables and then the object and then a human "Done."
+ * line, so a plain `> file` redirect does NOT produce parseable JSON — the first cut of this script
+ * died on that. Scanning from the first brace also breaks the moment any earlier stdout line
+ * happens to contain one, which would surface as a fake "perf regression"; so instead walk back
+ * from the last `}` to the matching `{`.
  */
 const read = (p) => {
-	const raw = fs.readFileSync(p, 'utf8');
-	const a = raw.indexOf('{');
-	const b = raw.lastIndexOf('}');
-	if (a < 0 || b <= a) throw new Error(`no JSON object in ${p}`);
-	return JSON.parse(raw.slice(a, b + 1));
+	if (!p) throw new Error('missing --base/--head path');
+	const raw = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
+	const end = raw.lastIndexOf('}');
+	if (end < 0) throw new Error(`no JSON object in ${p}`);
+	let depth = 0;
+	let inStr = false;
+	for (let i = end; i >= 0; i--) {
+		const c = raw[i];
+		if (inStr) {
+			if (c === '"' && raw[i - 1] !== '\\') inStr = false;
+			continue;
+		}
+		if (c === '"') inStr = true;
+		else if (c === '}') depth++;
+		else if (c === '{' && --depth === 0) return JSON.parse(raw.slice(i, end + 1));
+	}
+	throw new Error(`no balanced JSON object in ${p}`);
 };
 
-const base = read(arg('--base'));
-const head = read(arg('--head'));
+if (!arg('--base') || !arg('--head')) {
+	// EXIT 2 = the tool was wired wrong. Distinct from exit 1 so the workflow never files a
+	// priority:high "perf regression" for what is really a broken invocation.
+	console.error('perf-nightly-compare: --base and --head are both required');
+	process.exit(2);
+}
+/**
+ * An arm that produced no readable payload is an EMPTY RUN, not a crash. That distinction matters:
+ * if the base bench died, the honest outcome is "this alarm compared nothing tonight" — reported
+ * loudly, via the no-comparisons path below — rather than a stack trace the workflow would have to
+ * guess the meaning of. Silence on a blind alarm is the one failure mode worth engineering against.
+ */
+const readOrEmpty = (p, label) => {
+	try {
+		return read(p);
+	} catch (err) {
+		console.error(`perf-nightly-compare: ${label} arm unreadable (${err.message}) — treating it as an empty run`);
+		return {};
+	}
+};
+const base = readOrEmpty(arg('--base'), 'base');
+const head = readOrEmpty(arg('--head'), 'head');
+
 const out = [];
 let regressed = false;
+let compared = 0;
 
 /**
  * One tier's table. `rows` is the summary array from the run JSON; a dataset present in one run and
- * not the other is reported as drift rather than silently dropped — the blessed-but-never-compared
- * hole that let four export timings rot unwatched.
+ * not the other FAILS rather than being noted in passing — the blessed-but-never-compared hole that
+ * let four export timings rot unwatched started exactly there, as a row nobody read.
  */
 function tier(label, baseRows = [], headRows = [], band, scale = 1, unit = 'ms') {
 	if (!headRows.length && !baseRows.length) return;
 	out.push(`\n### ${label}\n`);
 	out.push('| dataset | base | head | Δ% | band | verdict |');
 	out.push('|---|---|---|---|---|---|');
+	const fmt = (r) => (r ? `${(r.ms / scale).toFixed(1)}${unit}` : '—');
 	const names = [...new Set([...baseRows.map((r) => r.dataset), ...headRows.map((r) => r.dataset)])];
 	for (const name of names) {
 		const b = baseRows.find((r) => r.dataset === name);
 		const h = headRows.find((r) => r.dataset === name);
 		if (!b || !h) {
-			out.push(`| \`${name}\` | ${b ? (b.ms / scale).toFixed(1) : '—'} | ${h ? (h.ms / scale).toFixed(1) : '—'} | — | — | dataset drift (re-check) |`);
+			regressed = true;
+			out.push(`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | — | — | **DATASET DRIFT** — present in only one arm, so nothing was compared |`);
 			continue;
 		}
 		if (b.slides !== h.slides) {
-			out.push(`| \`${name}\` | ${b.slides} slides | ${h.slides} slides | — | — | workload changed |`);
+			regressed = true;
+			out.push(`| \`${name}\` | ${b.slides} slides | ${h.slides} slides | — | — | **WORKLOAD CHANGED** — the two arms are not comparable |`);
 			continue;
 		}
+		// Variance-aware, the way `bench:check` does it: a dataset whose own measurement is noisy
+		// raises its own bar rather than false-firing every night.
+		const eff = Math.max(band, (b.rmePct ?? 0) + (h.rmePct ?? 0));
 		const d = ((h.ms - b.ms) / b.ms) * 100;
-		const bad = d > band;
+		const bad = d > eff;
 		if (bad) regressed = true;
+		compared += 1;
 		out.push(
-			`| \`${name}\` | ${(b.ms / scale).toFixed(1)}${unit} | ${(h.ms / scale).toFixed(1)}${unit} | ${d >= 0 ? '+' : ''}${d.toFixed(1)} | ±${band} | ${bad ? '**REGRESSION**' : d < -band ? 'win' : 'ok'} |`,
+			`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | ${d >= 0 ? '+' : ''}${d.toFixed(1)} | ±${eff.toFixed(0)} | ${bad ? '**REGRESSION**' : d < -eff ? 'win' : 'ok'} |`,
 		);
 	}
 }
 
 out.push('# Engine / export perf — head vs base, same runner\n');
 tier('Engine render (markdown → HTML+CSS)', base.render?.summary, head.render?.summary, BAND.render);
-tier('Export / rasterize', base.print?.summary, head.print?.summary, BAND.export, 1000, 's');
+tier('Export / rasterize (screenshot every slide)', base.export?.summary, head.export?.summary, BAND.export, 1000, 's');
+tier('Print re-place (rasterize + assemble)', base.print?.summary, head.print?.summary, BAND.export, 1000, 's');
 
-if (regressed) {
-	out.push(`\n**A dataset regressed past its band.** Both runs were measured on this same runner minutes apart, so machine drift is already controlled for — this is a code change. Bisect the commit range in the run link below.`);
+if (!compared) {
+	// The state the first cut reported as "No tier regressed": both arms produced nothing, or every
+	// dataset drifted. Silence here reads exactly like health, which is the one thing an alarm may
+	// never do.
+	regressed = true;
+	out.push('\n**NOTHING WAS COMPARED.** Neither arm produced a comparable dataset — the bench did not run, exited early, or every dataset drifted. This is a harness failure reported as an alarm on purpose: a green "no regression" on zero comparisons is indistinguishable from health.');
+} else if (regressed) {
+	out.push(`\n**A dataset regressed past its band, or the two arms stopped being comparable.** Both runs were measured on this same runner minutes apart, so machine drift is already controlled for — this is a code change. Bisect the commit range in the run link below.`);
 } else {
-	out.push('\nNo tier regressed past its band.');
+	out.push(`\nNo tier regressed past its band (${compared} dataset${compared === 1 ? '' : 's'} compared).`);
 }
 
 fs.writeFileSync(arg('--md') ?? 'engine-perf.md', `${out.join('\n')}\n`);
