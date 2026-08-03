@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Lattice has THREE authoring vocabularies, not one, and only the smallest is enumerable. 22 Marpit directives have a registry; ~14 deck registers have 17 resolver kernels but no registry; 5 body-comment annotations have neither. Nothing gates any of them, so an unregistered key is indistinguishable from a typo in both directions — a misspelled directive silently does nothing, and a real feature silently works with no authority that says it exists. This audits every key against how it is produced, why, what consumes it, and in what context, and proposes one registry with a gate.
+summary: Lattice has THREE authoring vocabularies, not one, and only the smallest is enumerable. 22 Marpit directives have a registry; ~14 deck registers have 13 kernels among 17 resolve-* files but no registry of their own; 6 body-comment annotations have neither. Nothing gates any of them, so an unregistered key is indistinguishable from a typo in both directions — a misspelled directive silently does nothing, and a real feature silently works with no authority that says it exists. This audits every key against how it is produced, why, what consumes it, and in what context, and proposes one registry with a gate.
 ---
 
 # The authoring vocabulary: three registers, one of them homeless
@@ -15,10 +15,33 @@ Agreed, and the standing rule from that conversation is: **anything the Studio p
 by definition** — but it must be validated: how it is produced, why, how it is used, in what
 context. This is that validation.
 
-The first cut of this audit got the framing wrong and called the non-`KNOWN_DIRECTIVES` keys stray
-additions. They are not. Most are a **named, kernel-backed family** with 13 dedicated resolvers and
-a bake-into-the-document mechanism. The real defect is narrower and more actionable: **there is no
-single place that enumerates the vocabulary, and no gate that checks against it.**
+The first cut of this audit got the framing wrong twice, and both corrections matter more than the
+findings they qualify.
+
+**First:** it called the non-`KNOWN_DIRECTIVES` keys stray additions. They are not — most are a
+named, kernel-backed family with 13 dedicated resolvers and a bake-into-the-document mechanism.
+
+**Second, and this one survived into the merged draft:** it said *"there is no single place that
+enumerates the vocabulary."* **There are four, and this audit found only one of them.**
+
+| enumeration | file | keys | gated |
+|---|---|---|---|
+| `KNOWN_DIRECTIVES` | `lib/engine/directives.js:31` | 22 | — |
+| `DIRECTIVE_KEYS` | `docs/src/components/studio/slide-directives.ts:17` | 22, a TS mirror | **yes** — parity test |
+| `FIELD_DEFAULTS` / `MANAGED` | `docs/src/playground/deck-config.js:40` | 16, **with per-key prose naming each resolver kernel** | no |
+| `FRONT_MATTER_KEYS` | `docs/src/components/studio/editor-complete.ts:14` | 14, author-facing autocomplete | no |
+
+`deck-config.js` is not a sketch: it documents `finish` → `resolve-finish.js`, `mode` →
+`resolve-mode.js`, `color-mode` → `resolve-color-mode.js`, `split` → `resolve-split.js`, `lift` →
+`resolve-lift.js`, `glossary` → `glossary-auto.mjs`. **That is substantially the registry this note
+proposes building**, already written, already live, already unit-tested.
+
+So the real defect is **duplication, not absence** — four lists that already disagree, one of them
+(`FRONT_MATTER_KEYS`) shipped as author-facing autocomplete offering three keys this audit never
+mentions and omitting `color-mode`, every `spectrum*`, `stamp`, `tone`, `rule`, `eyebrow`,
+`headline`, `captions` and `motion*`. **The remedy for duplication is consolidation, not a fifth
+declaration**, and #1339 has been rescoped accordingly. Nothing gates any of them, which is the part
+of the original framing that holds.
 
 ### The corpus census
 
@@ -137,7 +160,8 @@ not a shortcut; they are a deliberate, cross-path contract.
 |---|---|---|---|---|
 | `<!-- describe: … -->` | 5 | accessible description — what the slide SHOWS | `notes-core.js` `DESCRIBE_MATCHER` → PPTX alt text | structured, unregistered |
 | `<!-- caption: … -->` | 4 | the slide's read-as line | `notes-core.js` `CAPTION_MATCHER` → read-along / WebVTT | structured, unregistered |
-| `<!-- tier: … -->` | 553 | minimum tier at which the slide appears | `lib/exemplars/tier-filter.js` | structured, unregistered, **and leaks** (below) |
+| `<!-- tier: … -->` | 553 | minimum tier at which the slide appears | `lib/exemplars/tier-filter.js` |
+| `<!-- galleryAuthored: … -->` | 2 | "do not overwrite this hand-curated gallery" | `tools/build-bucket-galleries.js:73` | structured, unregistered, **and leaks** (below) |
 | `<!-- note: … -->` | 11 | presenter talk track | — **no handler** | pure convention |
 | `<!-- Speaker: … -->` | 3 | same | — **no handler** | pure convention |
 
@@ -176,7 +200,7 @@ plus `acronyms` / `lexicon` (`setFrontMatterAcronyms` / `setFrontMatterLexicon`)
 | `color-mode:` | `StudioShell.tsx:1035` | light/dark toggle | "the FIRST-CLASS way to author" light/dark | `resolve-color-mode.js` | render + runtime |
 | `finish:` | `StudioShell.tsx:1068` (deck) · `SlideContext.tsx:312` (per-slide token) | finish picker | deck backdrop | `resolve-finish.js` | render + runtime |
 | `mode:` | `StudioShell.tsx:1073` | Deck Setup | rendering mode | `resolve-mode.js` | render + export |
-| `motion:` `motion-style:` `motion-speed:` | `StudioShell.tsx:1079` + siblings | motion controls | animation policy | player / runtime | Present + export |
+| `motion:` `motion-style:` `motion-speed:` | `StudioShell.tsx:1079` + siblings | motion controls | animation policy | **`docs/src` only** — `parseDeckMotion` (`anima-host-sel.ts:68`), read by `DeckPreview.tsx` / `PlaygroundApp.tsx`. **Zero readers in `lib/`**, so an anti-rot check scanning `lib/` would prune three live keys | Present + export |
 | `spectrum:` + `-edge` `-card` `-card-edge` `-trim` | `StudioShell.tsx:1087`–`:1113` (deck) · `SlideContext.tsx:314` (per-slide token) | Brand bar picker | the accent gradient ribbon | `resolve-spectrum.js` | render + runtime |
 | `rule:` `eyebrow:` `headline:` `lift:` | `StudioShell.tsx` | typography / card controls | heading rule, eyebrow finish, headline alignment, card elevation | the matching `resolve-*.js` | render + runtime |
 | `acronyms:` | `AcronymEditor.tsx:45` → `StudioShell.tsx:1252` | acronym editor | glossary expansion source | `glossary-auto.mjs`, `resolve-captions.mjs` | render + narration |
@@ -185,6 +209,19 @@ plus `acronyms` / `lexicon` (`setFrontMatterAcronyms` / `setFrontMatterLexicon`)
 | `<!-- _class: … -->` | `slide-directives.ts:203 setClassTokens` | component picker / library | names the slide's layout | `directives.js` `parseCommentDirectives` → `applyDirectives`; `resolve-component.js` supplies the `content` default when none is named | every path |
 | `<!-- caption: … -->` | `slide-caption.ts:39 setCaption` (emits at `:51`) | Slide Context → caption field | the slide's read-as line, top of the narration chain | `notes-core` → `share-export.ts` read-along, WebVTT | export + Present |
 | `<!-- describe: … -->` | `slide-descriptions.ts:33 setDescription` (emits at `:43`) | Slide Context → description field | accessibility: what the slide shows | `notes-core` → PPTX alt text | export |
+
+### A second producer this audit missed twice
+
+`docs/src/playground/deck-config.js:301` is a **second live front-matter writer** (`writeFrontMatter`,
+wired through `createConfigPanel` into the Playground's Deck Setup), and
+`docs/src/lib/lente/registry.ts` is a **third** (`upsertLensRegistry`, emitting `lenses:`,
+`lens-default:`, `lens-defaults:`). Between them they write at least `split:`, `glossary:`, `form:`,
+`validate:`, `math:`, `lenses:`, `lens-default:` — **none of which appear in the list above.**
+
+That is the same error twice: the first table enumerated producers from *consumers*, the correction
+enumerated them from `writeFrontMatterLine`, and both times the method improved while the
+exhaustiveness claim did not become true. Treat the list above as *"what `StudioShell` writes"* —
+which is what it actually is — not as the product's producer set.
 
 ### Front matter the Studio does NOT write
 
@@ -209,7 +246,12 @@ dossier, teaches only `<!-- _class: NAME -->` and base modifiers, so generated d
    Verified on `exemplars/academic/research-findings.md`: the presenter-notes field is
    `"tier: short\n\ntier: short\n\ntier: standard\n…"`. 553 markers across the corpus, and
    `lib/export/pptx-export.js` defers to `notes-core` for the boundary, so this ships.
-   **One-line fix:** add `/^tier\s*:/i` to `MAGIC_COMMENT_MATCHERS`.
+   **Not a one-line fix, as an earlier draft claimed:** `galleryAuthored:` leaks the same way
+   (`lib/components/diagram/diagram.gallery.md:1` and `legal.gallery.md:10` both export their
+   "do not overwrite" note as a presenter note), and so does the comment form of any hyphenated
+   register — `<!-- color-mode: dark -->` silently does nothing AND lands in the notes field. The
+   allowlist needs the structured pragmas as a set, and `galleryAuthored` is camelCase, which breaks
+   any registry assuming the lowercase/kebab convention `directives.js` states for `lens`.
 2. **Two shipping Studio files misdescribe their own contract.** `slide-caption.ts:8` and
    `slide-descriptions.ts:7` both say *"the engine consumes"* — `lib/engine/` has **zero**
    references to either. `notes-core`, a post-render layer, consumes them.
@@ -253,8 +295,14 @@ place**, and every entry names its consumer.
 
 - **Migration of `note:` / `Speaker:`** — collapsing them into one key changes what 14 existing
   slides export. Rewrite the decks, or accept both spellings permanently?
-- **`meta:`, `form:`, `player:`, `present:`, `glossary:`** appear in front matter across the corpus
-  with no `resolve-*` kernel and no traced consumer. Each needs tracing individually before it is
+- **`player:` and `present:`** appear in front matter with no traced consumer. (`meta:`, `form:` and
+  `glossary:` were on this list and should NOT have been: `meta:` →
+  `lib/forms/tile/meta/meta.transform.js:39`, `form:` → `plugins.js:619 readFormMode` plus a
+  `retired-form-minimal` lint rule, `glossary:` → `glossary-auto.mjs:37` — which this note's own
+  validation table already named as a consumer. The error's root cause is worth more than the error:
+  the enumeration surface was `ls lib/core/resolve-*`, which structurally cannot see
+  `lib/forms/**`, `plugins.js`, or `glossary-auto.mjs`. "~14 deck registers" is an artifact of where
+  this note looked.) Each needs tracing individually before it is
   registered or pruned — deleting one silently breaks a deck, so this is not a bulk decision.
   (`mode:` and `lexicon:` were on this list in the first cut and should NOT be: `resolve-mode.js`
   exists, and `lexicon:` is parsed by `resolve-captions.mjs:236 parseLexicon`.)

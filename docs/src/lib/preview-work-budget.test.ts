@@ -32,7 +32,7 @@ vi.mock('./theme-fetch', () => ({
 vi.mock('../playground/font-embed.js', () => ({ previewFontFaceCss: () => '' }));
 
 import { renderMarkdown } from './render-engine';
-import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer } from './single-slide-render';
+import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer, deckDerivedFactsFor } from './single-slide-render';
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
@@ -54,27 +54,27 @@ const GALLERY = `---\npaginate: true\n---\n\n${slides(40, (i) => (i % 8 === 0 ? 
 const PAGINATED = `---\npaginate: true\n---\n\n${slides(40)}`;
 
 /**
- * THE CONTROL, and it must be a fact that is UNSLICEABLE BY CONSTRUCTION. `glossary: auto` appends a
- * derived appendix slide built from terms across the whole deck — it changes the SLIDE COUNT, so no
- * amount of cleverness can hand a slice what it needs; the engine has to count for itself. That
- * makes `wholeDeck === 1` permanently true rather than true-for-now.
- *
- * The first cut used a running `header:` here, and that was a latent trap. A running global is
- * TEXT, and text is precisely what a prefix scan CAN supply — the same move `supplyablePosition`
- * already makes for position. So that row asserted "the whole-deck render is CORRECT" about a shape
- * covering 54 committed decks that is the next thing worth optimizing (#1333). Whoever lands that
- * optimization would find this gate red, and the natural way to green it — move the row to
- * FAST_ROUTE — would delete the suite's only control and leave a gate that passes just as well if
- * the route logic always answers "slice". A ratchet would have aged into a lock.
+ * NOT 40 SLIDES, deliberately. Every other fixture is exactly 40, so a regression conditioned on
+ * deck size — `slideCount > 40`, a chunking threshold, a cache bucket — kept the whole suite green
+ * while the 117-slide gallery this change exists for rendered un-positioned. That failure also
+ * disables the slice cache silently, because the supplied position is part of its key.
  */
-const GLOSSARY = `---\nglossary: auto\n---\n\n${slides(40)}`;
+const BIG = `---\npaginate: true\n---\n\n${slides(97)}`;
+
+/**
+ * A deck that trips a deck-derived fact. `glossary: auto` appends a derived appendix slide BUILT
+ * FROM an `acronyms:` registry — the registry is what makes the transform actually fire, and the
+ * first cut of this fixture omitted it. Without entries `appendAutoGlossary` returns the source
+ * unchanged (`lib/core/glossary-auto.mjs`), so the deck's slide count did NOT change and the
+ * comment claiming it did was false of its own fixture. Verified: 1680 bytes in, 1680 out.
+ */
+const GLOSSARY = `---\nglossary: auto\nacronyms:\n  ARR:\n    definition: Annual Recurring Revenue\n---\n\n${slides(40)}`;
 
 /**
  * KNOWN-SLOW, AND TRACKED — not a requirement. This shape takes the whole-deck route today because
  * nothing supplies inherited running-global text to a slice yet. That is a COST, not a correctness
- * property: 54 of the 58 committed decks on the slow route trip this exact probe (#1333). If you
- * are here because you made running globals sliceable and this row went red: that is the win
- * landing. Move it into FAST_ROUTE, add the position assertions, and leave GLOSSARY as the control.
+ * property: 54 committed decks trip this probe and nothing else (#1333). If you made running
+ * globals sliceable and this row went red, that is the win landing — move it into FAST_ROUTE.
  */
 const RUNNING_HEADER = `<!-- header: Q3 Board Review -->\n\n${slides(40)}`;
 
@@ -122,6 +122,9 @@ function mountHost() {
 	return host;
 }
 
+/** The deck's real slide count, by the same split the renderer's caller uses. */
+const slideCountOf = (deck: string) => deck.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/, '').split(/\n-{3,}\n/).length;
+
 /** Drive ONE edit of the shown slide, exactly as the Studio's editor preview does. */
 async function typeOneSlide(deck: string, slideIndex: number) {
 	const { seen } = recordWork(deck);
@@ -144,11 +147,23 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 		['plain 40-slide deck', PLAIN],
 		['paginated deck (#1272)', PAGINATED],
 		['gallery deck with dividers (#1280 — the 63.2ms case)', GALLERY],
+		['97-slide deck (size-conditioned regressions)', BIG],
+	];
+
+	// EVERY row below drives the deck's FIRST, MIDDLE and LAST slide. All five fixtures used to be
+	// exactly 40 slides and every test typed at index 20, so two ordinary regressions kept the whole
+	// suite green: an off-by-one that drops the supplied position at index 0 and index count-1 (the
+	// two slides an author looks at most), and a bug conditioned on `slideCount > 40` — which also
+	// silently disables the slice cache, since `slicePage` is part of its key.
+	const AT: [label: string, at: (n: number) => number][] = [
+		['first slide', () => 0],
+		['middle slide', (n) => Math.floor(n / 2)],
+		['last slide', (n) => n - 1],
 	];
 
 	for (const [name, deck] of FAST_ROUTE) {
 		it(`${name}: 1 render, 0 whole-deck parses`, async () => {
-			const w = await typeOneSlide(deck, 20);
+			const w = await typeOneSlide(deck, Math.floor(slideCountOf(deck) / 2));
 			expect(w.calls, 'one keystroke must cost exactly one engine render').toBe(1);
 			expect(w.wholeDeck, 'the whole deck was re-parsed — this is the per-keystroke regression').toBe(0);
 			expect(w.slices).toBe(1);
@@ -165,15 +180,19 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 			expect(w.bytes[0], `the engine was handed ${w.bytes[0]} of the deck's ${deck.length} bytes — that is a whole-deck parse wearing a different byte string`).toBeLessThan(deck.length / 5);
 		});
 
-		it(`${name}: the slice is handed its true deck position`, async () => {
-			// The other half of the bargain: rendering one slide alone is only correct because the
-			// caller supplies what the slide would otherwise have to derive. A slice rendered WITHOUT
-			// a position is cheap and wrong — it numbers itself "1 of 1".
-			const w = await typeOneSlide(deck, 20);
-			expect(w.pages[0], 'the slice was rendered with no supplied position').toBeDefined();
-			expect(w.pages[0]?.offset).toBe(20);
-			expect(w.pages[0]?.total).toBe(40);
-		});
+		for (const [where, at] of AT) {
+			it(`${name}: the slice is handed its true deck position — ${where}`, async () => {
+				// The other half of the bargain: rendering one slide alone is only correct because the
+				// caller supplies what the slide would otherwise have to derive. A slice rendered
+				// WITHOUT a position is cheap and wrong — it numbers itself "1 of 1".
+				const n = slideCountOf(deck);
+				const i = at(n);
+				const w = await typeOneSlide(deck, i);
+				expect(w.pages[0], `slide ${i + 1} of ${n} was rendered with no supplied position`).toBeDefined();
+				expect(w.pages[0]?.offset).toBe(i);
+				expect(w.pages[0]?.total).toBe(n);
+			});
+		}
 	}
 
 	it('gallery deck: the slice is handed its SECTION position too, not just its page number', async () => {
@@ -188,7 +207,24 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 		expect(sec?.index, 'slide 20 sits in the third section (dividers at 0, 8, 16, 24, 32)').toBe(3);
 	});
 
-	it('glossary deck: THE CONTROL — an unsliceable fact still buys the whole-deck render', async () => {
+	// THE DERIVED CONTROL, and it is the one that cannot expire. Every row above names a deck SHAPE,
+	// so each is only true until someone makes that shape sliceable — which is exactly how the first
+	// control (a running `header:`) turned into a lock on the next optimization, and how the second
+	// (`glossary: auto`) nearly did. This one asserts the INVARIANT instead: the route taken must
+	// agree with the registry's own answer about the deck. When running globals become sliceable the
+	// probe is deleted and this row follows automatically — no editing, nothing to get wrong.
+	it('the route always agrees with the registry — no fixture can drift from it', async () => {
+		for (const [name, deck] of [...FAST_ROUTE, ['glossary', GLOSSARY], ['running header', RUNNING_HEADER]] as [string, string][]) {
+			const facts = deckDerivedFactsFor(deck);
+			const w = await typeOneSlide(deck, Math.floor(slideCountOf(deck) / 2));
+			expect(
+				w.wholeDeck > 0,
+				`${name}: the registry reports ${facts.length ? `facts [${facts.join(', ')}]` : 'no deck-derived fact'}, but the render took the ${w.wholeDeck > 0 ? 'whole-deck' : 'slice'} route`,
+			).toBe(facts.length > 0);
+		}
+	});
+
+	it('glossary deck: an unsliceable fact still buys the whole-deck render', async () => {
 		// `glossary: auto` changes the deck's slide count, so the engine must count for itself. This
 		// row is what proves the rows above measure a real decision rather than always reporting
 		// "slice" — and unlike a running global, it can never become sliceable, so it will not go
@@ -202,9 +238,16 @@ describe('preview work budget — one keystroke costs one slide render', () => {
 		// Records the status quo so a change is visible, and says in its message that going red here
 		// is a WIN rather than a regression. See the fixture comment for what to do about it.
 		const w = await typeOneSlide(RUNNING_HEADER, 20);
+		// `toBe(1)` emits one message for ANY non-1 value, so a 2-render regression used to fail
+		// here telling the reader "you made them sliceable, delete this row" — instructions to
+		// remove a row that was catching a real defect. Split the two directions.
+		expect(w.wholeDeck, 'more than one whole-deck parse per keystroke — this is a regression, not the #1333 win').toBeLessThanOrEqual(1);
 		expect(
 			w.wholeDeck,
-			'running-global decks no longer take the whole-deck route — if you made them sliceable, that is #1333 landing: move this row into FAST_ROUTE and keep GLOSSARY as the control',
+			'running-global decks no longer take the whole-deck route — if you made them sliceable, that is #1333 landing: move this row into FAST_ROUTE',
 		).toBe(1);
+		// Dropped when this row was reframed, which let it pass under a 2-render-per-keystroke
+		// regression. The suite only survived because GLOSSARY exercises the same route and kept it.
+		expect(w.slices, 'a whole-deck render must not ALSO cost a slice render').toBe(0);
 	});
 });
