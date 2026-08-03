@@ -724,9 +724,10 @@ const {
 // Reference for the variable inventory: https://mermaid.js.org/config/theming.html
 const MERMAID_VAR_MAP = {
   // Typography (literal — fonts are structural, not palette-specific)
-  // Shared with the runtime (HARD RULE #1) — see DIAGRAM_FONT_STACK in
-  // lib/integrations/mermaid/init-directive.js for why diagrams are monospace
-  // and why a hyphenated body stack cannot ride in a directive at all.
+  // See DIAGRAM_FONT_STACK in lib/integrations/mermaid/init-directive.js for why
+  // diagrams are monospace and why a hyphenated body stack cannot ride in a
+  // directive at all. The runtime uses --font-body instead — a pre-existing
+  // divergence, documented in engineering/mermaid.md §5.3.
   fontFamily: { literal: MERMAID_DIAGRAM_FONT },
   fontSize:   { literal: '14px' },
 

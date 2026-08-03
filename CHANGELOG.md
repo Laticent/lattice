@@ -101,7 +101,16 @@ in patch versions.
   *behind* the categorical node fills and must not compete with them, which is a different job from
   a card sitting on the canvas. Both render paths re-pointed. Only PLAIN clusters move: a
   `.section-N` cluster (mindmap, timeline, kanban) is already overridden to `--cat-N-fill` by
-  `mermaid.css`'s band cycle, and no committed deck ships a subgraph, so no baseline shifts.
+  `mermaid.css`'s band cycle. One other surface does move: a `block-beta` composite `block:` group,
+  which Mermaid fills with a 50%-faded `clusterBkg`. No committed deck ships either a `subgraph` or a
+  `block:` group — verified by rendering all 21 diagram types, not by grep — so no baseline shifts.
+  Two per-theme follow-ons the re-point forced, both verified by rendering: **`--print-c-container`**
+  is now declared (the emulator's print band only flattens a token that has a `--print-*` sibling, so
+  without it a tinted theme leaked a pink/violet cluster box into a grayscale handout), and **onyx's
+  dark containment arms are re-tuned** from `#020202`/`#0B0B0B` to `#1C1C1C`/`#2E2E2E` — a 2/255
+  "step" from onyx-dark's `#000000` canvas made the subgraph box invisible at 1.01:1 there and on the
+  four a11y palettes that `@import` onyx. Latent while nothing read the tier; visible the moment
+  something did.
   `--c-subcontainer` (the next rung down, kanban ticket) is untouched. (#1311)
 
 - **Breaking: the live preview pins Mermaid to `securityLevel: 'strict'`, closing an XSS.** The
@@ -122,7 +131,8 @@ in patch versions.
   service via a malformed directive.** The payload group was wrapped in `\s*` on both sides, so
   whitespace was matchable by two adjacent quantifiers — a directive with a long whitespace run and no
   closing `}%%` sent the regex engine into quadratic backtracking, and one bad fence could hang a
-  build (measured: 2 000 spaces did not finish in two minutes; 200 000 now parse in 2 ms). The group
+  build (re-measured against the pre-fix pattern: 2 000 spaces 3.2 s, 4 000 spaces 26 s, 8 000 did not
+  finish in two minutes; 20 000 repeated `%%{init:` openers 6.0 s — all now sub-millisecond). The group
   is now located by a linear `indexOf` walk rather than a regex at all: every pattern of the shape
   `%%{…:(payload-until-`}%%`)}%%` rescans to end-of-string from each candidate start, so a fence with
   many `%%{init:` prefixes cost O(n²) — 20 000 of them took 5.9 s. Bounding a quantifier only caps
@@ -133,6 +143,14 @@ in patch versions.
   `%%{init: {"__proto__": {"theme": "forest"}}}%%` would have made `config.theme` read `forest` off
   an inherited object and stood the engine down. `__proto__` / `constructor` / `prototype` keys are
   now dropped; Mermaid has no legitimate config key by those names. (#1311)
+
+- **An unresolvable Mermaid theme name no longer strands a diagram.** The stand-down test lowercased
+  the author's `theme:` value and compared it to `base`, but Mermaid's own lookup
+  (`theme in themes_default`) is exact and case-sensitive. So `theme: 'Forest'`, `theme: ''` or any
+  typo read as an opt-out: the engine stood down, Mermaid resolved no theme either, and the figure
+  rendered in stock `#ffffde` — the very bug this release fixes, reachable from a capital letter. It
+  also made the export's look re-bake report "kept their own colors" about a diagram whose author
+  kept nothing. The predicate now pins only on a name Mermaid actually resolves. (#1311)
 
 - **An author's own `%%{init}%%` no longer costs a diagram its palette.** Any `%%{init}%%` inside a
   ```` ```mermaid ```` fence used to make the export path skip the injected `themeVariables`

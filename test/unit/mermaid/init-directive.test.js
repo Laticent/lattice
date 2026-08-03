@@ -192,6 +192,28 @@ describe('mermaid init-directive: authorPinsTheme', () => {
     assert.equal(authorPinsTheme('%%{init: {"theme":"dark"}}%%\nflowchart TB'), true);
   });
 
+  test('a theme name Mermaid cannot resolve is NOT a pin — it would strand the diagram', () => {
+    // Mermaid re-derives themeVariables only for `theme in themes_default`, an
+    // exact case-sensitive lookup. Treating an unresolvable name as an opt-out
+    // meant the engine stood down, Mermaid resolved no theme either, and the
+    // figure rendered in stock #ffffde — the #1311 symptom, reachable from a
+    // typo. It also made the export re-bake report "kept their own colors" about
+    // a diagram whose author kept nothing.
+    for (const bogus of ['', 'Forest', 'FOREST', 'nonsense', 'Dark']) {
+      assert.equal(authorPinsTheme(`%%{init: {"theme":"${bogus}"}}%%\nflowchart TB`), false,
+        `theme:"${bogus}" is not resolvable by Mermaid, so it must not stand the engine down`);
+      assert.match(withEngineInit(`%%{init: {"theme":"${bogus}"}}%%\nflowchart TB`, ENGINE),
+        /^%%\{init: /, 'the engine directive still goes in');
+    }
+  });
+
+  test('every theme name Mermaid DOES resolve pins, and only `base` does not', () => {
+    for (const real of ['dark', 'forest', 'neutral', 'default', 'neo', 'neo-dark', 'redux']) {
+      assert.equal(authorPinsTheme(`%%{init: {"theme":"${real}"}}%%\nflowchart TB`), true, real);
+    }
+    assert.equal(authorPinsTheme('%%{init: {"theme":"base"}}%%\nflowchart TB'), false);
+  });
+
   test('true when the directive is unparseable — unknown contents, hands off', () => {
     assert.equal(authorPinsTheme('%%{init: {broken}}%%\nflowchart TB'), true);
   });

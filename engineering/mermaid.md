@@ -64,7 +64,9 @@ the two share is the token→variable map, not the plumbing.
 The mapping is `MERMAID_VAR_MAP` in `lattice-emulator.js` (build path) and
 `buildMermaidThemeVars()` in `lib/runtime/index.js` (preview path); a unit test
 (`test/unit/mermaid/mermaid-var-map.test.js`) asserts every token it names
-resolves in every shipped palette.
+resolves in indaco and cuoio; the remaining palettes are covered by the CONTRACT
+list in `test/unit/palette/token-parity.test.js` (13 themes — `carta` and the
+five `a11y-*` inherit theirs through `@import`).
 
 **A `subgraph` box takes `--c-container`, the per-theme containment rung** — not
 `--bg-alt`, which is the deck's *card* fill. The distinction matters because a
@@ -119,10 +121,17 @@ a `%%{init}%%` directive:
 ```
 ````
 
-`theme:` ≠ `base` reads as an explicit opt-out, so the engine injects nothing and
+Any theme name Mermaid actually resolves — `dark`, `forest`, `neutral`, `neo`,
+`redux`, … — other than `base`, reads as an explicit opt-out, so the engine
+injects nothing and
 you get Mermaid's stock `forest` — off-palette by definition, immune to a theme
 switch, and reported as "kept their own colors" by the export's look re-bake.
 Reach for it only when you genuinely want a diagram outside the deck's palette.
+
+A name Mermaid does **not** resolve is not an opt-out. `theme: 'Forest'` (wrong
+case), `theme: ''`, or a typo would leave you with no theme from Mermaid *and* no
+palette from the engine — stock `#ffffde` — so the engine keeps the diagram
+instead. Theme lookup is case-sensitive and exact on Mermaid's side.
 
 **Two spellings the stand-down does NOT cover**, both pre-dating #1311:
 
@@ -136,9 +145,11 @@ Reach for it only when you genuinely want a diagram outside the deck's palette.
   `theme: base` wins and you get the palette, not `forest`. The stand-down reads
   the `%%{init}%%` spelling only. Use the directive form to opt out.
 
-The reconciliation lives in one shared kernel,
-`lib/integrations/mermaid/init-directive.js`, so both render paths apply the same
-rule. Before #1311 they did not: ANY directive made the build path skip the
+The reconciliation lives in `lib/integrations/mermaid/init-directive.js`, which
+the **PDF path** calls; the preview needs no kernel because Mermaid's own merge
+over the global config already delivers the same guarantee. One consequence worth
+knowing: the theme stand-down is PDF-path-only — a `theme:` pin previews on-theme
+and exports stock. Before #1311 the build path was worse: ANY directive made it skip the
 injected palette entirely, and the diagram silently fell back to Mermaid stock
 (`#ffffde` clusters, `#333` label ink). If you are looking at an off-theme
 diagram with a directive in it, that regression is what

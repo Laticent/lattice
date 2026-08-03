@@ -1090,11 +1090,14 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Mitigation:** fixed in #1311 — `lib/integrations/mermaid/init-directive.js`
   merges instead: the engine directive is emitted ahead of the author's, and
   Mermaid merges init directives in source order (later wins), so an author's
-  keys override ours and everything else keeps the palette. Both render paths
-  call the same kernel.
-- **Still expected:** `%%{init: {'theme': 'forest'}}%%` (any `theme:` that isn't
-  `base`) is an explicit opt-out — the engine stands down and you get stock
-  Mermaid colors on purpose. If that is NOT what you wanted, drop the `theme:`
+  keys override ours and everything else keeps the palette. The kernel is the PDF
+  path's; the live preview gets the same guarantee from Mermaid's own merge over
+  `mermaid.initialize` and calls no kernel.
+- **Still expected, ON THE PDF PATH:** `%%{init: {'theme': 'forest'}}%%` — any
+  theme name Mermaid actually resolves, other than `base` — is an explicit
+  opt-out, and the engine stands down. The live preview does NOT honor that pin:
+  Mermaid folds the palette from `mermaid.initialize` back in as overrides, so a
+  pinned diagram previews on-theme and exports stock. Known divergence. If that is NOT what you wanted, drop the `theme:`
   key; every other key in your directive keeps working.
 - **Related:** `layout: 'elk'` looks like it works and doesn't. Mermaid falls
   back to dagre for an unregistered layout with a `log.warn` you never see, so

@@ -207,9 +207,18 @@ section pre.hljs {
    * at a barely-there chroma — surfaces, not accents; they never
    * compete with the --cN fills that sit on them.
    *   --c-container     flowchart cluster, sankey area, kanban column
-   *   --c-subcontainer  kanban ticket, a box nested in a cluster */
-  --c-container:     light-dark(#EEEEEE, #020202);
-  --c-subcontainer:  light-dark(#DFDFDF, #0B0B0B);
+   *   --c-subcontainer  kanban ticket, a box nested in a cluster
+   *
+   * DARK ARMS RE-TUNED (#1311). They were #020202 / #0B0B0B — a "step up" of
+   * 2/255 from onyx-dark's #000000 canvas, i.e. no step at all (1.01:1). That was
+   * invisible but harmless while nothing read the tier; the moment clusterBkg
+   * moved onto --c-container a subgraph box vanished on onyx-dark and on the four
+   * a11y palettes that @import onyx. These values restore the ladder: the
+   * container clears the canvas (1.23:1, just past the #1A1A1A the cluster used
+   * to borrow) and the subcontainer clears the container (1.26:1), with white ink
+   * at 17.0:1 and 13.6:1. Light arms are unchanged. */
+  --c-container:     light-dark(#EEEEEE, #1C1C1C);
+  --c-subcontainer:  light-dark(#DFDFDF, #2E2E2E);
 }
 
 /* ── Chart-family palette — slate · red · green ─────────────────────────
