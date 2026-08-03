@@ -53,6 +53,15 @@ Mermaid the whole set — 150-odd keys resolved from the active palette — on b
 paths. Hand-copying freezes a snapshot of one palette: the diagram then ignores a
 theme switch, a dark slide, and the print look.
 
+**One map, two readers.** Which Mermaid variable is fed by which palette token is
+decided once, in `lib/core/mermaid-theme-map.js`. Each path supplies only a
+`readToken` — `getComputedStyle(section)` in the preview, offline token
+resolution against the palette text in the PDF path — and `buildDiagramTheme`
+does the rest. Before that, the two paths held separate copies of the same map
+and 38 values had drifted apart; `fontFamily` is now the one sanctioned
+divergence (`DIVERGENT_KEYS`), and
+`test/unit/core/diagram-theme-parity.test.js` fails on any other.
+
 The two paths deliver it differently, because they have to. The **live preview**
 is in-process, so it sets the palette once on the global config
 (`mermaid.initialize`); Mermaid then merges your in-source `%%{init}%%` over that

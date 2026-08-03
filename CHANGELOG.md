@@ -27,6 +27,21 @@ in patch versions.
 
 ### Fixed
 
+- **Live preview and exported PDF disagreed about 38 Mermaid theme values, and nothing compared
+  them.** Each render path owned a private copy of the token → `themeVariables` map, kept in sync by
+  a comment that pointed at the other file. A gate had been watching the two KEY sets since #511, so
+  those matched; the values were never checked, and the note shipped alongside it conceded that "a
+  few keys intentionally map to different tokens per path". Thirty-five text keys read `--text-heading`
+  in preview against `--cat-on-fill` in export — the same color in 27 palettes, but on the five
+  `a11y-*` palettes in dark contexts that was white node ink on the pale, textured categorical fills
+  those palettes always use, where the export had always (correctly) used the pinned dark ink. The
+  other three were the gitgraph tag chip, drawn in preview as canvas ink on a saturated
+  `--diagram-stroke` fill instead of the neutral, bordered label chip the export draws. There is one
+  map now (`lib/core/mermaid-theme-map.js`), so a value can no longer differ by accident: the paths
+  supply only a token READER, and `fontFamily` is the single enumerated exception. The exported PDF
+  is byte-identical — verified page-by-page across indaco, onyx, concrete and a11y-deuteranopia, in
+  both plain and print. Part of #1332.
+
 - **A deck set to dark never reached its Mermaid diagrams on any slide that named its own
   `_class:` — so nearly every diagram in every dark deck.** `color-mode: dark` (and the legacy
   `class: dark`) rendered a dark canvas but baked the diagram for LIGHT: light-mode label ink on

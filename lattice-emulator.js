@@ -711,275 +711,25 @@ if (explicitSize) {
 // See engineering/decisions/2026-05-12-diagram-tokens.md for the architecture.
 
 // ── Mermaid theme variables — structural map only ───────────────────────
-// The mapping below names which Mermaid theme variable corresponds to which
-// CSS custom property in the active palette. The CSS variables hold the
-// actual hex values; this map is structural and unchanging across palettes.
+// THE map lives in lib/core/mermaid-theme-map.js, imported by this path and by
+// the runtime (#1332 step 2, HARD RULE #1). It used to live HERE, with a second,
+// drifted 132-key copy in lib/runtime/index.js kept in sync by comment; the two
+// are now one object, so a key exists on both paths or on neither.
 //
-// Adding a new palette doesn't require editing this file — define the same
-// CSS custom properties in themes/<n>.css and the same mapping resolves
-// against the new values.
+// The map names which Mermaid theme variable corresponds to which CSS custom
+// property in the active palette. The CSS variables hold the actual hex values;
+// the map is structural and unchanging across palettes, so adding a palette
+// means declaring the same custom properties in themes/<n>.css — never editing
+// the map.
 //
 // The `%%{init}%%` reconciliation kernel (#1311) — how the engine palette and an
 // author's own directive coexist, shared with the runtime (HARD RULE #1).
-// Required HERE, above MERMAID_VAR_MAP: the mermaid pre-pass runs during module
+// Required HERE, above the first use: the mermaid pre-pass runs during module
 // evaluation, so everything it reaches for must already be bound (the same
 // hazard the local escapeHtml below works around).
-const {
-  withEngineInit, engineInitConfig, authorPinsTheme,
-  DIAGRAM_FONT_STACK: MERMAID_DIAGRAM_FONT,
-} = require('./lib/integrations/mermaid/init-directive');
+const { withEngineInit, engineInitConfig, authorPinsTheme } = require('./lib/integrations/mermaid/init-directive');
+const { buildDiagramTheme } = require('./lib/core/mermaid-theme-map');
 
-// Reference for the variable inventory: https://mermaid.js.org/config/theming.html
-const MERMAID_VAR_MAP = {
-  // Typography (literal — fonts are structural, not palette-specific)
-  // See DIAGRAM_FONT_STACK in lib/integrations/mermaid/init-directive.js for why
-  // diagrams are monospace and why a hyphenated body stack cannot ride in a
-  // directive at all. The runtime uses --font-body instead — a pre-existing
-  // divergence, documented in engineering/mermaid.md §5.3.
-  fontFamily: { literal: MERMAID_DIAGRAM_FONT },
-  fontSize:   { literal: '14px' },
-
-  // Canvas
-  background:               { var: 'bg' },
-
-  // Primary/secondary/tertiary fills (pale band)
-  primaryColor:             { var: 'cat-1-fill' },
-  secondaryColor:           { var: 'cat-2-fill' },
-  tertiaryColor:            { var: 'bg-alt' },
-  primaryBorderColor:       { var: 'diagram-stroke' },
-  secondaryBorderColor:     { var: 'diagram-stroke' },
-  tertiaryBorderColor:      { var: 'diagram-stroke' },
-
-  // Text — ONE token, --cat-on-fill, for every text element. It flips
-  // with the canvas (dark ink on a light canvas, light ink on a dark
-  // canvas). No "shape text vs canvas text" split: the fills flip with
-  // the canvas too, so ink and fill always stay matched. Text on a
-  // categorical fill, text on a pale surface, titles, edge labels —
-  // all the same token, all flip together.
-  primaryTextColor:         { var: 'cat-on-fill' },
-  secondaryTextColor:       { var: 'cat-on-fill' },
-  tertiaryTextColor:        { var: 'cat-on-fill' },
-  textColor:                { var: 'cat-on-fill' },
-  titleColor:               { var: 'cat-on-fill' },
-  labelTextColor:           { var: 'cat-on-fill' },
-  loopTextColor:            { var: 'cat-on-fill' },
-  classText:                { var: 'cat-on-fill' },
-  labelColor:               { var: 'cat-on-fill' },
-
-  // Lines (near-black on white canvas)
-  lineColor:                { var: 'diagram-line' },
-  defaultLinkColor:         { var: 'diagram-line' },
-  edgeLabelBackground:      { var: 'bg' },
-  labelBackground:          { var: 'bg' },
-
-  // Main background paths
-  mainBkg:                  { var: 'cat-1-fill' },
-  nodeBorder:               { var: 'diagram-stroke' },
-  nodeTextColor:            { var: 'cat-on-fill' },   // flowchart node text, on fill
-  // A subgraph box is a CONTAINMENT surface, not deck chrome: it sits behind the
-  // categorical node fills and must not compete with them. That is what the
-  // per-theme `--c-container` rung is curated for (its own declaration comment
-  // names "flowchart cluster, sankey area, kanban column") — but nothing read it
-  // until #1311, so the cluster borrowed `--bg-alt`, whose job is the CARD fill.
-  // Theme authors were tuning a surface that never rendered. Note this only
-  // reaches PLAIN clusters: a `.section-N` cluster (mindmap, timeline, kanban)
-  // is overridden to `--cat-N-fill` by mermaid.css's band cycle.
-  clusterBkg:               { var: 'c-container' },
-  // The box's EDGE, not the universal band stroke. --diagram-stroke is a flat
-  // saturated dark hex that does not flip with color-scheme, so on a dark
-  // container it went dark-on-dark and no edge of the box reached 3:1 in 12 of
-  // 14 themes. The containment tier carries its grouping semantic in this
-  // boundary — the fill is deliberately barely-there — so it gets a scheme-aware
-  // edge of its own, gated at 3:1 by containment-contrast.test.js.
-  clusterBorder:            { var: 'c-container-edge' },
-
-  // cScale (mid-tone band) — kanban lighten brings to L≈70
-  cScale0:                  { var: 'cat-1-mark' },
-  cScale1:                  { var: 'cat-2-mark' },
-  cScale2:                  { var: 'cat-3-mark' },
-  cScale3:                  { var: 'cat-4-mark' },
-  cScale4:                  { var: 'cat-5-mark' },
-  cScale5:                  { var: 'cat-6-mark' },
-  cScale6:                  { var: 'cat-1-mark' },
-  cScale7:                  { var: 'cat-2-mark' },
-  cScale8:                  { var: 'cat-3-mark' },
-  cScale9:                  { var: 'cat-4-mark' },
-  cScale10:                 { var: 'cat-5-mark' },
-  cScale11:                 { var: 'cat-6-mark' },
-
-  // cScaleLabel — text fill in Mermaid's auto-generated
-  // `.section-${r-1} text { fill: cScaleLabel${r} }` rule. Mermaid's own
-  // contrast-aware derivation lands on white when fed mid-tone cScale,
-  // which fails against our pale band fills. Setting each slot to the
-  // paired band-text token (all map to --text-heading in shipped palettes)
-  // ensures the auto rule renders dark ink, regardless of whether our
-  // explicit CSS overrides match the diagram in question.
-  cScaleLabel0:  { var: 'cat-on-fill' },
-  cScaleLabel1:  { var: 'cat-on-fill' },
-  cScaleLabel2:  { var: 'cat-on-fill' },
-  cScaleLabel3:  { var: 'cat-on-fill' },
-  cScaleLabel4:  { var: 'cat-on-fill' },
-  cScaleLabel5:  { var: 'cat-on-fill' },
-  cScaleLabel6:  { var: 'cat-on-fill' },
-  cScaleLabel7:  { var: 'cat-on-fill' },
-  cScaleLabel8:  { var: 'cat-on-fill' },
-  cScaleLabel9:  { var: 'cat-on-fill' },
-  cScaleLabel10: { var: 'cat-on-fill' },
-  cScaleLabel11: { var: 'cat-on-fill' },
-
-  // fillType (subgraph / mindmap-level fills, pale band)
-  fillType0: { var: 'cat-1-fill' },
-  fillType1: { var: 'cat-2-fill' },
-  fillType2: { var: 'cat-3-fill' },
-  fillType3: { var: 'cat-4-fill' },
-  fillType4: { var: 'cat-5-fill' },
-  fillType5: { var: 'cat-6-fill' },
-  fillType6: { var: 'cat-1-fill' },
-  fillType7: { var: 'cat-2-fill' },
-
-  // Sequence diagram
-  actorBkg:                 { var: 'cat-1-fill' },
-  actorBorder:              { var: 'diagram-stroke' },
-  actorTextColor:           { var: 'cat-on-fill' },   // sequence actor text, on fill
-  actorLineColor:           { var: 'diagram-line' },
-  signalColor:              { var: 'diagram-line' },
-  signalTextColor:          { var: 'cat-on-fill' },
-  labelBoxBkgColor:         { var: 'bg-alt' },
-  labelBoxBorderColor:      { var: 'diagram-stroke' },
-  activationBorderColor:    { var: 'diagram-stroke' },
-  activationBkgColor:       { var: 'cat-1-fill' },
-  sequenceNumberColor:      { var: 'cat-on-fill' },
-
-  // Notes (yellow accent — category-distinct)
-  noteBkgColor:             { var: 'diagram-note' },
-  noteTextColor:            { var: 'cat-on-fill' },
-  noteBorderColor:          { var: 'diagram-today' },
-
-  // Error (mermaid parse-error box). Uses the theme's gated "error chip" pair
-  // — --bg text on the --fail alarm red (the ['bg','fail'] pair the slide-surface
-  // audit holds to AA in both modes across every theme) — NOT --cat-on-fill on
-  // --diagram-critical, which put near-black ink on the achromatic themes' mid-gray
-  // critical (ardesia/concrete/onyx) below AA. Kept in lockstep with the runtime
-  // path (lib/runtime/index.js) so both renderers share one mapping (HARD RULE #1).
-  // Decoupled in #1181.
-  errorBkgColor:            { var: 'fail' },
-  errorTextColor:           { var: 'bg' },
-
-  // Pie chart (pale band cycle — unified contract)
-  pie1:  { var: 'cat-1-fill' },
-  pie2:  { var: 'cat-2-fill' },
-  pie3:  { var: 'cat-3-fill' },
-  pie4:  { var: 'cat-4-fill' },
-  pie5:  { var: 'cat-5-fill' },
-  pie6:  { var: 'cat-6-fill' },
-  pie7:  { var: 'cat-7-fill' },
-  pie8:  { var: 'cat-8-fill' },
-  pie9:  { var: 'cat-9-fill' },
-  pie10: { var: 'cat-10-fill' },
-  pie11: { var: 'cat-11-fill' },
-  pie12: { var: 'cat-12-fill' },
-  pieTitleTextSize:    { literal: '18px' },
-  pieTitleTextColor:   { var: 'cat-on-fill' },
-  pieSectionTextSize:  { literal: '14px' },
-  pieSectionTextColor: { var: 'cat-on-fill' },   // text on pie slices, on fill
-  pieLegendTextSize:   { literal: '13px' },
-  pieLegendTextColor:  { var: 'cat-on-fill' },
-  pieStrokeColor:      { var: 'bg' },
-  pieStrokeWidth:      { literal: '2px' },
-  pieOuterStrokeWidth: { literal: '2px' },
-  pieOuterStrokeColor: { var: 'diagram-stroke' },
-  pieOpacity:          { literal: '1' },
-
-  // Gantt (pale bars, dark text, alarm-only saturation)
-  sectionBkgColor:        { var: 'bg-alt' },
-  altSectionBkgColor:     { var: 'bg' },
-  sectionBkgColor2:       { var: 'cat-1-fill' },
-  taskBkgColor:           { var: 'cat-1-fill' },
-  taskTextColor:          { var: 'cat-on-fill' },   // text on task bar, on fill
-  taskTextLightColor:     { var: 'cat-on-fill' },   // ditto, Mermaid's "dark bar" variant
-  taskTextOutsideColor:   { var: 'cat-on-fill' },  // text in the margin, on canvas
-  taskTextClickableColor: { var: 'cat-on-fill' },   // text on task bar, on fill
-  taskTextDarkColor:      { var: 'cat-on-fill' },   // Mermaid's dark-bar text variant — same ink contract
-  taskBorderColor:        { var: 'diagram-stroke' },
-  activeTaskBkgColor:     { var: 'diagram-active' },
-  activeTaskBorderColor:  { var: 'diagram-active-mark' },
-  gridColor:              { var: 'diagram-done' },
-  doneTaskBkgColor:       { var: 'diagram-done' },
-  doneTaskBorderColor:    { var: 'diagram-done-mark' },
-  critBkgColor:           { var: 'diagram-critical' },
-  critBorderColor:        { var: 'diagram-critical-mark' },
-  todayLineColor:         { var: 'diagram-today' },
-
-  // Git graph
-  git0: { var: 'cat-1-mark' },
-  git1: { var: 'cat-2-mark' },
-  git2: { var: 'cat-3-mark' },
-  git3: { var: 'cat-4-mark' },
-  git4: { var: 'cat-5-mark' },
-  git5: { var: 'cat-6-mark' },
-  git6: { var: 'cat-8-mark' },
-  git7: { var: 'cat-7-mark' },
-  gitBranchLabel0: { var: 'cat-on-fill' },
-  gitBranchLabel1: { var: 'cat-on-fill' },
-  gitBranchLabel2: { var: 'cat-on-fill' },
-  gitBranchLabel3: { var: 'cat-on-fill' },
-  gitBranchLabel4: { var: 'cat-on-fill' },
-  gitBranchLabel5: { var: 'cat-on-fill' },
-  gitBranchLabel6: { var: 'cat-on-fill' },
-  gitBranchLabel7: { var: 'cat-on-fill' },
-  commitLabelColor:      { var: 'cat-on-fill' },
-  commitLabelBackground: { var: 'bg-alt' },
-  tagLabelColor:         { var: 'cat-on-fill' },  // flips with canvas
-  tagLabelBackground:    { var: 'bg-alt' },        // neutral label chip — distinct
-  tagLabelBorder:        { var: 'diagram-stroke' },       // from the colour-coded branch chips
-
-  // Quadrant chart
-  quadrant1Fill:                    { var: 'cat-1-fill' },
-  quadrant2Fill:                    { var: 'cat-2-fill' },
-  quadrant3Fill:                    { var: 'cat-3-fill' },
-  quadrant4Fill:                    { var: 'cat-4-fill' },
-  quadrant1TextFill:                { var: 'cat-1-mark' },
-  quadrant2TextFill:                { var: 'cat-2-mark' },
-  quadrant3TextFill:                { var: 'cat-3-mark' },
-  quadrant4TextFill:                { var: 'cat-4-mark' },
-  quadrantPointFill:                { var: 'diagram-stroke' },
-  quadrantPointTextFill:            { var: 'cat-on-fill' },
-  quadrantXAxisTextFill:            { var: 'cat-on-fill' },
-  quadrantYAxisTextFill:            { var: 'cat-on-fill' },
-  quadrantInternalBorderStrokeFill: { var: 'cat-8-mark' },
-  quadrantExternalBorderStrokeFill: { var: 'diagram-stroke' },
-  quadrantTitleFill:                { var: 'cat-on-fill' },
-
-  // State / class
-  altBackground: { var: 'bg-alt' },
-
-  // Entity-relationship diagram — the attribute-row band fills. Without these,
-  // Mermaid derives them from `lighten(background)`, which renders off-brand in
-  // the exported PDF (the deliverable). Pale band: odd rows on the primary fill,
-  // even rows on the alt surface — the same alternating-band contract as gantt.
-  attributeBackgroundColorOdd:  { var: 'cat-1-fill' },
-  attributeBackgroundColorEven: { var: 'bg-alt' },
-
-  // XY chart — nested object, expanded below. plotColorPalette joins
-  // multiple palette vars into a comma-separated string (Mermaid's required
-  // format for this key) so each palette's --cat-* hues drive the bars and
-  // lines, not a hardcoded indaco-flavoured literal. The axis LINE + TICK keys
-  // theme the axes themselves (without them Mermaid falls back to its own
-  // primaryTextColor, leaving the axes subtly mis-toned in the PDF).
-  xyChart: { nested: {
-    backgroundColor:  { var: 'bg' },
-    titleColor:       { var: 'text-heading' },
-    xAxisLabelColor:  { var: 'text-heading' },
-    xAxisTitleColor:  { var: 'text-heading' },
-    xAxisLineColor:   { var: 'diagram-stroke' },
-    xAxisTickColor:   { var: 'cat-8-mark' },
-    yAxisLabelColor:  { var: 'text-heading' },
-    yAxisTitleColor:  { var: 'text-heading' },
-    yAxisLineColor:   { var: 'diagram-stroke' },
-    yAxisTickColor:   { var: 'cat-8-mark' },
-    plotColorPalette: { joinVars: ['cat-1-mark', 'cat-2-mark', 'cat-3-mark', 'cat-4-mark', 'cat-5-mark', 'cat-6-mark'] },
-  }},
-};
 
 // Offline value evaluator shared with the unit tests — var()/light-dark()/
 // color-mix() → literal, the offline twin of getComputedStyle. See
@@ -1024,44 +774,27 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
 }
 
 // ── Build the Mermaid themeVariables object from the map + CSS vars ──────
-function resolveMermaidThemeVars(paletteVars) {
-  const result = {};
-  const resolve = (entry) => {
-    if (entry.literal !== undefined) return entry.literal;
-    if (entry.var !== undefined) {
-      const val = paletteVars[entry.var];
-      if (!val) {
-        console.warn(`  ⚠ Palette missing CSS variable: --${entry.var}`);
-        return '#000000';
-      }
-      return val;
-    }
-    if (entry.joinVars !== undefined) {
-      // Mermaid keys like xyChart.plotColorPalette want a comma-separated
-      // string of hex values, not an array — pull each var, fall back to a
-      // black sentinel on miss so a palette gap is loud, then join.
-      return entry.joinVars.map(name => {
-        const val = paletteVars[name];
-        if (!val) {
-          console.warn(`  ⚠ Palette missing CSS variable: --${name}`);
-          return '#000000';
-        }
-        return val;
-      }).join(',');
-    }
-    return undefined;
-  };
-  for (const [key, entry] of Object.entries(MERMAID_VAR_MAP)) {
-    if (entry.nested) {
-      result[key] = {};
-      for (const [nKey, nEntry] of Object.entries(entry.nested)) {
-        result[key][nKey] = resolve(nEntry);
-      }
-    } else {
-      result[key] = resolve(entry);
-    }
+// This path's half of the port (lib/core/mermaid-theme-map.js): read one token
+// out of the OFFLINE-resolved palette. mmdc is a separate process, so there is
+// no live DOM to ask — `parsePaletteVars` has already collapsed light-dark() and
+// chased every var() chain to a literal for the scheme being baked.
+//
+// The MISS POLICY is this path's too, and it is not cosmetic: a build-log
+// warning is how a palette gap becomes visible at all here, and the black
+// sentinel keeps a missing color from reading as a deliberate one. It never
+// reaches the diagram — `prune()` in the directive kernel drops the key, so
+// Mermaid's own default stands.
+function readPaletteToken(paletteVars, name) {
+  const val = paletteVars[name];
+  if (!val) {
+    console.warn(`  ⚠ Palette missing CSS variable: --${name}`);
+    return '#000000';
   }
-  return result;
+  return val;
+}
+
+function resolveMermaidThemeVars(paletteVars) {
+  return buildDiagramTheme((name) => readPaletteToken(paletteVars, name));
 }
 
 // Parse the combined cascade (layoutCSS first, then paletteCSS) so the

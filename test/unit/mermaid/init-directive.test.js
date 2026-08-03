@@ -421,6 +421,16 @@ describe('mermaid init-directive: render-path wiring', () => {
   });
 
   test('both paths read the cluster fill from the containment token', () => {
-    assert.match(read('lattice-emulator.js'), /clusterBkg:\s*\{ var: 'c-container' \}/);
-    assert.match(read('lib/runtime/index.js'), /clusterBkg:\s*contain,/);
+    // Was two source-text `assert.match`es, one per render path, because each
+    // path held its own copy of the map. There is one copy now
+    // (lib/core/mermaid-theme-map.js), so this reads the actual object — an
+    // assertion that fails for a SEMANTIC error rather than for a reformat.
+    // The subgraph box is a CONTAINMENT surface, not the deck's card fill: it
+    // sits behind the categorical node fills and must not compete with them,
+    // which is what the per-theme `--c-container` rung is curated for. Its EDGE
+    // is scheme-aware for the same reason `--diagram-stroke` cannot be — a flat
+    // saturated hex went dark-on-dark on a dark container in 12 of 14 themes.
+    const { MERMAID_VAR_MAP } = require('../../../lib/core/mermaid-theme-map');
+    assert.deepEqual(MERMAID_VAR_MAP.clusterBkg, { var: 'c-container' });
+    assert.deepEqual(MERMAID_VAR_MAP.clusterBorder, { var: 'c-container-edge' });
   });});
