@@ -341,6 +341,39 @@ the merge train would be flaky on shared runners (see HARD RULE #19's note and t
 reasoning that keeps the bench out of `npm test`). It's a tool you and the reviewer
 run; the baseline-diff + `## Performance` section are what make the claim auditable.
 
+### The three bench tiers, and what each costs
+
+`bench` runs the render tier by default. The two puppeteer tiers are **separate
+flags** because they differ by ~6x in cost — they shared one flag until 2026-08-03,
+and the pair was too expensive for anything scheduled to pass it:
+
+| flag | tier | cost | blessed rows |
+|---|---|---|---|
+| *(none)* | render — markdown → HTML+CSS | ~10s | `datasets` |
+| `--export` | rasterize — screenshot every slide | ~2 min | *(compared, not blessed)* |
+| `--print` | print re-place — rasterize + jsPDF assemble | ~11 min | `printDatasets` |
+
+So a full re-bless is `npm run bench:bless -- --print`, and `bench:bless` **alone
+preserves** any existing `printDatasets` rather than dropping them.
+
+### What is guarded automatically, and what is not
+
+Two mechanisms, neither of which replaces the loop above:
+
+- **The PR gate counts work, it does not time it** —
+  `docs/src/lib/preview-work-budget.test.ts` asserts that one keystroke costs one
+  render of one slide with its deck position supplied. It runs in the docs tier, so
+  it **blocks the merge**. It cannot see a render that got slower for the same amount
+  of work, and it cannot see cost in the *route decision* that precedes the render.
+- **The nightly clocks it** — `perf-nightly.yml`'s `engine-perf` job compares the
+  render and export-rasterize tiers **head vs base on the same runner** (never against
+  the committed baseline, which is machine-relative), and asserts the Studio preview's
+  interaction ceilings. It files a rolling issue on a breach. The `--print` tier is
+  **not** in it; nothing compares `printDatasets` on a schedule.
+
+Design and the reasoning behind counting rather than clocking:
+`engineering/decisions/2026-08-03-performance-guard.md`.
+
 ## OpenRouter budget — our key stays cheap (HARD RULE #24)
 
 We have a paid `OPEN_ROUTER_KEY` in the environment. Two failure modes to prevent, and

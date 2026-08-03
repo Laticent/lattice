@@ -154,3 +154,215 @@ jobs:
               --label "priority:high" --label "status:backlog" \
               --body-file "$BODY"
           fi
+
+  # ── Engine + preview + export perf ────────────────────────────────────────────
+  # A SECOND AXIS. The lighthouse job above measures docs-site PAGE LOAD (LCP/TBT,
+  # desktop + mobile). It says nothing about the three surfaces that carry this
+  # product's interactive feel: the Studio preview's per-keystroke render, the
+  # engine's markdown->HTML cost, and the export/rasterize tier. Those had no
+  # nightly at all — the @perf spec printed numbers and asserted nothing, and
+  # `bench:check` is on-demand.
+  #
+  # WHAT THIS JOB DOES AND DOES NOT MEASURE. `--export` is the rasterize tier
+  # (screenshot every slide of two decks, ~2 min per arm). The PRINT RE-PLACE tier
+  # (`--print`) is ~11 min per arm and stays on-demand — two arms of it would put
+  # this job near 40 minutes every night for one ratio. Those two tiers shared a
+  # single flag until 2026-08-03, and the combined cost is precisely why the first
+  # cut of this job passed NEITHER and still claimed export coverage.
+  #
+  # TWO DIFFERENT COMPARISON STRATEGIES, deliberately:
+  #
+  #  · The preview spec asserts CEILINGS (test/benchmark/preview-budget.json) —
+  #    absolute budgets set against the WORST of three healthy runs. Machine-independent by
+  #    construction, so no base checkout is needed and drift should not fire them.
+  #
+  #  · The engine bench compares HEAD vs BASE built on THIS SAME RUNNER, the way
+  #    the lighthouse job does — never against the committed baseline.json. That
+  #    baseline is machine-relative and a cold runner reads up to 2x high: in one
+  #    session the same code measured 93.9ms and 43.1ms, and `bench:check`
+  #    reported a phantom +124% regression on a healthy tree. Comparing two builds
+  #    on one runner cancels that drift; comparing against a stored number does not.
+  #    See engineering/decisions/2026-08-03-performance-guard.md.
+  engine-perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+
+      # The same two guards the lighthouse job above carries at :56-64, and the first cut of this
+      # job carried neither. Without `|| true` an unresolvable ref fails the step; without the
+      # HEAD~1 fallback a quiet day resolves BASE == HEAD and the job spends ~15 minutes
+      # benchmarking one tree against itself, printing "no regression" it could not have detected.
+      - name: Resolve base commit (~24h ago on main)
+        id: base
+        run: |
+          set -euo pipefail
+          BASE=$(git rev-list -1 --before='24 hours ago' origin/main || true)
+          HEAD_SHA=$(git rev-parse HEAD)
+          if [ -z "$BASE" ] || [ "$BASE" = "$HEAD_SHA" ]; then
+            BASE=$(git rev-parse HEAD~1)
+          fi
+          echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+          echo "Base commit: $BASE (head: $HEAD_SHA)"
+
+      - name: Bench — head
+        run: node test/benchmark/engine-bench.mjs --json --export > head-bench.json
+
+      # continue-on-error, matching the lighthouse job's `Build + collect — base`: a broken
+      # historical commit, or a transient `npm ci`, must not silently disable the whole alarm. It
+      # used to: every downstream step lacked `if: always()`, so a base failure skipped the compare,
+      # the preview ceilings AND the issue step, and the only symptom was a red nightly nobody
+      # watches. Now the compare runs regardless and reports "NOTHING WAS COMPARED" as an alarm.
+      # HEAD'S HARNESS, BASE'S SOURCE — the overlay the lighthouse job does at :91 and this job
+      # originally omitted. Without it the base arm runs the BASE COMMIT'S bench script, so any
+      # change to what a flag MEANS makes the two arms measure different things. The first real
+      # dispatch proved it: the base predated the --export/--print split, ran the print tier under
+      # --export, needed jspdf from docs/node_modules that a root `npm ci` never installs, and died
+      # with `Cannot find module 'jspdf'`. Copy the harness in and both arms measure base's `lib/`
+      # with identical tooling — which is the only thing that makes the comparison mean anything.
+      - name: Bench — base (same runner)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/base "${{ steps.base.outputs.sha }}"
+          cp test/benchmark/engine-bench.mjs /tmp/base/test/benchmark/engine-bench.mjs
+          cd /tmp/base && npm ci --silent
+          node test/benchmark/engine-bench.mjs --json --export > "$GITHUB_WORKSPACE/base-bench.json"
+
+      # EXIT 2 IS A WIRING BUG, NOT A REGRESSION — it means the tool was invoked wrong, and filing
+      # that as a priority:high "perf regression" would be a confident, wrong, actionable issue.
+      # An arm that DIED, by contrast, exits 1 as "NOTHING WAS COMPARED": a blind alarm is a real
+      # finding, so it files, and the body says so rather than implying a slowdown.
+      - name: Compare head vs base
+        id: compare
+        if: always()
+        run: |
+          set -uo pipefail
+          # `|| rc=$?`, NOT a bare command followed by `case $?`. GitHub runs every step under
+          # `bash -e`, and `set -uo pipefail` does not clear the `-e` the shell was INVOKED with —
+          # so a bare failing command kills the step before the next line executes. The first real
+          # dispatch proved it: the comparator correctly exited 1, the step died on the spot,
+          # `regressed` was never set, and the issue step's condition read empty. The alarm was
+          # mute in exactly the way this PR exists to prevent. A command on the left of `||` is
+          # exempt from `-e`, which is why the sibling job's `if node …; then` form works.
+          rc=0
+          node tools/perf-nightly-compare.mjs --base base-bench.json --head head-bench.json --md engine-perf.md || rc=$?
+          case "$rc" in
+            0) echo "regressed=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "regressed=true"  >> "$GITHUB_OUTPUT" ;;
+            *) echo "regressed=false" >> "$GITHUB_OUTPUT"; echo "::warning::perf compare invoked wrong — not filed as a regression"; exit 1 ;;
+          esac
+
+      # Install and run are SEPARATE STEPS on purpose. Sharing one step meant a failed `npm ci` or
+      # `playwright install` was reported as "a per-keystroke render went past its budget" — an
+      # infrastructure failure filed as a high-priority performance regression. Install failures
+      # now fail the job loudly and file nothing.
+      - name: Install docs deps + browser
+        if: always()
+        run: |
+          set -euo pipefail
+          cd docs
+          npm ci --silent
+          npx playwright install --with-deps chromium
+
+      # A ceiling breach and a broken harness both exit non-zero, so the log is the discriminator:
+      # the assertion messages in studio-preview-perf.spec.ts all contain the word "ceiling".
+      - name: Preview interaction ceilings (@perf)
+        id: preview
+        if: always()
+        run: |
+          set -uo pipefail
+          cd docs
+          # `|| STATUS=$?` for the same reason as the compare step: the step runs under `bash -e`,
+          # so a failing pipeline would kill it before `STATUS=` ever ran — and this one passed its
+          # first real dispatch only because the tests PASSED. A genuine ceiling breach would have
+          # killed the step, left `breached` unset, and filed nothing: the alarm mute precisely when
+          # it had something to say.
+          # REDIRECT then `cat`, not `| tee`: a pipe would run the assignment in a SUBSHELL and
+          # STATUS would never reach the branch below. The log still lands in the job output.
+          STATUS=0
+          npx playwright test --project=desktop --grep @perf > "$GITHUB_WORKSPACE/perf-e2e.log" 2>&1 || STATUS=$?
+          cat "$GITHUB_WORKSPACE/perf-e2e.log"
+          if [ "$STATUS" -eq 0 ]; then
+            echo "breached=false" >> "$GITHUB_OUTPUT"
+          elif grep -q 'ceiling' "$GITHUB_WORKSPACE/perf-e2e.log"; then
+            echo "breached=true" >> "$GITHUB_OUTPUT"
+            { echo ""; echo "## Preview interaction ceilings BREACHED"; echo ""; echo "A per-keystroke or per-navigation p50 went past its budget in \`test/benchmark/preview-budget.json\`. Those budgets sit 3-6x above the worst healthy reading, so this is an order-of-magnitude change, not drift. The per-sample table is in the job log and the \`perf-e2e.log\` artifact."; } >> "$GITHUB_WORKSPACE/engine-perf.md"
+          else
+            echo "breached=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::@perf suite failed without breaching a ceiling — harness failure, not filed as a regression"
+            exit 1
+          fi
+
+      # CLOSE THE ROLLING ISSUE ON A GREEN NIGHT. Without this the thread is a one-way ratchet: it
+      # opens once, appends forever, and after its first firing — statistically likelier to be a
+      # harness failure than a real regression — it is triaged as "the flaky nightly" and a genuine
+      # regression three months later arrives as a comment on an already-dismissed thread. An alarm
+      # that cannot stand down is an alarm that gets filtered.
+      - name: Close the rolling issue when green
+        if: always() && steps.compare.outputs.regressed != 'true' && steps.preview.outputs.breached != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[perf-nightly-engine]'
+          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body "Green on \`${{ github.sha }}\` — no tier past its band and no ceiling breached. Closing; the next regression reopens a fresh thread rather than appending to a stale one."
+            gh issue close "$ISSUE" --reason completed
+          fi
+
+      - name: Job summary
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/engine-perf.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-perf-${{ github.run_id }}
+          path: |
+            head-bench.json
+            base-bench.json
+            engine-perf.md
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Same rolling-issue pattern as the lighthouse job above, own marker so the
+      # two axes do not append to each other's thread. Self-labeled for the same
+      # reason (a GITHUB_TOKEN-opened issue can't trigger the triage gate).
+      # `always() &&` is LOAD-BEARING, and its absence was the third instance of this alarm going
+      # mute. GitHub applies an implicit `success()` to any `if:` containing no status function, so
+      # the bare condition read `success() && (regressed || breached)` — and this job DELIBERATELY
+      # lets steps fail: `Bench — head` has no continue-on-error, the install step runs `set -e`,
+      # and both the compare and preview steps `exit 1` on a harness failure. So a flaky
+      # `playwright install` after the compare had already recorded a genuine 3x regression would
+      # skip this step entirely and file nothing — the red-nightly-nobody-watches outcome the
+      # comment at the base-bench step says was fixed. `always()` was added to five steps and not
+      # to the one that raises the alarm.
+      - name: Open / append regression issue
+        if: always() && (steps.compare.outputs.regressed == 'true' || steps.preview.outputs.breached == 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[perf-nightly-engine]'
+          BODY="$GITHUB_WORKSPACE/engine-perf.md"
+          {
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · base \`${{ steps.base.outputs.sha }}\` → head \`${{ github.sha }}\`._"
+          } >> "$BODY"
+          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+          else
+            gh issue create \
+              --title "$MARKER engine / preview / export perf regression" \
+              --label "area:engine" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi

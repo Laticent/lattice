@@ -201,6 +201,32 @@ in patch versions.
     CSS does not yet read; logged in the decision note rather than hand-duplicated here.
   - Demo deck: `examples/universal-table.md`. Rationale and measurements:
     `engineering/decisions/2026-08-02-default-slide-layout.md` §4.
+- **A performance gate that blocks the merge — and it counts work rather than clocking it.** The
+  63.2ms → 4.9ms per-keystroke win from #1280 was guarded by nothing: `bench:check` is on-demand,
+  the Studio perf spec prints its numbers and asserts nothing, and no workflow runs either. Wall
+  clock can't be the gate on shared runners — measuring identical code across one session read
+  93.9 / 69.0 / 64.2 / 39.6 / 44.9 / 43.1 ms, so a fresh `bench:check` reports a phantom +124%
+  regression. But the regression that actually hurt is a **count**, not a duration: one keystroke
+  re-parsing forty slides instead of one. `docs/src/lib/preview-work-budget.test.ts` asserts that
+  count — one render, zero whole-deck parses, position supplied — for the plain, paginated and
+  divider-gallery deck shapes, with a running-`header:` deck as the control that proves the gate
+  can distinguish routes. It runs in the docs tier, which `ci.needs` requires, so it hard-fails a
+  PR; and it is mutation-checked in both directions (reintroduce the pre-#1280 divider probe → the
+  gallery rows fail; neuter the supplied position → the position rows fail).
+- **A nightly perf alarm for the engine, preview and export rasterize, that files an issue.** A
+  second job in `perf-nightly.yml` — whose Lighthouse job already had the head-vs-base +
+  rolling-issue plumbing, for a different axis. The preview spec now asserts **ceilings**
+  (`test/benchmark/preview-budget.json`, set against the worst of three runs, machine-independent) instead of printing
+  numbers it asserted nothing about; the engine and export-rasterize benches compare head vs base
+  built on the **same runner** rather than against the machine-relative committed baseline, because
+  a cold runner reads up to 2x high. Bands widen per dataset by the two arms' RME, and a comparison
+  that compared **nothing** now fails instead of reporting health. Design:
+  `engineering/decisions/2026-08-03-performance-guard.md`.
+- **`bench` splits `--export` (rasterize, ~2 min) from `--print` (print re-place, ~11 min).** They
+  shared one flag, and the pair's cost is why the nightly could afford neither. The export tier also
+  gained a comparable `{ summary }` shape — it returned raw display rows, so nothing could compare
+  it whatever flag was passed — and `bench:check --print` now reports a print dataset that vanished
+  from the run, not just one that was renamed.
 
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because

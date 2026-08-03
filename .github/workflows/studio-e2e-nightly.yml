@@ -56,8 +56,14 @@ jobs:
       # then previews the production site, and the suite drives it across the
       # desktop / tablet / mobile projects. trace + video are on, so the artifacts
       # below are a full RPA-style record of every run.
+      # @perf IS EXCLUDED, and it was not before. The `desktop` project only greps out
+      # @mobile|@webkit, so studio-preview-perf.spec.ts has always run here — harmless while it
+      # merely printed numbers, but it now carries wall-clock ceiling assertions. Leaving it in
+      # would run the throttled suite (plus a full site build) twice a night on two runners, and a
+      # breach would red THIS workflow — which files no issue — an hour before perf-nightly.yml,
+      # which does. The perf axis belongs to the job that can raise the alarm.
       - name: Run Studio E2E
-        run: npm run test:e2e
+        run: npm run test:e2e -- --grep-invert @perf
         working-directory: docs
         env:
           CI: 'true'

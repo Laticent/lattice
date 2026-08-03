@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "note": "CEILINGS, not a measured baseline. These are budgets a healthy run must stay under, with 3-6x headroom over observed healthy numbers so machine drift, a cold runner or a noisy neighbor does not fire them - and so they never need re-blessing per machine. Breaching one means an order-of-magnitude regression, not jitter. HEADROOM IS NOT UNIFORM: ceilings are keyed on interaction, not deck, so the same cap covers a 7.4ms and a 16.0ms healthy TOTAL. Thin end is gallery TOTAL (~3x); wide end means a 5x regression on a cheap deck stays green. See engineering/decisions/2026-08-03-performance-guard.md.",
+  "observed": {
+    "note": "RANGES across THREE independent runs of the same suite on the same machine (2026-08-03, headless Chromium, 4x CPU throttle, 40-slide decks), not one run's numbers - because one run's numbers do not reproduce. Context only; nothing compares against these. navigation renderP50 is BIMODAL: the whole-deck memo hits read ~0.0ms and misses read ~6-8ms, so with a near-even split the median lands on the seam and one sample swings it several ms. That is why the range below is 0.9-6.3 for a metric whose first recorded value was 1.1. Judge a breach by the ceiling, never by distance from these.",
+    "navigation": {
+      "renderP50": "0.9-6.3",
+      "totalP50": "9.0-20.6",
+      "frameP50": "0.4-2.5"
+    },
+    "typing": {
+      "renderP50": "3.7-5.3",
+      "totalP50": "10.9-19.8",
+      "frameP50": "0.4-2.1"
+    }
+  },
+  "regressionScale": {
+    "note": "The regression these exist to catch, for scale. Before #1280 the gallery deck re-parsed the WHOLE deck on every keystroke because the progress rail and watermark glyph derived their section by walking every section.",
+    "gallery typing renderP50": 63.2,
+    "gallery typing totalP50": 74.2
+  },
+  "ceilings": {
+    "note": "Chosen against the WORST observed value, not the best, and against the regression actually worth catching. Gallery typing was 63.2ms RENDER p50 before #1280 - a 30ms ceiling still catches that at half its magnitude while sitting 5.7x above the worst healthy reading. An earlier cut set navigation at 15/45, which left only 2.2x over a healthy gallery TOTAL of 20.6ms - too thin against this infrastructure's admitted 2x session-to-session drift, i.e. a false alarm waiting for a slow runner. ONE HONEST LIMIT: totalP50 70 sits only 5.7% above the 74.2ms pre-#1280 TOTAL this file records as its reason to exist, so on a runner ~6% faster the TOTAL ceiling would miss that regression entirely. RENDER is what actually catches it (30 vs 63.2, a 2.1x margin); treat TOTAL as a secondary backstop for regressions that bypass the engine, not as a second line of defense on the same one.",
+    "navigation": {
+      "renderP50": 30,
+      "totalP50": 70,
+      "frameP50": 20
+    },
+    "typing": {
+      "renderP50": 30,
+      "totalP50": 70,
+      "frameP50": 20
+    }
+  },
+  "emulator": {
+    "note": "NO SEPARATE RENDER HARNESS IS NEEDED - but the emulator is NOT fully covered, and an earlier version of this note said it was. lattice-emulator.js:1681 calls latticeEngine.createEngine() and :1691 calls engine.render(), so the P2 swap (2026-06-11-emulator-on-engine-p2.md) left it a wrapper with no render path of its own; `bench`'s render tier already times that code. What is NOT measured by anything is the rest of the CLI pipeline - inlineLogoMarkSvg's per-mark file reads, the per-section image-scrim pass, the mermaid-cli subprocess per diagram, the in-page overflow/legibility probes, the measured overflow split loop, font settle, page.pdf() and the pdf-lib assembly. Measured on examples/a11y.md: the full export is ~8s wall, of which engine.render is ~10ms - about 0.1%. `bench --export` does not touch it either (the rasterize tier drives its own srcdoc through Puppeteer and never loads lattice-emulator.js)."
+  }
+}
