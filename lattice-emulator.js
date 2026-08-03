@@ -711,10 +711,24 @@ if (explicitSize) {
 // CSS custom properties in themes/<n>.css and the same mapping resolves
 // against the new values.
 //
+// The `%%{init}%%` reconciliation kernel (#1311) — how the engine palette and an
+// author's own directive coexist, shared with the runtime (HARD RULE #1).
+// Required HERE, above MERMAID_VAR_MAP: the mermaid pre-pass runs during module
+// evaluation, so everything it reaches for must already be bound (the same
+// hazard the local escapeHtml below works around).
+const {
+  withEngineInit, engineInitConfig, authorPinsTheme,
+  DIAGRAM_FONT_STACK: MERMAID_DIAGRAM_FONT,
+} = require('./lib/integrations/mermaid/init-directive');
+
 // Reference for the variable inventory: https://mermaid.js.org/config/theming.html
 const MERMAID_VAR_MAP = {
   // Typography (literal — fonts are structural, not palette-specific)
-  fontFamily: { literal: '"JetBrains Mono", monospace' },
+  // See DIAGRAM_FONT_STACK in lib/integrations/mermaid/init-directive.js for why
+  // diagrams are monospace and why a hyphenated body stack cannot ride in a
+  // directive at all. The runtime uses --font-body instead — a pre-existing
+  // divergence, documented in engineering/mermaid.md §5.3.
+  fontFamily: { literal: MERMAID_DIAGRAM_FONT },
   fontSize:   { literal: '14px' },
 
   // Canvas
@@ -754,7 +768,15 @@ const MERMAID_VAR_MAP = {
   mainBkg:                  { var: 'cat-1-fill' },
   nodeBorder:               { var: 'diagram-stroke' },
   nodeTextColor:            { var: 'cat-on-fill' },   // flowchart node text, on fill
-  clusterBkg:               { var: 'bg-alt' },
+  // A subgraph box is a CONTAINMENT surface, not deck chrome: it sits behind the
+  // categorical node fills and must not compete with them. That is what the
+  // per-theme `--c-container` rung is curated for (its own declaration comment
+  // names "flowchart cluster, sankey area, kanban column") — but nothing read it
+  // until #1311, so the cluster borrowed `--bg-alt`, whose job is the CARD fill.
+  // Theme authors were tuning a surface that never rendered. Note this only
+  // reaches PLAIN clusters: a `.section-N` cluster (mindmap, timeline, kanban)
+  // is overridden to `--cat-N-fill` by mermaid.css's band cycle.
+  clusterBkg:               { var: 'c-container' },
   clusterBorder:            { var: 'diagram-stroke' },
 
   // cScale (mid-tone band) — kanban lighten brings to L≈70
@@ -1184,33 +1206,13 @@ function renderMermaidOne(definition, themeVars, extraClass) {
   // PDF-rasterize time). themeVariables is enough here because it covers
   // the values Mermaid inlines as SVG attributes — gradient stops, marker
   // fills, gantt grid lines — which no external CSS can reach.
-  const hasInit = definition.includes('%%{init');
-  const initObj = {
-    theme: 'base',
-    themeVariables: themeVars,
-    // C4 ships with shape widths tuned for very short Person()/System()
-    // labels and never wraps. Limit shapes-per-row to 3 (default 4) so a
-    // 5-shape diagram fans across two rows rather than cramming a single
-    // tight strip. Width/height keys exist in the schema but Mermaid 11's
-    // c4 renderer ignores them — fix authoring-side by keeping labels short.
-    c4: {
-      c4ShapeInRow: 3,
-      c4BoundaryInRow: 1,
-    },
-  };
-  // Mermaid requires YAML frontmatter (--- ... ---) to be the FIRST thing in
-  // the source. If the diagram opens with frontmatter, inject %%{init}%%
-  // AFTER the closing fence; otherwise prepend it normally.
-  const initDirective = `%%{init: ${JSON.stringify(initObj)}}%%`;
-  let themed;
-  if (hasInit) {
-    themed = definition;
-  } else {
-    const fmMatch = definition.match(/^---\n[\s\S]*?\n---\n/);
-    themed = fmMatch
-      ? `${fmMatch[0]}${initDirective}\n${definition.slice(fmMatch[0].length)}`
-      : `${initDirective}\n${definition}`;
-  }
+  //
+  // Placement (including YAML-frontmatter ordering) and the merge with an
+  // author's own `%%{init}%%` are the shared kernel's job — see
+  // lib/integrations/mermaid/init-directive.js. An author directive no longer
+  // costs the palette: unless it pins a Mermaid `theme:`, the engine directive
+  // goes in ahead of it and mermaid merges the author's keys on top (#1311).
+  const themed = withEngineInit(definition, engineInitConfig(themeVars));
 
   const tmpDir    = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-'));
   const inFile    = path.join(tmpDir, 'diagram.mmd');
@@ -2935,14 +2937,18 @@ async function renderBody(browser, g, closeBrowser) {
               const def = MERMAID_REBAKE_DEFS[idx];
               if (def == null) continue;
               // A diagram that sets its OWN colors overrides Mermaid's theme variables, so the look
-              // re-render can't fully recolor it: an author `%%{init}%%` theme (mmdc skips themeVars), or
-              // explicit `fill:`/`stroke:`/`color:` hex/rgb in `style`/`classDef`/`linkStyle`.
-              // A pure `%%{init}%%` theme makes the re-render a total NO-OP (mmdc leaves the init block
-              // intact), so skip the wasted mmdc/Chromium cost and keep the diagram's live markup — its
-              // author colors are literal and context-independent. Flag it as author-kept. (An explicit
+              // re-render can't fully recolor it: an author `%%{init}%%` that PINS A THEME (the engine
+              // stands down and injects no themeVars), or explicit `fill:`/`stroke:`/`color:` hex/rgb
+              // in `style`/`classDef`/`linkStyle`.
+              // A pinned theme makes the re-render a total NO-OP (the init block survives untouched),
+              // so skip the wasted mmdc/Chromium cost and keep the diagram's live markup — its author
+              // colors are literal and context-independent. Flag it as author-kept. (An explicit
               // `style`/`classDef` fill still benefits: the re-render recolors the theme-driven parts,
               // leaving only the styled nodes in the author's colors — so it IS re-rendered below.)
-              if (/%%\{\s*init/i.test(def)) { authorKept.add(idx); continue; }
+              // The test is `authorPinsTheme`, NOT "has an init directive": since #1311 a
+              // color-neutral directive (layout, curve, renderer) keeps the engine palette, so it
+              // re-bakes like any other diagram and must not be reported as author-kept.
+              if (authorPinsTheme(def)) { authorKept.add(idx); continue; }
               const explicitColor = /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
               // print → the print theme vars (MERMAID_THEME_VARS_PRINT, scheme-independent); light/dark
               // → the vars resolved from the LOOK palette above, so the diagram bakes the look's colors.

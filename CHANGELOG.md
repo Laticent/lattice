@@ -92,6 +92,97 @@ in patch versions.
 
 ### Fixed
 
+- **A Mermaid `subgraph` box now takes the containment token every theme already curates.**
+  `clusterBkg` was fed `--bg-alt` — the deck's *card* fill — while `--c-container`, the per-theme
+  containment rung whose own declaration comment names "flowchart cluster, sankey area, kanban
+  column", had **zero readers anywhere in the codebase**. Theme authors have been curating a surface
+  that never rendered, and it is part of the 91-token contract, so every theme fills it: indaco
+  `#E8F0F7` vs `#F2F5FA`, concrete `#A8A8A8` vs `#D5D5D2`. The distinction is real — a cluster sits
+  *behind* the categorical node fills and must not compete with them, which is a different job from
+  a card sitting on the canvas. Both render paths re-pointed. Only PLAIN clusters move: a
+  `.section-N` cluster (mindmap, timeline, kanban) is already overridden to `--cat-N-fill` by
+  `mermaid.css`'s band cycle. One other surface does move: a `block-beta` composite `block:` group,
+  which Mermaid fills with a 50%-faded `clusterBkg`. No committed deck ships either a `subgraph` or a
+  `block:` group — verified by rendering all 21 diagram types, not by grep — so no baseline shifts.
+  Two per-theme follow-ons the re-point forced, both verified by rendering: **`--print-c-container`**
+  is now declared (the emulator's print band only flattens a token that has a `--print-*` sibling, so
+  without it a tinted theme leaked a pink/violet cluster box into a grayscale handout), and **onyx's
+  dark containment arms are re-tuned** from `#020202`/`#0B0B0B` to `#1C1C1C`/`#2E2E2E` — a 2/255
+  "step" from onyx-dark's `#000000` canvas made the subgraph box invisible at 1.01:1 there and on the
+  four a11y palettes that `@import` onyx. Latent while nothing read the tier; visible the moment
+  something did.
+  `--c-subcontainer` (the next rung down, kanban ticket) is untouched. (#1311)
+
+- **Breaking: the live preview pins Mermaid to `securityLevel: 'strict'`, closing an XSS.** The
+  runtime set `'loose'` — the one surface that opted out of Mermaid's own default (the PDF path
+  never overrode it). Under `'loose'`, a `click X "javascript:…"` directive renders as
+  `<a xlink:href="javascript:…">` inside the SVG, and the runtime assigns that straight to
+  `innerHTML`: clicking the node executed the script, inside the docs Studio's **same-origin,
+  un-sandboxed** preview frame — the frame that renders shared and AI-generated decks, where XSS is
+  OpenRouter-key theft (HARD RULE #22's threat model). Surfaced by CodeQL (`js/xss-through-dom`) on
+  #1314 and confirmed exploitable on the real Playground before fixing; script tags, iframes,
+  `onload` and `onerror` were already stripped, `javascript:` hrefs were not. **What this costs:**
+  Mermaid's `click` interactivity is now inert in preview — it is the attack vector itself, and no
+  deck in this repo uses it. **What it does not cost:** `<br/>` in a node label still renders; the
+  old comment claiming `'loose'` was required for that was wrong on Mermaid 11. Pre-existing
+  (`ab11680`), fixed here because it sits on the path of this change. (#1311)
+
+- **Two security defects in the new `%%{init}%%` parser, caught by CodeQL on the PR.** (a) **Denial of
+  service via a malformed directive.** The payload group was wrapped in `\s*` on both sides, so
+  whitespace was matchable by two adjacent quantifiers — a directive with a long whitespace run and no
+  closing `}%%` sent the regex engine into quadratic backtracking, and one bad fence could hang a
+  build (re-measured against the pre-fix pattern: 2 000 spaces 3.2 s, 4 000 spaces 26 s, 8 000 did not
+  finish in two minutes; 20 000 repeated `%%{init:` openers 6.0 s — all now sub-millisecond). The group
+  is now located by a linear `indexOf` walk rather than a regex at all: every pattern of the shape
+  `%%{…:(payload-until-`}%%`)}%%` rescans to end-of-string from each candidate start, so a fence with
+  many `%%{init:` prefixes cost O(n²) — 20 000 of them took 5.9 s. Bounding a quantifier only caps
+  the constant; the walk removes the class (50 000 now scan in 1 ms). A deeply nested payload also
+  degrades to "unparseable" instead of exhausting the call stack. (b) **Prototype-
+  polluting assignment.** `JSON.parse` creates a real own `__proto__` property, so merging a payload
+  with `out[k] = v` replaced the merged config's prototype with author-controlled data —
+  `%%{init: {"__proto__": {"theme": "forest"}}}%%` would have made `config.theme` read `forest` off
+  an inherited object and stood the engine down. `__proto__` / `constructor` / `prototype` keys are
+  now dropped; Mermaid has no legitimate config key by those names. (#1311)
+
+- **An unresolvable Mermaid theme name no longer strands a diagram.** The stand-down test lowercased
+  the author's `theme:` value and compared it to `base`, but Mermaid's own lookup
+  (`theme in themes_default`) is exact and case-sensitive. So `theme: 'Forest'`, `theme: ''` or any
+  typo read as an opt-out: the engine stood down, Mermaid resolved no theme either, and the figure
+  rendered in stock `#ffffde` — the very bug this release fixes, reachable from a capital letter. It
+  also made the export's look re-bake report "kept their own colors" about a diagram whose author
+  kept nothing. The predicate now pins only on a name Mermaid actually resolves. (#1311)
+
+- **An author's own `%%{init}%%` no longer costs a diagram its palette.** Any `%%{init}%%` inside a
+  ```` ```mermaid ```` fence used to make the export path skip the injected `themeVariables`
+  entirely, so a directive that touched nothing but curve style dropped the whole set and the figure
+  fell back to Mermaid stock — `#ffffde` clusters, stock node fills, `#333` label ink, the wrong
+  font. It failed silently: the diagram still rendered, just off-theme, and nothing gated it. The
+  engine now merges instead of standing down — its directive goes in ahead of the author's, and
+  Mermaid merges init directives in source order with the later one winning, so you get the option
+  you asked for AND every key you didn't name keeps the palette (a partial `themeVariables` override
+  works the same way: name `lineColor` and only `lineColor` changes). Naming a Mermaid `theme:`
+  other than `base` still reads as an explicit opt-out and is left untouched, which keeps the
+  export's "kept their own colors" look-re-bake warning honest — that warning now fires on a pinned
+  theme rather than on the mere presence of a directive — and the stand-down matches Mermaid on
+  CASE (its directive scanner is case-insensitive but its init-type filter is not, so an uppercase
+  `%%{INIT: …}%%` is invisible to Mermaid; reading it as an author theme pin would have left the
+  diagram with no palette from anyone). The reconciliation is a kernel
+  (`lib/integrations/mermaid/init-directive.js`) the **PDF path** calls. The live preview needs no
+  kernel and is unchanged here: it is in-process, so it sets the palette once on
+  `mermaid.initialize` and Mermaid's own `updateCurrentConfig` merges an author directive over that
+  siteConfig per render — the same guarantee, for free. The PDF path shells out to `mmdc`, one
+  process per diagram, so its config can only travel in the diagram source, which is why the merge
+  is done by hand there. Injecting into preview sources too was tried on this branch and reverted:
+  a directive's `themeVariables` go through Mermaid's far stricter `sanitizeDirective`, whose
+  allow-list has no hyphen, which blanked `--font-body`'s `system-ui`/`sans-serif` stack to `""` and
+  left Mermaid measuring labels in one font while the page rendered them in another — clipping them
+  mid-word. Paying that on the common path to align one edge case was a bad trade. Two things worth knowing: `engineering/mermaid.md`
+  §5.3 was telling authors to hand-write exactly the directive that triggered this, and is rewritten
+  (§5.1's "use `<div class="mermaid">`, not a fence" was also wrong — that div renders on neither
+  path); and `layout: 'elk'` is still not reachable — the directive survives now, but elk is an
+  unregistered layout package, and Mermaid falls back to dagre with a `log.warn` nobody sees rather
+  than failing. (#1311)
+
 - **The Studio's welcome deck said 53 components; the engine ships 61 — and the landing page now
   points every visitor at that deck.** The count is corrected, and a drift test
   (`test/unit/playground/welcome-deck-counts.test.js`) holds it to `loadAll().length` so the two

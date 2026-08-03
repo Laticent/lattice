@@ -1060,6 +1060,49 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ## Mermaid
 
+### A mermaid `click` directive is inert (and used to be an XSS)
+
+- **Symptom:** `click A "https://…"` or `click A call fn()` does nothing in the
+  live preview. Nothing errors; the node just isn't interactive.
+- **Cause:** the runtime pins Mermaid to `securityLevel: 'strict'`, which disables
+  `click` handling. That is deliberate and not negotiable: under the previous
+  `'loose'`, `click A "javascript:…"` rendered as `<a xlink:href="javascript:…">`
+  inside the SVG, which the runtime assigns straight to `innerHTML` — so clicking
+  the node executed the script, inside the docs Studio's SAME-ORIGIN, un-sandboxed
+  preview frame that renders shared and AI-generated decks. That is the HARD
+  RULE #22 threat model (XSS there is OpenRouter-key theft). Found by CodeQL
+  (`js/xss-through-dom`) on #1314 and confirmed exploitable on the real Playground.
+- **Note:** `strict` is Mermaid's OWN default; the PDF path (mmdc) never
+  overrode it, so the runtime was the only surface that opted out.
+- **Not the cause:** `<br/>` in a node label still works under `strict`. An older
+  comment claimed `loose` was required for it; that was wrong on Mermaid 11.
+
+### A diagram with an `%%{init}%%` renders in Mermaid's stock colors (yellow clusters)
+
+- **Symptom:** One diagram in an otherwise on-theme deck comes out with a pale
+  yellow cluster box (`#ffffde`), unfamiliar node fills, `#333` label ink and the
+  wrong font. No error, no warning — it renders, it just renders off-palette. The
+  only thing different about that fence is an `%%{init: …}%%` line.
+- **Cause:** the export path treated ANY init directive as "the author owns this
+  diagram's theme" and skipped the injected `themeVariables` wholesale — even for
+  a directive that named nothing but `flowchart.curve`. `engineering/mermaid.md`
+  §5.3 was, at the same time, telling authors to write exactly such a directive.
+- **Mitigation:** fixed in #1311 — `lib/integrations/mermaid/init-directive.js`
+  merges instead: the engine directive is emitted ahead of the author's, and
+  Mermaid merges init directives in source order (later wins), so an author's
+  keys override ours and everything else keeps the palette. The kernel is the PDF
+  path's; the live preview gets the same guarantee from Mermaid's own merge over
+  `mermaid.initialize` and calls no kernel.
+- **Still expected, ON THE PDF PATH:** `%%{init: {'theme': 'forest'}}%%` — any
+  theme name Mermaid actually resolves, other than `base` — is an explicit
+  opt-out, and the engine stands down. The live preview does NOT honor that pin:
+  Mermaid folds the palette from `mermaid.initialize` back in as overrides, so a
+  pinned diagram previews on-theme and exports stock. Known divergence. If that is NOT what you wanted, drop the `theme:`
+  key; every other key in your directive keeps working.
+- **Related:** `layout: 'elk'` looks like it works and doesn't. Mermaid falls
+  back to dagre for an unregistered layout with a `log.warn` you never see, so
+  the diagram renders on-palette in the wrong layout.
+
 ### Playground: Mermaid (and all DOM transforms) stop rendering after the first edit
 
 - **Symptom:** In the docs playground, add a ```mermaid fence and nothing
