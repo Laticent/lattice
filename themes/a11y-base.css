@@ -62,10 +62,16 @@
    * sets color-scheme on the SECTION, which the :root pin cannot reach — the ink
    * flipped to white while the chips stayed light, and node labels vanished
    * (#1323). A fixed hex has no side to flip, which is what the rest of this
-   * palette already does. #1a1a1a mirrors CAT_INK in
-   * lib/core/accessibility-textures.js — the same ink the textures overlay — and
-   * clears AA on the darkest chip (#868686, 5.02:1). */
-  --cat-on-fill: #1a1a1a;
+   * palette already does.
+   *
+   * The value is #000000 — exactly what `var(--text-heading)` already resolved to
+   * under this palette's forced light scheme. Pinning the CURRENT value keeps every
+   * existing a11y deck byte-identical and confines this change to the dark-slide
+   * case it is meant to fix. (CAT_INK, the near-black the textures overlay, was the
+   * tempting choice for consistency and would have silently restyled the label ink
+   * of every a11y deck ever rendered — a change nobody asked for.) Clears AA on the
+   * darkest chip by a wide margin (#868686, 5.92:1). */
+  --cat-on-fill: #000000;
 
   /* Categorical cycle — fixed greyscale value ramp. The approved textures
    * overlay these to carry the distinction colour alone cannot beyond ~6 steps. */

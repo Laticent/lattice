@@ -308,7 +308,7 @@ in patch versions.
   mode-invariant by design, but inherited `--cat-on-fill` from onyx as a `light-dark()` pair, so
   their ink flipped white over deliberately-light chips — it is now a fixed hex, and they re-assert
   their own literal texture set over onyx's pins. New gate
-  `test/unit/palette/texture-polarity.test.js` (19 assertions) follows `--cat-N-texture` to the
+  `test/unit/palette/texture-polarity.test.js` follows `--cat-N-texture` to the
   pattern it selects and checks the ink against the fill **baked into that pattern** — the join no
   existing test made, which is why the token-level checks all passed while the render was broken.
   Verified non-vacuous by mutation (4, 2, 1 and 4 failures for the four ways to reintroduce it), and
