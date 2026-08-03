@@ -1,19 +1,21 @@
 ---
-status: proposed
+status: shipped
 summary: >
   #1292 asked for `content` to be the layout a slide gets when it declares none.
   Shipping that verbatim clipped 9 slides across 5 decks that render clean on
-  main, and the investigation found why: `content` is the statement-prose layout,
-  not the generic one. It is one of 18 of the 61 components with no `flex:1`
-  body fill, so its trailing annotation floats 202px above the stage bottom where
-  every other component's sits flush at 0px; it is on `below-note.js` EXCLUDED,
-  so a trailing note is never promoted or styled; and its prose sits at
-  `--fs-message` (21pt) while Key Insight is deliberately pinned to `--fs-body`
-  (16pt) to read as a peer of body prose — so as the default it renders a summary
-  24% smaller than the thing it summarizes. Separately, NOTHING in the engine
-  styles a plain markdown table. This note proposes four changes that make
-  `content` the layout #1292 actually describes, and records the measurements
-  behind each.
+  main, because `content` was the STATEMENT-prose layout rather than the generic
+  one. Five changes were needed before the default rule could land, and all six
+  now have: `content`'s prose and list items moved from `--fs-message` to
+  `--fs-body` (Key Insight is pinned to `--fs-body` deliberately, so at the old
+  tier the distillation rendered 24% SMALLER than what it distills); its reading
+  measure moved from `72cqi` to `--measure-body: 36em`, a count of characters
+  rather than a fraction of the slide; `content` left `below-note.js` EXCLUDED,
+  where the exclusion guarded a case the STRUCTURAL check already prevents; the
+  stage now distributes its slack so a Key Insight or below-note flows to the
+  bottom instead of stranding mid-slide; the base layer gained a universal
+  markdown-table treatment, the first the engine has ever had; and `# H1` stopped
+  rendering white-on-white on every light palette. Each section records what was
+  measured, and §1 and §3 record what the original proposal got wrong.
 builds-on: 2026-08-02-slide-class-taxonomy.md, 2026-06-27-stage-flow-no-margins.md
 ---
 
@@ -77,9 +79,9 @@ form features, not component features.** They already work with no `_class`. So
 the fidelity gap is narrower than assumed, and — critically — `content` is not a
 superset of base. It trades.
 
-## The four findings
+## The findings
 
-### 1. `content` has no body fill, so annotations float
+### 1. `content` has no body fill, so annotations float — **SHIPPED**
 
 Components that carry a trailing annotation do not pin the annotation. They put
 `flex:1` on the **body block**, which expands to fill the bounded stage and
@@ -104,7 +106,44 @@ Measured on identical markdown at an identical 438px stage height:
 | `compare-prose` | `DIV.below-note` | **0px** — flush to the stage bottom |
 | `content` | bare `<P>` | **202px** — floating, a third of the slide empty |
 
-### 2. `content` is excluded from below-note promotion, and does not need to be
+**What shipped is NOT `flex:1` on a body block.** The proposal below assumed content had one, the
+way the other 43 components do. It does not — it is heading + prose + maybe a list + maybe a table —
+and every growing-block variant was rendered and rejected:
+
+| tried | why it failed |
+|---|---|
+| grow every body block | the slack splits across them; a paragraph and a table each gain a strange fraction |
+| grow the last body block | when that block is a **table**, the table distributes the extra height into its ROWS, and not evenly — one row takes most of it |
+| `height:0` / `height:100%` on `tbody tr` | neither equalizes the row distribution; it is not controllable from CSS |
+| grow a list or a paragraph | invisible — their content is top-aligned, so the box grows and the dead space simply moves inside it |
+
+**`justify-content: space-between` was the first answer and it was wrong.** It reached the stage
+floor, but it spreads the slack across EVERY gap — so on `heading + lede + list + takeaway` it
+pulled the lede away from the list it introduces. The lede→list bond is meaning, not spacing. The
+guard (`:has(> .below-note:last-child)`) did not prevent that; it only required a third block to be
+present first. Caught by the Munger inversion on a **shipped** slide,
+`examples/insight-labels.md` p3, not by any gate — the corpus ratchet is a clip oracle and this
+never clipped.
+
+**What ships is a spacer**, and it is the owner's diagnosis: the components that do this well flex
+a box a TRANSFORM built (`.compare-prose-inner`, `.roadmap-figure`, `.ct-cards`), not the author's
+markup. `content` has no such box, so one is made — a `::after` on the stage, `flex: 1 1 0`, placed
+before the trailing run by flex `order`. A pseudo-element is a real, measurable flex item, which is
+exactly what `margin-top: auto` is not (HARD RULE #20 bars it because margin is invisible to the
+height math). The slack lands in ONE gap; every other gap keeps the stage's own rhythm.
+
+It is **skipped when the author has taken the vertical axis** — `align-middle` / `align-bottom` /
+`fill-*` set `justify-content` on the stage, and a `flex:1` spacer would leave it no free space to
+distribute, silently winning. The first cut lost that contest on specificity too:
+`:has()` takes its argument's specificity, so `:has(> .below-note:last-child)` made the rule (0,4,1)
+against the alignment modifiers' (0,3,1) — a documented author control silently ignored, verified in
+Chromium. Guarded explicitly now rather than by a specificity race a reader cannot see.
+
+Measured after: on a four-block slide the stack reaches the stage bottom exactly — **0px** dead
+space where there were 101px — and `align-middle` / `align-bottom` are respected again
+(`justify-content` resolves to `center` / `flex-end`, insight at 379px / 537px in a 178–616 stage).
+
+### 2. `content` is excluded from below-note promotion, and does not need to be — **SHIPPED**
 
 `lib/core/below-note.js` lists `content` in `EXCLUDED`, with the stated reason:
 layouts *"that claim their trailing `<p>` for something else (caption,
@@ -139,7 +178,7 @@ The cost of the exclusion is not only placement. Because the note never becomes
 `.below-note`, it gets none of that wrapper's treatment — no hairline accent rule,
 no muted ink, no `--fs-body` sizing. It renders as ordinary body prose.
 
-### 3. The statement tier inverts the Key Insight relationship
+### 3. The statement tier inverts the Key Insight relationship — **SHIPPED**
 
 Key Insight is universal: any `> blockquote` on a section that is not
 `quote`/`math`/`citation-card`/`policy-recommendation` becomes one, on base and on
@@ -174,20 +213,269 @@ the corpus ratchet over the five regressed decks:
 8 of the 9 clipped slides clear.
 ```
 
+**Shipped with one correction the proposal missed: the reading measure had to move
+too.** `content` capped its prose at `72cqi` — a fraction of the SLIDE — which
+measured 61 characters *at `--fs-message`* and would measure something else the
+moment the tier moved. That is exactly the trap #1309 had just fixed for the
+bookends. It is now `--measure-body: 36em` = 769.5px, which holds roughly **78–83
+characters**.
+
+**An earlier version of this section claimed "66 characters, measured", and that
+was false.** The advance it rested on (11.58px) came from an alphabet sample full
+of capitals, which are far wider than running prose; measured against real
+sentences the advance is ~9.3–10.1px, so the count was ~20% low. Caught by the
+maker-checker pass. The real before→after is **~62 → ~80 characters**, and 36em
+sits ABOVE the 45–75 band this section had cited as its own justification.
+
+So state what the number actually is: **a compatibility value, not a typographic
+one.** Base has no measure at all, so an un-classed slide ran ~90+ characters —
+genuinely too wide, and the defect. Making `content` the default imposes a measure
+on those slides for the first time, and every narrower value costs them lines: at
+33em (~76 characters) four shipped decks clip; at 36em none do. Tightening toward
+the canonical 66 is the right direction and needs those over-authored decks
+trimmed first — logged, not done here.
+
 The one that remains, `finish-backdrops.md` p2, renders **119 words** — 3× the
 ~40-word body budget `content.docs.md` sets — and is structurally a card list. It
 is over budget by the layout's own contract, which is the constraint working
 rather than failing.
 
-### 4. Nothing styles a plain markdown table
+### 4. Nothing styles a plain markdown table — **SHIPPED**
 
-There is **no universal table CSS in the engine.** Every table rule is scoped to
-`compare-table`, `glossary`, `list-tabular` or `obligation-matrix`. A markdown
-table on any other slide — base or `content` — gets raw browser defaults: no
-borders, no zebra, no cell padding, no header weight.
+There was **no universal table CSS in the engine.** Every table rule was scoped to
+a component. A markdown table on any other slide — base or `content` — got raw
+browser defaults: no borders, no zebra, no cell padding, no header weight.
 
-This is a boardroom-bar defect independent of the default-layout question. It is
-broken on base today and would remain broken under `content`.
+This is a boardroom-bar defect independent of the default-layout question. It was
+broken on base and would have remained broken under `content`.
+
+**Landed** in `lib/base/base.elements.css` § UNIVERSAL TABLE. Two corrections to
+this record's first draft, both found while implementing:
+
+**The specialist count was four; it is seven.** The draft named `compare-table`,
+`glossary`, `list-tabular` and `obligation-matrix`. `list-tabular` renders an
+`<ol>`, not a `<table>`, so it was never a table component at all. The actual set
+that styles a table element is `compare-table`, `glossary`, `obligation-matrix`,
+`statute-stack`, `math`, `roadmap`, `matrix-grid`.
+
+**"Component selectors `(0,1,N)` beat base element rules `(0,0,N)`, so no existing
+table changes" was wrong**, and it is the sharpest thing this section has to say.
+Specificity settles a contest only over a property BOTH rules declare. A base rule
+setting a property the specialist never declared has no contest to lose:
+
+| base declares | specialist that declares nothing for it | result without a guard |
+|---|---|---|
+| `tbody tr:nth-child(odd){background}` | compare-table, statute-stack.lane, math.derivation | a zebra wash they never asked for |
+| `td{border-bottom}` | math.derivation (it borders `tbody tr`) | doubled row lines |
+
+So the treatment carries a **deny guard** — `:where(:not(.compare-table)…)`, zero
+specificity, one entry per table-owning component — and is scoped to the **stage's
+own child** (`> table`, `> .cell-stage > table`), which excludes every
+transform-generated table inside a `<figure>` for free. `roadmap` and `matrix-grid`
+are in the guard even though the scoping already excludes their wrapped tables,
+because the rule that is easy to state is the one that stays true: *a component
+that styles `<table>` owns its tables, and base stands off.*
+
+**Two entries are variant-scoped, and the gate enforces that.** `math` styles a
+table only under `.derivation`, `statute-stack` only under `.lane`. A
+name-granularity entry for either withholds the default from a bare `_class: math`
+slide — reintroducing raw browser defaults on the exact surface this section
+exists to fix. Caught by rendering it, not by reading it. So the guard denies
+`.math.derivation` / `.statute-stack.lane`, and `checkUniversalTableGuard` fails
+three ways: a claim with no entry, a **stale** entry, and an **over-broad** entry
+(`:not(.math)` when only `.math.derivation` claims a table). Eleven unit tests,
+including the wired-into-`run()` assertion the rest of that file's gates carry.
+
+**Two switches, at the owner's direction.** Striping and vertical fill are both
+toggleable, and both are custom properties rather than classes-with-CSS-inside, so
+the switch is reachable from a theme `:root`, a deck `style:` block, a component,
+or a per-slide class — `--table-zebra: transparent` and `--table-grow: 1`
+(`table-plain` / `table-fill` are the author-facing spelling). They are independent
+flags, not an exclusive axis. `table-fill` also sets `--table-valign: middle`,
+found by rendering it: a stretched row with its text pinned to the top reads as a
+gap rather than a band.
+
+**Column alignment is native markdown's, and always was.** Verified in the emitted
+HTML rather than asserted: `:---` / `:---:` / `---:` compile to an inline
+`style="text-align:…"` on every cell in the column, `th` included, which outranks
+anything in the treatment. The block sets no `text-align` on `td` at all; its one
+`text-align` is the `thead th` default that replaces the browser's centered
+default for a column the author left unaligned.
+
+**No first-column emphasis.** An earlier cut gave `td:first-child` heading ink and
+600 weight, mirroring compare-table and obligation-matrix. Those two can assert it
+— their manifests declare the first column IS the row label. Base cannot: it sets
+the identical property pair as `section strong`, so `**bold**` in column one
+becomes a no-op with no way to opt out, and it is simply wrong on a leading
+ordinal, a status tick, a citation index, or a single-column table (every cell
+bold). Dropped.
+
+**Cell padding is half `--sp-xs`, and that number was earned.** The first cut used
+the full token and made rows 15% taller (38.2px → 43.9px) — the compact type saved
+less than the padding spent. Measured on a plain `content` slide, that moved the
+clip threshold from **11 rows to 10**: a ten-row table that fit on `main` exported
+with its last row *silently gone*, because a plain table has no capacity axis and
+the Fit Spine cannot split it. That is a HARD RULE #18 break the corpus ratchet
+could never have caught (see below). At half the token the threshold is **12 rows**
+— one better than before this block existed.
+
+| | row height | clips at |
+|---|---|---|
+| `main` (unstyled) | 38.2px | 11 rows |
+| first cut (`--sp-xs`) | 43.9px | **10 rows** ← regression |
+| shipped (`--sp-xs` × 0.5) | — | 12 rows |
+
+#### What was verified, and what the instruments actually prove
+
+- **Contrast, all 61 components** (`tools/check-slide-contrast.js` over a probe
+  deck putting the same table on every component): 66 sub-AA runs → **39**, and
+  **zero** table cells. The 27 that cleared were a **pre-existing** defect this
+  change fixes — see §6.
+- **Three specialists pixel-diff to 0** on the probe deck.
+- **Corpus ratchet holds at 27 across 249 decks** (249, not 248 — the demo deck
+  this change adds is itself in the corpus glob). Say plainly what that is worth:
+  the shipped corpus contained **zero** authored tables on a non-owning slide before
+  this change, so the ratchet's denominator for the affected set is zero. It proves
+  the deny guard and the figure-scoping did not disturb the tables that already
+  existed — and the seven specialist galleries pixel-diff to 0 across 76 pages,
+  which is the real form of that proof. It does **not** evidence the treatment's
+  quality, and it structurally could not have caught the row-capacity regression
+  above. That evidence is the contrast sweep, the fit rig, and rendered review.
+
+**The `:where()` guard survives selector scoping.** Both render paths re-scope
+theme CSS under the slide root, and `gotchas.md` §"Marpit theme prefixer mangles
+`:is(...)`/`:where(...)`" documents a real trap there — but only for a selector
+that *leads* with the function. This guard leads with `section`, the form that
+section explicitly calls safe, and `base.modifiers.css` already ships six rules in
+it. Verified on the owned engine by running the real `packTheme`
+(`lib/engine/css.js`) over all three shapes — the `:where()` guard, the
+`:where(.cell-stage)` arm, and the `:is()` bookend support rule — each scopes to
+`article.lattice > section…` intact. Export through **real marp-cli is
+UNVERIFIED**: `@marp-team/marp-core` is not installed in this sandbox.
+
+#### The corpus ratchet is RED on this branch, and it is `main`'s red
+
+After rebasing onto `main` at `7648100`, the ratchet reports one deck above
+baseline: `examples/marp-export-fidelity.md` p1 — a `title finish-none` slide with
+a heading and a lede, **no table on it**. Bisected against the same deck, same
+content, CSS only:
+
+```
+dist/lattice.css @ 7648100^ (before #1309)   →  no overflow
+dist/lattice.css @ 7648100  (#1309, on main) →  p1 CLIPPED
+```
+
+So it is `#1309` — *anchor(bookends): measure in em, not cqi* — regressing a
+shipped deck, and it is red on `main` today for every branch that rebases. This
+change adds **zero** clips of its own: that one deck is the entire delta, and the
+seven specialist galleries pixel-diff to 0 against the post-#1309 `main`.
+
+Deliberately **not** blessed and **not** fixed here. It is a pre-existing defect
+this branch merely found, off the path of a table treatment, and the repair is a
+judgment call about `--measure-bookend-lede` that belongs with whoever owns the
+bookend measures — pulling it into this diff would breach both HARD RULE #18's
+off-path rule and #17.
+
+#### What the adversarial trio found (HARD RULE #25)
+
+Eight defects across the three lenses, none of which any gate in the repo would
+have caught — the corpus ratchet is a clip oracle and not one of them clipped.
+
+| # | Found | Fixed |
+|---|---|---|
+| 1 | `# heading` on `closing`/`divider` rendered **1.00:1 — black on black** on 18 of 19 palettes, and was already baked into this branch's regenerated PDFs | yes |
+| 2 | `space-between` broke the lede→list bond, live on `examples/insight-labels.md` p3 | yes — replaced by the spacer |
+| 3 | The stage rule silently outranked `align-middle`/`align-bottom`/`fill-*` (`:has()` takes its argument's specificity) | yes |
+| 4 | `align-top`, the documented DEFAULT, rendered differently from writing nothing | yes |
+| 5 | A body that is only a quote + attribution had its whole content flung to the floor | yes |
+| 6 | `--measure-body`'s "66 characters, measured" was false — the advance came from an alphabet sample | yes — claim corrected, value kept and reframed |
+| 7 | "A paragraph after a paragraph is never promoted on any layout" was false on the HTML path; the two render paths disagreed | yes |
+| 8 | `content.docs.md` is GENERATED — the fallback role had been hand-edited there and silently overwritten | yes — moved to the manifest |
+
+**Finding 1 is the one worth remembering.** §5's fix rested on "`title` is the only
+component that styles `h1` at all" — which is TRUE, and was the wrong question.
+`closing` and `divider` style `h2`; they never styled `h1` because they *inherited*
+the right ink from base's `--text-display` default. Changing that default to serve
+the light canvas took the ink away from the two panels that were relying on it.
+The correct shape was both halves at once: a light-canvas default in base, and an
+explicit dark-panel binding on each bookend — which is what `h2` already had, two
+lines above, in the same files.
+
+#### Recorded, not fixed
+
+- **`content` slides lose a concluding paragraph to below-note promotion.** "List,
+  then a concluding sentence" is a common prose shape, and promotion turns that
+  conclusion into a footnote — muted, hairline-ruled, and now pushed to the stage
+  floor by the spacer. 5 slides across 3 decks, two of them long-running galleries.
+  This is change §2 working as designed and as every other non-excluded layout has
+  always worked, so `content` is now *consistent* rather than special — but the
+  design call deserves the owner's eye rather than a silent landing.
+- **The trailing-group fix does not reach `no-form` slides.** Both the spacer and
+  the `order` rule are scoped to `> .cell-stage`, which a `no-form` slide (or a
+  `form: off` deck) does not have. Not a regression — `main` had no fix either —
+  but the same deck composes differently across a chrome mode for a reason the
+  author cannot see.
+- **Under `align-center` the below-note's hairline shrinks to its text.**
+  `.below-note::before` is `left:0; right:0` on a shrink-to-fit box. Pre-existing;
+  §1 merely makes it reachable from more slides.
+- **The runtime path is UNVERIFIED on the surface it exists for.** `applyDefaultComponent`
+  only matters where sections arrive unstamped — the marp-vscode webview. The
+  Playground bundle carries the markdown-it plugin and stamps at parse time; the
+  emulator's sidecar arrives pre-stamped. Neither reviewer could drive marp-vscode
+  from here, and neither could I (HARD RULE #23). Also open: it runs once at
+  bootstrap and is not in `runAllContentTransforms`, so a surface that replaces
+  `<section>` elements after boot would never get the class.
+
+
+
+- A table inside `split-panel` / `split-compare` / `compare-code` / `image` lands
+  in a side frame, not the slide body's top level, so it gets nothing. The frame
+  set is already maintained in one place — `CLIP_CELL_SELECTOR`
+  (`lib/core/overflow-probe.js`), which `collections.js` reads rather than
+  duplicating, precisely so "a new clip-cell class can't silently fall through the
+  way `.panel-right` originally did." This CSS hardcodes `.cell-stage` and cannot
+  read that JS constant. Widening it is a real improvement and a wider blast
+  radius; it belongs in its own change with its own render pass.
+- `_class: sketch` now draws machine-straight table hairlines that
+  `base.sketch.css` has no rule to roughen — it enumerates the four table
+  components and a plain table was never in scope because it drew no lines.
+- The zebra reads `--accent` directly rather than the `--spectrum-structure`
+  register `base.variants.css` documents for in-content accent lines, so
+  `spectrum: off` does not flatten it. Inherited from obligation-matrix's
+  identical expression; newly universalized.
+
+### 5. An `# H1` is invisible on a light-theme slide that has no dark panel — **SHIPPED**
+
+Found while rendering §4's probe, and it undercuts this record's own claim that an
+un-classed slide "already works". `base.elements.css` sets
+
+```css
+section h1 { …; color: var(--text-display); … }
+```
+
+and `--text-display` is a near-white ink in **all thirteen** light palettes —
+indaco `#FFFFFF` ("on dark surfaces — 11.29:1 on bg-dark"), cuoio `#FAF7F2`,
+atelier `#F0EDE6`, burgundy `#F0E2CE`, and so on down to mustard `#F0E5C8`.
+(Thirteen, not fourteen: `carbone` is the one dark-only palette and is excluded —
+which is also #1302.)
+
+**`title` is the only component that styles `h1` at all.** `divider` and `closing`
+style `h2`; `big-number` uses neither `h1` nor `--text-display` nor a dark panel.
+So the near-white ink has exactly one correct consumer, and every other `h1` in
+the engine — which means every `h1` an author writes on a slide `title` did not
+claim — renders **white on white**.
+
+Reproduced on a two-slide probe with no `_class` at all: the `##` slide renders its
+heading correctly, the `#` slide renders body copy under an empty masthead.
+
+This is a **pre-existing** defect (`main` has it), not a regression from §4, and it
+is off the path of the table change — logged here rather than folded into it, per
+HARD RULE #18. But it belongs with (1)–(3), not after them: "a slide with no
+`_class` doesn't get styled" (#1292's premise, which §"What an un-classed slide
+actually inherits" pushed back on) is *more* right than this record allowed, and
+the strongest single piece of evidence for it is that the title disappears. Any
+fix is a `--text-display` binding question — surface-aware ink, the way
+`--code-inline-fg` already works — not an `h1` question.
 
 ## Proposal
 
@@ -205,9 +493,14 @@ every future component.
    Key Insight and below-note to peers of body prose, and clears 8 of 9 clipped
    slides.
 4. **A minimal universal table treatment in base** — hairline rules, header
-   weight, zebra at low alpha, cell padding, `--fs-body-compact` — with the four
-   specialist components overriding as they already do (component selectors
-   `(0,1,N)` beat base element rules `(0,0,N)`, so no existing table changes).
+   weight, zebra at low alpha, cell padding, `--fs-body-compact` — withheld from
+   the seven specialist components by an explicit deny guard. **SHIPPED**; see §4
+   for the two things this line originally got wrong (the count, and the belief
+   that specificity alone made a guard unnecessary).
+
+Plus one finding that is **not** a proposal, because it is a pre-existing defect
+rather than a change to weigh: §5, an `# H1` renders white-on-white on every light
+theme unless a component puts it on a dark panel.
 
 ### What this does NOT change
 
@@ -224,7 +517,7 @@ every future component.
 
 ### Sequencing
 
-(4) is independent and can land first — it fixes a real gap regardless of what is
+(4) is independent and **landed first** — it fixes a real gap regardless of what is
 decided about defaults. (1)–(3) are one coherent change to `content` and should
 land together, because (3) alone would leave annotations floating and (1) alone
 would leave them unpromoted.

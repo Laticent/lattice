@@ -22,6 +22,15 @@ section.closing hr { margin:0; }
  * lines on a portrait sign-off. `text-wrap: balance` handles
  * the break positions the cap can't (closing.styles.css' predecessor comment
  * blamed the cap for an orphan word that was always balance's job). */
+/* An author's `# heading` lands here too — `h1` is a supported shape on this
+ * bookend (base.modifiers.css ships its before-heading eyebrow rules for `+ h1`
+ * as well as `+ h2`), and the component styles only `h2`. It used to inherit the
+ * right ink by accident, because base's `section h1` named --text-display, the
+ * DARK-PANEL ink. That default was wrong for the whole light canvas and was
+ * changed to --text-heading (#1292 §5) — which left this panel painting dark ink
+ * on a dark surface. Measured at 1.00:1 on onyx: black glyphs on black. So the
+ * ink is named here, where the panel is, exactly as `h2` above names it. */
+section.closing h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
 section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:var(--measure-bookend-heading); text-wrap:balance; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
 section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:var(--measure-bookend-lede); text-wrap:balance; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 

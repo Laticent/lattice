@@ -6,7 +6,7 @@
 
 **Tags** `walkthrough` · `overview` · `summary`
 
-The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better.
+The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better. **`content` is also the DEFAULT**: a slide that names no component at all resolves to it (#1292), so writing nothing and writing `_class: content` are the same thing. That is why its prose reads at the body tier rather than the slide-statement tier — it has to sit correctly beside a Key Insight, a below-note and a table, all of which are body-tier.
 
 ## Agent contract
 
@@ -15,11 +15,12 @@ The catch-all for explanatory content that doesn't fit a more structured layout.
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `heading` | `h2` | yes | Slide heading. |
-| `body` | `section > p, section > ul` | yes | Paragraphs or a short bullet list under the heading. Keep under ~40 words. |
+| `body` | `section > p, section > ul` | yes | Paragraphs or a short bullet list under the heading. Keep under ~40 words — an editorial target for a slide you chose this layout for, not a limit the engine enforces; a slide that merely fell back to `content` is bound by the overflow oracle, not by this. |
 
 ### Common mistakes
 
-- **Nesting a second level of bullets to add sub-points, expecting them to read with the same weight as the top level.** A nested list steps DOWN to body-size text (smaller than the top-level prose size) — nested items read as supporting asides, not equal peers. If the items should carry equal weight, keep them all at the top level.
+- **Nesting a second level of bullets to add sub-points, expecting them to read with the same weight as the top level.** A nested list steps DOWN one type tier (top level is --fs-body, nested is --fs-body-compact) — nested items read as supporting asides, not equal peers. If the items should carry equal weight, keep them all at the top level.
+- **Expecting a trailing paragraph to stay body copy after a list or a table.** It is promoted to a below-note — hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected.
 
 ## When to use
 

@@ -12,9 +12,18 @@ section.content h2 { padding-bottom:var(--sp-sm); }
  * 72cqi cap used to sit here and held the heading below its band on 21 of 28 measured
  * slides, costing 18 of them an extra line. Framing behavior is the deck's call via
  * the `headline:` alignment register, not a per-component bake. */
-/* BODY prose keeps a reading measure — 72cqi ≈ 65–75 chars, where an uncapped
- * full-canvas paragraph at --fs-message runs ~90. */
-section.content p  { font-size:var(--fs-message); line-height:var(--lh-relaxed); max-width:72cqi; }
+/* BODY prose reads at --fs-body, NOT --fs-message, and that is the whole of §3.
+ * --fs-message is the SLIDE-STATEMENT tier (statement, quote, lead, divider sub);
+ * content is a prose layout, and the type contract assigns "card / list / inline
+ * prose" to --fs-body. The tell is Key Insight: base.modifiers.css pins it to
+ * --fs-body deliberately, because a Key Insight SUMMARIZES the body and "must not
+ * out-shout the very content it distills". At --fs-message body prose, the
+ * distillation rendered 24% SMALLER than the thing it distills, and a trailing
+ * annotation rendered LARGER than the insight. At --fs-body they are peers, which
+ * is what the contract says they are. It is also what stopped the corpus clipping:
+ * the slides #1292 broke were card lists, which the contract assigns to --fs-body.
+ * The measure is --measure-body (em, not cqi — see base.tokens.css). */
+section.content p  { font-size:var(--fs-body); line-height:var(--lh-relaxed); max-width:var(--measure-body); }
 /* …but NOT in the masthead band: the bare rule above also matched content's eyebrow and
  * subtitle once they HOIST into `.masthead-lede`, capping framing text with a body rule
  * (measured, a portrait eyebrow wrapped to two lines for want of 2.6px). Un-capped by
@@ -37,16 +46,77 @@ section.content .cell-masthead p { max-width:none; }
  * it sits beside — the paragraph/list mismatch. Style lists as prose peers:
  * real markers, prose size, prose-compatible rhythm. No :has() — works in
  * every render path. */
-section.content :is(ul, ol) { margin:0; padding:0 0 var(--sp-sm) var(--sp-lg); display:flex; flex-direction:column; gap:var(--sp-2xs); max-width:72cqi; }
+section.content :is(ul, ol) { margin:0; padding:0 0 var(--sp-sm) var(--sp-lg); display:flex; flex-direction:column; gap:var(--sp-2xs); max-width:var(--measure-body); }
 section.content ul { list-style:disc; }
 section.content ol { list-style:decimal; }
-section.content :is(ul, ol) > li { font-size:var(--fs-message); color:var(--text-body); line-height:var(--lh-snug); }
+section.content :is(ul, ol) > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-snug); }
 section.content :is(ul, ol) > li::marker { color:var(--accent); }
-/* nested level steps down to body size so sub-points read as support */
+/* Nested level steps DOWN one tier so a sub-point reads as support. It used to
+ * step --fs-message -> --fs-body; now the top level IS --fs-body, so the step
+ * moves to --fs-body-compact. Without that the two levels would render at the
+ * same size and the support relationship would go flat — the point of the step,
+ * not the specific token. */
 section.content :is(ul, ol) :is(ul, ol) { padding:var(--sp-2xs) 0 0 var(--sp-lg); margin:0; }
-section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body); line-height:var(--lh-base); }
+section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact); line-height:var(--lh-base); }
 
 
+
+/* ── The trailing group flows to the bottom (§1) ───────────────────────────
+ * content's stack packed to the TOP of a full-height stage, so a Key Insight or
+ * a below-note sat stranded mid-slide with a fifth of the stage empty beneath it
+ * — measured 101px of 524 on a four-block slide.
+ *
+ * Every other component fixes this by putting `flex:1` on its ONE body block —
+ * and several of them do not even use the author's markup for it: a transform
+ * BUILDS the box (`.compare-prose-inner`, `.roadmap-figure`, `.ct-cards`) and the
+ * CSS flexes that. content has no such box. Its body is whatever was written:
+ * one paragraph, or a lede plus a table plus a list. So there is nothing
+ * deterministic to grow, and every growing-block variant was rendered and failed:
+ *   • growing every body block splits the slack across them;
+ *   • growing a TABLE is the worst — a table distributes extra height into its
+ *     ROWS, unevenly, and neither `height:0` nor `height:100%` on `tbody tr`
+ *     equalizes it. A table's vertical fill is the `table-fill` switch instead.
+ *   • growing a list or paragraph is invisible: their content is top-aligned, so
+ *     the box grows and the dead space merely moves inside it.
+ *
+ * So the SPACER is the deterministic box content never had. A `::after` on the
+ * stage is a real, measurable flex item (unlike the `margin-top:auto` HARD RULE
+ * #20 bars, which is invisible to the height math), and `order` puts it BEFORE
+ * the trailing run rather than at the end where a pseudo would otherwise sit.
+ *
+ * This replaced `justify-content: space-between`, which was wrong in a way only a
+ * render showed: space-between spreads the slack across EVERY gap, so on
+ * `heading + lede + list + takeaway` it pulled the lede away from the list it
+ * introduces. The lede→list bond is meaning, not spacing. The spacer puts the
+ * slack in exactly one gap — the one before the trailing run — and leaves every
+ * other gap at the stage's own rhythm.
+ *
+ * SKIPPED when the author has taken the vertical axis themselves. `align-middle`
+ * / `align-bottom` / `fill-*` set `justify-content` on the stage (stage.css), and
+ * a `flex:1` spacer leaves justify-content no free space to distribute — it would
+ * silently win. Guarded here rather than by specificity, because that contest is
+ * exactly what a reader cannot see.
+ *
+ * `align-top` is deliberately NOT in that list, though a first cut had it there.
+ * It resolves to `justify-content: flex-start`, which a spacer does not fight —
+ * so excluding it bought nothing and cost the one thing a modifier must never do:
+ * writing the DEFAULT explicitly rendered differently from writing nothing at all
+ * (measured: 257px of dead space with `align-top`, 0px without).
+ * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
+/* The trailing run, ordered last. Both rules require the stage to ALSO hold a
+ * non-trailing child: on a slide whose whole body IS a quote and its attribution,
+ * every child is "trailing", so the spacer would land before all of them and fling
+ * the entire body to the floor under a third of a blank slide. Rendered, and it
+ * reads as a failure rather than a composition. With no body to sit under, there
+ * is no slack to place — leave the slide alone. */
+section.content > .cell-stage:where(:has(> :not(.below-note):not(blockquote)))
+  > :where(.below-note:last-child,
+           blockquote:last-child,
+           blockquote:has(+ .below-note:last-child)) { order: 1; }
+section.content:where(:not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
+  > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child)):where(:has(> :not(.below-note):not(blockquote)))::after {
+  content: ''; flex: 1 1 0; min-height: 0;
+}
 
 /* Portrait / square (social) — cap the running-prose measure so lines don't
    sprawl the full width; the centred block reads composed. Display lines

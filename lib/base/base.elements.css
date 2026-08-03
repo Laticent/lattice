@@ -2,12 +2,19 @@
  *
  * Extracted from lib/_legacy.css in Phase 2 of the destination map.
  * Element selectors only (section, h1-h5, p, strong, em, code, hr, ul,
- * ol, blockquote) — no class selectors, no token definitions.
+ * ol, blockquote, table) — no token definitions. The ONE place a class
+ * appears is the universal table treatment at the foot of this file, and
+ * it appears only inside `:where()` (zero specificity) as a DENY guard,
+ * so every rule here still resolves at element specificity.
  *
  * Bundle order: lib/_base.css comes BEFORE lib/_root.css in the head
  * sources (see tools/build-css.js HEAD_SOURCES). Both run before
  * per-component CSS, so component selectors (specificity 0,1,N) always
- * win over these element-only rules (specificity 0,0,N+1 at most).
+ * win over these element-only rules (specificity 0,0,N+1 at most) —
+ * FOR A PROPERTY BOTH DECLARE. That qualifier is not pedantry: a rule here
+ * setting a property no component declares has no contest to lose, and lands
+ * unopposed. It is why the universal table treatment below needs an explicit
+ * deny guard rather than trusting the sentence above; see its header.
  */
 
 section {
@@ -43,7 +50,15 @@ section {
  * `margin-bottom` — HARD RULE #20: margin is invisible to the overflow probe /
  * autosplit and margin-collapses. Headings carry no own-margin; the gap spaces
  * them from the following block. (See 2026-06-27-stage-flow-no-margins.md.) */
-section h1 { font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700; color:var(--text-display); line-height:var(--lh-tight); margin:0; border:none; }
+/* h1's ink is --text-heading, the same as h2-h6, NOT --text-display. That token
+ * is the ink for a DARK PANEL ("on dark surfaces" in every palette that defines
+ * it) and it is near-white in all thirteen light palettes. `title` is the only
+ * component that puts an h1 on a dark panel, and it sets --text-display itself
+ * (title.styles.css) — so the base default served exactly one consumer that did
+ * not need it, and rendered every OTHER author-written `# heading` white on
+ * white. Pure ink change: the box, and therefore every height the Fit Spine
+ * measures, is identical. See 2026-08-02-default-slide-layout.md §5. */
+section h1 { font-family:var(--font-display); font-size:var(--fs-h1); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h2 { font-family:var(--font-display); font-size:var(--fs-h2); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h3 { font-family:var(--font-display); font-size:var(--fs-h3); font-weight:700; color:var(--text-heading); line-height:var(--lh-tight); margin:0; border:none; }
 section h4 { font-family:var(--font-body); font-size:var(--fs-h4); font-weight:700; color:var(--text-heading); margin:0; }
@@ -79,3 +94,125 @@ section hr { border:none; height:0.15625cqi; background:var(--spectrum-structure
 section ul { list-style:none; padding:0; margin:0; }
 section ol { padding:0; margin:0; }
 section blockquote { margin:0; padding:0; border:none; }
+
+/* ── UNIVERSAL TABLE ──────────────────────────────────────────────────────
+ * A plain GFM pipe table on a slide that is not one of the seven table-owning
+ * components used to render at raw browser defaults: no rules, no padding, no
+ * header weight, columns scattered across the slide. Every table rule in the
+ * engine was scoped to a component, so `_class: content`, a base modifier, or
+ * no class at all got nothing. This is that missing default.
+ *
+ * The vocabulary is the one the specialists already agree on, so a plain table
+ * reads as the same family as a `compare-table`: the `--spectrum-structure`
+ * thead underline (unanimous across compare-table / glossary /
+ * obligation-matrix / statute-stack), label-cased column heads at `--fs-meta`,
+ * `--border` hairlines under each row, `--fs-body-compact` cells (the type
+ * contract's "dense reference cell" tier), and a low-alpha accent zebra.
+ *
+ * TWO scoping decisions, both load-bearing:
+ *
+ * 1. DIRECT STAGE CHILD ONLY (`> table` when the slide is `no-form`,
+ *    `> .cell-stage > table` when it carries `form`). An author's markdown table
+ *    lands exactly there. A table a TRANSFORM generated does not: roadmap wraps
+ *    its table in `.roadmap-figure` and matrix-grid in `.matrix-grid-figure`, and
+ *    a chart's `<figure>` is never the stage's own child. Scoping to the stage
+ *    child keeps every generated table out for free — including a future chart
+ *    that follows the same wrap.
+ *
+ * 2. A DENY GUARD for the seven components that style `<table>` themselves.
+ *    Specificity alone is NOT enough here, for two separate reasons.
+ *
+ *    (a) A component rule outranks a base element rule only for the properties it
+ *        actually DECLARES. compare-table, math.derivation and statute-stack.lane
+ *        declare no zebra, so a universal `tbody tr:nth-child(odd)` background
+ *        would land on them unopposed; math.derivation puts its row rule on
+ *        `tbody tr` and not on `td`, so a universal `td { border-bottom }` would
+ *        double its lines. There is no contest to win when only one side declares.
+ *
+ *    (b) These are not all (0,0,N). `:where()` contributes nothing, but
+ *        `:nth-child()` counts at CLASS level, so the zebra rule below is
+ *        **(0,1,4)** — it would BEAT a component's own `section.foo tr
+ *        { background }` at (0,1,2). No component writes that today (all seven
+ *        table owners are denied outright, and base.focus's row rules are (0,2,2)),
+ *        but the deny guard, not the specificity, is what makes that safe.
+ *
+ *    roadmap and matrix-grid are listed even though decision (1) already excludes
+ *    their wrapped tables, because the rule that is easy to state is the one that
+ *    stays true: A COMPONENT THAT STYLES `<table>` OWNS ITS TABLES, AND BASE
+ *    STANDS OFF. `:where()` keeps the guard itself at zero specificity, so a
+ *    component still overrides this block exactly as it did before.
+ *
+ *    TWO entries are VARIANT-scoped, and that is deliberate rather than fussy.
+ *    `math` styles a table only under `.derivation`, `statute-stack` only under
+ *    `.lane`. A component-granularity entry for either would withhold the default
+ *    from `_class: math` and `_class: statute-stack` — reintroducing, on those two
+ *    slides, the exact raw-browser-defaults defect this block exists to close.
+ *    Ownership is at the granularity the owning CSS actually claims.
+ *
+ * The guard is gated — `checkUniversalTableGuard` in tools/check-ownership.js —
+ * against a missing entry, a stale entry, an over-BROAD entry, and a rule in this
+ * block that drops an entry the others carry. It is not proof against every
+ * possible rot: read that gate's coverage boundary for what it does not see.
+ * Cross-cutting decoration that is not component-scoped (base.focus's
+ * `[data-focus-*]` row/cell treatments) is deliberately out of the gate's scope:
+ * it decorates whatever table it lands on and claims no ownership.
+ *
+ * CELL PADDING is deliberately half `--sp-xs` vertically. A first cut used the
+ * full token and cost 15% of row height (38.2px → 43.9px), which moved the
+ * clip threshold on a plain `content` slide from 11 rows to 10 — a table that fit
+ * before would export with its last row silently GONE, and a plain table has no
+ * capacity axis to split on. At half, the compact type saves more than the padding
+ * spends: the threshold is 12 rows, one better than before this block existed.
+ * Re-measure with the same rig if you touch either value.
+ * See engineering/decisions/2026-08-02-default-slide-layout.md §4. */
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table {
+  width:100%; table-layout:auto; border-collapse:collapse;
+  font-size:var(--fs-body-compact); line-height:var(--lh-snug);
+  /* Vertical fill is a TOGGLE, off by default (`flex:0 1 auto` is a flex item's
+   * own default, so this declaration changes nothing until --table-grow is set).
+   * On, the table takes the leftover stage height and its rows spread to use it —
+   * compare-table's behavior, now available to a plain table. */
+  flex:var(--table-grow, 0) 1 auto;
+}
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead tr,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead tr {
+  background:var(--spectrum-structure) bottom / 100% 2px no-repeat;
+}
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table thead th,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table thead th {
+  font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600;
+  letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label);
+  padding:var(--sp-xs) var(--sp-sm); text-align:left;
+  word-wrap:break-word; overflow-wrap:break-word;
+}
+/* Zebra BEFORE the cell rule so a `td` background (a treatment, a state pill)
+ * always paints over it — the row wash is the bottom-most layer.
+ * The wash is a TOKEN, not a literal, so it is switchable from CSS at any level a
+ * custom property reaches: a theme's `:root`, a deck's `style:` block, a slide.
+ * `table-plain` sets it transparent; see base.variants.css. */
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table tbody tr:nth-child(odd),
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table tbody tr:nth-child(odd) {
+  background:var(--table-zebra, color-mix(in srgb, var(--accent) 4%, transparent));
+}
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table td {
+  padding:calc(var(--sp-xs) * 0.5) var(--sp-sm); border-bottom:1px solid var(--border);
+  color:var(--text-body); vertical-align:var(--table-valign, top);
+  word-wrap:break-word; overflow-wrap:break-word;
+}
+/* COLUMN ALIGNMENT IS THE AUTHOR'S, ALWAYS. markdown-it compiles `:---` / `:---:` /
+ * `---:` to an inline `style="text-align:…"` on the cell, which outranks anything
+ * here — so nothing in this block sets `text-align` on `td` at all. The one
+ * `text-align` above is on `thead th`, and it only replaces the browser's centered
+ * default for a column the author left unaligned; the moment they write an
+ * alignment marker, their inline style wins on the header too. */
+/* NO first-column emphasis here, deliberately. compare-table and
+ * obligation-matrix both give `td:first-child` heading ink and 600 weight, and it
+ * is right for them: their manifests declare the first column IS the row label.
+ * Base cannot make that bet. It would set the identical property pair as
+ * `section strong` above, so `**bold**` in column one becomes a no-op and an
+ * author has no way to opt out; and it is simply wrong on a leading ordinal
+ * (`| # | Finding |`), a status tick, a citation index, or a single-column table
+ * — where every cell would render bold. A component that knows its first column
+ * is a label says so itself. */

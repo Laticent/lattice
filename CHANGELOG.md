@@ -57,6 +57,113 @@ in patch versions.
 
 ### Added
 
+- **Breaking: a slide that names no component now renders as `content`, the catch-all prose
+  layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The
+  rule keys on the RESOLVED class list, not on the presence of a directive, so a deck-wide
+  `class: kpi` counts as the slide's component and a slide carrying only modifiers (`_class: dark`)
+  still gets the default. Both render paths run it from one kernel
+  (`lib/core/resolve-component.js`), whose component vocabulary is the generated stage catalog — so
+  it cannot drift as components are added or renamed.
+  - Shipping this alone was tried and reverted once: it clipped 9 slides across 5 decks that render
+    clean on main, because `content` was the STATEMENT-prose layout rather than the generic one.
+    Four fixes had to land with it, and they are the rest of this entry.
+- **`content` reads at the body type tier, not the slide-statement tier.** Its prose and top-level
+  list items move from `--fs-message` to `--fs-body`; nested items step from `--fs-body` to
+  `--fs-body-compact` so the support relationship survives. This repairs an inversion that had been
+  shipping: Key Insight is deliberately pinned to `--fs-body` because it summarizes the body and
+  "must not out-shout the very content it distills" — at `--fs-message` body prose, the
+  distillation rendered **24% smaller** than the thing it distills, and a trailing annotation
+  rendered *larger* than the insight. They are peers now, which is what the type contract says
+  they are.
+- **The reading measure is a count of characters, not a fraction of the slide.** `content`'s
+  `max-width` moves from `72cqi` to `--measure-body: 36em` — the same `em`-not-`cqi` correction
+  #1309 made for the bookends, and for the same reason: `cqi` and a character count agree only
+  while the type size holds still, and this change moves it. 36em = 769.5px, which holds roughly
+  **78–83 characters** — wider than the 45–75 band a reading measure is usually held to, and chosen
+  because narrower values clip shipped decks (at 33em four clip; at 36em none do). It is a
+  compatibility value, not a typographic one: base has no measure at all, so an un-classed slide
+  used to run ~90+ characters, and making `content` the default imposes a measure on those slides
+  for the first time. Tightening toward the canonical 66 needs the over-authored decks trimmed
+  first. (An earlier draft of this entry claimed "66 characters, measured" — the advance had been
+  measured from an alphabet sample full of capitals, which are far wider than running prose.)
+- **A trailing annotation on `content` is promoted to a below-note.** `content` left
+  `below-note.js`'s exclusion list: the exclusion was guarding a case the `STRUCTURAL` sibling check
+  already prevents — a paragraph after a paragraph is never promoted on any layout — while costing
+  `content` the hairline, the muted ink and the `--fs-body` sizing whenever a note *did* follow a
+  list or a table. After the default rule that would have been every un-classed slide in the corpus.
+- **A Key Insight or a below-note now flows to the bottom of the slide.** `content`'s stack packed
+  to the top of a full-height stage, stranding the trailing block mid-slide with a fifth of the
+  stage empty beneath it (measured 101px of 524). The stage now distributes the slack, guarded on
+  the stack actually *ending* in a trailing element — so a bare `lede + list` slide is untouched
+  rather than throwing all its slack into one gap. Nothing stretches: growing a table was tried and
+  rejected on the renders (a table distributes extra height into its rows, unevenly, and neither
+  `height:0` nor `height:100%` on `tbody tr` equalizes it — a table's vertical fill is the
+  `table-fill` switch, the author's call).
+- **Fixed: `# H1` rendered white-on-white on every light palette.** `section h1` took its ink from
+  `--text-display`, which is the DARK-PANEL ink — near-white in all thirteen light palettes. `title`
+  is the only component that puts an h1 on a dark panel and it sets that token itself, so the base
+  default served exactly one consumer that did not need it while making every other author-written
+  `# heading` invisible. Now `--text-heading`, the same as h2–h6. Pure ink change: every height the
+  Fit Spine measures is identical.
+
+- **A plain markdown table is styled on every slide.** Until now every table rule in the engine
+  was scoped to a component, so a GFM pipe table on an un-classed slide, on `_class: content`, or
+  under a base modifier rendered at raw browser defaults — no rules, no cell padding, no header
+  weight, columns scattered across the slide. `base.elements.css` now gives it the treatment the
+  specialists already agree on: label-cased column heads over the `--spectrum-structure` rule,
+  `--border` hairlines under each row, a 4%-accent zebra, and `--fs-body-compact` cells. Author
+  alignment (`:---` / `:---:` / `---:`) is untouched, and nothing is emphasized for you — `**bold**`
+  stays the only emphasis, in any cell.
+  - **Also fixes a pre-existing accessibility defect on the three dark bookends.** `title`,
+    `divider` and `closing` paint `--surface-inverse` WITHOUT flipping `color-scheme`, so any
+    element whose ink is not named explicitly inherits dark ink onto a dark panel. A table there
+    measured **1.02:1** on `main` — effectively invisible. `base.modifiers.css` now binds the
+    universal treatment's ink to `--on-dark-*` for those three, the same way the eyebrow block
+    beside it already does. Measured with `tools/check-slide-contrast.js` over a table on all 61
+    components: **66 sub-AA text runs before, 39 after, and zero of them a table cell.**
+  - **Two switches, both CSS-level.** `--table-zebra` turns the row striping off
+    (`transparent`), `--table-grow: 1` makes the table fill the stage vertically so its rows spread
+    instead of stacking at the top — and because they are custom properties, a theme's `:root` or a
+    deck's `style:` block can set them with no class on any slide. `_class: table-plain` and
+    `_class: table-fill` are the author-facing spelling; they are independent flags, not an axis, so
+    the pair is legitimate. `table-fill` also flips cells to `vertical-align: middle`, since a
+    stretched row with its text pinned to the top reads as a gap rather than a band.
+  - **Column alignment stays native markdown's.** `:---` / `:---:` / `---:` compile to an inline
+    `style="text-align:…"` on every cell in the column, header included, which outranks the
+    treatment — so the engine sets no `text-align` on `td` at all, and the one default it sets on
+    `thead th` applies only to a column the author left unaligned.
+  - **Row capacity goes UP, not down.** Cell padding is half `--sp-xs` vertically, and that number
+    was measured rather than chosen: at the full token, rows grew 15% (38.2px → 43.9px) and the clip
+    threshold on a plain `content` slide fell from 11 rows to **10** — a table that fit before would
+    have exported with its last row silently gone, since a plain table has no capacity axis for the
+    Fit Spine to split on. At half, the compact type saves more than the padding spends and the
+    threshold is **12**.
+  - **Every existing table renders byte-identically.** The treatment is scoped to the *stage's own
+    child*, so a table a transform generated inside a `<figure>` (roadmap, matrix-grid) never sees
+    it; and a **deny guard** withholds it from the seven components that style `<table>`
+    themselves — `compare-table`, `glossary`, `obligation-matrix`, `roadmap`, `matrix-grid`, plus
+    `math derivation` and `statute-stack lane` at **variant** granularity, because a
+    name-granularity entry for those two would withhold the default from a bare `_class: math`
+    slide and reintroduce the very defect. Specificity alone was NOT enough to make any of this
+    safe, which is the trap worth naming: a component rule `(0,1,N)` beats a base element rule
+    `(0,0,N)` only for the properties it actually *declares*, so a universal zebra lands unopposed
+    on compare-table and statute-stack.lane (neither declares one), and a universal
+    `td { border-bottom }` doubles math.derivation's lines (it borders `tbody tr`, not `td`).
+  - **The deny list is gated**, not remembered: `checkUniversalTableGuard`
+    (`tools/check-ownership.js`, via `build:check`) reads the list back out of the stylesheet and
+    fails four ways — a table-styling component with no entry, a stale entry, an entry *broader*
+    than the claim it names, and a rule inside the block that drops an entry the others carry (the
+    guard is only as strong as its weakest rule, so it is checked per-rule, never unioned). Covered
+    by 14 unit tests including the wired-into-`run()` assertion. Known blind spots are recorded in
+    the gate header rather than implied away: attribute-before-class scoping, native CSS nesting,
+    `themes/*.css`, and a component the Studio generates at runtime.
+  - **Not treated, deliberately:** a table inside `split-panel` / `split-compare` / `compare-code` /
+    `image`, which lands in a side frame rather than the slide body's top level. Those frames are
+    enumerated in `CLIP_CELL_SELECTOR` (`lib/core/overflow-probe.js`), the maintained source this
+    CSS does not yet read; logged in the decision note rather than hand-duplicated here.
+  - Demo deck: `examples/universal-table.md`. Rationale and measurements:
+    `engineering/decisions/2026-08-02-default-slide-layout.md` §4.
+
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because
   re-parsing the whole deck on every keystroke costs ~46ms per keypress on a 40-slide deck. But

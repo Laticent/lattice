@@ -226,17 +226,27 @@ the PR touches a path the docs deploy rebuilds from — `docs/`, `dist/`,
 link is noise — omit it.
 
 `<alias>` is the **deterministic branch alias**: the head branch name
-lowercased, with every non-alphanumeric character replaced by `-` (e.g.
-`claude/live-preview-l2eb0c` → `claude-live-preview-l2eb0c`). It always
+lowercased, with every non-alphanumeric character replaced by `-`, then
+**truncated to 28 characters with any trailing `-` stripped**. It always
 points at the branch's latest preview and refreshes on every push.
 `lattice-docs-5ji` is the project's fixed preview host.
+
+The 28-character truncation is the part that bites, and this doc got it wrong
+until #1292: `claude/default-slide-layout-1292-j05qci` sanitizes to
+`claude-default-slide-layout-1292-j05qci` (39 chars), and Cloudflare served it
+at `claude-default-slide-layout` (27) — so the link built from the un-truncated
+name 404s. The example this section used to carry,
+`claude/live-preview-l2eb0c` → `claude-live-preview-l2eb0c`, is 26 characters
+and therefore never revealed it. **The `docs-preview` bot comments the real
+alias on the PR within a minute or two — read it from there rather than
+deriving it, and fix the body if they disagree.**
 
 - The URL **404s until the first preview build finishes** (~1–2 min).
   That is expected timing, not a broken link — it resolves once
   Cloudflare deploys.
-- Only construct the link when the sanitized alias is **≤ 63 characters**
-  (the DNS-label limit). Cloudflare truncates longer names unpredictably,
-  so for those, link the PR's **Cloudflare Pages** check instead.
+- The DNS-label limit (63) is NOT the binding constraint — Cloudflare's own
+  28-character branch-alias cap is, and it applies long before 63. Truncate as
+  above, or take the alias from the `docs-preview` bot comment.
 - The per-deployment URL (`<random-hash>.lattice-docs-5ji.pages.dev`) is
   **not** predictable — always use the branch alias, never the hash.
 

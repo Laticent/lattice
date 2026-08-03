@@ -84,6 +84,29 @@ section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondar
  * --on-dark-secondary because they paint a dark bg WITHOUT flipping
  * color-scheme; see engineering/decisions/2026-06-05-token-structure-audit.md.) */
 
+/* ── Bookend tables — the same on-dark binding, for the universal treatment ──
+ * base.elements.css § UNIVERSAL TABLE gives every slide a default `<table>`
+ * treatment, and it names the LIGHT-canvas inks (--text-body, --text-label) the
+ * way the rest of the base layer does. On the three dark bookends that is the
+ * exact failure the block above exists to prevent: they paint --surface-inverse
+ * WITHOUT flipping color-scheme, so an element whose ink is not named explicitly
+ * inherits dark ink onto a dark panel. Measured with tools/check-slide-contrast.js
+ * over a table on all 61 components: these three are the ONLY failures, and they
+ * are severe — 1.02:1 body cells, 2.06:1 column heads, against a 4.5 threshold.
+ * The hairline and zebra survive the flip on their own (both are alpha washes
+ * over the panel), so only the ink is rebound here.
+ * `divider.light` is the bright-canvas variant, so it is excluded IN the selector
+ * rather than reset by a following rule — it simply keeps the default inks.
+ * (The eyebrow block above predates that option and resets; one rule is better.)
+ *
+ * These are SUPPORT rules for the universal treatment, not an ownership claim on
+ * `<table>` — they rebind ink and nothing else, and they must not read as a
+ * component styling its own table. Written with `:is()` rather than a class
+ * chained onto `section`, which is the form checkUniversalTableGuard reads as a
+ * claim; see that gate's coverage boundary. */
+section:is(.title, .divider:not(.light), .closing) > table thead th { color: var(--on-dark-secondary); }
+section:is(.title, .divider:not(.light), .closing) > table td { color: var(--on-dark-primary); }
+
 
 /* ── EYEBROW (inline-code paragraph) ─────────────────────────────────────────
  * A paragraph whose only child is an inline code span, placed immediately

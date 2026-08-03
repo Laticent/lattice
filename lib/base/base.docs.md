@@ -209,7 +209,13 @@ shouldn't get card weight.
 **Supported layouts:** same set as Key Insight Panel above —
 `cards-grid`, `cards-stack`, `compare-prose`, `compare-table`, `verdict-grid`, `list`,
 `list-criteria`, `list-steps`, `list-tabular`, `timeline`,
-`principles`, `matrix-2x2`, `decision`, `actors`, `kpi`, `agenda`.
+`principles`, `matrix-2x2`, `decision`, `actors`, `kpi`, `agenda` — **plus `content`**,
+which means plus any slide that names no component at all, since that is what an
+un-classed slide resolves to (#1292).
+
+Promotion needs the paragraph to follow a **structural** block — a list, table,
+blockquote, code fence or div. A paragraph after a paragraph is body copy on every
+layout, so ordinary prose never turns into a note by accident.
 
 Renders as muted body text with a thin top border. Inherits the slide's
 text color so it reads on either light or dark canvas.
@@ -404,6 +410,72 @@ problem → cause → fix, or step 1 → step 2 → step 3.
 Each layout owns its own counter style (corner tag, header pill, mono
 rail, "STEP 01" prefix, large accent block, circle node — see each
 component's `<name>.docs.md`).
+
+---
+
+## Tables
+
+A plain GFM pipe table written at the top level of the slide body gets a house
+treatment — no class needed. It renders with label-cased column heads over the
+spectrum rule, hairline row rules, a quiet accent zebra, and compact cell type.
+
+```markdown
+| Region | Q3 revenue | Q4 revenue | Change |
+| --- | --- | --- | --- |
+| North America | $4.2M | $5.1M | +21% |
+| EMEA | $3.8M | $3.9M | +3% |
+```
+
+**Column alignment is native markdown's, always.** `:---`, `:---:` and `---:`
+compile to an inline `style="text-align:…"` on every cell in the column, header
+included, and an inline style outranks the treatment — so the engine sets no
+`text-align` on `td` at all. The one default it does set is on an *unaligned*
+header, replacing the browser's centered default with left. Nothing is emphasized
+for you either: `**bold**` is the only emphasis, and it works in any cell.
+
+### Two switches
+
+Both are custom properties, so they can be set from CSS at any level a property
+reaches — a theme's `:root`, a deck's `style:` block, a component — and the class
+is just the author-facing spelling.
+
+| `_class` | Property | Effect |
+| --- | --- | --- |
+| `table-plain` | `--table-zebra: transparent` | Turns row striping off; the hairlines carry the rhythm alone. |
+| `table-fill` | `--table-grow: 1` (+ `--table-valign: middle`) | The table takes the leftover stage height and its rows spread to use it, centered in their band. |
+
+They are independent, not an axis — `table-plain table-fill` is a legitimate
+pair. Neither reaches a component that owns its own table.
+
+```markdown
+<!-- _class: table-plain table-fill -->
+```
+
+```css
+/* or deck-wide, with no class on any slide */
+:root { --table-zebra: transparent; }
+```
+
+**Where it does NOT apply.** Base stands off wherever a component owns the
+table, and it only reaches the slide body's own top level:
+
+| Not treated | Why |
+| --- | --- |
+| `compare-table` · `glossary` · `obligation-matrix` · `roadmap` · `matrix-grid` | the component styles its own table |
+| `math derivation` · `statute-stack lane` | same, but only under that variant — a bare `math` or `statute-stack` slide DOES get the treatment |
+| a table inside `split-panel`, `split-compare`, `compare-code` or `image` | it lands in a side frame, not the slide body's top level |
+| a table a chart transform generated | it is wrapped in a `<figure>`, and belongs to the chart |
+
+Reach for one of the owning components when the table IS the slide — they carry
+row capacity, autosplit and the portrait card reshape that a plain table does
+not. The universal treatment is for a table that *supports* prose.
+
+`checkUniversalTableGuard` fails the build if that list and the engine's CSS
+ever disagree, in either direction and at variant granularity.
+
+A short paragraph directly after a table **is** promoted to a Below-Note (see
+above), on `content` and on an un-classed slide alike — so a source line or a
+caveat gets the hairline treatment for free.
 
 ---
 
