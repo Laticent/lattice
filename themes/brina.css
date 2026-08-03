@@ -207,6 +207,19 @@ section pre.hljs {
    *   --c-subcontainer  kanban ticket, a box nested in a cluster */
   --c-container:     light-dark(#DCE6EC, #20272B);
   --c-subcontainer:  light-dark(#CED7DD, #31383D);
+
+  /* Containment INK + EDGE (#1311 follow-on). The tier had neither: the cluster
+   * label borrowed --cat-on-fill (the CATEGORICAL tier's ink) and the box was
+   * outlined in --diagram-stroke, which does not flip with color-scheme and so
+   * went dark-on-dark — no edge of a dark cluster reached 3:1 in 12 of 14 themes.
+   * Curated per theme from this palette's own stroke hue, lightened only as far
+   * as 3:1 demands. Gated by test/unit/palette/containment-contrast.test.js:
+   * ink >= 4.5:1 on its surface (AA text), edge >= 3:1 on the fill it outlines
+   * (WCAG 1.4.11 — the box carries the grouping semantic). */
+  --c-container-edge:     light-dark(#1E2A38, #55779F);
+  --c-subcontainer-edge:  light-dark(#1E2A38, #6989AF);
+  --c-on-container:       light-dark(#152029, #DCE8EF);
+  --c-on-subcontainer:    light-dark(#152029, #DCE8EF);
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────

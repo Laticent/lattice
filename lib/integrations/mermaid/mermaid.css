@@ -799,7 +799,29 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .items .node rect.basic.label-container,
 :is(section, figure) .items .node .label-container {
   fill: var(--c-subcontainer) !important;
-  stroke: var(--diagram-stroke) !important;
+  stroke: var(--c-subcontainer-edge) !important;
+}
+
+/* Kanban ticket ink — the subcontainer rung's own ink, not the categorical
+ * tier's. Gated with its surface by containment-contrast.test.js. */
+:is(section, figure) .cluster .items .node .label-container ~ .label text,
+:is(section, figure) .cluster .items .node foreignObject div,
+:is(section, figure) .items .node .nodeLabel {
+  fill: var(--c-on-subcontainer) !important;
+  color: var(--c-on-subcontainer) !important;
+}
+
+/* ── CONTAINMENT LABEL INK ──
+ * A subgraph title sits ON the container, so it takes the containment tier's ink
+ * rather than --cat-on-fill (the CATEGORICAL tier's, which it borrowed because
+ * Mermaid paints this with `titleColor`). Done in CSS, not by re-pointing
+ * titleColor, because that variable also paints DIAGRAM titles — moving it would
+ * restyle far more than the cluster. */
+:is(section, figure) .cluster-label text,
+:is(section, figure) .cluster-label .nodeLabel,
+:is(section, figure) .cluster-label foreignObject div {
+  fill: var(--c-on-container) !important;
+  color: var(--c-on-container) !important;
 }
 
 /* Mermaid gantt — taskTextOutsideLeft/Right ignore taskTextOutsideColor for some

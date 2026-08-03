@@ -44,6 +44,11 @@ const CONTRACT = [
   'diagram-stroke', 'diagram-line', 'cat-on-fill', 'cat-on-mark', 'diagram-active',
   'diagram-active-mark', 'diagram-done', 'diagram-done-mark', 'diagram-critical', 'diagram-today', 'diagram-note',
   'c-container', 'c-subcontainer',
+  // The containment tier's edge + ink. Required, not optional: the fill is
+  // deliberately a barely-there step from the canvas, so a theme that omits
+  // these has an unreadable grouping box and unreadable label ink. Legibility
+  // itself is gated by containment-contrast.test.js.
+  'c-container-edge', 'c-subcontainer-edge', 'c-on-container', 'c-on-subcontainer',
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
   'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-state-pass',
   'chart-state-warn', 'chart-state-fail', 'chart-state-info', 'chart-state-mute',

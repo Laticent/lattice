@@ -160,6 +160,30 @@ in patch versions.
 
 ### Fixed
 
+- **The containment tier gets curated ink and edge tokens in every theme, and a gate that keeps them
+  legible.** `--c-container` / `--c-subcontainer` shipped in the per-theme contract with **zero
+  readers** for their whole life — every theme author curated them and nothing rendered them. When
+  #1311 pointed Mermaid's `clusterBkg` at the tier, two latent defects surfaced at once: onyx's dark
+  arms were a 2/255 step off its `#000000` canvas (subgraph box invisible at 1.01:1, and on the four
+  a11y palettes that `@import` onyx), and the box was outlined in `--diagram-stroke` — a flat
+  saturated *dark* hex that does not flip with color-scheme, so **no edge of a dark cluster box
+  reached 3:1 in 12 of the 14 themes**. Nothing caught either, because the only thing under test was
+  that the token *existed*; declaring a color is not the same as it being usable.
+  Four tokens are now curated per theme, both arms: `--c-container-edge`, `--c-subcontainer-edge`,
+  `--c-on-container`, `--c-on-subcontainer` — each edge derived from that palette's own stroke hue
+  and lightened only as far as 3:1 demands, so it stays on brand. All four join the per-theme
+  `CONTRACT` (91 → 95 tokens), and `test/unit/palette/containment-contrast.test.js` asserts, for
+  every theme in **both** schemes: ink ≥ 4.5:1 on the rung it sits on (WCAG 1.4.3 — it is label
+  text), edge ≥ 3:1 on the fill it outlines (WCAG 1.4.11 — the box carries the grouping semantic,
+  and its fill is deliberately a barely-there step from the canvas, so the boundary is what makes
+  the grouping readable), and the two rungs stepping the same direction away from the canvas. 56
+  assertions; verified non-vacuous by mutation (pale ink, edge-equals-fill, and an inverted ladder
+  each turn it red). The subgraph label now takes the containment tier's ink instead of borrowing
+  `--cat-on-fill` from the *categorical* tier, wired through `mermaid.css` rather than by
+  re-pointing Mermaid's `titleColor`, which also paints diagram titles. Print siblings added for all
+  of it, so a tinted edge cannot leak into a grayscale handout.
+
+
 - **A Mermaid `subgraph` box now takes the containment token every theme already curates.**
   `clusterBkg` was fed `--bg-alt` — the deck's *card* fill — while `--c-container`, the per-theme
   containment rung whose own declaration comment names "flowchart cluster, sankey area, kanban

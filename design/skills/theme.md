@@ -126,7 +126,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
    convention, and it forces you to check.
 4. **Build & verify both canvases**: render the baseline gallery and a Mermaid deck
    in light and dark. Register the palette name in **`test/unit/palette/token-parity.test.js`'s
-   `THEMES` array** (this is what enforces the full 91-token contract on your theme)
+   `THEMES` array** (this is what enforces the full 95-token contract on your theme)
    and in `.vscode/settings.json` under `markdown.marp.themes`. (`contrast.test.js`
    is hardcoded to `['indaco','cuoio']` by design — sibling palettes ride the indaco
    run via cascade — so adding your theme *there* does nothing.)
@@ -192,7 +192,7 @@ The **10 required core tokens** — `build:check` fails without these, defined
 `--surface-inverse`.
 
 But those 10 are the floor, not the contract. A **from-scratch theme must define
-the full 91-token per-theme contract directly** (the `CONTRACT` list in
+the full 95-token per-theme contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
@@ -203,7 +203,7 @@ the 10 core tokens, define: all 12 `--hljs-*` code-syntax colors; **all 12**
 `--c-subcontainer`; and the `--chart-cat1..8` / `--chart-state-*` chart palette.
 **Note:** `token-parity` only checks the themes *listed* in its `THEMES` array — so
 until you add your theme there, a passing `npm test` does **not** prove the contract
-is complete. The 12 `--cat-N-texture` tokens are **not** in this 91-token contract —
+is complete. The 12 `--cat-N-texture` tokens are **not** in this 95-token contract —
 texture is an *optional* adoption channel (recipe step 5), declared only by a
 monochrome/CVD theme.
 
@@ -261,7 +261,7 @@ The **dark variant in full** — this is the whole file:
       `--diagram-stroke` reads on white.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
-- [ ] Full 91-token contract defined directly (not just the 10 core) — all 12
+- [ ] Full 95-token contract defined directly (not just the 10 core) — all 12
       `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`.
 - [ ] Palette added to `test/unit/palette/token-parity.test.js`'s `THEMES` array and
       `.vscode/settings.json`; `node --test test/unit/palette/*.test.js` green.

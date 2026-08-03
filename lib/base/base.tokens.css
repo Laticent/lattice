@@ -497,6 +497,16 @@
    * --print-bg-alt because that is what the cluster resolved to before the fill
    * moved onto the containment tier (#1311). */
   --print-c-container:     #F5F5F5;
+  /* The rest of the containment tier, flattened to the B&W band. Same rule as
+   * above: `overlayPrintVars` substitutes only where a `--print-<token>` sibling
+   * exists, so every containment token Mermaid reads needs one or the theme's
+   * colour leaks into a grayscale handout. Ratios on the fills they pair with:
+   * edge 3.94 / 3.57 (needs 3), ink 19.3 / 17.5 (needs 4.5). */
+  --print-c-subcontainer:     #EAEAEA;
+  --print-c-container-edge:   #7A7A7A;
+  --print-c-subcontainer-edge:#7A7A7A;
+  --print-c-on-container:     #000000;
+  --print-c-on-subcontainer:  #000000;
   --print-surface-inverse: #ECECEC;  /* bookend panels → light framed, not a toner-heavy flood */
   --print-border:          #7A7A7A;  /* promoted to a real ink rule so adjacent fills separate */
 
