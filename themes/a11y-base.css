@@ -189,11 +189,18 @@ section.radar .radar-poly[data-series="5"] { stroke-dasharray: 11 4 1 4 !importa
  * is MODE-INVARIANT — fixed hex throughout, chips deliberately light in every
  * scheme, ink pinned dark above. Inheriting onyx's DARK chips under a dark slide
  * would put that dark ink on a dark chip and re-break the labels. Re-assert the
- * one literal a11y set at the SAME specificity; source order (this file loads
- * after the import) makes it win. */
-section.dark:not(.print),
-section.light:not(.print),
-section.color-light:not(.print) {
+ * one literal a11y set.
+ *
+ * The `html:not([data-lattice-print])` prefix is NOT decoration — it MATCHES onyx's
+ * guarded pins exactly, and that is the only reason source order gets to decide.
+ * Dropped, this selector is (0,2,1) against onyx's (0,3,2) and LOSES no matter which
+ * file loads last: a11y dark slides took onyx's dark chips under this palette's black
+ * ink and the labels went unreadable again. Specificity first, source order second —
+ * gated by texture-polarity.test.js, which resolves the cascade rather than the file
+ * order. */
+html:not([data-lattice-print]) section.dark:not(.print),
+html:not([data-lattice-print]) section.light:not(.print),
+html:not([data-lattice-print]) section.color-light:not(.print) {
   --cat-1-texture: url(#latt-a11y-tex-1);
   --cat-2-texture: url(#latt-a11y-tex-2);
   --cat-3-texture: url(#latt-a11y-tex-3);

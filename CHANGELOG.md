@@ -307,7 +307,9 @@ in patch versions.
   print's B&W-safe override authoritative. The a11y palettes needed a different fix: they are
   mode-invariant by design, but inherited `--cat-on-fill` from onyx as a `light-dark()` pair, so
   their ink flipped white over deliberately-light chips — it is now a fixed hex, and they re-assert
-  their own literal texture set over onyx's pins. New gate
+  their own literal texture set over onyx's pins — at MATCHING specificity, since the print
+  guard below lifts onyx's pins to (0,3,2) and an unguarded re-assertion at (0,2,1) loses
+  regardless of source order. New gate
   `test/unit/palette/texture-polarity.test.js` follows `--cat-N-texture` to the
   pattern it selects and checks the ink against the fill **baked into that pattern** — the join no
   existing test made, which is why the token-level checks all passed while the render was broken.

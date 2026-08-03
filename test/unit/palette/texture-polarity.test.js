@@ -137,18 +137,65 @@ function contrast(fg, bg, whatFg, whatBg) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** Tokens as they resolve for `theme` on a slide carrying `pin`. */
+/**
+ * Selector specificity as (ids, classes, elements) packed into one number.
+ * `:not()` contributes its ARGUMENT's specificity, not its own — which is the
+ * whole reason this function has to exist rather than being eyeballed.
+ */
+function specificity(sel) {
+  const flat = sel.replace(/:not\(|\)/g, ' ');
+  const ids = (flat.match(/#[\w-]+/g) || []).length;
+  const classes = (flat.match(/\.[\w-]+/g) || []).length
+    + (flat.match(/\[[^\]]+\]/g) || []).length
+    + (flat.match(/:[\w-]+/g) || []).length;
+  const elements = (flat.match(/(^|\s)[a-z][\w-]*/gi) || []).length;
+  return ids * 10000 + classes * 100 + elements;
+}
+
+/** Every rule matching `pred`, as {token, value, specificity, order} entries. */
+function pinRules(css, pred, order) {
+  const out = [];
+  const re = /([^{}]+)\{([^}]*)\}/g;
+  let m;
+  while ((m = re.exec(stripComments(css)))) {
+    for (const sel of m[1].split(',').map((s) => s.trim())) {
+      if (!pred(sel)) continue;
+      for (const decl of m[2].match(/--[a-z0-9-]+\s*:\s*[^;]+/gi) || []) {
+        const d = decl.match(/--([a-z0-9-]+)\s*:\s*(.+)$/i);
+        if (d) out.push({ token: d[1], value: d[2].trim(), spec: specificity(sel), order });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Tokens as they resolve for `theme` on a slide carrying `pin`.
+ *
+ * The cascade is resolved PROPERLY — highest specificity wins, source order breaks
+ * ties — not by "a later file overwrites an earlier one". That shortcut made this
+ * gate vacuous exactly once: when onyx's pins gained the `html:not([…])` print guard
+ * they jumped to (0,3,2), a11y's unguarded re-assertion stayed (0,2,1), and onyx's
+ * DARK chips won on a11y decks under a11y's black ink. The old merge still reported
+ * a11y as the winner, so the gate stayed green while the render was broken.
+ */
 function resolveUnderPin({ chain }, pin) {
   let root = { ...BASE_VARS };
-  let pinned = {};
-  for (const file of chain) {
+  const pinned = [];
+  chain.forEach((file, i) => {
     const css = fs.readFileSync(path.join(ROOT, 'themes', `${file}.css`), 'utf8');
     root = { ...root, ...declsForSelector(css, isRoot) };
-    // A later file in the chain re-asserting the pin overrides an earlier one,
-    // which is precisely how a11y-base takes back onyx's polarity pins.
-    pinned = { ...pinned, ...declsForSelector(css, pinMatcher(pin.cls)) };
+    pinned.push(...pinRules(css, pinMatcher(pin.cls), i));
+  });
+
+  const winners = {};
+  for (const r of pinned) {
+    const cur = winners[r.token];
+    if (!cur || r.spec > cur.spec || (r.spec === cur.spec && r.order >= cur.order)) winners[r.token] = r;
   }
-  const vars = { ...root, ...pinned };
+
+  const vars = { ...root };
+  for (const [token, r] of Object.entries(winners)) vars[token] = r.value;
   return { get: (t) => (vars[t] === undefined ? undefined : resolveTokenExpr(vars[t], vars, pin.isDark)) };
 }
 
