@@ -292,6 +292,30 @@ in patch versions.
 
 ### Fixed
 
+- **A per-slide `dark` / `light` on a textured palette no longer leaves diagram node labels
+  unreadable.** Categorical node fill is `var(--cat-N-texture, var(--cat-N-fill))`, so on a textured
+  palette the chip a reader sees is an SVG `<pattern>`, not the token. Patterns are emitted once at
+  page level and paint identically wherever referenced, so their `light-dark()` resolves against the
+  **deck-wide** scheme — while the label ink, an ordinary inherited property, flips per section.
+  A `<!-- _class: dark -->` slide therefore flipped its ink to the dark arm over a chip still stuck
+  in light mode, and every node label went light-on-light. Shipped on **six palettes** — `concrete`,
+  `onyx`, and the four `a11y-*` that `@import` onyx. `texturePatternDefs()` now also emits
+  polarity-**pinned** sets (literal hex, no `light-dark()`), and the themes point `--cat-N-texture`
+  at those under the pinning selectors — the same universal-texture-channel move `section.print`
+  already made. The scheme-aware sets stay at `:root`, where they remain correct for
+  `color-mode: system` / `inherited` (polarity known only at view time), and `:not(.print)` keeps
+  print's B&W-safe override authoritative. The a11y palettes needed a different fix: they are
+  mode-invariant by design, but inherited `--cat-on-fill` from onyx as a `light-dark()` pair, so
+  their ink flipped white over deliberately-light chips — it is now a fixed hex, and they re-assert
+  their own literal texture set over onyx's pins. New gate
+  `test/unit/palette/texture-polarity.test.js` (19 assertions) follows `--cat-N-texture` to the
+  pattern it selects and checks the ink against the fill **baked into that pattern** — the join no
+  existing test made, which is why the token-level checks all passed while the render was broken.
+  Verified non-vacuous by mutation (4, 2, 1 and 4 failures for the four ways to reintroduce it), and
+  by rendering all six palettes. The texture-defs golden is re-blessed: the change is purely
+  additive — the previous output is a byte-exact prefix, and the 48 new patterns carry no `<style>`,
+  so they keep the literal-hex, iOS-safe property of the a11y sets. (#1323)
+
 - **The containment tier gets curated ink and edge tokens in every theme, and a gate that keeps them
   legible.** `--c-container` / `--c-subcontainer` shipped in the per-theme contract with **zero
   readers** for their whole life — every theme author curated them and nothing rendered them. When

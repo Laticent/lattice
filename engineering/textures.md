@@ -67,8 +67,22 @@ layer; keep both:
   attributes can't hold CSS functions) — **plus** a literal light-mode fallback attribute
   so a renderer without `light-dark()` degrades to a light chip, never SVG's default
   black. Chromium flip verified; iOS `light-dark()` UNVERIFIED but degrades safely.
-  **Limitation:** polarity tracks the *deck-wide* scheme (the defs are page-level), so a
-  per-slide `<!-- _class: dark -->` won't flip the texture — use a deck-wide scheme.
+  **Scope:** polarity tracks the *deck-wide* scheme, because the defs are page-level and
+  one `<pattern>` paints identically wherever it is referenced. This set is what
+  `:root` selects, and it stays the right answer for `color-mode: system` /
+  `inherited`, whose polarity is only known at view time.
+- **Pinned sets (`…-tex-light-N` / `…-tex-dark-N`).** One polarity baked per pattern,
+  literal hex, no `light-dark()`. A slide that *pins* a scheme (`_class: dark` /
+  `light`, `color-mode: light`) sets `color-scheme` on the SECTION, which the
+  page-level patterns above cannot see — so the theme points `--cat-N-texture` at
+  these under the pinning selector instead. Until this existed, a per-slide dark left
+  light chips under light ink and every diagram node label vanished on all six
+  textured palettes (#1323). Gated by `test/unit/palette/texture-polarity.test.js`,
+  which follows the token to the pattern and checks the ink against the fill *baked
+  into it*.
+  **a11y is the exception:** those palettes are mode-invariant (fixed hex, chips
+  deliberately light in every scheme), so they re-assert their one literal set under
+  the same selectors and pin `--cat-on-fill` instead of gaining a dark set.
 
 ## How a theme adopts texture
 

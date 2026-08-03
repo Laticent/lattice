@@ -292,3 +292,46 @@ section pre.hljs {
   --cat-11-texture: url(#latt-onyx-tex-11);
   --cat-12-texture: url(#latt-onyx-tex-12);
 }
+
+/* ── TEXTURE POLARITY UNDER A PINNED SCHEME ──
+ * The :root textures above are scheme-AWARE, but they resolve color-scheme at
+ * :root — a per-slide pin (`_class: dark` / `light`, or deck-wide
+ * `color-mode: light`) sets it on the SECTION, which those patterns cannot see.
+ * One <pattern> paints identically wherever referenced, so the fix is to point the
+ * texture channel at a set with the polarity BAKED in — the same move
+ * `section.print` makes in lib/base/base.print-textures.css. Left un-pinned,
+ * a dark slide kept light chips under light ink and its node labels vanished
+ * (#1323). `:not(.print)` so print's B&W-safe override stays authoritative on a
+ * deck that is both printed and per-slide dark. `color-system`/`inherited` are
+ * deliberately absent: their polarity is only known at view time, so they keep the
+ * scheme-aware set. */
+section.dark:not(.print) {
+  --cat-1-texture: url(#latt-onyx-tex-dark-1);
+  --cat-2-texture: url(#latt-onyx-tex-dark-2);
+  --cat-3-texture: url(#latt-onyx-tex-dark-3);
+  --cat-4-texture: url(#latt-onyx-tex-dark-4);
+  --cat-5-texture: url(#latt-onyx-tex-dark-5);
+  --cat-6-texture: url(#latt-onyx-tex-dark-6);
+  --cat-7-texture: url(#latt-onyx-tex-dark-7);
+  --cat-8-texture: url(#latt-onyx-tex-dark-8);
+  --cat-9-texture: url(#latt-onyx-tex-dark-9);
+  --cat-10-texture: url(#latt-onyx-tex-dark-10);
+  --cat-11-texture: url(#latt-onyx-tex-dark-11);
+  --cat-12-texture: url(#latt-onyx-tex-dark-12);
+}
+
+section.light:not(.print),
+section.color-light:not(.print) {
+  --cat-1-texture: url(#latt-onyx-tex-light-1);
+  --cat-2-texture: url(#latt-onyx-tex-light-2);
+  --cat-3-texture: url(#latt-onyx-tex-light-3);
+  --cat-4-texture: url(#latt-onyx-tex-light-4);
+  --cat-5-texture: url(#latt-onyx-tex-light-5);
+  --cat-6-texture: url(#latt-onyx-tex-light-6);
+  --cat-7-texture: url(#latt-onyx-tex-light-7);
+  --cat-8-texture: url(#latt-onyx-tex-light-8);
+  --cat-9-texture: url(#latt-onyx-tex-light-9);
+  --cat-10-texture: url(#latt-onyx-tex-light-10);
+  --cat-11-texture: url(#latt-onyx-tex-light-11);
+  --cat-12-texture: url(#latt-onyx-tex-light-12);
+}
