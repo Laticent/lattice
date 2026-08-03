@@ -154,3 +154,113 @@ jobs:
               --label "priority:high" --label "status:backlog" \
               --body-file "$BODY"
           fi
+
+  # ── Engine + preview + export perf ────────────────────────────────────────────
+  # A SECOND AXIS. The lighthouse job above measures docs-site PAGE LOAD (LCP/TBT,
+  # desktop + mobile). It says nothing about the three surfaces that carry this
+  # product's interactive feel: the Studio preview's per-keystroke render, the
+  # engine's markdown->HTML cost, and the export/rasterize tier. Those had no
+  # nightly at all — the @perf spec printed numbers and asserted nothing, and
+  # `bench:check` is on-demand.
+  #
+  # TWO DIFFERENT COMPARISON STRATEGIES, deliberately:
+  #
+  #  · The preview spec asserts CEILINGS (test/benchmark/preview-budget.json) —
+  #    absolute budgets with ~5x headroom over healthy. Machine-independent by
+  #    construction, so no base checkout is needed and drift can never fire them.
+  #
+  #  · The engine bench compares HEAD vs BASE built on THIS SAME RUNNER, the way
+  #    the lighthouse job does — never against the committed baseline.json. That
+  #    baseline is machine-relative and a cold runner reads up to 2x high: in one
+  #    session the same code measured 93.9ms and 43.1ms, and `bench:check`
+  #    reported a phantom +124% regression on a healthy tree. Comparing two builds
+  #    on one runner cancels that drift; comparing against a stored number does not.
+  #    See engineering/decisions/2026-08-03-performance-guard.md.
+  engine-perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+
+      - name: Resolve base commit (~24h ago on main)
+        id: base
+        run: echo "sha=$(git rev-list -1 --before='24 hours ago' origin/main)" >> "$GITHUB_OUTPUT"
+
+      - name: Bench — head
+        run: node test/benchmark/engine-bench.mjs --json > head-bench.json
+
+      - name: Bench — base (same runner)
+        run: |
+          set -euo pipefail
+          git worktree add /tmp/base "${{ steps.base.outputs.sha }}"
+          cd /tmp/base && npm ci --silent
+          node test/benchmark/engine-bench.mjs --json > "$GITHUB_WORKSPACE/base-bench.json"
+
+      - name: Compare head vs base
+        id: compare
+        run: |
+          set -uo pipefail
+          if node tools/perf-nightly-compare.mjs --base base-bench.json --head head-bench.json --md engine-perf.md; then
+            echo "regressed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "regressed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Preview interaction ceilings (@perf)
+        id: preview
+        run: |
+          set -uo pipefail
+          cd docs && npm ci --silent
+          npx playwright install --with-deps chromium
+          if npx playwright test --project=desktop --grep @perf; then
+            echo "breached=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "breached=true" >> "$GITHUB_OUTPUT"
+            { echo ""; echo "## Preview interaction ceilings BREACHED"; echo ""; echo "A per-keystroke or per-navigation render p50 went past its budget in \`test/benchmark/preview-budget.json\`. These carry ~5x headroom, so this is an order-of-magnitude change, not drift. See the job log for the per-sample table."; } >> "$GITHUB_WORKSPACE/engine-perf.md"
+          fi
+
+      - name: Job summary
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/engine-perf.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-perf-${{ github.run_id }}
+          path: |
+            head-bench.json
+            base-bench.json
+            engine-perf.md
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Same rolling-issue pattern as the lighthouse job above, own marker so the
+      # two axes do not append to each other's thread. Self-labelled for the same
+      # reason (a GITHUB_TOKEN-opened issue can't trigger the triage gate).
+      - name: Open / append regression issue
+        if: steps.compare.outputs.regressed == 'true' || steps.preview.outputs.breached == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[perf-nightly-engine]'
+          BODY="$GITHUB_WORKSPACE/engine-perf.md"
+          {
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · base \`${{ steps.base.outputs.sha }}\` → head \`${{ github.sha }}\`._"
+          } >> "$BODY"
+          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+          else
+            gh issue create \
+              --title "$MARKER engine / preview / export perf regression" \
+              --label "area:engine" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi

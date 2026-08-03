@@ -212,8 +212,15 @@ in patch versions.
   divider-gallery deck shapes, with a running-`header:` deck as the control that proves the gate
   can distinguish routes. It runs in the docs tier, which `ci.needs` requires, so it hard-fails a
   PR; and it is mutation-checked in both directions (reintroduce the pre-#1280 divider probe → the
-  gallery rows fail; neuter the supplied position → the position rows fail). Design, the coverage
-  map, and the two remaining slices: `engineering/decisions/2026-08-03-performance-guard.md`.
+  gallery rows fail; neuter the supplied position → the position rows fail).
+- **A nightly perf alarm for the engine, preview and export, that files an issue.** A second job in
+  `perf-nightly.yml` — whose Lighthouse job already had the head-vs-base + rolling-issue plumbing,
+  for a different axis. The preview spec now asserts **ceilings** (`test/benchmark/preview-budget.json`,
+  ~5x headroom, machine-independent) instead of printing numbers it asserted nothing about; the
+  engine bench compares head vs base built on the **same runner** rather than against the
+  machine-relative committed baseline, because a cold runner reads up to 2x high. Also closes a hole
+  where `bench:check` blessed four export timings and never compared them. Design:
+  `engineering/decisions/2026-08-03-performance-guard.md`.
 
 - **Preview fidelity — a diagnostic for "is the preview showing me the real thing?", in the
   Studio and on the command line.** The preview renders ONE slide, not the deck, because

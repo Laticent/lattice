@@ -300,7 +300,7 @@ function blessBaseline(summary, printSummary) {
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${summary.length} render${printSummary?.length ? ` + ${printSummary.length} print` : ''} datasets).`);
 }
 
-function checkBaseline(summary) {
+function checkBaseline(summary, printSummary) {
   if (!existsSync(BASELINE)) {
     console.error('\nNo baseline.json — run `npm run bench:bless` first.');
     process.exitCode = 1;
@@ -353,6 +353,39 @@ function checkBaseline(summary) {
       console.log(`${name.padEnd(20)}${'—'.padStart(10)}${'absent'.padStart(10)}${'—'.padStart(8)}${'—'.padStart(8)}  MISSING`);
     }
   }
+
+  // THE EXPORT TIER, which this check used to bless and never read. `--bless` has always written
+  // four `printDatasets` rows (print full / print re-place, for normal and charts) and `--check`
+  // looped only `summary` — so the export path could double in cost with a green check, the same
+  // blessed-but-never-compared hole the slice/deck baseline had. Only compared when THIS run
+  // produced them (`--export`), so a plain `bench:check` is unchanged.
+  //
+  // A DELIBERATELY WIDER BAND: these are whole rasterize cycles measured in tens of seconds, and
+  // they are far more exposed to machine and I/O noise than an in-process render. 50% catches a
+  // doubling — which is the failure worth having — without firing on a slow disk.
+  const EXPORT_BAND = 50;
+  if (printSummary?.length) {
+    console.log('\n=== EXPORT CHECK · current vs committed baseline ===');
+    for (const s of printSummary) {
+      const b = base.printDatasets?.[s.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s.dataset.padEnd(32)}${'—'.padStart(10)}${(s.ms / 1000).toFixed(1).padStart(10)}s  NEW (re-bless)`);
+        continue;
+      }
+      if (b.slides !== s.slides) {
+        drift = true;
+        console.log(`${s.dataset.padEnd(32)}${String(b.slides).padStart(10)}${String(s.slides).padStart(10)}   WORKLOAD CHANGED (re-bless)`);
+        continue;
+      }
+      const d = ((s.ms - b.ms) / b.ms) * 100;
+      const verdict = d > EXPORT_BAND ? 'REGRESSION' : d < -EXPORT_BAND ? 'win' : 'ok';
+      if (verdict === 'REGRESSION') regressed = true;
+      console.log(
+        `${s.dataset.padEnd(32)}${(b.ms / 1000).toFixed(1).padStart(9)}s${(s.ms / 1000).toFixed(1).padStart(9)}s${((d >= 0 ? '+' : '') + d.toFixed(1)).padStart(8)}${('±' + EXPORT_BAND + '%').padStart(8)}  ${verdict}`,
+      );
+    }
+  }
   if (regressed) {
     console.error('\nPerf regression beyond the variance band. Investigate, or re-bless if the change is intentional and justified in the PR.');
     process.exitCode = 1;
@@ -374,7 +407,7 @@ async function main() {
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
   } else if (wantCheck) {
-    checkBaseline(render.summary);
+    checkBaseline(render.summary, print?.summary);
   }
   if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print }, null, 2));
   console.log('\nDone.' + (wantExport ? '' : ' (pass --export to also time the rasterize + print re-place tiers.)'));

@@ -86,18 +86,43 @@ async function collectFrom(page: import('@playwright/test').Page): Promise<void>
 const drain = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __bench: Sample[] }).__bench);
 const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (window as unknown as { __bench: Sample[] }).__bench = []; });
 
-function report(label: string, samples: Sample[]): void {
+/**
+ * CEILINGS, from test/benchmark/preview-budget.json — budgets, not a measured baseline.
+ *
+ * The earlier stance here was "printed, not asserted, because a wall-clock assertion would be a
+ * flaky gate". Half right: a wall-clock assertion that tries to resolve a PERCENTAGE is flaky —
+ * this repo's own `bench:check` read 93.9ms and 43.1ms for identical code in one session. But the
+ * regression worth catching is 13x (gallery typing 4.4ms healthy, 63.2ms before #1280), and a
+ * ceiling with ~5x headroom cannot be tripped by drift while still catching that at less than half
+ * its magnitude. So this asserts a cliff, and only a cliff.
+ *
+ * Ceilings never need re-blessing per machine — that is the point of a budget over a baseline.
+ */
+const HERE = path.dirname(fileURLToPath(import.meta.url)); // ESM: no __dirname
+const BUDGET = JSON.parse(fs.readFileSync(path.join(HERE, '../../test/benchmark/preview-budget.json'), 'utf8')) as {
+	ceilings: Record<string, { renderP50: number; totalP50: number }>;
+};
+
+function report(label: string, samples: Sample[], interaction?: 'navigation' | 'typing', deck?: string): void {
 	const patch = samples.filter((s) => s.writePath === 'patch');
 	const p50 = (a: number[]) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : Number.NaN);
 	const f = (n: number) => (Number.isFinite(n) ? n.toFixed(1) : '--');
-	// Printed, not asserted against a threshold: the point is a reproducible number to paste
-	// into a PR's Performance section, and a wall-clock assertion here would be a flaky gate.
 	console.log(`\n${label}`);
 	const regimes: Record<string, number> = {};
 	for (const s of samples) regimes[s.writePath ?? '?'] = (regimes[s.writePath ?? '?'] ?? 0) + 1;
 	console.log(`  regimes: ${JSON.stringify(regimes)}`);
 	for (const [i, s] of patch.entries()) console.log(`    #${String(i + 1).padStart(2)}  RENDER ${f(s.engineMs).padStart(6)}  FRAME ${f(s.frameMs).padStart(5)}  TOTAL ${f(s.totalMs).padStart(6)}`);
 	console.log(`  n=${patch.length}  RENDER p50 ${f(p50(patch.map((s) => s.engineMs)))}  FRAME p50 ${f(p50(patch.map((s) => s.frameMs)))}  TOTAL p50 ${f(p50(patch.map((s) => s.totalMs)))}  TOTAL max ${f(Math.max(...patch.map((s) => s.totalMs)))}`);
+
+	// THE CLIFF. Asserted on p50, not max: one slow sample is a GC pause or a scheduler hiccup, and
+	// gating on it would be the flaky gate the old note rightly feared. A p50 past the ceiling means
+	// the typical keystroke got an order of magnitude more expensive, which is a code change.
+	if (!interaction || !patch.length) return;
+	const cap = BUDGET.ceilings[interaction];
+	const renderP50 = p50(patch.map((s) => s.engineMs));
+	const totalP50 = p50(patch.map((s) => s.totalMs));
+	expect(renderP50, `${deck} ${interaction}: RENDER p50 ${f(renderP50)}ms is past the ${cap.renderP50}ms ceiling — an order-of-magnitude regression, not drift`).toBeLessThan(cap.renderP50);
+	expect(totalP50, `${deck} ${interaction}: TOTAL p50 ${f(totalP50)}ms is past the ${cap.totalP50}ms ceiling`).toBeLessThan(cap.totalP50);
 }
 
 // SERIAL, and not negotiable for this file: these cases each throttle their browser to 4x CPU, so
@@ -131,7 +156,7 @@ test(`@perf preview render path — navigation vs typing (${kind} deck)`, async 
 			await page.waitForTimeout(700);
 		}
 	}
-	report(`NAVIGATION — ${SLIDES} ${kind} slides, CPU ${CPU}x`, await drain(page));
+	report(`NAVIGATION — ${SLIDES} ${kind} slides, CPU ${CPU}x`, await drain(page), 'navigation', kind);
 
 	// ── TYPING: the markdown changes → the memo misses, the whole deck is re-parsed ──
 	// Put the caret in the SHOWN slide, so the edit is one the preview must reflect. (Typing
@@ -158,7 +183,7 @@ test(`@perf preview render path — navigation vs typing (${kind} deck)`, async 
 		await page.waitForTimeout(700);
 	}
 	const typed = await drain(page);
-	report(`TYPING (shown slide) — ${SLIDES} ${kind} slides, CPU ${CPU}x`, typed);
+	report(`TYPING (shown slide) — ${SLIDES} ${kind} slides, CPU ${CPU}x`, typed, 'typing', kind);
 	// A zero here means the caret was not in the shown slide, not that typing is free.
 	expect(typed.filter((s) => s.writePath === 'patch').length, 'typing produced no patch renders — caret not in the shown slide?').toBeGreaterThan(0);
 

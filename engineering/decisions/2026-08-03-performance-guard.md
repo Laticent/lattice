@@ -97,7 +97,7 @@ always answered "slice", which is the failure mode of a guard that cannot fail.
   green, and the message reads *"the whole deck was re-parsed — this is the per-keystroke regression"*
 - neuter `supplyablePosition` (the #1272 half) → all three position rows fail
 
-## Slice 2 — the nightly alarm (designed)
+## Slice 2 — the nightly alarm (shipped)
 
 Extend `studio-preview-perf.spec.ts` and `bench` with committed baselines and a **cliff** band —
 roughly 5× headroom over today's numbers, not a tight percentage. The failure mode worth catching
@@ -110,9 +110,30 @@ engine  · normal                41.9ms  → alarm above 120ms
 export  · print full · normal   115.8s  → alarm above 300s
 ```
 
-On breach: open a GitHub issue carrying the before/after table, the commit range since the last
-good run, and the raw run JSON. Dedupe by updating the existing open issue rather than filing daily.
-Also close the `printDatasets` hole — those four export timings are blessed today and never compared.
+**A nightly with issue-filing already existed and I nearly rebuilt it.** `perf-nightly.yml` runs
+Lighthouse over the docs site, head vs a base commit ~24h old, and opens or appends a single rolling
+issue on regression. It measures PAGE LOAD — a different axis entirely — but the plumbing is exactly
+what this needed (HARD RULE #15). So slice 2 is a second job in that workflow, reusing its
+rolling-issue pattern with its own marker.
+
+**Two comparison strategies, deliberately different:**
+
+- **The preview spec asserts CEILINGS** (`test/benchmark/preview-budget.json`) — absolute budgets
+  with ~5x headroom, machine-independent by construction, so no base checkout is needed and drift
+  can never fire them. Healthy gallery typing is 4.4ms RENDER p50; the ceiling is 25ms; the
+  pre-#1280 regression was 63.2ms. Mutation-checked by lowering the ceiling to 2ms.
+- **The engine bench compares HEAD vs BASE built on the SAME RUNNER**, never against the committed
+  `baseline.json`. That file is machine-relative and a cold runner reads up to 2x high — comparing
+  against a stored number is what produced the phantom +124%. Two builds measured minutes apart on
+  one machine cancels the drift. Bands are cliffs (render 60%, export 80%), because even same-runner
+  the bench's own RME runs 3-17% and a band that resolves 15% would fire on noise, get ignored, and
+  mute the one real regression. `tools/perf-nightly-compare.mjs` does the diff and is
+  mutation-checked: identical runs exit 0, a 2.2x head exits 1 with a per-dataset table.
+
+The `printDatasets` hole is closed too: `bench:check` blessed four export timings and looped only
+the render summary, so the export path could double in cost with a green check. It now compares them
+(±50%, wider because a rasterize cycle is far more I/O-exposed than an in-process render), and only
+when the run actually produced them, so a plain `bench:check` is unchanged.
 
 ## Slice 3 — emulator + runtime paint (designed)
 

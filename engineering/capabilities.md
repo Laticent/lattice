@@ -377,5 +377,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Post a PR comment + before/after montage of the gallery slides whose committed golden moved vs the base branch. |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
+| `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |

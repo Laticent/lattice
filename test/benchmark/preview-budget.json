@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "note": "CEILINGS, not a measured baseline. These are budgets a healthy run must stay under, chosen with ~5x headroom over observed healthy numbers so machine drift, a cold runner or a noisy neighbor can never fire them — and so they never need re-blessing per machine. Breaching one means an ORDER-OF-MAGNITUDE regression, not jitter. See engineering/decisions/2026-08-03-performance-guard.md.",
+  "observed": {
+    "note": "What a healthy tree measured when these ceilings were set (2026-08-03, headless Chromium, 4x CPU throttle, 40-slide decks). Recorded for context only — nothing compares against these, so they never go stale in a way that breaks a gate.",
+    "default": { "navigation": { "renderP50": 1.1, "totalP50": 10.8 }, "typing": { "renderP50": 3.7, "totalP50": 11.4 } },
+    "prose": { "navigation": { "renderP50": 0.9, "totalP50": 10.0 }, "typing": { "renderP50": 3.7, "totalP50": 10.9 } },
+    "gallery": { "navigation": { "renderP50": 1.1, "totalP50": 14.1 }, "typing": { "renderP50": 4.4, "totalP50": 16.4 } }
+  },
+  "regressionScale": {
+    "note": "The regression these exist to catch, for scale. Before #1280 the gallery deck re-parsed the WHOLE deck on every keystroke because the progress rail and watermark glyph derived their section by walking every section.",
+    "gallery typing renderP50": 63.2,
+    "gallery typing totalP50": 74.2
+  },
+  "ceilings": {
+    "navigation": { "renderP50": 15, "totalP50": 45 },
+    "typing": { "renderP50": 25, "totalP50": 50 }
+  }
+}
