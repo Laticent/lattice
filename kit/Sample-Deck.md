@@ -115,7 +115,7 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 flowchart LR
   A["Sample-Deck.md"] --> B["Marp parses<br/>slides + directives"]
   B --> C["lattice.min.css<br/>paints the layout"]
-  B --> D["lattice-runtime.js<br/>builds charts + diagrams"]
+  B --> D["lattice-runtime.min.js<br/>builds charts + diagrams"]
   C --> E["Rendered deck"]
   D --> E
   E -.->|"marp --pdf"| F["PDF"]

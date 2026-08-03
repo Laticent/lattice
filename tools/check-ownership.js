@@ -1321,16 +1321,34 @@ const SANCTIONED_KATEX_ONLY = [
   },
 ];
 
-/** Selectors in engine CSS that name a `.katex*` class without a MathJax counterpart. */
+/**
+ * Selectors in engine CSS that name a `.katex*` class without a MathJax counterpart.
+ *
+ * Reuses `topLevelSelectors` + `splitTopLevel` rather than its own regex (HARD
+ * RULE #15). The first cut matched `([^{}]+)\{[^{}]*\}`, which had two holes a
+ * reviewer caught: it never descended into `@media` / `@supports` / `@container`,
+ * so a KaTeX-only rule nested in one would bypass the gate entirely, and it
+ * treated a whole selector LIST as one string, so `a .katex, b mjx-container`
+ * passed on the strength of a counterpart that applies to a different element.
+ * Neither is reachable in today's corpus — but a gate exists to bind the author
+ * who has not written the rule yet, and both holes are exactly the drift it is
+ * here to stop.
+ *
+ * Checked PER SELECTOR, so the pairing must be inside one selector — `:is(.katex,
+ * mjx-container)`, the form the whole engine uses. A comma list that pairs across
+ * two selectors is rejected on purpose: it is indistinguishable, without resolving
+ * the elements, from two unrelated selectors that happen to share a rule body.
+ */
 function katexOnlySelectors(css) {
   const out = [];
-  // Selector text = everything before a `{` that is not itself inside a block.
-  for (const m of stripComments(css).matchAll(/([^{}]+)\{[^{}]*\}/g)) {
-    const selector = m[1].trim().replace(/\s+/g, ' ');
-    if (!selector || selector.startsWith('@')) continue;
-    if (!/\.katex\b|\.katex-display\b/.test(selector)) continue;
-    if (/mjx-container/.test(selector)) continue;
-    out.push(selector);
+  for (const rule of topLevelSelectors(css)) {
+    for (const part of splitTopLevel(rule)) {
+      const selector = part.trim().replace(/\s+/g, ' ');
+      if (!selector) continue;
+      if (!/\.katex[\w-]*/.test(selector)) continue;
+      if (/mjx-container/.test(selector)) continue;
+      out.push(selector);
+    }
   }
   return out;
 }
