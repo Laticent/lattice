@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { nextRenderSeq, resetRenderIds, renderIdPrefix } = require('../../../lib/core/render-ids');
+const { nextRenderSeq, resetRenderIds, renderIdPrefix, setRenderSection } = require('../../../lib/core/render-ids');
 const engine = require('../../../lib/engine/index.js');
 
 const ROOT = path.join(__dirname, '../../..');
@@ -26,12 +26,64 @@ const ROOT = path.join(__dirname, '../../..');
 // what lets the guard be a plain byte comparison.
 
 test('render-ids: sequences are per-render, not per-process', () => {
+	// STRINGS, not numbers — the discriminator carries the slide when one is in scope, and every call
+	// site templates it verbatim so the id shape stays readable in an export diff.
 	resetRenderIds();
-	assert.equal(nextRenderSeq('a'), 1);
-	assert.equal(nextRenderSeq('a'), 2);
-	assert.equal(nextRenderSeq('b'), 1, 'families are independent');
+	assert.equal(nextRenderSeq('a'), '1');
+	assert.equal(nextRenderSeq('a'), '2');
+	assert.equal(nextRenderSeq('b'), '1', 'families are independent');
 	resetRenderIds();
-	assert.equal(nextRenderSeq('a'), 1, 'reset starts a fresh id space');
+	assert.equal(nextRenderSeq('a'), '1', 'reset starts a fresh id space');
+});
+
+test('render-ids: a slide in scope restarts the sequence and stamps its absolute position', () => {
+	resetRenderIds();
+	setRenderSection(0);
+	assert.equal(nextRenderSeq('a'), '1-1');
+	assert.equal(nextRenderSeq('a'), '1-2');
+	setRenderSection(1);
+	assert.equal(nextRenderSeq('a'), '2-1', 'the per-slide sequence restarts, which is what makes a slice match its deck section');
+	setRenderSection(null);
+	assert.equal(nextRenderSeq('a'), '1', 'leaving slide scope returns the bare document-start ordinal (the browser DOM path)');
+});
+
+test('render-ids: the slide OFFSET shifts the numbering, so a slice lands on its deck position', () => {
+	// THE PROPERTY THE WHOLE CHANGE EXISTS FOR. Section 0 of a document rendered at offset 2 IS
+	// slide 3 of the deck, so it must mint exactly what slide 3 minted in the whole-deck render.
+	resetRenderIds(undefined, 2);
+	setRenderSection(0);
+	const slice = [nextRenderSeq('a'), nextRenderSeq('a')];
+	resetRenderIds();
+	setRenderSection(0);
+	setRenderSection(1);
+	setRenderSection(2); // the deck walks its way to section 2 == slide 3
+	const deck = [nextRenderSeq('a'), nextRenderSeq('a')];
+	assert.deepEqual(slice, deck);
+	assert.deepEqual(slice, ['3-1', '3-2']);
+});
+
+test('render-ids: a finished render RELEASES its slide scope', () => {
+	// MODULE STATE, so setting it is only half the job. `applyToRenderedHtml` walks the sections and
+	// scopes each one; if it never leaves scope, the NEXT mint in this process inherits the last
+	// section number of whatever document was rendered before it. The browser runtime's DOM pass is
+	// exactly that next caller — it never calls `resetRenderIds`, and it is supposed to get the bare
+	// document-start ordinal because there is no deck there to be positioned within.
+	//
+	// Measured before the release existed: a mint straight after a two-section render returned
+	// `2-3`. Same class as this module's own "renderHtml must not be RE-ENTERED" note — per-render
+	// state has to be released, not just set.
+	const { createEngine } = require('../../../lib/engine/index.js');
+	const e = createEngine();
+	e.render('# A\n\n---\n\n<!-- _class: piechart -->\n\n## Pie\n\n- Alpha 40\n- Beta 60\n', 'lattice');
+	assert.equal(nextRenderSeq('pie-wedge'), '1', 'the slide scope leaked past the end of the render');
+});
+
+test('render-ids: a non-integer or negative offset is ignored rather than trusted', () => {
+	for (const bad of [-1, 1.5, Number.NaN, '2', null, undefined]) {
+		resetRenderIds(undefined, bad);
+		setRenderSection(0);
+		assert.equal(nextRenderSeq('a'), '1-1', String(bad));
+	}
 });
 
 test('engine: rendering the same deck twice yields byte-identical html', () => {
@@ -104,6 +156,30 @@ test('render-ids: an ENTITY-ENCODED family name shifts the namespace too', () =>
 	assert.equal(renderIdPrefix(), 'lat-r0-', 'decimal character references are part of the same syntax');
 });
 
+test('render-ids: a 10-digit prefix cannot be forced past the probe', () => {
+  // Red team. `\d{1,9}` capped what the probe could SEE, so mentioning `lat-r999999999-` made
+  // `max+1` return `lat-r1000000000-` — ten digits, structurally invisible to the same probe. Squat
+  // that and SVG's first-def-wins paints the real chart's wedge with the author's fill while the
+  // legend still reads correctly: the "chart that lies". The one candidate the guard could not test
+  // was the one it returned, which is precisely the failure its own header claims to have closed.
+  resetRenderIds('<span data-x="lat-r999999999-pie-wedge"></span><radialGradient id="lat-r1000000000-pie-wedge-2-1"/>');
+  assert.notEqual(renderIdPrefix(), 'lat-r1000000000-', 'returned the one candidate it could not see');
+  assert.ok(renderIdPrefix().startsWith('lat-r'), 'still a lat-r namespace');
+});
+
+test('render-ids: the prefix stays DETERMINISTIC at any digit width', () => {
+  // The digit-cap repair briefly fell back to `Date.now()` for a value too large for a safe integer.
+  // That traded a squattable prefix for a NON-DETERMINISTIC render — the single property this whole
+  // module exists to provide. BigInt needs neither a cap nor a fallback, so `max + 1` is free by
+  // construction at any width, which is the rule the header states and both earlier cuts broke.
+  const huge = '<span data-x="lat-r99999999999999999999-pie-wedge"></span>';
+  resetRenderIds(huge);
+  const first = renderIdPrefix();
+  resetRenderIds(huge);
+  assert.equal(renderIdPrefix(), first, 'same input, two different prefixes');
+  assert.match(first, /^lat-r\d+-$/, 'still a probed lat-r namespace, not an invented token');
+});
+
 test('engine: a squatting deck gets zero duplicate ids, on every render', () => {
 	// End to end through the real engine, four renders in one process — the surface where the old
 	// accidental escape used to kick in from render 2.
@@ -113,8 +189,25 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 		fs.readFileSync(path.join(ROOT, 'dist/lattice-default.css'), 'utf8'),
 		fs.readFileSync(path.join(ROOT, 'themes/indaco.css'), 'utf8'),
 	]);
-	const squat = ['pie-wedge-1', 'pie-wedge-2', 'chart-spine-1']
-		.map((id) => `<radialGradient id="${id}"><stop offset="0%" stop-color="#ff0000"/></radialGradient>`)
+	// THE SQUAT IS HARVESTED FROM A REAL RENDER, NOT HARD-CODED. A previous version wrote
+	// `pie-wedge-2-1` with the comment "the chart lives on slide 2 of this deck" — so adding ONE slide
+	// to the fixture moved the engine to `pie-wedge-3-1`, the squat stopped colliding, and the
+	// duplicate-id assertion below would pass with the guard removed. That is the same vacuous-fixture
+	// defect this test was rewritten to fix, reintroduced with a SHORTER fuse: the old fixture rotted
+	// when the id shape changed (rare); that one rotted when anyone edited the deck (routine).
+	// Render once with no squat, take the ids the engine actually minted, squat exactly those.
+	const probeDeck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
+	const minted = [...e.render(probeDeck, 'indaco').html.matchAll(/\sid="((?:lat-)?[a-z][\w-]*-\d+(?:-\d+)?)"/g)].map((m) => m[1]);
+	assert.ok(minted.length >= 2, `fixture broken: the probe render minted ${minted.length} ids`);
+	// ESCAPED, and asserted quote-free first. The harvest pattern above cannot yield a `"` — but that
+	// is a property of a regex several lines away, which is exactly the kind of reasoning CodeQL is
+	// right not to accept (it flagged this line as incomplete attribute sanitization). The assertion
+	// makes the invariant local and would fire the day someone loosens the harvest; the escape makes
+	// the fixture well-formed even if they do.
+	const attr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+	for (const id of minted) assert.ok(!/["<>&]/.test(id), `harvested id is not attribute-safe: ${id}`);
+	const squat = minted
+		.map((id) => `<radialGradient id="${attr(id)}"><stop offset="0%" stop-color="#ff0000"/></radialGradient>`)
 		.join('');
 	const deck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n<svg width="1" height="1" aria-hidden="true"><defs>${squat}</defs></svg>\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
 
@@ -126,8 +219,8 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 		assert.deepEqual(dupes, [], `render ${render} has duplicate ids, so the squat landed: ${dupes.join(', ')}`);
 		// Fixture guard: if the raw <svg> stopped surviving to the output there would be nothing to
 		// collide with and the assertion above would pass vacuously.
-		assert.ok(html.includes('id="pie-wedge-1"'), 'fixture broken: the squatting defs did not reach the output');
-		assert.ok(html.includes('id="lat-r0-pie-wedge-1"'), 'the engine did not shift its own namespace');
+		for (const id of minted) assert.ok(html.includes(`id="${id}"`), `fixture broken: the squat on ${id} never reached the output`);
+		assert.ok(/id="lat-r0-pie-wedge-\d+-\d+"/.test(html), 'the engine did not shift its own namespace');
 		if (previous !== null) assert.equal(html, previous, `render ${render} differs from the one before — the guard is not deterministic`);
 		previous = html;
 	}

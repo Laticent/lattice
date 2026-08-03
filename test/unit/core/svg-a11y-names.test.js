@@ -173,4 +173,109 @@ describe('svg-a11y-names — applyToHtml', () => {
     const src = '<p>no graphics here</p>';
     assert.equal(applyToHtml(src), src);
   });
+
+  // ── Slide scoping ─────────────────────────────────────────────────────────
+  // The counter used to run from the start of whatever document it was handed, so the SAME chart
+  // was `lat-svgt-1` previewed alone and `lat-svgt-3` inside its deck. Nothing announced wrongly —
+  // each document wires itself correctly — but a slice render and an export render of one slide
+  // were never the same bytes, which was 87 of the 97 residual slides in `npm run equiv`.
+
+  const sect = (body) => `<section>${body}</section>`;
+  const chart = (name) => `<svg role="img"><title>${name}</title><desc>Key</desc></svg>`;
+
+  test('ids are scoped to their section, and restart within each one', () => {
+    const out = applyToHtml(sect(chart('One') + chart('Two')) + sect(chart('Three')));
+    assert.match(out, /id="lat-svgt-1-1"/);
+    assert.match(out, /id="lat-svgt-1-2"/);
+    assert.match(out, /id="lat-svgt-2-1"/, 'the second slide restarts at 1, scoped by its own position');
+  });
+
+  test('a slice rendered at an OFFSET emits exactly what that slide emitted in the deck', () => {
+    // The property the whole change exists for.
+    const deck = applyToHtml(sect(chart('One')) + sect(chart('Two')) + sect(chart('Three')));
+    const slice = applyToHtml(sect(chart('Three')), 2);
+    const idsOf = (h) => [...h.matchAll(/id="(lat-svg[td]-[\d-]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(idsOf(slice), ['lat-svgt-3-1', 'lat-svgd-3-1']);
+    for (const id of idsOf(slice)) assert.ok(idsOf(deck).includes(id), `${id} is not what the deck minted for slide 3`);
+  });
+
+  test('every id in a multi-slide document is still unique', () => {
+    // Slide number x per-slide ordinal. The SVG duplicate-id trap is the reason this module numbers
+    // at all: a second `#lat-svgt-1` makes every reference resolve to the FIRST one.
+    const out = applyToHtml([1, 2, 3].map(() => sect(chart('A') + chart('B'))).join(''));
+    const ids = [...out.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual([...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))], []);
+  });
+
+  test('a section-less fragment keeps the bare ordinal — there is no slide to scope by', () => {
+    // Unit fixtures and any caller handing over a bare `<svg>` rather than a rendered deck.
+    assert.match(applyToHtml(chart('Alone')), /id="lat-svgt-1"/);
+  });
+
+  test('a bad offset is ignored rather than trusted', () => {
+    for (const bad of [-1, 1.5, Number.NaN, '2', null, undefined]) {
+      assert.match(applyToHtml(sect(chart('One')), bad), /id="lat-svgt-1-1"/, String(bad));
+    }
+  });
+
+  test('THE SQUAT GUARD STILL HOLDS AGAINST THE NEW ID SHAPE', () => {
+    // RE-EARNED, not assumed. This guard has been broken twice, both times by a change that looked
+    // unrelated to it, so a change to the id SHAPE has to be shown not to walk past it a third time.
+    // The squatter now has to name `lat-svgt-<slide>-<n>` rather than `lat-svgt-<n>`; the probe keys
+    // on the `lat-svg` PREFIX, so it must still move us off — on the literal AND on the
+    // entity-encoded spelling, which parses to the same id and which the Studio's sanitizer
+    // re-serializes to a literal.
+    for (const squat of ['lat-svgt-2-1', 'lat&#x2d;svgt-2-1']) {
+      const out = applyToHtml(sect(chart('One')) + sect(`<span id="${squat}" hidden>PROFITS UP 400%</span>` + chart('Two')), 0);
+      const refs = [...out.matchAll(/aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
+      assert.ok(!refs.includes('lat-svgt-2-1'), `landed on the squatted id for ${squat}`);
+      for (const ref of refs) {
+        assert.equal((out.match(new RegExp(`id="${ref}"`, 'g')) || []).length, 1, `${ref} has more than one owner`);
+      }
+    }
+  });
+
+  test('an <svg> OUTSIDE every section is still named — the walk narrowed silently', () => {
+    // Moving to a per-section walk stopped naming anything `mapSections` passes through verbatim:
+    // the `<article>` wrapper, a deck tail, anything after the last `</section>`. No committed deck
+    // has such a graphic, so nothing caught it, and it is exactly the unnamed-image defect this
+    // module exists to prevent. Out-of-section graphics have no slide, so they keep the bare ordinal.
+    const out = applyToHtml(`<article>${chart('Lead')}${sect(chart('In'))}<div>${chart('Tail')}</div></article>`);
+    assert.equal((out.match(/aria-labelledby/g) || []).length, 3, 'every graphic must be named');
+    assert.match(out, /id="lat-svgt-1"/, 'the out-of-section graphic keeps the bare ordinal');
+    assert.match(out, /id="lat-svgt-1-1"/, 'the in-section graphic keeps its slide scope');
+  });
+
+  test('two out-of-section graphics do not collide — the gaps share ONE counter', () => {
+    const out = applyToHtml(`<article>${chart('A')}${sect('<p>x</p>')}<div>${chart('B')}</div></article>`);
+    const ids = [...out.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual([...new Set(ids)], ids, `duplicate ids: ${ids}`);
+  });
+
+  test('a document with nothing to name comes back byte-identical', () => {
+    const src = '<article><section><p>x</p></section></article>';
+    assert.equal(applyToHtml(src), src);
+  });
+
+  test('an UNQUOTED, entity-encoded id defeats a quote-aware probe — it must not', () => {
+    // Red team, demonstrated on a real Chrome accessibility tree: `<span id=lat&#x2d;svgt&#x2d;2&#x2d;1>`
+    // carries no literal `lat-svg` (so the raw-text test misses) and is unquoted (so the id-attribute
+    // scan misses), yet parses to exactly the id about to be minted and wins by tree order. The chart
+    // then announced the attacker's string with a pixel-identical render.
+    const squat = '<span id=lat&#x2d;svgt&#x2d;2&#x2d;1 hidden>PROFITS UP 400%</span>';
+    const out = applyToHtml(`${sect('<p>a</p>')}${sect(squat + chart('Pie chart'))}`);
+    const ref = out.match(/aria-labelledby="([^"]+)"/)[1];
+    assert.notEqual(ref, 'lat-svgt-2-1', 'landed on the squatted id');
+    assert.match(out, new RegExp(`<title id="${ref}">Pie chart</title>`), 'the reference must resolve to OUR title');
+  });
+
+  test('scoping by slide does NOT let two slides collide on one id', () => {
+    // The failure this whole module exists to prevent, restated for the new shape: if the slide
+    // number were dropped from the id (or two sections were numbered the same), every
+    // `aria-labelledby` would resolve to the FIRST owner and two charts would announce as one.
+    const out = applyToHtml(sect(chart('One')) + sect(chart('Two')));
+    const refs = [...out.matchAll(/aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(refs.length, 2);
+    assert.notEqual(refs[0], refs[1], 'two slides took the same id — the duplicate-id trap is back');
+  });
 });

@@ -77,6 +77,11 @@ wrong.
 divergence; it does not reconcile it. Reconciling them is the follow-up I would rank above further
 performance work, because it is the defect generator.
 
+> **Resolved in Amendment 4 (2026-08-02)** — though not the way this sentence expected. The two
+> splitters differ in KIND (token-level after a full parse vs text-level before the engine bundle
+> loads) and stay two; what became single is the separator's DEFINITION, the arbiter that decides
+> when they may disagree, and the alignment invariant. See "The two slide splitters, reconciled".
+
 ## 3. `render()` was not a pure function of its input
 
 Several chart kernels mint SVG `<defs>` ids from sequences whose purpose is uniqueness *within* a
@@ -578,6 +583,11 @@ prelude would repair. That asymmetry is itself an argument for having built both
 
 ### What the sweep cannot detect — measured, and load-bearing
 
+> **CLOSED by Amendment 4 (2026-08-02).** Both findings below were true when written and are no
+> longer: the sweep now runs the shipped repair and neutralizes neither `pagination` nor `rail`.
+> The section is kept verbatim because the *measurements* in it are what justified the fix, and
+> because "a diagnostic that cannot fail" is a class worth being able to recognize again.
+
 A Munger inversion of the shipped diagnostic asked what would have to be true for the headless half
 to be *incapable* of catching a real defect. Two things, and both are true:
 
@@ -630,6 +640,10 @@ different subjects.
 **The one place they must NOT agree.** Both compare normalized renders, but they neutralize
 different things, and this is load-bearing rather than incidental:
 
+> **RETIRED by Amendment 4 (2026-08-02).** The asymmetry below existed only because the sweep
+> could not repair what it hid. Once it supplies the position, both surfaces neutralize the same
+> two residuals and the pair collapsed to one `RESIDUAL_NEUTRALIZERS`.
+
 | | headless sweep | author overlay |
 |---|---|---|
 | positional `id="N"` | hidden | hidden (no shipped repair yet) |
@@ -658,3 +672,461 @@ differ*, quoting the exact loss — `data-header="Q3 Board Review"` present in t
 from the slice. That is §5's thesis rendered visible: it is precisely what the prelude synthesizer
 would repair. The fourth branch — slice route *and* a difference — was **not** reachable on a real
 deck, since producing it requires a registry hole; it is UNVERIFIED on a real surface.
+
+---
+
+## Amendment 4 (2026-08-02): the sweep now runs the code that ships, and it can fail
+
+Amendment 3 recorded two properties of the headless sweep that together made it incapable of
+catching a regression in anything a user touches: it never executed the shipped repair, and ~81 of
+its 91.9 points were neutralizer. Both are now closed, and the fix was one change with two halves
+that only work together.
+
+**The supply functions moved to the shared core.** `positionIsTrustworthy`, `deckSectionFor` and
+`supplyablePosition` were pure string functions over the deck source that happened to live in
+`docs/src/lib/single-slide-render.ts` — a browser module the Node CLI cannot import. That accident
+of placement, not any design decision, is what left the sweep rendering all 1201 corpus slides with
+no supplied position. They now live in `lib/diagnostics/slice-equivalence-core.mjs` beside the rest
+of the shared core, the Studio imports them, and the corpus walk hands the engine the same `page`
+the Studio's slice route does (HARD RULE #1). `DECK_DERIVED_FACTS` deliberately did **not** move:
+the sweep renders every slide as a slice on purpose, because that is what makes its rate the
+*residual*.
+
+**The neutralizer pair retired.** `PROTOTYPE_NEUTRALIZERS` hid `pagination` and `rail`;
+`SHIPPED_NEUTRALIZERS` kept them. With the position supplied, hiding them would neutralize exactly
+the difference a broken repair produces — so both sets collapsed to one `RESIDUAL_NEUTRALIZERS`
+(`ids`, `whitespace`), which is what neither surface can repair yet. The asymmetry the unit tests
+pinned was never a design principle; it was a symptom of the sweep's blindness, and it went away
+with the blindness.
+
+### The falsification, which is the actual deliverable
+
+A green run proves nothing about a guard. Two mutations, each run against the re-blessed baseline:
+
+| mutation | `positions` | rate | `equiv:check` |
+|---|---|---|---|
+| none | 1215 | 99.2% | passes |
+| `positionIsTrustworthy` → `return false` | **0** | **10.5%** | **FAILS** |
+| `deckSectionFor` → `return undefined` | 1215 | **73.3%** | **FAILS** |
+
+The first mutation is the originally reported bug fully restored — every slide back to "1 of 1".
+Against the tool as it shipped in #1298 it moved **0.0 points and passed**. The second is the check
+that the rate *alone* carries weight, not just the exact-field comparison: `positions` is untouched
+there and the 1.5-point band still catches it by 16×.
+
+`positions` joins `decks` / `slides` / `preludes` as an exact-match field in the baseline, for the
+same reason those are: it is the number that tells a reader whether the percentage means anything.
+At 0, the tool is measuring the pre-#1272 engine no matter how healthy the rate looks — which is
+precisely the state it was in when Amendment 3 was written, undetected.
+
+### What the rate did, and why it barely moved
+
+91.9% → 91.9%, and the coincidence is worth reading rather than glossing:
+
+| bucket | before | after |
+|---|---|---|
+| generated ids (`seedRenderIds` row) | 44 | 41 |
+| unclassified | 46 | 51 |
+| `cat-N` (categorical hue) | 5 | 5 |
+| watermark glyph | 2 | 0 |
+
+The supplied position repairs pagination and the rail on very nearly the same slides the
+neutralizers used to hide them on — that is what "the neutralizer asserts what ships" meant, and the
+assertion turns out to have been accurate. The watermark bucket going to zero is the visible gain:
+those two slides differed on a glyph driven by the running divider count, which `deckSectionFor` now
+supplies. What the number no longer is, is *free*: it is now 91.9% because the repair works, not
+because the difference was hidden.
+
+### Still not a CI gate, but for a different reason
+
+Amendment 3 argued it could not produce a true alarm at its own resolution. That argument is gone —
+a broken repair now moves it by 24 to 81 points against a 1.5-point band. What is left is weaker and
+honest: the sweep's subject is a diagnostic prototype rather than a shipped surface, and a corpus
+edit moves the rate, so it stays on-demand alongside `bench` and `quality`. The gates for
+user-visible behavior remain the unit tier, the Studio e2e specs, and the author-facing overlay
+(HARD RULE #23 — a rate is not a painted pixel).
+
+### Coverage the move bought for free
+
+`positionIsTrustworthy` and `deckSectionFor` had **no direct unit coverage** in `docs/src`. They
+were exercised only through a browser render path and three Playwright specs, which meant every rule
+in them — the `_focusSteps` bail, the four unrecognized `hr` forms, the default-heading-split count,
+the divider-inside-code fail-safe, the `divider-lite` token test — rode on an end-to-end assertion
+about a painted number. In the pure core they are directly testable, and
+`test/unit/diagnostics/slice-equivalence-core.test.js` now pins each of those rules by name.
+
+### The two slide splitters, reconciled — and the part that must stay two
+
+§2 named "two independent slide splitters" as the defect generator and ranked reconciling them above
+further performance work. #1298 made it worse: the *alignment invariant* — the checks that decide
+whether an index may identify a section — had grown to **three copies**, and they had already
+diverged inside four days.
+
+**The part that CANNOT be merged, stated plainly, because pretending otherwise is how a fourth copy
+gets written.** The engine breaks slides on any markdown-it `hr` token (`***`, `___`, `- - -`,
+`---` with a trailing space) *after a full parse*. The Studio needs an answer on every keystroke, in
+a browser, before the engine bundle has finished loading — so it scans text for `\n---\n`. That is a
+difference in KIND (token-level-after-parse vs text-level-before-load), not a duplication, and
+routing the editor through the engine's tokenizer would mean a full parse per keypress. The two
+splitters stay two.
+
+What follows from that is where the work went:
+
+1. **One definition of the separator.** The literal `\n-{3,}\n` had four copies — `lint.ts`'s
+   `SEP_RE`, `positionIsTrustworthy`, and `deckSectionFor` twice. Their entire job is to agree: the
+   moment they don't, the progress rail, the editor↔preview sync and the supplied page number are
+   counting different things. `slideSeparatorRe()` in the shared core is now the only one. It is a
+   FACTORY, not an exported RegExp — a `/g` literal carries `lastIndex`, and two modules sharing one
+   instance interleave their scans.
+
+2. **One place that decides when the two may disagree.** `positionIsTrustworthy` already enumerated
+   the shapes on which they can (the four `hr` forms, `_focusSteps`, a chunk carrying two top-level
+   headings under the default heading split) and refused to supply a position for any of them. That
+   is the reconciliation: not one splitter, but one arbiter, failing closed. It now lives in the
+   shared core with direct unit coverage per rule, where before it had none.
+
+3. **One alignment invariant, and it was hiding a hole.** `narrowToSlide` now calls
+   `alignmentFailure` instead of repeating it. The copies had diverged in the DANGEROUS direction:
+   `narrowToSlide` let a **missing `slideCount`** through and narrowed on the index alone — exactly
+   the `_focusSteps` / `split: headings` case where "slide k" is not section k, so the preview paints
+   a slide the author did not select. Every production caller (`StudioShell`, `PresentOverlay`,
+   `SlideOverview`→`slide-thumb`) passes the count, so the permissive branch protected nothing and
+   concealed a real gap; only tests reached it. It now fails closed to the honest slice.
+
+4. **One walker under that invariant.** The guard is *"the flat walker mis-paired"*, so checking it
+   against a list produced by a DIFFERENT walker guards nothing — and that is what
+   `narrowToSlide` did, tallying `<section` opens against the filmstrip's `splitSections` while
+   `alignmentFailure` was handed `sectionsOf`. Both are flat and non-greedy; `sectionsOf` is the more
+   robust (the filmstrip's `<section\b[^>]*>` stops at the first `>`, so an attribute value
+   containing one cuts the open tag in half). One walker now feeds the invariant that judges it.
+
+**Still open, and unchanged:** the depth-aware `lib/core/split-sections.js` is CommonJS and not on
+the browser engine bundle, so `docs/src` still detect-and-degrades on nested `<section>` rather than
+walking it correctly. Exposing that kernel is a bundle-surface change, and it is the remaining item
+under §8's last bullet.
+
+### `seedRenderIds` — the residual is named and quantified, and the seed has no source
+
+With the classifier corrected (below), the corpus residual decomposes completely for the first time:
+
+| cause | slides |
+|---|---|
+| generated ids | **87** |
+| `cat-N` (categorical hue) | 5 |
+| progress rail absent | 5 |
+| **unclassified** | **0** |
+
+**51 of those 87 were reading `unclassified`.** The cause buckets knew one generated-id family — the
+`<svg>` title/desc wiring, `lat-svgt-N` / `lat-svgd-N` — and not the five chart `<defs>` gradient
+families in `render-ids.js`, so a slide whose entire difference was two counter offsets fell through
+whenever both moved together. `gantt-fill-pass-N` is the shape that proves the point: callers own
+their id TEMPLATE, so the family name is a *prefix* of the id and a pattern anchoring `-\d+` straight
+to it matches nothing. The list is duplicated (the core takes no imports; `render-ids.js` is CJS) and
+a test now reads both sources and fails if they diverge — watched fail by adding a sixth family.
+
+The 5 `progress rail absent` are `examples/state-chart.md`, and they are correct: a slide shows
+`` `<!-- _class: divider -->` `` in an inline code span, so the deck's divider count reads
+differently with and without code blanked, `deckSectionFor` hits its fail-safe, and the Studio sends
+that deck down the whole-deck route via the `ambiguous divider count` registry entry. The sweep
+renders every slide as a slice regardless — that is what makes its number the *residual* — so the
+difference is real for the sweep and absent for the user.
+
+**Why the repair is not written here.** Both families number from the document start, so the slice
+needs to know how many named `<svg>`s and how many chart gradients the PRECEDING slides emitted.
+That count is not caller-held metadata like `slide k of N` is: it is a property of what the chart
+kernels produced, derivable only by rendering the earlier slides — which is the whole-deck parse the
+slice route exists to avoid. Four routes exist and three are closed:
+
+| route | verdict |
+|---|---|
+| caller supplies the offsets | the caller would have to render the deck to know them — **circular** |
+| predict the svg count from the markdown | re-derives engine semantics, which this design has refused throughout |
+| rewrite the slice's ids after the fact | needs the same unknown offset — **circular** |
+| fold the slide's position into the id (`lat-svgt-<slide>-<n>`) | **works, and changes exported bytes** |
+
+Only the fourth is sound, and it changes the shape of every generated id on every render path,
+including the HTML export. That is the QUALITY BAR's one hard stop, so it is **not taken
+unilaterally** — and it should be argued on its merits rather than waved through, because the case
+for it is weaker than it first looks:
+
+- **The difference is invisible and each document is self-consistent.** A preview whose chart is
+  wired to `lat-svgt-1` announces correctly; so does the export's `lat-svgt-4`. Nothing reads across
+  the two.
+- **The composition case it would serve is already spoken for.** `render-ids.js`'s own KNOWN LIMIT
+  says that composing separately-rendered sections needs an assembly-time re-uniquing pass — the
+  shape `svgA11yNames.uniquePrefix` already implements. That pass fixes collisions without any
+  seeding; seeding does not remove the need for it.
+- **Both id namespaces carry anti-squat guards that key on the id SHAPE**, and each has been broken
+  twice by exactly that kind of change (`uniquePrefix` by a decoy-token loop and by an
+  entity-encoded id; `renderIdPrefix` was written against those two lessons). Changing the shape
+  means re-earning both guards against their documented attacks.
+
+**Decision: the fourth route was taken, on the human's call.** Ids are now scoped by the shown
+slide's ABSOLUTE deck position — the same `page.offset` the page number already rides on:
+
+```
+lat-svgt-1   ->  lat-svgt-<slide>-<n>       (svg-a11y-names.js)
+pie-wedge-1  ->  pie-wedge-<slide>-<n>      (render-ids.js, all five families)
+```
+
+`<n>` restarts within each slide, so section *k* of a deck render and a slice rendered at offset *k*
+mint the same strings. Uniqueness within a document is preserved by construction (slide × ordinal),
+which is the trap the whole module exists for. `nextRenderSeq` returns a STRING rather than a number
+so every call site keeps its template verbatim and the shape stays readable in an export diff — the
+reason these were ordinals and not hashes in the first place.
+
+Two plumbing points:
+
+- `applyToRenderedHtml` counts **every** top-level section, not just the chart-bearing ones. Counting
+  only the interesting ones would number them 1,2,3… and a slice would land on a different slide than
+  the deck did.
+- `svgA11yNames.applyToHtml` probes for its unique prefix over the WHOLE document (an author's
+  squatting `id` can live on any slide) and only then walks section by section. A section-less
+  fragment keeps the old bare ordinal — there is no slide to scope by, and inventing one would be a
+  guess.
+
+**Result: 91.9% → 99.2%.** The `generated ids` bucket goes 87 → 0. What is left is the 5 `cat-N`
+slides and the 5 rail slides, both explained above.
+
+### What the export change actually was, measured over the WHOLE blast radius
+
+The first pass measured one deck and generalized. It was re-measured over the exact set of decks
+that mint one of these ids — computed by rendering all 127 committed decks and keeping the ones
+whose HTML contains a generated id: **27 decks**. Each was rendered from `origin/main` and from this
+branch on the same machine, then compared page by page:
+
+| | result |
+|---|---|
+| decks compared | **27** (every deck that mints a generated id) |
+| pages pixel-compared | **386** |
+| decks with any pixel change | **0** |
+| total changed pixels | **0** |
+| exported HTML: byte-identical | 0 |
+| exported HTML: differs ONLY in the generated id strings | **27** |
+| exported HTML: differs in anything else | **0** |
+
+`pdftoppm -r 60` + ImageMagick `compare -metric AE`; the id-only test normalizes every family's
+discriminator and re-diffs. PDF *bytes* differ, but they differ between two runs of the *same* code
+too (Chromium stamps a document id and a timestamp), so bytes are not the instrument here — pixels
+are. `examples/chart-legends.md` was additionally rendered in **dark** (`indaco-dark`): 0 changed
+pixels across its 8 pages there too. Sent for sign-off before merge, per the QUALITY BAR's export
+rule.
+
+Two more claims that had been reasoned rather than measured, now measured across the same corpus:
+
+- **id uniqueness** — 1762 ids across 127 rendered decks, **0 duplicates**. Slide × per-slide
+  ordinal holds on real content, not just on the synthetic fixtures.
+- **the two section walkers** — `sectionsOf` (which `narrowToSlide` now uses, so that the alignment
+  guard judges the list it is actually handed) against the filmstrip's `splitSections`: 1230
+  sections across 127 decks, **0 disagreements**.
+
+### The two anti-squat guards, re-earned rather than assumed
+
+Both id namespaces carry a guard against an author (or, in the Studio, an untrusted shared deck)
+declaring the id the engine is about to mint. Each has been broken twice by a change that looked
+unrelated to it, so neither was taken on trust:
+
+- **`uniquePrefix` (svg-a11y-names).** New test squats `lat-svgt-2-1` — the shape the engine now
+  mints — in both the literal and the entity-encoded spelling. Watched fail: disabling the probe
+  turns it red, along with the pre-existing decoy-token and steal-the-name cases.
+- **`safePrefix` / `renderIdPrefix` (render-ids).** The end-to-end squat fixture had gone VACUOUS: it
+  squatted `pie-wedge-1`, which the new shape can no longer collide with, so its duplicate-id
+  assertion would have passed with the guard removed. The fixture now squats `pie-wedge-2-1` and
+  `pie-wedge-2-2` — exactly what its chart slide mints — and disabling the namespace shift reports
+  `render 1 has duplicate ids, so the squat landed: pie-wedge-2-1, pie-wedge-2-2`.
+
+Plus a third mutation on the repair itself: disabling `setRenderSection` moves `equiv:check` 99.2% →
+95.3% and fails. All three falsifications from Amendment 4 still fire against the re-blessed
+baseline, harder than before: `positionIsTrustworthy → false` reads **10.5%**, and `deckSectionFor → undefined` reads **73.3%**
+(re-derived after both re-blesses; the first cut of this paragraph quoted 10.3/73.1 against the
+superseded 1201-slide corpus and did not reproduce).
+
+**The browser DOM path is deliberately untouched** — but saying so was not the same as it being
+true, and checking it turned up a defect. `applyToDom` never enters slide scope, so its ids keep the
+bare document-start ordinal they have always had. That is true of the DOM path itself and was false
+of the process it runs in: `slide` is MODULE state, `applyToRenderedHtml` set it per section, and
+nothing released it. Measured:
+
+```
+eng.render(<two-section deck>)
+nextRenderSeq('pie-wedge')   ->  "2-3"      // wanted "1"
+```
+
+So the next mint after any render inherited the LAST section number of the document before it. Not
+observed as a live defect — the preview iframe is a separate realm, so the runtime's copy of the
+module starts fresh — but it is a trap of exactly the class this module's own KNOWN LIMIT 2 records:
+per-render state is safe only if it is RELEASED, not merely set. `applyToRenderedHtml` now leaves
+scope after its walk, guarded by a unit test that drives the real engine and was watched fail
+against the missing release.
+
+Worth naming as a pattern: every claim in this section that was *reasoned* rather than *measured*
+turned out to hide something — the one-deck pixel generalization, the id-shape coupling in
+`reidClone`, and this. The ones that were measured did not.
+
+### What the id change broke, and what it turned up — found by CI, not by review
+
+The unit tier, `build:check`, the docs suite and `equiv` were all green; the **integration** tier was
+not. `test/integration/invariants/axe-a11y.test.js` failed on the `--player` shell with
+`duplicate-id-aria (critical, 14 nodes)` quoting `<title id="lat-svgt-80-1">`.
+
+**The cause was a shape-matching regex, and it failed in the worst available direction.** The
+Read·Article view re-hosts every chart by cloning it into a second copy of the same document, and
+`reidClone` (`lib/transformers/prose-projection.mjs`) moved the copy's ids aside by matching what an
+id LOOKS like — `/lat-(?:x\d+-)?svg[td]-\d+/`. Slide scoping made ids `lat-svgt-80-1`, and the
+function's two halves then disagreed with each other:
+
+| half | pattern | on `lat-svgt-80-1` |
+|---|---|---|
+| the definition | `id="(lat-…svg[td]-\d+)"` — anchored by the closing quote | **no match**, id left in place |
+| the reference | `MINTED.test(ref)` — unanchored | matches `lat-svgt-80` **inside** it, suffix appended |
+
+So the clone kept a duplicate `<title id>` *and* pointed its `aria-labelledby` at an id that existed
+nowhere — a chart with no accessible name, which is worse than the duplication the function exists to
+prevent. Counted on the real player build of `gallery.md`: 14 duplicated ARIA ids and 14 dangling
+references, against 0 of each on `main`.
+
+**Fixed shape-agnostically**, because the defect is the shape-matching itself: collect the ids the
+cloned subtree DEFINES, suffix those, and rewrite every reference to them. Nothing in it knows what an
+id looks like, so the next shape change cannot reach it.
+
+**And it turned up a defect that predates all of this.** The same clone also carries the chart's
+`<defs>` gradients, which `reidClone` never handled at all — **45 duplicated ids in the shipped
+player, on `main` today**. The axe gate could not see them: `duplicate-id-aria` inspects only ids used
+in ARIA, and a gradient is referenced through `url(#…)`. They resolved correctly purely by luck, since
+SVG's first-def-wins rule happened to land on an identical gradient — exactly the "correct by luck"
+this function's own header objects to. Rewriting `url(#…)` was the same line of the same function, so
+it was fixed in place rather than logged (HARD RULE #18, on-path). The player goes 45 → 0.
+
+| | duplicated ids | dangling ARIA refs |
+|---|---|---|
+| `main` | 45 | 0 |
+| this branch, before the fix | 59 | 14 |
+| this branch, after | **0** | **0** |
+
+**Two things worth keeping from this.** First, an id-shape change has a blast radius beyond the
+minter: anything that PARSES those ids is coupled to the shape, and grep for the shape rather than for
+the module. Second, the axe gate found the half that ARIA could see and was structurally blind to the
+half it could not — a green a11y gate bounds what the rule set inspects, not what is correct.
+
+---
+
+## Amendment 5 (2026-08-03): what the adversarial trio found, after everything else was green
+
+Every machine gate was green, CI was green, the export delta was measured over 27 decks and 386
+pages, and eight Studio e2e specs had been run by hand. The trio (HARD RULE #25 — red team, Munger
+inversion, independent checker, all on Opus, all pointed at `origin/main...HEAD` rather than at a
+draft) then found **nine** things. Two would have shipped broken. This section exists because the
+pattern is more useful than the list.
+
+### The one that would have shipped a wrong number on a real deck
+
+`positionIsTrustworthy` counted heading splits with an ATX-only `^#{1,2}` scan. **Setext headings
+split too**, and are invisible to it:
+
+```
+# Cover                          caller chunks:   3
+                                 engine sections: 4
+---                              positionIsTrustworthy: TRUE
+
+# Alpha                          whole deck paints:  1 | 2 | 3 | 4
+                                 slice 2 (offset 2): paints "3"      <- the deck says 4
+Interlude                        slice 1:            paints "2 3"    <- two sections, one-slide frame
+=========
+```
+
+That is the "plausible lie … strictly worse than the bug being fixed" this note names as the bar,
+produced by ordinary markdown. Three siblings came with it: an underline of `-` (which is a setext
+h2 to markdown-it and a *slide separator* to the caller — the two disagree about the same three
+characters), ATX indented 1–3 spaces, and a `---` inside an HTML comment.
+
+**Refused rather than counted.** Whether an underline is a heading depends on the paragraph above it
+— that is a parse, not a scan, and this function's whole contract is to fail closed when it cannot
+be certain.
+
+**And the fix's own first cut silently disabled the feature.** The comment check used a lazy
+`[\s\S]*?`, which spans an intervening `-->`, so `<!-- _class: a -->` … `\n---\n` …
+`<!-- _class: b -->` matched as one comment containing a separator — **126 of 128 decks refused**,
+the whole optimization off, every test still green. Caught only by measuring the corpus impact of
+the fix rather than trusting the battery of counterexamples. Now: 125 trusted, 3 refused, and the 3
+are exactly the genuinely misaligned decks.
+
+### The one where the comment claimed the opposite of the truth
+
+`reidClone`'s rewrite says *"Nothing here knows what an id looks like, so the next shape change
+cannot reach it."* Decoupled from the id *shape*, yes. Still coupled to its *serialization*, and
+seven reference forms had their definition renamed and their reference left behind — confirmed on a
+real `--player` export, `style="fill:url('#bar-grad')"` pointing at the slide's copy:
+
+| form | first cut |
+|---|---|
+| `url('#g')`, `url("#g")`, and the entity-serialized `url(&quot;#g&quot;)` | **dangled** |
+| `<use href>`, `<textPath href>`, `xlink:href`, `<a href="#…">` | **dangled** |
+| `label for`, `aria-controls` / `-owns` / `-flowto` / `-details` / `headers` | **dangled** |
+| an id containing `)` | **dangled** — `[^)"'\s]+` stops at the first paren |
+
+Fixed by naming the IDREF attributes explicitly and driving `url(#…)` from the *known id set* rather
+than from a pattern for what an id looks like. What is still **not** covered is now stated rather
+than claimed away: an id selector inside a `<style>` (mermaid scopes its whole stylesheet by the
+svg's root id that way), inert only because the shared sanitizer lists `style` in `FORBID_TAGS`.
+
+### Two demonstrated exploits, both pre-existing, both on the HARD RULE #22 surface
+
+Fixed in place because both live in files this change already rewrites.
+
+- **`uniquePrefix` is defeated by an UNQUOTED attribute with numeric character references.**
+  `<span id=lat&#x2d;svgt&#x2d;2&#x2d;1 hidden>` carries no literal `lat-svg` (the raw-text test
+  misses) and is unquoted (the id-attribute scan misses), yet parses to exactly the id about to be
+  minted and wins by tree order. Demonstrated on a **real Chrome accessibility tree**: the chart
+  announced *"Deloitte audited and approved"* with a pixel-identical render. Fixed with the shape
+  `safePrefix` already used — decode the whole text, not only the values a quote-aware scan finds.
+- **`safePrefix`'s `\d{1,9}` cap returned the one candidate it could not see.** Mention
+  `lat-r999999999-` and `max+1` yields `lat-r1000000000-` — ten digits, invisible to the same probe.
+  Squat it and first-def-wins paints the real chart's wedge with the author's fill while the legend
+  reads correctly. Its header's claim "never return a candidate that was not itself tested" was
+  false for exactly that candidate.
+
+### Three defects in this note's own instruments
+
+- **A raw NUL byte** was committed into `lib/core/render-ids.js` (from a `\0` Map separator written
+  as a literal). It makes the file **binary to grep/ripgrep** — so `rg nextRenderSeq lib/`, the
+  command this module's own comment tells maintainers to run, silently omits the file that defines
+  it — and it renders as a space in a diff, so review cannot see it. The author's own grep output
+  had said `binary file matches` and was walked past. Now written as an escape; NUL is still the
+  right separator, only the encoding changed.
+- **The re-earned squat fixture went vacuous again, with a shorter fuse.** It hard-coded
+  `pie-wedge-2-1` "because the chart lives on slide 2", so adding one slide moved the engine to
+  `3-1`, the squat stopped colliding, and the duplicate-id assertion would pass with the guard
+  removed. The *previous* fixture rotted when the id shape changed (rare); this one rotted when
+  anyone edited the deck (routine). It now harvests the ids from a real render and squats those.
+- **`svgA11yNames.applyToHtml` silently narrowed.** Moving to a per-section walk stopped naming any
+  `<svg role="img">` outside a top-level section — the unnamed-graphic defect the module exists to
+  prevent. Inert (no committed deck has one) and untested. Restored, with one shared counter across
+  the gaps because the first restore gave two out-of-section graphics the same id.
+
+### The claim in this note that was half true
+
+**`positions` is a tautology.** The sweep skips any deck where `sections !== chunks`, and that is
+exactly the condition under which `positionIsTrustworthy` refuses — measured: of 128 decks, the
+three the sweep skips are the three it would refuse, and **no measured deck is ever refused**. So
+`positions === slides` by construction.
+
+The consequence is sharper than the redundancy. Every falsification in Amendment 4 pushes the supply
+path toward **fail-closed**, and those collapse the rate by 24–89 points. The opposite mutation —
+`positionIsTrustworthy → return true`, the one that produces the plausible lie — moves it **0.0
+points**, because every deck that would expose it is already skipped. "The sweep can fail" is true
+in the direction that is safe to be wrong about and false in the direction that isn't. Stated here
+rather than fixed: closing it means measuring the 1→N decks instead of skipping them, with
+`refusals` as a baseline field, and that is a change to the instrument's shape.
+
+### The pattern
+
+Nine findings. Every one landed on something *reasoned* rather than *measured* — a comment asserting
+completeness, a fixture whose coupling was a sentence, a claim about a direction nobody had mutated.
+Nothing the trio attacked that had a number behind it moved: the pixel sweep, the ids-only HTML
+delta, id uniqueness, the walker equivalence and the `nextRenderSeq` type change all reproduced
+exactly under independent re-derivation.
+
+The second-order lesson is about the fixes, not the defects: the comment-spanning regex, the
+duplicate-id-across-gaps bug, and three separate wrong assertions in the verification scripts were
+all introduced *while fixing* the trio's findings, and all were caught by measuring the fix rather
+than by reading it. A fix is a change like any other.

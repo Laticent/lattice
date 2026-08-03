@@ -104,7 +104,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		const host = mountHost();
 		// Slide 2 of a 3-slide deck. Before this option, the caller passed slide 2's markdown
 		// ALONE and the engine — correctly, for a one-slide document — stamped it "1 of 1".
-		const status = await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1 });
+		const status = await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 3 });
 		expect(status.ok).toBe(true);
 
 		const doc = srcdocOf(host);
@@ -125,7 +125,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 	it('keeps the `.lattice` wrapper — the patch path and frame CSS both key on it', async () => {
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 2 });
+		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 2, slideCount: 3 });
 		const doc = srcdocOf(host);
 		// `article.lattice > section` is the engine's own selector shape (lib/engine/css.js), and
 		// patchSlideBody swaps `.lattice`'s innerHTML — losing the wrapper would break both.
@@ -141,7 +141,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		const seen: string[] = [];
 		for (const i of [0, 1, 2]) {
 			const host = mountHost();
-			await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: i });
+			await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: i, slideCount: 3 });
 			seen.push(srcdocOf(host).match(/data-lattice-pagination="(\d+)"/)?.[1] ?? '');
 		}
 		expect(seen).toEqual(['1', '2', '3']);
@@ -155,7 +155,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		mockRender(`<article class="lattice">${section(1, 2, 'One')}${section(2, 2, 'Two')}<div class="deck-tail">tail</div></article>`);
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1 });
+		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2 });
 		const doc = srcdocOf(host);
 		expect(doc.match(/<section\b/g)?.length).toBe(1);
 		expect(doc).toContain('data-lattice-pagination="2"');
@@ -217,11 +217,35 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		}
 	});
 
+	it('REFUSES to narrow without a slide count — the copy that used to allow it was the hole', async () => {
+		// The alignment invariant had two copies: this path's inline checks and `alignmentFailure`
+		// in lib/diagnostics. They diverged within four days — this one let a MISSING `slideCount`
+		// through and narrowed on the index alone, which is exactly the `_focusSteps` /
+		// `split: headings` case where "slide k" is not section k and the preview paints the WRONG
+		// slide. Every production caller (StudioShell, PresentOverlay, SlideOverview) passes the
+		// count, so the permissive branch protected nothing. One copy now, and it fails closed.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const calls: string[] = [];
+		(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (_pg: unknown, md: string) => {
+			calls.push(md);
+			return md === 'THE SLICE' ? { html: `<article class="lattice">${section(1, 1, 'Shown')}</article>`, css: '' } : { html: DECK, css: '' };
+		});
+		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideMarkdown: 'THE SLICE' });
+		// Falls back to the slice — the right slide, honestly numbered 1 of 1 — rather than trusting
+		// an index it cannot prove identifies a section.
+		expect(calls).toEqual([DECK_SCOPED, 'THE SLICE']);
+		const doc = srcdocOf(host);
+		expect(doc.match(/<section\b/g)?.length).toBe(1);
+		expect(doc).toContain('Shown');
+		expect(doc).toContain('data-lattice-pagination-total="1"');
+	});
+
 	it('is a no-op for a single-section render', async () => {
 		mockRender(`<article class="lattice">${section(1, 1, 'Only')}</article>`);
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
-		const status = await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 0 });
+		const status = await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 1 });
 		expect(status.slides).toBe(1);
 		expect(srcdocOf(host)).toContain('data-lattice-pagination="1"');
 	});

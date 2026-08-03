@@ -78,17 +78,85 @@ in patch versions.
     (`test/benchmark/slice-equivalence.json`), `equiv:check` fails on a drop beyond 1.5 points.
     On-demand, not a CI gate — the same shape as `bench` and `quality`.
   - Both sit on one pure core (`lib/diagnostics/slice-equivalence-core.mjs`), so the browser and
-    the terminal cannot drift into disagreeing about what "the same" means. They deliberately
-    neutralize *different* things: the sweep hides the repairs that already ship; the overlay leaves
-    them in, because a wrong page number is precisely what an author turns it on to find.
-  - **The sweep is not a regression gate, and now says so.** It imports only the engine and the
-    shared core — never the shipped repair in the preview path — so breaking that repair outright
-    moves its number 0.0 points. Most of the rate is neutralizer besides: 91.9% blessed, 11.0%
-    without the pagination neutralizer, 67.5% without the rail one. It prints the active neutralizer
-    set and the prelude count (**0 of 1201** — no committed deck exercises the prototype) on every
-    run, so neither claim can quietly go stale. What it measures is the residual for the *general
-    mechanism*; the gates for user-visible behavior are the unit tier, the Studio e2e specs, and the
+    the terminal cannot drift into disagreeing about what "the same" means — including *what may be
+    handed to a slice render*: `positionIsTrustworthy`, `deckSectionFor` and `supplyablePosition`
+    are shared, so the sweep applies the same repair the Studio does before it compares anything.
+  - **The sweep can fail, and that was verified by breaking it.** Its first cut could not: it
+    imported only the engine and the shared core, while the repair lived in the preview path, so
+    every corpus slide was rendered with no supplied position and stubbing that
+    repair out moved the number **0.0 points**. Now stubbing `positionIsTrustworthy` to `return
+    false` — every slide back to "1 of 1", the original bug in full — takes it **91.9% → 10.4%**,
+    and stubbing the rail supply takes it to **67.5%**, against a 1.5-point band. The run header
+    prints the supplied-position count, the prelude count (**0** — no committed deck
+    exercises the prelude prototype) and the neutralizer set, so none of those claims can quietly go
+    stale. It stays on-demand because its subject is a diagnostic prototype and a corpus edit moves
+    it; the gates for user-visible behavior remain the unit tier, the Studio e2e specs, and the
     overlay.
+  - **Every difference it finds is now named.** The cause buckets knew the `<svg>` title/desc id
+    family and not the five chart `<defs>` gradient families, so **51 of 97** residual slides read
+    `unclassified` when their entire difference was a counter offset — and `gantt-fill-pass-N` shows
+    why: the family name is a *prefix* of the id, so a pattern anchored straight to it matches
+    nothing. A missing progress rail gets its own bucket too, with the reason (the deck's divider
+    count was ambiguous, so no section position was supplied) instead of a shrug. `unclassified` is
+    now **0** across the corpus: 87 generated ids, 5 `cat-N`, 5 rail. The family list is duplicated
+    from `render-ids.js` — the core takes no imports — and a test reads both sources and fails if
+    they diverge.
+
+- **Generated SVG ids are scoped to their slide, so a preview and an export of the same slide are
+  the same bytes.** A chart's `<title>`/`<desc>` wiring (`lat-svgt-N`) and its `<defs>` gradients
+  (`pie-wedge-N`, `radar-area-N`, `chart-spine-N`, `gantt-fill-*-N`, `q-tint-N`) were numbered from
+  the start of whatever document was being rendered — so the same chart was `-1` previewed alone and
+  `-3` inside its deck. Nothing announced or painted wrongly (each document wires itself correctly,
+  and an id is minted together with every reference to it), but it was 87 of the 97 slides where
+  `npm run equiv` found a preview and a deck render disagreeing, and it is the drift a per-slide
+  render cache's `incremental === whole` guard has to be able to assert away. The ids now carry the
+  shown slide's absolute deck position — `pie-wedge-<slide>-<n>`, with `<n>` restarting per slide —
+  which comes from the same `page.offset` the page number already rides on. A *count* could not be
+  handed in (a lone slice would have to know how many gradients the earlier slides emitted, which
+  only rendering them reveals); a *position* is metadata the caller already holds.
+  - **Exported bytes change; exported pixels do not.** Measured over the exact blast radius — the
+    27 decks (of 127) whose HTML contains a generated id — rendered from `main` and from this branch:
+    **386 pages pixel-compared, 0 changed pixels**, and all 27 exports differ *only* in the id
+    strings. `chart-legends.md` additionally in dark: 0 changed pixels.
+  - Uniqueness within a document is preserved by construction (slide × per-slide ordinal), which is
+    the SVG duplicate-id trap this machinery exists for. Both anti-squat guards were re-earned
+    against the new shape rather than assumed: the end-to-end fixture had gone vacuous (it squatted
+    an id the new shape can no longer collide with) and now squats what the engine actually mints.
+  - The browser runtime's DOM path is untouched — it has no deck to be positioned within, and its
+    climbing counter is what keeps its ids unique in a live document.
+  - `npm run equiv` goes **91.9% → 99.2%**; the `generated ids` bucket goes 87 → 0.
+
+- **Fixed: the Read·Article view's cloned charts no longer duplicate an id — including 45 that
+  predate this change.** That view re-hosts each chart by cloning it into a second copy in the same
+  document, and `reidClone` matched the id SHAPE to move the copy's ids aside. The shapes moved out
+  from under it, and its two halves then disagreed: the anchored `id="…"` pattern stopped matching so
+  the id stayed put, while the unanchored reference test still matched a prefix of it and suffixed
+  the reference — leaving a duplicate `<title id>` AND an `aria-labelledby` pointing at nothing, i.e.
+  a chart with no accessible name at all. It is now shape-agnostic: it collects the ids the subtree
+  DEFINES and moves those plus every reference to them, so the next id-shape change cannot break it.
+  `url(#…)` is rewritten too, which closes a **pre-existing** defect the axe gate could not see —
+  `duplicate-id-aria` only inspects ids used in ARIA, so the clone's 45 duplicated `<defs>` gradients
+  went unreported and resolved correctly only by luck (SVG's first-def-wins rule happened to pick an
+  identical gradient). The shipped player goes from **45 duplicated ids to 0**.
+
+- **The two slide splitters, reconciled — and the alignment invariant's three copies collapsed to
+  one.** The engine breaks slides on any markdown-it `hr` after a full parse; the Studio scans text
+  for `\n---\n` on every keystroke, before the engine bundle has loaded. Those stay two — routing
+  the editor through the tokenizer would mean a full parse per keypress. What became single:
+  - **the separator's definition** (`slideSeparatorRe`), which had four copies whose whole job was to
+    agree — when they don't, the progress rail, the editor↔preview sync and the supplied page number
+    count different things;
+  - **the arbiter** that decides when the two splitters may disagree (`positionIsTrustworthy`), now
+    in the shared core with a unit test per rule where it previously had none;
+  - **the alignment invariant**. `narrowToSlide` now calls `alignmentFailure` instead of repeating
+    it — and the copies had diverged in the dangerous direction: `narrowToSlide` let a **missing
+    slide count** through and narrowed on the index alone, which is exactly the `_focusSteps` /
+    `split: headings` case where "slide k" is not section k and the preview paints a slide the author
+    did not select. Every production caller passes a count, so the permissive branch protected
+    nothing and hid the gap. It now falls back to the honest slice;
+  - **the walker under that invariant.** The guard is "the flat walker mis-paired", and it was
+    checking a tally against a list produced by a *different* walker. One walker now feeds the
+    invariant that judges it.
 
 ### Fixed
 

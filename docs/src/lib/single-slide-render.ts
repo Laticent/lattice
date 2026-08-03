@@ -25,13 +25,15 @@
 import {
 	alignmentFailure,
 	classifyDivergence,
+	deckSectionFor,
 	normalizeSection,
-	SHIPPED_NEUTRALIZERS,
+	RESIDUAL_NEUTRALIZERS,
 	sectionsOf,
+	supplyablePosition,
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
-import { hashString, linkGuardAgent, splitSections } from '../playground/deck-preview.js';
+import { hashString, linkGuardAgent } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
@@ -210,31 +212,32 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
 // feature family already uses — `PresentOverlay.tsx` drops its narration projection wholesale
 // when "the render's section count doesn't match the slide count".
 //
-// Reuses the filmstrip's `splitSections` (HARD RULE #15) rather than a second parser.
+// ONE COPY OF THE INVARIANT, and one walker under it. This function used to spell the alignment
+// checks out inline while `alignmentFailure` (lib/diagnostics) spelled the same three out again for
+// the fidelity overlay's compare — and the copies diverged within four days of being written: this
+// one let a MISSING `slideCount` through and narrowed on the index alone, which is precisely the
+// `_focusSteps` / `split: headings` case that shows the wrong slide. Every production caller
+// (StudioShell, PresentOverlay, SlideOverview→slide-thumb) passes the count; only tests omitted it,
+// so the permissive branch protected nothing and hid a hole. Both now call `alignmentFailure`, and
+// no count means no narrowing.
+//
+// The walker moved with it, and had to: the guard is "the flat walker mis-paired", so checking it
+// against a list produced by a DIFFERENT walker guards nothing. `sectionsOf` (the same list
+// `alignmentFailure` is handed by the compare closure) replaces the filmstrip's `splitSections`
+// here — both are flat and non-greedy, and `sectionsOf` is the more robust of the two (the
+// filmstrip's `<section\b[^>]*>` stops at the first `>`, so an attribute value containing one cuts
+// the open tag in half). The filmstrip keeps its own copy because it consumes a different shape.
+//
+// The repo HAS a depth-aware walker — `lib/core/split-sections.js`, whose header says the scan
+// "survives nested sections" — but it is CommonJS and not on the browser engine bundle, so wiring
+// it here is a bundle-surface change rather than a line edit. Detect-and-degrade until then: fail
+// CLOSED on any disagreement or unusable index. `null` means "cannot prove which section is slide
+// `index`", and the caller falls back rather than guessing. Never return the whole deck — stacking
+// every section into a frame whose CSS and scale transform assume exactly one is both visibly
+// broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
 function narrowToSlide(html: string, index: number, slideCount?: number): string | null {
-	// `splitSections` is the FLAT walker: it pairs each `<section` with the NEXT `</section>`.
-	// The engine passes author raw HTML through verbatim, so a slide containing its own
-	// `<section>…</section>` mis-pairs — the walker closes the slide at the inner tag and the
-	// neighbor's markup (including its visible `.lat-pagination` number) leaks into the frame.
-	// A count agreement can't catch it: the mis-paired total often still equals the caller's
-	// slide count. So verify the walker against a raw `<section` tally, and fail closed when
-	// they disagree. The repo HAS a depth-aware walker for exactly this — `lib/core/split-sections.js`,
-	// whose own header says the scan "survives nested sections" — but it is CJS and not exposed
-	// on the browser engine bundle, so wiring it to `docs/src` is a bundle-surface change, not a
-	// line edit. Detect-and-degrade here; expose that kernel as the follow-up.
-	const opens = (html.match(/<section\b/g) || []).length;
-	const sections: string[] = splitSections(html);
-	// Fail CLOSED on any disagreement or unusable index: null means "cannot prove which section
-	// is slide `index`", and the caller falls back rather than guessing. Never return the whole
-	// deck — stacking every section into a frame whose CSS and scale transform assume exactly
-	// one is both visibly broken and (on a 117-slide deck) hundreds of KB of wasted HTML.
-	if (opens !== sections.length) return null; // the flat walker mis-paired — nested `<section>`
-	if (typeof slideCount === 'number' && sections.length !== slideCount) return null;
-	// `Number.isInteger` is load-bearing, not defensive noise: a fractional or NaN index passes
-	// both range comparisons (`NaN < 0` and `NaN >= n` are BOTH false), then `i === index` never
-	// matches and the walk emits a wrapper with ZERO sections — a blank frame, the one outcome
-	// this whole path is supposed to make unreachable.
-	if (!Number.isInteger(index) || index < 0 || index >= sections.length) return null;
+	const sections: string[] = sectionsOf(html);
+	if (alignmentFailure(html, sections, slideCount, index)) return null;
 	if (sections.length < 2) return html;
 	let out = '';
 	let pos = 0;
@@ -372,111 +375,18 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	},
 ];
 
-/**
- * Can the caller's slide indices be TRUSTED as engine section indices?
- *
- * Supplying a page position is only sound if "slide k of N" means the same thing to the caller
- * and to the engine. The whole-deck path VERIFIES that (narrowToSlide bails when the section
- * count disagrees, and falls back to an honest 1-of-1); the slice path has no such backstop, so
- * it has to earn the right to supply a number.
- *
- * WHY A PROBE IS NOT ENOUGH, and how this was caught. An earlier cut gated on a `split: headings`
- * probe — but heading splitting is the DEFAULT (`DEFAULT_SPLIT` in lib/core/resolve-split.js), so
- * a deck splits on headings with no directive to match. A deck whose `---` chunk carries two
- * top-level h1/h2 therefore renders THREE sections while the Studio counts TWO slides, and the
- * preview confidently painted "2 of 2" where the truth was "3 of 3". On the whole-deck path the
- * same deck failed CLOSED to "1 of 1". Trading an honest fallback for a plausible lie is strictly
- * worse than the bug being fixed, which is the bar this file's own registry comment sets.
- *
- * So this COUNTS what the engine will produce, conservatively, and returns false the moment it is
- * unsure. Every "unsure" costs only the optimization — the render falls back to no supplied
- * position, i.e. exactly the pre-existing 1-of-1 — so the failure direction is honest, never wrong.
- */
-function positionIsTrustworthy(deck: string, slideCount: number | undefined): boolean {
-	if (!(typeof slideCount === 'number' && slideCount > 0)) return false;
-	const body = String(deck ?? '')
-		.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '') // front matter
-		.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, ''); // fenced code — never a boundary
-
-	// A `_focusSteps` slide becomes one slide PER STEP; the count is not derivable here at all.
-	if (/<!--\s*_?focusSteps\s*:/.test(body)) return false;
-	// An hr form the Studio's `\n---\n` splitter does not recognise but markdown-it does
-	// (`***`, `___`, `- - -`, `---` with trailing space). Either side miscounts; bail.
-	if (/^[ \t]*(?:\*[ \t]*\*[ \t]*\*[-* \t]*|_[ \t]*_[ \t]*_[_ \t]*|-[ \t]+-[ \t]+-[- \t]*|-{3,}[ \t]+)$/m.test(body)) return false;
-
-	const chunks = body.split(/\n-{3,}\n/);
-	if (chunks.length !== slideCount) return false; // the caller and this splitter already disagree
-
-	// Heading splitting is ON unless the deck opts out, and it inserts a break before every
-	// top-level h1/h2 after the first in a chunk. Count only headings at column 0 — one nested in
-	// a list or blockquote does not divide (see the plugin's `token.level === 0` guard).
-	const splitsOnHeadings = !/^\s*split\s*:\s*(rule|none|off)\b/m.test(deck);
-	if (splitsOnHeadings) {
-		for (const chunk of chunks) {
-			if ((chunk.match(/^#{1,2}[ \t]+\S/gm) || []).length > 1) return false;
-		}
-	}
-	return true;
-}
-
-/**
- * Which divider-delimited SECTION the shown slide sits in, and how many the deck has.
- *
- * The progress rail and the watermark glyph both derive this by walking every section
- * (`progress.transform.js`, `watermark.transform.js`), which is why a deck with dividers had to
- * re-render in full on every keystroke — 63ms of engine work per keypress on a 40-slide gallery
- * deck, against 3ms for a deck without them. It is the same positional metadata the page number
- * is, so the caller supplies it rather than making the engine recount.
- *
- * Only ever called behind `positionIsTrustworthy`, which is what guarantees chunk k IS section k.
- * `index` counts dividers at or before the shown slide, matching exactly where the transform's
- * own walk would have arrived; `total` is the deck's divider count. Both zero → no rail, which is
- * also what a deck with no dividers gets.
- */
-function deckSectionFor(deck: string, slideIndex: number): { index: number; total: number } | undefined {
-	const stripFm = String(deck ?? '').replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '');
-	// Blank every form of code the engine renders literally. A `_class: divider` inside a code
-	// SAMPLE is documentation, not a directive — and decks that teach Lattice authoring are full of
-	// them (examples/speaker-notes.md, split-headings.md, debug.md, …).
-	const blankCode = (t: string) =>
-		t
-			.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '') // fenced
-			.replace(/^(?: {4}|\t)[^\n]*$/gm, '') // indented block
-			.replace(/`[^`\n]*`/g, ' '); // inline span
-
-	// TOKEN-TEST the class value, exactly as the tiles do (`cls.split(/\s+/).includes('divider')`
-	// in progress.transform.js / watermark.transform.js). A substring match counts `divider-lite`
-	// and `section-divider` as dividers where the engine does not — the counter has to agree with
-	// the consumer it is standing in for, not merely look similar.
-	const dividerTokens = (chunk: string): boolean => {
-		const directives = [...chunk.matchAll(/<!--\s*_?class\s*:\s*([\s\S]*?)-->/g)];
-		if (!directives.length) return false;
-		const last = directives[directives.length - 1][1]; // last wins, as the engine resolves it
-		return last.trim().split(/\s+/).includes('divider');
-	};
-
-	const chunks = blankCode(stripFm).split(/\n-{3,}\n/);
-	const total = chunks.filter(dividerTokens).length;
-
-	// FAIL SAFE, NOT FAIL WRONG. This is the property the gate design rests on, and it INVERTS the
-	// moment a fact stops being a probe and becomes a counter. As a probe, matching a `divider`
-	// mentioned in prose merely forced the whole-deck render: a wasted parse, correct output. As a
-	// counter the same match paints an extra dot and bumps the watermark glyph — wrong output.
-	// Found by an inversion review, reproduced: a slide showing `<!-- _class: divider -->` in an
-	// inline code span rendered "02" against the deck's "01".
-	//
-	// The question is ONLY "does a divider appear inside code?", so compare the divider COUNTS with
-	// and without code blanked. An earlier cut also compared chunk counts, which was wrong for a
-	// different reason: a `---` inside a mermaid fence changes the chunk count without touching any
-	// divider, and that bailed on gallery.md — the very deck the performance numbers measure,
-	// silently reverting the win. Caught by two independent reviewers.
-	if (stripFm.split(/\n-{3,}\n/).filter(dividerTokens).length !== total) return undefined;
-	if (!total) return undefined;
-
-	let index = 0;
-	for (let i = 0; i <= slideIndex && i < chunks.length; i++) if (dividerTokens(chunks[i])) index += 1;
-	return { index, total };
-}
+// `positionIsTrustworthy`, `deckSectionFor` and `supplyablePosition` USED TO LIVE HERE.
+//
+// They are pure string functions over the deck source, and they are the repair this whole file
+// exists for: the position a slice may be handed so it stops numbering itself "1 of 1". They now
+// live in `lib/diagnostics/slice-equivalence-core.mjs` (imported above), for one reason — the
+// headless equivalence sweep (`npm run equiv`) could not import a docs-site module, so it rendered
+// all 1201 corpus slides with NO supplied position and would have passed with this logic stubbed
+// out entirely. One owner, both callers (HARD RULE #1). Read the supply rules there.
+//
+// `DECK_DERIVED_FACTS` deliberately did NOT move with them: the sweep renders every slide as a
+// slice on purpose (that is what makes its rate the residual), so it has no use for the registry
+// that decides which decks skip the slice route.
 
 /**
  * WHICH deck-derived facts this deck trips, by name. `needsDeckContext` is "is this list
@@ -485,25 +395,6 @@ function deckSectionFor(deck: string, slideIndex: number): { index: number; tota
  */
 export function deckDerivedFactsFor(deck: string): string[] {
 	return DECK_DERIVED_FACTS.filter((f) => f.probes.some((p) => p.test(deck)) || (f.test ? f.test(deck) : false)).map((f) => f.fact);
-}
-
-/**
- * The deck position that COULD be supplied for this slide, independent of which route the render
- * actually takes.
- *
- * Split out because the answer has two consumers with different gates. The render path supplies it
- * only on the slice route (a whole-deck render counts for itself; an offset there would shift every
- * section). The preview-fidelity diagnostic needs the same answer on EITHER route, because its job
- * is to render the counterfactual — "what would the fast route have produced here?" — and the fast
- * route would have supplied it. Computing it inline meant the diagnostic re-rendered the slice with
- * NO position on the whole-deck route and then reported the resulting pagination mismatch as a
- * finding, on any deck that paginates. 115 of 126 committed decks do; the deck the overlay was first
- * verified on happened not to, which is why it looked clean.
- */
-function supplyablePosition(deck: string, slideIndex: number | undefined, slideCount: number | undefined) {
-	return typeof slideIndex === 'number' && slideIndex >= 0 && positionIsTrustworthy(deck, slideCount)
-		? { offset: slideIndex, total: slideCount as number, deckSection: deckSectionFor(deck, slideIndex) }
-		: undefined;
 }
 
 /** "Is that list non-empty" — literally, so the two cannot drift apart. */
@@ -1072,10 +963,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										const why = alignmentFailure(deckOut.html, sections, slideCount, slideIndex);
 										if (why) return { equal: null, why };
 										const want = sections[slideIndex];
-										// SHIPPED_NEUTRALIZERS, not the headless sweep's: a wrong page number or
-										// rail is precisely what an author turns this on to find, so those stay in.
-										const a = normalizeSection(sectionsOf(sliceOut.html)[0] ?? '', SHIPPED_NEUTRALIZERS);
-										const b = normalizeSection(want, SHIPPED_NEUTRALIZERS);
+										// Hide only what NO shipped repair closes. A wrong page number or rail is
+										// precisely what an author turns this on to find, so those stay visible —
+										// and the headless sweep now hides them no longer either, because it
+										// supplies the same position this compare does. One set, both surfaces.
+										const a = normalizeSection(sectionsOf(sliceOut.html)[0] ?? '', RESIDUAL_NEUTRALIZERS);
+										const b = normalizeSection(want, RESIDUAL_NEUTRALIZERS);
 										if (a === b) return { equal: true };
 										// Hand over the WHOLE sections. Cutting a character window here left the panel
 										// with a fragment it could not parse into named differences — it reported half an

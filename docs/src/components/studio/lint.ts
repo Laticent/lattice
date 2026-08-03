@@ -3,6 +3,7 @@
 // are property-testable without rendering anything.
 
 import { type LensRegistry, lensPairs } from '@/lib/lente';
+import { slideSeparatorRe } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { frontMatterBlock } from './front-matter';
 import { fenceRanges } from './slide-directives';
 
@@ -11,14 +12,20 @@ import { fenceRanges } from './slide-directives';
 // Scanning was fence-blind, which split such slides into pieces and corrupted the
 // deck on the next structural edit. `separatorPositions` masks fences once and every
 // splitter/locator below shares it, so they never disagree.
-const SEP_RE = /\n-{3,}\n/g;
+//
+// The PATTERN itself comes from lib/diagnostics/slice-equivalence-core.mjs, which is also what
+// `positionIsTrustworthy` and `deckSectionFor` cut on when they decide whether this view's slide
+// indices may be handed to the engine. Four copies of the literal used to exist, and their whole
+// job is to agree: the moment they don't, the rail, the editor↔preview sync and the supplied page
+// number are counting different things. A factory rather than a shared instance — a `/g` literal
+// carries `lastIndex`, so one shared object would let two scans interleave.
 function separatorPositions(src: string): Array<{ index: number; length: number }> {
 	const text = String(src ?? '');
 	const fences = fenceRanges(text);
 	const inFence = (i: number) => fences.some(([a, b]) => i >= a && i < b);
 	const out: Array<{ index: number; length: number }> = [];
 	let m: RegExpExecArray | null;
-	SEP_RE.lastIndex = 0;
+	const SEP_RE = slideSeparatorRe('g');
 	while ((m = SEP_RE.exec(text))) {
 		// The separator "line" is the dashes; the match includes the flanking newlines.
 		if (!inFence(m.index + 1)) out.push({ index: m.index, length: m[0].length });
