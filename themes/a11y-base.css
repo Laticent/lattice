@@ -198,9 +198,9 @@ section.radar .radar-poly[data-series="5"] { stroke-dasharray: 11 4 1 4 !importa
  * chips under this palette's black ink at 1.55:1. Keep the two in lockstep;
  * texture-polarity.test.js resolves the real cascade (specificity first, source order
  * as tie-break) and fails if they drift apart. */
-section.dark:not(.print):not([data-lattice-print]),
-section.light:not(.print):not([data-lattice-print]),
-section.color-light:not(.print):not([data-lattice-print]) {
+section.dark[data-lattice-slide-bake]:not(.print),
+section.light[data-lattice-slide-bake]:not(.print),
+section.color-light[data-lattice-slide-bake]:not(.print) {
   --cat-1-texture: url(#latt-a11y-tex-1);
   --cat-2-texture: url(#latt-a11y-tex-2);
   --cat-3-texture: url(#latt-a11y-tex-3);

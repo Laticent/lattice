@@ -75,7 +75,15 @@ layer; keep both:
   literal hex, no `light-dark()`. A slide that *pins* a scheme (`_class: dark` /
   `light`, `color-mode: light`) sets `color-scheme` on the SECTION, which the
   page-level patterns above cannot see — so the theme points `--cat-N-texture` at
-  these under the pinning selector instead. Until this existed, a per-slide dark left
+  these under the pinning selector instead.
+  **They apply only where ink is baked PER SLIDE**, which the emulator marks with
+  `data-lattice-slide-bake` on each section; every pin requires that attribute. Under
+  `--print` the emulator bakes one B&W band deck-wide, and on the runtime paths
+  (Studio/Playground, Export-to-Marp, marp-vscode) `lib/runtime/index.js` bakes once
+  from the FIRST section — in both cases ink is deck-wide, so the chip must stay
+  deck-wide too and the pins stand down. Pinned live on a runtime path, a `_class:
+  dark` slide got a dark chip under slide-1's ink: 17.14:1 → 1.55:1 in a real
+  `marp-cli` render. Until this existed, a per-slide dark left
   light chips under light ink and every diagram node label vanished on all six
   textured palettes (#1323). Gated by `test/unit/palette/texture-polarity.test.js`,
   which follows the token to the pattern and checks the ink against the fill *baked

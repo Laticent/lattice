@@ -316,7 +316,7 @@ in patch versions.
   Verified non-vacuous by mutation (4, 2, 1 and 4 failures for the four ways to reintroduce it), and
   by rendering all six palettes. The texture-defs golden is re-blessed: the change is purely
   additive — every existing pattern is byte-unchanged and the 48 new ones are inserted immediately
-  before the closing `</defs>` (so the common prefix is 15,533 of the previous 15,546 bytes: only
+  before the closing `</defs>` (so the common prefix is 15,534 of the previous 15,546 bytes: only
   that closing tag moves). The new patterns carry no `<style>`,
   so they keep the literal-hex, iOS-safe property of the a11y sets. The pins are gated on a new
   `data-lattice-print` document marker: the emulator BAKES each diagram's label ink for the band it
@@ -324,24 +324,32 @@ in patch versions.
   `_class` replaces the deck's `class: print` — so an ungated pin put baked print ink on a pinned
   dark chip at 2.7:1. With the guard, `--print` output is pixel-identical to before this change.
 
-  Two further defects, both found by adversarial review after the above was green, both the same
-  shape — **one decision derived from two predicates**. (a) The pins were gated on an ANCESTOR
-  (`html:not([data-lattice-print]) section.dark`), and `packTheme` scopes every theme rule off its
-  leftmost compound, so they packed to `article.lattice > section html:not(…) section.dark` — an
-  `<html>` inside a `<section>`, unmatchable. The fix was **dead on the Studio/Playground and
-  Export-to-Marp paths** while passing on the emulator's unpacked CSS. The guard is now a `:not()`
-  on the section compound and the marker is stamped per section, as `engineering/gotchas.md`
-  prescribes. (b) The marker was keyed on the CLI `--print` flag while the Mermaid bake was keyed
-  on a wider condition that also honors front-matter `class: print` / `color-mode: print`; such a
-  deck baked print ink with no marker, so a `_class: dark` slide pinned a dark chip under it at
-  **1.28:1** — worse than the 2.7:1 the guard was introduced to fix. Both now derive from one
-  `deckPrintBand()`. The gate grew the assertions that would have caught each: every pin selector
-  is run through the real `packTheme` and must still match a SLIDE, both callers must read the
-  shared predicate, and the slot→pattern mapping must be injective (two slots sharing one texture
-  passed every earlier check while silently destroying the redundant-encoding channel). Its
-  `specificity()` also scored `:where()` at full price — the idiomatic way to add a gate *without*
-  raising specificity — which would have modelled this cascade backwards; it now follows the spec
-  for `:where`/`:is`/`:not`/`:has` and pseudo-elements.
+  Adversarial review then found three more, all the same shape — **one decision derived from two
+  places**. (a) The pins were gated on an ANCESTOR (`html:not(…) section.dark`), and `packTheme`
+  scopes every theme rule off its leftmost compound, so they packed to an `<html>` inside a
+  `<section>` and the fix was **dead on the Studio/Playground and Export-to-Marp paths**. (b) The
+  guard was keyed on the CLI `--print` flag while the Mermaid bake also honored front-matter
+  `class: print` / `color-mode: print`; such a deck baked print ink with the pins live, at
+  **1.28:1**. (c) Fixing (a) made the pins live on the runtime paths — and **that was itself a
+  regression**: `lib/runtime/index.js` bakes label ink ONCE per document from the first section, so
+  ink and chip are both deck-wide there and already agree. A per-section chip broke that agreement:
+  a real `marp-cli` render of an Export-to-Marp bundle went from 17.14:1 to **1.55:1**.
+
+  So the guard is now a POSITIVE marker rather than a print guard. `data-lattice-slide-bake` is
+  stamped per section by the emulator exactly when it bakes ink PER SLIDE, and the pins require it.
+  Absent it they stand down — which is correct for `--print` (deck-wide print ink) AND for every
+  runtime path (deck-wide ink baked from slide 1), a case a negative print guard could not express
+  at all, because no emulator runs there to withhold it. #1323 is, at root, an emulator-path defect:
+  only that renderer bakes ink per slide while the chip came from a page-level `<pattern>`.
+
+  The gate grew the assertions that would have caught each: every pin selector is run through the
+  real `packTheme` and must still match a SLIDE; every pin must REQUIRE the marker; the stamper and
+  the predicate are shared kernel functions exercised as behavior (they were previously asserted by
+  `assert.match` against emulator SOURCE, which cannot fail for a semantic error — deleting the
+  stamp, dropping its `/g`, and renaming its attribute each left the render broken with the suite
+  green); and the slot→pattern mapping must be injective. `!important` is banned on the channel,
+  since the cascade model covers specificity and source order but not that tier — an `!important`
+  on onyx's pin recreated the a11y regression at full green.
   (#1323)
 
 - **The containment tier gets curated ink and edge tokens in every theme, and a gate that keeps them

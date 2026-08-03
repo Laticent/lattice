@@ -97,9 +97,8 @@ const isRoot = (s) => /^:root(:root)?$/.test(s);
  * however it is qualified. Every `:not()` sits on the SECTION COMPOUND; see the
  * packed-selector test below for why an ancestor gate is not an option.
  */
-const PRINT_GUARD = ':not\\(\\[data-lattice-print\\]\\)';
 const pinMatcher = (cls) => (s) =>
-  new RegExp(`^section\\.${cls}(:not\\([.\\w[\\]-]+\\))*$`).test(s);
+  new RegExp(`^section\\.${cls}(\\[[\\w-]+\\]|:not\\([.\\w[\\]-]+\\))*$`).test(s);
 
 const BASE_VARS = declsForSelector(fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'), isRoot);
 
@@ -197,10 +196,15 @@ function specificity(sel) {
   // Pseudo-ELEMENTS (`::before`) count as elements; pseudo-CLASSES as classes.
   elements += (s.match(/::[\w-]+/g) || []).length;
   s = s.replace(/::[\w-]+/g, ' ');
-  classes += (s.match(/\.[\w-]+/g) || []).length
-    + (s.match(/\[[^\]]*\]/g) || []).length
-    + (s.match(/:[\w-]+/g) || []).length;
-  s = s.replace(/\[[^\]]*\]/g, ' ').replace(/[.:][\w-]+/g, ' ');
+  // Attribute selectors are counted AND REMOVED FIRST. A `.` or `:` inside a quoted
+  // attribute VALUE (`[data-x="a.b"]`, `[href$=".pdf"]`) is not a class or a pseudo —
+  // counting before stripping scored those at class level and inflated the result,
+  // which in a cascade model is the dangerous direction: it certifies a pin as
+  // winning a cascade it would actually lose.
+  classes += (s.match(/\[[^\]]*\]/g) || []).length;
+  s = s.replace(/\[[^\]]*\]/g, ' ');
+  classes += (s.match(/\.[\w-]+/g) || []).length + (s.match(/:[\w-]+/g) || []).length;
+  s = s.replace(/[.:][\w-]+/g, ' ');
   elements += (s.match(/(^|[\s>+~])[a-z][\w-]*/gi) || []).length;
 
   return ids * 10000 + classes * 100 + elements;
@@ -299,11 +303,12 @@ describe('texture-polarity', () => {
         // :root's scheme-aware wiring is untouched by print.
         if (!/url\(#latt-[a-z]+-tex-(light|dark)-\d+\)/.test(m[2])) continue;
         for (const sel of m[1].split(',').map((s) => s.trim())) {
-          assert.match(sel, new RegExp(`^section\\.[\\w-]+(:not\\([.\\w[\\]-]+\\))*${PRINT_GUARD}`),
-            `themes/${theme}.css selects a pinned texture set from "${sel}", which is not gated on `
-            + 'the print marker as a :not() ON THE SECTION COMPOUND — under --print this repaints '
-            + 'the chip while the label ink stays baked for the B&W band. It must lead with a '
-            + 'literal `section` too, or packTheme rewrites it into a slide descendant.');
+          assert.match(sel, /^section\.[\w-]+\[data-lattice-slide-bake\]/,
+            `themes/${theme}.css selects a pinned texture set from "${sel}", which does not REQUIRE `
+            + 'the per-slide-bake marker on the section compound. The pins are valid only where a '
+            + "diagram's ink is baked PER SLIDE — under --print, and on every runtime path, the ink "
+            + 'is deck-wide, so an unmarked pin puts a per-slide chip under it. It must also lead '
+            + 'with a literal `section`, or packTheme rewrites it into a slide descendant.');
           guarded++;
         }
       }
@@ -337,6 +342,39 @@ describe('texture-polarity', () => {
     }
     assert.equal(deckPrintBand(fm('marp: true'), true), true,
       'the explicit flag term no longer forces the print band');
+  });
+
+  test('the per-slide-bake marker is stamped, and the themes gate on that exact name', () => {
+    // The OTHER half of the decision, and the half that kept escaping. Deleting the
+    // stamp, dropping its /g, or renaming its attribute each left the render broken
+    // with this suite green — first behind three source-text assertions, then behind
+    // nothing at all. The stamper is now a pure function and the attribute name is
+    // one shared constant, so a rename cannot unhook the CSS that gates on it.
+    const { SLIDE_BAKE_ATTR, stampSlideBake } = require('../../../lib/core/resolve-color-mode');
+    const html = '<section id="a"><p>x</p></section>\n<section id="b"><p>y</p></section>';
+
+    const stamped = stampSlideBake(html, false);
+    assert.equal((stamped.match(new RegExp(SLIDE_BAKE_ATTR, 'g')) || []).length, 2,
+      'stampSlideBake must mark EVERY section — marking only the first leaves later '
+      + 'slides pinning a chip the ink was never baked for');
+    assert.equal(stampSlideBake(html, true), html,
+      'a deck-wide bake (print) must stamp nothing, or the pins fire where the ink is '
+      + 'not per-slide');
+
+    // The themes must gate on the SAME name the stamper writes.
+    for (const theme of ['onyx', 'concrete', 'a11y-base']) {
+      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'));
+      const pins = [...css.matchAll(/([^{}]*)\{[^{}]*--cat-\d+-texture/g)]
+        .flatMap((m) => m[1].split(',').map((x) => x.trim()))
+        .filter((sel) => /^section\.(dark|light|color-light)\b/.test(sel));
+      assert.ok(pins.length, `themes/${theme}.css declares no scheme-pinned texture rule`);
+      for (const sel of pins) {
+        assert.ok(sel.includes(`[${SLIDE_BAKE_ATTR}]`),
+          `themes/${theme}.css pins on "${sel}", which does not require [${SLIDE_BAKE_ATTR}] — `
+          + 'the pin would fire on the runtime paths, where ink is baked ONCE from the first '
+          + 'section, putting a per-slide chip under deck-wide ink');
+      }
+    }
   });
 
   test('each slot maps to its OWN pattern — the mapping is injective', () => {

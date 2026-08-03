@@ -323,7 +323,7 @@ section pre.hljs {
  * <section> — and were silently DEAD on the Studio and Export-to-Marp paths while
  * passing on the emulator's unpacked CSS. See engineering/gotchas.md, "A theme rule
  * gated on :root[…] silently does nothing in a Marp render". */
-section.dark:not(.print):not([data-lattice-print]) {
+section.dark[data-lattice-slide-bake]:not(.print) {
   --cat-1-texture: url(#latt-onyx-tex-dark-1);
   --cat-2-texture: url(#latt-onyx-tex-dark-2);
   --cat-3-texture: url(#latt-onyx-tex-dark-3);
@@ -338,8 +338,8 @@ section.dark:not(.print):not([data-lattice-print]) {
   --cat-12-texture: url(#latt-onyx-tex-dark-12);
 }
 
-section.light:not(.print):not([data-lattice-print]),
-section.color-light:not(.print):not([data-lattice-print]) {
+section.light[data-lattice-slide-bake]:not(.print),
+section.color-light[data-lattice-slide-bake]:not(.print) {
   --cat-1-texture: url(#latt-onyx-tex-light-1);
   --cat-2-texture: url(#latt-onyx-tex-light-2);
   --cat-3-texture: url(#latt-onyx-tex-light-3);

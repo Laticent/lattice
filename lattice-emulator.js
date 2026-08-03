@@ -572,7 +572,7 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
-const { deckPrintBand } = require('./lib/core/resolve-color-mode');
+const { deckPrintBand, stampSlideBake } = require('./lib/core/resolve-color-mode');
 const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
@@ -1960,19 +1960,31 @@ const highlightedSlides = slidesWithNotes.map(s => applyHighlighting(s));
 // the emulator stamps after the engine pass.
 const { applyDeckLogoToHtml } = require('./lib/integrations/markdown-it/plugins');
 const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
-// PRINT MARKER — stamped on every SECTION, never on <html>, and that is not a style
-// choice. Theme CSS is scoped off its LEFTMOST COMPOUND by packTheme (and by
-// marp-core for an Export-to-Marp bundle): a literal leading `section` means the
-// slide, anything else is rewritten as a slide DESCENDANT. Gated on `<html>`, the
-// texture pins packed to `article.lattice > section html:not([data-lattice-print])
-// section.dark` — an <html> inside a <section>, which cannot match — so the #1323
-// fix was silently dead on the Studio and Export-to-Marp paths while passing on the
-// emulator's own unpacked CSS. Same trap as the `reader` overflow ring; the fix is
-// the one engineering/gotchas.md prescribes. The themes therefore gate on
-// `section…:not([data-lattice-print])`, which packs correctly everywhere.
-const slidesWithMeta2 = deckPrintBand(md, !!flags.print)
-  ? slidesWithMeta2Raw.replace(/<section\b/g, '<section data-lattice-print')
-  : slidesWithMeta2Raw;
+// PER-SLIDE BAKE MARKER — the texture pins are valid EXACTLY where a diagram's label
+// ink is baked per SLIDE, and this stamp is what says so.
+//
+// #1323 is an emulator-path bug. THIS renderer bakes each Mermaid diagram's ink for
+// the slide's own band (preprocessMermaid's `slideDark` honors `_class:`), while the
+// chip came from a page-level <pattern> that only tracks the DECK scheme — per-slide
+// ink over a deck-wide chip, hence the mismatch the pins fix.
+//
+// The RUNTIME renderer (Studio/Playground, Export-to-Marp, marp-vscode) bakes ink
+// ONCE per document, from the first section (lib/runtime/index.js buildMermaidThemeVars
+// + the __llMermaidConfigured one-shot). There, ink and chip are BOTH deck-wide, so
+// they already agree — and pinning the chip per-section is what breaks them. Pinned
+// live on those paths, a `_class: dark` slide got a dark chip under slide-1's dark
+// ink: 1.55:1 in a real marp-cli render, where before it was 17.14:1.
+//
+// So this is a POSITIVE marker, not a print guard. Absent it, the pins stand down —
+// which is correct for the runtime paths (deck-wide ink) AND for --print (deck-wide
+// print ink), the case the marker previously named. A negative print guard could not
+// express the runtime case at all, because no emulator runs there to withhold it.
+//
+// Stamped per SECTION, never on <html>: packTheme and marp-core scope a theme rule off
+// its LEFTMOST COMPOUND, so a literal leading `section` is the slide and anything else
+// becomes a slide DESCENDANT — an <html>-gated pin packs to an <html> inside a <section>
+// and silently never matches (engineering/gotchas.md).
+const slidesWithMeta2 = stampSlideBake(slidesWithMeta2Raw, deckPrintBand(md, !!flags.print));
 
 // ── KaTeX CSS link ────────────────────────────────────────────────────────
 // KaTeX's CSS references font files via relative `url(fonts/…woff2)` paths,
