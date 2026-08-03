@@ -3,10 +3,14 @@
  *
  * This is the test that would have caught all four #1326 defects at once, and
  * the one no amount of per-path testing substitutes for. Both renderers used to
- * own a private copy of the token → `themeVariables` map — 166 keys in
- * lattice-emulator.js, 132 in lib/runtime/index.js, the runtime a strict subset —
- * kept in sync BY COMMENT. Nothing compared them, so the 34-key gap was not a
- * regression anyone could see; it was simply the state of the world.
+ * own a private copy of the token → `themeVariables` map, kept in sync BY COMMENT.
+ *
+ * #1332 reports the gap as 166 keys against 132, the runtime a strict subset.
+ * Measured, that is not what was there: both paths exposed the SAME 166 slots —
+ * a key-set gate has watched that since #511 — and 38 of the VALUES had come
+ * apart, which that gate could not see and which its own comment conceded. A
+ * missing key would at least fall back to a Mermaid default; a wrong value is
+ * confidently wrong.
  *
  * The gap is now closed by CONSTRUCTION (lib/core/mermaid-theme-map.js): there is
  * one map, so a key exists on both paths or on neither. What this file guards is
@@ -128,7 +132,7 @@ describe('diagram theme parity — both render paths, one map', () => {
     assert.deepEqual(
       Object.keys(preview).sort(),
       Object.keys(pdf).sort(),
-      'the two paths must expose the SAME themeVariables keys — a key on one path only is the 34-key drift returning',
+      'the two paths must expose the SAME themeVariables keys — a key on one path only is the #511 drift returning',
     );
 
     const divergent = new Set(DIVERGENT_KEYS);
@@ -185,9 +189,9 @@ describe('diagram theme parity — both render paths, one map', () => {
 
 describe('the map itself', () => {
   test('carries the full inventory — 166 resolved variables', () => {
-    // The count from #1332's measurement of the PDF path: 155 top-level keys plus
-    // the 11 nested xyChart slots. It is pinned so a key silently disappearing
-    // (the 34-key drift's actual mechanism) fails rather than passes quietly.
+    // 155 top-level keys plus the 11 nested xyChart slots. Pinned so a key
+    // silently disappearing — the #511 failure mode — fails rather than passes
+    // quietly.
     const flat = flatten(buildDiagramTheme(fakeReadToken));
     assert.equal(Object.keys(MERMAID_VAR_MAP).length, 156);
     assert.equal(Object.keys(flat).length, 166);

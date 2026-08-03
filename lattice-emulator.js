@@ -712,9 +712,10 @@ if (explicitSize) {
 
 // ── Mermaid theme variables — structural map only ───────────────────────
 // THE map lives in lib/core/mermaid-theme-map.js, imported by this path and by
-// the runtime (#1332 step 2, HARD RULE #1). It used to live HERE, with a second,
-// drifted 132-key copy in lib/runtime/index.js kept in sync by comment; the two
-// are now one object, so a key exists on both paths or on neither.
+// the runtime (#1332 step 2, HARD RULE #1). It used to live HERE, with a second
+// copy in lib/runtime/index.js kept in sync by comment; the two held the same 166
+// slots but 38 different VALUES. They are now one object, so a key exists on both
+// paths or on neither, and there is one set of values.
 //
 // The map names which Mermaid theme variable corresponds to which CSS custom
 // property in the active palette. The CSS variables hold the actual hex values;
