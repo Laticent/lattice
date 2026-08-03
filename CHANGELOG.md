@@ -315,7 +315,9 @@ in patch versions.
   existing test made, which is why the token-level checks all passed while the render was broken.
   Verified non-vacuous by mutation (4, 2, 1 and 4 failures for the four ways to reintroduce it), and
   by rendering all six palettes. The texture-defs golden is re-blessed: the change is purely
-  additive — the previous output is a byte-exact prefix, and the 48 new patterns carry no `<style>`,
+  additive — every existing pattern is byte-unchanged and the 48 new ones are inserted immediately
+  before the closing `</defs>` (so the common prefix is 15,533 of the previous 15,546 bytes: only
+  that closing tag moves). The new patterns carry no `<style>`,
   so they keep the literal-hex, iOS-safe property of the a11y sets. The pins are gated on a new
   `data-lattice-print` document marker: the emulator BAKES each diagram's label ink for the band it
   renders, CSS repaints the chip but never that baked ink, and on a print render a per-slide

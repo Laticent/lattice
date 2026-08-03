@@ -1378,6 +1378,30 @@ const MERMAID_REBAKE_DEFS = [];
 // stale bake mode for the wrong deck's diagram.
 const MERMAID_REBAKE_MODES = [];
 
+/**
+ * THE predicate for "this render bakes the B&W print band into Mermaid".
+ *
+ * There must be exactly one. The Mermaid bake and the `data-lattice-print` marker
+ * that stands the texture pins down are two halves of one decision — CSS repaints
+ * the chip but can never touch the ink already baked into the SVG — and they were
+ * briefly derived from two different conditions: the marker from `WANT_PRINT` (the
+ * CLI flag / image-set mode), the bake from a wider test that also honors
+ * front-matter `class: print` and `color-mode: print`. A deck using those keys
+ * therefore baked print ink while the marker never appeared, so a `_class: dark`
+ * slide pinned a dark chip under it — 1.28:1 on onyx, worse than the 2.7:1 this
+ * guard was introduced to fix. Both callers now read this one function.
+ *
+ * `--print` and `--image-mode print` are covered without naming them: withPrintClass
+ * merges `class: print` into the front matter before this ever sees the source.
+ * `flags.print` stays as a belt-and-braces term.
+ */
+function deckPrintBand(source) {
+  const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
+  const fm = fmMatch ? fmMatch[0] : '';
+  const cmKey = ((/^\s*color-mode:\s*["']?([A-Za-z]+)\b/im.exec(fm) || [])[1] || '').toLowerCase();
+  return !!flags.print || cmKey === 'print' || /^\s*class:\s*["']?[^"'\n]*\bprint\b/im.test(fm);
+}
+
 function preprocessMermaid(source) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
@@ -1397,11 +1421,12 @@ function preprocessMermaid(source) {
       /color-scheme\s*:\s*dark/i.test(fm);
   // Print is a deck-wide canvas axis (stamped by `color-mode: print` / `class: print`
   // / the engine --print flag) and WINS over dark — a print slide bakes ink-on-white.
-  // Deck-wide print applies to EVERY slide (the propagation kernel merges it into each
-  // section), so it isn't overridden by a slide's own `_class:`.
-  const globalPrint = !!flags.print ||
-    cmKey === 'print' ||
-    /^\s*class:\s*["']?[^"'\n]*\bprint\b/mi.test(fm);
+  // NOTE deck-wide print does NOT reach a slide that names its own `_class:` — `print`
+  // is on the color axis, so deckClassPropagate suppresses it there (color-mode.js
+  // COLOR_MODE_TOKENS). That slide keeps `dark`, loses `print`, and still gets a
+  // print-BAKED diagram from this branch — which is exactly why the texture pins need
+  // the data-lattice-print marker to stand down. Shared predicate, one source of truth.
+  const globalPrint = deckPrintBand(source);
   // Deck-wide orientation, resolved from the `size:` directive the same way the
   // page geometry below does. A portrait deck reorients LR/RL flowcharts to
   // TB/BT (lib/integrations/mermaid/reorient.js) so a wide graph flows down the
@@ -1957,7 +1982,20 @@ const highlightedSlides = slidesWithNotes.map(s => applyHighlighting(s));
 // Only deck-logo re-runs, because it keys off the data-lattice-slide attribute
 // the emulator stamps after the engine pass.
 const { applyDeckLogoToHtml } = require('./lib/integrations/markdown-it/plugins');
-const slidesWithMeta2 = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
+const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
+// PRINT MARKER — stamped on every SECTION, never on <html>, and that is not a style
+// choice. Theme CSS is scoped off its LEFTMOST COMPOUND by packTheme (and by
+// marp-core for an Export-to-Marp bundle): a literal leading `section` means the
+// slide, anything else is rewritten as a slide DESCENDANT. Gated on `<html>`, the
+// texture pins packed to `article.lattice > section html:not([data-lattice-print])
+// section.dark` — an <html> inside a <section>, which cannot match — so the #1323
+// fix was silently dead on the Studio and Export-to-Marp paths while passing on the
+// emulator's own unpacked CSS. Same trap as the `reader` overflow ring; the fix is
+// the one engineering/gotchas.md prescribes. The themes therefore gate on
+// `section…:not([data-lattice-print])`, which packs correctly everywhere.
+const slidesWithMeta2 = deckPrintBand(md)
+  ? slidesWithMeta2Raw.replace(/<section\b/g, '<section data-lattice-print')
+  : slidesWithMeta2Raw;
 
 // ── KaTeX CSS link ────────────────────────────────────────────────────────
 // KaTeX's CSS references font files via relative `url(fonts/…woff2)` paths,
@@ -2042,7 +2080,7 @@ const deckTitle =
 
 // ── HTML document ─────────────────────────────────────────────────────────────
 const htmlDoc = `<!DOCTYPE html>
-<html lang="${escapeHtml(deckLang)}"${WANT_PRINT ? ' data-lattice-print' : ''}><head><meta charset="utf-8">
+<html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${embeddedFonts}
 ${katexCssLink}

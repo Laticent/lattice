@@ -27,6 +27,14 @@
  *
  *   ink on baked chip >= 4.5:1   — WCAG 1.4.3, it is node label text
  *
+ * PRECISION: "the chip that actually paints" means the pattern's base <rect> fill.
+ * Each pattern also overlays geometry in a contrasting ink at 40-45% opacity, and on
+ * those sparse 1px strokes the effective background differs — worst case measured,
+ * onyx .dark slot 12: base #696969 reports 5.51:1, the stroke pixels are nearer
+ * 2.12:1. The base fill is the right thing to gate (it is what the label sits on
+ * across almost all of the chip, and it is the value a theme author controls), but
+ * the number this test prints is not the worst pixel in the chip.
+ *
  * `color-system` / `inherited` are deliberately NOT covered: their polarity is
  * only known at view time, so they keep the scheme-aware set and no static
  * assertion is possible. `print` has its own B&W-safe override and its own gate.
@@ -85,14 +93,13 @@ function declsForSelector(css, pred) {
 
 const isRoot = (s) => /^:root(:root)?$/.test(s);
 /**
- * `section.dark:not(.print)` and friends — the pin, however it is qualified.
- * The optional `html:not([data-lattice-print])` prefix is the PRINT GUARD: under
- * `--print` the emulator bakes each diagram's label ink for the B&W band, and CSS
- * repaints the chip but never that baked ink, so the pins must stand down.
+ * `section.dark:not(.print):not([data-lattice-print])` and friends — the pin,
+ * however it is qualified. Every `:not()` sits on the SECTION COMPOUND; see the
+ * packed-selector test below for why an ancestor gate is not an option.
  */
-const PRINT_GUARD = 'html:not\\(\\[data-lattice-print\\]\\)';
+const PRINT_GUARD = ':not\\(\\[data-lattice-print\\]\\)';
 const pinMatcher = (cls) => (s) =>
-  new RegExp(`^(${PRINT_GUARD}\\s+)?section\\.${cls}(:not\\([.\\w]+\\))?$`).test(s);
+  new RegExp(`^section\\.${cls}(:not\\([.\\w[\\]-]+\\))*$`).test(s);
 
 const BASE_VARS = declsForSelector(fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'), isRoot);
 
@@ -143,12 +150,59 @@ function contrast(fg, bg, whatFg, whatBg) {
  * whole reason this function has to exist rather than being eyeballed.
  */
 function specificity(sel) {
-  const flat = sel.replace(/:not\(|\)/g, ' ');
-  const ids = (flat.match(/#[\w-]+/g) || []).length;
-  const classes = (flat.match(/\.[\w-]+/g) || []).length
-    + (flat.match(/\[[^\]]+\]/g) || []).length
-    + (flat.match(/:[\w-]+/g) || []).length;
-  const elements = (flat.match(/(^|\s)[a-z][\w-]*/gi) || []).length;
+  let ids = 0;
+  let classes = 0;
+  let elements = 0;
+  let s = sel;
+
+  // `:where()` contributes ZERO — including everything nested inside it — so the
+  // WHOLE construct is removed first, matching parens by hand. Doing this in the
+  // innermost-first loop below would credit a `:not()` nested inside a `:where()`
+  // before the `:where()` neutralized it. `:where()` is the idiomatic way to add a
+  // gate WITHOUT raising specificity, so mis-scoring it would model the exact
+  // cascade this gate exists to police backwards.
+  for (;;) {
+    const at = s.search(/:where\(/i);
+    if (at === -1) break;
+    let depth = 0;
+    let end = -1;
+    for (let i = s.indexOf('(', at); i < s.length; i++) {
+      if (s[i] === '(') depth++;
+      else if (s[i] === ')' && --depth === 0) { end = i; break; }
+    }
+    if (end === -1) break; // unbalanced — leave it rather than loop forever
+    s = `${s.slice(0, at)} ${s.slice(end + 1)}`;
+  }
+
+  // Remaining functional pseudo-classes, innermost-first.
+  // `:is()`/`:not()`/`:has()` contribute the MAX of their arguments, not the sum.
+  for (;;) {
+    const m = /:(is|not|has)\(([^()]*)\)/i.exec(s);
+    if (!m) break;
+    {
+      let best = [0, 0, 0];
+      for (const arg of m[2].split(',')) {
+        const n = specificity(arg.trim());
+        const t = [Math.floor(n / 10000), Math.floor((n % 10000) / 100), n % 100];
+        if (t[0] > best[0] || (t[0] === best[0] && (t[1] > best[1] || (t[1] === best[1] && t[2] > best[2])))) best = t;
+      }
+      ids += best[0];
+      classes += best[1];
+      elements += best[2];
+    }
+    s = s.slice(0, m.index) + ' ' + s.slice(m.index + m[0].length);
+  }
+
+  ids += (s.match(/#[\w-]+/g) || []).length;
+  // Pseudo-ELEMENTS (`::before`) count as elements; pseudo-CLASSES as classes.
+  elements += (s.match(/::[\w-]+/g) || []).length;
+  s = s.replace(/::[\w-]+/g, ' ');
+  classes += (s.match(/\.[\w-]+/g) || []).length
+    + (s.match(/\[[^\]]*\]/g) || []).length
+    + (s.match(/:[\w-]+/g) || []).length;
+  s = s.replace(/\[[^\]]*\]/g, ' ').replace(/[.:][\w-]+/g, ' ');
+  elements += (s.match(/(^|[\s>+~])[a-z][\w-]*/gi) || []).length;
+
   return ids * 10000 + classes * 100 + elements;
 }
 
@@ -245,20 +299,102 @@ describe('texture-polarity', () => {
         // :root's scheme-aware wiring is untouched by print.
         if (!/url\(#latt-[a-z]+-tex-(light|dark)-\d+\)/.test(m[2])) continue;
         for (const sel of m[1].split(',').map((s) => s.trim())) {
-          assert.match(sel, new RegExp(`^${PRINT_GUARD}\\s+section\\.`),
+          assert.match(sel, new RegExp(`^section\\.[\\w-]+(:not\\([.\\w[\\]-]+\\))*${PRINT_GUARD}`),
             `themes/${theme}.css selects a pinned texture set from "${sel}", which is not gated on `
-            + 'the print marker — under --print this repaints the chip while the label ink stays '
-            + 'baked for the B&W band');
+            + 'the print marker as a :not() ON THE SECTION COMPOUND — under --print this repaints '
+            + 'the chip while the label ink stays baked for the B&W band. It must lead with a '
+            + 'literal `section` too, or packTheme rewrites it into a slide descendant.');
           guarded++;
         }
       }
       assert.ok(guarded > 0, `themes/${theme}.css declares no pinned texture rules at all`);
     }
 
+    // ONE predicate, both halves. The marker and the Mermaid bake are two halves of a
+    // single decision, and they were briefly derived from two different conditions —
+    // the marker from the CLI flag, the bake from a wider test that also honors
+    // front-matter `class: print` / `color-mode: print`. Such a deck baked print ink
+    // with no marker, so a `_class: dark` slide pinned a dark chip under it at 1.28:1.
     const emulator = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
-    assert.match(emulator, /WANT_PRINT \? ' data-lattice-print' : ''/,
-      'lattice-emulator.js no longer marks the document under --print, so every guard above '
-      + 'silently stops firing and the pins come back in print output');
+    assert.match(emulator, /function deckPrintBand\(source\)/,
+      'lattice-emulator.js lost deckPrintBand() — the single predicate the Mermaid print '
+      + 'bake and the data-lattice-print marker must BOTH derive from');
+    assert.match(emulator, /const globalPrint = deckPrintBand\(source\);/,
+      'the Mermaid bake no longer reads deckPrintBand() — if the bake and the marker '
+      + 'diverge again, a print-banded deck pins a dark chip under print-baked dark ink');
+    assert.match(emulator, /deckPrintBand\(md\)\s*\?\s*slidesWithMeta2Raw\.replace\(/,
+      'the section marker no longer reads deckPrintBand() — a deck that authors '
+      + '`class: print` / `color-mode: print` would bake print ink with the pins still live');
+  });
+
+  test('each slot maps to its OWN pattern — the mapping is injective', () => {
+    // The polarity/legibility checks above all pass if two slots point at the SAME
+    // pattern: the ink is legible on it either way. But collapsing two categories onto
+    // one texture destroys the redundant-encoding property the whole texture subsystem
+    // exists to provide (CVD viewers separate ~1-2 categories by color alone). With 60
+    // hand-written `--cat-N-texture: url(#…-N)` lines across five blocks, a copy-paste
+    // slip is the likeliest defect here, and nothing else would catch it.
+    for (const entry of TEXTURED) {
+      for (const pin of PINS) {
+        const { get } = resolveUnderPin(entry, pin);
+        const seen = new Map();
+        for (let n = 1; n <= 12; n++) {
+          const id = String(get(`cat-${n}-texture`)).match(/url\(#([^)]+)\)/)?.[1];
+          assert.ok(id, `${entry.theme}/.${pin.cls}: --cat-${n}-texture is not a paint-server ref`);
+          assert.ok(id.endsWith(`-${n}`),
+            `${entry.theme}/.${pin.cls}: slot ${n} points at #${id}, whose index is not ${n} `
+            + '— a mis-numbered mapping shows the wrong texture for that category');
+          assert.ok(!seen.has(id),
+            `${entry.theme}/.${pin.cls}: slots ${seen.get(id)} and ${n} both point at #${id} `
+            + '— two categories share one texture, which is the redundant-encoding channel gone');
+          seen.set(id, n);
+        }
+      }
+    }
+  });
+
+  test('every pin selector survives packTheme — it must still match a SLIDE', () => {
+    // THE ASSERTION THIS GATE WAS MISSING. packTheme (and marp-core, for an
+    // Export-to-Marp bundle) scopes every theme rule off its LEFTMOST COMPOUND: a
+    // literal leading `section` means the slide itself, anything else is rewritten as
+    // a slide DESCENDANT. The pins were first written `html:not([data-lattice-print])
+    // section.dark:not(.print)`, which packed to
+    //     article.lattice > section html:not([data-lattice-print]) section.dark
+    // — an <html> inside a <section>, unmatchable — so the #1323 fix was DEAD on the
+    // Studio/Playground and Export-to-Marp paths while passing every other assertion
+    // here, because those read raw theme source and never ask what ships.
+    // engineering/gotchas.md documents the trap; this is what enforces it.
+    const { composeCss } = require('../../../lib/engine/css.js');
+    const baseLatticeCss = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
+
+    for (const theme of ['onyx', 'concrete', 'a11y-base']) {
+      const themeCss = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
+      const out = composeCss({ themeCss, baseLatticeCss });
+      const packed = String(typeof out === 'string' ? out : out.css);
+
+      const rules = [...packed.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+        .filter((m) => /--cat-\d+-texture\s*:/.test(m[2]));
+      assert.ok(rules.length, `packTheme emitted no --cat-N-texture rule at all for ${theme}`);
+
+      let sawPin = false;
+      for (const [, prelude] of rules) {
+        for (const sel of prelude.split(',').map((x) => x.trim())) {
+          if (!/section\.(dark|light|color-light)\b/.test(sel)) continue;
+          sawPin = true;
+          // The scheme class must land on the SLIDE compound — the last combinator
+          // step — not on a descendant of it.
+          const lastStep = sel.split('>').pop().trim();
+          assert.ok(/^section[.:[]/.test(lastStep),
+            `${theme}: pin packed to "${sel}" — the scheme class is on a DESCENDANT of the `
+            + 'slide, not the slide, so it can never match. Lead the selector with a literal '
+            + '`section` and put any gate in a :not() on that compound.');
+          assert.doesNotMatch(lastStep, /\bhtml\b|:root/,
+            `${theme}: pin packed to "${sel}" — an <html>/:root compound nested under a slide `
+            + 'cannot match (engineering/gotchas.md).');
+        }
+      }
+      assert.ok(sawPin, `${theme}: packTheme emitted no scheme-pinned texture rule — the pins vanished`);
+    }
   });
 
   test('a pinned slide never selects a scheme-aware pattern', () => {

@@ -306,12 +306,21 @@ section pre.hljs {
  * is rendering — dark tokens for a dark slide, the B&W print band under `--print`.
  * CSS repaints the chip but never that baked ink, so a pin is only correct when it
  * agrees with what was baked. On a print render a per-slide `_class` REPLACES the
- * deck's `class: print`, so the slide keeps `dark` and loses `print` — baked
- * print ink (dark) would then land on a pinned dark chip at ~2.7:1. `--print` marks
- * the document with data-lattice-print, so the pins stand down and the light chips
+ * deck's `class: print`, so the slide keeps `dark` and loses `print` — baked print
+ * ink (dark) would then land on a pinned dark chip at ~2.7:1. `--print` stamps
+ * data-lattice-print on every SECTION, so the pins stand down and the light chips
  * the print bake expects stay put. The runtime needs no such guard: print is an
- * export band it never bakes. */
-html:not([data-lattice-print]) section.dark:not(.print) {
+ * export band it never bakes.
+ *
+ * The guard is a `:not()` on the SECTION COMPOUND, not an ancestor gate, and that is
+ * load-bearing. packTheme (and marp-core) scope every theme rule off its LEFTMOST
+ * compound: a literal leading `section` is the slide, anything else is rewritten as a
+ * slide DESCENDANT. Written `html:not([data-lattice-print]) section.dark`, these pins
+ * packed to `article.lattice > section html:not(…) section.dark` — an <html> inside a
+ * <section> — and were silently DEAD on the Studio and Export-to-Marp paths while
+ * passing on the emulator's unpacked CSS. See engineering/gotchas.md, "A theme rule
+ * gated on :root[…] silently does nothing in a Marp render". */
+section.dark:not(.print):not([data-lattice-print]) {
   --cat-1-texture: url(#latt-concrete-tex-dark-1);
   --cat-2-texture: url(#latt-concrete-tex-dark-2);
   --cat-3-texture: url(#latt-concrete-tex-dark-3);
@@ -326,8 +335,8 @@ html:not([data-lattice-print]) section.dark:not(.print) {
   --cat-12-texture: url(#latt-concrete-tex-dark-12);
 }
 
-html:not([data-lattice-print]) section.light:not(.print),
-html:not([data-lattice-print]) section.color-light:not(.print) {
+section.light:not(.print):not([data-lattice-print]),
+section.color-light:not(.print):not([data-lattice-print]) {
   --cat-1-texture: url(#latt-concrete-tex-light-1);
   --cat-2-texture: url(#latt-concrete-tex-light-2);
   --cat-3-texture: url(#latt-concrete-tex-light-3);
