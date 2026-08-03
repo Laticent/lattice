@@ -61,7 +61,7 @@ Body prose used to read a tier louder, which left a Key Insight a quarter smalle
 - A top-level point reads at the body tier
   - A nested point steps down one, so support reads as support
 - The measure is a count of characters
-  - Sixty-six, measured — not a fraction of the slide
+  - Not a fraction of the slide, which means something different at every type size
 
 > This panel and the prose above it are the same size. That is the contract.
 
