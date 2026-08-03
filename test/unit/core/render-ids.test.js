@@ -186,8 +186,15 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 	const probeDeck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
 	const minted = [...e.render(probeDeck, 'indaco').html.matchAll(/\sid="((?:lat-)?[a-z][\w-]*-\d+(?:-\d+)?)"/g)].map((m) => m[1]);
 	assert.ok(minted.length >= 2, `fixture broken: the probe render minted ${minted.length} ids`);
+	// ESCAPED, and asserted quote-free first. The harvest pattern above cannot yield a `"` — but that
+	// is a property of a regex several lines away, which is exactly the kind of reasoning CodeQL is
+	// right not to accept (it flagged this line as incomplete attribute sanitization). The assertion
+	// makes the invariant local and would fire the day someone loosens the harvest; the escape makes
+	// the fixture well-formed even if they do.
+	const attr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+	for (const id of minted) assert.ok(!/["<>&]/.test(id), `harvested id is not attribute-safe: ${id}`);
 	const squat = minted
-		.map((id) => `<radialGradient id="${id}"><stop offset="0%" stop-color="#ff0000"/></radialGradient>`)
+		.map((id) => `<radialGradient id="${attr(id)}"><stop offset="0%" stop-color="#ff0000"/></radialGradient>`)
 		.join('');
 	const deck = `---\ntheme: indaco\n---\n\n# Shared deck\n\n<svg width="1" height="1" aria-hidden="true"><defs>${squat}</defs></svg>\n\n---\n\n<!-- _class: piechart -->\n\n## Revenue mix.\n\n- Onboarding \`34\`\n- Pricing \`26\`\n- Support \`22\`\n- Integrations \`18\`\n`;
 
