@@ -339,13 +339,24 @@
   color: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
 }
 
-/* Cards lift OFF the tinted lane: light = plain --bg paper + soft hue shadow;
- * dark = a touch lighter than the lane with a defined hairline. */
+/* Cards lift OFF the tinted lane: light = plain --bg paper + a hue-tinted contact
+ * edge; dark = a touch lighter than the lane with a defined hairline, no shadow.
+ *
+ * Same repair as the default card above, and it was found the hard way. This site
+ * carried the identical `light-dark(<shadow>, <shadow>)` mistake and the FIRST cut
+ * of this change missed it, because the value contains `var(--col-hue)` and the
+ * css:values gate skips anything with a var() — so the gate certified the very
+ * file it was fixing. Worse than the default case: a var() makes the declaration
+ * valid at PARSE time and it fails at computed-value time instead, resolving to
+ * the initial value `none` rather than falling back to the base rule. So `tinted`
+ * cards rendered flat while the comment above promised a shadow, and they stayed
+ * flat after the base fix landed. Zero blur, negative spread, light-dark on the
+ * COLOR only — see the default `.kanban-card` block for why blur is barred. */
 :is(section.kanban, figure.kanban).tinted .kanban-card {
   background: light-dark(var(--bg), var(--bg-alt));
   border: var(--chart-hairline) solid var(--border);
-  box-shadow: light-dark(
-    0 0.1cqi 0.3cqi color-mix(in oklab, var(--col-hue) 12%, transparent), none);
+  box-shadow:
+    0 0.1cqi 0 -0.02cqi light-dark(color-mix(in oklab, var(--col-hue) 12%, transparent), transparent);
 }
 /* Dark: tint the lane a hair stronger so the stage colour survives near-black,
  * and lift the cards above it. */

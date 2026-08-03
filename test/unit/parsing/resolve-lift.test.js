@@ -68,10 +68,18 @@ describe('resolve-lift', () => {
 
   // Rot-guard: the `.lifted` activation must swap BOTH consumed tokens on, and `.flat`
   // must force them back off — else the toggle silently no-ops. And the consumed tokens
-  // must DEFAULT to none/0 (opt-in), so a deck with no setting stays flat.
+  // must DEFAULT to off (opt-in), so a deck with no setting stays flat.
+  //
+  // The "off" value is `0 0 transparent`, and this case now pins that it is NOT `none`.
+  // `none` is legal only as box-shadow's SOLE value, so it made every card that composes
+  // the register into a LIST invalid at computed-value time — pricing's elevated tier
+  // (`inset 0 0 0 1px var(--accent), var(--elevation-card)`) lost its accent ring on every
+  // deck without `lift: on`, and resolved to the property's INITIAL value rather than
+  // falling back. Found by the css:values declared-token pass (#1317).
+  const OFF = /--elevation-card:\s*0 0 transparent/;
   test('base.tokens.css: lifted activates both tokens, flat resets them, default is off', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.tokens.css'), 'utf8');
-    assert.match(css, /--elevation-card:\s*none/, 'consumed shadow token must default to none (opt-in)');
+    assert.match(css, OFF, 'consumed shadow token must default to a no-op SHADOW (opt-in)');
     assert.match(css, /--elevation-berth:\s*0\b/, 'consumed berth token must default to 0 (opt-in)');
     const lifted = css.match(/section\.lifted\s*\{[^}]*\}/);
     assert.ok(lifted, 'section.lifted activation rule missing');
@@ -79,7 +87,18 @@ describe('resolve-lift', () => {
     assert.match(lifted[0], /--elevation-berth:\s*var\(--sp-sm\)/, 'lifted must turn the berth on');
     const flat = css.match(/section\.flat\s*\{[^}]*\}/);
     assert.ok(flat, 'section.flat reset rule missing');
-    assert.match(flat[0], /--elevation-card:\s*none/, 'flat must force the shadow off');
+    assert.match(flat[0], OFF, 'flat must force the shadow off');
     assert.match(flat[0], /--elevation-berth:\s*0\b/, 'flat must force the berth off');
+  });
+
+  test('base.tokens.css: the elevation register never turns off with `none`', () => {
+    // Separate case, because the one above would still pass if a THIRD rule set the
+    // register to `none` somewhere else in the file. `none` does not compose into a
+    // shadow list; every "off" site must use the no-op shadow.
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.tokens.css'), 'utf8');
+    assert.equal(
+      (css.match(/--elevation-card:\s*none/g) || []).length, 0,
+      '`--elevation-card: none` breaks any card that composes the register into a box-shadow LIST',
+    );
   });
 });

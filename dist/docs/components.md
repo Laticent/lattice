@@ -5593,6 +5593,7 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 - **Naming a column something other than Done/Completed/Shipped/Closed, expecting the finished-work dimming treatment anyway.** The dimmed treatment for completed work triggers off the COLUMN TITLE TEXT matching Done/Completed/Shipped/Closed exactly — a column named e.g. 'Finished' or 'Live' won't dim even if it functionally means the same thing.
 - **Placing the status pill on the card's title line instead of its nested lane-label bullet.** Size badges (S/M/L/XL) trail the card TITLE; the status pill trails the nested lane-label bullet one level deeper (`- platform \`at-risk\``) — a status pill on the title line instead just becomes an unrecognized trailing code left in the title.
+- **Reaching for `flat` to remove the card shadows.** A kanban card's shadow is INTRINSIC — the component is cards on a board, so the separation is part of its identity and is drawn directly rather than through the `--elevation-card` register that `lift`/`flat` switch. `<!-- _class: kanban flat -->` still shows card shadows. To flatten a board, use `keyline`, which rules the lanes apart with hairlines instead.
 
 #### When to use
 

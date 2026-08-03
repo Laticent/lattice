@@ -277,14 +277,30 @@
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────
    * OPT-IN. Cards consume `var(--elevation-card)` / `var(--elevation-berth)`
-   * UNCONDITIONALLY, but both default to none/0 — so with no deck setting a card is
+   * UNCONDITIONALLY, but both default to off — so with no deck setting a card is
    * flat, with no shadow AND no berth padding. The `lift: on` deck front-matter key
    * (or a per-slide `_class: lifted`) stamps `.lifted` on the section, which swaps in
    * the recipe below; `_class: flat` opts one slide back out. (`lift` is the author
    * switch; `elevation` is the token namespace it turns on.) Wiring: resolve-lift.js
    * + the section.lifted/.flat rules after this :root block.
-   * engineering/decisions/2026-07-12-struck-elevation.md. */
-  --elevation-card: none;
+   * engineering/decisions/2026-07-12-struck-elevation.md.
+   *
+   * SCOPE — the register governs the cards of the ~23 components that consume it,
+   * and nothing else. A component whose own visual language includes separation —
+   * kanban's cards on a board, image/scene's lift+hairline pair — carries its own
+   * box-shadow and is NOT switched by `lift`/`flat`. That is deliberate: the register
+   * defaults to OFF, so routing an intrinsic shadow through it would strip the
+   * component's identity on every deck that never opts in.
+   *
+   * The "off" value is a no-op SHADOW, not `none`. `none` is only legal as the SOLE
+   * value of box-shadow, so a card composing the register into a LIST —
+   * `box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card)` on pricing's
+   * elevated tier — had its whole declaration die at computed-value time on every
+   * deck without `lift: on`, taking the accent ring down with it and resolving to the
+   * property's INITIAL value rather than falling back to the rule it overrode.
+   * `0 0 transparent` paints nothing and composes anywhere; it is the same idiom
+   * `--tone-rail` already uses. Found by the css:values declared-token pass. */
+  --elevation-card: 0 0 transparent;
   --elevation-berth: 0;
   /* The recipe `.elevated` swaps in: a single ZERO-BLUR shadow list whose per-layer
    * COLORS flip via light-dark(), so one definition lifts a card on either canvas:
@@ -964,7 +980,7 @@ section.lifted {
   --elevation-berth: var(--sp-sm);
 }
 section.flat {
-  --elevation-card: none;
+  --elevation-card: 0 0 transparent;  /* a no-op shadow, not `none` — see the :root note */
   --elevation-berth: 0;
 }
 
@@ -6788,13 +6804,24 @@ section.kanban.tinted .kanban-column[data-done] .kanban-column-header, figure.ka
   color: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
 }
 
-/* Cards lift OFF the tinted lane: light = plain --bg paper + soft hue shadow;
- * dark = a touch lighter than the lane with a defined hairline. */
+/* Cards lift OFF the tinted lane: light = plain --bg paper + a hue-tinted contact
+ * edge; dark = a touch lighter than the lane with a defined hairline, no shadow.
+ *
+ * Same repair as the default card above, and it was found the hard way. This site
+ * carried the identical `light-dark(<shadow>, <shadow>)` mistake and the FIRST cut
+ * of this change missed it, because the value contains `var(--col-hue)` and the
+ * css:values gate skips anything with a var() — so the gate certified the very
+ * file it was fixing. Worse than the default case: a var() makes the declaration
+ * valid at PARSE time and it fails at computed-value time instead, resolving to
+ * the initial value `none` rather than falling back to the base rule. So `tinted`
+ * cards rendered flat while the comment above promised a shadow, and they stayed
+ * flat after the base fix landed. Zero blur, negative spread, light-dark on the
+ * COLOR only — see the default `.kanban-card` block for why blur is barred. */
 section.kanban.tinted .kanban-card, figure.kanban.tinted .kanban-card{
   background: light-dark(var(--bg), var(--bg-alt));
   border: var(--chart-hairline) solid var(--border);
-  box-shadow: light-dark(
-    0 0.1cqi 0.3cqi color-mix(in oklab, var(--col-hue) 12%, transparent), none);
+  box-shadow:
+    0 0.1cqi 0 -0.02cqi light-dark(color-mix(in oklab, var(--col-hue) 12%, transparent), transparent);
 }
 /* Dark: tint the lane a hair stronger so the stage colour survives near-black,
  * and lift the cards above it. */
@@ -21176,7 +21203,14 @@ section.backdrop-none {
   --fin-texture-opaque: none;
   --fin-mark-opaque: none;
   --fin-edge-opaque: none;
-  --fin-frame: none; /* clear the inset keyline frame too */
+  /* `0 0 transparent`, NOT `none` — this slot is composed into a shadow LIST at
+   * line 144, where `none` is only legal as the sole value. Writing `none` here
+   * made that whole declaration invalid at computed-value time on a
+   * `tone-* finish-none overflow` slide, so the box-shadow resolved to its INITIAL
+   * value and took the TONE RAIL down with it. The comment at line 144 had already
+   * stated the invariant ("never `none`, invalid inside a shadow list"); this line
+   * broke it anyway, and nothing noticed until the css:values var() pass. */
+  --fin-frame: 0 0 transparent; /* clear the inset keyline frame too */
   background-image: none;
   box-shadow: none;
 }

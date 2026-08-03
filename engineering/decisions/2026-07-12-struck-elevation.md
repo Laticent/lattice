@@ -86,15 +86,15 @@ switch; `elevation` stays the token namespace / design concept it activates.)
 The gate is a **CSS custom-property swap**, so the 23 component rules never learn about
 the setting. The consumed tokens default OFF —
 
-    --elevation-card: none;   --elevation-berth: 0;
+    --elevation-card: 0 0 transparent;   --elevation-berth: 0;
 
 — and one rule turns them on:
 
     section.lifted { --elevation-card: var(--elevation-recipe); --elevation-berth: var(--sp-sm); }
-    section.flat     { --elevation-card: none;                    --elevation-berth: 0; }
+    section.flat     { --elevation-card: 0 0 transparent;          --elevation-berth: 0; }
 
 Because a card consumes `box-shadow: var(--elevation-card)` and `padding-block:
-var(--elevation-berth)` unconditionally, an un-elevated card resolves both to `none`/`0`:
+var(--elevation-berth)` unconditionally, an un-elevated card resolves both to a no-op:
 **the shadow and its berth padding turn on together, and off together** — a flat slide
 gets neither (the padding is not spent when there's no shadow to make room for). `section`
 outranks `:root`, so the swap is order-independent.
@@ -150,3 +150,28 @@ so they apply directly.
   `@supports` fallback added (unlike a dropped *content* colour, which would render a
   chart shape black — the engine deliberately does not chase old-browser parity, see
   the 2026-07-13 old-browser consolidation).
+
+## Amendment (2026-08-03) — what `lift` does NOT govern, and the `none` trap
+
+Two things this record left implicit, both surfaced by the css:values gate (#1317).
+
+**`flat` does not mean "no shadows on this slide."** The register governs the ~23
+components that consume `var(--elevation-card)`, and nothing else. A component whose
+own visual language *includes* separation carries its own `box-shadow` and is
+untouched by `lift`/`flat` — kanban's cards on a board, image/scene's lift+hairline
+pair. `_class: kanban flat` therefore still renders card shadows, and that is
+correct rather than a bug: the register defaults to OFF, so routing an intrinsic
+shadow through it would strip the component's identity on every deck that never
+opts in. The switch turns *optional* elevation on and off; it is not a global
+shadow suppressor. Recorded here because reading `--elevation-card: none` and
+finding a shadow anyway looks exactly like a defect.
+
+**The "off" value is now `0 0 transparent`, not `none`.** `none` is legal only as
+the SOLE value of `box-shadow`, so any card composing the register into a LIST died.
+One did: pricing's elevated tier writes
+`box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card)`, which resolved to
+`…, none` on every deck without `lift: on` — invalid at computed-value time, so the
+whole declaration lost, the accent ring with it, and the property fell to its
+INITIAL value rather than back to the rule it overrode. `0 0 transparent` paints
+nothing and composes anywhere (the idiom `--tone-rail` already used). Anything
+setting the register off must use it; `none` is barred.

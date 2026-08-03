@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { stripComments, declarations } = require('../../../tools/check-css-values.js');
+const { stripComments, declarations, scan, splitVars, substituteVars } = require('../../../tools/check-css-values.js');
 
 // These two helpers decide what the CSS-validity oracle ever gets to SEE. If
 // either quietly loses a rule, the gate reports clean on stylesheets it never
@@ -114,4 +114,73 @@ test('declarations skips descriptor at-rule bodies but keeps conditional-group o
   ].join('\n');
   const got = declarations(css).map((d) => d.prop);
   assert.deepEqual(got.sort(), ['color', 'color', 'color'], `descriptors leaked: ${JSON.stringify(got)}`);
+});
+
+// ── Cases added after a second checker pass found the parser had blinded itself
+// a THIRD way (a stray `)`), and that the descriptor skip leaked. Each pins one
+// mechanism, and each was confirmed to fail with that mechanism disabled.
+
+test('a stray `)` does not blind the walk for the rest of the file', () => {
+  // The bug: `paren--` on an unmatched `)` pinned paren at -1, so `paren === 0`
+  // was never true again and every subsequent `{`/`}`/`;` stopped registering.
+  // A probe file carrying `text-wrap: normal` contributed ZERO declarations and
+  // the gate printed "every testable declaration is accepted", exit 0.
+  const css = '.a { width: calc(1px)) }\n.b { text-wrap: normal; }\n.c { color: notacolor; }';
+  const got = declarations(css).map((d) => `${d.prop}: ${d.value}`);
+  assert.ok(got.includes('text-wrap: normal'), `blinded; saw ${JSON.stringify(got)}`);
+  assert.ok(got.includes('color: notacolor'), `blinded; saw ${JSON.stringify(got)}`);
+});
+
+test('scan reports the stray `)` so the file cannot be certified silently', () => {
+  // Containing the damage is not enough — main() must REFUSE to call that file
+  // clean, because a walk that hit malformed input may have lost declarations
+  // the clamp could not recover.
+  assert.equal(scan('.a { width: calc(1px)) }').strayParen, 1);
+  assert.equal(scan('.a { width: calc(1px) }').strayParen, 0);
+});
+
+test('scan reports an unbalanced walk: braces, parens, strings, skip blocks', () => {
+  assert.equal(scan('.a { color: red;').depth, 1, 'unclosed brace');
+  assert.equal(scan('.a { width: calc(1px }').paren, 1, 'unclosed paren');
+  assert.equal(scan('.a { content: "oops }').openString, true, 'unclosed string');
+  assert.equal(scan('@font-face { src: url(a)').skipDepth, 1, 'unclosed descriptor body');
+  const ok = scan('.a { color: red; }');
+  assert.deepEqual(
+    [ok.depth, ok.paren, ok.strayParen, ok.openString, ok.skipDepth],
+    [0, 0, 0, false, 0],
+    'a well-formed file must land completely balanced',
+  );
+});
+
+test('leaving a descriptor body drops what it accumulated', () => {
+  // The leak: clearing skipDepth without clearing buf carried the block's last
+  // descriptor — one written with no trailing `;` — into the next flush, so the
+  // gate reported `src: url(a)` as a property and went RED on valid CSS.
+  const got = declarations('@media print { @font-face { src: url(a) } }\n.a { color: red; }');
+  assert.deepEqual(got.map((d) => `${d.prop}: ${d.value}`), ['color: red']);
+});
+
+test('scan counts blocks and statement at-rules for the CSSOM cross-check', () => {
+  // The counts main() compares against Chromium's own rule count. A statement
+  // at-rule opens no block but IS a rule to the CSSOM, so it is counted apart.
+  const s = scan("@import 'x';\n@media print { .a { color: red; } }");
+  assert.equal(s.blocks, 2, '@media block + .a block');
+  assert.equal(s.statements, 1, 'the @import');
+});
+
+test('splitVars separates literal text from var() slots, nested and all', () => {
+  const { parts, slots } = splitVars('color-mix(in oklab, var(--a) 12%, var(--b, red))');
+  assert.equal(slots.length, 2, 'a var() inside another function is still a slot');
+  assert.equal(slots[0].fallback, null, 'no declared fallback');
+  assert.equal(slots[1].fallback, 'red');
+  assert.equal(parts.length, 3);
+  assert.equal(substituteVars('color-mix(in oklab, var(--a) 12%, var(--b, red))', ['blue', 'green']),
+    'color-mix(in oklab, blue 12%, green)');
+});
+
+test('substituteVars probes each slot INDEPENDENTLY', () => {
+  // One probe for every slot at once reported 40+ false positives on this repo:
+  // `border: var(--w) solid var(--c)` is fine as `1px solid red` and nonsense as
+  // `red solid red`, and only a per-slot assignment finds the first.
+  assert.equal(substituteVars('var(--w) solid var(--c)', ['1px', 'red']), '1px solid red');
 });

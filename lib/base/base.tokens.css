@@ -194,14 +194,30 @@
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────
    * OPT-IN. Cards consume `var(--elevation-card)` / `var(--elevation-berth)`
-   * UNCONDITIONALLY, but both default to none/0 — so with no deck setting a card is
+   * UNCONDITIONALLY, but both default to off — so with no deck setting a card is
    * flat, with no shadow AND no berth padding. The `lift: on` deck front-matter key
    * (or a per-slide `_class: lifted`) stamps `.lifted` on the section, which swaps in
    * the recipe below; `_class: flat` opts one slide back out. (`lift` is the author
    * switch; `elevation` is the token namespace it turns on.) Wiring: resolve-lift.js
    * + the section.lifted/.flat rules after this :root block.
-   * engineering/decisions/2026-07-12-struck-elevation.md. */
-  --elevation-card: none;
+   * engineering/decisions/2026-07-12-struck-elevation.md.
+   *
+   * SCOPE — the register governs the cards of the ~23 components that consume it,
+   * and nothing else. A component whose own visual language includes separation —
+   * kanban's cards on a board, image/scene's lift+hairline pair — carries its own
+   * box-shadow and is NOT switched by `lift`/`flat`. That is deliberate: the register
+   * defaults to OFF, so routing an intrinsic shadow through it would strip the
+   * component's identity on every deck that never opts in.
+   *
+   * The "off" value is a no-op SHADOW, not `none`. `none` is only legal as the SOLE
+   * value of box-shadow, so a card composing the register into a LIST —
+   * `box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card)` on pricing's
+   * elevated tier — had its whole declaration die at computed-value time on every
+   * deck without `lift: on`, taking the accent ring down with it and resolving to the
+   * property's INITIAL value rather than falling back to the rule it overrode.
+   * `0 0 transparent` paints nothing and composes anywhere; it is the same idiom
+   * `--tone-rail` already uses. Found by the css:values declared-token pass. */
+  --elevation-card: 0 0 transparent;
   --elevation-berth: 0;
   /* The recipe `.elevated` swaps in: a single ZERO-BLUR shadow list whose per-layer
    * COLORS flip via light-dark(), so one definition lifts a card on either canvas:
@@ -881,6 +897,6 @@ section.lifted {
   --elevation-berth: var(--sp-sm);
 }
 section.flat {
-  --elevation-card: none;
+  --elevation-card: 0 0 transparent;  /* a no-op shadow, not `none` — see the :root note */
   --elevation-berth: 0;
 }
