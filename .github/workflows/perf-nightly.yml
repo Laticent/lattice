@@ -217,11 +217,19 @@ jobs:
       # used to: every downstream step lacked `if: always()`, so a base failure skipped the compare,
       # the preview ceilings AND the issue step, and the only symptom was a red nightly nobody
       # watches. Now the compare runs regardless and reports "NOTHING WAS COMPARED" as an alarm.
+      # HEAD'S HARNESS, BASE'S SOURCE — the overlay the lighthouse job does at :91 and this job
+      # originally omitted. Without it the base arm runs the BASE COMMIT'S bench script, so any
+      # change to what a flag MEANS makes the two arms measure different things. The first real
+      # dispatch proved it: the base predated the --export/--print split, ran the print tier under
+      # --export, needed jspdf from docs/node_modules that a root `npm ci` never installs, and died
+      # with `Cannot find module 'jspdf'`. Copy the harness in and both arms measure base's `lib/`
+      # with identical tooling — which is the only thing that makes the comparison mean anything.
       - name: Bench — base (same runner)
         continue-on-error: true
         run: |
           set -euo pipefail
           git worktree add --detach /tmp/base "${{ steps.base.outputs.sha }}"
+          cp test/benchmark/engine-bench.mjs /tmp/base/test/benchmark/engine-bench.mjs
           cd /tmp/base && npm ci --silent
           node test/benchmark/engine-bench.mjs --json --export > "$GITHUB_WORKSPACE/base-bench.json"
 
@@ -234,17 +242,24 @@ jobs:
         if: always()
         run: |
           set -uo pipefail
-          node tools/perf-nightly-compare.mjs --base base-bench.json --head head-bench.json --md engine-perf.md
-          case $? in
+          # `|| rc=$?`, NOT a bare command followed by `case $?`. GitHub runs every step under
+          # `bash -e`, and `set -uo pipefail` does not clear the `-e` the shell was INVOKED with —
+          # so a bare failing command kills the step before the next line executes. The first real
+          # dispatch proved it: the comparator correctly exited 1, the step died on the spot,
+          # `regressed` was never set, and the issue step's condition read empty. The alarm was
+          # mute in exactly the way this PR exists to prevent. A command on the left of `||` is
+          # exempt from `-e`, which is why the sibling job's `if node …; then` form works.
+          rc=0
+          node tools/perf-nightly-compare.mjs --base base-bench.json --head head-bench.json --md engine-perf.md || rc=$?
+          case "$rc" in
             0) echo "regressed=false" >> "$GITHUB_OUTPUT" ;;
             1) echo "regressed=true"  >> "$GITHUB_OUTPUT" ;;
             *) echo "regressed=false" >> "$GITHUB_OUTPUT"; echo "::warning::perf compare invoked wrong — not filed as a regression"; exit 1 ;;
           esac
 
-      # Install and run are SEPARATE STEPS on purpose. Sharing one step with `set -uo pipefail`
-      # (no `-e`) meant a failed `npm ci` or `playwright install` fell through to the test run,
-      # which then failed, which was reported as "a per-keystroke render went past its budget" —
-      # an infrastructure failure filed as a high-priority performance regression. Install failures
+      # Install and run are SEPARATE STEPS on purpose. Sharing one step meant a failed `npm ci` or
+      # `playwright install` was reported as "a per-keystroke render went past its budget" — an
+      # infrastructure failure filed as a high-priority performance regression. Install failures
       # now fail the job loudly and file nothing.
       - name: Install docs deps + browser
         if: always()
@@ -262,8 +277,16 @@ jobs:
         run: |
           set -uo pipefail
           cd docs
-          npx playwright test --project=desktop --grep @perf 2>&1 | tee "$GITHUB_WORKSPACE/perf-e2e.log"
-          STATUS=${PIPESTATUS[0]}
+          # `|| STATUS=$?` for the same reason as the compare step: the step runs under `bash -e`,
+          # so a failing pipeline would kill it before `STATUS=` ever ran — and this one passed its
+          # first real dispatch only because the tests PASSED. A genuine ceiling breach would have
+          # killed the step, left `breached` unset, and filed nothing: the alarm mute precisely when
+          # it had something to say.
+          # REDIRECT then `cat`, not `| tee`: a pipe would run the assignment in a SUBSHELL and
+          # STATUS would never reach the branch below. The log still lands in the job output.
+          STATUS=0
+          npx playwright test --project=desktop --grep @perf > "$GITHUB_WORKSPACE/perf-e2e.log" 2>&1 || STATUS=$?
+          cat "$GITHUB_WORKSPACE/perf-e2e.log"
           if [ "$STATUS" -eq 0 ]; then
             echo "breached=false" >> "$GITHUB_OUTPUT"
           elif grep -q 'ceiling' "$GITHUB_WORKSPACE/perf-e2e.log"; then

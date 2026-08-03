@@ -140,6 +140,56 @@ the render summary, so the export path could double in cost with a green check. 
 (±50%, wider because a rasterize cycle is far more I/O-exposed than an in-process render), and only
 when the run actually produced them, so a plain `bench:check` is unchanged.
 
+### What the first real dispatch changed, and why reading was never going to find it
+
+The job was written, reviewed by two adversarial agents, and re-reviewed — all by reading. Then it
+was dispatched on the branch with `workflow_dispatch`, and **it failed on its first run, twice
+over**. Both defects were invisible to every form of static review, and one of them was the exact
+failure this whole document exists to prevent.
+
+**1. The base arm ran the BASE COMMIT'S harness.** The lighthouse job overlays HEAD's collect
+scripts into the base worktree; this job copied the plumbing and not the overlay. So the base arm
+executed the base's `engine-bench.mjs` — which predated the `--export`/`--print` split, therefore
+ran the print tier under `--export`, therefore needed `jspdf` from `docs/node_modules` that a root
+`npm ci` never installs, and died with `Cannot find module 'jspdf'`. More generally: without the
+overlay, **any change to what a flag MEANS makes the two arms measure different things**, silently.
+Fixed by `cp test/benchmark/engine-bench.mjs /tmp/base/…` — head's harness, base's `lib/`.
+
+**2. The alarm was mute — and I introduced that while fixing a different muteness.** Every GitHub
+step runs under `bash -e`. `set -uo pipefail` adds `-u` and `pipefail`; it does **not** clear the
+`-e` the shell was *invoked* with. So this:
+
+```bash
+node tools/perf-nightly-compare.mjs …      # exits 1 on a real regression
+case $? in  0) …  1) echo "regressed=true" >> "$GITHUB_OUTPUT" ;; esac
+```
+
+kills the step at the `node` line. The `case` never runs, `regressed` is never set, and the issue
+step's condition reads empty. **A real regression files nothing.** Reproduced directly:
+
+```
+OLD (bare cmd; case $?)     under bash -e →  (no output)  step exit=1
+NEW (rc=0; cmd || rc=$?)    under bash -e →  SET regressed=true · reached end · step exit=0
+OLD (cmd | tee; PIPESTATUS) under bash -e →  (no output)  step exit=1
+NEW (cmd > log || S=$?)     under bash -e →  STATUS=1 · reached end · step exit=0
+```
+
+The preview-ceiling step carried the identical bug and **passed its first dispatch only because the
+tests passed** — a genuine breach would have killed the step before `STATUS=` ran. The sibling
+lighthouse job is correct because it uses `if node …; then`, a compound command `-e` does not fire
+on; the rewrite to `case $?` lost that property without anyone noticing, twice.
+
+**What the run also proved works:** the base arm died and the comparator reported
+`NOTHING WAS COMPARED` and exited 1, instead of printing "No tier regressed past its band" and
+exiting 0 the way the first cut would have. The guard caught its own harness failure. And the
+preview ceilings passed on a real runner at 4x throttle (3 passed, 2.2m; gallery nav RENDER p50
+3.2, TOTAL 10.0; gallery typing RENDER p50 2.2, TOTAL 8.9 — against 30/70/20).
+
+**The transferable lesson:** a workflow is not verified by reading it, by an agent reviewing it, or
+by CI being green — CI never runs the nightly. HARD RULE #23 says a verification claim names its
+surface and carries an artifact from it; for a scheduled workflow the only surface is a dispatched
+run. Dispatch it on the branch before merging.
+
 ### What review changed here, because the first cut of this slice shipped a claim it did not have
 
 The adversarial pass found the nightly ran `engine-bench --json` with **no `--export`** on either
