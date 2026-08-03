@@ -323,6 +323,25 @@ in patch versions.
   renders, CSS repaints the chip but never that baked ink, and on a print render a per-slide
   `_class` replaces the deck's `class: print` — so an ungated pin put baked print ink on a pinned
   dark chip at 2.7:1. With the guard, `--print` output is pixel-identical to before this change.
+
+  Two further defects, both found by adversarial review after the above was green, both the same
+  shape — **one decision derived from two predicates**. (a) The pins were gated on an ANCESTOR
+  (`html:not([data-lattice-print]) section.dark`), and `packTheme` scopes every theme rule off its
+  leftmost compound, so they packed to `article.lattice > section html:not(…) section.dark` — an
+  `<html>` inside a `<section>`, unmatchable. The fix was **dead on the Studio/Playground and
+  Export-to-Marp paths** while passing on the emulator's unpacked CSS. The guard is now a `:not()`
+  on the section compound and the marker is stamped per section, as `engineering/gotchas.md`
+  prescribes. (b) The marker was keyed on the CLI `--print` flag while the Mermaid bake was keyed
+  on a wider condition that also honors front-matter `class: print` / `color-mode: print`; such a
+  deck baked print ink with no marker, so a `_class: dark` slide pinned a dark chip under it at
+  **1.28:1** — worse than the 2.7:1 the guard was introduced to fix. Both now derive from one
+  `deckPrintBand()`. The gate grew the assertions that would have caught each: every pin selector
+  is run through the real `packTheme` and must still match a SLIDE, both callers must read the
+  shared predicate, and the slot→pattern mapping must be injective (two slots sharing one texture
+  passed every earlier check while silently destroying the redundant-encoding channel). Its
+  `specificity()` also scored `:where()` at full price — the idiomatic way to add a gate *without*
+  raising specificity — which would have modelled this cascade backwards; it now follows the spec
+  for `:where`/`:is`/`:not`/`:has` and pseudo-elements.
   (#1323)
 
 - **The containment tier gets curated ink and edge tokens in every theme, and a gate that keeps them
