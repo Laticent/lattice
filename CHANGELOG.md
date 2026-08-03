@@ -31,17 +31,28 @@ in patch versions.
   were never equal-width: `.code-cols` used `grid-template-columns: 1fr 1fr`, and a grid track's
   implicit floor is `min-content` — which for a `<pre>` set to `white-space: pre` is its **longest
   unwrapped line**. So one long line widened its own track past its half and shoved its neighbor
-  out. Measured on a two-pane slide with a single realistic 110-character line: the left pane grew
-  to ~1700px inside a 1920px stage, the right pane was reduced to a sliver at the edge, and the
-  export tagged the slide "Content clipped". Fixed with `minmax(0, 1fr)` tracks plus
-  `white-space: pre-wrap` / `overflow-wrap: anywhere` on the code, so panes hold half each and a
-  long line wraps instead of being cut mid-token — in a PDF there is no scrollbar to recover it.
+  out. Measured in Chromium on a two-pane slide holding one 100-character line, `section` 1280px
+  wide: tracks went **946.219px / 182.734px** — the right pane a sliver — and an unbroken 200-char
+  token drove the pane 961px past the frame edge with the export tagged "Content clipped". After:
+  **564px / 564px**. Fixed by `white-space: pre-wrap` / `overflow-wrap: anywhere` on the code, so a
+  long line wraps instead of being cut mid-token — in a PDF there is no scrollbar to recover it —
+  with `minmax(0, 1fr)` tracks alongside. To be precise about which does the work: the wrap pair
+  is the active fix: with it in place the tracks already measure 564px/564px under a bare
+  `1fr 1fr`, so `minmax(0, 1fr)` is the direct statement of "equal regardless of content" and
+  insurance if wrapping is ever narrowed again — not a co-equal cause. Which half of the wrap pair
+  carries it depends on the line. On an ordinary line `pre-wrap` alone suffices, because there are
+  spaces to break at. On an UNBROKEN token only `overflow-wrap: anywhere` works, and `break-word`
+  will not substitute for it — measured on a 271-character token, `break-word` leaves the track at
+  **2338px** (it wraps the glyphs without lowering min-content) where `anywhere` gives 564px.
   The repo had already diagnosed this exact mechanism and fixed it for the `square`/`tall`/`strip`
   families, but scoped the fix away from landscape on the reasoning that "landscape keeps `pre`,
   where the two columns have the width the author wrote for". Landscape has the same floor, so the
-  columns did not keep that width — a long line took it. It survived because every gallery specimen
-  has short lines, and horizontal overflow is invisible to the overflow probe, which measures height
-  only. The now-redundant family-scoped wrap rule is deleted rather than left as an override that
+  columns did not keep that width — a long line took it. It survived because the `compare-code`
+  gallery's longest fenced code line is **43 characters** — comfortably inside a pane, so that
+  corpus cannot exercise the defect at all — and horizontal overflow is invisible to the overflow
+  probe, which measures height only. The committed decks that DO carry long lines
+  (`test/integration/baseline-decks/gallery.pdf`, `examples/gallery-jargon.pdf`,
+  `examples/read-across-carousel.pdf`, at 68-74 characters) are re-rendered here. The now-redundant family-scoped wrap rule is deleted rather than left as an override that
   reads as if landscape were still excluded. Three rot-guard tests pin the contract.
 
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No

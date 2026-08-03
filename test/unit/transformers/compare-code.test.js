@@ -72,46 +72,70 @@ describe('compare-code — applyToDom (runtime)', () => {
 describe('compare-code — the two panes stay equal-width and wrap (CSS contract)', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const css = fs.readFileSync(
+  const raw = fs.readFileSync(
     path.join(__dirname, '../../../lib/components/code/compare-code/compare-code.styles.css'),
     'utf8',
   );
+  // Normalize before matching. The first cut of these guards matched the source
+  // byte-for-byte, so `minmax( 0, 1fr)` or a missing space before `{` failed them —
+  // and the failure message said "rule missing", which points at the wrong thing
+  // entirely. A guard that trips on harmless reformatting gets deleted by whoever
+  // reformats, which costs the protection it was written for.
+  const css = raw
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')   // comments carry the same words as the rules
+    .replace(/\s+/g, ' ');
+  const block = (selectorRe) => {
+    const m = css.match(new RegExp(`${selectorRe}\\s*\\{([^}]*)\\}`));
+    return m?.[1];
+  };
 
   test('the column tracks floor at 0, not min-content', () => {
     // `1fr` alone is `minmax(auto, 1fr)`, and `auto` resolves to min-content — which
     // for a `<pre>` is its LONGEST UNWRAPPED LINE. One long line then widens its own
-    // track past its half and pushes the other pane off the frame. Measured before
-    // the fix: left pane ~1700px in a 1920px stage, right pane a sliver, export
-    // tagged "Content clipped".
-    const rule = css.match(/section\.compare-code \.code-cols \{[^}]*\}/);
-    assert.ok(rule, '.code-cols rule missing');
-    assert.match(
-      rule[0],
-      /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/,
-      'both tracks must be minmax(0,1fr) — a bare `1fr` reintroduces the min-content floor',
+    // track past its half and pushes the other pane off the frame.
+    const body = block('section\\.compare-code \\.code-cols');
+    assert.ok(body, '.code-cols rule missing');
+    const decl = body.match(/grid-template-columns:([^;]*)/);
+    assert.ok(decl, 'grid-template-columns missing from .code-cols');
+    const tracks = decl[1].replace(/\s+/g, '');
+    assert.equal(
+      tracks, 'minmax(0,1fr)minmax(0,1fr)',
+      `both tracks must be minmax(0,1fr) — a bare \`1fr\` reintroduces the min-content floor; got "${decl[1].trim()}"`,
     );
   });
 
   test('code wraps unconditionally, not only for the reflow families', () => {
-    // The pair must be on the BASE rule. It used to be scoped to
-    // square/tall/strip on the reasoning that landscape "keeps the width the
-    // author wrote for" — landscape has the same floor, so it did not.
-    const rule = css.match(/section\.compare-code pre > code \{[^}]*\}/);
-    assert.ok(rule, 'base `pre > code` rule missing');
-    assert.match(rule[0], /white-space:\s*pre-wrap/, 'long lines must wrap, not clip');
+    // The pair must be on the BASE rule. It used to be scoped to square/tall/strip on
+    // the reasoning that landscape "keeps the width the author wrote for" — landscape
+    // has the same floor, so it did not.
+    const body = block('section\\.compare-code pre > code');
+    assert.ok(body, 'base `pre > code` rule missing');
+    assert.match(body, /white-space:\s*pre-wrap/, 'long lines must wrap, not clip');
     assert.match(
-      rule[0],
-      /overflow-wrap:\s*anywhere/,
-      '`anywhere` (not `break-word`) — it also lowers min-content, which is what lets the track shrink',
+      body, /overflow-wrap:\s*anywhere/,
+      '`anywhere` (not `break-word`) — verified in Chromium: with break-word the track stays blown out (1862px), with anywhere it collapses to its half (564px)',
     );
   });
 
-  test('the family-scoped wrap override is not reintroduced', () => {
-    // Re-adding it would be a redundant override that reads as if landscape were
-    // still excluded from wrapping.
-    const scoped = css.match(
-      /section\.compare-code:where\(\[data-family="square"\][^{]*\) pre > code \{[^}]*\}/,
+  test('no later rule re-narrows wrapping to a subset of families', () => {
+    // Fails OPEN in the first cut: the regex pinned `[data-family="square"]` as the
+    // FIRST argument and pinned double quotes, so reordering the families or using
+    // single quotes let the forbidden rule back in with the guard still green — it
+    // caught only the byte-identical form of the thing it forbids. Now it asks the
+    // real question: does ANY rule after the base one set white-space or
+    // overflow-wrap on compare-code's code, scoped to a family or not?
+    const base = css.indexOf('section.compare-code pre > code');
+    assert.ok(base > -1, 'base rule missing');
+    const after = css.slice(base + 1);
+    // `(?![-\w])` matters: without it this also matches `section.compare-code-block`,
+    // the SPLIT path — a different class that sets pre-wrap legitimately on its own
+    // full-width block. Catching it would be a false positive that trains people to
+    // ignore the guard.
+    const offenders = [...after.matchAll(/section\.compare-code(?![-\w])[^{}]*pre > code\s*\{([^}]*)\}/g)]
+      .filter((m) => /white-space|overflow-wrap/.test(m[1]));
+    assert.deepEqual(
+      offenders.map((m) => m[0].slice(0, 90)), [],
+      'wrapping is unconditional — a later rule narrowing it to some families reopens the clip for the rest',
     );
-    assert.equal(scoped, null, 'wrapping is unconditional now — the family-scoped copy is dead');
   });
 });

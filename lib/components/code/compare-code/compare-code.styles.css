@@ -9,21 +9,37 @@
  */
 section.compare-code { }
 section.compare-code h2 { padding-bottom:var(--sp-sm); }
-/* `minmax(0, 1fr)`, NOT `1fr` — the same correction the family-reflow block below
- * makes for square/tall/strip, and for the same reason. A grid track's implicit
- * floor is min-content, and a `<pre>` with `white-space: pre` reports its LONGEST
- * UNWRAPPED LINE as min-content, so one long line widens its own track past its
- * half and pushes the other pane off the frame. Measured on a two-pane slide with
- * one realistic 110-character line: the left pane grew to ~1700px inside a 1920px
- * stage and the right pane was reduced to a sliver at the edge, tagged "Content
- * clipped" on export.
+/* `minmax(0, 1fr)`, NOT `1fr`. A grid track's implicit floor is min-content, and a
+ * `<pre>` with `white-space: pre` reports its LONGEST UNWRAPPED LINE as min-content,
+ * so one long line widens its own track past its half and pushes the other pane off
+ * the frame. Measured in this repo's Chromium on a two-pane slide whose left pane
+ * holds one 100-character line, `section` 1280px wide:
  *
- * The reflow block already carried this fix but scoped it away from landscape,
- * reasoning that "landscape keeps `pre`, where the two columns have the width the
- * author wrote for". That is the assumption this repairs: landscape has the same
- * implicit floor, so the columns do NOT keep the width the author wrote for — a
- * long line takes it. It went unseen because every gallery specimen has short
- * lines, and horizontal overflow is invisible to the vertical overflow probe. */
+ *     before  tracks 946.219px / 182.734px   (right pane a sliver, export CLIPPED)
+ *     after   tracks 564px / 564px
+ *
+ * HONEST SCOPE OF THIS DECLARATION: it is defensive, not the active fix. Measured
+ * with `1fr 1fr` restored and only the wrap pair below applied, the tracks are
+ * ALREADY 564px/564px — `overflow-wrap: anywhere` drops min-content to about one
+ * character, so the `auto` floor never bites. Keep both anyway: `minmax(0,1fr)` is
+ * the direct statement of "these tracks are equal regardless of content", and it
+ * holds if a future rule ever narrows the wrapping. Do not read it as the thing
+ * doing the work — deleting the wrap pair on the strength of it reopens the bug.
+ *
+ * Within the wrap pair, which half carries it depends on the line. An ordinary line
+ * has spaces to break at, so `pre-wrap` alone collapses the track. An UNBROKEN token
+ * needs `overflow-wrap: anywhere`, and `break-word` does NOT substitute: measured on
+ * a 271-character token, `break-word` leaves the track at 2338px because it wraps the
+ * glyphs without lowering the element's min-content contribution; `anywhere` lowers
+ * it and the track goes to 564px. That is why the value is `anywhere`.
+ *
+ * The reflow block further down already carried this pair but scoped it away from
+ * landscape, reasoning that "landscape keeps `pre`, where the two columns have the
+ * width the author wrote for". That is the assumption this repairs: landscape has
+ * the same implicit floor, so the columns do NOT keep that width — a long line takes
+ * it. It went unseen because every gallery specimen tops out at a 43-character code
+ * line, well inside a pane, and horizontal overflow is invisible to the overflow
+ * probe, which measures height only. */
 section.compare-code .code-cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--sp-md); flex:1; }
 section.compare-code .code-col { display:flex; flex-direction:column; gap:var(--sp-xs); }
 /* Column label: p>code inside .code-col (JS path) or h2 ~ p>code (fallback path) */
