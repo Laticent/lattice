@@ -96,11 +96,17 @@ section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact);
  * a `flex:1` spacer leaves justify-content no free space to distribute — it would
  * silently win. Guarded here rather than by specificity, because that contest is
  * exactly what a reader cannot see.
+ *
+ * `align-top` is deliberately NOT in that list, though a first cut had it there.
+ * It resolves to `justify-content: flex-start`, which a spacer does not fight —
+ * so excluding it bought nothing and cost the one thing a modifier must never do:
+ * writing the DEFAULT explicitly rendered differently from writing nothing at all
+ * (measured: 257px of dead space with `align-top`, 0px without).
  * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
 section.content > .cell-stage > :where(.below-note:last-child,
                                        blockquote:last-child,
                                        blockquote:has(+ .below-note:last-child)) { order: 1; }
-section.content:where(:not(.align-top):not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
+section.content:where(:not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
   > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child))::after {
   content: ''; flex: 1 1 0; min-height: 0;
 }

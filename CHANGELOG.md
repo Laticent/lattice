@@ -78,9 +78,14 @@ in patch versions.
 - **The reading measure is a count of characters, not a fraction of the slide.** `content`'s
   `max-width` moves from `72cqi` to `--measure-body: 36em` — the same `em`-not-`cqi` correction
   #1309 made for the bookends, and for the same reason: `cqi` and a character count agree only
-  while the type size holds still, and this change moves it. 36em is **66 characters, measured**
-  against the rendered box (769.5px at an 11.58px average advance) — the classic reading measure,
-  where the old cap sat at 61 and base had no measure at all (~90 characters).
+  while the type size holds still, and this change moves it. 36em = 769.5px, which holds roughly
+  **78–83 characters** — wider than the 45–75 band a reading measure is usually held to, and chosen
+  because narrower values clip shipped decks (at 33em four clip; at 36em none do). It is a
+  compatibility value, not a typographic one: base has no measure at all, so an un-classed slide
+  used to run ~90+ characters, and making `content` the default imposes a measure on those slides
+  for the first time. Tightening toward the canonical 66 needs the over-authored decks trimmed
+  first. (An earlier draft of this entry claimed "66 characters, measured" — the advance had been
+  measured from an alphabet sample full of capitals, which are far wider than running prose.)
 - **A trailing annotation on `content` is promoted to a below-note.** `content` left
   `below-note.js`'s exclusion list: the exclusion was guarding a case the `STRUCTURAL` sibling check
   already prevents — a paragraph after a paragraph is never promoted on any layout — while costing

@@ -251,14 +251,25 @@
    * slide. This was `72cqi`, which measured 61 characters at --fs-message and
    * would have measured a different count the moment the tier moved.
    *
-   * 36em is 66 characters, measured (not estimated) against the rendered box:
-   * 769.5px at an 11.58px average advance. 66 is the classic reading measure and
-   * the centre of the 45–75 band; the old cap's 61 sat at the narrow end of it,
-   * and holding 61 while content became the DEFAULT layout cost lines on every
-   * text-heavy slide that previously ran uncapped at base's ~90. Base having no
-   * measure at all was the defect; 61 was an over-correction.
+   * 36em = 769.5px, which holds roughly 78–83 characters of English prose (a
+   * ~9.3–10.1px average advance at --fs-body; the spread is what different
+   * sample text gives you). SAY WHAT THIS IS: it is WIDER than the 45–75 band a
+   * reading measure is usually held to, and it was chosen because narrower values
+   * clip shipped decks — at 33em (~76 chars) four of them clip, at 36em none do.
+   *
+   * An earlier version of this comment claimed "66 characters, measured". That was
+   * wrong, and wrong in a way worth recording: the advance was measured from an
+   * alphabet sample full of capitals, which are far wider than running prose, so
+   * the character count came out ~20% low. The real before→after is ~62 → ~80.
+   *
+   * The honest framing is that this is a COMPATIBILITY value, not a typographic
+   * one. Base has no measure at all, so an un-classed slide used to run ~90+
+   * characters — genuinely too wide, and the defect. Making `content` the default
+   * forces a measure onto those slides for the first time; 36em narrows them
+   * without costing any of them a line. Tightening toward the canonical 66 is the
+   * right direction and needs the over-authored decks trimmed first.
    * engineering/decisions/2026-08-02-default-slide-layout.md §3 */
-  --measure-body: 36em;             /* 66 characters at the body tier, measured */
+  --measure-body: 36em;             /* ~80 characters at the body tier — see above */
 
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
@@ -4036,11 +4047,17 @@ section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact);
  * a `flex:1` spacer leaves justify-content no free space to distribute — it would
  * silently win. Guarded here rather than by specificity, because that contest is
  * exactly what a reader cannot see.
+ *
+ * `align-top` is deliberately NOT in that list, though a first cut had it there.
+ * It resolves to `justify-content: flex-start`, which a spacer does not fight —
+ * so excluding it bought nothing and cost the one thing a modifier must never do:
+ * writing the DEFAULT explicitly rendered differently from writing nothing at all
+ * (measured: 257px of dead space with `align-top`, 0px without).
  * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
 section.content > .cell-stage > :where(.below-note:last-child,
                                        blockquote:last-child,
                                        blockquote:has(+ .below-note:last-child)) { order: 1; }
-section.content:where(:not(.align-top):not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
+section.content:where(:not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
   > .cell-stage:where(:has(> :where(.below-note, blockquote):last-child))::after {
   content: ''; flex: 1 1 0; min-height: 0;
 }

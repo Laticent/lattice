@@ -217,16 +217,23 @@ the corpus ratchet over the five regressed decks:
 too.** `content` capped its prose at `72cqi` — a fraction of the SLIDE — which
 measured 61 characters *at `--fs-message`* and would measure something else the
 moment the tier moved. That is exactly the trap #1309 had just fixed for the
-bookends. It is now `--measure-body: 36em` = **66 characters, measured** against
-the rendered box (769.5px at an 11.58px average advance).
+bookends. It is now `--measure-body: 36em` = 769.5px, which holds roughly **78–83
+characters**.
 
-36em rather than the 33em that would have preserved the old count, and the
-distinction matters: base has NO measure, so an un-classed slide previously ran
-~90 characters wide. Making `content` the default imposes a measure where there
-was none, and holding it at the old 61 — the narrow end of the 45–75 band — cost
-lines on every text-heavy slide and left four decks clipping. 66 is the classic
-reading measure and the centre of the band. Verified: at 33em four decks clip, at
-36em none do.
+**An earlier version of this section claimed "66 characters, measured", and that
+was false.** The advance it rested on (11.58px) came from an alphabet sample full
+of capitals, which are far wider than running prose; measured against real
+sentences the advance is ~9.3–10.1px, so the count was ~20% low. Caught by the
+maker-checker pass. The real before→after is **~62 → ~80 characters**, and 36em
+sits ABOVE the 45–75 band this section had cited as its own justification.
+
+So state what the number actually is: **a compatibility value, not a typographic
+one.** Base has no measure at all, so an un-classed slide ran ~90+ characters —
+genuinely too wide, and the defect. Making `content` the default imposes a measure
+on those slides for the first time, and every narrower value costs them lines: at
+33em (~76 characters) four shipped decks clip; at 36em none do. Tightening toward
+the canonical 66 is the right direction and needs those over-authored decks
+trimmed first — logged, not done here.
 
 The one that remains, `finish-backdrops.md` p2, renders **119 words** — 3× the
 ~40-word body budget `content.docs.md` sets — and is structurally a card list. It

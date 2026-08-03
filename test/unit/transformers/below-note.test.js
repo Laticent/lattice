@@ -57,6 +57,22 @@ describe('below-note — wrapSectionBody (pre-chrome kernel helper, unwired)', (
     assert.equal(belowNote.wrapSectionBody(html, 'content'), html);
   });
 
+  // The `$`-anchored regex used to backtrack past the FIRST `</p>` and swallow
+  // BOTH paragraphs into one wrapper — promoting a paragraph that follows a
+  // paragraph, which applyToDom refuses. The two render paths disagreed, which is
+  // precisely what marp-fidelity.js asserts cannot happen.
+  test('does not swallow two trailing <p>s after a structural block (path parity)', () => {
+    const html = '<ul><li>a</li></ul><p>note1</p><p>note2</p>';
+    assert.equal(belowNote.wrapSectionBody(html, 'content'), html);
+  });
+
+  test('a single trailing <p> after a structural block still promotes', () => {
+    assert.equal(
+      belowNote.wrapSectionBody('<ul><li>a</li></ul><p>note</p>', 'content'),
+      '<ul><li>a</li></ul><div class="below-note"><p>note</p></div>',
+    );
+  });
+
   test('does not wrap a <p> that follows another <p> (main content)', () => {
     const html = '<p>body</p><p>more body</p>';
     assert.equal(belowNote.wrapSectionBody(html, 'statement'), html);
