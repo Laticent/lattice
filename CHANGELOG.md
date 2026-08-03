@@ -339,7 +339,12 @@ in patch versions.
   print even where the engine drops the class, and the texture pins' `data-lattice-print` marker
   is built around that. Caught by `examples/seven-steps-problem-to-code.md`, which was the only
   committed deck combining a dark color-mode with a Mermaid fence — so no other committed artifact
-  changes.
+  changes, and nothing on the static-bake path had ever asserted a scheme. It does now:
+  `test/integration/mermaid/mermaid-deck-color-mode.test.js` renders one `color-mode: dark` deck
+  carrying `_class: diagram`, `_class: diagram light` and `_class: diagram dark`, and reads the
+  resolved `.cluster rect` fill and `.cluster-label text` ink out of the emitted SVG. The `light`
+  case is what stops the fix over-reaching into "the deck mode always wins"; the test was confirmed
+  to FAIL on the old predicate (cases 1 and 4) before being committed.
 - **A per-slide `dark` / `light` on a textured palette no longer leaves diagram node labels
   unreadable.** Categorical node fill is `var(--cat-N-texture, var(--cat-N-fill))`, so on a textured
   palette the chip a reader sees is an SVG `<pattern>`, not the token. Patterns are emitted once at
