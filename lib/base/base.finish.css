@@ -775,7 +775,14 @@ section.backdrop-none {
   --fin-texture-opaque: none;
   --fin-mark-opaque: none;
   --fin-edge-opaque: none;
-  --fin-frame: none; /* clear the inset keyline frame too */
+  /* `0 0 transparent`, NOT `none` — this slot is composed into a shadow LIST at
+   * line 144, where `none` is only legal as the sole value. Writing `none` here
+   * made that whole declaration invalid at computed-value time on a
+   * `tone-* finish-none overflow` slide, so the box-shadow resolved to its INITIAL
+   * value and took the TONE RAIL down with it. The comment at line 144 had already
+   * stated the invariant ("never `none`, invalid inside a shadow list"); this line
+   * broke it anyway, and nothing noticed until the css:values var() pass. */
+  --fin-frame: 0 0 transparent; /* clear the inset keyline frame too */
   background-image: none;
   box-shadow: none;
 }

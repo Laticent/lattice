@@ -144,6 +144,10 @@
     {
       "mistake": "Placing the status pill on the card's title line instead of its nested lane-label bullet.",
       "fix": "Size badges (S/M/L/XL) trail the card TITLE; the status pill trails the nested lane-label bullet one level deeper (`- platform \\`at-risk\\``) — a status pill on the title line instead just becomes an unrecognized trailing code left in the title."
+    },
+    {
+      "mistake": "Reaching for `flat` to remove the card shadows.",
+      "fix": "A kanban card's shadow is INTRINSIC — the component is cards on a board, so the separation is part of its identity and is drawn directly rather than through the `--elevation-card` register that `lift`/`flat` switch. `<!-- _class: kanban flat -->` still shows card shadows. To flatten a board, use `keyline`, which rules the lanes apart with hairlines instead."
     }
   ],
   "variantDecisionRule": [

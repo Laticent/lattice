@@ -25,6 +25,61 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **Kanban cards had no elevation at all, and nothing could see it.** `box-shadow` wrapped whole
+  shadow values in `light-dark()`, which resolves a `<color>` and nothing else — so the function
+  was invalid, the whole declaration was **dropped at parse time**, and the cards rendered flat in
+  both light and dark while the CSS comment described a drop shadow. Restored with `light-dark()`
+  on the **colors** and **zero blur on every layer**, shaped with negative spread. The blur matters:
+  Chromium's `printToPDF` exports a blurred `box-shadow` as a raster soft-mask that Quartz viewers
+  paint as an opaque grey box (`engineering/gotchas.md`), which is why
+  `base.tokens.css --elevation-recipe` is zero-blur by standing decision. A first cut of this repair
+  restored the original blur radii and put **42 JPEG soft-masks into `kanban.gallery.light.pdf`
+  alone** — trading a missing shadow for a documented export defect; the shipped version emits **0**.
+  **New gate, `npm run css:values`:** it asks the rendering engine (`CSS.supports` in the same
+  Chromium the PDF/HTML paths use) whether every value in `lib/**` and `themes/**` is in its
+  property's grammar, and fails on any the browser would drop. This class is invisible to every
+  other gate — valid *syntax*, so `checkCssSyntax` passes; usually no pixel movement, so no golden
+  drifts. It sweeps **1,211** distinct (property, value) pairs directly and another **912** that
+  carry `var()` by substitution, and it found **five** real drops across this change — the kanban
+  default card and its `tinted` variant, the chart glass pane, pricing's elevated tier, and the
+  `finish-none` opt-out — plus five sanctioned ones: three deliberate cross-engine pairs, one
+  legacy-WebKit property, and one **known defect** (`speak: never`, #1320) held green while it is
+  fixed properly. Sanctions are scoped to the files AND the number of sites they justify, so a new
+  occurrence anywhere is a fresh offence rather than silently absorbed; a stale sanction fails too.
+  The gate also refuses to certify a stylesheet its own walk mishandled: every file's walk must land
+  balanced, and its rule count must match Chromium's parse of the same bytes — a hand-rolled parser
+  that loses its place reports a clean corpus, which is indistinguishable from a clean corpus.
+  **On-demand, not in `build:check`** — that gate is contractually render-free and its CI job ships
+  no browser. Prompted by #1309's `text-wrap: normal`, the first known instance.
+  The chart glass pane carried the same invalid `light-dark()` and is now valid CSS, but **the frost
+  it should paint still does not appear on first paint** — unexplained, and its rule only matches a
+  deck that opts into the `canvas` Form, which none currently do (#1316).
+  `engineering/gotchas.md` "A CSS reset declaration silently does nothing".
+
+- **`box-shadow` values built from a token died whenever the token said `none` — the accent ring on
+  pricing's recommended tier, and the tone rail on a `finish-none` slide.** `none` is legal only as
+  box-shadow's SOLE value, so composing a register into a LIST —
+  `inset 0 0 0 1px var(--accent), var(--elevation-card)` — went invalid the moment the register held
+  `none`, which is its default. This fails at **computed-value** time rather than parse time, which
+  is worse: the declaration still wins the cascade and then resolves to the property's **initial**
+  value, so it does not fall back to the rule it overrode. Pricing's recommended tier had no accent
+  ring on any deck without `lift: on`; a `tone-* finish-none overflow` slide silently lost its tone
+  rail, six lines under a comment stating the exact invariant that was broken. Both "off" values are
+  now the no-op shadow `0 0 transparent` (the idiom `--tone-rail` already used), which paints nothing
+  and composes anywhere. Found by the css:values gate's declared-token pass, which substitutes the
+  values our own CSS actually gives each token rather than skipping anything containing `var()`.
+
+- **`_class: flat` does not remove a kanban board's card shadows, and that is now written down.**
+  The `lift`/`flat` switch governs the `--elevation-card` register and the ~23 components that
+  consume it. A component whose own visual language includes separation — kanban's cards on a board,
+  image/scene's lift+hairline pair — draws its shadow directly and is untouched, because the register
+  defaults to OFF and routing an intrinsic shadow through it would strip the component's identity on
+  every deck that never opts in. Reading `--elevation-card: none` and finding a shadow anyway looked
+  exactly like a defect, so the scope is now stated in `base.tokens.css`, in kanban's common
+  mistakes, and in an amendment to `engineering/decisions/2026-07-12-struck-elevation.md`.
+
 ### Added
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose

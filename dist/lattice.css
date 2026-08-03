@@ -262,14 +262,30 @@
 
   /* ── Card elevation ("Struck") ─────────────────────────────────────────
    * OPT-IN. Cards consume `var(--elevation-card)` / `var(--elevation-berth)`
-   * UNCONDITIONALLY, but both default to none/0 — so with no deck setting a card is
+   * UNCONDITIONALLY, but both default to off — so with no deck setting a card is
    * flat, with no shadow AND no berth padding. The `lift: on` deck front-matter key
    * (or a per-slide `_class: lifted`) stamps `.lifted` on the section, which swaps in
    * the recipe below; `_class: flat` opts one slide back out. (`lift` is the author
    * switch; `elevation` is the token namespace it turns on.) Wiring: resolve-lift.js
    * + the section.lifted/.flat rules after this :root block.
-   * engineering/decisions/2026-07-12-struck-elevation.md. */
-  --elevation-card: none;
+   * engineering/decisions/2026-07-12-struck-elevation.md.
+   *
+   * SCOPE — the register governs the cards of the ~23 components that consume it,
+   * and nothing else. A component whose own visual language includes separation —
+   * kanban's cards on a board, image/scene's lift+hairline pair — carries its own
+   * box-shadow and is NOT switched by `lift`/`flat`. That is deliberate: the register
+   * defaults to OFF, so routing an intrinsic shadow through it would strip the
+   * component's identity on every deck that never opts in.
+   *
+   * The "off" value is a no-op SHADOW, not `none`. `none` is only legal as the SOLE
+   * value of box-shadow, so a card composing the register into a LIST —
+   * `box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card)` on pricing's
+   * elevated tier — had its whole declaration die at computed-value time on every
+   * deck without `lift: on`, taking the accent ring down with it and resolving to the
+   * property's INITIAL value rather than falling back to the rule it overrode.
+   * `0 0 transparent` paints nothing and composes anywhere; it is the same idiom
+   * `--tone-rail` already uses. Found by the css:values declared-token pass. */
+  --elevation-card: 0 0 transparent;
   --elevation-berth: 0;
   /* The recipe `.elevated` swaps in: a single ZERO-BLUR shadow list whose per-layer
    * COLORS flip via light-dark(), so one definition lifts a card on either canvas:
@@ -949,7 +965,7 @@ section.lifted {
   --elevation-berth: var(--sp-sm);
 }
 section.flat {
-  --elevation-card: none;
+  --elevation-card: 0 0 transparent;  /* a no-op shadow, not `none` — see the :root note */
   --elevation-berth: 0;
 }
 
@@ -6532,12 +6548,37 @@ section.kanban.chart-frame .chart-body, figure.kanban.chart-frame .chart-body{
   border-radius: 0.85cqi;
   padding: 0.75cqi var(--sp-sm);
   /* Soft drop-shadow in light; in dark a top inset highlight reads as elevation
-   * where a drop-shadow on near-black cannot. */
+   * where a drop-shadow on near-black cannot.
+   *
+   * Every layer is present in both modes and light-dark() switches its COLOR —
+   * the layer that does not apply resolves to `transparent` and paints nothing.
+   * It cannot wrap the shadow VALUES, which is what this replaces: light-dark()
+   * resolves a `<color>` and nothing else (CSS Color 5), so a whole
+   * `0 0.1cqi 0.2cqi <color>` argument made the function invalid and the entire
+   * `box-shadow` was DROPPED — kanban cards rendered with no elevation at all,
+   * in either mode, while this comment said otherwise. Nothing caught it: valid
+   * syntax, so checkCssSyntax passed, and the goldens were blessed with the
+   * shadow already missing.
+   * engineering/gotchas.md "A CSS reset declaration silently does nothing".
+   *
+   * ZERO BLUR on every layer, shaped with negative SPREAD — the same technique
+   * base.tokens.css --elevation-recipe uses, and for the same reason. Chromium's
+   * printToPDF exports a *blurred* box-shadow as a raster soft-mask, which Quartz
+   * viewers (iOS Files/Preview) paint as an opaque grey box around the element:
+   * engineering/gotchas.md "Blurred `box-shadow` → opaque grey box", and the
+   * standing decision in engineering/decisions/2026-07-12-struck-elevation.md.
+   * The first cut of this repair restored the ORIGINAL blur radii and put 42 new
+   * JPEG soft-masks into kanban.gallery.light.pdf alone — trading a missing
+   * shadow for a documented export defect. Spread-only shadows export as plain
+   * vector and are safe. If you retune these, keep the third value at 0. */
   box-shadow:
-    light-dark(0 0.1cqi 0.2cqi color-mix(in oklab, black 7%, transparent),
-               inset 0 0.09cqi 0 color-mix(in oklab, white 13%, transparent)),
-    light-dark(0 0.32cqi 0.7cqi color-mix(in oklab, black 8%, transparent),
-               0 0.4cqi 1cqi color-mix(in oklab, black 32%, transparent));
+    /* light — contact edge */
+    0 0.1cqi 0 -0.02cqi light-dark(color-mix(in oklab, black 7%, transparent), transparent),
+    /* dark — top inset rim */
+    inset 0 0.09cqi 0 0 light-dark(transparent, color-mix(in oklab, white 13%, transparent)),
+    /* the float, tuned per canvas */
+    0 0.32cqi 0 -0.12cqi light-dark(color-mix(in oklab, black 8%, transparent), transparent),
+    0 0.4cqi 0 -0.16cqi light-dark(transparent, color-mix(in oklab, black 32%, transparent));
   display: flex;
   flex-direction: column;
   gap: 0.62cqi;
@@ -6748,13 +6789,24 @@ section.kanban.tinted .kanban-column[data-done] .kanban-column-header, figure.ka
   color: color-mix(in oklab, var(--state-pass-ink) 65%, var(--text-label));
 }
 
-/* Cards lift OFF the tinted lane: light = plain --bg paper + soft hue shadow;
- * dark = a touch lighter than the lane with a defined hairline. */
+/* Cards lift OFF the tinted lane: light = plain --bg paper + a hue-tinted contact
+ * edge; dark = a touch lighter than the lane with a defined hairline, no shadow.
+ *
+ * Same repair as the default card above, and it was found the hard way. This site
+ * carried the identical `light-dark(<shadow>, <shadow>)` mistake and the FIRST cut
+ * of this change missed it, because the value contains `var(--col-hue)` and the
+ * css:values gate skips anything with a var() — so the gate certified the very
+ * file it was fixing. Worse than the default case: a var() makes the declaration
+ * valid at PARSE time and it fails at computed-value time instead, resolving to
+ * the initial value `none` rather than falling back to the base rule. So `tinted`
+ * cards rendered flat while the comment above promised a shadow, and they stayed
+ * flat after the base fix landed. Zero blur, negative spread, light-dark on the
+ * COLOR only — see the default `.kanban-card` block for why blur is barred. */
 section.kanban.tinted .kanban-card, figure.kanban.tinted .kanban-card{
   background: light-dark(var(--bg), var(--bg-alt));
   border: var(--chart-hairline) solid var(--border);
-  box-shadow: light-dark(
-    0 0.1cqi 0.3cqi color-mix(in oklab, var(--col-hue) 12%, transparent), none);
+  box-shadow:
+    0 0.1cqi 0 -0.02cqi light-dark(color-mix(in oklab, var(--col-hue) 12%, transparent), transparent);
 }
 /* Dark: tint the lane a hair stronger so the stage colour survives near-black,
  * and lift the cards above it. */
@@ -19350,12 +19402,31 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
    * (no second background) and the glass is read from the soft dark float
    * shadow + a crisp hairline edge + the white top rim. On a DARK slide a
    * translucent WHITE frost veil reads cleanly (lighter than the canvas), so
-   * the fill is a faint white gradient. light-dark() picks the right one. */
-  background: light-dark(
-    transparent,
-    linear-gradient(180deg,
-      color-mix(in oklab, white 13%, transparent) 0%,
-      color-mix(in oklab, white 5%, transparent) 100%));
+   * the fill is a faint white gradient.
+   *
+   * light-dark() sits on the COLOR STOPS, not around the gradient. It resolves a
+   * `<color>` and nothing else (CSS Color 5), so `light-dark(transparent,
+   * linear-gradient(…))` — a color against an <image> — is invalid, and the whole
+   * declaration was DROPPED: no frost veil rendered on dark, in silence, since a
+   * dropped declaration errors nowhere and moved no golden. Keeping one gradient
+   * and switching its stops makes it VALID — fully transparent on light (identical
+   * to the `transparent` this replaces), the frost values on dark.
+   *
+   * BUT IT STILL DOES NOT PAINT, and that is unresolved (#1316). On a real render
+   * the computed style resolves correctly (`background-image: linear-gradient(oklab(…
+   * / 0.13) 0%, …)` with `color-scheme: dark`) and the rule is confirmed as the
+   * matching one — yet the panel interior samples identical to the pre-fix broken
+   * state, and only paints after a FORCED REFLOW. First paint is the only paint an
+   * export gets, so the exported PDF is unchanged apart from border anti-aliasing.
+   * A minimal stylesheet repro of the same construct does paint, so this is not
+   * "light-dark in a gradient doesn't work" — something in the real document defers
+   * it. Do not read this rule as working: it is correct CSS with an unexplained
+   * paint failure on top. The rule also only matches a deck that opts into the
+   * `canvas` Form, which no committed deck does — which is why nothing noticed.
+   * engineering/gotchas.md "A CSS reset declaration silently does nothing". */
+  background-image: linear-gradient(180deg,
+    light-dark(transparent, color-mix(in oklab, white 13%, transparent)) 0%,
+    light-dark(transparent, color-mix(in oklab, white 5%, transparent)) 100%);
   /* The glass EDGE: a faint cool hairline on light, a luminous edge on dark. */
   border: var(--chart-hairline) solid light-dark(
     color-mix(in oklab, var(--text-heading) 10%, transparent),
@@ -21117,7 +21188,14 @@ section.backdrop-none {
   --fin-texture-opaque: none;
   --fin-mark-opaque: none;
   --fin-edge-opaque: none;
-  --fin-frame: none; /* clear the inset keyline frame too */
+  /* `0 0 transparent`, NOT `none` — this slot is composed into a shadow LIST at
+   * line 144, where `none` is only legal as the sole value. Writing `none` here
+   * made that whole declaration invalid at computed-value time on a
+   * `tone-* finish-none overflow` slide, so the box-shadow resolved to its INITIAL
+   * value and took the TONE RAIL down with it. The comment at line 144 had already
+   * stated the invariant ("never `none`, invalid inside a shadow list"); this line
+   * broke it anyway, and nothing noticed until the css:values var() pass. */
+  --fin-frame: 0 0 transparent; /* clear the inset keyline frame too */
   background-image: none;
   box-shadow: none;
 }

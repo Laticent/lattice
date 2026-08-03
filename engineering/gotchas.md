@@ -855,7 +855,13 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   one has no effect. The rule matches, specificity is right, the bundle builds, every
   golden renders pixel-identical, and the regression gate stays green. Found on
   `text-wrap: normal`, written to strip `text-wrap: balance` from a bookend eyebrow
-  (#1309); both exclusions were dead and the eyebrows kept balancing.
+  (#1309); both exclusions were dead and the eyebrows kept balancing. The first
+  sweep for the class found two more, both `light-dark()` given something that is
+  not a `<color>`: `box-shadow: light-dark(<shadow>, <shadow>)` on the kanban card
+  (cards rendered with **no elevation at all**, in either mode) and
+  `background: light-dark(transparent, linear-gradient(…))` on the chart glass
+  pane. `light-dark()` resolves a `<color>` and nothing else — put it on the
+  colors (a stop, a shadow's color) and keep the geometry outside it.
 - **Cause:** the value is not in the property's grammar, so the declaration is
   **invalid at parse time and dropped**. `text-wrap` is a shorthand over
   `text-wrap-mode` (`wrap | nowrap`) and `text-wrap-style` (`auto | balance | stable
@@ -873,9 +879,40 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   half* actually applied rather than collapsing both into one token. And run
   `CSS.supports(prop, value)` for any value you have not used before. Here the
   correct reset is `text-wrap: wrap` (mode `wrap`, style `auto`).
-  This class of bug is invisible to every gate the repo has, so it rides on
-  verification discipline (HARD RULE #23).
+  There is a gate for it: `npm run css:values` asks the rendering engine
+  (`CSS.supports`) about every value in `lib/**` and `themes/**` and fails on any
+  it would drop, with a `SANCTIONED` allowlist for deliberate cross-engine pairs.
+  It is **on-demand, not in `build:check`** — that gate is contractually
+  render-free and its CI job has no browser — so run it when you touch CSS.
+  **What it does not cover:** a custom property's own value (`--x: anything` is
+  always valid CSS, by definition), and a value whose `var()` resolves to something
+  bad in a way the two var() passes below cannot see. It is a good net, not a proof.
   See `engineering/decisions/2026-08-02-sovereign-bookend-measures.md`.
+
+### The same declaration, but it dies at COMPUTED-VALUE time — and does NOT fall back
+
+- **Symptom:** a `box-shadow` (or any value) built out of a token renders as if the
+  rule were not there — and unlike the parse-time case above, `CSS.supports` on the
+  literal text says it is **fine**. Two shipped instances: pricing's recommended tier
+  wrote `box-shadow: inset 0 0 0 1px var(--accent), var(--elevation-card)` and had no
+  accent ring on any deck without `lift: on`; a `tone-* finish-none overflow` slide
+  lost its tone rail from `box-shadow: var(--tone-rail, …), var(--fin-frame, …)`.
+- **Cause:** the token held `none`, and **`none` is legal only as box-shadow's SOLE
+  value** — so once substituted, the value is invalid. The trap is what happens next.
+  A declaration containing `var()` is valid at PARSE time whatever the token turns
+  out to hold, so it **wins the cascade**; the failure happens at computed-value
+  time, where CSS says an invalid-at-computed-value declaration resolves to the
+  property's **initial value**. It does *not* fall back to the lower-specificity rule
+  it overrode. So the shadow does not merely lose one layer — it loses everything,
+  including the parts that had nothing to do with the token.
+- **Fix:** never turn a composable slot off with `none`. Use a **no-op value of the
+  right type** — `0 0 transparent` for a shadow slot — which paints nothing and
+  composes anywhere. `--tone-rail` had the idiom right from the start; the register
+  tokens now match it (`base.tokens.css --elevation-card`, `base.finish.css
+  --fin-frame`). Note that a `var(--x, fallback)` fallback does **not** save you: the
+  fallback fires only when the token is *undefined*, not when it is defined as `none`.
+  `npm run css:values` catches this class by substituting the values our own CSS
+  actually declares for each token — see its DECLARED pass.
 
 ### A committed render golden doesn't match a fresh render — check staleness FIRST
 
