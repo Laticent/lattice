@@ -369,6 +369,7 @@ in patch versions.
   `auto` on `math` and `title` — so the backdrop escapes behind the section's own opaque background
   and the finish vanished on a shipped slide. See
   `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
+<<<<<<< HEAD
 
 
 - **Present's narration no longer hangs silently while the captions run on without it.** A sentence
@@ -381,6 +382,22 @@ in patch versions.
   **outlives the player's patience**: the player gives a sentence 20s before moving on, but the
   request itself runs to 45s and its audio still lands in the cache, so a slow link warms itself
   instead of dropping every sentence. No label changes and no new widget — the rail carries it.
+=======
+- **Breaking (for CRLF decks — they were rendering wrong): line endings are LF everywhere, and now
+  enforced.** A Windows-authored deck declaring `theme: cuoio` exported **entirely in the default
+  palette**, silently: `lib/core/resolve-palette.js` was the one front-matter reader of ~55 whose
+  regex lacked `\r?`, and the emulator calls it on raw file text *outside* the engine, so nothing
+  downstream could rescue it (#1349). The fix is not "add `\r?` to reader 55" — 53 readers each
+  independently remembering it is the design that produced the bug. Source is now normalized to LF
+  at every boundary it crosses: `.gitattributes` (`* text=auto eol=lf`, so a Windows clone checks
+  out LF and cannot commit CRLF back), `lattice-emulator.js`'s file read, and the Studio's
+  import/paste path. `\r\n?` covers Windows CRLF **and** classic-Mac lone CR in one pattern.
+  Guarded by `test/unit/core/line-endings.test.js`, which asserts the *property* — the same deck as
+  LF, CRLF, CR and mixed renders byte-identical — rather than testing readers one at a time, which
+  is how the original CRLF sweep missed this one. Normalization is a no-op on LF, so no
+  already-correct deck changes its exported bytes.
+
+>>>>>>> ebc88a0 (core(line-endings): normalize at every boundary, so no reader has to remember)
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`

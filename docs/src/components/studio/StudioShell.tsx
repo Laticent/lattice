@@ -1363,8 +1363,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setView('compose');
 		notify(`Imported “${d.title}”.`);
 	}
+	// THE STUDIO'S LINE-ENDING BOUNDARY. Deck source arrives here from a dropped/opened file
+	// (`file.text()`), which preserves whatever the author's OS wrote — CRLF from Windows,
+	// lone CR from a classic-Mac-era file. Everything downstream (the editor, every register
+	// kernel, the exports) assumes LF, so normalize once here rather than making ~55 readers
+	// each remember `\r?`. That design is what let a CRLF deck export in the wrong palette
+	// (#1349). `\r\n?` covers both conventions; it is a no-op on LF text.
 	function importDeckFromText(text: string) {
-		openImportedDeck(text, titleFromSource(text));
+		const src = text.replace(/\r\n?/g, '\n');
+		openImportedDeck(src, titleFromSource(src));
 	}
 	function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
