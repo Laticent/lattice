@@ -33,13 +33,15 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ## This is as much text as one slide should ever carry.
 
-Two paragraphs is the working limit. This one runs two full lines to show where the measure sits and why anything denser belongs in a document.
+Two paragraphs is the working limit, and this is what the limit looks like when a slide actually reaches it. The measure runs four full lines here — far enough to show that body prose keeps its rhythm, and far enough to show why a third paragraph belongs in a document instead.
 
-The second paragraph stays shorter — because by now the audience is reading, not listening.
+The second paragraph stays shorter — because by now the audience is reading, not listening, and every line spends from the budget the list below it draws on.
 
-- One list is allowed after prose
-- Three items is its comfortable end
-- A fourth begins to crowd the footer
+- One list is allowed after the prose
+- Five items is where it stops
+- Each item earns its line or loses it
+- A sixth would run past the footer
+- This fifth one is the last that fits
 
 
 ---

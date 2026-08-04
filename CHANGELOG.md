@@ -68,6 +68,19 @@ in patch versions.
 
 ### Fixed
 
+- **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
+  much text as one slide should ever carry" and its footer says "the ceiling", but after body prose
+  moved from `--fs-message` to `--fs-body` the same content filled about 60% of the stage with a
+  large empty band beneath the list. The rendering was correct; the slide's editorial claim had gone
+  stale, and a stress test that renders half-full teaches an author the wrong limit — the opposite
+  of the guidance `content` exists to give. The specimen is extended to the measured ceiling (two
+  paragraphs and a five-item list), found by rendering progressively denser slides against the
+  engine's own overflow probe rather than by estimating: five items fit, six trip the probe. The
+  list text was stale in the same direction and is corrected with it. Note that `content` declares
+  no `capacity`/`density` block at all, so there was nothing understated to correct there; its only
+  stated budget is the editorial "~40 words" in the slot description, which remains a deliberate
+  editorial target rather than the geometric limit.
+
 - **The decorative status glyph no longer reaches a screen reader.** `.chart-status` injects a
   ✓/✗/◆/!/– before the status word as a redundant VISUAL channel — it restates the status in shape,
   so the meaning survives grayscale print and a reader who cannot separate the status colors. It was
