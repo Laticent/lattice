@@ -25,6 +25,14 @@ in patch versions.
 
 ## Unreleased
 
+- **Designed, not built: giving a shared deck a voice.** `engineering/decisions/2026-08-04-shared-deck-narration-audio.md`
+  answers the five open questions on #1393 — format (inline data URIs), size (opt-in, with the
+  megabytes named before the write), staleness (ship what is cached, report coverage, never
+  refuse), whose voice (the author's, baked at export), and pace (already travels via front
+  matter) — and specifies the build. It is deliberately not implemented: it changes the bytes of
+  an exported artifact, which is a maintainer sign-off gate, and it is an export-format fork that
+  bears on #757.
+
 - **Guide — Present can now point at what it is narrating.** A third dock toggle beside CC and
   Voice: CC shows the words, Voice speaks them, Guide shows you where to look. It works on every
   existing deck with no authoring, because the target is resolved from the sentence being spoken
