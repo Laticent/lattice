@@ -403,12 +403,15 @@ describe('mermaid init-directive: render-path wiring', () => {
     // `sanitizeDirective`, which blanked the hyphenated font stack and left
     // Mermaid measuring in one font while the page rendered in another.
     const src = read('lib/runtime/index.js');
-    // Per SLIDE since #1332 step 3, and resolved by the KERNEL since step 4: the palette
-    // still rides the global config, but the config is re-applied per band with the
-    // variables `renderDiagrams` built from that slide's own reader — not once per
-    // document from slide 1.
-    assert.match(src, /themeVariables: themeVars,/,
+    // Per SLIDE since #1332 step 3, resolved by the KERNEL since step 4, and built from
+    // the SHARED non-palette config since #1347: the palette still rides the global
+    // config, but that config is `engineInitConfig` plus the enumerated preview-only
+    // keys, re-applied per band with the variables `renderDiagrams` resolved from that
+    // slide's own reader — not once per document from slide 1.
+    assert.match(src, /mermaid\.initialize\(previewInitConfig\(themeVars\)\)/,
       'the global config carries the palette');
+    assert.match(src, /const shared = engineInitConfig\(themeVars\);/,
+      'and it is composed from the shared non-palette config (#1347)');
     assert.match(src, /function openSectionReader\(scopeEl\)/,
       'and the palette is read from the SECTION handed in, not from document.querySelector');
     assert.doesNotMatch(src, /withEngineInit/,
@@ -422,8 +425,15 @@ describe('mermaid init-directive: render-path wiring', () => {
     // the docs Studio's same-origin, un-sandboxed preview frame (HARD RULE #22).
     // strict is also mermaid's own default, which the PDF path never overrode.
     const src = read('lib/runtime/index.js');
-    assert.match(src, /securityLevel: "strict"/);
-    assert.doesNotMatch(src, /securityLevel: "loose"/);
+    // Quoted either way — it moved into PREVIEW_ONLY_CONFIG with #1347, where it lives
+    // BECAUSE it is one of Mermaid's secure keys and so cannot be shared through a
+    // %%{init}%% directive at all.
+    assert.match(src, /securityLevel: ['"]strict['"]/);
+    assert.doesNotMatch(src, /securityLevel: ['"]loose['"]/);
+    const { DIVERGENT_CONFIG } = require('../../../lib/integrations/mermaid/init-directive');
+    assert.ok(DIVERGENT_CONFIG.includes('securityLevel'),
+      'securityLevel must stay enumerated as divergent — a Mermaid secure key cannot ride a '
+      + 'directive, so "share it" would emit a key Mermaid silently drops');
   });
 
   test('both paths read the cluster fill from the containment token', () => {

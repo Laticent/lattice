@@ -51,6 +51,28 @@ in patch versions.
 
 ### Fixed
 
+- **Preview and export now send Mermaid the same non-palette config, and flowchart labels
+  wrap the same way in both.** `engineInitConfig` claimed to be "shared so the PDF path and
+  the runtime send Mermaid the same non-palette options, not just the same colors" — and the
+  runtime did not call it, so eight config keys diverged with nothing watching them
+  (`DIVERGENT_KEYS` governs `themeVariables` only). The one that bit was
+  `flowchart.wrappingWidth`: 480 in the preview against Mermaid's default 200 in the export.
+  Wrapping width decides where a label breaks and a label break decides the node's WIDTH, so
+  the same deck laid its flowcharts out differently on the two paths. Measured on one
+  long-labeled node, exported: `461.86 × 151` before, `741.86 × 88` after — the label now
+  stays on one line, as the preview always showed it. **Exported diagrams change**: any
+  flowchart with a label wider than 200 user units re-wraps, exported quadrant charts pick up
+  the seven slide-scale type sizes that were preview-only, and C4 diagrams in the PREVIEW
+  pick up the 3-shapes-per-row limit that was export-only. `markdownAutoWrap: false` is
+  shared too — the reasoning ("Marp does not support line breaks in a code fence") reads the
+  same fence on both paths and was never preview-specific. `DIVERGENT_CONFIG` enumerates what
+  remains, and three of its four entries are not choices: `securityLevel`, `startOnLoad` and
+  `suppressErrorRendering` sit on Mermaid's own secure-key list, so its `sanitize` deletes
+  them from anything that is not `mermaid.initialize` and a `%%{init}%%` directive cannot
+  carry them at all. `test/unit/mermaid/init-config-parity.test.js` fails on an unlisted
+  divergence, on a stale sanction, and on a Mermaid upgrade that takes a key off that list.
+  #1347
+
 - **The diagram render kernel now drives both paths, and the reconciliation marker is
   gone.** `renderDiagrams(deck, ports)` (`lib/core/render-diagrams.js`) walks the deck,
   resolves each slide's `themeVariables` from the one shared map, and calls each render

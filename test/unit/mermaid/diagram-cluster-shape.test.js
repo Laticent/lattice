@@ -109,11 +109,19 @@ describe('node padding — one constant, both render paths', () => {
     assert.equal(parsed.flowchart.padding, DIAGRAM_NODE_PADDING);
   });
 
-  test('the preview path reads the same constant, not a literal', () => {
+  test('the preview path gets the constant from the SHARED config, not a literal', () => {
+    // Stronger than importing the constant, which is what this asserted before #1347:
+    // the preview now composes its whole `mermaid.initialize` argument from
+    // `engineInitConfig`, so the padding arrives with every other non-palette key
+    // rather than being re-stated beside them. A re-typed number could not diverge
+    // silently even if someone added one — `init-config-parity.test.js` diffs the two
+    // configs — but the composition is the thing to pin here.
     const src = readCode(path.join('lib', 'runtime', 'index.js'));
-    assert.match(src, /DIAGRAM_NODE_PADDING\s*\}\s*=\s*require\(/, 'the runtime must import the shared constant');
-    assert.match(src, /padding:\s*DIAGRAM_NODE_PADDING/, 'the runtime must use it, not a re-typed number');
+    assert.match(src, /engineInitConfig\s*\}\s*=\s*require\(/, 'the runtime must import the shared config builder');
+    assert.match(src, /const shared = engineInitConfig\(themeVars\);/, 'and compose its config from it');
     assert.equal(/padding:\s*15\b/.test(src), false, 'the old divergent literal must be gone');
+    assert.equal(/padding:\s*DIAGRAM_NODE_PADDING/.test(src), false,
+      're-stating the padding beside the shared config is the second copy this exists to prevent');
   });
 
   test("an author's own flowchart block still wins, and keeps the padding it did not set", () => {

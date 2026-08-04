@@ -117,6 +117,43 @@ label ink. Same for `layout`, `defaultRenderer`, per-diagram-type config, or a
 partial `themeVariables` override — name `lineColor` alone and only `lineColor`
 changes.
 
+### One non-palette config, both paths (#1347)
+
+`engineInitConfig` (`lib/integrations/mermaid/init-directive.js`) holds the shared
+**non-palette** options, and the preview builds its `mermaid.initialize` argument from
+it rather than hand-rolling a second copy. It always claimed to be shared; the runtime
+did not call it, so eight keys diverged with nothing watching — `DIVERGENT_KEYS` covers
+`themeVariables` only.
+
+The one that bit was `flowchart.wrappingWidth`: 480 in the preview against Mermaid's
+default 200 in the export. Wrapping width decides where a label breaks and a label
+break decides the node's **width**, so the same deck laid its flowcharts out
+differently on the two paths. Measured on one long-labeled node, exported:
+`461.86 × 151` before, `741.86 × 88` after — narrow-and-tall becomes wide-and-short,
+which is what the preview had been showing all along.
+
+Now shared: `flowchart.wrappingWidth`, `flowchart.htmlLabels`, `markdownAutoWrap`, the
+seven `quadrantChart` type sizes (preview-only before, so an exported quadrant rendered
+its labels at Mermaid's much smaller defaults), and `c4.c4ShapeInRow` /
+`c4BoundaryInRow` (export-only before, so a C4 diagram crammed one row live and fanned
+across two in the export).
+
+`DIVERGENT_CONFIG` is the enumerated exception set, and three of its four entries are
+not choices at all. `securityLevel`, `startOnLoad` and `suppressErrorRendering` are on
+Mermaid's own **secure-key list**, and its `sanitize` deletes them from anything that is
+not `mermaid.initialize` — so the PDF path, whose config can only travel in a
+`%%{init}%%` directive, structurally cannot state them. Putting them in
+`engineInitConfig` would emit keys Mermaid silently drops and call it parity. (The
+effective values agree anyway: Mermaid's default `securityLevel` IS `strict`.) The
+fourth, `flowchart.useMaxWidth`, is a deliberate preview behavior — inside
+`section.diagram` mermaid.css forces sizing with `!important` and the key cannot be
+seen; outside one, flipping the export would change how every exported diagram is
+constrained, which is a layout change rather than a parity fix.
+
+`test/unit/mermaid/init-config-parity.test.js` fails on an unlisted divergence, on a
+sanction that no longer diverges, and on a Mermaid upgrade that takes one of those three
+off its secure list (which would make it shareable).
+
 **The two paths use different diagram fonts, and there is a constraint behind it.**
 The preview uses `--font-body`; the PDF path uses `"JetBrains Mono", monospace`
 (`DIAGRAM_FONT_STACK` in the kernel). That is not arbitrary: `sanitizeDirective`'s
