@@ -3291,7 +3291,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{feedbackButton}
 			</header>
 			) : (
-			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+				{/* Below desktop this row runs at the PHONE's density — 6px gaps, 10px side
+				    padding — instead of the desktop 12px/14px. It carries ~14 gaps, so that is
+				    ~78px of width reclaimed at no cost in function at all, which is most of what
+				    the posture dial's words are paid for (#1401). Not a third density: below `sm`
+				    the header already sat at 6px/10px, so a tablet now reads as a wider phone
+				    header rather than a squeezed desktop one. Gated on `compact` — the app's own
+				    1100px boundary — never on Tailwind's `lg` (1024), which would leave 1024–1099
+				    at desktop density on the band where this row is TIGHTEST (Present and Share
+				    take their words back at `lg`). A JSX ternary branch admits exactly one
+				    element, which is why this note sits inside the tag rather than above it. */}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						{/* The real brand mark (not a text tile), and the chevron shows at EVERY

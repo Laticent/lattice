@@ -971,6 +971,16 @@ in patch versions.
 
 ### Changed
 
+- **Studio: below desktop the top bar runs at the phone's density, not the desktop's.** Between
+  700 and 1099px the header's gaps drop from 12px to 6px and its side padding from 14px to 10px —
+  the values the same header already used on a phone, so a tablet reads as a wider phone header
+  instead of a squeezed desktop one. The row carries ~14 gaps, which makes this ~78px of width
+  reclaimed with no control moved, hidden or shrunk: the largest saving available anywhere in it,
+  and most of what the posture dial's words are paid for (#1401). Gated on the app's own 1100px
+  `compact` boundary rather than Tailwind's `lg` (1024) — an `lg` gate would have left 1024–1099
+  at desktop density, and that band is where the row is tightest, since Present and Share take
+  their words back at `lg`.
+
 - **Studio: the guided tours have one launcher per width — the ⋯ menu on a tablet, not a header
   button.** `Show me` was a header button at every width above a phone; below 1100px it is now a
   section of the ⋯ overflow menu, listing the same five tours with the same descriptions and the
