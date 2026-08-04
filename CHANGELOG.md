@@ -654,11 +654,14 @@ in patch versions.
   alignments carry `safe` across the engine, including the chart family's `.chart-body` and
   both mermaid wrappers. `safe` is byte-identical when content fits — verified by the pixel
   gate across every gallery.
-- **`redline split` dropped the closing phrase of a statute clause on its own gallery.** The NEW
-  column — always the longer of the pair, since an amendment adds words — ran 31px past its own
-  `overflow: hidden` and cut "…their personal information."  The `.cell-stage` fit and the section
-  fit; the blockquote was a clipping box nothing looked at until the probe change above widened
-  the set. Tighter leading in a two-column track, exactly as `.three-col` next door already does.
+- **`redline split` dropped the closing phrase of a statute clause.** The NEW column — always the
+  longer of the pair, since an amendment adds words — ran 31px past its own `overflow: hidden` and
+  cut "…their personal information." The `.cell-stage` fit and the section fit; the blockquote was
+  a clipping box nothing looked at until the probe change above widened the set. Tighter leading in
+  a two-column track, exactly as `.three-col` next door already does. (Precisely: the clip is on
+  `lib/components/legal/legal.gallery.md` p29, the bucket gallery that composes this variant with a
+  real statute — NOT `redline.gallery.md` p5, whose shorter specimen text fits either way. The
+  commit message says "its own gallery", which is one gallery too loose.)
 
 >>>>>>> 8f3ad85 (engine(overflow): probe every box that clips, not a hand-kept list of four)
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
