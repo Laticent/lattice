@@ -25,6 +25,16 @@ in patch versions.
 
 ## Unreleased
 
+- **Autoplay no longer hangs when two slides in a row narrate identically.** The effect that
+  starts a newly-arrived slide's reader was keyed on the reader's `track`, and `track` is
+  memoized on its text — so two consecutive slides that resolve to the same spoken words (the
+  same speaker note, two content-free slides) produced the same object, React bailed out of the
+  commit, the effect never re-ran, and the presentation stopped dead with no error and no way
+  forward but the presenter's own hand. Present now carries the slide index alongside the text,
+  so a navigation always commits and the reader is always started for the slide that actually
+  arrived; when the text repeats, the reader is not rebuilt at all, just replayed. Manual
+  prev/next/jump still never auto-play.
+
 - **A walkthrough cue now keeps asking where its target is, instead of remembering.** On the
   production Studio a spotlight ring rendered around a pane-width of empty space, its edge cut
   at the splitter, while the cursor orbited a stale center — reported as geometry resolved in

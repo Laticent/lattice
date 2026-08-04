@@ -224,7 +224,20 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// slide's text only while it is NOT being read — otherwise the swap would rebuild
 	// the track, stop playback, and (worst) hang autoplay on the slide, since the
 	// teardown fires no onFinish. The projection is picked up on the next slide instead.
-	const [narrationText, setNarrationText] = React.useState('');
+	//
+	// It is a RECORD — `{ idx, text }` — not a bare string, and that is load-bearing (#1394).
+	// The auto-advance effect below needs a signal meaning "the reader is now ready for the
+	// slide we just moved to". A bare string cannot say that: React bails out of the whole
+	// re-render when a `useState` setter is handed an equal string, so two consecutive slides
+	// whose narration resolves IDENTICALLY (the same speaker note, two contentless slides)
+	// produced no commit, no new track, and therefore no effect — `autoAdvanceRef` stayed
+	// armed, the new slide never spoke, and the chain was dead until the presenter stepped in.
+	// A fresh record commits on every navigation regardless of what the text says, while the
+	// `track` memo still keys on the STRING, so identical text keeps the same track object and
+	// the reader is not needlessly torn down.
+	const [narration, setNarration] = React.useState<{ idx: number; text: string }>({ idx: -1, text: '' });
+	const narrationText = narration.text;
+	const setNarrationText = React.useCallback((text: string) => setNarration((n) => (n.text === text ? n : { idx: n.idx, text })), []);
 	const playingRef = React.useRef(false);
 	// Autoplay intent (chain across slides) + a per-advance flag. Declared HERE (read by
 	// the projection-upgrade guard below) though set later; the guard runs post-commit
@@ -234,7 +247,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	autoplayRef.current = autoplay;
 	const autoAdvanceRef = React.useRef(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: navigation trigger (slide/lens); narrationAt read via ref so a projection landing doesn't re-fire this.
-	React.useEffect(() => { setNarrationText(narrationAtRef.current(clamped)); }, [clamped, set]);
+	React.useEffect(() => { setNarration({ idx: clamped, text: narrationAtRef.current(clamped) }); }, [clamped, set]);
 	// Projection-landing upgrade: swap the CURRENT slide's fallback narration for the
 	// richer DOM-projection text once it resolves — but ONLY when the slide is idle and
 	// NOT in an autoplay run. During autoplay (including the brief between-slides hand-off
@@ -344,20 +357,26 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			},
 		},
 	);
-	// After an autoplay advance, start the NEW slide's reader. Keyed on `reader.track`,
-	// NOT `clamped` — this is the #904 fix. Since narration is async STATE, the slide
-	// index changes ONE commit before the track (and thus the reader) is rebuilt for the
-	// new text; a play() fired on the index-change commit (the old `[clamped]` + rAF)
-	// raced that rebuild and, on a loaded main thread, ran on a reader the pending rebuild
-	// then tore down — reader.playing=false, no caption, chain frozen (the "two slides
-	// then stops" report). `useReadAloud` is called before this effect, so its per-track
-	// rebuild effect is registered first and runs first in the SAME commit; playing here
-	// (no rAF) therefore always hits the freshly-built reader, deterministically, on fast
-	// and slow devices alike. The autoAdvanceRef guard keeps manual prev/next/jump (which
-	// also change the track) from auto-playing. (Edge: two ADJACENT slides whose narration
-	// is byte-identical share a track object, so this wouldn't re-fire — the skip-empty
-	// effect covers identical EMPTY slides; identical non-empty adjacent narration is a
-	// pathological case a real deck doesn't hit, tracked but not handled here.)
+	// After an autoplay advance, start the NEW slide's reader. Keyed on the NARRATION RECORD,
+	// NOT on `clamped` and no longer on `reader.track`.
+	//
+	// Not `clamped` — the #904 fix. Narration is async STATE, so the slide index changes ONE
+	// commit before the reader is rebuilt for the new text; a play() fired on the index-change
+	// commit raced that rebuild and, on a loaded main thread, ran on a reader the pending
+	// rebuild then tore down — reader.playing=false, no caption, chain frozen (the "two slides
+	// then stops" report).
+	//
+	// Not `reader.track` either — the #1394 fix. `track` is memoized on its TEXT, so two
+	// consecutive slides narrating identically produced the same object, the effect never
+	// re-ran, and autoplay hung there permanently. The record commits once per navigation
+	// whatever the text says, which is the honest "a new slide arrived" signal; and because it
+	// commits in the same pass that (re)builds the reader — `useReadAloud` is called before
+	// this effect, so its per-track rebuild effect is registered first and runs first in the
+	// SAME commit — the reader is always ready by the time we play. When the text repeats, no
+	// rebuild is needed at all and the intact reader is simply replayed from the top.
+	//
+	// The autoAdvanceRef guard still keeps manual prev/next/jump from auto-playing, and it is
+	// what makes the extra fires this key can produce (a projection landing) free.
 	const readerRef = React.useRef(reader);
 	readerRef.current = reader;
 	playingRef.current = reader.playing;
@@ -383,7 +402,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, [set, clamped, pace]);
 	const beatForArrivalRef = React.useRef(beatForArrival);
 	beatForArrivalRef.current = beatForArrival;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `reader.track` is the rebuild signal (the new slide's reader is ready once it changes); reader is read via ref by design.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `narration` is the arrival signal (a fresh record per navigation, committed alongside the reader's rebuild); reader/pace are read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
 		autoAdvanceRef.current = false;
@@ -423,7 +442,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			beatTimerRef.current = 0;
 			setHolding(false);
 		};
-	}, [reader.track]);
+	}, [narration]);
 	// A slide with no readable prose never fires onFinish (nothing to read), which
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
 	// the next (or end the run if it's the last).

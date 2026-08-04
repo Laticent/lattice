@@ -664,9 +664,13 @@ room the prefetch edge can never lead and the rail sits in its "run dry" state. 
 
 ### Logged, not fixed (HARD RULE #18 — found, not caused)
 
-- **Autoplay hangs on two consecutive slides with identical narration text.** The advance effect
-  keys on `[reader.track]`, and `track` is memoized on its text, so identical text means identical
-  identity and the effect never re-runs. Verified present on `main` — the same effect, same deps.
+- ~~**Autoplay hangs on two consecutive slides with identical narration text.**~~ **FIXED
+  2026-08-04 (#1394).** The advance effect keyed on `[reader.track]`, and `track` is memoized on
+  its text, so identical text meant identical identity and the effect never re-ran. It now keys
+  on a narration RECORD (`{ idx, text }`) set on every navigation: a fresh object commits
+  regardless of what the text says, while the `track` memo still keys on the string, so repeated
+  text costs no reader rebuild. Pinned by `studio.present-autoplay-chain.test.tsx`, which chains
+  through three slides where the first two narrate identically and fails without the fix.
 - **`putClip` materializes the whole `meta` store on every write**, and the readiness poll reads
   `getAllKeys()` over the entire origin store every 2 s. Both scale with all decks ever presented
   rather than the one being delivered. Measured only under `fake-indexeddb`, so no browser number
