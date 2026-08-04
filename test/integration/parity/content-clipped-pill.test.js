@@ -282,8 +282,22 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
 <svg viewBox="0 0 400 40" width="40" height="4"><text x="4" y="30" font-size="12">tiny</text></svg>
 `;
 
-  async function corners(cls, key) {
-    const html = renderAt(deck(CORNER(cls)), key, 'author');
+  // The corner's FOURTH occupant is the author's logo, and it is the one the engine
+  // does not own the geometry of (#1404). Rendered with a stamp, the reserve used to
+  // land the clip tab at y 23→46 on top of a mark occupying y 24→75 — and the tab is
+  // opaque, so it sliced the mark's top off. `logo:` + `confidential` is close to the
+  // modal delivered board deck.
+  //
+  // The logo src is ABSOLUTE on purpose: renderAt writes the deck into
+  // `.scratch/pill-levels/`, and a relative `logo:` resolves against the OUTPUT
+  // directory rather than the deck (#1406), so a relative path here would silently
+  // render no logo at all and the assertion below would pass for the wrong reason.
+  const LOGO_SRC = path.join(ROOT, 'test', 'fixtures', 'acme-logo.svg');
+  const deckWithLogo = (body) =>
+    `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\n---\n\n${body.trim()}\n`;
+
+  async function corners(cls, key, build = deck) {
+    const html = renderAt(build(CORNER(cls)), key, 'author');
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
@@ -293,7 +307,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
       const box = (e) => {
         if (!e) return null;
         const r = e.getBoundingClientRect();
-        return { top: Math.round(r.top), bottom: Math.round(r.bottom) };
+        return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right) };
       };
       const stampTop = getComputedStyle(s, '::before').content !== 'none'
         ? 0 : null;   // the stamp paints at top:0 when a semantic class is present
@@ -302,6 +316,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
         stamp: stampTop !== null,
         clip: box(s.querySelector(':scope > .overflow-tab')),
         leg: box(s.querySelector(':scope > .illegible-tab')),
+        logo: box(s.querySelector(':scope > img.deck-logo')),
       };
     });
     await page.close();
@@ -309,6 +324,10 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   }
 
   const disjoint = (a, b) => !a || !b || a.bottom <= b.top || b.bottom <= a.top;
+  // The logo case needs BOTH axes: the tabs clear it horizontally (they stack to its
+  // left), so a y-only test would call an exact overlap disjoint.
+  const disjoint2d = (a, b) =>
+    !a || !b || a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left;
 
   test('CORNER — the clip tab and the legibility tab never share a band', async () => {
     // The row the unitless-calc bug broke: no stamp, both tabs drawn. Before the fix
@@ -350,6 +369,44 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
       shape.clip, plain.clip,
       'REGRESSION: a non-corner stamp shape displaced the clip tab. The shape class must '
       + 'MODIFY the reserve, never create one — the semantic class is what paints.',
+    );
+  });
+
+  test('CORNER — the deck logo and the marker tabs never overlap, stamp or no stamp', async () => {
+    for (const [cls, key] of [['content', 'corner-logo-plain'], ['content confidential', 'corner-logo-stamp']]) {
+      const v = await corners(cls, key, deckWithLogo);
+      assert.ok(v.logo, `the ${key} fixture must actually render a logo — an absolute src is required here (#1406)`);
+      assert.ok(v.clip && v.leg, `both tabs must be drawn — got ${JSON.stringify(v)}`);
+      assert.ok(
+        disjoint2d(v.logo, v.clip),
+        `REGRESSION: the clip tab overlaps the deck logo on "${cls}". logo=${JSON.stringify(v.logo)} `
+        + `clip=${JSON.stringify(v.clip)}. The tab is opaque, so an overlap SLICES the author's mark. `
+        + 'The tabs clear it horizontally via --corner-logo-reserve, which needs BOTH the '
+        + '`data-logo-corner` attribute (stamped by every logo injector) and `--logo-scale` declared '
+        + 'on the SECTION — a custom property on the img itself is invisible to these rules (#1404).',
+      );
+      assert.ok(
+        disjoint2d(v.logo, v.leg),
+        `REGRESSION: the legibility tab overlaps the deck logo on "${cls}". logo=${JSON.stringify(v.logo)} `
+        + `leg=${JSON.stringify(v.leg)}`,
+      );
+      assert.ok(disjoint(v.clip, v.leg), `the two tabs must still not overlap each other on "${cls}"`);
+    }
+  });
+
+  test('CORNER — a repositioned logo releases the corner, so the tabs reclaim the full width', async () => {
+    // `logo-x`/`logo-y` move the mark anywhere on the slide and flip it to left-anchoring.
+    // The corner is free again, so reserving width for it would push the marker left for
+    // nothing — and a reserve that never releases is how chrome creeps into the body.
+    const moved = (body) =>
+      `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\nlogo-x: 50\nlogo-y: 84\n---\n\n${body.trim()}\n`;
+    const v = await corners('content', 'corner-logo-moved', moved);
+    const ref = await corners('content', 'corner-logo-none');
+    assert.ok(v.logo, 'the fixture must still render a logo, just not in the corner');
+    assert.deepEqual(
+      v.clip, ref.clip,
+      'REGRESSION: a repositioned logo still reserved corner width. `data-logo-corner` must be '
+      + 'withheld when BOTH placement axes are set (plugins.js deckLogoInCorner / the runtime mirror).',
     );
   });
 

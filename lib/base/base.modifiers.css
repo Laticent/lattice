@@ -1441,7 +1441,8 @@ section.illegible > .illegible-tab {
 /* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
    stays correct at any type scale or preset. */
 /* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
-   Three things want `top: 0; right: 0`: the STATUS STAMP (`base.variants.css`,
+   FOUR things want this corner. Three want `top: 0; right: 0`: the STATUS STAMP
+   (`base.variants.css`,
    painted on `section::before` at `z-index: 100`), the clip tab, and the legibility
    tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
    and the pill was moved into the corner on a survey of `lib/components/**` that could
@@ -1469,19 +1470,65 @@ section.illegible > .illegible-tab {
    is round 4's finding re-created by the fix for round 5's. Caught by the HARD RULE #25
    red team on a real export before it reached a reviewer; the truth table below is what
    the canary asserts. */
-section { --corner-stack: 0%; --clip-stack: 0%; }
+/* ── THE FOURTH OCCUPANT: `img.deck-logo` ────────────────────────────────────
+   The three above are engine chrome with engine-owned geometry, so the stack can
+   reason about them. The logo is not: it is the AUTHOR's mark, at
+   `top: var(--frame-inset-y)` / `right: var(--frame-inset-x)`, `4cqi` tall — a box of
+   roughly y 24→75, x 1170→1250 at hd. A bare tab (y 0→23) clears it by one pixel,
+   which is why this went unnoticed; add a status stamp and the 100% reserve lands the
+   tab at y 23→46, INSIDE the mark, and the tab is opaque, so it slices the logo's top
+   off. `logo:` + `confidential` is close to the modal delivered board deck (#1404).
+
+   THE TABS STACK TO ITS LEFT, NOT BELOW IT. Clearing the logo vertically needs ~80px
+   of drop, which would put a marker a third of the way into the slide body — where the
+   note above this block promises no component puts content. Horizontal keeps every
+   occupant inside the top chrome band and leaves the mark untouched, so nothing has to
+   decide whether a transient marker outranks permanent branding: they do not overlap.
+
+   The reserve is the logo's own box, written with the logo's own tokens, so the two
+   cannot drift. It needs `--logo-scale`, which is why that property is now declared on
+   the SECTION rather than in the img's inline style — custom properties inherit
+   downward only, so for as long as it lived on the img no sibling and no section rule
+   could read it, and that invisibility IS the bug. `data-logo-corner` is stamped by the
+   same injectors (one per render path) and only when the author has NOT repositioned
+   the logo with `logo-x`/`logo-y`: a moved logo leaves the corner free, and reserving
+   for a mark that is no longer there would push the marker left for nothing. */
+section { --corner-stack: 0%; --clip-stack: 0%; --corner-logo-reserve: 0px; }
+section[data-logo-corner] {
+  --corner-logo-reserve: calc(
+    var(--frame-inset-x) + 6.25cqi * var(--logo-scale, 1) + var(--sp-xs)
+  );
+}
 section.clip-marked { --clip-stack: 100%; }
 section > .overflow-tab { transform: translateY(var(--corner-stack, 0%)); }
 section > .illegible-tab {
   transform: translateY(calc(var(--corner-stack, 0%) + var(--clip-stack, 0%)));
+}
+/* The `[data-logo-corner]` compound is what makes these BITE, not decoration: the
+   rules that anchor each tab (`section.clip-marked > .overflow-tab`,
+   `section.illegible > .illegible-tab`) both declare `right: 0` at (0,2,1), so a plain
+   `section > .overflow-tab` here loses on specificity and the reserve computes but
+   never applies — measured, the tab stayed flush at the frame edge. Equal specificity
+   plus later source order is what wins, and it keeps the arithmetic in this block
+   beside the geometry it belongs to rather than smuggled into the anchor rules. */
+section[data-logo-corner] > .overflow-tab,
+section[data-logo-corner] > .illegible-tab {
+  right: var(--corner-logo-reserve, 0px);
 }
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.
  * Author contract, gotchas, and full rationale at lib/base/_logo/logo.docs.md.
- * Implementation: applyDeckLogoToHtml (lib/engine), inline copy in
- * lattice-emulator.js, applyDeckLogoFromFrontMatter (lattice-runtime.js).
+ * Implementation: applyDeckLogoToHtml (lib/integrations/markdown-it/plugins.js),
+ * which lattice-emulator.js `require`s rather than re-implementing — this note used
+ * to claim an "inline copy" there and there has not been one; plus
+ * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
+ * implementation, which must mirror deckLogoVars / deckLogoInCorner.
+ *
+ * The `--logo-*` placement properties are declared on the SECTION, not on this img.
+ * That is what lets the marker stack read them (see --corner-logo-reserve above);
+ * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
   position: absolute;

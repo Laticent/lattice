@@ -496,6 +496,37 @@ in patch versions.
   ONE default (`DEFAULT_OR_MODEL`, the `~anthropic/claude-sonnet-latest` alias) instead of two
   in two files, pinned by a test. The picker's copy is version-neutral too — it named
   "Sonnet 4" against a `~*-latest` alias that moves.
+- **The marker corner had a fourth occupant it could not see, and a stamped slide sliced the
+  deck logo.** #1365 made the slide's top-right a *stack* because three absolutely-positioned
+  boxes want `top: 0; right: 0` — the status stamp, the clip tab, the legibility tab. There are
+  four: `img.deck-logo` sits in the same corner at the frame inset, roughly y 24→75. Without a
+  stamp the clip tab occupies y 0→23 and clears the mark **by one pixel**, which is why this
+  survived five adversarial rounds; add `confidential` and the stamp's reserve lands the tab at
+  y 23→46, inside the mark, and the tab is opaque — so it took the top off the logo. `logo:` plus
+  `confidential` is close to the modal delivered board deck, on the *reader* register the whole
+  feature exists to serve. **The tabs now stack to the logo's LEFT, not below it**: clearing it
+  vertically needs ~80px of drop, which would put a marker a third of the way into the slide body,
+  where the engine promises no component puts chrome. That dissolves the priority question the
+  issue posed — transient marker versus permanent branding — instead of answering it, because the
+  two no longer overlap. **The real change is not CSS.** The `--logo-*` placement properties were
+  declared in the img's own `style` attribute, and custom properties inherit downward only, so no
+  sibling and no section-level rule could read them — the corner arithmetic was structurally unable
+  to account for the one occupant whose geometry it does not own. They are declared on the
+  `<section>` now (the img reads them by inheritance, so placement is unchanged — the logo gallery
+  matches its committed goldens in both moods, untouched), the reserve is written from the logo's
+  own tokens so the two cannot drift, and a `data-logo-corner` attribute — stamped by every logo
+  injector, and only when the author has not repositioned the mark with both `logo-x` and `logo-y`
+  — is what turns it on. A repositioned logo releases the corner, because a reserve that never
+  releases is how chrome creeps into the body. One trap worth the retelling: the first cut declared
+  the reserve on `section > .overflow-tab`, computed it correctly, and it **never applied** — the
+  rules that anchor each tab declare `right: 0` at (0,2,1) and beat it, so the render looked exactly
+  like the bug. Measured before and after on a real export: the stamped slide's tab moved from
+  x 1104→1280 (overlapping a mark at x 1178→1250) to x 994→1170, an 8px gap. Two `CORNER —`
+  canaries assert logo/tab disjointness **in both axes** — the existing helper is y-only and would
+  have called a horizontal overlap fine — plus the release case; confirmed non-vacuous. Demo deck:
+  `examples/marker-corner.md`. See
+  `engineering/decisions/2026-07-30-overflow-marker-register.md` §Follow-up (2026-08-04). (#1404)
+
 - **A state-chart's `inline` variant now fits its stage like every other variant — it was the one
   the self-scale never reached.** `examples/state-chart.md` p6 rendered its sixth state, "Archived",
   as a top sliver with the label gone. The cause was not the letterbox mis-measuring, as the issue
