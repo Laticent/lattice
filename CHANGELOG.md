@@ -25,6 +25,17 @@ in patch versions.
 
 ## Unreleased
 
+- **Guide — Present can now point at what it is narrating.** A third dock toggle beside CC and
+  Voice: CC shows the words, Voice speaks them, Guide shows you where to look. It works on every
+  existing deck with no authoring, because the target is resolved from the sentence being spoken
+  against the live slide. Two things decide whether it feels right and both are structural. It
+  points INTO an iframe from a stage that never enters one, using the cross-frame bridge the chart
+  layer already computed (now shared rather than duplicated). And there is exactly ONE clock:
+  the cursor moves when read-aloud says the cue changed and at no other time, so when synthesis
+  stalls the cursor holds instead of drifting onto the wrong sentence. The real pointer hides
+  after a few seconds of stillness — only over the slide and its backdrop, never over the dock, so
+  Pause is always findable — and returns instantly on any movement.
+
 - **A deck can declare its own presentation pace, and it travels with the deck.** New front-matter
   register `pace: brisk | natural | deliberate` — how long a self-presenting deck holds on a newly
   arrived slide before it speaks. The beat itself shipped in #1352 reading `localStorage`, which

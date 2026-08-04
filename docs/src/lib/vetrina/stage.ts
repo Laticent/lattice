@@ -228,7 +228,7 @@ const EXIT_ICON =
 	'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
 	'stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
-type CaptionStyle = 'bar' | 'split' | 'scrim' | 'progress';
+type CaptionStyle = 'bar' | 'split' | 'scrim' | 'progress' | 'none';
 interface BuiltDock {
 	dock: HTMLElement;
 	narration: HTMLElement;
@@ -237,6 +237,20 @@ interface BuiltDock {
 }
 
 function buildDock(doc: Document, caption: CaptionStyle, placement: 'top' | 'bottom', onExit: () => void): BuiltDock {
+	// 'none' — a bare POINTER LAYER for a host that owns its own chrome and its own exit (the
+	// Guide rung). An empty, zero-size, inert node keeps every dock-shaped call site
+	// (`say`, the fade-in, `contains`, `emphasizeCaption`'s rect guard) working unchanged
+	// rather than sprinkling null checks through the stage. It is deliberately NOT in the
+	// accessibility tree: an empty live region announcing nothing is worse than no live region.
+	if (caption === 'none') {
+		const dock = doc.createElement('div');
+		dock.className = 'vetrina-caption';
+		dock.setAttribute('aria-hidden', 'true');
+		dock.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
+		const narration = doc.createElement('span');
+		dock.appendChild(narration);
+		return { dock, narration, setNarration: () => {}, setProgress: () => {} };
+	}
 	const top = placement === 'top';
 	const glass =
 		'background:var(--vt-caption-bg);color:var(--vt-caption-ink);box-shadow:0 10px 34px rgba(0,0,0,.40);' +

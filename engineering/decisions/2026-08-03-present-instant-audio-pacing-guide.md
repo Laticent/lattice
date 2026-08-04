@@ -10,7 +10,7 @@ companion:
 
 # Present: instant audio, a real presentation pace, and a Guide rung
 
-**Status:** Parts 2 and 3 ACCEPTED + IMPLEMENTED (2026-08-03/04); Part 4 PROPOSED.
+**Status:** Parts 2, 3 and 4 ACCEPTED + IMPLEMENTED (2026-08-03/04).
 Confirmed with the maintainer in one round: **both** adaptive prefetch and a full-deck
 Prepare; persist narration **on device** with a Data-tab governor; Guide targets derived
 from the **speech projection** with an author override; **three PRs, Part 2 first.**
@@ -351,6 +351,23 @@ slide's narration, which means at projection time it knows **which DOM node each
 and throws that away. Make it emit `{ text, selector }` pairs instead of bare text, and the mapping
 from "cue index N is being spoken" to "highlight this element" becomes a lookup.
 
+> **CORRECTED WHEN BUILT (2026-08-04, #1397).** This is half right, and the false half is the
+> load-bearing one. `speakGeneric` does hold `el` beside its text — but **per BLOCK, not per
+> sentence**, and it joins those blocks into one string per slide. Sentences do not exist yet at
+> that point; they are created later and elsewhere, by `buildTrack` segmenting the projected
+> string. There is no per-sentence node to keep. Threading one through would mean carrying node
+> identity across four string-only boundaries, including the `string[]` return that the **CLI
+> export** also consumes — changing the shared kernel's contract for a Studio-only feature.
+>
+> And it would be the WRONG DOCUMENT anyway: the projection parses a detached copy, while the
+> slide a viewer sees is a live iframe the runtime has since mutated (Mermaid inflated, charts
+> drawn, KaTeX typeset). A node from the detached parse is not a node you can point at.
+>
+> **What shipped instead:** resolve LATE, against the live frame, matching the cue's DISPLAY text
+> to the smallest block containing it (`present-guide.ts`). Same property the recommendation was
+> chosen for — every existing deck, zero authoring — with no kernel change, and robust to
+> whatever the runtime did to the DOM after render.
+
 This is the strong option: it works on **every existing deck with zero authoring**, it reuses the
 shared kernel rather than adding a parallel one (HARD RULE #1), and it is exactly "the mouse points
 at relevant slide parts as they are being presented" with no one having to write a tour.
@@ -472,7 +489,7 @@ and a test suite is not evidence for any of it. Live OpenRouter timings cannot b
 sandbox (no key, and HARD RULE #24 keeps ours off the per-PR path), so those numbers are yours to
 run, or mine against a key you supply.
 
-Part 4 (Guide) remains unbuilt. Part 3 shipped with the live measurements above.
+Part 4 (Guide) shipped 2026-08-04 (#1397) — see the correction in §4.2 and the amendment below. Part 3 shipped with the live measurements above.
 
 ## Amendment (2026-08-04): the readiness signal, and why Prepare stopped being a button
 

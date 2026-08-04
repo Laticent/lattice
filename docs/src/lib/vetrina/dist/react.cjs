@@ -118,6 +118,17 @@ function ensureDefaultTokens(doc) {
 var HINT = "click anywhere to take over";
 var EXIT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 function buildDock(doc, caption, placement, onExit) {
+  if (caption === "none") {
+    const dock2 = doc.createElement("div");
+    dock2.className = "vetrina-caption";
+    dock2.setAttribute("aria-hidden", "true");
+    dock2.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;";
+    const narration2 = doc.createElement("span");
+    dock2.appendChild(narration2);
+    return { dock: dock2, narration: narration2, setNarration: () => {
+    }, setProgress: () => {
+    } };
+  }
   const top = placement === "top";
   const glass = "background:var(--vt-caption-bg);color:var(--vt-caption-ink);box-shadow:0 10px 34px rgba(0,0,0,.40);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);";
   const narration = doc.createElement("span");

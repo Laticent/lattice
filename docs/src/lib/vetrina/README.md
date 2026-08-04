@@ -196,6 +196,25 @@ The cost of that guarantee is exactly one frame: a reflow lands after the frame 
 it, so a tracking cue is ~16ms behind during a resize. Momentary bursts (the click spark,
 the anticipation ping) stay snapshot-positioned — they are gone before any of this matters.
 
+### A bare pointer layer — `caption: 'none'`
+
+Every caption style keeps **Exit** reachable, because stranding a viewer inside a running tour
+is the one thing this library will not do. `caption: 'none'` is the deliberate exception, and it
+is not for tours:
+
+```ts
+createStage({ root, onExit, theme: resolveTheme({ caption: 'none' }) });
+```
+
+No dock, no narration, no Exit — just the cursor and its cues. Use it only when the HOST owns
+the chrome and the escape, and nothing awaits user input: a stage driven as a pure pointer layer
+over an app that already has its own controls. Lattice's Guide rung is the case it exists for —
+a cursor pointing at the sentence a narrator is currently speaking, inside a presentation overlay
+that already has Pause and Exit. A second Exit button and a "click anywhere to take over" hint
+there would be chrome competing with chrome.
+
+If your run has beats, narration, or an `awaitUser`, you want one of the four docked styles.
+
 ## Cooperative hand-off — `awaitUser`
 
 Sometimes the tour should stop and let the viewer *do* the thing themselves. That's

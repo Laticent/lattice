@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Monitor, MousePointer2, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
@@ -11,6 +11,7 @@ import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } fr
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import { createStage, resolveTheme, type Stage as VetrinaStage } from '@/lib/vetrina';
 import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
 // The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
 // bundled to the browser via read-along-core — the SAME kernel the CLI/export
@@ -27,6 +28,7 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
+import { cueDisplayText, guideTargetFor } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
@@ -113,6 +115,10 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const [rehearse, setRehearse] = React.useState(false); // Practice mode — folded into Present (plan §line 266)
 	const [elapsed, setElapsed] = React.useState(0); // rehearsal seconds
 	const [captionsOn, setCaptionsOn] = React.useState(true); // CC — show/hide the caption crawl (independent of voice)
+	// GUIDE — the third rung (#1397). CC shows the words, Voice speaks them, Guide points at the
+	// part of the slide being narrated. Independent of both, and off by default: it is a delivery
+	// flourish, not something to surprise a presenter with.
+	const [guideOn, setGuideOn] = React.useState(false);
 	const [muted, setMuted] = React.useState(true); // Voice — muted by default (boardroom-safe); captions still run on the silent cadence
 	// Quiet Bloom (S4): the chrome is quiet at rest (Play + position + section title + thin
 	// rail) and BLOOMS the arrows / CC / Voice / caption on intent (pointer move, wheel, key,
@@ -124,6 +130,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// current chart, re-pinned after each slide render (onRender → onSlide), plus number-key reveal
 	// routed through the presenter key handler. The card is the positioning stage; the frame lives in it.
 	const cardRef = React.useRef<HTMLDivElement>(null);
+	const dialogRef = React.useRef<HTMLDivElement>(null);
 	const chartDetailRef = React.useRef<ChartDetailHandle>(null);
 
 	// Reader projection — FAIL CLOSED (design §6.3). A registry (tag-driven) lens routes through the
@@ -626,6 +633,98 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		// rather than up to 2s later.
 	}, [open, muted, readinessSentences, windowStart, windowEnd]);
 
+	// ── THE GUIDE RUNG (#1397) ───────────────────────────────────────────────────────────────
+	//
+	// A Vetrina cursor that points at the part of the slide currently being narrated. Two things
+	// decide whether it feels right, and both are architectural rather than cosmetic.
+	//
+	// ONE CONDUCTOR. Read-aloud owns the clock. There is no timer anywhere in here: the cursor
+	// moves when `reader.active.cueIndex` changes and at no other time. Vetrina's storyboard
+	// would have paced itself on its own `readMs` dwell, and two clocks over one narration drift
+	// apart WITHIN a slide — the cursor ends up pointing at the sentence before or after the one
+	// being spoken, which is worse than not pointing at all. So this drives the bare stage, not
+	// a walkthrough, and when synthesis stalls the cursor simply holds where it is.
+	//
+	// CROSS-FRAME. The slide is a same-origin iframe and Vetrina's stage never enters one. The
+	// target is a `RectSource` (the #1400 widening) backed by the shared frame-geometry bridge,
+	// so the library still knows nothing about iframes and the Studio supplies the mapping.
+	const guideStageRef = React.useRef<VetrinaStage | null>(null);
+	const guidePointRef = React.useRef<AbortController | null>(null);
+	const guideLive = open && guideOn && !rehearse;
+	React.useEffect(() => {
+		if (!guideLive) return;
+		const host = dialogRef.current;
+		if (!host) return;
+		// `caption: 'none'` — a bare pointer layer. Present already owns its chrome and its exit;
+		// a second Exit button and a "click anywhere to take over" hint would be chrome competing
+		// with chrome. Guide never drives the deck, so there is nothing to take over FROM.
+		// Two theme choices, both made by looking at it on the real surface rather than by taste:
+		//
+		// `cues: { anticipate: false }` — no streak. In a walkthrough the anticipation sweep leads
+		// the eye across a whole app once per beat; here the cursor moves a short distance several
+		// times per SLIDE, and a light streak drawn across the deck on every sentence reads as a
+		// scratch on the slide rather than as guidance.
+		//
+		// `speed: 'fast'` — the cursor must not trail the voice. `point()` spends a "register
+		// beat" before it glides, which exists because in a walkthrough the viewer reads the
+		// caption FIRST and the cursor follows. Guide inverts that: the narration is already
+		// speaking, so the same pause lands the cursor on a sentence the voice has half finished.
+		// `fast` scales both the register beat and the glide by 0.72, which is the in-API lever
+		// for this and keeps the motion curve the library curates.
+		const stage = createStage({ root: host, onExit: () => setGuideOn(false), theme: resolveTheme({ accent: 'var(--accent, #2b6ef2)', caption: 'none', pointer: 'arrow', speed: 'fast', cues: { anticipate: false } }) });
+		guideStageRef.current = stage;
+		return () => {
+			guidePointRef.current?.abort();
+			guidePointRef.current = null;
+			guideStageRef.current = null;
+			stage.destroy();
+		};
+	}, [guideLive]);
+
+	// Move on the reader's beat. Abort any glide still in flight first: a cue change while the
+	// cursor is mid-travel must retarget, not queue up behind it and arrive two sentences late.
+	const activeCue = reader.active?.cueIndex ?? -1;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the reader's cue index IS the trigger; track/frame are read at fire time on purpose.
+	React.useEffect(() => {
+		const stage = guideStageRef.current;
+		if (!stage || activeCue < 0) return;
+		const text = cueDisplayText(reader.track.cues[activeCue]);
+		const target = text ? guideTargetFor(() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null, text) : null;
+		if (!target) return; // nothing on the slide says this (a speaker note) — hold, never guess
+		guidePointRef.current?.abort();
+		const ctl = new AbortController();
+		guidePointRef.current = ctl;
+		stage.point(target, ctl.signal).catch(() => {}); // an abort here is a retarget, not an error
+	}, [activeCue, guideLive]);
+
+	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
+	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),
+	// only while Guide is live, back INSTANTLY on any movement, and re-hidden after a few seconds
+	// of stillness so bumping the mouse does not kill the effect for the rest of the deck.
+	const [pointerHidden, setPointerHidden] = React.useState(false);
+	React.useEffect(() => {
+		if (!guideLive) {
+			setPointerHidden(false);
+			return;
+		}
+		let idle = 0;
+		const arm = () => {
+			window.clearTimeout(idle);
+			idle = window.setTimeout(() => setPointerHidden(true), 3000);
+		};
+		const onMove = () => {
+			setPointerHidden(false);
+			arm();
+		};
+		window.addEventListener('pointermove', onMove, { passive: true });
+		arm();
+		return () => {
+			window.clearTimeout(idle);
+			window.removeEventListener('pointermove', onMove);
+			setPointerHidden(false);
+		};
+	}, [guideLive]);
+
 	// The rail's prefetch edge: per-slide fractions collapsed into one contiguous front, floored
 	// at the progress edge so an LRU eviction behind the playhead can never draw the buffer
 	// trailing playback.
@@ -902,12 +1001,17 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			<div
 				aria-hidden="true"
 				className="lx-ui fixed inset-0 z-[100] bg-background"
+				// The real pointer hides ONLY here and on the slide card — never on the dock, so
+				// Pause is always findable. It returns on the first `pointermove` (the listener
+				// above), before anything else happens.
+				style={pointerHidden ? { cursor: 'none' } : undefined}
 				onPointerMove={wake}
 				onWheel={onWheel}
 				onTouchStart={onTouchStart}
 				onTouchEnd={onTouchEnd}
 			/>
 			<div
+				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-label="Present"
@@ -988,7 +1092,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						<div ref={cardRef} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+						<div ref={cardRef} style={pointerHidden ? { cursor: 'none' } : undefined} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<DeckPreview focused options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
@@ -1089,6 +1193,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 							    reads as the control itself becoming a different control. Buffering
 							    is reported on the rail, where it belongs. */}
 							<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button></Tip>
+							<Tip label="Guide — point at what is being narrated"><button type="button" onClick={() => setGuideOn((v) => !v)} aria-pressed={guideOn} aria-label={guideOn ? 'Guide on — turn off to stop pointing at the narrated text' : 'Guide off — turn on to point at the narrated text'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', guideOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}><MousePointer2 className="size-3.5" /><span className="hidden sm:inline">Guide</span></button></Tip>
 						</div>
 					)}
 				</div>
