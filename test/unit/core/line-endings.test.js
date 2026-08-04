@@ -20,14 +20,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../../../lib/engine/index.js');
-const palette = require('../../../lib/core/resolve-palette.js');
+const { resolvePalette } = require('../../../lib/core/resolve-palette.js');
 
 /** The boundary every entry point applies: `lattice-emulator.js` readFileOrDie, the
  *  Studio's importDeckFromText. `\r\n?` covers Windows CRLF *and* classic-Mac lone CR in
  *  one pattern — same cost as `\r\n`, strictly more coverage. */
 const normalize = (s) => s.replace(/\r\n?/g, '\n');
-
-const resolvePalette = palette.resolvePalette ?? palette.default ?? Object.values(palette).find((v) => typeof v === 'function');
 
 // A deck that exercises what line endings can break: front matter (the #1349 surface), a
 // slide separator, a directive comment, and a fenced block whose content must survive.

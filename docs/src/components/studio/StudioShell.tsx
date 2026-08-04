@@ -1348,7 +1348,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Open a deck source into a fresh deck. `comments` (from a .lattice import) are
 	// restored onto the NEW deck id so they travel with the file. Returns nothing;
 	// notifies on success.
-	function openImportedDeck(text: string, title: string, comments?: unknown) {
+	function openImportedDeck(rawText: string, title: string, comments?: unknown) {
+		// THE STUDIO'S LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel — not in a
+		// caller. Deck source reaches this function two ways: a plain `.md` via `file.text()`,
+		// and a `.lattice` zip whose `deck.md` carries whatever the machine that exported it
+		// wrote. A first cut normalized only the `.md` caller and called the boundary covered,
+		// which is the same mistake that produced #1349: fix the path you were looking at,
+		// declare the class closed. Everything downstream (the editor, ~55 register kernels,
+		// every export) assumes LF. `\r\n?` covers Windows CRLF and classic-Mac lone CR, and is
+		// a no-op on text that is already LF.
+		const text = rawText.replace(/\r\n?/g, '\n');
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
 		saveSourceGuarded(deck.id, source);
 		const d = createDeck(title || titleFromSource(text), text);
@@ -1363,15 +1372,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setView('compose');
 		notify(`Imported “${d.title}”.`);
 	}
-	// THE STUDIO'S LINE-ENDING BOUNDARY. Deck source arrives here from a dropped/opened file
-	// (`file.text()`), which preserves whatever the author's OS wrote — CRLF from Windows,
-	// lone CR from a classic-Mac-era file. Everything downstream (the editor, every register
-	// kernel, the exports) assumes LF, so normalize once here rather than making ~55 readers
-	// each remember `\r?`. That design is what let a CRLF deck export in the wrong palette
-	// (#1349). `\r\n?` covers both conventions; it is a no-op on LF text.
+	// Normalization happens in `openImportedDeck` (the funnel both import paths cross), so
+	// this caller does not repeat it — `titleFromSource` reads a heading, which no line-ending
+	// convention affects.
 	function importDeckFromText(text: string) {
-		const src = text.replace(/\r\n?/g, '\n');
-		openImportedDeck(src, titleFromSource(src));
+		openImportedDeck(text, titleFromSource(text));
 	}
 	function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0];
