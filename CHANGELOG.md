@@ -68,6 +68,24 @@ in patch versions.
 
 ### Fixed
 
+- **The decorative status glyph no longer reaches a screen reader.** `.chart-status` injects a
+  ✓/✗/◆/!/– before the status word as a redundant VISUAL channel — it restates the status in shape,
+  so the meaning survives grayscale print and a reader who cannot separate the status colors. It was
+  also being announced, turning `on-track` into "check mark on-track" for the one user who gains
+  nothing from the shape. The `speak: never` that was meant to prevent that was broken twice over:
+  `never` is outside the aural grammar Chromium implements, so the declaration was dropped at parse
+  time, and `speak` has no effect on the accessibility tree in any current engine, so the spelling
+  Chromium does parse would have changed nothing either. The glyphs now carry CSS `content` alt text
+  (`content: "\2713\00a0" / ""`), which keeps them painted and sized with the type while exposing
+  nothing to assistive tech. Each glyph is declared twice — the plain form first, the alt form
+  second — because an engine that cannot parse the alt form drops the WHOLE declaration and would
+  otherwise lose the glyph entirely, deleting the grayscale-safe shape channel on exactly the
+  stylesheets that exist to provide it. Measured over the real accessibility tree on a real rendered
+  export, on both the print surface and the `a11y-achromatopsia` theme: four announced glyph nodes
+  before, zero after, with the painted glyph the same width. The matching `speak: never` sanction is
+  retired from the `css:values` gate, which leaves its "known defect" shape with no occupants. See
+  `engineering/decisions/2026-08-04-status-glyph-alt-text.md`.
+
 - **The decision index stopped dropping summaries written as folded YAML.** 59 of 346 notes
   rendered an index row with no summary, because the generator parsed front matter as flat
   `key: value` lines — so `summary: >` came back as the literal string `>`, which is non-empty and
