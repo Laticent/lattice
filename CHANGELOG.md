@@ -100,9 +100,10 @@ in patch versions.
   successive textual versions with trivial selector reformulations. (#1346)
 - **The kit's `NOTICE.md` told recipients "if you only want to make decks, nothing about this
   constrains you," and that is too broad for one of the two render routes.** Measured on a real
-  marp-cli render rather than reasoned about: `marp --pdf` carries **no engine code at all** (no CSS
-  rule, no `@theme` directive survives), while `marp --html` inlines **~852 KB of engine stylesheet**
-  into the output file — the runtime JS stays external, so it is the stylesheet alone. Lattice's output exception is written for assets *Lattice's own export pipeline*
+  marp-cli render rather than reasoned about: `marp --pdf` and `marp --pptx` carry **no engine code
+  at all** (every PDF stream decompressed; all 81 PPTX entries searched), while `marp --html` inlines
+  **~852 KB of engine stylesheet** into the output file — the runtime JS stays external, so it is the
+  stylesheet alone. `--pptx-editable` is marked UNMEASURED rather than assumed. Lattice's output exception is written for assets *Lattice's own export pipeline*
   embeds; a marp-cli render is not that, so on a literal reading publishing a `marp --html` file
   conveys engine object code outside the exception — via the exact workflow the kit ships to enable.
   The notice now states that precisely instead of reassuringly. **The grant itself is unchanged:**

@@ -35,7 +35,15 @@ each output:
 | Route | Engine CSS in the output | Engine JS in the output |
 |---|---|---|
 | `marp --pdf` | **none** — no CSS rule, no `@theme` directive survives, confirmed by decompressing every stream in the file | none |
+| `marp --pptx` | **none** — the deck ships as 13 slide PNGs at 2560×1440. All 81 zip entries searched for `@theme`, `panel-left`, `var(--`, `@font-face`, `font-family` and `lattice`: zero hits, and no embedded fonts | none |
 | `marp --html` | **851,652 characters in one `<style>` element** — the full engine bundle, Marpit-scoped (larger than `lattice.min.css` on disk at 571,643 bytes / 571,517 characters, because scoping expands every selector) | **none** — the runtime stays an external `<script src="lattice-runtime.min.js">` |
+
+**`marp --pptx --pptx-editable` is UNMEASURED.** That variant converts through
+LibreOffice, which fails on this deck in the sandbox ("source file could not be
+loaded"), so nothing is claimed about it either way. It is a different
+representation — real shapes and text rather than one PNG per slide — so it is
+the one route where the answer could plausibly differ, and it is the obvious
+next measurement for anyone who can run it.
 
 > **Three corrections from the adversarial pass, all in this table.** It first
 > said "4.3.1" — but `MARP_CLI_RANGE` is a *range*, and the measurement was made
@@ -51,10 +59,12 @@ each output:
 
 Three consequences, and they are narrower than the original framing:
 
-1. **PDF and PPTX carry no engine object code at all.** A user who renders to PDF
-   and mails it around is outside this question entirely — no exception needed,
-   because nothing of ours is being conveyed. (The embedded *fonts* are third
-   party under MIT/OFL and are handled separately by `NOTICE.md`.)
+1. **PDF and PPTX carry no engine object code at all** (the default PPTX route;
+   `--pptx-editable` is unmeasured, above). A user who renders either and mails
+   it around is outside this question entirely — no exception needed, because
+   nothing of ours is being conveyed. The PDF does embed font *subsets* of the
+   third-party faces, which the OFL and MIT both permit in a document; the PPTX
+   embeds no fonts at all. Those are handled separately by `NOTICE.md`.
 2. **Only `marp --html` inlines the engine**, and only the **CSS**. The runtime
    JavaScript is referenced, not embedded, so the AGPL-object-code question is
    about the stylesheet alone.
