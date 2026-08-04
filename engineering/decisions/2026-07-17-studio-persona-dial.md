@@ -587,3 +587,17 @@ commit per milestone, the adversarial trio after each. Status:
   title + content slides both show their full top/bottom. (Not unit-tested: jsdom
   has no layout, so the observer can't compute there — this is a HARD RULE #23
   real-surface verification.)
+- **Amendment (2026-08-04) — R8's never-icon-only rule was broken, then restored.**
+  #1380 fixed a real tablet-header overflow (#1381) by taking the width out of the
+  dial: below 1100px it rendered icon-only, reclaiming 103px. That is exactly the
+  trade R8 above forbids — *"the dial never degrades to icon-only; at tight widths,
+  yield other chrome before the dial's labels"* — and the reason R8 gave held up in
+  practice: on a touch tablet the words were not merely hidden but **unreachable**,
+  because the tooltip carrying them is hover-only (Radix returns early on
+  `pointerType === 'touch'`) and the tablet ⋯ menu has no Read/Write/Build rows.
+  #1401 restores the rule and pays for it the way R8 prescribed — by yielding OTHER
+  chrome: the guided tours move into ⋯ below desktop, and the row runs at the
+  phone's density there (~122px between them, 35px spare at the 700px floor, with
+  the deck title measuring *wider* than it did under the icon-only dial). The fit is
+  now held by a `@smoke` Playwright spec on the blocking gate rather than by desk
+  arithmetic — `check:overflow` measures it too, but is `continue-on-error`.

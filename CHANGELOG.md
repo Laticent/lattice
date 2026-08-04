@@ -931,29 +931,26 @@ in patch versions.
 
 ### Fixed
 
-- **Studio: the tablet header no longer runs off its own viewport, and the ⋯ Menu stays reachable.**
-  The top bar is one non-wrapping flex row in which every control is `shrink-0` except the deck
-  switcher, so once the title truncated to its floor the row had no give left and simply overflowed:
-  at the 700px floor of the `tablet` breakpoint it wanted 787px and pushed the ⋯ Menu clean off the
-  screen — and on a tablet that menu is the only route to Library, Reader views, Workspace settings
-  and the theme picker. The reclaim comes from the row's largest item: the **posture dial is now
-  icon-only below desktop** (219px labeled → 116px), keeping its three distinct icons and its
-  per-stop `aria-label`, with the Read/Write/Build words returning at 1100px. **Be clear about
-  what that costs**: assistive tech is unaffected (each stop keeps its accessible name and
-  `aria-pressed`), but a sighted TOUCH user between 700 and 1099px now has no way to read those
-  words at all — the tooltip that carries them is hover-only (Radix returns early on
-  `pointerType === 'touch'`), and the ⋯ menu has no Read/Write/Build rows. That is a real
-  downgrade for tablet, accepted because the alternative it replaces is worse: the ⋯ Menu — the
-  only route to Library, Reader views and Workspace settings on a tablet — was off the screen
-  entirely. Icon-only at tablet is at least the row's existing idiom (Present and Share drop their
-  labels below 1024 the same way), though those are conventional glyphs and this is a three-way
-  mode dial.
-  Every width from 700 up now fits with zero overflow, and the ~103px goes back to the deck title —
-  the user's orientation — which at 820px grows from nothing to 82px and at 1024px from 87px to its
-  full 188px. Gated on the app's own `compact` breakpoint, the same source of truth as the wordmark
-  beside it. The six protected 1-tap controls (Present, Share, Coach, Chat, Settings, pane toggle)
-  were never candidates for the ⋯ menu, which is what made the dial the place the width had to come
-  from. Fixes #1381.
+- **Studio: the top bar fits at every supported width, and Read / Write / Build stay WORDS on
+  tablet as well as desktop.** The bar is one non-wrapping flex row in which every control is
+  `shrink-0` except the deck switcher, so once the title truncated to its floor the row had no
+  give left and simply overflowed: at the 700px floor of the `tablet` breakpoint it wanted 787px
+  and pushed the ⋯ Menu clean off the screen — and on a tablet that menu is the only route to
+  Library, Reader views, Workspace settings and the theme picker. The 87px it was short comes from
+  the row's own slack, not from the posture dial: **the guided tours moved into ⋯ below desktop**
+  and **the whole row runs at the phone's density there** (6px gaps, 10px side padding), which
+  between them free ~122px and leave 35px spare at the 700px floor. The dial keeps its words at
+  every width it renders at. An interim fix took the width out of the dial instead (icon-only
+  below 1100px) and that was the wrong trade, for a reason worth writing down: on a touch tablet
+  those words became **unreachable, not merely hidden** — the tooltip that carries them is
+  hover-only (Radix returns early on `pointerType === 'touch'`) and the ⋯ menu has no
+  Read/Write/Build rows — and unlike ▶ Present or the share glyph, a three-way *mode* control
+  whose icons are book / pencil / layers has no conventional reading. Assistive tech was never
+  affected either way (every stop keeps its `aria-label` and `aria-pressed`); the cost fell
+  specifically on sighted touch. Below 700px the dial is not in the header at all — the phone
+  carries the density on its own pane bar — so phones are unaffected. The six protected 1-tap
+  controls (Present, Share, Coach, Chat, Settings, pane toggle) were never candidates for ⋯, and
+  none of them moved. Fixes #1381, #1401.
 
 - **`check:overflow` now measures rows that clip, not just pages that grow.** The guard asserted
   `documentElement.scrollWidth <= clientWidth`, which is blind to the failure above: a too-wide row
@@ -966,8 +963,14 @@ in patch versions.
   matches NOTHING is reported as a miss rather than passing silently — the same disguised-coverage
   hole this script already closed for its interaction steps. The breakpoint set also gains
   **`tablet-floor` (700px)**: testing a band only at its widest point tests the case least likely to
-  break. Note the step is `continue-on-error` in CI and so cannot block a merge; the blocking cover
-  for the icon-only dial is a unit test in the required tier.
+  break. Note the step is `continue-on-error` in CI and so cannot block a merge — which is why the
+  header's fit is *also* asserted by a `@smoke` Playwright spec, in a real browser, at eight widths
+  from 700 to 1440 (`e2e/studio-header-fit.spec.ts`). Be exact about what that buys: `studio-smoke`
+  is itself advisory — deliberately absent from the required gate's `needs` until a nightly green
+  streak earns promotion (#800) — so it reports on the PR path but does not block either. The only
+  MERGE-BLOCKING cover is still the jsdom unit tier, which can assert what the header *renders* but
+  never that it *fits*. Both browser oracles were mutation-tested: reintroducing the icon-only dial
+  reddens the words assertion, and reverting the density purchase reddens the fit assertion.
 
 ### Changed
 

@@ -1161,15 +1161,23 @@ describe('StudioShell — Show me has ONE launcher per tier', () => {
 	});
 });
 
-describe('StudioShell — the posture dial sheds its words below desktop', () => {
-	// #1381. The dial is the largest item in a top bar that had 87px more content
-	// than viewport at the 700px floor of `tablet`, so below desktop it renders
-	// icon-only and the ⋯ Menu stays on screen. The geometry lives in
-	// `check:overflow` — but that step is `continue-on-error` in CI, so it can go red
-	// without blocking anything. This tier DOES block, so the behavior it guards is
-	// the one thing jsdom can actually hold: the words are present at desktop, gone
-	// below it, and the accessible name survives either way (the words are the only
-	// thing that goes — never the name).
+describe('StudioShell — the posture dial keeps its words at every width it renders at', () => {
+	// INVERTED from "sheds its words below desktop" (#1401), deliberately kept rather
+	// than deleted: this describe is the BLOCKING cover for the behavior, and the
+	// behavior reversed. The icon-only dial #1381 shipped reclaimed real width (219px
+	// labeled vs 116px), but it took it from the one control in the row that could not
+	// survive it — on a touch tablet the words became unreachable, not merely hidden
+	// (Radix's tooltip returns early on `pointerType === 'touch'`, and the tablet ⋯ menu
+	// has no Read/Write/Build rows). The 87px comes out of the row's own slack now.
+	//
+	// The geometry — does the row actually FIT with the words back — is not something
+	// jsdom can answer: it has no layout. Two browser oracles measure it on the PR path
+	// (`check:overflow`, and `e2e/studio-header-fit.spec.ts` at eight widths) and NEITHER
+	// can fail a merge: the first is `continue-on-error`, and `studio-smoke` is absent
+	// from the required gate's `needs` until a nightly green streak promotes it (#800).
+	// So this tier is still the only blocking cover. What it holds is the part jsdom can:
+	// the words are rendered at every width the dial appears at, and each stop keeps
+	// its accessible name (the name never depended on the words, and still doesn't).
 	const STOPS = [
 		['Read — just the slides', 'Read'],
 		['Write — editor + preview', 'Write'],
@@ -1184,12 +1192,23 @@ describe('StudioShell — the posture dial sheds its words below desktop', () =>
 		}
 	});
 
-	it('tablet renders icons only — and every stop keeps its accessible name', () => {
+	it('tablet renders the words too — and every stop keeps its accessible name', () => {
 		setViewport('tablet');
 		setup();
 		for (const [name, word] of STOPS) {
-			const b = screen.getByRole('button', { name }); // the name is the assertion: it survives
-			expect(b.textContent).not.toContain(word);
+			const b = screen.getByRole('button', { name }); // the name survives either way
+			expect(b.textContent).toContain(word);
+		}
+	});
+
+	it('mobile has no dial in the header at all — the pane bar carries the density there', () => {
+		// The floor of this behavior: below 700 the dial is `!mobile`-gated out of the
+		// header, so "words at every width" is a claim about ≥700 only. Without this the
+		// suite could not tell "renders words" from "renders at all" on a phone.
+		setViewport('mobile');
+		setup();
+		for (const [name] of STOPS) {
+			expect(screen.queryByRole('button', { name })).toBeNull();
 		}
 	});
 });

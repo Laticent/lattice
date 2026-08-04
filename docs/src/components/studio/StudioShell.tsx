@@ -3287,7 +3287,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    sit at the SAME x at Read, Write and Build. Drop either the divider or the
 				    feedback button here and the whole cluster slides on every dial step. */}
 				<Separator orientation="vertical" className="h-5" />
-				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} labeled />
+				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
 				{feedbackButton}
 			</header>
 			) : (
@@ -3417,10 +3417,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* The posture dial — the always-visible, reversible way to any stop. Present
 				    at every stop (never a buried setting), so no stop can read as a room you
 				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
-				{/* `labeled` on DESKTOP only — same `compact` gate as the wordmark above, and
-				    the same reason: below 1100 the row has no width to spend on words. The slim
-				    Read/Write header renders on desktop only, so it always passes `labeled`. */}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} labeled={!compact} />}
+				{/* WORDS AT EVERY WIDTH THIS RENDERS AT (≥700px). The dial shipped icon-only
+				    below 1100 for one release and that was the wrong trade (#1401): on a touch
+				    tablet the words became UNREACHABLE, not merely hidden — Radix's tooltip
+				    returns early on `pointerType === 'touch'` and the tablet ⋯ menu has no
+				    Read/Write/Build rows — and unlike ▶ Present or the share glyph, a three-way
+				    MODE control whose icons are book / pencil / layers has no conventional
+				    reading. The width it costs is bought elsewhere in this row instead: the
+				    tours moved into ⋯ and the row runs at the phone's density below desktop.
+				    Below 700 the dial is not in the header at all (`!mobile`) — the phone
+				    carries the density on its own pane bar. */}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -3952,7 +3959,7 @@ const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.Rea
 	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
 	{ id: 'build', label: 'Build', hint: 'Build — every panel', icon: <Layers className="size-4" /> },
 ];
-function PostureDial({ posture, quietened, revealBuild, onChange, labeled }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void; labeled: boolean }) {
+function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void }) {
 	// Light the EFFECTIVE stop — a transient reveal shows Build, a quiet shows Write —
 	// so the dial always matches the surface you're looking at, then re-lights your
 	// saved stop when the transient recedes.
@@ -3970,16 +3977,14 @@ function PostureDial({ posture, quietened, revealBuild, onChange, labeled }: { p
 				return (
 					<Tip key={s.id} label={lit && transient ? `${s.hint} · showing now — click to make it your saved home` : s.hint}>
 						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-card text-[var(--accent)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-card text-[var(--accent)] shadow-sm') : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
-							{/* The words are DESKTOP-ONLY (#1381). Below 1100 this row is over budget:
-						    at its 700px floor the header wanted 787px and pushed the ⋯ Menu — the
-						    only way to Library / Reader views / Workspace settings on a tablet —
-						    clean off the screen. The dial is the single largest item in it (219px
-						    labeled vs 116px not), and the six protected 1-tap controls
-						    (Present/Share/Coach/Chat/Settings/pane toggle) may not move into ⋯, so
-						    this is where the 87px has to come from. The icons are distinct, every
-						    stop keeps its tooltip and its `aria-label`, and the reclaim goes back to
-						    the deck title — the user's orientation — at every compact width. */}
-						{s.icon}{labeled && <span>{s.label}</span>}
+							{/* The words are not optional. They shipped as desktop-only for one release
+							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
+							    the one control in this row that cannot survive it: a touch user between 700
+							    and 1099px had NO route to these words, since the tooltip carrying them is
+							    hover-only and the tablet ⋯ menu has no Read/Write/Build rows. The 87px now
+							    comes out of the row's own slack instead (#1401): the guided tours moved into
+							    ⋯ below desktop, and the whole row runs at the phone's density there. */}
+						{s.icon}<span>{s.label}</span>
 						</button>
 					</Tip>
 				);
