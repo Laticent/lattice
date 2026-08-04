@@ -133,6 +133,21 @@ function tier(label, baseRows = [], headRows = [], band, scale = 1, unit = 'ms')
 		const eff = Math.min(raw, CAP);
 		const capped = raw > CAP;
 		const d = ((h.ms - b.ms) / b.ms) * 100;
+		// A NON-FINITE delta means a zero or missing base — a dataset that measured nothing. And a
+		// COLLAPSE (head far below base) is not a win to celebrate: a rasterize cycle that reads
+		// -95% has almost certainly stopped rasterizing. `engine-bench` swallows page-load failures
+		// (`setContent(...).catch(() => {})`) and then screenshots zero sections, which reports as a
+		// very fast run. Both were reported as `ok` and exited 0.
+		if (!Number.isFinite(d)) {
+			regressed = true;
+			out.push(`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | — | — | **NOT MEASURED** — non-finite delta, a base of zero or a dataset that produced nothing |`);
+			continue;
+		}
+		if (d < -90) {
+			regressed = true;
+			out.push(`| \`${name}\` | ${fmt(b)} | ${fmt(h)} | ${d.toFixed(1)} | ±${eff.toFixed(0)} | **WORKLOAD COLLAPSED** — too fast to be real; the tier likely stopped doing its work |`);
+			continue;
+		}
 		const bad = d > eff;
 		if (bad) regressed = true;
 		compared += 1;
@@ -142,10 +157,36 @@ function tier(label, baseRows = [], headRows = [], band, scale = 1, unit = 'ms')
 	}
 }
 
+/**
+ * EXIT 2 ON A CRASH, NOT 1. Exit 1 is the workflow's "a tier regressed" code, so an internal
+ * TypeError — a future bench summary shape, an unexpected null — was filed as a `priority:high`
+ * perf regression whose entire body was a run link, because the crash happened before the report
+ * was ever written. A tool that fell over has learned nothing about performance.
+ */
+try {
 out.push('# Engine / export perf — head vs base, same runner\n');
 tier('Engine render (markdown → HTML+CSS)', base.render?.summary, head.render?.summary, BAND.render);
 tier('Export / rasterize (screenshot every slide)', base.export?.summary, head.export?.summary, BAND.export, 1000, 's');
 tier('Print re-place (rasterize + assemble)', base.print?.summary, head.print?.summary, BAND.export, 1000, 's');
+
+/**
+ * A TIER THAT VANISHED FROM BOTH ARMS IS NOT ABSENCE OF NEWS. `tier()` returns early when neither
+ * arm has rows, which is right for `--print` (deliberately not run) and catastrophically wrong for
+ * a tier that was supposed to run and broke. And the base arm runs HEAD'S harness by design (the
+ * overlay fix), so a head-side breakage of `exportTier` — a renamed key, a throw, an empty dataset
+ * filter — hits BOTH arms identically. DATASET DRIFT, the guard built for exactly this, can never
+ * fire on it: drift compares names WITHIN a tier that has rows.
+ *
+ * That is the blessed-but-never-read hole recurring inside the mechanism built to close it. So the
+ * tiers this run was ASKED to produce are named up front and their absence is an alarm.
+ */
+const EXPECTED = ['render', 'export'];
+const missing = EXPECTED.filter((k) => !(head[k]?.summary?.length || base[k]?.summary?.length));
+if (missing.length) {
+	regressed = true;
+	out.push(`\n**A TIER THAT SHOULD HAVE RUN PRODUCED NOTHING: \`${missing.join('`, `')}\`.** Both arms are empty, so no per-dataset drift row can appear — the tier did not silently regress, it silently stopped being measured. The base arm runs head's harness, so a head-side break shows up on both sides and looks like agreement.`);
+}
+out.push(`\n_Tiers measured: ${EXPECTED.filter((k) => !missing.includes(k)).join(', ') || 'none'}${head.print?.summary?.length ? ', print' : ' · print not run (on-demand, `bench --print`)'}._`);
 
 if (!compared) {
 	// The state the first cut reported as "No tier regressed": both arms produced nothing, or every
@@ -159,6 +200,10 @@ if (!compared) {
 	out.push(`\nNo tier regressed past its band (${compared} dataset${compared === 1 ? '' : 's'} compared).`);
 }
 
-fs.writeFileSync(arg('--md') ?? 'engine-perf.md', `${out.join('\n')}\n`);
-console.log(out.join('\n'));
+	fs.writeFileSync(arg('--md') ?? 'engine-perf.md', `${out.join('\n')}\n`);
+	console.log(out.join('\n'));
+} catch (err) {
+	console.error(`perf-nightly-compare: crashed while comparing — ${err?.stack || err}`);
+	process.exit(2);
+}
 process.exit(regressed ? 1 : 0);

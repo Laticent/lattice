@@ -265,7 +265,8 @@ Present overlay, or any deck already on the slow route.
 
 | surface | guarded by |
 |---|---|
-| Studio preview render — editor typing | work-counter gate (PR) + RENDER ceiling (nightly) |
+| Studio preview render — editor typing | work-counter gate (PR) + RENDER/TOTAL/FRAME ceilings (nightly) |
+| Studio preview render — rail navigation | RENDER/TOTAL/FRAME ceilings (nightly) — no PR gate |
 | Studio preview render — overview grid, Present | **nothing** |
 | in-frame DOM write | FRAME ceiling (nightly) |
 | in-frame runtime pass | only via TOTAL — no isolated metric exists |
@@ -288,11 +289,18 @@ one probe** (#1333). So whoever lands that optimization finds this gate red, and
 green it — move the row into `FAST_ROUTE` — deletes the suite's only control, leaving a gate that
 passes just as well if the route logic always answers "slice". The ratchet ages into a lock.
 
-Fixed by making the control **unsliceable by construction**: `glossary: auto` appends a derived
-appendix slide, changing the deck's SLIDE COUNT, so no prefix scan can ever serve it and
-`wholeDeck === 1` is permanently true. The running-header row stays as a *tracked cost* whose
-failure message says going red is the win landing, not a regression. Mutation-checked: neutering the
-route logic to always answer "slice" fails both control rows and nothing else.
+Fixed by moving the control to `glossary: auto`, whose appendix slide changes the deck's slide
+count. The running-header row stays as a *tracked cost* whose failure message says going red is the
+win landing, not a regression.
+
+**And that fix was itself wrong, in the same way, one level down — caught by re-running the trio
+after merge.** The fixture was `glossary: auto` with **no `acronyms:` registry**, and
+`lib/core/glossary-auto.mjs` returns the source byte-identical when there are no entries. So nothing
+was appended, the slide count did *not* change, and "unsliceable by construction" was false of the
+very artifact asserting it — the control held only because the probe is a text match on the trigger.
+Tightening that probe to the actual fact is a legitimate optimization that would have turned the
+control red, with a comment above it saying that could never happen. The fixture now carries a real
+`acronyms:` entry so the claim is true of it. Verified: 1680 bytes in, 1680 out, before the fix.
 
 **What it left standing, and why.** Three findings are recorded rather than fixed, because they are
 real but not merge-blocking:
@@ -310,9 +318,12 @@ real but not merge-blocking:
   (`engine-bench --ab <ref>`) would resolve ~10% instead of a doubling, in ~30s, with no worktree
   and no comparator — and could plausibly gate a PR. That is the better design and it is not what
   shipped.
-- **Guarding the fast path was the visible problem, not the hurting one.** 30% of committed decks
-  are on the slow route today. Engine render is ~0.1% of an emulator export. The nightly spends
-  ~20 min/night on the most-measured, least-impactful surface at the coarsest resolution.
+- **Guarding the fast path was the visible problem, not the hurting one.** A large share of decks
+  sit on the slow route today — **54 trip the running-global probe and nothing else** (#1333), which
+  is the figure that reproduces. An earlier draft said "30% of committed decks"; that one does NOT
+  reproduce (re-measured at 9.8% / 23.6% / 22.8% depending on which corpus you take, and no corpus
+  definition in the repo yields 30%). Engine render is ~0.1% of an emulator export. The nightly
+  spends ~20 min/night on the most-measured, least-impactful surface at the coarsest resolution.
 
 If `[perf-nightly-engine]` fires zero true positives and at least one harness-failure false positive
 in six months, the right move is to delete the two bench arms and the comparator and keep the

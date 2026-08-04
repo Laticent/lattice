@@ -209,7 +209,7 @@ in patch versions.
   regression. But the regression that actually hurt is a **count**, not a duration: one keystroke
   re-parsing forty slides instead of one. `docs/src/lib/preview-work-budget.test.ts` asserts that
   count — one render, zero whole-deck parses, position supplied — for the plain, paginated and
-  divider-gallery deck shapes, with a running-`header:` deck as the control that proves the gate
+  divider-gallery deck shapes, with a `glossary: auto` deck as the control that proves the gate
   can distinguish routes. It runs in the docs tier, which `ci.needs` requires, so it hard-fails a
   PR; and it is mutation-checked in both directions (reintroduce the pre-#1280 divider probe → the
   gallery rows fail; neuter the supplied position → the position rows fail).

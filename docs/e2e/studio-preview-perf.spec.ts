@@ -108,7 +108,18 @@ const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (
  * and left gallery navigation only 2.2x of headroom, a false alarm waiting for a slow runner.
  *
  * Ceilings never need re-blessing per machine — that is the point of a budget over a baseline.
+ *
+ * A MACHINE TOKEN (`BREACH_TOKEN` below) is how the nightly tells a real breach from a broken
+ * harness. It used to grep the failure log for the word "ceiling" — which also appears in the
+ * NO-PATCH-RENDERS assertion below and in prose like this, so any harness failure that printed a
+ * code frame was filed as "a per-keystroke p50 went past its budget" about a p50 nothing measured.
+ *
+ * The token is BUILT, not written literally, and this comment does not spell it — because a comment
+ * containing it would be matched by the very grep it explains, which is the same class of bug one
+ * level up. Only the three ceiling assertions may emit it.
  */
+/** Assembled, so the literal never appears anywhere a code frame or grep could pick it up. */
+const BREACH_TOKEN = `::perf-${'ceiling'}-breach::`;
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // ESM: no __dirname
 const BUDGET = JSON.parse(fs.readFileSync(path.join(HERE, '../../test/benchmark/preview-budget.json'), 'utf8')) as {
 	ceilings: Record<string, { renderP50: number; totalP50: number; frameP50: number }>;
@@ -140,8 +151,8 @@ function report(label: string, samples: Sample[], interaction?: 'navigation' | '
 	const cap = BUDGET.ceilings[interaction];
 	const renderP50 = p50(patch.map((s) => s.engineMs));
 	const totalP50 = p50(patch.map((s) => s.totalMs));
-	expect(renderP50, `${deck} ${interaction}: RENDER p50 ${f(renderP50)}ms is past the ${cap.renderP50}ms ceiling — an order-of-magnitude regression, not drift`).toBeLessThan(cap.renderP50);
-	expect(totalP50, `${deck} ${interaction}: TOTAL p50 ${f(totalP50)}ms is past the ${cap.totalP50}ms ceiling`).toBeLessThan(cap.totalP50);
+	expect(renderP50, `${BREACH_TOKEN} ${deck} ${interaction}: RENDER p50 ${f(renderP50)}ms is past the ${cap.renderP50}ms ceiling — an order-of-magnitude regression, not drift`).toBeLessThan(cap.renderP50);
+	expect(totalP50, `${BREACH_TOKEN} ${deck} ${interaction}: TOTAL p50 ${f(totalP50)}ms is past the ${cap.totalP50}ms ceiling`).toBeLessThan(cap.totalP50);
 	// FRAME is the DOM-WRITE cost inside the preview iframe: on the patch path it spans the
 	// innerHTML swap plus `scaleFrame`, taken synchronously (single-slide-render.ts). It is NOT the
 	// resident runtime's full pass — the fit spine, chart paint and overflow watcher run off a
@@ -152,7 +163,7 @@ function report(label: string, samples: Sample[], interaction?: 'navigation' | '
 	// makes the swap itself expensive — a heavier scaleFrame, a synchronous measure per write —
 	// shows up here and nowhere else, since RENDER stops at the engine boundary.
 	const frameP50 = p50(patch.map((s) => s.frameMs));
-	expect(frameP50, `${deck} ${interaction}: FRAME p50 ${f(frameP50)}ms is past the ${cap.frameP50}ms ceiling — the in-frame runtime got materially more expensive`).toBeLessThan(cap.frameP50);
+	expect(frameP50, `${BREACH_TOKEN} ${deck} ${interaction}: FRAME p50 ${f(frameP50)}ms is past the ${cap.frameP50}ms ceiling — the in-frame runtime got materially more expensive`).toBeLessThan(cap.frameP50);
 }
 
 // SERIAL, and not negotiable for this file: these cases each throttle their browser to 4x CPU, so
