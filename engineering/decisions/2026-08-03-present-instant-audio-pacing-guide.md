@@ -902,6 +902,17 @@ on the worst adjacent pair: no one-token blend can reach 3:1 here, because `--ac
 only 4.35:1 in the tightest palette. The optimizer *proved the encoding inadequate* and its output
 was read as a success.
 
+**RESOLVED 2026-08-04 (#1389): the second channel is a HATCH.** The buffered range is now drawn
+in the SAME full-strength `--accent` as the played range and distinguished from it by continuity —
+solid versus striped — rather than by tone. That makes the only ratio that has to clear 3:1 the
+ink-against-track one, which is the relationship already passing 36/36; measured worst case 3.58:1
+resting and 3.15:1 on the current slide. The current-slide tint drops 30% → 26% to get there (at
+30% the hatch fell to 2.99:1 in `mustard light`), which is affordable because the playhead mark,
+not the tint, is what states position. The sweep that produced these numbers is committed at
+`docs/scripts/sweep-rail-contrast.mjs`, reads the tier values from the module the rail paints from,
+and aborts if `--accent` does not actually change between palettes — the two ways the previous
+sweeps lied.
+
 **What survives, and why the ladder still ships:** progress-vs-track — the signal that carries
 position — went from under 3:1 in 11 palettes (**1.00, literally invisible in `onyx dark`**) to
 **3.59:1 worst-case, passing 36/36**. That is a real fix to a defect the previous rail had and the

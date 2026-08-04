@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { bufferedTier, progressTier, trackTier } from './present-rail-tiers';
 import { type DeckSection, sectionOfIndex } from './present-sections';
 
 // A stable identity for the default, so an omitted `ready` can't defeat React.memo.
@@ -152,45 +153,34 @@ function PresentRailImpl({
 										aria-current={here ? 'step' : undefined}
 										className="relative h-[8px] min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
 									>
-										{/* ONE HEIGHT, THREE STRENGTHS OF ONE TOKEN.
+										{/* ONE HEIGHT, ONE INK, TWO CHANNELS.
 
-										    The video-scrubber idiom exactly: a uniform bar whose track, buffered range
-										    and played range differ by TONE, not thickness. An earlier version stepped
-										    the heights (2/3/5 px) instead, because the obvious tonal encoding —
-										    `--accent` against `--border` — collapses: measured across all 36
-										    palette/mode combinations those two tokens are under 3:1 in ELEVEN, and in
-										    `onyx dark` they are BOTH #FFFFFF. But that is a fault of using two
-										    INDEPENDENT tokens, not of tone. Every tier here is `--accent` blended
-										    toward `--bg` at a different strength, so the ladder is a property of ONE
-										    hue and no palette can flatten it: worst-case across the same 36 combos,
-										    track-to-prefetch is 1.87:1 and prefetch-to-progress 1.92:1. `onyx dark` —
-										    the impossible case before — now renders white / mid-gray / near-black and
-										    is among the clearest of the set. The 16% resting track sits within a hair
-										    of what `--border` itself achieves against `--bg` (1.19 vs 1.21 worst-case),
-										    so the bar at rest is no louder than the hairlines already in use. */}
+										    The video-scrubber idiom: a uniform bar whose track, buffered range and
+										    played range are told apart without moving or resizing anything. Track is
+										    the token blended toward the background; played is the token at full
+										    strength; buffered is the SAME full-strength ink, striped.
+
+										    Why the buffered range is a hatch and not a third tone is measured, and the
+										    measurement is in `present-rail-tiers.ts` beside the values themselves —
+										    together with the sweep that produced it, so the next re-tune cannot
+										    accidentally measure something the rail is not painting. */}
 										<span
 											data-tier="track"
-													className="absolute inset-x-0 bottom-0 h-[8px] rounded-full"
-											// The CURRENT segment's track is lifted 16% → 30%. Position is otherwise
-											// carried only by the progress fill, which is zero-width before the first
-											// word and in rehearse mode — so on slide 1 with Voice muted (the default)
-											// every segment rendered identically and the rail showed no "here" at all.
-											// Deliberately a whisper (1.20:1 over the resting track) and 1.56:1 clear of
-											// the prefetch tone, so it reads as position, never as buffered audio.
-											style={{ background: `color-mix(in srgb, var(--accent) ${here ? 30 : 16}%, var(--bg))` }}
+											className="absolute inset-x-0 bottom-0 h-[8px] rounded-full"
+											style={{ background: trackTier(here) }}
 										/>
 										{prePct > 0 && (
 											<span
 												data-tier="prefetch"
 													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-												style={{ width: `${prePct}%`, background: 'color-mix(in srgb, var(--accent) 61%, var(--bg))' }}
+												style={{ width: `${prePct}%`, background: bufferedTier }}
 											/>
 										)}
 										{proPct > 0 && (
 											<span
 												data-tier="progress"
 													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
-												style={{ width: `${proPct}%`, background: 'var(--accent)' }}
+												style={{ width: `${proPct}%`, background: progressTier }}
 											/>
 										)}
 										{/* THE PLAYHEAD — painted LAST, so nothing can cover it.
@@ -212,7 +202,7 @@ function PresentRailImpl({
 											<span
 												data-tier="playhead"
 													className="absolute bottom-0 h-[8px] w-[2px] rounded-full transition-[left] duration-150 motion-reduce:transition-none"
-												style={{ left: `${proPct}%`, marginLeft: -1, background: 'var(--accent)', boxShadow: '0 0 0 1px var(--bg)' }}
+												style={{ left: `${proPct}%`, marginLeft: -1, background: progressTier, boxShadow: '0 0 0 1px var(--bg)' }}
 											/>
 										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}

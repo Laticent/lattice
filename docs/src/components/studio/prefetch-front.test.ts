@@ -79,9 +79,9 @@ describe('prefetchFrontOf', () => {
 // nothing, for every state a viewer can actually reach.
 describe('prefetchFrontOf over a WINDOWED readiness array (#1392)', () => {
 	/** Whole-deck readiness: `n` slides, all fully cached. */
-	const whole = (n: number) => Array.from({ length: n }, () => 1);
+	const whole = (n: number): number[] => Array.from({ length: n }, () => 1);
 	/** The same deck as the windowed poll reports it: measured inside [from, to), 0 outside. */
-	const windowed = (n: number, from: number, to: number) => Array.from({ length: n }, (_, i) => (i >= from && i < to ? 1 : 0));
+	const windowed = (n: number, from: number, to: number): number[] => Array.from({ length: n }, (_, i) => (i >= from && i < to ? 1 : 0));
 
 	it('reports the same front as a whole-deck pass while the runway fits the window', () => {
 		// Playhead at 10, window 8..16 (2 back + current + lookahead 2 + margin 2 + 1).

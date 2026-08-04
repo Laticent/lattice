@@ -25,6 +25,22 @@ in patch versions.
 
 ## Unreleased
 
+- **The Present rail's buffered range is a hatch, not a third tone — so it clears WCAG contrast in
+  all 36 palette/mode combinations.** The three-tone ladder could not: measured against 1.4.11's
+  3:1, track-to-buffered was below it in 15 of 36 (worst 1.87) and buffered-to-played in 25 of 36
+  (worst 1.92), and a brute-force search over the whole blend space tops out at **2.07:1** — a
+  capacity limit, not a tuning problem, because `--accent` against `--bg` is only 4.35:1 in the
+  tightest palette and that is the entire range there is to split three ways. The buffered range is
+  now drawn in the **same full-strength ink as the played range** and told apart from it by
+  CONTINUITY — played is solid, buffered is striped. A pattern is not a colour relationship, so no
+  palette can flatten it, and the ink-versus-track relationship is the one already proven to pass
+  36/36. The current-slide track tint drops 30% → 26%, because the hatch is drawn over it and at
+  30% it fell to 2.99:1 in `mustard light`; that cue is carried by the playhead mark anyway (4.35:1
+  against anything beneath it), so the tint only reinforces. The tier values now live in one module
+  the rail and the sweep both read, and **the sweep is committed**
+  (`docs/scripts/sweep-rail-contrast.mjs`) — it has been written three times and been wrong twice,
+  so it now refuses to report at all if the palette switch is not taking effect.
+
 - **Present's readiness poll asks about the window ahead of the playhead, not the whole deck.**
   Every 2 seconds, for as long as Present was open with Voice on, it built a cache key for every
   sentence in the deck and scored every one of them — on the same main thread as audio decode.
