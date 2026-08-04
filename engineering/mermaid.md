@@ -289,13 +289,38 @@ nothing about scheme, and is how every component is selected — forced light on
 `color-mode: dark` deck. The section genuinely was `.dark`; only the bake
 disagreed.
 
-**Only the PDF path calls it.** The preview never resolves a band as such: it
-reads tokens through `getComputedStyle(section)`, so CSS inheritance hands it
-whatever the section's own classes resolved to, band included. What the preview
-*does* still get wrong is granularity — it configures Mermaid once per document,
-from the first `<section>` (`lib/runtime/index.js`), so slide 1's scheme is baked
-into every diagram in the deck. That is #1332 step 3, tracked separately; it is a
-different defect from #1340 and needs an export sign-off to change.
+**Only the PDF path calls it, and that asymmetry is the port, not a gap.** The
+preview never resolves a band as such: it reads tokens through
+`getComputedStyle(section)`, so CSS inheritance hands it whatever the section's own
+classes resolved to, band included.
+
+**Granularity — both paths are per slide (#1332 step 3).** The preview used to
+configure Mermaid *once per document*, from the first `<section>`, so slide 1's
+scheme was baked into every diagram in the deck: a light first slide gave slide 9's
+`_class: dark` diagram light ink on a dark chip. That was the last surviving
+instance of the #1326 bug class — chip is per-section CSS, ink is baked, and the two
+were describing different slides. `buildMermaidThemeVars` now takes the section as a
+parameter, which is all it takes: passing the right element in *is* the fix, because
+inheritance already does the resolving.
+
+Three things follow, and all three are load-bearing:
+
+- **The palette is applied per BAND, not per diagram.** `mermaid.initialize` is
+  global and `mermaid.render` takes no config, so per-slide themeVariables mean
+  re-initializing between diagrams that resolve differently. Diagrams are grouped by
+  the slide's cascade-context key (`lib/core/diagram-scope.js`) and the palette is
+  built and applied once per group — one to three groups per deck, never one per
+  slide. Rebuilding 166 variables per fence on a 150 ms debounce is what that avoids.
+- **The renders are ordered against the config.** One promise chain, so
+  `initialize` for band B cannot land between band A's render calls. Diagrams
+  *within* a band still render concurrently, exactly as the whole deck used to.
+- **The SVG cache is keyed by (scope, source), not source.** A source-only key was
+  sound only while one palette served the deck; per-slide ink makes it hand slide 2
+  slide 1's baked SVG, which is the same mismatch arriving through the cache.
+
+`data-lattice-slide-bake` — the marker that told the texture pins "this render baked
+per slide" — is therefore obsolete: both paths now do, so it distinguishes nothing.
+It is removed in #1332 step 4 (see `engineering/textures.md`).
 
 ---
 

@@ -75,9 +75,15 @@ const emulatorThemeVars = (readToken) => buildDiagramTheme(readToken);
  * the fake DOM. It doesn't need to — the browser's job is the READER, which is
  * exactly the half this substitutes. The half under test is everything after it.
  */
-function runtimeThemeVars(readToken) {
-  const start = RUNTIME_SRC.indexOf('  function buildMermaidThemeVars() {');
-  assert.notEqual(start, -1, 'buildMermaidThemeVars must still exist in lib/runtime/index.js');
+function runtimeThemeVars(readToken, scopeEl = { __section: true }) {
+  // The signature is asserted, not just located: `scopeEl` IS the per-slide port
+  // (#1332 step 3). If someone drops the parameter and goes back to resolving
+  // `document.querySelector('section')` inside, this index misses and the whole
+  // parity suite fails loudly rather than silently testing slide 1 again.
+  const start = RUNTIME_SRC.indexOf('  function buildMermaidThemeVars(scopeEl) {');
+  assert.notEqual(start, -1,
+    'buildMermaidThemeVars(scopeEl) must still exist in lib/runtime/index.js — it takes the '
+    + 'SECTION as a parameter (#1332 step 3); resolving one inside is the slide-1 bake bug');
   const end = RUNTIME_SRC.indexOf('\n  }\n', start);
   assert.notEqual(end, -1, 'could not find the end of buildMermaidThemeVars');
   const fnSrc = RUNTIME_SRC.slice(start, end + 4);
@@ -93,8 +99,13 @@ function runtimeThemeVars(readToken) {
     style: { cssText: '', _color: '', set color(v) { this._color = v; }, get color() { return this._color; } },
     parentNode: null,
   };
+  // The scope the function is HANDED. `appendChild` is what the probe rides on, so
+  // a section standing in for a real one has to accept it.
+  scopeEl.appendChild = (el) => { el.parentNode = { removeChild: () => {} }; };
   const fakeDocument = {
-    querySelector: () => ({ appendChild: (el) => { el.parentNode = { removeChild: () => {} }; } }),
+    // Present so the "no scope handed in" fallback stays exercised, and distinct
+    // from `scopeEl` so a regression that ignores the parameter is visible.
+    querySelector: () => ({ appendChild: scopeEl.appendChild }),
     documentElement: {},
     createElement: () => probeEl,
   };
@@ -111,7 +122,7 @@ function runtimeThemeVars(readToken) {
   const factory = eval(
     `(function (document, getComputedStyle, buildDiagramTheme) {\n${fnSrc}\n  return buildMermaidThemeVars;\n})`,
   );
-  return factory(fakeDocument, fakeGetComputedStyle, buildDiagramTheme)();
+  return factory(fakeDocument, fakeGetComputedStyle, buildDiagramTheme)(scopeEl);
 }
 
 /** Flatten nested keys (`xyChart.titleColor`) so a diff names the exact slot. */

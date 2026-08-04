@@ -51,6 +51,26 @@ in patch versions.
 
 ### Fixed
 
+- **A diagram in the live preview is baked for ITS OWN slide, not for slide 1.** The preview built
+  Mermaid's `themeVariables` from `document.querySelector('section')` — always the first slide — and
+  applied them once, behind a one-shot guard. So a deck whose opening slide is light baked LIGHT ink
+  into every diagram in the deck, including slide 9's `_class: dark` one: black arrowheads and pale
+  node fills on a dark canvas, with the chip underneath painted correctly by per-section CSS. Chip is
+  live, ink is baked, and the two were describing different slides — the last surviving instance of
+  the bug class #1326 shipped four fixes for. `buildMermaidThemeVars` now takes the section as a
+  parameter, which is the whole fix: `getComputedStyle(section)` already returns what that slide's
+  cascade produced, including its own `_class:`, so no band has to be resolved in the browser at all.
+  Measured on the real Playground with a light-slide-1 / dark-slide-2 deck: 26 of the 54 rules in the
+  dark slide's baked stylesheet change, among them the arrowhead fill (`#000000` → `#ffffff`), the
+  edge stroke, the node fill (`rgb(232,232,232)` → `rgb(46,46,46)`) and the cluster background
+  (`rgb(238,238,238)` → `rgb(28,28,28)`) — none of which any external CSS can reach. Because
+  `mermaid.initialize` is global, the palette is applied once per BAND rather than once per diagram
+  (`lib/core/diagram-scope.js` keys the grouping) and the renders are ordered against it through one
+  promise chain, so a reconfigure can never land between another band's renders. The rendered-SVG
+  cache is keyed by (scope, source) for the same reason: a source-only key hands slide 2 slide 1's
+  baked SVG. Reaches the Studio/Playground, marp-vscode, and — through `lib/core/marp-bundle.js` —
+  Export-to-Marp. #1332
+
 - **Diagram ink is now chosen by what it sits ON, so it stops disappearing on the accessibility
   palettes in dark.** The Mermaid theme map fed every text key from one token, `--cat-on-fill`, on
   the reasoning that the fills flip with the canvas so ink and fill always stay matched. That holds

@@ -1701,17 +1701,23 @@ const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), raw
 // chip came from a page-level <pattern> that only tracks the DECK scheme — per-slide
 // ink over a deck-wide chip, hence the mismatch the pins fix.
 //
-// The RUNTIME renderer (Studio/Playground, Export-to-Marp, marp-vscode) bakes ink
-// ONCE per document, from the first section (lib/runtime/index.js buildMermaidThemeVars
-// + the __llMermaidConfigured one-shot). There, ink and chip are BOTH deck-wide, so
-// they already agree — and pinning the chip per-section is what breaks them. Pinned
-// live on those paths, a `_class: dark` slide got a dark chip under slide-1's dark
-// ink: 1.55:1 in a real marp-cli render, where before it was 17.14:1.
+// The RUNTIME renderer (Studio/Playground, Export-to-Marp, marp-vscode) USED TO bake
+// ink once per document, from the first section — so there, ink and chip were BOTH
+// deck-wide, they already agreed, and pinning the chip per-section is what broke them.
+// Pinned live on those paths, a `_class: dark` slide got a dark chip under slide-1's
+// dark ink: 1.55:1 in a real marp-cli render, where before it was 17.14:1.
 //
-// So this is a POSITIVE marker, not a print guard. Absent it, the pins stand down —
-// which is correct for the runtime paths (deck-wide ink) AND for --print (deck-wide
-// print ink), the case the marker previously named. A negative print guard could not
-// express the runtime case at all, because no emulator runs there to withhold it.
+// THAT IS NO LONGER TRUE. #1332 step 3 made the runtime resolve its palette from the
+// section it is rendering, so both paths now bake per slide and the pins are
+// unconditionally correct. Which means this marker no longer distinguishes anything —
+// it announces a granularity both paths share. It is deleted in #1332 step 4, the next
+// commit on this branch; the two are one merge, because step 3 alone leaves the pins
+// standing down on the runtime paths that now deserve them.
+//
+// Until then: this is a POSITIVE marker, not a print guard. Absent it, the pins stand
+// down — correct for --print (deck-wide print ink), the case the marker previously
+// named. A negative print guard could not express the runtime case at all, because no
+// emulator runs there to withhold it.
 //
 // Stamped per SECTION, never on <html>: packTheme and marp-core scope a theme rule off
 // its LEFTMOST COMPOUND, so a literal leading `section` is the slide and anything else
