@@ -253,4 +253,100 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     assert.equal(v.clipMarked, false);
     assert.equal(v.visible, false, 'a fitting slide must not be marked — the control for the two above');
   });
+
+  // ── THE CORNER TRUTH TABLE ───────────────────────────────────────────────────
+  // Three absolutely-positioned boxes want `top: 0; right: 0`: the status stamp
+  // (base.variants.css, on `section::before`), the clip tab, and the legibility tab.
+  // They de-collide by stacking, and the arithmetic lives in `--corner-stack` /
+  // `--clip-stack`.
+  //
+  // THIS SUITE EXISTS BECAUSE THAT RULE SHIPPED BROKEN THREE TIMES AND NO GATE SAW IT:
+  //   1. the reader pill was moved into the corner on a survey that missed the stamp;
+  //   2. the first de-collision pushed all 21 stamp CLASS NAMES by a fixed row, which
+  //      was measured wrong on 8 of the 14 SHAPES (six sit ~43px lower and were pushed
+  //      INTO);
+  //   3. the rewrite that fixed that used UNITLESS `calc()` fallbacks — `calc(100% + 0)`
+  //      mixes <percentage> with <number>, which is invalid, so the whole `transform`
+  //      was discarded and both tabs landed in the same band again.
+  //
+  // Every one of those passed `npm test`, `build:check`, the pixel gate and CI, because
+  // no committed golden carries a stamp AND a marker tab — the machine gates verify
+  // INTERNAL CONSISTENCY, which none of these violated. Only computed style on a real
+  // export can answer this, so that is what this asserts.
+  const CORNER = (cls) => `<!-- _class: ${cls} -->
+
+## A slide that cuts content and shrinks its figure.
+
+<div style="display:flex"><strong style="display:block;max-width:9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Advanced beginner practitioner level</strong></div>
+
+<svg viewBox="0 0 400 40" width="40" height="4"><text x="4" y="30" font-size="12">tiny</text></svg>
+`;
+
+  async function corners(cls, key) {
+    const html = renderAt(deck(CORNER(cls)), key, 'author');
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise((r) => setTimeout(r, 1200));
+    const v = await page.$eval('section', (s) => {
+      const box = (e) => {
+        if (!e) return null;
+        const r = e.getBoundingClientRect();
+        return { top: Math.round(r.top), bottom: Math.round(r.bottom) };
+      };
+      const stampTop = getComputedStyle(s, '::before').content !== 'none'
+        ? 0 : null;   // the stamp paints at top:0 when a semantic class is present
+      return {
+        cls: s.className,
+        stamp: stampTop !== null,
+        clip: box(s.querySelector(':scope > .overflow-tab')),
+        leg: box(s.querySelector(':scope > .illegible-tab')),
+      };
+    });
+    await page.close();
+    return v;
+  }
+
+  const disjoint = (a, b) => !a || !b || a.bottom <= b.top || b.bottom <= a.top;
+
+  test('CORNER — the clip tab and the legibility tab never share a band', async () => {
+    // The row the unitless-calc bug broke: no stamp, both tabs drawn. Before the fix
+    // the legibility tab computed `transform: none` and sat on top of the clip tab.
+    const v = await corners('content', 'corner-plain');
+    assert.ok(v.clip && v.leg, `both tabs must be drawn — got ${JSON.stringify(v)}`);
+    assert.ok(
+      disjoint(v.clip, v.leg),
+      `REGRESSION: the two marker tabs overlap. clip=${JSON.stringify(v.clip)} `
+      + `leg=${JSON.stringify(v.leg)}. An invalid calc() drops the whole transform, so `
+      + 'check that the --corner-stack / --clip-stack fallbacks are TYPED (0%, not 0).',
+    );
+  });
+
+  test('CORNER — a status stamp pushes both tabs clear of itself', async () => {
+    // The row round 4 found: `confidential` paints at top:0/right:0 at z-index 100,
+    // over the tabs' 50, and swallowed the pill whole on `stamp-notch`.
+    const v = await corners('content confidential', 'corner-stamp');
+    assert.equal(v.stamp, true, 'the fixture must actually paint a stamp');
+    assert.ok(v.clip && v.leg, `both tabs must be drawn — got ${JSON.stringify(v)}`);
+    assert.ok(v.clip.top > 0, 'REGRESSION: the clip tab did not clear the status stamp');
+    assert.ok(
+      disjoint(v.clip, v.leg),
+      `REGRESSION: tabs overlap under a stamp. clip=${JSON.stringify(v.clip)} leg=${JSON.stringify(v.leg)}`,
+    );
+  });
+
+  test('CORNER — a shape that does NOT sit in the corner reserves nothing', async () => {
+    // The row round 5 found: six stamp shapes sit ~43px below the corner, and pushing
+    // the tab for them moved it INTO the stamp instead of clear of it. `stamp-seal` is
+    // one; with no semantic class it paints nothing at all, so it must reserve nothing.
+    const plain = await corners('content', 'corner-ref');
+    const seal = await corners('content stamp-seal', 'corner-seal');
+    assert.deepEqual(
+      seal.clip, plain.clip,
+      'REGRESSION: a non-corner stamp shape displaced the clip tab. The shape class must '
+      + 'MODIFY the reserve, never create one — the semantic class is what paints.',
+    );
+  });
+
 });
