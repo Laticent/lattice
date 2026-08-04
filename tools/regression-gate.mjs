@@ -1,5 +1,5 @@
 // Visual regression gate — engine-parity's single-renderer successor.
-// Render every gallery fresh, pixel-diff it against the committed golden PDF, and fail on unblessed drift.
+// Render every committed deck fresh, pixel-diff it against its golden PDF, and fail on unblessed drift.
 //
 // WHY. While marp existed, tools/engine-parity.mjs rendered every gallery
 // through BOTH marp-core and the owned lattice-engine and asserted they
@@ -27,18 +27,27 @@
 // Sibling render paths (HARD RULE 1): lattice-emulator.js (this gate's render,
 // via lib/engine) and dist/lattice-runtime.js (vscode preview / published HTML).
 //
-// Usage:
-//   node tools/regression-gate.mjs                 # full corpus, light + dark
-//   node tools/regression-gate.mjs --only kpi      # one gallery (component or bucket)
-//   node tools/regression-gate.mjs --bless [--only kpi]   # re-render goldens, then exit
-//   node tools/regression-gate.mjs --json          # machine-readable report
+// TWO SCOPES (#1379). `galleries` is the light/dark pairs under lib/ described above.
+// `decks` is every OTHER committed PDF with a sibling deck — examples/, exemplars/,
+// design/, themes/, the CI baseline — 183 artifacts that had no watcher reading their
+// bytes at all. Default is BOTH, because a gate that silently covers a third of the
+// committed corpus is the defect this one exists to catch.
 //
-// Exit code is non-zero if any gallery drifts past tolerance, so it can gate.
+// Usage:
+//   node tools/regression-gate.mjs                      # everything (~45 min, 4 cores)
+//   node tools/regression-gate.mjs --scope galleries    # the pre-#1379 run
+//   node tools/regression-gate.mjs --scope decks        # the newly-watched 183
+//   node tools/regression-gate.mjs --only kpi           # one gallery (component or bucket)
+//   node tools/regression-gate.mjs --only examples/pricing   # one deck golden
+//   node tools/regression-gate.mjs --bless [--only …]   # re-render goldens, then exit
+//   node tools/regression-gate.mjs --json               # machine-readable report
+//
+// Exit code is non-zero if any target drifts past tolerance, so it can gate.
 // Failure artifacts (before │ after │ overlay montage PDFs) land in
 // .scratch/regression/.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -103,6 +112,55 @@ function galleryDecks() {
   return out.sort();
 }
 
+// ── The OTHER two thirds of the committed corpus (#1379) ─────────────────────
+// The 148 gallery goldens under lib/ (74 decks x 2 moods) were watched by the walk
+// above. 183 more committed PDFs — every `examples/` deck and the token-contrast set
+// (134), all 45 worked exemplars, the two design galleries, the CI baseline deck and the
+// palette audit — were watched by NOTHING that reads their bytes.
+// `#1279` closed OWNERSHIP (every PDF names a producer and a watcher) and deliberately
+// not FRESHNESS, and the `watcher:` those rules named was `overflow:check`, which
+// re-renders the markdown to a scratch dir and deletes it. It never opens the committed
+// artifact. So an engine change staleified those 183 artifacts and no gate could say so.
+//
+// This is the same gate, pointed at them. Nothing new was needed — which is the point:
+// the machinery for "does the committed PDF still match a fresh render" already existed
+// and its corpus simply stopped at `lib/` (HARD RULE #15).
+//
+// The set is DERIVED from `git ls-files`, never hand-listed, for the reason #1279
+// records: a hand-kept list of artifacts is silent by default, and the set of committed
+// artifacts drifting from the set any gate knows about IS the defect. A deck golden is
+// any committed PDF with a sibling `.md`, minus the exclusions below — each of which is
+// a rule from PDF_OWNERSHIP that says, in prose, why re-rendering it is wrong.
+const DECK_GOLDEN_EXCLUDE = [
+  // Frozen evidence beside a dated decision record. Rebuilding destroys the thing
+  // being evidenced (PDF_OWNERSHIP: "a frozen artifact of the decision it sits beside").
+  (f) => f.startsWith('engineering/decisions/'),
+  // Rendered by REAL marp-cli on purpose, to show what a recipient's toolchain
+  // produces. Re-rendering it through our engine replaces the artifact with one made
+  // by the engine it exists to be compared against.
+  (f) => f.startsWith('kit/'),
+  // The light/dark gallery pairs are the scope above; diffing them here would render
+  // every one twice and report each drift twice.
+  (f) => /\.gallery\.(light|dark)\.pdf$/.test(f),
+];
+
+function deckGoldens() {
+  const out = execFileSync('git', ['ls-files', '*.pdf'], { cwd: ROOT, encoding: 'utf8' })
+    .trim().split('\n').filter(Boolean)
+    .filter((f) => !DECK_GOLDEN_EXCLUDE.some((ex) => ex(f)))
+    .filter((f) => existsSync(join(ROOT, f.replace(/\.pdf$/, '.md'))))
+    .map((f) => join(ROOT, f.replace(/\.pdf$/, '.md')));
+  return out.sort();
+}
+
+// A deck golden's display name, and the `--only` token: the path with its extension
+// dropped, relative to the repo. Full paths rather than bare stems because these span
+// five directories and `README` alone is ambiguous (examples/README.md and
+// exemplars/README.md are both decks). A bare stem is accepted too when unambiguous.
+function goldenDeckName(md) {
+  return relative(ROOT, md).replace(/\.md$/, '');
+}
+
 // The gallery's display name: the basename without .gallery.md. Matches the
 // `--only` token build-galleries / build-bucket-galleries accept.
 function deckName(galleryMd) {
@@ -152,6 +210,94 @@ function renderFresh(galleryMd, theme) {
   // caller to diff, then remove via the returned cleanup list.
   for (const p of cleanup) if (p !== outPdf && /\.(md|html)$/.test(p)) { try { rmSync(p, { force: true }); } catch { /* ignore */ } }
   return { outPdf, cleanup };
+}
+
+// A deck golden's fresh render. Same asset-resolution constraint as above — the
+// emulator resolves a deck's relative paths against the OUTPUT directory, so this must
+// be written beside the source or every image and logo slide renders blank (#1406).
+//
+// The invocation MUST match the producers' exactly — `build-staged-pdfs.js` (the
+// pre-commit hook) and `build-exemplar-pdfs.js` both run `[EMULATOR, src, out]` with no
+// CSS path and no palette argument, so the deck's own `theme:` front matter decides.
+// Passing `THEME_CSS`/`indaco` the way the gallery path does would override the deck's
+// theme and false-fail every deck that names another one.
+function renderFreshDeck(md) {
+  const outPdf = join(dirname(md), `.regr-${basename(md, '.md')}.pdf`);
+  const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
+  try {
+    execFileSync(process.execPath, [EMULATOR, md, outPdf, '-q'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (err) {
+    cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
+    throw err;
+  }
+  try { rmSync(outPdf.replace(/\.pdf$/, '.html'), { force: true }); } catch { /* ignore */ }
+  return { outPdf, cleanup };
+}
+
+// Mermaid is detected per DECK here rather than by directory, because these decks are
+// not bucketed: 18 of the 121 example decks carry a ```mermaid fence and they are spread
+// across the tree. Same reason the galleries need it — mmdc's SVG anti-aliasing is not
+// bit-identical across machine classes.
+const MERMAID_FENCE_RE = /^[ \t]*(?:```|~~~)[ \t]*mermaid\b/m;
+function failFractionForDeck(md) {
+  try {
+    return MERMAID_FENCE_RE.test(readFileSync(md, 'utf8')) ? FAIL_FRACTION_MERMAID : FAIL_FRACTION;
+  } catch {
+    return FAIL_FRACTION;
+  }
+}
+
+// `bless: true` re-blesses ONLY what actually drifted, by promoting the fresh render
+// this run already produced onto the golden. Two reasons it works that way rather than
+// re-rendering the whole scope:
+//
+//   1. PDF bytes are NOT reproducible between runs (timestamps, font-subset ordering —
+//      it is why this gate compares pixels at all). A blanket re-render would rewrite
+//      all 183 files to land ~30 real changes, burying the review in noise.
+//   2. The fresh render is already on disk and already rasterized. Promoting it costs
+//      one rename; re-rendering costs another full sweep.
+function runDeckGolden(md, opts = {}) {
+  const name = goldenDeckName(md);
+  const golden = md.replace(/\.md$/, '.pdf');
+  const failFraction = failFractionForDeck(md);
+  const result = { deck: relative(ROOT, md), name, scope: 'deck', themes: {}, fail: false };
+  const key = 'golden';
+  if (!existsSync(golden)) {
+    result.themes[key] = { status: 'NO_GOLDEN' };
+    result.fail = true;
+    return result;
+  }
+  let outPdf;
+  let cleanup = [];
+  try {
+    ({ outPdf, cleanup } = renderFreshDeck(md));
+  } catch (err) {
+    result.themes[key] = { status: 'RENDER_ERROR', error: String(err.message || err) };
+    result.fail = true;
+    return result;
+  }
+  const diff = pixelDiff(golden, outPdf, `regr-deck-${name.replace(/[/\\]/g, '_')}`, { fuzz: FUZZ });
+  const drifted = diff.perPage.filter(
+    (p) => p.pixels === -1 || (p.total ? p.pixels / p.total > failFraction : p.pixels > 0),
+  );
+  // Promote BEFORE cleanup — `outPdf` is one of the paths cleanup removes. pixelDiff has
+  // already rasterized both sides into its own tmpDir, so the montage still builds.
+  if (opts.bless && drifted.length) {
+    renameSync(outPdf, golden);
+    result.blessed = true;
+  }
+  cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
+  const worst = diff.perPage.reduce((m, p) => Math.max(m, p.total ? p.pixels / p.total : (p.pixels > 0 ? 1 : 0)), 0);
+  result.themes[key] = {
+    status: drifted.length ? 'DRIFT' : 'ok',
+    pages: diff.pages,
+    worstFraction: worst,
+    drifted: drifted.map((p) => ({ page: p.page, pixels: p.pixels, total: p.total, note: p.note, oldPng: p.oldPng, newPng: p.newPng, diffPng: p.diffPng })),
+    golden: relative(ROOT, golden),
+    tmpDir: diff.tmpDir,
+  };
+  if (drifted.length) result.fail = true;
+  return result;
 }
 
 // ── Bless (delegate to the existing builders) ─────────────────────────────────
@@ -252,16 +398,55 @@ function main() {
   const onlyIdx = args.indexOf('--only');
   const only = onlyIdx >= 0 ? args[onlyIdx + 1] : null;
 
+  // SCOPE defaults to `all`, and that is deliberate. This gate's whole subject is that
+  // the set of watched artifacts must equal the set of committed ones (#1279, #1379);
+  // a default that silently covers a third of them re-creates the defect in a new place.
+  // `--scope galleries` restores the pre-#1379 (faster) run when that is what you want.
+  const scopeIdx = args.indexOf('--scope');
+  const scope = scopeIdx >= 0 ? args[scopeIdx + 1] : 'all';
+  if (!['all', 'galleries', 'decks'].includes(scope)) {
+    process.stderr.write(`error: --scope must be all | galleries | decks (got "${scope}")\n`);
+    return 2;
+  }
+  const wantGalleries = scope === 'all' || scope === 'galleries';
+  const wantDecks = scope === 'all' || scope === 'decks';
+
+  // `--only` matches a gallery stem (`kpi`, `chart`) OR a deck golden by repo-relative
+  // path (`examples/pricing`) or unambiguous basename (`pricing`).
+  const matchesOnly = (md) => {
+    if (!only) return true;
+    const full = goldenDeckName(md);
+    return full === only || full.replace(/\.md$/, '') === only.replace(/\.md$/, '') || basename(full) === only;
+  };
+
+  let galleries = wantGalleries ? galleryDecks() : [];
+  if (only) galleries = galleries.filter((d) => deckName(d) === only);
+  let goldens = wantDecks ? deckGoldens() : [];
+  if (only) goldens = goldens.filter(matchesOnly);
+
+  // The two scopes bless by DIFFERENT primitives, so `--bless` handles each on its own
+  // terms rather than picking one:
+  //
+  //   · GALLERIES delegate to build-galleries / build-bucket-galleries, which overwrite
+  //     their goldens outright. Unchanged from before this scope existed. Once blessed
+  //     there is nothing left to compare, so they drop out of the run below — otherwise
+  //     `--bless` would re-render all 148 and then diff them against themselves.
+  //   · DECK GOLDENS fall THROUGH into the comparison with `bless: true`, so only the
+  //     ones that actually drifted are rewritten. Blindly re-rendering the scope would
+  //     rewrite all 183 files — PDF bytes are not reproducible between runs — to land a
+  //     handful of real changes.
+  let decks = galleries;
   if (blessMode) {
-    bless(only);
-    if (!json) process.stdout.write(`\nblessed ${only ? `gallery "${only}"` : 'all galleries'} — commit the refreshed PDFs.\n`);
-    return 0;
+    if (decks.length) {
+      bless(only);
+      if (!json) process.stdout.write(`blessed ${only ? `gallery "${only}"` : 'all galleries'} — commit the refreshed PDFs.\n`);
+      decks = [];
+    }
+    if (!goldens.length) return 0;
   }
 
-  let decks = galleryDecks();
-  if (only) decks = decks.filter((d) => deckName(d) === only);
-  if (!decks.length) {
-    process.stderr.write(only ? `error: no gallery named "${only}"\n` : 'error: no galleries found\n');
+  if (!decks.length && !goldens.length) {
+    process.stderr.write(only ? `error: nothing named "${only}" in scope "${scope}"\n` : `error: no targets found in scope "${scope}"\n`);
     return 2;
   }
 
@@ -294,13 +479,39 @@ function main() {
     }
   }
 
+  for (const md of goldens) {
+    const r = runDeckGolden(md, { bless: blessMode });
+    const tr = r.themes.golden;
+    if (tr?.status === 'DRIFT') {
+      const artifact = buildMontage(r.name.replace(/[/\\]/g, '_'), 'golden', tr);
+      if (artifact) tr.artifact = relative(ROOT, artifact);
+    }
+    report.push(r);
+    // A BLESSED golden is not a failure — the drift was resolved by this very run, so
+    // reporting it red (and telling the reader to "re-bless") would be a lie about what
+    // just happened, and would give `--bless` a non-zero exit on success.
+    if (r.fail && !r.blessed) anyFail = true;
+    if (!json) {
+      const s = tr?.status === 'ok' ? 'ok'
+        : tr?.status === 'DRIFT'
+          ? `${r.blessed ? 'BLESSED' : 'DRIFT'}(${tr.drifted.length}pg, worst ${(tr.worstFraction * 100).toFixed(2)}%)`
+          : (tr?.status ?? '?');
+      process.stdout.write(`${r.fail && !r.blessed ? '✗' : '✓'} ${r.name.padEnd(46)} ${s}\n`);
+    }
+  }
+
   mkdirSync(OUT, { recursive: true });
   writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2));
   if (json) {
     process.stdout.write(JSON.stringify({ ok: !anyFail, fuzz: FUZZ, failFraction: FAIL_FRACTION, failFractionMermaid: FAIL_FRACTION_MERMAID, report }, null, 2) + '\n');
   } else {
-    const failed = report.filter((r) => r.fail);
-    process.stdout.write(`\n${report.length} galleries × ${THEMES.length} moods. `);
+    const failed = report.filter((r) => r.fail && !r.blessed);
+    const blessed = report.filter((r) => r.blessed);
+    const parts = [];
+    if (decks.length) parts.push(`${decks.length} galleries × ${THEMES.length} moods`);
+    if (goldens.length) parts.push(`${goldens.length} deck goldens`);
+    process.stdout.write(`\n${parts.join(' + ')}. `);
+    if (blessed.length) process.stdout.write(`${blessed.length} re-blessed — commit the refreshed PDFs. `);
     process.stdout.write(anyFail ? `${failed.length} DRIFTED: ${failed.map((r) => r.name).join(', ')}\n` : 'all match committed goldens.\n');
     if (anyFail) {
       process.stdout.write(`Artifacts: ${relative(ROOT, OUT)}/. Re-bless with: node tools/regression-gate.mjs --bless [--only <name>]\n`);

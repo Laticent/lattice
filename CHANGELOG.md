@@ -388,6 +388,41 @@ in patch versions.
 
 ### Changed
 
+- **183 committed PDFs now have the watcher the ownership table already credited them with.**
+  `#1279` closed *ownership* — every PDF in `git ls-files` is claimed by a rule naming a producer
+  and a watcher — deliberately without closing *freshness*. The trouble was what went in the
+  watcher column: five rules named `overflow:check`, which renders each deck's **markdown** into a
+  scratch directory, scrapes the console report, and unlinks the PDF it just made. **It never
+  opens the committed artifact.** So the column said `examples/`, the 45 exemplars, the design
+  galleries and the CI baseline deck were watched, and nothing read their bytes; the pre-commit
+  hook only fires when *that deck's markdown* is staged, so an engine change staleified all of
+  them silently. **Measured before deciding, and the issue's stated symptom did not reproduce**:
+  the clipping decks pixel-match their committed PDFs exactly, because their markdown was staged
+  in the PR that changed the probes. The chronic case is the real one — `examples/pricing.pdf` p2
+  differs from a fresh render by **8.9% of the page**, still carrying a larger body type and a
+  narrower measure than the engine now produces, on a deck nothing about which changed. The issue
+  proposed three designs (an input-hash sidecar, a scheduled re-render PR, declaring them
+  unfresh-by-design) and all three build something new; **the answer is that the watcher already
+  exists.** `regression-gate.mjs` renders a deck fresh and pixel-diffs it against the committed
+  golden — its corpus walk simply stopped at `lib/`. `npm run regress` now covers both scopes
+  (`--scope galleries|decks|all`, default all), and the deck corpus is **derived from
+  `git ls-files`** rather than hand-listed, because a hand-kept set of artifacts is silent by
+  default — the lesson `#1279` is entirely about. Three exclusions, each restating a
+  `PDF_OWNERSHIP` rule in force: decision-record evidence (rebuilding destroys what is being
+  evidenced), the Marp kit sample (rendered by real marp-cli on purpose), and the gallery pairs
+  (the other scope). Two details that would have made it false-fail: the render invocation must
+  match the producers' exactly — no CSS path and no palette, so the deck's own `theme:` decides —
+  and mermaid tolerance is chosen by reading each deck for a fence, since these decks are not
+  bucketed. `--bless` rewrites **only what drifted**, promoting the fresh render this run already
+  made, because PDF bytes are not reproducible between runs and a blanket re-render would rewrite
+  all 183 files to land a handful of real changes. **Cost: ~9s per deck, ~28 minutes for the
+  scope on 4 cores** — the same on-demand tier as `overflow:check`, and it stays out of CI for the
+  reason `ci.yml` already records (Skia's rasterization is not bit-identical across GitHub's
+  runners, which flaked the gallery half at 0.4–2% per run). Stated plainly: this makes drift
+  **findable and provable**, not impossible — an engine change can still staleify these artifacts
+  between sweeps, exactly as with `overflow:check`. See
+  `engineering/decisions/2026-08-04-committed-pdf-freshness.md`. (#1379)
+
 - **`--measure-body`'s floor is measured, and it is 35em — not the 36em that ships.** The
   token holds ~78–83 characters, above the 45–75 band, and its comment calls itself a
   compatibility value because narrower clips shipped decks. Re-derived with the real oracle

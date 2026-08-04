@@ -4347,31 +4347,38 @@ const PDF_OWNERSHIP = [
       && hasSourceDeck(f),
     what: 'per-feature demo decks (HARD RULE #9) and the token-contrast set',
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
-    watcher: 'overflow:check',
+    // `overflow:check` alone used to be named here and it OVERSTATED the claim: it
+    // re-renders the markdown to a scratch dir and deletes it, so it never opens the
+    // committed artifact. `regress --scope decks` does (#1379).
+    watcher: 'npm run regress (pixel, --scope decks) · overflow:check',
   },
   {
     test: (f) => /^exemplars\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the worked boardroom exemplars',
     producer: 'tools/build-exemplar-pdfs.js · tools/build-staged-pdfs.js (pre-commit)',
-    watcher: 'test:integration:exemplars · overflow:check',
+    watcher: 'npm run regress (pixel, --scope decks) · test:integration:exemplars · overflow:check',
   },
   {
     test: (f) => /^design\/[a-z][a-z0-9-]*\.gallery\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'design-system demo decks (they live with their owner, not under examples/)',
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
-    watcher: 'overflow:check',
+    watcher: 'npm run regress (pixel, --scope decks) · overflow:check',
   },
   {
     test: (f) => /^test\/integration\/baseline-decks\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the CI baseline deck',
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
-    watcher: 'test:integration (page-count assertions) · overflow:check',
+    watcher: 'npm run regress (pixel, --scope decks) · test:integration (page-count assertions) · overflow:check',
   },
   {
     test: (f) => f === 'themes/palette-audit.pdf' && hasSourceDeck(f),
     what: "the theme designer's palette audit",
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
-    watcher: null, // Outside the overflow corpus on purpose: a designer's sweep, not a shipped deck.
+    // Still outside the OVERFLOW corpus on purpose — a designer's sweep, not a shipped
+    // deck — but it has a sibling deck and a committed PDF, so the pixel gate reaches it
+    // like any other deck golden. That is the point of deriving that corpus from
+    // `git ls-files` rather than hand-listing directories (#1379).
+    watcher: 'npm run regress (pixel, --scope decks)',
   },
   {
     test: (f) => f === 'kit/Sample-Deck.pdf',
