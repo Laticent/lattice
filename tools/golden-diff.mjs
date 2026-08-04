@@ -72,7 +72,12 @@ function git(args) {
 function changedGoldens(base) {
   let raw;
   try {
-    raw = git(['diff', '--name-only', base, '--', 'lib/components']);
+    // `lib/` and not `lib/components`: the pathspec used to stop at the components
+    // tree, so `lib/base/_logo/logo.gallery.{light,dark}.pdf` — two committed goldens
+    // GOLDEN_RE matches perfectly well — moved their pixels with no montage on the PR.
+    // Demonstrated, not theorized: #1275 regenerated both and this reported 4
+    // gallery-moods rather than 6 (#1279).
+    raw = git(['diff', '--name-only', base, '--', 'lib']);
   } catch (err) {
     process.stderr.write(`golden-diff: git diff against "${base}" failed: ${err.message}\n`);
     process.exit(2);

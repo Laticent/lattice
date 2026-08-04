@@ -81,8 +81,11 @@ function corpus() {
   return [...new Set([
     // Worked examples, including subdirectories (token-contrast/, …).
     ...g((f) => rel(f).startsWith('examples/') && isDeck(f)),
-    // Every component's specimen gallery, and the design-system galleries.
-    ...g((f) => /\.gallery\.md$/.test(f) && (rel(f).startsWith('lib/components/') || rel(f).startsWith('design/'))),
+    // Every component's specimen gallery, the design-system galleries, and the
+    // hand-authored ones under lib/base — `lib/base/_logo/logo.gallery.md` ships two
+    // committed PDFs and this glob could not see the deck, so a page that genuinely
+    // clips had never entered the ratchet (#1279).
+    ...g((f) => /\.gallery\.md$/.test(f) && (rel(f).startsWith('lib/') || rel(f).startsWith('design/'))),
     // The worked boardroom decks — committed PDFs, and bundled into the Playground.
     ...g((f) => rel(f).startsWith('exemplars/') && isDeck(f)),
     ...g((f) => /^test\/integration\/baseline-decks\/[^/]+\.md$/.test(rel(f))),
@@ -103,8 +106,19 @@ function probe(deck) {
       clearTimeout(timer);
       for (const f of [out, out.replace(/\.pdf$/, '.html')]) { try { fs.unlinkSync(f); } catch { /* best effort */ } }
       if (code !== 0) return resolve({ deck, error: buf.trim().split('\n').slice(-2).join(' ').slice(0, 200) });
-      const m = buf.match(/OVERFLOW[^\n]*?pages? ([\d,\s]+)/);
-      const pages = m ? m[1].split(',').map((s) => Number(s.trim())).filter(Number.isFinite) : [];
+      // BOTH channels, unioned. The emulator reports geometric overflow on the
+      // "⚠ OVERFLOW" line and content lost inside a clipping box that did NOT
+      // exceed the frame — an ellipsed footer, a line-clamped card, a sheared
+      // panel head — on "⚠ CONTENT CLIPPED". This gate's question is "how many
+      // slides does the export CLIP", and both answers are yes (#1300).
+      const grabPages = (re) => {
+        const m = buf.match(re);
+        return m ? m[1].split(',').map((x) => Number(x.trim())).filter(Number.isFinite) : [];
+      };
+      const pages = [...new Set([
+        ...grabPages(/OVERFLOW[^\n]*?pages? ([\d,\s]+)/),
+        ...grabPages(/CONTENT CLIPPED[^\n]*?pages? ([\d,\s]+)/),
+      ])].sort((a, b) => a - b);
       resolve({ deck, pages });
     });
   });

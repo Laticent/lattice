@@ -621,6 +621,20 @@ in patch versions.
   22px under**, and a one-line title from 14px of headroom to 87 — a whole extra heading line
   either way. `justify-content: safe center` is the backstop. The stage's now-inert
   `overflow-clip-margin` is removed with its reasoning recorded in place.
+- **Committed PDFs are now asserted to be OWNED, so an artifact nothing watches cannot ship
+  again** (#1279). `lib/base/_logo/logo.gallery.{light,dark}.pdf` had no builder, no pixel-diff
+  and no fit ratchet — three independent blind spots on one path — and went stale unnoticed. All
+  three are widened (`golden-diff.mjs` and `regression-gate.mjs` walk `lib/` rather than
+  `lib/components`; the overflow corpus glob reaches `lib/base/**`; `build-bucket-galleries.js`
+  gains an `EXTRA_GALLERIES` table so a hand-authored gallery outside the components tree has a
+  real `--only` target, and `build-staged-pdfs.js` rebuilds it on commit). But the general defect
+  was that **the set of committed artifacts was not the set any gate knew about**, so
+  `checkCommittedPdfs` (in `build:check`) now requires every `git ls-files '*.pdf'` entry to be
+  claimed by a rule naming its producer AND its watcher — and fails on a stale rule too, so the
+  table cannot rot. Three PDF groups are recorded as having no automated watcher, each with the
+  reason, rather than being quietly uncovered. Proven with deliberately-broken canaries in all
+  three directions (an unowned PDF, a stale rule, and each of the three widened gates), which is
+  what the card asked for.
 - **`redline split` dropped the closing phrase of a statute clause on its own gallery.** The NEW
   column — always the longer of the pair, since an amendment adds words — ran 31px past its own
   `overflow: hidden` and cut "…their personal information."  The `.cell-stage` fit and the section
