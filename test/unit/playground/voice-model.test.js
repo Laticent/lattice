@@ -206,14 +206,136 @@ test('warm(): no-ops when the resolved rung is silent (nothing connected) — ne
   await new Promise((r) => setTimeout(r, 20));
 });
 
-test("warm(): no-ops for the kokoro rung — this prefetch only hides NETWORK latency (openrouter-tts); Kokoro shares ONE compute resource, so prefetching there competes instead of hiding anything (Munger-inversion finding)", async () => {
+test('warm(): DOES prefetch on kokoro — the hazard is handled by that rung\'s scheduler, not by a ban', async () => {
+  // Kokoro was excluded from prefetch because its synthesis is serial on one worker, so a
+  // warm pass could queue ahead of the sentence the room is waiting to hear. That was right
+  // about the hazard and wrong about the remedy: it cost the rung recommended for a LIVE
+  // ROOM the whole benefit of prefetch, and left the rail's prefetch edge permanently unable
+  // to lead the playhead there. The hazard now lives in the rung's own scheduler (one job at
+  // a time, playback jumps the prefetch backlog), so warming is safe.
   const { createVoiceModel, MockRung } = await load();
   const rung = MockRung({ name: 'kokoro' });
   const v = createVoiceModel({});
   v.__setRung(rung);
   v.warm(['Would-be next slide sentence.']);
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(rung.calls.length, 1, 'the sentence was prefetched');
+});
+
+test('warm(): still no-ops for a rung that produces no cacheable blob (speechSynthesis/silent)', async () => {
+  const { createVoiceModel, MockRung } = await load();
+  const rung = MockRung({ name: 'speechSynthesis' });
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  v.warm(['Nothing to cache here.']);
   await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(rung.calls, []);
+});
+
+// ── The serial scheduler that let Kokoro prefetch at all ─────────────────────────────
+// Kokoro synthesis is one model in one worker, so requests are serial however many are
+// posted. Prefetch used to be banned there because a warm pass would queue ahead of the
+// sentence the room was waiting to hear. This queue is the remedy that replaced the ban:
+// one job in flight, the rest reorderable on the main thread (a message already posted to
+// the worker is not). It is exported and tested directly — the rung it lives in needs a
+// real worker and an 80 MB model, so an injected test rung bypasses it entirely.
+
+test('serial queue: runs one job at a time, in order, when nothing is prioritized', async () => {
+  const { createSerialQueue } = await load();
+  const q = createSerialQueue();
+  const order = [];
+  let live = 0;
+  let peak = 0;
+  const job = (n) => async () => {
+    peak = Math.max(peak, ++live);
+    await new Promise((r) => setTimeout(r, 5));
+    order.push(n);
+    live--;
+  };
+  await Promise.all([q.enqueue(job(1)), q.enqueue(job(2)), q.enqueue(job(3))]);
+  assert.deepEqual(order, [1, 2, 3]);
+  assert.equal(peak, 1, 'never more than one job in flight');
+});
+
+test('serial queue: a playback job JUMPS a queued prefetch backlog', async () => {
+  const { createSerialQueue } = await load();
+  const q = createSerialQueue();
+  const order = [];
+  let release = () => {};
+  const gate = new Promise((r) => { release = r; });
+  const job = (n, held) => async () => { if (held) await gate; order.push(n); };
+
+  const warm = { warm: true };
+  const first = q.enqueue(job('w1', true), undefined, warm); // takes the slot, holds it
+  const rest = [q.enqueue(job('w2'), undefined, { warm: true }), q.enqueue(job('w3'), undefined, { warm: true })];
+  const play = q.enqueue(job('PLAY'), undefined, { warm: false }); // arrives last, must run second
+  release();
+  await Promise.all([first, play, ...rest]);
+
+  // w1 was already in flight; PLAY jumps the rest. The remaining prefetch drains NEWEST-first
+  // — relevance decays with age, so the oldest queued sentence is the one furthest from where
+  // the deck now is.
+  assert.deepEqual(order, ['w1', 'PLAY', 'w3', 'w2']);
+});
+
+test('serial queue: promoting a QUEUED job by mutating its priority moves it to the front', async () => {
+  // This is what a playback caller joining an already-queued prefetch does. The priority
+  // object is shared with the model's request entry, and selection reads it at DEQUEUE
+  // time — so the promotion lands even though the job was enqueued as prefetch.
+  const { createSerialQueue } = await load();
+  const q = createSerialQueue();
+  const order = [];
+  let release = () => {};
+  const gate = new Promise((r) => { release = r; });
+  const job = (n, held) => async () => { if (held) await gate; order.push(n); };
+
+  const first = q.enqueue(job('w1', true), undefined, { warm: true });
+  const joined = { warm: true };
+  const rest = [q.enqueue(job('w2'), undefined, { warm: true }), q.enqueue(job('JOINED'), undefined, joined)];
+  joined.warm = false; // a playback caller joined this one while it sat in the queue
+  release();
+  await Promise.all([first, ...rest]);
+
+  assert.deepEqual(order, ['w1', 'JOINED', 'w2']);
+});
+
+// REMOVED (2026-08-04): 'a job whose caller aborted is dropped rather than run'. It passed its
+// own AbortController straight into enqueue — a shape NO production call site produces. The warm
+// path hands each request a fresh controller that nothing ever aborts (voice-model.js), and
+// startRequest's own controller fires only at the 45s ceiling. The test proved a cancel that does
+// not exist. Removed with the claim rather than left as a green light over an unwired mechanism.
+
+test('warm traffic reaches the rung marked as prefetch, and a playback join promotes it', async () => {
+  // The model's half of the contract: hand the rung a MUTABLE priority, and flip it when a
+  // playback caller joins a request prefetch already started.
+  const { createVoiceModel } = await load();
+  let seen = null;
+  let release = () => {};
+  const gate = new Promise((r) => { release = r; });
+  const rung = {
+    name: 'kokoro',
+    calls: [],
+    ready: () => true,
+    async synth({ text, priority }) {
+      rung.calls.push(text);
+      seen = priority;
+      await gate;
+      return { size: 8, type: 'audio/wav', arrayBuffer: async () => new ArrayBuffer(8) };
+    },
+  };
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+
+  v.warm(['Shared sentence.']);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(seen, { warm: true }, 'prefetch traffic is marked as prefetch');
+
+  const playing = v.synthOne({ text: 'Shared sentence.' }); // JOINS the live warm request
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(seen.warm, false, 'the joining playback caller promoted it in place');
+  release();
+  await playing;
+  assert.equal(rung.calls.length, 1, 'and no duplicate request was fired');
 });
 
 test('stop()/pause()/resume(): drive ONLY the speechSynthesis rung, and are safe no-ops when it is absent', async () => {

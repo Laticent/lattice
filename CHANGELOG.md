@@ -25,6 +25,56 @@ in patch versions.
 
 ## Unreleased
 
+- **Kokoro prefetches now — the serial hazard is scheduled around instead of banned.** On-device
+  synthesis is one model in one worker, so requests run strictly one at a time; prefetch was
+  excluded from that rung entirely because a warm pass for the next slide would queue ahead of the
+  sentence the room was waiting to hear. That was right about the hazard and wrong about the
+  remedy: it cost the rung recommended for a **live room** — the one with no network in the loop —
+  the whole benefit of prefetch, and left the Present rail's buffered edge permanently unable to
+  lead the playhead there, so it sat in its "audio has run dry" state while narration played
+  perfectly. **Fetch ahead → the whole deck** was a silent no-op on-device for the same reason,
+  while the setting's copy promised offline delivery. The rung now runs exactly one job at a time
+  with the rest queued on the main thread where they can still be *reordered*, and playback jumps
+  the prefetch backlog. A playback request that joins a sentence prefetch already started
+  **promotes it in place** rather than waiting behind the queue. The honest limit: preemption is
+  per sentence — a playback request arriving mid-inference waits for that one warm sentence,
+  because inference already running cannot be canceled. It never waits for the whole backlog,
+  which was the failure the ban existed to prevent.
+
+- **A narration-cache "optimization" was reverted after measurement showed it was a
+  pessimization.** Two paths in the on-device store were changed to avoid reading the whole
+  store: the readiness poll swapped one `getAllKeys()` for a per-sentence probe, and clip writes
+  gained a running byte total to skip the authoritative size read. Measured afterwards on real
+  Chromium, the readiness change is **7x slower on a fresh store** — the state every new user is
+  in — and 6x slower on a large deck, because it spends one IndexedDB request per sentence to
+  learn what one read already answered; it wins only once the store is several times larger than
+  the deck. The running total was worse in a different way: it is per tab, so two Studio tabs each
+  believed they were under budget while the store reached **~2x** it. Both are reverted to the
+  behavior that shipped. The underlying concern is real but the fix was unmeasured, and the honest
+  next step is to stop asking the poll about the whole deck at all — readiness only matters from
+  the playhead forward.
+
+- **The Present rail is a real scrubber now: one height, three strengths of one token.** It
+  shipped with the three tiers separated by *thickness* (2px track / 3px prefetch / 5px progress)
+  because the obvious tonal encoding — `--accent` against `--border` — collapses in eleven of the
+  36 palette/mode combinations and is literally identical in `onyx dark`. But that was a fault of
+  using two **independent** tokens, not of tone. Every tier is now `--accent` blended toward
+  `--bg` at a different strength (16% / 61% / 100%), so the ladder is a property of one hue and no
+  palette can *invert* it. Stated honestly, because the first version of this note was not: those
+  steps are **below WCAG 1.4.11's 3:1**, and a search over the whole one-token space shows **2.07:1
+  is the ceiling** — no blend of `--accent` toward `--bg` can reach 3:1 on this palette set. What
+  the ladder does buy is the signal that actually carries position: **progress-vs-track went from
+  under 3:1 in eleven palettes (identical in `onyx dark`) to 3.59:1 worst-case, passing in all 36**
+  — a pre-existing defect the previous rail had and this fixes. The buffered range is a reinforcing
+  tone, not a load-bearing one. Worst-case track-to-prefetch is **1.87:1** and
+  prefetch-to-progress **1.92:1**, and `onyx dark` — the impossible case before — now renders
+  white / mid-gray / near-black. The resting track sits within a hair of what `--border` itself
+  achieves against `--bg` (1.19 vs 1.21 worst-case), so the bar at rest is no louder than the
+  hairlines already in use. Uniform 8px restores the video-scrubber idiom the rail was always
+  meant to borrow, and incidentally undoes a shrink nobody chose: before the rail gained tiers it
+  was a uniform **3px**, and stacking fills under the progress edge had quietly reduced the
+  resting bar to 2px on every deck, narration or not.
+
 ### Added
 
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its

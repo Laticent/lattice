@@ -732,3 +732,221 @@ Still UNVERIFIED, and marked so deliberately: everything about how narration SOU
 captions-only rung exercises the clock, the rail, the beat and the transport — it does not
 exercise synthesis, the cache, the prefetch window, or the starvation hold against real audio.
 Time-to-first-audio and whether playback is smooth need a real key on a real link.
+
+---
+
+## Amendment (2026-08-04): height was the wrong axis — one token, three strengths
+
+Post-merge, the maintainer's instruction was blunt and correct: *"none of the above. all should be
+8."* The rail had shipped with its three tiers separated by **thickness** (2/3/5 px). That was a
+workaround, and it broke the idiom they had asked for at the very start of this work — *"it should
+behave like the youtube progress bar right?"* A scrubber is a **uniform bar whose ranges differ by
+tone**. Stepping the heights made it something else.
+
+**Why the workaround existed, and why it was the wrong conclusion.** The 36-combination sweep is
+sound: `--accent` against `--border` is under 3:1 in **eleven** combos and identical (`#FFFFFF`
+both) in `onyx dark`, so that pairing genuinely cannot carry the distinction. The error was
+inferring *"tone cannot carry this"* from *"these two tokens cannot carry this."* The failure came
+from using two **independent** tokens whose relationship no palette is obliged to preserve — not
+from tone as an encoding.
+
+**The fix.** Derive every tier from **one** token, blended toward the background:
+
+| tier | value |
+|---|---|
+| track (unplayed) | `color-mix(in srgb, var(--accent) 16%, var(--bg))` |
+| current slide's track | `color-mix(in srgb, var(--accent) 30%, var(--bg))` |
+| prefetch (buffered) | `color-mix(in srgb, var(--accent) 61%, var(--bg))` |
+| progress (played) | `var(--accent)` |
+
+Because the ladder is one hue at three strengths, its ordering is a property of the blend, not of
+any palette's token relationships. Swept over the same 36 combos:
+
+```
+accent-vs-border   < 3:1 in 11 combos      ← why height was reached for
+track-vs-prefetch  worst 1.87:1  in 0 combos below 1.5
+prefetch-vs-progress worst 1.92:1  in 0 combos below 1.5
+track-vs-bg        worst 1.19:1  (--border's own worst against --bg is 1.21:1)
+```
+
+The strengths were not picked by eye — a search over the (track, prefetch) space maximized the
+weakest link across all 36, holding the resting track to the floor `--border` already establishes.
+`onyx dark`, the impossible case for the old scheme, is now among the clearest: white / mid-gray /
+near-black.
+
+Verified by rendering the ladder in the real Studio page with the root's `data-palette`/`data-mode`
+switched per capture — `onyx dark`, `mustard light` (the worst old ratio at 2.99), and
+`a11y-protanopia light` all read cleanly.
+
+**A methodology note worth keeping.** The first attempt at that verification put
+`data-palette`/`data-mode` on *injected divs* and produced six identical copies of `indaco` while
+looking exactly like a palette sweep. The tokens are declared on `html[data-palette][data-mode]` —
+a descendant cannot scope them. A palette check that never switched palettes is the same class of
+error as the e2e spec that passed against the unfixed build: **a result that looks right is not
+evidence until you confirm the mechanism that would make it wrong actually fired.**
+
+**A shrink nobody chose, undone.** Before the rail had tiers it was a uniform **3px**. Stacking
+fills beneath the progress edge had reduced the resting track to 2px — on every deck, including
+those with no narration at all. Nobody decided that; it fell out of the implementation, and it
+went unnoticed because every capture taken during the original work had no cached narration to
+show the middle tier. Uniform 8px settles it.
+
+---
+
+## Amendment (2026-08-04): Kokoro prefetches — schedule the hazard, don't ban it
+
+An earlier Munger-inversion pass concluded that Kokoro must be excluded from prefetch, and
+`warm()` returned early for every rung but `openrouter-tts`. The reasoning was sound as far as it
+went: Kokoro is ONE model instance in ONE worker, so synthesis is strictly serial however many
+requests are posted, and a warm pass for the next slide would sit in the worker's FIFO ahead of
+the sentence the room is waiting to hear.
+
+**Right about the hazard, wrong about the remedy.** The ban cost the rung we recommend for a
+*live room* — precisely the rung with no network in the loop — the entire benefit of prefetch. And
+because `narrationReadiness` still treated Kokoro as a clocked voice, the rail's buffered edge
+could never lead the playhead there: it displayed its "audio has run dry" state permanently while
+narration played perfectly. "Fetch ahead → the whole deck" was a silent no-op on-device while the
+Settings copy promised offline delivery.
+
+**A scheduler, not a ban.** `createSerialQueue()` runs exactly one job at a time and holds the
+rest on the MAIN THREAD, where they can still be reordered — a message already posted to the
+worker cannot be. Selection reads `priority.warm` at DEQUEUE time, and that object is shared with
+the request entry in the model, so a playback caller that joins an already-queued prefetch
+**promotes it in place** instead of waiting behind the backlog.
+
+That sharing is the subtle part, and it took a failing test to find: there are **two** dedup
+layers. `synthOne` joins at `inFlightSynths` *above* `startRequest`'s own `liveRequests`, so a
+playback caller that joined at the outer layer never reached the promotion at the inner one. The
+priority object is therefore created by the CALLER and published on both entries, so whichever
+layer a join lands at can promote the same object.
+
+**The honest limit**, stated because it is not zero: preemption is per SENTENCE. A playback
+request arriving mid-inference waits for that one warm sentence to finish, since inference already
+running cannot be canceled. It never waits for the whole backlog, which was the failure mode the
+ban existed to prevent.
+
+**A note on how the first test lied.** The first attempt drove this through an injected test rung
+via `__setRung` — which bypasses `kokoroRung` entirely, and with it the queue. It reported
+`warm:w1 | warm:w2 | warm:w3 | play:PLAYBACK` and would have "proved" the scheduler did not work,
+when in fact no scheduler was in the path at all. The queue is now an exported factory tested
+directly, and the model's half (hand the rung a mutable priority; flip it on a join) is tested
+separately. Same lesson as the e2e spec that passed against an unfixed build: **confirm the
+mechanism under test is actually in the path.**
+
+## Amendment (2026-08-04): the store's two O(everything) paths — mine, not pre-existing
+
+The red team filed these under "pre-existing, logged not owned." That was a misfiling and it is
+worth correcting in the record: `narration-store.js` is new in #1352, so both are defects this
+work introduced, and HARD RULE #18 makes them fixes rather than follow-ups.
+
+1. **`putClip` → `evictToBudget` → `clipStats()` → `getAll()` on every write.** Totaling the
+   store's bytes materialized every metadata record — of every deck ever presented — on each clip
+   the warm window wrote. Now a running total gates it: only when the estimate says the budget
+   might be breached is the authoritative read paid for, and that read re-seeds the estimate, so
+   drift (another tab writing) self-corrects exactly when it matters. The subtle case is an
+   overwrite, where the delta is `new − old` and not `+new`; a test pins it, because getting it
+   wrong makes the store evict for no reason.
+2. **`readyKeys` → `getAllKeys()` over the whole store, every 2 seconds.** Each key is a JSON
+   array carrying a whole sentence, so the readiness poll deserialized the entire origin store on
+   a timer, on the same main thread as `decodeAudioData` — the surface an entire commit went into
+   proving must not stutter. Now one small index probe per sentence of the current deck.
+
+Both were invisible in testing because a fresh store is small. They only bite at the scale the
+feature is designed for, which is the worst kind of defect to ship: it arrives once the user has
+been using it long enough to trust it.
+
+
+---
+
+## Amendment (2026-08-04): the trio's third round — a moved goalpost, a reverted optimization,
+## and a testing failure that repeated four times
+
+Three lenses on the follow-up branch. This amendment records what they overturned, because two of
+the three changes were wrong in ways the work itself had already been warned about.
+
+### 1. The rail's contrast argument moved its own goalpost
+
+The height encoding was chosen because `--accent` vs `--border` is under **3:1** in 11 of 36
+combos. The tonal replacement was then reported as passing — against **1.5:1**, a threshold
+introduced after the fact and appearing in no standard. Measured against the original criterion:
+
+```
+OLD  accent vs border          < 3:1 in 11 / 36   ← the reason height was reached for
+NEW  track vs prefetch         < 3:1 in 15 / 36   (worst 1.87)
+NEW  prefetch vs progress      < 3:1 in 25 / 36   (worst 1.92)
+NEW  current(30%) vs prefetch  < 3:1 in 35 / 36   (worst 1.56)
+```
+
+And a brute-force search over the entire `(track%, prefetch%)` space gives a **ceiling of 2.07:1**
+on the worst adjacent pair: no one-token blend can reach 3:1 here, because `--accent` vs `--bg` is
+only 4.35:1 in the tightest palette. The optimizer *proved the encoding inadequate* and its output
+was read as a success.
+
+**What survives, and why the ladder still ships:** progress-vs-track — the signal that carries
+position — went from under 3:1 in 11 palettes (**1.00, literally invisible in `onyx dark`**) to
+**3.59:1 worst-case, passing 36/36**. That is a real fix to a defect the previous rail had and the
+original work logged as "pre-existing, not fixed". The buffered range is now documented as a
+*reinforcing* tone rather than a load-bearing one. Whether it needs a second, palette-blind
+channel (a hatch, a notch at the buffer front) is left open rather than decided under time
+pressure — which is how the goalpost moved in the first place.
+
+### 2. The "you are here" cue was covered by the very change that made it reachable
+
+The cue was a lift of the track's own tone (16% → 30%). The prefetch fill occupies the **same box**
+and paints after it, so a fully-cached slide hides it completely — red team rendered it in Chromium
+and got byte-identical colors for the current and neighbouring segments. It was unreachable only
+because Kokoro could not prefetch; **letting Kokoro prefetch, in this same diff, tipped the latent
+fragility into failure** — the HARD RULE #18 case in its own words. As a tone step it was also
+weaker than what it replaced in 26 of 36 palettes.
+
+Replaced with a **mark, not a tone**: solid `--accent` with a 1px `--bg` halo, painted last so
+nothing can cover it, reading as a hard edge against whatever sits beneath (accent-to-bg is 4.35:1
+in the tightest palette). At rest it marks the current slide; under playback it rides the progress
+front. One mechanism for both.
+
+### 3. The store "optimization" was a pessimization, and is reverted
+
+Measured on real Chromium (not `fake-indexeddb`), the per-sentence `readyKeys` probe against the
+`getAllKeys()` it replaced:
+
+```
+store      0, deck  300   new 7.9ms  old 1.1ms   7.1x SLOWER   ← every new user
+store    300, deck  300   new 9.7    old 2.5     3.9x slower
+store   5000, deck 5000   new 176.9  old 28.7    6.2x slower
+store   3000, deck  300   new 16.6   old 25.7    new wins
+```
+
+It spends one IndexedDB request per sentence to learn what one read already answered, and wins only
+once the store is several times the deck. The running byte total was wrong differently: it is
+per-tab, so two Studio tabs each believed they were under budget while the store reached ~2x it,
+and it self-corrected only in the harmless direction (an over-estimate triggers the authoritative
+read; an under-estimate never does).
+
+Both reverted. **Neither was measured before shipping** — HARD RULE #19 exists for exactly this,
+and "it is obviously O(smaller)" is not a measurement. The real fix is not a faster probe: it is to
+stop asking about the whole deck. Readiness only matters from the playhead forward.
+
+### 4. The testing failure that repeated four times
+
+This is the finding worth keeping longest.
+
+| # | The test | What it actually exercised |
+|---|---|---|
+| 1 | `the caller's abort cancels the in-flight request` | Passed only because a 20s timeout fired; asserted the opposite of the shipped design |
+| 2 | the e2e beat spec | Passed against the *unfixed* build — the matcher auto-retried past the 4s hold |
+| 3 | the first Kokoro scheduler test | Drove `__setRung`, which bypasses the rung and its queue entirely |
+| 4 | the queue's abort-drop test | Passed a signal **no production call site produces** |
+
+And the checker mutation-tested the three new store tests: **all three passed with the exact defect
+each one named injected.**
+
+The common shape: testing *the unit just written* rather than *the path the product takes*, then
+reading green as confirmation. Three separate amendments in this document already write down
+"confirm the mechanism under test is actually in the path" — writing the lesson down did not
+prevent the next instance. The operational form that would have:
+
+> **Before a test is allowed to count as evidence, break the thing it names and watch it go red.**
+
+That is cheap, mechanical, and catches every one of the five failures above. It is now the standard
+this work is held to; the tests that could not meet it were deleted along with the code they failed
+to guard, rather than left as green lights.

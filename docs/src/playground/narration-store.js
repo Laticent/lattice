@@ -261,6 +261,7 @@ export async function readyKeys(keys) {
   }
 }
 
+
 /** Drop every stored clip (the Data tab's "clear" action). */
 export async function clearClips() {
   if (typeof indexedDB === 'undefined') return;

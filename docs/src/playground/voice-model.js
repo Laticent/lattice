@@ -386,6 +386,75 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
   };
 }
 
+// ── One job at a time, playback ahead of prefetch ─────────────────────────────
+//
+// Kokoro is ONE model instance in ONE worker: synthesis is serial no matter how many
+// requests are posted. Prefetch was therefore excluded from that rung entirely — a warm
+// pass for the next slide would sit in the worker's FIFO ahead of the sentence the room
+// is waiting to hear. That kept playback safe but cost the feature: on the rung
+// recommended for a live room (no network in the loop), nothing was ever ready ahead of
+// the playhead, so the rail's prefetch edge could never lead it.
+//
+// The fix is a scheduler rather than a ban. Exactly one job is in flight; the rest queue
+// HERE, on the main thread, where they can still be REORDERED — a message already posted
+// to the worker cannot be. Selection reads `priority.warm` at DEQUEUE time, and that
+// object is shared with the model's request entry, so a playback caller that JOINS an
+// already-queued warm request promotes it in place instead of waiting behind the backlog.
+//
+// HONEST LIMIT: preemption is per SENTENCE. A playback request arriving mid-inference
+// waits for that one warm sentence to finish, because inference already running cannot be
+// canceled. It never waits for the whole backlog, which was the failure mode that
+// justified the ban.
+export function createSerialQueue() {
+  const queue = [];
+  let inFlight = false;
+
+  function pump() {
+    if (inFlight) return;
+    // The signal each job carries is `startRequest`'s OWN controller, which by design aborts
+    // only at REQUEST_CEILING_MS — the caller's signal is deliberately never forwarded, so a
+    // presenter leaving a slide cannot fire it. This sweep therefore drops genuinely expired
+    // work and nothing else. An earlier version of this comment claimed it dropped work whose
+    // "caller walked away", and a test proved it by passing a signal no call site produces:
+    // abandoned prefetch DOES run to completion on device. Wiring a real cancel means plumbing
+    // the warm caller's signal through fetchClip → startRequest, which is a change to the
+    // deliberate "a paid-for request finishes and caches" invariant and is not made here.
+    for (let i = queue.length - 1; i >= 0; i--) {
+      if (queue[i].signal?.aborted) {
+        queue[i].reject(new Error('aborted'));
+        queue.splice(i, 1);
+      }
+    }
+    if (!queue.length) return;
+    let i = queue.findIndex((j) => !j.priority?.warm);
+    // Nothing but prefetch queued — take the NEWEST. Prefetch relevance decays with age: after
+    // a burst of navigation the oldest queued sentence is the one furthest from where the deck
+    // now is, so FIFO spends the single serial slot on the least useful work in the queue.
+    if (i < 0) i = queue.length - 1;
+    const job = queue.splice(i, 1)[0];
+    inFlight = true;
+    Promise.resolve()
+      .then(job.run)
+      .then(job.resolve, job.reject)
+      .finally(() => {
+        inFlight = false;
+        pump();
+      });
+  }
+
+  return {
+    /** Run `run` when the single slot frees. `priority` is read at dequeue time, so
+     *  mutating `priority.warm` to false before selection promotes a queued job. */
+    enqueue(run, signal, priority) {
+      return new Promise((resolve, reject) => {
+        queue.push({ run, signal, priority, resolve, reject });
+        pump();
+      });
+    },
+    depth: () => queue.length,
+  };
+}
+
 // Kokoro in-browser rung. Prefers a SAME-ORIGIN module Worker (see kokoro-worker.js
 // — that origin is what lets iOS run synthesis off the main thread); falls back to
 // main-thread synthesis only if the Worker can't be constructed at all. Loaded only
@@ -435,6 +504,8 @@ function kokoroRung({ getVoice }) {
     isReady = true;
   }
 
+  const { enqueue } = createSerialQueue();
+
   return {
     name: 'kokoro',
     ready() { return isReady; },
@@ -465,19 +536,26 @@ function kokoroRung({ getVoice }) {
     },
     // `speed` is a native kokoro-js generate() option (like the cloud rung's OpenRouter
     // `speed` param) — real phoneme-duration pacing, not a client-side playback-rate hack.
-    async synth({ text, voice, signal, speed }) {
+    //
+    // `priority` is a MUTABLE object (`{ warm }`), read at DEQUEUE time rather than at
+    // enqueue time — see the queue above for why that matters.
+    async synth({ text, voice, signal, speed, priority }) {
       if (!isReady) throw new Error('Kokoro not summoned');
       const v = voice || getVoice();
-      if (worker) {
-        const id = nextId++;
-        return new Promise((resolve, reject) => {
-          pending.set(id, { resolve, reject });
-          worker.postMessage({ type: 'generate', id, text, voice: v, speed });
-          if (signal) signal.addEventListener('abort', () => { pending.delete(id); reject(new Error('aborted')); }, { once: true });
-        });
-      }
-      const audio = await mainTts.generate(text, { voice: v, ...(speed && speed !== 1 ? { speed } : {}) });
-      return wavBlob(audio.audio, audio.sampling_rate);
+      const run = () => {
+        if (worker) {
+          const id = nextId++;
+          return new Promise((resolve, reject) => {
+            pending.set(id, { resolve, reject });
+            worker.postMessage({ type: 'generate', id, text, voice: v, speed });
+            if (signal) signal.addEventListener('abort', () => { pending.delete(id); reject(new Error('aborted')); }, { once: true });
+          });
+        }
+        return mainTts
+          .generate(text, { voice: v, ...(speed && speed !== 1 ? { speed } : {}) })
+          .then((audio) => wavBlob(audio.audio, audio.sampling_rate));
+      };
+      return enqueue(run, signal, priority);
     },
   };
 }
@@ -703,18 +781,25 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
    *
    * REQUEST_CEILING_MS is the one hard stop, so a genuinely hung request cannot live forever.
    */
-  function startRequest(rung, { text, voice, speed, key }) {
+  function startRequest(rung, { text, voice, speed, key, priority }) {
     const existing = liveRequests.get(key);
-    if (existing) return existing;
+    if (existing) {
+      // A PLAYBACK caller joining a request started by prefetch promotes it. The rung's
+      // scheduler reads this object at dequeue time, so on a serial rung (kokoro) the
+      // sentence the room is waiting for jumps the prefetch backlog instead of sitting
+      // behind it. A no-op for a rung with no queue.
+      if (priority && !priority.warm) existing.priority.warm = false;
+      return existing;
+    }
     const ctl = new AbortController();
     // The REQUEST's own age, not any caller's wait. A second caller that JOINS a request
     // already five seconds old must not record five milliseconds when it lands — that
     // poisoned the latency reservoir with the join, and `auto` lookahead is sized off its
     // p95 (red team, #1352). The entry, not the bare promise, is what callers hold.
-    const entry = { startedAt: Date.now(), promise: null };
+    const entry = { startedAt: Date.now(), promise: null, priority: priority || { warm: false } };
     let ceiling;
     const p = Promise.race([
-      rung.synth({ text, voice, speed, signal: ctl.signal }),
+      rung.synth({ text, voice, speed, signal: ctl.signal, priority: entry.priority }),
       new Promise((res) => {
         ceiling = setTimeout(() => {
           ctl.abort(); // genuinely hung — stop paying for an answer that is never coming
@@ -743,7 +828,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return entry;
   }
 
-  async function fetchClip(rung, { text, voice, speed, signal, key }) {
+  async function fetchClip(rung, { text, voice, speed, signal, key, priority }) {
     // Tier 1 — the persistent store. Guarded by the workspace pref, and skipped entirely
     // when this device has no IndexedDB (private mode), where getClip resolves null.
     if (narrationCacheEnabled()) {
@@ -767,7 +852,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // the warm-ahead finds it already there. Aborting it instead threw away audio we had
       // already paid for, and on a link slower than the deadline that meant nothing ever
       // reached the cache at all — the deck simply went silent.
-      const request = startRequest(rung, { text, voice, speed, key });
+      const request = startRequest(rung, { text, voice, speed, key, priority });
       let timer;
       const outcome = await Promise.race([
         request.promise.then((blob) => (blob ? { blob } : { failed: true })),
@@ -833,11 +918,20 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // Join an in-flight request for this key — unless it belongs to an already-aborted call (the same
     // barge-in safety speak()'s synth() documents).
     const joined = inFlightSynths.get(key);
-    if (joined && !joined.sig.aborted) return { rung: rung.name, bytes: await joined.promise, key };
-    const p = fetchClip(rung, { text, voice, speed: effSpeed, signal, key }).finally(() => {
+    if (joined && !joined.sig.aborted) {
+      // PROMOTE what we join. `inFlightSynths` is a second dedup layer ABOVE startRequest's
+      // own, so a playback caller that joins here never reaches the promotion there — and on
+      // a serial rung that left the sentence the room is waiting for sitting in the prefetch
+      // backlog. The priority object is created by the caller precisely so both layers
+      // reference the SAME one.
+      if (joined.priority) joined.priority.warm = false;
+      return { rung: rung.name, bytes: await joined.promise, key };
+    }
+    const priority = { warm: false };
+    const p = fetchClip(rung, { text, voice, speed: effSpeed, signal, key, priority }).finally(() => {
       if (inFlightSynths.get(key)?.promise === p) inFlightSynths.delete(key);
     });
-    inFlightSynths.set(key, { promise: p, sig: signal ?? new AbortController().signal });
+    inFlightSynths.set(key, { promise: p, sig: signal ?? new AbortController().signal, priority });
     return { rung: rung.name, bytes: await p, key };
   }
 
@@ -932,29 +1026,34 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // used to carry near-copies of this, so an improvement to either silently applied
       // to only half the traffic — and a warm that skipped the on-device store would
       // re-buy audio the device already held.
-      const p = fetchClip(item.rung, { text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig, key: cacheKey }).finally(() => {
+      const priority = { warm: true };
+      const p = fetchClip(item.rung, { text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig, key: cacheKey, priority }).finally(() => {
         if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
         warmActive--;
         pumpWarmQueue(); // a slot just freed — drain whatever's queued, from ANY caller
       });
-      inFlightSynths.set(cacheKey, { promise: p, sig });
+      inFlightSynths.set(cacheKey, { promise: p, sig, priority });
     }
   }
   function warm(sentences, { signal } = {}) {
     const rung = pickRung();
-    // Scoped to `openrouter-tts` only (Munger-inversion finding). This whole
-    // prefetch exists to hide NETWORK round-trip latency — genuinely
-    // parallel HTTP requests don't compete with each other. Kokoro synthesis
-    // is CPU/GPU-bound on ONE shared, effectively single-threaded resource
-    // (the same-origin worker; onnxruntime-web's WASM backend has no
-    // multi-threading without cross-origin isolation, which this static
-    // docs site doesn't have — see kokoro-worker.js). Warming the NEXT
-    // slide there doesn't hide any latency the user perceives as "waiting
-    // for network" — it just adds a competing consumer of the one resource
-    // the CURRENT slide's own still-synthesizing sentences also need,
-    // risking a genuinely audible delay to the narration already playing.
-    // `speechSynthesis`/`silent` were already excluded (no blob to cache).
-    if (rung.name !== 'openrouter-tts') return;
+    // Both BLOB rungs prefetch now. `speechSynthesis`/`silent` cannot — they produce no
+    // blob to cache — so they are still excluded here.
+    //
+    // Kokoro used to be excluded too (an earlier Munger-inversion finding): its synthesis
+    // is CPU/GPU-bound on ONE shared, effectively single-threaded resource (the same-origin
+    // worker; onnxruntime-web's WASM backend has no multi-threading without cross-origin
+    // isolation, which this static docs site doesn't have — see kokoro-worker.js), so a
+    // warm pass would queue ahead of the sentence the room is waiting to hear. That
+    // reasoning was right about the hazard and wrong about the remedy: it cost the rung
+    // recommended for a LIVE ROOM the entire benefit of prefetch, and left the rail's
+    // prefetch edge permanently unable to lead the playhead there.
+    //
+    // The hazard is now handled where it belongs — in the kokoro rung's own scheduler,
+    // which runs one job at a time and lets playback jump the prefetch backlog (see
+    // `enqueue`/`pump` there). Warming is safe because it can no longer delay playback by
+    // more than the single sentence already in flight.
+    if (rung.name !== 'openrouter-tts' && rung.name !== 'kokoro') return;
     if (!Array.isArray(sentences) || !sentences.length) return;
     const effSpeed = speedPref();
     // Mirrors speak()'s own effVoiceFor exactly (including the '' fallback for

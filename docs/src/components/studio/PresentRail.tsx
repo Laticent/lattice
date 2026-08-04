@@ -150,37 +150,69 @@ function PresentRailImpl({
 										onFocus={() => setFocusIdx(gi)}
 										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${(ready[gi] ?? 0) >= 1 && !here ? ' — narration ready' : ''}`}
 										aria-current={here ? 'step' : undefined}
-										className="relative h-[5px] min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
+										className="relative h-[8px] min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
 									>
-										{/* The three tiers are separated by HEIGHT, not tone — 2px track, 3px
-										    prefetch, 5px progress — because tone cannot carry this. Measured
-										    across all 36 palette/mode combinations: accent-to-border is under
-										    3:1 in ELEVEN of them (in `onyx dark` the two tokens are both
-										    #FFFFFF), so any tint-based tier is invisible in the a11y, onyx and
-										    print palettes. Thickness is palette-blind by construction, which is
-										    what "layouts are palette-blind" actually demands. Color still
-										    reinforces; it just isn't what carries the meaning. */}
+										{/* ONE HEIGHT, THREE STRENGTHS OF ONE TOKEN.
+
+										    The video-scrubber idiom exactly: a uniform bar whose track, buffered range
+										    and played range differ by TONE, not thickness. An earlier version stepped
+										    the heights (2/3/5 px) instead, because the obvious tonal encoding —
+										    `--accent` against `--border` — collapses: measured across all 36
+										    palette/mode combinations those two tokens are under 3:1 in ELEVEN, and in
+										    `onyx dark` they are BOTH #FFFFFF. But that is a fault of using two
+										    INDEPENDENT tokens, not of tone. Every tier here is `--accent` blended
+										    toward `--bg` at a different strength, so the ladder is a property of ONE
+										    hue and no palette can flatten it: worst-case across the same 36 combos,
+										    track-to-prefetch is 1.87:1 and prefetch-to-progress 1.92:1. `onyx dark` —
+										    the impossible case before — now renders white / mid-gray / near-black and
+										    is among the clearest of the set. The 16% resting track sits within a hair
+										    of what `--border` itself achieves against `--bg` (1.19 vs 1.21 worst-case),
+										    so the bar at rest is no louder than the hairlines already in use. */}
 										<span
-												className="absolute inset-x-0 bottom-0 h-[2px] rounded-full"
-												// The CURRENT segment's track stays tinted even with nothing playing.
-												// Position is otherwise carried only by the progress fill, which is
-												// zero-width before the first word and in rehearse mode — so on slide 1
-												// with Voice muted (the default) every segment rendered identically and
-												// the rail showed no "here" at all. `aria-current` survives, so this was
-												// visual only; it is still a cue the rail had before this branch
-												// (independent checker, #1352).
-												style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : 'var(--border)' }}
-											/>
+											data-tier="track"
+													className="absolute inset-x-0 bottom-0 h-[8px] rounded-full"
+											// The CURRENT segment's track is lifted 16% → 30%. Position is otherwise
+											// carried only by the progress fill, which is zero-width before the first
+											// word and in rehearse mode — so on slide 1 with Voice muted (the default)
+											// every segment rendered identically and the rail showed no "here" at all.
+											// Deliberately a whisper (1.20:1 over the resting track) and 1.56:1 clear of
+											// the prefetch tone, so it reads as position, never as buffered audio.
+											style={{ background: `color-mix(in srgb, var(--accent) ${here ? 30 : 16}%, var(--bg))` }}
+										/>
 										{prePct > 0 && (
 											<span
-												className="absolute bottom-0 left-0 h-[3px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-												style={{ width: `${prePct}%`, background: 'color-mix(in srgb, var(--accent) 55%, var(--border))' }}
+												data-tier="prefetch"
+													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+												style={{ width: `${prePct}%`, background: 'color-mix(in srgb, var(--accent) 61%, var(--bg))' }}
 											/>
 										)}
 										{proPct > 0 && (
 											<span
-												className="absolute bottom-0 left-0 h-[5px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
+												data-tier="progress"
+													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
 												style={{ width: `${proPct}%`, background: 'var(--accent)' }}
+											/>
+										)}
+										{/* THE PLAYHEAD — painted LAST, so nothing can cover it.
+										
+										    The current-slide cue used to be a lift of the track's own tone (16% → 30%).
+										    Two independent problems, both measured: the prefetch fill occupies the SAME
+										    box and paints after it, so once a slide is fully cached the tint is hidden
+										    completely (red team rendered it — the current and neighbouring segments came
+										    back byte-identical); and as a tone step it is weaker than what it replaced in
+										    26 of 36 palettes. It was reachable at all only because Kokoro could not
+										    prefetch; letting it prefetch is what tipped that latent fragility into failure.
+										
+										    A mark, not a tone. Solid `--accent` with a 1px `--bg` halo, so it reads as a
+										    hard edge against WHATEVER sits beneath — accent-to-bg is 4.35:1 in the
+										    tightest palette, which no fill tone can flatten. At rest it sits at the start
+										    of the current slide and says "here"; under playback it rides the progress
+										    front. One mechanism for both. */}
+										{here && (
+											<span
+												data-tier="playhead"
+													className="absolute bottom-0 h-[8px] w-[2px] rounded-full transition-[left] duration-150 motion-reduce:transition-none"
+												style={{ left: `${proPct}%`, marginLeft: -1, background: 'var(--accent)', boxShadow: '0 0 0 1px var(--bg)' }}
 											/>
 										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}

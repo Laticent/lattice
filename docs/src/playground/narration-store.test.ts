@@ -132,6 +132,21 @@ describe('narration-store', () => {
 		});
 	});
 
+	// The running byte total behind the eviction gate. `evictOnce` used to open with a
+	// `getAll()` over the whole meta store on EVERY write — so each warm-window write
+	// materialized every record of every deck ever presented, on the same main thread as
+	// audio decode. The estimate makes the common case (well under budget) cost no read at
+	// all; these pin the arithmetic that makes it safe to trust.
+		// NOTE (2026-08-04): three tests lived here for a running-byte-total optimization that has
+	// since been reverted. The independent checker mutation-tested them and ALL THREE passed
+	// with the exact defect each one named injected — the estimate self-repaired before any
+	// assertion could see it, and the third asserted only set-membership, which the
+	// implementation it was meant to replace also satisfies. They were removed with the code
+	// they failed to guard. Any future attempt at this optimization needs an assertion on the
+	// estimate itself (a `__approxBytes()` seam) or a spy proving the authoritative read did
+	// NOT happen — plus a real-browser measurement first, which is what would have caught that
+	// the sibling `readyKeys` change was 7x SLOWER on a fresh store.
+
 	describe('budget', () => {
 		it('defaults to 100 MB and ignores nonsense overrides', async () => {
 			expect(getBudgetBytes()).toBe(DEFAULT_BUDGET_BYTES);
