@@ -1,7 +1,7 @@
 /**
  * Unit: the PREVIEW path bakes a diagram's ink for ITS OWN slide (#1332 step 3).
  *
- * THE BUG THIS PINS. `buildMermaidThemeVars` used to resolve its own scope —
+ * THE BUG THIS PINS. The palette builder used to resolve its own scope —
  * `document.querySelector('section')`, always slide 1 — and `mermaid.initialize`
  * ran behind a `__llMermaidConfigured` one-shot. So a deck whose first slide is
  * light baked LIGHT node ink into every diagram in the deck, including slide 9's
@@ -18,9 +18,9 @@
  * dark-slide-2 deck, recorded in the PR.
  *
  * The runtime is one big IIFE around a `document` guard, so requiring it in Node
- * yields nothing callable. Rather than paraphrase the function under test — which
- * would test the paraphrase — the SHIPPED source of `buildMermaidThemeVars` is
- * lifted out and evaluated with the two things it closes over, exactly as
+ * yields nothing callable. Rather than paraphrase the code under test — which would
+ * test the paraphrase — the SHIPPED source of its palette port is lifted out between
+ * two sentinel comments and driven through the REAL kernel, exactly as
  * test/unit/core/diagram-theme-parity.test.js does.
  */
 
@@ -28,38 +28,41 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildDiagramTheme } = require('../../../lib/core/mermaid-theme-map');
 const {
   SCOPE_KEY_NONE,
   diagramScopeKey,
   diagramCacheKey,
 } = require('../../../lib/core/diagram-scope');
+const { renderDiagrams } = require('../../../lib/core/render-diagrams');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const RUNTIME_PATH = path.join(REPO, 'lib', 'runtime', 'index.js');
 const RUNTIME_SRC = fs.readFileSync(RUNTIME_PATH, 'utf8');
 
 /**
- * Lift the real `buildMermaidThemeVars` out of the shipped runtime and drive it
- * with a fake DOM whose token values depend on WHICH element is being read — the
- * one property a slide-1-only reader cannot satisfy.
+ * Lift the REAL palette port out of the shipped runtime and drive it through the real
+ * kernel with a fake DOM whose token values depend on WHICH element is being read —
+ * the one property a slide-1-only reader cannot satisfy.
  *
  * `tokensBySection` maps a fake section object to its token table.
  */
-function liftBuildThemeVars(tokensBySection, fallbackSection) {
-  const start = RUNTIME_SRC.indexOf('  function buildMermaidThemeVars(scopeEl) {');
-  assert.notEqual(start, -1,
-    'buildMermaidThemeVars(scopeEl) must exist in lib/runtime/index.js — the SECTION is the '
-    + 'per-slide port (#1332 step 3); resolving one inside the function is the slide-1 bake bug');
-  const end = RUNTIME_SRC.indexOf('\n  }\n', start);
-  assert.notEqual(end, -1, 'could not find the end of buildMermaidThemeVars');
-  const fnSrc = RUNTIME_SRC.slice(start, end + 4);
+function liftPreviewBuild(tokensBySection, fallbackSection) {
+  const BEGIN = "  // ── BEGIN PALETTE PORT";
+  const END = '  // ── END PALETTE PORT';
+  const start = RUNTIME_SRC.indexOf(BEGIN);
+  const end = RUNTIME_SRC.indexOf(END);
+  assert.notEqual(start, -1, 'lib/runtime/index.js must bracket its palette port with BEGIN PALETTE PORT');
+  assert.notEqual(end, -1, 'lib/runtime/index.js must bracket its palette port with END PALETTE PORT');
+  const blockSrc = RUNTIME_SRC.slice(start, end);
+  assert.match(blockSrc, /function openSectionReader\(scopeEl\)/,
+    'the reader must take the SECTION as a parameter (#1332 step 3) — resolving one inside '
+    + 'is the slide-1 bake bug');
 
   const probeEl = {
     style: { cssText: '', _color: '', set color(v) { this._color = v; }, get color() { return this._color; } },
     parentNode: null,
-    // Which section the probe is currently parented to. The real probe is appended
-    // to `scopeEl`, so it inherits that section's cascade — that inheritance is the
+    // Which section the probe is currently parented to. The real probe is appended to
+    // the section, so it inherits that section's cascade — that inheritance is the
     // mechanism under test, so the fake has to model it.
     host: null,
   };
@@ -71,7 +74,7 @@ function liftBuildThemeVars(tokensBySection, fallbackSection) {
 
   const fakeDocument = {
     querySelector: () => fallbackSection ?? null,
-    documentElement: { appendChild: attach(null) },
+    documentElement: { appendChild: attach(null), className: '', getAttribute: () => null },
     createElement: () => probeEl,
   };
   const read = (section, name) => tokensBySection.get(section)?.[name] ?? '';
@@ -88,9 +91,18 @@ function liftBuildThemeVars(tokensBySection, fallbackSection) {
 
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED source is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (document, getComputedStyle, buildDiagramTheme) {\n${fnSrc}\n  return buildMermaidThemeVars;\n})`,
+    `(function (document, getComputedStyle, diagramScopeKey) {\n${blockSrc}\n  return diagramThemePorts;\n})`,
   );
-  return factory(fakeDocument, fakeGetComputedStyle, buildDiagramTheme);
+  const ports = factory(fakeDocument, fakeGetComputedStyle, diagramScopeKey)();
+  /** The palette one section resolves, through the real kernel. */
+  return (sectionEl) => {
+    let out;
+    renderDiagrams([{ scope: sectionEl, diagrams: ['d'] }], {
+      ...ports,
+      renderOne: (_d, themeVars) => { out = themeVars; },
+    });
+    return out;
+  };
 }
 
 // Two slides of one deck: slide 1 light, slide 2 `_class: dark`. The tokens differ
@@ -108,7 +120,7 @@ function twoSlideDeck() {
 describe('the preview reads the palette from the slide it is rendering', () => {
   test('two sections of one deck resolve DIFFERENT ink — the slide-1 bake is gone', () => {
     const { slide1, slide2, tokens } = twoSlideDeck();
-    const build = liftBuildThemeVars(tokens, slide1);
+    const build = liftPreviewBuild(tokens, slide1);
 
     const light = build(slide1);
     const dark = build(slide2);
@@ -139,7 +151,7 @@ describe('the preview reads the palette from the slide it is rendering', () => {
       [slide1, { ...LIGHT_TOKENS, 'cat-1-fill': '#EFE7DA' }],
       [slide2, { ...DARK_TOKENS, 'cat-1-fill': '#2A231C' }],
     ]);
-    const build = liftBuildThemeVars(tokens, slide1);
+    const build = liftPreviewBuild(tokens, slide1);
     assert.equal(build(slide1).primaryColor, '#EFE7DA');
     assert.equal(build(slide2).primaryColor, '#2A231C',
       'the node FILL is baked too, so it has to follow the slide alongside the ink — a '
@@ -153,7 +165,7 @@ describe('the preview reads the palette from the slide it is rendering', () => {
     // Substituting black here would paint an entire deck's diagrams black on a webview
     // that is merely slow to apply its stylesheet.
     const slide1 = { className: 'content', getAttribute: () => null };
-    const build = liftBuildThemeVars(new Map([[slide1, LIGHT_TOKENS]]), slide1);
+    const build = liftPreviewBuild(new Map([[slide1, LIGHT_TOKENS]]), slide1);
     assert.equal(build(slide1).primaryColor, '');
   });
 
@@ -162,9 +174,26 @@ describe('the preview reads the palette from the slide it is rendering', () => {
     // document offers and, on a webview that has not applied the stylesheet, that is
     // empty — which is what the rAF retry budget is for.
     const { slide1, tokens } = twoSlideDeck();
-    const build = liftBuildThemeVars(tokens, slide1);
+    const build = liftPreviewBuild(tokens, slide1);
     assert.equal(build(undefined).primaryTextColor, '#0A1628');
     assert.doesNotThrow(() => build(null));
+  });
+
+  test('the probe is torn down after the walk — no orphan <span> is left in a slide', () => {
+    // Each reader holds a live probe element inside the section it reads. The kernel
+    // walks synchronously, so the runtime closes them all when it returns; leaking one
+    // per palette per keystroke would grow the DOM without bound in a live preview.
+    const { slide1, tokens } = twoSlideDeck();
+    const build = liftPreviewBuild(tokens, slide1);
+    build(slide1);
+    const probeSrc = RUNTIME_SRC.slice(
+      RUNTIME_SRC.indexOf('  // ── BEGIN PALETTE PORT'),
+      RUNTIME_SRC.indexOf('  // ── END PALETTE PORT'),
+    );
+    assert.match(probeSrc, /function closeSectionReaders\(\)/);
+    assert.match(RUNTIME_SRC, /} finally \{\n\s*\/\/[\s\S]{0,400}?closeSectionReaders\(\);/,
+      'the walk must close its readers in a `finally`, or a throw leaves probe elements '
+      + 'inside slides');
   });
 });
 
@@ -249,8 +278,13 @@ describe('the one-shot global config is gone', () => {
     // configure→render→configure is only correct if the renders in between are not
     // interleaved. Both halves have to be present: a per-scope configure dispatched
     // into concurrent renders would let a diagram read the NEXT band's palette.
-    assert.match(RUNTIME_SRC, /function configureForScope\(mermaid, key, sectionEl\)/);
+    assert.match(RUNTIME_SRC, /function configureForScope\(mermaid, key, themeVars\)/);
     assert.match(RUNTIME_SRC, /mermaidConfiguredScope = key;/);
     assert.match(RUNTIME_SRC, /diagramQueue = diagramQueue/);
+    // The kernel's run boundary is what triggers the reconfigure, and the run's renders
+    // are collected into the SAME queue link — so band B's initialize cannot land
+    // between band A's renders.
+    assert.match(RUNTIME_SRC, /beginRun: \(\{ scope, scopeKey, themeVars \}\) => beginDiagramRun\(/);
+    assert.match(RUNTIME_SRC, /Promise\.all\(jobs\.map\(\(run\) => run\(\)\)\)/);
   });
 });

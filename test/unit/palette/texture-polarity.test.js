@@ -286,13 +286,20 @@ describe('texture-polarity', () => {
     }
   }
 
-  test('a polarity pin stands down under --print, and the emulator marks the document', () => {
-    // The emulator BAKES a diagram's label ink for the band it renders — the B&W
-    // print band under `--print`. CSS repaints the chip but never that baked ink,
-    // so a pin is correct only where it agrees with the bake. On a print render a
-    // per-slide `_class` REPLACES the deck's `class: print`, so such a slide keeps
-    // `dark` and loses `print`: an ungated pin put baked print ink (dark) on a dark
-    // chip at ~2.7:1. The guard is the reason print output stays byte-identical.
+  test('a polarity pin stands down under --print, and leads with a section compound', () => {
+    // The render paths BAKE a diagram's label ink for the band they render — the B&W
+    // print band under `--print`. CSS repaints the chip but never that baked ink, so a
+    // pin is correct only where it agrees with the bake. On a print render a per-slide
+    // `_class` REPLACES the deck's `class: print`, so such a slide keeps `dark` and
+    // loses `print`: an ungated pin put baked print ink (dark) on a dark chip at
+    // ~2.7:1. `:not(.print)` is the reason print output stays byte-identical.
+    //
+    // The `[data-lattice-slide-bake]` qualifier that used to be required here is GONE
+    // (#1332 step 4). It existed because the two paths disagreed about granularity —
+    // this one baked per slide, the runtime baked once from the first section — so the
+    // pins were right on one path and wrong on the other. Step 3 ended that; both bake
+    // per slide, and an attribute announcing "this render baked per slide" announces
+    // nothing. The invariant it stood in for is now gated directly, below.
     for (const theme of ['onyx', 'concrete']) {
       const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'));
       const re = /([^{}]+)\{([^}]*)\}/g;
@@ -303,12 +310,16 @@ describe('texture-polarity', () => {
         // :root's scheme-aware wiring is untouched by print.
         if (!/url\(#latt-[a-z]+-tex-(light|dark)-\d+\)/.test(m[2])) continue;
         for (const sel of m[1].split(',').map((s) => s.trim())) {
-          assert.match(sel, /^section\.[\w-]+\[data-lattice-slide-bake\]/,
-            `themes/${theme}.css selects a pinned texture set from "${sel}", which does not REQUIRE `
-            + 'the per-slide-bake marker on the section compound. The pins are valid only where a '
-            + "diagram's ink is baked PER SLIDE — under --print, and on every runtime path, the ink "
-            + 'is deck-wide, so an unmarked pin puts a per-slide chip under it. It must also lead '
-            + 'with a literal `section`, or packTheme rewrites it into a slide descendant.');
+          // A literal leading `section` compound, or packTheme (and marp-core) rewrite
+          // the rule into a slide DESCENDANT and it silently never matches.
+          assert.match(sel, /^section\.[\w-]+/,
+            `themes/${theme}.css selects a pinned texture set from "${sel}", which does not lead `
+            + 'with a literal `section` compound — packTheme would rewrite it into a slide descendant.');
+          // …and print must still win, because print bakes ONE band deck-wide.
+          assert.match(sel, /:not\(\.print\)/,
+            `themes/${theme}.css pins a texture set from "${sel}" without excluding \`.print\` — `
+            + '`--print` bakes one B&W band for the whole deck, so a per-slide chip under it '
+            + 'puts dark print ink on a dark chip (~2.7:1).');
           guarded++;
         }
       }
@@ -319,8 +330,8 @@ describe('texture-polarity', () => {
     // The previous form here was three `assert.match` calls against the emulator's
     // SOURCE. They could not fail for any semantic error: renaming the stamped
     // attribute, and stubbing the predicate to `false`, each left the guard dead
-    // with this suite fully green. The predicate now lives in the shared kernel so
-    // it can be exercised directly, which immediately caught a real bug — routing
+    // with this suite fully green. The predicate lives in the shared kernel so it can
+    // be exercised directly, which immediately caught a real bug — routing
     // `color-mode: print` through the four-value register silently dropped it.
     const { deckPrintBand } = require('../../../lib/core/resolve-color-mode');
     const fm = (body) => `---\n${body}\n---\n\n# slide\n`;
@@ -344,37 +355,57 @@ describe('texture-polarity', () => {
       'the explicit flag term no longer forces the print band');
   });
 
-  test('the per-slide-bake marker is stamped, and the themes gate on that exact name', () => {
-    // The OTHER half of the decision, and the half that kept escaping. Deleting the
-    // stamp, dropping its /g, or renaming its attribute each left the render broken
-    // with this suite green — first behind three source-text assertions, then behind
-    // nothing at all. The stamper is now a pure function and the attribute name is
-    // one shared constant, so a rename cannot unhook the CSS that gates on it.
+  test('the marker is GONE — nothing stamps it and no theme gates on it', () => {
+    // The deletion is the acceptance test #1332 set for the inversion: "a correct fix
+    // should let us DELETE the reconciliation devices, not accumulate more." Asserted
+    // in BOTH directions, because a half-removal is the dangerous state: a theme rule
+    // still requiring the attribute becomes a permanently dead selector (no chip pin
+    // at all, so a dark slide gets light-polarity textures under dark ink — #1323),
+    // and a stamper with no reader is a lie about what the render did.
     const { SLIDE_BAKE_ATTR, stampSlideBake } = require('../../../lib/core/resolve-color-mode');
-    const html = '<section id="a"><p>x</p></section>\n<section id="b"><p>y</p></section>';
-
-    const stamped = stampSlideBake(html, false);
-    assert.equal((stamped.match(new RegExp(SLIDE_BAKE_ATTR, 'g')) || []).length, 2,
-      'stampSlideBake must mark EVERY section — marking only the first leaves later '
-      + 'slides pinning a chip the ink was never baked for');
-    assert.equal(stampSlideBake(html, true), html,
-      'a deck-wide bake (print) must stamp nothing, or the pins fire where the ink is '
-      + 'not per-slide');
-
-    // The themes must gate on the SAME name the stamper writes.
+    assert.equal(SLIDE_BAKE_ATTR, undefined,
+      'resolve-color-mode still exports SLIDE_BAKE_ATTR — the marker announces a granularity '
+      + 'both render paths now share, so it distinguishes nothing (#1332 step 4)');
+    assert.equal(stampSlideBake, undefined, 'resolve-color-mode still exports stampSlideBake');
+    assert.doesNotMatch(
+      fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8'),
+      /stampSlideBake\(/,
+      'the emulator still stamps the retired marker',
+    );
     for (const theme of ['onyx', 'concrete', 'a11y-base']) {
-      const css = stripComments(fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8'));
-      const pins = [...css.matchAll(/([^{}]*)\{[^{}]*--cat-\d+-texture/g)]
-        .flatMap((m) => m[1].split(',').map((x) => x.trim()))
-        .filter((sel) => /^section\.(dark|light|color-light)\b/.test(sel));
-      assert.ok(pins.length, `themes/${theme}.css declares no scheme-pinned texture rule`);
-      for (const sel of pins) {
-        assert.ok(sel.includes(`[${SLIDE_BAKE_ATTR}]`),
-          `themes/${theme}.css pins on "${sel}", which does not require [${SLIDE_BAKE_ATTR}] — `
-          + 'the pin would fire on the runtime paths, where ink is baked ONCE from the first '
-          + 'section, putting a per-slide chip under deck-wide ink');
-      }
+      const css = fs.readFileSync(path.join(ROOT, 'themes', `${theme}.css`), 'utf8');
+      assert.doesNotMatch(stripComments(css), /data-lattice-slide-bake/,
+        `themes/${theme}.css still qualifies a selector on [data-lattice-slide-bake], which nothing `
+        + 'stamps any more — every rule behind it is dead, and a scheme-pinned slide loses its '
+        + 'texture polarity entirely');
     }
+  });
+
+  test('what replaced the marker: BOTH paths resolve the palette per slide', () => {
+    // This is the invariant the pins actually stand on, and it is why they no longer
+    // need a marker. Each half is gated behaviorally in its own file — the assertions
+    // here are the LOAD-BEARING WIRING, so that removing either half fails the test
+    // that explains what the pins depend on rather than only a distant one.
+    //
+    //   preview   test/unit/runtime/mermaid-per-slide-band.test.js
+    //   PDF path  test/unit/core/render-diagrams.test.js
+    //             test/unit/core/slide-class-spans.test.js
+    const runtime = fs.readFileSync(path.join(ROOT, 'lib', 'runtime', 'index.js'), 'utf8');
+    assert.match(runtime, /function openSectionReader\(scopeEl\)/,
+      'the preview must read its palette from the SECTION it is rendering; resolving one '
+      + 'inside the reader is the slide-1 bake that made the pins wrong on this path');
+    assert.match(runtime, /renderDiagrams\(deck, \{/,
+      'and it must get the palette from the shared kernel, not assemble its own');
+    assert.equal(/__llMermaidConfigured\s*(=[^=]|\))/.test(runtime), false,
+      'the preview must not latch one palette for the whole document');
+
+    const emulator = fs.readFileSync(path.join(ROOT, 'lattice-emulator.js'), 'utf8');
+    assert.match(emulator, /renderDiagrams\(deck, \{/,
+      'the PDF path must walk the deck through the shared kernel, not render inside a '
+      + 'String.replace over source offsets');
+    assert.match(emulator, /slideClassSpans\(source\)/,
+      "the PDF path must take each slide's OWN `_class:`, not the last one anywhere before "
+      + 'the fence (#1329)');
   });
 
   test('each slot maps to its OWN pattern — the mapping is injective', () => {

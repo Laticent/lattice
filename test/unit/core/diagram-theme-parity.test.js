@@ -39,6 +39,8 @@ const {
   buildDiagramTheme,
   diagramThemeTokens,
 } = require('../../../lib/core/mermaid-theme-map');
+const { renderDiagrams } = require('../../../lib/core/render-diagrams');
+const { diagramScopeKey } = require('../../../lib/core/diagram-scope');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const EMULATOR_SRC = fs.readFileSync(path.join(REPO, 'lattice-emulator.js'), 'utf8');
@@ -52,61 +54,66 @@ const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'
  */
 const fakeReadToken = (name) => `#${name}`;
 
-// ── The PDF path's adapter ──────────────────────────────────────────────────
-// lattice-emulator.js is a CLI that renders on require, so it cannot be
-// imported. Its adapter is three lines (readPaletteToken + resolveMermaidThemeVars)
-// and reproducing it here would test a copy, so instead: assert the real source
-// still routes through the kernel (below), and drive the kernel with the miss
-// policy that source declares.
-const emulatorThemeVars = (readToken) => buildDiagramTheme(readToken);
+// ── Both paths, through the shared kernel ───────────────────────────────────
+//
+// Since #1332 step 4 neither path ASSEMBLES a palette: `renderDiagrams` walks the
+// deck, calls `buildDiagramTheme` from the one map, and hands the result to
+// `renderOne`. So what remains to compare is each path's PORT — its token reader,
+// its scope key, and the one `finishTheme` divergence — driven through the real
+// kernel, with the same fake token values on both sides.
 
-// ── The preview path's adapter ──────────────────────────────────────────────
-/**
- * Run the REAL `buildMermaidThemeVars` out of lib/runtime/index.js.
- *
- * The runtime is one big IIFE wrapped around a `document` guard, so requiring it
- * in Node yields nothing callable. Rather than paraphrase the adapter — which
- * would test the paraphrase — lift the actual function text out of the shipped
- * source and evaluate it with the two things it closes over (`buildDiagramTheme`
- * and a fake DOM). If someone edits that function to stop calling the kernel,
- * this returns different values and the parity assertions fail.
- *
- * What this does NOT prove: that a real browser's getComputedStyle behaves like
- * the fake DOM. It doesn't need to — the browser's job is the READER, which is
- * exactly the half this substitutes. The half under test is everything after it.
- */
-function runtimeThemeVars(readToken, scopeEl = { __section: true }) {
-  // The signature is asserted, not just located: `scopeEl` IS the per-slide port
-  // (#1332 step 3). If someone drops the parameter and goes back to resolving
-  // `document.querySelector('section')` inside, this index misses and the whole
-  // parity suite fails loudly rather than silently testing slide 1 again.
-  const start = RUNTIME_SRC.indexOf('  function buildMermaidThemeVars(scopeEl) {');
-  assert.notEqual(start, -1,
-    'buildMermaidThemeVars(scopeEl) must still exist in lib/runtime/index.js — it takes the '
-    + 'SECTION as a parameter (#1332 step 3); resolving one inside is the slide-1 bake bug');
-  const end = RUNTIME_SRC.indexOf('\n  }\n', start);
-  assert.notEqual(end, -1, 'could not find the end of buildMermaidThemeVars');
-  const fnSrc = RUNTIME_SRC.slice(start, end + 4);
-
-  // The fake DOM: `getComputedStyle` answers raw token reads, the probe element
-  // answers color reads. Both route to the same `readToken`, because on a real
-  // page they are two ways of asking the browser the same question.
-  const styleFor = () => ({
-    getPropertyValue: (prop) => (prop.startsWith('--') ? readToken(prop.slice(2)) : ''),
-    colorScheme: 'light',
+/** The PDF path: its scope IS the band, and its reader is a table lookup. */
+function pdfThemeVars(readToken) {
+  // lattice-emulator.js is a CLI that renders on require, so it cannot be imported.
+  // Its port is three lines (`readBandToken` + `renderMermaidOne`) and reproducing
+  // them here would test a copy — so instead: assert the real source still routes
+  // through the kernel (below), and drive the kernel with the port shape that source
+  // declares.
+  let out;
+  renderDiagrams([{ scope: 'light', diagrams: ['d'] }], {
+    readToken: (_band, name) => readToken(name),
+    renderOne: (_d, themeVars) => { out = themeVars; },
   });
+  return out;
+}
+
+/**
+ * The preview path: run the REAL palette port out of lib/runtime/index.js.
+ *
+ * The runtime is one big IIFE around a `document` guard, so requiring it in Node
+ * yields nothing callable. Rather than paraphrase the port — which would test the
+ * paraphrase — lift the actual source between its two sentinel comments and evaluate
+ * it with the things it closes over (a fake DOM plus `diagramScopeKey`). Edit the port
+ * to stop reading from the section, or to diverge on a second key, and these
+ * assertions fail.
+ *
+ * What this does NOT prove: that a real browser's getComputedStyle behaves like the
+ * fake DOM. It doesn't need to — the browser's job is the READER's mechanism, and the
+ * half under test is everything the kernel does with it. The real-surface proof is a
+ * Playground render, recorded on the PR (HARD RULE #23).
+ */
+function previewThemeVars(readToken, scopeEl = { className: 'content', getAttribute: () => null }) {
+  const BEGIN = "  // ── BEGIN PALETTE PORT";
+  const END = '  // ── END PALETTE PORT';
+  const start = RUNTIME_SRC.indexOf(BEGIN);
+  const end = RUNTIME_SRC.indexOf(END);
+  assert.notEqual(start, -1, 'lib/runtime/index.js must still bracket its palette port with BEGIN PALETTE PORT');
+  assert.notEqual(end, -1, 'lib/runtime/index.js must still bracket its palette port with END PALETTE PORT');
+  const blockSrc = RUNTIME_SRC.slice(start, end);
+  assert.match(blockSrc, /function openSectionReader\(scopeEl\)/,
+    'the port must read from the SECTION it is handed — resolving one inside is the slide-1 bake');
+
+  // The fake DOM: `getComputedStyle` answers raw token reads, the probe element answers
+  // color reads. Both route to the same `readToken`, because on a real page they are
+  // two ways of asking the browser the same question.
   const probeEl = {
     style: { cssText: '', _color: '', set color(v) { this._color = v; }, get color() { return this._color; } },
     parentNode: null,
   };
-  // The scope the function is HANDED. `appendChild` is what the probe rides on, so
-  // a section standing in for a real one has to accept it.
   scopeEl.appendChild = (el) => { el.parentNode = { removeChild: () => {} }; };
   const fakeDocument = {
-    // Present so the "no scope handed in" fallback stays exercised, and distinct
-    // from `scopeEl` so a regression that ignores the parameter is visible.
-    querySelector: () => ({ appendChild: scopeEl.appendChild }),
-    documentElement: {},
+    querySelector: () => scopeEl,
+    documentElement: scopeEl,
     createElement: () => probeEl,
   };
   const fakeGetComputedStyle = (el) => {
@@ -115,14 +122,23 @@ function runtimeThemeVars(readToken, scopeEl = { __section: true }) {
       const m = /^var\(--(.+)\)$/.exec(el.style.color || '');
       return { color: m ? readToken(m[1]) : 'rgba(0, 0, 0, 0)' };
     }
-    return styleFor();
+    return {
+      getPropertyValue: (prop) => (prop.startsWith('--') ? readToken(prop.slice(2)) : ''),
+      colorScheme: 'light',
+    };
   };
 
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED source is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (document, getComputedStyle, buildDiagramTheme) {\n${fnSrc}\n  return buildMermaidThemeVars;\n})`,
+    `(function (document, getComputedStyle, diagramScopeKey) {\n${blockSrc}\n  return diagramThemePorts;\n})`,
   );
-  return factory(fakeDocument, fakeGetComputedStyle, buildDiagramTheme)(scopeEl);
+  const ports = factory(fakeDocument, fakeGetComputedStyle, diagramScopeKey)();
+  let out;
+  renderDiagrams([{ scope: scopeEl, diagrams: ['d'] }], {
+    ...ports,
+    renderOne: (_d, themeVars) => { out = themeVars; },
+  });
+  return out;
 }
 
 /** Flatten nested keys (`xyChart.titleColor`) so a diff names the exact slot. */
@@ -137,8 +153,8 @@ function flatten(obj, prefix = '') {
 
 describe('diagram theme parity — both render paths, one map', () => {
   test('both paths agree on every key outside DIVERGENT_KEYS', () => {
-    const pdf = flatten(emulatorThemeVars(fakeReadToken));
-    const preview = flatten(runtimeThemeVars(fakeReadToken));
+    const pdf = flatten(pdfThemeVars(fakeReadToken));
+    const preview = flatten(previewThemeVars(fakeReadToken));
 
     assert.deepEqual(
       Object.keys(preview).sort(),
@@ -158,8 +174,8 @@ describe('diagram theme parity — both render paths, one map', () => {
     // as a standing licence for the next one. The gate fails in both directions.
     assert.deepEqual([...DIVERGENT_KEYS], ['fontFamily']);
 
-    const pdf = flatten(emulatorThemeVars(fakeReadToken));
-    const preview = flatten(runtimeThemeVars(fakeReadToken));
+    const pdf = flatten(pdfThemeVars(fakeReadToken));
+    const preview = flatten(previewThemeVars(fakeReadToken));
     for (const key of DIVERGENT_KEYS) {
       assert.notEqual(pdf[key], preview[key], `${key} is sanctioned as divergent but the two paths now agree — retire the sanction`);
     }
@@ -174,15 +190,15 @@ describe('diagram theme parity — both render paths, one map', () => {
     const original = MERMAID_VAR_MAP[key];
     try {
       MERMAID_VAR_MAP[key] = { var: 'bg-alt' }; // the pre-#1311 wrong token
-      const pdf = flatten(emulatorThemeVars(fakeReadToken));
-      const preview = flatten(runtimeThemeVars((n) => (n === 'bg-alt' ? '#DRIFTED' : fakeReadToken(n))));
+      const pdf = flatten(pdfThemeVars(fakeReadToken));
+      const preview = flatten(previewThemeVars((n) => (n === 'bg-alt' ? '#DRIFTED' : fakeReadToken(n))));
       assert.notEqual(pdf[key], preview[key], 'a mutated entry must surface as a mismatch');
     } finally {
       MERMAID_VAR_MAP[key] = original;
     }
     // …and parity is restored once the mutation is undone.
-    const pdf = flatten(emulatorThemeVars(fakeReadToken));
-    const preview = flatten(runtimeThemeVars(fakeReadToken));
+    const pdf = flatten(pdfThemeVars(fakeReadToken));
+    const preview = flatten(previewThemeVars(fakeReadToken));
     assert.equal(pdf[key], preview[key]);
   });
 
@@ -190,8 +206,8 @@ describe('diagram theme parity — both render paths, one map', () => {
     const original = MERMAID_VAR_MAP.nodeBorder;
     try {
       MERMAID_VAR_MAP.nodeBorder = { literal: '#SENTINEL' };
-      assert.equal(flatten(emulatorThemeVars(fakeReadToken)).nodeBorder, '#SENTINEL');
-      assert.equal(flatten(runtimeThemeVars(fakeReadToken)).nodeBorder, '#SENTINEL', 'the preview path is still reading a private copy');
+      assert.equal(flatten(pdfThemeVars(fakeReadToken)).nodeBorder, '#SENTINEL');
+      assert.equal(flatten(previewThemeVars(fakeReadToken)).nodeBorder, '#SENTINEL', 'the preview path is still reading a private copy');
     } finally {
       MERMAID_VAR_MAP.nodeBorder = original;
     }
@@ -253,11 +269,28 @@ describe('neither path keeps a private copy', () => {
     }
   });
 
-  test('both real sources import the shared kernel', () => {
-    assert.match(EMULATOR_SRC, /require\('\.\/lib\/core\/mermaid-theme-map'\)/);
-    assert.match(RUNTIME_SRC, /require\('\.\.\/\.\.\/lib\/core\/mermaid-theme-map'\)/);
-    assert.match(EMULATOR_SRC, /buildDiagramTheme\(/);
-    assert.match(RUNTIME_SRC, /buildDiagramTheme\(/);
+  test('both real sources are DRIVEN BY the kernel, not merely importing from it', () => {
+    // Since #1332 step 4 neither path calls `buildDiagramTheme` at all — the kernel
+    // does, once per palette, and the paths supply ports. So the assertion moved with
+    // it: what has to be true now is that each path hands its ports to
+    // `renderDiagrams`. A path that went back to assembling its own palette would
+    // still import the map and would still pass the old form of this test.
+    assert.match(EMULATOR_SRC, /require\('\.\/lib\/core\/render-diagrams'\)/);
+    assert.match(RUNTIME_SRC, /require\('\.\.\/\.\.\/lib\/core\/render-diagrams'\)/);
+    assert.match(EMULATOR_SRC, /renderDiagrams\(deck, \{/);
+    assert.match(RUNTIME_SRC, /renderDiagrams\(deck, \{/);
+    assert.equal(/buildDiagramTheme\(/.test(RUNTIME_SRC), false,
+      'lib/runtime/index.js assembles its own themeVariables — that is the kernel\'s job now, '
+      + 'and a second assembly site is where the 38 drifted values came from');
+    // The PDF path keeps EXACTLY ONE assembly site, and it is enumerated rather than
+    // banned: the image-set cross-scheme look re-bake re-renders an already-placed
+    // diagram out of a DIFFERENT theme file, so it has no band to name and cannot ride
+    // the kernel's walk. A SECOND site is the drift returning.
+    assert.equal((EMULATOR_SRC.match(/buildDiagramTheme\(/g) || []).length, 1,
+      'the PDF path must keep exactly one palette-assembly site (resolveMermaidThemeVars, '
+      + 'for the image-set look re-bake) — every other palette comes from the kernel');
+    assert.match(EMULATOR_SRC, /function resolveMermaidThemeVars\(paletteVars\) \{\n\s*return buildDiagramTheme\(/);
+    assert.match(EMULATOR_SRC, /function themeVarsForBand\(band\)/);
   });
 
   test('the runtime no longer points at the emulator for an explanation', () => {

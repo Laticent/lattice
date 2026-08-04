@@ -318,9 +318,43 @@ Three things follow, and all three are load-bearing:
   sound only while one palette served the deck; per-slide ink makes it hand slide 2
   slide 1's baked SVG, which is the same mismatch arriving through the cache.
 
-`data-lattice-slide-bake` — the marker that told the texture pins "this render baked
-per slide" — is therefore obsolete: both paths now do, so it distinguishes nothing.
-It is removed in #1332 step 4 (see `engineering/textures.md`).
+### The kernel drives; the paths supply capabilities (#1332 step 4)
+
+Neither path assembles a palette any more. `renderDiagrams`
+(`lib/core/render-diagrams.js`) walks the deck, resolves each slide's
+`themeVariables` from the one map, and calls the path back:
+
+```js
+renderDiagrams(deck, { readToken, renderOne, scopeKey, beginRun, finishTheme })
+```
+
+A `scope` is whatever a path needs in order to read a token for one slide, and the
+two hand in genuinely different things — the PDF path a resolved band
+(`'light' | 'dark' | 'print'`), the preview the `<section>` element itself.
+`scopeKey(scope)` names the palette that scope resolves, so the theme is built once
+per distinct palette rather than once per slide: the band string on the PDF path, the
+section's class signature (`lib/core/diagram-scope.js`) on the preview. Two spellings
+of "these slides paint the same", which is all the kernel needs.
+
+`finishTheme` is the ONE place a path may differ from the other inside the palette,
+and its only licensed use is `DIVERGENT_KEYS` — today `fontFamily`, per §5.3. The
+parity gate fails on any other key that comes apart, and on a sanctioned key that
+stops diverging.
+
+**The acceptance test was a deletion.** #1332 stated it: *"a correct fix should let us
+DELETE the reconciliation devices, not accumulate more."* `data-lattice-slide-bake` —
+a marker that announced "this render baked per slide" — is gone, along with
+`SLIDE_BAKE_ATTR`/`stampSlideBake` and the qualifier on all nine pinned theme
+selectors. Once both paths resolve per slide there is no granularity left to announce.
+See `engineering/textures.md`.
+
+**It also closed #1329 for free.** The PDF path used to take the last `_class:`
+directive appearing anywhere before the fence, and `before` never reset at a slide
+boundary — so a bare slide following a `<!-- _class: dark -->` slide got a dark-baked
+diagram on a light canvas. Walking real slides means each fence reads its OWN slide's
+directive (`lib/core/slide-class-spans.js`, boundaries from markdown-it's `hr` tokens
+plus the `split: headings` points, not a line regex). Measured on the same three-slide
+deck: `origin/main` logged `light, dark, dark`; this logs `light, dark, light`.
 
 ---
 

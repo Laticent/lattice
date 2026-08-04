@@ -403,14 +403,14 @@ describe('mermaid init-directive: render-path wiring', () => {
     // `sanitizeDirective`, which blanked the hyphenated font stack and left
     // Mermaid measuring in one font while the page rendered in another.
     const src = read('lib/runtime/index.js');
-    // Per SLIDE since #1332 step 3: the palette still rides the global config, but it
-    // is now built from the section being rendered and re-applied per band rather than
-    // once per document from slide 1. `themeVarsForScope` is the memoized reader that
-    // wraps `buildMermaidThemeVars(sectionEl)`.
-    assert.match(src, /themeVariables: themeVarsForScope\(key, sectionEl\),/,
+    // Per SLIDE since #1332 step 3, and resolved by the KERNEL since step 4: the palette
+    // still rides the global config, but the config is re-applied per band with the
+    // variables `renderDiagrams` built from that slide's own reader — not once per
+    // document from slide 1.
+    assert.match(src, /themeVariables: themeVars,/,
       'the global config carries the palette');
-    assert.match(src, /buildMermaidThemeVars\(sectionEl\)/,
-      'and the palette is read from the SECTION, not from document.querySelector');
+    assert.match(src, /function openSectionReader\(scopeEl\)/,
+      'and the palette is read from the SECTION handed in, not from document.querySelector');
     assert.doesNotMatch(src, /withEngineInit/,
       'the runtime does not inject the palette into diagram sources');
     assert.match(src, /const source = reorientMermaidForPortrait\(/,

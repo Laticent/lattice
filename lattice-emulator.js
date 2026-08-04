@@ -572,14 +572,20 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
-const { stampSlideBake } = require('./lib/core/resolve-color-mode');
 // Which band does a slide's diagram bake for — light, dark, or print. Lives in
 // the kernel so it is unit-testable as BEHAVIOR rather than as a source-text
-// assertion on this CLI; `deckPrintBand` rides along so the band question needs
-// one import and keeps one spelling. THIS PATH IS ITS ONLY CALLER TODAY — the
-// preview reads tokens through getComputedStyle, so CSS inheritance hands it the
-// band implicitly and it never resolves one. See lib/core/diagram-band.js.
-const { resolveDiagramBand, deckPrintBand } = require('./lib/core/diagram-band');
+// assertion on this CLI. THIS PATH IS ITS ONLY CALLER — the preview reads tokens
+// through getComputedStyle, so CSS inheritance hands it the band implicitly and it
+// never resolves one. See lib/core/diagram-band.js.
+const { resolveDiagramBand } = require('./lib/core/diagram-band');
+// THE diagram render kernel — it walks the deck and calls this path back (#1332
+// step 4, HARD RULE #1). This path supplies a token reader and a renderer; it
+// decides no policy.
+const { renderDiagrams } = require('./lib/core/render-diagrams');
+// Which slide a byte of source belongs to, and what `_class:` that slide declared —
+// from the engine's OWN boundaries rather than a scan of everything before the fence
+// (#1329).
+const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
@@ -809,7 +815,6 @@ function resolveMermaidThemeVars(paletteVars) {
 // defaults — matches the real browser cascade where `@import 'lattice'`
 // at the top of every theme loads lattice.css first.
 const PALETTE_VARS = parsePaletteVars(layoutCSS + '\n' + paletteCSS);
-const MERMAID_THEME_VARS = resolveMermaidThemeVars(PALETTE_VARS);
 // Dual-render dark set: the SAME palette resolved to its DARK branch. Mermaid
 // bakes themeVariables to literal hex at render time (in the light scheme), so
 // a single bake can't flip on a `section.dark` slide — the documented dark-mode
@@ -820,7 +825,6 @@ const MERMAID_THEME_VARS = resolveMermaidThemeVars(PALETTE_VARS);
 // bake + the per-diagram CSS overrides.
 const DUAL_RENDER = process.env.LATTICE_MERMAID_SINGLE !== '1';
 const PALETTE_VARS_DARK = parsePaletteVars(layoutCSS + '\n' + paletteCSS, true);
-const MERMAID_THEME_VARS_DARK = resolveMermaidThemeVars(PALETTE_VARS_DARK);
 // Print-resolved set — the print analog of the dark bake. A Mermaid SVG bakes
 // its themeVariables to literal hex offline, so a `section.print` CSS remap can't
 // recolor its NODE TEXT / EDGE LINES (the categorical node FILLS get textured by
@@ -835,7 +839,45 @@ function overlayPrintVars(vars) {
   }
   return out;
 }
-const MERMAID_THEME_VARS_PRINT = resolveMermaidThemeVars(overlayPrintVars(PALETTE_VARS));
+const PALETTE_VARS_PRINT = overlayPrintVars(PALETTE_VARS);
+
+// ── THIS PATH'S HALF OF THE PORT (#1332 step 4) ──────────────────────────────
+// The band a slide renders in IS this path's `scope`: hand the kernel a band and a
+// token name, get the value that band resolves. `resolveDiagramBand` decides the
+// band (lib/core/diagram-band.js); the kernel decides when to build a palette from
+// it (lib/core/render-diagrams.js). Nothing here assembles `themeVariables`.
+//
+// The three eager `MERMAID_THEME_VARS*` constants that used to live here are gone.
+// They resolved all 166 variables for all three bands at module load, printing a
+// palette-gap warning per band whether or not the deck had a diagram in it; the
+// kernel builds one palette per band the deck ACTUALLY uses, on first use.
+function paletteVarsForBand(band) {
+  if (band === 'print') return PALETTE_VARS_PRINT;
+  // LATTICE_MERMAID_SINGLE=1 collapses the dark band onto the light bake — the
+  // documented fallback to the per-diagram CSS overrides. It has to live in the
+  // READER, not at the call site, or the two ways of asking for a dark palette
+  // (this preprocess pass and the image-set look re-bake) could answer differently.
+  if (band === 'dark' && DUAL_RENDER) return PALETTE_VARS_DARK;
+  return PALETTE_VARS;
+}
+function readBandToken(band, name) {
+  return readPaletteToken(paletteVarsForBand(band), name);
+}
+// The band palettes, for the ONE caller that renders outside the kernel's walk: the
+// image-set cross-scheme look re-bake, which re-renders an already-placed diagram in a
+// different band (and, for a light/dark look, out of a DIFFERENT theme file, which is
+// why that caller cannot simply name a band). Memoized so it costs the same as the
+// constants it replaced, and built through `resolveMermaidThemeVars` — the same single
+// assembly point that caller uses — so the two cannot diverge.
+const bandThemeVars = new Map();
+function themeVarsForBand(band) {
+  let vars = bandThemeVars.get(band);
+  if (!vars) {
+    vars = resolveMermaidThemeVars(paletteVarsForBand(band));
+    bandThemeVars.set(band, vars);
+  }
+  return vars;
+}
 
 // ── Puppeteer config — chrome auto-detection ─────────────────────────────
 // The renderer shells out to mmdc (mermaid-cli) which uses puppeteer to
@@ -1092,15 +1134,15 @@ function renderMermaidOne(definition, themeVars, extraClass) {
 // LATTICE_MERMAID_SINGLE=1 forces the light bake everywhere (fallback to the
 // CSS-override path).
 function renderMermaid(definition, mode) {
-  const themeVars = mode === 'print' ? MERMAID_THEME_VARS_PRINT
-    : (mode === 'dark' && DUAL_RENDER ? MERMAID_THEME_VARS_DARK : MERMAID_THEME_VARS);
-  return renderMermaidOne(definition, themeVars, null);
+  return renderMermaidOne(definition, themeVarsForBand(mode), null);
 }
 
 // ── Pre-process markdown: render mermaid blocks before slide splitting ────────
-// Each fence is rendered for the colour-scheme of ITS slide: the nearest
-// preceding `<!-- _class: … -->` decides (a `dark` token => dark bake), falling
-// back to a deck-wide `class:`/`color-scheme:dark` signal in the front matter.
+// Each fence is rendered for the band of ITS OWN slide, and the walk is the shared
+// kernel's (`renderDiagrams`, lib/core/render-diagrams.js — #1332 step 4). This path
+// supplies two capabilities and no policy: read a token for a band
+// (`readBandToken`), and render one diagram with the palette the kernel resolved
+// (`renderMermaidOne`).
 // (geometry/orientation helpers — used here AND in the page-geometry block below;
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor, orientationCss, geometryVarsCss } = require('./lib/engine/css');
@@ -1134,31 +1176,83 @@ function preprocessMermaid(source) {
   // tall frame instead of shrinking to a thin strip; landscape is untouched.
   const sizeName = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
   const orientation = orientationFor(resolveSize(sizeName, [paletteCSS, layoutCSS])).name;
-  return source.replace(/```mermaid\n([\s\S]*?)```/g, (_match, def, offset) => {
-    const before = source.slice(0, offset);
-    const classDirectives = [...before.matchAll(/<!--\s*_class:\s*([^>]*?)\s*-->/g)];
-    const lastClass = classDirectives.length ? classDirectives[classDirectives.length - 1][1] : '';
-    // ONE answer to "which band is this slide in" (lib/core/diagram-band.js).
-    // It replaced two adjacent lines here that resolved the same kind of thing
-    // and disagreed: print INHERITED the deck while dark DISCARDED it the moment
-    // a slide named any `_class:` at all — so `_class: diagram`, which says
-    // nothing about scheme, baked light ink onto a dark deck's dark chips
-    // (#1340). #1342 fixed that slide-half inline, with the same whole-token
-    // `COLOR_MODE_TOKENS` rule; this supersedes it by moving the decision into
-    // the kernel, where it is unit-testable as BEHAVIOR — and by fixing the DECK
-    // half too, which #1342 left on the loose regexes it had (see deckDarkBand:
-    // `color-mode: dark # pin`, `class: dark-mode`, and a `style:` block
-    // mentioning `color-scheme` each baked dark onto a light section).
-    const slideMode = resolveDiagramBand({ frontMatter: fm, slideClass: lastClass, flagPrint: !!flags.print });
-    if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${slideMode})...`);
-    const reoriented = reorientMermaidForPortrait(def.trim(), orientation);
-    const idx = MERMAID_REBAKE_DEFS.push(reoriented) - 1; // keep the source def for a later re-bake
-    MERMAID_REBAKE_MODES[idx] = slideMode; // and the scheme it was baked in, so a look re-render can
-    const svg = renderMermaid(reoriented, slideMode);      // tell whether THIS diagram actually needs one
-    if (!QUIET) console.log(' done');
-    // Stamp the def index so a cross-scheme image-set export can find + re-bake this exact diagram.
-    return svg.replace(/(<div class="mermaid-svg[^"]*")/, `$1 data-mmd-idx="${idx}"`);
+
+  // REAL SLIDES, from the engine's own boundaries (lib/core/slide-class-spans.js).
+  // This replaced a scan of `source.slice(0, offset)` for the last `_class:`
+  // directive anywhere before the fence — which never reset at a slide boundary,
+  // while Marp's `_class` is a SINGLE-SLIDE directive that does not carry forward.
+  // A bare slide following a `<!-- _class: dark -->` slide therefore got a
+  // DARK-baked diagram on a light canvas: white node ink on a light chip (#1329).
+  // The old fallback was asymmetric too — once any `_class:` had appeared earlier in
+  // the deck, the deck default stopped being consulted for every later slide.
+  const { spans } = slideClassSpans(source);
+
+  // Collect the fences, then let the kernel walk. Two passes rather than rendering
+  // inside `String.replace`, because the kernel owns the walk now — and because a
+  // walk over real slides is what makes the band per SLIDE rather than per fence.
+  const fences = [];
+  for (const m of source.matchAll(/```mermaid\n([\s\S]*?)```/g)) {
+    const slideIndex = Math.max(0, slideIndexAt(spans, m.index));
+    fences.push({
+      matchStart: m.index,
+      matchEnd: m.index + m[0].length,
+      slideIndex,
+      slideClass: slideClassAt(spans, m.index),
+      source: reorientMermaidForPortrait(m[1].trim(), orientation),
+    });
+  }
+  if (fences.length === 0) return source;
+
+  // One deck entry per slide THAT HAS A DIAGRAM, in document order. `scope` is the
+  // resolved band — this path's scope, and its own scopeKey (the kernel's default
+  // `String` is exactly right for a band string).
+  const bySlide = new Map();
+  for (const fence of fences) {
+    let slide = bySlide.get(fence.slideIndex);
+    if (!slide) {
+      slide = {
+        scope: resolveDiagramBand({
+          frontMatter: fm,
+          slideClass: fence.slideClass,
+          flagPrint: !!flags.print,
+        }),
+        diagrams: [],
+      };
+      bySlide.set(fence.slideIndex, slide);
+    }
+    slide.diagrams.push(fence);
+  }
+  const deck = [...bySlide.keys()].sort((a, b) => a - b).map((k) => bySlide.get(k));
+
+  const rendered = renderDiagrams(deck, {
+    readToken: readBandToken,
+    renderOne: (fence, themeVars, meta) => {
+      if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${meta.scope})...`);
+      // Keep the source def AND the band it was baked in, index-aligned, so the
+      // image-set look re-bake can tell whether THIS diagram needs re-rendering.
+      const idx = MERMAID_REBAKE_DEFS.push(fence.source) - 1;
+      MERMAID_REBAKE_MODES[idx] = meta.scope;
+      const svg = renderMermaidOne(fence.source, themeVars, null);
+      if (!QUIET) console.log(' done');
+      // Stamp the def index so a cross-scheme image-set export can find + re-bake
+      // this exact diagram.
+      return { fence, html: svg.replace(/(<div class="mermaid-svg[^"]*")/, `$1 data-mmd-idx="${idx}"`) };
+    },
   });
+
+  // Splice the rendered diagrams back in. Built by slicing rather than by
+  // `String.replace` so the bytes outside a fence are provably untouched — the
+  // regression gate compares whole artifacts, and a replacement callback that also
+  // interprets `$1` in rendered SVG would be a silent corruption channel.
+  const byStart = new Map(rendered.map((r) => [r.fence.matchStart, r.html]));
+  let out = '';
+  let cursor = 0;
+  for (const fence of fences) {
+    out += source.slice(cursor, fence.matchStart);
+    out += byStart.get(fence.matchStart) ?? source.slice(fence.matchStart, fence.matchEnd);
+    cursor = fence.matchEnd;
+  }
+  return out + source.slice(cursor);
 }
 
 
@@ -1693,37 +1787,29 @@ const highlightedSlides = slidesWithNotes.map(s => applyHighlighting(s));
 // the emulator stamps after the engine pass.
 const { applyDeckLogoToHtml } = require('./lib/integrations/markdown-it/plugins');
 const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
-// PER-SLIDE BAKE MARKER — the texture pins are valid EXACTLY where a diagram's label
-// ink is baked per SLIDE, and this stamp is what says so.
+// `data-lattice-slide-bake` USED TO BE STAMPED HERE, and its removal is the
+// acceptance test #1332 set for the inversion above: "a correct fix should let us
+// DELETE the reconciliation devices, not accumulate more."
 //
-// #1323 is an emulator-path bug. THIS renderer bakes each Mermaid diagram's ink for
-// the slide's own band (preprocessMermaid's `slideDark` honors `_class:`), while the
-// chip came from a page-level <pattern> that only tracks the DECK scheme — per-slide
-// ink over a deck-wide chip, hence the mismatch the pins fix.
+// What it did: the texture polarity pins in themes/{onyx,concrete,a11y-base}.css are
+// valid exactly where a diagram's ink is baked PER SLIDE, and this attribute was what
+// said so. It had to exist because the two render paths disagreed about granularity —
+// this one baked per slide, the runtime baked ONCE from the first section — so the
+// pins were right here and wrong there. Pinned live on a runtime path, a
+// `_class: dark` slide got a dark chip under slide-1's dark ink: 1.55:1 in a real
+// marp-cli render, where before it was 17.14:1.
 //
-// The RUNTIME renderer (Studio/Playground, Export-to-Marp, marp-vscode) USED TO bake
-// ink once per document, from the first section — so there, ink and chip were BOTH
-// deck-wide, they already agreed, and pinning the chip per-section is what broke them.
-// Pinned live on those paths, a `_class: dark` slide got a dark chip under slide-1's
-// dark ink: 1.55:1 in a real marp-cli render, where before it was 17.14:1.
+// #1332 step 3 ended the disagreement: the runtime now resolves its palette from the
+// section it is rendering. Both paths bake per slide, the pins are unconditionally
+// correct, and an attribute that announces "this render baked per slide" announces
+// nothing. Deleted, along with `SLIDE_BAKE_ATTR`/`stampSlideBake` in
+// lib/core/resolve-color-mode.js and the `[data-lattice-slide-bake]` qualifier on all
+// nine pinned selectors.
 //
-// THAT IS NO LONGER TRUE. #1332 step 3 made the runtime resolve its palette from the
-// section it is rendering, so both paths now bake per slide and the pins are
-// unconditionally correct. Which means this marker no longer distinguishes anything —
-// it announces a granularity both paths share. It is deleted in #1332 step 4, the next
-// commit on this branch; the two are one merge, because step 3 alone leaves the pins
-// standing down on the runtime paths that now deserve them.
-//
-// Until then: this is a POSITIVE marker, not a print guard. Absent it, the pins stand
-// down — correct for --print (deck-wide print ink), the case the marker previously
-// named. A negative print guard could not express the runtime case at all, because no
-// emulator runs there to withhold it.
-//
-// Stamped per SECTION, never on <html>: packTheme and marp-core scope a theme rule off
-// its LEFTMOST COMPOUND, so a literal leading `section` is the slide and anything else
-// becomes a slide DESCENDANT — an <html>-gated pin packs to an <html> inside a <section>
-// and silently never matches (engineering/gotchas.md).
-const slidesWithMeta2 = stampSlideBake(slidesWithMeta2Raw, deckPrintBand(md, !!flags.print));
+// ONE case still needs the pins to stand down, and it always did it a different way:
+// `--print` bakes one B&W band deck-wide, and a print slide carries `.print`, which
+// every pin already excludes with `:not(.print)`.
+const slidesWithMeta2 = slidesWithMeta2Raw;
 
 // ── KaTeX CSS link ────────────────────────────────────────────────────────
 // KaTeX's CSS references font files via relative `url(fonts/…woff2)` paths,

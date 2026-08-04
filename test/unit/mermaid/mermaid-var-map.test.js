@@ -100,8 +100,12 @@ describe('mermaid-var-map', () => {
       const src = fs.readFileSync(path.join(root, rel), 'utf8');
       assert.equal(/const\s+MERMAID_VAR_MAP\s*=\s*\{/.test(src), false,
         `${rel} defines its own MERMAID_VAR_MAP — import lib/core/mermaid-theme-map instead`);
-      assert.match(src, /buildDiagramTheme/,
-        `${rel} must build its themeVariables from the shared map`);
+      // Since #1332 step 4 the paths do not build a palette at all: they hand ports to
+      // `renderDiagrams`, which reads the shared map once per palette. A path that went
+      // back to assembling its own would still import the map, so THIS is the assertion
+      // that means something.
+      assert.match(src, /renderDiagrams\(deck, \{/,
+        `${rel} must get its themeVariables from the shared render kernel`);
     }
     assert.ok(Object.keys(MERMAID_VAR_MAP).length >= 40,
       `expected a substantial shared key set, got ${Object.keys(MERMAID_VAR_MAP).length}`);

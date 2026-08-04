@@ -51,6 +51,36 @@ in patch versions.
 
 ### Fixed
 
+- **The diagram render kernel now drives both paths, and the reconciliation marker is
+  gone.** `renderDiagrams(deck, ports)` (`lib/core/render-diagrams.js`) walks the deck,
+  resolves each slide's `themeVariables` from the one shared map, and calls each render
+  path back; the paths supply a token reader, a scope key and a renderer, and decide no
+  policy. A `scope` is whatever a path needs to read a token for one slide — the resolved
+  band on the PDF path, the `<section>` element in the preview — which is the only real
+  difference between the two. That made the deletion #1332 named as its own acceptance
+  test possible: **`data-lattice-slide-bake` is removed**, along with `SLIDE_BAKE_ATTR` /
+  `stampSlideBake` and the qualifier on all nine pinned selectors in
+  `themes/{onyx,concrete,a11y-base}.css`. The marker existed only to announce which
+  granularity a render had used, and both paths now bake per slide. The texture polarity
+  pins keep the two requirements that still mean something — a literal leading `section`
+  compound, and `:not(.print)` — and the gate asserts the marker's absence in both
+  directions, because a rule still requiring it would be a permanently dead selector.
+  #1332
+
+- **A `_class:` directive no longer leaks into the next slide's diagram bake.** The PDF
+  path resolved a diagram's band from the last `<!-- _class: … -->` appearing anywhere
+  before the fence, and that scan never reset at a slide boundary — but Marp's `_class`
+  is a single-slide directive that does not carry forward. A slide with no directive
+  following a `<!-- _class: dark -->` slide therefore got a dark-baked diagram on a light
+  canvas: white node ink on a light chip. The fallback was asymmetric too — once any
+  `_class:` had appeared earlier in the deck, the deck-wide default stopped being
+  consulted for every later slide. Walking real slides fixed both: each fence reads its
+  OWN slide's directive, with boundaries taken from markdown-it's `hr` tokens plus the
+  `split: headings` points (`lib/core/slide-class-spans.js`) rather than a line regex, so
+  every thematic-break form counts, a setext underline does not, and a `---` inside a
+  fenced code sample does not. Measured on a light / `_class: dark` / no-directive deck:
+  `origin/main` baked `light, dark, dark`; it now bakes `light, dark, light`. #1329
+
 - **A diagram in the live preview is baked for ITS OWN slide, not for slide 1.** The preview built
   Mermaid's `themeVariables` from `document.querySelector('section')` — always the first slide — and
   applied them once, behind a one-shot guard. So a deck whose opening slide is light baked LIGHT ink

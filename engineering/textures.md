@@ -76,22 +76,27 @@ layer; keep both:
   `light`, `color-mode: light`) sets `color-scheme` on the SECTION, which the
   page-level patterns above cannot see — so the theme points `--cat-N-texture` at
   these under the pinning selector instead.
-  **They apply only where ink is baked PER SLIDE**, which the emulator marks with
-  `data-lattice-slide-bake` on each section; every pin requires that attribute. Under
-  `--print` the emulator bakes one B&W band deck-wide, so the chip must stay deck-wide
-  too and the pins stand down. Until the pins existed, a per-slide dark left light
-  chips under light ink and every diagram node label vanished on all six textured
-  palettes (#1323). Gated by `test/unit/palette/texture-polarity.test.js`, which
-  follows the token to the pattern and checks the ink against the fill *baked into
-  it*.
+  **They apply where ink is baked PER SLIDE, which is now everywhere** — both render
+  paths resolve the palette from the slide they are rendering (#1332 steps 3–4), so a
+  pin is unconditionally correct. The pins carry two requirements and no more: a
+  literal leading `section` compound (or packTheme rewrites the rule into a slide
+  DESCENDANT and it silently never matches), and `:not(.print)`, because `--print`
+  bakes one B&W band deck-wide and a per-slide chip under it puts dark print ink on a
+  dark chip (~2.7:1). Until the pins existed, a per-slide dark left light chips under
+  light ink and every diagram node label vanished on all six textured palettes
+  (#1323). Gated by `test/unit/palette/texture-polarity.test.js`, which follows the
+  token to the pattern and checks the ink against the fill *baked into it*.
 
-  The marker also used to withhold the pins from the runtime paths
-  (Studio/Playground, Export-to-Marp, marp-vscode), because `lib/runtime/index.js`
-  baked once from the FIRST section: ink was deck-wide there, so a per-section chip
-  under it read 17.14:1 → 1.55:1 in a real `marp-cli` render. **#1332 step 3 ended
-  that** — the runtime now resolves its palette from the section it is rendering, so
-  both paths bake per slide and the pins are unconditionally correct. The marker
-  therefore no longer distinguishes anything, and #1332 step 4 removes it.
+  **`data-lattice-slide-bake` is retired.** Until #1332 the two paths disagreed about
+  granularity — the emulator baked per slide, `lib/runtime/index.js` baked once from
+  the FIRST section — so the pins were right on one path and wrong on the other, and
+  the emulator stamped that attribute to say which was which. Pinned live on a runtime
+  path, a `_class: dark` slide got a dark chip under slide-1's ink: 17.14:1 → 1.55:1 in
+  a real `marp-cli` render. Step 3 ended the disagreement and step 4 deleted the
+  marker — an attribute announcing a granularity both paths share announces nothing.
+  The gate now asserts its ABSENCE in both directions, because a half-removal is the
+  dangerous state: a theme rule still requiring the attribute is a permanently dead
+  selector, which is #1323 again.
   **a11y is the exception:** those palettes are mode-invariant (fixed hex, chips
   deliberately light in every scheme), so they re-assert their one literal set under
   the same selectors and pin `--cat-on-fill` instead of gaining a dark set.
