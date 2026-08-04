@@ -28,9 +28,12 @@ __export(index_exports, {
   CLIP_TRAILING_FRACTION: () => CLIP_TRAILING_FRACTION,
   FINAL_LENGTHEN_MS: () => FINAL_LENGTHEN_MS,
   LEX_DOMAINS: () => LEX_DOMAINS,
+  PACE_PRESETS: () => PACE_PRESETS,
   PACE_WPM: () => PACE_WPM,
   PARAGRAPH_PAUSE_MS: () => PARAGRAPH_PAUSE_MS,
+  SECTION_PAUSE_MS: () => SECTION_PAUSE_MS,
   SEPARATOR_GLYPHS: () => SEPARATOR_GLYPHS,
+  SLIDE_PAUSE_MS: () => SLIDE_PAUSE_MS,
   SYLLABLE_MS: () => SYLLABLE_MS,
   SYMBOL_SPEAK: () => SYMBOL_SPEAK,
   buildTrack: () => buildTrack,
@@ -53,6 +56,7 @@ __export(index_exports, {
   readMs: () => readMs,
   resolveSymbols: () => resolveSymbols,
   serializeCalibration: () => serializeCalibration,
+  slideBeatMs: () => slideBeatMs,
   splitParagraphs: () => splitParagraphs,
   splitSentences: () => splitSentences,
   splitWords: () => splitWords,
@@ -713,6 +717,18 @@ var PAUSE_MS = {
   "\u2026": 650
 };
 var PARAGRAPH_PAUSE_MS = 750;
+var SLIDE_PAUSE_MS = 1400;
+var SECTION_PAUSE_MS = 2600;
+var PACE_PRESETS = {
+  brisk: { slide: 800, section: 1600 },
+  natural: { slide: SLIDE_PAUSE_MS, section: SECTION_PAUSE_MS },
+  deliberate: { slide: 2200, section: 4e3 }
+};
+function slideBeatMs(kind, pace = "natural", override) {
+  if (typeof override === "number" && Number.isFinite(override) && override >= 0) return Math.round(override);
+  const preset = PACE_PRESETS[pace] ?? PACE_PRESETS.natural;
+  return kind === "section" ? preset.section : preset.slide;
+}
 function pauseAfter(display) {
   const s = String(display ?? "");
   let max = 0;
@@ -914,9 +930,12 @@ function narration(text) {
   CLIP_TRAILING_FRACTION,
   FINAL_LENGTHEN_MS,
   LEX_DOMAINS,
+  PACE_PRESETS,
   PACE_WPM,
   PARAGRAPH_PAUSE_MS,
+  SECTION_PAUSE_MS,
   SEPARATOR_GLYPHS,
+  SLIDE_PAUSE_MS,
   SYLLABLE_MS,
   SYMBOL_SPEAK,
   buildTrack,
@@ -939,6 +958,7 @@ function narration(text) {
   readMs,
   resolveSymbols,
   serializeCalibration,
+  slideBeatMs,
   splitParagraphs,
   splitSentences,
   splitWords,

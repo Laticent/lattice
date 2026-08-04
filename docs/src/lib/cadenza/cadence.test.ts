@@ -5,9 +5,13 @@ import {
   estimateWordMs,
   FINAL_LENGTHEN_MS,
   interCueGapMs,
+  PACE_PRESETS,
   PARAGRAPH_PAUSE_MS,
   pauseAfter,
+  SECTION_PAUSE_MS,
+  SLIDE_PAUSE_MS,
   SYLLABLE_MS,
+  slideBeatMs,
   syllableCount,
 } from './cadence';
 import { toSpoken } from './normalize';
@@ -198,5 +202,46 @@ describe('phrase-final lengthening — the pre-boundary word ends later', () => 
 		const finalDur = finalWord.endMs - finalWord.startMs;
 		const midDur = midWord.endMs - midWord.startMs;
 		expect(finalDur - midDur).toBe(FINAL_LENGTHEN_MS);
+	});
+});
+
+describe('slideBeatMs — the top rung of the ladder (the between-slide beat)', () => {
+	it('a section boundary is a deeper break than a plain slide, which is deeper than a paragraph', () => {
+		// The whole point of adding this tier: the deepest boundary a deck has used to carry
+		// NO deliberate pause at all, so the ladder stopped one rung short of the structure
+		// it was modeling.
+		expect(slideBeatMs('slide')).toBeGreaterThan(PARAGRAPH_PAUSE_MS);
+		expect(slideBeatMs('section')).toBeGreaterThan(slideBeatMs('slide'));
+	});
+
+	it('defaults to the natural preset', () => {
+		expect(slideBeatMs('slide')).toBe(SLIDE_PAUSE_MS);
+		expect(slideBeatMs('section')).toBe(SECTION_PAUSE_MS);
+		expect(slideBeatMs('slide', 'natural')).toBe(SLIDE_PAUSE_MS);
+	});
+
+	it('every preset keeps section > slide, and the presets are ordered brisk < natural < deliberate', () => {
+		for (const name of ['brisk', 'natural', 'deliberate'] as const) {
+			expect(PACE_PRESETS[name].section).toBeGreaterThan(PACE_PRESETS[name].slide);
+		}
+		expect(PACE_PRESETS.brisk.slide).toBeLessThan(PACE_PRESETS.natural.slide);
+		expect(PACE_PRESETS.natural.slide).toBeLessThan(PACE_PRESETS.deliberate.slide);
+	});
+
+	it('an explicit override wins over the preset — INCLUDING zero', () => {
+		// 0 means "no beat", a legitimate choice. Treating it as falsy would silently hand
+		// back the preset instead, which is the classic version of this bug.
+		expect(slideBeatMs('slide', 'deliberate', 0)).toBe(0);
+		expect(slideBeatMs('section', 'brisk', 5000)).toBe(5000);
+	});
+
+	it('ignores a nonsense override rather than propagating NaN into a timer', () => {
+		expect(slideBeatMs('slide', 'natural', Number.NaN)).toBe(SLIDE_PAUSE_MS);
+		expect(slideBeatMs('slide', 'natural', -100)).toBe(SLIDE_PAUSE_MS);
+		expect(slideBeatMs('slide', 'natural', Number.POSITIVE_INFINITY)).toBe(SLIDE_PAUSE_MS);
+	});
+
+	it('falls back to natural for an unknown pace name', () => {
+		expect(slideBeatMs('slide', 'nonsense' as unknown as 'natural')).toBe(SLIDE_PAUSE_MS);
 	});
 });

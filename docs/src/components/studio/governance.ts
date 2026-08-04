@@ -14,11 +14,15 @@
 //                        weights there themselves; Lattice owns no key for it, so
 //                        this targets every Cache Storage entry that ISN'T ours
 //   · Cache            Cache Storage, lattice-v1-{pages,assets,fonts} (sw.js owns it)
+//   · Narration audio  IndexedDB, lattice-narration (narration-store.js owns it) — the
+//                      synthesized read-aloud clips Present keeps on the device so a
+//                      rehearsed deck presents instantly and without re-billing
 //
 // Settings/preferences (handle style, validation, language, onboarding…) are
 // deliberately NOT part of any Privacy & Data action — this clears data, not prefs.
 
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
+import { clearClips, clipStats } from '@/playground/narration-store.js';
 import { disconnectOpenRouter } from './architect';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
@@ -84,6 +88,7 @@ export type GovernanceStats = {
 	library: { count: number; bytes: number };
 	models: { count: number; bytes: number };
 	siteCache: { count: number; bytes: number };
+	narration: { count: number; bytes: number };
 	/** Sum of every category's bytes above — OpenRouter carries no size (it's a
 	 *  credential, not stored content), so it's the only one left out. */
 	totalBytes: number;
@@ -91,7 +96,12 @@ export type GovernanceStats = {
 
 /** One read of every category's stat line, for the Privacy & Data tab on open. */
 export async function loadGovernanceStats(): Promise<GovernanceStats> {
-	const [deck, assets, names] = await Promise.all([Promise.resolve(deckContentStats()), listAssets().catch(() => []), cacheNames()]);
+	const [deck, assets, names, narration] = await Promise.all([
+		Promise.resolve(deckContentStats()),
+		listAssets().catch(() => []),
+		cacheNames(),
+		clipStats().catch(() => ({ count: 0, bytes: 0 })),
+	]);
 	let libraryBytes = 0;
 	try {
 		for (const a of assets) libraryBytes += JSON.stringify(a).length;
@@ -104,7 +114,7 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	const library = { count: assets.length, bytes: libraryBytes };
 	const models = { count: modelNames.length, bytes: modelBytes };
 	const siteCache = { count: siteCacheNames.length, bytes: siteCacheBytesTotal };
-	return { decks: deck, library, models, siteCache, totalBytes: deck.bytes + library.bytes + models.bytes + siteCache.bytes };
+	return { decks: deck, library, models, siteCache, narration, totalBytes: deck.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
 }
 
 export async function clearLibraryAssets(): Promise<void> {
@@ -117,6 +127,12 @@ export async function clearDownloadedModels(): Promise<void> {
 	await Promise.all(names.filter((n) => !n.startsWith(SITE_CACHE_PREFIX)).map((n) => caches.delete(n)));
 }
 
+/** Drop every synthesized narration clip held on this device. Nothing breaks — the next
+ *  present re-synthesizes (and re-bills) what it needs. */
+export async function clearNarrationAudio(): Promise<void> {
+	await clearClips();
+}
+
 export async function clearSiteCache(): Promise<void> {
 	const names = await cacheNames();
 	await Promise.all(names.filter((n) => n.startsWith(SITE_CACHE_PREFIX)).map((n) => caches.delete(n)));
@@ -126,7 +142,7 @@ export type ClearEverythingResult = { succeeded: string[]; failed: string[] };
 
 /**
  * Delete everything Privacy & Data manages in one go — decks, Library, the
- * OpenRouter connection, downloaded models, and the site cache. Preferences
+ * OpenRouter connection, downloaded models, the site cache, and narration audio. Preferences
  * (language, handle style, validation toggles, onboarding flag…) are left as-is.
  *
  * Decks clear synchronously and unconditionally first — that step never fails
@@ -175,6 +191,7 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 		['openrouter', disconnectOpenRouter],
 		['models', clearDownloadedModels],
 		['cache', clearSiteCache],
+		['narration', clearNarrationAudio],
 		['retired', clearRetiredDrawingBoardData],
 	];
 	const results = await Promise.allSettled(tasks.map(([, fn]) => fn()));

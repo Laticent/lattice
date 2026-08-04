@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
+import { lookaheadPref, narrationCacheEnabled, pacePref, setLookaheadPref, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
@@ -18,7 +19,7 @@ import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playgroun
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
-import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
+import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { LanguageSelect } from './LanguageSelect';
@@ -223,6 +224,17 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	// Storage overlay — same shared-pref pattern; the `?storage` URL param and the
 	// overlay's own close button write the same flag.
 	const [storageOverlay, setStorageOverlay] = React.useState(false);
+	// Present narration prefs (narration-prefs.js). Read on open rather than at mount so a
+	// change made in another tab is reflected when the sheet is next opened.
+	const [lookahead, setLookaheadState] = React.useState<string>('auto');
+	const [narrationCache, setNarrationCacheState] = React.useState(true);
+	const [pace, setPaceState] = React.useState('natural');
+	React.useEffect(() => {
+		if (!open) return;
+		setLookaheadState(String(lookaheadPref()));
+		setNarrationCacheState(narrationCacheEnabled());
+		setPaceState(pacePref());
+	}, [open]);
 	React.useEffect(() => {
 		setStorageOverlay(storageOverlayEnabled());
 		return onStorageOverlayEnabledChange(setStorageOverlay);
@@ -523,6 +535,48 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								})}
 							</div>
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to every finish handle; changes take effect live in the designer.</p>
+							</div>
+
+							{/* ── PRESENT — how narrated delivery fetches and keeps its audio ──────── */}
+							<div className="mt-6">
+								<GroupLabel icon={<Volume2 className="size-3.5" />}>Narration in Present</GroupLabel>
+								<p className="mb-3 text-xs text-muted-foreground">How narrated delivery is paced, how far ahead Present fetches its audio, and whether what it fetched is kept for next time.</p>
+								<div className="mb-2 rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-pace" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Pace</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How long Present holds on a new slide before it starts speaking. The slide appears first and the beat gives the room time to read it — the order every presentation coach prescribes. A <strong>divider</strong> slide opens a section and gets a longer beat, the way a chapter break does.</p>
+									<Select value={pace} onValueChange={(v) => { setPaceState(v); setPacePref(v); notify(`Pace: ${v}.`); }}>
+										<SelectTrigger id="ws-pace" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="brisk">Brisk — 0.8s between slides, 1.6s between sections</SelectItem>
+											<SelectItem value="natural">Natural — 1.4s / 2.6s (recommended)</SelectItem>
+											<SelectItem value="deliberate">Deliberate — 2.2s / 4.0s</SelectItem>
+										</SelectContent>
+									</Select>
+									<p className="mt-1.5 text-[11px] text-muted-foreground">Deliberate suits a technical or non-native audience; Brisk suits a demo or a room that already knows the material.</p>
+								</div>
+								<div className="rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-lookahead" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Fetch ahead</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many upcoming slides to synthesize in the background while you present. <strong>Automatic</strong> sizes it from how fast your voice has actually been responding on this network — deeper on a slow link, shallower on a fast one — so you shouldn't normally need to change it. <strong>The whole deck</strong> fetches everything up front, so delivery never touches the network — worth it before a room that matters.</p>
+									<Select value={String(lookahead)} onValueChange={(v) => { setLookaheadState(v); setLookaheadPref(v === 'auto' || v === 'all' ? v : Number(v)); notify(v === 'auto' ? 'Fetch ahead: automatic.' : v === 'all' ? 'Fetch ahead: the whole deck — it will be ready to present offline.' : `Fetch ahead: ${v} slide${v === '1' ? '' : 's'}.`); }}>
+										<SelectTrigger id="ws-lookahead" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="auto">Automatic (recommended)</SelectItem>
+											<SelectItem value="0">Off — only the current slide</SelectItem>
+											<SelectItem value="1">1 slide ahead</SelectItem>
+											<SelectItem value="2">2 slides ahead</SelectItem>
+											<SelectItem value="3">3 slides ahead</SelectItem>
+											<SelectItem value="4">4 slides ahead</SelectItem>
+											<SelectItem value="all">The whole deck</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<label htmlFor="ws-narration-cache" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<Switch id="ws-narration-cache" aria-label="Keep narration on this device" checked={narrationCache} onCheckedChange={(next) => { setNarrationCacheState(next); setNarrationCacheEnabled(next); notify(next ? 'Narration is kept on this device — a rehearsed deck presents instantly.' : 'Narration is no longer kept between sessions.'); }} />
+									<span className="min-w-0">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Keep narration on this device</span>
+										<span className="block text-[11px] text-muted-foreground">Store spoken lines in this browser so a deck you've already rehearsed presents instantly, offline, and without paying to synthesize the same words again. Held under a size budget, oldest dropped first; see and clear it under Data → Narration audio.</span>
+									</span>
+								</label>
 							</div>
 
 							<div className="mt-6">
@@ -977,6 +1031,17 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									busy={govBusy === 'models'}
 									onArm={() => setGovArmed('models')}
 									onConfirm={() => clearCategory('models', clearDownloadedModels, 'Downloaded models cleared.')}
+									onCancel={() => setGovArmed(null)}
+								/>
+								<GovRow
+									icon={<Volume2 className="size-4" />}
+									title="Narration audio"
+									description="Spoken narration Present synthesized and kept on this device, so a deck you've rehearsed presents instantly and without paying for the same lines twice. Clearing it re-synthesizes on the next present."
+									stat={gov ? `${gov.narration.count} line${gov.narration.count === 1 ? '' : 's'}${gov.narration.bytes ? ` · ${fmtBytes(gov.narration.bytes)}` : ''}` : undefined}
+									armed={govArmed === 'narration'}
+									busy={govBusy === 'narration'}
+									onArm={() => setGovArmed('narration')}
+									onConfirm={() => clearCategory('narration', clearNarrationAudio, 'Narration audio cleared.')}
 									onCancel={() => setGovArmed(null)}
 								/>
 								<GovRow

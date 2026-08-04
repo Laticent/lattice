@@ -236,3 +236,291 @@ test('stop()/pause()/resume(): drive ONLY the speechSynthesis rung, and are safe
     delete globalThis.speechSynthesis;
   }
 });
+
+// ── fetchClip: the ONE synth body playback and prefetch now share ─────────────
+// Was two near-copies (synthOne's and the warm queue's), each with its own flat
+// 20s timeout and no retry — the timeout behind the "audio hangs" report. These
+// pin the discipline that replaced it: bounded attempts, retry only what is
+// plausibly transient, and never turn a slow model into a twice-as-long stall.
+
+/** A rung whose synth() is scripted per call: each entry is 'ok' | 'error' | 'hang'. */
+function ScriptedRung(script, { name = 'openrouter-tts' } = {}) {
+  let i = 0;
+  const calls = [];
+  const aborts = []; // the signal handed to each attempt, so a test can assert it was cut
+  return {
+    name,
+    ready() { return true; },
+    calls,
+    aborts,
+    async synth({ text, signal }) {
+      const step = script[Math.min(i++, script.length - 1)];
+      calls.push(text);
+      aborts.push(signal);
+      if (step === 'error') throw new Error('429 rate limited');
+      if (step === 'hang') return new Promise(() => {}); // never settles — the timeout must win
+      return { size: 128, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(128) };
+    },
+  };
+}
+
+test('fetchClip: retries ONCE after a fast failure, and the retry\'s bytes are returned', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['error', 'ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'A transient failure.' });
+  assert.equal(rung.calls.length, 2, 'one retry after the fast failure');
+  assert.ok(res.bytes, 'the retry\'s audio is what the caller gets');
+});
+
+test('fetchClip: gives up after the retry also fails — resolves null, never throws', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['error', 'error']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'Down hard.' });
+  assert.equal(rung.calls.length, 2, 'exactly two attempts — never an unbounded retry loop');
+  assert.equal(res.bytes, null);
+});
+
+test('fetchClip: a TIMED-OUT attempt is NOT retried — a stuck model must not cost two waits', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['hang', 'ok']);
+  // A SHORT patience, injected. The shipped 20s is a real wall-clock wait, and three cases
+  // here have to cross it — at the constant this file took 86 seconds instead of 0.2, on
+  // every push (HARD RULE #18). What is under test is the behavior AT the deadline, never
+  // its duration.
+  const v = createVoiceModel({ waitMs: 40, ceilingMs: 120 });
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'Never returns.' });
+  assert.equal(res.bytes, null, 'the hung request yields no audio to the caller');
+  assert.equal(rung.calls.length, 1, 'one request — a wait that expires is terminal for THIS caller');
+});
+
+test('fetchClip: an aborted signal short-circuits before any request is made', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const ctl = new AbortController();
+  ctl.abort();
+  const res = await v.synthOne({ text: 'Already gone.', signal: ctl.signal });
+  assert.equal(rung.calls.length, 0, 'no request for a caller that already walked away');
+  assert.equal(res.bytes, null);
+});
+
+test('fetchClip: a second request for the same key is served from cache, not re-synthesized', async () => {
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['ok', 'ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  await v.synthOne({ text: 'Say it once.' });
+  await v.synthOne({ text: 'Say it once.' });
+  assert.equal(rung.calls.length, 1, 'the in-memory tier still short-circuits before any attempt');
+});
+
+test('fetchClip: degrades cleanly with no IndexedDB and no localStorage (plain node / private mode)', async () => {
+  // The persistent tier and the latency reservoir are both best-effort by contract.
+  // This whole file runs with neither global defined, so every test above already
+  // exercises the degraded path — this one states it, so a future change that makes
+  // either a hard dependency fails here with a name that explains why.
+  const { createVoiceModel } = await load();
+  assert.equal(typeof indexedDB, 'undefined');
+  assert.equal(typeof localStorage, 'undefined');
+  const rung = ScriptedRung(['ok']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'Still works.' });
+  assert.ok(res.bytes, 'playback never depends on either store being present');
+});
+
+test('fetchClip: a request the caller gave up on KEEPS RUNNING and still caches — the self-healing property', async () => {
+  // The regression this pins: cutting the wait to 6s AND aborting on it meant a link slower
+  // than the deadline never landed a single sentence in cache, so the deck went permanently
+  // silent where it had previously worked slowly. A request is already paid for — letting it
+  // finish costs nothing extra and makes the next pass instant.
+  const { createVoiceModel } = await load();
+  let release;
+  const rung = {
+    name: 'openrouter-tts',
+    calls: [],
+    ready: () => true,
+    synth({ text }) {
+      rung.calls.push(text);
+      return new Promise((res) => { release = () => res({ size: 64, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(64) }); });
+    },
+  };
+  const v = createVoiceModel({ waitMs: 40, ceilingMs: 5000 });
+  v.__setRung(rung);
+
+  const ctl = new AbortController();
+  const first = v.synthOne({ text: 'Slow but coming.', signal: ctl.signal });
+  await new Promise((r) => setTimeout(r, 10));
+  ctl.abort();
+  assert.equal((await first).bytes, null, 'the caller gets nothing — it stopped waiting');
+
+  release();
+  await new Promise((r) => setTimeout(r, 20));
+  const second = await v.synthOne({ text: 'Slow but coming.' });
+  assert.ok(second.bytes, 'the late arrival is served from cache');
+  assert.equal(rung.calls.length, 1, 'and no second request was ever fired');
+});
+
+test('fetchClip: a concurrent call for the same sentence JOINS the live request, never duplicates it', async () => {
+  // The property the review actually asked for. Keying dedup on the REQUEST rather than on a
+  // caller's wait is what delivers it: the old version cleared its entry when the caller gave
+  // up, leaving the request running and the next call free to fire a duplicate.
+  const { createVoiceModel } = await load();
+  let release;
+  const rung = {
+    name: 'openrouter-tts',
+    calls: [],
+    ready: () => true,
+    synth({ text }) {
+      rung.calls.push(text);
+      return new Promise((res) => { release = () => res({ size: 32, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(32) }); });
+    },
+  };
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const a = v.synthOne({ text: 'Same words.' });
+  const b = v.synthOne({ text: 'Same words.' });
+  await new Promise((r) => setTimeout(r, 10));
+  release();
+  assert.ok((await a).bytes);
+  assert.ok((await b).bytes);
+  assert.equal(rung.calls.length, 1, 'one request served both callers');
+});
+
+test("fetchClip: the caller's abort ENDS THE WAIT without killing the request, and earns no retry", async () => {
+  // This test used to be named "the caller's abort cancels the in-flight request" and asserted
+  // only the call count. It pinned the OPPOSITE of the shipped design — startRequest gives the
+  // request its own controller precisely so a request the player walked away from keeps running
+  // and still caches — and it passed only because the 20s patience eventually fired, which is
+  // where 20 of this file's 86 seconds went (red team + independent checker, #1352).
+  //
+  // What actually has to hold: the CALLER returns promptly (a barge-in must not park Suono's
+  // produce slot for the full patience window), the rung's own signal is NOT aborted, and the
+  // abort does not count as a transient failure worth retrying.
+  const { createVoiceModel } = await load();
+  let sawAbort = false;
+  let release;
+  const rung = {
+    name: 'openrouter-tts',
+    calls: [],
+    ready: () => true,
+    synth({ text, signal }) {
+      rung.calls.push(text);
+      signal.addEventListener('abort', () => { sawAbort = true; }, { once: true });
+      return new Promise((res) => { release = () => res({ size: 32, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(32) }); });
+    },
+  };
+  // A patience far longer than this test's own timing, so a prompt return can only come from
+  // the abort — never from the deadline quietly expiring underneath it.
+  const v = createVoiceModel({ waitMs: 10000, ceilingMs: 20000 });
+  v.__setRung(rung);
+  const ctl = new AbortController();
+  const startedAt = Date.now();
+  const p = v.synthOne({ text: 'Mid-flight barge-in.', signal: ctl.signal });
+  await new Promise((r) => setTimeout(r, 10));
+  ctl.abort();
+  const res = await p;
+  const elapsed = Date.now() - startedAt;
+
+  assert.equal(res.bytes, null, 'the caller that walked away gets nothing');
+  assert.ok(elapsed < 1000, `the abort ended the wait immediately (took ${elapsed}ms of a 10s patience)`);
+  assert.equal(sawAbort, false, 'the REQUEST was not canceled — it is already paid for and still caches');
+  assert.equal(rung.calls.length, 1, 'an abort is not a transient failure — it must not earn the retry');
+
+  // And the self-healing half: the abandoned request still lands in cache for the next pass.
+  release();
+  await new Promise((r) => setTimeout(r, 20));
+  const again = await v.synthOne({ text: 'Mid-flight barge-in.' });
+  assert.ok(again.bytes, 'the late arrival is served from cache');
+  assert.equal(rung.calls.length, 1, 'and no second request was ever fired');
+});
+
+test('latencyKey(): the ACTIVE rung\'s key, in the same shape fetchClip records under', async () => {
+  // One builder for the writer and every reader. Present previously assembled its own
+  // calibration-shaped key, so no lookup ever matched and `auto` lookahead could not adapt.
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({});
+  v.__setRung({ name: 'openrouter-tts', ready: () => true, synth: async () => null });
+  const key = v.latencyKey();
+  assert.match(key, /^openrouter-tts\|[^|]+\|[^|]*$/, 'rung | modelId | voice');
+  assert.ok(key.includes('|'), 'not a bare rung name');
+});
+
+// ── The latency reservoir `auto` lookahead is sized from ──────────────────────────────
+//
+// The reservoir lives in localStorage, which node does not have — every entry point guards
+// it, so without a shim `recordLatency` silently no-ops and these tests would pass on an
+// empty store while asserting nothing. Installed per test and removed after, so the rest of
+// the file keeps running in its deliberate no-storage mode.
+function withLocalStorage(fn) {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+  };
+  return Promise.resolve()
+    .then(fn)
+    .finally(() => {
+      delete globalThis.localStorage;
+    });
+}
+
+// resolveLookahead reads its p95: a slow link is supposed to warm DEEPER than a fast one.
+// Two bugs inverted that, and both hid themselves by leaving the reservoir looking healthy
+// (everything in it was fast). Found by the adversarial trio's red team, #1352.
+
+test('latency: a timed-out attempt is recorded at the deadline, not dropped', async () => withLocalStorage(async () => {
+  // Dropping it made the reservoir a p95 of the successes-under-patience ONLY — so the
+  // slower the link, the more of its slow samples were discarded, and the shallowest
+  // prefetch window went to the link that needed the deepest.
+  const { createVoiceModel } = await load();
+  const { latencyStats, clearLatency } = await import('../../../docs/src/playground/narration-latency.js');
+  const rung = ScriptedRung(['hang']);
+  const v = createVoiceModel({ waitMs: 40, ceilingMs: 200 });
+  v.__setRung(rung);
+  clearLatency(v.latencyKey());
+
+  assert.equal((await v.synthOne({ text: 'Too slow to land.' })).bytes, null);
+  const stats = latencyStats(v.latencyKey());
+  assert.equal(stats.n, 1, 'the slowest observation is the one that most needs recording');
+  assert.ok(stats.p95 >= 40, `censored at the deadline, not thrown away (p95=${stats.p95})`);
+}));
+
+test('latency: a JOINER records the request\'s age, not its own short wait', async () => withLocalStorage(async () => {
+  // A second caller landing on an already-running request measured from ITS OWN start, so a
+  // request five seconds old could contribute a five-millisecond sample. Warm-ahead makes
+  // this the normal path: it starts the sentence, playback joins later.
+  const { createVoiceModel } = await load();
+  const { latencyStats, clearLatency } = await import('../../../docs/src/playground/narration-latency.js');
+  let release;
+  const rung = {
+    name: 'openrouter-tts',
+    calls: [],
+    ready: () => true,
+    synth({ text }) {
+      rung.calls.push(text);
+      return new Promise((res) => { release = () => res({ size: 32, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(32) }); });
+    },
+  };
+  const v = createVoiceModel({ waitMs: 5000, ceilingMs: 10000 });
+  v.__setRung(rung);
+  clearLatency(v.latencyKey());
+
+  const first = v.synthOne({ text: 'Warmed ahead.' });        // the real request starts here
+  await new Promise((r) => setTimeout(r, 120));
+  const joiner = v.synthOne({ text: 'Warmed ahead.' });        // playback catches up much later
+  await new Promise((r) => setTimeout(r, 10));
+  release();
+  await Promise.all([first, joiner]);
+
+  assert.equal(rung.calls.length, 1, 'one request served both');
+  const stats = latencyStats(v.latencyKey());
+  assert.ok(stats.p95 >= 100, `the reservoir reflects the REQUEST's age, not the join (p95=${stats.p95})`);
+}));

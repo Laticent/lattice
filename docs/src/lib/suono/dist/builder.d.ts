@@ -21,6 +21,12 @@ export interface SequenceBuilder<T> {
     onItemStart(fn: (e: SequenceItemStart) => void): this;
     /** Lifecycle notifications. */
     onState(fn: (e: SequenceStateEvent) => void): this;
+    /** Fired `true` when the run wants to play but has no audio yet, `false` when sound
+     *  resumes — so a consumer riding the WebAudio clock can HOLD instead of running
+     *  through a produce stall. Always balanced. */
+    onStarve(fn: (starving: boolean) => void): this;
+    /** How long the run may have nothing to play before `onStarve(true)` (default 250 ms). */
+    starveGrace(ms: number): this;
     /** Compile to a Sequence bound to the stage. === `stage.sequence(collectedOptions)`.
      *  Throws if `items` / `produce` were never set (both are required by `SequenceOptions`). */
     build(): Sequence;

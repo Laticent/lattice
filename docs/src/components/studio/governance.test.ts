@@ -139,7 +139,7 @@ describe('governance — clear actions', () => {
 		// An emptied index re-seeds from the built-ins on the next read — never zero.
 		expect(deckContentStats().count).toBe(DECKS.length);
 		expect(deleteSpy).toHaveBeenCalledTimes(2); // the two mocked library assets
-		expect(result.succeeded.sort()).toEqual(['cache', 'decks', 'library', 'models', 'openrouter', 'retired'].sort());
+		expect(result.succeeded.sort()).toEqual(['cache', 'decks', 'library', 'models', 'narration', 'openrouter', 'retired'].sort());
 		expect(result.failed).toEqual([]);
 	});
 

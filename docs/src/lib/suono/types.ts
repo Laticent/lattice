@@ -180,6 +180,24 @@ export interface SequenceOptions<T> {
 	onItemStart?: (e: SequenceItemStart) => void;
 	/** Lifecycle notifications. Never throws into the scheduler. */
 	onState?: (e: SequenceStateEvent) => void;
+	/**
+	 * Fired when the run STARVES — it wants to play the next item but has no audio yet
+	 * (still producing, still decoding) — and again with `false` the moment sound resumes.
+	 *
+	 * A consumer riding the WebAudio clock needs this. That clock advances in real time
+	 * whether or not a clip is playing, so a caller that maps it straight to a visual
+	 * position (a caption highlight) will run right through a produce stall — the words
+	 * keep crawling over silence, then snap when audio returns. Knowing the run is starved
+	 * lets the consumer HOLD instead, turning an invisible defect into an honest pause.
+	 *
+	 * Debounced by `starveGraceMs` so an ordinary sub-frame handoff never reports as a
+	 * stall. Guaranteed to be balanced: a `true` is always followed by a `false` (on
+	 * resume, abort, or run end), so a consumer can never be left frozen.
+	 */
+	onStarve?: (starving: boolean) => void;
+	/** How long the run may have nothing to play before `onStarve(true)` fires. Default 250 ms
+	 *  — above a normal decode handoff, below the ~400 ms a listener starts hearing as a gap. */
+	starveGraceMs?: number;
 }
 
 export interface WarmOptions {

@@ -32,6 +32,10 @@ const MAX_CONCURRENCY = 16;
 // foreground, and its cap is what bounds the transient overshoot when a caller warms BEFORE playing
 // (warm in flight + the ungated run's concurrency). 4 keeps that peak modest (≤ run + 4).
 const MAX_WARM_CONCURRENCY = 4;
+// How long the run may have nothing to play before it reports starvation. Above a normal
+// decode handoff (sub-frame), below the ~400 ms at which a listener stops hearing "a
+// breath" and starts hearing "it broke".
+const DEFAULT_STARVE_GRACE_MS = 250;
 
 const errStr = (e: unknown): string => ((e as Error)?.message ? (e as Error).message : String(e || 'unknown'));
 
@@ -80,6 +84,41 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 	const produceTimeoutMs = opts.produceTimeoutMs ?? DEFAULT_PRODUCE_TIMEOUT_MS;
 	const onItemStart = opts.onItemStart;
 	const onState = opts.onState;
+
+	// ── Starvation reporting ──────────────────────────────────────────────────────────
+	// "The run wants to play and has no audio yet." Armed whenever the loop is waiting on
+	// bytes or a decode, disarmed the instant a clip actually starts. See `onStarve` in
+	// types.ts for why a WebAudio-clock consumer cannot detect this for itself.
+	const onStarve = opts.onStarve;
+	const starveGraceMs = opts.starveGraceMs ?? DEFAULT_STARVE_GRACE_MS;
+	let starveTimer: ReturnType<typeof setTimeout> | null = null;
+	let starving = false;
+	const emitStarve = (next: boolean) => {
+		if (next === starving) return;
+		starving = next;
+		try {
+			onStarve?.(next);
+		} catch {
+			/* a consumer's handler must never break the scheduler */
+		}
+	};
+	/** Begin watching for a stall. A no-op if one is already reported. */
+	const armStarve = () => {
+		if (!onStarve || starving || starveTimer) return;
+		starveTimer = setTimeout(() => {
+			starveTimer = null;
+			emitStarve(true);
+		}, starveGraceMs);
+	};
+	/** Sound is flowing (or the run is over) — cancel the watch and clear any report.
+	 *  Every exit path calls this, which is what makes `true` → `false` guaranteed. */
+	const clearStarve = () => {
+		if (starveTimer) {
+			clearTimeout(starveTimer);
+			starveTimer = null;
+		}
+		emitStarve(false);
+	};
 
 	const bytesCache = createBoundedCache<Bytes>(opts.cacheLimit ?? DEFAULT_CACHE_LIMIT);
 	const inflight = createInflight<Bytes | null>();
@@ -203,10 +242,24 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 
 			for (let i = 0; i < items.length; i++) {
 				if (sig.aborted) break;
+				// From here until this item's clip actually starts, the run has nothing to play.
+				// Armed before the await (not after) so a produce that is ALREADY slow — the
+				// common case, since fillSlots started it items ago — is caught from the moment
+				// the loop needs it, not from the moment it gives up.
+				armStarve();
 				const bytes = await pending[i];
 				if (sig.aborted) break;
-				await waitIfPaused(sig);
-				if (sig.aborted) break;
+				// A PAUSE IS NOT A STALL. The user asked for the silence, so the consumer must not
+				// freeze its highlight on it — and `sleep()` for the inter-item gap is not
+				// pause-aware, so a tap during the gap lands here with the watch already armed and
+				// trips it 250 ms later (red team, #1352). Disarm across the gate, re-arm after: on
+				// the far side we are genuinely waiting for sound again.
+				if (pausedGate) {
+					clearStarve();
+					await waitIfPaused(sig);
+					if (sig.aborted) break;
+					armStarve();
+				}
 				emitState(true, i, firstError);
 				if (bytes) {
 					// Race decode against abort AND a watchdog: stage.decode isn't passed the signal and
@@ -239,9 +292,14 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 					]).finally(() => clearTimeout(decodeTimer));
 					if (sig.aborted) break;
 					if (clip) {
-						const onStart = onItemStart
-							? ({ onsetMs, durationMs }: { onsetMs: number; durationMs: number }) => onItemStart({ index: i, onsetMs, durationMs })
-							: undefined;
+						// Sound is about to flow — clear the starvation watch from the clip's REAL
+						// onset, not from here. `stage.play` is scheduled, so "we have a clip" and
+						// "the listener hears it" are not the same instant, and the consumer holding
+						// its highlight should hold until the latter.
+						const onStart = ({ onsetMs, durationMs }: { onsetMs: number; durationMs: number }) => {
+							clearStarve();
+							onItemStart?.({ index: i, onsetMs, durationMs });
+						};
 						const handle = stage.play(clip, { onStart, signal: sig });
 						activeHandle = handle;
 						// If a pause() already landed for THIS clip before play() was called (the tap raced
@@ -252,12 +310,25 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 						if (res && res.ok === false && res.error) setError(res.error);
 					}
 				}
+				// Balance the watch armed at the top of this iteration. `clearStarve` normally rides
+				// the clip's real onset — but an item that produced NO bytes, or whose decode failed
+				// or timed out, never reaches an onset, so its arm survives into the deliberate gap
+				// below (and the next iteration's `armStarve` is a no-op while one is pending). The
+				// consumer would then freeze its highlight through a pause we CHOSE, and, if the
+				// skipped item was the last, until the run's `finally`. By here the await has
+				// returned and any clip has finished: we are provably not waiting on audio.
+				clearStarve();
 				// Breathe between items — a real pause the clip itself doesn't carry. Not after the last.
 				if (i < items.length - 1 && !sig.aborted) {
 					await sleep(safeGap(items[i], items[i + 1] ?? null, i), sig);
 				}
 			}
 		} finally {
+			// A run that ends, aborts, or throws while starved must not leave the consumer
+			// frozen on a `true` that never gets its matching `false`. Unconditional (not
+			// ctl-guarded): this run's own watch is this run's to cancel, even when a barge-in
+			// has already reassigned the lifecycle below.
+			clearStarve();
 			// Teardown GUARDED by ctl identity (voice-model.js's `if (activeCtl === ctl)`): a barge-in
 			// — stop() then a fresh run() — has already reassigned `ctl`/`running` to the NEW run, so
 			// this superseded run must not null them or emit a spurious playing:false over it. Suono
@@ -366,6 +437,14 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 		releaseGate();
 		running = false;
 		activeHandle = null;
+		// Clear the starvation hold HERE, not only in run()'s finally. `produceBytes` races
+		// produce() against its watchdog but NOT against the abort signal, so a stop() landing
+		// while the loop is parked on a hung produce leaves that finally unreached for up to
+		// produceTimeoutMs. The consumer holding its caption highlight on the last `true` would
+		// stay frozen for that whole window on a run that is already gone — which breaks the
+		// balanced-callback contract exactly when it matters most. (Caught by the "never leaves
+		// a consumer frozen" test.) Idempotent: the later finally sees it already cleared.
+		clearStarve();
 		// A pause BETWEEN clips froze the shared play-clock via `stage.suspend()` (there was no live
 		// handle to own the freeze). A stop/barge-in/nav without an intervening resume would otherwise
 		// leave `clockMs()` frozen on the module-singleton stage — hanging the NEXT read's caption at

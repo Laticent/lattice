@@ -213,6 +213,18 @@ in patch versions.
   `auto` on `math` and `title` — so the backdrop escapes behind the section's own opaque background
   and the finish vanished on a shipped slide. See
   `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
+
+
+- **Present's narration no longer hangs silently while the captions run on without it.** A sentence
+  whose synthesis stalled left the caption highlight — which rides the WebAudio clock, and that
+  clock advances whether or not a clip is sounding — crawling straight through the silence, then
+  snapping when audio returned. Two changes close it. Suono now reports **starvation** ("I want to
+  play and have nothing"), so the reader **holds** the highlight and the rail's progress edge at the
+  cue boundary instead of racing ahead; the prefetch edge keeps advancing underneath it, which is
+  what tells an audience a silence is buffering rather than broken. And a synthesis request now
+  **outlives the player's patience**: the player gives a sentence 20s before moving on, but the
+  request itself runs to 45s and its audio still lands in the cache, so a slow link warms itself
+  instead of dropping every sentence. No label changes and no new widget — the rail carries it.
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
@@ -342,6 +354,91 @@ in patch versions.
   a decoration that reports green. It also sets `CHROME_NO_SANDBOX=1`: marp-cli disables the Chromium
   sandbox for root and inside a container, but a GitHub runner is a plain non-root VM with
   unprivileged user namespaces restricted, so without it every render dies with "No usable sandbox!".
+
+- **Present now has a real presentation pace: the deck holds a beat on each new slide before
+  speaking.** The between-slide pause used to be *zero by construction* — `onFinish` advanced and
+  started narrating in the same tick — so the only gap between slides was whatever the network
+  happened to cost. That is why narrated delivery read as both "way too fast" and "it hangs": the
+  deliberate pause was 0 ms and the accidental one was seconds. The graded pause ladder in
+  `cadenza/cadence.ts` (comma 200 / clause 350 / sentence 550 / paragraph 750) now has its missing
+  top rung: a **slide** boundary (~1.4s) and, for a `divider` slide that opens a section, a deeper
+  **section** beat (~2.6s) — the chapter break an audience re-orients across. Crucially the beat is
+  spent **on the new slide, already rendered**: advance, hold, *then* speak, so the room reads the
+  slide before the voice starts, which is the one thing every presentation coach agrees on and the
+  exact opposite of what Present did before. Three named paces under **General → Narration in
+  Present** — Brisk (0.8s/1.6s), **Natural** (1.4s/2.6s, default), Deliberate (2.2s/4.0s) — with
+  exact per-boundary overrides available, where `0` legitimately means "no beat". Pausing during a
+  beat cancels it rather than being overridden by a timer set before the pause, and the caption band
+  stays reserved through the hold so the slide doesn't resize twice per transition.
+
+- **Present narrates without waiting on the network: prefetch ahead, keep the audio, and prepare a
+  whole deck up front.** Narrated playback used to pay a cold, un-hidden synth round trip at the
+  start of every Play and at most slide boundaries, because the prefetch was one slide deep, ran one
+  sentence at a time (`WARM_CONCURRENCY` 1 → **3**), and fired **only while autoplaying** — so
+  arrow-key navigation, the way a presenter actually drives a deck, prefetched nothing at all. It now
+  warms a **window** of upcoming slides on every navigation whenever Voice is on, including the
+  CURRENT slide (so opening Present or unmuting warms it before Play is ever pressed). Depth is a
+  workspace setting under **General → Narration in Present**, defaulting to **Automatic**: sized from
+  the p95 synth latency measured for the active voice on this device, so a slow link warms deeper
+  without anyone configuring anything. Synthesized audio is also **kept on this device**
+  (IndexedDB, ~100 MB, oldest dropped first) under the same content-complete cache key playback
+  looks up, so a rehearsed deck presents instantly, offline, and without paying to synthesize the
+  same words twice — surfaced and clearable under **Data → Narration audio**, and switchable off.
+  Fetching the **whole deck** up front — so a live room has no network in the loop at all — is a
+  *value* of that same setting rather than a separate action: preparing a deck was never a distinct
+  feature, only an unbounded lookahead, and a setup control does not belong in a delivery surface
+  where a presenter discovering it is already in front of the room.
+
+- **The Present rail now shows how far the narration reaches, as two fills.** A lighter
+  **prefetch** fill leads, advancing as each slide's audio lands; the darker **progress** fill
+  follows as playback reaches it — the video-scrubber idiom, chosen because the same treatment is
+  meant to reach the shipped player, where a viewer arrives with that mental model already loaded.
+  It exists for the *audience* of a self-presenting deck: when narration stalls the progress edge
+  freezes while the prefetch edge keeps moving, and motion continuing while playback is stopped is
+  the only honest way to say "still working" rather than "crashed". When the two edges meet, the
+  audio has run dry — visible with no word and no color change. Readiness is a **fraction** per
+  slide collapsed into one **contiguous** front, so a half-fetched slide fills its segment halfway
+  and a slide cached behind a gap is correctly *not* counted (you would stall at the gap first).
+  The three tiers are separated by **height** — 2px track, 3px prefetch, 5px progress — not tone:
+  measured across all 36 palette/mode combinations, `--accent` to `--border` is under 3:1 in
+  **eleven** of them, and in `onyx dark` the two tokens are both `#FFFFFF`, so any tint-based tier
+  would be invisible in the a11y, onyx and print palettes. Thickness is palette-blind by
+  construction; color now only reinforces.
+
+- **The adversarial trio found seven more defects in Present's narration, all now fixed.** The
+  rail's prefetch edge scanned from slide 0 rather than from the playhead, so **jumping to a
+  slide reported zero runway** even with the next five fully cached, and one sentence that never
+  landed early on pinned the edge for the rest of the deck — in both cases the buffer edge sat on
+  the frozen progress edge, making a stall look exactly like a crash. The **between-slide beat
+  broke the transport button**: mid-beat it flipped to Play, Pause was unreachable, and a tap left
+  the beat's timer pending to fire a second `play()` that cut the sentence and restarted the slide
+  from word one. **Concurrent cache writes each ran their own eviction**, so a store at budget gutted
+  itself — three simultaneous writes left 40% of the budget, six left nothing. The **latency
+  reservoir was censored** (a timed-out attempt recorded nothing) **and join-poisoned** (a late
+  caller recorded its own short wait), which handed the *slowest* links the *shallowest* prefetch
+  window — the exact inverse of the design. A **caller's abort no longer burns the full patience
+  window**, so a barge-in or a slide change releases immediately while the paid-for request still
+  finishes and caches. The rail **no longer announces "narration ready"** for slides with no
+  narration — the fills use the floored front, the label now uses the raw measurement. And a **user
+  pause between sentences is no longer reported as buffering**.
+
+- **"Fetch ahead → The whole deck" set the shallowest window instead of the deepest.** The select's
+  value went through `Number(v)`, so `'all'` became `NaN` and the preference floored to `0` — "only
+  the current slide" — while the toast said *"it will be ready to present offline."* A presenter
+  arming a deck before a board meeting got the exact opposite of the control they chose, and
+  reopening Settings showed "Off". The three Present narration controls now have interaction tests;
+  they shipped with none, which is why this got through.
+
+- **Present's narration plays smoothly again, and the rail's progress edge moves with it.** The
+  read-aloud clock pushed a React state update on **every animation frame**, so the whole Present
+  tree — including a rail that now draws three layered spans per slide with fresh inline styles —
+  re-rendered ~60 times a second on top of audio decode. The main thread saturated, which both
+  chopped the sound and starved the very frame loop driving the bar, so playback stuttered *and*
+  progress looked frozen. Progress now updates only when it moves enough to see (and exactly at
+  the 0 and 1 endpoints), the rail is memoized, and the prefetch edge is computed at slide
+  granularity rather than recomputed per frame. Separately, an item whose audio never sounded left
+  Suono's starvation watch armed into the deliberate gap that follows it, so the reader froze its
+  highlight through a pause the scheduler had *chosen* — the loop now balances its own watch.
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The
@@ -7215,7 +7312,7 @@ in patch versions.
   **texture pattern** per categorical slot on diagram fills (Mermaid `.section-N`
   and the Mermaid pie) and native chart fills (pie / funnel), and a per-series
   **line-style** on radar. The four share a `themes/a11y-base.css` foundation (the
-  texture wiring + greyscale categorical ramp + forced light scheme); each theme
+  texture wiring + grayscale categorical ramp + forced light scheme); each theme
   adds only its status trio. They are **mode-invariant** — a fixed palette that
   ignores the light/dark toggle, so an accessibility render reads identically for
   every viewer (and color-free decks stay readable by texture + glyph + line-style
@@ -15097,7 +15194,7 @@ in patch versions.
   outline ring (`planned`) — are replaced by shape-distinct white marks on the
   state-colored disc: **check / dash / cross / slash** for
   shipped / in-flight / planned / out-of-scope, across the default, `horizons`,
-  and `status` treatments. Each state now reads in greyscale and for
+  and `status` treatments. Each state now reads in grayscale and for
   color-vision-deficient viewers (color is the redundant channel, not the
   only one), matching the mark vocabulary `checklist` / `verdict-grid` /
   `obligation-matrix` already use.
@@ -15289,7 +15386,7 @@ in patch versions.
   **check / dash / x / slash** — replacing the old fill-level discs
   (filled / half / outline / slashed) and the layout-specific Unicode glyphs.
   The mark *shape* carries the meaning independently of color, so the states
-  are unambiguous in greyscale and for color-vision-deficient viewers — the
+  are unambiguous in grayscale and for color-vision-deficient viewers — the
   redundant encoding the fill-level discs lacked. Marks are font-independent
   SVG masks painted in theme tokens (knockout = `--bg`; disc = `--pass` /
   `--warn` / `--fail` / `--text-muted`), so they stay theme- and dark-mode

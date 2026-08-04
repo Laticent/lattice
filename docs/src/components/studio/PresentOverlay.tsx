@@ -1,14 +1,16 @@
-import { ChevronLeft, ChevronRight, EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
 import { createPresenterController } from '@/components/studio/present/presenter-window.js';
 import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import { Tip } from '@/components/ui/tooltip';
+import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
 // The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
 // bundled to the browser via read-along-core — the SAME kernel the CLI/export
 // narrates chart slides from, so a given chart slide narrates identically on both
@@ -24,9 +26,9 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { sectionsFromSlides } from './present-sections';
+import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
-import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
+import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -38,6 +40,18 @@ import { buildPresenterStageDoc } from './studio-presenter';
 // they want to go) and real slide navigation (←/→/Space). The slide is the live
 // engine render.
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+// Stable empty identities. Both feed memo/state comparisons that run on the audio thread —
+// a fresh `[]` each pass would defeat exactly the re-render narrowing they exist for.
+const EMPTY_SENTENCES: string[][] = [];
+const EMPTY_SENTENCES_N: number[] = [];
+/** Cheap elementwise compare, so an unchanged readiness poll keeps its array identity. */
+function sameFractions(a: number[], b: number[]): boolean {
+	if (a === b) return true;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+	return true;
+}
 
 // The narration-source priority read-aloud speaks: a slide's speaker note (the real
 // talk track) — else a recognized chart's computed facts — else the component-aware
@@ -347,11 +361,68 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const readerRef = React.useRef(reader);
 	readerRef.current = reader;
 	playingRef.current = reader.playing;
+	// Holding the between-slide beat: the new slide is up, the voice hasn't started yet.
+	// Drives the caption band's reservation (below) so the band doesn't collapse and re-grow
+	// across every transition — that flicker would be a new jank the beat itself introduced.
+	const [holding, setHolding] = React.useState(false);
+	// The pending between-slide beat, so a transport tap can CANCEL it rather than race it.
+	const beatTimerRef = React.useRef(0);
+	// The pace prefs, re-read on change so a Workspace switch takes effect on the live deck.
+	const [pace, setPace] = React.useState<{ name: PaceName; slide?: number; section?: number }>({ name: 'natural' });
+	React.useEffect(() => {
+		const read = () => setPace({ name: pacePref() as PaceName, slide: beatOverride('slide'), section: beatOverride('section') });
+		read();
+		return onNarrationPrefsChange(read);
+	}, []);
+	// How long to hold on arriving at the CURRENT slide. Read through a ref by the
+	// auto-advance effect so a pref change never re-fires that effect mid-transition.
+	const beatForArrival = React.useCallback((): number => {
+		const md = set[clamped] ?? '';
+		const kind = isSectionBoundary(md) ? 'section' : 'slide';
+		return slideBeatMs(kind, pace.name, kind === 'section' ? pace.section : pace.slide);
+	}, [set, clamped, pace]);
+	const beatForArrivalRef = React.useRef(beatForArrival);
+	beatForArrivalRef.current = beatForArrival;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `reader.track` is the rebuild signal (the new slide's reader is ready once it changes); reader is read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
 		autoAdvanceRef.current = false;
-		readerRef.current.play();
+		// THE BETWEEN-SLIDE BEAT (Part 3). The new slide is already rendered and on screen;
+		// hold here before speaking so the audience reads it first. Advancing and speaking in
+		// the same tick — what this did before — is the reverse of what every practitioner
+		// prescribes, and it is why delivery read as "way too fast" even while individual
+		// slides sounded fine. The deliberate pause was literally 0 ms; the only gap was
+		// whatever the network cost, which is the accidental pause Part 2 removed.
+		//
+		// Depth comes from the boundary: arriving at a `divider` slide is a section break and
+		// gets the longer beat. A 0 beat (Brisk with an explicit 0 override) plays immediately
+		// rather than scheduling a pointless timer.
+		const beat = beatForArrivalRef.current();
+		if (beat <= 0) {
+			readerRef.current.play();
+			return;
+		}
+		setHolding(true);
+		const id = window.setTimeout(() => {
+			beatTimerRef.current = 0;
+			setHolding(false);
+			// Re-check intent at FIRE time, not schedule time: Pause (or leaving Present)
+			// during the beat must not be overridden by a timer set before it. `autoplay` is
+			// cleared by pause/close, so it is the honest signal that the chain is still wanted.
+			//
+			// `playing` is the second guard, and it is not redundant. Tapping the transport
+			// during a beat starts the slide immediately; this timer is still pending and the
+			// tap SET `autoplay`, so on autoplay alone it would fire a second, non-resume
+			// play() — which is a barge-in: abort, reset, back to word one, cutting off the
+			// sentence already sounding (red team, #1352).
+			if (autoplayRef.current && !readerRef.current.playing) readerRef.current.play();
+		}, beat);
+		beatTimerRef.current = id;
+		return () => {
+			window.clearTimeout(id);
+			beatTimerRef.current = 0;
+			setHolding(false);
+		};
 	}, [reader.track]);
 	// A slide with no readable prose never fires onFinish (nothing to read), which
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
@@ -365,43 +436,155 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			setAutoplay(false);
 		}
 	}, [autoplay, reader.track.cues.length, clamped, count]);
-	// Warm-ahead: while autoplaying, start the NEXT slide's synth in the
-	// background as soon as the CURRENT slide is showing — its audio is
-	// already cached by the time onFinish's autoAdvance reaches it. Without
-	// this, every autoplay slide transition pays a cold first-sentence synth
-	// latency that the within-slide concurrency scheduler never overlaps
-	// (that scheduler only runs ahead of a slide's OWN remaining sentences,
-	// never across into the next slide) — the "long pauses between slides"
-	// gap. Scoped to autoplay only; a manual next/prev has no known "next" to
-	// warm and shouldn't spend the synth budget speculatively.
-	// KNOWN, ACCEPTED GAP (red-team finding): a chain of several consecutive
-	// empty slides (the skip-effect below advances through them almost
-	// instantly, no real playback in between) leaves this effect re-firing at
-	// each transient index with barely a tick of head start before the next
-	// slide with content actually needs its audio — the cold-start latency
-	// this feature exists to hide can still occur right after such a chain.
-	// Not a correctness bug (no wrong audio, no duplicate request — a slower
-	// warm just means speak() ends up doing the synth itself when it gets
-	// there), just a case where the design's "whole slide's playback
-	// duration" head-start assumption doesn't hold. Not fixed here.
+	// Warm-ahead: keep a WINDOW of upcoming slides synthesized in the background, so a
+	// slide transition never pays a cold first-sentence round trip. The within-slide
+	// scheduler only ever runs ahead of a slide's OWN remaining sentences, never across a
+	// boundary — this is what closes that gap.
+	//
+	// Three things changed here (2026-08-03), each fixing a way the old version quietly
+	// did nothing:
+	//   · WINDOW, not one slide. It warmed exactly `clamped + 1`, so a 2-sentence slide
+	//     followed by an 8-sentence one warmed a fraction of what was about to be spoken.
+	//     The depth is a workspace pref, `auto` by default → sized from the measured p95
+	//     synth latency for the ACTIVE voice (narration-prefs.js), so a slow link warms
+	//     deeper without anyone configuring anything.
+	//   · Not autoplay-only. It required `autoplay`, so arrow-key navigation — how a
+	//     presenter actually drives a deck — prefetched nothing whatsoever. Voice being ON
+	//     is the honest signal of intent to hear audio; that is the gate now. This also
+	//     covers Present opening with Voice already on, and the moment the user unmutes:
+	//     both land here, so the CURRENT slide is warm before Play is ever pressed.
+	//   · The current slide is in the window. It was assumed already playing; on open (or
+	//     on unmute before Play) it is not, and that first cold sentence IS the "press play
+	//     and wait" the reporter described.
+	// Still gated on `!muted`: never synthesize — never BILL — audio the user won't hear.
+	//
+	// KNOWN, ACCEPTED GAP (red-team finding, carried forward): a chain of several
+	// consecutive EMPTY slides advances almost instantly (the skip-effect below), so this
+	// re-fires at each transient index with little head start. A deeper window makes this
+	// milder than it was — the slide after the chain is usually already in the window —
+	// but it is not eliminated. Not a correctness bug: a slower warm just means playback
+	// does the synth itself when it arrives.
+	const [lookahead, setLookahead] = React.useState(DEFAULT_LOOKAHEAD);
+	// Resolve the window against the live voice + pref, and re-resolve when either moves.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-resolve when the active voice changes (rung) as well as on a pref change.
 	React.useEffect(() => {
-		if (!autoplay || muted) return; // never synth (bill) TTS the user won't hear while Voice is muted
-		const next = set[clamped + 1];
-		if (next === undefined) return;
-		// Stop this warm from firing any FURTHER requests once it's superseded —
-		// autoplay turned off, the slide advanced again before it finished, or
-		// Present closed — so an abandoned warm doesn't keep working through the
-		// rest of an upcoming slide's sentences in the background (independent-
-		// checker finding). A request already in flight when this fires just
-		// finishes on its own; see warm()'s own comment in voice-model.js.
+		if (!open) return;
+		let live = true;
+		// Ask the voice model for the key it RECORDS under. Assembling one here is what
+		// broke this the first time: Present built a calibration-shaped `openrouter-tts`
+		// while the recorder wrote `openrouter-tts|hexgrad/kokoro-82m|af_heart`, so every
+		// lookup missed, `n` stayed 0, and `auto` silently pinned to the default forever
+		// while looking healthy (Copilot review, #1352).
+		const resolve = () => {
+			narrationLatencyKey().then((k) => {
+				if (live) setLookahead(resolveLookahead(k));
+			});
+		};
+		resolve();
+		const unsubscribe = onNarrationPrefsChange(resolve);
+		return () => {
+			live = false;
+			unsubscribe();
+		};
+	}, [open, reader.rung]);
+	React.useEffect(() => {
+		if (!open || muted) return; // never synth (bill) TTS the user won't hear while Voice is muted
+		// Nearest-first: the slide being spoken now, then the ones after it. Order matters —
+		// voice-model's prefetch queue is FIFO at a small fixed concurrency, so whatever is
+		// enqueued first is what wins the race that is actually about to happen.
+		const texts: string[] = [];
+		for (let i = clamped; i <= clamped + lookahead && i < set.length; i++) texts.push(narrationAt(i));
+		if (!texts.length) return;
+		// Stop this warm from firing any FURTHER requests once it's superseded — the slide
+		// advanced again, Voice was muted, or Present closed — so an abandoned warm doesn't
+		// keep working through the rest of the window in the background (independent-checker
+		// finding). A request already in flight when this fires just finishes on its own;
+		// see warm()'s own comment in voice-model.js.
 		const ctl = new AbortController();
-		warmNarration(narrationAt(clamped + 1), ctl.signal, acronyms, lang, lexicon);
+		warmNarrationWindow(texts, ctl.signal, acronyms, lang, lexicon);
 		return () => ctl.abort();
-	}, [autoplay, muted, clamped, set, narrationAt, acronyms, lang, lexicon]);
+	}, [open, muted, clamped, lookahead, set, narrationAt, acronyms, lang, lexicon]);
+	// Per-slide narration readiness for the rail's "ready" band.
+	//
+	// Split into an EXPENSIVE part and a CHEAP part, because this has to be polled. The
+	// band's whole job is to keep advancing while playback is frozen — that is what says
+	// "buffering" rather than "crashed" — and a stall involves no navigation, so a
+	// recompute-on-navigation would leave it motionless during exactly the event it exists
+	// to report.
+	//
+	// The expensive part (splitting the deck into spoken sentences — one `buildTrack` per
+	// slide) depends only on the deck, so it is memoized. The polled part is one
+	// `getAllKeys` plus a set intersection.
+	// `narrationAt` (not the ref) is the honest dependency: it already re-creates when the DOM
+	// projection lands, which is exactly when a slide's narration text — and therefore its
+	// cache keys — change.
+	// GATED ON `open`. This memo sits above the `if (!open) return null` and PresentOverlay is
+	// mounted for the whole Studio session, so ungated it ran a full buildTrack over every slide
+	// on every deck edit — an O(deck) pass on the EDITOR's typing path, for a readiness display
+	// nobody had open (Munger inversion, #1352). Present-only work belongs to Present.
+	const readinessSentences = React.useMemo(
+		() => (open ? spokenSentencesPerSlide(set.map((_, i) => narrationAt(i)), { acronyms, lang, lexicon }) : EMPTY_SENTENCES),
+		[open, set, narrationAt, acronyms, lang, lexicon],
+	);
+	const [readyFractions, setReadyFractions] = React.useState<number[]>([]);
+	React.useEffect(() => {
+		if (!open || muted) {
+			setReadyFractions([]);
+			return;
+		}
+		let live = true;
+		const refresh = () => {
+			narrationReadiness(readinessSentences)
+				.then((r) => {
+					// Keep the OLD array identity when nothing moved. This fires every 2s for as long
+					// as Present is open, and a fresh array each time re-rendered the whole tree —
+					// including the rail — on the same main thread as audio decode, for no visible
+					// change. Most polls report exactly what the last one did.
+					if (live) setReadyFractions((prev) => (sameFractions(prev, r) ? prev : r));
+				})
+				.catch(() => {
+					if (live) setReadyFractions((prev) => (prev.length === 0 ? prev : EMPTY_SENTENCES_N));
+				});
+		};
+		refresh();
+		// 2s: slow enough to be invisible against a single IndexedDB key read, fast enough
+		// that a viewer watching a stall sees the runway grow rather than a frozen bar.
+		const id = window.setInterval(refresh, 2000);
+		return () => {
+			live = false;
+			window.clearInterval(id);
+		};
+	}, [open, muted, readinessSentences]);
+
+	// The rail's prefetch edge: per-slide fractions collapsed into one contiguous front, floored
+	// at the progress edge so an LRU eviction behind the playhead can never draw the buffer
+	// trailing playback.
+	//
+	// The floor is the SLIDE index, deliberately not `clamped + reader.progress`. Mixing in the
+	// within-slide fraction made this memo recompute on every progress tick — an O(slides) scan
+	// plus a fresh rail render per frame — while buying nothing: the floor only exists to stop the
+	// buffer drawing BEHIND the playhead, and slide granularity settles that. Sub-slide precision
+	// there cost audio smoothness on the main thread.
+	const prefetchFront = React.useMemo(() => prefetchFrontOf(readyFractions, clamped), [readyFractions, clamped]);
+
 	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
 	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
 	// keeps chaining; the deck's natural end turns autoplay off via onFinish). No separate "Auto".
+	//
+	// THE BEAT COUNTS AS PLAYING. During a between-slide hold the previous slide's reader has
+	// ended and the next has not started, so `reader.playing` is false — but the deck is
+	// mid-delivery and the button says Pause. Without this branch the tap took the ELSE path:
+	// it started the slide early AND left the beat's timer pending, which then fired a second,
+	// non-resume play() — a barge-in that cut the sentence and restarted from word one. So a
+	// beat is paused by CANCELING it, not by pausing a reader that isn't running yet.
 	const togglePresentation = React.useCallback(() => {
+		if (beatTimerRef.current) {
+			window.clearTimeout(beatTimerRef.current);
+			beatTimerRef.current = 0;
+			setHolding(false);
+			setAutoplay(false);
+			return;
+		}
 		if (readerRef.current.playing) {
 			readerRef.current.pause();
 			setAutoplay(false); // pausing stops the chain; resume re-enables it. Prevents the empty-slide
@@ -412,6 +595,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		}
 	}, []);
 	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
+
 
 	// REAL rehearsal plan — the deterministic planner the Drawing Board ships
 	// (drawing-board-rehearsal.js): metas → per-slide dwell targets, role-specific
@@ -606,7 +790,18 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// The caption band reserves space only while it's actually crawling (playing) — so
 	// pressing Play BLOOMS it in and the slide shrinks to fit, and Pause folds it back
 	// (Quiet Bloom). The vertical grow/shrink is animated (motion-reduce snaps).
-	const showCaption = !rehearse && captionsOn && reader.playing && reader.track.cues.length > 0;
+	// The band stays reserved through the between-slide beat (`holding`), not just while the
+	// voice is sounding. Without that it would collapse and re-grow at every transition — the
+	// slide resizing twice per slide, a jank the beat itself would have introduced. During the
+	// hold it shows the new slide's opening line unhighlighted, which is exactly the intent:
+	// the audience reads it, then the voice starts.
+	// DELIVERING = "the deck is mid-presentation", which is NOT the same as "a reader is
+	// sounding". Between two slides the previous reader has ended and the next has not started,
+	// yet the deck is plainly still presenting — so the transport must read Pause and the
+	// caption band must stay reserved. Keying either on `reader.playing` alone made the primary
+	// control flip to Play for 0.8–4s at every single slide transition.
+	const delivering = reader.playing || holding;
+	const showCaption = !rehearse && captionsOn && delivering && reader.track.cues.length > 0;
 	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
 	// dim when the slide edge is reached, full on reveal.
 	// Is a transient overlay pill occupying the band below the slide? Keyed on the
@@ -792,7 +987,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<div className="flex max-w-full items-center gap-2">
 					<div className="flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-2 shadow-[0_8px_24px_rgba(10,22,40,.10)] sm:gap-3">
 						<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-						<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
+						<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : delivering ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : delivering) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
 						<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
 						<span className="h-5 w-px shrink-0 bg-border" />
 						<span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-[var(--text-heading)]">{clamped + 1} / {count}</span>
@@ -811,13 +1006,17 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					{!rehearse && (
 						<div className={cn('flex items-center gap-2 transition-opacity duration-300 motion-reduce:!opacity-100 motion-reduce:transition-none', revealed ? 'opacity-100' : 'opacity-50')}>
 							<Tip label="Captions — show the narration as text"><button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-2 text-[12px] font-extrabold tracking-wide', captionsOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>CC</button></Tip>
-							<Tip label="Voice — speak the narration aloud"><button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button></Tip>
+							<Tip label="Voice — speak the narration aloud"><button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
+							    status string mid-delivery is jarring, and for a screen reader it
+							    reads as the control itself becoming a different control. Buffering
+							    is reported on the rail, where it belongs. */}
+							<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button></Tip>
 						</div>
 					)}
 				</div>
 
 				{/* Section title + full-width rail (bottom) — the ONE progress element. */}
-				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} className="w-full" />
+				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} prefetchFront={rehearse ? 0 : prefetchFront} ready={rehearse ? undefined : readyFractions} onJump={setIdx} className="w-full" />
 			</div>
 			{/* The overview covers the whole surface when open (its own iframes) — re-enable
 			    pointer events for it above the chrome's `pointer-events-none` root. */}

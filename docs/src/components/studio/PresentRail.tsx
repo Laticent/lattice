@@ -1,6 +1,9 @@
 import * as React from 'react';
 import { type DeckSection, sectionOfIndex } from './present-sections';
 
+// A stable identity for the default, so an omitted `ready` can't defeat React.memo.
+const EMPTY_READY: number[] = [];
+
 // The ONE progress element (2026-07-12-studio-present-redesign.md, S1): a segmented,
 // section-grouped rail. One segment per presented slide, grouped by section with a gap
 // between groups; the CURRENT segment fills by `frac` (within-slide read progress); click
@@ -12,10 +15,12 @@ import { type DeckSection, sectionOfIndex } from './present-sections';
 // the section title lives in a STABLE aria-live region (a remounting node isn't announced);
 // and the rail is ONE tab stop with roving arrow-key movement (not N stops) — its arrow
 // handling stops the native event so the overlay's global ←/→ slide-nav doesn't double-fire.
-export function PresentRail({
+function PresentRailImpl({
 	sections,
 	current,
 	frac,
+	prefetchFront = 0,
+	ready = EMPTY_READY,
 	onJump,
 	className,
 }: {
@@ -24,6 +29,33 @@ export function PresentRail({
 	current: number;
 	/** Within-slide progress 0..1 (read-aloud); fills the current segment. */
 	frac: number;
+	/** How far the prefetched narration reaches, as a FRACTIONAL slide index (4.6 = through
+	 *  slide 4 plus 60% of slide 5). The lighter of the rail's two fills — the scrubber idiom
+	 *  every viewer already reads from a video player: progress edge = where we are, prefetch
+	 *  edge = how far the audio reaches.
+	 *
+	 *  It is what tells a self-presenting deck's audience that a silence is BUFFERING rather
+	 *  than BROKEN: when narration stalls the progress edge freezes while the prefetch edge
+	 *  keeps advancing. Motion that continues while playback is stopped is the only honest
+	 *  signal that the deck is still working — silence with no signal is indistinguishable
+	 *  from a crash. When the two edges MEET, the audio has run dry, and that is visible
+	 *  without a word or a color change.
+	 *
+	 *  CONTIGUOUS by construction: it stops at the first slide that isn't fully cached, because
+	 *  a later cached slide cannot be reached without stalling at the gap first — so counting
+	 *  it would overstate the runway. 0 when there is nothing to report (no clocked voice,
+	 *  cache off), which simply draws no prefetch fill. */
+	prefetchFront?: number;
+	/** Per-slide cached fraction, ONLY for the assistive label — never for the fills.
+	 *
+	 *  The fills read `prefetchFront`, which is floored at the playhead so the buffer edge can
+	 *  never draw behind it. That floor is right for a width and wrong for a claim: with nothing
+	 *  cached (Voice muted — the DEFAULT — no key, cache off, private window) it put every
+	 *  visited segment at 100%, and the label then announced "narration ready" for slides that
+	 *  had no narration and never would. Visually the taller progress fill hid it; a screen
+	 *  reader heard the lie in full (independent checker + red team, #1352). This is the raw
+	 *  measurement, so an empty array simply makes no claim. */
+	ready?: number[];
 	onJump: (i: number) => void;
 	className?: string;
 }) {
@@ -88,11 +120,24 @@ export function PresentRail({
 					// biome-ignore lint/suspicious/noArrayIndexKey: sections are positional + stable per render
 					<div key={si} className="flex min-w-0 flex-col" style={{ flex: sec.count }}>
 						<div className="flex min-w-0 gap-[2px]">
-							{Array.from({ length: sec.count }).map((_, k) => {
+						{Array.from({ length: sec.count }).map((_, k) => {
 								const gi = sec.start + k;
-								const done = gi < current;
 								const here = gi === current;
-								const right = done ? 0 : here ? 100 - Math.round(Math.max(0, Math.min(1, frac)) * 100) : 100;
+								// TWO FILLS, both continuous across segments: prefetch leads, progress follows.
+								//
+								// Each is a FRONT — a fractional slide index — not a per-slide flag. That
+								// matters: a per-slide "ready" boolean made a half-fetched slide flip from
+								// empty to full, and a slide whose audio landed out of order lit up behind a
+								// gap, so the bar read as patchwork rather than as two advancing ranges. A
+								// front fills each segment proportionally, so the eye sees one prefetch edge
+								// running ahead of one progress edge, which is the scrubber every viewer
+								// already knows.
+								const fillPct = (front: number) => {
+									const d = front - gi;
+									return d <= 0 ? 0 : d >= 1 ? 100 : d * 100;
+								};
+								const prePct = fillPct(prefetchFront);
+								const proPct = fillPct(current + Math.max(0, Math.min(1, frac)));
 								return (
 									<button
 										key={gi}
@@ -103,13 +148,41 @@ export function PresentRail({
 										tabIndex={gi === focusIdx ? 0 : -1}
 										onClick={() => onJump(gi)}
 										onFocus={() => setFocusIdx(gi)}
-										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}`}
+										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${(ready[gi] ?? 0) >= 1 && !here ? ' — narration ready' : ''}`}
 										aria-current={here ? 'step' : undefined}
-										className="relative h-[3px] min-w-0 flex-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
+										className="relative h-[5px] min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
 									>
-										<span className="absolute inset-0 overflow-hidden rounded-full" style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : 'var(--border)' }}>
-											<span className="absolute inset-y-0 left-0 rounded-full transition-[right] duration-150" style={{ right: `${right}%`, background: 'var(--accent)' }} />
-										</span>
+										{/* The three tiers are separated by HEIGHT, not tone — 2px track, 3px
+										    prefetch, 5px progress — because tone cannot carry this. Measured
+										    across all 36 palette/mode combinations: accent-to-border is under
+										    3:1 in ELEVEN of them (in `onyx dark` the two tokens are both
+										    #FFFFFF), so any tint-based tier is invisible in the a11y, onyx and
+										    print palettes. Thickness is palette-blind by construction, which is
+										    what "layouts are palette-blind" actually demands. Color still
+										    reinforces; it just isn't what carries the meaning. */}
+										<span
+												className="absolute inset-x-0 bottom-0 h-[2px] rounded-full"
+												// The CURRENT segment's track stays tinted even with nothing playing.
+												// Position is otherwise carried only by the progress fill, which is
+												// zero-width before the first word and in rehearse mode — so on slide 1
+												// with Voice muted (the default) every segment rendered identically and
+												// the rail showed no "here" at all. `aria-current` survives, so this was
+												// visual only; it is still a cue the rail had before this branch
+												// (independent checker, #1352).
+												style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : 'var(--border)' }}
+											/>
+										{prePct > 0 && (
+											<span
+												className="absolute bottom-0 left-0 h-[3px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+												style={{ width: `${prePct}%`, background: 'color-mix(in srgb, var(--accent) 55%, var(--border))' }}
+											/>
+										)}
+										{proPct > 0 && (
+											<span
+												className="absolute bottom-0 left-0 h-[5px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
+												style={{ width: `${proPct}%`, background: 'var(--accent)' }}
+											/>
+										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}
 										<span className="absolute -inset-x-0.5 -top-2.5 -bottom-2.5" aria-hidden="true" />
 									</button>
@@ -122,3 +195,12 @@ export function PresentRail({
 		</div>
 	);
 }
+
+// Memoized because this is the ONE component on the present bar that re-renders in step with the
+// read-aloud clock. It draws three absolutely-positioned spans per slide, two of them animating
+// `width`, so a 50-slide deck is 150 nodes with fresh inline styles. Without this, every unrelated
+// overlay state change (the readiness poll, a hint dismissal, caption text) redraws all of it
+// mid-sentence — and a busy main thread makes the AUDIO stutter, not just the bar. Props are
+// primitives plus a memoized `sections` and the stable `setIdx`, so the shallow compare is cheap
+// and actually hits.
+export const PresentRail = React.memo(PresentRailImpl);

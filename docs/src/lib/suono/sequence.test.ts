@@ -506,3 +506,154 @@ describe('makeSequence — hardening (adversarial trio)', () => {
 		expect(terminal!.error).toMatch(/timed out decoding/);
 	});
 });
+
+// ── onStarve: "we want to play and have nothing" ──────────────────────────────
+// A consumer riding the WebAudio clock (read-aloud's caption highlight) cannot
+// detect a produce stall for itself — that clock advances in real time whether or
+// not a clip is sounding, so the words crawl on through the silence and then snap.
+// These pin the contract that lets it hold instead: reported only for a REAL stall,
+// cleared from the clip's real onset, and always balanced.
+describe('onStarve', () => {
+	it('reports a stall, then clears it from the clip\'s real onset', async () => {
+		const stage = fakeStage();
+		const { produce, resolve } = deferredProduce(1);
+		const seen: boolean[] = [];
+		const seq = makeSequence(stage, { items: [0], produce, onStarve: (s) => seen.push(s), starveGraceMs: 10 });
+		seq.play();
+		await new Promise((r) => setTimeout(r, 40)); // past the grace with nothing produced
+		expect(seen).toEqual([true]);
+		resolve(0);
+		await flush();
+		expect(seen).toEqual([true, false]);
+	});
+
+	it('stays silent when audio is ready inside the grace window — a normal handoff is not a stall', async () => {
+		const stage = fakeStage();
+		const seen: boolean[] = [];
+		const seq = makeSequence(stage, {
+			items: ['a', 'b'],
+			produce: async () => bytes(),
+			onStarve: (s) => seen.push(s),
+			starveGraceMs: 250,
+		});
+		seq.play();
+		await new Promise((r) => setTimeout(r, 50));
+		expect(seen).toEqual([]);
+	});
+
+	it('never leaves a consumer frozen: a stall interrupted by stop() still reports false', async () => {
+		// The failure this guards is the bad one — a `true` with no matching `false` holds
+		// the caption highlight forever on a run that is already gone.
+		const stage = fakeStage();
+		const { produce } = deferredProduce(1);
+		const seen: boolean[] = [];
+		const seq = makeSequence(stage, { items: [0], produce, onStarve: (s) => seen.push(s), starveGraceMs: 10 });
+		seq.play();
+		await new Promise((r) => setTimeout(r, 40));
+		expect(seen).toEqual([true]);
+		seq.stop();
+		await flush();
+		expect(seen).toEqual([true, false]);
+	});
+
+	it('reports each stall once, not once per frame', async () => {
+		const stage = fakeStage();
+		const { produce, resolve } = deferredProduce(1);
+		const seen: boolean[] = [];
+		const seq = makeSequence(stage, { items: [0], produce, onStarve: (s) => seen.push(s), starveGraceMs: 10 });
+		seq.play();
+		await new Promise((r) => setTimeout(r, 80)); // several grace windows' worth
+		expect(seen).toEqual([true]);
+		resolve(0);
+		await flush();
+		expect(seen.filter(Boolean).length).toBe(1);
+	});
+
+	it('a skipped item (null bytes) keeps the run reported as starved — there is still no sound', async () => {
+		const stage = fakeStage();
+		const seen: boolean[] = [];
+		const seq = makeSequence(stage, {
+			items: ['a', 'b'],
+			// First item yields no audio (a dropped sentence); second takes real time.
+			produce: async (_i, { index }) => (index === 0 ? null : new Promise<Bytes>((r) => setTimeout(() => r(bytes()), 60))),
+			onStarve: (s) => seen.push(s),
+			starveGraceMs: 10,
+		});
+		seq.play();
+		await new Promise((r) => setTimeout(r, 40));
+		expect(seen[0]).toBe(true);
+		await new Promise((r) => setTimeout(r, 80));
+		expect(seen[seen.length - 1]).toBe(false); // resolved once the second item sounded
+	});
+
+	it('does not report the deliberate gap after a skipped item as a stall', async () => {
+		// A skipped item never reaches an onset, so the arm taken at the top of its iteration
+		// has no clip to clear it. Left alone it survives into the inter-item gap — a pause the
+		// scheduler CHOSE — and the consumer freezes its highlight through it; if the skipped
+		// item is the last one, it survives until the run's `finally`. The balance is the loop's.
+		const stage = fakeStage();
+		const seen: boolean[] = [];
+		let done: () => void;
+		const finished = new Promise<void>((r) => (done = r));
+		const seq = makeSequence(stage, {
+			// The SKIPPED item is in the middle, with a long deliberate gap on either side.
+			items: ['a', 'b', 'c'],
+			produce: async (_i: string, { index }: { index: number }) => (index === 1 ? null : bytes()),
+			gapMs: () => 60,
+			onStarve: (s) => seen.push(s),
+			starveGraceMs: 10,
+			onState: (e) => {
+				if (!e.playing) done();
+			},
+		});
+		seq.play();
+		await finished;
+		// Every clip that existed was ready instantly; the only silence was the gaps we chose.
+		expect(seen.filter(Boolean).length).toBe(0);
+	});
+
+	it('a user pause between clips is not reported as a stall', async () => {
+		// The gap between items is a pause the scheduler CHOSE, and `sleep()` is not pause-aware —
+		// so a tap during the gap reaches the next iteration with the watch already armed and
+		// trips it a grace window later. The consumer freezes its highlight on a silence the user
+		// asked for. Found by the red team (#1352).
+		const stage = fakeStage();
+		const seen: boolean[] = [];
+		const seq = makeSequence(stage, {
+			items: ['a', 'b'],
+			produce: async () => bytes(),
+			gapMs: () => 20,
+			onStarve: (s) => seen.push(s),
+			starveGraceMs: 10,
+		});
+		seq.play();
+		await new Promise((r) => setTimeout(r, 5));
+		seq.pause();
+		await new Promise((r) => setTimeout(r, 80)); // several grace windows, paused throughout
+		expect(seen.filter(Boolean).length).toBe(0);
+		seq.resume();
+	});
+
+	it('a throwing onStarve handler never breaks the scheduler', async () => {
+		const stage = fakeStage();
+		const seq = makeSequence(stage, {
+			items: ['a'],
+			produce: async () => bytes(),
+			onStarve: () => {
+				throw new Error('consumer blew up');
+			},
+			starveGraceMs: 1,
+		});
+		seq.play();
+		await new Promise((r) => setTimeout(r, 30));
+		expect(stage.played.length).toBe(1); // the run played through regardless
+	});
+
+	it('is inert when no handler is passed', async () => {
+		const stage = fakeStage();
+		const seq = makeSequence(stage, { items: ['a'], produce: async () => bytes(), starveGraceMs: 1 });
+		seq.play();
+		await new Promise((r) => setTimeout(r, 30));
+		expect(stage.played.length).toBe(1);
+	});
+});

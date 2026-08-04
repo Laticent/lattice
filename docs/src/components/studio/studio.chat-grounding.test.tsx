@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assessDeck } from './coach/coach-core';
 import StudioShell from './StudioShell';
 
 // P2b wiring: the Coach's assessment and the component catalog have to actually REACH
@@ -72,6 +73,21 @@ describe('Studio — the chat is grounded in what the Coach knows', () => {
 	it('hands chatComplete the live scorecard, findings, and component catalog', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} components={COMPONENTS} />);
+
+		// WAIT for the Coach's assessment to actually land before sending anything.
+		// StudioShell debounces `assessDeck` behind a 400 ms REAL timer, so a run that
+		// reaches Send first sends ungrounded and this asserts `null`. The test was racing
+		// that debounce and only passing because the surrounding suite happened to be slow
+		// enough — a latent order-dependency, not a product bug. The assessment's own state
+		// is not observable from here (the "Board readiness" card lives in the Coach panel,
+		// which this test never opens), so we wait on the call and then let its `.then`
+		// chain commit.
+		await vi.waitFor(() => expect(vi.mocked(assessDeck)).toHaveBeenCalled(), { timeout: 3000 });
+		await vi.waitFor(() => expect(vi.mocked(assessDeck).mock.settledResults.length).toBeGreaterThan(0), { timeout: 3000 });
+		await act(async () => {
+			await Promise.resolve();
+		});
+
 		await user.click(screen.getByRole('button', { name: 'Toggle Chat' }));
 
 		const box = await screen.findByLabelText('Message the Architect');

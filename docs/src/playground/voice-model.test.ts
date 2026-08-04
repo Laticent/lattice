@@ -407,23 +407,26 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     expect(calls).toEqual([]);
   });
 
-  it('caps concurrent prefetch requests at WARM_CONCURRENCY (1)', async () => {
+  it('caps concurrent prefetch requests at WARM_CONCURRENCY (3)', async () => {
+    // The cap was RAISED 1 → 3 (2026-08-03). At 1 the prefetch fetched an upcoming
+    // slide's sentences strictly one at a time, so a window deeper than a sentence or
+    // two could never be filled before the transition arrived — the "long pause between
+    // slides" report. What must stay true is that it is CAPPED at all: the 4th request
+    // waits for a slot rather than piling onto a paid backend.
     const model = createVoiceModel({});
     const started: string[] = [];
     const mock = abortAwareMockRung((t) => started.push(t), 'openrouter-tts');
     model.__setRung(mock.rung);
 
-    model.warm(['One.', 'Two.', 'Three.']);
-    await vi.waitFor(() => expect(started).toEqual(['One.']));
-    expect(started).not.toContain('Two.'); // capped at 1 — nothing has resolved yet
+    model.warm(['One.', 'Two.', 'Three.', 'Four.']);
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
+    expect(started).not.toContain('Four.'); // capped at 3 — nothing has resolved yet
 
     mock.resolve('One.');
-    await vi.waitFor(() => expect(started).toContain('Two.'));
-    expect(started).not.toContain('Three.');
-
+    await vi.waitFor(() => expect(started).toContain('Four.'));
     mock.resolve('Two.');
-    await vi.waitFor(() => expect(started).toContain('Three.'));
     mock.resolve('Three.');
+    mock.resolve('Four.');
   });
 
   it('caps concurrency ACROSS separate warm() calls, not just within one (red-team finding)', async () => {
@@ -441,19 +444,19 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     model.warm(['Slide 4.']);
     model.warm(['Slide 5.']);
     model.warm(['Slide 6.']);
-    await vi.waitFor(() => expect(started).toEqual(['Slide 2.']));
-    expect(started).toHaveLength(1); // only ONE real request in flight, across all 5 calls
+    // Three in flight (the shared cap), NOT five — the budget belongs to the instance,
+    // not to each call. That property is what this test exists for; only the number moved.
+    await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.']));
+    expect(started).toHaveLength(3);
 
     mock.resolve('Slide 2.');
-    await vi.waitFor(() => expect(started).toContain('Slide 3.'));
-    expect(started).toHaveLength(2);
+    await vi.waitFor(() => expect(started).toContain('Slide 5.'));
+    expect(started).toHaveLength(4);
 
     mock.resolve('Slide 3.');
-    await vi.waitFor(() => expect(started).toContain('Slide 4.'));
-    mock.resolve('Slide 4.');
-    await vi.waitFor(() => expect(started).toContain('Slide 5.'));
-    mock.resolve('Slide 5.');
     await vi.waitFor(() => expect(started).toContain('Slide 6.'));
+    mock.resolve('Slide 4.');
+    mock.resolve('Slide 5.');
     mock.resolve('Slide 6.');
     await vi.waitFor(() => expect(started).toEqual(['Slide 2.', 'Slide 3.', 'Slide 4.', 'Slide 5.', 'Slide 6.']));
   });
@@ -465,13 +468,17 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     model.__setRung(mock.rung);
     const ctl = new AbortController();
 
-    model.warm(['One.', 'Two.', 'Three.'], { signal: ctl.signal });
-    await vi.waitFor(() => expect(started).toEqual(['One.']));
+    // Four items against a cap of 3: the first three start, the fourth is queued — which
+    // is exactly the state an abort must be able to cancel.
+    model.warm(['One.', 'Two.', 'Three.', 'Four.'], { signal: ctl.signal });
+    await vi.waitFor(() => expect(started).toEqual(['One.', 'Two.', 'Three.']));
 
     ctl.abort();
-    mock.resolve('One.'); // frees the one active slot
+    mock.resolve('One.'); // frees a slot the queued 'Four.' would otherwise take
     await new Promise((r) => setTimeout(r, 20)); // let any (incorrect) refill happen
-    expect(started).toEqual(['One.']); // 'Two.' never started — pump() stopped once aborted
+    expect(started).toEqual(['One.', 'Two.', 'Three.']); // 'Four.' never started — the pump stopped once aborted
+    mock.resolve('Two.');
+    mock.resolve('Three.');
   });
 
   it("a joiner's own in-flight request is unaffected when a DIFFERENT caller's warm() signal aborts", async () => {
