@@ -159,7 +159,15 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
     assert.equal(cfg.flowchart.wrappingWidth, DIAGRAM_WRAPPING_WIDTH);
     assert.equal(DIAGRAM_WRAPPING_WIDTH, 480);
     assert.equal(cfg.flowchart.padding, DIAGRAM_NODE_PADDING);
-    assert.equal(cfg.flowchart.htmlLabels, true);
+    // The TOP-LEVEL key, which is the one Mermaid honors:
+    // `getEffectiveHtmlLabels` = `config.htmlLabels ?? config.flowchart?.htmlLabels ?? true`,
+    // and setting the nested slot also raises FLOWCHART_HTML_LABELS_DEPRECATED. Sharing it
+    // as `flowchart.htmlLabels` silently DEMOTED it, so an author's
+    // `%%{init}%% flowchart.htmlLabels: false` would have won where it previously lost.
+    assert.equal(cfg.htmlLabels, true);
+    assert.equal(cfg.flowchart.htmlLabels, undefined,
+      'the nested slot is deprecated and lower-precedence — setting it demotes the engine\'s '
+      + 'own value below an author directive');
     // The reasoning for disabling markdown auto-wrap reads the same fence on both
     // paths, so it was never preview-only.
     assert.equal(cfg.markdownAutoWrap, false);
@@ -190,7 +198,7 @@ describe('mermaid init-config parity — one non-palette config, both paths', ()
     const directive = engineInitDirective(engineInitConfig({ primaryColor: 'rgb(1, 2, 3)' }));
     const payload = JSON.parse(/%%\{init: ([\s\S]*)\}%%/.exec(directive)[1]);
     assert.equal(payload.flowchart.wrappingWidth, 480);
-    assert.equal(payload.flowchart.htmlLabels, true);
+    assert.equal(payload.htmlLabels, true);
     assert.equal(payload.markdownAutoWrap, false);
     assert.equal(payload.quadrantChart.titleFontSize, 24);
     assert.equal(payload.c4.c4ShapeInRow, 3);

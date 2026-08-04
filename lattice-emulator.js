@@ -1240,10 +1240,12 @@ function preprocessMermaid(source) {
     },
   });
 
-  // Splice the rendered diagrams back in. Built by slicing rather than by
-  // `String.replace` so the bytes outside a fence are provably untouched — the
-  // regression gate compares whole artifacts, and a replacement callback that also
-  // interprets `$1` in rendered SVG would be a silent corruption channel.
+  // Splice the rendered diagrams back in, by slicing. NOT because `String.replace` was
+  // unsafe — a replacement FUNCTION never interprets `$1`/`$&`, only a replacement
+  // string does, so the previous form had no corruption hazard and an earlier version of
+  // this comment claiming otherwise was simply wrong. The reason is that the kernel owns
+  // the walk now: results come back as a list, and slicing is how a list of (offset,
+  // html) pairs goes back into the source without re-deriving the match.
   const byStart = new Map(rendered.map((r) => [r.fence.matchStart, r.html]));
   let out = '';
   let cursor = 0;
@@ -1786,7 +1788,7 @@ const highlightedSlides = slidesWithNotes.map(s => applyHighlighting(s));
 // Only deck-logo re-runs, because it keys off the data-lattice-slide attribute
 // the emulator stamps after the engine pass.
 const { applyDeckLogoToHtml } = require('./lib/integrations/markdown-it/plugins');
-const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
+const slidesWithMeta2 = applyDeckLogoToHtml(highlightedSlides.join('\n'), rawMd);
 // `data-lattice-slide-bake` USED TO BE STAMPED HERE, and its removal is the
 // acceptance test #1332 set for the inversion above: "a correct fix should let us
 // DELETE the reconciliation devices, not accumulate more."
@@ -1806,10 +1808,11 @@ const slidesWithMeta2Raw = applyDeckLogoToHtml(highlightedSlides.join('\n'), raw
 // lib/core/resolve-color-mode.js and the `[data-lattice-slide-bake]` qualifier on all
 // nine pinned selectors.
 //
-// ONE case still needs the pins to stand down, and it always did it a different way:
-// `--print` bakes one B&W band deck-wide, and a print slide carries `.print`, which
-// every pin already excludes with `:not(.print)`.
-const slidesWithMeta2 = slidesWithMeta2Raw;
+// ONE case still needs the pins to stand down, and `:not(.print)` on every pin is now
+// sufficient for it: `--print` bakes one B&W band deck-wide, and `print` reaches EVERY
+// section — including one that pins its own `_class: dark`, which used to evict it
+// (lib/core/color-mode.js `slidePinEvictsDeckToken`). That eviction was the seam the
+// marker actually stood on; closing it is what let the marker go.
 
 // ── KaTeX CSS link ────────────────────────────────────────────────────────
 // KaTeX's CSS references font files via relative `url(fonts/…woff2)` paths,
@@ -2740,7 +2743,7 @@ async function renderBody(browser, g, closeBrowser) {
             lookPaletteCss = loadPaletteWithImports(targetPath, new Set(), 'svg-look palette');
             sectionLookClass = lookMode === 'dark' ? 'dark form' : 'form';
             // Resolve Mermaid theme vars from the LOOK palette (not the deck's) — the module-level
-            // MERMAID_THEME_VARS is baked from the deck's resolved palette, which for `--image-mode
+            // themeVarsForBand is baked from the deck's resolved palette, which for `--image-mode
             // dark` is the DARK theme, so re-rendering `light` with it would still read dark. Parse
             // the look palette fresh so a light look bakes light diagram colors and a dark look dark.
             lookThemeVars = resolveMermaidThemeVars(parsePaletteVars(layoutCSS + '\n' + lookPaletteCss, lookMode === 'dark'));
@@ -2808,7 +2811,7 @@ async function renderBody(browser, g, closeBrowser) {
               // re-bakes like any other diagram and must not be reported as author-kept.
               if (authorPinsTheme(def)) { authorKept.add(idx); continue; }
               const explicitColor = /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
-              // print → the print theme vars (MERMAID_THEME_VARS_PRINT, scheme-independent); light/dark
+              // print → the print theme vars (themeVarsForBand('print'), scheme-independent); light/dark
               // → the vars resolved from the LOOK palette above, so the diagram bakes the look's colors.
               const out = lookMode === 'print' ? renderMermaid(def, 'print') : renderMermaidOne(def, lookThemeVars, null);
               // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after exhausting

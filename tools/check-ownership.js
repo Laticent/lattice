@@ -2220,6 +2220,103 @@ function listSourceFiles(dir, out = []) {
   return out;
 }
 
+// ── The preview's diagram SCOPE KEY invariant (#1332 step 3) ────────────────────
+//
+// `lib/core/diagram-scope.js` keys the preview's Mermaid palette on a section's CLASS
+// LIST plus its inline style, so two sections agreeing on both share one resolved
+// palette — that grouping is what keeps the cost at one build per band instead of one
+// per slide. It is sound only while every declaration of a diagram token comes from
+// `:root` or a `section` + class compound. A token declared from a POSITIONAL selector
+// (`section:nth-of-type(3)`), an ATTRIBUTE selector, `:has()`, or a container query
+// would let two same-classed sections resolve differently and share a key anyway — and
+// the failure mode is one slide reading another slide's ink, which is the #1326 bug.
+//
+// That invariant used to live in a comment saying "no theme does this". This gates it,
+// because the codebase already declares custom properties from attribute selectors on
+// sections (`section[data-orientation=portrait]`, `section.form[data-family=tall]`, …)
+// — none of them a diagram token today, so the idiom is one edit away from the hazard.
+//
+// Scope: the TRANSITIVE closure of every token `diagramThemeTokens()` reads — a token
+// that feeds a diagram token through `var()` sets it just as effectively.
+// `:root`, or `section` plus any number of CLASS qualifiers — including a functional
+// pseudo-class whose own argument is class-only (`section.dark:not(.print)`, which every
+// texture pin uses and which the class-list scope key covers exactly). What is REJECTED
+// is a qualifier the key cannot see: a positional pseudo-class, an attribute selector, a
+// `:has()`, or a descendant/sibling combinator.
+const CLASS_OR_CLASS_ONLY_PSEUDO = String.raw`(?:\.[\w-]+|:(?:not|is|where)\((?:\s*\.[\w-]+\s*,?)+\))`;
+const DIAGRAM_SCOPE_SAFE_SELECTOR = new RegExp(`^(?::root|section${CLASS_OR_CLASS_ONLY_PSEUDO}*)$`);
+
+function diagramTokenClosure() {
+  const { diagramThemeTokens } = require('../lib/core/mermaid-theme-map');
+  // SOURCES, not just the built bundle: `dist/lattice.css` is generated, so scanning it
+  // alone lets a violation in `lib/**.css` pass on a stale tree. The bundle is kept in the
+  // list because it also carries the base-layer defaults the closure walks through.
+  const files = [path.join(ROOT, 'dist', 'lattice.css')];
+  const cssDirs = [path.join(ROOT, 'themes'), path.join(ROOT, 'lib')];
+  const collect = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name === 'dist') continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) collect(p);
+      else if (e.name.endsWith('.css')) files.push(p);
+    }
+  };
+  for (const d of cssDirs) collect(d);
+  const sources = files.filter((f) => fs.existsSync(f)).map((f) => ({ f, css: stripComments(fs.readFileSync(f, 'utf8')) }));
+  // token -> every token named by a var() inside any of its declared values.
+  const feeds = new Map();
+  for (const { css } of sources) {
+    for (const m of css.matchAll(/--([\w-]+)\s*:\s*([^;{}]+)/g)) {
+      const deps = [...m[2].matchAll(/var\(\s*--([\w-]+)/g)].map((d) => d[1]);
+      if (!feeds.has(m[1])) feeds.set(m[1], new Set());
+      for (const d of deps) feeds.get(m[1]).add(d);
+    }
+  }
+  const closure = new Set(diagramThemeTokens());
+  const queue = [...closure];
+  while (queue.length) {
+    for (const dep of feeds.get(queue.pop()) || []) {
+      if (!closure.has(dep)) { closure.add(dep); queue.push(dep); }
+    }
+  }
+  return { closure, sources };
+}
+
+function checkDiagramScopeSelectors(errors) {
+  let closure;
+  let sources;
+  try {
+    ({ closure, sources } = diagramTokenClosure());
+  } catch (e) {
+    errors.push(`checkDiagramScopeSelectors could not build the diagram token closure: ${e.message}`);
+    return;
+  }
+  for (const { f, css } of sources) {
+    const rel = path.relative(ROOT, f);
+    for (const rule of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const declared = [...rule[2].matchAll(/--([\w-]+)\s*:/g)].map((m) => m[1]).filter((t) => closure.has(t));
+      if (!declared.length) continue;
+      // Drop anything up to the last at-statement terminator: a prelude captured by the
+      // brace regex can trail an `@import 'a11y-base';` from the line above it.
+      const prelude = rule[1].replace(/^[\s\S]*;/, '');
+      if (prelude.trim().startsWith('@')) continue; // an at-rule prelude, not a selector
+      for (const sel of prelude.split(',').map((x) => x.trim().replace(/\s+/g, ' ')).filter(Boolean)) {
+        if (DIAGRAM_SCOPE_SAFE_SELECTOR.test(sel)) continue;
+        errors.push(
+          `${rel} declares diagram token(s) ${declared.map((t) => `--${t}`).join(', ')} from the selector ` +
+          `"${sel}", which is not \`:root\` or a \`section\` + class compound. The preview keys its ` +
+          `Mermaid palette on a section's CLASS LIST (lib/core/diagram-scope.js, #1332 step 3), so a token ` +
+          `set by a positional / attribute / :has() / container selector lets two same-classed slides ` +
+          `resolve DIFFERENT palettes and still share one — i.e. one slide renders with another slide's ` +
+          `baked ink (#1326). Move the declaration onto a class compound, or change the scope key to ` +
+          `cover this axis.`,
+        );
+      }
+    }
+  }
+}
+
 function checkPreviewHtmlSinks(errors) {
   const DOCS_SRC = path.join(ROOT, 'docs', 'src');
   const sanctioned = new Map(SANCTIONED_PREVIEW_BUILDERS.map((s) => [s.file, s]));
@@ -4043,6 +4140,7 @@ function run() {
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
   checkDensityCoverage(manifests, errors);
+  checkDiagramScopeSelectors(errors);
   checkPreviewHtmlSinks(errors);
   checkSnapshotHtmlSinks(errors);
   checkOpenRouterBudget(errors);

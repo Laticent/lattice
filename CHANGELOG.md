@@ -73,6 +73,22 @@ in patch versions.
   divergence, on a stale sanction, and on a Mermaid upgrade that takes a key off that list.
   #1347
 
+- **A print render now reaches a slide that pins its own color scheme.** Deck-wide `print`
+  (`--print`, `--image-mode print`, `color-mode: print`, or the legacy `class: print`) sat on
+  the same class axis as `dark`/`light`, so the propagation guard let a slide's own
+  `<!-- _class: dark -->` EVICT it: that section rendered as a dark canvas inside a B&W
+  handout, while `resolveDiagramBand` baked its diagram in the print band regardless
+  ("print wins — nothing about light/dark can outrank it"). CSS and bake disagreeing is what
+  forced a reconciliation marker to exist, and it measured ~2.7:1 once the marker went: the
+  section kept `dark`, lost `print`, and its texture pin selected the dark-polarity chip set
+  — built for white ink — under dark print ink. **Print is a render target, not a color
+  scheme**, so it is no longer evictable (`slidePinEvictsDeckToken`, `lib/core/color-mode.js`,
+  read by both propagation kernels). Such a slide now carries `dark print` and renders in the
+  ink-on-white band, which is what `color-mode: print` always claimed ("mutually exclusive
+  with the scheme values — a printed deck is ink, not light/dark"). **This changes exported
+  bytes** for a print render of a deck with a per-slide color pin; no committed deck combines
+  the two, so no shipped artifact moves. #1332
+
 - **The diagram render kernel now drives both paths, and the reconciliation marker is
   gone.** `renderDiagrams(deck, ports)` (`lib/core/render-diagrams.js`) walks the deck,
   resolves each slide's `themeVariables` from the one shared map, and calls each render
@@ -109,8 +125,8 @@ in patch versions.
   into every diagram in the deck, including slide 9's `_class: dark` one: black arrowheads and pale
   node fills on a dark canvas, with the chip underneath painted correctly by per-section CSS. Chip is
   live, ink is baked, and the two were describing different slides — the last surviving instance of
-  the bug class #1326 shipped four fixes for. `buildMermaidThemeVars` now takes the section as a
-  parameter, which is the whole fix: `getComputedStyle(section)` already returns what that slide's
+  the bug class #1326 shipped four fixes for. The reader now takes the section as a
+  parameter (`openSectionReader`), which is the whole fix: `getComputedStyle(section)` already returns what that slide's
   cascade produced, including its own `_class:`, so no band has to be resolved in the browser at all.
   Measured on the real Playground with a light-slide-1 / dark-slide-2 deck: 26 of the 54 rules in the
   dark slide's baked stylesheet change, among them the arrowhead fill (`#000000` → `#ffffff`), the

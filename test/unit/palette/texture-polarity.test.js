@@ -381,6 +381,73 @@ describe('texture-polarity', () => {
     }
   });
 
+  test('PRINT reaches a slide that pins its own scheme, so the pins stand down there', () => {
+    // THE CASE THE DELETED MARKER EXISTED FOR, and the one that made removing it a
+    // regression until the root cause was fixed.
+    //
+    // `--print` merges a deck-wide `class: print`, and `resolveDiagramBand` bakes EVERY
+    // slide in the print band — rule 1, "print wins … nothing about light/dark can
+    // outrank it". But the class-propagation guard used to treat `print` as just another
+    // color-axis token, so a slide carrying `_class: dark` EVICTED it: the section came
+    // out `dark` without `print`, which is a dark canvas inside a B&W handout AND makes
+    // `section.dark:not(.print)` match — selecting the dark-polarity chip set, built for
+    // white ink, under print-baked DARK ink. ~2.7:1.
+    //
+    // `data-lattice-slide-bake` (and before it a `data-lattice-print` guard) papered
+    // over exactly that. The disagreement is gone instead: `print` is no longer
+    // droppable (lib/core/color-mode.js slidePinEvictsDeckToken), so the CSS and the
+    // bake agree by construction and `:not(.print)` is the sufficient guard the pins
+    // already claimed it was.
+    //
+    // Asserted through the REAL renderer, because the previous form of this protection
+    // was a source-text match and that is what let it be removed unnoticed.
+    const { createEngine } = require('../../../lib/engine');
+    const engine = createEngine();
+    for (const rel of [path.join('dist', 'lattice.css'), path.join('themes', 'onyx.css')]) {
+      engine.addThemes([fs.readFileSync(path.join(ROOT, rel), 'utf8')]);
+    }
+    const { html } = engine.render(
+      '---\nmarp: true\ntheme: onyx\nclass: print\n---\n\n'
+      + '<!-- _class: diagram -->\n\n## plain\n\ntext\n\n---\n\n'
+      + '<!-- _class: diagram dark -->\n\n## pins its own scheme\n\ntext\n',
+      'lattice',
+    );
+    const classes = [...html.matchAll(/<section[^>]*class="([^"]*)"/g)].map((m) => m[1].split(/\s+/));
+    assert.equal(classes.length, 2, 'expected two sections');
+    assert.ok(classes[0].includes('print'), 'a plain slide under a print deck must carry `print`');
+    assert.ok(classes[1].includes('dark'), "the slide's own pin must survive");
+    assert.ok(classes[1].includes('print'),
+      'a slide that pins `_class: dark` under a PRINT render must STILL carry `print` — its '
+      + 'diagram is print-baked either way (resolveDiagramBand rule 1), so without `print` on '
+      + 'the section the texture pin fires the dark-polarity chip set under dark print ink '
+      + '(~2.7:1), and the slide renders as a dark canvas in a B&W handout');
+
+    // The predicate itself, in both directions.
+    const { slidePinEvictsDeckToken } = require('../../../lib/core/color-mode');
+    for (const t of ['dark', 'light', 'color-light', 'color-system', 'color-inherited']) {
+      assert.equal(slidePinEvictsDeckToken(t), true, `a slide pin must evict deck-wide \`${t}\``);
+    }
+    assert.equal(slidePinEvictsDeckToken('print'), false,
+      'print is a RENDER TARGET, not a scheme — a slide asking for a dark canvas cannot '
+      + 'outrank "this deck is going on paper"');
+    assert.equal(slidePinEvictsDeckToken('kpi'), false, 'a non-color token is not on this axis at all');
+  });
+
+  test('both propagation kernels read the SAME droppability rule', () => {
+    // The guard exists in two places — the markdown-it plugin and its runtime mirror —
+    // and two spellings of this rule is how it came apart. HARD RULE #1.
+    for (const rel of [
+      path.join('lib', 'integrations', 'markdown-it', 'plugins.js'),
+      path.join('lib', 'runtime', 'index.js'),
+    ]) {
+      const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      assert.match(src, /slidePinEvictsDeckToken/,
+        `${rel} must route the deck-token drop through the shared predicate`);
+      assert.equal(/slideHasOwnColorMode && colorModeSet\.has\(t\)/.test(src), false,
+        `${rel} still drops the deck token with a raw axis test, which evicts \`print\``);
+    }
+  });
+
   test('what replaced the marker: BOTH paths resolve the palette per slide', () => {
     // This is the invariant the pins actually stand on, and it is why they no longer
     // need a marker. Each half is gated behaviorally in its own file — the assertions

@@ -32,6 +32,7 @@ const {
   SCOPE_KEY_NONE,
   diagramScopeKey,
   diagramCacheKey,
+  groupDiagramsBySlide,
 } = require('../../../lib/core/diagram-scope');
 const { renderDiagrams } = require('../../../lib/core/render-diagrams');
 
@@ -46,7 +47,7 @@ const RUNTIME_SRC = fs.readFileSync(RUNTIME_PATH, 'utf8');
  *
  * `tokensBySection` maps a fake section object to its token table.
  */
-function liftPreviewBuild(tokensBySection, fallbackSection) {
+function liftPreviewBuild(tokensBySection, fallbackSection, captured = {}) {
   const BEGIN = "  // ── BEGIN PALETTE PORT";
   const END = '  // ── END PALETTE PORT';
   const start = RUNTIME_SRC.indexOf(BEGIN);
@@ -89,11 +90,15 @@ function liftPreviewBuild(tokensBySection, fallbackSection) {
     };
   };
 
+  // The block declares `closeSectionReaders` alongside the ports; return both so a
+  // caller can drive teardown.
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED source is the point — a paraphrase would test the paraphrase.
-  const factory = eval(
-    `(function (document, getComputedStyle, diagramScopeKey) {\n${blockSrc}\n  return diagramThemePorts;\n})`,
-  );
-  const ports = factory(fakeDocument, fakeGetComputedStyle, diagramScopeKey)();
+  const factoryOut = eval(
+    `(function (document, getComputedStyle, diagramScopeKey) {\n${blockSrc}\n  return { diagramThemePorts, closeSectionReaders };\n})`,
+  )(fakeDocument, fakeGetComputedStyle, diagramScopeKey);
+  captured.probeEl = probeEl;
+  captured.close = factoryOut.closeSectionReaders;
+  const ports = factoryOut.diagramThemePorts();
   /** The palette one section resolves, through the real kernel. */
   return (sectionEl) => {
     let out;
@@ -103,6 +108,16 @@ function liftPreviewBuild(tokensBySection, fallbackSection) {
     });
     return out;
   };
+}
+
+/**
+ * As `liftPreviewBuild`, but hands back the probe element and the port's own
+ * `closeSectionReaders` so teardown can be asserted rather than regex-matched.
+ */
+function liftPreviewBuildWithProbe(tokensBySection, fallbackSection) {
+  const captured = {};
+  const build = liftPreviewBuild(tokensBySection, fallbackSection, captured);
+  return { build, get probe() { return captured.probeEl; }, close: () => captured.close() };
 }
 
 // Two slides of one deck: slide 1 light, slide 2 `_class: dark`. The tokens differ
@@ -180,20 +195,20 @@ describe('the preview reads the palette from the slide it is rendering', () => {
   });
 
   test('the probe is torn down after the walk — no orphan <span> is left in a slide', () => {
-    // Each reader holds a live probe element inside the section it reads. The kernel
-    // walks synchronously, so the runtime closes them all when it returns; leaking one
-    // per palette per keystroke would grow the DOM without bound in a live preview.
-    const { slide1, tokens } = twoSlideDeck();
-    const build = liftPreviewBuild(tokens, slide1);
-    build(slide1);
-    const probeSrc = RUNTIME_SRC.slice(
-      RUNTIME_SRC.indexOf('  // ── BEGIN PALETTE PORT'),
-      RUNTIME_SRC.indexOf('  // ── END PALETTE PORT'),
-    );
-    assert.match(probeSrc, /function closeSectionReaders\(\)/);
-    assert.match(RUNTIME_SRC, /} finally \{\n\s*\/\/[\s\S]{0,400}?closeSectionReaders\(\);/,
-      'the walk must close its readers in a `finally`, or a throw leaves probe elements '
-      + 'inside slides');
+    // Each reader holds a live probe element inside the section it reads. Leaking one per
+    // palette per keystroke would grow the DOM without bound in a live preview. Asserted
+    // on the PROBE, not on the source: the fake DOM models parentage, so closing it is
+    // observable and an earlier version of this test that only regex-matched
+    // `closeSectionReaders()` could not have failed for a leak.
+    const { slide1, slide2, tokens } = twoSlideDeck();
+    const built = liftPreviewBuildWithProbe(tokens, slide1);
+    built.build(slide1);
+    built.build(slide2);
+    assert.notEqual(built.probe.host, undefined);
+    built.close();
+    assert.equal(built.probe.host, null,
+      'every reader must be closed after the walk — a probe left parented to a section is '
+      + 'an orphan <span> inside a slide, one per palette per keystroke');
   });
 });
 
@@ -259,6 +274,81 @@ describe('the SVG cache cannot serve one slide the other slide\'s ink', () => {
   });
 });
 
+describe('which slide does a diagram belong to', () => {
+  // THE DECISION THE WHOLE PER-SLIDE BAKE RESTS ON, and until it moved into the kernel
+  // the only thing gating it was a source-text match. An independent review proved the
+  // hole: collapsing the grouping to one entry — i.e. restoring the slide-1 bake —
+  // passed every regex the tests had. These fail on that mutation.
+  const fence = (sectionEl, id) => ({ sectionEl, id });
+
+  test('two sections are two slides, even when their classes are identical', () => {
+    const a = { className: 'diagram', getAttribute: () => null };
+    const b = { className: 'diagram', getAttribute: () => null };
+    const deck = groupDiagramsBySlide([fence(a, 1), fence(b, 2)]);
+    assert.equal(deck.length, 2,
+      'two DIFFERENT sections are two slides whatever their classes say — collapsing them '
+      + 'is exactly the deck-wide bake #1332 step 3 removed');
+    assert.equal(deck[0].scope, a);
+    assert.equal(deck[1].scope, b);
+  });
+
+  test('two fences on ONE section are one slide', () => {
+    const a = { className: 'diagram', getAttribute: () => null };
+    const deck = groupDiagramsBySlide([fence(a, 1), fence(a, 2)]);
+    assert.equal(deck.length, 1, 'one slide, so one palette build and one run');
+    assert.deepEqual(deck[0].diagrams.map((d) => d.id), [1, 2]);
+  });
+
+  test('document order is preserved, and a section revisited later is a new entry', () => {
+    // The kernel coalesces CONSECUTIVE runs, so the grouping must not reorder: a deck
+    // whose entries came back sorted would render slide 3 before slide 2.
+    const a = { className: 'x', getAttribute: () => null };
+    const b = { className: 'y', getAttribute: () => null };
+    const deck = groupDiagramsBySlide([fence(a, 1), fence(b, 2), fence(a, 3)]);
+    assert.deepEqual(deck.map((s) => s.diagrams.map((d) => d.id)), [[1], [2], [3]]);
+  });
+
+  test('a fence outside any section is its own slide, not folded into the previous one', () => {
+    const a = { className: 'x', getAttribute: () => null };
+    const deck = groupDiagramsBySlide([fence(a, 1), fence(null, 2)]);
+    assert.equal(deck.length, 2);
+    assert.equal(deck[1].scope, null);
+    // …and two consecutive section-less fences share one entry, since they share a scope.
+    assert.equal(groupDiagramsBySlide([fence(null, 1), fence(null, 2)]).length, 1);
+  });
+
+  test('an empty fence list is an empty deck', () => {
+    for (const input of [[], null, undefined]) assert.deepEqual(groupDiagramsBySlide(input), []);
+  });
+
+  test('the runtime gets its deck from the kernel, not from an inline loop', () => {
+    assert.match(RUNTIME_SRC, /const deck = groupDiagramsBySlide\(fences\);/,
+      'the grouping must come from the shared, behaviorally-tested kernel');
+  });
+});
+
+describe('a failed walk is retried, not stuck', () => {
+  test('a throw hands every in-flight fence back to `pending`', () => {
+    // Fences are stamped `rendering` BEFORE the kernel walk, and the pending-fence
+    // selector only picks up `pending` — so a throw mid-walk would be PERMANENT: those
+    // slides sit blank for the session with nothing to retry them. Asserted on the
+    // shipped source because the surrounding function needs a whole live preview to
+    // drive; the reset itself is three lines and its absence is the whole bug.
+    assert.match(RUNTIME_SRC, /if \(job\.preEl\.dataset\.mermaidState === 'rendering'\) job\.preEl\.dataset\.mermaidState = 'pending';/,
+      'a throw in the diagram walk must return in-flight fences to `pending` so the next '
+      + 'scheduled pass retries them');
+    // …and so must a throw inside the QUEUE LINK (a `mermaid.initialize` failure), which
+    // used to be swallowed by a bare `.catch(() => {})` — leaving that run's diagrams
+    // blank for the session with no diagnostic.
+    assert.match(RUNTIME_SRC, /if \(preEl\.dataset\.mermaidState === 'rendering'\) preEl\.dataset\.mermaidState = 'pending';/,
+      'a failed RUN must return its fences to `pending` too');
+    assert.equal(/\.catch\(\(\) => \{\}\)\n\s*\.then\(pinMermaidTooltip\)/.test(RUNTIME_SRC), false,
+      'a bare swallow on the run link strands every fence in that run');
+    // …and the probes still come down on that path.
+    assert.match(RUNTIME_SRC, /} finally \{[\s\S]{0,400}?closeSectionReaders\(\);/);
+  });
+});
+
 describe('the one-shot global config is gone', () => {
   test('nothing latches mermaid config for the whole document any more', () => {
     // The ASSIGNMENT and the READ, not the name: the file may still explain what the
@@ -278,13 +368,28 @@ describe('the one-shot global config is gone', () => {
     // configure→render→configure is only correct if the renders in between are not
     // interleaved. Both halves have to be present: a per-scope configure dispatched
     // into concurrent renders would let a diagram read the NEXT band's palette.
-    assert.match(RUNTIME_SRC, /function configureForScope\(mermaid, key, themeVars\)/);
-    assert.match(RUNTIME_SRC, /mermaidConfiguredScope = key;/);
+    assert.match(RUNTIME_SRC, /function configureForScope\(mermaid, themeVars\)/);
+    // The skip-guard compares the PALETTE by identity, not the scope NAME. A name does
+    // not imply a palette across passes — a first pass under `force` with the theme CSS
+    // unresolved, or a host palette switch that changes no section class, both rebuild
+    // the same key to different values — and keying on the name would skip `initialize`
+    // and keep the stale palette.
+    assert.match(RUNTIME_SRC, /mermaidConfiguredVars === themeVars/);
+    assert.match(RUNTIME_SRC, /mermaidConfiguredVars = themeVars;/);
+    assert.equal(/mermaidConfiguredScope/.test(RUNTIME_SRC), false,
+      'guarding on the scope KEY lets a rebuilt palette be discarded');
     assert.match(RUNTIME_SRC, /diagramQueue = diagramQueue/);
     // The kernel's run boundary is what triggers the reconfigure, and the run's renders
     // are collected into the SAME queue link — so band B's initialize cannot land
     // between band A's renders.
-    assert.match(RUNTIME_SRC, /beginRun: \(\{ scope, scopeKey, themeVars \}\) => beginDiagramRun\(/);
-    assert.match(RUNTIME_SRC, /Promise\.all\(jobs\.map\(\(run\) => run\(\)\)\)/);
+    assert.match(RUNTIME_SRC, /beginRun: \(\{ themeVars \}\) => beginDiagramRun\(/);
+    // allSettled, not all — `Promise.all` settles on the first rejection, which would
+    // hand the NEXT band's `initialize` a run that is still in flight. Behaviorally gated
+    // in test/unit/runtime/diagram-queue.test.js.
+    assert.match(RUNTIME_SRC, /Promise\.allSettled\(jobs\.map\(\(run\) => run\(\)\)\)/);
+    // The run handle is CLEARED at the end of every walk, which is what keeps the
+    // no-run-open guard in `enqueueDiagramJob` live rather than permanently unreachable.
+    assert.match(RUNTIME_SRC, /function endDiagramRuns\(\) \{\n\s*currentRunJobs = null;/);
+    assert.match(RUNTIME_SRC, /endDiagramRuns\(\);/);
   });
 });

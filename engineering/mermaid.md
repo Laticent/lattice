@@ -336,9 +336,9 @@ configure Mermaid *once per document*, from the first `<section>`, so slide 1's
 scheme was baked into every diagram in the deck: a light first slide gave slide 9's
 `_class: dark` diagram light ink on a dark chip. That was the last surviving
 instance of the #1326 bug class — chip is per-section CSS, ink is baked, and the two
-were describing different slides. `buildMermaidThemeVars` now takes the section as a
-parameter, which is all it takes: passing the right element in *is* the fix, because
-inheritance already does the resolving.
+were describing different slides. The reader now takes the section as a parameter
+(`openSectionReader(scopeEl)`), which is all it takes: passing the right element in *is*
+the fix, because inheritance already does the resolving.
 
 Three things follow, and all three are load-bearing:
 
