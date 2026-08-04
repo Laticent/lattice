@@ -461,10 +461,18 @@ in patch versions.
   that separated nothing (every control after it is compact-only), and the tablet's "Send feedback"
   row is gone from the ⋯ menu now that the header offers it in one tap. Tablet needed the room:
   the extra button pushed the ⋯ Menu clean off an 820px viewport, so the "Lattice" wordmark beside
-  the brand mark now appears from `lg` (1024px) rather than `sm` — the mark and its chevron already
-  say "brand, and it opens", and the wordmark returns the moment the row can afford it. **Phones are
-  unchanged**: the eight-cell bar is a closed contract and the drawer stays feedback's one home
-  there.
+  the brand mark is now **desktop-only** — the mark and its chevron already say "brand, and it
+  opens", and the words return at 1100px. That reclaims 64px against the 44px the button costs, so
+  every width below desktop nets +20px: at 1024px the deck title reads 87px wide, against 67px
+  before this change. The gate is the app's own `compact` breakpoint, deliberately **not** a
+  Tailwind width class — Tailwind's `lg` is 1024px while this app's desktop boundary is 1100px, and
+  a first cut at `lg:inline` reclaimed nothing at all across 1024–1099 (that band showed the
+  wordmark either way) and so paid the button's 44px straight out of the deck title, cutting it to
+  23px at 1024. **Phones are
+  unchanged in their controls**: the eight-cell bar is a closed contract and the drawer stays
+  feedback's one home there. The one thing that does change below desktop is the wordmark (above):
+  at 640–699px the phone's full header rendered it before and no longer does — the tightest header
+  in the system, so it gains the 64px too.
 
 - **The Mermaid subgraph box now has rounded corners and Lattice's node padding.** A subgraph is a
   containment surface — the role a Lattice card plays — and it was the one such surface in the

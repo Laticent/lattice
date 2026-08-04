@@ -3280,12 +3280,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    not a menu. */}
 						<button type="button" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
 							<LatticeMark mode={mode} className="size-7" />
-							{/* The wordmark shows from `lg` (1024px), not `sm`. Below that the header is
-							    out of room — adding the feedback button pushed the ⋯ Menu clean off a
-							    820px tablet — and 62px of decoration is the first thing to spend when
-							    the mark and the chevron already say "brand, and it opens". It returns
-							    the moment the row can afford it. */}
-							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] lg:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
+							{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
+							    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
+							    decoration is the first thing to spend when the mark and the chevron
+							    already say "brand, and it opens".
+							    Gated on `compact`, NOT on a Tailwind width class, because Tailwind's
+							    `lg` is 1024px and this app's desktop boundary is 1100px. A `lg:inline`
+							    here reclaimed nothing across 700–1023 that mattered and nothing AT ALL
+							    across 1024–1099 — that band rendered the wordmark either way, so it
+							    paid the feedback button's 44px straight out of the deck title (at
+							    1024 the title fell from `Markdo…` to `M…`). Same source of truth as
+							    every other gate in this header is what keeps that from recurring. */}
+							{!compact && <span className="font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>}
 							<ChevronDown className="size-4 text-muted-foreground" />
 						</button>
 					</DropdownMenuTrigger>
