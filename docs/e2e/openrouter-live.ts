@@ -12,12 +12,19 @@ import { type APIRequestContext, type Page, request } from '@playwright/test';
 // this harness turns trace + video OFF (they would otherwise record the init
 // script and request headers), and nothing here prints the key.
 //
-// COST GUARDRAILS (the Architect makes real paid calls):
-//   - the model stays on the Studio default `~anthropic/claude-haiku-latest` —
-//     the cheapest capable family, server-resolved so it can never rot;
+// COST GUARDRAILS (the Architect makes real paid calls, on OUR key — HARD RULE #24):
+//   - the model is PINNED here to `~anthropic/claude-haiku-latest` — the cheapest
+//     capable family, server-resolved so it can never rot. It used to be inherited
+//     from the Studio's default, which made this budget guarantee hostage to a
+//     PRODUCT decision made in another file: when that default moved to Sonnet
+//     (2026-08-04, so the app matches what the Workspace picker promises) this tier
+//     would silently have started spending ~3x per call. A spend guardrail must not
+//     depend on a default someone else is free to re-tune;
 //   - the Studio's own budget cap is armed in HARD-STOP mode ($2 for the whole
 //     session), so a runaway test is refused by the app itself before it spends;
-//   - the Studio's per-call `max_tokens` ceiling (4096) bounds each reply.
+//   - the Studio's per-call `max_tokens` ceiling (`CHAT_MAX_TOKENS`, 16384) bounds
+//     each reply. The hard-stop gate prices that ceiling, so it refuses a call that
+//     could breach the cap rather than discovering it afterwards.
 
 /** The provisioning env var. Present → the live tier runs; absent → it skips. */
 export const LIVE_KEY = process.env.OPEN_ROUTER_KEY ?? '';
@@ -25,18 +32,25 @@ export const LIVE_KEY = process.env.OPEN_ROUTER_KEY ?? '';
 /** Session-cap armed in hard-stop mode — the app refuses to spend past this. */
 const BUDGET_CAP_USD = '2';
 
+/** The model this tier spends on, pinned rather than inherited (see COST GUARDRAILS).
+ *  The `~*-latest` alias is server-resolved, so it can't rot when a version retires. */
+const CHEAP_MODEL = '~anthropic/claude-haiku-latest';
+
 /**
  * Seed the OpenRouter connection (and the spend guardrail) into localStorage
  * before any app code runs. Call before `gotoStudio`.
  */
 export async function injectOpenRouter(page: Page, key: string): Promise<void> {
 	await page.addInitScript(
-		([k, cap]) => {
+		([k, cap, model]) => {
 			window.localStorage.setItem('lattice-db-or-key', k);
 			window.localStorage.setItem('lattice-db-budget-cap', cap);
 			window.localStorage.setItem('lattice-db-budget-mode', 'stop');
+			// Pin the model as a DELIBERATE pick (the same key the Workspace picker
+			// writes), so this tier's spend can't be moved by a change to the app default.
+			window.localStorage.setItem('lattice-db-or-model', model);
 		},
-		[key, BUDGET_CAP_USD],
+		[key, BUDGET_CAP_USD, CHEAP_MODEL],
 	);
 }
 

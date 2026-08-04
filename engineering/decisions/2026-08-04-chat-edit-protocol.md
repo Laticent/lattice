@@ -150,8 +150,19 @@ the panel claimed otherwise.
 
 Two defaults in two files is how that drifts. The override is gone; the Studio
 inherits `DEFAULT_OR_MODEL` (`~anthropic/claude-sonnet-latest`), and a test pins it.
-The picker's copy is version-neutral now as well — it named "Sonnet 4" against an
-alias that moves by design.
+
+Two copy lines named a pinned version against an alias that moves by design
+("Claude Sonnet 4"): the picker's, and the pre-connect blurb in `WorkspaceSheet`.
+The second was found only by driving the real Workspace panel — a grep for
+"Defaults to" misses "defaulting to". Both read "the latest Claude Sonnet" now.
+
+One consequence worth stating plainly: `docs/e2e/openrouter-live.ts` derived its
+**cost guardrail** from that default ("the model stays on the Studio default
+`~anthropic/claude-haiku-latest` — the cheapest capable family"). That tier spends
+OUR `OPEN_ROUTER_KEY` on the sanctioned nightly workflow, so moving the default to
+Sonnet would have quietly raised its per-call spend ~3x — against a raised output
+ceiling, compounding it. The harness now PINS the cheap model itself. A spend
+guardrail must not depend on a product default someone else is free to re-tune.
 
 ### One sentence in the prompt about tools
 
