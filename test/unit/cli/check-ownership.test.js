@@ -45,6 +45,7 @@ const {
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
   checkFinishChromeExclusions,
+  parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,
   layerBlocksIn,
   checkCascadeLayers,
@@ -508,14 +509,49 @@ describe('check-ownership', () => {
     });
 
     test('the derived hook set finds the chrome the fix was written for', () => {
-      // Derived from the CSS, not hardcoded — this is what makes the gate catch chrome
-      // nobody has written yet. The first cut of the exclusion list was hand-built from a
-      // probe deck and missed `.lat-split-rail`; a derived set does not have that failure
-      // mode, so the assertion is that derivation actually reaches each one.
+      // Derived from the CSS, not hardcoded, so the CANDIDATE side of the gate cannot go
+      // stale as engine CSS moves: the first cut of the exclusion list was hand-built from a
+      // probe deck and missed `.lat-split-rail`, and a derived set does not have that failure
+      // mode. The assertion is that derivation actually reaches each one.
+      //
+      // BE PRECISE ABOUT WHAT THIS DOES NOT DO. `checkFinishChromeExclusions` intersects
+      // these derived hooks with the hand-maintained SECTION_LEVEL_CHROME set, so genuinely
+      // NEW section-level chrome is skipped until someone adds it there — this gate does not
+      // catch chrome nobody has enumerated, and an earlier version of this comment claimed it
+      // did. What covers the unenumerated case is the DERIVED SWEEP in
+      // test/integration/invariants/frame-chrome-out-of-flow.test.js, which toggles `.finish`
+      // on a real render and asserts no direct child of any section changes its computed
+      // position — no list at all. The division is deliberate: this gate guards the known
+      // cheaply on every `build:check`, the sweep finds the unknown at render cost.
       const hooks = absolutelyPositionedSectionChildHooks();
       for (const hook of ['header', 'footer', '.deck-logo', '.overflow-tab', '.illegible-tab', '.lat-split-rail']) {
         assert.ok(hooks.has(hook), `expected engine CSS to absolutely position ${hook}`);
       }
+    });
+
+    test('the gate refuses to parse a malformed exclusion list instead of guessing', () => {
+      // An unterminated `:where(` used to make `indexOf(')')` return -1, and slice(start, -1)
+      // then handed the check the whole rest of the stylesheet as the "exclusion list".
+      // A build gate must fail loudly on input it cannot parse, never report on a list it
+      // invented. Both malformed shapes are covered: no `)` at all, and a `)` that only
+      // appears in a LATER rule (the declaration block opened first). Caught in PR review.
+      const RULE = 'section.finish > *:not(.backdrop, :where(';
+
+      const unterminated = `${RULE}header, footer\n/* no closing paren anywhere */\n`;
+      assert.match(parseFinishChromeExclusions(unterminated).error || '', /malformed/);
+      assert.equal(parseFinishChromeExclusions(unterminated).excluded, undefined,
+        'a malformed list must yield NO exclusion set — a half-parsed one is what caused this');
+
+      const blockFirst = `${RULE}header, footer { position: relative; }\nsection.x { color: red; }`;
+      assert.match(parseFinishChromeExclusions(blockFirst).error || '', /malformed/);
+
+      // …and the well-formed shape still parses to exactly the tokens between the parens.
+      const ok = `${RULE}header, footer, img.deck-logo) { position: relative; }`;
+      assert.deepEqual(parseFinishChromeExclusions(ok).excluded, ['header', 'footer', 'img.deck-logo']);
+
+      // A missing rule is its own, separately-worded failure — not "malformed".
+      const gone = 'section.finish > * { position: relative; }';
+      assert.match(parseFinishChromeExclusions(gone).error || '', /no longer carries/);
     });
 
     test('the gate refuses to certify a rule that is no longer there', () => {

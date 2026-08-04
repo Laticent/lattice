@@ -1336,21 +1336,44 @@ function absolutelyPositionedSectionChildHooks() {
   return hooks;
 }
 
-function checkFinishChromeExclusions(errors) {
-  const finishFile = path.join(LIB_DIR, 'base', 'base.finish.css');
-  const css = fs.readFileSync(finishFile, 'utf8');
+/**
+ * Read the frame-chrome exclusion list out of base.finish.css. Pure, so the failure
+ * modes below are reachable from a test without writing to lib/.
+ *
+ * Returns `{ excluded }` or `{ error }` — never a half-parsed list. THAT IS THE POINT.
+ * An unterminated `:where(` makes `indexOf` return -1, and `slice(listStart, -1)` then
+ * silently yields the whole REST OF THE STYLESHEET split on commas: a garbage "exclusion
+ * list" that would drown the real check in bogus stale-entry errors, or worse, satisfy it
+ * by accident. The same applies when the next `)` turns up only in a LATER rule — a `{`
+ * in between says this declaration block ended first. A build gate that mis-parses its
+ * own subject is worse than no gate, because it reports confidently on something that
+ * isn't there. Caught in PR review.
+ */
+function parseFinishChromeExclusions(css) {
   const at = css.indexOf(FINISH_CHROME_RULE);
   if (at === -1) {
-    errors.push(
+    return { error:
       'base.finish.css no longer carries the frame-chrome exclusion rule ' +
       `(\`${FINISH_CHROME_RULE}…\`). If the stacking fix was replaced, remove ` +
-      'checkFinishChromeExclusions with it; do not let the gate certify nothing.',
-    );
-    return;
+      'checkFinishChromeExclusions with it; do not let the gate certify nothing.' };
   }
   const listStart = at + FINISH_CHROME_RULE.length;
   const listEnd = css.indexOf(')', listStart);
-  const excluded = css.slice(listStart, listEnd).split(',').map((s) => s.trim()).filter(Boolean);
+  const blockOpen = css.indexOf('{', listStart);
+  if (listEnd === -1 || (blockOpen !== -1 && blockOpen < listEnd)) {
+    return { error:
+      'base.finish.css\'s frame-chrome exclusion list is malformed — the `:where(` opened by ' +
+      `\`${FINISH_CHROME_RULE}\` is never closed before the declaration block. Fix the ` +
+      'selector; checkFinishChromeExclusions cannot verify a list it cannot parse.' };
+  }
+  return { excluded: css.slice(listStart, listEnd).split(',').map((s) => s.trim()).filter(Boolean) };
+}
+
+function checkFinishChromeExclusions(errors) {
+  const finishFile = path.join(LIB_DIR, 'base', 'base.finish.css');
+  const parsed = parseFinishChromeExclusions(fs.readFileSync(finishFile, 'utf8'));
+  if (parsed.error) { errors.push(parsed.error); return; }
+  const excluded = parsed.excluded;
 
   const hooks = absolutelyPositionedSectionChildHooks();
   // Only chrome that can actually BE a direct child is in scope. `header`/`footer` and the
@@ -4069,6 +4092,7 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 module.exports = {
   run,
   checkFinishChromeExclusions,
+  parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,
   checkUniversalTableGuard,
   universalTableDenyEntries,
