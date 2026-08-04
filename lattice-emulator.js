@@ -52,7 +52,7 @@ const { execSync }  = require('child_process');
 // anywhere in its attribute run, and pull `--logo-mask` / `aria-label` out of the
 // captured attrs — so a future change to the span's attribute order can't silently
 // drop the inline-SVG swap and leave the unreliable mask in the PDF.
-const LOGO_MARK_RE = /<span\b([^>]*\bclass="[^"]*\blogo-mark\b[^"]*"[^>]*)><\/span>/g;
+const LOGO_MARK_RE = /<span\b([^>]*\sclass="[^"]*\blogo-mark\b[^"]*"[^>]*)><\/span>/g;
 function inlineLogoMarkSvg(html, baseFileUrl) {
   if (typeof html !== 'string' || html.indexOf('logo-mark') === -1) return html;
   return html.replace(LOGO_MARK_RE, (whole, attrs) => {
@@ -431,6 +431,7 @@ const {
 } = require('./lib/core/resolve-overflow-marker');
 const { resolveExportOverflowMarker } = require('./lib/core/marp-bundle');
 const { exportSettingsBlock } = require('./lib/core/export-settings');
+const { readClassAttr } = require('./lib/core/section-walk');
 const NOTES_ICON = !!flags['notes-icon'];
 const EMBED_SOURCE = !!flags['embed-source'];
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
@@ -1561,7 +1562,9 @@ function engineSlides() {
     // only one that needs a contrast scrim node; every other composition carries
     // its own contrast (solid card / matte / panel). statement is opt-in, so it's
     // always the author's `statement` class — needsScrim keys off that.
-    const cls = (s.match(/^<section\b[^>]*\bclass="([^"]*)"/i) || ['', ''])[1];
+    // Resolved `class`, never the `data-class` directive payload that precedes it —
+    // see lib/core/section-walk.js readClassAttr (#1358).
+    const cls = readClassAttr((s.match(/^<section\b[^>]*>/i) || [''])[0]);
     if (imageScrim.needsScrim(cls) && s.indexOf('class="image-scrim') === -1) {
       s = s.replace(/(<div class="lattice-bg[\s\S]*?<\/div>)/, `$1${imageScrim.SCRIM_HTML}`);
     }

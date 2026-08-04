@@ -561,7 +561,7 @@ The catch-all for explanatory content that doesn't fit a more structured layout.
 ##### Common mistakes
 
 - **Nesting a second level of bullets to add sub-points, expecting them to read with the same weight as the top level.** A nested list steps DOWN one type tier (top level is --fs-body, nested is --fs-body-compact) — nested items read as supporting asides, not equal peers. If the items should carry equal weight, keep them all at the top level.
-- **Expecting a trailing paragraph to stay body copy after a list or a table.** It is promoted to a below-note — hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected. When the trailing sentence really is the conclusion of the list rather than a footnote to it, add `no-note` to the slide `_class` and it stays body copy. A deck-wide `class: no-note` also works, but only on slides that declare no `_class:` of their own — put the token on the slide when the slide names its own class.
+- **Expecting a trailing paragraph to stay body copy after a list or a table.** It is promoted to a below-note — hairline rule, muted ink. A paragraph after a PARAGRAPH is never promoted, so ordinary prose is unaffected. When the trailing sentence really is the conclusion of the list rather than a footnote to it, add `no-note` to the slide `_class` and it stays body copy. A deck-wide `class: no-note` in front matter works too, and reaches every slide — including the ones that name their own `_class:`.
 
 #### When to use
 

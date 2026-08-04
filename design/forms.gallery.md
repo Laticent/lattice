@@ -176,7 +176,7 @@ This slide is marked `confidential`, so a status chip docks in the masthead bay 
 
 ---
 
-<!-- _class: content -->
+<!-- _class: content no-note -->
 
 `The payoff · One block of content`
 
