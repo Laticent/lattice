@@ -25,6 +25,21 @@ in patch versions.
 
 ## Unreleased
 
+- **The Present rail is a real scrubber now: one height, three strengths of one token.** It
+  shipped with the three tiers separated by *thickness* (2px track / 3px prefetch / 5px progress)
+  because the obvious tonal encoding — `--accent` against `--border` — collapses in eleven of the
+  36 palette/mode combinations and is literally identical in `onyx dark`. But that was a fault of
+  using two **independent** tokens, not of tone. Every tier is now `--accent` blended toward
+  `--bg` at a different strength (16% / 61% / 100%), so the ladder is a property of one hue and no
+  palette can flatten it: worst-case across the same 36 combos, track-to-prefetch is **1.87:1** and
+  prefetch-to-progress **1.92:1**, and `onyx dark` — the impossible case before — now renders
+  white / mid-gray / near-black. The resting track sits within a hair of what `--border` itself
+  achieves against `--bg` (1.19 vs 1.21 worst-case), so the bar at rest is no louder than the
+  hairlines already in use. Uniform 8px restores the video-scrubber idiom the rail was always
+  meant to borrow, and incidentally undoes a shrink nobody chose: before the rail gained tiers it
+  was a uniform **3px**, and stacking fills under the progress edge had quietly reduced the
+  resting bar to 2px on every deck, narration or not.
+
 ### Added
 
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its

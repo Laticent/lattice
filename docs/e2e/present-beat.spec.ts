@@ -97,16 +97,19 @@ test.describe('Present — the between-slide beat', () => {
 		const rail = dialog.getByRole('group', { name: /Deck progress/ });
 		await expect(rail).toBeVisible();
 
-		/** Per segment: the track's computed background, and the width of the tallest (progress) fill. */
+		/** Per segment: the track's computed background, and the width of the progress fill. */
 		const segments = () =>
 			rail.evaluate((el) =>
 				Array.from(el.querySelectorAll('button')).map((b) => {
-					const spans = Array.from(b.querySelectorAll('span')).filter((s) => getComputedStyle(s).position === 'absolute');
-					const track = spans.find((s) => getComputedStyle(s).height === '2px');
-					const progress = spans.find((s) => getComputedStyle(s).height === '5px');
+					// Every tier is the SAME height now (the scrubber idiom) and differs by TONE, so
+					// they are identified by DOM order rather than thickness: track, then prefetch,
+					// then progress — each rendered only once it has width.
+					const spans = Array.from(b.querySelectorAll('span')).filter((s) => getComputedStyle(s).position === 'absolute' && getComputedStyle(s).height === '8px');
+					const track = spans[0];
+					const progress = spans[spans.length - 1];
 					return {
 						track: track ? getComputedStyle(track).backgroundColor : '',
-						progress: progress ? parseFloat(getComputedStyle(progress).width) : 0,
+						progress: spans.length > 1 ? parseFloat(getComputedStyle(progress).width) : 0,
 					};
 				}),
 			);

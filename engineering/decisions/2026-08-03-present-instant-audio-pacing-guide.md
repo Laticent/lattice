@@ -732,3 +732,61 @@ Still UNVERIFIED, and marked so deliberately: everything about how narration SOU
 captions-only rung exercises the clock, the rail, the beat and the transport — it does not
 exercise synthesis, the cache, the prefetch window, or the starvation hold against real audio.
 Time-to-first-audio and whether playback is smooth need a real key on a real link.
+
+---
+
+## Amendment (2026-08-04): height was the wrong axis — one token, three strengths
+
+Post-merge, the maintainer's instruction was blunt and correct: *"none of the above. all should be
+8."* The rail had shipped with its three tiers separated by **thickness** (2/3/5 px). That was a
+workaround, and it broke the idiom they had asked for at the very start of this work — *"it should
+behave like the youtube progress bar right?"* A scrubber is a **uniform bar whose ranges differ by
+tone**. Stepping the heights made it something else.
+
+**Why the workaround existed, and why it was the wrong conclusion.** The 36-combination sweep is
+sound: `--accent` against `--border` is under 3:1 in **eleven** combos and identical (`#FFFFFF`
+both) in `onyx dark`, so that pairing genuinely cannot carry the distinction. The error was
+inferring *"tone cannot carry this"* from *"these two tokens cannot carry this."* The failure came
+from using two **independent** tokens whose relationship no palette is obliged to preserve — not
+from tone as an encoding.
+
+**The fix.** Derive every tier from **one** token, blended toward the background:
+
+| tier | value |
+|---|---|
+| track (unplayed) | `color-mix(in srgb, var(--accent) 16%, var(--bg))` |
+| current slide's track | `color-mix(in srgb, var(--accent) 30%, var(--bg))` |
+| prefetch (buffered) | `color-mix(in srgb, var(--accent) 61%, var(--bg))` |
+| progress (played) | `var(--accent)` |
+
+Because the ladder is one hue at three strengths, its ordering is a property of the blend, not of
+any palette's token relationships. Swept over the same 36 combos:
+
+```
+accent-vs-border   < 3:1 in 11 combos      ← why height was reached for
+track-vs-prefetch  worst 1.87:1  in 0 combos below 1.5
+prefetch-vs-progress worst 1.92:1  in 0 combos below 1.5
+track-vs-bg        worst 1.19:1  (--border's own worst against --bg is 1.21:1)
+```
+
+The strengths were not picked by eye — a search over the (track, prefetch) space maximized the
+weakest link across all 36, holding the resting track to the floor `--border` already establishes.
+`onyx dark`, the impossible case for the old scheme, is now among the clearest: white / mid-gray /
+near-black.
+
+Verified by rendering the ladder in the real Studio page with the root's `data-palette`/`data-mode`
+switched per capture — `onyx dark`, `mustard light` (the worst old ratio at 2.99), and
+`a11y-protanopia light` all read cleanly.
+
+**A methodology note worth keeping.** The first attempt at that verification put
+`data-palette`/`data-mode` on *injected divs* and produced six identical copies of `indaco` while
+looking exactly like a palette sweep. The tokens are declared on `html[data-palette][data-mode]` —
+a descendant cannot scope them. A palette check that never switched palettes is the same class of
+error as the e2e spec that passed against the unfixed build: **a result that looks right is not
+evidence until you confirm the mechanism that would make it wrong actually fired.**
+
+**A shrink nobody chose, undone.** Before the rail had tiers it was a uniform **3px**. Stacking
+fills beneath the progress edge had reduced the resting track to 2px — on every deck, including
+those with no narration at all. Nobody decided that; it fell out of the implementation, and it
+went unnoticed because every capture taken during the original work had no cached narration to
+show the middle tier. Uniform 8px settles it.
