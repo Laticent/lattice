@@ -222,14 +222,25 @@ Mermaid 11.14. Installing elk is separate work from #1311.
 
 ## 5.3d Which ink goes where
 
-Diagram text comes from **two** tokens, chosen by what the text sits on:
+Diagram text comes from **three** tokens, chosen by what the text sits on:
 
 | site | token | examples |
 |---|---|---|
-| on a categorical **chip** | `--cat-on-fill` | node label, gantt bar, pie slice, sequence actor, band |
+| on a categorical **fill** (the pale band) | `--cat-on-fill` | node label, gantt bar, pie slice, sequence actor, band |
+| on a categorical **mark** (the saturated band) | `--cat-on-mark` | gitgraph branch label |
 | on the **canvas** (`--bg` / `--bg-alt`) | `--text-heading` | diagram title, pie legend, quadrant axis labels, gantt margin text |
 
-It used to be one token for both. That is invisible on 27 of the 32 palettes,
+The mark tier joined last (#1348). `gitBranchLabel0-7` sits on `git0-7`, which is
+fed from `--cat-1..8-mark`, and was being inked with `--cat-on-fill` — ink curated
+for the *pale* band, used on the saturated one, at 1.2:1 to 3.0:1 in every palette
+and both schemes. `--cat-on-mark` already existed and is already gated ≥4.5:1
+against every `--cat-N-mark`; nothing had ever pointed at it. Note the scope
+honestly: this fixes the **baked** SVG. On a Lattice slide `mermaid.css` repaints
+the branch chip with `--cat-N-fill` and its text with `--cat-on-fill` (both
+`!important`), so the slide already showed a matched pair and is unchanged — the
+baked values are what matters wherever our CSS does not ride along.
+
+It used to be one token for the first and third. That is invisible on 27 of the 32 palettes,
 where `--cat-on-fill` is declared as `var(--text-heading)` — and wrong on the
 `a11y-*` family, which **pins** its categorical tier mode-invariant (fixed pale
 chips carrying the CVD textures) while the canvas still flips. In a dark context

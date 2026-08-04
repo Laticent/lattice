@@ -73,7 +73,23 @@
    * darkest chip by a wide margin (#868686, 5.77:1). */
   --cat-on-fill: #000000;
 
-  /* Categorical cycle — fixed greyscale value ramp. The approved textures
+  /* Categorical MARK ink — pinned for the same reason, one tier over. Inherited
+   * from onyx, --cat-on-mark is `light-dark(#FFFFFF, #000000)`: white on the deep
+   * light-mode mark, near-black on the pale dark-mode mark. That pairing is right
+   * for a palette whose mark tier FLIPS. This one's does not — the ramp below is
+   * fixed dark grays in both schemes — so under a per-slide `_class: dark` (the
+   * section-level color-scheme the :root pin above cannot reach, #1323) the ink
+   * flipped to #000000 while the chips stayed #2e2e2e..#696969: 1.55:1 at worst,
+   * black on near-black. It reaches the gitgraph branch labels, and the deep
+   * categorical corner tags on `compare-prose` and `roadmap`.
+   *
+   * #FFFFFF is exactly what `light-dark(#FFFFFF, #000000)` already resolved to
+   * under this palette's forced light scheme, so every existing a11y deck stays
+   * byte-identical and this confines the change to the dark-slide case it fixes.
+   * Clears AA on the palest chip by a wide margin (#696969, 5.19:1). */
+  --cat-on-mark: #FFFFFF;
+
+  /* Categorical cycle — fixed grayscale value ramp. The approved textures
    * overlay these to carry the distinction colour alone cannot beyond ~6 steps. */
   --cat-1-fill:  #e8e8e8;
   --cat-2-fill:  #dedede;

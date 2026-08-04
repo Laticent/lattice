@@ -867,6 +867,28 @@ in patch versions.
   rendered rows** rather than `over` — an `over`-only assertion passes against the broken build —
   and confirmed non-vacuous (88px hidden with the fix reverted). See
   `engineering/decisions/2026-07-16-state-chart-self-scale.md` §Follow-up (2026-08-04). (#1360)
+- **Gitgraph branch labels bake at 1.2:1–3.0:1 in every palette, and now clear AA in all
+  32.** `gitBranchLabel0-7` is drawn on `git0-7`, which the map feeds from
+  `--cat-1..8-mark` — the saturated band — while the ink came from `--cat-on-fill`, which
+  is curated for the *pale* `--cat-N-fill` band. Ink meant for one tier, used on another,
+  in both schemes. The sanctioned fix in the issue was "a third ink tier, or move the chips
+  to the pale band"; the third tier turned out to **already exist** — `--cat-on-mark`, gated
+  ≥4.5:1 against every `--cat-N-mark` — with nothing pointing at it, so the eight keys now
+  do. That alone repaired 27 palettes. The a11y family still failed at 1.55:1 for a
+  different reason: it **pins** its categorical ramp mode-invariant while inheriting a
+  flipping `--cat-on-mark` from onyx, so a per-slide `_class: dark` sent the ink to
+  `#000000` while the chips stayed near-black — the same reach problem #1323 fixed one tier
+  over. `themes/a11y-base.css` now pins `--cat-on-mark: #FFFFFF`, which is exactly what it
+  already resolved to under that palette's forced light scheme, so existing a11y decks are
+  byte-identical and only the dark-slide case moves. The `gitBranchLabel*` entries are gone
+  from `KNOWN_BELOW_AA` and the gate holds them for real. **Scope, stated honestly:** this
+  repairs the *baked* SVG. On a Lattice slide `mermaid.css` repaints the branch chip with
+  `--cat-N-fill` and its text with `--cat-on-fill`, both `!important`, so the slide already
+  showed a matched pair and renders identically — verified on a rendered gitgraph in
+  `indaco` light and `a11y-deuteranopia` dark. The baked values are what matters wherever
+  our CSS does not ride along, which is the premise the gate is built on. #1348 stays open
+  for its `errorTextColor` half (palette curation on four a11y palettes + `carbone`). (#1348)
+
 - **`math.theorem`'s Definition and Theorem labels were below AA on 11 of 56 theme/mode
   combinations, and are not any more.** They painted the raw `--cat-4-mark` / `--cat-7-mark`
   as `color:` on the blockquote's `--bg-alt`, bottoming out at **3.49:1** (`atelier` light,

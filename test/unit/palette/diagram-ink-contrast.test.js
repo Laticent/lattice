@@ -111,24 +111,26 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
  * existed. Sanctioned so the gate can ship green over the pairs it was written
  * for, without pretending these are fine.
  *
- * Both are the same shape: `--cat-on-fill` is curated to sit on the PALE
- * `--cat-N-fill` band, and these two keys put it on something else.
+ * They share a shape: `--cat-on-fill` is curated to sit on the PALE `--cat-N-fill`
+ * band, and each of these keys puts it on something else.
  *
- *   gitBranchLabel0-7  on git0-7 = `--cat-N-MARK`, the saturated mid-tone. 1.2-3.0:1
- *                      in every shipped palette, both schemes. Pre-dates this
- *                      branch on the export path; the preview path fed it
- *                      `--text-heading`, which fails the same chips from the other
- *                      side. A real fix is a third ink tier ("on-mark") or moving
- *                      the branch chips to the pale band — a palette-contract
- *                      change, not a map edit.
  *   noteTextColor      on `--diagram-note`, 3.83:1 in five palettes. Marginal, and
  *                      the same "ink curated for one tier, used on another" story.
+ *
+ * RETIRED (#1348): `gitBranchLabel0-7` on `git0-7` = `--cat-N-MARK`, 1.2-3.0:1 in
+ * every palette, both schemes. The sanction called for "a third ink tier (an
+ * 'on-mark' token) or moving the branch chips to the pale band". The third tier
+ * turned out to already exist — `--cat-on-mark`, gated >=4.5:1 against every
+ * `--cat-N-mark` by `checkCatContrast` — with nothing pointing at it, so the fix
+ * was to point these eight keys at it. That alone fixed 27 of the 32 palettes; the
+ * a11y family still failed at 1.55:1 because it PINS its categorical ramp
+ * mode-invariant while inheriting a flipping `--cat-on-mark` from onyx, so
+ * `themes/a11y-base.css` now pins that ink to the value it already resolved to.
  *
  * The list is exceed-only: an entry that starts PASSING everywhere is a stale
  * sanction and fails below, so it cannot rot. Adding a row means arguing for it.
  */
 const KNOWN_BELOW_AA = new Set([
-  ...Array.from({ length: 8 }, (_, i) => `gitBranchLabel${i}`),
   'noteTextColor',
   // errorTextColor (--bg) on errorBkgColor (--fail): 1.55-2.28:1 on the four
   // a11y palettes in dark and on carbone in light. Identical on origin/main —
@@ -198,7 +200,11 @@ function tokenFor(key) {
 
 /** Every ink-bearing themeVariable, nested blocks included, as dotted keys. */
 function inkKeys() {
-  const INK_TOKENS = new Set(['cat-on-fill', 'text-heading']);
+  // All three ink tiers the map feeds. `cat-on-mark` joined when the gitgraph
+  // branch labels moved onto it (#1348) — without it those eight keys would drop
+  // out of the coverage assertion below, and a later mis-assignment could delete
+  // their SITES rows unnoticed.
+  const INK_TOKENS = new Set(['cat-on-fill', 'cat-on-mark', 'text-heading']);
   const out = [];
   for (const [key, entry] of Object.entries(MERMAID_VAR_MAP)) {
     if (entry.nested) {
