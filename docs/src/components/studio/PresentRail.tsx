@@ -169,7 +169,8 @@ function PresentRailImpl({
 										    of what `--border` itself achieves against `--bg` (1.19 vs 1.21 worst-case),
 										    so the bar at rest is no louder than the hairlines already in use. */}
 										<span
-											className="absolute inset-x-0 bottom-0 h-[8px] rounded-full"
+											data-tier="track"
+													className="absolute inset-x-0 bottom-0 h-[8px] rounded-full"
 											// The CURRENT segment's track is lifted 16% → 30%. Position is otherwise
 											// carried only by the progress fill, which is zero-width before the first
 											// word and in rehearse mode — so on slide 1 with Voice muted (the default)
@@ -180,14 +181,38 @@ function PresentRailImpl({
 										/>
 										{prePct > 0 && (
 											<span
-												className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+												data-tier="prefetch"
+													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
 												style={{ width: `${prePct}%`, background: 'color-mix(in srgb, var(--accent) 61%, var(--bg))' }}
 											/>
 										)}
 										{proPct > 0 && (
 											<span
-												className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
+												data-tier="progress"
+													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
 												style={{ width: `${proPct}%`, background: 'var(--accent)' }}
+											/>
+										)}
+										{/* THE PLAYHEAD — painted LAST, so nothing can cover it.
+										
+										    The current-slide cue used to be a lift of the track's own tone (16% → 30%).
+										    Two independent problems, both measured: the prefetch fill occupies the SAME
+										    box and paints after it, so once a slide is fully cached the tint is hidden
+										    completely (red team rendered it — the current and neighbouring segments came
+										    back byte-identical); and as a tone step it is weaker than what it replaced in
+										    26 of 36 palettes. It was reachable at all only because Kokoro could not
+										    prefetch; letting it prefetch is what tipped that latent fragility into failure.
+										
+										    A mark, not a tone. Solid `--accent` with a 1px `--bg` halo, so it reads as a
+										    hard edge against WHATEVER sits beneath — accent-to-bg is 4.35:1 in the
+										    tightest palette, which no fill tone can flatten. At rest it sits at the start
+										    of the current slide and says "here"; under playback it rides the progress
+										    front. One mechanism for both. */}
+										{here && (
+											<span
+												data-tier="playhead"
+													className="absolute bottom-0 h-[8px] w-[2px] rounded-full transition-[left] duration-150 motion-reduce:transition-none"
+												style={{ left: `${proPct}%`, marginLeft: -1, background: 'var(--accent)', boxShadow: '0 0 0 1px var(--bg)' }}
 											/>
 										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}

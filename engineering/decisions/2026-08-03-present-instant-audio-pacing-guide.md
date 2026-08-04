@@ -854,3 +854,99 @@ work introduced, and HARD RULE #18 makes them fixes rather than follow-ups.
 Both were invisible in testing because a fresh store is small. They only bite at the scale the
 feature is designed for, which is the worst kind of defect to ship: it arrives once the user has
 been using it long enough to trust it.
+
+
+---
+
+## Amendment (2026-08-04): the trio's third round — a moved goalpost, a reverted optimization,
+## and a testing failure that repeated four times
+
+Three lenses on the follow-up branch. This amendment records what they overturned, because two of
+the three changes were wrong in ways the work itself had already been warned about.
+
+### 1. The rail's contrast argument moved its own goalpost
+
+The height encoding was chosen because `--accent` vs `--border` is under **3:1** in 11 of 36
+combos. The tonal replacement was then reported as passing — against **1.5:1**, a threshold
+introduced after the fact and appearing in no standard. Measured against the original criterion:
+
+```
+OLD  accent vs border          < 3:1 in 11 / 36   ← the reason height was reached for
+NEW  track vs prefetch         < 3:1 in 15 / 36   (worst 1.87)
+NEW  prefetch vs progress      < 3:1 in 25 / 36   (worst 1.92)
+NEW  current(30%) vs prefetch  < 3:1 in 35 / 36   (worst 1.56)
+```
+
+And a brute-force search over the entire `(track%, prefetch%)` space gives a **ceiling of 2.07:1**
+on the worst adjacent pair: no one-token blend can reach 3:1 here, because `--accent` vs `--bg` is
+only 4.35:1 in the tightest palette. The optimizer *proved the encoding inadequate* and its output
+was read as a success.
+
+**What survives, and why the ladder still ships:** progress-vs-track — the signal that carries
+position — went from under 3:1 in 11 palettes (**1.00, literally invisible in `onyx dark`**) to
+**3.59:1 worst-case, passing 36/36**. That is a real fix to a defect the previous rail had and the
+original work logged as "pre-existing, not fixed". The buffered range is now documented as a
+*reinforcing* tone rather than a load-bearing one. Whether it needs a second, palette-blind
+channel (a hatch, a notch at the buffer front) is left open rather than decided under time
+pressure — which is how the goalpost moved in the first place.
+
+### 2. The "you are here" cue was covered by the very change that made it reachable
+
+The cue was a lift of the track's own tone (16% → 30%). The prefetch fill occupies the **same box**
+and paints after it, so a fully-cached slide hides it completely — red team rendered it in Chromium
+and got byte-identical colors for the current and neighbouring segments. It was unreachable only
+because Kokoro could not prefetch; **letting Kokoro prefetch, in this same diff, tipped the latent
+fragility into failure** — the HARD RULE #18 case in its own words. As a tone step it was also
+weaker than what it replaced in 26 of 36 palettes.
+
+Replaced with a **mark, not a tone**: solid `--accent` with a 1px `--bg` halo, painted last so
+nothing can cover it, reading as a hard edge against whatever sits beneath (accent-to-bg is 4.35:1
+in the tightest palette). At rest it marks the current slide; under playback it rides the progress
+front. One mechanism for both.
+
+### 3. The store "optimization" was a pessimization, and is reverted
+
+Measured on real Chromium (not `fake-indexeddb`), the per-sentence `readyKeys` probe against the
+`getAllKeys()` it replaced:
+
+```
+store      0, deck  300   new 7.9ms  old 1.1ms   7.1x SLOWER   ← every new user
+store    300, deck  300   new 9.7    old 2.5     3.9x slower
+store   5000, deck 5000   new 176.9  old 28.7    6.2x slower
+store   3000, deck  300   new 16.6   old 25.7    new wins
+```
+
+It spends one IndexedDB request per sentence to learn what one read already answered, and wins only
+once the store is several times the deck. The running byte total was wrong differently: it is
+per-tab, so two Studio tabs each believed they were under budget while the store reached ~2x it,
+and it self-corrected only in the harmless direction (an over-estimate triggers the authoritative
+read; an under-estimate never does).
+
+Both reverted. **Neither was measured before shipping** — HARD RULE #19 exists for exactly this,
+and "it is obviously O(smaller)" is not a measurement. The real fix is not a faster probe: it is to
+stop asking about the whole deck. Readiness only matters from the playhead forward.
+
+### 4. The testing failure that repeated four times
+
+This is the finding worth keeping longest.
+
+| # | The test | What it actually exercised |
+|---|---|---|
+| 1 | `the caller's abort cancels the in-flight request` | Passed only because a 20s timeout fired; asserted the opposite of the shipped design |
+| 2 | the e2e beat spec | Passed against the *unfixed* build — the matcher auto-retried past the 4s hold |
+| 3 | the first Kokoro scheduler test | Drove `__setRung`, which bypasses the rung and its queue entirely |
+| 4 | the queue's abort-drop test | Passed a signal **no production call site produces** |
+
+And the checker mutation-tested the three new store tests: **all three passed with the exact defect
+each one named injected.**
+
+The common shape: testing *the unit just written* rather than *the path the product takes*, then
+reading green as confirmation. Three separate amendments in this document already write down
+"confirm the mechanism under test is actually in the path" — writing the lesson down did not
+prevent the next instance. The operational form that would have:
+
+> **Before a test is allowed to count as evidence, break the thing it names and watch it go red.**
+
+That is cheap, mechanical, and catches every one of the five failures above. It is now the standard
+this work is held to; the tests that could not meet it were deleted along with the code they failed
+to guard, rather than left as green lights.

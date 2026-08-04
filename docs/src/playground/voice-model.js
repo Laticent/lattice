@@ -411,8 +411,14 @@ export function createSerialQueue() {
 
   function pump() {
     if (inFlight) return;
-    // Drop anything whose caller already walked away — never spend the one serial slot on
-    // audio nobody is waiting for.
+    // The signal each job carries is `startRequest`'s OWN controller, which by design aborts
+    // only at REQUEST_CEILING_MS — the caller's signal is deliberately never forwarded, so a
+    // presenter leaving a slide cannot fire it. This sweep therefore drops genuinely expired
+    // work and nothing else. An earlier version of this comment claimed it dropped work whose
+    // "caller walked away", and a test proved it by passing a signal no call site produces:
+    // abandoned prefetch DOES run to completion on device. Wiring a real cancel means plumbing
+    // the warm caller's signal through fetchClip → startRequest, which is a change to the
+    // deliberate "a paid-for request finishes and caches" invariant and is not made here.
     for (let i = queue.length - 1; i >= 0; i--) {
       if (queue[i].signal?.aborted) {
         queue[i].reject(new Error('aborted'));
@@ -421,7 +427,10 @@ export function createSerialQueue() {
     }
     if (!queue.length) return;
     let i = queue.findIndex((j) => !j.priority?.warm);
-    if (i < 0) i = 0; // nothing but prefetch queued — take the oldest
+    // Nothing but prefetch queued — take the NEWEST. Prefetch relevance decays with age: after
+    // a burst of navigation the oldest queued sentence is the one furthest from where the deck
+    // now is, so FIFO spends the single serial slot on the least useful work in the queue.
+    if (i < 0) i = queue.length - 1;
     const job = queue.splice(i, 1)[0];
     inFlight = true;
     Promise.resolve()

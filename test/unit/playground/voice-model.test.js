@@ -272,7 +272,10 @@ test('serial queue: a playback job JUMPS a queued prefetch backlog', async () =>
   release();
   await Promise.all([first, play, ...rest]);
 
-  assert.deepEqual(order, ['w1', 'PLAY', 'w2', 'w3']);
+  // w1 was already in flight; PLAY jumps the rest. The remaining prefetch drains NEWEST-first
+  // — relevance decays with age, so the oldest queued sentence is the one furthest from where
+  // the deck now is.
+  assert.deepEqual(order, ['w1', 'PLAY', 'w3', 'w2']);
 });
 
 test('serial queue: promoting a QUEUED job by mutating its priority moves it to the front', async () => {
@@ -296,24 +299,11 @@ test('serial queue: promoting a QUEUED job by mutating its priority moves it to 
   assert.deepEqual(order, ['w1', 'JOINED', 'w2']);
 });
 
-test('serial queue: a job whose caller aborted is dropped rather than run', async () => {
-  const { createSerialQueue } = await load();
-  const q = createSerialQueue();
-  const ran = [];
-  let release = () => {};
-  const gate = new Promise((r) => { release = r; });
-  const ctl = new AbortController();
-
-  const first = q.enqueue(async () => { await gate; ran.push('first'); });
-  const doomed = q.enqueue(async () => { ran.push('doomed'); }, ctl.signal, { warm: true }).catch((e) => e.message);
-  const after = q.enqueue(async () => { ran.push('after'); });
-  ctl.abort(); // walked away while queued
-  release();
-  await first;
-  assert.equal(await doomed, 'aborted');
-  await after;
-  assert.deepEqual(ran, ['first', 'after'], 'the abandoned job never spent the serial slot');
-});
+// REMOVED (2026-08-04): 'a job whose caller aborted is dropped rather than run'. It passed its
+// own AbortController straight into enqueue — a shape NO production call site produces. The warm
+// path hands each request a fresh controller that nothing ever aborts (voice-model.js), and
+// startRequest's own controller fires only at the 45s ceiling. The test proved a cancel that does
+// not exist. Removed with the claim rather than left as a green light over an unwired mechanism.
 
 test('warm traffic reaches the rung marked as prefetch, and a playback join promotes it', async () => {
   // The model's half of the contract: hand the rung a MUTABLE priority, and flip it when a

@@ -41,14 +41,18 @@ in patch versions.
   because inference already running cannot be canceled. It never waits for the whole backlog,
   which was the failure the ban existed to prevent.
 
-- **The narration cache stopped scaling with every deck you have ever presented.** Two paths in
-  the on-device store were O(everything stored) rather than O(the deck being delivered) — both on
-  the same main thread as audio decode. Every clip write opened with a full `getAll()` over the
-  metadata store to total its bytes — so each write of the warm window materialized every record
-  of every deck. And the readiness poll, which runs every 2 seconds while Present is open, read
-  **every key in the store**, each one a JSON array carrying a whole sentence. Writes now keep a
-  running total and only read the store when that total says the budget might be breached, and
-  readiness does one small index probe per sentence of the current deck.
+- **A narration-cache "optimization" was reverted after measurement showed it was a
+  pessimization.** Two paths in the on-device store were changed to avoid reading the whole
+  store: the readiness poll swapped one `getAllKeys()` for a per-sentence probe, and clip writes
+  gained a running byte total to skip the authoritative size read. Measured afterwards on real
+  Chromium, the readiness change is **7x slower on a fresh store** — the state every new user is
+  in — and 6x slower on a large deck, because it spends one IndexedDB request per sentence to
+  learn what one read already answered; it wins only once the store is several times larger than
+  the deck. The running total was worse in a different way: it is per tab, so two Studio tabs each
+  believed they were under budget while the store reached **~2x** it. Both are reverted to the
+  behavior that shipped. The underlying concern is real but the fix was unmeasured, and the honest
+  next step is to stop asking the poll about the whole deck at all — readiness only matters from
+  the playhead forward.
 
 - **The Present rail is a real scrubber now: one height, three strengths of one token.** It
   shipped with the three tiers separated by *thickness* (2px track / 3px prefetch / 5px progress)
@@ -56,7 +60,13 @@ in patch versions.
   36 palette/mode combinations and is literally identical in `onyx dark`. But that was a fault of
   using two **independent** tokens, not of tone. Every tier is now `--accent` blended toward
   `--bg` at a different strength (16% / 61% / 100%), so the ladder is a property of one hue and no
-  palette can flatten it: worst-case across the same 36 combos, track-to-prefetch is **1.87:1** and
+  palette can *invert* it. Stated honestly, because the first version of this note was not: those
+  steps are **below WCAG 1.4.11's 3:1**, and a search over the whole one-token space shows **2.07:1
+  is the ceiling** — no blend of `--accent` toward `--bg` can reach 3:1 on this palette set. What
+  the ladder does buy is the signal that actually carries position: **progress-vs-track went from
+  under 3:1 in eleven palettes (identical in `onyx dark`) to 3.59:1 worst-case, passing in all 36**
+  — a pre-existing defect the previous rail had and this fixes. The buffered range is a reinforcing
+  tone, not a load-bearing one. Worst-case track-to-prefetch is **1.87:1** and
   prefetch-to-progress **1.92:1**, and `onyx dark` — the impossible case before — now renders
   white / mid-gray / near-black. The resting track sits within a hair of what `--border` itself
   achieves against `--bg` (1.19 vs 1.21 worst-case), so the bar at rest is no louder than the

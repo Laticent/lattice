@@ -101,15 +101,18 @@ test.describe('Present — the between-slide beat', () => {
 		const segments = () =>
 			rail.evaluate((el) =>
 				Array.from(el.querySelectorAll('button')).map((b) => {
-					// Every tier is the SAME height now (the scrubber idiom) and differs by TONE, so
-					// they are identified by DOM order rather than thickness: track, then prefetch,
-					// then progress — each rendered only once it has width.
-					const spans = Array.from(b.querySelectorAll('span')).filter((s) => getComputedStyle(s).position === 'absolute' && getComputedStyle(s).height === '8px');
-					const track = spans[0];
-					const progress = spans[spans.length - 1];
+					// Selected by an explicit `data-tier`, never by DOM order or height. Ordinal
+					// selection silently mis-identified the tiers — `spans[last]` is the PREFETCH
+					// fill whenever prefetch has width and progress does not, so this guard would
+					// have passed on an advancing buffer edge with playback progress entirely
+					// broken: the exact bug it exists to catch, walking through it (#1352).
+					const at = (tier: string) => b.querySelector(`[data-tier="${tier}"]`);
+					const track = at('track');
+					const progress = at('progress');
 					return {
 						track: track ? getComputedStyle(track).backgroundColor : '',
-						progress: spans.length > 1 ? parseFloat(getComputedStyle(progress).width) : 0,
+						progress: progress ? parseFloat(getComputedStyle(progress).width) : 0,
+						playhead: !!at('playhead'),
 					};
 				}),
 			);
@@ -117,7 +120,11 @@ test.describe('Present — the between-slide beat', () => {
 		const atRest = await segments();
 		expect(atRest.length).toBeGreaterThan(2);
 		expect(atRest[0].progress, 'nothing has played yet').toBe(0);
-		expect(atRest[0].track, 'the current segment is distinguishable with nothing playing').not.toBe(atRest[1].track);
+		// The PLAYHEAD is the cue, not the track's tone. A tone lift was the old cue and the
+		// prefetch fill covers it completely once a slide is cached — so assert the mark, which
+		// is painted last and cannot be covered.
+		expect(atRest[0].playhead, 'the current slide carries the playhead at rest').toBe(true);
+		expect(atRest.slice(1).some((s) => s.playhead), 'and no other slide does').toBe(false);
 		expect(new Set(atRest.slice(1).map((s) => s.track)).size, 'every other segment shares one resting track').toBe(1);
 
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
