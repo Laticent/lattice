@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CloudDownload, EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
@@ -28,7 +28,7 @@ import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
-import { narrationLatencyKey, prepareNarration, slideToSpeech, useReadAloud, voiceAvailability, warmNarrationWindow } from './read-aloud';
+import { narrationLatencyKey, narrationReadiness, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -481,6 +481,50 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		warmNarrationWindow(texts, ctl.signal, acronyms, lang, lexicon);
 		return () => ctl.abort();
 	}, [open, muted, clamped, lookahead, set, narrationAt, acronyms, lang, lexicon]);
+	// Per-slide narration readiness for the rail's "ready" band.
+	//
+	// Split into an EXPENSIVE part and a CHEAP part, because this has to be polled. The
+	// band's whole job is to keep advancing while playback is frozen — that is what says
+	// "buffering" rather than "crashed" — and a stall involves no navigation, so a
+	// recompute-on-navigation would leave it motionless during exactly the event it exists
+	// to report.
+	//
+	// The expensive part (splitting the deck into spoken sentences — one `buildTrack` per
+	// slide) depends only on the deck, so it is memoized. The polled part is one
+	// `getAllKeys` plus a set intersection.
+	// `narrationAt` (not the ref) is the honest dependency: it already re-creates when the DOM
+	// projection lands, which is exactly when a slide's narration text — and therefore its
+	// cache keys — change.
+	const readinessSentences = React.useMemo(
+		() => spokenSentencesPerSlide(set.map((_, i) => narrationAt(i)), { acronyms, lang, lexicon }),
+		[set, narrationAt, acronyms, lang, lexicon],
+	);
+	const [ready, setReady] = React.useState<boolean[]>([]);
+	React.useEffect(() => {
+		if (!open || muted) {
+			setReady([]);
+			return;
+		}
+		let live = true;
+		const refresh = () => {
+			narrationReadiness(readinessSentences)
+				.then((r) => {
+					if (live) setReady(r);
+				})
+				.catch(() => {
+					if (live) setReady([]);
+				});
+		};
+		refresh();
+		// 2s: slow enough to be invisible against a single IndexedDB key read, fast enough
+		// that a viewer watching a stall sees the runway grow rather than a frozen bar.
+		const id = window.setInterval(refresh, 2000);
+		return () => {
+			live = false;
+			window.clearInterval(id);
+		};
+	}, [open, muted, readinessSentences]);
+
 	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
 	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
 	// keeps chaining; the deck's natural end turns autoplay off via onFinish). No separate "Auto".
@@ -496,75 +540,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, []);
 	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
 
-	// ── Prepare narration ─────────────────────────────────────────────────────
-	// Synthesize the WHOLE deck before delivering it. Prefetching hides latency; this
-	// removes it — after a prepare, the presentation reads entirely from cache, so a live
-	// room has no network in the loop at all. That is the difference between "usually
-	// fast" and "safe to present on", and a stall mid-sentence in front of an audience is
-	// the failure this exists to make impossible.
-	// Is there a voice that could actually prepare anything? Present opens muted and the
-	// rung isn't resolved until playback starts, so "unmuted" is NOT the same as "a voice
-	// is connected" — with no key and no on-device model the ladder floors to `silent`,
-	// where a prepare pass would dutifully synthesize nothing and report "0 of 42 lines".
-	// Offering a billed-looking action that cannot do anything is worse than not offering
-	// it. Caught by looking at the real dock, not by any test. (See the design record's
-	// verification note: this is exactly the class of defect a green suite doesn't reach.)
-	const [voiceReady, setVoiceReady] = React.useState(false);
-	React.useEffect(() => {
-		if (!open || muted) {
-			setVoiceReady(false);
-			return;
-		}
-		let live = true;
-		voiceAvailability()
-			.then((a) => {
-				if (live) setVoiceReady(!!a && (a.openRouterReady || a.kokoroReady));
-			})
-			.catch(() => {
-				if (live) setVoiceReady(false);
-			});
-		return () => {
-			live = false;
-		};
-	}, [open, muted]);
-	const [prepare, setPrepare] = React.useState<{ done: number; total: number } | null>(null);
-	const prepareCtl = React.useRef<AbortController | null>(null);
-	const runPrepare = React.useCallback(async () => {
-		if (prepareCtl.current) {
-			// A second press CANCELS — this is a long, billed operation, so it must always be
-			// stoppable from the same control that started it.
-			prepareCtl.current.abort();
-			prepareCtl.current = null;
-			setPrepare(null);
-			return;
-		}
-		const ctl = new AbortController();
-		prepareCtl.current = ctl;
-		setPrepare({ done: 0, total: 0 });
-		const texts = set.map((_, i) => narrationAtRef.current(i));
-		const res = await prepareNarration(texts, {
-			signal: ctl.signal,
-			acronyms,
-			lang,
-			lexicon,
-			onProgress: (p) => {
-				if (!ctl.signal.aborted) setPrepare(p);
-			},
-		});
-		if (prepareCtl.current === ctl) prepareCtl.current = null;
-		setPrepare(null);
-		if (!res.cancelled) notify(res.ok === res.total ? `Narration ready — ${res.total} lines cached on this device.` : `Narration mostly ready — ${res.ok} of ${res.total} lines cached; the rest will synthesize as you present.`);
-	}, [set, acronyms, lang, lexicon, notify]);
-	// Never let a prepare outlive the surface that started it — closing Present must not
-	// leave a billed background pass running against a deck nobody is presenting.
-	React.useEffect(() => {
-		if (open) return;
-		prepareCtl.current?.abort();
-		prepareCtl.current = null;
-		setPrepare(null);
-	}, [open]);
-	React.useEffect(() => () => { prepareCtl.current?.abort(); }, []);
-	const preparePct = prepare?.total ? Math.round((prepare.done / prepare.total) * 100) : 0;
 
 	// REAL rehearsal plan — the deterministic planner the Drawing Board ships
 	// (drawing-board-rehearsal.js): metas → per-slide dwell targets, role-specific
@@ -969,29 +944,17 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					{!rehearse && (
 						<div className={cn('flex items-center gap-2 transition-opacity duration-300 motion-reduce:!opacity-100 motion-reduce:transition-none', revealed ? 'opacity-100' : 'opacity-50')}>
 							<Tip label="Captions — show the narration as text"><button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-2 text-[12px] font-extrabold tracking-wide', captionsOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>CC</button></Tip>
-							<Tip label="Voice — speak the narration aloud"><button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}<span className="hidden sm:inline">{
-								// While the voice is starved, SAY so here rather than leave the label
-								// claiming a voice that isn't sounding. The highlight is holding at the
-								// same moment (read-aloud's buffering hold), so the two agree: a visible
-								// beat, not captions crawling over silence.
-								muted ? 'Muted' : reader.buffering ? 'Catching up…' : rungLabel
-							}</span></button></Tip>
-							{/* Prepare — only offered when Voice is on (it is a synthesis spend) and the
-							    deck is worth preparing. Second press cancels. */}
-							{!muted && voiceReady && set.length > 1 && (
-								<Tip label={prepare ? 'Stop preparing' : 'Prepare the whole deck now — synthesize every line up front so delivery never waits on the network'}>
-									<button type="button" onClick={runPrepare} aria-label={prepare ? `Preparing narration, ${preparePct}% — press to stop` : 'Prepare narration for the whole deck'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', prepare ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
-										<CloudDownload className="size-3.5" />
-										<span className="hidden tabular-nums sm:inline">{prepare ? `${preparePct}%` : 'Prepare'}</span>
-									</button>
-								</Tip>
-							)}
+							<Tip label="Voice — speak the narration aloud"><button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
+							    status string mid-delivery is jarring, and for a screen reader it
+							    reads as the control itself becoming a different control. Buffering
+							    is reported on the rail, where it belongs. */}
+							<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button></Tip>
 						</div>
 					)}
 				</div>
 
 				{/* Section title + full-width rail (bottom) — the ONE progress element. */}
-				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} className="w-full" />
+				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} ready={rehearse ? undefined : ready} onJump={(i) => setIdx(i)} className="w-full" />
 			</div>
 			{/* The overview covers the whole surface when open (its own iframes) — re-enable
 			    pointer events for it above the chrome's `pointer-events-none` root. */}

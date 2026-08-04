@@ -445,3 +445,101 @@ sandbox (no key, and HARD RULE #24 keeps ours off the per-PR path), so those num
 run, or mine against a key you supply.
 
 Part 4 (Guide) remains unbuilt. Part 3 shipped with the live measurements above.
+
+## Amendment (2026-08-04): the readiness signal, and why Prepare stopped being a button
+
+Reviewing the shipped surface with the maintainer moved three things. Recorded here because
+two of them are reversals of what §2.4 and §2.5 originally proposed.
+
+### Prepare is not a control — it is a value of the lookahead setting
+
+§2.4 proposed a **Prepare** button in the Present dock. That was wrong, for a reason worth
+stating: **Present is a delivery surface.** A presenter standing in it who realizes they
+should have prepared is already in front of the room — the moment to decide has passed. A
+setup action belongs before delivery, not inside it.
+
+The deeper error: Prepare was never a separate feature. It is an **unbounded lookahead**. The
+window already warms on Present-open, on unmute, and on every navigation; Prepare only said
+"all of it instead of N slides." Shipping one concept as two is exactly why one of them
+needed a button. It is now a value — **Fetch ahead: Automatic / 1–4 slides / The whole deck**
+— and `resolveLookahead` returns `Infinity` for it, which the existing prefetch loop already
+clamps to the deck length. No new code path, one fewer concept, and the dock loses a control.
+
+### The label must never change with transport state
+
+The starvation state swapped the Voice label to "Catching up…". Reverted. A label that
+mutates mid-delivery is jarring, and for a screen reader it reads as the control *becoming a
+different control* — the accessible name is the control's identity, not a status field.
+
+### Readiness belongs on the rail, and the AA constraint reshaped it
+
+The signal that matters is not "how full is my buffer" — no presenter can act on that. It is
+**"is this still working?"**, and its audience is the *viewer of a self-presenting deck*, who
+cannot tell a buffering silence from a crashed page. That is a liveness question, and the
+answer already had a home: the rail is documented as "the ONE progress element", and it is
+one segment per slide — exactly readiness granularity.
+
+It is the video-scrubber idiom, which needs no teaching: **played edge = where we are, ready
+edge = how far the audio reaches.** During a stall the played edge freezes while the ready
+band keeps advancing — motion that continues while playback is stopped is the only honest
+signal that the deck is still working.
+
+**Two design instincts died on measurement rather than argument:**
+
+1. **A height-split band.** The rail bar is **3px**; a half-height band is 1.5px. No contrast
+   ratio rescues something that thin.
+2. **Three distinguishable bands** (played / ready / unready). Measured in a real browser on
+   the real tokens, `accent`-to-`border` is only **4.51:1** (light) and **5.38:1** (dark).
+   Fitting a third band with 3:1 on *both* sides needs ≈9:1. **Geometrically impossible with
+   these tokens** — a structural limit, not a tuning problem.
+
+So the rail draws the **two states that carry information**: can the deck still speak ahead,
+or not. The ready band is `color-mix(accent 80%, border)` — the lowest mix clearing 3:1
+against the unready track in both modes:
+
+| Mix | light `ready:track` | dark `ready:track` |
+|---|---|---|
+| 36% (first attempt) | 1.60 ✗ | 1.92 ✗ |
+| 70% | 2.69 ✗ | 3.44 ✓ |
+| **80% (shipped)** | **3.18 ✓** | **4.02 ✓** |
+
+`ready` therefore sits close to `played` (≈1.4:1). Accepted deliberately: the two are never
+adjacent — the current segment always separates them — and position is already carried by
+that segment's own partial fill and by `aria-current`, so no information rides on telling
+them apart. Separation is by **luminance, not hue**, so the distinction survives greyscale
+(1.4.1), and readiness is also exposed per segment in the accessible name ("— narration
+ready") rather than in a live region, which would talk over the narration it describes.
+
+**A measurement caveat worth recording:** the first contrast run reported 14.8:1 and was
+garbage — `color-mix()` resolves to `color(srgb …)` with 0–1 floats, and the probe read them
+as 0–255. The numbers above are from the corrected probe, with `data-mode` actually toggled
+(the first run silently measured light twice). Both errors would have shipped a failing
+design under a passing claim.
+
+### The rail idiom is meant to reach the shipped player
+
+Confirmed with the maintainer: **Present is where the deck is PLAYED; Settings is where the
+presenter configures caching and prefetch.** That split is what this amendment implements —
+the delivery surface carries no configuration, only the state of the thing being delivered.
+
+The readiness band is deliberately the **video-scrubber** idiom rather than anything invented
+here, because the same treatment is intended to reach the **shipped player** — the exported,
+self-presenting deck a board member opens. A viewer arrives with a video player's mental
+model already loaded; a bar whose played edge is position and whose ready edge is runway
+needs no explanation in either surface.
+
+That has a consequence worth stating before the Guide work: the readiness band currently
+lives in the Studio's React `PresentRail`, while the vanilla export player rides the shared
+transport kernel (`lib/core/present-transport.mjs`). When narration ships with a deck (below),
+the band should land in a form both surfaces can use rather than being reimplemented — the
+same HARD RULE #1 pressure that put swipe geometry in the kernel. Not built here; noted so
+the second implementation is a deliberate choice rather than an accident.
+
+### Still open, and bigger than this PR
+
+`share-export.ts` writes **captions only — "No audio, no TTS key"** — and the voice ladder
+reads the *viewer's* own key. So a shared deck opened by someone with no key floors to
+`silent`: **the self-presenting shared deck has no voice today.** Everything in Part 2
+optimizes the path where the author rehearses with their own key. Making a shared deck speak
+means baking prepared audio into the artifact, which is a separate feature with export-format
+consequences and needs its own design pass.

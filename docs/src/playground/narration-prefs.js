@@ -17,6 +17,10 @@ const CACHE_KEY = 'lattice-present-narration-cache';
 /** How many slides ahead Present prefetches when the pref is left on `auto`. Sized from
  *  the measured p95 synth latency for the active voice — see `resolveLookahead`. */
 const AUTO = 'auto';
+/** Prefetch the WHOLE deck. This is what a "Prepare the deck" action used to be — it is not
+ *  a separate feature, just an unbounded window, which is why it belongs here as a value
+ *  rather than as a button in the delivery surface. */
+const ALL = 'all';
 /** The hard ceiling on the prefetch window, whether chosen or auto-resolved. Above this
  *  a presenter is speculatively buying audio for slides they may never reach. */
 export const MAX_LOOKAHEAD = 4;
@@ -64,12 +68,18 @@ function writeLS(k, v) {
 /** The raw pref: `'auto'` or a slide count 0–MAX_LOOKAHEAD. Defaults to `'auto'`. */
 export function lookaheadPref() {
 	const raw = readLS(LOOKAHEAD_KEY);
+	if (raw === ALL) return ALL;
 	if (raw == null || raw === AUTO) return AUTO;
 	const n = Number(raw);
 	return Number.isFinite(n) && n >= 0 ? Math.min(MAX_LOOKAHEAD, Math.floor(n)) : AUTO;
 }
 
 export function setLookaheadPref(value) {
+	if (value === ALL) {
+		writeLS(LOOKAHEAD_KEY, ALL);
+		emit();
+		return;
+	}
 	writeLS(LOOKAHEAD_KEY, value === AUTO ? AUTO : String(Math.max(0, Math.min(MAX_LOOKAHEAD, Math.floor(Number(value) || 0)))));
 	emit();
 }
@@ -86,6 +96,9 @@ export function setLookaheadPref(value) {
  */
 export function resolveLookahead(voiceKey) {
 	const pref = lookaheadPref();
+	// The whole deck: an unbounded window. The caller clamps to the deck length, so this
+	// needs no special case anywhere downstream — the prefetch loop simply never runs out.
+	if (pref === ALL) return Number.POSITIVE_INFINITY;
 	if (pref !== AUTO) return pref;
 	const { n, p95 } = latencyStats(voiceKey || '');
 	if (n < 5) return DEFAULT_LOOKAHEAD; // too few samples to be a signal, not a coincidence

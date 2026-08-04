@@ -580,6 +580,23 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return latencyKeyFor(pickRung().name);
   }
 
+  /**
+   * The exact CACHE key a sentence will be stored and looked up under, for the ACTIVE
+   * rung/voice/speed — the identity `narration-store` is keyed by.
+   *
+   * Exported so a consumer asking "is this audio already on the device?" uses the SAME
+   * builder playback does. The key is `JSON.stringify([rung, model, voice, speed, text])`
+   * — a JSON array, not a delimiter-joined string — so any consumer that reconstructs it
+   * by hand gets a shape that never matches and silently reads "nothing cached" forever.
+   * That is not hypothetical: it is exactly how the latency key broke (#1352 review), and
+   * a readiness meter failing the same way would quietly under-report every time.
+   */
+  function clipKey(text) {
+    const rung = pickRung();
+    const effVoice = rung.name === 'openrouter-tts' ? orVoice() : rung.name === 'kokoro' ? kokoroVoice() : '';
+    return cacheKeyFor(rung.name, modelIdFor(rung.name), effVoice, speedPref(), text);
+  }
+
   // Is Kokoro on disk? Probed async (Cache Storage) and cached here so the
   // synchronous availability() the button reads can distinguish "downloaded but not
   // loaded" from "never downloaded". Probed once on creation; re-probed after a
@@ -928,6 +945,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     resume,
     warm,
     latencyKey,
+    clipKey,
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {

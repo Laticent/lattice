@@ -7,7 +7,7 @@
 
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { __resetForTests, clearClips, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, setBudgetBytes } from './narration-store.js';
+import { __resetForTests, clearClips, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
 
 /** A blob-like in the same duck-typed shape voice-model.js's rungs return. */
 function fakeBlob(bytes: number, type = 'audio/mpeg') {
@@ -133,5 +133,35 @@ describe('narration-store', () => {
 			const hostile = { size: 10, type: 'audio/mpeg', arrayBuffer: async () => { throw new Error('read failed'); } };
 			expect(await putClip('k', hostile)).toBe(false);
 		});
+	});
+});
+
+describe('readyKeys — the rail\'s readiness question', () => {
+	it('returns exactly the subset already on this device', async () => {
+		await putClip('a', fakeBlob(10));
+		await putClip('c', fakeBlob(10));
+		const got = await readyKeys(['a', 'b', 'c', 'd']);
+		expect([...got].sort()).toEqual(['a', 'c']);
+	});
+
+	it('answers in ONE read regardless of how many keys are asked about', async () => {
+		// The point of the meta store. Asked naively this is one IDB round trip per sentence —
+		// hundreds on a long deck, on a surface that must open instantly.
+		for (let i = 0; i < 50; i++) await putClip(`k${i}`, fakeBlob(8));
+		const asked = Array.from({ length: 200 }, (_, i) => `k${i}`);
+		const got = await readyKeys(asked);
+		expect(got.size).toBe(50);
+	});
+
+	it('an empty ask is an empty answer, with no store access', async () => {
+		expect((await readyKeys([])).size).toBe(0);
+		expect((await readyKeys(undefined as unknown as string[])).size).toBe(0);
+	});
+
+	it('under-promises rather than over-promises when the store is unusable', async () => {
+		// Readiness is a claim that audio can play with no network. If we cannot verify it,
+		// the safe answer is "not ready" — a false "ready" would present as a stall.
+		await clearClips();
+		expect((await readyKeys(['a'])).size).toBe(0);
 	});
 });

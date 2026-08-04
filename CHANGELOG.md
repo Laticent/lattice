@@ -384,10 +384,21 @@ in patch versions.
   (IndexedDB, ~100 MB, oldest dropped first) under the same content-complete cache key playback
   looks up, so a rehearsed deck presents instantly, offline, and without paying to synthesize the
   same words twice — surfaced and clearable under **Data → Narration audio**, and switchable off.
-  And a **Prepare** button in the Present dock synthesizes the entire deck up front with live
-  progress, so a live room has no network in the loop at all — shown only when a voice is actually
-  connected, since with none the ladder floors to silent and a prepare pass would report "0 of 42
-  lines" after doing nothing.
+  Fetching the **whole deck** up front — so a live room has no network in the loop at all — is a
+  *value* of that same setting rather than a separate action: preparing a deck was never a distinct
+  feature, only an unbounded lookahead, and a setup control does not belong in a delivery surface
+  where a presenter discovering it is already in front of the room.
+
+- **The Present rail now shows how far the narration reaches, not just where you are.** Upcoming
+  slides whose audio is on the device carry a "ready" band — the video-scrubber idiom, where the
+  played edge is the position and the ready edge is the runway. It exists for the *audience* of a
+  self-presenting deck rather than the presenter: when narration stalls, the played edge freezes
+  while the ready band keeps advancing, and motion that continues while playback is stopped is the
+  only honest way to say "still working" rather than "crashed". Bands are separated by **luminance,
+  not hue**, so they survive greyscale, and the ready band is measured at **3.18:1 (light) / 4.02:1
+  (dark)** against the unready track — clearing WCAG 1.4.11's 3:1 for meaningful non-text contrast.
+  Readiness also rides each segment's accessible name, deliberately not a live region, which would
+  talk over the narration it describes.
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The

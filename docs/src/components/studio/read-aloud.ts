@@ -2,6 +2,8 @@ import * as React from 'react';
 import { type Active, buildTrack, type CaptionTrack, interCueGapMs, makeReader, type Reader, rateScale } from '@/lib/cadenza';
 import type { Bytes, Sequence, Stage } from '@/lib/suono';
 import { createStage } from '@/lib/suono';
+import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
+import { readyKeys } from '@/playground/narration-store.js';
 import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
 import { cachedSampleUrl, KOKORO_MODEL_ID, speedSupported } from './tts-voice-catalog';
 
@@ -146,6 +148,9 @@ type VoiceModel = {
 	 *  (`rung | modelId | voice`) — ask for it rather than assembling one, or a reader and
 	 *  the recorder drift into never matching. */
 	latencyKey: () => string;
+	/** The exact cache key a sentence is stored under for the ACTIVE rung/voice/speed. Ask
+	 *  for it — the key is a JSON array, so any hand-built equivalent silently never matches. */
+	clipKey: (text: string) => string;
 	/** Background-prefetch these spoken sentences into the shared audio cache — no playback, best-effort. `signal` stops any FURTHER requests once aborted (already-started ones finish; see voice-model.js). */
 	warm: (sentences: string[], opts?: { signal?: AbortSignal }) => void;
 	rung: () => string;
@@ -290,62 +295,6 @@ export function warmNarrationWindow(
 	lexicon?: ReadonlyMap<string, string>,
 ): void {
 	for (const text of texts) warmNarration(text, signal, acronyms, lang, lexicon);
-}
-
-/** Progress through a full-deck prepare pass. */
-export type PrepareProgress = { done: number; total: number };
-
-/**
- * Synthesize a WHOLE deck's narration up front — the "Prepare narration" pass.
- *
- * Prefetching hides latency; this removes it. After a prepare, delivery reads entirely
- * from cache (and, with the on-device store enabled, keeps doing so after a reload), so a
- * live presentation has no network in the loop at all — which is what a boardroom
- * actually needs from a feature whose worst case is a stall mid-sentence in front of an
- * audience. It also makes the cost one visible, one-time spend instead of a dribble.
- *
- * Runs at a small fixed concurrency and reports progress per sentence. Never throws: a
- * sentence that fails is counted as done (playback will retry it live) rather than
- * sinking the pass. Returns the number that actually landed.
- */
-export async function prepareNarration(
-	texts: string[],
-	opts?: {
-		onProgress?: (p: PrepareProgress) => void;
-		signal?: AbortSignal;
-		acronyms?: ReadonlyMap<string, string>;
-		lang?: string;
-		lexicon?: ReadonlyMap<string, string>;
-	},
-): Promise<{ ok: number; total: number; cancelled: boolean }> {
-	const voice = await getVoice();
-	// De-duplicate across the deck: a phrase repeated on two slides is ONE synth, one
-	// charge. The Set also collapses the empty strings contentless slides produce.
-	const sentences = [...new Set(texts.flatMap((t) => spokenSentences(t, opts?.acronyms, opts?.lang, opts?.lexicon)))].filter(Boolean);
-	const total = sentences.length;
-	if (!voice || !total) return { ok: 0, total, cancelled: false };
-	let done = 0;
-	let ok = 0;
-	let cursor = 0;
-	// Matches the in-slide playback scheduler's width. Higher would finish sooner but
-	// makes a prepare look like a burst to the provider — and this runs unattended.
-	const WIDTH = 3;
-	const worker = async () => {
-		while (cursor < total) {
-			if (opts?.signal?.aborted) return;
-			const text = sentences[cursor++];
-			try {
-				const res = await voice.synthOne({ text, signal: opts?.signal });
-				if (res?.bytes) ok++;
-			} catch {
-				/* a failed sentence is not a failed prepare — playback will try again live */
-			}
-			done++;
-			opts?.onProgress?.({ done, total });
-		}
-	};
-	await Promise.all(Array.from({ length: Math.min(WIDTH, total) }, worker));
-	return { ok, total, cancelled: !!opts?.signal?.aborted };
 }
 
 /**
@@ -1080,6 +1029,58 @@ export function useReadAloud(
 // speak() with no separate instance/download. Mirrors architect.ts's bridge-
 // function style (listStudioModels/setStudioModel/summonWebLLM/…) so the
 // Workspace components never touch a raw model object directly.
+
+/**
+ * Per-slide readiness: for each narration text, can this slide speak with NO network?
+ *
+ * This is what the Present rail draws as its "ready" band — the signal that separates a
+ * deck that is buffering from one that has stopped, which for a self-presenting deck is
+ * the difference between "wait a moment" and "this is broken". It reads the on-device
+ * store, so a deck prepared in an earlier session reads ready immediately: readiness is a
+ * CURRENT fact about this device, not a record of what this session fetched.
+ *
+ * A slide counts as ready only when EVERY one of its sentences is present — partial audio
+ * still stalls mid-slide, so anything less would over-promise.
+ *
+ * All-false when there is no clocked voice, no store, or the cache is switched off: with
+ * nothing cacheable there is no readiness to report, and claiming any would be a lie.
+ *
+ * Takes PRE-SPLIT sentences (see `spokenSentencesPerSlide`) rather than raw text, because
+ * this is polled while presenting: splitting a whole deck runs `buildTrack` per slide, and
+ * redoing that every couple of seconds on a 60-slide deck is real main-thread work on the
+ * one surface that must never stutter. The split depends only on the deck, so the caller
+ * memoizes it once and each poll costs a single `getAllKeys` plus a set intersection.
+ */
+export function spokenSentencesPerSlide(
+	texts: string[],
+	opts?: { acronyms?: ReadonlyMap<string, string>; lang?: string; lexicon?: ReadonlyMap<string, string> },
+): string[][] {
+	return texts.map((t) => spokenSentences(t, opts?.acronyms, opts?.lang, opts?.lexicon));
+}
+
+export async function narrationReadiness(perSlide: string[][]): Promise<boolean[]> {
+	const empty = perSlide.map(() => false);
+	if (!narrationCacheEnabled()) return empty;
+	const voice = await getVoice();
+	if (!voice) return empty;
+	let rung: string;
+	try {
+		rung = voice.rung();
+	} catch {
+		return empty;
+	}
+	if (rung !== 'openrouter-tts' && rung !== 'kokoro') return empty; // no clocked voice → nothing to be ready
+	// The SAME key playback looks up, from the voice model's OWN builder. Reconstructing it
+	// here is the bug that made `auto` lookahead inert (#1352 review) — and the cache key is
+	// a JSON array, so a hand-built string would never match on a single sentence.
+	const all = [...new Set(perSlide.flat())].filter(Boolean);
+	if (!all.length) return empty;
+	const keyOf = (s: string) => voice.clipKey(s);
+	const ready = await readyKeys(all.map(keyOf));
+	// A contentless slide has nothing to fetch, so it can always "speak" (silently) without
+	// the network — it must not read as a gap in the runway.
+	return perSlide.map((sentences) => (sentences.length === 0 ? true : sentences.every((s) => ready.has(keyOf(s)))));
+}
 
 /** The active voice's latency key — the identity `resolveLookahead` sizes the prefetch
  *  window from. Bridged through the SAME shared voice-model instance playback records

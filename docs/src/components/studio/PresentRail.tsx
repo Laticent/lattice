@@ -16,6 +16,7 @@ export function PresentRail({
 	sections,
 	current,
 	frac,
+	ready,
 	onJump,
 	className,
 }: {
@@ -24,6 +25,21 @@ export function PresentRail({
 	current: number;
 	/** Within-slide progress 0..1 (read-aloud); fills the current segment. */
 	frac: number;
+	/** Per-slide narration readiness — can this slide speak with no network? Positionally
+	 *  aligned with the presented set. Drawn as the rail's "ready" band, the scrubber idiom
+	 *  every viewer already reads from a video player: played edge = where we are, ready
+	 *  edge = how far the audio reaches.
+	 *
+	 *  It is what tells a self-presenting deck's audience that a silence is BUFFERING rather
+	 *  than BROKEN: when narration stalls the played edge freezes, but the ready band keeps
+	 *  advancing as audio lands. Motion that continues while playback is stopped is the only
+	 *  honest signal that the deck is still working — and silence with no signal at all is
+	 *  indistinguishable from a crash.
+	 *
+	 *  Omit entirely when there is nothing to report (no clocked voice, cache off): the band
+	 *  then never renders, rather than drawing a permanently-empty runway that reads as a
+	 *  fault. */
+	ready?: boolean[];
 	onJump: (i: number) => void;
 	className?: string;
 }) {
@@ -93,6 +109,28 @@ export function PresentRail({
 								const done = gi < current;
 								const here = gi === current;
 								const right = done ? 0 : here ? 100 - Math.round(Math.max(0, Math.min(1, frac)) * 100) : 100;
+								// AA, MEASURED rather than assumed (see the decision record). The bands are
+								// separated by LUMINANCE, not hue, so a colour-blind viewer reads them in
+								// greyscale (1.4.1), and the meaningful pair must clear 3:1 (1.4.11).
+								//
+								// Two earlier instincts died on contact with the numbers:
+								//   · a HEIGHT split — the bar is 3px, so a half-height band is 1.5px, and no
+								//     amount of contrast rescues something that thin;
+								//   · THREE distinguishable bands — accent-to-border is only 4.5:1 (light) /
+								//     5.4:1 (dark), and fitting a third band with 3:1 on both sides needs ~9:1.
+								//     Geometrically impossible with these tokens, not a tuning problem.
+								// So the rail draws TWO states that matter — can this deck still speak ahead,
+								// or not — at 80% accent, the lowest mix clearing 3:1 against the unready track
+								// in BOTH modes (light 3.18, dark 4.02; dark alone would pass at 70%).
+								//
+								// `ready` therefore sits close to `played` (1.4:1). Accepted deliberately: they
+								// are never adjacent (the current segment always separates them), and position
+								// is already carried by the current segment's own partial fill and aria-current
+								// — so no information rides on telling those two apart.
+								//
+								// Only upcoming slides carry the band: a played slide's audio is spent, so
+								// marking it "ready" would be noise rather than information.
+								const isReady = !!ready?.[gi] && gi > current;
 								return (
 									<button
 										key={gi}
@@ -103,11 +141,11 @@ export function PresentRail({
 										tabIndex={gi === focusIdx ? 0 : -1}
 										onClick={() => onJump(gi)}
 										onFocus={() => setFocusIdx(gi)}
-										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}`}
+										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${isReady ? ' — narration ready' : ''}`}
 										aria-current={here ? 'step' : undefined}
 										className="relative h-[3px] min-w-0 flex-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
 									>
-										<span className="absolute inset-0 overflow-hidden rounded-full" style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : 'var(--border)' }}>
+										<span className="absolute inset-0 overflow-hidden rounded-full" style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : isReady ? 'color-mix(in srgb, var(--accent) 80%, var(--border))' : 'var(--border)' }}>
 											<span className="absolute inset-y-0 left-0 rounded-full transition-[right] duration-150" style={{ right: `${right}%`, background: 'var(--accent)' }} />
 										</span>
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}

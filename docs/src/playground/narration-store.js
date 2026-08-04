@@ -235,6 +235,32 @@ export async function clipStats() {
   }
 }
 
+/**
+ * Which of `keys` are already on this device — as a Set, in ONE request.
+ *
+ * The readiness the Present rail draws is "which upcoming slides can speak without the
+ * network", which is a set-membership question over a deck's worth of sentence keys. Asked
+ * naively that is one IndexedDB round trip per sentence — hundreds of them on a long deck,
+ * on a surface that must open instantly. `meta` is keyed by the clip key and holds no audio,
+ * so `getAllKeys()` answers the whole question with a single read of a few KB and an
+ * in-memory intersection.
+ *
+ * Returns an empty Set when the store is unavailable — readiness then reads as "nothing
+ * ready", which is the safe direction: it under-promises rather than claiming audio we
+ * cannot produce.
+ */
+export async function readyKeys(keys) {
+  const want = Array.isArray(keys) ? keys : [];
+  if (!want.length || typeof indexedDB === 'undefined') return new Set();
+  try {
+    const db = await openDB();
+    const have = new Set((await read(db, META, (meta) => meta.getAllKeys())) || []);
+    return new Set(want.filter((k) => have.has(k)));
+  } catch {
+    return new Set();
+  }
+}
+
 /** Drop every stored clip (the Data tab's "clear" action). */
 export async function clearClips() {
   if (typeof indexedDB === 'undefined') return;

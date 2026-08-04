@@ -556,8 +556,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								</div>
 								<div className="rounded-xl border border-border bg-background px-3 py-2.5">
 									<label htmlFor="ws-lookahead" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Fetch ahead</label>
-									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many upcoming slides to synthesize in the background while you present. <strong>Automatic</strong> sizes it from how fast your voice has actually been responding on this network — deeper on a slow link, shallower on a fast one — so you shouldn't normally need to change it.</p>
-									<Select value={String(lookahead)} onValueChange={(v) => { setLookaheadState(v); setLookaheadPref(v === 'auto' ? 'auto' : Number(v)); notify(v === 'auto' ? 'Fetch ahead: automatic.' : `Fetch ahead: ${v} slide${v === '1' ? '' : 's'}.`); }}>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many upcoming slides to synthesize in the background while you present. <strong>Automatic</strong> sizes it from how fast your voice has actually been responding on this network — deeper on a slow link, shallower on a fast one — so you shouldn't normally need to change it. <strong>The whole deck</strong> fetches everything up front, so delivery never touches the network — worth it before a room that matters.</p>
+									<Select value={String(lookahead)} onValueChange={(v) => { setLookaheadState(v); setLookaheadPref(v === 'auto' ? 'auto' : Number(v)); notify(v === 'auto' ? 'Fetch ahead: automatic.' : v === 'all' ? 'Fetch ahead: the whole deck — it will be ready to present offline.' : `Fetch ahead: ${v} slide${v === '1' ? '' : 's'}.`); }}>
 										<SelectTrigger id="ws-lookahead" className="w-full"><SelectValue /></SelectTrigger>
 										<SelectContent>
 											<SelectItem value="auto">Automatic (recommended)</SelectItem>
@@ -566,6 +566,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<SelectItem value="2">2 slides ahead</SelectItem>
 											<SelectItem value="3">3 slides ahead</SelectItem>
 											<SelectItem value="4">4 slides ahead</SelectItem>
+											<SelectItem value="all">The whole deck</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>
