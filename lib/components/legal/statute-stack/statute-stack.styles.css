@@ -64,9 +64,15 @@ section.statute-stack > .cell-stage > ul > li::marker,
 section.statute-stack > .cell-stage > ol > li::marker { content:''; }
 /* Three-jurisdiction hue rotation. Federal = warm cobalt, State = warm
  * sienna, Local = warm slate. Cycles after three. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); --jur-ink:var(--cat-4-ink); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink); }
 /* Jurisdiction label — eyebrow chrome (auto-bolded by slotLabelLift). The lifted
  * <strong> is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
  * ride the same row. Placement is keyed to the card SHAPE (see below), because a wide row
@@ -84,7 +90,7 @@ section.statute-stack > .cell-stage > ol > li > strong:first-child {
   font-weight:700;
   letter-spacing:0.16em;
   text-transform:uppercase;
-  color:var(--jur-accent, var(--accent));
+  color:var(--jur-ink, var(--accent));
 }
 /* Header pill chrome (shared). Neutral outline by default — the citation reads identical
  * across cards (an identifier, not a signal). */
@@ -174,7 +180,7 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(
   border-radius:var(--pill-radius);
   border:1px solid var(--jur-accent, var(--accent));
   background:var(--pill-bg, var(--bg));
-  color:var(--jur-accent, var(--accent));
+  color:var(--jur-ink, var(--accent));
   align-self:flex-start;
   white-space:nowrap;
 }
@@ -298,7 +304,7 @@ section.statute-stack.lane td:first-child {
   font-weight:700;
   letter-spacing:0.10em;
   text-transform:uppercase;
-  color:var(--lane-jur, var(--accent));
+  color:var(--lane-ink, var(--accent));
   white-space:nowrap;
 }
 section.statute-stack.lane td:nth-child(2) {
@@ -307,9 +313,9 @@ section.statute-stack.lane td:nth-child(2) {
   color:var(--text-heading);
   white-space:nowrap;
 }
-section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); }
-section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); }
-section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); }
+section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); --lane-ink:var(--cat-4-ink); }
+section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); --lane-ink:var(--cat-6-ink); }
+section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); --lane-ink:var(--cat-1-ink); }
 section.statute-stack.lane tbody tr > td:first-child {
   border-left:3px solid var(--lane-jur, var(--accent));
   padding-left:var(--sp-md);

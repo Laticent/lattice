@@ -205,14 +205,15 @@ trajectory).
   plot palette, Mermaid cScale feeds.
 
 Fill and mark are opposite tiers that **swap when the canvas flips** (pale
-fill ↔ jewel fill; deep mark ↔ pale mark). Each slot honors the **three-layer
+fill ↔ jewel fill; deep mark ↔ pale mark). Each slot honors the **layered
 contrast contract** (#1022,
 `engineering/decisions/2026-07-15-categorical-token-contract.md`):
 
 1. **① edge/border** — `--cat-N-mark` vs `--bg` ≥ 3:1 (WCAG 1.4.11 graphical).
 2. **② leaf fill** — `--cat-N-fill` vs `--bg` *intentionally low*; the ① border delineates it.
 3. **③ label ink** — `--cat-on-fill` vs `--cat-N-fill` ≥ 4.5:1 (WCAG AA).
-4. **④ on-canvas ink** — `--cat-N-ink` vs `--bg` **and** `--bg-alt` ≥ 4.5:1 (WCAG AA).
+4. **④ on-canvas ink** — `--cat-N-ink` vs `--bg` **and** `--bg-alt` ≥ 4.5:1 (WCAG AA),
+   on all three canvases: light, dark, and the print band.
 5. **anti-collapse** — fill ≠ mark (equal fill/mark was the collapse bug).
 
 `checkCatContrast` in `tools/check-ownership.js` gates **four of these** — ① (mark
@@ -224,7 +225,7 @@ palette is exempt** — it runs over all 32, a11y included. Layer ② (fill vs `
 is a *design intention* the ① border makes safe, not a machine-checked number.
 The shipped values are regenerated per
 theme by a deterministic recipe from each theme's own hues — not copied from a
-proposal deck. To start a new theme, copy a shipped three-layer block (indaco / cuoio)
+proposal deck. To start a new theme, copy a shipped fill/mark block (indaco / cuoio)
 and re-hue it (the `new:theme` scaffold does this for you).
 
 **Paired ink** (flips with the fill tier):
@@ -250,7 +251,13 @@ and re-hue it (the `new:theme` scaffold does this for you).
   dark canvas). Reach for this — never the raw `--cat-N-mark` — whenever a
   categorical hue has to carry **small text** on `--bg` / `--bg-alt`; the mark
   carries only the 3:1 non-text guarantee its stroke role is scoped to. A
-  palette overrides it the ordinary way, by declaring `--cat-N-ink` at `:root`.
+  palette that must override it sets **`--cat-N-ink-set`** at `:root` — the named
+  seam, not a redeclaration of `--cat-N-ink`. The derivation is declared on
+  `:root, section`, and it has to be: a custom property substitutes its `var()`s on
+  the element the declaration applies to, so a `:root`-only copy freezes the theme
+  hue and `section.print`'s B&W remap can never reach it. A plain `:root` override
+  would be shadowed on every slide for the same reason.
+  `themes/a11y-base.css` is the shipped example.
 
 **Texture adoption (optional).** A monochrome (onyx) or CVD-safe theme that
 can't separate categories by hue declares 12 `--cat-N-texture:
@@ -431,7 +438,8 @@ than hand-deriving the tiers.
 A **fourth** layer rides on top and needs nothing from the palette author:
 `--cat-N-ink`, the hue as small text on the slide, derived from the mark tier in
 `lib/base/base.tokens.css` and gated against both `--bg` and `--bg-alt` on every
-palette. Re-hue the mark and the ink follows.
+palette, on light, dark and print. Re-hue the mark and the ink follows; to pin it,
+set `--cat-N-ink-set`.
 
 Colors that ignore the tier split:
 

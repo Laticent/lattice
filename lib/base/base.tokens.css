@@ -363,6 +363,8 @@
    * `--c-ink-*` names are RETIRED. The old→new map lives in lib/tokens/
    * crosswalk.js + the ADR §7 table for legacy-deck migration. */
 
+}
+
   /* ── --cat-N-ink · the category's hue AS TEXT, on the slide ───────────
    * The categorical tier has THREE inks, told apart by WHAT THE INK SITS ON:
    *
@@ -422,19 +424,44 @@
    * triples most themes' dark chroma — but it costs `carbone` its hue
    * (0.133 -> 0.022) and would make the panel and its label agree in dark while
    * disagreeing in light, which is worse than one consistent rule. Left as a
-   * per-theme palette question. */
-  --cat-1-ink:  light-dark(color-mix(in oklab, var(--cat-1-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-1-mark)  80%, var(--text-heading)));
-  --cat-2-ink:  light-dark(color-mix(in oklab, var(--cat-2-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-2-mark)  80%, var(--text-heading)));
-  --cat-3-ink:  light-dark(color-mix(in oklab, var(--cat-3-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-3-mark)  80%, var(--text-heading)));
-  --cat-4-ink:  light-dark(color-mix(in oklab, var(--cat-4-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark)  80%, var(--text-heading)));
-  --cat-5-ink:  light-dark(color-mix(in oklab, var(--cat-5-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-5-mark)  80%, var(--text-heading)));
-  --cat-6-ink:  light-dark(color-mix(in oklab, var(--cat-6-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-6-mark)  80%, var(--text-heading)));
-  --cat-7-ink:  light-dark(color-mix(in oklab, var(--cat-7-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-7-mark)  80%, var(--text-heading)));
-  --cat-8-ink:  light-dark(color-mix(in oklab, var(--cat-8-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-8-mark)  80%, var(--text-heading)));
-  --cat-9-ink:  light-dark(color-mix(in oklab, var(--cat-9-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-9-mark)  80%, var(--text-heading)));
-  --cat-10-ink: light-dark(color-mix(in oklab, var(--cat-10-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-10-mark) 80%, var(--text-heading)));
-  --cat-11-ink: light-dark(color-mix(in oklab, var(--cat-11-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-11-mark) 80%, var(--text-heading)));
-  --cat-12-ink: light-dark(color-mix(in oklab, var(--cat-12-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-12-mark) 80%, var(--text-heading)));
+   * per-theme palette question.
+   *
+   * DECLARED ON `:root, section`, AND THAT DUPLICATION IS LOAD-BEARING — the same
+   * rule the `--sp-*` block below spells out: `var()` is substituted on the element
+   * the declaration APPLIES to, so a `:root`-only copy bakes in the ROOT's
+   * `--cat-N-mark` and every remap further down becomes invisible. `section.print`
+   * (base.modifiers.css) remaps all 12 marks to the `--print-*` gray band; with the
+   * ink declared only at `:root` a print slide rendered a gray rule beside a
+   * full-hue theme label — measured in Chromium: `premise`'s verb name stayed
+   * indaco `#214466` while its border-left correctly went `#333333`. The `section`
+   * copy re-substitutes per slide, so the ink follows the mark wherever the mark is
+   * remapped. `light-dark()` is NOT the same case — it resolves where the value is
+   * USED as a color, which is why the dark arm worked from `:root` and hid this.
+   *
+   * OVERRIDE THROUGH THE `-set` SEAM, NOT BY REDECLARING. Because the derivation is
+   * declared on `section`, a theme that redeclared `--cat-N-ink` at `:root` would be
+   * SHADOWED on every slide — measured: the a11y pin silently reverted to the derived
+   * value and its dark rows went back to 2.26:1. So a theme sets `--cat-N-ink-set`
+   * instead: it is never declared here, so it simply inherits from `:root` and wins
+   * wherever the fallback would otherwise apply, regardless of source order or which
+   * element the derivation lands on. Same named-seam idiom as chart-family's
+   * `var(--chart-catN, default)` — set a token, it wins, with no color-mix to
+   * reverse-engineer. `themes/a11y-base.css` is the shipped example. */
+:root, section {
+  --cat-1-ink:  var(--cat-1-ink-set, light-dark(color-mix(in oklab, var(--cat-1-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-1-mark)  80%, var(--text-heading))));
+  --cat-2-ink:  var(--cat-2-ink-set, light-dark(color-mix(in oklab, var(--cat-2-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-2-mark)  80%, var(--text-heading))));
+  --cat-3-ink:  var(--cat-3-ink-set, light-dark(color-mix(in oklab, var(--cat-3-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-3-mark)  80%, var(--text-heading))));
+  --cat-4-ink:  var(--cat-4-ink-set, light-dark(color-mix(in oklab, var(--cat-4-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark)  80%, var(--text-heading))));
+  --cat-5-ink:  var(--cat-5-ink-set, light-dark(color-mix(in oklab, var(--cat-5-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-5-mark)  80%, var(--text-heading))));
+  --cat-6-ink:  var(--cat-6-ink-set, light-dark(color-mix(in oklab, var(--cat-6-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-6-mark)  80%, var(--text-heading))));
+  --cat-7-ink:  var(--cat-7-ink-set, light-dark(color-mix(in oklab, var(--cat-7-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-7-mark)  80%, var(--text-heading))));
+  --cat-8-ink:  var(--cat-8-ink-set, light-dark(color-mix(in oklab, var(--cat-8-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-8-mark)  80%, var(--text-heading))));
+  --cat-9-ink:  var(--cat-9-ink-set, light-dark(color-mix(in oklab, var(--cat-9-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-9-mark)  80%, var(--text-heading))));
+  --cat-10-ink: var(--cat-10-ink-set, light-dark(color-mix(in oklab, var(--cat-10-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-10-mark) 80%, var(--text-heading))));
+  --cat-11-ink: var(--cat-11-ink-set, light-dark(color-mix(in oklab, var(--cat-11-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-11-mark) 80%, var(--text-heading))));
+  --cat-12-ink: var(--cat-12-ink-set, light-dark(color-mix(in oklab, var(--cat-12-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-12-mark) 80%, var(--text-heading))));
+}
+:root {
 
      
      

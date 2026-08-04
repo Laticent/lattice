@@ -3402,6 +3402,7 @@ function skillFreshnessAssertions() {
 const CAT_TEXT_FLOOR = 4.5;      // ③ ④ AA normal text
 const CAT_EDGE_FLOOR = 3.0;      // ① WCAG 1.4.11 graphical
 const CAT_COLLAPSE_FLOOR = 1.25; // fill vs mark — catches fill==mark (1.0)
+const CAT_PRINT_CHROMA_MAX = 6;  // ④ print band: max sRGB max-min on a printed ink (B&W-safe)
 
 function catStripComments(s) { return s.replace(/\/\*[\s\S]*?\*\//g, ''); }
 // LAST declaration wins, mirroring the CSS cascade (an override later in the
@@ -3445,16 +3446,15 @@ function catResolve(map, tokenOrVal, mode) {
   const h = hx[1].length === 3 ? hx[1].split('').map((c) => c + c).join('') : hx[1];
   return `#${h.toLowerCase()}`;
 }
-// `--name` → `name` view of a token map, memoized per map (catResolve is called
-// ~1500× per run and the rebuild is otherwise O(tokens) each time).
-const CAT_BARE_VARS = new WeakMap();
+// `--name` → `name` view of a token map. Deliberately NOT memoized per map: a
+// WeakMap cache here returns a STALE value when a REFERENCED token is mutated
+// between calls on the same Map (`--a: var(--b)` keeps resolving to the old --b),
+// and catResolve is exported and driven with hand-built maps by the unit tests.
+// Rebuilding is O(tokens) and the whole gate runs a few thousand resolutions —
+// milliseconds. Correct-by-construction beats a micro-optimization in a gate.
 function catBareVars(map) {
-  let v = CAT_BARE_VARS.get(map);
-  if (!v) {
-    v = Object.create(null);
-    for (const [k, val] of map) v[k.replace(/^--/, '')] = val;
-    CAT_BARE_VARS.set(map, v);
-  }
+  const v = Object.create(null);
+  for (const [k, val] of map) v[k.replace(/^--/, '')] = val;
   return v;
 }
 function catRelLum(hex) {
@@ -3486,14 +3486,115 @@ function catPaletteSource(name, seen = new Set()) {
   if (!fs.existsSync(file)) return '';
   const css = fs.readFileSync(file, 'utf8');
   let out = '';
-  for (const m of css.matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen)}\n`;
+  // Comments FIRST: several themes discuss `@import 'lattice';` in prose, and a
+  // raw scan treats that sentence as a real import. Harmless where the named
+  // theme is imported anyway, silently wrong the moment a comment names one that
+  // is not — it would flatten a foreign palette's tokens into the gate's map.
+  for (const m of catStripComments(css).matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen)}\n`;
   return `${out}${css}`;
 }
 
+// The `section.print` remap block from base.modifiers.css, as a token map layered
+// OVER a palette. Print is a THIRD canvas that light-dark() cannot reach: it
+// re-points --bg / --bg-alt / --text-heading / --cat-N-mark at the B&W --print-*
+// band. --cat-N-ink is DERIVED from two of those, so it has to be judged against
+// the print surfaces too — and it is judged here rather than assumed, because a
+// `:root`-only declaration of the derivation silently froze the theme hue and put
+// carbone's printed labels at 1.29:1 on white while their rules printed gray.
+function catPrintOverlay(errors) {
+  const css = catStripComments(fs.readFileSync(path.join(LIB_DIR, 'base', 'base.modifiers.css'), 'utf8'));
+  const at = css.indexOf('section.print {');
+  if (at === -1) { errors.push('checkCatContrast could not find the `section.print` block in lib/base/base.modifiers.css — the print band is unverifiable.'); return null; }
+  const end = css.indexOf('\n}', at);
+  if (end === -1) { errors.push('checkCatContrast could not find the end of the `section.print` block — the print band is unverifiable.'); return null; }
+  const map = catParseTokens(css.slice(at, end));
+  // A TRUNCATED overlay is the dangerous failure, not a missing one: the scan ends
+  // at the first column-0 `}`, so a nested block added inside `section.print` would
+  // silently cut it short, the missing tokens would fall through to the palette's
+  // SCREEN values, and the print arm would cheerfully judge the wrong colors green.
+  // Demand every input the ink derivation and its surfaces actually need.
+  const required = ['--bg', '--bg-alt', '--text-heading', ...Array.from({ length: 12 }, (_, i) => `--cat-${i + 1}-mark`)];
+  const missing = required.filter((t) => !map.has(t));
+  if (missing.length) {
+    errors.push(`checkCatContrast read the section.print block but it is missing ${missing.length} token(s) the print arm needs: ${missing.join(', ')}. Either the print band stopped remapping them, or the block scan was truncated by a nested rule (it ends at the first column-0 "}").`);
+    return null;
+  }
+  return map;
+}
+
+// WHERE the ink is declared, not just what it resolves to.
+//
+// The contrast arms below run on a FLAT token map — catParseTokens ignores
+// selectors entirely, by design and by its own comment. That model is right for
+// "what colour does this reduce to" and blind to the one thing that actually
+// broke here: `var()` inside a custom property is substituted on the element the
+// declaration APPLIES to, so declaring the derivation at `:root` alone freezes
+// `:root`'s --cat-N-mark and every remap below it — `section.print`'s B&W band
+// above all — becomes invisible. The flat map resolves that regression to exactly
+// the same hex it resolves the correct code to, so no value check can see it.
+// This is the structural assertion that can: every --cat-N-ink declaration must
+// sit under a selector that includes `section`.
+function catInkDeclarationSites(css) {
+  const stripped = catStripComments(css);
+  const sites = [];
+  for (const m of stripped.matchAll(/--cat-(\d+)-ink\s*:/g)) {
+    const open = stripped.lastIndexOf('{', m.index);
+    if (open === -1) { sites.push({ slot: m[1], selector: '<none>' }); continue; }
+    const prevClose = stripped.lastIndexOf('}', open);
+    sites.push({ slot: m[1], selector: stripped.slice(prevClose + 1, open).trim().replace(/\s+/g, ' ') });
+  }
+  return sites;
+}
+
+// A theme pinning the ink MUST use the `-set` seam. Redeclaring `--cat-N-ink` at
+// `:root` looks right, resolves right in this gate's flat map, and is DEAD in the
+// browser: the derivation is declared on `:root, section`, so the section copy wins
+// on every slide and the pin never applies. That combination — plausible, gate-green,
+// silently inert — is the worst kind, and the docs recommended it until #1263. So the
+// shape is checked directly: no palette declares `--cat-N-ink`; it declares
+// `--cat-N-ink-set` or nothing.
+function checkCatInkOverrideSeam(errors) {
+  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+    if (!file.endsWith('.css')) continue;
+    const css = catStripComments(fs.readFileSync(path.join(THEMES_DIR, file), 'utf8'));
+    for (const m of css.matchAll(/--cat-(\d+)-ink\s*:/g)) {
+      errors.push(
+        `theme "${file.replace(/\.css$/, '')}" declares --cat-${m[1]}-ink directly. That override is DEAD: ` +
+        'lattice.css declares the derivation on `:root, section`, so the section copy wins on every slide ' +
+        'and a :root pin never applies (measured: the a11y ink silently reverted to 2.26:1). ' +
+        `Set --cat-${m[1]}-ink-set instead — the named seam, which is declared nowhere else and inherits.`,
+      );
+    }
+  }
+}
+
+function checkCatInkDeclaredOnSection(errors) {
+  const file = path.join(LIB_DIR, 'base', 'base.tokens.css');
+  const sites = catInkDeclarationSites(fs.readFileSync(file, 'utf8'));
+  if (sites.length !== 12) {
+    errors.push(`checkCatInkDeclaredOnSection found ${sites.length} --cat-N-ink declarations in base.tokens.css, expected 12 — the ink tier is incomplete or the scan is broken.`);
+  }
+  for (const { slot, selector } of sites) {
+    if (!/\bsection\b/.test(selector)) {
+      errors.push(
+        `--cat-${slot}-ink is declared under "${selector}", which does not include \`section\`. ` +
+        'The derivation reads var(--cat-N-mark) / var(--text-heading), and a custom property substitutes ' +
+        'its var()s on the element the declaration APPLIES to — so a :root-only copy bakes in the ROOT hue ' +
+        "and `section.print`'s B&W remap can never reach it (measured: carbone printed labels at 1.29:1 on " +
+        'white beside correctly-gray rules). Declare it on `:root, section`, as the --sp-* block does.',
+      );
+    }
+  }
+}
+
 function checkCatContrast(errors) {
+  checkCatInkDeclaredOnSection(errors);
+  checkCatInkOverrideSeam(errors);
+  const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
   let inkScanned = 0;
+  const inkScannedNames = new Set();
   let inkEvaluated = 0; // ④ slot×mode×surface pairs — its own metric, since its scope is wider
   for (const file of fs.readdirSync(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
@@ -3503,18 +3604,29 @@ function checkCatContrast(errors) {
 
     // ④ ON-CANVAS INK — every palette, a11y-* included. See the header note: this
     // layer asks whether small text is legible, which no palette is exempt from.
+    // THREE canvases, not two: light, dark, and the PRINT band (`section.print`
+    // remaps the ink's own inputs, so it lands somewhere neither mode covers).
     inkScanned += 1;
-    for (const mode of ['light', 'dark']) {
-      const bg = catResolve(map, '--bg', mode);
-      const bgAlt = catResolve(map, '--bg-alt', mode);
+    inkScannedNames.add(name);
+    for (const mode of ['light', 'dark', 'print']) {
+      // Print is a light-scheme band by construction (`section.print` pins
+      // color-scheme: light), layered over the palette exactly as the cascade does.
+      const scheme = mode === 'print' ? 'light' : mode;
+      const m = mode === 'print' ? new Map([...map, ...(printOverlay ?? [])]) : map;
+      if (mode === 'print' && !printOverlay) {
+        errors.push('checkCatContrast could not read the section.print block in lib/base/base.modifiers.css — the print band is unverifiable.');
+        continue;
+      }
+      const bg = catResolve(m, '--bg', scheme);
+      const bgAlt = catResolve(m, '--bg-alt', scheme);
       if (!bg || !bgAlt) {
         errors.push(`theme "${name}" ${mode}: --${!bg ? 'bg' : 'bg-alt'} did not resolve to a color — the contrast gate cannot verify on-canvas ink legibility.`);
         continue;
       }
       for (let n = 1; n <= 12; n += 1) {
-        const catInk = catResolve(map, `--cat-${n}-ink`, mode);
+        const catInk = catResolve(m, `--cat-${n}-ink`, scheme);
         if (!catInk) {
-          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is DERIVED in lib/base/base.tokens.css; a palette that pins it must pin something that reduces to a color.`);
+          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is DERIVED in lib/base/base.tokens.css; a palette that pins it must set --cat-${n}-ink-set to something that reduces to a color.`);
           continue;
         }
         for (const [surface, hex] of [['--bg', bg], ['--bg-alt', bgAlt]]) {
@@ -3525,6 +3637,23 @@ function checkCatContrast(errors) {
               `theme "${name}" ${mode}: --cat-${n}-ink vs ${surface} is ${r.toFixed(2)}:1, ` +
               `below the ${CAT_TEXT_FLOOR}:1 AA floor. Categorical text on the slide (math.theorem labels, ` +
               `split-panel card labels, premise row terms) must be legible on the canvas it sits on.`,
+            );
+          }
+        }
+        // The print band's whole promise is B&W-safety: a printed label must be
+        // ink, not a theme hue. A chromatic print ink means the derivation stopped
+        // following `section.print`'s remap — the exact regression that shipped a
+        // gray rule beside a carbone-blue label.
+        if (mode === 'print') {
+          const [pr, pg, pb] = [1, 3, 5].map((i) => Number.parseInt(catInk.slice(i, i + 2), 16));
+          const chroma = Math.max(pr, pg, pb) - Math.min(pr, pg, pb);
+          if (chroma > CAT_PRINT_CHROMA_MAX) {
+            errors.push(
+              `theme "${name}" print: --cat-${n}-ink resolves to ${catInk}, which carries chroma ${chroma} ` +
+              `(max ${CAT_PRINT_CHROMA_MAX}). The print band must be B&W-safe: the --print-* marks and ink ` +
+              `it derives from are a gray ramp, so a chromatic result means one of those inputs was re-tuned ` +
+              `off the band. (Whether the derivation is DECLARED where the remap can reach it is a separate ` +
+              `question, checked structurally by checkCatInkDeclaredOnSection — a flat token map cannot see it.)`,
             );
           }
         }
@@ -3599,12 +3728,20 @@ function checkCatContrast(errors) {
   else if (evaluated < scanned * 24) {
     errors.push(`checkCatContrast evaluated only ${evaluated} of the expected ${scanned * 24} slot×mode pairs — some slots did not resolve; coverage is incomplete.`);
   }
-  // The ink layer carries its OWN backstop, because its scope is wider (every
-  // palette, both surfaces) and a regression that quietly dropped a11y-* or one
-  // surface would otherwise hide behind the ①–③ count above.
-  if (!inkScanned) errors.push('checkCatContrast found no palettes to verify --cat-N-ink on — the theme scan is broken.');
-  else if (inkEvaluated < inkScanned * 48) {
-    errors.push(`checkCatContrast evaluated only ${inkEvaluated} of the expected ${inkScanned * 48} --cat-N-ink slot×mode×surface pairs — some slots did not resolve; coverage is incomplete.`);
+  // The ink layer's backstop is BY NAME, not by ratio. A ratio cannot catch the
+  // regression it exists to catch: drop a whole palette family from the scan and
+  // inkScanned and inkEvaluated shrink together, so `inkEvaluated < inkScanned * K`
+  // stays satisfied and the gate reports nothing. Name every palette file that
+  // failed to get scanned instead — that is unfixable by proportional shrinkage.
+  const inkExpected = fs.readdirSync(THEMES_DIR)
+    .filter((f) => f.endsWith('.css') && !f.includes('audit'))
+    .map((f) => f.replace(/\.css$/, ''));
+  const inkMissed = inkExpected.filter((t) => !inkScannedNames.has(t));
+  if (inkMissed.length) {
+    errors.push(`checkCatContrast never verified --cat-N-ink on ${inkMissed.length} palette(s): ${inkMissed.join(', ')}. Every shipped palette must be judged on the ink layer — no exemptions.`);
+  }
+  if (inkEvaluated !== inkScanned * 72) {
+    errors.push(`checkCatContrast evaluated ${inkEvaluated} --cat-N-ink slot×mode×surface pairs, expected exactly ${inkScanned * 72} (12 slots × 3 canvases × 2 surfaces) — some slot did not resolve; coverage is incomplete.`);
   }
 }
 
@@ -4726,6 +4863,9 @@ module.exports = {
   checkCatContrast,
   catResolve,
   catContrast,
+  checkCatInkDeclaredOnSection,
+  checkCatInkOverrideSeam,
+  catInkDeclarationSites,
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,
   CAT_COLLAPSE_FLOOR,

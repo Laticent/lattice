@@ -431,6 +431,8 @@
    * `--c-ink-*` names are RETIRED. The old→new map lives in lib/tokens/
    * crosswalk.js + the ADR §7 table for legacy-deck migration. */
 
+}
+
   /* ── --cat-N-ink · the category's hue AS TEXT, on the slide ───────────
    * The categorical tier has THREE inks, told apart by WHAT THE INK SITS ON:
    *
@@ -490,19 +492,44 @@
    * triples most themes' dark chroma — but it costs `carbone` its hue
    * (0.133 -> 0.022) and would make the panel and its label agree in dark while
    * disagreeing in light, which is worse than one consistent rule. Left as a
-   * per-theme palette question. */
-  --cat-1-ink:  light-dark(color-mix(in oklab, var(--cat-1-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-1-mark)  80%, var(--text-heading)));
-  --cat-2-ink:  light-dark(color-mix(in oklab, var(--cat-2-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-2-mark)  80%, var(--text-heading)));
-  --cat-3-ink:  light-dark(color-mix(in oklab, var(--cat-3-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-3-mark)  80%, var(--text-heading)));
-  --cat-4-ink:  light-dark(color-mix(in oklab, var(--cat-4-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark)  80%, var(--text-heading)));
-  --cat-5-ink:  light-dark(color-mix(in oklab, var(--cat-5-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-5-mark)  80%, var(--text-heading)));
-  --cat-6-ink:  light-dark(color-mix(in oklab, var(--cat-6-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-6-mark)  80%, var(--text-heading)));
-  --cat-7-ink:  light-dark(color-mix(in oklab, var(--cat-7-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-7-mark)  80%, var(--text-heading)));
-  --cat-8-ink:  light-dark(color-mix(in oklab, var(--cat-8-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-8-mark)  80%, var(--text-heading)));
-  --cat-9-ink:  light-dark(color-mix(in oklab, var(--cat-9-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-9-mark)  80%, var(--text-heading)));
-  --cat-10-ink: light-dark(color-mix(in oklab, var(--cat-10-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-10-mark) 80%, var(--text-heading)));
-  --cat-11-ink: light-dark(color-mix(in oklab, var(--cat-11-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-11-mark) 80%, var(--text-heading)));
-  --cat-12-ink: light-dark(color-mix(in oklab, var(--cat-12-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-12-mark) 80%, var(--text-heading)));
+   * per-theme palette question.
+   *
+   * DECLARED ON `:root, section`, AND THAT DUPLICATION IS LOAD-BEARING — the same
+   * rule the `--sp-*` block below spells out: `var()` is substituted on the element
+   * the declaration APPLIES to, so a `:root`-only copy bakes in the ROOT's
+   * `--cat-N-mark` and every remap further down becomes invisible. `section.print`
+   * (base.modifiers.css) remaps all 12 marks to the `--print-*` gray band; with the
+   * ink declared only at `:root` a print slide rendered a gray rule beside a
+   * full-hue theme label — measured in Chromium: `premise`'s verb name stayed
+   * indaco `#214466` while its border-left correctly went `#333333`. The `section`
+   * copy re-substitutes per slide, so the ink follows the mark wherever the mark is
+   * remapped. `light-dark()` is NOT the same case — it resolves where the value is
+   * USED as a color, which is why the dark arm worked from `:root` and hid this.
+   *
+   * OVERRIDE THROUGH THE `-set` SEAM, NOT BY REDECLARING. Because the derivation is
+   * declared on `section`, a theme that redeclared `--cat-N-ink` at `:root` would be
+   * SHADOWED on every slide — measured: the a11y pin silently reverted to the derived
+   * value and its dark rows went back to 2.26:1. So a theme sets `--cat-N-ink-set`
+   * instead: it is never declared here, so it simply inherits from `:root` and wins
+   * wherever the fallback would otherwise apply, regardless of source order or which
+   * element the derivation lands on. Same named-seam idiom as chart-family's
+   * `var(--chart-catN, default)` — set a token, it wins, with no color-mix to
+   * reverse-engineer. `themes/a11y-base.css` is the shipped example. */
+:root, section {
+  --cat-1-ink:  var(--cat-1-ink-set, light-dark(color-mix(in oklab, var(--cat-1-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-1-mark)  80%, var(--text-heading))));
+  --cat-2-ink:  var(--cat-2-ink-set, light-dark(color-mix(in oklab, var(--cat-2-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-2-mark)  80%, var(--text-heading))));
+  --cat-3-ink:  var(--cat-3-ink-set, light-dark(color-mix(in oklab, var(--cat-3-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-3-mark)  80%, var(--text-heading))));
+  --cat-4-ink:  var(--cat-4-ink-set, light-dark(color-mix(in oklab, var(--cat-4-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark)  80%, var(--text-heading))));
+  --cat-5-ink:  var(--cat-5-ink-set, light-dark(color-mix(in oklab, var(--cat-5-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-5-mark)  80%, var(--text-heading))));
+  --cat-6-ink:  var(--cat-6-ink-set, light-dark(color-mix(in oklab, var(--cat-6-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-6-mark)  80%, var(--text-heading))));
+  --cat-7-ink:  var(--cat-7-ink-set, light-dark(color-mix(in oklab, var(--cat-7-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-7-mark)  80%, var(--text-heading))));
+  --cat-8-ink:  var(--cat-8-ink-set, light-dark(color-mix(in oklab, var(--cat-8-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-8-mark)  80%, var(--text-heading))));
+  --cat-9-ink:  var(--cat-9-ink-set, light-dark(color-mix(in oklab, var(--cat-9-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-9-mark)  80%, var(--text-heading))));
+  --cat-10-ink: var(--cat-10-ink-set, light-dark(color-mix(in oklab, var(--cat-10-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-10-mark) 80%, var(--text-heading))));
+  --cat-11-ink: var(--cat-11-ink-set, light-dark(color-mix(in oklab, var(--cat-11-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-11-mark) 80%, var(--text-heading))));
+  --cat-12-ink: var(--cat-12-ink-set, light-dark(color-mix(in oklab, var(--cat-12-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-12-mark) 80%, var(--text-heading))));
+}
+:root {
 
      
      
@@ -1962,10 +1989,16 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li:not(:last-child)::after
   background:var(--accent);
 }
 /* Tier hue rotation — Statute / Regulation / Guidance / Case. */
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+1) { --tier-hue:var(--cat-4-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+2) { --tier-hue:var(--cat-1-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+3) { --tier-hue:var(--cat-6-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+4) { --tier-hue:var(--cat-3-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+1) { --tier-hue:var(--cat-4-mark); --tier-ink:var(--cat-4-ink); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+2) { --tier-hue:var(--cat-1-mark); --tier-ink:var(--cat-1-ink); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+3) { --tier-hue:var(--cat-6-mark); --tier-ink:var(--cat-6-ink); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+4) { --tier-hue:var(--cat-3-mark); --tier-ink:var(--cat-3-ink); }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child {
   flex:0 0 14cqi;
   font-family:var(--font-mono);
@@ -1973,7 +2006,7 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child {
   font-weight:700;
   letter-spacing:0.14em;
   text-transform:uppercase;
-  color:var(--tier-hue, var(--accent));
+  color:var(--tier-ink, var(--accent));
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
   flex:1; min-width:0;
@@ -2090,7 +2123,7 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
   font-family:var(--font-mono);
   font-size:var(--fs-h2);
   font-weight:700;
-  color:var(--tier-hue, var(--accent));
+  color:var(--tier-ink, var(--accent));
   line-height:1;
   padding-bottom:var(--sp-xs);
 }
@@ -8809,6 +8842,12 @@ section.logo-wall.dense > .cell-stage {
  * token (saturated, AA on both grounds, `light-dark()`-adaptive), cycling 1..12
  * so adjacent marks differ. This is the palette-driven answer to "keep the hues"
  * — cohesive with every chart/diagram in the deck, and contrast-clean by token. */
+/* DELIBERATELY the mark tier, not --cat-N-ink (#1263). Every other categorical
+ * `color:` in the engine moved to the ink tier because it paints small TEXT; this
+ * one paints a LOGO — a mask-image swatch, and on the export path an inline <svg>
+ * authored `fill: currentColor`. That is a graphical object, so WCAG 1.4.11's 3:1
+ * is the bar it answers to, and 3:1 is exactly what --cat-N-mark is gated at.
+ * Diluting it toward --text-heading would only mute the brand marks. */
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 1)  > .logo-mark { --logo-ink: var(--cat-1-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 2)  > .logo-mark { --logo-ink: var(--cat-2-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 3)  > .logo-mark { --logo-ink: var(--cat-3-mark); }
@@ -10743,9 +10782,11 @@ section.premise > ol > li > strong {
    * the weight to 700; at the inherited 600 the verb names measured 4.16-4.25:1,
    * under the 4.5:1 normal-text floor. `--cat-N-ink` (lib/base/base.tokens.css)
    * clears 4.5:1 on `--bg-alt` on every palette in both modes, gated by
-   * checkCatContrast, so the term can go back to the 600 that matches every other
-   * `section strong` in the engine — the weight was a contrast workaround, and
-   * with the contrast bought properly there is nothing left for it to do. (#1263) */
+   * checkCatContrast, so the term can go back to the engine's BASE weight for
+   * `section strong` (600, lib/base/base.elements.css) — the weight here was a
+   * contrast workaround, and with the contrast bought properly there is nothing left
+   * for it to do. (Not a claim that 600 is universal: several components do set 700
+   * deliberately, for emphasis. This one never did.) (#1263) */
   color: var(--row-ink, var(--text-heading));
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13321,14 +13362,20 @@ section.roadmap thead th:not(:first-child) > code, figure.roadmap thead th:not(:
    The workstream column reads `--phase-accent` for its lane stripe
    per row; phase columns read it for their leading column-accent
    stripe per column. */
-section.roadmap thead th:nth-child(8n+2), figure.roadmap thead th:nth-child(8n+2), section.roadmap tbody tr:nth-child(8n+1) > td:first-child, figure.roadmap tbody tr:nth-child(8n+1) > td:first-child{ --phase-accent:var(--cat-1-mark); }
-section.roadmap thead th:nth-child(8n+3), figure.roadmap thead th:nth-child(8n+3), section.roadmap tbody tr:nth-child(8n+2) > td:first-child, figure.roadmap tbody tr:nth-child(8n+2) > td:first-child{ --phase-accent:var(--cat-2-mark); }
-section.roadmap thead th:nth-child(8n+4), figure.roadmap thead th:nth-child(8n+4), section.roadmap tbody tr:nth-child(8n+3) > td:first-child, figure.roadmap tbody tr:nth-child(8n+3) > td:first-child{ --phase-accent:var(--cat-3-mark); }
-section.roadmap thead th:nth-child(8n+5), figure.roadmap thead th:nth-child(8n+5), section.roadmap tbody tr:nth-child(8n+4) > td:first-child, figure.roadmap tbody tr:nth-child(8n+4) > td:first-child{ --phase-accent:var(--cat-4-mark); }
-section.roadmap thead th:nth-child(8n+6), figure.roadmap thead th:nth-child(8n+6), section.roadmap tbody tr:nth-child(8n+5) > td:first-child, figure.roadmap tbody tr:nth-child(8n+5) > td:first-child{ --phase-accent:var(--cat-5-mark); }
-section.roadmap thead th:nth-child(8n+7), figure.roadmap thead th:nth-child(8n+7), section.roadmap tbody tr:nth-child(8n+6) > td:first-child, figure.roadmap tbody tr:nth-child(8n+6) > td:first-child{ --phase-accent:var(--cat-6-mark); }
-section.roadmap thead th:nth-child(8n), figure.roadmap thead th:nth-child(8n), section.roadmap tbody tr:nth-child(8n+7) > td:first-child, figure.roadmap tbody tr:nth-child(8n+7) > td:first-child{ --phase-accent:var(--cat-7-mark); }
-section.roadmap thead th:nth-child(8n+1), figure.roadmap thead th:nth-child(8n+1), section.roadmap tbody tr:nth-child(8n)   > td:first-child, figure.roadmap tbody tr:nth-child(8n)   > td:first-child{ --phase-accent:var(--cat-8-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.roadmap thead th:nth-child(8n+2), figure.roadmap thead th:nth-child(8n+2), section.roadmap tbody tr:nth-child(8n+1) > td:first-child, figure.roadmap tbody tr:nth-child(8n+1) > td:first-child{ --phase-accent:var(--cat-1-mark); --phase-ink:var(--cat-1-ink); }
+section.roadmap thead th:nth-child(8n+3), figure.roadmap thead th:nth-child(8n+3), section.roadmap tbody tr:nth-child(8n+2) > td:first-child, figure.roadmap tbody tr:nth-child(8n+2) > td:first-child{ --phase-accent:var(--cat-2-mark); --phase-ink:var(--cat-2-ink); }
+section.roadmap thead th:nth-child(8n+4), figure.roadmap thead th:nth-child(8n+4), section.roadmap tbody tr:nth-child(8n+3) > td:first-child, figure.roadmap tbody tr:nth-child(8n+3) > td:first-child{ --phase-accent:var(--cat-3-mark); --phase-ink:var(--cat-3-ink); }
+section.roadmap thead th:nth-child(8n+5), figure.roadmap thead th:nth-child(8n+5), section.roadmap tbody tr:nth-child(8n+4) > td:first-child, figure.roadmap tbody tr:nth-child(8n+4) > td:first-child{ --phase-accent:var(--cat-4-mark); --phase-ink:var(--cat-4-ink); }
+section.roadmap thead th:nth-child(8n+6), figure.roadmap thead th:nth-child(8n+6), section.roadmap tbody tr:nth-child(8n+5) > td:first-child, figure.roadmap tbody tr:nth-child(8n+5) > td:first-child{ --phase-accent:var(--cat-5-mark); --phase-ink:var(--cat-5-ink); }
+section.roadmap thead th:nth-child(8n+7), figure.roadmap thead th:nth-child(8n+7), section.roadmap tbody tr:nth-child(8n+6) > td:first-child, figure.roadmap tbody tr:nth-child(8n+6) > td:first-child{ --phase-accent:var(--cat-6-mark); --phase-ink:var(--cat-6-ink); }
+section.roadmap thead th:nth-child(8n), figure.roadmap thead th:nth-child(8n), section.roadmap tbody tr:nth-child(8n+7) > td:first-child, figure.roadmap tbody tr:nth-child(8n+7) > td:first-child{ --phase-accent:var(--cat-7-mark); --phase-ink:var(--cat-7-ink); }
+section.roadmap thead th:nth-child(8n+1), figure.roadmap thead th:nth-child(8n+1), section.roadmap tbody tr:nth-child(8n)   > td:first-child, figure.roadmap tbody tr:nth-child(8n)   > td:first-child{ --phase-accent:var(--cat-8-mark); --phase-ink:var(--cat-8-ink); }
 
 section.roadmap td, figure.roadmap td{
   padding:var(--sp-xs) var(--sp-md);
@@ -13614,7 +13661,7 @@ section.roadmap.horizons .horizon-eyebrow, figure.roadmap.horizons .horizon-eyeb
   font-weight:700;
   letter-spacing:0.14em;
   text-transform:uppercase;
-  color:var(--phase-accent, var(--accent));
+  color:var(--phase-ink, var(--accent));
 }
 section.roadmap.horizons .horizon-title, figure.roadmap.horizons .horizon-title{
   font-family:var(--font-display);
@@ -15687,9 +15734,15 @@ section.statute-stack > .cell-stage > ul > li::marker,
 section.statute-stack > .cell-stage > ol > li::marker { content:''; }
 /* Three-jurisdiction hue rotation. Federal = warm cobalt, State = warm
  * sienna, Local = warm slate. Cycles after three. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); --jur-ink:var(--cat-4-ink); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink); }
 /* Jurisdiction label — eyebrow chrome (auto-bolded by slotLabelLift). The lifted
  * <strong> is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
  * ride the same row. Placement is keyed to the card SHAPE (see below), because a wide row
@@ -15707,7 +15760,7 @@ section.statute-stack > .cell-stage > ol > li > strong:first-child {
   font-weight:700;
   letter-spacing:0.16em;
   text-transform:uppercase;
-  color:var(--jur-accent, var(--accent));
+  color:var(--jur-ink, var(--accent));
 }
 /* Header pill chrome (shared). Neutral outline by default — the citation reads identical
  * across cards (an identifier, not a signal). */
@@ -15797,7 +15850,7 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(
   border-radius:var(--pill-radius);
   border:1px solid var(--jur-accent, var(--accent));
   background:var(--pill-bg, var(--bg));
-  color:var(--jur-accent, var(--accent));
+  color:var(--jur-ink, var(--accent));
   align-self:flex-start;
   white-space:nowrap;
 }
@@ -15921,7 +15974,7 @@ section.statute-stack.lane td:first-child {
   font-weight:700;
   letter-spacing:0.10em;
   text-transform:uppercase;
-  color:var(--lane-jur, var(--accent));
+  color:var(--lane-ink, var(--accent));
   white-space:nowrap;
 }
 section.statute-stack.lane td:nth-child(2) {
@@ -15930,9 +15983,9 @@ section.statute-stack.lane td:nth-child(2) {
   color:var(--text-heading);
   white-space:nowrap;
 }
-section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); }
-section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); }
-section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); }
+section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); --lane-ink:var(--cat-4-ink); }
+section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); --lane-ink:var(--cat-6-ink); }
+section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); --lane-ink:var(--cat-1-ink); }
 section.statute-stack.lane tbody tr > td:first-child {
   border-left:3px solid var(--lane-jur, var(--accent));
   padding-left:var(--sp-md);
@@ -18154,17 +18207,23 @@ section.obligation-matrix.pills td:not(:first-child) strong {
 section.obligation-matrix.pills tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 
 /* .lanes — categorical row stripes. */
-section.obligation-matrix.lanes tbody tr:nth-child(8n+1) > td:first-child { --lane-hue:var(--cat-1-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+2) > td:first-child { --lane-hue:var(--cat-2-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+3) > td:first-child { --lane-hue:var(--cat-3-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+4) > td:first-child { --lane-hue:var(--cat-4-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+5) > td:first-child { --lane-hue:var(--cat-5-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+6) > td:first-child { --lane-hue:var(--cat-6-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+7) > td:first-child { --lane-hue:var(--cat-7-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n)   > td:first-child { --lane-hue:var(--cat-8-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.obligation-matrix.lanes tbody tr:nth-child(8n+1) > td:first-child { --lane-hue:var(--cat-1-mark); --lane-ink:var(--cat-1-ink); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+2) > td:first-child { --lane-hue:var(--cat-2-mark); --lane-ink:var(--cat-2-ink); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+3) > td:first-child { --lane-hue:var(--cat-3-mark); --lane-ink:var(--cat-3-ink); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+4) > td:first-child { --lane-hue:var(--cat-4-mark); --lane-ink:var(--cat-4-ink); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+5) > td:first-child { --lane-hue:var(--cat-5-mark); --lane-ink:var(--cat-5-ink); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+6) > td:first-child { --lane-hue:var(--cat-6-mark); --lane-ink:var(--cat-6-ink); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+7) > td:first-child { --lane-hue:var(--cat-7-mark); --lane-ink:var(--cat-7-ink); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n)   > td:first-child { --lane-hue:var(--cat-8-mark); --lane-ink:var(--cat-8-ink); }
 section.obligation-matrix.lanes tbody tr > td:first-child {
   border-left:4px solid var(--lane-hue, var(--accent));
-  color:var(--lane-hue, var(--text-heading));
+  color:var(--lane-ink, var(--text-heading));
 }
 section.obligation-matrix.lanes tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 section.obligation-matrix.lanes td:not(:first-child) { font-family:var(--font-mono); font-size:var(--fs-meta); }

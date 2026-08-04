@@ -127,9 +127,11 @@ section.premise > ol > li > strong {
    * the weight to 700; at the inherited 600 the verb names measured 4.16-4.25:1,
    * under the 4.5:1 normal-text floor. `--cat-N-ink` (lib/base/base.tokens.css)
    * clears 4.5:1 on `--bg-alt` on every palette in both modes, gated by
-   * checkCatContrast, so the term can go back to the 600 that matches every other
-   * `section strong` in the engine — the weight was a contrast workaround, and
-   * with the contrast bought properly there is nothing left for it to do. (#1263) */
+   * checkCatContrast, so the term can go back to the engine's BASE weight for
+   * `section strong` (600, lib/base/base.elements.css) — the weight here was a
+   * contrast workaround, and with the contrast bought properly there is nothing left
+   * for it to do. (Not a claim that 600 is universal: several components do set 700
+   * deliberately, for emphasis. This one never did.) (#1263) */
   color: var(--row-ink, var(--text-heading));
   overflow: hidden;
   text-overflow: ellipsis;

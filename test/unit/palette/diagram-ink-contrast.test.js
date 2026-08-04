@@ -120,9 +120,11 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
  * RETIRED (#1348): `gitBranchLabel0-7` on `git0-7` = `--cat-N-MARK`, 1.2-3.0:1 in
  * every palette, both schemes. The sanction called for "a third ink tier (an
  * 'on-mark' token) or moving the branch chips to the pale band". The third tier
- * turned out to already exist — `--cat-on-mark`, gated >=4.5:1 against every
- * `--cat-N-mark` by `checkCatContrast` — with nothing pointing at it, so the fix
- * was to point these eight keys at it. That alone fixed 27 of the 32 palettes; the
+ * turned out to already exist — `--cat-on-mark` — with nothing pointing at it, so the
+ * fix was to point these eight keys at it. (`checkCatContrast` holds that token
+ * >=4.5:1 against every `--cat-N-mark`, but only on the 27 HUE palettes; it skips
+ * a11y-*, which is why the a11y half needed its own fix and why THIS gate, which
+ * runs all 32, is what actually holds the pair.) That fixed 27 of the 32; the
  * a11y family still failed at 1.55:1 because it PINS its categorical ramp
  * mode-invariant while inheriting a flipping `--cat-on-mark` from onyx, so
  * `themes/a11y-base.css` now pins that ink to the value it already resolved to.
@@ -140,8 +142,13 @@ const KNOWN_BELOW_AA = new Set([
   // evidently does not cover these five combos. Untouched here; the fix is a
   // palette-side --fail curation, not a map edit.
   'errorTextColor',
-  // sequenceNumberColor (--cat-on-fill) on the autonumber badge (--diagram-line).
-  // Same shape as gitBranchLabel: pale-band ink on a saturated mark-tier fill.
+  // sequenceNumberColor (--cat-on-fill) on the autonumber badge, which mermaid fills
+  // from --diagram-line. It RHYMES with gitBranchLabel — pale-band ink on a saturated
+  // surface — but it is not the same fix: the badge is not a --cat-N-mark, so the
+  // --cat-on-mark contract (gated against the mark tier, and only that) says nothing
+  // about this pair. Repointing it here would swap one ungated pairing for another.
+  // Needs its own answer, either an ink curated for --diagram-line or a badge fill
+  // moved onto a tier that already has one.
   'sequenceNumberColor',
 ]);
 

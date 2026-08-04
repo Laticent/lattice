@@ -86,7 +86,9 @@ The engine reads the file once. Authors edit one file.
 │     --cat-on-fill  ─ label ink on the fill, FLIPS with tier                        │
 │     --cat-on-mark  ─ ink on the mark, FLIPS with tier                              │
 │     --cat-1-ink ..--cat-12-ink ─ the hue AS TEXT on --bg/--bg-alt. DERIVED by      │
-│                                  lattice.css from the mark; a theme sets nothing   │
+│                                  lattice.css from the mark. Normally a theme sets  │
+│                                  nothing; to pin it, set --cat-N-ink-set (the      │
+│                                  named seam) — see a11y-base.css                   │
 │                                                                                    │
 │   /* structural */                                                                 │
 │     --diagram-stroke              ─ universal saturated stroke                     │

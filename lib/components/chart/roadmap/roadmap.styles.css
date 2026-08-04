@@ -163,22 +163,28 @@
    The workstream column reads `--phase-accent` for its lane stripe
    per row; phase columns read it for their leading column-accent
    stripe per column. */
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+2),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+1) > td:first-child { --phase-accent:var(--cat-1-mark); --phase-ink:var(--cat-1-ink); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+3),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+2) > td:first-child { --phase-accent:var(--cat-2-mark); --phase-ink:var(--cat-2-ink); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+4),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+3) > td:first-child { --phase-accent:var(--cat-3-mark); --phase-ink:var(--cat-3-ink); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+5),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+4) > td:first-child { --phase-accent:var(--cat-4-mark); --phase-ink:var(--cat-4-ink); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+6),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+5) > td:first-child { --phase-accent:var(--cat-5-mark); --phase-ink:var(--cat-5-ink); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+7),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+6) > td:first-child { --phase-accent:var(--cat-6-mark); --phase-ink:var(--cat-6-ink); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n+7) > td:first-child { --phase-accent:var(--cat-7-mark); --phase-ink:var(--cat-7-ink); }
 :is(section.roadmap, figure.roadmap) thead th:nth-child(8n+1),
-:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); }
+:is(section.roadmap, figure.roadmap) tbody tr:nth-child(8n)   > td:first-child { --phase-accent:var(--cat-8-mark); --phase-ink:var(--cat-8-ink); }
 
 :is(section.roadmap, figure.roadmap) td {
   padding:var(--sp-xs) var(--sp-md);
@@ -478,7 +484,7 @@
   font-weight:700;
   letter-spacing:0.14em;
   text-transform:uppercase;
-  color:var(--phase-accent, var(--accent));
+  color:var(--phase-ink, var(--accent));
 }
 :is(section.roadmap, figure.roadmap).horizons .horizon-title {
   font-family:var(--font-display);

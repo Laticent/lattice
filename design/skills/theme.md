@@ -24,9 +24,11 @@ A 10/10 theme:
   ③ the **label ink** reads on the fill (`--cat-on-fill` vs `--cat-N-fill` ≥
   4.5:1, WCAG AA); and fill and mark are **distinct tiers of one hue** — never
   equal (equal fill/mark is the collapse bug the gate was built to catch).
-  `checkCatContrast` gates **three of these** — ① mark-vs-bg, ③ ink-vs-fill, and
-  the anti-collapse floor — over every hue-based theme, both modes. Layer ② is a
-  *design intention* the ① border makes safe, not a machine-checked number.
+  `checkCatContrast` gates ① mark-vs-bg, ③ ink-vs-fill and the anti-collapse floor
+  over every hue-based theme in both modes, plus ④ `--cat-N-ink` (the hue as small
+  text on the slide, derived — you declare nothing) against `--bg`, `--bg-alt` and
+  the print band, over **all 32** palettes with no exemption. Layer ② is a *design
+  intention* the ① border makes safe, not a machine-checked number.
 - **Reserves saturation for exactly two jobs**: one saturated brand stroke that
   reads on *every* pale fill including white (`--diagram-stroke`), and the alarm
   red (`--diagram-critical`). Every routine surface stays pale — the deck reads as
@@ -172,7 +174,8 @@ A base palette's spine (from `themes/indaco.css`):
   --cat-on-mark: light-dark(#FFFFFF, #0A1628); /* ink on the mark — also flips */
   /* NOT declared: --cat-1-ink … --cat-12-ink (the hue as TEXT on --bg/--bg-alt) are
    * DERIVED from the mark tier in lib/base/base.tokens.css. Re-hue the mark; the ink
-   * follows and is gated ≥4.5:1 on both slide surfaces by checkCatContrast. */
+   * follows and is gated ≥4.5:1 on --bg, --bg-alt and the print band by
+   * checkCatContrast. To pin one, set --cat-N-ink-set (never --cat-N-ink itself). */
   /* Optional (monochrome/CVD themes): 12 --cat-N-texture: url(#latt-onyx-tex-1) … tokens */
 
   /* Structural — stroke MUST read on white */
@@ -263,10 +266,13 @@ The **dark variant in full** — this is the whole file:
       `--cat-on-fill`-vs-fill ≥ 4.5:1, fill ≠ mark) — `checkCatContrast` green;
       `--diagram-stroke` reads on white.
 - [ ] The DERIVED `--cat-N-ink` clears 4.5:1 on `--bg` **and** `--bg-alt` in both
-      modes — same gate. A palette that pins its categorical tier mode-invariant
-      (the a11y family) must pin `--cat-N-ink` and `--cat-on-mark` too: an inherited
-      `light-dark()` ink flips under a per-slide `_class: dark` while the pinned
-      chips stay put.
+      modes AND on the print band — same gate. A palette that pins its categorical
+      tier mode-invariant (the a11y family) must also pin `--cat-on-mark` and the
+      ink: an inherited `light-dark()` ink flips under a per-slide `_class: dark`
+      while the pinned chips stay put. **Pin the ink through `--cat-N-ink-set`, not
+      by declaring `--cat-N-ink`** — the derivation lives on `:root, section`, so a
+      `:root` redeclaration is shadowed on every slide and does nothing (gated by
+      `checkCatInkOverrideSeam`).
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
 - [ ] Full 95-token contract defined directly (not just the 10 core) — all 12
