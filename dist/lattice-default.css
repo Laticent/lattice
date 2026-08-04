@@ -12517,7 +12517,14 @@ section.redline > .cell-stage > :is(ol, ul) > li > strong {
  * a flex sibling ABOVE the stage now, so the grid is just the two cards (row 1) +
  * the read-across note list (row 2, full width). */
 section.redline.split > .cell-stage { display:grid; grid-template-columns:1fr 1fr; column-gap:var(--sp-md); grid-template-rows:minmax(0, 1fr) auto; row-gap:var(--sp-sm); }
-section.redline.split.split > .cell-stage > blockquote { min-width:0; min-height:0; overflow:hidden; }
+/* Tighter leading in a two-column track, exactly as `.three-col` below already does
+ * for the same reason: a statute clause set at `--lh-relaxed` in a half-width card
+ * needs a line more than it gets. Without it the NEW column (always the longer of the
+ * pair — an amendment adds words) ran 31px past its own `overflow:hidden` and lost the
+ * closing phrase of the clause, "…their personal information." Silently: the blockquote
+ * is a clipping box no probe looked at until #1300 widened the set, and the CELL and
+ * the SECTION both fit. Found by that widening on this component's own gallery. */
+section.redline.split.split > .cell-stage > blockquote { min-width:0; min-height:0; overflow:hidden; line-height:var(--lh-snug); }
 section.redline.split.split > .cell-stage > blockquote:nth-of-type(1) {
   grid-column:1; grid-row:1;
   border-left-color:var(--fail);
@@ -14314,11 +14321,36 @@ section.split-compare > .cell-stage {
  *   .pullquote  — pull-quote feature (was split-statement)
  *   .steps      — numbered step-timeline right zone (was split-steps)
  *   .watermark  — accent panel + letterform + meta footer (was split-list)
+ *
+ * ── EVERY ALIGNMENT ON A CLIPPING PANEL IS `safe` (#1299) ──────────────────
+ * A flex container that centers or end-aligns and then OVERFLOWS throws content
+ * off the BLOCK-START edge. That is the worst possible direction to lose it in:
+ * the head of a panel is its eyebrow and its heading, and block-start overflow
+ * does not grow `scrollHeight`, so it went unmeasured by every probe as well.
+ * A `split-panel` deck shipped with its eyebrow and two-thirds of its `h2` gone
+ * — 24 text rects cut, the worst by 882px — with no ring, no pill and no console
+ * line. A cut tail announces itself; a cut head does not.
+ *
+ * `safe` falls back to `start` the instant content overflows and keeps the
+ * intended alignment while it fits, so a fitting slide is byte-identical and an
+ * overflowing one loses its LAST line instead of its first. Seven alignments
+ * carry it: the four panel bodies (base, `.metric`, `.steps` left, `.steps`
+ * right), `.watermark`'s panel, `.proof`'s cards, and the carousel cover.
+ *
+ * ONE alignment here cannot be made safe, and it is stated rather than left
+ * looking overlooked: `.panel-right > ul` uses `justify-content: space-evenly`,
+ * and `safe`/`unsafe` are `<overflow-position>` keywords the grammar only admits
+ * before a `<content-position>` — `safe space-evenly` is invalid CSS and would
+ * drop the whole declaration. css-align-3 fixes that value's overflow fallback at
+ * `center`, so it can still shear. It is DETECTED (`.panel-right` is a probed
+ * clip cell and the rect walk reads block-start spill), which is the property
+ * that actually matters; changing the fitting layout to buy the last of it would
+ * cost the even distribution the list is built on.
  */
 
 /* ── base = featured heading + findings (former split-brief) ─────────────── */
 section.split-panel { padding:0; flex-direction:row; }
-section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
+section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 section.split-panel .panel-left::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent); }
 section.split-panel .panel-eyebrow { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-md); }
 section.split-panel .panel-left h2 { font-size:var(--fs-h1); color:var(--on-dark-primary); line-height:var(--lh-tight); padding:0 0 var(--sp-sm); margin:0; font-weight:800; }
@@ -14336,7 +14368,7 @@ section.split-panel .panel-right > ul > li > :is(ul,ol) { list-style:none; paddi
 section.split-panel .panel-right > ul > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
 /* ── .metric — light-left polarity + hero number (former split-metric) ───── */
-section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:center; align-items:flex-start; }
+section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:safe center; align-items:flex-start; }
 section.split-panel.metric .panel-left::before { content:none; }
 section.split-panel.metric .panel-eyebrow { color:var(--text-secondary); padding-bottom:var(--sp-xs); }
 section.split-panel.metric .panel-left h2 { font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--text-heading); line-height:1; padding:0 0 var(--sp-sm); margin:0; }
@@ -14358,12 +14390,12 @@ section.split-panel.pullquote .panel-left blockquote p { margin:0; }
 section.split-panel.pullquote .panel-left cite { font-size:var(--fs-message); font-family:var(--font-body); font-style:normal; color:var(--on-dark-secondary); position:relative; z-index:1; display:block; }
 
 /* ── .steps — numbered step-timeline right zone (former split-steps) ─────── */
-section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:center; }
+section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:safe center; }
 section.split-panel.steps .panel-left::before { content:none; }
 section.split-panel.steps .panel-eyebrow { position:absolute; top:var(--sp-lg); left:var(--sp-lg); margin:0; font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--border); line-height:1; letter-spacing:0; text-transform:none; pointer-events:none; z-index:0; }
 section.split-panel.steps .panel-left h2 { font-size:var(--fs-h2); color:var(--text-heading); font-weight:800; position:relative; z-index:1; }
 section.split-panel.steps .panel-left p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); position:relative; z-index:1; }
-section.split-panel.steps .panel-right { justify-content:center; }
+section.split-panel.steps .panel-right { justify-content:safe center; }
 section.split-panel.steps .panel-right > :is(ul,ol) { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; flex:0 1 auto; }
 section.split-panel.steps .panel-right > ol { counter-reset:step-counter; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li { display:grid; grid-template-columns:3.125cqi 1fr; grid-template-rows:auto auto; column-gap:var(--sp-md); position:relative; padding:0 0 var(--sp-md) 0; border-left:none; }
@@ -14411,7 +14443,7 @@ section.split-panel.proof .panel-right > :is(ul,ol) {
   justify-content:initial; list-style:none; padding:0; margin:0;
 }
 section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child { grid-column:1 / -1; }
-section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:safe center; }
 /* `--panel-label-ink` is the category's contrast-safe ink, set only by `cat-N`
  * (see the cat block below) — falls back to `--accent` on a bare `proof` slide. */
 section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--panel-label-ink, var(--accent)); font-weight:600; padding-bottom:var(--sp-xs); }
@@ -14480,7 +14512,7 @@ section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2)
 }
 
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
-section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:flex-end; }
+section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:safe flex-end; }
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
 section.split-panel.watermark .panel-left h2 { font-size:var(--fs-emphasis); color:var(--on-accent); margin:0; font-weight:800; }
 section.split-panel.watermark .panel-left .watermark { position:absolute; font-family:var(--font-display); font-size:calc(11.46cqi * var(--fs-scale)) /* cqi-ok: decorative watermark numeral */; font-weight:700; color:var(--on-accent-watermark); top:3.125cqi; left:1.5625cqi; line-height:1; pointer-events:none; }
@@ -14543,7 +14575,7 @@ section.split-panel[data-orientation="portrait"] .panel-left { width: auto; }
 /* Cover — the feature gets its moment: accent field, watermark, hero heading. */
 section.split-panel-cover {
   background: var(--accent); color: var(--on-accent);
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: safe center;
   position: relative;
 }
 /* The watermark bleeds off the corner — but a positioned descendant overflowing the
@@ -16651,12 +16683,21 @@ section.video.companion:where([data-family="tall"], [data-family="strip"]) {
  * every theme (dark included) — the one place a fixed contrast is correct; it
  * routes through tokens with a fallback so a theme may still retune it. */
 
+/* `safe center`, not `center` (#1299). A flex column that centres and then
+ * overflows throws content off the BLOCK-START edge — and for this card that is the
+ * eyebrow and the heading, the two things a reader needs first. Block-start overflow
+ * also does not grow `scrollHeight`, so it went unmeasured: pages 2-4 of this
+ * component's OWN gallery shipped with 23px of eyebrow and h2 sheared off the top
+ * (#1278). `safe` keeps the centring while the card fits and falls back to `start`
+ * the instant it does not, so the loss moves to the tail where it is both less
+ * costly and visible. The budget below is what stops it happening at all; this is
+ * the backstop for the deck that still over-authors. */
 section.wifi .qr-card {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   height: 100%;
-  gap: 1.9em;
+  gap: 1.2em;
 }
 
 /* wifi is a `conformance:"strict"` CANVAS (model-driven frame render §4): the
@@ -16676,25 +16717,19 @@ section.wifi > .cell-stage > .qr-card {
   flex: 0 0 auto;
 }
 
-/* Preserve the QR's quiet zone across the stage clip. wifi's QR tile is the
- * LEFT column of the card, and its `.qr-tile` is content-box sized (width:12em
- * of SVG + 1em padding + 1px border), so its border-box is ~1em+1px WIDER than
- * its `.qr-side` column and — centered in that column — overhangs it by 1em+1px
- * on each side. The SVG itself sits exactly at the stage's left content edge; the
- * overhang that crosses that edge is the tile's white QUIET-ZONE padding + hairline
- * border, which lives in the frame's left safe-margin. A QR's quiet zone is
- * functionally required (scanners need the light border), so the stage must not
- * shear it. `overflow-clip-margin` lets the stage PAINT that decoration out into
- * the safe margin while keeping `overflow:clip` — so the overflow PROBE (which
- * reads scrollHeight−clientHeight, unaffected by the paint margin) still walls a
- * genuinely over-tall card exactly as before. 1.5em clears the 1em+1px overhang
- * with anti-aliasing headroom; the section's own `overflow:hidden` is the outer
- * backstop at the slide edge. This is wifi-specific: contact's tile sits on the
- * RIGHT, fully inside the content box, so it never reaches a stage edge and needs
- * no margin. (model-driven frame render §6 — canvas migration is per-component.) */
-section.wifi > .cell-stage {
-  overflow-clip-margin: 1.5em;
-}
+/* The stage carried `overflow-clip-margin: 1.5em` here until 2026-08-03, and it is
+ * recorded rather than silently deleted because the reasoning is worth keeping.
+ * `.qr-tile` is content-box sized, so at its old `width: 12em` its border-box
+ * (12em + 1em padding + 1px border, each side) was ~1em+1px WIDER than the 12em
+ * `.qr-side` column it centres in, and the overhang — the QR's white QUIET ZONE,
+ * which scanners functionally require — crossed the stage's content edge. The paint
+ * margin let the stage draw it into the frame's safe margin without giving up
+ * `overflow: clip`. The tile is 9.5em now (see the budget note below), so its
+ * border-box is 11.5em+2px inside a 12em column and reaches no stage edge at all:
+ * the quiet zone is preserved by ordinary layout, and a paint margin that clears an
+ * overhang which no longer exists is inert CSS with a rationale that has stopped
+ * being true. If the tile is ever widened past ~10.9em, this comes back WITH the
+ * measurement that justifies it. */
 
 section.wifi .qr-eyebrow {
   font-size: var(--fs-meta);
@@ -16719,17 +16754,32 @@ section.wifi .qr-body {
   gap: 3.6em;
 }
 
+/* The column stays 12em — that is the CTA's MEASURE, not the tile's. Narrowing it
+ * with the tile wrapped "One scan connects the room" (uppercase at 0.16em tracking)
+ * onto a third line and cost more height than the smaller tile saved: measured, 24px
+ * worse than leaving it alone. */
 section.wifi .qr-side {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.9em;
+  gap: 0.7em;
   width: 12em;
 }
 
+/* 9.5em, down from 12em (#1278). THE CARD HAD NO ROOM FOR ITS OWN CONTENT: at 12em
+ * the tile's border-box is 301px of a 524px stage — 57% of the card's height for the
+ * code alone, leaving 223px for a heading, an eyebrow, three credential rows and a
+ * CTA that together want 274. Four gallery slides clipped, and the reported cause (a
+ * `.qr-cta` overshooting by ~25px) was never the cause: the CTA is 48px and the
+ * arithmetic simply did not close. Measured on the real gallery card at 1280x720, the
+ * retune below (tile 12em->9.5em, card gap 1.9->1.2em, side gap 0.9->0.7em, field gap
+ * and rule inset 1.5->0.9em) takes the worst slide from 51px OVER to 22px under, and
+ * a one-line title from 14px of headroom to 87 — a whole extra heading line either
+ * way. 9.5em is still 19% larger than `contact`'s 8em tile, and 203px of SVG on a
+ * 1280px slide scans from the back of a room. */
 section.wifi .qr-tile {
-  width: 12em;
+  width: 9.5em;
   padding: 1em;
   background: var(--qr-paper, #ffffff);
   color: var(--qr-ink, #14140f);
@@ -16760,7 +16810,7 @@ section.wifi .qr-fields {
   max-width: 24em;
   display: flex;
   flex-direction: column;
-  gap: 1.5em;
+  gap: 0.9em;
   padding: 0;
 }
 
@@ -16771,7 +16821,7 @@ section.wifi .qr-row {
 }
 section.wifi .qr-row + .qr-row {
   border-top: 1px solid var(--border);
-  padding-top: 1.5em;
+  padding-top: 0.9em;
 }
 section.wifi .qr-row dt {
   font-size: var(--fs-meta);

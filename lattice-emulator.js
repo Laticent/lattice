@@ -603,7 +603,7 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // from the engine's OWN boundaries rather than a scan of everything before the fence
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
-const { CLIP_CELL_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
   OVERFLOW_TAB_TEXT_SRC,
@@ -1970,6 +1970,9 @@ ${stateChartScript}
 (function(){
   var TOL = 12;
   var CLIP_CELL_SELECTOR = ${JSON.stringify(CLIP_CELL_SELECTOR)};
+  // Clip boxes that are never evidence of lost content — decorative bleeds, invisible
+  // a11y mirrors, our own marker chrome. Both probes take it; see overflow-probe.js.
+  var IGNORED_CLIP_SELECTOR = ${JSON.stringify(IGNORED_CLIP_SELECTOR)};
   // The resolved overflow-marker level, stamped on every slide so base.modifiers.css
   // can pick the TONE (author = red ring + "Overflows"; reader = no ring + a calm
   // "Content clipped" pill). Same attribute the browser runtime stamps.
@@ -1990,7 +1993,7 @@ ${stateChartScript}
     document.querySelectorAll('section[data-lattice-slide]').forEach(function(s){
       // Cell-aware probe — a clipping content cell hides its overflow from the
       // section, so probe the cells too (lib/core/overflow-probe.js).
-      var probed = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL);
+      var probed = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR);
       var over = probed.over;
       s.classList.toggle('overflow', over);
       if (s.getAttribute('data-lattice-overflow-marker') !== MARKER_LEVEL) {
@@ -2008,9 +2011,18 @@ ${stateChartScript}
       // flex-shrunk child paints over its next sibling, so a reader gets text on top
       // of text. probeContentClipped cannot see it (no rect leaves a clip box), so
       // ask the geometry probe, which already measures it, for the number.
-      var tell = over && (MARKER_LEVEL === 'author'
-        || probed.squeezed > TOL
-        || probeContentClipped(s, CLIP_CELL_SELECTOR, TOL).cut);
+      // ...and the content probe is no longer GATED BEHIND the geometry probe, which is
+      // the #1299 design question answered. It used to read "over AND (... OR cut)", so a
+      // geometry blind spot was load-bearing for all three registers at once: the content
+      // probe could never rescue a slide geometry missed, and #1299 shipped 24 cut text
+      // rects at over:false because of it. clipSuspect is the cheap, over-eager
+      // "is any clip box hiding anything at all" from the same probe, so the expensive
+      // walk still stays off the slides where nothing clips -- it just no longer needs
+      // the GEOMETRY to have been right first.
+      // (No backticks in this comment -- it is injected into a template literal.)
+      var tellGeom = over && (MARKER_LEVEL === 'author' || probed.squeezed > TOL);
+      var tell = tellGeom || ((over || probed.clipSuspect)
+        && probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL).cut);
       // The overflow tab. The ring is colour-only (WCAG 1.4.1), so the condition is
       // named in text -- and the text differs by level, which is the whole setting.
       // The "off" level draws none; the strip pass below clears the class too.
@@ -2281,7 +2293,7 @@ async function renderBody(browser, g, closeBrowser) {
   // clientHeight) — the signal both the author warning and the measured auto-split
   // pass below read. Scope to real slide sections only — `<section>` literals inside
   // code blocks parse as nested DOM and would pollute the indices.
-  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, probeSrc, legibilitySrc, floorRatio }) => {
+  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, ignoreSel, probeSrc, legibilitySrc, floorRatio }) => {
     const TOL = 12; // filter sub-pixel rounding; see lattice-runtime.js
     // Cell-aware probe (lib/core/overflow-probe.js, injected verbatim): a bounded
     // content cell that clips hides its overflow from section.scrollHeight, so we
@@ -2291,7 +2303,7 @@ async function renderBody(browser, g, closeBrowser) {
     const probeFigureLegibility = new Function('return (' + legibilitySrc + ')')();
     const out = [];
     document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
-      const probe = probeSectionOverflow(s, clipSel, TOL);
+      const probe = probeSectionOverflow(s, clipSel, TOL, ignoreSel);
       const vOver = probe.vOver;
       const over = probe.over;
       // §8 rule 8 — the LEGIBILITY FLOOR. A viewBox figure is container-responsive: it never
@@ -2445,7 +2457,7 @@ async function renderBody(browser, g, closeBrowser) {
       out.push({ slide: i + 1, ratio, canSplit, splitRatio, illegible, unmeasured });
     });
     return out;
-  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
+  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
   let overflow = await measureOverflow();
   // MEASURED auto-split — the ONLY split trigger, and the loop that makes "split" fit REAL
   // boxes. Divide every overflowing SPLITTABLE slide by how much it overflows, re-render,
@@ -2539,6 +2551,38 @@ async function renderBody(browser, g, closeBrowser) {
       off: 'The export stays clean — no overflow marker is printed, so this warning is the only channel.',
     }[OVERFLOW_MARKER.marker];
     console.warn(`    Fix ${n > 1 ? 'them' : 'it'} before delivering (trim content, or use a layout/fill that fits). ${marked}`);
+  }
+  // …and the slides that LOSE CONTENT WITHOUT overflowing the frame. Their own line,
+  // because "exceeds the frame" is false for them and the fix is different.
+  //
+  // The two probes ask different questions (2026-07-30-overflow-marker-register.md §"The
+  // two registers ask different questions"), and geometry is the one that can be blind:
+  // a docked `footer` at `text-overflow: ellipsis` truncates a real title with ZERO
+  // spill past any box, and a `-webkit-line-clamp` card does the same. The export has
+  // been TAGGING these since the reader marker learned to walk every clipping box; it
+  // was not TELLING the author, so the only person who could fix it was the only person
+  // not informed. `overflow:check` reads this line too, so the corpus ratchet counts
+  // them (HARD RULE #23 — a channel nothing reads is not a channel).
+  const contentOnly = await g(() => page.evaluate(({ ignoreSel, ccSrc, probeSrc, clipSel }) => {
+    const TOL = 12;
+    const probeContentClipped = new Function('return (' + ccSrc + ')')();
+    const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
+    const out = [];
+    document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
+      const p = probeSectionOverflow(s, clipSel, TOL, ignoreSel);
+      if (p.over) return;                       // already on the OVERFLOW line above
+      if (!p.clipSuspect) return;               // nothing clips anything — skip the walk
+      const c = probeContentClipped(s, ignoreSel, TOL);
+      if (c.cut) out.push({ slide: i + 1, first: c.first });
+    });
+    return out;
+  }, { ignoreSel: IGNORED_CLIP_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR }), 'measure content cuts');
+  if (contentOnly.length) {
+    const n = contentOnly.length;
+    console.warn(`  ⚠ CONTENT CLIPPED — ${n} slide${n > 1 ? 's' : ''} lose${n > 1 ? '' : 's'} content inside a box that clips, without exceeding the frame: page${n > 1 ? 's' : ''} ${contentOnly.map((o) => o.slide).join(', ')}.`);
+    console.warn(`    First cut on each: ${contentOnly.map((o) => `p${o.slide} "${o.first}"`).join(', ')}.`);
+    console.warn('    An ellipsis, a line-clamp or a sheared panel head loses text with no box overflow to see,');
+    console.warn('    so the frame check above cannot report it. Shorten the copy or give that box more room.');
   }
   // Strip the authoring-only overflow signal before exporting. The injected
   // watcher (and base.modifiers.css) draw a loud red ring + "OVERFLOWS" tab on

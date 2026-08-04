@@ -594,3 +594,118 @@ line; the same draft also claimed `compliance` as the escalation path, and `comp
 measured a ceiling of **three**, not more. Both corrections came from rendering the
 deck and looking at it, not from the reasoning that produced it. The escalation is
 `stats` or a split, which is what the manifest's `strip` family already said.
+
+---
+
+## Follow-up (2026-08-03) — the signal did not reach every box that clips
+
+Three of the four cards this swimlane spawned (#1299, #1300, #1279) turned out to be
+one sentence seen from three ends: **the overflow signal does not reach everything it
+should.** This section records what that actually was, because the shape generalizes.
+
+### The defect was the ALLOWLIST, not any one selector
+
+Both probes took `CLIP_CELL_SELECTOR` — a hand-kept list of four class names — as the
+set of boxes to look inside. A hand-kept set is **silent by default**: a box that clips
+author content and nobody remembered to add is invisible to the ring, to the export
+warning, and to autosplit simultaneously. There is no failure mode where you notice.
+
+`.panel-left` was the missing entry, and it cost more than a missing entry sounds like
+it should. `split-panel`'s left panel is `justify-content: flex-end; overflow: hidden`,
+so an over-stuffed panel throws its eyebrow and heading off the **block-start** edge —
+and block-start overflow does not grow `scrollHeight`. Every scroll-dims measure in the
+system read zero. Reproduced on a fixture: **24 text rects cut, the worst by 882px**,
+at `over: false`, with no ring, no pill and no console line. A cut tail announces
+itself; a cut head does not.
+
+### So both probes discover their boxes, and each is trusted with a different measure
+
+That split is the whole design, and it is not symmetric:
+
+| | box set | measure | why |
+|---|---|---|---|
+| `probeSectionOverflow` (author, autosplit, `.overflow`) | curated cells **+ discovered** | curated: scroll dims + rect spill + squeeze. discovered: **rect spill only** | drives autosplit — a false positive cuts a fitting slide in half |
+| `probeContentClipped` (reader) | **discovered, no allowlist** | real content rects vs. real box | measures glyphs, so a decorative or responsive box cannot fake it |
+
+The asymmetry is load-bearing. Scroll dims LIE about a container-responsive box:
+`.chart-body` steadily reported ~43 hidden px on pages that plainly fit, and counting it
+produced a false "⚠ OVERFLOW … CLIPPED" that then fed `resplitDoc` and cut a fitting
+slide into half-empty pages. A child rect ABOVE a box's top is not open to that
+reading — the content is measurably outside the box that clips it. So a *discovered*
+box may grow `over` by geometry and never by scroll dims.
+
+### The gate `tell = over && (…)` is gone, and that was the real question
+
+#1299 asked it directly: the content probe was gated behind the geometry probe, so it
+could never rescue a slide geometry missed — which made **every geometry blind spot
+load-bearing for all three registers at once**. #1299 is the proof it was not
+theoretical.
+
+Removing the gate outright would have run a full text-node walk on every section on
+every watcher tick. Instead the geometry probe now also returns `clipSuspect`: the
+cheap, deliberately over-eager "is any clip box hiding anything, by any measure at
+all", including the scroll dims `over` refuses to trust. `tell` reads
+`(over && (authorTags || squeezed > TOL)) || ((over || clipSuspect) && cut)`.
+
+The loose measure picks the candidates; the truthful one adjudicates. `.chart-body`'s
+phantom 43px now buys a content walk that answers "nothing cut" instead of a false
+ring — the same number that used to be a bug is now a useful hint. `author`
+short-circuits before the walk, so that register stays purely geometric and exactly as
+cheap as it was.
+
+### Cost, measured
+
+On the 117-slide gallery — the largest deck in the repo, and the docs filmstrip renders
+all of it at once:
+
+| | whole document | per section |
+|---|---|---|
+| geometry probe, before | 4.7ms | 0.04ms |
+| box discovery added | +7.4ms | +0.06ms |
+| `probeContentClipped`, when it runs | 23.6ms | 0.20ms |
+
+Discovery skips childless elements (4706 → 1761), which is half its cost and loses
+nothing: `flowedSpill` reads element children, so a box with none cannot contribute.
+
+### What the widened set found on the first sweep
+
+Two phantoms had to be excluded before anything else was believable, and both were
+found by measuring the corpus rather than by reasoning about it:
+
+- **SVG-namespace boxes.** The UA stylesheet clips `<svg>`, `<marker>`, `<symbol>` and
+  `<pattern>`. `<marker>` alone contributed **225 phantom clip boxes**, every one
+  spilling and none cutting anything. Excluded structurally, not by name.
+- **KaTeX's `.katex-mathml`.** An invisible accessibility twin in a 1×1px clip box whose
+  inner text sits under a `static` parent: **23 boxes, a 955px phantom rect each**.
+  These were harmless only because the old gate kept the content probe off math slides.
+  Loosening the gate without fixing `skipped()` would have pilled every math slide in
+  the repo — which is the strongest argument that the two changes had to land together.
+
+With those excluded, the sweep found **one genuine, previously-silent content loss**:
+`redline split`'s NEW column ran 31px past its own `overflow:hidden` and dropped the
+closing phrase of a statute clause — "…their personal information." — on this
+component's own gallery. The `.cell-stage` fit; the section fit; the blockquote was a
+clipping box nothing looked at. Fixed here (tighter leading in a two-column track, which
+`.three-col` next door already does for the same reason).
+
+### `safe` alignment is the CSS half, and it is a separate fix
+
+The probe change makes the shear **visible**; it does not stop it. `justify-content:
+safe center` / `safe flex-end` falls back to `start` the instant content overflows and
+keeps the intended alignment while it fits, so a fitting slide is byte-identical and an
+overflowing one loses its LAST line instead of its first. Seven alignments in
+`split-panel` carry it, plus `wifi`'s card.
+
+Verified separately, which is worth recording because it settles whether #1299 and
+#1300 were one card: with the CSS reverted, the widened probe alone catches the shear;
+with the probe reverted, the CSS alone catches it (the overflow moves to the tail, where
+`scrollHeight` grows). They are **two independent fixes for two halves of one defect** —
+detection and loss — and each is separately sufficient for the detection half only.
+
+One alignment could not be made safe and is stated rather than quietly skipped:
+`justify-content: space-evenly` on `split-panel`'s supporting list. `safe`/`unsafe` are
+`<overflow-position>` keywords the grammar admits only before a `<content-position>`, so
+`safe space-evenly` is invalid CSS and would drop the declaration entirely. css-align-3
+fixes that value's overflow fallback at `center`, so it can still shear — it is
+*detected* (`.panel-right` is a probed cell and the rect walk reads block-start spill),
+which is the property that matters.

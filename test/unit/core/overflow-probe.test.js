@@ -12,7 +12,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  CLIP_CELL_SELECTOR, probeSectionOverflow, PROBE_SRC,
+  CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow, PROBE_SRC,
   probeContentClipped, CONTENT_CLIPPED_SRC,
   probeFigureLegibility, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO,
 } = require('../../../lib/core/overflow-probe');
@@ -643,7 +643,7 @@ describe('probeContentClipped — did the clip actually CUT anything?', () => {
   const run = (html, rects, opts) => {
     const { doc, restore } = mount(html, rects, opts);
     try {
-      return probeContentClipped(doc.querySelector('section'), CLIP_CELL_SELECTOR, 12);
+      return probeContentClipped(doc.querySelector('section'), IGNORED_CLIP_SELECTOR, 12);
     } finally { restore(); }
   };
 
@@ -728,5 +728,243 @@ describe('probeContentClipped — did the clip actually CUT anything?', () => {
     assert.equal(typeof CONTENT_CLIPPED_SRC, 'string');
     assert.ok(!/<\/script/i.test(CONTENT_CLIPPED_SRC), 'a literal </script> would end the injected element early');
     assert.ok(!CONTENT_CLIPPED_SRC.includes('<!--'), 'a literal <!-- would open a comment in the injected element');
+  });
+});
+
+// ── #1299 / #1300 — the signal has to REACH every box that clips ──────────────
+//
+// A real DOM again, for the same reason the probeContentClipped suite uses one: the
+// defects here are about which boxes get looked at, and an element fake that returns
+// whatever the test hands it cannot express "the probe never found this box".
+describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed', () => {
+  const { JSDOM } = require('jsdom');
+
+  // Mount real nodes and stub only the geometry jsdom does not compute. `clipBoxes`
+  // names the boxes whose computed overflow is non-visible; `scroll` supplies
+  // scrollHeight/clientHeight for boxes that need them.
+  function mount(html, rects, { clipBoxes = [], scroll = {}, pseudo = {}, textRects = {} } = {}) {
+    const dom = new JSDOM('<!doctype html><body>' + html + '</body>');
+    const { window } = dom;
+    const doc = window.document;
+    for (const [sel, r] of Object.entries(rects)) {
+      for (const el of doc.querySelectorAll(sel)) el.__rect = r;
+    }
+    for (const [sel, d] of Object.entries(scroll)) {
+      for (const el of doc.querySelectorAll(sel)) el.__scroll = d;
+    }
+    for (const [sel, r] of Object.entries(textRects)) {
+      for (const el of doc.querySelectorAll(sel)) el.__textRect = r;
+    }
+    window.Element.prototype.getBoundingClientRect = function () {
+      return this.__rect || { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 };
+    };
+    for (const prop of ['scrollHeight', 'clientHeight', 'scrollWidth', 'clientWidth']) {
+      Object.defineProperty(window.Element.prototype, prop, {
+        configurable: true,
+        get() { return this.__scroll?.[prop] ?? 0; },
+      });
+    }
+    Object.defineProperty(window.Element.prototype, 'offsetHeight', {
+      configurable: true,
+      get() { return this.__rect ? this.__rect.bottom - this.__rect.top : 0; },
+    });
+    // A text node's LINE BOX, which is not its parent's border box when the parent
+    // clips it: a `white-space: nowrap` footer at `text-overflow: ellipsis` lays its
+    // text out at full width and paints only the part that fits. `__textRect` models
+    // that separately, which is the whole point of the footer case below.
+    window.Range.prototype.getClientRects = function () {
+      const host = this.startContainer.parentElement;
+      const r = host?.__textRect || host?.__rect;
+      return r ? [r] : [];
+    };
+    const clipSet = new Set(clipBoxes.flatMap((sel) => [...doc.querySelectorAll(sel)]));
+    const prev = global.getComputedStyle;
+    global.getComputedStyle = (el, pe) => {
+      if (pe) return { content: pseudo[el.id] && pe === '::after' ? `"${pseudo[el.id]}"` : 'none' };
+      return {
+        overflowY: clipSet.has(el) ? 'clip' : 'visible',
+        overflowX: 'visible',
+        position: el.dataset?.pos || 'static',
+        display: 'block',
+        visibility: 'visible',
+      };
+    };
+    return { doc, restore: () => { global.getComputedStyle = prev; } };
+  }
+  const rect = (top, bottom, left = 0, right = 100) => ({
+    top, bottom, left, right, width: right - left, height: bottom - top,
+  });
+  const withDom = (html, rects, opts, fn) => {
+    const { doc, restore } = mount(html, rects, opts);
+    try { return fn(doc.querySelector('section')); } finally { restore(); }
+  };
+
+  test('#1299 — content sheared off the BLOCK-START of a clipping panel is caught', () => {
+    // The exact shape that shipped silently: `.panel-left` is
+    // `justify-content: flex-end; overflow: hidden`, so an over-stuffed panel throws
+    // its eyebrow and heading ABOVE its own top edge. Block-start overflow does not
+    // grow scrollHeight, so every scroll-dims measure reads 0 — the section's fold
+    // included. Only the rect walk can see it, and only if the box is probed at all.
+    const html = '<section><div class="panel-left"><p id="eyebrow">Program review</p>'
+      + '<h2 id="head">Quarterly review</h2></div><div class="panel-right"><p id="ok">fine</p></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.panel-left': rect(0, 700, 0, 486),
+      '#eyebrow': rect(-882, -840, 40, 440),   // sheared clean off the top
+      '#head': rect(-840, 700, 40, 440),
+      '.panel-right': rect(0, 700, 486, 1280),
+      '#ok': rect(40, 90, 520, 1240),
+    };
+    const scroll = {
+      section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 },
+      '.panel-left': { scrollHeight: 700, clientHeight: 700, scrollWidth: 486, clientWidth: 486 },
+      '.panel-right': { scrollHeight: 700, clientHeight: 700, scrollWidth: 794, clientWidth: 794 },
+    };
+    const r = withDom(html, rects, { clipBoxes: ['.panel-left', '.panel-right'], scroll },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'a sheared panel head must not read as fitting');
+    assert.ok(r.scrollH >= 700 + 882, `the shear is measured at full size, got ${r.scrollH}`);
+  });
+
+  test('#1299 — the same shear in a box NOT on the allowlist is caught by discovery', () => {
+    // The general defect behind #1299: the allowlist is silent by default, so the next
+    // component to centre a clipping box inherits the same silence. Discovery means the
+    // box does not have to be remembered.
+    const html = '<section><div class="qr-card"><p id="head">One scan connects the room</p></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.qr-card': rect(88, 612, 0, 1280),
+      '#head': rect(65, 200, 40, 1240),        // 23px above the card's top — wifi's real shape
+    };
+    const scroll = {
+      section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 },
+      '.qr-card': { scrollHeight: 524, clientHeight: 524, scrollWidth: 1280, clientWidth: 1280 },
+    };
+    const r = withDom(html, rects, { clipBoxes: ['.qr-card'], scroll },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true, 'a clipping box nobody listed still has to be probed');
+  });
+
+  test('a DECORATIVE clip box still cannot manufacture overflow (doc §4c)', () => {
+    // Discovery must not re-open the false positive the allowlist was protecting:
+    // the split feature bleed clips a watermark that is MEANT to run past its box.
+    const html = '<section><div class="split-feat-bleed"><div id="wm">7</div></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.split-feat-bleed': rect(0, 700, 0, 1280),
+      '#wm': rect(-400, 900, -200, 600),        // deliberate bleed, all four edges
+    };
+    const scroll = { section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 } };
+    const r = withDom(html, rects, { clipBoxes: ['.split-feat-bleed'], scroll },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, false, 'an intentional decorative bleed must never trip the ring');
+  });
+
+  test('a discovered box contributes GEOMETRY only — scroll dims never grow `over`', () => {
+    // The `.chart-body` phantom: a container-responsive figure wrapper steadily reports
+    // ~43 hidden px on a page that plainly fits. Counting that produced a false
+    // "⚠ OVERFLOW … CLIPPED" AND fed resplitDoc, cutting a fitting slide into half-empty
+    // pages. A discovered box is trusted for rect spill and nothing else — but it is
+    // still flagged `clipSuspect`, so the content probe gets to adjudicate.
+    const html = '<section><div class="chart-body"><svg id="fig"></svg></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.chart-body': rect(50, 650, 40, 1240),
+      '#fig': rect(50, 650, 40, 1240),           // the figure fits its box exactly
+    };
+    const scroll = {
+      section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 },
+      '.chart-body': { scrollHeight: 643, clientHeight: 600, scrollWidth: 1200, clientWidth: 1200 },
+    };
+    const r = withDom(html, rects, { clipBoxes: ['.chart-body'], scroll },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, false, '43 phantom px must not reach autosplit or the author ring');
+    assert.equal(r.clipSuspect, true, '…but it IS worth a content walk to find out');
+  });
+
+  test('#1300 — a cut in a box the allowlist never named is found by the content probe', () => {
+    // The live corpus instance: a docked `footer` at `text-overflow: ellipsis` truncates
+    // 43px of a real title with ZERO geometric spill anywhere. No measure the geometry
+    // probe owns can see it; the content probe can, once it stops taking an allowlist.
+    const html = '<section><div class="cell-stage"><p id="body">fits</p></div>'
+      + '<div class="cell-footer"><footer id="ft">A title long enough to be truncated</footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 640, 0, 1280),
+      '#body': rect(40, 90, 40, 1240),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),           // the BOX
+    };
+    // …and the TEXT laid out at its full nowrap width, 60px past the box that clips it.
+    const textRects = { '#ft': rect(650, 690, 40, 700) };
+    const r = withDom(html, rects, { clipBoxes: ['footer'], textRects },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+    assert.equal(r.cut, true, 'an ellipsed footer loses real text and nothing was watching');
+    assert.match(r.first, /A title long enough/);
+  });
+
+  test('#1300 — an invisible a11y mirror is not a bearer (KaTeX)', () => {
+    // `.katex-mathml` is position:absolute inside a 1x1px clip box, but its inner text
+    // sits under a `static` parent — so a 955px Range rect qualified as a cut bearer.
+    // 23 such boxes across the corpus, every one a phantom. Harmless only while the old
+    // gate kept this probe off math slides; loosening that gate without this fix would
+    // have pilled every math slide in the repo.
+    const html = '<section><span class="katex-mathml"><math><mi id="m">y</mi></math></span>'
+      + '<span id="vis">y</span></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.katex-mathml': rect(0, 1, 0, 1),
+      '#m': rect(-400, 555, 0, 900),            // the phantom 955px rect
+      '#vis': rect(300, 340, 600, 680),
+    };
+    const r = withDom(html, rects, { clipBoxes: ['section', '.katex-mathml'] },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+    assert.equal(r.cut, false, 'an accessibility mirror is not content a reader can lose');
+  });
+
+  test('#1300 — PSEUDO-ELEMENT author content counts as a bearer', () => {
+    // `bearers()` walked SHOW_TEXT nodes and replaced elements; generated content is
+    // neither, and a TreeWalker over a box whose only content is `::after { content:
+    // attr(data-x) }` returns zero nodes and zero rects (measured, Chromium 131). Real
+    // author copy rides on these — matrix-grid's axis labels, the --insight-label /
+    // --stamp-label / --step-prefix families — so "no text node" was reading as
+    // "nothing to lose" for exactly the labels most likely to be squeezed.
+    const html = '<section><div class="cell-stage"><div id="axis" data-row-axis="Likelihood"></div></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 700, 0, 300),
+      '#axis': rect(100, 140, 10, 290),
+    };
+    const scroll = { '#axis': { scrollWidth: 460, clientWidth: 280, scrollHeight: 40, clientHeight: 40 } };
+    const r = withDom(html, rects, { clipBoxes: ['.cell-stage'], scroll, pseudo: { axis: 'Likelihood' } },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+    assert.equal(r.cut, true, 'a nowrap axis label pushed past its gutter is lost content');
+    assert.match(r.first, /Likelihood/);
+  });
+
+  test('IGNORED_CLIP_SELECTOR names the boxes that are never evidence', () => {
+    for (const s of ['.split-feat-bleed', '.watermark', '.katex-mathml', '[aria-hidden="true"]', '.overflow-tab']) {
+      assert.ok(IGNORED_CLIP_SELECTOR.includes(s), `${s} must stay excluded`);
+    }
+  });
+
+  test('CLIP_CELL_SELECTOR carries .panel-left — the omission that WAS #1299', () => {
+    assert.match(CLIP_CELL_SELECTOR, /\.panel-left/);
+  });
+
+  test('both injected watchers pass the ignore selector — a missing arg is a silent regression', () => {
+    // Both probes take it as an argument (they are .toString()-injected, so they cannot
+    // reach a module constant). An omitted argument is not a crash — it is a probe that
+    // silently counts the watermark and the KaTeX mirror. Nothing else would catch it.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const root = path.join(__dirname, '..', '..', '..');
+    for (const f of ['lattice-emulator.js', path.join('lib', 'runtime', 'index.js')]) {
+      const src = fs.readFileSync(path.join(root, f), 'utf8');
+      assert.match(src, /probeSectionOverflow\(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR\)/,
+        `${f} must pass IGNORED_CLIP_SELECTOR to the geometry probe`);
+      assert.match(src, /probeContentClipped\(s, IGNORED_CLIP_SELECTOR, TOL\)/,
+        `${f} must pass IGNORED_CLIP_SELECTOR to the content probe`);
+    }
   });
 });

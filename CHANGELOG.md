@@ -493,8 +493,6 @@ in patch versions.
   and the finish vanished on a shipped slide. See
   `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
 <<<<<<< HEAD
-
-
 - **Present's narration no longer hangs silently while the captions run on without it.** A sentence
   whose synthesis stalled left the caption highlight — which rides the WebAudio clock, and that
   clock advances whether or not a clip is sounding — crawling straight through the silence, then
@@ -505,6 +503,7 @@ in patch versions.
   **outlives the player's patience**: the player gives a sentence 20s before moving on, but the
   request itself runs to 45s and its audio still lands in the cache, so a slow link warms itself
   instead of dropping every sentence. No label changes and no new widget — the rail carries it.
+<<<<<<< HEAD
 =======
 - **Breaking (for CRLF decks — they were rendering wrong): line endings are LF everywhere, and now
   enforced.** A Windows-authored deck declaring `theme: cuoio` exported **entirely in the default
@@ -581,6 +580,54 @@ in patch versions.
   did not (wrong palette, lost `size:`, and an extra slide).
 
 >>>>>>> ebc88a0 (core(line-endings): normalize at every boundary, so no reader has to remember)
+=======
+- **A slide could lose its eyebrow and heading off the TOP with no ring, no pill and no
+  console line — every overflow channel read it as fitting.** A flex container that centers
+  or end-aligns and then overflows throws content off the **block-start** edge, and
+  block-start overflow does not grow `scrollHeight`, so every scroll-dims measure in the
+  system reported zero. Reproduced on `split-panel`: **24 text rects cut, the worst by
+  882px**, at `over: false` (#1299). Fixed on both halves. **Detection:** the two overflow
+  probes now DISCOVER the clipping boxes they measure instead of reading a four-name
+  allowlist — an allowlist is silent by default, and the box it went silent about here was
+  a whole slide's worth of heading (#1300). **Loss:** every alignment on a clipping panel
+  in `split-panel` is now `safe` (seven of them), which falls back to `start` the instant
+  content overflows and keeps the centering while it fits, so a fitting slide is
+  byte-identical and an overflowing one loses its LAST line rather than its first.
+- **The reader's "Content clipped" tag could never fire on a slide the geometry probe
+  missed.** `tell = over && (…)` gated the content probe behind the geometry probe, which
+  made any geometry blind spot load-bearing for all three registers at once. The geometry
+  probe now also returns `clipSuspect` — the cheap, over-eager "is any clip box hiding
+  anything by any measure" — and the content probe runs on `over || clipSuspect`. The loose
+  measure picks candidates, the truthful one adjudicates: `.chart-body`'s phantom ~43 hidden
+  px now buys a content walk that answers "nothing cut" instead of a false ring. `author`
+  short-circuits before the walk and stays purely geometric. Also closed with it: pseudo-element
+  author content (`matrix-grid`'s axis labels, the `--insight-label` / `--stamp-label` /
+  `--step-prefix` families) is now a bearer — a `TreeWalker(SHOW_TEXT)` returns zero nodes for
+  a box whose only content is generated; KaTeX's invisible `.katex-mathml` mirror no longer
+  qualifies as one (23 boxes, a 955px phantom rect each); and `sweepOverflowMarkers` now clears
+  `.overflow-silent`, which its own "EXHAUSTIVE by contract" docstring had been wrong about.
+- **`lattice-emulator.js` prints a second channel: `⚠ CONTENT CLIPPED`** for slides that lose
+  content inside a clipping box WITHOUT exceeding the frame — an ellipsed footer, a line-clamped
+  card, a sheared panel head. The export had been tagging these for the reader without telling
+  the author, so the only person who could fix it was the only person not informed.
+  `npm run overflow:check` reads the new line too, so the corpus ratchet counts them.
+- **`wifi` clipped real content on four slides of its own galleries** (#1278). The card had no
+  room for its own content: at `width: 12em` the QR tile's border-box was 301px of a 524px
+  stage — 57% of the card's height for the code alone. The reported cause (a `.qr-cta`
+  overshooting by ~25px) was never the cause; the CTA is 48px and the arithmetic did not
+  close. Retuned against the real render: tile 12em → 9.5em (still 19% larger than
+  `contact`'s, and 203px of SVG scans from the back of a room), card gap 1.9 → 1.2em, side gap
+  0.9 → 0.7em, field gap and rule inset 1.5 → 0.9em. The worst slide goes from **51px over to
+  22px under**, and a one-line title from 14px of headroom to 87 — a whole extra heading line
+  either way. `justify-content: safe center` is the backstop. The stage's now-inert
+  `overflow-clip-margin` is removed with its reasoning recorded in place.
+- **`redline split` dropped the closing phrase of a statute clause on its own gallery.** The NEW
+  column — always the longer of the pair, since an amendment adds words — ran 31px past its own
+  `overflow: hidden` and cut "…their personal information."  The `.cell-stage` fit and the section
+  fit; the blockquote was a clipping box nothing looked at until the probe change above widened
+  the set. Tighter leading in a two-column track, exactly as `.three-col` next door already does.
+
+>>>>>>> 8f3ad85 (engine(overflow): probe every box that clips, not a hand-kept list of four)
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
