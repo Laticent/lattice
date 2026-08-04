@@ -23,7 +23,7 @@
 
 ## Authoring
 
-Three front-matter directives:
+Six front-matter directives — one required, five optional:
 
 ```yaml
 ---
@@ -32,6 +32,9 @@ theme: indaco
 logo: ./acme-logo.svg            # required — path to the image, relative to the deck
 logo-style: auto | brand         # optional, default `auto`
 logo-on: all | title             # optional, default `all`
+logo-x: 50                       # optional — 0–100, the mark's CENTER as a % of the slide
+logo-y: 82                       # optional — 0–100, ditto, vertically
+logo-scale: 1.0                  # optional — size multiplier, default 1
 ---
 ```
 
@@ -40,6 +43,17 @@ logo-on: all | title             # optional, default `all`
 | `logo:` | image path | **Required to activate.** Path is resolved relative to the deck source. SVG and PNG both work. |
 | `logo-style:` | `auto` (default), `brand` | `auto` → faint grayscale watermark, brightness-inverted on dark canvases. `brand` → original colors on a soft surface plate. Use `brand` only for marks whose colors carry meaning (government insignia, university crests). |
 | `logo-on:` | `all` (default), `title` | `all` → logo on every slide. `title` → only on the title slide. |
+| `logo-x:` | `0`–`100` | The mark's **center**, as a percentage of the slide width. Unset → the mark hugs the top-right corner at the frame inset. Setting either axis switches the mark from corner-hugging to centered-on-its-point. |
+| `logo-y:` | `0`–`100` | The same, vertically. `logo-y: 82` puts the mark's center 82% of the way down the slide — a common placement for a title-slide watermark under the lede. |
+| `logo-scale:` | multiplier, default `1` | Scales the mark. The base size is `6.25cqi × 4cqi`, so the mark stays resolution-independent at any scale. |
+
+**These three were undocumented until 2026-08-04**, and for their whole life they did not
+work on any deck carrying a `finish:` — a slide-level stacking rule dragged the mark into
+the content flow, so `top`/`left` re-based onto its flow position and `logo-x`/`logo-y`
+described a placement the render did not produce. Every deck in the corpus that used them
+also used a finish, so no shipped deck had ever rendered them correctly. Fixed, and gated
+by `test/integration/invariants/frame-chrome-out-of-flow.test.js`; see
+`engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
 
 ## How it works
 
@@ -66,8 +80,8 @@ Three render paths, one contract:
 | lattice-emulator | inline implementation, same shape | `lattice-emulator.js:1809` |
 | browser (preview pane) | `applyDeckLogoFromFrontMatter` | `lattice-runtime.js` |
 
-CSS lives at `lib/base/base.modifiers.css` around line 849
-(`img.deck-logo` selector plus the dark-canvas brightness flip).
+CSS lives at `lib/base/base.modifiers.css` — the `img.deck-logo` selector plus the
+dark-canvas brightness flip.
 
 ## Gotchas
 

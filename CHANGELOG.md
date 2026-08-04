@@ -135,6 +135,44 @@ in patch versions.
   closing line and a pointer to a `Sample-Deck.pdf` that was never in the kit, and gains an
   "If the slides look plain" section for the one failure mode there that produces no error message.
 
+- **A slide `finish:` silently dragged the running header, the running footer and the deck logo
+  into the content flow, displacing all three.** `base.finish.css` lifted slide content above the
+  backdrop with `section.finish > *:not(.backdrop) { position: relative; z-index: 2 }`, where only
+  the `z-index` was ever the intent — `position: relative` is inert on a static child but
+  destructive on one that positions itself, re-basing `top`/`left` onto the flow position *and*
+  making the element consume stage height. The running header rendered 88px low and 64px right of
+  its frame berth on 11 of the 15 slides of `examples/finish-backdrops.md`; `logo-x`/`logo-y`
+  stopped meaning anything, rendering at 92.2% x on every logo slide in the corpus with a y that
+  drifted 84/87.1/88/100% across all four logo slides, every one declaring `logo-y: 82`. On
+  `examples/marp-export-fidelity.md` p1 the logo left the frame entirely and was that deck's whole
+  23px of overflow — the red `overflow:check` on `main`, which had been attributed to #1309's
+  bookend measure tokens. **Those tokens are unchanged**; the deck's lede carries no cap and the
+  heading cap that did change was widened and did not bind. #1309 tipped the fault rather than
+  causing it, by taking one title from two lines to one. `position` is now withheld from frame
+  chrome via zero-specificity `:where()` exclusions that hold the selector at (0,2,1); the
+  `z-index` still reaches everything. A real-render gate
+  (`test/integration/invariants/frame-chrome-out-of-flow.test.js`) asserts frame chrome lands in
+  the same berth with and without a finish, across a Form frame, a sovereign one, and a split run —
+  verified to fail 12 of its 14 frame-chrome assertions against the pre-fix CSS. **Six** elements
+  were affected, not the three an empirical probe-deck sweep found. `.illegible-tab` was caught by
+  reading the source; the adversarial trio caught two more after the first cut of the exclusion list
+  had already shipped without them — `.lat-split-rail`, which docks at section level whenever a
+  split run has no footer Cell, and `.lattice-bg`, the worst of the set: on the `image` layout's
+  `spotlight` and `statement` compositions the photo panel collapsed to `height: 0` and **the
+  photograph disappeared entirely**. The `clean` default composition re-declares `position:
+  relative` itself and is immune, which is exactly what hid it. Because a list that rots is how this defect happened in the first place (`.overflow-tab`
+  defended itself with `!important`; `.illegible-tab`, written later, did not), the exclusion set is
+  now gated both ways by `checkFinishChromeExclusions` in `tools/check-ownership.js` — a known
+  section-level hook that engine CSS still positions absolutely but the rule no longer excludes
+  fails, and so does an excluded name nothing positions any more. That gate guards the *known* set;
+  the check that finds the *unknown* is empirical and lives in the render tier — toggle `.finish`
+  off and on and assert no direct child of any section changes its computed position. No list, real
+  cascade, and it is what catches `.lattice-bg`. The cause-removing
+  alternative (`.backdrop { z-index: -1 }`, deleting the list outright) was built and rendered and
+  **fails**: a Lattice `section` does not reliably form a stacking context — `isolation` computes
+  `auto` on `math` and `title` — so the backdrop escapes behind the section's own opaque background
+  and the finish vanished on a shipped slide. See
+  `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`

@@ -1264,6 +1264,137 @@ function checkMarginDiscipline(errors) {
   }
 }
 
+// ── Frame chrome stays out of flow under a slide `finish:` ────────────────────────
+// `base.finish.css` lifts slide content above the finish backdrop. The z-index is the
+// intent; the `position: relative` that carries it must NOT reach a child that already
+// positions ITSELF, because on such a child it is destructive twice — `top`/`left`
+// re-base from the frame onto the flow position, and the element starts consuming stage
+// height it was designed never to take. So that rule carries a `:where()` exclusion list
+// of the out-of-flow chrome, and THIS gate keeps the list honest.
+//
+// WHY A GATE AND NOT A COMMENT. The list is exactly the shape this repo has been bitten
+// by: `.overflow-tab` defended itself with `!important` and `.illegible-tab`, written
+// later, did not — the same defect, shipped, because nothing checked. The first cut of
+// the exclusion list repeated it: built from an empirical sweep over a six-layout probe
+// deck, it missed `.lat-split-rail`, which only appears when a split run has no footer
+// Cell. An enumeration that is not gated is an enumeration that is already stale.
+//
+// It fails BOTH ways, like SANCTIONED_MARGINS / SANCTIONED_HEX / SANCTIONED_LAYER_BLOCKS:
+//   · a KNOWN section-level chrome hook that engine CSS still positions absolutely but the
+//     rule no longer excludes — someone deleting an entry, or renaming a class;
+//   · an excluded name that nothing positions any more — so the list cannot rot quiet.
+//
+// WHAT THIS GATE DOES NOT DO, stated plainly so nobody trusts it further than it goes: it
+// does NOT discover chrome nobody has enumerated. `SECTION_LEVEL_CHROME` below is a hand-
+// written set, and a genuinely new section-level element is invisible here until someone
+// adds it. A fully derived static version was built and abandoned — deciding "can this
+// selector match a direct child of a section, and does it lose to (0,2,1)?" from CSS text
+// alone means reimplementing specificity AND bundle source order, and it produced 38
+// candidates of which nearly all were false positives; the waiver list that would have
+// silenced them is the same ungated enumeration in a new coat.
+// THE DERIVED CHECK IS EMPIRICAL, and it lives in
+// test/integration/invariants/frame-chrome-out-of-flow.test.js: render a deck, toggle
+// `.finish` off and on, and assert NO direct child of any section changes its computed
+// position. That asks the real cascade instead of modelling it, needs no list at all, and
+// is what actually caught `.lattice-bg` — whose photo silently collapsed to height 0 on
+// the `spotlight` and `statement` compositions.
+//
+// The subject is deliberately narrow: a top-level rule whose selector's LAST compound is a
+// bare tag or single class (`section header`, `.lat-split-rail`) and which declares
+// `position: absolute`. A selector that pins its own parent (`section.image .lattice-bg`,
+// `.cell-footer > .x`) is out of scope — it either cannot be a direct child of a `finish`
+// section or already outranks the rule at (0,2,1).
+const FINISH_CHROME_RULE = 'section.finish > *:not(.backdrop, :where(';
+
+/** Hooks that are absolutely positioned somewhere in engine CSS and CAN be a `section` child. */
+function absolutelyPositionedSectionChildHooks() {
+  const hooks = new Map(); // hook → first file that positions it
+  for (const file of listCssFiles(LIB_DIR)) {
+    const rel = path.relative(ROOT, file);
+    if (rel.endsWith('base.finish.css')) continue; // the rule under test
+    const css = stripComments(fs.readFileSync(file, 'utf8'));
+    // Rule bodies that declare `position: absolute` (not inside a `:not()`/`@supports` arg).
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    let m;
+    while ((m = ruleRe.exec(css))) {
+      const selectorList = m[1];
+      const body = m[2];
+      if (!/(^|[;\s])position\s*:\s*absolute/.test(body)) continue;
+      for (const sel of selectorList.split(',')) {
+        const s = sel.trim();
+        if (!s || s.includes('::') || s.includes('@')) continue; // pseudo-elements aren't children
+        const last = s.split(/[\s>+~]+/).filter(Boolean).pop() || '';
+        // A bare tag (header/footer) or a single leading-class hook (.lat-split-rail),
+        // optionally tag-qualified (img.deck-logo). Anything else is parent-scoped.
+        const bare = /^([a-z][a-z0-9-]*)$/.exec(last);
+        const cls = /^([a-z][a-z0-9-]*)?\.([a-zA-Z][\w-]*)$/.exec(last);
+        if (bare && ['header', 'footer'].includes(bare[1])) hooks.set(bare[1], rel);
+        else if (cls) hooks.set(`.${cls[2]}`, rel);
+      }
+    }
+  }
+  return hooks;
+}
+
+function checkFinishChromeExclusions(errors) {
+  const finishFile = path.join(LIB_DIR, 'base', 'base.finish.css');
+  const css = fs.readFileSync(finishFile, 'utf8');
+  const at = css.indexOf(FINISH_CHROME_RULE);
+  if (at === -1) {
+    errors.push(
+      'base.finish.css no longer carries the frame-chrome exclusion rule ' +
+      `(\`${FINISH_CHROME_RULE}…\`). If the stacking fix was replaced, remove ` +
+      'checkFinishChromeExclusions with it; do not let the gate certify nothing.',
+    );
+    return;
+  }
+  const listStart = at + FINISH_CHROME_RULE.length;
+  const listEnd = css.indexOf(')', listStart);
+  const excluded = css.slice(listStart, listEnd).split(',').map((s) => s.trim()).filter(Boolean);
+
+  const hooks = absolutelyPositionedSectionChildHooks();
+  // Only chrome that can actually BE a direct child is in scope. `header`/`footer` and the
+  // engine's injected chrome qualify; a component's inner part (`.panel-right`, `.seg`) is
+  // built inside its own subtree and never docks at section level, so the candidate set is
+  // narrowed to hooks the engine docks onto a section — enumerated by the injectors.
+  const SECTION_LEVEL_CHROME = new Set([
+    'header', 'footer',
+    '.deck-logo',        // lib/runtime applyDeckLogo* / applyDeckLogoToHtml — first child
+    '.overflow-tab',     // the overflow watcher (defends itself with !important)
+    '.illegible-tab',    // the legibility watcher
+    '.lat-split-rail',   // lib/core/footer-dock.js — section level when there is no footer Cell
+    '.lattice-bg',       // the image layout's photo panel — a direct child on every composition
+  ]);
+
+  const missing = [];
+  for (const [hook, file] of hooks) {
+    if (!SECTION_LEVEL_CHROME.has(hook)) continue;
+    if (hook === '.overflow-tab') continue; // asserts position:absolute !important itself
+    const named = excluded.some((e) => e === hook || e.endsWith(hook));
+    if (!named) missing.push(`${hook} (positioned in ${file})`);
+  }
+  const stale = excluded.filter((e) => {
+    const hook = e.startsWith('.') ? e : (e.includes('.') ? `.${e.split('.').pop()}` : e);
+    return !hooks.has(hook) && !hooks.has(e);
+  });
+
+  if (missing.length) {
+    errors.push(
+      `${missing.length} out-of-flow section chrome element(s) are NOT excluded from ` +
+      'base.finish.css\'s `position: relative` rule, so a `finish:` deck drags them into ' +
+      'flow — displacing them AND making them consume stage height. Add them to the ' +
+      `\`:where(…)\` list. Offending: ${missing.join(', ')}.`,
+    );
+  }
+  for (const e of stale) {
+    errors.push(
+      `stale frame-chrome exclusion in base.finish.css — \`${e}\` is no longer positioned ` +
+      'absolutely anywhere in engine CSS. Remove it from the `:where(…)` list so the ' +
+      'exclusion set stays honest.',
+    );
+  }
+}
+
 // ── HARD RULE #26: cascade layers stay INERT — engine CSS admits no layer blocks ──
 // The bundle emits a 7-name `@layer` order (build-css.js LAYER_DECLARATION) but NO
 // rule is wrapped in a layer: plain SOURCE ORDER decides the cascade. Wrapping even
@@ -1711,7 +1842,16 @@ function listRepoTextFiles(dir = ROOT, out = []) {
 // living text surfaces. EXCEED-only (mirrors the margin gate): a NEW British spelling
 // fails the build; the existing backlog is tracked in migration tickets and burned
 // down by lowering US_ENGLISH_BUDGET as it drops. Target zero.
-const US_ENGLISH_BUDGET = 1336;
+//
+// PINNED TO THE ACTUAL COUNT, and that is the point. It sat at 1336 against a real count
+// of 1293 — 43 units of slack, which is not headroom, it is a hole: five new British
+// spellings entered on this branch (`CENTRE`, `centre`, `honours`, `behaviour`,
+// `neighbour`, all in test files, one of them in a test NAME that printed on every run)
+// and the gate stayed green through all of them. A ratchet with slack does not ratchet.
+// The rule's own instruction is to lower this as the backlog drops; lowering it to the
+// measured count is what makes the next one fail on the first offence.
+// Re-measure with a temporary `= 0` — the failure message prints the live total.
+const US_ENGLISH_BUDGET = 1293;
 
 function checkUsEnglish(errors) {
   const re = new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');
@@ -3873,6 +4013,7 @@ function run() {
   checkSectionBoxOwnership(errors);
   checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
+  checkFinishChromeExclusions(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
   checkAdaptDeclarations(manifests, errors);
@@ -3927,6 +4068,8 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
   run,
+  checkFinishChromeExclusions,
+  absolutelyPositionedSectionChildHooks,
   checkUniversalTableGuard,
   universalTableDenyEntries,
   universalTableClaims,

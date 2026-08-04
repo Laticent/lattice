@@ -18304,7 +18304,14 @@ section.illegible {
    slide (caught by the trio in a real preview). When a slide earns BOTH signals the
    legibility tab drops by its own height rather than a magic number, so the two stack
    instead of overlapping. Both tabs are position:absolute, so neither can perturb the
-   height math the watcher itself is measuring. */
+   height math the watcher itself is measuring — but that held for `.overflow-tab` alone
+   until 2026-08-04, because it asserts `!important` and this rule does not. This one ties
+   `section.finish > *:not(.backdrop)` at (0,2,1) and LOST on source order (base.finish.css
+   is bundled after this file), so on a `finish:` deck it was dragged into flow and did
+   perturb exactly the height math above. That rule now withholds `position` from frame
+   chrome instead of a second `!important` being added here; the invariant is gated by
+   test/integration/invariants/frame-chrome-out-of-flow.test.js.
+   engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md */
 section.illegible > .illegible-tab {
   position: absolute;
   top: 0;
@@ -20716,8 +20723,68 @@ section.finish {
  * pseudos/mask are contained in its stacking context). Excludes `.backdrop`
  * itself, which must stay behind at z0. */
 section.finish > *:not(.backdrop) {
-  position: relative;
   z-index: 2;
+}
+/* `position: relative` is only the MECHANISM by which a STATIC child earns that
+ * z-index — it is not part of the intent, and it must not be forced onto chrome
+ * that already positions ITSELF out of flow. Doing so breaks such an element twice
+ * over: `top`/`left` stop meaning "inset from the frame" and start meaning "offset
+ * from wherever I landed in flow", AND the element begins taking flow space it was
+ * designed never to take. Measured, on a `finish:` deck:
+ *   · `header` / `footer` — rendered at padding+inset instead of inset (116px/94px
+ *     where the frame berth is 28px/30px), on 11 of 15 slides of
+ *     examples/finish-backdrops.md, while stealing their own height from the body.
+ *     Two components are written AGAINST this invariant and say so in their own
+ *     comments (math.styles.css §body-row, split-panel.styles.css §watermark).
+ *   · `img.deck-logo` — `logo-x`/`logo-y` stopped meaning anything. The documented
+ *     contract is "the logo CENTER as a % of the slide"; every logo slide in the
+ *     corpus declares `logo-x: 50` and rendered at 92.2%, and the y drifted with
+ *     content height (84 / 87.1 / 88 / 100% across all four, every one declaring
+ *     `logo-y: 82`). On examples/marp-export-fidelity.md p1 it left the frame
+ *     entirely, and WAS that deck's whole 23px of overflow.
+ *   · `.illegible-tab` — base.modifiers.css states "both tabs are position:absolute,
+ *     so neither can perturb the height math the watcher itself is measuring". That
+ *     is true of `.overflow-tab`, which asserts `position:absolute !important`, and
+ *     false of this one: it ties this rule at (0,2,1) and LOSES on source order,
+ *     because base.finish.css is bundled after base.modifiers.css.
+ *   · `.lat-split-rail` — the k-of-N run indicator. It docks INSIDE `.cell-footer`
+ *     when the frame builds one, and at SECTION level when it does not
+ *     (lib/core/footer-dock.js: "sovereign frames get the mark appended at section
+ *     level, where CSS keeps it absolutely positioned in its own reserved berth").
+ *     `buildFooterCell` returns nothing when a deck sets neither `footer:` nor
+ *     `paginate:`, so that second path is ordinary, not exotic — and there it is a
+ *     direct child at (0,1,0) and was dragged into flow like the rest.
+ *
+ * THE EXCLUSION SET IS GATED, because an ungated list of this shape provably rots:
+ * `.lat-split-rail` was MISSED by the first cut of this very fix — an empirical sweep
+ * over a six-layout probe deck could not see it, because the probe had no split run.
+ * `checkFinishChromeExclusions` (tools/check-ownership.js, via build:check) derives the
+ * set from the CSS itself and fails BOTH ways: a rule that absolutely positions a
+ * possible direct child of `section` and is not listed here, and a listed name nothing
+ * positions any more. Same contract as SANCTIONED_MARGINS / SANCTIONED_HEX and the rest.
+ *
+ * The exclusions sit inside `:where()` so they carry ZERO specificity: `:not()` takes
+ * the weight of its most specific argument, which stays `.backdrop` (0,1,0), so this
+ * selector still computes (0,2,1) — the same weight as the z-index rule above and the
+ * same weight `.overflow-tab`'s `!important` note is written against. Verified by
+ * reading the computed value on a real render, not inferred from the spec.
+ *
+ * REJECTED ALTERNATIVE — `section.finish > .backdrop { z-index: -1 }`, deleting both
+ * rules and the list outright. A negative-z child paints at step 3 of the painting
+ * algorithm, after the section's own background and before every in-flow descendant, so
+ * in principle content sits above it with nothing touching a single child. It was built
+ * and rendered, and it FAILS: the escape only holds inside a stacking context, and a
+ * Lattice `section` does not reliably form one. Measured on
+ * examples/marp-export-fidelity.md, `isolation` computes `isolate` on the six `form`
+ * sections and `auto` on `math` and `title` (`contain` is `none` on all eight —
+ * `container-type: size` does NOT contribute one here). On those two the backdrop
+ * escapes to the parent context and paints BEHIND the section's own opaque `--bg`: page
+ * 6's finish disappeared completely, 87,430 differing pixels against this rule's render.
+ * Do not re-propose it without first giving every section an unconditional stacking
+ * context, which is a wider change than this one.
+ * engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md */
+section.finish > *:not(.backdrop, :where(header, footer, img.deck-logo, .illegible-tab, .lat-split-rail, .lattice-bg)) {
+  position: relative;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
