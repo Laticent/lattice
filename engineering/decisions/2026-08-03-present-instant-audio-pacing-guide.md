@@ -19,8 +19,9 @@ from the **speech projection** with an author override; **three PRs, Part 2 firs
 "pacing between slides is way too fast"; "vetrina mouse and regular mouse are both present."
 
 Part 1 is **read off the code as it stood before this branch**, with file:line pointers — the
-diagnosis. **Part 2 is now built** (see "What Part 2 actually changed", below), so its file:line
-references describe the code it replaced. Parts 3 and 4 remain proposals.
+diagnosis. **Parts 2 and 3 are now built** (see "What Part 2 actually changed" and "Part 3,
+measured", below), so their file:line references describe the code they replaced. **Part 4
+(the Guide rung) remains a proposal.**
 
 ---
 
@@ -104,9 +105,17 @@ deliberate pause is 0 ms and the accidental pause is 0–20 s, and neither is th
 you asked for.
 
 Worth noting what *is* already grounded: `cadenza/cadence.ts` has a research-backed boundary ladder
-(comma 200 / clause 350 / sentence 550 / ellipsis 650 / **paragraph 1000 ms**), from
+(comma 200 / clause 350 / sentence 550 / ellipsis 650 / **paragraph 750 ms**), from
 `2026-07-12-narration-pace-model.md`. **The ladder simply stops at the paragraph.** A slide boundary
 — the deepest boundary in a deck — is the missing top rung.
+
+The paragraph tier is worth reading before setting the one above it: 750 is the FLOOR of the
+research range, tuned down from ~1000 after on-device review, because a deep pause at every
+block seam read as the highlight *lagging*. That was a sync artifact rather than a verdict on
+silence — and it is now fixed twice over (the highlight holds through a paragraph beat, and
+through a starved clip) — but it is real evidence from this engine that long pauses feel worse
+here than the literature predicts, and it is why §3.2 starts the slide tier near the
+conservative end of what the craft prescribes.
 
 ### 1.6 The SLA question, answered honestly
 
