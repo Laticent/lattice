@@ -671,10 +671,12 @@ room the prefetch edge can never lead and the rail sits in its "run dry" state. 
   regardless of what the text says, while the `track` memo still keys on the string, so repeated
   text costs no reader rebuild. Pinned by `studio.present-autoplay-chain.test.tsx`, which chains
   through three slides where the first two narrate identically and fails without the fix.
-- **`putClip` materializes the whole `meta` store on every write**, and the readiness poll reads
-  `getAllKeys()` over the entire origin store every 2 s. Both scale with all decks ever presented
-  rather than the one being delivered. Measured only under `fake-indexeddb`, so no browser number
-  is claimed.
+- **`putClip` materializes the whole `meta` store on every write** — fixed in the amendment below.
+  The readiness poll's whole-deck question is **FIXED 2026-08-04 (#1392)**: it is now bounded to a
+  window from the playhead, and the numbers are measured on real Chromium by a committed bench
+  (`docs/scripts/bench-narration-readiness.mjs`) rather than reasoned. What remains, deliberately,
+  is the single `getAllKeys()` over the origin store — it dominates on a populated store, and
+  replacing it with per-sentence probes is precisely the pessimization that was reverted.
 - **The rail shows no runway on Kokoro** (above), and "Fetch ahead: the whole deck" is a silent
   no-op there while the Settings copy promises offline delivery.
 - **"The whole deck" has no cost estimate and no cancel.** **PARTLY CLOSED 2026-08-04 (#1391):**

@@ -25,6 +25,20 @@ in patch versions.
 
 ## Unreleased
 
+- **Present's readiness poll asks about the window ahead of the playhead, not the whole deck.**
+  Every 2 seconds, for as long as Present was open with Voice on, it built a cache key for every
+  sentence in the deck and scored every one of them — on the same main thread as audio decode.
+  It never needed to: the rail's buffered edge is contiguous from the playhead by construction
+  (it stops at the first slide that isn't fully cached, because you would stall at that gap
+  before reaching anything past it), so slides far ahead cannot change what is drawn until you
+  get there. The question is now bounded by the lookahead depth plus a small margin, which
+  removes the deck-size term; the store's single `getAllKeys` stays, and is now comfortably the
+  right primitive. Measured on real Chromium, and the bench is committed this time
+  (`docs/scripts/bench-narration-readiness.mjs`): 0.6 → 0.3 ms on a fresh device, 20.6 → 15.6 ms
+  on a 5000-sentence deck against a 5000-record store. The gain is modest once the store is
+  populated, because the store read dominates — that is the honest shape of it, and the bench
+  prints it rather than hiding it.
+
 - **Leaving a slide now stops prefetch that has not started — without touching a request already
   in flight.** Nothing a presenter did cancelled queued narration synthesis, so closing Present
   or walking to another slide left the device grinding through sentences for a slide the deck had

@@ -73,3 +73,40 @@ describe('prefetchFrontOf', () => {
 		expect(prefetchFrontOf([1, 1, 1, 0, 1, 1], 2)).toBe(3);
 	});
 });
+
+// WINDOWED readiness (#1392): the poll now measures only a bounded window from the playhead
+// and reports 0 for everything outside it. These pin what that costs the rail — which must be
+// nothing, for every state a viewer can actually reach.
+describe('prefetchFrontOf over a WINDOWED readiness array (#1392)', () => {
+	/** Whole-deck readiness: `n` slides, all fully cached. */
+	const whole = (n: number) => Array.from({ length: n }, () => 1);
+	/** The same deck as the windowed poll reports it: measured inside [from, to), 0 outside. */
+	const windowed = (n: number, from: number, to: number) => Array.from({ length: n }, (_, i) => (i >= from && i < to ? 1 : 0));
+
+	it('reports the same front as a whole-deck pass while the runway fits the window', () => {
+		// Playhead at 10, window 8..16 (2 back + current + lookahead 2 + margin 2 + 1).
+		const front = prefetchFrontOf(windowed(60, 8, 16), 10);
+		// Everything from the playhead to the window edge is runway — the same answer the
+		// whole-deck array gives for that stretch. Beyond it the deck is simply unmeasured.
+		expect(front).toBe(16);
+		expect(prefetchFrontOf(whole(60), 10)).toBeGreaterThanOrEqual(front);
+	});
+
+	it('is identical to a whole-deck pass when the deck is shorter than the window', () => {
+		expect(prefetchFrontOf(windowed(6, 0, 6), 0)).toBe(prefetchFrontOf(whole(6), 0));
+	});
+
+	it('still stops at a genuine gap inside the window rather than at the window edge', () => {
+		// Slide 12 is half-fetched: the runway must end there, not run on to the window edge.
+		const f = windowed(60, 8, 16);
+		f[12] = 0.5;
+		expect(prefetchFrontOf(f, 10)).toBe(12.5);
+	});
+
+	it('never draws runway behind the playhead from the look-back slides', () => {
+		// The look-back exists for the assistive label only. Slides 8-9 read 1 here, and the
+		// front must still start at the playhead — drawing a buffer behind playback is the
+		// thing the floor exists to prevent.
+		expect(prefetchFrontOf(windowed(60, 8, 16), 10)).toBeGreaterThanOrEqual(10);
+	});
+});

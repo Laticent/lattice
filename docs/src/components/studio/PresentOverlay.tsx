@@ -546,14 +546,49 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		[open, set, narrationAt, acronyms, lang, lexicon],
 	);
 	const [readyFractions, setReadyFractions] = React.useState<number[]>([]);
+	// WINDOWED, from the playhead forward (#1392). The poll used to ask about every sentence in
+	// the deck, every 2s, on the same main thread as `decodeAudioData` — the surface a whole
+	// commit went into proving must not stutter.
+	//
+	// It never needed to. The rail's prefetch front is contiguous from the playhead by
+	// construction: it stops at the first slide that is not fully cached, because you would
+	// stall at that gap before reaching anything beyond it. Slides far ahead therefore cannot
+	// change what is drawn until you get there. Bounding the question at the lookahead depth
+	// plus a small margin removes the deck-size term entirely — and at that point the store's
+	// single `getAllKeys` is comfortably the right primitive, which is the other half of the
+	// lesson: the previous attempt here replaced that read with one probe per sentence, on the
+	// reasoning that it should scale with the deck rather than the store, and measured 7x SLOWER
+	// on an empty store — the state every new user is in. It was reverted. Ask a smaller
+	// question, don't buy a cleverer answer.
+	//
+	// Slides outside the window report 0, which is honest: not "no narration", but "not
+	// measured". `prefetchFrontOf` scans forward from the playhead and stops at the first
+	// shortfall, so an unmeasured slide simply ends the runway rather than inventing it, and the
+	// assistive "narration ready" label makes no claim about a slide nobody asked about.
+	// A small look-BACK as well as the forward window. It buys nothing for the fills — the front
+	// is floored at the playhead — but the per-slide `ready` array also feeds the rail's
+	// assistive label, and presenters step backwards constantly. Without it, tabbing to the slide
+	// you just left would stop announcing "narration ready" for audio that is plainly cached.
+	const READINESS_BACK = 2;
+	const READINESS_MARGIN = 2;
+	const windowStart = Math.max(0, clamped - READINESS_BACK);
+	const windowEnd = Math.min(readinessSentences.length, clamped + (Number.isFinite(lookahead) ? lookahead : readinessSentences.length) + READINESS_MARGIN + 1);
 	React.useEffect(() => {
 		if (!open || muted) {
 			setReadyFractions([]);
 			return;
 		}
 		let live = true;
+		const from = Math.min(windowStart, readinessSentences.length);
 		const refresh = () => {
-			narrationReadiness(readinessSentences)
+			narrationReadiness(readinessSentences.slice(from, windowEnd))
+				.then((slice) => {
+					// Splice the window back into deck-shaped indices, so every consumer keeps
+					// indexing by absolute slide number and nothing downstream learns about windowing.
+					const r = new Array<number>(readinessSentences.length).fill(0);
+					for (let i = 0; i < slice.length; i++) r[from + i] = slice[i];
+					return r;
+				})
 				.then((r) => {
 					// Keep the OLD array identity when nothing moved. This fires every 2s for as long
 					// as Present is open, and a fresh array each time re-rendered the whole tree —
@@ -573,7 +608,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			live = false;
 			window.clearInterval(id);
 		};
-	}, [open, muted, readinessSentences]);
+		// `clamped` and `windowEnd` join the deps because the WINDOW moves with the playhead —
+		// without them the poll would keep asking about the slides around wherever Present was
+		// opened. Re-arming on navigation is also what refreshes the rail immediately on a jump
+		// rather than up to 2s later.
+	}, [open, muted, readinessSentences, windowStart, windowEnd]);
 
 	// The rail's prefetch edge: per-slide fractions collapsed into one contiguous front, floored
 	// at the progress edge so an LRU eviction behind the playhead can never draw the buffer
