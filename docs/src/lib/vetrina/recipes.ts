@@ -4,7 +4,7 @@
 // keep recipes.
 
 import type { RunContext } from './runner';
-import { type Target, wait } from './stage';
+import { asElement, type RectSource, type Target, wait } from './stage';
 
 function newAbort(): Error {
 	const e = new Error('vetrina aborted');
@@ -30,7 +30,7 @@ export async function waitFor<A>(ctx: RunContext<A>, probe: Target | (() => bool
 		if (typeof probe === 'function') {
 			// Throw-safe: a readiness predicate that throws while its element is still null (the
 			// common `el.dataset.ready` case) means "not ready yet", never a crash.
-			let r: boolean | HTMLElement | null | undefined;
+			let r: boolean | RectSource | null | undefined;
 			try {
 				r = probe();
 			} catch {
@@ -38,7 +38,7 @@ export async function waitFor<A>(ctx: RunContext<A>, probe: Target | (() => bool
 			}
 			if (typeof r === 'boolean') {
 				if (r) return;
-			} else if (r) return r;
+			} else if (r) return asElement(r) ?? undefined; // resolved; a non-element rect source has no node to hand back
 		} else {
 			const el = stage.resolve(probe);
 			if (el) return el;

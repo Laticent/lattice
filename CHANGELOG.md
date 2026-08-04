@@ -25,6 +25,21 @@ in patch versions.
 
 ## Unreleased
 
+- **A walkthrough cue now keeps asking where its target is, instead of remembering.** On the
+  production Studio a spotlight ring rendered around a pane-width of empty space, its edge cut
+  at the splitter, while the cursor orbited a stale center — reported as geometry resolved in
+  the wrong coordinate space. Measured on the real surface it is neither: the stage layer sits
+  exactly on the viewport with no transformed ancestor. It is a **stale rect**. A tour step that
+  closes a panel and then circles the pane it just widened reads that pane's box *before* the
+  host's own setter has committed, and a cue positioned from fixed pixels never corrects itself
+  — so it was wrong for its whole 1.7s life. Cues now re-read their target every frame while
+  they are on screen: the ring repaints, and the cursor's glide re-aims mid-flight. The
+  spotlight also draws `border-box`, so its 3px border sits inside the target rather than
+  making the ring 6px larger than the thing it names. `Target` widens to accept any live rect
+  source (`{ getBoundingClientRect() }`) — every element already satisfies it, so nothing
+  changes for existing tours, and a host can now aim a cue at something the library cannot
+  reach with a selector without teaching it anything about the host.
+
 - **Kokoro prefetches now — the serial hazard is scheduled around instead of banned.** On-device
   synthesis is one model in one worker, so requests run strictly one at a time; prefetch was
   excluded from that rung entirely because a warm pass for the next slide would queue ahead of the

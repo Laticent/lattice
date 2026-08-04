@@ -164,6 +164,38 @@ reads (the set is frozen by a build gate; a new one must earn a new meaning):
 | `cross` | wrong / rejected / deleted |
 | `shake` | "no — careful / try again" |
 
+## Targets — and why a cue keeps asking where its target is
+
+A `Target` is a **selector** (resolved inside the `root` you passed), an **element**, a
+**thunk** returning one, or — since the same widening — anything that can answer
+`getBoundingClientRect()`:
+
+```ts
+export interface RectSource {
+  getBoundingClientRect(): DOMRect;   // viewport coordinates, live
+  scrollIntoView?(arg?): void;        // optional; used before a drag glide
+}
+```
+
+Every `HTMLElement` already satisfies that, so nothing you have written changes. What it
+adds is the escape hatch for a target the stage **cannot reach with a selector** — a region
+inside an iframe, a canvas hit box, a row in a virtualized list. You hand Vetrina a small
+object that knows where that thing currently is; Vetrina keeps knowing nothing about your
+app's structure. (`stage.resolve()` still returns elements only — a rect source has no node
+to hand back, so it resolves `null` there while remaining a perfectly good cue target.)
+
+**Live, not snapshotted.** A cue is anchored to a target, not to a copy of where it was.
+The spotlight ring re-reads its target every frame for as long as it is on screen, and the
+cursor's glide re-aims every frame while it is in flight. That is not a nicety: your `act`
+setters commit asynchronously, so the rect available the instant `act` returns can be a
+whole pane out of date by the time the cue paints — and a cue drawn from that never
+corrects itself. Vetrina got this wrong once, in production, and a walkthrough that points
+confidently at the wrong thing is worse than no walkthrough.
+
+The cost of that guarantee is exactly one frame: a reflow lands after the frame that caused
+it, so a tracking cue is ~16ms behind during a resize. Momentary bursts (the click spark,
+the anticipation ping) stay snapshot-positioned — they are gone before any of this matters.
+
 ## Cooperative hand-off — `awaitUser`
 
 Sometimes the tour should stop and let the viewer *do* the thing themselves. That's

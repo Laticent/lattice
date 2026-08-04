@@ -4,8 +4,8 @@ export type { AwaitUserOpts, RunContext, RunHandle, RunOptions, StopReason, Type
 export { run } from './runner';
 export type { SceneBuilder } from './scene';
 export { scene } from './scene';
-export type { DragHandle, Gesture, Stage, StageOptions, Target } from './stage';
-export { createStage, isAbortError, wait } from './stage';
+export type { DragHandle, Gesture, RectSource, Stage, StageOptions, Target } from './stage';
+export { asElement, createStage, isAbortError, wait } from './stage';
 export type { Step } from './storyboard';
 export { readMs, storyboard } from './storyboard';
 export type { Color, ResolvedTheme, Theme, VtToken } from './theme';

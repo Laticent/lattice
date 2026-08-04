@@ -1,5 +1,24 @@
 import type { ResolvedTheme } from './theme';
-export type Target = string | HTMLElement | (() => HTMLElement | null);
+/** A live source of a rectangle in VIEWPORT coordinates — everything the stage needs to
+ *  aim at something. Every `HTMLElement` already satisfies it structurally, so this is a
+ *  WIDENING of `Target`, not a new dialect: existing element and thunk targets are unchanged.
+ *
+ *  It exists so a HOST can hand the stage a target the stage itself cannot reach with a
+ *  selector — a region inside an iframe, a canvas hit box, a virtualized row — WITHOUT the
+ *  library learning anything about that host. The stage never inspects a `RectSource`; it
+ *  only asks it, repeatedly, where it currently is. */
+export interface RectSource {
+    /** Current position + size in the STAGE's viewport coordinates. Called repeatedly (per
+     *  animation frame while a cue is live), so keep it cheap and keep it live. */
+    getBoundingClientRect(): DOMRect;
+    /** Optional; the stage calls it before a drag glide exactly as it does on an element. */
+    scrollIntoView?(arg?: boolean | ScrollIntoViewOptions): void;
+}
+export type Target = string | RectSource | (() => RectSource | null);
+/** Narrow a resolved target to a real element, or null. Duck-typed rather than
+ *  `instanceof HTMLElement`: the stage is framework-free and may be handed a node from
+ *  another document or realm (a portal, a same-origin frame), where `instanceof` fails. */
+export declare function asElement(src: RectSource | null | undefined): HTMLElement | null;
 /** The cursor's body language — a curated alphabet, each carrying a distinct MEANING.
  *  Frozen at five; extending it is an allowlist edit gated in check-ownership. */
 export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake';
@@ -33,7 +52,9 @@ export interface Stage {
      *  dwells `readMs()`. Pulse is opacity/glow-based, so it plays under 'legible'; the cursor dip
      *  teleports when vestibular motion is suppressed. */
     emphasizeCaption(signal?: AbortSignal): Promise<void>;
-    /** Resolve a Target to an element. Selectors are ROOT-scoped; pass a thunk for portals. */
+    /** Resolve a Target to an ELEMENT. Selectors are ROOT-scoped; pass a thunk for portals.
+     *  A `RectSource` that is not an element (a host's cross-frame provider) resolves to null
+     *  here — it has no element to hand back — while still being a valid target for every cue. */
     resolve(target: Target): HTMLElement | null;
     /** True when VESTIBULAR motion is suppressed (the 'legible' and 'still' tiers) — glides
      *  teleport, sweeps/rings/orbit/wave-translate are skipped. Content cadence is unaffected. */

@@ -18,7 +18,30 @@
 
 import type { ResolvedTheme } from './theme';
 
-export type Target = string | HTMLElement | (() => HTMLElement | null);
+/** A live source of a rectangle in VIEWPORT coordinates — everything the stage needs to
+ *  aim at something. Every `HTMLElement` already satisfies it structurally, so this is a
+ *  WIDENING of `Target`, not a new dialect: existing element and thunk targets are unchanged.
+ *
+ *  It exists so a HOST can hand the stage a target the stage itself cannot reach with a
+ *  selector — a region inside an iframe, a canvas hit box, a virtualized row — WITHOUT the
+ *  library learning anything about that host. The stage never inspects a `RectSource`; it
+ *  only asks it, repeatedly, where it currently is. */
+export interface RectSource {
+	/** Current position + size in the STAGE's viewport coordinates. Called repeatedly (per
+	 *  animation frame while a cue is live), so keep it cheap and keep it live. */
+	getBoundingClientRect(): DOMRect;
+	/** Optional; the stage calls it before a drag glide exactly as it does on an element. */
+	scrollIntoView?(arg?: boolean | ScrollIntoViewOptions): void;
+}
+
+export type Target = string | RectSource | (() => RectSource | null);
+
+/** Narrow a resolved target to a real element, or null. Duck-typed rather than
+ *  `instanceof HTMLElement`: the stage is framework-free and may be handed a node from
+ *  another document or realm (a portal, a same-origin frame), where `instanceof` fails. */
+export function asElement(src: RectSource | null | undefined): HTMLElement | null {
+	return src && (src as unknown as Node).nodeType === 1 ? (src as HTMLElement) : null;
+}
 
 /** The cursor's body language — a curated alphabet, each carrying a distinct MEANING.
  *  Frozen at five; extending it is an allowlist edit gated in check-ownership. */
@@ -55,7 +78,9 @@ export interface Stage {
 	 *  dwells `readMs()`. Pulse is opacity/glow-based, so it plays under 'legible'; the cursor dip
 	 *  teleports when vestibular motion is suppressed. */
 	emphasizeCaption(signal?: AbortSignal): Promise<void>;
-	/** Resolve a Target to an element. Selectors are ROOT-scoped; pass a thunk for portals. */
+	/** Resolve a Target to an ELEMENT. Selectors are ROOT-scoped; pass a thunk for portals.
+	 *  A `RectSource` that is not an element (a host's cross-frame provider) resolves to null
+	 *  here — it has no element to hand back — while still being a valid target for every cue. */
 	resolve(target: Target): HTMLElement | null;
 	/** True when VESTIBULAR motion is suppressed (the 'legible' and 'still' tiers) — glides
 	 *  teleport, sweeps/rings/orbit/wave-translate are skipped. Content cadence is unaffected. */
@@ -431,25 +456,58 @@ export function createStage(opts: StageOptions): Stage {
 
 	const aimAt = (r: DOMRect) => ({ x: r.left + Math.min(r.width * 0.5, 22), y: r.top + Math.min(r.height * 0.5, 18) });
 
+	// ── Live geometry (D4.1, generalized) ────────────────────────────────────────
+	//
+	// A cue is anchored to a TARGET, not to a snapshot of one. Reading the rect once and
+	// holding it for the cue's lifetime is how a cue ends up describing where its target
+	// USED to be: a host's own `act` (a panel opening, a splitter moving, a pane collapsing)
+	// commits asynchronously, so a rect taken the moment the act returns can be a whole pane
+	// out of date by the time the cue paints — and nothing ever corrects it, because the
+	// spawned node holds fixed pixels.
+	//
+	// Measured on the real Studio at 1180x703 (#1400): the `circle` cue for the preview pane
+	// drew at left=699 w=481 while the pane it named was at left=571 w=609 — a ring beginning
+	// mid-pane and running off the screen edge, and a cursor orbiting a center one pane-width
+	// stale. Same shape on any host whose layout settles after its setter returns.
+	//
+	// So every LONG-LIVED cue re-reads its target each frame. Momentary bursts (the click
+	// spark, the anticipation ping) stay snapshot-positioned — they are gone within one
+	// layout change, and re-reading them would cost more than it could ever correct.
+	const liveRect = (src: RectSource | null): DOMRect | null => {
+		if (!src || destroyed) return null;
+		try {
+			return src.getBoundingClientRect();
+		} catch {
+			return null; // a detached node / a host provider that threw — treat as "gone"
+		}
+	};
+
 	requestAnimationFrame(() => {
 		if (destroyed) return;
 		dock.style.opacity = '1';
 		cursor.style.opacity = '1';
 	});
 
-	// A rAF-driven tween of the cursor between two points, racing the signal.
-	function tween(tx: number, ty: number, dur: number, signal?: AbortSignal): Promise<void> {
+	// A rAF-driven tween of the cursor toward a destination, racing the signal.
+	//
+	// The destination is a THUNK, re-evaluated every frame, so a glide that is already in
+	// flight when the host reflows lands on the target's new position instead of its old one
+	// (#1400). A thunk that returns null keeps the last known destination — a target that
+	// vanished mid-glide should let the cursor settle, not snap to the origin.
+	function tween(to: () => { x: number; y: number } | null, dur: number, signal?: AbortSignal): Promise<void> {
 		const fromX = cx;
 		const fromY = cy;
+		let dest = to() ?? { x: cx, y: cy };
 		const start = performance.now();
 		return new Promise((resolve, reject) => {
 			const onAbort = () => reject(new AbortError());
 			signal?.addEventListener('abort', onAbort, { once: true });
 			const tick = (now: number) => {
 				if (destroyed || signal?.aborted) return;
+				dest = to() ?? dest;
 				const t = Math.min(1, (now - start) / dur);
 				const e = easeInOut(t);
-				place(fromX + (tx - fromX) * e, fromY + (ty - fromY) * e);
+				place(fromX + (dest.x - fromX) * e, fromY + (dest.y - fromY) * e);
 				if (t < 1) requestAnimationFrame(tick);
 				else {
 					signal?.removeEventListener('abort', onAbort);
@@ -459,12 +517,16 @@ export function createStage(opts: StageOptions): Stage {
 			requestAnimationFrame(tick);
 		});
 	}
+	/** Tween to a fixed point (the dock, a stored origin) — the thunk form's degenerate case. */
+	const tweenTo = (tx: number, ty: number, dur: number, signal?: AbortSignal) => tween(() => ({ x: tx, y: ty }), dur, signal);
 
 	// The anticipation cue — a streak from the cursor toward the target + two ping rings
 	// where it lands, so the eye leads the glide. Non-blocking.
-	function anticipate(el: HTMLElement): void {
+	function anticipate(src: RectSource): void {
 		if (reduced || destroyed) return;
-		const { x: tx, y: ty } = aimAt(el.getBoundingClientRect());
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const { x: tx, y: ty } = aimAt(r0);
 		const ang = (Math.atan2(ty - cy, tx - cx) * 180) / Math.PI;
 		const dist = Math.hypot(tx - cx, ty - cy);
 		spawnFx(
@@ -493,15 +555,21 @@ export function createStage(opts: StageOptions): Stage {
 			);
 	}
 
-	async function moveToEl(el: HTMLElement, signal?: AbortSignal): Promise<void> {
-		// Re-read the rect at glide time (D4.1): the host may have scrolled/reflowed since.
-		const { x: tx, y: ty } = aimAt(el.getBoundingClientRect());
+	async function moveToEl(src: RectSource, signal?: AbortSignal): Promise<void> {
+		// Re-read the rect at glide time AND on every frame of the glide (D4.1, #1400): the
+		// host may have scrolled or reflowed since the beat began, and may still be reflowing.
+		const aim = () => {
+			const r = liveRect(src);
+			return r ? aimAt(r) : null;
+		};
+		const first = aim();
+		if (!first) return;
 		if (reduced) {
-			place(tx, ty);
+			place(first.x, first.y);
 			return wait(160, signal);
 		}
-		const dur = Math.max(300, Math.min(820, Math.hypot(tx - cx, ty - cy))) * pace;
-		return tween(tx, ty, dur, signal);
+		const dur = Math.max(300, Math.min(820, Math.hypot(first.x - cx, first.y - cy))) * pace;
+		return tween(aim, dur, signal);
 	}
 
 	async function press(signal?: AbortSignal): Promise<void> {
@@ -550,8 +618,8 @@ export function createStage(opts: StageOptions): Stage {
 	}
 
 	async function drag(from: Target, to: Target, signal?: AbortSignal): Promise<DragHandle> {
-		const fromEl = resolve(from);
-		const toEl = resolve(to);
+		const fromEl = resolveSource(from);
+		const toEl = resolveSource(to);
 		// Pick up: glide to `from` + a grab pulse.
 		if (fromEl) {
 			await moveToEl(fromEl, signal);
@@ -587,11 +655,16 @@ export function createStage(opts: StageOptions): Stage {
 		// reorder reflow hasn't happened yet (that waits on the gated drop).
 		if (toEl) {
 			toEl.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
-			const r = toEl.getBoundingClientRect();
-			const tx = r.left + Math.min(r.width * 0.5, 22);
-			const ty = r.top + Math.min(r.height * 0.5, 18);
-			if (reduced) place(tx, ty);
-			else await tween(tx, ty, Math.max(300, Math.min(820, Math.hypot(tx - cx, ty - cy))), signal);
+			// The scroll above is exactly the case a snapshot gets wrong, so aim LIVE (#1400).
+			const aim = () => {
+				const r = liveRect(toEl);
+				return r ? aimAt(r) : null;
+			};
+			const first = aim();
+			if (first) {
+				if (reduced) place(first.x, first.y);
+				else await tween(aim, Math.max(300, Math.min(820, Math.hypot(first.x - cx, first.y - cy))), signal);
+			}
 		}
 		const stopCarry = () => {
 			carrying = false;
@@ -616,10 +689,18 @@ export function createStage(opts: StageOptions): Stage {
 				await wait(reduced ? 40 : 240, sig ?? signal);
 			},
 			async snapBack(sig?: AbortSignal) {
-				// Glide back to `from` + a shake — the honest "the move didn't happen".
+				// Glide back to `from` + a shake — the honest "the move didn't happen". The list
+				// has NOT reordered (the drop was gated on an act that failed), but the host may
+				// have re-rendered on the failure, so aim live here too.
 				if (fromEl && !reduced) {
-					const r = fromEl.getBoundingClientRect();
-					await tween(r.left + Math.min(r.width * 0.5, 22), r.top + Math.min(r.height * 0.5, 18), 360, sig ?? signal).catch(() => {});
+					await tween(
+						() => {
+							const r = liveRect(fromEl);
+							return r ? aimAt(r) : null;
+						},
+						360,
+						sig ?? signal,
+					).catch(() => {});
 				}
 				stopCarry();
 				await shake(sig ?? signal).catch(() => {});
@@ -661,34 +742,66 @@ export function createStage(opts: StageOptions): Stage {
 		window.setTimeout(() => g.remove(), 1250);
 	}
 
-	async function circleGesture(el: HTMLElement, signal?: AbortSignal): Promise<void> {
-		const r = el.getBoundingClientRect();
-		const mx = r.left + r.width / 2;
-		const my = r.top + r.height / 2;
+	async function circleGesture(src: RectSource, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
 		const glow = doc.createElement('div');
+		// `box-sizing:border-box` so the 3px border sits INSIDE the target's box. Without it the
+		// ring is drawn 6px wider and taller than the thing it names — the layer lives outside
+		// the host's own reset (the Studio scopes `border-box` to `.lx-ui`), so the stage cannot
+		// assume one and states its own.
 		glow.style.cssText =
-			`position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;z-index:3;` +
+			'position:absolute;box-sizing:border-box;z-index:3;' +
 			`border-radius:14px;border:3px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 36px 2px ${A};opacity:0;pointer-events:none;`;
+		// The ring TRACKS its target for its whole life (#1400) — placed now, corrected every
+		// frame. This is what makes the cue honest when the host is still settling: whatever the
+		// ring is drawn around, it is the target's CURRENT box, never a snapshot of an older one.
+		let box = r0;
+		const paint = (r: DOMRect) => {
+			box = r;
+			glow.style.left = `${r.left}px`;
+			glow.style.top = `${r.top}px`;
+			glow.style.width = `${r.width}px`;
+			glow.style.height = `${r.height}px`;
+		};
+		paint(r0);
 		layer.appendChild(glow);
 		glow.animate([{ opacity: 0 }, { opacity: 0.85, offset: 0.22 }, { opacity: 0.85, offset: 0.75 }, { opacity: 0 }], {
 			duration: 1600,
 			easing: 'ease-in-out',
 		});
-		window.setTimeout(() => glow.remove(), 1700);
+		let tracking = true;
+		const track = () => {
+			if (!tracking || destroyed) return;
+			const r = liveRect(src);
+			if (r) paint(r);
+			requestAnimationFrame(track);
+		};
+		requestAnimationFrame(track);
+		const stopTracking = () => {
+			tracking = false;
+			glow.remove();
+		};
+		window.setTimeout(stopTracking, 1700);
 		if (reduced) return wait(500, signal);
-		const rx = Math.min(r.width * 0.42, 260);
-		const ry = Math.min(r.height * 0.42, 180);
-		const a0 = Math.atan2(cy - my, cx - mx);
+		// The orbit rides the SAME live box, so the cursor circles where the ring is drawn —
+		// the two cues cannot disagree, because there is one source of geometry for both.
+		const a0 = Math.atan2(cy - (r0.top + r0.height / 2), cx - (r0.left + r0.width / 2));
 		const dur = 1400;
 		const start = performance.now();
 		return new Promise((resolve, reject) => {
-			const onAbort = () => reject(new AbortError());
+			const onAbort = () => {
+				stopTracking();
+				reject(new AbortError());
+			};
 			signal?.addEventListener('abort', onAbort, { once: true });
 			const tick = (now: number) => {
 				if (destroyed || signal?.aborted) return;
 				const t = Math.min(1, (now - start) / dur);
 				const a = a0 + easeInOut(t) * Math.PI * 2 * 1.25;
-				place(mx + rx * Math.cos(a), my + ry * Math.sin(a));
+				const mx = box.left + box.width / 2;
+				const my = box.top + box.height / 2;
+				place(mx + Math.min(box.width * 0.42, 260) * Math.cos(a), my + Math.min(box.height * 0.42, 180) * Math.sin(a));
 				if (t < 1) requestAnimationFrame(tick);
 				else {
 					signal?.removeEventListener('abort', onAbort);
@@ -797,7 +910,7 @@ export function createStage(opts: StageOptions): Stage {
 
 	async function gesture(kind: Gesture, target?: Target, signal?: AbortSignal): Promise<void> {
 		if (destroyed) return;
-		const el = target != null ? resolve(target) : null;
+		const el = target != null ? resolveSource(target) : null;
 		switch (kind) {
 			case 'wave':
 				return wave(signal);
@@ -807,7 +920,7 @@ export function createStage(opts: StageOptions): Stage {
 			case 'shake':
 				return shake(signal);
 			case 'check': {
-				const p = el ? centerOf(el) : { x: cx, y: cy };
+				const p = (el && centerOf(el)) ?? { x: cx, y: cy };
 				glyphBloom(p.x, p.y, 'M5 13 l4 4 l10 -11');
 				// The dwell is READING time (register the confirm), not motion — only 'still'
 				// shortens it. 'legible' keeps the full 700ms, same as the storyboard settle: a
@@ -815,7 +928,7 @@ export function createStage(opts: StageOptions): Stage {
 				return wait(still ? 120 : 700, signal);
 			}
 			case 'cross': {
-				const p = el ? centerOf(el) : { x: cx, y: cy };
+				const p = (el && centerOf(el)) ?? { x: cx, y: cy };
 				glyphBloom(p.x, p.y, 'M6 6 l12 12 M18 6 l-12 12');
 				// Reading time, not motion (see 'check') — only 'still' shortens the confirm dwell.
 				return wait(still ? 120 : 700, signal);
@@ -823,25 +936,35 @@ export function createStage(opts: StageOptions): Stage {
 		}
 	}
 
-	function centerOf(el: HTMLElement): { x: number; y: number } {
-		const r = el.getBoundingClientRect();
-		return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+	function centerOf(src: RectSource): { x: number; y: number } | null {
+		const r = liveRect(src);
+		return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
 	}
 
-	function resolve(target: Target): HTMLElement | null {
+	/** The internal resolve: a Target → whatever can answer "where are you now". This is what
+	 *  every cue aims with, so a host-supplied `RectSource` is a first-class target everywhere
+	 *  an element is — which is how a cue reaches INSIDE an iframe without the stage (which
+	 *  never enters one) learning anything about the host's frames. */
+	function resolveSource(target: Target): RectSource | null {
 		if (destroyed) return null;
 		if (typeof target === 'string') return root.querySelector<HTMLElement>(target); // ROOT-scoped
-		if (typeof target === 'function') return target(); // the portal escape hatch
+		if (typeof target === 'function') return target(); // the portal / cross-frame escape hatch
 		return target;
+	}
+
+	/** The PUBLIC resolve, unchanged in contract: elements only. A host rect provider has no
+	 *  element to return, so it resolves null here while remaining a valid cue target. */
+	function resolve(target: Target): HTMLElement | null {
+		return asElement(resolveSource(target));
 	}
 
 	async function point(target: Target, signal?: AbortSignal): Promise<void> {
 		if (destroyed) return;
-		const el = resolve(target);
-		if (!el) return; // null-resolve = no-op (no wait, no throw)
-		if (!silenced.has('anticipate')) anticipate(el);
+		const src = resolveSource(target);
+		if (!src) return; // null-resolve = no-op (no wait, no throw)
+		if (!silenced.has('anticipate')) anticipate(src);
 		await wait(reduced ? 0 : 480 * pace, signal); // the register beat — let the eye lead
-		await moveToEl(el, signal);
+		await moveToEl(src, signal);
 	}
 
 	// Update the narration with a gentle cross-fade (the DOCK itself stays up — Exit must never
@@ -883,7 +1006,7 @@ export function createStage(opts: StageOptions): Stage {
 		if (reduced) place(tx, ty);
 		// Let a take-over abort propagate straight out (as point()/moveToEl do) — don't swallow it,
 		// or the glow-pulse below would fire during teardown and the abort would surface ~220ms late.
-		else await tween(tx, ty, Math.max(280, Math.min(640, Math.hypot(tx - cx, ty - cy))), signal);
+		else await tweenTo(tx, ty, Math.max(280, Math.min(640, Math.hypot(tx - cx, ty - cy))), signal);
 		if (!still) {
 			narration.animate(
 				[
