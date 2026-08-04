@@ -484,7 +484,7 @@ function kokoroRung({ getVoice }) {
     worker.onmessage = (e) => {
       const d = e.data || {};
       if (d.type === 'progress') onProg?.({ progress: (d.progress || 0) / 100, text: d.file, status: d.status });
-      else if (d.type === 'loaded') { isReady = true; onLoaded?.(true); }
+      else if (d.type === 'loaded') { isReady = true; inference = workerInference; onLoaded?.(true); }
       else if (d.type === 'load-error') onLoadErr?.(new Error(d.error || 'load failed'));
       else if (d.type === 'audio') { const p = pending.get(d.id); pending.delete(d.id); p?.resolve?.(wavBlob(d.samples, d.rate)); }
       else if (d.type === 'gen-error') { const p = pending.get(d.id); pending.delete(d.id); p?.reject?.(new Error(d.error || 'synthesis failed')); }
@@ -501,10 +501,27 @@ function kokoroRung({ getVoice }) {
       dtype, device,
       progress_callback: (p) => onProgress?.({ progress: (p?.progress || 0) / 100, text: p?.file || p?.status, status: p?.status }),
     });
+    inference = mainInference;
     isReady = true;
   }
 
   const { enqueue } = createSerialQueue();
+
+  // The inference call, chosen by load(): the worker's postMessage round trip when a
+  // same-origin module Worker could be constructed, else the main-thread generate. Held as
+  // ONE function so `synth` has a single body — and so the one part a test can never run
+  // (the 80MB model) is the one part a test can replace (`__setInference`).
+  let inference = () => Promise.reject(new Error('Kokoro not summoned'));
+  const workerInference = ({ text, voice, speed, signal }) => {
+    const id = nextId++;
+    return new Promise((resolve, reject) => {
+      pending.set(id, { resolve, reject });
+      worker.postMessage({ type: 'generate', id, text, voice, speed });
+      if (signal) signal.addEventListener('abort', () => { pending.delete(id); reject(new Error('aborted')); }, { once: true });
+    });
+  };
+  const mainInference = ({ text, voice, speed }) =>
+    mainTts.generate(text, { voice, ...(speed && speed !== 1 ? { speed } : {}) }).then((audio) => wavBlob(audio.audio, audio.sampling_rate));
 
   return {
     name: 'kokoro',
@@ -542,20 +559,19 @@ function kokoroRung({ getVoice }) {
     async synth({ text, voice, signal, speed, priority }) {
       if (!isReady) throw new Error('Kokoro not summoned');
       const v = voice || getVoice();
-      const run = () => {
-        if (worker) {
-          const id = nextId++;
-          return new Promise((resolve, reject) => {
-            pending.set(id, { resolve, reject });
-            worker.postMessage({ type: 'generate', id, text, voice: v, speed });
-            if (signal) signal.addEventListener('abort', () => { pending.delete(id); reject(new Error('aborted')); }, { once: true });
-          });
-        }
-        return mainTts
-          .generate(text, { voice: v, ...(speed && speed !== 1 ? { speed } : {}) })
-          .then((audio) => wavBlob(audio.audio, audio.sampling_rate));
-      };
+      const run = () => inference({ text, voice: v, speed, signal });
       return enqueue(run, signal, priority);
+    },
+    /** TEST SEAM — replace the INFERENCE CALL ONLY (the worker postMessage / main-thread
+     *  generate), keeping every other part of this rung real: `ready()`, the one serial
+     *  queue above, and the `enqueue(run, signal, priority)` wiring that carries
+     *  prioritization. That wiring is the thing worth testing and the thing `__setRung`
+     *  destroys — an earlier test "proved" the scheduler worked while driving an injected
+     *  rung, i.e. with no scheduler in the path at all. The model weights are the one part
+     *  no test can run; this seam replaces exactly that and nothing else. */
+    __setInference(fn) {
+      inference = fn;
+      isReady = true;
     },
   };
 }
@@ -646,6 +662,42 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // Live synth REQUESTS by cache key, whose lifetime is independent of any caller's patience
   // (see startRequest). A caller that times out leaves its request here to finish and cache.
   const liveRequests = new Map(); // cacheKeyFor(...) → Promise<Blob|null>
+  // ONE priority object per SENTENCE, not per caller (#1390).
+  //
+  // Promotion works by mutation: a job sitting in the rung's serial queue is reordered by
+  // flipping `priority.warm` to false, because the queue reads that field at DEQUEUE time.
+  // That only works while every layer holding the sentence references the SAME object — and
+  // there are three (the queued job, the `liveRequests` entry, the `inFlightSynths` entry).
+  //
+  // Letting each CALLER mint its own broke exactly when it mattered. A warm whose patience
+  // expires resolves null, and that settles its `inFlightSynths` entry — while the request and
+  // the job it queued live on to the 45s ceiling. The next `warm()` for the same sentence then
+  // found no `inFlightSynths` entry, minted a SECOND priority object, and `startRequest`
+  // returned the pre-existing entry without adopting it. Playback then joined at the outer
+  // layer and promoted the detached copy; the queued job kept `{warm:true}` and ran in backlog
+  // order. Precondition: a warm slower than SYNTH_WAIT_MS, i.e. the q8/WASM no-WebGPU path —
+  // the one rung where prioritization is the whole point.
+  //
+  // Keyed by cache key and released when the request itself settles, so the object lives
+  // exactly as long as something can still be reordered.
+  const priorities = new Map(); // cacheKeyFor(...) → { warm }
+  /** The live priority for `key`, created on first ask. A PLAYBACK caller (`warm:false`)
+   *  promotes whatever is already there; a warm caller never demotes it back. */
+  function priorityFor(key, warm) {
+    const existing = priorities.get(key);
+    if (existing) {
+      if (!warm) existing.warm = false;
+      return existing;
+    }
+    const made = { warm: !!warm };
+    priorities.set(key, made);
+    return made;
+  }
+  /** Drop the registry entry once nothing can be reordered any more (identity-guarded, so a
+   *  late release from a superseded request can't delete a newer sentence's live object). */
+  function releasePriority(key, p) {
+    if (priorities.get(key) === p) priorities.delete(key);
+  }
   // The MODEL id for a given rung name — only OpenRouter's rung varies by model
   // (Kokoro's on-device model is fixed); anything else (mock/injected/
   // speechSynthesis) has no model concept, so it's simply excluded from the key.
@@ -788,6 +840,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // scheduler reads this object at dequeue time, so on a serial rung (kokoro) the
       // sentence the room is waiting for jumps the prefetch backlog instead of sitting
       // behind it. A no-op for a rung with no queue.
+      // Belt and braces: with the per-key registry these are the SAME object, so this is
+      // already true. It stays because it is the invariant the queue depends on, and a
+      // future caller that hand-rolls a priority must not silently lose the promotion.
       if (priority && !priority.warm) existing.priority.warm = false;
       return existing;
     }
@@ -796,7 +851,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // already five seconds old must not record five milliseconds when it lands — that
     // poisoned the latency reservoir with the join, and `auto` lookahead is sized off its
     // p95 (red team, #1352). The entry, not the bare promise, is what callers hold.
-    const entry = { startedAt: Date.now(), promise: null, priority: priority || { warm: false } };
+    const entry = { startedAt: Date.now(), promise: null, priority: priority || priorityFor(key, false) };
     let ceiling;
     const p = Promise.race([
       rung.synth({ text, voice, speed, signal: ctl.signal, priority: entry.priority }),
@@ -822,6 +877,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       .finally(() => {
         clearTimeout(ceiling);
         if (liveRequests.get(key) === entry) liveRequests.delete(key);
+        // The queued job is gone with the request (the ceiling abort sweeps it), so nothing
+        // can be reordered any more — retire the shared priority so the next pass starts clean.
+        releasePriority(key, entry.priority);
       });
     entry.promise = p;
     liveRequests.set(key, entry);
@@ -924,10 +982,14 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // a serial rung that left the sentence the room is waiting for sitting in the prefetch
       // backlog. The priority object is created by the caller precisely so both layers
       // reference the SAME one.
+      // Promote through the REGISTRY, not only through the entry we happened to find: the
+      // two are the same object now, and going through the registry is what keeps that true
+      // even when the outer entry is a leftover from a caller that already gave up (#1390).
+      priorityFor(key, false);
       if (joined.priority) joined.priority.warm = false;
       return { rung: rung.name, bytes: await joined.promise, key };
     }
-    const priority = { warm: false };
+    const priority = priorityFor(key, false);
     const p = fetchClip(rung, { text, voice, speed: effSpeed, signal, key, priority }).finally(() => {
       if (inFlightSynths.get(key)?.promise === p) inFlightSynths.delete(key);
     });
@@ -1026,7 +1088,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // used to carry near-copies of this, so an improvement to either silently applied
       // to only half the traffic — and a warm that skipped the on-device store would
       // re-buy audio the device already held.
-      const priority = { warm: true };
+      const priority = priorityFor(cacheKey, true);
       const p = fetchClip(item.rung, { text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig, key: cacheKey, priority }).finally(() => {
         if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
         warmActive--;
@@ -1158,6 +1220,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     webgpu: detectWebGPU(),
     // Test hooks (exercise the ladder + sequencing without real audio/models).
     __setRung(b) { injected = b; },
+    /** TEST SEAM — swap ONLY Kokoro's inference call, keeping the real rung, its real serial
+     *  queue, and the model's two dedup layers in the path. Unlike `__setRung` (which replaces
+     *  the rung wholesale and takes the scheduler out with it), a test using this exercises the
+     *  actual code that carries prioritization. Pair with a `rung: 'kokoro'` setting. */
+    __setKokoroInference(fn) { kokoro.__setInference(fn); },
   };
 }
 

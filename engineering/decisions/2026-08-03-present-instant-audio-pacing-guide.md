@@ -818,6 +818,16 @@ worker cannot be. Selection reads `priority.warm` at DEQUEUE time, and that obje
 the request entry in the model, so a playback caller that joins an already-queued prefetch
 **promotes it in place** instead of waiting behind the backlog.
 
+**Amended 2026-08-04 (#1390): the object has to be per SENTENCE, not per caller.** Publishing
+the caller's object on both entries was still not enough. A warm whose patience expired settled
+its `inFlightSynths` entry while the request and its queued job lived on to the ceiling, so a
+re-warm found no outer entry, minted a SECOND object, and `startRequest` returned the existing
+entry without adopting it — playback then promoted a detached copy. Priority is now owned by the
+model, keyed by cache key, and released when the request settles. Pinned by
+`voice-model.kokoro-priority.test.ts`, which drives the REAL rung and its REAL queue (only the
+inference call is replaced, via a seam that keeps the scheduler in the path) and asks for the
+OLDEST queued sentence — because asking for the newest passes whether or not promotion works.
+
 That sharing is the subtle part, and it took a failing test to find: there are **two** dedup
 layers. `synthOne` joins at `inFlightSynths` *above* `startRequest`'s own `liveRequests`, so a
 playback caller that joined at the outer layer never reached the promotion at the inner one. The

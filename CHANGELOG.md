@@ -25,6 +25,18 @@ in patch versions.
 
 ## Unreleased
 
+- **A re-warmed sentence can be promoted again, so on-device playback stops waiting behind the
+  prefetch backlog.** Kokoro synthesizes one sentence at a time, and playback jumps a queued
+  backlog by flipping a shared `priority` object the queue reads at dequeue time. That only
+  works while every layer holding the sentence references the *same* object — and each caller
+  was minting its own. A warm whose 20s patience expired settled its outer dedup entry while
+  the request and its queued job lived on to the 45s ceiling, so the next prefetch pass found
+  nothing, made a second priority object, and the playback caller that joined promoted the
+  detached copy: the job in the queue still read "prefetch" and ran in backlog order. The
+  precondition is a warm slower than the patience window, i.e. the q8/WASM no-WebGPU path —
+  exactly the rung where prioritization is the entire point. Priority is now one object per
+  sentence for as long as anything can still be reordered.
+
 - **Autoplay no longer hangs when two slides in a row narrate identically.** The effect that
   starts a newly-arrived slide's reader was keyed on the reader's `track`, and `track` is
   memoized on its text — so two consecutive slides that resolve to the same spoken words (the
