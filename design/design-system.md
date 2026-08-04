@@ -591,6 +591,12 @@ AI agents authoring decks get a discovery surface and a validation loop:
   take an `escalateTo` target or split across slides. `lint:deck` warns
   (`capacity-crowd` / `capacity-overflow`) as a backstop. See
   `engineering/decisions/2026-06-17-content-capacity-contract.md`.
+- **Code panes budget WIDTH too.** Counting elements says nothing about a fenced
+  line that runs off the right edge: the code panes in `code` and `compare-code`
+  are `overflow: hidden` over `white-space: pre`, so a long line is cut mid-token
+  with no ellipsis and no height cost for the overflow probe to notice.
+  `lint:deck` measures it (`code-line-clipped`) against per-box character budgets
+  derived from the rendered pane geometry.
 - **Density — budget the words, not just the elements.** The right layout with
   the right element count still fails if each element is a paragraph. A
   component's optional `density` block (`{ axis, soft, hard }`) declares how many

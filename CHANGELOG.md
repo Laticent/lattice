@@ -27,6 +27,23 @@ in patch versions.
 
 ### Added
 
+- **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
+  pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`
+  pane, so a line past the right edge is cut mid-token: no ellipsis, no scrollbar, and no height
+  cost for the overflow probe to see. Nothing told the author, so the export quietly shipped a slide
+  saying something other than the source did. `lint:deck` now measures the widest fenced line on the
+  slide against a per-box character budget derived from the rendered pane geometry — about 57
+  columns for a landscape `compare-code` half-pane and 122 for a full-width `code` block, tightening
+  to 48 at `strip`. Advisory (`info`, which never blocks `--strict`), scoped to the panes that
+  genuinely clip: at `square` / `tall` / `strip` a `compare-code` pane stacks to one column and
+  wraps, so it is left alone, and a slide carrying a stage-resizing modifier (`claim-hero` /
+  `claim-bleed` / `compact`) is skipped rather than judged against a pane that is not its own. The
+  line is measured as it RENDERS — tabs expand, CJK and emoji count double, a `~~~` fence is code,
+  an indented fence loses its indent as markdown-it strips it, and a CR is not a column. The budgets
+  are pinned by a guard that re-measures them in a real browser, run nightly where a browser exists.
+  This is the authoring half of the equal-track fix in #1337, which made the clip honest but left
+  the author with no warning.
+
 - **`no-note` — suppress below-note promotion on a slide.** A trailing paragraph that follows a
   list or a table is promoted to a `.below-note` (hairline rule, muted ink, parked at the stage
   floor), which is the right default and is not always what the author meant: "a list, then a

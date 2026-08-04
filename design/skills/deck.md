@@ -211,6 +211,10 @@ A 12-slide board update:
   — the body restates the claim instead of delivering the mechanism.
 - Six cards in a `cards-grid` (hard cap 4) — `capacity-overflow`. Fix: escalate to
   `list-tabular` or split.
+- A 68-character line in a landscape `compare-code` pane (fits ~57) —
+  `code-line-clipped`. Code does not wrap there, so the tail is cut off the
+  rendered slide with nothing to say so. Fix: wrap the arguments across lines, or
+  give the snippet a full-width `code` slide (~122).
 - A closing slide with a five-bullet "Next steps" list. Fix: one sentence; the
   next steps are a follow-up email.
 - Every heading opening *"How [verb]ing X [verbs] Y"* — monotone. Vary cadence.
