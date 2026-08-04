@@ -721,7 +721,8 @@ import pandas as pd
 
 signals = pd.read_csv('./signals.csv')
 signals['score'] = signals.apply(
-    lambda r: 0.33*r.confidence + 0.33*r.recency + 0.33*r.relevance,
+    lambda r: 0.33*r.confidence
+    + 0.33*r.recency + 0.33*r.relevance,
     axis=1,
 )
 signals.to_csv('./scored.csv')
