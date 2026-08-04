@@ -284,18 +284,14 @@ test('fetchClip: gives up after the retry also fails — resolves null, never th
   assert.equal(res.bytes, null);
 });
 
-test('fetchClip: a TIMED-OUT attempt is NOT retried — a stuck model must not cost two timeouts', async () => {
+test('fetchClip: a TIMED-OUT attempt is NOT retried — a stuck model must not cost two waits', async () => {
   const { createVoiceModel } = await load();
   const rung = ScriptedRung(['hang', 'ok']);
   const v = createVoiceModel({});
   v.__setRung(rung);
-  const startedAt = Date.now();
   const res = await v.synthOne({ text: 'Never returns.' });
-  const elapsed = Date.now() - startedAt;
-  assert.equal(res.bytes, null, 'the hung attempt yields no audio');
-  assert.equal(rung.calls.length, 1, 'a timeout is terminal — the asymmetry that keeps a stall single-length');
-  // One SYNTH_TIMEOUT_MS (6s), not two. Generous bound so a loaded CI box can't flake it.
-  assert.ok(elapsed < 11000, `gave up after one timeout window (${elapsed}ms)`);
+  assert.equal(res.bytes, null, 'the hung request yields no audio to the caller');
+  assert.equal(rung.calls.length, 1, 'one request — a wait that expires is terminal for THIS caller');
 });
 
 test('fetchClip: an aborted signal short-circuits before any request is made', async () => {
@@ -335,20 +331,62 @@ test('fetchClip: degrades cleanly with no IndexedDB and no localStorage (plain n
   assert.ok(res.bytes, 'playback never depends on either store being present');
 });
 
-test('fetchClip: a timed-out attempt ABORTS its request rather than leaving it running at a paid backend', async () => {
-  // Losing the timeout race is not enough. An un-aborted request keeps costing money after
-  // we stop waiting for it, and since the in-flight registry clears when fetchClip resolves,
-  // the next call for the same key fires a SECOND request alongside the orphan. Lowering the
-  // timeout 20s -> 6s made this window reachable in practice (Copilot review, #1352).
+test('fetchClip: a request the caller gave up on KEEPS RUNNING and still caches — the self-healing property', async () => {
+  // The regression this pins: cutting the wait to 6s AND aborting on it meant a link slower
+  // than the deadline never landed a single sentence in cache, so the deck went permanently
+  // silent where it had previously worked slowly. A request is already paid for — letting it
+  // finish costs nothing extra and makes the next pass instant.
   const { createVoiceModel } = await load();
-  const rung = ScriptedRung(['hang']);
+  let release;
+  const rung = {
+    name: 'openrouter-tts',
+    calls: [],
+    ready: () => true,
+    synth({ text }) {
+      rung.calls.push(text);
+      return new Promise((res) => { release = () => res({ size: 64, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(64) }); });
+    },
+  };
   const v = createVoiceModel({});
   v.__setRung(rung);
-  const res = await v.synthOne({ text: 'Never returns.' });
-  assert.equal(res.bytes, null);
-  assert.equal(rung.aborts.length, 1);
-  assert.ok(rung.aborts[0], 'the rung is handed a signal it can honor');
-  assert.equal(rung.aborts[0].aborted, true, 'the timed-out request was actually canceled');
+
+  const ctl = new AbortController();
+  const first = v.synthOne({ text: 'Slow but coming.', signal: ctl.signal });
+  await new Promise((r) => setTimeout(r, 10));
+  ctl.abort();
+  assert.equal((await first).bytes, null, 'the caller gets nothing — it stopped waiting');
+
+  release();
+  await new Promise((r) => setTimeout(r, 20));
+  const second = await v.synthOne({ text: 'Slow but coming.' });
+  assert.ok(second.bytes, 'the late arrival is served from cache');
+  assert.equal(rung.calls.length, 1, 'and no second request was ever fired');
+});
+
+test('fetchClip: a concurrent call for the same sentence JOINS the live request, never duplicates it', async () => {
+  // The property the review actually asked for. Keying dedup on the REQUEST rather than on a
+  // caller's wait is what delivers it: the old version cleared its entry when the caller gave
+  // up, leaving the request running and the next call free to fire a duplicate.
+  const { createVoiceModel } = await load();
+  let release;
+  const rung = {
+    name: 'openrouter-tts',
+    calls: [],
+    ready: () => true,
+    synth({ text }) {
+      rung.calls.push(text);
+      return new Promise((res) => { release = () => res({ size: 32, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(32) }); });
+    },
+  };
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const a = v.synthOne({ text: 'Same words.' });
+  const b = v.synthOne({ text: 'Same words.' });
+  await new Promise((r) => setTimeout(r, 10));
+  release();
+  assert.ok((await a).bytes);
+  assert.ok((await b).bytes);
+  assert.equal(rung.calls.length, 1, 'one request served both callers');
 });
 
 test("fetchClip: the caller's abort cancels the in-flight request and does NOT count as a retryable failure", async () => {

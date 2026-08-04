@@ -222,14 +222,23 @@ const AUDIO_CACHE_LIMIT = 200;
 // MAX_WARM_CONCURRENCY ceiling of 4, so the transient peak stays modest.
 const WARM_CONCURRENCY = 3;
 
-// Per-ATTEMPT synth timeout. Was a single flat 20s, which is the timeout behind the
-// "audio hangs" report: a slow sentence stalled the whole run for twenty seconds and
-// was then silently dropped with no retry, while the reader's clock (which rides the
-// WebAudio clock, not the audio) kept the captions crawling over the silence.
+// How long the PLAYER waits for a sentence before giving up on it and moving on.
 //
-// 6s is comfortably above a healthy p95 for a single sentence and low enough that a
-// genuinely stuck request surfaces as a beat, not an outage.
-const SYNTH_TIMEOUT_MS = 6000;
+// This was cut to 6s on the theory that 6s is "comfortably above a healthy p95" — a number
+// reasoned about, never measured, because no key was available to measure with. On a link
+// where synthesis genuinely takes longer, EVERY sentence timed out and the deck went silent.
+// Restored to the value that was empirically working before.
+//
+// A long wait is far less harmful than it used to be: the reader now HOLDS the highlight
+// while starved instead of crawling captions over silence, and the rail's prefetch edge
+// keeps moving. The wait is visible rather than a lie, so buying a tight deadline at the
+// cost of dropped audio is a bad trade.
+const SYNTH_WAIT_MS = 20000;
+
+// The REQUEST's own ceiling — separate from the player's patience above. Past this a
+// genuinely hung request is abandoned so it can't live forever; short of it, a request the
+// player gave up on KEEPS RUNNING and still populates the cache (see startRequest).
+const REQUEST_CEILING_MS = 45000;
 // Backoff before the single retry (below). Small — this covers a transient 429/5xx,
 // not a queue.
 const SYNTH_RETRY_DELAY_MS = 300;
@@ -549,6 +558,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // microtask — so the new call's synchronous scheduling would otherwise see
   // a stale, doomed entry still sitting in the map.
   const inFlightSynths = new Map(); // cacheKeyFor(...) → { promise, sig }
+  // Live synth REQUESTS by cache key, whose lifetime is independent of any caller's patience
+  // (see startRequest). A caller that times out leaves its request here to finish and cache.
+  const liveRequests = new Map(); // cacheKeyFor(...) → Promise<Blob|null>
   // The MODEL id for a given rung name — only OpenRouter's rung varies by model
   // (Kokoro's on-device model is fixed); anything else (mock/injected/
   // speechSynthesis) has no model concept, so it's simply excluded from the key.
@@ -662,6 +674,57 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
    * Never throws and never rejects — every failure path resolves `null`, which the
    * callers already treat as "skip this sentence".
    */
+  /**
+   * The live request for one sentence, shared by every caller and outliving all of them.
+   *
+   * This exists because "how long the player is willing to wait" and "how long the request
+   * should run" are different questions, and conflating them broke audio outright. A request
+   * the player has given up on is ALREADY PAID FOR — letting it finish and cache costs
+   * nothing extra and makes a slow link self-healing (the sentence lands late, and the next
+   * pass finds it warm). Canceling it instead throws away both the money and the audio.
+   *
+   * Keying dedup on the REQUEST rather than on a caller's wait is also what actually delivers
+   * the property the review asked for: a second call for the same sentence JOINS this promise
+   * instead of firing a duplicate at a paid backend. The previous version cleared its
+   * in-flight entry when the *caller* gave up, so a timeout left the entry gone while the
+   * request was still running — the exact duplicate it was meant to prevent.
+   *
+   * REQUEST_CEILING_MS is the one hard stop, so a genuinely hung request cannot live forever.
+   */
+  function startRequest(rung, { text, voice, speed, key }) {
+    const existing = liveRequests.get(key);
+    if (existing) return existing;
+    const ctl = new AbortController();
+    let ceiling;
+    const p = Promise.race([
+      rung.synth({ text, voice, speed, signal: ctl.signal }),
+      new Promise((res) => {
+        ceiling = setTimeout(() => {
+          ctl.abort(); // genuinely hung — stop paying for an answer that is never coming
+          res(null);
+        }, REQUEST_CEILING_MS);
+      }),
+    ])
+      .then((blob) => {
+        if (!blob) return null;
+        cacheSet(key, blob);
+        // Write through to the device, unawaited — a caller may be waiting to PLAY this.
+        if (narrationCacheEnabled()) {
+          Promise.resolve(putClip(key, blob)).catch(() => {
+            /* a full or blocked store just means no persistence this time */
+          });
+        }
+        return blob;
+      })
+      .catch(() => null)
+      .finally(() => {
+        clearTimeout(ceiling);
+        if (liveRequests.get(key) === p) liveRequests.delete(key);
+      });
+    liveRequests.set(key, p);
+    return p;
+  }
+
   async function fetchClip(rung, { text, voice, speed, signal, key }) {
     // Tier 1 — the persistent store. Guarded by the workspace pref, and skipped entirely
     // when this device has no IndexedDB (private mode), where getClip resolves null.
@@ -681,55 +744,36 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     for (let attempt = 0; attempt < 2; attempt++) {
       if (signal?.aborted) return null;
       const startedAt = Date.now();
+      // Race OUR PATIENCE against the shared request — not against the request's life. A
+      // request we stop waiting for keeps running and still caches (startRequest), which is
+      // what makes a slow link self-healing: the sentence lands late, and the next pass or
+      // the warm-ahead finds it already there. Aborting it instead threw away audio we had
+      // already paid for, and on a link slower than the deadline that meant nothing ever
+      // reached the cache at all — the deck simply went silent.
+      const request = startRequest(rung, { text, voice, speed, key });
       let timer;
-      // A per-ATTEMPT controller, chained to the caller's signal. Losing the timeout race
-      // is not enough: without aborting, the request keeps running at a paid backend after
-      // we've stopped waiting for it, and since `inFlightSynths` clears when fetchClip
-      // resolves, the next call for the same key fires a SECOND request alongside the
-      // orphan. The old code had the same shape, but at a 20s timeout the window was rarely
-      // reached; at 6s it would be, so lowering the timeout is what made this worth fixing
-      // (Copilot review, #1352). Every rung honors `signal` — openRouterRung passes it
-      // straight to fetch, kokoroRung rejects its pending worker job on abort.
-      const attemptCtl = new AbortController();
-      const chainAbort = () => attemptCtl.abort();
-      if (signal) signal.addEventListener('abort', chainAbort, { once: true });
       const outcome = await Promise.race([
-        rung
-          .synth({ text, voice, speed, signal: attemptCtl.signal })
-          .then((blob) => ({ blob }))
-          .catch((error) => ({ error })),
+        request.then((blob) => (blob ? { blob } : { failed: true })),
         new Promise((res) => {
-          timer = setTimeout(() => {
-            attemptCtl.abort(); // stop paying for an answer we will no longer use
-            res({ timedOut: true });
-          }, SYNTH_TIMEOUT_MS);
+          timer = setTimeout(() => res({ timedOut: true }), SYNTH_WAIT_MS);
         }),
-      ]).finally(() => {
-        clearTimeout(timer);
-        signal?.removeEventListener('abort', chainAbort);
-      });
+      ]).finally(() => clearTimeout(timer));
 
-      // The CALLER walked away mid-attempt (barge-in, slide change, Present closed). Not a
-      // failure to retry — just stop. Checked before the retry branch so an abort-induced
-      // rejection can't be mistaken for a transient one.
+      // The CALLER walked away mid-wait (barge-in, slide change, Present closed). Not a
+      // failure to retry — just stop waiting. The request itself continues and still caches.
       if (signal?.aborted) return null;
 
       if (outcome.blob) {
         // Measure REAL work only — a cache hit returns above, so this reservoir stays a
         // reading of the model/network rather than of our own hit rate.
         recordLatency(voiceKey, Date.now() - startedAt);
-        cacheSet(key, outcome.blob);
-        // Write through to the device, unawaited: the caller is waiting to PLAY this, and
-        // an IndexedDB write must never sit in front of audio starting.
-        if (narrationCacheEnabled()) {
-          Promise.resolve(putClip(key, outcome.blob)).catch(() => {
-            /* a full or blocked store just means no persistence this time */
-          });
-        }
         return outcome.blob;
       }
-      // A timeout is terminal (see above); a fast failure earns exactly one retry.
+      // Timed out: give up on THIS sentence so the run moves on, but leave the request
+      // alive. Not retried — a second wait would only stack more silence on a link that is
+      // already too slow, and the in-flight request will cache if it ever lands.
       if (outcome.timedOut) return null;
+      // A genuine fast failure (429/5xx) earns exactly one retry.
       if (attempt === 0 && !signal?.aborted) {
         await new Promise((res) => setTimeout(res, SYNTH_RETRY_DELAY_MS));
       }
