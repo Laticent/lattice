@@ -506,7 +506,7 @@ against the unready track in both modes:
 `ready` therefore sits close to `played` (≈1.4:1). Accepted deliberately: the two are never
 adjacent — the current segment always separates them — and position is already carried by
 that segment's own partial fill and by `aria-current`, so no information rides on telling
-them apart. Separation is by **luminance, not hue**, so the distinction survives greyscale
+them apart. Separation is by **luminance, not hue**, so the distinction survives grayscale
 (1.4.1), and readiness is also exposed per segment in the accessible name ("— narration
 ready") rather than in a live region, which would talk over the narration it describes.
 

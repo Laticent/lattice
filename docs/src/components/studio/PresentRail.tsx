@@ -110,8 +110,8 @@ export function PresentRail({
 								const here = gi === current;
 								const right = done ? 0 : here ? 100 - Math.round(Math.max(0, Math.min(1, frac)) * 100) : 100;
 								// AA, MEASURED rather than assumed (see the decision record). The bands are
-								// separated by LUMINANCE, not hue, so a colour-blind viewer reads them in
-								// greyscale (1.4.1), and the meaningful pair must clear 3:1 (1.4.11).
+								// separated by LUMINANCE, not hue, so a color-blind viewer reads them in
+								// grayscale (1.4.1), and the meaningful pair must clear 3:1 (1.4.11).
 								//
 								// Two earlier instincts died on contact with the numbers:
 								//   · a HEIGHT split — the bar is 3px, so a half-height band is 1.5px, and no

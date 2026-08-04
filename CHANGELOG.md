@@ -395,7 +395,7 @@ in patch versions.
   self-presenting deck rather than the presenter: when narration stalls, the played edge freezes
   while the ready band keeps advancing, and motion that continues while playback is stopped is the
   only honest way to say "still working" rather than "crashed". Bands are separated by **luminance,
-  not hue**, so they survive greyscale, and the ready band is measured at **3.18:1 (light) / 4.02:1
+  not hue**, so they survive grayscale, and the ready band is measured at **3.18:1 (light) / 4.02:1
   (dark)** against the unready track — clearing WCAG 1.4.11's 3:1 for meaningful non-text contrast.
   Readiness also rides each segment's accessible name, deliberately not a live region, which would
   talk over the narration it describes.
@@ -7272,7 +7272,7 @@ in patch versions.
   **texture pattern** per categorical slot on diagram fills (Mermaid `.section-N`
   and the Mermaid pie) and native chart fills (pie / funnel), and a per-series
   **line-style** on radar. The four share a `themes/a11y-base.css` foundation (the
-  texture wiring + greyscale categorical ramp + forced light scheme); each theme
+  texture wiring + grayscale categorical ramp + forced light scheme); each theme
   adds only its status trio. They are **mode-invariant** — a fixed palette that
   ignores the light/dark toggle, so an accessibility render reads identically for
   every viewer (and color-free decks stay readable by texture + glyph + line-style
@@ -15154,7 +15154,7 @@ in patch versions.
   outline ring (`planned`) — are replaced by shape-distinct white marks on the
   state-colored disc: **check / dash / cross / slash** for
   shipped / in-flight / planned / out-of-scope, across the default, `horizons`,
-  and `status` treatments. Each state now reads in greyscale and for
+  and `status` treatments. Each state now reads in grayscale and for
   color-vision-deficient viewers (color is the redundant channel, not the
   only one), matching the mark vocabulary `checklist` / `verdict-grid` /
   `obligation-matrix` already use.
@@ -15346,7 +15346,7 @@ in patch versions.
   **check / dash / x / slash** — replacing the old fill-level discs
   (filled / half / outline / slashed) and the layout-specific Unicode glyphs.
   The mark *shape* carries the meaning independently of color, so the states
-  are unambiguous in greyscale and for color-vision-deficient viewers — the
+  are unambiguous in grayscale and for color-vision-deficient viewers — the
   redundant encoding the fill-level discs lacked. Marks are font-independent
   SVG masks painted in theme tokens (knockout = `--bg`; disc = `--pass` /
   `--warn` / `--fail` / `--text-muted`), so they stay theme- and dark-mode

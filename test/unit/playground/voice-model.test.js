@@ -348,7 +348,7 @@ test('fetchClip: a timed-out attempt ABORTS its request rather than leaving it r
   assert.equal(res.bytes, null);
   assert.equal(rung.aborts.length, 1);
   assert.ok(rung.aborts[0], 'the rung is handed a signal it can honor');
-  assert.equal(rung.aborts[0].aborted, true, 'the timed-out request was actually cancelled');
+  assert.equal(rung.aborts[0].aborted, true, 'the timed-out request was actually canceled');
 });
 
 test("fetchClip: the caller's abort cancels the in-flight request and does NOT count as a retryable failure", async () => {

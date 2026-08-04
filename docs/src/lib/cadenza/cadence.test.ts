@@ -209,7 +209,7 @@ describe('slideBeatMs — the top rung of the ladder (the between-slide beat)', 
 	it('a section boundary is a deeper break than a plain slide, which is deeper than a paragraph', () => {
 		// The whole point of adding this tier: the deepest boundary a deck has used to carry
 		// NO deliberate pause at all, so the ladder stopped one rung short of the structure
-		// it was modelling.
+		// it was modeling.
 		expect(slideBeatMs('slide')).toBeGreaterThan(PARAGRAPH_PAUSE_MS);
 		expect(slideBeatMs('section')).toBeGreaterThan(slideBeatMs('slide'));
 	});
