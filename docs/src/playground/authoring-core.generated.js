@@ -416,6 +416,69 @@ var require_lint_core = __commonJS({
       }
       return 0;
     }
+    var CODE_LINE_BUDGET = Object.freeze({
+      "compare-code": Object.freeze({ wide: 57 }),
+      code: Object.freeze({ wide: 122, square: 68, tall: 49, strip: 48 })
+    });
+    var STAGE_RESIZING_MODIFIERS = /* @__PURE__ */ new Set(["claim-hero", "claim-bleed", "compact"]);
+    var CODE_TAB_SIZE = 8;
+    var WIDE_RANGES = [
+      [4352, 4447],
+      [11904, 12350],
+      [12353, 13311],
+      [13312, 19903],
+      [19968, 40959],
+      [40960, 42191],
+      [44032, 55203],
+      [63744, 64255],
+      [65040, 65049],
+      [65072, 65135],
+      [65280, 65376],
+      [65504, 65510],
+      [127744, 128591],
+      [129280, 129535],
+      [131072, 196605],
+      [196608, 262141]
+    ];
+    function isWideChar(cp) {
+      for (const [lo, hi] of WIDE_RANGES) {
+        if (cp < lo) return false;
+        if (cp <= hi) return true;
+      }
+      return false;
+    }
+    function codeLineColumns(line) {
+      let col = 0;
+      for (const ch of String(line)) {
+        if (ch === "	") col += CODE_TAB_SIZE - col % CODE_TAB_SIZE;
+        else col += isWideChar(ch.codePointAt(0)) ? 2 : 1;
+      }
+      return col;
+    }
+    function widestCodeLine(slide) {
+      if (!slide) return null;
+      let best = null;
+      let fence = null;
+      for (const raw of String(slide).split("\n")) {
+        const line = raw.replace(/\r$/, "");
+        const open = line.match(/^([ \t]*)(`{3,}|~{3,})(.*)$/);
+        if (!fence) {
+          if (open && !(open[2][0] === "`" && open[3].includes("`"))) {
+            fence = { marker: open[2][0], indent: open[1].length };
+          }
+          continue;
+        }
+        if (open && open[2][0] === fence.marker && open[2].length >= 3 && !open[3].trim()) {
+          fence = null;
+          continue;
+        }
+        const content = line.slice(0, fence.indent).trim() === "" ? line.slice(fence.indent) : line.replace(/^[ \t]+/, "");
+        const text = content.replace(/\s+$/, "");
+        const columns = codeLineColumns(text);
+        if (!best || columns > best.columns) best = { columns, text };
+      }
+      return best;
+    }
     var AXIS_NOUN = Object.freeze({ item: "item", row: "row", col: "column", cell: "cell", line: "line" });
     function axisNoun(axis, n) {
       const base = AXIS_NOUN[axis] || String(axis);
@@ -604,23 +667,23 @@ ${indent}   - ${body.trim()}`;
         const m = slide.match(CLASS_DIRECTIVE);
         if (!m) return;
         const tokens = m[1].split(/\s+/).filter(Boolean);
-        for (const t of tokens) {
-          if (vocab.names.has(t)) continue;
-          if (isKnownModifier(t, vocab)) continue;
-          if (DEPRECATED_CLASSES.has(t)) continue;
+        for (const t2 of tokens) {
+          if (vocab.names.has(t2)) continue;
+          if (isKnownModifier(t2, vocab)) continue;
+          if (DEPRECATED_CLASSES.has(t2)) continue;
           findings.push({
             slide: idx - fm + 1,
             rule: "unknown-class",
             severity: "warning",
-            classToken: t,
+            classToken: t2,
             line: m[0],
-            message: `'${t}' is not a known component or modifier`,
+            message: `'${t2}' is not a known component or modifier`,
             fix: "Check the spelling against dist/docs/components.json (component names) or design/design-system.md \xA76.5 (modifiers)."
           });
         }
         const exclusiveAxes = vocab.exclusiveAxes || {};
         for (const [axis, members] of Object.entries(exclusiveAxes)) {
-          const hits = tokens.filter((t) => members.includes(t));
+          const hits = tokens.filter((t2) => members.includes(t2));
           if (hits.length > 1) {
             findings.push({
               slide: idx - fm + 1,
@@ -633,7 +696,7 @@ ${indent}   - ${body.trim()}`;
             });
           }
         }
-        const finishHits = tokens.filter((t) => /^finish-.+/.test(t) && t !== "finish-preview");
+        const finishHits = tokens.filter((t2) => /^finish-.+/.test(t2) && t2 !== "finish-preview");
         if (finishHits.length > 1) {
           findings.push({
             slide: idx - fm + 1,
@@ -646,10 +709,10 @@ ${indent}   - ${body.trim()}`;
           });
         }
         if (vocab.claimExcludes) {
-          const comp = tokens.find((t) => vocab.names.has(t));
+          const comp = tokens.find((t2) => vocab.names.has(t2));
           const excluded = comp && vocab.claimExcludes[comp];
           if (excluded) {
-            const ownClaim = tokens.find((t) => t.startsWith("claim-"));
+            const ownClaim = tokens.find((t2) => t2.startsWith("claim-"));
             const effective = ownClaim || deckClaimToken;
             if (effective && excluded.includes(effective)) {
               const via = ownClaim ? `'${effective}'` : `deck-wide \`claim: ${deckClaimName}\``;
@@ -715,8 +778,8 @@ ${indent}   - ${body.trim()}`;
         }
         if (vocab.capacity) {
           const isStressSlide = /<!--\s*stress-slide\s*-->/.test(slide);
-          for (const t of tokens) {
-            const declared = vocab.capacity[t];
+          for (const t2 of tokens) {
+            const declared = vocab.capacity[t2];
             if (!declared) continue;
             const perFamily = declared.families?.[family];
             const cap = perFamily ? { ...declared, ...perFamily } : declared;
@@ -735,9 +798,9 @@ ${indent}   - ${body.trim()}`;
                   slide: idx - fm + 1,
                   rule: "capacity-overflow",
                   severity: "warning",
-                  classToken: t,
+                  classToken: t2,
                   line: m[0],
-                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n}, and a landscape @size does not paginate \u2014 so if it does not fit, it is clipped` + (cap.note ? ` (${cap.note})` : ""),
+                  message: `'${t2}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n}, and a landscape @size does not paginate \u2014 so if it does not fit, it is clipped` + (cap.note ? ` (${cap.note})` : ""),
                   // Naming the non-split is the part an author cannot infer: every other @size
                   // paginates, and the silence at landscape would otherwise read as a bug. What this
                   // must NOT promise is the ring — the emulator strips the overflow marker before
@@ -762,9 +825,9 @@ ${indent}   - ${body.trim()}`;
                   slide: idx - fm + 1,
                   rule: "capacity-autosplit",
                   severity: "info",
-                  classToken: t,
+                  classToken: t2,
                   line: m[0],
-                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so if it does not fit the ${family} box auto-split divides it into ${pages} or more pages of ${paced}` + (cap.perPage != null ? ` (${t} paces ${cap.perPage} per page when split)` : ""),
+                  message: `'${t2}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so if it does not fit the ${family} box auto-split divides it into ${pages} or more pages of ${paced}` + (cap.perPage != null ? ` (${t2} paces ${cap.perPage} per page when split)` : ""),
                   fix: hasHeadline ? `Intended? Nothing to do \u2014 if it splits, the run leads with a cover and ${evenness}. ${trim}` : `Intended? If it splits, ${evenness}, but this slide has no \`## \` headline, so the run gets no cover page to open on \u2014 add one. ${trim}`
                 });
                 continue;
@@ -774,23 +837,47 @@ ${indent}   - ${body.trim()}`;
                 slide: idx - fm + 1,
                 rule: "capacity-crowd",
                 severity: "warning",
-                classToken: t,
+                classToken: t2,
                 line: m[0],
-                message: `'${t}' reads best with ${comfort} or fewer ${axisNoun(cap.axis, comfort)}; this slide has ${n} \u2014 past ${cap.soft} it begins to crowd`,
+                message: `'${t2}' reads best with ${comfort} or fewer ${axisNoun(cap.axis, comfort)}; this slide has ${n} \u2014 past ${cap.soft} it begins to crowd`,
                 fix: capacityFix(cap)
               });
             }
             break;
           }
         }
-        if (tokens.some((t) => cardStyle.has(t))) {
+        const stageResized = tokens.some((t2) => STAGE_RESIZING_MODIFIERS.has(t2));
+        let t = null;
+        let budget = null;
+        for (const tok of tokens) {
+          const b = CODE_LINE_BUDGET[tok]?.[family];
+          if (b != null && (budget == null || b < budget)) {
+            t = tok;
+            budget = b;
+          }
+        }
+        const widthCheckable = budget != null && !stageResized && !/<!--\s*stress-slide\s*-->/.test(slide);
+        const widest = widthCheckable ? widestCodeLine(slide) : null;
+        if (widest && widest.columns > budget) {
+          const over = widest.columns - budget;
+          findings.push({
+            slide: idx - fm + 1,
+            rule: "code-line-clipped",
+            severity: "info",
+            classToken: t,
+            line: m[0],
+            message: `a fenced line on this '${t}' slide is ${widest.columns} columns wide; the ${family} pane fits about ${budget}, and code does not wrap here \u2014 the last ${over} ${over === 1 ? "column is" : "columns are"} clipped off the rendered slide`,
+            fix: t === "compare-code" ? `Trim the line to ${budget} columns or fewer \u2014 wrapping the arguments across lines keeps it valid in most languages. If the snippet genuinely needs the width, give it a full-width \`code\` slide instead, which fits about ${CODE_LINE_BUDGET.code[family]}.` : `Trim the line to ${budget} columns or fewer, or break the statement across lines.` + (family === "wide" ? ` Note this is the landscape budget: \`code\` never wraps, so at a portrait or square @size the same block fits only about ${CODE_LINE_BUDGET.code.tall}\u2013${CODE_LINE_BUDGET.code.square} columns.` : "")
+          });
+        }
+        if (tokens.some((t2) => cardStyle.has(t2))) {
           const offending = findInlineTitleBodyLine(slide) || findOrderedInlineTitleBodyLine(slide);
           if (offending) {
             findings.push({
               slide: idx - fm + 1,
               rule: "card-style-inline-title",
               severity: "error",
-              classToken: tokens.find((t) => cardStyle.has(t)),
+              classToken: tokens.find((t2) => cardStyle.has(t2)),
               line: offending.trim(),
               autofixable: !!autofixNestedTitle(offending),
               message: 'inline "- **Title.** body" on a card-style slide \u2014 the body inherits the parent li bold',
@@ -798,14 +885,14 @@ ${indent}   - ${body.trim()}`;
             });
           }
         }
-        if (tokens.some((t) => ledgerOl.has(t))) {
+        if (tokens.some((t2) => ledgerOl.has(t2))) {
           const offending = findInlineTitleBodyLine(slide);
           if (offending) {
             findings.push({
               slide: idx - fm + 1,
               rule: "ledger-inline-title",
               severity: "error",
-              classToken: tokens.find((t) => ledgerOl.has(t)),
+              classToken: tokens.find((t2) => ledgerOl.has(t2)),
               line: offending.trim(),
               autofixable: !!autofixOrderedNestedTitle(offending),
               message: 'inline "- **Title.** body" on a ledger/numbered slide \u2014 this layout wants an ordered (numbered) list, not an unordered bold lead-in',
@@ -813,28 +900,28 @@ ${indent}   - ${body.trim()}`;
             });
           }
         }
-        if (tokens.some((t) => statementOl.has(t))) {
+        if (tokens.some((t2) => statementOl.has(t2))) {
           const offending = findBoldOrderedStatement(slide);
           if (offending) {
             findings.push({
               slide: idx - fm + 1,
               rule: "statement-ol-bold",
               severity: "error",
-              classToken: tokens.find((t) => statementOl.has(t)),
+              classToken: tokens.find((t2) => statementOl.has(t2)),
               line: offending.trim(),
               message: "a **bold** span inside an ordered-list statement splits the counter grid row",
               fix: "Use a plain declarative statement (the layout already sets display weight)."
             });
           }
         }
-        if (tokens.some((t) => splitSlot.has(t)) && !tokens.includes("qr")) {
+        if (tokens.some((t2) => splitSlot.has(t2)) && !tokens.includes("qr")) {
           const offending = findSplitBodylessItem(slide);
           if (offending) {
             findings.push({
               slide: idx - fm + 1,
               rule: "split-bodyless-item",
               severity: "error",
-              classToken: tokens.find((t) => splitSlot.has(t)),
+              classToken: tokens.find((t2) => splitSlot.has(t2)),
               line: offending.trim(),
               autofixable: !!autofixNestedTitle(offending),
               message: "a right-panel item with no nested body on a split slide \u2014 the title won't render bold (slotLabelLift needs a nested body to lift)",
@@ -844,7 +931,7 @@ ${indent}   - ${body.trim()}`;
         }
         if (isH2AnchoredSplit(tokens) && !/^##\s/m.test(slide)) {
           const isMetric = tokens.includes("metric");
-          const cls = tokens.find((t) => t === "split-panel" || t === "split-compare");
+          const cls = tokens.find((t2) => t2 === "split-panel" || t2 === "split-compare");
           findings.push({
             slide: idx - fm + 1,
             rule: "split-missing-headline",
@@ -880,14 +967,14 @@ ${indent}   - ${body.trim()}`;
             });
           }
         }
-        if (tokens.some((t) => numberSlot.has(t))) {
+        if (tokens.some((t2) => numberSlot.has(t2))) {
           const offending = findSplitBodylessItem(slide);
           if (offending) {
             findings.push({
               slide: idx - fm + 1,
               rule: "number-slot-bodyless-item",
               severity: "warning",
-              classToken: tokens.find((t) => numberSlot.has(t)),
+              classToken: tokens.find((t2) => numberSlot.has(t2)),
               line: offending.trim(),
               message: "a kpi/stats item with no nested label \u2014 the number won't render in display type (the lift needs a nested body to fire)",
               fix: "Use the nested shape:\n    1. 73%\n       - faster close"
@@ -905,10 +992,10 @@ ${indent}   - ${body.trim()}`;
             fix: "Author the number as the first list item (optionally with a nested caption):\n    - 92%\n      - of the audience remembers one number."
           });
         }
-        if (deckHasFinish && tokens.some((t) => t === "title" || t === "closing")) {
-          const hasFinishToken = tokens.some((t) => /^finish(-|$)/.test(t));
+        if (deckHasFinish && tokens.some((t2) => t2 === "title" || t2 === "closing")) {
+          const hasFinishToken = tokens.some((t2) => /^finish(-|$)/.test(t2));
           if (!hasFinishToken) {
-            const bookend = tokens.find((t) => t === "title" || t === "closing");
+            const bookend = tokens.find((t2) => t2 === "title" || t2 === "closing");
             findings.push({
               slide: idx - fm + 1,
               rule: "bookend-finish-contrast",
@@ -1661,6 +1748,9 @@ ${indent}   - ${body.trim()}`;
       findSplitBodylessItem,
       findBigNumberHeroInHeading,
       countPrimaryCollection,
+      CODE_LINE_BUDGET,
+      codeLineColumns,
+      widestCodeLine,
       axisNoun,
       capacityFix,
       findUnknownMapRegions,

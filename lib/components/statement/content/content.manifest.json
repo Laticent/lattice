@@ -42,7 +42,7 @@
   "sample": "<!-- _class: content -->\n\n`statement \u00b7 content`\n\n## The content slide is the plainest tool in the box.\n\nA heading that makes one claim, then a paragraph or short list that delivers it. When no specialized layout fits, this is the honest default.\n",
   "stressDoc": {
     "summary": "Two paragraphs and a list \u2014 the ceiling.",
-    "sample": "<!-- _class: content -->\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit. This one runs two full lines to show where the measure sits and why anything denser belongs in a document.\n\nThe second paragraph stays shorter \u2014 because by now the audience is reading, not listening.\n\n- One list is allowed after prose\n- Three items is its comfortable end\n- A fourth begins to crowd the footer\n"
+    "sample": "<!-- _class: content -->\n\n## This is as much text as one slide should ever carry.\n\nTwo paragraphs is the working limit, and this is what the limit looks like when a slide actually reaches it. The measure runs four full lines here \u2014 far enough to show that body prose keeps its rhythm, and far enough to show why a third paragraph belongs in a document instead.\n\nThe second paragraph stays shorter \u2014 because by now the audience is reading, not listening, and every line spends from the budget the list below it draws on.\n\n- One list is allowed after the prose\n- Five items is where it stops\n- Each item earns its line or loses it\n- A sixth would run past the footer\n- This fifth one is the last that fits\n"
   },
   "whenToUse": [
     {

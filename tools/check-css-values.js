@@ -60,8 +60,8 @@
  */
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
 const SCAN_DIRS = ['lib', 'themes'].map((d) => path.join(ROOT, d)).filter((d) => fs.existsSync(d));
@@ -83,7 +83,11 @@ const SCAN_DIRS = ['lib', 'themes'].map((d) => path.join(ROOT, d)).filter((d) =>
  *      intent is worth recording in the cascade. Today: none.
  *   4. KNOWN DEFECT — the value is plain wrong and the fix is real work, so the
  *      entry holds the gate green while it is scheduled. It must name an issue.
- *      This is a debt marker, not a pattern; do not reach for it. Today: `speak`.
+ *      This is a debt marker, not a pattern; do not reach for it. Today: none.
+ *      The shape's only occupant was `speak: never` on the decorative status
+ *      glyphs (#1320), retired when those moved to `content: "…" / ""` alt text,
+ *      which keeps the glyph out of the accessibility tree — the thing `speak`
+ *      was reaching for and never did in any engine.
  *
  * A `why` is mandatory. So are `files` and `sites` — the stylesheets the sanction
  * covers, and how many occurrences it covers across them. A sanction is a claim
@@ -115,10 +119,6 @@ const SANCTIONED = [
   {
     prop: 'line-clamp', value: '2', files: ['lib/components/chart/kanban/kanban.styles.css'], sites: 1,
     why: 'Standard half of a cross-engine pair — `-webkit-line-clamp:2` is on the line above (kanban card title). Chromium clamps via the prefixed property; the standard one is there for when it lands.',
-  },
-  {
-    prop: 'speak', value: 'never', files: ['lib/base/base.print-textures.css', 'themes/a11y-base.css'], sites: 2,
-    why: 'KNOWN DEFECT (shape 4) — sanctioned to keep the gate green while it is fixed properly, NOT a deliberate pattern. Chromium DOES implement `speak`, with the CSS 2.1 aural vocabulary (`normal | none | spell-out`, plus `digits` / `literal-punctuation`); `never` is the CSS Speech Level 1 spelling and is outside that grammar, so it is dropped exactly like any other bad value. An earlier version of this entry claimed "no engine implements speak", which the tool\'s own oracle refutes (`CSS.supports("speak","none")` is true, `"never"` is false). The intent — do not announce the decorative ✓/✗/◆ that `::before` injects — is real but unserved either way: `speak` has no effect on the accessibility tree in any current engine, so even the spelling Chromium parses would do nothing. The fix is to stop injecting announced content (an `aria-hidden` wrapper or a background image), which is an accessibility redesign, not a value swap. Sites: lib/base/base.print-textures.css, themes/a11y-base.css. Issue #1320.',
   },
 ];
 
@@ -293,33 +293,6 @@ function declarations(css) {
 }
 
 /**
- * Resolve a Chromium, or return undefined so the caller can exit cleanly.
- *
- * A stale `CHROME_PATH` — the sandbox's puppeteer cache is not durable, so the
- * exported path can outlive the binary — falls through to the cache probe rather
- * than failing outright, since the probe is exactly what the hook would have found.
- *
- * PORTABLE, unlike the first cut. That one shelled out to `bash -lc 'ls
- * /root/.cache/puppeteer/…'`: it hardcoded root's home, so the tool could only ever
- * run in this sandbox, and it needed a shell to do a directory listing. This is the
- * resolver from tools/check-family-tiers.js:46, which probes `$HOME` first and the
- * root path second and uses fs directly. (Nine tools now carry a near-identical
- * resolver — off-path duplication for this change, filed rather than folded in.)
- */
-function chromePath() {
-  const env = process.env.CHROME_PATH;
-  if (env && fs.existsSync(env)) return env;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
-/**
  * Replace every `var(…)` in a value with `probe`, matching parens properly.
  *
  * A regex cannot do this — `var(--a, var(--b, 1px))` nests, and
@@ -478,7 +451,7 @@ async function main() {
   const pairs = group(testable);
   const varPairs = group(varred);
 
-  const exe = chromePath();
+  const exe = resolveChrome();
   if (!exe) {
     console.error('✗ no Chrome found — set CHROME_PATH (the SessionStart hook exports it).');
     process.exit(2);

@@ -62,6 +62,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
@@ -107,19 +108,6 @@ const SIZES = [
   { name: 'portrait', size: 'portrait', autosplit: true, viewport: [1080, 1350] },
   { name: 'square', size: 'square', autosplit: true, viewport: [1080, 1080] },
 ];
-
-/** Best-effort Chromium — mirrors tools/check-viz-render.js + check-svg-scaling.js. */
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
 
 /**
  * Rewrite the fixture's front matter to pin a deck size. Returns the full source

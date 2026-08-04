@@ -18,6 +18,19 @@
  *   ---
  * `created` is derived from the filename date (not duplicated in front-matter).
  *
+ * `summary` may also be written as a YAML BLOCK SCALAR, which is what most notes
+ * reach for once the summary outgrows a comfortable single line:
+ *   ---
+ *   status: shipped
+ *   summary: >
+ *     The first line of a summary that would be unreadable
+ *     as one 1,500-character line.
+ *   ---
+ * Folded (`>`) and literal (`|`) headers are both accepted, with or without
+ * indentation/chomping indicators, and both collapse to the one line the index
+ * row renders. A header with no indented block beneath it is an ERROR, not a
+ * silently empty row.
+ *
  * Usage:
  *   node tools/build-decisions-index.js            # rewrite the README index
  *   node tools/build-decisions-index.js --check    # exit 1 if it would change
@@ -49,19 +62,69 @@ const GROUPS = [
 
 const NAME_RE = /^(\d{4}-\d{2}-\d{2})-.*\.md$/;
 
-// Minimal front-matter reader: the leading `---\n…\n---` block, parsed as flat
-// `key: value` lines (no nested YAML needed here). Returns null if absent.
+// A YAML BLOCK SCALAR header: `>` (folded) or `|` (literal), optionally with an
+// indentation indicator and/or a chomping indicator (`>-`, `|+`, `>2-`, …).
+const BLOCK_SCALAR = /^([|>])([1-9]?)([+-]?)$/;
+
+/**
+ * Minimal front-matter reader: the leading `---\n…\n---` block, parsed as
+ * `key: value` lines. Returns null if absent.
+ *
+ * Handles the two shapes notes are actually written in:
+ *
+ *   summary: one line                 → taken verbatim
+ *   summary: >                        → the indented block that follows, folded
+ *     first line
+ *     second line
+ *
+ * The folded form is why this function is not three lines long. It was flat-only
+ * for a long time, which meant `summary: >` parsed as the literal string `>` —
+ * non-empty, so it sailed past the `if (!fm.summary)` guard — and 59 notes
+ * rendered an index row reading `— >` with the summary silently dropped
+ * (#1310). Nothing failed; the index just quietly stopped describing a sixth of
+ * the record. 59 authors independently reaching for `summary: >` is the
+ * convention saying what it wants, so the reader learns the form rather than the
+ * notes being migrated to a 1,500-character single line.
+ *
+ * Both block styles collapse to ONE line here. A folded scalar means that in
+ * YAML anyway; a literal one does not, but every consumer of this front matter
+ * renders a single-row list item, so a summary that kept its newlines would
+ * break the row it is destined for. Collapsing is the honest reading of the
+ * field's contract, and `collect()` rejects a header with no block after it.
+ */
 function frontMatter(raw) {
   const text = raw.replace(/\r\n/g, '\n'); // tolerate CRLF-saved notes
   if (!text.startsWith('---\n')) return null;
   const end = text.indexOf('\n---', 4);
   if (end === -1) return null;
-  const body = text.slice(4, end + 1);
+  const lines = text.slice(4, end + 1).split('\n');
   const out = {};
-  for (const line of body.split('\n')) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     if (!line.trim() || line.trimStart().startsWith('#')) continue;
     const m = line.match(/^([a-z-]+):\s*(.*)$/);
-    if (m) out[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    if (!m) continue;
+    const [, key, rawValue] = m;
+    const value = rawValue.trim();
+    const block = value.match(BLOCK_SCALAR);
+    if (!block) {
+      out[key] = value.replace(/^["']|["']$/g, '');
+      continue;
+    }
+    // Consume the indented block: every following line that is blank or indented
+    // past column 0. A key at column 0 ends it, exactly as YAML says.
+    const body = [];
+    let j = i + 1;
+    for (; j < lines.length; j += 1) {
+      const next = lines[j];
+      if (next.trim() && !/^\s/.test(next)) break;
+      body.push(next);
+    }
+    i = j - 1;
+    // Drop trailing blanks, then fold to one line on any whitespace run. An
+    // explicit indentation indicator needs no special handling once folded.
+    while (body.length && !body[body.length - 1].trim()) body.pop();
+    out[key] = body.join(' ').trim().replace(/\s+/g, ' ');
   }
   return out;
 }
@@ -85,8 +148,13 @@ function collect() {
       errors.push(`${file}: status must be one of ${Object.keys(STATUS).join(' | ')} (got ${JSON.stringify(fm.status)})`);
       continue;
     }
+    // Covers BOTH ways a summary comes back empty: no `summary:` key at all, and
+    // a block-scalar header (`summary: >`) with nothing indented beneath it —
+    // which folds to '' rather than to the literal '>' that used to sail through
+    // this guard and render a row reading `— >` (#1310). The gate fails either
+    // way now, because an index row with no summary is a row nobody opens.
     if (!fm.summary) {
-      errors.push(`${file}: missing summary:`);
+      errors.push(`${file}: summary: is missing or empty — give it one line, or a \`>\` block with the text indented beneath it`);
       continue;
     }
     if (fm.summary.includes(BEGIN) || fm.summary.includes(END)) {

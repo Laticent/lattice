@@ -25,9 +25,9 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 function parseArgs(argv) {
   const a = { width: 1440, height: 900, full: false, wait: null, delay: 0 };
@@ -44,29 +44,6 @@ function parseArgs(argv) {
   a.url = pos[0];
   a.out = pos[1];
   return a;
-}
-
-/** Best-effort path to a Chromium the sandbox already has. */
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
-    return process.env.CHROME_PATH;
-  }
-  const cacheRoots = [
-    path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'),
-    '/root/.cache/puppeteer/chrome',
-  ];
-  for (const root of cacheRoots) {
-    if (!fs.existsSync(root)) continue;
-    const builds = fs
-      .readdirSync(root)
-      .filter(d => d.startsWith('linux-'))
-      .sort(); // lexical sort ≈ newest build last
-    for (const build of builds.reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined; // let puppeteer fall back to its own default
 }
 
 async function main() {

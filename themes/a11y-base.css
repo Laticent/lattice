@@ -139,17 +139,54 @@
 
 /* ── Redundant encoding ─────────────────────────────────────────────────────
  * Status GLYPHS + categorical TEXTURE references + per-series LINE-STYLES. */
+/* The ` / ""` on each `content` is the ALT TEXT, and it is load-bearing: it is
+ * what keeps the glyph OUT of the accessibility tree. The glyph is a redundant
+ * VISUAL channel — it restates, in shape, the status word the element already
+ * spells out — so announcing it turns "on-track" into "check mark on-track" for
+ * the one user who gains nothing from the shape.
+ *
+ * These rules used to carry `speak: never`, and BOTH halves of that were broken
+ * (#1320). `never` is the CSS Speech Level 1 spelling, outside the CSS 2.1 aural
+ * grammar Chromium implements, so the declaration was dropped at parse time. And
+ * the spelling Chromium DOES parse would not have helped: `speak` has no effect
+ * on the accessibility tree in any current engine. Measured here, on this repo's
+ * Chromium, over the real accessibility tree (CDP `Accessibility.getFullAXTree`,
+ * which exposes generated content as its own node — a name-only probe reports a
+ * false pass):
+ *
+ *   content: "\2713\00a0";  speak: never   →  StaticText:"✓ " | StaticText:"on-track"
+ *   content: "\2713\00a0";  speak: none    →  StaticText:"✓ " | StaticText:"on-track"
+ *   content: "\2713\00a0" / ""             →  StaticText:"on-track"
+ *
+ * So the tempting one-word fix (`never` → `none`) turns a gate green and changes
+ * nothing for a screen-reader user. Alt text is the mechanism that actually
+ * works, and unlike a background-image it keeps the glyph sized with the type.
+ * An empty string means "expose nothing", which is exactly the intent.
+ *
+ * EACH GLYPH IS DECLARED TWICE, and the pair is load-bearing — do not "simplify"
+ * it to the second line. `content: <string> / <alt>` is far younger than a bare
+ * `content: <string>` (Chromium ~77, WebKit only in Safari 17.4), and an engine
+ * that does not parse the alt form does not ignore the alt — the VALUE is
+ * outside the property's grammar, so the WHOLE declaration is dropped and the
+ * glyph vanishes. On these two stylesheets that would delete the grayscale-safe
+ * shape channel for precisely the users it exists for. Declaring the plain form
+ * first and the alt form second is the cross-engine pair idiom this repo already
+ * sanctions (tools/check-css-values.js, shape 1): an old engine keeps the plain
+ * glyph (painted and announced — the behavior that shipped for years), a current
+ * one takes the alt and stops announcing it. The exported HTML lands on engines
+ * we do not gate, and the `css:values` oracle IS Chromium, so it is structurally
+ * blind to this and cannot warn us. */
 section .chart-status[data-s="on-track"]::before,
 section .chart-status[data-s="done"]::before,
-section .chart-status[data-s="live"]::before { content: "\2713\00a0"; }
+section .chart-status[data-s="live"]::before { content: "\2713\00a0"; content: "\2713\00a0" / ""; }
 section .chart-status[data-s="at-risk"]::before,
-section .chart-status[data-s="warn"]::before { content: "\0021\00a0"; }
+section .chart-status[data-s="warn"]::before { content: "\0021\00a0"; content: "\0021\00a0" / ""; }
 section .chart-status[data-s="blocked"]::before,
-section .chart-status[data-s="fail"]::before { content: "\2717\00a0"; }
+section .chart-status[data-s="fail"]::before { content: "\2717\00a0"; content: "\2717\00a0" / ""; }
 section .chart-status[data-s="pilot"]::before,
-section .chart-status[data-s="decision"]::before { content: "\25C6\00a0"; }
-section .chart-status[data-s="deferred"]::before { content: "\2013\00a0"; }
-section .chart-status::before { font-weight: 700; speak: never; }
+section .chart-status[data-s="decision"]::before { content: "\25C6\00a0"; content: "\25C6\00a0" / ""; }
+section .chart-status[data-s="deferred"]::before { content: "\2013\00a0"; content: "\2013\00a0" / ""; }
+section .chart-status::before { font-weight: 700; }
 /* Native chart-family (SVG) — texture the categorical fills (chart-cat set,
  * which paints --chart-cat-N-fill so value + legend stay matched). */
 section.piechart .wedge:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }

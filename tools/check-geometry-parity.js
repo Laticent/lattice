@@ -57,6 +57,7 @@ const ROOT = path.join(__dirname, '..');
 const WORK = path.join(ROOT, '.scratch', 'geometry-parity');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const { PROBE_SRC, CLIP_CELL_SELECTOR } = require('../lib/core/overflow-probe');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 // The slide box, two ordinary panes, and a phone. The point is that NONE of these
 // should matter — a window size that changes a slide's geometry is the bug.
@@ -78,13 +79,6 @@ const DEFAULT_DECKS = [
   'examples/social-portrait.md',
 ];
 
-function chromePath() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  try {
-    return spawnSync('bash', ['-lc', 'ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1'])
-      .stdout.toString().trim() || undefined;
-  } catch { return undefined; }
-}
 
 /** Render a deck's HTML sidecar through the real emulator. */
 function renderDeck(deck) {
@@ -131,7 +125,7 @@ async function main() {
   const decks = argv.filter((a) => !a.startsWith('--'));
   const targets = decks.length ? decks : DEFAULT_DECKS;
 
-  const exe = chromePath();
+  const exe = resolveChrome();
   if (!exe) {
     console.error('✗ no Chrome found — set CHROME_PATH (the SessionStart hook exports it).');
     process.exit(2);

@@ -24462,17 +24462,27 @@ section .taskTextOutsideLeft, figure .taskTextOutsideLeft, section .taskTextOuts
 
 /* Status GLYPHS — the RAG/lifecycle disc keeps its meaning by shape, not just
  * the (now-gray) fill: ✓ done · ! at-risk · ✗ blocked · ◆ decision · – deferred. */
+/* ` / ""` is the ALT TEXT, and it is what keeps the decorative glyph out of the
+ * accessibility tree — see the long note on the same rules in themes/a11y-base.css
+ * for the measurement and for why each glyph is declared TWICE. Short version:
+ * these carried `speak: never`, which Chromium drops as an invalid value, and
+ * `speak: none` (the spelling it does parse) would not have helped either,
+ * because `speak` does not affect the accessibility tree in any current engine
+ * (#1320). The glyph restates the status word in shape, for print and for low
+ * vision; a screen reader already has the word, so announcing the shape is pure
+ * noise. The plain declaration stays ahead of the alt one so an engine too old
+ * to parse the alt form keeps the glyph instead of dropping it entirely. */
 section.print .chart-status[data-s="on-track"]::before,
 section.print .chart-status[data-s="done"]::before,
-section.print .chart-status[data-s="live"]::before { content: "\2713\00a0"; }
+section.print .chart-status[data-s="live"]::before { content: "\2713\00a0"; content: "\2713\00a0" / ""; }
 section.print .chart-status[data-s="at-risk"]::before,
-section.print .chart-status[data-s="warn"]::before { content: "\0021\00a0"; }
+section.print .chart-status[data-s="warn"]::before { content: "\0021\00a0"; content: "\0021\00a0" / ""; }
 section.print .chart-status[data-s="blocked"]::before,
-section.print .chart-status[data-s="fail"]::before { content: "\2717\00a0"; }
+section.print .chart-status[data-s="fail"]::before { content: "\2717\00a0"; content: "\2717\00a0" / ""; }
 section.print .chart-status[data-s="pilot"]::before,
-section.print .chart-status[data-s="decision"]::before { content: "\25C6\00a0"; }
-section.print .chart-status[data-s="deferred"]::before { content: "\2013\00a0"; }
-section.print .chart-status::before { font-weight: 700; speak: never; }
+section.print .chart-status[data-s="decision"]::before { content: "\25C6\00a0"; content: "\25C6\00a0" / ""; }
+section.print .chart-status[data-s="deferred"]::before { content: "\2013\00a0"; content: "\2013\00a0" / ""; }
+section.print .chart-status::before { font-weight: 700; }
 
 /* Categorical cycle — adopt the universal texture channel: point --cat-N-texture
  * at the literal (B&W-safe, iOS-safe) a11y set under section.print. The canonical

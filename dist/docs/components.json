@@ -2215,7 +2215,7 @@
         },
         {
           "title": "Lines wider than the pane",
-          "body": "Past roughly 55 characters a line is clipped at the pane edge. Trim it, or use `code`."
+          "body": "A landscape half-pane fits about 57 characters and does not wrap, so a longer line is clipped. Trim it, or use a full-width `code` slide."
         }
       ],
       "related": [

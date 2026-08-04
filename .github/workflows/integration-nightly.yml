@@ -90,6 +90,29 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # The `code-line-clipped` budgets are five numbers MEASURED in a browser
+      # (lib/authoring/lint-core.js CODE_LINE_BUDGET). Their guard re-measures
+      # them against a real render — but it skips with no Chromium, and the PR
+      # unit job is contractually render-free (PUPPETEER_SKIP_DOWNLOAD), so on
+      # every PR the guard is inert while the rule it calibrates runs on all 255
+      # decks. Here is where it actually executes. Without this step the table
+      # rots the first time anyone retunes --sp-md or the type scale, and the
+      # only signal is an authoring advisory quietly citing the wrong number.
+      - name: Code-line width budgets (re-measure CODE_LINE_BUDGET)
+        id: codewidth
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- code-line width budgets ---'
+          } >> "$REPORT"
+          if node --test test/unit/components/code-line-width.test.js 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Job summary
         if: always()
         run: |
@@ -113,7 +136,7 @@ jobs:
       # title marker). Self-labelled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
-        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true'
+        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

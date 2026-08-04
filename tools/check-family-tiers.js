@@ -41,18 +41,9 @@
  */
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
+const { resolveChrome } = require('./lib/resolve-chrome');
 const ROOT = process.cwd();
 
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const r of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(r)) continue;
-    for (const b of fs.readdirSync(r).filter(d => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(r, b, 'chrome-linux64', 'chrome'); if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
 
 // Three probes, chosen so the harness proves BOTH directions:
 //   stats       — the SQUARE probe, and the only family that WRAPS: wide is a

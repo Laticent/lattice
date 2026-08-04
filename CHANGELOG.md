@@ -27,6 +27,23 @@ in patch versions.
 
 ### Added
 
+- **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
+  pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`
+  pane, so a line past the right edge is cut mid-token: no ellipsis, no scrollbar, and no height
+  cost for the overflow probe to see. Nothing told the author, so the export quietly shipped a slide
+  saying something other than the source did. `lint:deck` now measures the widest fenced line on the
+  slide against a per-box character budget derived from the rendered pane geometry — about 57
+  columns for a landscape `compare-code` half-pane and 122 for a full-width `code` block, tightening
+  to 48 at `strip`. Advisory (`info`, which never blocks `--strict`), scoped to the panes that
+  genuinely clip: at `square` / `tall` / `strip` a `compare-code` pane stacks to one column and
+  wraps, so it is left alone, and a slide carrying a stage-resizing modifier (`claim-hero` /
+  `claim-bleed` / `compact`) is skipped rather than judged against a pane that is not its own. The
+  line is measured as it RENDERS — tabs expand, CJK and emoji count double, a `~~~` fence is code,
+  an indented fence loses its indent as markdown-it strips it, and a CR is not a column. The budgets
+  are pinned by a guard that re-measures them in a real browser, run nightly where a browser exists.
+  This is the authoring half of the equal-track fix in #1337, which made the clip honest but left
+  the author with no warning.
+
 - **`no-note` — suppress below-note promotion on a slide.** A trailing paragraph that follows a
   list or a table is promoted to a `.below-note` (hairline rule, muted ink, parked at the stage
   floor), which is the right default and is not always what the author meant: "a list, then a
@@ -50,6 +67,57 @@ in patch versions.
   feature deck `examples/frame-chrome-and-notes.md`.
 
 ### Fixed
+
+- **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
+  much text as one slide should ever carry" and its footer says "the ceiling", but after body prose
+  moved from `--fs-message` to `--fs-body` the same content filled about 60% of the stage with a
+  large empty band beneath the list. The rendering was correct; the slide's editorial claim had gone
+  stale, and a stress test that renders half-full teaches an author the wrong limit — the opposite
+  of the guidance `content` exists to give. The specimen is extended to the measured ceiling (two
+  paragraphs and a five-item list), found by rendering progressively denser slides against the
+  engine's own overflow probe rather than by estimating: five items fit, six trip the probe. The
+  list text was stale in the same direction and is corrected with it. Note that `content` declares
+  no `capacity`/`density` block at all, so there was nothing understated to correct there; its only
+  stated budget is the editorial "~40 words" in the slot description, which remains a deliberate
+  editorial target rather than the geometric limit.
+
+- **The decorative status glyph no longer reaches a screen reader.** `.chart-status` injects a
+  ✓/✗/◆/!/– before the status word as a redundant VISUAL channel — it restates the status in shape,
+  so the meaning survives grayscale print and a reader who cannot separate the status colors. It was
+  also being announced, turning `on-track` into "check mark on-track" for the one user who gains
+  nothing from the shape. The `speak: never` that was meant to prevent that was broken twice over:
+  `never` is outside the aural grammar Chromium implements, so the declaration was dropped at parse
+  time, and `speak` has no effect on the accessibility tree in any current engine, so the spelling
+  Chromium does parse would have changed nothing either. The glyphs now carry CSS `content` alt text
+  (`content: "\2713\00a0" / ""`), which keeps them painted and sized with the type while exposing
+  nothing to assistive tech. Each glyph is declared twice — the plain form first, the alt form
+  second — because an engine that cannot parse the alt form drops the WHOLE declaration and would
+  otherwise lose the glyph entirely, deleting the grayscale-safe shape channel on exactly the
+  stylesheets that exist to provide it. Measured over the real accessibility tree on a real rendered
+  export, on both the print surface and the `a11y-achromatopsia` theme: four announced glyph nodes
+  before, zero after, with the painted glyph the same width. The matching `speak: never` sanction is
+  retired from the `css:values` gate, which leaves its "known defect" shape with no occupants. See
+  `engineering/decisions/2026-08-04-status-glyph-alt-text.md`.
+
+- **The decision index stopped dropping summaries written as folded YAML.** 59 of 346 notes
+  rendered an index row with no summary, because the generator parsed front matter as flat
+  `key: value` lines — so `summary: >` came back as the literal string `>`, which is non-empty and
+  sailed past the empty-summary guard. Nothing failed; the index just quietly stopped describing a
+  sixth of the decision record, and a row with no summary is a row nobody opens. The reader now
+  understands YAML block scalars (`>` and `|`, with or without indentation and chomping indicators),
+  folding them to the one line the index row renders. All 346 rows now carry a real summary. A block
+  header with nothing indented beneath it is an error rather than an empty row, so this cannot recur
+  silently.
+
+- **Every tool now finds Chromium the same way.** Nine tools each carried a hand-copied resolver
+  under two different names, and they had drifted apart: the one in `check-geometry-parity.js`
+  shelled out to `bash -lc 'ls /root/.cache/puppeteer/…'`, hard-coding root's home so it could never
+  resolve on a CI runner or a developer machine. They are now one `tools/lib/resolve-chrome.js`,
+  which still returns `undefined` rather than throwing so each caller keeps its own "skips loudly
+  with no Chromium" message. Two latent bugs shared by all nine are fixed on the way: builds are
+  ordered numerically, so `linux-131` no longer sorts below `linux-99`, and macOS and Windows cache
+  layouts resolve instead of falling through to whatever puppeteer guessed. A guard fails if a tenth
+  copy appears under `tools/`; the 15 remaining copies under `test/` are tracked separately.
 
 - **Preview and export now send Mermaid the same non-palette config, and flowchart labels
   wrap the same way in both.** `engineInitConfig` claimed to be "shared so the PDF path and
