@@ -341,9 +341,13 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     // the tab for them moved it INTO the stamp instead of clear of it. `stamp-seal` is
     // one; with no semantic class it paints nothing at all, so it must reserve nothing.
     const plain = await corners('content', 'corner-ref');
-    const seal = await corners('content stamp-seal', 'corner-seal');
+    // `stamp-tab` is the DEFAULT register and the one `stamp:` front matter appends to
+    // every section in the deck, so it is the shape that actually reserved a row for a
+    // stamp that paints nothing. (An earlier version of this test used `stamp-seal`,
+    // which was explicitly zeroed and so passed for the wrong reason.)
+    const shape = await corners('content stamp-tab', 'corner-shape');
     assert.deepEqual(
-      seal.clip, plain.clip,
+      shape.clip, plain.clip,
       'REGRESSION: a non-corner stamp shape displaced the clip tab. The shape class must '
       + 'MODIFY the reserve, never create one — the semantic class is what paints.',
     );

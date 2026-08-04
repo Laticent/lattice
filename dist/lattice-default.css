@@ -22598,17 +22598,23 @@ section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accen
  *
  * `0` (the default) means "this shape does not occupy the tab's corner". A new stamp
  * shape declares its own value in the rule its author is already writing. */
-section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised),
-section:is(.stamp-tab, .stamp-notch, .stamp-flag, .stamp-pin) { --corner-stack: 100%; }
+/* THE SEMANTIC CLASS IS THE GATE, and the shape only MODIFIES the reserve. `content:
+   var(--stamp-label)` above is what actually paints, and `--stamp-label` comes from the
+   semantic class alone — so a shape class on its own paints nothing. `stamp:` front
+   matter appends `stamp-<shape>` to EVERY section in the deck (lib/core/resolve-stamp.js),
+   so keying the reserve on the shape made every slide of a `stamp: tab` deck push its
+   marker tab 23px down to clear a stamp that does not exist. Measured on a real export.
+   (HARD RULE #25 red team, round 5.) */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) { --corner-stack: 100%; }
 /* Tall and off-axis: the flag hangs vertically and the pin is a 44px disc, so one row
    does not clear either — they still overlapped the label after the first fix
    ("Conte\2593t clipped", "\2593\2593ntent clipped" in a rendered PDF). */
-section:is(.stamp-flag, .stamp-pin) { --corner-stack: 200%; }
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised):is(.stamp-flag, .stamp-pin) { --corner-stack: 200%; }
 /* The shapes that sit BELOW the corner (pill, bracket, seal, underline, dot, bar) and
    the full-bleed ones (mark, veil) reserve nothing — pushing the tab for them moved it
    INTO the stamp rather than clear of it. */
-section:is(.stamp-pill, .stamp-bracket, .stamp-seal, .stamp-underline,
-  .stamp-dot, .stamp-bar, .stamp-mark, .stamp-veil, .stamp-ribbon) { --corner-stack: 0; }
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised):is(.stamp-pill, .stamp-bracket, .stamp-seal, .stamp-underline,
+  .stamp-dot, .stamp-bar, .stamp-mark, .stamp-veil, .stamp-ribbon) { --corner-stack: 0%; }
 
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) {
   position: relative;
