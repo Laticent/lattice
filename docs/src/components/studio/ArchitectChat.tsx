@@ -3,7 +3,7 @@ import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unloc
 import * as React from 'react';
 import { diffLines, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { cn } from '@/lib/utils';
-import { applyProposedEdits, architectSpend, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
+import { applyProposedEditsChecked, architectSpend, CHAT_OUTPUT_EST, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
 import { useReferenceDoc } from './reference-doc-ui';
@@ -113,7 +113,9 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 	// Per-turn cost estimate — the DECK dominates the token count, so estimate over the
 	// deck (recomputed when it changes), NOT per keystroke (a live cents-ticker is anxiety
 	// noise, not reassurance). Suppressed entirely on the free on-device tier.
-	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, 4096) : null), [cloud, source, status.price]);
+	// Priced on the TYPICAL turn (CHAT_OUTPUT_EST), not the hard ceiling — see the note on
+	// those two constants. The budget gate is the one that assumes the worst case.
+	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, CHAT_OUTPUT_EST) : null), [cloud, source, status.price]);
 
 	const run = async (history: ChatMessage[], sendDeckId: string) => {
 		const commit = (next: ChatMessage[]) => {
@@ -187,10 +189,23 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 		if (!m?.proposed?.length) return;
 		// Re-apply against the CURRENT deck (not a stale snapshot) — edits to OTHER slides
 		// are preserved; a same-slide edit is replaced (flagged stale in the review).
-		const next = applyProposedEdits(source, m.proposed);
-		onApply(next);
-		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, applied: true } : x)));
-		notify('Edit applied — restore from History to undo.');
+		const run = applyProposedEditsChecked(source, m.proposed);
+		// NOTHING LANDED. This used to paint the green "Applied" tick, toast "Edit applied",
+		// and burn a History checkpoint over an untouched deck — the author's only clue that
+		// their edit hadn't happened was looking at the slide. Say so, and leave the proposal
+		// standing so they can Discard it deliberately.
+		if (!run.applied) {
+			setNotice({ kind: 'error', text: run.refusals[0] || "That edit couldn't be applied to this deck." });
+			return;
+		}
+		onApply(run.source);
+		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, applied: true, appliedCount: run.applied, refused: run.refusals.length || undefined } : x)));
+		// A PARTIAL run is reported as partial — "applied" over a run where half the blocks
+		// were refused is the same false claim, just smaller.
+		if (run.refusals.length) {
+			setNotice({ kind: 'error', text: run.refusals[0] });
+			notify(`Applied ${run.applied} of ${run.applied + run.refusals.length} edits — restore from History to undo.`);
+		} else notify('Edit applied — restore from History to undo.');
 	};
 	const discardProposal = (idx: number) => setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
 
@@ -225,7 +240,7 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 							{m.applied && (
 								<span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]">
 									<Check className="size-3" />
-									Applied
+									{m.refused ? `Applied ${m.appliedCount} of ${(m.appliedCount ?? 0) + m.refused}` : 'Applied'}
 								</span>
 							)}
 						</div>

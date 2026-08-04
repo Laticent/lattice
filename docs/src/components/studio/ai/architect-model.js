@@ -427,7 +427,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, maxTokens, plugins, cacheTtl }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -477,9 +477,15 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
         }
       }
+      // `finish_reason` is the transport's own account of WHY the reply stopped. Nothing
+      // read it before, so a reply cut off at max_tokens ('length') was indistinguishable
+      // from a finished one — and the edit parser downstream then salvaged a partial slide
+      // out of it. Reported, never thrown: a truncated reply still has usable prose.
+      const reportFinish = (r) => { if (onFinishReason && r) { try { onFinishReason(r); } catch {} } };
       if (!onToken || !res.body) {
         const data = await res.json();
         if (onUsage && data.usage) { try { onUsage(data.usage); } catch {} }
+        reportFinish(data.choices?.[0]?.finish_reason || data.choices?.[0]?.native_finish_reason);
         return data.choices?.[0]?.message?.content ?? '';
       }
       // SSE stream: lines of `data: {json}`; `: OPENROUTER PROCESSING` keep-alives
@@ -489,7 +495,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       let buf = '';
       let full = '';
       let usage = null; // the final stream chunk carries usage (cost) when usage:include is set
-      const reportUsage = () => { if (onUsage && usage) { try { onUsage(usage); } catch {} } };
+      let finish = null; // the chunk that ends the turn carries finish_reason ('stop' | 'length' | …)
+      const reportUsage = () => {
+        if (onUsage && usage) { try { onUsage(usage); } catch {} }
+        reportFinish(finish);
+      };
       while (true) {
         const { value, done } = await reader.read();
         if (done || signal?.aborted) break;
@@ -508,6 +518,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
             if (obj.id && onGenerationId) { try { onGenerationId(obj.id); } catch {} onGenerationId = null; }
             const t = obj.choices?.[0]?.delta?.content || '';
             if (t) { full += t; onToken(t); }
+            const fr = obj.choices?.[0]?.finish_reason || obj.choices?.[0]?.native_finish_reason;
+            if (fr) finish = fr;
             if (obj.usage) usage = obj.usage;
           } catch {}
         }

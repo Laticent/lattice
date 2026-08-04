@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { applyDeckEdit, architectModel, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -489,5 +489,48 @@ describe('refineSelection — honest selection refine', () => {
 		// signal the UI can act on (point at Workspace), not a faked change.
 		const out = await refineSelection('polish', 'Tighten this sentence please.');
 		expect(out.status).toBe('offline');
+	});
+});
+
+// The Apply button's honesty. `applyEdit` returns the source unchanged when it refuses,
+// which every caller here used to read as success — so a fully-refused run painted a green
+// "Applied" tick over a deck that never moved (the #chat-churn transcript, 2026-08-04).
+// These assert the OUTCOME is reported, not merely that the source is right.
+describe('applyProposedEditsChecked — refusals are reported, not swallowed', () => {
+	const DECK = '# One\n\nbody one\n---\n## Two\n\nbody two';
+	const prop = (raw: { action: string; slide: number; body: string }) => ({ raw });
+
+	it('counts what landed', () => {
+		const run = applyProposedEditsChecked(DECK, [prop({ action: 'replace', slide: 2, body: '## Two (tighter)' })]);
+		expect(run.applied).toBe(1);
+		expect(run.refusals).toEqual([]);
+		expect(run.source).toMatch(/Two \(tighter\)/);
+	});
+
+	it('reports a fully-refused run as applied:0 — the UI must not claim otherwise', () => {
+		const run = applyProposedEditsChecked(DECK, [prop({ action: 'replace', slide: 9, body: '## Nope' })]);
+		expect(run.applied).toBe(0);
+		expect(run.source).toBe(DECK); // untouched
+		expect(run.refusals[0]).toMatch(/Slide 9 doesn't exist/);
+	});
+
+	it('reports a PARTIAL run as partial', () => {
+		const run = applyProposedEditsChecked(DECK, [prop({ action: 'replace', slide: 1, body: '# One (new)' }), prop({ action: 'replace', slide: 7, body: '## Ghost' })]);
+		expect(run.applied).toBe(1);
+		expect(run.refusals).toHaveLength(1);
+		expect(run.source).toMatch(/One \(new\)/);
+	});
+
+	it('counts every slide of a multi-slide insert', () => {
+		const run = applyProposedEditsChecked(DECK, [prop({ action: 'insert', slide: 2, body: '## A\n\n---\n\n## B' })]);
+		expect(run.applied).toBe(2);
+	});
+});
+
+// The output ceiling and the price shown to the author are DIFFERENT numbers, on purpose.
+describe('chat output ceiling vs. the priced expectation', () => {
+	it('the ceiling clears a deck-sized reply — 4096 was sized for one slide', () => {
+		expect(CHAT_MAX_TOKENS).toBeGreaterThanOrEqual(16384);
+		expect(CHAT_OUTPUT_EST).toBeLessThan(CHAT_MAX_TOKENS);
 	});
 });

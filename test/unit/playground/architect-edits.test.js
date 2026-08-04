@@ -305,10 +305,17 @@ describe('fence-aware slide boundaries', () => {
     const out = applyEdit(DECK, { action: 'replace', slide: 2, body: '## Two\n\n```\n---\nstill in fence' });
     assert.equal(out, DECK); // rejected — trio red-team finding
   });
-  test('applyEdit insert refuses a body that would split into multiple slides', async () => {
+  test('applyEdit insert ACCEPTS a multi-slide body, landing one slide per --- (the "add these slides" shape)', async () => {
+    const { applyEdit, slideCount } = await load();
+    const before = slideCount(DECK);
+    const out = applyEdit(DECK, { action: 'insert', slide: 1, body: '## A\n\n---\n\n## B' });
+    assert.equal(slideCount(out), before + 2); // two slides, not one blob and not a silent refusal
+    assert.match(out, /## A/);
+    assert.match(out, /## B/);
+  });
+  test('applyEdit insert still refuses an UNCLOSED fence (it would swallow the next real ---)', async () => {
     const { applyEdit } = await load();
-    assert.equal(applyEdit(DECK, { action: 'insert', slide: 1, body: '## A\n\n---\n\n## B' }), DECK); // top-level ---
-    assert.equal(applyEdit(DECK, { action: 'insert', slide: 1, body: '## A\n\n```\nunclosed' }), DECK); // unclosed fence
+    assert.equal(applyEdit(DECK, { action: 'insert', slide: 1, body: '## A\n\n```\nunclosed' }), DECK);
   });
   test('the lib splitter and the architect-edits copy agree (no drift between the two hand-maintained fence trackers)', async () => {
     const lib = require('../../../lib/authoring/slide-split.js');
@@ -330,5 +337,94 @@ describe('fence-aware slide boundaries', () => {
       const lines = src.split('\n');
       assert.deepEqual([...ae.separatorLines(lines)], [...lib.separatorLines(lines)], `separatorLines drift on: ${JSON.stringify(src)}`);
     }
+  });
+});
+
+// ── The chat-churn regressions (2026-08-04) ─────────────────────────────────
+// Five failures that all presented the same way to the author: the Architect said it
+// had done something, the app agreed, and the deck hadn't moved (or had moved WRONG).
+// Each case below is a transcript reproduction, not a hypothetical.
+// See engineering/decisions/2026-08-04-chat-edit-protocol.md.
+describe('edit protocol — the failures that produced silent corruption', () => {
+  const TICK = '`'.repeat(3);
+  // A slide of the shape that broke everything: a diagram slide carrying its own fence.
+  const DIAGRAM = `<!-- _class: diagram -->\n\n## Class diagram\n\n${TICK}mermaid\nclassDiagram\n  class Order { +id }\n${TICK}`;
+
+  test('a TILDE wrapper carries a ```mermaid payload intact (the protocol we now publish)', async () => {
+    const { parseEdits } = await load();
+    const { edits, problems } = parseEdits(`Here.\n\n~~~lattice-edit slide=2\n${DIAGRAM}\n~~~\n`);
+    assert.equal(problems.length, 0);
+    assert.equal(edits.length, 1);
+    assert.equal(edits[0].body.trim(), DIAGRAM); // the whole slide, fence and all
+  });
+
+  test('a BACKTICK wrapper closed by its own payload is REPORTED, never half-applied', async () => {
+    const { parseEdits } = await load();
+    // The payload's bare ``` legally closes a same-marker wrapper (CommonMark), so the
+    // body arrives amputated at the diagram. This used to be applied as a heading-only slide.
+    const { edits, problems } = parseEdits(`Here.\n\n${TICK}lattice-edit slide=2\n${DIAGRAM}\n${TICK}\n`);
+    assert.equal(edits.length, 0, 'nothing is applied on a guess');
+    assert.equal(problems.length, 1);
+    assert.equal(problems[0].kind, 'fence-collision');
+    assert.match(problems[0].message, /slide 2/);
+  });
+
+  test('a reply CUT OFF at max_tokens is reported as unterminated, not salvaged', async () => {
+    const { parseEdits } = await load();
+    // The old expression recovered by re-matching a SHORTER fence, cutting the body at the
+    // payload's first ``` — so a truncated deck became a slide with its diagram amputated.
+    const { edits, problems } = parseEdits(`Done — 13 slides added.\n\n${'`'.repeat(4)}lattice-edit after=end\n${DIAGRAM.slice(0, 70)}`);
+    assert.equal(edits.length, 0);
+    assert.equal(problems.length, 1);
+    assert.equal(problems[0].kind, 'unterminated');
+  });
+
+  test('a four-backtick opener cannot degrade into a three-backtick match (line-anchored)', async () => {
+    const { parseEdits } = await load();
+    const four = '`'.repeat(4);
+    const { edits, problems } = parseEdits(`x\n\n${four}lattice-edit slide=1\n${DIAGRAM}\n${four}\n`);
+    assert.equal(problems.length, 0);
+    assert.equal(edits.length, 1);
+    assert.match(edits[0].body, /class Order/, 'the payload survived past its own fence');
+  });
+
+  test('applyEditChecked REPORTS a refusal instead of returning the source silently', async () => {
+    const { applyEditChecked } = await load();
+    const past = applyEditChecked(DECK, { action: 'replace', slide: 9, body: '## Nope' });
+    assert.equal(past.ok, false);
+    assert.equal(past.source, DECK);
+    assert.match(past.reason, /Slide 9 doesn't exist/);
+    assert.match(past.reason, /3 slides/); // says what the deck actually has
+
+    const split = applyEditChecked(DECK, { action: 'replace', slide: 2, body: '## A\n\n---\n\n## B' });
+    assert.equal(split.ok, false);
+    assert.match(split.reason, /more than one slide/);
+
+    const unclosed = applyEditChecked(DECK, { action: 'insert', slide: 1, body: `## A\n\n${TICK}\nunclosed` });
+    assert.equal(unclosed.ok, false);
+    assert.match(unclosed.reason, /never closes/);
+  });
+
+  test('a rewrite identical to the current slide is a refusal, not an "Applied"', async () => {
+    const { applyEditChecked } = await load();
+    const noop = applyEditChecked(DECK, { action: 'replace', slide: 1, body: '# One\n\nbody one' });
+    assert.equal(noop.ok, false);
+    assert.match(noop.reason, /identical/);
+  });
+
+  test('a multi-slide insert lands every slide and reports how many', async () => {
+    const { applyEditChecked, slideCount } = await load();
+    const r = applyEditChecked(DECK, { action: 'insert', slide: 3, body: '## A\n\n---\n\n## B\n\n---\n\n## C' });
+    assert.equal(r.ok, true);
+    assert.equal(r.inserted, 3);
+    assert.equal(slideCount(r.source), slideCount(DECK) + 3);
+  });
+
+  test('EDIT_PROTOCOL tells the model to use tildes, and that it has no tools', async () => {
+    const { EDIT_PROTOCOL } = await load();
+    assert.match(EDIT_PROTOCOL, /~~~lattice-edit/, 'the EXAMPLE is what a model copies');
+    assert.doesNotMatch(EDIT_PROTOCOL, /````lattice-edit/, 'no four-backtick example left to imitate');
+    assert.match(EDIT_PROTOCOL, /NO tools/i);
+    assert.match(EDIT_PROTOCOL, /Never say you tested/i);
   });
 });

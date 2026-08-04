@@ -421,6 +421,24 @@ in patch versions.
 
 ### Fixed
 
+- **The Studio chat no longer says "Applied" over a deck it never touched.** Four defects
+  stacked into one bad transcript: `applyEdit` signalled a refusal exactly as it signalled
+  success (so a fully-refused run painted a green ✓ Applied and burned a History
+  checkpoint over an untouched deck); the four-backtick edit fence could backtrack into a
+  three-backtick match that the slide's own ```mermaid block closed, applying a heading
+  with its diagram amputated; the chat's 4096-token output ceiling — sized for "tighten
+  this slide", not "build me a deck" — was hit silently because nothing read
+  `finish_reason`; and the model was never told it has no tools, so asked to verify with
+  `mmdc` it fabricated a test run. Now: the edit-block wrapper is `~~~lattice-edit`
+  (a marker models never emit spontaneously — length was the fragile axis, since
+  CommonMark lets a payload's own bare fence legally close a same-marker wrapper), the
+  parser is line-anchored and reports `unterminated` / `fence-collision` instead of
+  salvaging a partial slide, refusals carry an author-facing reason ("Slide 9 doesn't
+  exist — the deck has 3 slides"), a partial run reads "Applied 2 of 3", the ceiling is
+  16384 with truncation stated in the reply, and an `after=` body may carry several slides
+  so "add these slides" stops being a silent no-op.
+  `engineering/decisions/2026-08-04-chat-edit-protocol.md`
+
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose
   moved from `--fs-message` to `--fs-body` the same content filled about 60% of the stage with a
