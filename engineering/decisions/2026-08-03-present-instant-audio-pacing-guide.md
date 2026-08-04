@@ -209,8 +209,11 @@ of dribbled out mid-sentence.
 
 Three linked fixes to §1.4:
 
-1. **Cut the produce timeout** from 20 s to ~6 s, with **one retry** (jittered) before giving up. A
-   sentence silently deleted by a transient 429 is worse than a sentence one second late.
+1. ~~**Cut the produce timeout** from 20 s to ~6 s, with **one retry** (jittered) before giving up.~~
+   **PROPOSED, TRIED, REVERTED (commit `1f2246a`).** Shipping it broke audio outright: on any link
+   slower than 6 s every sentence was dropped *and* nothing reached the cache, so the path could
+   never self-heal. What shipped instead separates the player's patience from the request's
+   lifetime — see the *as built* table below. A number reasoned about but never measured.
 2. **Hold the reader clock while audio is starved.** Generalize the existing "hold at 0 until the
    first onset lands" trick (`read-aloud.ts:498`, `audioHoldMsRef`): if the next clip has not started
    within ~250 ms of the previous one ending, freeze the highlight at that cue boundary instead of
@@ -251,7 +254,7 @@ The craft literature is unanimous on the shape, if not the millisecond:
 - **Patrick Winston** (*How to Speak*) — the deliberate stop; audiences need a beat to re-anchor when
   the visual changes.
 - **Broadcast and audiobook convention** — a chapter or section boundary gets roughly 1.5–2× a
-  paragraph pause; our own ladder already ends at 1000 ms for a paragraph.
+  paragraph pause; our own ladder already ends at 750 ms for a paragraph.
 
 They converge on one rule that matters more than any number: **change the slide, let them read it,
 then speak.** Not the reverse. The audience's eyes arrive before their ears are ready.
@@ -263,7 +266,7 @@ Add the missing top rung to `cadence.ts`'s graded boundary table, graded by how 
 | Boundary | Beat | Why |
 |---|---|---|
 | Sentence (existing) | 550 ms | shipped |
-| Paragraph (existing) | 1000 ms | shipped |
+| Paragraph (existing) | 750 ms | shipped |
 | **Next slide, same section** | **~1400 ms** | a beat to read the new slide |
 | **New section (a `divider` slide)** | **~2600 ms** | a chapter break — the audience re-orients |
 | **Final slide** | **hold, no auto-advance** | never walk off the end mid-breath |
@@ -296,7 +299,9 @@ everything else about how Present behaves. A new **Present** section in `Workspa
 
 - **Pace** — the preset above, plus advanced ms overrides
 - **Lookahead** — slides to prefetch (default 2, `Auto` option that uses §2.6's measurements)
-- **Cache narration on this device** — on/off plus the storage budget (with its Data-tab governor)
+- **Cache narration on this device** — on/off, with its Data-tab governor. *(As built: the on/off
+  switch shipped; the budget stays at the 100 MB default with no UI. `setBudgetBytes` exists and is
+  unexposed.)*
 - **Guide** — the Part 4 rung's defaults
 
 One recommendation on the lookahead knob: ship **`Auto` as the default** and expose the number for
@@ -393,10 +398,10 @@ unfeelable while a random 0–20 s pause is sitting on top of it.
 | Exactly 1 slide of lookahead, autoplay only | A window (default `auto`, sized from measured p95), on **every** navigation including arrow keys |
 | `WARM_CONCURRENCY = 1` | `3` (under Suono's existing ceiling of 4) |
 | Audio cache in memory only, dead on reload | IndexedDB, ~100 MB LRU, same content-complete key; Data-tab governor; switchable off |
-| 20 s flat timeout, no retry, sentence silently dropped | 6 s per attempt; one retry on a *fast* failure; a timeout is terminal |
-| Highlight rides the clock through a stall — captions over silence | `onStarve` → the highlight **holds**; the dock says *Catching up…* |
+| 20 s flat timeout, no retry, sentence silently dropped | The player's **patience** (20 s) is separated from the **request's own lifetime** (45 s): the player moves on, the request finishes and still writes to cache, so a slow link warms itself instead of dropping every sentence |
+| Highlight rides the clock through a stall — captions over silence | `onStarve` → the highlight and the rail's progress edge **hold**; no label changes (see the 2026-08-04 amendment) |
 | No latency measurement anywhere | p50/p95 per model·voice, feeding the adaptive window |
-| No way to remove the network from delivery | **Prepare** — whole-deck synthesis with progress, cancelable |
+| No way to remove the network from delivery | **Fetch ahead: the whole deck** — a *value* of the lookahead setting, not a button in Present. No progress display and no cancel; both were properties of the Prepare button that the 2026-08-04 amendment removed, and neither survived into the setting. Recorded as a gap, not a feature. |
 
 Two defects surfaced while building it, both fixed here rather than filed:
 - The device cache's LRU stamped `Date.now()`, and warm-ahead writes several clips inside one
@@ -432,9 +437,10 @@ slide that resizes twice per transition.
 
 ## Verification note (HARD RULE #23)
 
-**What is verified:** the logic, by test — 13 device-cache cases against `fake-indexeddb` (a real
-IDB, not a stub), 7 starvation-contract cases, 6 synth-discipline cases, and the full suites green
-(2369 docs / 5037 root / `build:check`).
+**What is verified:** the logic, by test — 17 device-cache cases against `fake-indexeddb` (a real
+IDB, not a stub), 9 starvation-contract cases, the synth-discipline cases, and the full suites green
+(2407 docs / 5202 root / `build:check`). Counts are as of the 2026-08-04 amendments; they are a
+floor, not a headline — re-derive them rather than citing this line.
 
 **What is NOT verified, and is marked UNVERIFIED:** every claim about how this *feels*. Nothing here
 has been driven on the real Present surface in a real browser with a real key. Time-to-first-audio,

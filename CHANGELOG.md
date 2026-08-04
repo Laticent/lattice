@@ -405,6 +405,13 @@ in patch versions.
   would be invisible in the a11y, onyx and print palettes. Thickness is palette-blind by
   construction; color now only reinforces.
 
+- **"Fetch ahead → The whole deck" set the shallowest window instead of the deepest.** The select's
+  value went through `Number(v)`, so `'all'` became `NaN` and the preference floored to `0` — "only
+  the current slide" — while the toast said *"it will be ready to present offline."* A presenter
+  arming a deck before a board meeting got the exact opposite of the control they chose, and
+  reopening Settings showed "Off". The three Present narration controls now have interaction tests;
+  they shipped with none, which is why this got through.
+
 - **Present's narration plays smoothly again, and the rail's progress edge moves with it.** The
   read-aloud clock pushed a React state update on **every animation frame**, so the whole Present
   tree — including a rail that now draws three layered spans per slide with fresh inline styles —

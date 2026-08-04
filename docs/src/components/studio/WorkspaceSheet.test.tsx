@@ -510,3 +510,52 @@ describe('WorkspaceSheet — settings rehomed from the retired Drawing Board pan
 		expect(localStorage.getItem('lattice-tour-enabled')).not.toBe('off');
 	});
 });
+
+// The three Present-narration controls (General → Narration in Present). These shipped with no
+// test at all, and the independent checker found the cost: "Fetch ahead → The whole deck" ran its
+// value through `Number(v)`, so 'all' became NaN and `setLookaheadPref` floored it to 0 — the
+// SHALLOWEST window — while the toast promised "ready to present offline". A presenter arming the
+// deck before a board meeting got the exact opposite of what the control said, and reopening the
+// sheet showed "Off". The pure prefs module was already tested and already correct; the defect
+// lived in the one line between the widget and it, which is why only a real interaction catches it.
+describe('WorkspaceSheet — narration in Present', () => {
+	async function openGeneral() {
+		const { user, sheet } = openSheet();
+		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		return { user, sheet };
+	}
+	// Radix Select renders its listbox in a portal, outside the dialog subtree.
+	async function pick(user: ReturnType<typeof userEvent.setup>, trigger: HTMLElement, option: RegExp) {
+		await user.click(trigger);
+		await user.click(await screen.findByRole('option', { name: option }));
+	}
+
+	it('"The whole deck" stores the unbounded window, not zero', async () => {
+		const { user, sheet } = await openGeneral();
+		await pick(user, sheet.getByRole('combobox', { name: 'Fetch ahead' }), /The whole deck/);
+		expect(localStorage.getItem('lattice-present-lookahead')).toBe('all');
+	});
+
+	it('a numeric depth and Automatic both round-trip through the same control', async () => {
+		const { user, sheet } = await openGeneral();
+		const trigger = sheet.getByRole('combobox', { name: 'Fetch ahead' });
+		await pick(user, trigger, /^3 slides ahead$/);
+		expect(localStorage.getItem('lattice-present-lookahead')).toBe('3');
+		await pick(user, sheet.getByRole('combobox', { name: 'Fetch ahead' }), /Automatic/);
+		expect(localStorage.getItem('lattice-present-lookahead')).toBe('auto');
+	});
+
+	it('the pace preset writes the name the cadence kernel reads', async () => {
+		const { user, sheet } = await openGeneral();
+		await pick(user, sheet.getByRole('combobox', { name: 'Pace' }), /Deliberate/);
+		expect(localStorage.getItem('lattice-present-pace')).toBe('deliberate');
+	});
+
+	it('keeping narration on the device is on by default and switches off', async () => {
+		const { user, sheet } = await openGeneral();
+		const sw = sheet.getByRole('switch', { name: 'Keep narration on this device' });
+		expect(sw).toHaveAttribute('aria-checked', 'true');
+		await user.click(sw);
+		expect(localStorage.getItem('lattice-present-narration-cache')).toBe('0');
+	});
+});
