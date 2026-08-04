@@ -15,7 +15,7 @@ The red "Overflows" ring names the slide. The yellow tag names the element respo
 
 ---
 
-<!-- _class: split-compare -->
+<!-- _class: split-compare confidential stamp-pin -->
 
 `Decision Required`
 
@@ -34,7 +34,7 @@ This slide overflows on purpose: in a live preview the ring and the yellow tag l
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid wip stamp-flag -->
 
 ## Which card is the actual problem?
 
@@ -57,7 +57,7 @@ A bounded content cell (`.cell-stage`, `.panel-right`, `.compare-right`) that ov
 
 ---
 
-<!-- _class: timeline-list -->
+<!-- _class: timeline-list draft -->
 
 `Case B · no clip-cell in play`
 

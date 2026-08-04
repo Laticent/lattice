@@ -492,9 +492,6 @@ in patch versions.
   `auto` on `math` and `title` — so the backdrop escapes behind the section's own opaque background
   and the finish vanished on a shipped slide. See
   `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
-<<<<<<< HEAD
-
-
 - **Present's narration no longer hangs silently while the captions run on without it.** A sentence
   whose synthesis stalled left the caption highlight — which rides the WebAudio clock, and that
   clock advances whether or not a clip is sounding — crawling straight through the silence, then
@@ -505,7 +502,6 @@ in patch versions.
   **outlives the player's patience**: the player gives a sentence 20s before moving on, but the
   request itself runs to 45s and its audio still lands in the cache, so a slow link warms itself
   instead of dropping every sentence. No label changes and no new widget — the rail carries it.
-=======
 - **Breaking (for CRLF decks — they were rendering wrong): line endings are LF everywhere, and now
   enforced.** A Windows-authored deck declaring `theme: cuoio` exported **entirely in the default
   palette**, silently: `lib/core/resolve-palette.js` was the one front-matter reader of ~55 whose
@@ -580,7 +576,142 @@ in patch versions.
   identically to LF, but a lone CR did not (it mis-*split* the deck, 8 pages against 7), and a BOM
   did not (wrong palette, lost `size:`, and an extra slide).
 
->>>>>>> ebc88a0 (core(line-endings): normalize at every boundary, so no reader has to remember)
+- **A slide could lose its eyebrow and heading off the TOP with no ring, no pill and no
+  console line — every overflow channel read it as fitting.** A flex container that centers
+  or end-aligns and then overflows throws content off the **block-start** edge, and
+  block-start overflow does not grow `scrollHeight`, so every scroll-dims measure in the
+  system reported zero. Reproduced on `split-panel`: **24 text rects cut, the worst by
+  882px**, at `over: false` (#1299). Fixed on both halves. **Detection:** the two overflow
+  probes now DISCOVER the clipping boxes they measure instead of reading a four-name
+  allowlist — an allowlist is silent by default, and the box it went silent about here was
+  a whole slide's worth of heading (#1300). **Loss:** every alignment on a clipping panel
+  in `split-panel` is now `safe` (seven of them), which falls back to `start` the instant
+  content overflows and keeps the centering while it fits, so a fitting slide is
+  byte-identical and an overflowing one loses its LAST line rather than its first.
+- **The reader's "Content clipped" tag could never fire on a slide the geometry probe
+  missed.** `tell = over && (…)` gated the content probe behind the geometry probe, which
+  made any geometry blind spot load-bearing for all three registers at once. The geometry
+  probe now also returns `clipSuspect` — the cheap, over-eager "is any clip box hiding
+  anything by any measure" — and the content probe runs on `over || clipSuspect`. The loose
+  measure picks candidates, the truthful one adjudicates: `.chart-body`'s phantom ~43 hidden
+  px now buys a content walk that answers "nothing cut" instead of a false ring. `author`
+  short-circuits before the walk and stays purely geometric. Also closed with it: pseudo-element
+  author content (`matrix-grid`'s axis labels, the `--insight-label` / `--stamp-label` /
+  `--step-prefix` families) is now a bearer — a `TreeWalker(SHOW_TEXT)` returns zero nodes for
+  a box whose only content is generated; KaTeX's invisible `.katex-mathml` mirror no longer
+  qualifies as one (23 boxes, a 955px phantom rect each); and `sweepOverflowMarkers` now clears
+  the reader class too, which its own "EXHAUSTIVE by contract" docstring had been wrong about.
+- **`lattice-emulator.js` prints a second channel: `⚠ CONTENT CLIPPED`** for slides that lose
+  content inside a clipping box WITHOUT exceeding the frame — an ellipsed footer, a line-clamped
+  card, a sheared panel head. The export had been tagging these for the reader without telling
+  the author, so the only person who could fix it was the only person not informed.
+  `npm run overflow:check` reads the new line too, so the corpus ratchet counts them.
+- **`wifi` clipped real content on four slides of its own galleries** (#1278). The card had no
+  room for its own content: at `width: 12em` the QR tile's border-box was 301px of a 524px
+  stage — 57% of the card's height for the code alone. The reported cause (a `.qr-cta`
+  overshooting by ~25px) was never the cause; the CTA is 48px and the arithmetic did not
+  close. Retuned against the real render: tile 12em → 9.5em (still 19% larger than
+  `contact`'s, and 203px of SVG scans from the back of a room), card gap 1.9 → 1.2em, side gap
+  0.9 → 0.7em, field gap and rule inset 1.5 → 0.9em. The worst slide goes from **51px over to
+  22px under**, and a one-line title from 14px of headroom to 87 — a whole extra heading line
+  either way. `justify-content: safe center` is the backstop. The stage's now-inert
+  `overflow-clip-margin` is removed with its reasoning recorded in place.
+- **Committed PDFs are now asserted to be OWNED, so an artifact nothing watches cannot ship
+  again** (#1279). `lib/base/_logo/logo.gallery.{light,dark}.pdf` had no builder, no pixel-diff
+  and no fit ratchet — three independent blind spots on one path — and went stale unnoticed. All
+  three are widened (`golden-diff.mjs` and `regression-gate.mjs` walk `lib/` rather than
+  `lib/components`; the overflow corpus glob reaches `lib/base/**`; `build-bucket-galleries.js`
+  gains an `EXTRA_GALLERIES` table so a hand-authored gallery outside the components tree has a
+  real `--only` target, and `build-staged-pdfs.js` rebuilds it on commit). But the general defect
+  was that **the set of committed artifacts was not the set any gate knew about**, so
+  `checkCommittedPdfs` (in `build:check`) now requires every `git ls-files '*.pdf'` entry to be
+  claimed by a rule naming its producer AND its watcher — and fails on a stale rule too, so the
+  table cannot rot. Four PDF groups are recorded as having no automated watcher, each with the
+  reason, rather than being quietly uncovered. Proven with deliberately-broken canaries in all
+  three directions (an unowned PDF, a stale rule, and each of the three widened gates), which is
+  what the card asked for.
+- **The reader was never actually shown the "Content clipped" pill on a slide that loses
+  content without overflowing.** The JS half shipped correct — both watchers drew the pill,
+  every unit test passed, the console said the right thing — and `base.modifiers.css` hid it,
+  because tab visibility keys on `.overflow` and `.overflow` is (correctly) pure geometry.
+  Found by rasterizing the export rather than reading the diff; pinned by an integration test
+  that drives a real export at all three marker levels and asserts computed `display` — plus
+  `position` at `author`, the level where the tab landed in flow — since a class assertion
+  passes against the broken build.
+- **The marker question is ONE class, `.clip-marked` — a TREATMENT flag, orthogonal to the
+  geometric `.overflow`.** It replaced two conjunction classes (`.overflow-silent` =
+  `over && !tell`, `.content-clipped` = `tell && !over`): three classes for two booleans, so a
+  slide that BOTH overflowed and cut carried neither, and the tab's visibility keyed on one
+  predicate while its styling keyed on the other — which is exactly how the author-level tab
+  shipped un-hidden by one rule and styled by neither, rendering IN FLOW and taking 50px off the
+  `.cell-stage` it was reporting on. It was then briefly called `.content-cut`, which reads as a
+  FACT and is not one: the population is level-dependent by design, so a panel listing "slides
+  that lost content" from it would be wrong on every surface. `.overflow` is the fact to query;
+  this only ever says "a marker is drawn here".
+- **The running footer's ellipsis is DETECTED but no longer shown to a reader.** Detection is
+  general — `2026-07-27-footer-band-allocation.md` prices that truncation and asks in the same
+  section to be told about it ("not enforced or warned about"; option (d), "so the author is
+  told"), so an exemption in the probe shipped and was taken back out, and stderr, the `author`
+  tab and the corpus ratchet all count it. The TREATMENT is not general, and the reason is
+  geometric: the reader pill sits bottom-center, which IS the footer band, so one ordinary
+  `footer:` in front matter painted an opaque capsule across the confidentiality line it was
+  reporting, on EVERY page of the deck — ink overlap in the one band that decision doc exists to
+  have cleared, and unactionable besides (a reader can neither edit a footer nor scroll a PDF).
+  `probeContentClipped` now returns `chromeOnly`, and the reader treatment consults it. The pill
+  also moved clear of the band, onto the stage's own `--footer-reserve`.
+- **`safe` alignment: `space-around` / `space-evenly` do NOT shear.** The claim that they fall
+  back to `center` was read off the css-align-3 grammar; measured in Chromium 131 they resolve
+  to `start`, like `space-between`. Corrected in `gotchas.md` and the decision note, which had
+  carried it for two rounds after the measurement that refuted it.
+- **The overflow ignore list is two lists, and the author-reachable kill switch is closed.** One
+  list matched with `closest()` served both probes, so a single class anywhere in a slide —
+  `_class: content image-scrim`, or a hand-typed `<div class="tile-watermark">`, both legal
+  because the engine sets `html: true` — turned off box discovery in BOTH probes and, with
+  `over` forced false, autosplit with them. Measured on a real export: the same ellipsed
+  `<strong>` reported a cut on a plain slide and nothing at all on the same slide carrying
+  `image-scrim`. The SET is unchanged and the MATCHER is what
+  split: `IGNORED_CLIP_SELECTOR` is matched with `matches()` ON THE BOX (a decorative clip is a
+  property of one box, needs no subtree reach, and never applies to the section itself), and
+  `IGNORED_BEARER_SELECTOR` — literally an alias of the same constant — keeps `closest()` for the
+  claim that really is about a subtree. Splitting the ENTRIES instead was tried and reverted: it
+  dropped `span.katex-mathml` off the box side and put 13 math gallery slides into `over: true`.
+- **`author` says "Content clipped" when nothing overflowed.** The tab read "Overflows" —
+  a claim about geometry — on the population this change added, so an author saw a red flag with
+  no ring beside it (correctly absent) and went hunting for a spill that was not there. One
+  vocabulary now, shared with the stderr channel and the reader pill.
+- **A nested out-of-flow bearer is no longer reported as cut by a box that does not clip it.**
+  The containing-block escape was cleared with an `else if`, so an establisher that was itself
+  out of flow never started its own escape and every static clipping ancestor above it was
+  applied to the bearer. The one-level shape stayed correct, which is what hid it.
+- **`off` leaves nothing on the runtime surfaces too.** `policy.mark` gated only the class, so
+  the browser watcher appended a tab that survived purely because CSS hid it, while the
+  emulator's inline watcher skips its whole tab branch — two watchers producing different DOM
+  for the same level (HARD RULE #1).
+- **Two gates that could not fail for the thing they were added to catch, fixed.**
+  `sweepOverflowMarkers`'s test built its fixture and its assertion by hand, so the class added
+  to the sweep this cycle could be deleted again with the suite green; it now derives the class
+  list from the watcher's own source. And `checkCommittedPdfs` shelled out to `git ls-files`
+  with no injection point, so neither of its failure branches was reachable from a test — the
+  logic is a pure `auditPdfOwnership(files)` now, with permanent canaries for an orphan, a stale
+  rule, and a producer claim with no source deck behind it. Nine of the ten `PDF_OWNERSHIP`
+  rules had also certified phantom paths (`examples/hand-dropped-orphan.pdf`,
+  `design/bogus.gallery.pdf`) as owned with a named producer; every rule now asserts its
+  producer claim is true OF THE FILE.
+- **`safe` alignment now covers the class, not two components.** `stage.css`'s `align-middle`
+  / `fill-center` / `align-bottom` / `fill-anchor` are universal modifiers on every component
+  and could throw a slide's first list item off the block-start edge with no signal. 34
+  alignments carry `safe` across the engine, including the chart family's `.chart-body` and
+  both mermaid wrappers. `safe` is byte-identical when content fits — verified by the pixel
+  gate across every gallery.
+- **`redline split` dropped the closing phrase of a statute clause.** The NEW column — always the
+  longer of the pair, since an amendment adds words — ran 31px past its own `overflow: hidden` and
+  cut "…their personal information." The `.cell-stage` fit and the section fit; the blockquote was
+  a clipping box nothing looked at until the probe change above widened the set. Tighter leading in
+  a two-column track, exactly as `.three-col` next door already does. (Precisely: the clip is on
+  `lib/components/legal/legal.gallery.md` p29, the bucket gallery that composes this variant with a
+  real statute — NOT `redline.gallery.md` p5, whose shorter specimen text fits either way. The
+  commit message says "its own gallery", which is one gallery too loose.)
+
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
@@ -1220,7 +1351,6 @@ in patch versions.
   re-pointing Mermaid's `titleColor`, which also paints diagram titles. Print siblings added for all
   of it, so a tinted edge cannot leak into a grayscale handout.
 
-
 - **A Mermaid `subgraph` box now takes the containment token every theme already curates.**
   `clusterBkg` was fed `--bg-alt` — the deck's *card* fill — while `--c-container`, the per-theme
   containment rung whose own declaration comment names "flowchart cluster, sankey area, kanban
@@ -1795,7 +1925,6 @@ in patch versions.
   not a word an author should have to know. Every axis head now reads Auto and names what it
   resolves to — "Auto — Rainbow" — so the deck's value is legible without opening the deck
   Inspector. (#1293)
-
 
 - **The site nav leads with the Studio, and the "Tools" group is gone.** The Studio and the
   Playground are now inline top-level links on every surface — Studio first, keeping its honest
@@ -4523,7 +4652,6 @@ in patch versions.
   is what would silently hand their size back to the slide scale and re-introduce the portrait defect.
   See `engineering/decisions/2026-07-27-chart-family-all-svg.md`.
 
-
 - **Chart motion is a first-class SETTING — a Motion tab with Play, Style, and Speed.** The in-place
   chart animation gets a dedicated **Motion** tab in the Studio's Deck AND Slide inspectors, with three
   independent axes at full parity between the controls, the front matter, and the slide classes (no
@@ -5157,7 +5285,6 @@ in patch versions.
   `lib/base/base.docs.md`; design in
   `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
 
-
 - **A "Lexicon" panel in the deck settings — edit read-aloud pronunciations without YAML.**
   The deck-scope Inspector (Studio → Deck settings) gains a Lexicon group: add a row, type a word
   or symbol and how it should be read aloud (blank = silence it), and it writes the `lexicon:`
@@ -5552,7 +5679,6 @@ in patch versions.
   the open deck + theme as diagnostic context. See
   `docs/src/lib/feedback-issue.ts` and `docs/src/components/site/FeedbackSheet.tsx`.
 
-
 - **The Workspace read-aloud voice picker covers every model OpenRouter's speech
   catalog actually lists, sourced live — never a hand-typed guess, never free
   text.** Voice rosters are now read straight from OpenRouter's own
@@ -5888,7 +6014,6 @@ in patch versions.
   the stated privacy tradeoff). The note/non-note boundary and the source scrub both go through the one
   `notes-core` module.
 
-
 - **Three `list-steps` variants for a vertical staged-argument flow —
   `chevron`, `converge`, `ghost`.** A labeled sequence that cascades *down* the
   frame (Problem → Vision → … → Plan), authored as a plain numbered list with a
@@ -5968,7 +6093,6 @@ in patch versions.
   unchanged. Designed and hardened by two adversarial trios (red team + Munger inversion
   + independent checker) — see decision doc §14-3 and §14-4.
 
-
 - **Vetrina — the self-driving walkthrough library (`docs/src/lib/vetrina/`).**
   The Studio's "Watch demo" is now a general, open-sourceable engine: a
   framework-free fake-cursor "stage" that narrates and drives a host app through
@@ -6004,7 +6128,6 @@ in patch versions.
   `placement: 'top' | 'bottom'`, its corner shape the `--vt-caption-radius` token,
   and its background is translucent so the deck shows through.
 
-
 - **A `model:*` recommendation axis on the work queue.** Every card can now
   carry a recommended Claude model — `model:haiku` (trivial/mechanical),
   `model:fable` (prose/editorial), `model:sonnet` (standard engineering), or
@@ -6028,7 +6151,6 @@ in patch versions.
   named `VOICE_DEBT`/`VOICE_EXEMPT` ledger (stale entries fail), the
   default-≤-soft capacity gate, the sample-footer ban, and placeholder
   rejection. Prose rules: `design/editorial.md` §Specimen voice.
-
 
 - **HARD RULE #25 — multi-agent orchestration is tiered, budgeted, and
   shaped.** Adversarial verification now scales with blast radius (self-review
@@ -6088,7 +6210,6 @@ in patch versions.
   restored on exit. Reuses the exec-board-update journey, so it needs no AI call and
   spends no key (HARD RULE #24). Respects `prefers-reduced-motion`. Design:
   `engineering/decisions/2026-07-04-studio-demo-walkthrough.md`.
-
 
 - **Accessible PDF: title + language.** An exported PDF now carries the deck's **title** and
   **language** (from the `title:` / `lang:` front-matter, else the first heading / English),
@@ -6360,7 +6481,6 @@ in patch versions.
   mechanism instead of a dead end. Closes the last open item from the
   website-positioning decision doc (§8.3).
 
-
 - **Backdrop is the finish's FIFTH layer — baked in Fabricate, overridden with one
   `finish-override:` map.** A finish now carries a *backdrop* alongside wash / texture /
   mark / edge, with three composable restraints: **strength** (dim the whole finish),
@@ -6422,7 +6542,6 @@ in patch versions.
   (`docs/scripts/sync-portal.mjs`), and the landing hero and introduction
   link it — "show me a finished deck" is now one click from the fold.
 
-
 - **A finish applies to a single slide with one class — `_class: … finish-atrium`.**
   A per-slide `finish-<name>` class (built-in **or** a saved `finish-<slug>`) now implies
   the bare `finish` compositor class in all three render paths, so it activates the
@@ -6473,7 +6592,6 @@ in patch versions.
   (`on`/`off`/follow-the-deck). Demo: `examples/debug.md`; design:
   `engineering/decisions/2026-07-01-debug-bounding-boxes.md`. (Replaces the former
   Playground-only "bounding boxes" viewer toggle.)
-
 
 - **Reference docs are now searchable to pick and manageable in the Library (#651).** The
   chat/Fabricate paperclip picker is now a **searchable** popover (search box + scroll), so a
@@ -6710,7 +6828,6 @@ in patch versions.
   `onboarded` flag makes the whole treatment strictly one-time, and prior Studio
   users are detected and treated as already-onboarded. Design + rationale:
   `engineering/decisions/2026-06-30-studio-newcomer-onboarding.md`.
-
 
 - **Prose-density budget — give the LLM a word budget, not just an element count (phase 2 of
   the content-capacity contract).** Layouts now declare an optional `density` block
@@ -7269,7 +7386,6 @@ in patch versions.
   orientation-locked** — the emailed-link (phone) reader gets a portrait form for the whole
   catalog. See `engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md`.
 
-
 - **Dense list layouts split with a cover, then their OWN native cards (`cover-paginate`).**
   Five dense list/register layouts — **statute-stack**, **regulatory-update**,
   **authority-chain**, **q-and-a** (legal/inventory), and **glossary** — now auto-split
@@ -7430,7 +7546,6 @@ in patch versions.
   annotation — the chart pixels stay byte-identical). A chart with no sublists is
   unchanged. Radar reveals per-axis. See
   `engineering/decisions/2026-06-20-chart-detail-reveal-family.md`.
-
 
 - **Reveal a pie slice's detail in the live editing preview — as you author.** Hovering
   (or tapping, on touch) a pie wedge in the **Drawing Board AND Playground** previews now
@@ -7623,7 +7738,6 @@ in patch versions.
   nested-cell foundation lands. Manifests gain an `adapt` block.
   See `engineering/decisions/2026-06-18-component-adaptive-sizing.md`.
 
-
 - **Export-to-Marp bundles now carry an AI-agent kit, so recipients can keep authoring the deck.** Every Marp bundle (CLI `npm run export:marp` and the Drawing Board export) now ships a bundle-tailored `AGENTS.md` at the root + the machine-readable component catalog at `agent/components.json` — so an AI agent (Claude, Copilot, Cursor, …) dropped into the exported folder can extend the deck with full Lattice knowledge: pick the right component, honour its slots, and stay within each layout's **content capacity** instead of inventing `_class` names and overflowing slides. The catalog is a frozen snapshot stamped with the exporting Lattice version. On by default; opt out for a lean Marp-only bundle with `--no-agent` (CLI). Built on the shared bundle spec (`lib/core/marp-bundle.js` — `AGENT_ASSETS` + `agentsMd`) so the CLI and browser producers can't drift. See `engineering/decisions/2026-06-13-export-to-marp.md` §10.
 
 - **Concept ontology — the relationship graph is now machine-readable and drift-gated.** The cross-level concept graph (the four axes Function · Form · Substance · Finish, the structural nouns Frame · Cell · Tile, the Component join, and the typed relationships between them) is encoded as `lib/concepts/concepts.json` and projected to a new machine catalog **`dist/docs/concepts.json`** (beside `components.json` / `forms.json`) by `tools/build-concepts.js` (`npm run docs:concepts`). A **two-tier drift gate** (`docs:concepts:check`, wired into `build:check`, so it runs at pre-push and in CI) checks both the **nodes** (every node's claimed vocabulary resolves in the live catalogs; the counts are *derived* from them, never hand-typed) and the **structural backbone edges** (`frame→cell` (produces) needs a Frame that really lists cells; the join edges need the `function` / `form` / `substance` fields they claim) — so the map can't assert a vocabulary, count, or structural relationship the engine doesn't ship. `design/concepts.md` drops its hardcoded `7/12/4` vocabulary counts and §9 records the new encoded-vs-prose state honestly (the node descriptors remain hand-authored prose).
@@ -7719,7 +7833,6 @@ in patch versions.
   - Data-dense grid layouts (kpi, comparison, split, charts) render true-portrait
     but keep their landscape composition for now; a portrait reflow is tracked as
     follow-on. PPTX export remains 16:9-only (PDF export is correct at every size).
-
 
 - **Colour-vision-deficiency accessibility — four first-class CVD themes.** Four
   selectable themes — `a11y-deuteranopia`, `a11y-protanopia`, `a11y-tritanopia`,
@@ -7958,7 +8071,6 @@ in patch versions.
   owned, marp-free export path; editable PPTX (marp's LibreOffice variant) is
   intentionally not included.
 
-
 - **Export a single chart as a standalone `.svg`.** The four keyed charts
   (pie/radar/map/cohort quadrant) render the diagram, spine, and key as one
   `<svg>` — now you can lift one out of a deck as a self-contained file that
@@ -8110,7 +8222,6 @@ in patch versions.
   Workspace settings governs all three surfaces and takes effect live. Tours
   activate on the production site only — never local dev or Cloudflare PR
   previews (gated build-time via `docs/src/lib/deploy-env.mjs`).
-
 
 - **Workbench component bridge — local components reach the Drawing Board.** A
   CSS-only component authored and saved in the Workbench Layout Studio is now
@@ -8347,7 +8458,6 @@ in patch versions.
   required. This is what lets the owned CSS emitter reach math parity; it also
   means any drop-in `dist/lattice.css` consumer now renders `$…$` math correctly.
 
-
 - **`@slidewright/lattice/engine`** — an experimental, owned markdown→slide
   engine (`lib/engine/`), the P1 core of the Marp-replacement effort
   (`engineering/decisions/2026-06-10-marp-replacement-proposal.md`). Built on
@@ -8442,7 +8552,6 @@ in patch versions.
   `componentAsset` in `lib/layout/scaffold.js`). Cross-surface reuse (the
   Drawing Board consuming library themes; deck-export materialization across all
   three render paths) is the next slice — the export bridge. Docs-site only.
-
 
 - **`agenda` gains five interchangeable styles + page references.** The default
   is now **`ledger`** — a contents page with hand-leadered rows and an optional
@@ -8837,7 +8946,6 @@ in patch versions.
   production / CDN delivery; the package `bin`/`main` stays the unminified
   emulator. Each build generator now emits both variants behind the same
   `build:check` freshness gate.
-
 
 - **Chart-family semantic color system (`--state-*`).** Status-driven charts
   — gantt bars, progress fills, the shared status pills, kanban's "done"
@@ -9475,8 +9583,6 @@ in patch versions.
   they do not — bounded by the next mark in the lane, so a long name can never print through its
   neighbor.
 
-
-
 - **The radar's shape never animated.** Its series polygons carried no addressable attribute, so
   chart motion saw only the axis labels and animated the text of an otherwise static chart. The
   polygons now declare `data-anima-role` — deliberately *without* a `data-mark`, because the radar's
@@ -9904,7 +10010,6 @@ in patch versions.
   breakpoint/orientation change (the old hoisted host stayed warm through those), and while Present is open
   two engine iframes coexist briefly (editor parked + Present's own).)*
 
-
 - **Carbone's docs-site chrome no longer renders sub-AA status text in light mode.** Carbone's `--bg`
   is a flat dark `#1A1A1C` in both modes, but its `--pass`/`--warn`/`--fail` are `light-dark()` — and the
   portal generator flattens `light-dark()` per `data-mode`, so the `[data-mode="light"]` chrome block
@@ -10207,7 +10312,6 @@ in patch versions.
   HARD RULE #5 nested `- Title` / `  - body` contract — full-width title+body cards that read as a
   cautionary ledger, keep inline code inline, and stay inside the frame at up to 4 anti-patterns (the
   catalog max). Affects the generated slide in every component gallery. (`tools/build-component-docs.js`.)
-
 
 - **"Add slide" buttons open the add-slide gallery again, instead of dropping a blank slide.**
   Regression from the mobile Compose rework (#1059): the Compose slide-divider "+" ("Insert slide
@@ -10722,7 +10826,6 @@ in patch versions.
   identical there; only the projected article figure newly matches the `figure.chart-frame`
   arm.
 
-
 - **Two engine text-transform regexes were hardened against the nested-quantifier
   ReDoS shape a static analyzer (CodeQL) flags — and one of them was a REAL,
   reachable hang, not just a flagged shape.** (1) The trailing `<code>` chip-run
@@ -11193,7 +11296,6 @@ in patch versions.
   Webpage flow and asserts the downloaded player boots (styled + script runs), so
   this can't regress unseen.
 
-
 - **The docs site no longer stalls on a render-blocking Google-Fonts request.** The
   site chrome (`landing.css` / `lattice.css`) pulled Playfair Display / Outfit /
   JetBrains Mono from Google Fonts via a remote CSS `@import`, which blocks first
@@ -11359,7 +11461,6 @@ in patch versions.
   `light-dark()` color to the faint light value on the dark field — a barely-visible ring.
   The marker `::before` now flips its own `color-scheme` to dark, so the label picks the
   bright on-dark side (mirroring the inline-code chip rebind).
-
 
 - **`no-footer` / `silent` now actually hide the running footer on Form decks.**
   The migrated Form frame nests the footer text in `.cell-footer`, and an
@@ -11546,7 +11647,6 @@ in patch versions.
   so the editor now offers every built-in **and** saved finish as a `finish-<name>`
   token there, on any position in the line — not just as a `finish:` front-matter value.
 
-
 - **Getting-started's first-run commands actually run.** They referenced
   `examples/gallery.md` / `examples/gallery-mermaid.md`, which don't exist —
   a newcomer's first command exited with `error: source markdown not found`,
@@ -11556,13 +11656,11 @@ in patch versions.
   `/gallery.pdf`. README's matching stale paths and its "committed to
   `examples/`" claim are fixed too.
 
-
 - **The reference-doc picker's delete is now reachable on touch and by keyboard (#651
   follow-up).** Each row's trash was hover-revealed (and the active doc's was hidden
   outright until hover) — invisible on touch and awkward for keyboard users. It's now
   always present but muted, prominent on hover/focus, uniform for active and inactive
   docs; the active-row "grounding" check gained a screen-reader label.
-
 
 - **Finish glyph-marks no longer paint a baked placeholder on every slide.** A
   glyph-mark (the ghost monogram / numeral) is now **author-personalized and never
@@ -11587,7 +11685,6 @@ in patch versions.
   catalog the Studio is already handed, so valid components (`split-compare`,
   `list-steps`, and ~40 others) were underlined as errors on perfectly good decks.
   The known set now derives from the catalog (`dist/docs/components.json`).
-
 
 - **Studio AI models can't rot anymore — defaults use OpenRouter's `~*-latest` alias (#610, closes #614).**
   Pinned model ids die when OpenRouter retires/renames a model (a `404 "No endpoints found"`), which bit
@@ -11820,7 +11917,6 @@ in patch versions.
   is visually unchanged (`space-evenly` redistributes the surplus) while the dense
   4-stat case now packs to fit. Layout-only; landscape byte-identical.
 
-
 - **Drawing Board export no longer produces a blank (or collapsed) PDF/PPTX.**
   Exporting straight from the Edit tab — the default path on a phone, where the
   preview pane is `display:none` and is never shown — yielded an all-white PDF.
@@ -11878,7 +11974,6 @@ in patch versions.
   never scroll-locked and the preview stays live while you edit. The Drawing Board
   (vanilla, no Radix) was never affected. See `engineering/gotchas.md`.
 
-
 - **Present/Practice mobile stage — maximise + robust centering (CSS isolation).**
   The stage layout was sharing one cascade with the engine `out.css`, which
   clobbered the centering rules (`body`/`.marpit`/`section`) — so the slide fell
@@ -11899,7 +11994,6 @@ in patch versions.
   the stylesheet value (`display:""` instead of `"block"`), so each layout keeps
   its own `display`. Measured h1 offset from section center: −55px → −1px.
 
-
 - **`image` slides now render their asset regardless of the output directory.**
   The half-canvas/full-bleed image rode in an `<img>` whose deck-relative `src`
   resolved against the *output* directory, so any deck rendered to a PDF outside
@@ -11912,7 +12006,6 @@ in patch versions.
   (class-aware + idempotent), so the docs playground / web runtime render the
   same split layout as the PDF path instead of collapsing it to a broken
   full-bleed. See `engineering/decisions/2026-06-17-image-rearchitecture.md`.
-
 
 - **Slides render fully styled again in the playground, Drawing Board, and every
   browser-engine surface.** The marp purge switched those surfaces from the
@@ -12055,7 +12148,6 @@ in patch versions.
   (the masthead-reservation note's "M1 fixed the donut" claim was stale — the
   donut collapse was still live and is fixed here); see
   `engineering/decisions/2026-06-15-form-implementation.md`.
-
 
 - **Practice's progress spine no longer barcodes — or breaks the layout — on a
   long deck.** The spine rendered one segment per slide with a fixed minimum
@@ -12244,7 +12336,6 @@ in patch versions.
   `Print` path was never affected. Docs-only; the published engine and its
   Google-Fonts `@import` are unchanged.
 
-
 - **`word-cloud` now scales as one unit at any resolution.** The cloud was
   emitted as absolutely-positioned `<span>`s inside a fixed-px (1100×320)
   canvas, so at a larger render (e.g. `size: 4K`) the words stayed pinned at
@@ -12361,7 +12452,6 @@ in patch versions.
   body text. The theme directive is now injected *inside* the front matter when
   present (a leading comment only when there is none). Caught by the parity sweep;
   Drawing Board (docs-site) only.
-
 
 - **Agenda "you are here" row no longer relies on background color alone
   (WCAG 1.4.1).** The `progress` modifier marked the active row with an
@@ -12713,7 +12803,6 @@ in patch versions.
   painting a stray red line at the 12-o'clock seam. Wedge borders now count by
   `nth-of-type` (paths only). See `engineering/gotchas.md`.
 
-
 - **Inline code now escapes HTML.** `parseInline` in
   `lattice-emulator.js` was wrapping backtick spans in `<code>` tags
   without escaping `<`/`>`/`&`, so authors who wrote sample HTML in
@@ -12766,7 +12855,6 @@ in patch versions.
   chart-family integration. Reference doc:
   `docs/references/templates.md#quadrant`.
 
-
 - **Quadrant chart internal border drift.** The emulator's
   `MERMAID_VAR_MAP` referenced `--mermaid-mid-slate` for
   `quadrantInternalBorderStrokeFill`, but no palette defined that
@@ -12774,7 +12862,6 @@ in patch versions.
   the entry at `--cat-slate` to match what `lattice-runtime.js`
   already uses for the same role. Caught by the new
   `mermaid-var-map.test.js`.
-
 
 - **Mermaid theming gaps across 7 diagram types.** A full marp-cli + Puppeteer audit
   across 5 decks (37 diagrams) found 35 stray colors that escaped the brand palette:
@@ -13018,7 +13105,6 @@ in patch versions.
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
 
-
 - **A scatter label that cannot be placed clear is now DROPPED rather than printed through its
   neighbor.** Some sets cannot be laid out at all: five three-line names in one quadrant is ~76% of
   that quadrant's area in label, and no arrangement fixes an area problem. Overprinting loses BOTH
@@ -13099,7 +13185,6 @@ in patch versions.
   author's stress test; the house rule is a simple boardroom chart, not an architect's diagram — so it
   no longer trips the overflow probe. (`state-chart.transform.js` + `.styles.css`,
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
-
 
 - **The docs PWA now serves content-hashed assets cache-first, killing the reload-revalidation storm.**
   The service worker (`docs/public/sw.js`) used one strategy for all same-origin files —
@@ -13820,7 +13905,6 @@ in patch versions.
   to a plain connect (still plays) on a flaky engine; `onState` emits a terminal `aborted` event on
   stop/barge-in; and the boundary gate now catches side-effect/dynamic/`require` imports.
 
-
 - **Typing in a large deck's live preview is now noticeably snappier.** Each keystroke previously
   re-ran the HTML sanitizer (DOMPurify) over the *whole* deck — about half the per-keystroke render
   cost on a 50-slide deck, and it grew with slide count, pushing a big-deck edit past the render
@@ -13997,7 +14081,6 @@ in patch versions.
   `/studio/print` tab + its `postMessage` handshake, which earned no payoff for its cost.) See
   `engineering/decisions/2026-06-14-deck-print-styling.md`.
 
-
 - **Read-aloud timing is now a prosody-grounded pace model, not a flat wpm × character-length
   guess.** Word duration rides a **syllable count** (~200 ms/syllable at a ~150-wpm boardroom
   default), not character length, so an 8-letter one-syllable word no longer out-dwells a short
@@ -14171,7 +14254,6 @@ in patch versions.
   single-slide preview in line with the multi-slide filmstrip, which already patched.
   Front B of `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.
 
-
 - **Studio Present read-aloud now speaks the same component-aware narration the
   exported captions do — a deck no longer sounds different live vs. exported.**
   Live Present used to narrate a slide by flattening its raw Markdown, while the
@@ -14321,7 +14403,6 @@ in patch versions.
   protects from ordinary fixes. See
   `engineering/decisions/2026-07-10-landing-perf-katex-defer.md` §4.
 
-
 - **The Studio desktop chrome consolidates onto ONE left activity bar.** Every
   panel now launches from a single VSCode-style activity bar on the left and docks
   beside it — Settings next to the bar, the Architect next to the editor
@@ -14444,14 +14525,12 @@ in patch versions.
   previous one renders). Dogfoods Vetrina's `until` advance gate in the flagship
   walkthrough; verified by the six-scenario demo e2e on real Chromium.
 
-
 - **Studio mobile: swapping Edit ⇄ Preview is now instant.** The two panes previously
   unmounted each other, so every swap to Preview **remounted and reloaded** the preview
   iframe — a blank flash and a repaint. Both panes now stay mounted (the inactive one
   hidden with `visibility:hidden` + `inert`), so the preview keeps rendering the live deck
   while hidden and a swap shows it immediately (~85 ms, no reload). This also makes the
   phone Watch-demo's per-slide reveal snap in instead of racing an iframe reload.
-
 
 - **The Specimen Book content migration is complete (PR 4).** The final 23
   components — the whole chart family plus diagram, math, code, and legal —
@@ -14466,7 +14545,6 @@ in patch versions.
   without its `stressDoc`. **Breaking:** manifests still carrying
   `stressSample` are rejected — spell it `stressDoc { caption, sample }`.
 
-
 - **Group-2 galleries speak the specimen voice (Specimen Book, PR 3).** All 14
   components across comparison, progression, evidence, and imagery now teach
   themselves within their word budgets, with one-line captions and short
@@ -14480,7 +14558,6 @@ in patch versions.
   entry now points at state-chart; British spellings in visible gallery copy
   corrected (HARD RULE #21).
 
-
 - **Group-1 galleries speak the specimen voice (Specimen Book, PR 2).** All 20
   components across anchor, statement, inventory, and connect now teach
   themselves: samples and variant slides describe the layout they demonstrate,
@@ -14493,7 +14570,6 @@ in patch versions.
   their no-op composition slides. A `<!-- stress-slide -->` marker (generator-
   emitted, specimen-gated) lets deliberate at-the-ceiling slides pass deck lint
   without loosening `capacity-crowd` for authors.
-
 
 - **`manifest.schema.json` is now the manifest contract's source of truth.**
   The validator (`lib/components/index.js`) and the Studio gate
@@ -14543,7 +14619,6 @@ in patch versions.
   architectural-boundary violation the quality assessment flagged
   (`lib/core` importing a component kernel). See
   `engineering/decisions/2026-07-05-quality-driven-refactor.md`.
-
 
 - **Studio: the mobile toolbars stop overflowing — by shrinking, not hiding — and
   the reader-lens control is unified.** Adding Version history had pushed the mobile
@@ -14644,7 +14719,6 @@ in patch versions.
   so global and deck controls no longer read as one run. See
   `engineering/decisions/2026-07-03-studio-brand-mark-toolbar.md`.
 
-
 - **Workspace settings collapsed to two tabs — `General · AI`.** The sheet now splits
   cleanly by concern. **General** holds the non-AI workspace prefs — placement-handle
   style + where decks live (deck storage moved out of its own thin tab; the standalone
@@ -14692,7 +14766,6 @@ in patch versions.
   AGPL engine within six months. Analysis and decision:
   `engineering/decisions/2026-07-02-contribution-model.md`.
 
-
 - **Website repositioning — the landing, features, comparison, introduction,
   getting-started, and README copy** now lead with deterministic design
   instead of auto-generation language (hero: "Write the *words*. The deck is
@@ -14706,7 +14779,6 @@ in patch versions.
   build time (they had drifted to three conflicting published numbers);
   hand-written prose says "more than fifty." British spellings on marketing
   surfaces moved to US English (HARD RULE #21; budget ratcheted 1364 → 1351).
-
 
 - **Breaking: `boardroom` and `sketch` moved off `finish:` onto a new `mode:` axis.**
   They were never backdrops — they're the deck's *rendering mode* (its typographic
@@ -14723,7 +14795,6 @@ in patch versions.
   `mode:`. (`class: sketch` still works — it's the raw-class route.) The Studio
   Inspector splits its one Finish dropdown into a **Mode** row and a **Finish** row,
   and the deck-lint validates both keys.
-
 
 - **Studio AI component canon now teaches odd/fixed-aspect shapes to fill the stage, not float or overflow (#610, #643 spike).**
   Live validation (#639) found the "design for fit" canon reasons about element *count* and *monumentality* but not about how a
@@ -14836,7 +14907,6 @@ in patch versions.
   the rule. The `> .cell-stage` root and `adapt`/`capacity` checks from the design are
   deliberately deferred — the former is a *shipped*-component trait (local components scope
   to `section.<name>` directly), the latter a graduation-path advisory.
-
 
 - **Form migration taxonomy made total + a partition guard — closing the `diagram` gap.** A
   pre-launch red-team found `diagram` (a `diagram`-bucket sized-media component) sitting
@@ -15053,7 +15123,6 @@ in patch versions.
   manifest schema's `capacity.escalateTo` contract. See
   `engineering/decisions/2026-06-22-the-fit-spine.md` §3 and `2026-06-23-read-across-carousel.md`.
 
-
 - **HARD RULE #20 reaches zero: no `margin` in engine layout CSS.** The last keystone —
   the base block-flow typographic rhythm (`section h2…h6 / p { margin-bottom }`, the `hr`
   centering, and the eyebrow / KEY-INSIGHT / below-note / display-math riders) — now lives
@@ -15066,7 +15135,6 @@ in patch versions.
   rhythm is unchanged to the eye (the stage owns the same `--sp-xs` step the cascade
   margins carried; under Form the title h2 lifts to the masthead, so the in-stage rhythm
   was already uniform). See `engineering/decisions/2026-06-27-stage-flow-no-margins.md`.
-
 
 - **The Form footer is redesigned as independently-positionable Cells.** On
   `form:` decks the three footer zones (running text · progress rail · page number)
@@ -15129,7 +15197,6 @@ in patch versions.
   states keep a quiet plain numeral. Same status keyword vocabulary, same
   AA-vetted tones; authoring is unchanged and the D3-style edge router is
   untouched. See `engineering/decisions/2026-06-20-state-chart-simplify.md`.
-
 
 - **Interactive chart reveal now has two depths.** In the Drawing Board
   (present / practice / live preview), hovering/tapping a mark on an interactive
@@ -15205,7 +15272,6 @@ in patch versions.
   Caption is a centered Title + body placard below the frame. Palette-blind
   (works light + dark). See `engineering/decisions/2026-06-19-adaptive-image.md`.
 
-
 - **The concept page’s “The lattice” section is now an explorable 3D-CSS graph.**
   Below the scroll hero, `/model/concepts/` renders the concept lattice as a live,
   manually-driven 3D constellation (the nine concepts + their typed edges): drag to
@@ -15248,7 +15314,6 @@ in patch versions.
   specimen Preview/Edit toggle, the variant switcher) were realigned to the same
   button/segmented-control vocabulary so every bar in the app reads as one piece.
   Nav is one source of truth (`docs/src/lib/nav.mjs`); `TopBar.astro` is retired.
-
 
 - **Internal `!important` cleanup (cascade hygiene).** Removed 22 redundant
   `!important` declarations that only existed to win Lattice-vs-Lattice cascade
@@ -15293,7 +15358,6 @@ in patch versions.
   `prefers-color-scheme`. Pixel-verified identical to the retired raster, but
   crisp at any DPR and ~25KB lighter on the first load of every page. The
   now-unused `docs/public/lattice-logo.png` was deleted.
-
 
 - **Practice mode gets an immersive portrait layout.** On a phone/tablet held
   **portrait**, the rehearsal stage fills the viewport and the chrome floats as
@@ -15371,7 +15435,6 @@ in patch versions.
   `latticeplot`), and the LFM spec (`spec/LFM-1.0.md` §3.3) documents fences as
   renderer-named, third-party sub-languages. See
   `engineering/decisions/2026-06-13-lfm-standard.md`.
-
 
 - **The docs zone now reads as part of one website, not a bolted-on subsite.**
   The Starlight docs header is reskinned into the same topbar the landing,
@@ -15467,7 +15530,6 @@ in patch versions.
   next-section preview drops on mobile to protect the width). See
   `engineering/decisions/2026-06-08-architect-coach-features.md`.
 
-
 - **The four keyed charts (`piechart`, `radar`, `map`, cohort `quadrant`) now
   have SVG-native legends + spines — each chart is one self-contained, uniformly
   scaling unit.** The diagram, gradient divider spine, and key now share a single
@@ -15551,7 +15613,6 @@ in patch versions.
     wrappers inline their base palette + the lattice base. Guarded by a real-theme
     sweep in `test/unit/engine/engine.test.js`.
 
-
 - **Color emoji now load as a webfont.** `lattice.css` adds `Noto Color Emoji`
   to its Google Fonts `@import` so raw unicode emoji can render in color on the
   owned render paths (`lattice-engine`, `lattice-emulator`), which emit emoji as
@@ -15562,7 +15623,6 @@ in patch versions.
   marp-vscode paths still use twemoji and keep the `:not(.emoji)` carve-outs. See
   `engineering/gotchas.md` "Color emoji needs an installed font on the owned
   render paths".
-
 
 - **Drawing Board: the Architect's name no longer appears twice, and the deck
   gateway grows to fill the panel head.** The redundant "The Architect" panel
@@ -15800,7 +15860,6 @@ in patch versions.
   spacing shrink, `compact` now drops card body type to `--fs-body-compact` so
   a fourth card fits without crowding.
 
-
 - **State markers (`[x]`/`[-]`/`[ ]`/`[/]`) redesigned as color + a distinct
   in-disc mark.** Across `checklist`, `verdict-grid`, and `obligation-matrix`
   every state is now the same status-colored circle carrying a unique mark —
@@ -15911,7 +15970,6 @@ in patch versions.
   fade for charts that radiate from a center, distinct from the bar family's
   vertical wash. The flatter top→bottom wash prototyped earlier is retained as a
   documented **future variant** (see `chart-family.style.md` › "Fill finish").
-
 
 - **Categorical charts recolored onto a shared fill/mark model.**
   Quadrant, piechart, radar, and progress now draw from one chart-family
@@ -16043,7 +16101,6 @@ in patch versions.
   until you fix it. (`docs/src/components/studio/LayoutStudio.tsx`;
   `engineering/decisions/2026-07-20-component-gen-hardening.md`.)
 
-
 - **Untrusted-content XSS + CSS exfil hardened in the Studio preview (#616, #610).** Two
   surfaces were exploitable *today*, before any transformer change, now that components
   and decks are shareable + AI-generable: (1) engine-rendered slide HTML (markdown with
@@ -16079,7 +16136,6 @@ in patch versions.
   and finishes already live in the shared library and carry over untouched.
   Plan and phased removal:
   `engineering/decisions/2026-07-03-studio-succession.md`.
-
 
 - **The ` ```latticeplot ` fence is deprecated — use ` ```functionplot `.** It is
   retained as a working alias for one release and will be removed in a future
@@ -16179,7 +16235,6 @@ in patch versions.
   favour of the per-component semantic-invariant suite. See
   `engineering/decisions/2026-06-12-p4-regression-gate-retire-marp.md`.
 
-
 - **Breaking: the Puter cloud tier is removed from the Drawing Board.** OpenRouter
   is now the only Converse cloud (the user's own account, any of 500+ models). The
   Puter backend, its SDK `<script>`, the "Connect Puter" button, and the dual-cloud
@@ -16242,7 +16297,6 @@ in patch versions.
   slide to `<!-- _class: cards-stack -->`; the authoring shape is identical
   (a top-level bullet is the card title, a nested bullet carries the body),
   and a fourth row fits with the `compact` modifier.
-
 
 - **Breaking: the `--c-quadrant-N-fill` / `--c-quadrant-N-text` palette
   tokens are removed from every theme.** Quadrant charts (native and the

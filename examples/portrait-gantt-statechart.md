@@ -29,7 +29,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 ---
 
 <!-- _class: gantt -->
-<!-- _footer: "gantt · lane label over full-width bars, lanes fill the height" -->
+<!-- _footer: "gantt · lane labels over full-width bars" -->
 
 `2026 Q1 .. 2026 Q4`
 
@@ -70,7 +70,7 @@ A Gantt is a horizontal time axis and a state machine is a graph — neither is 
 ---
 
 <!-- _class: state-chart lr -->
-<!-- _footer: "state-chart lr · a horizontal machine falls back to vertical on portrait" -->
+<!-- _footer: "state-chart lr · falls back to vertical" -->
 
 `Incident response`
 

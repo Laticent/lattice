@@ -346,7 +346,9 @@ section.chart-frame .chart-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* `safe` (#1299): this box is `overflow: hidden`, so a figure taller than it would
+   * otherwise be sheared off the TOP — where scrollHeight cannot see it. */
+  justify-content: safe center;
   align-items: center;
   box-sizing: border-box;
   width: calc(100cqi - 2 * var(--sp-2xl));
@@ -390,7 +392,7 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
  * height) would otherwise sit at the stage top; an SVG body (flex:1) already fills the
  * stage, so this is a no-op for it. An `align-*` modifier overrides at higher specificity. */
-section.chart-frame > .cell-stage { justify-content: center; }
+section.chart-frame > .cell-stage { justify-content: safe center; }
 
 /* ── Box-local: reclaim horizontal room for the figure on a tall/narrow box. The
  * default body reserves --sp-2xl on EACH side in both the width calc and the

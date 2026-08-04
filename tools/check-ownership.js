@@ -53,6 +53,8 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');
 const {
   loadAll, manifestBucket, BUCKETS,
   UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS,
@@ -4261,6 +4263,198 @@ function checkUniversalTableGuard(manifests, errors, dirs = {}) {
   }
 }
 
+
+// ── Committed PDFs: every one is OWNED (HARD RULE #18; #1279) ───────────────────
+//
+// The defect this closes is not "three globs were too narrow". It is that THE SET OF
+// COMMITTED ARTIFACTS WAS NOT THE SET ANY GATE KNEW ABOUT, and nothing asserted they
+// matched. `lib/base/_logo/logo.gallery.{light,dark}.pdf` shipped with no builder to
+// rebuild them, no pixel-diff to report them and no fit ratchet to measure them —
+// three independent blind spots on one path — and they were caught by hand. Widening
+// the three globs fixes those two files. This asserts the CLASS: every PDF in
+// `git ls-files` is claimed by a rule naming how it is PRODUCED and what WATCHES it.
+//
+// Each rule must match at least one file, so the table cannot rot: delete a deck and
+// its now-empty rule fails, exactly like SANCTIONED_MARGINS and
+// SANCTIONED_PREVIEW_BUILDERS.
+//
+// `watcher: null` is an explicit, reviewable statement that a PDF has no automated
+// watcher — not an oversight. It is the honest answer for a reviewer deliverable whose
+// own README says it is not a regression baseline, and for evidence frozen beside a
+// dated decision record, where rebuilding would destroy the thing being evidenced.
+// Does the input the `producer:` field NAMES actually exist for this file?
+//
+// Every rule below claims a producer, and for most of them the producer is "the sibling
+// markdown, rendered". A bare path regex does not check that claim: it certified
+// `examples/hand-dropped-orphan.pdf`, `design/bogus.gallery.pdf` and
+// `test/integration/baseline-decks/bogus.pdf` as OWNED, with a named producer, for files
+// that do not exist and that nothing would ever write. The `lib/base` arm was hardened
+// against exactly this in an earlier round and the other nine rules were not — so the
+// gate asserted the class for one tenth of the class. (HARD RULE #25 red team, round 3.)
+//
+// A missing sibling now falls through to the orphan branch, which is the honest answer:
+// nothing rebuilds it, so nothing is watching it.
+function hasSourceDeck(f, srcName) {
+  const src = srcName || f.replace(/\.pdf$/, '.md');
+  try {
+    return fs.existsSync(path.join(ROOT, src));
+  } catch {
+    return false;
+  }
+}
+
+const PDF_OWNERSHIP = [
+  {
+    // `lib/base/**` is admitted ONLY for a gallery build-bucket-galleries actually
+    // knows how to build. The first cut matched all of `lib/base/**` on the strength of
+    // EXTRA_GALLERIES existing — so a SECOND hand-authored gallery dropped under
+    // lib/base would have passed the "it has a producer" gate with no producer, which
+    // is #1279's exact defect recurring under a green check. The gate has to assert the
+    // `producer:` field is true of the file, not that a regex matched it. (Red team.)
+    // The lib/base arm matches the EXACT PATH the producer writes, not the basename.
+    // Matching the name alone certified `lib/base/_bogus/logo.gallery.light.pdf` and
+    // `lib/base/logo.gallery.dark.pdf` — files build-bucket-galleries would never write —
+    // which is #1279's own defect one directory level away, under a green gate. The
+    // gate has to assert the `producer:` field is true OF THIS FILE. (Red team.)
+    test: (f) => (/^lib\/components\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
+      && hasSourceDeck(f, f.replace(/\.(light|dark)\.pdf$/, '.md')))
+      || EXTRA_NAMES.some((n) => f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.light.pdf`
+        || f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.dark.pdf`),
+    what: 'component, bucket and hand-authored galleries',
+    producer: 'tools/build-galleries.js · tools/build-bucket-galleries.js (EXTRA_GALLERIES covers the ones outside lib/components)',
+    watcher: 'build:galleries:check · build:bucket-galleries:check · npm run regress (pixel) · tools/golden-diff.mjs (PR montage) · overflow:check',
+  },
+  {
+    test: (f) => /^examples\/[a-z][a-z0-9-]*-gallery\.(light|dark)\.pdf$/.test(f),
+    what: 'consolidated showcase galleries',
+    producer: 'tools/build-showcase-galleries.js',
+    watcher: 'build:showcase-galleries:check · overflow:check',
+  },
+  {
+    test: (f) => /^examples\/([a-z][a-z0-9-]*\/)?[a-z][a-z0-9-]*\.pdf$/.test(f)
+      && !/-gallery\.(light|dark)\.pdf$/.test(f) && !f.startsWith('examples/chart-theme-gallery/')
+      && hasSourceDeck(f),
+    what: 'per-feature demo decks (HARD RULE #9) and the token-contrast set',
+    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    watcher: 'overflow:check',
+  },
+  {
+    test: (f) => /^exemplars\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
+    what: 'the worked boardroom exemplars',
+    producer: 'tools/build-exemplar-pdfs.js · tools/build-staged-pdfs.js (pre-commit)',
+    watcher: 'test:integration:exemplars · overflow:check',
+  },
+  {
+    test: (f) => /^design\/[a-z][a-z0-9-]*\.gallery\.pdf$/.test(f) && hasSourceDeck(f),
+    what: 'design-system demo decks (they live with their owner, not under examples/)',
+    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    watcher: 'overflow:check',
+  },
+  {
+    test: (f) => /^test\/integration\/baseline-decks\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
+    what: 'the CI baseline deck',
+    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    watcher: 'test:integration (page-count assertions) · overflow:check',
+  },
+  {
+    test: (f) => f === 'themes/palette-audit.pdf' && hasSourceDeck(f),
+    what: "the theme designer's palette audit",
+    producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
+    watcher: null, // Outside the overflow corpus on purpose: a designer's sweep, not a shipped deck.
+  },
+  {
+    test: (f) => f === 'kit/Sample-Deck.pdf',
+    what: 'the Marp kit sample deck',
+    producer: 'tools/build-marp-kit.js — rendered by REAL marp-cli against dist/marp-kit',
+    // Deliberately NOT rebuilt through Lattice's own renderer: this PDF exists to show
+    // what a recipient's marp-cli produces, so regenerating it with our engine would
+    // quietly replace the artifact with one made by the engine it is being compared to.
+    watcher: null,
+  },
+  {
+    test: (f) => f.startsWith('examples/chart-theme-gallery/'),
+    what: 'the chart bucket rendered under three curated chart palettes',
+    producer: 'by hand: lib/components/chart/chart.gallery.md re-rendered per theme (see that folder README)',
+    watcher: null, // Its own README: "reviewer deliverables, not regression baselines."
+  },
+  {
+    test: (f) => /^engineering\/decisions\/\d{4}-\d{2}-\d{2}-.+\.pdf$/.test(f),
+    what: 'evidence attached to a dated decision record',
+    producer: 'none — a frozen artifact of the decision it sits beside',
+    watcher: null, // A dated record is a snapshot; rebuilding it would destroy the evidence.
+  },
+];
+
+/**
+ * The two verdicts, as a PURE function of a file list — which is what makes them
+ * testable.
+ *
+ * `checkCommittedPdfs` shells out to `git ls-files` against a module-level `ROOT`, so
+ * neither of its failure branches had any injection point: the four tests written for it
+ * asserted that the REAL tree is clean and that the table's fields are populated, and
+ * inverting the orphan condition or deleting the stale-rule loop outright left the suite
+ * green. The CHANGELOG meanwhile claimed the gate was "proven with deliberately-broken
+ * canaries in all three directions" — true when it was run by hand, and pointing at
+ * evidence that no longer existed. A gate whose failure path cannot be exercised is a
+ * gate that certifies nothing. (HARD RULE #23 / #25 checker, round 3.)
+ *
+ * @param {string[]} files repo-relative PDF paths
+ * @returns {{orphans:string[], staleRules:string[]}}
+ */
+function auditPdfOwnership(files) {
+  const hits = PDF_OWNERSHIP.map(() => 0);
+  const orphans = [];
+  for (const f of files) {
+    const i = PDF_OWNERSHIP.findIndex((r) => r.test(f));
+    if (i < 0) orphans.push(f);
+    else hits[i] += 1;
+  }
+  return {
+    orphans,
+    staleRules: PDF_OWNERSHIP.filter((_r, i) => hits[i] === 0).map((r) => r.what),
+  };
+}
+
+function checkCommittedPdfs(errors) {
+  let committed;
+  try {
+    committed = execFileSync('git', ['ls-files', '*.pdf'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\n').map((x) => x.trim()).filter(Boolean);
+  } catch (e) {
+    // ONLY a missing git / non-repo checkout is a legitimate skip. Any other error is a
+    // defect in THIS gate, and swallowing it would make the gate certify nothing while
+    // reporting success — the exact failure mode it exists to prevent. (The first cut
+    // used a bare `catch {}`, which would have gone permanently and silently inert if
+    // `execFileSync` had not been imported.)
+    if (!/ENOENT|not a git repository/i.test(String(e.message || e))) throw e;
+    return;
+  }
+  if (!committed.length) {
+    errors.push('checkCommittedPdfs found NO committed PDFs — the repo ships hundreds, so '
+      + 'this is a broken query, not an empty set.');
+    return;
+  }
+
+  const { orphans, staleRules } = auditPdfOwnership(committed);
+  if (orphans.length) {
+    errors.push(
+      `${orphans.length} committed PDF(s) are owned by NOTHING — no rule in PDF_OWNERSHIP `
+      + '(tools/check-ownership.js) claims them, so nothing rebuilds them, nothing pixel-diffs '
+      + "them and nothing measures them for fit. That is how lib/base/_logo's goldens went "
+      + `stale unnoticed (#1279):\n      ${orphans.slice(0, 12).join('\n      ')}`
+      + (orphans.length > 12 ? `\n      … and ${orphans.length - 12} more` : '')
+      + '\n    Give it a producer and a watcher, or add a rule saying honestly that it has none.',
+    );
+  }
+  for (const what of staleRules) {
+    errors.push(
+      `PDF_OWNERSHIP rule "${what}" matches NO committed PDF — a stale `
+      + 'sanction. Remove it, or fix the pattern: a rule that matches nothing is a rule '
+      + 'that will silently stop covering the files it was written for.',
+    );
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -4304,6 +4498,7 @@ function run() {
   checkSkillFreshness(errors);
   checkAgentModelPinning(errors);
   checkSplitOracle(manifests, errors);
+  checkCommittedPdfs(errors);
   return {
     errors,
     counts: {
@@ -4340,6 +4535,9 @@ module.exports = {
   checkFinishChromeExclusions,
   parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,
+  checkCommittedPdfs,
+  auditPdfOwnership,
+  PDF_OWNERSHIP,
   checkUniversalTableGuard,
   universalTableDenyEntries,
   universalTableClaims,

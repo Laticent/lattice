@@ -103,7 +103,7 @@ section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .
 /* Each card fills a share of the tall frame; centre the justification so it sits
    in the card's optical middle (the corner tag stays pinned top-left) instead of
    orphaning at the top over empty space. */
-section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
+section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: safe center; }
 /* One option per full-width card — the justification is the card's hero, so it
    carries statement weight (--fs-message), not body weight. */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {

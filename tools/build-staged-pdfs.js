@@ -35,6 +35,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execSync, execFileSync, spawn } = require('node:child_process');
 
+const { EXTRA_NAMES } = require('./build-bucket-galleries');
+
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 
@@ -107,6 +109,21 @@ function classify(file) {
   // Rendered as-is (the full deck); its committed PDF is the full tier.
   m = file.match(/^(exemplars\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*)\.md$/);
   if (m) return { kind: 'deck', src: file, out: `${m[1]}.pdf` };
+
+  // The theme designer's palette audit. Another artifact whose committed PDF had
+  // no producer at all — the same class as the logo gallery below, and named by the
+  // same card (#1279). It is a ~90-slide sweep, so it is slow to rebuild; that cost
+  // lands only when its own markdown is staged, which is the same deal every
+  // exemplar already has.
+  if (file === 'themes/palette-audit.md') return { kind: 'deck', src: file, out: 'themes/palette-audit.pdf' };
+
+  // A hand-authored gallery OUTSIDE lib/components that still ships committed
+  // goldens (build-bucket-galleries.js EXTRA_GALLERIES — today lib/base/_logo).
+  // These were owned by nothing at all: no builder made them, no pixel gate
+  // watched them, and the overflow ratchet's corpus did not reach them, so
+  // editing the markdown left two stale PDFs in the tree with no signal (#1279).
+  m = file.match(/^lib\/base\/.+\/([a-z][a-z0-9-]*)\.gallery\.md$/);
+  if (m && EXTRA_NAMES.includes(m[1])) return { kind: 'bucket', name: m[1] };
 
   // Component / bucket gallery markdown. Disambiguate by depth:
   //   lib/components/<bucket>/<bucket>.gallery.md       → bucket

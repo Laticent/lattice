@@ -179,8 +179,12 @@ portrait — so the quarter is the number to hold in mind, not the two-thirds.
 
 The failure has an awkward shape: the line ends in "…", which reads as stylistic truncation of
 something decorative rather than "the distribution restriction stops here", and nothing tells the
-author it happened. Anyone whose footer is legally operative should keep it short enough to fit, and
-**that is not enforced or warned about.**
+author it happened. Anyone whose footer is legally operative should keep it short enough to fit. That was
+**not enforced or warned about** when this was written; it is now. #1300 built option (d)
+below — the author is told on stderr at every marker level, the `author` tab reports it,
+and `overflow:check`'s corpus ratchet counts it. The READER is deliberately not shown it:
+the pill would land in this very band, and a recipient can neither edit a footer nor
+scroll a PDF. Detection general, treatment not.
 
 **It applies on EVERY deck, including ones where nothing competes for the band** — no dividers, no
 split, no rail. Measured on a plain two-slide deck: `main` renders a 152-character confidentiality

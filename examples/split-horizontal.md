@@ -67,7 +67,7 @@ Past eight rows the categorical hues repeat, so eight is this layout's practical
 ---
 
 <!-- _class: list-steps -->
-<!-- _footer: "One step per page, with the relationship carried" -->
+<!-- _footer: "One step per page, links kept" -->
 
 ## How the migration runs.
 

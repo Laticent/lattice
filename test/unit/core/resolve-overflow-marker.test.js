@@ -87,9 +87,22 @@ describe('overflowMarkerPolicy — what each level actually draws', () => {
     assert.equal(p.legibility, false, 'the type-floor alarm has no reader answer');
   });
 
-  test('author draws the full authoring signal', () => {
+  test('author draws the full authoring signal, with a word for each condition', () => {
     const p = overflowMarkerPolicy('author');
-    assert.deepEqual(p, { mark: true, authorTags: true, tabText: 'Overflows', legibility: true });
+    assert.deepEqual(p, {
+      mark: true, authorTags: true, tabText: 'Overflows', tabTextCut: 'Content clipped', legibility: true,
+    });
+  });
+
+  // "Overflows" is a claim about GEOMETRY. Once the register learned to detect a cut
+  // with no overflow, it started making that claim on slides where nothing overflows --
+  // an ellipsed label drew a red OVERFLOWS flag with no ring beside it (correctly
+  // absent), so the author hunted for a spill that was not there. Two words, one
+  // vocabulary shared with the stderr channel and the reader pill.
+  test('the CUT word differs from the OVERFLOW word at author, and not at reader', () => {
+    assert.notEqual(overflowMarkerPolicy('author').tabTextCut, overflowMarkerPolicy('author').tabText);
+    assert.equal(overflowMarkerPolicy('reader').tabTextCut, overflowMarkerPolicy('reader').tabText,
+      'a reader is never shown the geometry word, so both conditions read the same');
   });
 
   test('off draws nothing', () => {
@@ -102,8 +115,9 @@ describe('overflowMarkerPolicy — what each level actually draws', () => {
   // The policy is the level→behavior translation; `overflowTabText` stays the
   // primitive underneath it, so the two cannot drift into different labels.
   test('the tab label agrees with the primitive it wraps', () => {
-    assert.equal(overflowMarkerPolicy('author').tabText, overflowTabText(true));
-    assert.equal(overflowMarkerPolicy('reader').tabText, overflowTabText(false));
+    assert.equal(overflowMarkerPolicy('author').tabText, overflowTabText(true, false));
+    assert.equal(overflowMarkerPolicy('author').tabTextCut, overflowTabText(true, true));
+    assert.equal(overflowMarkerPolicy('reader').tabText, overflowTabText(false, false));
   });
 
   // `startOverflowWatcher` resolves through `resolveOverflowMarker` before it gets
@@ -137,8 +151,25 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
   // selector list the implementation sweeps. Built the other way round the test
   // could not fail for anything the sweep forgot — and an earlier cut DID forget the
   // boxes and the overlay while its docstring promised "every marker".
+  //
+  // The SECTION half is now derived the same way, and that is a repair. It used to be a
+  // hand-written `class="content overflow illegible"` fixture asserted against a
+  // hand-written `querySelectorAll('.overflow, .illegible')` — so when the register
+  // gained a third section class, the sweep was extended and this suite stayed green
+  // either way. Deleting the new line from `sweepOverflowMarkers` left 148 passing tests
+  // and an `off` export with the class still stamped: a test that could not fail for the
+  // exact thing its own comment says it exists to catch. The class list is read out of
+  // the watcher's source now, so a fourth class fails here until it is swept.
+  const WATCHER_SRC = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', '..', '..', 'lib', 'runtime', 'index.js'),
+    'utf8',
+  );
+  const SECTION_CLASSES = [
+    ...new Set([...WATCHER_SRC.matchAll(/s\.classList\.toggle\('([a-z-]+)'/g)].map((m) => m[1])),
+  ];
+
   const marked = () => new JSDOM(`<article>
-    <section class="content overflow illegible" data-lattice-slide>
+    <section class="content ${SECTION_CLASSES.join(' ')}" data-lattice-slide>
       <h2>A</h2>
       <div class="overflow-tab">Overflows</div>
       <div class="illegible-tab">Type 3px · floor 8.4px</div>
@@ -150,11 +181,22 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
     </div>
   </article>`).window.document;
 
+  test('the fixture actually carries every class the watcher stamps', () => {
+    // Guards the derivation itself: a regex that silently matched nothing would make
+    // every assertion below vacuous, which is the failure mode being repaired.
+    assert.ok(SECTION_CLASSES.length >= 3,
+      `expected the watcher to stamp at least 3 section classes, found ${SECTION_CLASSES.join(', ') || '(none)'}`);
+    for (const c of ['overflow', 'clip-marked', 'illegible']) {
+      assert.ok(SECTION_CLASSES.includes(c), `${c} must be among the watcher's section classes`);
+    }
+  });
+
   // Asserted as "nothing the author would SEE is left", not as a selector list.
-  test('clears both rings and every drawn marker, including the Fix-Me boxes', () => {
+  test('clears every section class the watcher stamps, and every drawn marker', () => {
     const doc = marked();
     sweepOverflowMarkers(doc);
-    assert.equal(doc.querySelectorAll('.overflow, .illegible').length, 0, 'no rings left');
+    const left = SECTION_CLASSES.filter((c) => doc.querySelectorAll(`.${c}`).length > 0);
+    assert.deepEqual(left, [], `section classes survived the sweep: ${left.join(', ')}`);
     const chrome = [...doc.querySelectorAll('*')]
       .filter((el) => /overflow-tab|illegible-tab|lattice-fixme/.test(el.className || ''))
       .map((el) => el.className);

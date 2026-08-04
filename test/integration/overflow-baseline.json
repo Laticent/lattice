@@ -5,18 +5,22 @@
     "examples/README.md": [
       1
     ],
+    "examples/gallery-jargon.md": [
+      45
+    ],
     "examples/overflow-fix-me.md": [
       2,
       3,
       5
     ],
-    "lib/components/connect/connect.gallery.md": [
+    "examples/state-chart.md": [
+      6
+    ],
+    "lib/components/statement/premise/premise.gallery.md": [
       3
     ],
-    "lib/components/connect/wifi/wifi.gallery.md": [
-      2,
-      3,
-      4
+    "test/integration/baseline-decks/gallery.md": [
+      34
     ]
   }
 }

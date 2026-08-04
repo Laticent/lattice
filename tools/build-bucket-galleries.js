@@ -60,8 +60,29 @@ const BUCKET_BLURBS = Object.freeze({
   legal:       'Legal — citation-aware layouts for statutes, obligations, and regulatory change.',
 });
 
+// Hand-authored galleries that ship committed goldens but live OUTSIDE
+// lib/components, so no manifest-driven builder could ever have found them.
+//
+// `lib/base/_logo/logo.gallery.md` shipped two committed PDFs that NOTHING
+// rebuilt, NOTHING pixel-diffed and NOTHING measured for fit — three
+// independent blind spots on one path (#1279). They went stale and were caught
+// by hand. The set of committed artifacts was not the set any gate knew about,
+// which is the general defect; the logo gallery was the instance that surfaced
+// it. `checkCommittedPdfs` in tools/check-ownership.js now asserts the two sets
+// agree, and this table is where a gallery outside lib/components gets its
+// producer.
+//
+// They are ALWAYS hand-authored: there are no manifests to compose from, which
+// is exactly why they sit outside the components tree.
+const EXTRA_GALLERIES = Object.freeze({
+  logo: path.join(ROOT, 'lib', 'base', '_logo'),
+});
+const EXTRA_NAMES = Object.freeze(Object.keys(EXTRA_GALLERIES));
+const isExtra = (name) => Object.hasOwn(EXTRA_GALLERIES, name);
+
 function bucketGalleryMarkdownPath(bucket) {
-  return path.join(COMPONENTS_DIR, bucket, `${bucket}.gallery.md`);
+  const dir = isExtra(bucket) ? EXTRA_GALLERIES[bucket] : path.join(COMPONENTS_DIR, bucket);
+  return path.join(dir, `${bucket}.gallery.md`);
 }
 
 // Hand-authored bucket galleries opt out of generation by embedding
@@ -72,6 +93,7 @@ function bucketGalleryMarkdownPath(bucket) {
 // slide per component).
 const GALLERY_AUTHORED_MARKER = /<!--\s*galleryAuthored\b/;
 function isBucketGalleryAuthored(bucket) {
+  if (isExtra(bucket)) return true; // no manifests to compose from — the .md IS the source
   const mdPath = bucketGalleryMarkdownPath(bucket);
   if (!fs.existsSync(mdPath)) return false;
   const head = fs.readFileSync(mdPath, 'utf8').slice(0, 2000);
@@ -79,7 +101,8 @@ function isBucketGalleryAuthored(bucket) {
 }
 
 function bucketGalleryPdfPath(bucket, theme) {
-  return path.join(COMPONENTS_DIR, bucket, `${bucket}.gallery.${theme}.pdf`);
+  const dir = isExtra(bucket) ? EXTRA_GALLERIES[bucket] : path.join(COMPONENTS_DIR, bucket);
+  return path.join(dir, `${bucket}.gallery.${theme}.pdf`);
 }
 
 // Compose the bucket-survey markdown. Opens with a title slide (bucket
@@ -147,7 +170,7 @@ function composeBucketGallery(bucket, manifests) {
 }
 
 function buildOne(bucket, manifests, theme) {
-  if (!manifests.length) {
+  if (!manifests.length && !isExtra(bucket)) {
     return { bucket, theme, skipped: true, reason: 'empty bucket' };
   }
   const mdPath = bucketGalleryMarkdownPath(bucket);
@@ -194,7 +217,7 @@ function buildOne(bucket, manifests, theme) {
 }
 
 function checkOne(bucket, manifests, theme) {
-  if (!manifests.length) return { bucket, theme, stale: false };
+  if (!manifests.length && !isExtra(bucket)) return { bucket, theme, stale: false };
   const mdPath = bucketGalleryMarkdownPath(bucket);
   const outPdf = bucketGalleryPdfPath(bucket, theme);
   if (!fs.existsSync(outPdf)) return { bucket, theme, stale: true, reason: 'missing' };
@@ -224,8 +247,8 @@ function main(argv) {
   const themeFilter = themeIdx >= 0 ? argv[themeIdx + 1] : null;
   const checkMode = args.has('--check');
 
-  if (only && !BUCKETS.includes(only)) {
-    process.stderr.write(`error: --only must be one of ${BUCKETS.join(', ')}\n`);
+  if (only && !BUCKETS.includes(only) && !isExtra(only)) {
+    process.stderr.write(`error: --only must be one of ${[...BUCKETS, ...EXTRA_NAMES].join(', ')}\n`);
     return 2;
   }
   if (themeFilter && !THEMES.includes(themeFilter)) {
@@ -234,7 +257,7 @@ function main(argv) {
   }
 
   const targetThemes = themeFilter ? [themeFilter] : THEMES;
-  const targetBuckets = only ? [only] : BUCKETS;
+  const targetBuckets = only ? [only] : [...BUCKETS, ...EXTRA_NAMES];
   const groups = groupByBucket(loadAll());
 
   const failures = [];
@@ -301,4 +324,6 @@ module.exports = {
   bucketGalleryPdfPath,
   isBucketGalleryAuthored,
   BUCKET_BLURBS,
+  EXTRA_GALLERIES,
+  EXTRA_NAMES,
 };

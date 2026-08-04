@@ -37,7 +37,7 @@ const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
-const { CLIP_CELL_SELECTOR, probeSectionOverflow } = require('../../../lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow } = require('../../../lib/core/overflow-probe');
 
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -114,7 +114,7 @@ describe('diagram overflow detection is preserved after the conformance:strict w
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
     // Puppeteer serializes probeSectionOverflow (self-contained per overflow-probe.js's
     // injection contract) and runs it in-page against the first <section>. No eval.
-    const v = await page.$eval('section', probeSectionOverflow, CLIP_CELL_SELECTOR, 1);
+    const v = await page.$eval('section', probeSectionOverflow, CLIP_CELL_SELECTOR, 1, IGNORED_CLIP_SELECTOR);
     const hasStage = await page.$eval('section', (s) => !!s.querySelector('.cell-stage'));
     const mermaidInStage = await page.$eval(
       'section',

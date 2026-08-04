@@ -9,7 +9,7 @@
 
 
 
-section.quote > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.quote > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 section.quote blockquote {
   position:relative;
   background:var(--bg-alt); border:1px solid var(--border);

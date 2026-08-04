@@ -56,7 +56,7 @@ const { spawnSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
 const WORK = path.join(ROOT, '.scratch', 'geometry-parity');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
-const { PROBE_SRC, CLIP_CELL_SELECTOR } = require('../lib/core/overflow-probe');
+const { PROBE_SRC, CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR } = require('../lib/core/overflow-probe');
 const { resolveChrome } = require('./lib/resolve-chrome');
 
 // The slide box, two ordinary panes, and a phone. The point is that NONE of these
@@ -92,7 +92,7 @@ function renderDeck(deck) {
 }
 
 // Runs IN the page. Returns one row per slide: the numbers that must not move.
-const MEASURE = (probeSrc, clipSel, TOL, scale) => {
+const MEASURE = (probeSrc, clipSel, TOL, scale, ignoreSel) => {
   const probe = new Function('return (' + probeSrc + ')')();
   const secs = [...document.querySelectorAll('article.lattice > section, section[data-lattice-slide]')];
   for (const s of secs) {
@@ -104,7 +104,7 @@ const MEASURE = (probeSrc, clipSel, TOL, scale) => {
     const cs = getComputedStyle(s);
     const stage = s.querySelector('.cell-stage, .panel-right, .compare-right');
     const k = scale || 1;
-    const r = probe(s, clipSel, TOL);
+    const r = probe(s, clipSel, TOL, ignoreSel);
     return {
       page: i + 1,
       padding: cs.padding,
@@ -159,7 +159,7 @@ async function main() {
       await page.setViewport({ width: su.w, height: su.h, deviceScaleFactor: 1 });
       await page.goto('file://' + rendered.html, { waitUntil: 'networkidle0', timeout: 120000 });
       await new Promise((r) => setTimeout(r, 2500));
-      runs.push({ su, rows: await page.evaluate(MEASURE, PROBE_SRC, CLIP_CELL_SELECTOR, 12, su.scale) });
+      runs.push({ su, rows: await page.evaluate(MEASURE, PROBE_SRC, CLIP_CELL_SELECTOR, 12, su.scale, IGNORED_CLIP_SELECTOR) });
       await page.close();
     }
     const base = runs[0];

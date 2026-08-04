@@ -52,18 +52,16 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  * builder exists anywhere in the repo, and an inaccurate entry costs the whole
  * ledger its credibility.
  */
+// Both `lib/base/_logo/logo.gallery.md` and `themes/palette-audit.md` used to sit
+// here, each with a comment saying in so many words "NO builder exists for it …
+// editing its markdown DOES leave the PDF stale. A real gap, logged." They are
+// classified now (#1279): the logo gallery through build-bucket-galleries'
+// EXTRA_GALLERIES, the palette audit as an ordinary sibling-PDF deck. A logged gap
+// that stays logged is still a gap.
 const KNOWN_UNCLASSIFIED = new Set([
   // A dated decision doc that ships a rendered companion PDF. A one-off, not a
   // deck family; dated decision notes are not edited after the fact.
   'engineering/decisions/2026-05-12-kpi-candidates.md',
-  // The logo specimen sheet. NO builder exists for it (nothing in tools/,
-  // package.json or .github/workflows references it) — it is refreshed by hand
-  // when the logo assets change. Editing its markdown DOES leave the PDF stale.
-  'lib/base/_logo/logo.gallery.md',
-  // The theme designer's palette audit. NO builder exists for it either; it is
-  // excluded from tools/preview.js ALL_DECKS by name and rebuilt by hand. Editing
-  // its markdown likewise leaves the committed PDF stale. A real gap, logged.
-  'themes/palette-audit.md',
   // The Marp kit's sample deck. Deliberately NOT classifiable: its committed PDF
   // is rendered by real marp-cli against dist/marp-kit — the surface a recipient
   // actually uses — not by Lattice's own renderer. Rebuilding it through the

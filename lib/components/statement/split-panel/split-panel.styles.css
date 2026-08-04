@@ -9,11 +9,40 @@
  *   .pullquote  — pull-quote feature (was split-statement)
  *   .steps      — numbered step-timeline right zone (was split-steps)
  *   .watermark  — accent panel + letterform + meta footer (was split-list)
+ *
+ * ── EVERY ALIGNMENT ON A CLIPPING PANEL IS `safe` (#1299) ──────────────────
+ * A flex container that centers or end-aligns and then OVERFLOWS throws content
+ * off the BLOCK-START edge. That is the worst possible direction to lose it in:
+ * the head of a panel is its eyebrow and its heading, and block-start overflow
+ * does not grow `scrollHeight`, so it went unmeasured by every probe as well.
+ * A `split-panel` deck shipped with its eyebrow and two-thirds of its `h2` gone
+ * — 24 text rects cut, the worst by 882px — with no ring, no pill and no console
+ * line. A cut tail announces itself; a cut head does not.
+ *
+ * `safe` falls back to `start` the instant content overflows and keeps the
+ * intended alignment while it fits, so a fitting slide is byte-identical and an
+ * overflowing one loses its LAST line instead of its first. Seven alignments
+ * carry it: the four panel bodies (base, `.metric`, `.steps` left, `.steps`
+ * right), `.watermark`'s panel, `.proof`'s cards, and the carousel cover.
+ *
+ * ONE alignment here takes no `safe` keyword, and it does not need one:
+ * `.panel-right > ul` uses `justify-content: space-evenly`. `safe`/`unsafe` are
+ * `<overflow-position>` keywords the grammar admits only before a
+ * `<content-position>`, so `safe space-evenly` is invalid CSS that would drop the
+ * whole declaration (`CSS.supports(...) === false`, checked). But MEASURED in the
+ * render browser (Chromium 131), `space-evenly` falls back to **start** on
+ * overflow, not to center: first-child offset 0, and `scrollHeight` grows 100 → 180,
+ * so the overflow is both non-shearing and visible to the probe. `space-around` and
+ * `space-between` measured the same. An earlier version of this comment asserted a
+ * center fallback from the spec grammar and called it a residual shear risk; that
+ * was reasoning where a measurement was available, and the measurement disagrees.
+ * (`section.split-panel.proof.capstone .panel-left`'s `space-between` is start-fallback
+ * for the same reason and is likewise not a hole.)
  */
 
 /* ── base = featured heading + findings (former split-brief) ─────────────── */
 section.split-panel { padding:0; flex-direction:row; }
-section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
+section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 section.split-panel .panel-left::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent); }
 section.split-panel .panel-eyebrow { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-md); }
 section.split-panel .panel-left h2 { font-size:var(--fs-h1); color:var(--on-dark-primary); line-height:var(--lh-tight); padding:0 0 var(--sp-sm); margin:0; font-weight:800; }
@@ -31,7 +60,7 @@ section.split-panel .panel-right > ul > li > :is(ul,ol) { list-style:none; paddi
 section.split-panel .panel-right > ul > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
 /* ── .metric — light-left polarity + hero number (former split-metric) ───── */
-section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:center; align-items:flex-start; }
+section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:safe center; align-items:flex-start; }
 section.split-panel.metric .panel-left::before { content:none; }
 section.split-panel.metric .panel-eyebrow { color:var(--text-secondary); padding-bottom:var(--sp-xs); }
 section.split-panel.metric .panel-left h2 { font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--text-heading); line-height:1; padding:0 0 var(--sp-sm); margin:0; }
@@ -53,12 +82,12 @@ section.split-panel.pullquote .panel-left blockquote p { margin:0; }
 section.split-panel.pullquote .panel-left cite { font-size:var(--fs-message); font-family:var(--font-body); font-style:normal; color:var(--on-dark-secondary); position:relative; z-index:1; display:block; }
 
 /* ── .steps — numbered step-timeline right zone (former split-steps) ─────── */
-section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:center; }
+section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:safe center; }
 section.split-panel.steps .panel-left::before { content:none; }
 section.split-panel.steps .panel-eyebrow { position:absolute; top:var(--sp-lg); left:var(--sp-lg); margin:0; font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--border); line-height:1; letter-spacing:0; text-transform:none; pointer-events:none; z-index:0; }
 section.split-panel.steps .panel-left h2 { font-size:var(--fs-h2); color:var(--text-heading); font-weight:800; position:relative; z-index:1; }
 section.split-panel.steps .panel-left p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); position:relative; z-index:1; }
-section.split-panel.steps .panel-right { justify-content:center; }
+section.split-panel.steps .panel-right { justify-content:safe center; }
 section.split-panel.steps .panel-right > :is(ul,ol) { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; flex:0 1 auto; }
 section.split-panel.steps .panel-right > ol { counter-reset:step-counter; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li { display:grid; grid-template-columns:3.125cqi 1fr; grid-template-rows:auto auto; column-gap:var(--sp-md); position:relative; padding:0 0 var(--sp-md) 0; border-left:none; }
@@ -106,7 +135,7 @@ section.split-panel.proof .panel-right > :is(ul,ol) {
   justify-content:initial; list-style:none; padding:0; margin:0;
 }
 section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child { grid-column:1 / -1; }
-section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:safe center; }
 /* `--panel-label-ink` is the category's contrast-safe ink, set only by `cat-N`
  * (see the cat block below) — falls back to `--accent` on a bare `proof` slide. */
 section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--panel-label-ink, var(--accent)); font-weight:600; padding-bottom:var(--sp-xs); }
@@ -175,7 +204,7 @@ section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2)
 }
 
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
-section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:flex-end; }
+section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:safe flex-end; }
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
 section.split-panel.watermark .panel-left h2 { font-size:var(--fs-emphasis); color:var(--on-accent); margin:0; font-weight:800; }
 section.split-panel.watermark .panel-left .watermark { position:absolute; font-family:var(--font-display); font-size:calc(11.46cqi * var(--fs-scale)) /* cqi-ok: decorative watermark numeral */; font-weight:700; color:var(--on-accent-watermark); top:3.125cqi; left:1.5625cqi; line-height:1; pointer-events:none; }
@@ -238,7 +267,7 @@ section.split-panel[data-orientation="portrait"] .panel-left { width: auto; }
 /* Cover — the feature gets its moment: accent field, watermark, hero heading. */
 section.split-panel-cover {
   background: var(--accent); color: var(--on-accent);
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: safe center;
   position: relative;
 }
 /* The watermark bleeds off the corner — but a positioned descendant overflowing the

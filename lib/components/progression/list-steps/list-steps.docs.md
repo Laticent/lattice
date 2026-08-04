@@ -289,7 +289,7 @@ Numerals count the phases.
 
 ### `capsule` — capsule
 
-Centered editorial group: pill badge per step in its own categorical hue, serif title, no connector arrows, no masthead hairline.
+Centered, editorial: pill badges, serif titles, no connectors.
 
 ```markdown
 <!-- _class: list-steps capsule -->

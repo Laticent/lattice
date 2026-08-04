@@ -82,9 +82,15 @@ function failFractionFor(galleryMd) {
 const THEMES = ['light', 'dark'];
 
 // ── Corpus ──────────────────────────────────────────────────────────────────
-// Every *.gallery.md under lib/components — both per-component galleries and the
-// per-bucket survey galleries. Each has a committed <base>.gallery.{light,dark}.pdf
-// golden pair (build-galleries.js / build-bucket-galleries.js produce them).
+// Every *.gallery.md under lib/ — per-component galleries, per-bucket survey
+// galleries, and the hand-authored ones outside the components tree
+// (build-bucket-galleries.js EXTRA_GALLERIES). Each has a committed
+// <base>.gallery.{light,dark}.pdf golden pair.
+//
+// The walk rooted at `lib/components` until 2026-08-03, which is how
+// lib/base/_logo's two committed goldens went stale unnoticed: no builder made
+// them, no pixel gate watched them, and the overflow ratchet's corpus did not
+// reach them either — three blind spots on one path (#1279).
 function galleryDecks() {
   const out = [];
   (function walk(dir) {
@@ -93,7 +99,7 @@ function galleryDecks() {
       if (ent.isDirectory()) walk(p);
       else if (ent.name.endsWith('.gallery.md')) out.push(p);
     }
-  })(join(ROOT, 'lib/components'));
+  })(join(ROOT, 'lib'));
   return out.sort();
 }
 

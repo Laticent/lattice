@@ -29,7 +29,7 @@ The landscape board is three parallel column-grids; you can't make a stage label
 ---
 
 <!-- _class: journey -->
-<!-- _footer: "Vertical board · the dip at Workspace setup reads twice" -->
+<!-- _footer: "Vertical board · the Workspace dip reads twice" -->
 
 ## Customer onboarding · trial to activation.
 

@@ -192,7 +192,8 @@ narrow one runs only on sections the geometric one already flagged, which is wha
 
 `.overflow` still lands on the section on geometry, because autosplit and the console report
 both key off it and both want the geometric truth. Only the reader treatment yields, via
-`.overflow-silent`.
+`.content-cut` — see §"One class, not three" below for why that is a single orthogonal
+class rather than a pair of conjunctions.
 
 **The component defects are NOT fixed here** — they are pre-existing and off this change's
 path (HARD RULE #18's log-don't-pull arm), and `kpi.styles.css` already records one failed
@@ -594,3 +595,217 @@ line; the same draft also claimed `compliance` as the escalation path, and `comp
 measured a ceiling of **three**, not more. Both corrections came from rendering the
 deck and looking at it, not from the reasoning that produced it. The escalation is
 `stats` or a split, which is what the manifest's `strip` family already said.
+
+---
+
+## Follow-up (2026-08-03) — the signal did not reach every box that clips
+
+Three of the four cards this swimlane spawned (#1299, #1300, #1279) turned out to be
+one sentence seen from three ends: **the overflow signal does not reach everything it
+should.** This section records what that actually was, because the shape generalizes.
+
+### The defect was the ALLOWLIST, not any one selector
+
+Both probes took `CLIP_CELL_SELECTOR` — a hand-kept list of four class names — as the
+set of boxes to look inside. A hand-kept set is **silent by default**: a box that clips
+author content and nobody remembered to add is invisible to the ring, to the export
+warning, and to autosplit simultaneously. There is no failure mode where you notice.
+
+`.panel-left` was the missing entry, and it cost more than a missing entry sounds like
+it should. `split-panel`'s left panel is `justify-content: flex-end; overflow: hidden`,
+so an over-stuffed panel throws its eyebrow and heading off the **block-start** edge —
+and block-start overflow does not grow `scrollHeight`. Every scroll-dims measure in the
+system read zero. Reproduced on a fixture: **24 text rects cut, the worst by 882px**,
+at `over: false`, with no ring, no pill and no console line. A cut tail announces
+itself; a cut head does not.
+
+### So both probes discover their boxes, and each is trusted with a different measure
+
+That split is the whole design, and it is not symmetric:
+
+| | box set | measure | why |
+|---|---|---|---|
+| `probeSectionOverflow` (author, autosplit, `.overflow`) | curated cells **+ discovered** | curated: scroll dims + rect spill + squeeze. discovered: **rect spill only** | drives autosplit — a false positive cuts a fitting slide in half |
+| `probeContentClipped` (reader) | **discovered, no allowlist** | real content rects vs. real box | measures glyphs, so a decorative or responsive box cannot fake it |
+
+The asymmetry is load-bearing. Scroll dims LIE about a container-responsive box:
+`.chart-body` steadily reported ~43 hidden px on pages that plainly fit, and counting it
+produced a false "⚠ OVERFLOW … CLIPPED" that then fed `resplitDoc` and cut a fitting
+slide into half-empty pages. A child rect ABOVE a box's top is not open to that
+reading — the content is measurably outside the box that clips it. So a *discovered*
+box may grow `over` by geometry and never by scroll dims.
+
+### The gate `tell = over && (…)` is gone, and that was the real question
+
+#1299 asked it directly: the content probe was gated behind the geometry probe, so it
+could never rescue a slide geometry missed — which made **every geometry blind spot
+load-bearing for all three registers at once**. #1299 is the proof it was not
+theoretical.
+
+Removing the gate outright would have run a full text-node walk on every section on
+every watcher tick. Instead the geometry probe now also returns `clipSuspect`: the
+cheap, deliberately over-eager "is any clip box hiding anything, by any measure at
+all", including the scroll dims `over` refuses to trust. `tell` reads
+`(over && (authorTags || squeezed > TOL)) || ((over || clipSuspect) && cut)`.
+
+The loose measure picks the candidates; the truthful one adjudicates. `.chart-body`'s
+phantom 43px now buys a content walk that answers "nothing cut" instead of a false
+ring — the same number that used to be a bug is now a useful hint. `author`
+short-circuits before the walk, so that register stays purely geometric and exactly as
+cheap as it was.
+
+### Cost, measured
+
+On the 117-slide gallery — the largest deck in the repo, and the docs filmstrip renders
+all of it at once:
+
+| | whole document | per section |
+|---|---|---|
+| geometry probe, before | baseline | baseline |
+| box discovery added | ~2.5× the walk | ~2.5× the walk |
+| `probeContentClipped`, when it runs | the dominant term | the dominant term |
+
+*(Absolute milliseconds removed rather than corrected, for the reason stated later in
+this note: this machine gives a 3× spread on identical code, and the figures that used to
+sit here were measured BEFORE the bearer-major rewrite made the content probe ~5.7×
+cheaper. They were left standing for two rounds after that rewrite, which is how a stale
+number becomes a load-bearing one.)*
+
+Discovery skips childless elements (4706 → 1761), which is half its cost — but ONLY
+for `over`. That skip sat at the top of the loop in the first cut and therefore also
+filtered `clipSuspect`, which made the two cases this whole change is named after
+unreachable: `text-overflow: ellipsis` and `-webkit-line-clamp` both normally sit on a
+box whose only content is a text node. The scroll-dims test runs on every clipping box
+now; the childless skip guards `flowedSpill` alone. Found by the HARD RULE #25 checker,
+reproduced on `premise.gallery.md` p3 (65px — 34% — off "Advanced beginner", silent).
+
+### What the widened set found on the first sweep
+
+Two phantoms had to be excluded before anything else was believable, and both were
+found by measuring the corpus rather than by reasoning about it:
+
+- **SVG-namespace boxes.** The UA stylesheet clips `<svg>`, `<marker>`, `<symbol>` and
+  `<pattern>`. `<marker>` alone contributed **225 phantom clip boxes**, every one
+  spilling and none cutting anything. Excluded structurally, not by name.
+- **KaTeX's `.katex-mathml`.** An invisible accessibility twin in a 1×1px clip box whose
+  inner text sits under a `static` parent: **23 boxes, a 955px phantom rect each**.
+  These were harmless only because the old gate kept the content probe off math slides.
+  Loosening the gate without fixing `skipped()` would have pilled every math slide in
+  the repo — which is the strongest argument that the two changes had to land together.
+
+With those excluded, the sweep found **one genuine, previously-silent content loss**:
+`redline split`'s NEW column ran 31px past its own `overflow:hidden` and dropped the
+closing phrase of a statute clause — "…their personal information." — on
+`lib/components/legal/legal.gallery.md` p29, NOT on `redline.gallery.md` (the branch
+corrected that attribution in the CHANGELOG and left it standing here for a round; a
+decision record's whole value is being trustworthy later). The `.cell-stage` fit; the section fit; the blockquote was a
+clipping box nothing looked at. Fixed here (tighter leading in a two-column track, which
+`.three-col` next door already does for the same reason).
+
+### `safe` alignment is the CSS half, and it is a separate fix
+
+The probe change makes the shear **visible**; it does not stop it. `justify-content:
+safe center` / `safe flex-end` falls back to `start` the instant content overflows and
+keeps the intended alignment while it fits, so a fitting slide is byte-identical and an
+overflowing one loses its LAST line instead of its first. Seven alignments in
+`split-panel` carry it, plus `wifi`'s card.
+
+Verified separately, which is worth recording because it settles whether #1299 and
+#1300 were one card: with the CSS reverted, the widened probe alone catches the shear;
+with the probe reverted, the CSS alone catches it (the overflow moves to the tail, where
+`scrollHeight` grows). They are **two independent fixes for two halves of one defect** —
+detection and loss — and each is separately sufficient for the detection half only.
+
+One alignment could not be made safe and is stated rather than quietly skipped:
+`justify-content: space-evenly` on `split-panel`'s supporting list. `safe`/`unsafe` are
+`<overflow-position>` keywords the grammar admits only before a `<content-position>`, so
+`safe space-evenly` is invalid CSS and would drop the declaration entirely. Its overflow
+fallback was MEASURED in Chromium 131 rather than read off the grammar: it resolves to
+`start`, not `center`, so it does not shear in the first place (see the correction later
+in this note; this paragraph asserted `center` for a round after that measurement). It is
+also *detected* (`.panel-right` is a probed cell and the rect walk reads block-start spill),
+which is the property that matters.
+
+
+### What the adversarial trio changed (HARD RULE #25)
+
+Three lenses on the shipping diff, twice — the second round against the state that
+actually ships — and between them they found ten defects the maker did not. Recorded
+because the pattern in them is more useful than the list.
+
+**The reader half did not exist.** The gate was removed in JS, both watchers drew the
+pill on `tell`, every unit test passed, and the export console said the right thing —
+and `base.modifiers.css`'s `section:not(.overflow) > .overflow-tab { display: none }`
+set the pill to `display: none` on exactly the new population, because `.overflow` is
+still (correctly) pure geometry. A `matrix-grid` axis label sliced mid-word rendered
+with no pill at all. The inversion pass found it by RASTERIZING THE EXPORT; nobody who
+read the diff found it, and the suppressing rule is quoted in a comment one screen away
+from the change that trips it. The regression test drives a real export and asserts
+computed `display`, because a class assertion passes against the broken build.
+
+**One class, not three.** The first fix for that added a class beside the existing one:
+`.overflow-silent` (`over && !tell`) and `.content-clipped` (`tell && !over`) — three
+classes for two booleans, each of the new two encoding a CONJUNCTION of both. Round two
+found what that shape costs. At `author` the tab was un-hidden by one rule
+(`:not(.overflow)` did not match) and styled by neither (both restyle rules key on a
+class `author` never gets), so it rendered IN FLOW and took 50px off `.cell-stage` —
+438px to 388px — on every author-level slide: the marker was manufacturing the clip it
+reported. A predicate split across two classes is a predicate that can disagree with
+itself. The register is one orthogonal class now, `.content-cut` = `tell`, and the tab's
+visibility, its `position: absolute`, and its restyle all key on the same predicate that
+draws it. The test grew a level axis at the same time, because the surviving bug lived at
+the only level the test did not drive.
+
+**The new channel's first real yield was 11 parts noise — and the fix for that was
+wrong.** Across the corpus it named 13 slides on 5 shipped decks, and 11 were the running
+footer's ellipsis, a loss `2026-07-27-footer-band-allocation.md` §"What it costs, accepted
+deliberately" measures and takes eight days earlier. The register's own governing sentence
+is "a warning that cries wolf teaches its reader to silence it", so the footer band was
+exempted. That exemption shipped for two commits and is now removed. Reading the cited doc
+past the section that prices the loss: it says the truncation "is not enforced or warned
+about", and names the remedy — option (d), "route over-subscription into the existing alarm
+so the author is told … the only option that closes the CLASS rather than an instance."
+This probe IS option (d). Exempting the footer shipped the mechanism that closes the class
+with the class carved out of it, and the ratio argument concealed that: cry-wolf is a rule
+about FALSE positives, and every one of those 11 is a legally-operative line being deleted
+from an exported text layer — in portrait, roughly three quarters of it. A ratio of true
+positives is not a noise measurement.
+
+The exemption also cost two bugs on its way out, which is the real argument against a
+carve-out inside a detector. Expressed in `IGNORED_CLIP_SELECTOR` it was matched with
+`closest()` and silenced the band's whole subtree — the vertical slice through a
+confidentiality mark and any image `footer:` carries, neither of which the doc prices.
+Moved into `probeContentClipped` and keyed on axis and bearer kind, it then did not work
+at all: layout is UNCLIPPED, so a rect the footer had already cut still overflowed every
+box above it, and `continue` simply handed the same loss to the section, which reported it
+anyway (`examples/portrait-journey.md` p3: the footer clips at x=992, the text lays out to
+x=1115, the section edge is 1080). Two commits, two different mechanisms, one carve-out
+that was never justified in the first place.
+
+**Two silent-by-default holes, inside the change whose thesis is that silent-by-default
+is the enemy.** A bare `.watermark` in the ignore list also matched the universal
+section VARIANT, and both probes exclude via `closest()`, so an entire slide's subtree
+dropped out of both. `[aria-hidden="true"]` was worse in both directions: `html: true`
+means a deck author can silence detection by wrapping content in it, and this engine
+puts `aria-hidden` on elements carrying visible author text. Both are named as elements
+now. The lesson generalizes: **a denylist applied through `closest()` is silent over a
+whole subtree**, so every entry must name an element, never a class an author can reach.
+
+**`skipped()` closed the ancestor-walk hole for the ignore list and not for
+`position`.** A docked `footer` is absolute and the `<code>` inside it is static, so
+eight phantom cuts lived in split-panel's own gallery, masked only because
+`clipSuspect` happened to be false there. CSS's own rule settles it: an absolutely
+positioned element is clipped by an ancestor only if that ancestor is its containing
+block.
+
+**Two claims were reasoning where a measurement was available**, and both were wrong:
+`space-evenly` falls back to `start` in Chromium 131, not `center` (so it cannot shear
+at all), and the content probe was 5.7× dearer than the comment beside it claimed. The
+absolute millisecond figures are gone rather than corrected — this machine gives a 3×
+spread on identical code, which is the trap `2026-08-03-performance-guard.md` documents.
+
+**And the `safe` sweep was too narrow.** The first cut fixed the two components with
+issue numbers. `stage.css`'s `align-middle` / `fill-center` / `align-bottom` /
+`fill-anchor` are UNIVERSAL modifiers riding on every component, and the inversion
+reproduced whole-item loss with a bare `_class: list align-middle`. 34 alignments carry
+`safe` now, including the chart family's `.chart-body` and both mermaid wrappers.

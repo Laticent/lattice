@@ -2090,7 +2090,7 @@ section.authority-chain > .cell-stage {
 
 
 
-section.big-number > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.big-number > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 section.big-number > .cell-stage > ul { list-style:none; padding:0; margin:0; text-align:center; }
 section.big-number > .cell-stage > ul > li { font-family:var(--font-display); font-size:var(--fs-hero); font-weight:700; color:var(--accent); line-height:1; }
 section.big-number > .cell-stage > ul > li > ul { list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; display:flex; flex-direction:column; align-items:center; }
@@ -2727,7 +2727,7 @@ section.checklist > .cell-stage > ol > li em {
  *
  * Variants: .split, .pull-quote, .margin, .triptych.
  * ──────────────────────────────────────────────────────────────────── */
-section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:center; }
+section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:safe center; }
 /* Hanging citation eyebrow — leading paragraph that is just a `<code>`. */
 section.citation-card > .cell-stage > p:has(> code:only-child) {
   margin:0;
@@ -4531,7 +4531,7 @@ section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .
 /* Each card fills a share of the tall frame; centre the justification so it sits
    in the card's optical middle (the corner tag stays pinned top-left) instead of
    orphaning at the top over empty space. */
-section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
+section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: safe center; }
 /* One option per full-width card — the justification is the card's hero, so it
    carries statement weight (--fs-message), not body weight. */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
@@ -7927,7 +7927,7 @@ section.form.list-steps.capsule .cell-masthead .masthead-lede {
  * `rule-full` modifier can still put it back; `rule-short`/`rule-accent`
  * already clear the border themselves. */
 section.form.list-steps.capsule:not(.rule-full) .cell-masthead { border-bottom: none; }
-section.list-steps.capsule > .cell-stage { justify-content: center; }
+section.list-steps.capsule > .cell-stage { justify-content: safe center; }
 /* A slide-proportional cap so three cards stay a readable centered group
  * rather than stretching the full frame width. */
 section.list-steps.capsule ol { flex: 0 1 auto; max-width: 80cqi; align-self: center; width: 100%; }
@@ -7991,7 +7991,7 @@ section.list-steps.capsule ol > li:nth-child(8n)::before   { background: var(--c
  * ol → numbered discs; ul → plain dots. Resets the list-steps card + STEP-badge
  * + arrow-connector chrome. Merged from the standalone timeline on 2026-06-07.
  * Lifted to <strong> by the timeline token in the shared slot-label-lift paths. */
-section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading is framing text — it follows the headline-alignment seam (`headline:`) via its
  * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
  * identical). */
@@ -8062,7 +8062,7 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em
 
 /* shared: centre the flow, stack as a column, strip the default card + STEP
  * badge (::before) + right-arrow connector (::after) chrome. */
-section.list-steps:is(.chevron, .converge, .ghost) > .cell-stage { justify-content:center; }
+section.list-steps:is(.chevron, .converge, .ghost) > .cell-stage { justify-content:safe center; }
 section.list-steps:is(.chevron, .converge, .ghost) ol { flex-direction:column; align-items:stretch; flex:0 1 auto; }
 section.list-steps:is(.chevron, .converge, .ghost) ol > li { flex:0 0 auto; border:none; background:none; padding:0; font-weight:400; }
 section.list-steps:is(.chevron, .converge, .ghost) ol > li::before { content:none; }
@@ -11970,7 +11970,7 @@ section.quadrant.dark {
 
 
 
-section.quote > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.quote > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 section.quote blockquote {
   position:relative;
   background:var(--bg-alt); border:1px solid var(--border);
@@ -12517,7 +12517,14 @@ section.redline > .cell-stage > :is(ol, ul) > li > strong {
  * a flex sibling ABOVE the stage now, so the grid is just the two cards (row 1) +
  * the read-across note list (row 2, full width). */
 section.redline.split > .cell-stage { display:grid; grid-template-columns:1fr 1fr; column-gap:var(--sp-md); grid-template-rows:minmax(0, 1fr) auto; row-gap:var(--sp-sm); }
-section.redline.split.split > .cell-stage > blockquote { min-width:0; min-height:0; overflow:hidden; }
+/* Tighter leading in a two-column track, exactly as `.three-col` below already does
+ * for the same reason: a statute clause set at `--lh-relaxed` in a half-width card
+ * needs a line more than it gets. Without it the NEW column (always the longer of the
+ * pair — an amendment adds words) ran 31px past its own `overflow:hidden` and lost the
+ * closing phrase of the clause, "…their personal information." Silently: the blockquote
+ * is a clipping box no probe looked at until #1300 widened the set, and the CELL and
+ * the SECTION both fit. Found by that widening on this component's own gallery. */
+section.redline.split.split > .cell-stage > blockquote { min-width:0; min-height:0; overflow:hidden; line-height:var(--lh-snug); }
 section.redline.split.split > .cell-stage > blockquote:nth-of-type(1) {
   grid-column:1; grid-row:1;
   border-left-color:var(--fail);
@@ -14314,11 +14321,40 @@ section.split-compare > .cell-stage {
  *   .pullquote  — pull-quote feature (was split-statement)
  *   .steps      — numbered step-timeline right zone (was split-steps)
  *   .watermark  — accent panel + letterform + meta footer (was split-list)
+ *
+ * ── EVERY ALIGNMENT ON A CLIPPING PANEL IS `safe` (#1299) ──────────────────
+ * A flex container that centers or end-aligns and then OVERFLOWS throws content
+ * off the BLOCK-START edge. That is the worst possible direction to lose it in:
+ * the head of a panel is its eyebrow and its heading, and block-start overflow
+ * does not grow `scrollHeight`, so it went unmeasured by every probe as well.
+ * A `split-panel` deck shipped with its eyebrow and two-thirds of its `h2` gone
+ * — 24 text rects cut, the worst by 882px — with no ring, no pill and no console
+ * line. A cut tail announces itself; a cut head does not.
+ *
+ * `safe` falls back to `start` the instant content overflows and keeps the
+ * intended alignment while it fits, so a fitting slide is byte-identical and an
+ * overflowing one loses its LAST line instead of its first. Seven alignments
+ * carry it: the four panel bodies (base, `.metric`, `.steps` left, `.steps`
+ * right), `.watermark`'s panel, `.proof`'s cards, and the carousel cover.
+ *
+ * ONE alignment here takes no `safe` keyword, and it does not need one:
+ * `.panel-right > ul` uses `justify-content: space-evenly`. `safe`/`unsafe` are
+ * `<overflow-position>` keywords the grammar admits only before a
+ * `<content-position>`, so `safe space-evenly` is invalid CSS that would drop the
+ * whole declaration (`CSS.supports(...) === false`, checked). But MEASURED in the
+ * render browser (Chromium 131), `space-evenly` falls back to **start** on
+ * overflow, not to center: first-child offset 0, and `scrollHeight` grows 100 → 180,
+ * so the overflow is both non-shearing and visible to the probe. `space-around` and
+ * `space-between` measured the same. An earlier version of this comment asserted a
+ * center fallback from the spec grammar and called it a residual shear risk; that
+ * was reasoning where a measurement was available, and the measurement disagrees.
+ * (`section.split-panel.proof.capstone .panel-left`'s `space-between` is start-fallback
+ * for the same reason and is likewise not a hole.)
  */
 
 /* ── base = featured heading + findings (former split-brief) ─────────────── */
 section.split-panel { padding:0; flex-direction:row; }
-section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
+section.split-panel .panel-left { width:38%; flex-shrink:0; background:var(--surface-inverse); display:flex; flex-direction:column; justify-content:safe flex-end; padding:var(--sp-xl) var(--sp-lg); position:relative; overflow:hidden; }
 section.split-panel .panel-left::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent); }
 section.split-panel .panel-eyebrow { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.14em; color:var(--on-dark-secondary); padding-bottom:var(--sp-md); }
 section.split-panel .panel-left h2 { font-size:var(--fs-h1); color:var(--on-dark-primary); line-height:var(--lh-tight); padding:0 0 var(--sp-sm); margin:0; font-weight:800; }
@@ -14336,7 +14372,7 @@ section.split-panel .panel-right > ul > li > :is(ul,ol) { list-style:none; paddi
 section.split-panel .panel-right > ul > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
 /* ── .metric — light-left polarity + hero number (former split-metric) ───── */
-section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:center; align-items:flex-start; }
+section.split-panel.metric .panel-left { width:44%; background:var(--bg); border-right:1px solid var(--border); justify-content:safe center; align-items:flex-start; }
 section.split-panel.metric .panel-left::before { content:none; }
 section.split-panel.metric .panel-eyebrow { color:var(--text-secondary); padding-bottom:var(--sp-xs); }
 section.split-panel.metric .panel-left h2 { font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--text-heading); line-height:1; padding:0 0 var(--sp-sm); margin:0; }
@@ -14358,12 +14394,12 @@ section.split-panel.pullquote .panel-left blockquote p { margin:0; }
 section.split-panel.pullquote .panel-left cite { font-size:var(--fs-message); font-family:var(--font-body); font-style:normal; color:var(--on-dark-secondary); position:relative; z-index:1; display:block; }
 
 /* ── .steps — numbered step-timeline right zone (former split-steps) ─────── */
-section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:center; }
+section.split-panel.steps .panel-left { width:30%; background:var(--bg-alt); border-right:1px solid var(--border); justify-content:safe center; }
 section.split-panel.steps .panel-left::before { content:none; }
 section.split-panel.steps .panel-eyebrow { position:absolute; top:var(--sp-lg); left:var(--sp-lg); margin:0; font-size:var(--fs-hero); font-family:var(--font-display); font-weight:900; color:var(--border); line-height:1; letter-spacing:0; text-transform:none; pointer-events:none; z-index:0; }
 section.split-panel.steps .panel-left h2 { font-size:var(--fs-h2); color:var(--text-heading); font-weight:800; position:relative; z-index:1; }
 section.split-panel.steps .panel-left p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); position:relative; z-index:1; }
-section.split-panel.steps .panel-right { justify-content:center; }
+section.split-panel.steps .panel-right { justify-content:safe center; }
 section.split-panel.steps .panel-right > :is(ul,ol) { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; flex:0 1 auto; }
 section.split-panel.steps .panel-right > ol { counter-reset:step-counter; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li { display:grid; grid-template-columns:3.125cqi 1fr; grid-template-rows:auto auto; column-gap:var(--sp-md); position:relative; padding:0 0 var(--sp-md) 0; border-left:none; }
@@ -14411,7 +14447,7 @@ section.split-panel.proof .panel-right > :is(ul,ol) {
   justify-content:initial; list-style:none; padding:0; margin:0;
 }
 section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child { grid-column:1 / -1; }
-section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:safe center; }
 /* `--panel-label-ink` is the category's contrast-safe ink, set only by `cat-N`
  * (see the cat block below) — falls back to `--accent` on a bare `proof` slide. */
 section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--panel-label-ink, var(--accent)); font-weight:600; padding-bottom:var(--sp-xs); }
@@ -14480,7 +14516,7 @@ section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2)
 }
 
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
-section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:flex-end; }
+section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:safe flex-end; }
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
 section.split-panel.watermark .panel-left h2 { font-size:var(--fs-emphasis); color:var(--on-accent); margin:0; font-weight:800; }
 section.split-panel.watermark .panel-left .watermark { position:absolute; font-family:var(--font-display); font-size:calc(11.46cqi * var(--fs-scale)) /* cqi-ok: decorative watermark numeral */; font-weight:700; color:var(--on-accent-watermark); top:3.125cqi; left:1.5625cqi; line-height:1; pointer-events:none; }
@@ -14543,7 +14579,7 @@ section.split-panel[data-orientation="portrait"] .panel-left { width: auto; }
 /* Cover — the feature gets its moment: accent field, watermark, hero heading. */
 section.split-panel-cover {
   background: var(--accent); color: var(--on-accent);
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: safe center;
   position: relative;
 }
 /* The watermark bleeds off the corner — but a positioned descendant overflowing the
@@ -15406,7 +15442,7 @@ section.state-chart .state-node-shape.chart-mark-active {
  * See lib/components/evidence/stats/stats.manifest.json for the contract.
  */
 
-section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading + subtitle are framing text — they follow the headline-alignment seam
  * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
  * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
@@ -16332,14 +16368,14 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li {
  * then leaves dead space at the card bottom ("a grid of boxes", forms.md §6). Centre
  * the content block so the full-height cards read as a board deck. Portrait only;
  * the wide 2×2 is untouched. */
-section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: center; }
+section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: safe center; }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
  * (≤0.9) collapse the verdict grid to one column, keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
 section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
 }
-section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: center; }
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: safe center; }
 
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
@@ -16651,12 +16687,21 @@ section.video.companion:where([data-family="tall"], [data-family="strip"]) {
  * every theme (dark included) — the one place a fixed contrast is correct; it
  * routes through tokens with a fallback so a theme may still retune it. */
 
+/* `safe center`, not `center` (#1299). A flex column that centers and then
+ * overflows throws content off the BLOCK-START edge — and for this card that is the
+ * eyebrow and the heading, the two things a reader needs first. Block-start overflow
+ * also does not grow `scrollHeight`, so it went unmeasured: pages 2-4 of this
+ * component's OWN gallery shipped with 23px of eyebrow and h2 sheared off the top
+ * (#1278). `safe` keeps the centering while the card fits and falls back to `start`
+ * the instant it does not, so the loss moves to the tail where it is both less
+ * costly and visible. The budget below is what stops it happening at all; this is
+ * the backstop for the deck that still over-authors. */
 section.wifi .qr-card {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   height: 100%;
-  gap: 1.9em;
+  gap: 1.2em;
 }
 
 /* wifi is a `conformance:"strict"` CANVAS (model-driven frame render §4): the
@@ -16676,25 +16721,19 @@ section.wifi > .cell-stage > .qr-card {
   flex: 0 0 auto;
 }
 
-/* Preserve the QR's quiet zone across the stage clip. wifi's QR tile is the
- * LEFT column of the card, and its `.qr-tile` is content-box sized (width:12em
- * of SVG + 1em padding + 1px border), so its border-box is ~1em+1px WIDER than
- * its `.qr-side` column and — centered in that column — overhangs it by 1em+1px
- * on each side. The SVG itself sits exactly at the stage's left content edge; the
- * overhang that crosses that edge is the tile's white QUIET-ZONE padding + hairline
- * border, which lives in the frame's left safe-margin. A QR's quiet zone is
- * functionally required (scanners need the light border), so the stage must not
- * shear it. `overflow-clip-margin` lets the stage PAINT that decoration out into
- * the safe margin while keeping `overflow:clip` — so the overflow PROBE (which
- * reads scrollHeight−clientHeight, unaffected by the paint margin) still walls a
- * genuinely over-tall card exactly as before. 1.5em clears the 1em+1px overhang
- * with anti-aliasing headroom; the section's own `overflow:hidden` is the outer
- * backstop at the slide edge. This is wifi-specific: contact's tile sits on the
- * RIGHT, fully inside the content box, so it never reaches a stage edge and needs
- * no margin. (model-driven frame render §6 — canvas migration is per-component.) */
-section.wifi > .cell-stage {
-  overflow-clip-margin: 1.5em;
-}
+/* The stage carried `overflow-clip-margin: 1.5em` here until 2026-08-03, and it is
+ * recorded rather than silently deleted because the reasoning is worth keeping.
+ * `.qr-tile` is content-box sized, so at its old `width: 12em` its border-box
+ * (12em + 1em padding + 1px border, each side) was ~1em+1px WIDER than the 12em
+ * `.qr-side` column it centers in, and the overhang — the QR's white QUIET ZONE,
+ * which scanners functionally require — crossed the stage's content edge. The paint
+ * margin let the stage draw it into the frame's safe margin without giving up
+ * `overflow: clip`. The tile is 9.5em now (see the budget note below), so its
+ * border-box is 11.5em+2px inside a 12em column and reaches no stage edge at all:
+ * the quiet zone is preserved by ordinary layout, and a paint margin that clears an
+ * overhang which no longer exists is inert CSS with a rationale that has stopped
+ * being true. If the tile is ever widened past ~10.9em, this comes back WITH the
+ * measurement that justifies it. */
 
 section.wifi .qr-eyebrow {
   font-size: var(--fs-meta);
@@ -16719,17 +16758,32 @@ section.wifi .qr-body {
   gap: 3.6em;
 }
 
+/* The column stays 12em — that is the CTA's MEASURE, not the tile's. Narrowing it
+ * with the tile wrapped "One scan connects the room" (uppercase at 0.16em tracking)
+ * onto a third line and cost more height than the smaller tile saved: measured, 24px
+ * worse than leaving it alone. */
 section.wifi .qr-side {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.9em;
+  gap: 0.7em;
   width: 12em;
 }
 
+/* 9.5em, down from 12em (#1278). THE CARD HAD NO ROOM FOR ITS OWN CONTENT: at 12em
+ * the tile's border-box is 301px of a 524px stage — 57% of the card's height for the
+ * code alone, leaving 223px for a heading, an eyebrow, three credential rows and a
+ * CTA that together want 274. Four gallery slides clipped, and the reported cause (a
+ * `.qr-cta` overshooting by ~25px) was never the cause: the CTA is 48px and the
+ * arithmetic simply did not close. Measured on the real gallery card at 1280x720, the
+ * retune below (tile 12em->9.5em, card gap 1.9->1.2em, side gap 0.9->0.7em, field gap
+ * and rule inset 1.5->0.9em) takes the worst slide from 51px OVER to 22px under, and
+ * a one-line title from 14px of headroom to 87 — a whole extra heading line either
+ * way. 9.5em is still 19% larger than `contact`'s 8em tile, and 203px of SVG on a
+ * 1280px slide scans from the back of a room. */
 section.wifi .qr-tile {
-  width: 12em;
+  width: 9.5em;
   padding: 1em;
   background: var(--qr-paper, #ffffff);
   color: var(--qr-ink, #14140f);
@@ -16760,7 +16814,7 @@ section.wifi .qr-fields {
   max-width: 24em;
   display: flex;
   flex-direction: column;
-  gap: 1.5em;
+  gap: 0.9em;
   padding: 0;
 }
 
@@ -16771,7 +16825,7 @@ section.wifi .qr-row {
 }
 section.wifi .qr-row + .qr-row {
   border-top: 1px solid var(--border);
-  padding-top: 1.5em;
+  padding-top: 0.9em;
 }
 section.wifi .qr-row dt {
   font-size: var(--fs-meta);
@@ -18202,27 +18256,43 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
   box-shadow: inset 0 0 0 4px #d4351c;
 }
 
-/* `.overflow-silent` — the box overflowed, but nothing readable or visible was CUT
- * (lib/core/overflow-probe.js `probeContentClipped`). The class is stamped by both
- * watchers and means exactly one thing: do not tell a READER about this one.
+/* ── ONE class for the whole marker question: `.clip-marked` ──────────────────
  *
- * `.overflow` itself still lands on the section, because autosplit and the console
- * report both key off it and both want the geometric truth. It is only the reader's
- * TREATMENT that yields. The author's ring above deliberately does NOT check this
- * class — an over-subscribed box is a defect worth fixing whether or not today's copy
- * happens to fit inside the spill, and the author is the one who can fix it.
+ * ONE FACT AND ONE TREATMENT, kept apart:
  *
- * !important because the reader tab rule below is more specific than this selector,
- * and this has to beat it on the sections it applies to. */
-section.overflow-silent[data-lattice-overflow-marker="reader"] > .overflow-tab {
-  display: none !important;
-}
-/* The ring is colour-only (fails WCAG 1.4.1 "use of colour"), so the watcher
- * also injects a labelled tab — a red corner flag reading "OVERFLOWS" — that
- * names the condition in text. Authoring signal; loud by design, top-right,
- * above all content. The red matches the ring (a fixed danger colour, not a
- * theme token — same exception the ring itself takes). */
-section.overflow > .overflow-tab {
+ *   .overflow      the box's content extent exceeded the box   — a FACT about geometry,
+ *                                                                level-independent, and
+ *                                                                what autosplit keys on
+ *   .clip-marked   this section SHOWS a clip marker, here      — a TREATMENT, resolved
+ *                                                                from the marker level
+ *
+ * This used to be two classes, each encoding a CONJUNCTION: `.overflow-silent`
+ * (`over && !tell`) and `.content-clipped` (`tell && !over`). Three classes for two
+ * booleans, so a slide that BOTH overflows and cuts carried neither of them, and
+ * recovering the quantity every rule actually wants took boolean algebra. Worse, the
+ * split let the tab be un-hidden by a rule keyed on one class and styled by a rule keyed
+ * on the other — which is exactly how the author-level tab came to render IN FLOW and
+ * steal 50px of the cell it was reporting on.
+ *
+ * It was then called `.content-cut`, and that name was the next defect: it reads as a
+ * FACT ("this slide lost content") over a predicate that is level-dependent by design.
+ * At `author` the population includes purely geometric overflow with nothing cut; at
+ * `reader` it excludes a cut that is entirely inside the running-footer band. A Studio
+ * panel listing "slides that lost content" via `querySelectorAll('section.content-cut')`
+ * would have been wrong on both surfaces. `.overflow` is the fact to query; this class
+ * only ever answers "is a marker drawn here". (HARD RULE #25 inversion, rounds 2 and 3 —
+ * round 2 argued the one-class shape dominates and was right; round 3 caught the name.)
+ *
+ * `.overflow` keeps the author ring: an over-subscribed box is a defect worth fixing
+ * whether or not today's copy happens to fit inside the spill. */
+
+/* Keyed on `.clip-marked` — the SAME predicate that draws the tab — so a drawn tab is
+ * always a styled tab. When these were two rules over two conjunction classes, the
+ * author-level population was un-hidden by one and styled by neither: the tab rendered
+ * as an unstyled IN-FLOW block and took 50px out of the very `.cell-stage` being probed
+ * (measured: stage 438 → 388), letting the marker manufacture the clip it was reporting.
+ * That is structurally impossible now. */
+section.clip-marked > .overflow-tab {
   /* `!important` because base.finish.css's `section.finish > *:not(.backdrop)`
    * sets `position: relative` at the SAME specificity (0,2,1) from a later file,
    * and won — so on a `finish:` deck this "corner flag" rendered as a full-width
@@ -18249,7 +18319,12 @@ section.overflow > .overflow-tab {
 }
 /* Only visible on an overflowing section — hidden if the element lingers after
  * the slide is fixed (the runtime watcher also removes it). */
-section:not(.overflow) > .overflow-tab { display: none; }
+/* One gate, one predicate. This subsumes BOTH the old `:not(.overflow)` hide and the
+ * `.overflow-silent[reader]` `display: none !important` that used to sit above — a slide
+ * that overflows without cutting anything simply has no `.clip-marked`, so it is hidden
+ * by the same rule that hides a clean slide. No `!important` needed, because there is no
+ * longer a more-specific rule to beat. */
+section:not(.clip-marked) > .overflow-tab { display: none; }
 
 /* `overflow-marker: off` — the CSS half of "no marker". The JS half sweeps once at
  * boot, which is not enough on a `--fluid` export: the emulator embeds its own
@@ -18259,6 +18334,8 @@ section:not(.overflow) > .overflow-tab { display: none; }
  * its own rule above, so this only has the tabs left to handle. */
 section[data-lattice-overflow-marker="off"] > .overflow-tab,
 section[data-lattice-overflow-marker="off"] > .illegible-tab { display: none !important; }
+/* (`.clip-marked` needs no entry of its own here: the attribute selector above is
+ * class-agnostic and already matches every section carrying `off`.) */
 section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !important; }
 
 /* ── The READER variant of the same marker ────────────────────────────────────
@@ -18292,22 +18369,49 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * slide section instead.
  * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
  * engineering/decisions/2026-07-30-overflow-marker-register.md. */
-section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab {
+section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* Self-contained (not inherited from the author rule above): the settle
    * guarantee relies on the tab being out of flow so it can't change the measured
    * height — assert it here so a future edit to the author rule can't silently
    * reintroduce a measure→mutate→measure loop. */
   position: absolute !important;
-  top: auto !important;
-  right: auto !important;
-  bottom: max(0.6rem, env(safe-area-inset-bottom)) !important;
-  left: 50%;
-  transform: translateX(-50%);
+
+  /* THE TAB'S OWN CORNER, and getting here took three wrong answers worth recording,
+   * because each one was a smaller version of the same mistake.
+   *
+   * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, `z-index: 50`). It shipped
+   * bottom-center, which is the running-footer band, so once detection widened to cuts
+   * with no overflow every deck carrying one ordinary `footer:` got a capsule painted
+   * across its confidentiality line on EVERY page. Both HARD RULE #25 lenses found that
+   * independently by rasterizing a committed golden — `premise.gallery.light.pdf` p3 read
+   * "…the categorical p [Content clipped] e." The marker was destroying readable content
+   * in order to report that content was destroyed.
+   *
+   * Fix 1 raised it by `--footer-reserve`. That token is declared on `section.form` only,
+   * and the fallback assumed "no Form band" meant "no footer" — false, a SOVEREIGN frame
+   * still renders `section footer`, it just wraps instead of ellipsing. Fix 2 added a
+   * `max()` over both shapes. Both cleared the footer and both were still wrong, and the
+   * export text layer said so: on an overflowing slide the stage is FULL by definition, so
+   * the raised pill landed on the body copy instead — extracted PDF text came out
+   * "…engineered / toclipped / push this slide's", caught by
+   * test/integration/export/export-formats.test.js.
+   *
+   * The lesson the third time: an opaque overlay on a full slide overlaps SOMETHING
+   * wherever you put it, so the question is not "which gap" but "whose territory". The
+   * marker's own territory is the top-right corner — `.overflow-tab` and `.illegible-tab`
+   * have both lived there for the life of the register, no component puts content in it,
+   * and `2026-07-30-overflow-marker-register.md` describes `reader` as "the SAME
+   * text-labeled tab restyled", not as a differently-placed one. So the reader pill
+   * inherits the author tab's placement and changes only its TONE. Nothing about position
+   * is overridden here any more; that is the point. */
+
   background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
   color: var(--bg) !important;
-  border-radius: 999px;
+  border-bottom-left-radius: var(--radius-md);
+  border-top-right-radius: 0;
   letter-spacing: 0.04em;
   text-transform: none;
+  font-weight: 600;
   /* NO DROP SHADOW. It used to carry `box-shadow: 0 .125rem .5rem rgb(0 0 0/.28)`
    * with the note "HTML viewer only, never in PDF" — true only while this pill was
    * a fluid-viewer affordance. Now that the emulator's PDF/PNG/PPTX path reads the
@@ -18373,7 +18477,41 @@ section.illegible > .illegible-tab {
 }
 /* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
    stays correct at any type scale or preset. */
-section.overflow.illegible > .illegible-tab { transform: translateY(100%); }
+/* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
+   Three things want `top: 0; right: 0`: the STATUS STAMP (`base.variants.css`,
+   painted on `section::before` at `z-index: 100`), the clip tab, and the legibility
+   tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
+   and the pill was moved into the corner on a survey of `lib/components/**` that could
+   not see a base modifier. Rendered, `stamp-notch` swallowed the pill entirely — a
+   SILENT CLIP, the one outcome this register exists to prevent.
+
+   The first fix enumerated all 21 stamp class names here and pushed every one by a
+   fixed row. Round 5 measured all 14 shapes and it was wrong on 8: three sit at the
+   corner (pushed correctly), SIX sit ~43px lower and were pushed INTO, and two are
+   full-bleed. `stamp-pin` and `stamp-flag` still ate the label. That is fixing an
+   instance rather than the class — the error `2026-07-30`'s footer note argues against
+   at length, committed in the file that argues it.
+
+   So the arithmetic lives with the geometry: each stamp shape declares `--corner-stack`
+   in `base.variants.css`, in the rule its author is already writing, and the tabs read
+   it. A 15th shape needs one edit, in the obvious place, or it reserves nothing and
+   nothing moves. The legibility tab adds its own row on top, which also closes the
+   missing truth-table row (stamp + illegible + no clip tab got no offset at all). */
+/* THE FALLBACKS ARE TYPED (`0%`, not `0`) AND THAT IS LOAD-BEARING. `calc()` is
+   type-checked at computed-value time: `calc(100% + 0)` mixes <percentage> with <number>,
+   which is invalid, and an invalid `transform` is DISCARDED ENTIRELY. With unitless
+   fallbacks the offset therefore survived only when BOTH custom properties were set —
+   so the commonest case on this branch (a clip tab and a legibility tab, no stamp)
+   computed `transform: none` and the two tabs overprinted in the same 4-27px band, which
+   is round 4's finding re-created by the fix for round 5's. Caught by the HARD RULE #25
+   red team on a real export before it reached a reviewer; the truth table below is what
+   the canary asserts. */
+section { --corner-stack: 0%; --clip-stack: 0%; }
+section.clip-marked { --clip-stack: 100%; }
+section > .overflow-tab { transform: translateY(var(--corner-stack, 0%)); }
+section > .illegible-tab {
+  transform: translateY(calc(var(--corner-stack, 0%) + var(--clip-stack, 0%)));
+}
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -19405,7 +19543,9 @@ section.chart-frame .chart-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* `safe` (#1299): this box is `overflow: hidden`, so a figure taller than it would
+   * otherwise be sheared off the TOP — where scrollHeight cannot see it. */
+  justify-content: safe center;
   align-items: center;
   box-sizing: border-box;
   width: calc(100cqi - 2 * var(--sp-2xl));
@@ -19449,7 +19589,7 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
  * height) would otherwise sit at the stage top; an SVG body (flex:1) already fills the
  * stage, so this is a no-op for it. An `align-*` modifier overrides at higher specificity. */
-section.chart-frame > .cell-stage { justify-content: center; }
+section.chart-frame > .cell-stage { justify-content: safe center; }
 
 /* ── Box-local: reclaim horizontal room for the figure on a tall/narrow box. The
  * default body reserves --sp-2xl on EACH side in both the width calc and the
@@ -22441,6 +22581,41 @@ section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-
 section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
 section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
 
+/* ── `--corner-stack`: how much room this stamp takes in the TOP-RIGHT corner ──
+ *
+ * The overflow and legibility tabs live at `top: 0; right: 0` too, and need to know how
+ * far to drop to clear the stamp. The offset is declared HERE, beside the geometry it
+ * describes, because that is the only place it can be kept true — and on the SECTION,
+ * not on `::before`, because a custom property set on a pseudo-element does not reach
+ * its siblings.
+ *
+ * A first cut enumerated the 21 stamp class names over in base.modifiers.css and pushed
+ * every one by a fixed row. Measured across all 14 shapes, that was wrong on 8: three
+ * sit at the corner (correct), SIX sit ~43px lower and were pushed INTO by the offset
+ * meant to clear them, and two are full-bleed. It fixed an instance rather than the
+ * class — the error this repo's own footer-exemption note argues against at length.
+ * (HARD RULE #25 inversion, round 5, measured shape by shape.)
+ *
+ * `0` (the default) means "this shape does not occupy the tab's corner". A new stamp
+ * shape declares its own value in the rule its author is already writing. */
+/* THE SEMANTIC CLASS IS THE GATE, and the shape only MODIFIES the reserve. `content:
+   var(--stamp-label)` above is what actually paints, and `--stamp-label` comes from the
+   semantic class alone — so a shape class on its own paints nothing. `stamp:` front
+   matter appends `stamp-<shape>` to EVERY section in the deck (lib/core/resolve-stamp.js),
+   so keying the reserve on the shape made every slide of a `stamp: tab` deck push its
+   marker tab 23px down to clear a stamp that does not exist. Measured on a real export.
+   (HARD RULE #25 red team, round 5.) */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) { --corner-stack: 100%; }
+/* Tall and off-axis: the flag hangs vertically and the pin is a 44px disc, so one row
+   does not clear either — they still overlapped the label after the first fix
+   ("Conte\2593t clipped", "\2593\2593ntent clipped" in a rendered PDF). */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised):is(.stamp-flag, .stamp-pin) { --corner-stack: 200%; }
+/* The shapes that sit BELOW the corner (pill, bracket, seal, underline, dot, bar) and
+   the full-bleed ones (mark, veil) reserve nothing — pushing the tab for them moved it
+   INTO the stamp rather than clear of it. */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised):is(.stamp-pill, .stamp-bracket, .stamp-seal, .stamp-underline,
+  .stamp-dot, .stamp-bar, .stamp-mark, .stamp-veil, .stamp-ribbon) { --corner-stack: 0%; }
+
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) {
   position: relative;
 }
@@ -23231,8 +23406,17 @@ section.form:is(.align-top, .align-middle, .align-bottom, .align-left, .align-ce
   display: flex;
   flex-direction: column;
 }
-section.form:is(.align-middle, .fill-center) > .cell-stage { justify-content: center; }
-section.form:is(.align-bottom, .fill-anchor) > .cell-stage { justify-content: flex-end; }
+/* Every alignment below that can push content off the BLOCK-START edge is `safe`
+ * (#1299). A flex container that centers or end-aligns and then OVERFLOWS throws its
+ * content off the TOP — and block-start overflow does not grow `scrollHeight`, so it
+ * is invisible to every scroll-dims measure in the system. A cut tail announces
+ * itself; a cut head does not. `safe` falls back to `start` the instant content
+ * overflows and keeps the intended alignment while it fits, so a fitting slide is
+ * byte-identical and an overflowing one loses its LAST line instead of its first.
+ * `flex-start` needs nothing; `space-between`/`space-around`/`space-evenly` measured
+ * as start-fallback in Chromium 131 and take no `safe` keyword (invalid CSS). */
+section.form:is(.align-middle, .fill-center) > .cell-stage { justify-content: safe center; }
+section.form:is(.align-bottom, .fill-anchor) > .cell-stage { justify-content: safe flex-end; }
 section.form.align-top    > .cell-stage { justify-content: flex-start; }
 section.form.align-center > .cell-stage { align-items: center; }
 section.form.align-right  > .cell-stage { align-items: flex-end; }
@@ -23243,12 +23427,12 @@ section.form.align-left   > .cell-stage { align-items: flex-start; }
  * "grid of correct boxes" and a board deck. Default is `start` (top-anchored
  * flow, unchanged). Authors opt a slide into a board-style distribution; each
  * is a Cell `fill` value made selectable. */
-section.form.fill-center  { justify-content: center; }
-section.form.fill-anchor  { justify-content: flex-end; }
+section.form.fill-center  { justify-content: safe center; }
+section.form.fill-anchor  { justify-content: safe flex-end; }
 /* optical-center sits the content slightly above true centre (the eye reads a
  * geometric centre as low) — extra bottom reserve biases it up. */
 section.form.fill-optical {
-  justify-content: center;
+  justify-content: safe center;
   padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl));
 }
 
@@ -23695,7 +23879,7 @@ section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-c
    broke that. Instead the runtime marks state on the <pre> itself and
    inserts a sibling `<div class="mermaid">` (SVG target) and, on
    failure, a sibling `<div class="mermaid-error">`. */
-.mermaid-svg                             { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+.mermaid-svg                             { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
 /* `> .cell-stage > .mermaid`: since diagram opted into `conformance:"strict"`
  * (model-driven frame render §4), the masthead kernel now wraps the diagram body
  * — the source `<pre>` AND the runtime-inserted `.mermaid` sibling next to it —
@@ -23704,7 +23888,7 @@ section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-c
  * needs the wrapped arm too. The bare `section.diagram > .mermaid` arm stays for
  * the `no-form` (unwrapped) slide. */
 section.diagram > .mermaid,
-section.diagram > .cell-stage > .mermaid { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+section.diagram > .cell-stage > .mermaid { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
 .mermaid-svg svg,
 section.diagram > .mermaid svg,
 section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }

@@ -578,7 +578,14 @@ describe('check-ownership', () => {
       // mystery to the next reader.
       const css = require('node:fs').readFileSync(
         require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
-      assert.match(css, /section\.overflow > \.overflow-tab \{[\s\S]*?position: absolute !important;/);
+      // ONE selector now, `section.clip-marked`, because one class answers the whole
+      // marker question. It was briefly TWO rules over two conjunction classes, and the
+      // population reachable by only one of them had no `position` rule at all: the tab
+      // rendered IN FLOW and took 50px out of the very cell it was reporting on —
+      // precisely the defect this exemption records as already fixed once. The PROPERTY
+      // this test guards is unchanged.
+      assert.match(css, /section\.clip-marked > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/,
+        'the tab must defend its own position, or it lands in flow and takes height from the cell');
     });
   });
 
@@ -1908,5 +1915,91 @@ describe('check-ownership', () => {
       assert.deepStrictEqual(SANCTIONED_CLASS_ATTR_READS, [],
         'an entry here blanket-exempts a whole file — prefer readClassAttr');
     });
+  });
+});
+
+// ── checkCommittedPdfs — every committed PDF names a producer AND a watcher ────
+// The gate landed with its canaries run by hand and no artifact (#1279). That is the
+// shape HARD RULE #23 rejects: a claim of verification whose evidence does not survive
+// the session it was made in. Pinned here, in all three directions the canaries covered.
+describe('check-ownership: checkCommittedPdfs (#1279)', () => {
+  const { checkCommittedPdfs, auditPdfOwnership, PDF_OWNERSHIP } = require('../../../tools/check-ownership');
+  const { EXTRA_NAMES } = require('../../../tools/build-bucket-galleries');
+
+  // THE TWO FAILURE BRANCHES, DRIVEN. Everything below this pair used to assert either
+  // that the real tree is clean or that the table's fields are populated -- so inverting
+  // the orphan condition, or deleting the stale-rule loop outright, left the suite green
+  // while the CHANGELOG claimed the gate was "proven with deliberately-broken canaries in
+  // all three directions". It was, by hand, once; a hand-run canary leaves no artifact and
+  // is not a test. `auditPdfOwnership` is the same logic as a pure function of a file list
+  // so the canaries can live here permanently.
+  test('CANARY — an unowned PDF is named as an orphan', () => {
+    const real = 'examples/auto-split.pdf';
+    const { orphans } = auditPdfOwnership([real, 'somewhere/nobody-owns-this.pdf']);
+    assert.deepEqual(orphans, ['somewhere/nobody-owns-this.pdf'],
+      'a path no rule claims must surface, and a real one must not');
+  });
+
+  test('CANARY — a rule matching nothing is named as stale', () => {
+    // One real file, so exactly one rule hits and every OTHER rule reports stale.
+    const { staleRules } = auditPdfOwnership(['examples/auto-split.pdf']);
+    assert.equal(staleRules.length, PDF_OWNERSHIP.length - 1,
+      'every rule but the one that matched must be reported stale');
+    assert.ok(!staleRules.includes('per-feature demo decks (HARD RULE #9) and the token-contrast set'),
+      'the rule that DID match must not be called stale');
+  });
+
+  test('CANARY — a rule that names a producer must be true OF THE FILE, not of the path shape', () => {
+    // Each of these has the exact shape its rule matches and NO source deck behind it, so
+    // nothing would ever write it. Nine of the ten rules certified files like these as
+    // owned, with a named producer, until round 3 (only the lib/base arm had been fixed).
+    const phantoms = [
+      'lib/components/anchor/_bogus/bogus.gallery.light.pdf',
+      'examples/hand-dropped-orphan.pdf',
+      'exemplars/fake/fake.pdf',
+      'design/bogus.gallery.pdf',
+      'test/integration/baseline-decks/bogus.pdf',
+    ];
+    const { orphans } = auditPdfOwnership(phantoms);
+    assert.deepEqual(orphans.sort(), [...phantoms].sort(),
+      'a producer claim with no input behind it is not ownership');
+  });
+
+  test('the real tree is fully owned — no orphan, no stale rule', () => {
+    const errors = [];
+    checkCommittedPdfs(errors);
+    assert.deepEqual(errors, [], errors.join('\n'));
+  });
+
+  test('every rule names a producer, and says so explicitly when it has no watcher', () => {
+    for (const r of PDF_OWNERSHIP) {
+      assert.equal(typeof r.what, 'string');
+      assert.ok(r.producer && r.producer.length > 0, `${r.what}: a rule must name how the PDF is produced`);
+      // `watcher: null` is a deliberate, reviewable statement — but it must be the
+      // literal null, never simply absent, or "nobody checked" and "nothing watches
+      // this, here is why" become indistinguishable.
+      assert.ok(Object.hasOwn(r, 'watcher'), `${r.what}: state the watcher, or state null`);
+    }
+  });
+
+  test('a lib/base gallery with no BUILDER is an orphan, not a free pass', () => {
+    // The first cut matched all of `lib/base/**` on the strength of EXTRA_GALLERIES
+    // existing at all, so a second hand-authored gallery would have passed the
+    // "it has a producer" check with no producer — #1279's own defect, recurring
+    // under a green gate.
+    const rule = PDF_OWNERSHIP[0];
+    const known = EXTRA_NAMES[0];
+    assert.ok(rule.test(`lib/base/_${known}/${known}.gallery.light.pdf`), 'the known gallery is claimed');
+    assert.equal(rule.test('lib/base/_foo/foo.gallery.light.pdf'), false,
+      'an unbuilt lib/base gallery must fall through to the orphan check');
+    assert.ok(rule.test('lib/components/chart/kanban/kanban.gallery.dark.pdf'), 'components are claimed');
+  });
+
+  test('the examples rule does not silently claim the chart-theme reviewer decks', () => {
+    // They have their own rule, with `watcher: null` and the reason. If the broad
+    // examples rule swallowed them, that honesty would be unreachable.
+    const byExamples = PDF_OWNERSHIP.findIndex((r) => r.test('examples/chart-theme-gallery/chart-onyx-light.pdf'));
+    const own = PDF_OWNERSHIP.findIndex((r) => r.what.includes('curated chart palettes'));
+    assert.equal(byExamples, own);
   });
 });

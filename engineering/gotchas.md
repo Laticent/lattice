@@ -478,6 +478,43 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   page), not `pdffonts`/`get_fonts()` — a subset-embedded face often
   reports an empty name and reads as "missing" when it's actually there.
 
+### A slide loses its EYEBROW and HEADING off the top, and no ring / pill / console line fires
+
+- **Symptom:** the top of a panel or card is simply gone in the render — the
+  eyebrow, most of the `h2`, sometimes both — and every channel says the slide
+  is fine. `over` is `false`, `npm run overflow:check` counts it clean, the
+  export carries no "Content clipped" tag, and `lattice-emulator.js` prints
+  nothing on stderr. Resizing does not change it; it reproduces in the PDF.
+- **Cause:** a flex container that `center`s or end-aligns and then OVERFLOWS
+  throws content off the **block-start** edge — and block-start overflow does
+  NOT grow `scrollHeight`. `scrollHeight - clientHeight` reads 0, so every
+  scroll-dims measure in the system reads zero too. A cut TAIL announces itself
+  (it grows the scroll extent); a cut HEAD does not. Reproduced on
+  `split-panel`, whose `.panel-left` is `justify-content: flex-end;
+  overflow: hidden`: 24 text rects cut, the worst by 882px, at `over: false`
+  (#1299). `wifi`'s `justify-content: center` card was the same defect in
+  another component (#1278).
+- **Fix, in the CSS:** `justify-content: safe center` / `safe flex-end`. `safe`
+  falls back to `start` the instant content overflows and keeps the intended
+  alignment while it fits — so a fitting slide is byte-identical and an
+  overflowing one loses its LAST line instead of its first. **`safe` cannot be
+  used with `space-between`/`space-around`/`space-evenly`**: those are
+  `<content-distribution>` values and the grammar admits `safe` only before a
+  `<content-position>`, so `safe space-evenly` is invalid CSS that drops the
+  whole declaration. (`space-between` falls back to `start` by spec. `space-around`/`space-evenly`
+  were ASSUMED to fall back to `center` and to shear; measured in Chromium 131 they
+  resolve to `start` too, so they do not — the assumption was read off the grammar
+  where a measurement was available.)
+- **Fix, in the probe:** the box has to be PROBED at all. Both probes now
+  discover clipping boxes instead of reading a hand-kept allowlist, and the
+  geometry probe measures a discovered box by RECT SPILL (which sees a child
+  sitting above the box's top) rather than by scroll dims. See
+  `lib/core/overflow-probe.js` and
+  `engineering/decisions/2026-07-30-overflow-marker-register.md`
+  §"the signal did not reach every box that clips".
+- **If you are adding a component:** any clipping box you center or end-align
+  is this bug waiting to happen. `safe` costs nothing when the content fits.
+
 ### A false "Overflows" ring appears on the exported `.html` sidecar for a slide that actually fits
 
 - **Symptom:** a deck's exported `.pdf` renders fine and `lattice-emulator.js`'s

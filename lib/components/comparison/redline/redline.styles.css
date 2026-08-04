@@ -111,7 +111,14 @@ section.redline > .cell-stage > :is(ol, ul) > li > strong {
  * a flex sibling ABOVE the stage now, so the grid is just the two cards (row 1) +
  * the read-across note list (row 2, full width). */
 section.redline.split > .cell-stage { display:grid; grid-template-columns:1fr 1fr; column-gap:var(--sp-md); grid-template-rows:minmax(0, 1fr) auto; row-gap:var(--sp-sm); }
-section.redline.split.split > .cell-stage > blockquote { min-width:0; min-height:0; overflow:hidden; }
+/* Tighter leading in a two-column track, exactly as `.three-col` below already does
+ * for the same reason: a statute clause set at `--lh-relaxed` in a half-width card
+ * needs a line more than it gets. Without it the NEW column (always the longer of the
+ * pair — an amendment adds words) ran 31px past its own `overflow:hidden` and lost the
+ * closing phrase of the clause, "…their personal information." Silently: the blockquote
+ * is a clipping box no probe looked at until #1300 widened the set, and the CELL and
+ * the SECTION both fit. Found by that widening on this component's own gallery. */
+section.redline.split.split > .cell-stage > blockquote { min-width:0; min-height:0; overflow:hidden; line-height:var(--lh-snug); }
 section.redline.split.split > .cell-stage > blockquote:nth-of-type(1) {
   grid-column:1; grid-row:1;
   border-left-color:var(--fail);

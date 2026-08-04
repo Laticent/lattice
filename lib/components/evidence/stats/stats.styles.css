@@ -16,7 +16,7 @@
  * See lib/components/evidence/stats/stats.manifest.json for the contract.
  */
 
-section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading + subtitle are framing text — they follow the headline-alignment seam
  * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
  * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a

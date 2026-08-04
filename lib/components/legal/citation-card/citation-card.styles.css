@@ -30,7 +30,7 @@
  *
  * Variants: .split, .pull-quote, .margin, .triptych.
  * ──────────────────────────────────────────────────────────────────── */
-section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:center; }
+section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:safe center; }
 /* Hanging citation eyebrow — leading paragraph that is just a `<code>`. */
 section.citation-card > .cell-stage > p:has(> code:only-child) {
   margin:0;
