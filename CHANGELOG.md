@@ -25,6 +25,30 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **`no-note` — suppress below-note promotion on a slide.** A trailing paragraph that follows a
+  list or a table is promoted to a `.below-note` (hairline rule, muted ink, parked at the stage
+  floor), which is the right default and is not always what the author meant: "a list, then a
+  concluding sentence" is an ordinary prose shape, and promotion turns that conclusion into a
+  footnote. #1322 made this reachable from far more slides by taking `content` off the exclusion
+  list — correctly — without giving authors a lever. `no-note` is that lever, per-slide via
+  `_class` or deck-wide via `class:`, honored on all three render paths through the one
+  `isExcluded` gate. **It changes no existing rendering**: no deck carries the token, so whether
+  promotion should remain the default for `content` is still an open call and still the owner's.
+  Its own `note` vocabulary group rather than a `chrome` entry, so `silent` deliberately does not
+  imply it — `chrome` suppresses the running frame, none of which is the author's words. Token-
+  exact rather than the substring test the layout list uses, so a future `no-notebook` cannot
+  silently disable notes, and it reads a token array as well as a class string (the shape the
+  markdown-it plugins pass), where a string-only check would have failed silently.
+  **Caveat, and it is the engine's rather than this feature's:** the deck-wide form
+  (`class: no-note`) reaches slides that declare no `_class:` of their own, but not a slide that
+  carries one — the HTML-transform stage reads the class list before the deck-wide token is
+  merged into it. That is general to every deck-wide `class:` token (`class: dark` behaves
+  identically), so it is filed as #1358 rather than fixed here; put the token on the slide when
+  the slide names its own class. See `engineering/decisions/2026-08-04-below-note-opt-out.md` and the
+  feature deck `examples/frame-chrome-and-notes.md`.
+
 ### Fixed
 
 - **Diagram ink is now chosen by what it sits ON, so it stops disappearing on the accessibility
@@ -135,6 +159,60 @@ in patch versions.
   closing line and a pointer to a `Sample-Deck.pdf` that was never in the kit, and gains an
   "If the slides look plain" section for the one failure mode there that produces no error message.
 
+- **The default-component rule stopped applying after the first render on a live-editing
+  preview.** `applyDefaultComponent` (the browser runtime's mirror of #1292 — a slide naming no
+  component renders as `content`) ran once, from bootstrap, and was the one member of the
+  deck-wide register family missing from the re-apply block that `applyCachedDeckLogo` /
+  `applyCachedMastheadMeta` / `applyCachedDeckClass` share. A surface that replaces `<section>`
+  elements on every edit — the marp-vscode webview, which is the entire reason that DOM mirror
+  exists — therefore served every render after the first with un-classed, unstyled slides: #1292's
+  own symptom, returning as soon as the author typed. It now re-stamps on each transform pass,
+  idempotently (`withDefaultComponent` returns the same array when a component is already named),
+  placed immediately after `applyCachedDeckClass` and gated on the front matter having settled —
+  both load-bearing, because stamping before the deck-wide `class:` lands yields `content kpi`,
+  two components on one slide. Covered by two new cases in
+  `test/integration/parity/runtime-frontmatter-refire.test.js`, each verified to bite: removing
+  the re-stamp fails the first, and removing the ordering gate fails the second. **The
+  marp-vscode surface itself remains UNVERIFIED** (HARD RULE #23) — it cannot be driven from the
+  sandbox; what is verified is the runtime's re-render path against the real bundle.
+- **A slide `finish:` silently dragged the running header, the running footer and the deck logo
+  into the content flow, displacing all three.** `base.finish.css` lifted slide content above the
+  backdrop with `section.finish > *:not(.backdrop) { position: relative; z-index: 2 }`, where only
+  the `z-index` was ever the intent — `position: relative` is inert on a static child but
+  destructive on one that positions itself, re-basing `top`/`left` onto the flow position *and*
+  making the element consume stage height. The running header rendered 88px low and 64px right of
+  its frame berth on 11 of the 15 slides of `examples/finish-backdrops.md`; `logo-x`/`logo-y`
+  stopped meaning anything, rendering at 92.2% x on every logo slide in the corpus with a y that
+  drifted 84/87.1/88/100% across all four logo slides, every one declaring `logo-y: 82`. On
+  `examples/marp-export-fidelity.md` p1 the logo left the frame entirely and was that deck's whole
+  23px of overflow — the red `overflow:check` on `main`, which had been attributed to #1309's
+  bookend measure tokens. **Those tokens are unchanged**; the deck's lede carries no cap and the
+  heading cap that did change was widened and did not bind. #1309 tipped the fault rather than
+  causing it, by taking one title from two lines to one. `position` is now withheld from frame
+  chrome via zero-specificity `:where()` exclusions that hold the selector at (0,2,1); the
+  `z-index` still reaches everything. A real-render gate
+  (`test/integration/invariants/frame-chrome-out-of-flow.test.js`) asserts frame chrome lands in
+  the same berth with and without a finish, across a Form frame, a sovereign one, and a split run —
+  verified to fail 12 of its 14 frame-chrome assertions against the pre-fix CSS. **Six** elements
+  were affected, not the three an empirical probe-deck sweep found. `.illegible-tab` was caught by
+  reading the source; the adversarial trio caught two more after the first cut of the exclusion list
+  had already shipped without them — `.lat-split-rail`, which docks at section level whenever a
+  split run has no footer Cell, and `.lattice-bg`, the worst of the set: on the `image` layout's
+  `spotlight` and `statement` compositions the photo panel collapsed to `height: 0` and **the
+  photograph disappeared entirely**. The `clean` default composition re-declares `position:
+  relative` itself and is immune, which is exactly what hid it. Because a list that rots is how this defect happened in the first place (`.overflow-tab`
+  defended itself with `!important`; `.illegible-tab`, written later, did not), the exclusion set is
+  now gated both ways by `checkFinishChromeExclusions` in `tools/check-ownership.js` — a known
+  section-level hook that engine CSS still positions absolutely but the rule no longer excludes
+  fails, and so does an excluded name nothing positions any more. That gate guards the *known* set;
+  the check that finds the *unknown* is empirical and lives in the render tier — toggle `.finish`
+  off and on and assert no direct child of any section changes its computed position. No list, real
+  cascade, and it is what catches `.lattice-bg`. The cause-removing
+  alternative (`.backdrop { z-index: -1 }`, deleting the list outright) was built and rendered and
+  **fails**: a Lattice `section` does not reliably form a stacking context — `isolation` computes
+  `auto` on `math` and `title` — so the backdrop escapes behind the section's own opaque background
+  and the finish vanished on a shipped slide. See
+  `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`

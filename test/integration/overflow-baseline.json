@@ -1,12 +1,9 @@
 {
   "$comment": "Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it.",
-  "totalSlides": 9,
+  "totalSlides": 8,
   "decks": {
     "examples/README.md": [
       1
-    ],
-    "examples/image-set-export.md": [
-      2
     ],
     "examples/overflow-fix-me.md": [
       2,

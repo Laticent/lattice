@@ -220,6 +220,39 @@ layout, so ordinary prose never turns into a note by accident.
 Renders as muted body text with a thin top border. Inherits the slide's
 text color so it reads on either light or dark canvas.
 
+#### Opting out — `no-note`
+
+Promotion is automatic, and on a prose slide it is not always what the author
+meant: **"a list, then a concluding sentence"** is an ordinary shape, and promotion
+turns that conclusion into a footnote — muted, hairline-ruled, and pushed to the
+stage floor. `no-note` keeps the trailing paragraph as body copy.
+
+```markdown
+<!-- _class: content no-note -->
+
+## What we decided.
+
+- We ship the migration in two phases.
+- Phase one lands before the freeze.
+
+These two phases are one decision, and the second does not stand without the first.
+```
+
+Per-slide as above, or deck-wide in front matter (`class: no-note`) for a deck whose
+prose habitually ends this way. It suppresses only the promotion; nothing else about
+the slide changes, and a Key Insight (`> blockquote`) on the same slide is untouched.
+**Deck-wide has a caveat, and it is not this feature's:** `class: no-note` in front matter
+reaches every slide that declares no `_class:` of its own. A slide that DOES carry a
+`_class:` does not see it at the stage the promotion runs — the HTML-transform stage reads
+`content`, and the deck-wide token is merged into the class attribute only afterwards. This
+is general to every deck-wide `class:` token (`class: dark` behaves identically), not
+specific to `no-note`, so it is logged rather than fixed here (#1358). **Put the token on the
+slide when the slide names its own `_class:`.**
+
+`silent` deliberately does **not** imply it: `silent` hides the running *frame* —
+header, footer, page number — none of which is the author's own words, whereas this
+is the author's last sentence.
+
 ### Annotation (HTML-comment register)
 
 A trailing `<!-- annotation: text -->` HTML comment on any slide

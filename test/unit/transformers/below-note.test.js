@@ -73,6 +73,38 @@ describe('below-note — wrapSectionBody (pre-chrome kernel helper, unwired)', (
     );
   });
 
+  test('`no-note` suppresses promotion on a layout that would otherwise promote', () => {
+    const inner = '<ul><li>a</li></ul><p>A concluding sentence, meant as body copy.</p>';
+    assert.ok(belowNote.wrapSectionBody(inner, 'content').includes(WRAP), 'sanity: content promotes');
+    assert.equal(belowNote.wrapSectionBody(inner, 'content no-note'), inner);
+  });
+
+  test('the opt-out is TOKEN-exact — a longer word containing it does not disable notes', () => {
+    const inner = '<ul><li>a</li></ul><p>note</p>';
+    // The layout exclusion list uses a substring test; a suppression flag must not,
+    // or an unrelated future token silently turns the treatment off.
+    assert.ok(belowNote.wrapSectionBody(inner, 'content no-notebook').includes(WRAP));
+    assert.ok(belowNote.wrapSectionBody(inner, 'content notes-on').includes(WRAP));
+    assert.equal(belowNote.hasOptOut('content no-notebook'), false);
+    assert.equal(belowNote.hasOptOut('content no-note'), true);
+  });
+
+  test('the opt-out reads a TOKEN ARRAY as well as a class string', () => {
+    // A class list travels as a string on the HTML/DOM paths and as a token array through
+    // resolve-component.js and the markdown-it plugins. A string-only check fails silently
+    // on an array (`String(['a','no-note'])` splits into one token), which is the direction
+    // that ships. The layout list beside it handles arrays for free via Array#includes.
+    assert.equal(belowNote.hasOptOut(['content', 'no-note']), true);
+    assert.equal(belowNote.hasOptOut(['content', 'no-notebook']), false);
+    assert.equal(belowNote.isExcluded(['content', 'no-note']), true);
+  });
+
+  test('the opt-out never throws on junk input', () => {
+    for (const junk of [undefined, null, 0, {}, [], '']) {
+      assert.equal(belowNote.hasOptOut(junk), false, `hasOptOut(${JSON.stringify(junk)})`);
+    }
+  });
+
   test('does not wrap a <p> that follows another <p> (main content)', () => {
     const html = '<p>body</p><p>more body</p>';
     assert.equal(belowNote.wrapSectionBody(html, 'statement'), html);
@@ -227,6 +259,13 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
     const once = belowNote.applyToHtml(sec('list-checks', '<ul><li>a</li></ul><p>n</p>'));
     assert.equal(belowNote.applyToHtml(once), once);
   });
+
+  test('`no-note` suppresses promotion, per section, on the HTML path', () => {
+    const body = '<ul><li>a</li></ul><p>note</p>';
+    const html = belowNote.applyToHtml(sec('content', body) + sec('content no-note', body));
+    assert.equal((html.match(/class="below-note"/g) || []).length, 1,
+      'the opted-out section keeps its paragraph as body copy; its neighbor still promotes');
+  });
 });
 
 describe('below-note — applyToDom (runtime path)', () => {
@@ -265,6 +304,15 @@ describe('below-note — applyToDom (runtime path)', () => {
     adapter.applyToDom(doc);
     adapter.applyToDom(doc);
     assert.equal(doc.querySelectorAll('.below-note').length, 1);
+  });
+
+  test('`no-note` suppresses promotion on the DOM path too — all three paths agree', () => {
+    const body = '<ul><li>a</li></ul><p>note</p>';
+    const doc = dom(sec('content', body) + sec('content no-note', body));
+    adapter.applyToDom(doc);
+    assert.equal(doc.querySelectorAll('.below-note').length, 1);
+    assert.equal(doc.querySelectorAll('section')[1].querySelector('.below-note'), null,
+      'the opted-out section must be untouched on the runtime path as well');
   });
 
   test('finds the trailing <p> inside a masthead-lift .cell-stage cell (Form default)', () => {

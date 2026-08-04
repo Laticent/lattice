@@ -1044,10 +1044,10 @@ describe('component-manifest', () => {
       assert.ok(!SUBSTANCES.includes(MIXED_SUBSTANCE));
     });
 
-    test('UNIVERSAL_GROUPS has the ten documented categories', () => {
+    test('UNIVERSAL_GROUPS has the eleven documented categories', () => {
       assert.deepEqual(Object.keys(UNIVERSAL_GROUPS).sort(), [
-        'chrome', 'claim', 'decoration', 'insight', 'mood', 'social', 'state', 'table', 'tone',
-        'typography',
+        'chrome', 'claim', 'decoration', 'insight', 'mood', 'note', 'social', 'state', 'table',
+        'tone', 'typography',
       ]);
     });
 
@@ -1061,6 +1061,7 @@ describe('component-manifest', () => {
         'tint-edge at-right', 'mark-threads', // decoration
         'with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl', // typography
         'silent', 'no-header', 'no-footer', 'no-paginate', 'form', 'no-form', 'no-progress', // chrome
+        'no-note', // note
         'safe', // social
         'table-plain', 'table-fill', // table
         'wip', 'draft', 'tbd', 'confidential', 'redacted', 'archived', 'pinned', 'revised', // state

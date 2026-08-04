@@ -58,6 +58,30 @@ const FRONT_MATTER = [
 const RAW_SECTION =
   '<section class="content"><p><code>Kicker</code></p><h2>Title</h2><p>Body.</p></section>';
 
+// The same raw slide with NO component named — what an author who writes no
+// `_class:` gets, and the subject of the DEFAULT-component rule (#1292).
+const RAW_UNCLASSED_SECTION =
+  '<section><p><code>Kicker</code></p><h2>Title</h2><p>Body.</p></section>';
+
+/** Front matter with an arbitrary deck-wide `class:` value. */
+const frontMatterWithClass = (cls) => [
+  '---',
+  'theme: indaco',
+  ...(cls ? [`class: ${cls}`] : []),
+  '---',
+  '',
+  '## Title',
+  '',
+  'Body.',
+  '',
+].join('\n');
+
+/** Component tokens on the first slide — the assertion subject for the rule. */
+const componentsOn = (document) => {
+  const names = new Set(require('../../../lib/core/resolve-component').COMPONENT_NAMES);
+  return [...document.querySelector('section').classList].filter((c) => names.has(c));
+};
+
 describe('runtime front-matter re-fire — logo/meta/class survive a live-edit DOM replacement', () => {
   test('a live-edit that wipes the DOM gets logo/meta/class back from cache, with no second fetch', async () => {
     const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body>${RAW_SECTION}</body></html>`, {
@@ -154,6 +178,72 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     assert.ok(document.querySelector('img.deck-logo'), 'logo re-injected after the live-edit wipe');
     assert.ok(document.querySelector('.tile-meta'), 'meta Tile re-filled after the live-edit wipe');
     assert.ok(document.querySelector('section').classList.contains('dark'), 'dark class re-applied');
+
+    window.close();
+  });
+
+  // The DEFAULT-component rule (#1292) is the fourth member of this family, and it was
+  // the one left out of the re-fire: it ran once, from bootstrap's afterDeckFrontMatter
+  // continuation, and never again. The surface it exists FOR is the marp-vscode webview
+  // — the only one that delivers sections without the class, and the only one that
+  // replaces them wholesale on every edit — so the miss landed squarely on it.
+  //
+  // NOTE ON WHAT THIS PROVES (HARD RULE #23): jsdom + the real bundle exercises the
+  // runtime's own re-render path, which is the logic under test. It is NOT a claim about
+  // marp-vscode itself; that surface cannot be driven from this sandbox and remains
+  // UNVERIFIED. See engineering/decisions/2026-08-02-default-slide-layout.md.
+  test('an un-classed slide gets the default component back after a live-edit wipe', async () => {
+    const dom = new JSDOM(
+      `<!DOCTYPE html><html><head></head><body>${RAW_UNCLASSED_SECTION}${frontMatterBlock(frontMatterWithClass(''))}</body></html>`,
+      { url: 'file:///tmp/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
+    );
+    const { window } = dom;
+    const { document } = window;
+    window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+
+    const scriptEl = document.createElement('script');
+    scriptEl.textContent = RUNTIME_SRC;
+    document.body.appendChild(scriptEl);
+    await new Promise((r) => setTimeout(r, 250));
+
+    assert.deepEqual(componentsOn(document), ['content'], 'default component stamped on the first pass');
+
+    // The live edit: fresh, untransformed sections — un-classed again, exactly as the
+    // webview delivers them.
+    document.body.innerHTML = RAW_UNCLASSED_SECTION;
+    assert.deepEqual(componentsOn(document), [], 'sanity: the wipe actually removed the stamp');
+
+    await new Promise((r) => setTimeout(r, 400));
+    assert.deepEqual(componentsOn(document), ['content'],
+      're-stamped after the wipe — otherwise every render after the first is unstyled, which is #1292 itself');
+
+    window.close();
+  });
+
+  // The ordering guard. The rule reads the RESOLVED class list, so the deck-wide
+  // `class:` must already be on the section when it runs; stamped first, this slide
+  // would come out `content kpi` — two components, and the wrong one winning on CSS
+  // source order rather than on the author's instruction.
+  test('a deck-wide class: kpi yields kpi alone, not content kpi — before AND after a wipe', async () => {
+    const dom = new JSDOM(
+      `<!DOCTYPE html><html><head></head><body>${RAW_UNCLASSED_SECTION}${frontMatterBlock(frontMatterWithClass('kpi'))}</body></html>`,
+      { url: 'file:///tmp/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
+    );
+    const { window } = dom;
+    const { document } = window;
+    window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+
+    const scriptEl = document.createElement('script');
+    scriptEl.textContent = RUNTIME_SRC;
+    document.body.appendChild(scriptEl);
+    await new Promise((r) => setTimeout(r, 250));
+
+    assert.deepEqual(componentsOn(document), ['kpi'], 'the deck-wide component claims the slide; no default appended');
+
+    document.body.innerHTML = RAW_UNCLASSED_SECTION;
+    await new Promise((r) => setTimeout(r, 400));
+    assert.deepEqual(componentsOn(document), ['kpi'],
+      'still kpi alone after the wipe — the re-stamp must run AFTER applyCachedDeckClass, not before it');
 
     window.close();
   });

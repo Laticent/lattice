@@ -2099,6 +2099,39 @@ means "no gap logged for the runtime route", never "the preview is complete.
   reworked inside the nimbus/loom/savile/gallery preset change; relocating those edges
   off `::after` is a separate fix.
 
+### On a `finish:` deck the running header/footer/logo moved, and ate stage height
+
+- **Symptom:** Anything on a slide carrying a `finish:` (deck-wide or per-slide
+  `_class: finish finish-<name>`) that is supposed to be pinned to the slide FRAME turns
+  up in the wrong place and shortens the stage. The running header sat 88px low and 64px
+  right of its berth — far enough to collide with the `h1` — and `logo-x` / `logo-y`
+  described a placement the render did not produce, with the y drifting slide to slide on
+  a deck that declared one value. In the worst case the logo left the frame entirely and
+  reported as slide overflow, which sent the diagnosis chasing a typography token.
+- **Cause:** `base.finish.css` lifted content above the finish backdrop with
+  `section.finish > *:not(.backdrop) { position: relative; z-index: 2 }`. Only the
+  z-index was the intent — `position: relative` is just how a STATIC child earns one. On a
+  child that positions ITSELF it is destructive twice: `top`/`left` stop meaning "inset
+  from the frame" and start meaning "offset from wherever I landed in flow", AND the
+  element starts consuming flow height it was designed never to take. At (0,2,1) it beat
+  `img.deck-logo`'s own `position: absolute` (0,1,1) outright, and tied-and-won on source
+  order against `.illegible-tab` and `.lat-split-rail`.
+- **Tell:** a coordinate that should be constant is different on different slides. An
+  absolute placement cannot depend on how much copy sits above it, so if it does, the
+  element is in flow.
+- **Fixed 2026-08-04.** `position` is now withheld from frame chrome, and the exclusion
+  set is derived from the CSS and gated both ways (`checkFinishChromeExclusions`,
+  `tools/check-ownership.js`) so it cannot silently go stale — which it already had once,
+  missing `.lat-split-rail`. Behavior is gated by
+  `test/integration/invariants/frame-chrome-out-of-flow.test.js`.
+- **If you are adding out-of-flow chrome to a section:** you do not need to remember this
+  file. Add the rule, run `npm run build:check`, and the gate will tell you to exclude it.
+- **Do not "simplify" it to `.backdrop { z-index: -1 }`.** It is the better shape and it
+  does not work: a Lattice `section` does not reliably form a stacking context
+  (`isolation` computes `auto` on `math` and `title`), so the backdrop escapes behind the
+  section's own opaque background and the finish disappears. Measured, with a render.
+- **Commits:** `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
+
 ### `white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows
 
 - **Symptom:** Every fenced code block (`code`, `compare-code`) rendered as a

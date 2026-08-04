@@ -1363,7 +1363,14 @@ section.illegible {
    slide (caught by the trio in a real preview). When a slide earns BOTH signals the
    legibility tab drops by its own height rather than a magic number, so the two stack
    instead of overlapping. Both tabs are position:absolute, so neither can perturb the
-   height math the watcher itself is measuring. */
+   height math the watcher itself is measuring — but that held for `.overflow-tab` alone
+   until 2026-08-04, because it asserts `!important` and this rule does not. This one ties
+   `section.finish > *:not(.backdrop)` at (0,2,1) and LOST on source order (base.finish.css
+   is bundled after this file), so on a `finish:` deck it was dragged into flow and did
+   perturb exactly the height math above. That rule now withholds `position` from frame
+   chrome instead of a second `!important` being added here; the invariant is gated by
+   test/integration/invariants/frame-chrome-out-of-flow.test.js.
+   engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md */
 section.illegible > .illegible-tab {
   position: absolute;
   top: 0;
