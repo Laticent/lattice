@@ -68,6 +68,16 @@ in patch versions.
 
 ### Fixed
 
+- **The decision index stopped dropping summaries written as folded YAML.** 59 of 346 notes
+  rendered an index row with no summary, because the generator parsed front matter as flat
+  `key: value` lines — so `summary: >` came back as the literal string `>`, which is non-empty and
+  sailed past the empty-summary guard. Nothing failed; the index just quietly stopped describing a
+  sixth of the decision record, and a row with no summary is a row nobody opens. The reader now
+  understands YAML block scalars (`>` and `|`, with or without indentation and chomping indicators),
+  folding them to the one line the index row renders. All 346 rows now carry a real summary. A block
+  header with nothing indented beneath it is an error rather than an empty row, so this cannot recur
+  silently.
+
 - **Every tool now finds Chromium the same way.** Nine tools each carried a hand-copied resolver
   under two different names, and they had drifted apart: the one in `check-geometry-parity.js`
   shelled out to `bash -lc 'ls /root/.cache/puppeteer/…'`, hard-coding root's home so it could never

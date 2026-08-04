@@ -19,6 +19,41 @@ describe('decisions-index', () => {
       const fm = frontMatter('---\nstatus: "proposed"\nsummary: x\n---\n\n## H\n\n---\n');
       assert.equal(fm.status, 'proposed');
     });
+
+    // #1310: a flat-only reader parsed `summary: >` as the literal string ">",
+    // which is non-empty and so passed every guard — 59 of 346 notes rendered an
+    // index row reading "— >" with the summary silently dropped.
+    describe('YAML block scalars', () => {
+      test('folds `summary: >` into the one line the index row renders', () => {
+        const fm = frontMatter('---\nstatus: shipped\nsummary: >\n  First line of the summary\n  and its continuation.\n---\n\n# T\n');
+        assert.equal(fm.summary, 'First line of the summary and its continuation.');
+        assert.equal(fm.status, 'shipped', 'keys before the block still parse');
+      });
+      test('folds `|` too, and tolerates chomping / indentation indicators', () => {
+        for (const head of ['|', '>-', '|+', '>2', '|2-']) {
+          const fm = frontMatter(`---\nstatus: shipped\nsummary: ${head}\n  one\n  two\n---\n`);
+          assert.equal(fm.summary, 'one two', `\`summary: ${head}\` should fold`);
+        }
+      });
+      test('a key AFTER the block still parses — the block stops at column 0', () => {
+        const fm = frontMatter('---\nsummary: >\n  folded text\n  more text\nstatus: superseded\nsuperseded-by: 2026-01-01-x.md\n---\n');
+        assert.equal(fm.summary, 'folded text more text');
+        assert.equal(fm.status, 'superseded');
+        assert.equal(fm['superseded-by'], '2026-01-01-x.md');
+      });
+      test('blank lines inside and trailing the block collapse away', () => {
+        const fm = frontMatter('---\nstatus: shipped\nsummary: >\n  one\n\n  two\n\n---\n');
+        assert.equal(fm.summary, 'one two');
+      });
+      test('a bare indicator with NO block beneath stays bare, so collect() can reject it', () => {
+        const fm = frontMatter('---\nstatus: shipped\nsummary: >\n---\n');
+        assert.equal(fm.summary, '', 'nothing to fold → empty, never the literal ">"');
+      });
+      test('a `>` INSIDE a normal value is not mistaken for a block header', () => {
+        const fm = frontMatter('---\nstatus: shipped\nsummary: a > b, and b > c\n---\n');
+        assert.equal(fm.summary, 'a > b, and b > c');
+      });
+    });
   });
 
   describe('render', () => {
