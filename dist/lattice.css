@@ -18482,11 +18482,21 @@ section.illegible > .illegible-tab {
    it. A 15th shape needs one edit, in the obvious place, or it reserves nothing and
    nothing moves. The legibility tab adds its own row on top, which also closes the
    missing truth-table row (stamp + illegible + no clip tab got no offset at all). */
-section > .overflow-tab { transform: translateY(var(--corner-stack, 0)); }
-section > .illegible-tab {
-  transform: translateY(calc(var(--corner-stack, 0) + var(--clip-stack, 0)));
-}
+/* THE FALLBACKS ARE TYPED (`0%`, not `0`) AND THAT IS LOAD-BEARING. `calc()` is
+   type-checked at computed-value time: `calc(100% + 0)` mixes <percentage> with <number>,
+   which is invalid, and an invalid `transform` is DISCARDED ENTIRELY. With unitless
+   fallbacks the offset therefore survived only when BOTH custom properties were set —
+   so the commonest case on this branch (a clip tab and a legibility tab, no stamp)
+   computed `transform: none` and the two tabs overprinted in the same 4-27px band, which
+   is round 4's finding re-created by the fix for round 5's. Caught by the HARD RULE #25
+   red team on a real export before it reached a reviewer; the truth table below is what
+   the canary asserts. */
+section { --corner-stack: 0%; --clip-stack: 0%; }
 section.clip-marked { --clip-stack: 100%; }
+section > .overflow-tab { transform: translateY(var(--corner-stack, 0%)); }
+section > .illegible-tab {
+  transform: translateY(calc(var(--corner-stack, 0%) + var(--clip-stack, 0%)));
+}
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════
