@@ -12,7 +12,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow, PROBE_SRC,
+  CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, probeSectionOverflow, PROBE_SRC,
   probeContentClipped, CONTENT_CLIPPED_SRC,
   probeFigureLegibility, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO,
 } = require('../../../lib/core/overflow-probe');
@@ -643,7 +643,7 @@ describe('probeContentClipped — did the clip actually CUT anything?', () => {
   const run = (html, rects, opts) => {
     const { doc, restore } = mount(html, rects, opts);
     try {
-      return probeContentClipped(doc.querySelector('section'), IGNORED_CLIP_SELECTOR, 12);
+      return probeContentClipped(doc.querySelector('section'), IGNORED_CLIP_SELECTOR, 12, IGNORED_BEARER_SELECTOR);
     } finally { restore(); }
   };
 
@@ -972,7 +972,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       '#vis': rect(300, 340, 600, 680),
     };
     const r = withDom(html, rects, { clipBoxes: ['section', '.katex-mathml'] },
-      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL, IGNORED_BEARER_SELECTOR));
     assert.equal(r.cut, false, 'an accessibility mirror is not content a reader can lose');
   });
 
@@ -1023,6 +1023,74 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
     assert.equal(r.over, false, 'a formatter truncation crosses no box edge — `over` must stay geometric');
     assert.equal(r.clipSuspect, true, 'but it MUST be worth a content walk, or the ellipsis case is unreachable');
+  });
+
+  test('a footer-only cut is DETECTED but flagged chromeOnly — detection is general, treatment is not', () => {
+    // The reader pill lives at the bottom-center of the slide, which IS the footer band.
+    // Once detection widened to cuts with no overflow, one ordinary `footer:` in front
+    // matter put an opaque capsule across the confidentiality line it was reporting, on
+    // EVERY page. Both HARD RULE #25 lenses found it independently by rasterizing a
+    // committed golden. The answer is not to stop detecting -- the doc that prices the
+    // footer's ellipsis asks in the same breath to be TOLD about it -- but to stop
+    // SHOWING it to the one party who can do nothing about it. `cut` stays true (stderr,
+    // the author tab and the corpus ratchet all read it); `chromeOnly` is what the reader
+    // treatment consults.
+    const html = '<section class="form"><div class="cell-stage"><p id="body">fits</p></div>'
+      + '<div class="cell-footer"><footer id="ft">A confidentiality line long enough to be truncated</footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 640, 0, 1280),
+      '#body': rect(40, 90, 40, 1240),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+    };
+    const textRects = { '#ft': rect(650, 690, 40, 900) };
+    const r = withDom(html, rects, { clipBoxes: ['footer'], textRects },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL, IGNORED_BEARER_SELECTOR));
+    assert.equal(r.cut, true, 'the author must still be told the footer lost its tail');
+    assert.equal(r.chromeOnly, true, '...and the reader must not be shown a pill over it');
+    assert.match(r.first, /confidentiality line/);
+  });
+
+  test('a REAL cut alongside a footer cut is not chromeOnly — one non-chrome loss is enough', () => {
+    // The flag is "EVERY cut is chrome", not "some cut is chrome". A slide that ellipses
+    // its footer AND slices a label must still reach the reader, or the footer would
+    // become a way to suppress the pill for the rest of the slide.
+    const html = '<section class="form"><div class="cell-stage"><strong id="lab">Advanced beginner practitioner</strong></div>'
+      + '<div class="cell-footer"><footer id="ft">A confidentiality line long enough to be truncated</footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 640, 0, 1280),
+      '#lab': rect(200, 240, 40, 166),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+    };
+    const textRects = { '#lab': rect(200, 240, 40, 231), '#ft': rect(650, 690, 40, 900) };
+    const r = withDom(html, rects, { clipBoxes: ['footer', '#lab'], textRects },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL, IGNORED_BEARER_SELECTOR));
+    assert.equal(r.cut, true);
+    assert.equal(r.chromeOnly, false, 'a non-chrome cut anywhere on the slide wins');
+    assert.match(r.first, /Advanced beginner/);
+  });
+
+  test('a NESTED out-of-flow bearer is not cut by a static box above its containing block', () => {
+    // The escape used to be cleared by an `else if`, so when the containing-block
+    // establisher was ITSELF out of flow its own escape never started, and every static
+    // clipping ancestor above it was applied to a bearer they do not clip. The one-level
+    // shape stayed correct, which is exactly what hid it. Verified in Chromium before the
+    // fix: this DOM reported `cut: true` on text that is fully visible.
+    const html = '<section><div id="d" data-pos="static"><div id="g" data-pos="absolute">'
+      + '<div id="c" data-pos="absolute"><span id="t">ESCAPED TEXT</span></div></div></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '#d': rect(0, 20, 0, 1280),         // static, clips, only 20px tall
+      '#g': rect(0, 400, 0, 1280),
+      '#c': rect(100, 140, 40, 400),
+      '#t': rect(100, 140, 40, 400),      // fully inside #c and #g, far below #d
+    };
+    const r = withDom(html, rects, { clipBoxes: ['#d'] },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL, IGNORED_BEARER_SELECTOR));
+    assert.equal(r.cut, false, "#d does not clip a bearer whose containing block escaped it");
   });
 
   test('IGNORED_CLIP_SELECTOR does NOT carry the footer BAND — closest() takes its subtree', () => {
@@ -1086,10 +1154,59 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       'name the specific decorative elements, not the ARIA attribute');
   });
 
-  test('IGNORED_CLIP_SELECTOR names the boxes that are never evidence', () => {
-    for (const s of ['.split-feat-bleed', 'div.watermark', '.katex-mathml', '.image-scrim', '.overflow-tab']) {
-      assert.ok(IGNORED_CLIP_SELECTOR.includes(s), `${s} must stay excluded`);
+  test('one set, two matchers — the entries were never what should have been split', () => {
+    for (const sel of ['div.split-feat-bleed', 'div.watermark', 'div.image-scrim',
+      'span.katex-mathml', '.overflow-tab']) {
+      assert.ok(IGNORED_CLIP_SELECTOR.includes(sel), `${sel} must stay excluded as a clip box`);
+      assert.ok(IGNORED_BEARER_SELECTOR.includes(sel), `${sel} must stay excluded as a bearer`);
     }
+    // A first cut split the ENTRIES instead of the SEMANTICS and dropped the KaTeX mirror
+    // from the box side. Its 1x1px `overflow:hidden` box went straight back into discovery
+    // and 13 math gallery slides flipped to `over: true` on the corpus sweep — the exact
+    // phantom the exclusion exists for. Caught by the ratchet, not by a unit test, which
+    // is why this one exists.
+    assert.equal(IGNORED_BEARER_SELECTOR, IGNORED_CLIP_SELECTOR,
+      'the two lists are the same SET; only the matcher differs (matches() vs closest())');
+  });
+
+  test('THE KILL SWITCH IS CLOSED — the box list is matched with matches(), never closest()', () => {
+    // One class anywhere in a slide used to switch off discovery in BOTH probes, and with
+    // `over` forced false, autosplit with them: `_class: content image-scrim`, or a
+    // hand-typed `<div class="tile-watermark">`, both legal because the engine sets
+    // `html: true`. Measured on a real export -- the same ellipsed <strong> reported a cut
+    // on a plain slide and nothing at all on the same slide carrying `image-scrim`.
+    // "This box's clip is decorative" is a fact about ONE BOX, so it needs no subtree
+    // reach; without the reach the class cannot silence anything but the element carrying
+    // it. (HARD RULE #25 red team, round 3.)
+    const src = require('node:fs').readFileSync(
+      require('node:path').join(__dirname, '..', '..', '..', 'lib', 'core', 'overflow-probe.js'), 'utf8');
+    assert.match(src, /el\.matches\(ignoreSelector\)/,
+      'the box list must be tested with matches() on the box');
+    assert.ok(!/closest\(ignoreSelector\)/.test(src),
+      'no closest() against the BOX list — that reach is the kill switch');
+    assert.match(src, /el !== s && ignoreSelector/,
+      'and the SECTION is never excluded by it — the outermost boundary is not negotiable');
+  });
+
+  test('a decorative class on an ANCESTOR no longer blinds the GEOMETRY probe', () => {
+    // The attack, as a unit. A wrapper carrying a decorative class, and a real clipping
+    // cell below it hiding 200px of content. With `closest()` on the box side the whole
+    // subtree dropped out of DISCOVERY, so `over` went false — and `over` is what drives
+    // the ring, the export warning and AUTOSPLIT. That is the part of the kill switch
+    // that had to close, and it is closed by the matcher, not by the list.
+    const html = '<section><div class="image-scrim"><div class="cell-stage">'
+      + '<p id="a">cut text</p></div></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.image-scrim': rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 500, 0, 1280),
+      '#a': rect(480, 700, 40, 400),
+    };
+    const scroll = { '.cell-stage': { scrollHeight: 700, clientHeight: 500 } };
+    const r = withDom(html, rects, { clipBoxes: ['.cell-stage'], scroll },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, true,
+      'a decorative wrapper must not switch off discovery — that took autosplit with it');
   });
 
   test('IGNORED_CLIP_SELECTOR never names a UNIVERSAL VARIANT class — closest() takes the subtree', () => {
@@ -1123,8 +1240,8 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       const src = fs.readFileSync(path.join(root, f), 'utf8');
       assert.match(src, /probeSectionOverflow\(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR\)/,
         `${f} must pass IGNORED_CLIP_SELECTOR to the geometry probe`);
-      assert.match(src, /probeContentClipped\(s, IGNORED_CLIP_SELECTOR, TOL\)/,
-        `${f} must pass IGNORED_CLIP_SELECTOR to the content probe`);
+      assert.match(src, /probeContentClipped\(s, IGNORED_CLIP_SELECTOR, TOL, IGNORED_BEARER_SELECTOR\)/,
+        `${f} must pass BOTH lists to the content probe — the bearer list excludes the a11y mirror`);
     }
   });
 });

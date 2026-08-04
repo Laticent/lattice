@@ -578,13 +578,13 @@ describe('check-ownership', () => {
       // mystery to the next reader.
       const css = require('node:fs').readFileSync(
         require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
-      // Matched on the SELECTOR LIST, not on `selector {` — the rule now also covers
-      // `section.content-clipped > .overflow-tab` (a slide that cut content without
-      // overflowing its own frame). That population had no `position` rule at all for
-      // one commit and the tab rendered IN FLOW, taking 50px out of the very cell it was
-      // reporting on — precisely the defect this exemption records as already fixed once.
-      // The PROPERTY this test guards is unchanged; only the arity of the selector is.
-      assert.match(css, /section\.content-cut > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/,
+      // ONE selector now, `section.clip-marked`, because one class answers the whole
+      // marker question. It was briefly TWO rules over two conjunction classes, and the
+      // population reachable by only one of them had no `position` rule at all: the tab
+      // rendered IN FLOW and took 50px out of the very cell it was reporting on —
+      // precisely the defect this exemption records as already fixed once. The PROPERTY
+      // this test guards is unchanged.
+      assert.match(css, /section\.clip-marked > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/,
         'the tab must defend its own position, or it lands in flow and takes height from the cell');
     });
   });
@@ -1923,8 +1923,47 @@ describe('check-ownership', () => {
 // shape HARD RULE #23 rejects: a claim of verification whose evidence does not survive
 // the session it was made in. Pinned here, in all three directions the canaries covered.
 describe('check-ownership: checkCommittedPdfs (#1279)', () => {
-  const { checkCommittedPdfs, PDF_OWNERSHIP } = require('../../../tools/check-ownership');
+  const { checkCommittedPdfs, auditPdfOwnership, PDF_OWNERSHIP } = require('../../../tools/check-ownership');
   const { EXTRA_NAMES } = require('../../../tools/build-bucket-galleries');
+
+  // THE TWO FAILURE BRANCHES, DRIVEN. Everything below this pair used to assert either
+  // that the real tree is clean or that the table's fields are populated -- so inverting
+  // the orphan condition, or deleting the stale-rule loop outright, left the suite green
+  // while the CHANGELOG claimed the gate was "proven with deliberately-broken canaries in
+  // all three directions". It was, by hand, once; a hand-run canary leaves no artifact and
+  // is not a test. `auditPdfOwnership` is the same logic as a pure function of a file list
+  // so the canaries can live here permanently.
+  test('CANARY — an unowned PDF is named as an orphan', () => {
+    const real = 'examples/auto-split.pdf';
+    const { orphans } = auditPdfOwnership([real, 'somewhere/nobody-owns-this.pdf']);
+    assert.deepEqual(orphans, ['somewhere/nobody-owns-this.pdf'],
+      'a path no rule claims must surface, and a real one must not');
+  });
+
+  test('CANARY — a rule matching nothing is named as stale', () => {
+    // One real file, so exactly one rule hits and every OTHER rule reports stale.
+    const { staleRules } = auditPdfOwnership(['examples/auto-split.pdf']);
+    assert.equal(staleRules.length, PDF_OWNERSHIP.length - 1,
+      'every rule but the one that matched must be reported stale');
+    assert.ok(!staleRules.includes('per-feature demo decks (HARD RULE #9) and the token-contrast set'),
+      'the rule that DID match must not be called stale');
+  });
+
+  test('CANARY — a rule that names a producer must be true OF THE FILE, not of the path shape', () => {
+    // Each of these has the exact shape its rule matches and NO source deck behind it, so
+    // nothing would ever write it. Nine of the ten rules certified files like these as
+    // owned, with a named producer, until round 3 (only the lib/base arm had been fixed).
+    const phantoms = [
+      'lib/components/anchor/_bogus/bogus.gallery.light.pdf',
+      'examples/hand-dropped-orphan.pdf',
+      'exemplars/fake/fake.pdf',
+      'design/bogus.gallery.pdf',
+      'test/integration/baseline-decks/bogus.pdf',
+    ];
+    const { orphans } = auditPdfOwnership(phantoms);
+    assert.deepEqual(orphans.sort(), [...phantoms].sort(),
+      'a producer claim with no input behind it is not ownership');
+  });
 
   test('the real tree is fully owned — no orphan, no stale rule', () => {
     const errors = [];

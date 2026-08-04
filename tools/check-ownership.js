@@ -4282,6 +4282,27 @@ function checkUniversalTableGuard(manifests, errors, dirs = {}) {
 // watcher — not an oversight. It is the honest answer for a reviewer deliverable whose
 // own README says it is not a regression baseline, and for evidence frozen beside a
 // dated decision record, where rebuilding would destroy the thing being evidenced.
+// Does the input the `producer:` field NAMES actually exist for this file?
+//
+// Every rule below claims a producer, and for most of them the producer is "the sibling
+// markdown, rendered". A bare path regex does not check that claim: it certified
+// `examples/hand-dropped-orphan.pdf`, `design/bogus.gallery.pdf` and
+// `test/integration/baseline-decks/bogus.pdf` as OWNED, with a named producer, for files
+// that do not exist and that nothing would ever write. The `lib/base` arm was hardened
+// against exactly this in an earlier round and the other nine rules were not — so the
+// gate asserted the class for one tenth of the class. (HARD RULE #25 red team, round 3.)
+//
+// A missing sibling now falls through to the orphan branch, which is the honest answer:
+// nothing rebuilds it, so nothing is watching it.
+function hasSourceDeck(f, srcName) {
+  const src = srcName || f.replace(/\.pdf$/, '.md');
+  try {
+    return fs.existsSync(path.join(ROOT, src));
+  } catch {
+    return false;
+  }
+}
+
 const PDF_OWNERSHIP = [
   {
     // `lib/base/**` is admitted ONLY for a gallery build-bucket-galleries actually
@@ -4295,7 +4316,8 @@ const PDF_OWNERSHIP = [
     // `lib/base/logo.gallery.dark.pdf` — files build-bucket-galleries would never write —
     // which is #1279's own defect one directory level away, under a green gate. The
     // gate has to assert the `producer:` field is true OF THIS FILE. (Red team.)
-    test: (f) => /^lib\/components\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
+    test: (f) => (/^lib\/components\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
+      && hasSourceDeck(f, f.replace(/\.(light|dark)\.pdf$/, '.md')))
       || EXTRA_NAMES.some((n) => f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.light.pdf`
         || f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.dark.pdf`),
     what: 'component, bucket and hand-authored galleries',
@@ -4310,31 +4332,32 @@ const PDF_OWNERSHIP = [
   },
   {
     test: (f) => /^examples\/([a-z][a-z0-9-]*\/)?[a-z][a-z0-9-]*\.pdf$/.test(f)
-      && !/-gallery\.(light|dark)\.pdf$/.test(f) && !f.startsWith('examples/chart-theme-gallery/'),
+      && !/-gallery\.(light|dark)\.pdf$/.test(f) && !f.startsWith('examples/chart-theme-gallery/')
+      && hasSourceDeck(f),
     what: 'per-feature demo decks (HARD RULE #9) and the token-contrast set',
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
     watcher: 'overflow:check',
   },
   {
-    test: (f) => /^exemplars\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.pdf$/.test(f),
+    test: (f) => /^exemplars\/[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the worked boardroom exemplars',
     producer: 'tools/build-exemplar-pdfs.js · tools/build-staged-pdfs.js (pre-commit)',
     watcher: 'test:integration:exemplars · overflow:check',
   },
   {
-    test: (f) => /^design\/[a-z][a-z0-9-]*\.gallery\.pdf$/.test(f),
+    test: (f) => /^design\/[a-z][a-z0-9-]*\.gallery\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'design-system demo decks (they live with their owner, not under examples/)',
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
     watcher: 'overflow:check',
   },
   {
-    test: (f) => /^test\/integration\/baseline-decks\/[a-z][a-z0-9-]*\.pdf$/.test(f),
+    test: (f) => /^test\/integration\/baseline-decks\/[a-z][a-z0-9-]*\.pdf$/.test(f) && hasSourceDeck(f),
     what: 'the CI baseline deck',
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
     watcher: 'test:integration (page-count assertions) · overflow:check',
   },
   {
-    test: (f) => f === 'themes/palette-audit.pdf',
+    test: (f) => f === 'themes/palette-audit.pdf' && hasSourceDeck(f),
     what: "the theme designer's palette audit",
     producer: 'sibling .md via tools/build-staged-pdfs.js (pre-commit)',
     watcher: null, // Outside the overflow corpus on purpose: a designer's sweep, not a shipped deck.
@@ -4362,6 +4385,36 @@ const PDF_OWNERSHIP = [
   },
 ];
 
+/**
+ * The two verdicts, as a PURE function of a file list — which is what makes them
+ * testable.
+ *
+ * `checkCommittedPdfs` shells out to `git ls-files` against a module-level `ROOT`, so
+ * neither of its failure branches had any injection point: the four tests written for it
+ * asserted that the REAL tree is clean and that the table's fields are populated, and
+ * inverting the orphan condition or deleting the stale-rule loop outright left the suite
+ * green. The CHANGELOG meanwhile claimed the gate was "proven with deliberately-broken
+ * canaries in all three directions" — true when it was run by hand, and pointing at
+ * evidence that no longer existed. A gate whose failure path cannot be exercised is a
+ * gate that certifies nothing. (HARD RULE #23 / #25 checker, round 3.)
+ *
+ * @param {string[]} files repo-relative PDF paths
+ * @returns {{orphans:string[], staleRules:string[]}}
+ */
+function auditPdfOwnership(files) {
+  const hits = PDF_OWNERSHIP.map(() => 0);
+  const orphans = [];
+  for (const f of files) {
+    const i = PDF_OWNERSHIP.findIndex((r) => r.test(f));
+    if (i < 0) orphans.push(f);
+    else hits[i] += 1;
+  }
+  return {
+    orphans,
+    staleRules: PDF_OWNERSHIP.filter((_r, i) => hits[i] === 0).map((r) => r.what),
+  };
+}
+
 function checkCommittedPdfs(errors) {
   let committed;
   try {
@@ -4382,13 +4435,7 @@ function checkCommittedPdfs(errors) {
     return;
   }
 
-  const hits = PDF_OWNERSHIP.map(() => 0);
-  const orphans = [];
-  for (const f of committed) {
-    const i = PDF_OWNERSHIP.findIndex((r) => r.test(f));
-    if (i < 0) orphans.push(f);
-    else hits[i] += 1;
-  }
+  const { orphans, staleRules } = auditPdfOwnership(committed);
   if (orphans.length) {
     errors.push(
       `${orphans.length} committed PDF(s) are owned by NOTHING — no rule in PDF_OWNERSHIP `
@@ -4399,14 +4446,12 @@ function checkCommittedPdfs(errors) {
       + '\n    Give it a producer and a watcher, or add a rule saying honestly that it has none.',
     );
   }
-  for (let i = 0; i < PDF_OWNERSHIP.length; i++) {
-    if (hits[i] === 0) {
-      errors.push(
-        `PDF_OWNERSHIP rule "${PDF_OWNERSHIP[i].what}" matches NO committed PDF — a stale `
-        + 'sanction. Remove it, or fix the pattern: a rule that matches nothing is a rule '
-        + 'that will silently stop covering the files it was written for.',
-      );
-    }
+  for (const what of staleRules) {
+    errors.push(
+      `PDF_OWNERSHIP rule "${what}" matches NO committed PDF — a stale `
+      + 'sanction. Remove it, or fix the pattern: a rule that matches nothing is a rule '
+      + 'that will silently stop covering the files it was written for.',
+    );
   }
 }
 
@@ -4491,6 +4536,7 @@ module.exports = {
   parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,
   checkCommittedPdfs,
+  auditPdfOwnership,
   PDF_OWNERSHIP,
   checkUniversalTableGuard,
   universalTableDenyEntries,

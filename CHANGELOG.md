@@ -631,7 +631,7 @@ in patch versions.
   was that **the set of committed artifacts was not the set any gate knew about**, so
   `checkCommittedPdfs` (in `build:check`) now requires every `git ls-files '*.pdf'` entry to be
   claimed by a rule naming its producer AND its watcher — and fails on a stale rule too, so the
-  table cannot rot. Three PDF groups are recorded as having no automated watcher, each with the
+  table cannot rot. Four PDF groups are recorded as having no automated watcher, each with the
   reason, rather than being quietly uncovered. Proven with deliberately-broken canaries in all
   three directions (an unowned PDF, a stale rule, and each of the three widened gates), which is
   what the card asked for.
@@ -640,26 +640,66 @@ in patch versions.
   every unit test passed, the console said the right thing — and `base.modifiers.css` hid it,
   because tab visibility keys on `.overflow` and `.overflow` is (correctly) pure geometry.
   Found by rasterizing the export rather than reading the diff; pinned by an integration test
-  that drives a real export and asserts computed `display` AND `position` at all three marker
-  levels, since a class assertion passes against the broken build.
-- **The reader register is now ONE class, `.content-cut`, orthogonal to `.overflow`.** The
-  first fix for the above added a second conjunction class beside the first — `.overflow-silent`
-  (`over && !tell`) and `.content-clipped` (`tell && !over`) — three classes encoding two
-  booleans, so a slide that BOTH overflows and cuts carried neither, and the pill's visibility
-  keyed on one predicate while its styling keyed on another. That gap is exactly how the
-  author-level tab shipped un-hidden by one rule and styled by neither: it rendered in flow and
-  took 50px off the `.cell-stage` it was reporting on. `.overflow` stays pure geometry;
-  `.content-cut` IS `tell`; the same predicate that draws the tab now gates and styles it, so
-  the two cannot disagree.
-- **The `⚠ CONTENT CLIPPED` channel DOES report the running footer's ellipsis** — an exemption
-  for it shipped here and was taken back out. `2026-07-27-footer-band-allocation.md` prices that
-  truncation, so the case for silence was real: it was 11 of the channel's first 13 hits. But
-  the same doc says the loss "is not enforced or warned about", and names the remedy — option
-  (d), route over-subscription into the existing alarm so the author is told, "the only option
-  that closes the class rather than an instance". This probe IS option (d); exempting the footer
-  would have shipped the mechanism that closes the class with the class carved out of it.
-  Cry-wolf is a rule about FALSE positives, and a legally-operative line deleted from an
-  exported text layer — in portrait, roughly three quarters of it — is not one.
+  that drives a real export at all three marker levels and asserts computed `display` — plus
+  `position` at `author`, the level where the tab landed in flow — since a class assertion
+  passes against the broken build.
+- **The marker question is ONE class, `.clip-marked` — a TREATMENT flag, orthogonal to the
+  geometric `.overflow`.** It replaced two conjunction classes (`.overflow-silent` =
+  `over && !tell`, `.content-clipped` = `tell && !over`): three classes for two booleans, so a
+  slide that BOTH overflowed and cut carried neither, and the tab's visibility keyed on one
+  predicate while its styling keyed on the other — which is exactly how the author-level tab
+  shipped un-hidden by one rule and styled by neither, rendering IN FLOW and taking 50px off the
+  `.cell-stage` it was reporting on. It was then briefly called `.content-cut`, which reads as a
+  FACT and is not one: the population is level-dependent by design, so a panel listing "slides
+  that lost content" from it would be wrong on every surface. `.overflow` is the fact to query;
+  this only ever says "a marker is drawn here".
+- **The running footer's ellipsis is DETECTED but no longer shown to a reader.** Detection is
+  general — `2026-07-27-footer-band-allocation.md` prices that truncation and asks in the same
+  section to be told about it ("not enforced or warned about"; option (d), "so the author is
+  told"), so an exemption in the probe shipped and was taken back out, and stderr, the `author`
+  tab and the corpus ratchet all count it. The TREATMENT is not general, and the reason is
+  geometric: the reader pill sits bottom-center, which IS the footer band, so one ordinary
+  `footer:` in front matter painted an opaque capsule across the confidentiality line it was
+  reporting, on EVERY page of the deck — ink overlap in the one band that decision doc exists to
+  have cleared, and unactionable besides (a reader can neither edit a footer nor scroll a PDF).
+  `probeContentClipped` now returns `chromeOnly`, and the reader treatment consults it. The pill
+  also moved clear of the band, onto the stage's own `--footer-reserve`.
+- **`safe` alignment: `space-around` / `space-evenly` do NOT shear.** The claim that they fall
+  back to `center` was read off the css-align-3 grammar; measured in Chromium 131 they resolve
+  to `start`, like `space-between`. Corrected in `gotchas.md` and the decision note, which had
+  carried it for two rounds after the measurement that refuted it.
+- **The overflow ignore list is two lists, and the author-reachable kill switch is closed.** One
+  list matched with `closest()` served both probes, so a single class anywhere in a slide —
+  `_class: content image-scrim`, or a hand-typed `<div class="tile-watermark">`, both legal
+  because the engine sets `html: true` — turned off box discovery in BOTH probes and, with
+  `over` forced false, autosplit with them. Measured on a real export: the same ellipsed
+  `<strong>` reported a cut on a plain slide and nothing at all on the same slide carrying
+  `image-scrim`. `IGNORED_CLIP_SELECTOR` is matched with `matches()` ON THE BOX (a decorative
+  clip is a property of one box, needs no subtree reach, and never applies to the section
+  itself); the separate `IGNORED_BEARER_SELECTOR` keeps `closest()` for the claim that really is
+  about a subtree — KaTeX's invisible mirror and the marker's own chrome.
+- **`author` says "Content clipped" when nothing overflowed.** The tab read "Overflows" —
+  a claim about geometry — on the population this change added, so an author saw a red flag with
+  no ring beside it (correctly absent) and went hunting for a spill that was not there. One
+  vocabulary now, shared with the stderr channel and the reader pill.
+- **A nested out-of-flow bearer is no longer reported as cut by a box that does not clip it.**
+  The containing-block escape was cleared with an `else if`, so an establisher that was itself
+  out of flow never started its own escape and every static clipping ancestor above it was
+  applied to the bearer. The one-level shape stayed correct, which is what hid it.
+- **`off` leaves nothing on the runtime surfaces too.** `policy.mark` gated only the class, so
+  the browser watcher appended a tab that survived purely because CSS hid it, while the
+  emulator's inline watcher skips its whole tab branch — two watchers producing different DOM
+  for the same level (HARD RULE #1).
+- **Two gates that could not fail for the thing they were added to catch, fixed.**
+  `sweepOverflowMarkers`'s test built its fixture and its assertion by hand, so the class added
+  to the sweep this cycle could be deleted again with the suite green; it now derives the class
+  list from the watcher's own source. And `checkCommittedPdfs` shelled out to `git ls-files`
+  with no injection point, so neither of its failure branches was reachable from a test — the
+  logic is a pure `auditPdfOwnership(files)` now, with permanent canaries for an orphan, a stale
+  rule, and a producer claim with no source deck behind it. Nine of the ten `PDF_OWNERSHIP`
+  rules had also certified phantom paths (`examples/hand-dropped-orphan.pdf`,
+  `design/bogus.gallery.pdf`) as owned with a named producer; every rule now asserts its
+  producer claim is true OF THE FILE.
 - **`safe` alignment now covers the class, not two components.** `stage.css`'s `align-middle`
   / `fill-center` / `align-bottom` / `fill-anchor` are universal modifiers on every component
   and could throw a slide's first list item off the block-start edge with no signal. 34

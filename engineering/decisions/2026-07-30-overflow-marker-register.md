@@ -661,9 +661,15 @@ all of it at once:
 
 | | whole document | per section |
 |---|---|---|
-| geometry probe, before | 4.7ms | 0.04ms |
-| box discovery added | +7.4ms | +0.06ms |
-| `probeContentClipped`, when it runs | 23.6ms | 0.20ms |
+| geometry probe, before | baseline | baseline |
+| box discovery added | ~2.5× the walk | ~2.5× the walk |
+| `probeContentClipped`, when it runs | the dominant term | the dominant term |
+
+*(Absolute milliseconds removed rather than corrected, for the reason stated later in
+this note: this machine gives a 3× spread on identical code, and the figures that used to
+sit here were measured BEFORE the bearer-major rewrite made the content probe ~5.7×
+cheaper. They were left standing for two rounds after that rewrite, which is how a stale
+number becomes a load-bearing one.)*
 
 Discovery skips childless elements (4706 → 1761), which is half its cost — but ONLY
 for `over`. That skip sat at the top of the loop in the first cut and therefore also
@@ -689,8 +695,10 @@ found by measuring the corpus rather than by reasoning about it:
 
 With those excluded, the sweep found **one genuine, previously-silent content loss**:
 `redline split`'s NEW column ran 31px past its own `overflow:hidden` and dropped the
-closing phrase of a statute clause — "…their personal information." — on this
-component's own gallery. The `.cell-stage` fit; the section fit; the blockquote was a
+closing phrase of a statute clause — "…their personal information." — on
+`lib/components/legal/legal.gallery.md` p29, NOT on `redline.gallery.md` (the branch
+corrected that attribution in the CHANGELOG and left it standing here for a round; a
+decision record's whole value is being trustworthy later). The `.cell-stage` fit; the section fit; the blockquote was a
 clipping box nothing looked at. Fixed here (tighter leading in a two-column track, which
 `.three-col` next door already does for the same reason).
 
@@ -711,9 +719,11 @@ detection and loss — and each is separately sufficient for the detection half 
 One alignment could not be made safe and is stated rather than quietly skipped:
 `justify-content: space-evenly` on `split-panel`'s supporting list. `safe`/`unsafe` are
 `<overflow-position>` keywords the grammar admits only before a `<content-position>`, so
-`safe space-evenly` is invalid CSS and would drop the declaration entirely. css-align-3
-fixes that value's overflow fallback at `center`, so it can still shear — it is
-*detected* (`.panel-right` is a probed cell and the rect walk reads block-start spill),
+`safe space-evenly` is invalid CSS and would drop the declaration entirely. Its overflow
+fallback was MEASURED in Chromium 131 rather than read off the grammar: it resolves to
+`start`, not `center`, so it does not shear in the first place (see the correction later
+in this note; this paragraph asserted `center` for a round after that measurement). It is
+also *detected* (`.panel-right` is a probed cell and the rect walk reads block-start spill),
 which is the property that matters.
 
 

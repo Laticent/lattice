@@ -603,7 +603,7 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // from the engine's OWN boundaries rather than a scan of everything before the fence
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
-const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const {
   OVERFLOW_TAB_TEXT_SRC,
@@ -1973,6 +1973,7 @@ ${stateChartScript}
   // Clip boxes that are never evidence of lost content — decorative bleeds, invisible
   // a11y mirrors, our own marker chrome. Both probes take it; see overflow-probe.js.
   var IGNORED_CLIP_SELECTOR = ${JSON.stringify(IGNORED_CLIP_SELECTOR)};
+  var IGNORED_BEARER_SELECTOR = ${JSON.stringify(IGNORED_BEARER_SELECTOR)};
   // The resolved overflow-marker level, stamped on every slide so base.modifiers.css
   // can pick the TONE (author = red ring + "Overflows"; reader = no ring + a calm
   // "Content clipped" pill). Same attribute the browser runtime stamps.
@@ -2020,31 +2021,49 @@ ${stateChartScript}
       // walk still stays off the slides where nothing clips -- it just no longer needs
       // the GEOMETRY to have been right first.
       // (No backticks in this comment -- it is injected into a template literal.)
-      var tellGeom = over && (MARKER_LEVEL === 'author' || probed.squeezed > TOL);
-      var tell = tellGeom || ((over || probed.clipSuspect)
-        && probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL).cut);
+      var isAuthor = MARKER_LEVEL === 'author';
+      var clip = (over || probed.clipSuspect)
+        ? probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL, IGNORED_BEARER_SELECTOR)
+        : { cut: false, first: null, chromeOnly: true };
+      // DETECTION is general; TREATMENT is not. Every cut counts for the author -- the
+      // running footer's included, which is why there is no exemption in the probe. A cut
+      // ENTIRELY inside the footer band is not shown to a READER: the reader pill lives in
+      // that band, so it painted an opaque capsule over the confidentiality line it was
+      // reporting, on every page of any deck with an ordinary footer. See the climb in
+      // lib/core/overflow-probe.js. Must match lib/runtime/index.js exactly (HARD RULE #1)
+      // or a --fluid export disagrees with the PDF beside it.
+      // (No backticks in this comment -- it is injected into a template literal.)
+      var tell = isAuthor
+        ? (over || clip.cut)
+        : ((over && probed.squeezed > TOL) || (clip.cut && !clip.chromeOnly));
       // The overflow tab. The ring is colour-only (WCAG 1.4.1), so the condition is
-      // named in text -- and the text differs by level, which is the whole setting.
+      // named in text -- and the text differs by level AND by condition. "Overflows" is
+      // the geometry word and was wrong on the population this change added: an ellipsed
+      // label has over:false, so the author got a red OVERFLOWS flag with no ring beside
+      // it and went hunting for a spill that was correctly absent.
       // The "off" level draws none; the strip pass below clears the class too.
       if (MARKER_LEVEL !== 'off') {
         var oTab = s.querySelector(':scope > .overflow-tab');
+        var tabWord = overflowTabText(isAuthor, isAuthor && !over);
         if (tell && !oTab) {
           oTab = document.createElement('div');
           oTab.className = 'overflow-tab';
-          oTab.textContent = overflowTabText(MARKER_LEVEL === 'author');
+          oTab.textContent = tabWord;
           s.appendChild(oTab);
         } else if (!tell && oTab) {
           oTab.remove();
+        } else if (oTab && oTab.textContent !== tabWord) {
+          oTab.textContent = tabWord;
         }
       }
-      // ONE class, orthogonal to the geometric .overflow: content-cut IS tell. It
+      // ONE class, orthogonal to the geometric .overflow: clip-marked IS tell. It
       // replaced two conjunction classes that between them left a slide which BOTH
       // overflows and cuts carrying neither, and let CSS un-hide a population by one
       // class while styling it by the other. Never stamped under the off level, which
       // promises to leave nothing -- the sweep clears once at boot and this watcher
       // re-stamps on every settle, so an unguarded toggle loses that race.
       // (No backticks in this comment -- it is injected into a template literal.)
-      s.classList.toggle('content-cut', MARKER_LEVEL !== 'off' && tell);
+      s.classList.toggle('clip-marked', MARKER_LEVEL !== 'off' && tell);
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
@@ -2565,7 +2584,7 @@ async function renderBody(browser, g, closeBrowser) {
   // could fix it was the only person not informed. `overflow:check` reads this line
   // too, so the corpus ratchet counts them (HARD RULE #23 — a channel nothing reads is
   // not a channel).
-  const contentOnly = await g(() => page.evaluate(({ ignoreSel, ccSrc, probeSrc, clipSel }) => {
+  const contentOnly = await g(() => page.evaluate(({ ignoreSel, bearerSel, ccSrc, probeSrc, clipSel }) => {
     const TOL = 12;
     const probeContentClipped = new Function('return (' + ccSrc + ')')();
     const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
@@ -2574,11 +2593,11 @@ async function renderBody(browser, g, closeBrowser) {
       const p = probeSectionOverflow(s, clipSel, TOL, ignoreSel);
       if (p.over) return;                       // already on the OVERFLOW line above
       if (!p.clipSuspect) return;               // nothing clips anything — skip the walk
-      const c = probeContentClipped(s, ignoreSel, TOL);
+      const c = probeContentClipped(s, ignoreSel, TOL, bearerSel);
       if (c.cut) out.push({ slide: i + 1, first: c.first });
     });
     return out;
-  }, { ignoreSel: IGNORED_CLIP_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR }), 'measure content cuts');
+  }, { ignoreSel: IGNORED_CLIP_SELECTOR, bearerSel: IGNORED_BEARER_SELECTOR, ccSrc: CONTENT_CLIPPED_SRC, probeSrc: PROBE_SRC, clipSel: CLIP_CELL_SELECTOR }), 'measure content cuts');
   if (contentOnly.length) {
     const n = contentOnly.length;
     console.warn(`  ⚠ CONTENT CLIPPED — ${n} slide${n > 1 ? 's' : ''} lose${n > 1 ? '' : 's'} content inside a box that clips, without exceeding the frame: page${n > 1 ? 's' : ''} ${contentOnly.map((o) => o.slide).join(', ')}.`);
@@ -2592,7 +2611,7 @@ async function renderBody(browser, g, closeBrowser) {
   // but a red box in front of a board is worse than the silent clip that
   // overflow:hidden already applies. The author is warned on stderr at EVERY level;
   // what the artifact shows is the `overflow-marker` setting's job, resolved above.
-  // (Tab visibility keys on `.content-cut`, not on `.overflow` — a slide can cut content
+  // (Tab visibility keys on `.clip-marked`, not on `.overflow` — a slide can cut content
   // without overflowing — so `off` has to clear THAT class or the pill survives the strip.)
   const level = OVERFLOW_MARKER.marker;
   await g(() => page.evaluate((lvl) => {
@@ -2602,7 +2621,7 @@ async function renderBody(browser, g, closeBrowser) {
     // never a standing default (lib/core/resolve-overflow-marker.js).
     if (lvl === 'off') {
       for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-      for (const s of document.querySelectorAll('section.content-cut')) s.classList.remove('content-cut');
+      for (const s of document.querySelectorAll('section.clip-marked')) s.classList.remove('clip-marked');
       for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
     }
     // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:

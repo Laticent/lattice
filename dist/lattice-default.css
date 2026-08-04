@@ -18256,38 +18256,43 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
   box-shadow: inset 0 0 0 4px #d4351c;
 }
 
-/* ── ONE class for the reader question: `.content-cut` = "something was CUT" ──
+/* ── ONE class for the whole marker question: `.clip-marked` ──────────────────
+ *
+ * ONE FACT AND ONE TREATMENT, kept apart:
+ *
+ *   .overflow      the box's content extent exceeded the box   — a FACT about geometry,
+ *                                                                level-independent, and
+ *                                                                what autosplit keys on
+ *   .clip-marked   this section SHOWS a clip marker, here      — a TREATMENT, resolved
+ *                                                                from the marker level
  *
  * This used to be two classes, each encoding a CONJUNCTION: `.overflow-silent`
  * (`over && !tell`) and `.content-clipped` (`tell && !over`). Three classes for two
- * booleans, so a slide that BOTH overflows and cuts carried neither of them, and anyone
- * writing a rule for "content was clipped" got the minority of that population. Recovering
- * the quantity every rule actually wants — `tell` — took boolean algebra.
+ * booleans, so a slide that BOTH overflows and cuts carried neither of them, and
+ * recovering the quantity every rule actually wants took boolean algebra. Worse, the
+ * split let the tab be un-hidden by a rule keyed on one class and styled by a rule keyed
+ * on the other — which is exactly how the author-level tab came to render IN FLOW and
+ * steal 50px of the cell it was reporting on.
  *
- * `.content-cut` IS `tell`, orthogonal to `.overflow`:
+ * It was then called `.content-cut`, and that name was the next defect: it reads as a
+ * FACT ("this slide lost content") over a predicate that is level-dependent by design.
+ * At `author` the population includes purely geometric overflow with nothing cut; at
+ * `reader` it excludes a cut that is entirely inside the running-footer band. A Studio
+ * panel listing "slides that lost content" via `querySelectorAll('section.content-cut')`
+ * would have been wrong on both surfaces. `.overflow` is the fact to query; this class
+ * only ever answers "is a marker drawn here". (HARD RULE #25 inversion, rounds 2 and 3 —
+ * round 2 argued the one-class shape dominates and was right; round 3 caught the name.)
  *
- *   .overflow      the box's content extent exceeded the box   (geometry — author, autosplit)
- *   .content-cut   something readable or visible was CUT       (reader)
- *
- * Two independent booleans, one rule per question, no unreachable combinations. It also
- * makes a whole defect class impossible rather than fixable: the tab's styling and the
- * tab's VISIBILITY now key on the same predicate that DRAWS it, so the population can
- * never again be un-hidden by one rule and left unstyled by another. That is exactly how
- * the author-level tab came to render in flow and steal 50px of the cell it was reporting
- * on — un-hidden by a rule keyed on the new class, styled by a rule keyed on the old one.
- * (HARD RULE #25 inversion, round 2; it argued this shape dominates and it was right.)
- *
- * `.overflow` stays PURE GEOMETRY and keeps the author ring: an over-subscribed box is a
- * defect worth fixing whether or not today's copy happens to fit inside the spill. Only
- * the reader's treatment keys on `.content-cut`. */
+ * `.overflow` keeps the author ring: an over-subscribed box is a defect worth fixing
+ * whether or not today's copy happens to fit inside the spill. */
 
-/* Keyed on `.content-cut` — the SAME predicate that draws the tab — so a drawn tab is
+/* Keyed on `.clip-marked` — the SAME predicate that draws the tab — so a drawn tab is
  * always a styled tab. When these were two rules over two conjunction classes, the
  * author-level population was un-hidden by one and styled by neither: the tab rendered
  * as an unstyled IN-FLOW block and took 50px out of the very `.cell-stage` being probed
  * (measured: stage 438 → 388), letting the marker manufacture the clip it was reporting.
  * That is structurally impossible now. */
-section.content-cut > .overflow-tab {
+section.clip-marked > .overflow-tab {
   /* `!important` because base.finish.css's `section.finish > *:not(.backdrop)`
    * sets `position: relative` at the SAME specificity (0,2,1) from a later file,
    * and won — so on a `finish:` deck this "corner flag" rendered as a full-width
@@ -18316,10 +18321,10 @@ section.content-cut > .overflow-tab {
  * the slide is fixed (the runtime watcher also removes it). */
 /* One gate, one predicate. This subsumes BOTH the old `:not(.overflow)` hide and the
  * `.overflow-silent[reader]` `display: none !important` that used to sit above — a slide
- * that overflows without cutting anything simply has no `.content-cut`, so it is hidden
+ * that overflows without cutting anything simply has no `.clip-marked`, so it is hidden
  * by the same rule that hides a clean slide. No `!important` needed, because there is no
  * longer a more-specific rule to beat. */
-section:not(.content-cut) > .overflow-tab { display: none; }
+section:not(.clip-marked) > .overflow-tab { display: none; }
 
 /* `overflow-marker: off` — the CSS half of "no marker". The JS half sweeps once at
  * boot, which is not enough on a `--fluid` export: the emulator embeds its own
@@ -18329,7 +18334,7 @@ section:not(.content-cut) > .overflow-tab { display: none; }
  * its own rule above, so this only has the tabs left to handle. */
 section[data-lattice-overflow-marker="off"] > .overflow-tab,
 section[data-lattice-overflow-marker="off"] > .illegible-tab { display: none !important; }
-/* (`.content-cut` needs no entry of its own here: the attribute selector above is
+/* (`.clip-marked` needs no entry of its own here: the attribute selector above is
  * class-agnostic and already matches every section carrying `off`.) */
 section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !important; }
 
@@ -18364,7 +18369,7 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * slide section instead.
  * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
  * engineering/decisions/2026-07-30-overflow-marker-register.md. */
-section.content-cut[data-lattice-overflow-marker="reader"] > .overflow-tab {
+section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* Self-contained (not inherited from the author rule above): the settle
    * guarantee relies on the tab being out of flow so it can't change the measured
    * height — assert it here so a future edit to the author rule can't silently
@@ -18372,7 +18377,33 @@ section.content-cut[data-lattice-overflow-marker="reader"] > .overflow-tab {
   position: absolute !important;
   top: auto !important;
   right: auto !important;
-  bottom: max(0.6rem, env(safe-area-inset-bottom)) !important;
+  /* CLEAR OF THE FOOTER BAND, and that is a correction, not a nicety.
+   *
+   * This was `bottom: max(0.6rem, env(safe-area-inset-bottom))` — which IS the footer
+   * band. `--footer-reserve` (lib/forms/cell/stage/stage.css, declared on `section.form`)
+   * is the band's own measured height: baseline inset + band height + gap, the number the
+   * stage already uses to keep its content off the footer. The pill is opaque
+   * (`var(--text-body)` at `opacity: .9`, `z-index: 50`), so at the old offset it painted
+   * a capsule ACROSS the running footer — and once detection widened to cuts without
+   * overflow, every deck carrying one ordinary `footer:` in front matter got one on EVERY
+   * page. Both HARD RULE #25 lenses found it independently by rasterizing a committed
+   * golden: `premise.gallery.light.pdf` p3 read "…the categorical p [Content clipped] e."
+   * The marker destroyed readable content in order to report that content was destroyed —
+   * the paint-side twin of the failure overflow-probe.js's header names, and ink overlap
+   * in the one band `2026-07-27-footer-band-allocation.md` exists to have cleared.
+   * TWO FRAME SHAPES, so `max()` rather than a fallback. `--footer-reserve` is declared on
+   * `section.form`, and a first cut used it with the old offset as the fallback — which
+   * assumed "no Form band" meant "no footer". It does not: a SOVEREIGN frame (split-panel,
+   * the anchors) still renders `section footer` at `bottom: var(--frame-inset-y)`, it just
+   * has no capped band, so the footer WRAPS instead of ellipsing. Rendered proof: the fix
+   * cleared the band on a `content` slide and the pill still sat on a two-line wrapped
+   * footer on the `split-panel` slide beside it. The second term clears that shape from its
+   * own tokens — `2.4em` at the tab's own `--fs-meta`, so it covers a two-line wrap at
+   * `line-height: 1` — and `max()` takes whichever band is actually taller. */
+  bottom: calc(
+    max(var(--footer-reserve, 0px), var(--frame-inset-y, 0.6rem) + 2.4em, 0.6rem)
+    + var(--sp-2xs, 0.25rem)
+  ) !important;
   left: 50%;
   transform: translateX(-50%);
   background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */

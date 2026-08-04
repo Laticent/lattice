@@ -501,8 +501,10 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   used with `space-between`/`space-around`/`space-evenly`**: those are
   `<content-distribution>` values and the grammar admits `safe` only before a
   `<content-position>`, so `safe space-evenly` is invalid CSS that drops the
-  whole declaration. (`space-between` already falls back to `start` and is safe
-  by spec; `space-around`/`space-evenly` fall back to `center` and can shear.)
+  whole declaration. (`space-between` falls back to `start` by spec. `space-around`/`space-evenly`
+  were ASSUMED to fall back to `center` and to shear; measured in Chromium 131 they
+  resolve to `start` too, so they do not — the assumption was read off the grammar
+  where a measurement was available.)
 - **Fix, in the probe:** the box has to be PROBED at all. Both probes now
   discover clipping boxes instead of reading a hand-kept allowlist, and the
   geometry probe measures a discovered box by RECT SPILL (which sees a child

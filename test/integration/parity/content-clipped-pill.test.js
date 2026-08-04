@@ -66,6 +66,14 @@ function resolveChrome() {
 }
 
 const deck = (body) => `---\nmarp: true\ntheme: indaco\n---\n\n${body.trim()}\n`;
+// The same deck with an ordinary, over-long running footer — the shape that made the
+// reader pill paint an opaque capsule across the confidentiality line it was reporting.
+// 211 characters — the shape 2026-07-27-footer-band-allocation.md measures as its worked
+// case (it uses a 199-character line; ~two thirds survives at hd, ~a quarter in portrait).
+// Long enough that the landscape band, which takes ~119, truncates it beyond argument —
+// a marginal fixture would make the assertions below pass for the wrong reason.
+const FOOTER_TEXT = 'CONFIDENTIAL — this document is provided solely to the named recipient and may not be copied, distributed, disclosed or otherwise made available to any other party without the prior written consent of the issuer';
+const deckWithFooter = (body) => `---\nmarp: true\ntheme: indaco\nfooter: "${FOOTER_TEXT}"\n---\n\n${body.trim()}\n`;
 
 // An ellipsed label. The section fits, the cell fits; only the <strong> loses text —
 // and it has no element children, which is the shape that made this case unreachable
@@ -130,7 +138,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
       const tab = s.querySelector(':scope > .overflow-tab');
       return {
         over: s.classList.contains('overflow'),
-        contentCut: s.classList.contains('content-cut'),
+        clipMarked: s.classList.contains('clip-marked'),
         marker: s.getAttribute('data-lattice-overflow-marker'),
         text: tab ? tab.textContent : null,
         // The whole point: COMPUTED display, not class presence. The broken build
@@ -146,18 +154,70 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     return v;
   }
 
+  // Renders a deck WITH a running footer and reports the geometry of both boxes.
+  async function inspectFooter(body, key, level) {
+    const html = renderAt(deckWithFooter(body), key, level);
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise((r) => setTimeout(r, 1200));
+    const v = await page.$eval('section', (s) => {
+      const tab = s.querySelector(':scope > .overflow-tab');
+      const ft = s.querySelector('.cell-footer > footer, :scope > footer');
+      const tr = tab ? tab.getBoundingClientRect() : null;
+      const fr = ft ? ft.getBoundingClientRect() : null;
+      return {
+        clipMarked: s.classList.contains('clip-marked'),
+        hasFooter: !!ft,
+        tabVisible: !!(tab && getComputedStyle(tab).display !== 'none' && tr && tr.width > 0),
+        // Do the two boxes intersect? That is the regression, stated geometrically.
+        overlaps: !!(tr && fr && tr.left < fr.right && tr.right > fr.left
+          && tr.top < fr.bottom && tr.bottom > fr.top),
+        footerClipped: !!(ft && ft.scrollWidth > ft.clientWidth + 1),
+      };
+    });
+    await page.close();
+    return v;
+  }
+
+  test('FOOTER — an over-long running footer is NOT pilled at reader level', async () => {
+    // The regression both HARD RULE #25 lenses found independently, by rasterizing a
+    // committed golden rather than reading the diff: the reader pill sits bottom-center,
+    // which IS the footer band, and it is opaque. Once detection widened to cuts without
+    // overflow, one ordinary `footer:` in front matter put a capsule across the
+    // confidentiality line on EVERY page — the marker destroying readable content in
+    // order to report that content was destroyed. Detection is unchanged (see the author
+    // case below); only the reader treatment yields.
+    const v = await inspectFooter(CLEAN, 'pill-footer-reader');
+    assert.equal(v.hasFooter, true, 'the fixture must actually carry a running footer');
+    assert.equal(v.footerClipped, true, 'and it must actually be truncated, or this proves nothing');
+    assert.equal(v.tabVisible, false,
+      'REGRESSION: a footer-only cut must not draw a reader pill — it lands on the footer and a '
+      + 'reader can neither edit a footer nor scroll a PDF');
+    assert.equal(v.overlaps, false, 'and nothing may overlap the footer band');
+  });
+
+  test('FOOTER — the AUTHOR is still told, and the tab still clears the band', async () => {
+    // Detection is general; treatment is not. The doc that prices the footer ellipsis
+    // asks in the same section to be told about it, so `author` keeps the tab.
+    const v = await inspectFooter(CLEAN, 'pill-footer-author', 'author');
+    assert.equal(v.footerClipped, true);
+    assert.equal(v.tabVisible, true, 'the author must still hear about a deleted confidentiality line');
+    assert.equal(v.overlaps, false, 'but the tab must never sit on top of the text it reports');
+  });
+
   test('ELLIPSIS — cut content with no frame overflow is told to the reader', async () => {
     const v = await inspect(ELLIPSIS, 'pill-ellipsis');
     assert.equal(v.over, false, 'a formatter truncation crosses no box edge — `over` stays geometric');
-    assert.equal(v.contentCut, true, 'the section must carry .content-cut');
+    assert.equal(v.clipMarked, true, 'the section must carry .clip-marked');
     assert.equal(v.text, 'Content clipped');
     assert.equal(
       v.visible,
       true,
       'REGRESSION: the pill was drawn and then hidden. `base.modifiers.css` gates tab visibility '
-      + 'on `section:not(.overflow):not(.content-clipped)`; if either class or either clause is '
-      + 'missing, the reader half of #1300 does not exist — the JS stamps everything correctly '
-      + 'and the artifact shows nothing.',
+      + 'on `section:not(.clip-marked)`; if the class is not stamped, the reader half of #1300 '
+      + 'does not exist — the JS stamps everything correctly and the artifact shows nothing.',
     );
   });
 
@@ -175,7 +235,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     // marker manufacturing the clip it reports is the failure the probe's own header
     // names; assert the property, at the level where it broke.
     const v = await inspect(ELLIPSIS, 'pill-author', 'author');
-    assert.equal(v.contentCut, true);
+    assert.equal(v.clipMarked, true);
     assert.equal(v.visible, true);
     assert.equal(v.position, 'absolute',
       'REGRESSION: a static tab sits in flow and takes height from the cell it reports on');
@@ -184,13 +244,13 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   test('OFF — nothing is drawn and no class survives the strip', async () => {
     const v = await inspect(ELLIPSIS, 'pill-off', 'off');
     assert.equal(v.visible, false, 'off promises to leave nothing');
-    assert.equal(v.contentCut, false, 'and that includes the class, not just the tab');
+    assert.equal(v.clipMarked, false, 'and that includes the class, not just the tab');
   });
 
   test('CLEAN — a fitting slide carries no pill at all', async () => {
     const v = await inspect(CLEAN, 'pill-clean');
     assert.equal(v.over, false);
-    assert.equal(v.contentCut, false);
+    assert.equal(v.clipMarked, false);
     assert.equal(v.visible, false, 'a fitting slide must not be marked — the control for the two above');
   });
 });
