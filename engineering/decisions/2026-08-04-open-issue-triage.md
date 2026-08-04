@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Triaged all 138 open issues against the tree at 7b8a219, on two axes the queue never carried — did the defect survive (fixed / still reproduces / premise moved), and what kind of work is it (gate failure, upgrade, bug, docs drift, debt, verification owed, chore). Eight are already fixed and should close on sight (#684, #1155, #1188, #1194, #1197, and the near-certain #669, #757-A, #1354's kit half); five have moved out from under their premise and need rescoping rather than working (#414, #476, #477, #870 cite the removed Drawing Board; #310 cites a deleted doc); two are measurably WORSE than filed (#577's US-English budget rose 1288 to 1307, #1310's empty index rows rose 58/339 to 70/357). Gate-failure work is 22 cards and is the load-bearing cluster: it is what makes every other card slower to land. BACKLOG.md is stale by 93 issues (claims 45 open, actual 138) because sync-backlog has not run since 2026-07-30.
+summary: Triaged all 138 open issues against the tree at 7b8a219, on two axes the queue never carried — did the defect survive (fixed / still reproduces / premise moved), and what kind of work is it (gate failure, upgrade, bug, docs drift, debt, verification owed, chore). Nothing in the queue is simply WRONG — no card asserts a defect that never existed; the failure mode is that nothing CLOSES cards, and all five verified-fixed ones were fixed by a PR solving something adjacent. Five close on sight (#684, #1188, #1197 now pass their integration test; #1194's coverWindow uses evenGroups; #1155's CHANGELOG is clean), four more are near-certain (#669, #757-A, #876, the marp-kit half of #1354). Five moved out from under their premise and need rescoping rather than working (#414, #476, #477, #870 cite the REMOVED Drawing Board; #310 cites a deleted doc). Two ratchets run backwards (#577's US-English budget rose 1288 to 1307; #1310's empty index rows rose 58/339 to 70/357). Gate-failure work is 22 cards — 12 red/flaky, 10 blind — and is load-bearing: #1324 was CONFIRMED red here at 9 files / 87 tests, but its cited files are stale and the true failing set is now studio.controls + StudioShell, while the Node integration tier is green at 671/671, so the rot is docs/vitest-specific rather than main-wide. #1208 and #1250 are the same failing test filed twice. #1364 and #1354 were reproduced end to end. BACKLOG.md is stale by 93 issues (claims 45 open, actual 138) because sync-backlog has not run since 2026-07-30.
 ---
 
 # Open-issue triage — what is fixed, what is real, what moved
@@ -64,6 +64,7 @@ Near-certain, worth one confirming read before closing:
 |---|---|---|
 | **#669** | Backdrop controls — strength / clearance / spotlight | `lib/engine/index.js:337` injects the `.backdrop` wrapper per finish section; `base.finish.css` carries `--fin-backdrop-strength` (strength), `--backdrop-clear-mask` (clearance) and the spotlight layer |
 | **#757 (part A)** | the self-contained `.html` player | `lib/export/html-player.js` exists and its header records the player as shipped in #798–#824. **Part B** (the `.lattice` envelope carrying theme + components + assets) is still open — rescope the card to B only |
+| **#876** | preview-font `@font-face` 404s at `//fonts/*.woff2` | `docs/src/styles/fonts.css:56` now reads `url('../playground/fonts/outfit-300.woff2')` — a correctly-resolving relative path, not the bare `fonts/…` that 404'd. `docs/src/lib/font-embed.js` (the cited file) no longer exists. Confirm against the built site before closing |
 | **#587 / #588 / #596 / #668 / #1270 / #1308** | — | each has had its substrate land via a later PR; see §5 |
 
 ---
@@ -119,16 +120,28 @@ are red/flaky** and **gates that are blind**.
 | **#688** | 10 gallery goldens stale — `npm run regress` red | not re-run in this pass |
 | **#732** | `[perf-nightly]` docs perf regression | open, active (34 comments, last 2026-08-04) |
 | **#793** | `[preview-e2e]` playground preview fails to render | open, active (27 comments, last 2026-08-03) |
-| **#1324** | `docs-build` flaky on main, ejects unrelated PRs from the merge queue | run in flight at write time |
-| **#1328** | `studio.theme-depth` flakes under full-suite load | run in flight |
-| **#1361** | `overflow:check` red on clean `main` | run in flight |
+| **#1324** | `docs-build` flaky on main, ejects unrelated PRs from the merge queue | **CONFIRMED.** Full docs vitest on this tree: **9 files / 87 tests failed** (204 files, 2369 tests). But the failing SET has moved: the card named `single-slide-render.alignment` + `chart-anima`; today it is `studio.controls` (39), `StudioShell` (26), `studio.findings-fix` (7), `studio.theme-depth` (6), and five more. The card's claim holds; its cited files no longer do |
+| **#1328** | `studio.theme-depth` flakes under full-suite load | **CONFIRMED, and under exactly the stated condition.** `studio.theme-depth.test.tsx` failed 6 times in a full-suite run that was sharing the box with `overflow:check` (~49 concurrent Chromium processes). Load-sensitivity is the mechanism, as filed |
+| **#1361** | `overflow:check` red on clean `main` | **not settled here.** The first run was invalid — it crashed under the concurrency above (3 decks `failed to render`, no verdict emitted). Re-run clean; result not folded into this note |
 | **#1315** | `studio-jargon-alignment.spec.ts:81` fails on main | not re-run |
 | **#1208 / #1250** | *the same failing test* — `demo.spec.ts` "walkthrough reskin drives the REAL deck Inspector" | **duplicates.** #1208 cites line 61, #1250 cites line 65, same locator, same deterministic failure. Merge them |
 | **#684 / #1188 / #1197** | bucket-gallery drift | **all three now pass** — see §1 |
 
-**#1324 deserves priority attention.** It is a *required* check that fails at
-random on `main`, so it gates the merge queue and ejects PRs touching zero
-`docs/` files. Every other card in this queue pays that tax.
+**#1324 deserves priority attention, and the run above sharpens why.** It is a
+*required* check that fails at random on `main`, so it gates the merge queue and
+ejects PRs touching zero `docs/` files. Every other card in this queue pays that
+tax. Two things the re-run adds:
+
+- **87 failing tests is not a flake, it is a cliff.** Under load the Studio test
+  surface collapses wholesale — `studio.controls` alone lost 39. This is not one
+  racy assertion; it is a suite with no isolation under contention.
+- **The card's cited files are stale.** Anyone picking up #1324 and opening
+  `single-slide-render.alignment.test.ts` will find nothing wrong with it. Update
+  the card before assigning it.
+
+**Contrast: the Node integration tier is green.** `npm run test:integration` —
+671 tests, 0 failures — on the same tree, same box. The rot is specific to the
+docs/vitest surface, not to `main` generally.
 
 ### 4b · Blind — a gate that should exist doesn't
 
@@ -239,8 +252,15 @@ classified, but the defect itself was not re-tested. Specifically not driven:
   remain correctly marked UNVERIFIED in their own text; I did not change that.
 - **The nightly gates** — #683, #688, #732, #793, #1315 were read from their
   comment threads, not re-run. `npm run regress` (the #688 check) was not run.
-- **Six gate runs were still executing at write time**: `overflow:check` (#1361),
-  the full `test:integration` tier, and the docs vitest suite (#1324, #1328).
-  Their verdicts are not folded into this note.
+  Note that #683's tier (`test:integration`) passes locally on this tree, which
+  neither confirms nor refutes a nightly failure on a different runner.
+- **`overflow:check` (#1361) is unsettled.** The first run crashed under
+  self-inflicted load and produced no verdict; a clean re-run was still executing
+  when this note was written. Do not read §4a as evidence either way on #1361.
+- **#1246 was not re-exploited.** The card carries an end-to-end real-Chromium
+  demonstration; I confirmed only that the architectural gap is still there —
+  `checkPreviewHtmlSinks` gates that a builder *calls* `sanitizeSlideHtml`, and
+  Mermaid renders inside the frame afterward, so the sanitizer never sees its
+  output. Re-running the exploit needs a docs build and a real browser.
 - **Visual/rendering claims** — #581, #680, #1213, #1278, #1299, #1346, #1360 all
   need a real render inspected by eye. Not done here.
