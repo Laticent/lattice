@@ -324,7 +324,11 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 			if (css) out.themes.push({ name: item.name, label: item.label, essentials: item.essentials ?? null, css });
 		} else if (item.kind === 'component') {
 			const css = await zip.file(item.css)?.async('string');
-			const skeleton = await zip.file(item.skeleton)?.async('string');
+			// LINE ENDINGS: the skeleton is markdown spliced verbatim into a deck's source
+			// (`addSlideAfter` in StudioShell), and the zip is external input — so it normalizes
+			// here, at the unpack, for the same reason an imported `.md` does. CSS is left alone:
+			// it is never spliced into markdown and the browser is indifferent to its endings.
+			const skeleton = (await zip.file(item.skeleton)?.async('string'))?.replace(/\r\n?/g, '\n');
 			if (css && skeleton != null) out.components.push({ name: item.name, bucket: item.bucket ?? null, css, skeleton });
 		} else if (item.kind === 'finish') {
 			const css = await zip.file(item.css)?.async('string');

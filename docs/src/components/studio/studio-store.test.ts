@@ -143,7 +143,12 @@ describe('studio-store — titleFromSource / retitleSource (the deck\'s name IS 
 
 	it('reads a CRLF (Windows-authored) deck — the `\\r` is not part of the heading', () => {
 		expect(titleFromSource('<!-- _class: title -->\r\n\r\n# Q4 Wrap\r\n\r\nbody')).toBe('Q4 Wrap');
-		// …and a rewrite leaves the rest of the file's line endings untouched.
+		// …and a rewrite leaves the rest of the file's line endings untouched. This is NOT in
+		// tension with the LF-everywhere policy: normalization happens at ingest (see
+		// test/unit/core/line-endings.test.js), so a CRLF source never reaches `retitleSource`
+		// through a supported path any more. What this pins is that a pure transform doesn't
+		// re-encode what it wasn't asked to change — which still guards sources persisted to
+		// localStorage before the boundaries landed.
 		const out = retitleSource('# Old\r\n\r\nbody\r\n', 'New') ?? '';
 		expect(out).toBe('# New\r\n\r\nbody\r\n');
 	});

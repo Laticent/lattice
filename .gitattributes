@@ -26,8 +26,11 @@
 * text=auto eol=lf
 
 # Binaries git must never touch. `text=auto` detects most of these correctly, but naming
-# them is cheap and a mis-detection here corrupts the file rather than merely annoying
-# someone. Counts at time of writing: 338 pdf, 108 woff2, 36 png, 30 webp, 4 jpg.
+# them is cheap and a mis-detection here CORRUPTS the file rather than merely annoying
+# someone. Types actually committed today (counted with `git ls-files`): 339 pdf,
+# 108 woff2, 95 mp3, 36 png, 30 webp, 30 wav, 4 jpg. The rest are prospective — a format
+# we don't ship yet but plausibly will, listed so the first one committed is already safe
+# rather than depending on whoever adds it remembering this file.
 *.pdf   binary
 *.png   binary
 *.jpg   binary
@@ -42,5 +45,7 @@
 *.otf   binary
 *.eot   binary
 *.zip   binary
+*.mp3   binary
+*.wav   binary
 *.mp4   binary
 *.webm  binary

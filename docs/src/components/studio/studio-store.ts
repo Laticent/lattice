@@ -819,7 +819,14 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 	const have = new Map(index.map((e) => [e.id, e]));
 	let n = 0;
 	for (const entry of data.index) {
-		const incomingSrc = data.sources[entry.id];
+		// LINE ENDINGS: a backup is EXTERNAL INPUT — a `.json` that traveled through another
+		// machine, possibly a Windows editor — so it crosses the same boundary an imported `.md`
+		// does and normalizes here, at the ingest, rather than in `saveSource` (whose byte-faithful
+		// contract for editor writes must stay untouched). Normalizing BEFORE the `=== currentSrc`
+		// comparison also matters: a CRLF backup of a deck we already hold as LF is the SAME deck,
+		// and comparing raw bytes would fork it into a spurious "(restored)" copy.
+		const raw = data.sources[entry.id];
+		const incomingSrc = typeof raw === 'string' ? raw.replace(/\r\n?/g, '\n') : raw;
 		const existing = have.get(entry.id);
 		if (!existing) {
 			index.push(entry);

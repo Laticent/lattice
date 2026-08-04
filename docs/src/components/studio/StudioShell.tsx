@@ -1349,14 +1349,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// restored onto the NEW deck id so they travel with the file. Returns nothing;
 	// notifies on success.
 	function openImportedDeck(rawText: string, title: string, comments?: unknown) {
-		// THE STUDIO'S LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel — not in a
-		// caller. Deck source reaches this function two ways: a plain `.md` via `file.text()`,
-		// and a `.lattice` zip whose `deck.md` carries whatever the machine that exported it
-		// wrote. A first cut normalized only the `.md` caller and called the boundary covered,
-		// which is the same mistake that produced #1349: fix the path you were looking at,
-		// declare the class closed. Everything downstream (the editor, ~55 register kernels,
+		// THE STUDIO'S DECK-IMPORT LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel —
+		// not in a caller. Deck source reaches this function two ways: a plain `.md` via
+		// `file.text()`, and a `.lattice` zip whose `deck.md` carries whatever the machine that
+		// exported it wrote. A first cut normalized only the `.md` caller and called the boundary
+		// covered, which is the same mistake that produced #1349: fix the path you were looking
+		// at, declare the class closed. Everything downstream (the editor, ~55 register kernels,
 		// every export) assumes LF. `\r\n?` covers Windows CRLF and classic-Mac lone CR, and is
 		// a no-op on text that is already LF.
+		//
+		// It is ONE of three Studio ingest boundaries, not the only one — markdown also enters
+		// via a workspace backup (`importStudioState`, studio-store.ts) and via a component
+		// skeleton in an asset zip (`unpackBundle`, asset-bundle.ts). Each normalizes at its own
+		// ingest. A reference doc (`reference-doc.ts`) deliberately does NOT: it is model
+		// grounding context, never spliced into deck source and never exported.
 		const text = rawText.replace(/\r\n?/g, '\n');
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
 		saveSourceGuarded(deck.id, source);

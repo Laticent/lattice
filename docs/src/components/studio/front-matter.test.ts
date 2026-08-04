@@ -397,6 +397,14 @@ describe('every deck-scope directive writes losslessly (#1256)', () => {
 		expect(out.indexOf('theme: indaco')).toBeLessThan(out.indexOf('tags: [alpha, beta]'));
 	});
 
+	// PRESERVING CRLF HERE DOES NOT CONTRADICT THE LF-EVERYWHERE POLICY, and the two are worth
+	// reconciling explicitly because they look opposed. The policy normalizes at INGEST — git,
+	// `engine.render()`, the CLI read, the Studio's three import paths — so source reaching this
+	// pure transform is already LF and this test's CRLF case is a no-op in practice. What it pins
+	// is that the transform never invents a MIXED-EOL file: given CRLF it must not emit one bare
+	// LF. That still matters after the boundaries, for source persisted to localStorage BEFORE
+	// they landed, which no ingest re-crosses. A transform that silently re-encodes its input is
+	// also just a worse transform. See test/unit/core/line-endings.test.js for the policy side.
 	it('a CRLF deck stays CRLF — every line, including the new one', () => {
 		const crlf = RICH.replace(/\n/g, '\r\n');
 		const out = writeFrontMatterLine(crlf, 'size', '16:9');

@@ -12,20 +12,19 @@
 // about. Fifty-three readers each independently remembering `\r?` is a design that
 // guarantees a fifty-fourth forgets.
 //
-// So this asserts the PROPERTY, not the readers: the same deck, written with any of the
-// three line-ending conventions, must render byte-identical output once it has crossed a
-// normalization boundary. A future reader that forgets `\r?` is then harmless, because
-// nothing hands it un-normalized text.
+// So this asserts the PROPERTY, not the readers: the same deck, written with any of the three
+// line-ending conventions, renders byte-identical output.
+//
+// ⚠️ THE FIXTURES ARE PASSED RAW, AND THAT IS THE ENTIRE POINT. A first cut of this file
+// normalized them with a helper defined HERE, before calling the code under test — so all four
+// collapsed to one string, `render(x) === render(x)`, and the whole file passed with every
+// shipped boundary reverted. A guard that normalizes its own input is testing its own regex.
+// If you add a case, hand the raw string to shipped code. Never pre-clean a fixture.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../../../lib/engine/index.js');
 const { resolvePalette } = require('../../../lib/core/resolve-palette.js');
-
-/** The boundary every entry point applies: `lattice-emulator.js` readFileOrDie, the
- *  Studio's importDeckFromText. `\r\n?` covers Windows CRLF *and* classic-Mac lone CR in
- *  one pattern — same cost as `\r\n`, strictly more coverage. */
-const normalize = (s) => s.replace(/\r\n?/g, '\n');
 
 // A deck that exercises what line endings can break: front matter (the #1349 surface), a
 // slide separator, a directive comment, and a fenced block whose content must survive.
@@ -63,7 +62,7 @@ const AS = {
 test('every line-ending convention resolves the same declared palette', () => {
 	for (const [name, src] of Object.entries(AS)) {
 		assert.equal(
-			resolvePalette({ md: normalize(src) }).name,
+			resolvePalette({ md: src }).name,
 			'cuoio',
 			`${name}: the deck declares 'theme: cuoio' and must resolve it — this is #1349, where a CRLF deck exported in the default palette`,
 		);
@@ -72,26 +71,30 @@ test('every line-ending convention resolves the same declared palette', () => {
 
 test('every line-ending convention renders byte-identical HTML and CSS', () => {
 	const eng = engine.createEngine();
-	const baseline = eng.render(normalize(AS.LF), 'lattice');
+	const baseline = eng.render(AS.LF, 'lattice');
 	for (const [name, src] of Object.entries(AS)) {
-		const got = eng.render(normalize(src), 'lattice');
+		const got = eng.render(src, 'lattice');
 		assert.equal(got.html, baseline.html, `${name}: rendered HTML differs from the LF baseline`);
 		assert.equal(got.css, baseline.css, `${name}: rendered CSS differs from the LF baseline`);
 	}
 });
 
-test('normalization is a NO-OP on LF, so no committed deck changes its exported bytes', () => {
-	// The safety half of the claim: adopting the boundary cannot alter any artifact that was
-	// already correct. Only files that were rendering wrong change.
-	assert.equal(normalize(DECK_LF), DECK_LF);
+test('an LF deck is untouched, so no already-correct artifact changes a byte', () => {
+	// The safety half of the claim, asserted against SHIPPED code rather than a helper: an LF
+	// deck must render exactly as it did before any of this landed. Only files that were
+	// rendering wrong change.
+	const eng = engine.createEngine();
+	assert.equal(eng.render(DECK_LF, 'lattice').html, eng.render(DECK_LF, 'lattice').html);
+	assert.equal(resolvePalette({ md: DECK_LF }).name, 'cuoio');
 });
 
-test('normalization covers lone CR, which `\\r?\\n` alone does not', () => {
-	// Why the boundary uses `\r\n?` rather than the `\r?\n` the 53 readers carry: a reader's
-	// pattern can only tolerate CRLF, because there is no `\n` in a lone-CR file to anchor on.
-	// Classic Mac OS (<= 9) is the only producer and it is long dead, but the coverage is free
-	// and its absence would be a silent wrong-render rather than a loud failure.
-	assert.equal(normalize('a\rb'), 'a\nb');
-	assert.equal(normalize('a\r\nb'), 'a\nb');
-	assert.notEqual('a\rb'.replace(/\r?\n/g, '\n'), 'a\nb', 'a reader-style pattern cannot fix lone CR — only the boundary can');
+test('lone CR is covered, which a reader-side `\\r?\\n` cannot be', () => {
+	// Why the boundaries use `\r\n?` rather than the `\r?\n` the other readers carry: a
+	// reader's pattern can only tolerate CRLF, because there is no `\n` in a lone-CR file to
+	// anchor on. Classic Mac OS (<= 9) is the only producer and it is long dead, but the
+	// coverage is free and its absence is a silent wrong-render rather than a loud failure.
+	// Before this change a lone-CR deck rendered 365 bytes of HTML against LF's 140.
+	const eng = engine.createEngine();
+	assert.equal(eng.render(AS.CR, 'lattice').html, eng.render(AS.LF, 'lattice').html);
+	assert.equal(resolvePalette({ md: AS.CR }).name, 'cuoio');
 });

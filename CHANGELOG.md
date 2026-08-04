@@ -389,13 +389,26 @@ in patch versions.
   regex lacked `\r?`, and the emulator calls it on raw file text *outside* the engine, so nothing
   downstream could rescue it (#1349). The fix is not "add `\r?` to reader 55" — 53 readers each
   independently remembering it is the design that produced the bug. Source is now normalized to LF
-  at every boundary it crosses: `.gitattributes` (`* text=auto eol=lf`, so a Windows clone checks
-  out LF and cannot commit CRLF back), `lattice-emulator.js`'s file read, and the Studio's
-  import/paste path. `\r\n?` covers Windows CRLF **and** classic-Mac lone CR in one pattern.
+  at every boundary it crosses, and each one is named because "normalized at the boundary" is only
+  worth anything if the boundaries are enumerable: **git** — `.gitattributes` (`* text=auto eol=lf`,
+  so a Windows clone checks out LF and cannot commit CRLF back); **the engine's public door** —
+  `render()` in `lib/engine/index.js`, which is where callers hand it raw source; **the CLI read** —
+  `lattice-emulator.js`, which is the one that actually fixes #1349, because it calls
+  `resolvePalette` *outside* `render()`; **`resolve-palette.js` itself**, which normalizes its own
+  input rather than growing another `\r?`; and **the Studio's three ingests** — deck import
+  (`openImportedDeck`, both `.md` and `.lattice`), workspace-backup restore (`importStudioState`),
+  and a component skeleton from an asset zip (`unpackBundle`). Pasting into the editor needs no code:
+  a `textarea`'s API value is newline-normalized by the HTML spec. A reference doc is deliberately
+  *not* normalized — it is model grounding context, never spliced into deck source and never
+  exported. `\r\n?` covers Windows CRLF **and** classic-Mac lone CR in one pattern; a reader-style
+  `\r?\n` structurally cannot match a lone CR, since there is no `\n` to anchor on.
   Guarded by `test/unit/core/line-endings.test.js`, which asserts the *property* — the same deck as
   LF, CRLF, CR and mixed renders byte-identical — rather than testing readers one at a time, which
-  is how the original CRLF sweep missed this one. Normalization is a no-op on LF, so no
-  already-correct deck changes its exported bytes.
+  is how the original CRLF sweep missed this one. That guard hands its fixtures to shipped code
+  **raw**; an earlier cut normalized them in the test file first and passed with every boundary
+  reverted. Normalization is a no-op on LF, so no already-correct deck changes its exported bytes:
+  measured across all 118 committed example decks, CRLF already rendered identically to LF (0 of 118
+  differed) while a lone CR did not (117 of 118 differed), so this closes a real gap.
 
 >>>>>>> ebc88a0 (core(line-endings): normalize at every boundary, so no reader has to remember)
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
