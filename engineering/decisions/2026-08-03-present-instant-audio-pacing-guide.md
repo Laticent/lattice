@@ -471,50 +471,66 @@ The starvation state swapped the Voice label to "Catching up…". Reverted. A la
 mutates mid-delivery is jarring, and for a screen reader it reads as the control *becoming a
 different control* — the accessible name is the control's identity, not a status field.
 
-### Readiness belongs on the rail, and the AA constraint reshaped it
+### Readiness belongs on the rail — as two fills, separated by HEIGHT not color
 
 The signal that matters is not "how full is my buffer" — no presenter can act on that. It is
 **"is this still working?"**, and its audience is the *viewer of a self-presenting deck*, who
-cannot tell a buffering silence from a crashed page. That is a liveness question, and the
-answer already had a home: the rail is documented as "the ONE progress element", and it is
-one segment per slide — exactly readiness granularity.
+cannot tell a buffering silence from a crashed page. The rail is already documented as "the
+ONE progress element" and is one segment per slide, so it is where that belongs.
 
-It is the video-scrubber idiom, which needs no teaching: **played edge = where we are, ready
-edge = how far the audio reaches.** During a stall the played edge freezes while the ready
-band keeps advancing — motion that continues while playback is stopped is the only honest
-signal that the deck is still working.
+**The shipped design: two fills.** A lighter **prefetch** fill leads, advancing as each
+slide's audio lands; a darker **progress** fill follows as playback reaches it. When
+narration stalls the progress edge freezes while the prefetch edge keeps moving — motion
+continuing while playback is stopped is the only honest way to say "still working". When the
+two edges MEET, the audio has run dry, and that is visible with no word and no color change.
 
-**Two design instincts died on measurement rather than argument:**
+Three findings reshaped this, each killing a design I had already built:
 
-1. **A height-split band.** The rail bar is **3px**; a half-height band is 1.5px. No contrast
-   ratio rescues something that thin.
-2. **Three distinguishable bands** (played / ready / unready). Measured in a real browser on
-   the real tokens, `accent`-to-`border` is only **4.51:1** (light) and **5.38:1** (dark).
-   Fitting a third band with 3:1 on *both* sides needs ≈9:1. **Geometrically impossible with
-   these tokens** — a structural limit, not a tuning problem.
+**1. Per-slide booleans read as patchwork.** Readiness was a `boolean[]`, so a half-fetched
+slide flipped from empty to full, and a slide cached out of order lit up *behind a gap* — the
+reporter's iPad screenshot showed slide 6 lit while slide 5 was dark. Readiness is now a
+**fraction per slide**, collapsed into one **contiguous front** (`prefetchFrontOf`): whole
+slides while complete, plus the partial fraction of the first incomplete one, then STOP. A
+slide cached behind a gap is unreachable — you stall at the gap first — so counting it would
+draw runway that does not exist. The front is also floored at the progress edge, since LRU
+eviction of already-played audio would otherwise render the buffer *behind* the playhead.
 
-So the rail draws the **two states that carry information**: can the deck still speak ahead,
-or not. The ready band is `color-mix(accent 80%, border)` — the lowest mix clearing 3:1
-against the unready track in both modes:
+**2. Tone cannot carry this — measured across ALL 36 palette/mode combinations.** Every tier
+was a mix of `--accent` and `--border`. That relationship is not guaranteed:
 
-| Mix | light `ready:track` | dark `ready:track` |
-|---|---|---|
-| 36% (first attempt) | 1.60 ✗ | 1.92 ✗ |
-| 70% | 2.69 ✗ | 3.44 ✓ |
-| **80% (shipped)** | **3.18 ✓** | **4.02 ✓** |
+| Check | Result |
+|---|---|
+| accent:border below **9:1** (cannot fit three tiers) | **34 of 36** |
+| accent:border below **3:1** (cannot fit even two) | **11 of 36** |
+| `onyx dark` | `--accent` and `--border` are BOTH `#FFFFFF` |
 
-`ready` therefore sits close to `played` (≈1.4:1). Accepted deliberately: the two are never
-adjacent — the current segment always separates them — and position is already carried by
-that segment's own partial fill and by `aria-current`, so no information rides on telling
-them apart. Separation is by **luminance, not hue**, so the distinction survives grayscale
-(1.4.1), and readiness is also exposed per segment in the accessible name ("— narration
-ready") rather than in a live region, which would talk over the narration it describes.
+Tuning on `cuoio` and generalizing was the error. "Layouts are palette-blind" is not only
+about routing color through tokens — it means not depending on a luminance relationship the
+palettes never promised.
 
-**A measurement caveat worth recording:** the first contrast run reported 14.8:1 and was
-garbage — `color-mix()` resolves to `color(srgb …)` with 0–1 floats, and the probe read them
-as 0–255. The numbers above are from the corrected probe, with `data-mode` actually toggled
-(the first run silently measured light twice). Both errors would have shipped a failing
-design under a passing claim.
+**3. So the channel is HEIGHT.** Track **2px** · prefetch **3px** · progress **5px**.
+Thickness is palette-blind by construction. Verified on the real surface in `onyx dark`,
+where all three tiers are the same white and remain legible purely by weight. Color still
+reinforces (prefetch is `accent 55%`) but carries nothing, so its exact value is now a free
+aesthetic choice rather than an accessibility constraint.
+
+Earlier attempts, recorded so they are not retried: a half-height band inside the original
+3px bar (1.5px — imperceptible); three tonal tiers (needs ~9:1, have 4.5:1); a neutral
+prefetch tier against a gold progress (same luminance, differs only in hue → fails 1.4.1).
+
+**A measurement caveat worth keeping:** the first contrast run reported 14.8:1 and was
+garbage — `color-mix()` resolves to `color(srgb …)` with 0–1 floats and the probe read them
+as 0–255 — and it silently measured light twice because `data-mode` was never toggled. Both
+errors would have shipped a failing design behind a passing claim.
+
+### Logged, NOT fixed here: the rail's own contrast predates this work
+
+The same 36-palette sweep shows the rail's **existing** progress-vs-track contrast is below
+3:1 in **11 of 36** combos, and in `onyx dark` the played fill and the track are the same
+color — so the progress bar is invisible there today, independent of anything in this branch.
+That is a pre-existing defect this work merely surfaced. Per HARD RULE #18 it is logged rather
+than pulled into this diff, which is scoped to narration. The stepped-height treatment
+incidentally rescues it wherever prefetch data exists, but not for a deck with no narration.
 
 ### The rail idiom is meant to reach the shipped player
 

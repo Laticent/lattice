@@ -16,7 +16,7 @@ export function PresentRail({
 	sections,
 	current,
 	frac,
-	ready,
+	prefetchFront = 0,
 	onJump,
 	className,
 }: {
@@ -25,21 +25,23 @@ export function PresentRail({
 	current: number;
 	/** Within-slide progress 0..1 (read-aloud); fills the current segment. */
 	frac: number;
-	/** Per-slide narration readiness — can this slide speak with no network? Positionally
-	 *  aligned with the presented set. Drawn as the rail's "ready" band, the scrubber idiom
-	 *  every viewer already reads from a video player: played edge = where we are, ready
+	/** How far the prefetched narration reaches, as a FRACTIONAL slide index (4.6 = through
+	 *  slide 4 plus 60% of slide 5). The lighter of the rail's two fills — the scrubber idiom
+	 *  every viewer already reads from a video player: progress edge = where we are, prefetch
 	 *  edge = how far the audio reaches.
 	 *
 	 *  It is what tells a self-presenting deck's audience that a silence is BUFFERING rather
-	 *  than BROKEN: when narration stalls the played edge freezes, but the ready band keeps
-	 *  advancing as audio lands. Motion that continues while playback is stopped is the only
-	 *  honest signal that the deck is still working — and silence with no signal at all is
-	 *  indistinguishable from a crash.
+	 *  than BROKEN: when narration stalls the progress edge freezes while the prefetch edge
+	 *  keeps advancing. Motion that continues while playback is stopped is the only honest
+	 *  signal that the deck is still working — silence with no signal is indistinguishable
+	 *  from a crash. When the two edges MEET, the audio has run dry, and that is visible
+	 *  without a word or a color change.
 	 *
-	 *  Omit entirely when there is nothing to report (no clocked voice, cache off): the band
-	 *  then never renders, rather than drawing a permanently-empty runway that reads as a
-	 *  fault. */
-	ready?: boolean[];
+	 *  CONTIGUOUS by construction: it stops at the first slide that isn't fully cached, because
+	 *  a later cached slide cannot be reached without stalling at the gap first — so counting
+	 *  it would overstate the runway. 0 when there is nothing to report (no clocked voice,
+	 *  cache off), which simply draws no prefetch fill. */
+	prefetchFront?: number;
 	onJump: (i: number) => void;
 	className?: string;
 }) {
@@ -104,33 +106,24 @@ export function PresentRail({
 					// biome-ignore lint/suspicious/noArrayIndexKey: sections are positional + stable per render
 					<div key={si} className="flex min-w-0 flex-col" style={{ flex: sec.count }}>
 						<div className="flex min-w-0 gap-[2px]">
-							{Array.from({ length: sec.count }).map((_, k) => {
+						{Array.from({ length: sec.count }).map((_, k) => {
 								const gi = sec.start + k;
-								const done = gi < current;
 								const here = gi === current;
-								const right = done ? 0 : here ? 100 - Math.round(Math.max(0, Math.min(1, frac)) * 100) : 100;
-								// AA, MEASURED rather than assumed (see the decision record). The bands are
-								// separated by LUMINANCE, not hue, so a color-blind viewer reads them in
-								// grayscale (1.4.1), and the meaningful pair must clear 3:1 (1.4.11).
+								// TWO FILLS, both continuous across segments: prefetch leads, progress follows.
 								//
-								// Two earlier instincts died on contact with the numbers:
-								//   · a HEIGHT split — the bar is 3px, so a half-height band is 1.5px, and no
-								//     amount of contrast rescues something that thin;
-								//   · THREE distinguishable bands — accent-to-border is only 4.5:1 (light) /
-								//     5.4:1 (dark), and fitting a third band with 3:1 on both sides needs ~9:1.
-								//     Geometrically impossible with these tokens, not a tuning problem.
-								// So the rail draws TWO states that matter — can this deck still speak ahead,
-								// or not — at 80% accent, the lowest mix clearing 3:1 against the unready track
-								// in BOTH modes (light 3.18, dark 4.02; dark alone would pass at 70%).
-								//
-								// `ready` therefore sits close to `played` (1.4:1). Accepted deliberately: they
-								// are never adjacent (the current segment always separates them), and position
-								// is already carried by the current segment's own partial fill and aria-current
-								// — so no information rides on telling those two apart.
-								//
-								// Only upcoming slides carry the band: a played slide's audio is spent, so
-								// marking it "ready" would be noise rather than information.
-								const isReady = !!ready?.[gi] && gi > current;
+								// Each is a FRONT — a fractional slide index — not a per-slide flag. That
+								// matters: a per-slide "ready" boolean made a half-fetched slide flip from
+								// empty to full, and a slide whose audio landed out of order lit up behind a
+								// gap, so the bar read as patchwork rather than as two advancing ranges. A
+								// front fills each segment proportionally, so the eye sees one prefetch edge
+								// running ahead of one progress edge, which is the scrubber every viewer
+								// already knows.
+								const fillPct = (front: number) => {
+									const d = front - gi;
+									return d <= 0 ? 0 : d >= 1 ? 100 : d * 100;
+								};
+								const prePct = fillPct(prefetchFront);
+								const proPct = fillPct(current + Math.max(0, Math.min(1, frac)));
 								return (
 									<button
 										key={gi}
@@ -141,13 +134,31 @@ export function PresentRail({
 										tabIndex={gi === focusIdx ? 0 : -1}
 										onClick={() => onJump(gi)}
 										onFocus={() => setFocusIdx(gi)}
-										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${isReady ? ' — narration ready' : ''}`}
+										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${prePct >= 100 && !here ? ' — narration ready' : ''}`}
 										aria-current={here ? 'step' : undefined}
-										className="relative h-[3px] min-w-0 flex-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
+										className="relative h-[5px] min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
 									>
-										<span className="absolute inset-0 overflow-hidden rounded-full" style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : isReady ? 'color-mix(in srgb, var(--accent) 80%, var(--border))' : 'var(--border)' }}>
-											<span className="absolute inset-y-0 left-0 rounded-full transition-[right] duration-150" style={{ right: `${right}%`, background: 'var(--accent)' }} />
-										</span>
+										{/* The three tiers are separated by HEIGHT, not tone — 2px track, 3px
+										    prefetch, 5px progress — because tone cannot carry this. Measured
+										    across all 36 palette/mode combinations: accent-to-border is under
+										    3:1 in ELEVEN of them (in `onyx dark` the two tokens are both
+										    #FFFFFF), so any tint-based tier is invisible in the a11y, onyx and
+										    print palettes. Thickness is palette-blind by construction, which is
+										    what "layouts are palette-blind" actually demands. Color still
+										    reinforces; it just isn't what carries the meaning. */}
+										<span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full" style={{ background: 'var(--border)' }} />
+										{prePct > 0 && (
+											<span
+												className="absolute bottom-0 left-0 h-[3px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+												style={{ width: `${prePct}%`, background: 'color-mix(in srgb, var(--accent) 55%, var(--border))' }}
+											/>
+										)}
+										{proPct > 0 && (
+											<span
+												className="absolute bottom-0 left-0 h-[5px] rounded-full transition-[width] duration-150 motion-reduce:transition-none"
+												style={{ width: `${proPct}%`, background: 'var(--accent)' }}
+											/>
+										)}
 										{/* enlarged invisible hit target — the visual bar stays thin (trio fix #1) */}
 										<span className="absolute -inset-x-0.5 -top-2.5 -bottom-2.5" aria-hidden="true" />
 									</button>

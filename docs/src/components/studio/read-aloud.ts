@@ -1039,8 +1039,9 @@ export function useReadAloud(
  * store, so a deck prepared in an earlier session reads ready immediately: readiness is a
  * CURRENT fact about this device, not a record of what this session fetched.
  *
- * A slide counts as ready only when EVERY one of its sentences is present — partial audio
- * still stalls mid-slide, so anything less would over-promise.
+ * Returns each slide's cached FRACTION (0..1). The caller collapses these into one contiguous
+ * front (see `prefetchFrontOf`) — a slide's audio is only reachable if every slide before it
+ * is complete, so a later cached slide behind a gap adds nothing to the real runway.
  *
  * All-false when there is no clocked voice, no store, or the cache is switched off: with
  * nothing cacheable there is no readiness to report, and claiming any would be a lie.
@@ -1058,8 +1059,8 @@ export function spokenSentencesPerSlide(
 	return texts.map((t) => spokenSentences(t, opts?.acronyms, opts?.lang, opts?.lexicon));
 }
 
-export async function narrationReadiness(perSlide: string[][]): Promise<boolean[]> {
-	const empty = perSlide.map(() => false);
+export async function narrationReadiness(perSlide: string[][]): Promise<number[]> {
+	const empty = perSlide.map(() => 0);
 	if (!narrationCacheEnabled()) return empty;
 	const voice = await getVoice();
 	if (!voice) return empty;
@@ -1077,9 +1078,42 @@ export async function narrationReadiness(perSlide: string[][]): Promise<boolean[
 	if (!all.length) return empty;
 	const keyOf = (s: string) => voice.clipKey(s);
 	const ready = await readyKeys(all.map(keyOf));
-	// A contentless slide has nothing to fetch, so it can always "speak" (silently) without
-	// the network — it must not read as a gap in the runway.
-	return perSlide.map((sentences) => (sentences.length === 0 ? true : sentences.every((s) => ready.has(keyOf(s)))));
+	// A FRACTION per slide, not a boolean: a half-fetched slide fills its segment halfway, so
+	// the rail's prefetch edge advances smoothly instead of flipping segments on and off.
+	// A contentless slide has nothing to fetch, so it counts as fully ready — it must not read
+	// as a gap in the runway.
+	return perSlide.map((sentences) => {
+		if (sentences.length === 0) return 1;
+		let have = 0;
+		for (const sentence of sentences) if (ready.has(keyOf(sentence))) have++;
+		return have / sentences.length;
+	});
+}
+
+/**
+ * Collapse per-slide cached fractions into the rail's prefetch FRONT — a fractional slide
+ * index marking how far narration can play without stalling.
+ *
+ * Contiguous by construction: it accumulates whole slides while they are fully cached, adds
+ * the partial fraction of the first incomplete one, and stops there. A slide cached AFTER a
+ * gap is deliberately not counted — you would stall at the gap before ever reaching it, so
+ * including it would draw runway that does not exist.
+ *
+ * Floored at `progressFront` so the prefetch edge can never render BEHIND the progress edge:
+ * audio already played can be evicted by the LRU, which would otherwise show the buffer
+ * trailing the playhead — true of the cache, but nonsense as a runway.
+ */
+export function prefetchFrontOf(fractions: number[], progressFront = 0): number {
+	let front = 0;
+	for (const f of fractions) {
+		if (f >= 1) {
+			front += 1;
+			continue;
+		}
+		front += Math.max(0, Math.min(1, f));
+		break;
+	}
+	return Math.max(front, progressFront);
 }
 
 /** The active voice's latency key — the identity `resolveLookahead` sizes the prefetch

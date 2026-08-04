@@ -28,7 +28,7 @@ import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
-import { narrationLatencyKey, narrationReadiness, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -499,20 +499,20 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		() => spokenSentencesPerSlide(set.map((_, i) => narrationAt(i)), { acronyms, lang, lexicon }),
 		[set, narrationAt, acronyms, lang, lexicon],
 	);
-	const [ready, setReady] = React.useState<boolean[]>([]);
+	const [readyFractions, setReadyFractions] = React.useState<number[]>([]);
 	React.useEffect(() => {
 		if (!open || muted) {
-			setReady([]);
+			setReadyFractions([]);
 			return;
 		}
 		let live = true;
 		const refresh = () => {
 			narrationReadiness(readinessSentences)
 				.then((r) => {
-					if (live) setReady(r);
+					if (live) setReadyFractions(r);
 				})
 				.catch(() => {
-					if (live) setReady([]);
+					if (live) setReadyFractions([]);
 				});
 		};
 		refresh();
@@ -524,6 +524,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			window.clearInterval(id);
 		};
 	}, [open, muted, readinessSentences]);
+
+	// The rail's prefetch edge: per-slide fractions collapsed into one contiguous front, floored
+	// at the progress edge so an LRU eviction behind the playhead can never draw the buffer
+	// trailing playback.
+	const prefetchFront = React.useMemo(
+		() => prefetchFrontOf(readyFractions, clamped + Math.max(0, Math.min(1, reader.progress))),
+		[readyFractions, clamped, reader.progress],
+	);
 
 	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
 	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
@@ -954,7 +962,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				</div>
 
 				{/* Section title + full-width rail (bottom) — the ONE progress element. */}
-				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} ready={rehearse ? undefined : ready} onJump={(i) => setIdx(i)} className="w-full" />
+				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} prefetchFront={rehearse ? 0 : prefetchFront} onJump={(i) => setIdx(i)} className="w-full" />
 			</div>
 			{/* The overview covers the whole surface when open (its own iframes) — re-enable
 			    pointer events for it above the chrome's `pointer-events-none` root. */}

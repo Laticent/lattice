@@ -389,16 +389,21 @@ in patch versions.
   feature, only an unbounded lookahead, and a setup control does not belong in a delivery surface
   where a presenter discovering it is already in front of the room.
 
-- **The Present rail now shows how far the narration reaches, not just where you are.** Upcoming
-  slides whose audio is on the device carry a "ready" band — the video-scrubber idiom, where the
-  played edge is the position and the ready edge is the runway. It exists for the *audience* of a
-  self-presenting deck rather than the presenter: when narration stalls, the played edge freezes
-  while the ready band keeps advancing, and motion that continues while playback is stopped is the
-  only honest way to say "still working" rather than "crashed". Bands are separated by **luminance,
-  not hue**, so they survive grayscale, and the ready band is measured at **3.18:1 (light) / 4.02:1
-  (dark)** against the unready track — clearing WCAG 1.4.11's 3:1 for meaningful non-text contrast.
-  Readiness also rides each segment's accessible name, deliberately not a live region, which would
-  talk over the narration it describes.
+- **The Present rail now shows how far the narration reaches, as two fills.** A lighter
+  **prefetch** fill leads, advancing as each slide's audio lands; the darker **progress** fill
+  follows as playback reaches it — the video-scrubber idiom, chosen because the same treatment is
+  meant to reach the shipped player, where a viewer arrives with that mental model already loaded.
+  It exists for the *audience* of a self-presenting deck: when narration stalls the progress edge
+  freezes while the prefetch edge keeps moving, and motion continuing while playback is stopped is
+  the only honest way to say "still working" rather than "crashed". When the two edges meet, the
+  audio has run dry — visible with no word and no color change. Readiness is a **fraction** per
+  slide collapsed into one **contiguous** front, so a half-fetched slide fills its segment halfway
+  and a slide cached behind a gap is correctly *not* counted (you would stall at the gap first).
+  The three tiers are separated by **height** — 2px track, 3px prefetch, 5px progress — not tone:
+  measured across all 36 palette/mode combinations, `--accent` to `--border` is under 3:1 in
+  **eleven** of them, and in `onyx dark` the two tokens are both `#FFFFFF`, so any tint-based tier
+  would be invisible in the a11y, onyx and print palettes. Thickness is palette-blind by
+  construction; color now only reinforces.
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The
