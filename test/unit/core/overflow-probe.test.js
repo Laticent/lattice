@@ -943,8 +943,24 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   });
 
   test('IGNORED_CLIP_SELECTOR names the boxes that are never evidence', () => {
-    for (const s of ['.split-feat-bleed', '.watermark', '.katex-mathml', '[aria-hidden="true"]', '.overflow-tab']) {
+    for (const s of ['.split-feat-bleed', 'div.watermark', '.katex-mathml', '[aria-hidden="true"]', '.overflow-tab']) {
       assert.ok(IGNORED_CLIP_SELECTOR.includes(s), `${s} must stay excluded`);
+    }
+  });
+
+  test('IGNORED_CLIP_SELECTOR never names a UNIVERSAL VARIANT class — closest() takes the subtree', () => {
+    // Both probes exclude with `closest()`, so an entry that can land on a SECTION
+    // blinds the whole slide. A bare `.watermark` did exactly that: `watermark` is a
+    // universal variant (`section.content.confidential.watermark`,
+    // `section.split-panel.watermark`), and 6 slides plus all 141 elements inside them
+    // dropped out of BOTH probes — the blindness this module exists to remove,
+    // reintroduced by the list meant to make it precise.
+    const variantClasses = ['watermark', 'dark', 'accent', 'compact', 'silent', 'title', 'closing'];
+    for (const cls of variantClasses) {
+      for (const part of IGNORED_CLIP_SELECTOR.split(',').map((x) => x.trim())) {
+        assert.notEqual(part, `.${cls}`,
+          `"${part}" is a universal variant that can sit on a <section>; name the ELEMENT (e.g. div.${cls})`);
+      }
     }
   });
 
