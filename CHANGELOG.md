@@ -447,6 +447,34 @@ in patch versions.
   exactly like a defect, so the scope is now stated in `base.tokens.css`, in kanban's common
   mistakes, and in an amendment to `engineering/decisions/2026-07-12-struck-elevation.md`.
 
+### Fixed
+
+- **Studio: the tablet header no longer runs off its own viewport, and the ⋯ Menu stays reachable.**
+  The top bar is one non-wrapping flex row in which every control is `shrink-0` except the deck
+  switcher, so once the title truncated to its floor the row had no give left and simply overflowed:
+  at the 700px floor of the `tablet` breakpoint it wanted 787px and pushed the ⋯ Menu clean off the
+  screen — and on a tablet that menu is the only route to Library, Reader views, Workspace settings
+  and the theme picker. The reclaim comes from the row's largest item: the **posture dial is now
+  icon-only below desktop** (219px labeled → 116px), keeping its three distinct icons, its
+  tooltips and its per-stop `aria-label`, with the Read/Write/Build words returning at 1100px.
+  Every width from 700 up now fits with zero overflow, and the ~103px goes back to the deck title —
+  the user's orientation — which at 820px grows from nothing to 82px and at 1024px from 87px to its
+  full 188px. Gated on the app's own `compact` breakpoint, the same source of truth as the wordmark
+  beside it. The six protected 1-tap controls (Present, Share, Coach, Chat, Settings, pane toggle)
+  were never candidates for the ⋯ menu, which is what made the dial the place the width had to come
+  from. Fixes #1381.
+
+- **`check:overflow` now measures rows that clip, not just pages that grow.** The guard asserted
+  `documentElement.scrollWidth <= clientWidth`, which is blind to the failure above: a too-wide row
+  inside a clipping ancestor never grows the document, so the page reads as fine while the controls
+  at the end of the row are gone. Verified by mutation — with the bug reintroduced the old check
+  stayed green, even after adding the 700px viewport. Cases may now declare `noSelfOverflow`
+  selectors, asserted as `scrollWidth <= clientWidth` on the element itself; the Studio header is
+  the first. Scoped to an explicit list because plenty of elements are legitimately wider than their
+  box (the slide navigator scrolls on purpose) and a blanket rule would be noise. The breakpoint set
+  also gains **`tablet-floor` (700px)**: testing a band only at its widest point tests the case least
+  likely to break.
+
 ### Changed
 
 - **Studio: Send feedback has one fixed address on tablet and desktop, and the header stops

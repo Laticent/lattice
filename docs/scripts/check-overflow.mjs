@@ -22,8 +22,15 @@ import puppeteer from 'puppeteer-core';
 const DIST = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const PORT = 4396;
 const TOLERANCE = 2; // sub-pixel rounding
+// 700 is the FLOOR of the `tablet` breakpoint (use-breakpoint.ts: mobile ends at
+// 699), and it is the width this guard was blind to. #1381 lived entirely in
+// 700–787: the Studio header fit at 820 and overflowed below ~787, pushing the ⋯
+// Menu — a tablet's only route to Library / Reader views / Workspace settings —
+// off-screen. Testing a band only at its widest point tests the case least likely
+// to break, so each band now carries its narrowest supported width too.
 const BREAKPOINTS = [
 	['mobile', 390, 844],
+	['tablet-floor', 700, 1000],
 	['tablet', 820, 1180],
 	['desktop', 1440, 900],
 ];
@@ -58,6 +65,10 @@ const CASES = [
 		// panes and drawers only overflow once shown.
 		name: 'studio',
 		path: '/lattice/studio/',
+		// The top bar is a single non-wrapping flex row of controls, every one of them
+		// `shrink-0` bar the deck switcher. Once the title truncates to its floor the row
+		// has no give left and the tail controls leave the screen silently. #1381.
+		noSelfOverflow: ['[data-studio-root] header'],
 		steps: [
 			{ label: 'coach', find: () => [...document.querySelectorAll('button')].find((b) => /Toggle Coach/.test(b.getAttribute('aria-label') || '')) },
 			{ label: 'chat', find: () => [...document.querySelectorAll('button')].find((b) => /Toggle Chat/.test(b.getAttribute('aria-label') || '')) },
@@ -102,6 +113,33 @@ function chromePath() {
 }
 
 const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+
+// Document-level overflow is only HALF the failure mode, and it is the half that
+// misses the worse one. When a too-wide row sits inside a clipping ancestor, the
+// document never grows — the page looks perfectly fine to the check above — and the
+// controls at the end of the row are simply GONE. That is #1381: the Studio header
+// wanted 787px at a 700px viewport and put the ⋯ Menu (a tablet's only route to
+// Library / Reader views / Workspace settings) past the right edge, with
+// `documentElement.scrollWidth - clientWidth === 0` throughout. Adding the 700px
+// breakpoint alone did NOT catch it — verified by mutation, the run stayed green.
+//
+// So: name the rows that must never self-overflow and measure THEM, not the page.
+// `scrollWidth > clientWidth` on the row itself is exactly "my content does not
+// fit inside me", which is the invariant a toolbar has to hold. Scoped to an
+// explicit selector list because plenty of elements are legitimately wider than
+// their box (the slide navigator scrolls on purpose) — a blanket rule would cry
+// wolf and get muted.
+const selfOverflow = (page, selectors) =>
+	page.evaluate((sels) => {
+		const out = [];
+		for (const sel of sels) {
+			for (const el of document.querySelectorAll(sel)) {
+				const d = el.scrollWidth - el.clientWidth;
+				if (d > 1) out.push(`${sel}·wants ${el.scrollWidth} in ${el.clientWidth} (+${d}px)`);
+			}
+		}
+		return out;
+	}, selectors);
 const offenders = (page) =>
 	page.evaluate(() => {
 		const vw = document.documentElement.clientWidth;
@@ -138,6 +176,10 @@ async function main() {
 				checks++;
 				const ov = await overflow(page);
 				if (ov > TOLERANCE) failures.push(`${bp} ${c.name} [${label}] overflow=${ov}px — ${JSON.stringify(await offenders(page))}`);
+				if (c.noSelfOverflow) {
+					const self = await selfOverflow(page, c.noSelfOverflow);
+					if (self.length) failures.push(`${bp} ${c.name} [${label}] clipped row — ${JSON.stringify(self)}`);
+				}
 			};
 			await record('initial');
 			if (c.steps && bp !== 'desktop') {
@@ -173,7 +215,9 @@ async function main() {
 	if (failures.length) {
 		console.error(`✗ horizontal overflow on ${failures.length} state(s) (of ${checks} checked):`);
 		for (const f of failures) console.error(`  • ${f}`);
-		console.error('\nA page wider than its viewport is pannable on touch. Fix with minmax(0,1fr) / min-width:0 / flex-wrap.');
+		console.error('\n"overflow=" — the PAGE is wider than the viewport, so it pans on touch. Fix with minmax(0,1fr) / min-width:0 / flex-wrap.');
+		console.error('"clipped row" — the row fits the page but not ITSELF, so the controls at its end are off-screen and unreachable.');
+		console.error('  Give the row less to carry at that width (drop a label, fold a non-protected control into the overflow menu), not more room to overflow into.');
 		process.exit(1);
 	}
 	console.log(`✓ no horizontal overflow — ${checks} states checked across mobile/tablet/desktop on every converted surface.`);
