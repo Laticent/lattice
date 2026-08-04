@@ -212,12 +212,17 @@ contrast contract** (#1022,
 1. **① edge/border** — `--cat-N-mark` vs `--bg` ≥ 3:1 (WCAG 1.4.11 graphical).
 2. **② leaf fill** — `--cat-N-fill` vs `--bg` *intentionally low*; the ① border delineates it.
 3. **③ label ink** — `--cat-on-fill` vs `--cat-N-fill` ≥ 4.5:1 (WCAG AA).
-4. **anti-collapse** — fill ≠ mark (equal fill/mark was the collapse bug).
+4. **④ on-canvas ink** — `--cat-N-ink` vs `--bg` **and** `--bg-alt` ≥ 4.5:1 (WCAG AA).
+5. **anti-collapse** — fill ≠ mark (equal fill/mark was the collapse bug).
 
-`checkCatContrast` in `tools/check-ownership.js` gates **three of these** — ① (mark
-vs `--bg`), ③ (ink vs fill), and ④ (fill ≠ mark) — over **every** hue-based theme,
-both modes (a11y-* exempt). Layer ② (fill vs `--bg`) is a *design intention* the ①
-border makes safe, not a machine-checked number. The shipped values are regenerated per
+`checkCatContrast` in `tools/check-ownership.js` gates **four of these** — ① (mark
+vs `--bg`), ③ (ink vs fill), ④ (on-canvas ink vs both slide surfaces), and the
+anti-collapse floor. Layers ①, ③ and anti-collapse are the *hue* contract and run
+over every hue-based theme, both modes, with a11y-* exempt (they separate by
+luminance + texture, not hue). Layer ④ is about legibility rather than hue, so **no
+palette is exempt** — it runs over all 32, a11y included. Layer ② (fill vs `--bg`)
+is a *design intention* the ① border makes safe, not a machine-checked number.
+The shipped values are regenerated per
 theme by a deterministic recipe from each theme's own hues — not copied from a
 proposal deck. To start a new theme, copy a shipped three-layer block (indaco / cuoio)
 and re-hue it (the `new:theme` scaffold does this for you).
@@ -231,7 +236,21 @@ and re-hue it (the `new:theme` scaffold does this for you).
 - `--cat-on-mark` — the ink on every `--cat-N-mark`. Also flips:
   `light-dark(#FFFFFF, <dark>)` (white on the deep light mark, dark on the
   pale dark mark). Warm-palette themes can use a cream off-white for the
-  light-mode value.
+  light-mode value. A palette that pins its categorical tier **mode-invariant**
+  (the a11y family) must pin this ink to a fixed hex too — an inherited
+  `light-dark()` pair flips under a per-slide `_class: dark` while the pinned
+  chips stay put, which is how the gitgraph branch labels reached 1.55:1.
+
+**On-canvas ink** (derived, not authored):
+
+- `--cat-N-ink` — the category's hue **as text on the slide**, one per slot.
+  Themes do **not** declare it: `lib/base/base.tokens.css` derives all twelve
+  from `--cat-N-mark`, diluted toward `--text-heading` (65% mark in light, 80%
+  in dark, because the mark tier flips deep↔pale and starts closer to AA on a
+  dark canvas). Reach for this — never the raw `--cat-N-mark` — whenever a
+  categorical hue has to carry **small text** on `--bg` / `--bg-alt`; the mark
+  carries only the 3:1 non-text guarantee its stroke role is scoped to. A
+  palette overrides it the ordinary way, by declaring `--cat-N-ink` at `:root`.
 
 **Texture adoption (optional).** A monochrome (onyx) or CVD-safe theme that
 can't separate categories by hue declares 12 `--cat-N-texture:
@@ -408,6 +427,11 @@ The tiers **swap** when the canvas flips, so the paired inks flip too:
 `--cat-on-fill` vs `--cat-N-fill` ≥ 4.5:1, and fill ≠ mark — measured in both modes
 by `checkCatContrast`. Copy a shipped block (indaco / cuoio) and re-hue it rather
 than hand-deriving the tiers.
+
+A **fourth** layer rides on top and needs nothing from the palette author:
+`--cat-N-ink`, the hue as small text on the slide, derived from the mark tier in
+`lib/base/base.tokens.css` and gated against both `--bg` and `--bg-alt` on every
+palette. Re-hue the mark and the ink follows.
 
 Colors that ignore the tier split:
 

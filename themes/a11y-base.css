@@ -99,6 +99,30 @@
   --cat-10-mark: #5d5d5d;
   --cat-11-mark: #636363;
   --cat-12-mark: #696969;
+
+  /* Categorical ON-CANVAS ink — PINNED to the heading ink, not derived.
+   * lattice.css derives --cat-N-ink by diluting --cat-N-mark toward
+   * --text-heading (65% light / 80% dark) so a category's hue can carry small
+   * text on --bg / --bg-alt. That recipe assumes the mark tier FLIPS with the
+   * canvas. Here it does not: the ramp above is fixed grayscale by design,
+   * while --bg still flips on a per-slide `_class: dark` (the section-level
+   * color-scheme the :root pin cannot reach — the same reach problem that
+   * forced --cat-on-fill to a fixed hex in #1323). Derived, cat-1-ink lands at
+   * #535353: 2.73:1 on a dark --bg and 2.26:1 on --bg-alt. No single dilution
+   * clears both ends of a ramp that stays put while the canvas moves.
+   *
+   * Pinning to var(--text-heading) costs this palette nothing — its ramp
+   * carries ZERO chroma, so there is no hue for the ink to preserve, and
+   * categorical distinctness here rides on --cat-N-texture, not on ink color.
+   * It gains AA on both surfaces in both schemes, for free, because
+   * --text-heading is already gated there by theme-surface-aa.test.js. */
+  --cat-1-ink:  var(--text-heading);  --cat-2-ink:  var(--text-heading);
+  --cat-3-ink:  var(--text-heading);  --cat-4-ink:  var(--text-heading);
+  --cat-5-ink:  var(--text-heading);  --cat-6-ink:  var(--text-heading);
+  --cat-7-ink:  var(--text-heading);  --cat-8-ink:  var(--text-heading);
+  --cat-9-ink:  var(--text-heading);  --cat-10-ink: var(--text-heading);
+  --cat-11-ink: var(--text-heading);  --cat-12-ink: var(--text-heading);
+
   /* Chart-family spectrum — fixed value ramp */
   --chart-cat1: #2e2e2e;
   --chart-cat2: #3b3b3b;

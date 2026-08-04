@@ -1793,11 +1793,42 @@ describe('check-ownership', () => {
       const map = new Map([
         ['--x', 'light-dark(color-mix(in oklab, #aabbcc 50%, #ddeeff), #123456)'],
       ]);
-      // light arm is a color-mix() this static resolver can't evaluate → null (fail-closed),
-      // NOT a wrong hex silently harvested from inside the color-mix.
-      assert.equal(catResolve(map, '--x', 'light'), null);
+      // The light arm is a color-mix() whose own commas sit INSIDE the arm. It must
+      // resolve to the real 50/50 oklab blend of #aabbcc and #ddeeff — not to a hex
+      // silently harvested from inside the mix (#aabbcc, what the naive split gave),
+      // and no longer to null: since --cat-N-ink the resolver evaluates color-mix().
+      assert.equal(catResolve(map, '--x', 'light'), '#c3d4e5');
       // dark arm is a plain hex and must resolve correctly despite the commas in the light arm.
       assert.equal(catResolve(map, '--x', 'dark'), '#123456');
+    });
+
+    test('catResolve stays FAIL-CLOSED on a value that is not a color', () => {
+      // The evaluator it delegates to returns unresolvable input verbatim, which is
+      // right for a renderer and wrong for a gate: a non-color must read as "cannot
+      // verify" (null), so the caller raises it instead of silently skipping a slot.
+      const map = new Map([
+        ['--a', 'var(--never-declared)'],
+        ['--b', 'currentColor'],
+        ['--c', 'color-mix(in oklab, currentColor 65%, #123456)'],
+        ['--d', 'light-dark(#111111)'], // a one-armed light-dark() is malformed
+      ]);
+      for (const t of ['--a', '--b', '--c', '--d']) {
+        assert.equal(catResolve(map, t, 'light'), null, `${t} must fail closed`);
+      }
+    });
+
+    test('the ink gate bites: an undiluted mark used as on-canvas ink is below AA', () => {
+      // The #1263 defect, in miniature — `atelier` light, --cat-4-mark painted raw
+      // as `color:` on the `math.theorem` blockquote's --bg-alt. The whole point of
+      // --cat-N-ink is that this pair clears 4.5:1 instead.
+      assert.ok(catContrast('#478400', '#e5e0d2') < CAT_TEXT_FLOOR, 'the raw mark fails AA on --bg-alt');
+      const map = new Map([
+        ['--cat-4-mark', '#478400'],
+        ['--text-heading', '#1a1a1a'],
+        ['--cat-4-ink', 'light-dark(color-mix(in oklab, var(--cat-4-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark) 80%, var(--text-heading)))'],
+      ]);
+      assert.ok(catContrast(catResolve(map, '--cat-4-ink', 'light'), '#e5e0d2') >= CAT_TEXT_FLOOR,
+        'the derived ink clears AA on the same surface');
     });
 
     test('catResolve honors a var() fallback that itself contains commas', () => {

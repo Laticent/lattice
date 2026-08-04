@@ -63,6 +63,7 @@ const { TRANSFORMERS } = require('../lib/transformers/registry');
 const { PAIRS: TOKEN_CROSSWALK } = require('../lib/tokens/crosswalk');
 const { findHexLiterals } = require('../lib/layout/gate'); // HARD RULE #3 hex matcher (reused, not reinvented)
 const { FINISH_REGISTER } = require('../lib/core/resolve-finish'); // skill-freshness: authoritative finish list
+const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-contrast: the engine's own custom-property evaluator (reused, not reinvented)
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -3383,10 +3384,22 @@ function skillFreshnessAssertions() {
 //   ③ label text (on-fill ink) vs leaf fill ≥ 4.5 (WCAG AA normal text)
 // plus an anti-collapse floor: fill and mark must differ (the original bug set
 // them equal → contrast 1.0). Runs over EVERY hue-based theme, both modes, so a
-// collapse or a sub-AA recolor can't silently reship. a11y-* themes are the
-// sanctioned exception (luminance + texture, not hue) and are skipped.
+// collapse or a sub-AA recolor can't silently reship.
+//
+// ④ ON-CANVAS INK — `--cat-N-ink` vs `--bg` AND `--bg-alt` ≥ 4.5 (#1263). Layers
+// ①–③ all judge the category against ITSELF (its own chip, its own border); this
+// one judges it against the SLIDE, which is where `math.theorem`, `split-panel`
+// and `premise` actually paint categorical text. Nothing bounded that pair, so
+// `math.theorem` shipped 11 of 56 combinations below AA on the raw mark.
+//
+// COVERAGE DIFFERS BY LAYER, ON PURPOSE. Layers ①–③ are the HUE contract, and
+// a11y-* palettes are its sanctioned exception (they separate by luminance +
+// texture, not hue) — so those palettes skip ①–③. Layer ④ is not about hue at
+// all, it is about whether small text is legible, which no palette is exempt
+// from; it runs over EVERY palette including a11y-*. Skipping the whole theme
+// (what this gate used to do) would have let the a11y family ship a 2.26:1 ink.
 // See engineering/decisions/2026-07-15-categorical-token-contract.md.
-const CAT_TEXT_FLOOR = 4.5;      // ③ AA normal text
+const CAT_TEXT_FLOOR = 4.5;      // ③ ④ AA normal text
 const CAT_EDGE_FLOOR = 3.0;      // ① WCAG 1.4.11 graphical
 const CAT_COLLAPSE_FLOOR = 1.25; // fill vs mark — catches fill==mark (1.0)
 
@@ -3404,54 +3417,45 @@ function catParseTokens(css) {
   }
   return m;
 }
-// Split on TOP-LEVEL commas only — commas nested inside parens (color-mix(),
-// rgb(), a var() fallback) are NOT separators. A naive regex split here was the
-// gate's worst latent bug: `light-dark(color-mix(in oklab,#a,#b), #c)` split on
-// the first inner comma and resolved to the wrong color / null.
-function catSplitTopCommas(s) {
-  const parts = [];
-  let depth = 0, cur = '';
-  for (const ch of s) {
-    if (ch === '(') depth += 1;
-    else if (ch === ')') depth -= 1;
-    if (ch === ',' && depth === 0) { parts.push(cur.trim()); cur = ''; }
-    else cur += ch;
-  }
-  parts.push(cur.trim());
-  return parts;
-}
-// If `v` is exactly `name(<inner>)`, return `<inner>`; else null. Balanced.
-function catFnInner(v, name) {
-  if (!v.startsWith(`${name}(`) || !v.endsWith(')')) return null;
-  return v.slice(name.length + 1, -1).trim();
-}
-// Resolve a token (or literal) to a #rrggbb hex in the given mode, following
-// light-dark() arms and var() references (with fallback), paren-balanced. Returns
-// null ONLY when the value genuinely does not reduce to a hex (e.g. a color-mix()
-// this static resolver can't evaluate) — callers treat null on a REQUIRED token
-// as a loud error, never a silent skip (fail-closed).
-function catResolve(map, tokenOrVal, mode, depth = 0) {
-  if (depth > 12) return null;
+// Resolve a token (or literal) to a #rrggbb hex in the given mode.
+//
+// The EVALUATION is delegated to lib/core/resolve-token-expr — the engine's own
+// custom-property evaluator, the one the offline Mermaid bridge already uses
+// (var() with fallback, light-dark() arms, color-mix() in oklab/srgb, all
+// paren-balanced). This gate used to carry a hand-rolled second evaluator that
+// understood only var() and light-dark(); it was replaced rather than extended
+// when --cat-N-ink arrived, because that token is a color-mix() and a gate that
+// mirrors a recipe in its own arithmetic is a gate that can drift off the
+// recipe. Now the gate reads the SHIPPED declaration and evaluates it with the
+// SHIPPED evaluator (HARD RULE #15 — reuse, don't reinvent).
+//
+// What this wrapper adds on top is the FAIL-CLOSED contract the callers rely
+// on: resolveTokenExpr returns its input verbatim when it cannot reduce a value
+// (right for a renderer, wrong for a gate), so anything that is not a hex comes
+// back as null here. Callers treat null on a REQUIRED token as a loud error,
+// never a silent skip.
+function catResolve(map, tokenOrVal, mode) {
   const raw = tokenOrVal.startsWith('--') ? map.get(tokenOrVal) : tokenOrVal;
   if (!raw) return null;
-  const v = raw.trim();
-  const ld = catFnInner(v, 'light-dark');
-  if (ld != null) {
-    const arms = catSplitTopCommas(ld);
-    if (arms.length !== 2) return null;
-    return catResolve(map, mode === 'light' ? arms[0] : arms[1], mode, depth + 1);
-  }
-  const varInner = catFnInner(v, 'var');
-  if (varInner != null) {
-    const parts = catSplitTopCommas(varInner);
-    const r = catResolve(map, parts[0], mode, depth + 1);
-    if (r) return r;
-    return parts.length > 1 ? catResolve(map, parts.slice(1).join(',').trim(), mode, depth + 1) : null;
-  }
-  const hx = v.match(/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/);
+  // resolveTokenExpr keys its var table on the BARE name (`bg`), not `--bg`.
+  const vars = catBareVars(map);
+  const out = resolveTokenExpr(String(raw).trim(), vars, mode === 'dark');
+  const hx = String(out).trim().match(/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/);
   if (!hx) return null;
   const h = hx[1].length === 3 ? hx[1].split('').map((c) => c + c).join('') : hx[1];
   return `#${h.toLowerCase()}`;
+}
+// `--name` → `name` view of a token map, memoized per map (catResolve is called
+// ~1500× per run and the rebuild is otherwise O(tokens) each time).
+const CAT_BARE_VARS = new WeakMap();
+function catBareVars(map) {
+  let v = CAT_BARE_VARS.get(map);
+  if (!v) {
+    v = Object.create(null);
+    for (const [k, val] of map) v[k.replace(/^--/, '')] = val;
+    CAT_BARE_VARS.set(map, v);
+  }
+  return v;
 }
 function catRelLum(hex) {
   const n = hex.replace('#', '');
@@ -3467,17 +3471,69 @@ function catContrast(a, b) {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
+// Every palette with its @import chain flattened — base first, then each import,
+// then the file itself, mirroring the cascade. `@import 'lattice'` resolves to
+// lib/base/base.tokens.css, the SOURCE (not dist/, which is regenerated by the
+// very build this gate runs inside). Two things need the flattening: the derived
+// --cat-N-ink tier is declared in base.tokens.css, not in any theme; and the
+// a11y-* palettes reach the cycle through `@import 'onyx'`, so read alone they
+// look like a theme with no categorical tokens at all.
+function catPaletteSource(name, seen = new Set()) {
+  if (seen.has(name)) return '';
+  seen.add(name);
+  if (name === 'lattice') return fs.readFileSync(path.join(LIB_DIR, 'base', 'base.tokens.css'), 'utf8');
+  const file = path.join(THEMES_DIR, `${name}.css`);
+  if (!fs.existsSync(file)) return '';
+  const css = fs.readFileSync(file, 'utf8');
+  let out = '';
+  for (const m of css.matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen)}\n`;
+  return `${out}${css}`;
+}
+
 function checkCatContrast(errors) {
   let scanned = 0;
-  let evaluated = 0; // slot×mode pairs actually contrast-checked — the real coverage metric
+  let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
+  let inkScanned = 0;
+  let inkEvaluated = 0; // ④ slot×mode×surface pairs — its own metric, since its scope is wider
   for (const file of fs.readdirSync(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    if (/^a11y-/.test(name)) continue; // sanctioned luminance+texture exception
-    const css = fs.readFileSync(path.join(THEMES_DIR, file), 'utf8');
-    if (!/@import\s+['"]lattice['"]/.test(css)) continue;
-    const map = catParseTokens(css);
-    if (!map.has('--cat-1-fill')) continue; // theme without the hue-based cycle
+    const map = catParseTokens(catPaletteSource(name));
+    if (!map.has('--cat-1-fill')) continue; // not a palette / no categorical cycle
+
+    // ④ ON-CANVAS INK — every palette, a11y-* included. See the header note: this
+    // layer asks whether small text is legible, which no palette is exempt from.
+    inkScanned += 1;
+    for (const mode of ['light', 'dark']) {
+      const bg = catResolve(map, '--bg', mode);
+      const bgAlt = catResolve(map, '--bg-alt', mode);
+      if (!bg || !bgAlt) {
+        errors.push(`theme "${name}" ${mode}: --${!bg ? 'bg' : 'bg-alt'} did not resolve to a color — the contrast gate cannot verify on-canvas ink legibility.`);
+        continue;
+      }
+      for (let n = 1; n <= 12; n += 1) {
+        const catInk = catResolve(map, `--cat-${n}-ink`, mode);
+        if (!catInk) {
+          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is DERIVED in lib/base/base.tokens.css; a palette that pins it must pin something that reduces to a color.`);
+          continue;
+        }
+        for (const [surface, hex] of [['--bg', bg], ['--bg-alt', bgAlt]]) {
+          inkEvaluated += 1;
+          const r = catContrast(catInk, hex);
+          if (r < CAT_TEXT_FLOOR) {
+            errors.push(
+              `theme "${name}" ${mode}: --cat-${n}-ink vs ${surface} is ${r.toFixed(2)}:1, ` +
+              `below the ${CAT_TEXT_FLOOR}:1 AA floor. Categorical text on the slide (math.theorem labels, ` +
+              `split-panel card labels, premise row terms) must be legible on the canvas it sits on.`,
+            );
+          }
+        }
+      }
+    }
+
+    // ①–③ THE HUE CONTRACT — a11y-* separate by luminance + texture, not hue, and
+    // are the sanctioned exception to these three layers only.
+    if (/^a11y-/.test(name)) continue;
     scanned += 1;
     // The rendered mindmap label uses var(--cat-on-fill) unconditionally (mermaid.css),
     // with no base default — so that IS the ink, and its absence is a real defect.
@@ -3542,6 +3598,13 @@ function checkCatContrast(errors) {
   // a silent-skip regression where themes match the filters but no slot is contrast-checked.
   else if (evaluated < scanned * 24) {
     errors.push(`checkCatContrast evaluated only ${evaluated} of the expected ${scanned * 24} slot×mode pairs — some slots did not resolve; coverage is incomplete.`);
+  }
+  // The ink layer carries its OWN backstop, because its scope is wider (every
+  // palette, both surfaces) and a regression that quietly dropped a11y-* or one
+  // surface would otherwise hide behind the ①–③ count above.
+  if (!inkScanned) errors.push('checkCatContrast found no palettes to verify --cat-N-ink on — the theme scan is broken.');
+  else if (inkEvaluated < inkScanned * 48) {
+    errors.push(`checkCatContrast evaluated only ${inkEvaluated} of the expected ${inkScanned * 48} --cat-N-ink slot×mode×surface pairs — some slots did not resolve; coverage is incomplete.`);
   }
 }
 

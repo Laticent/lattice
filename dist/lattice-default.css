@@ -445,7 +445,80 @@
    * transforms read them, and the legacy `--cN-light` / `--cN-dark` /
    * `--c-ink-*` names are RETIRED. The old→new map lives in lib/tokens/
    * crosswalk.js + the ADR §7 table for legacy-deck migration. */
-     
+
+  /* ── --cat-N-ink · the category's hue AS TEXT, on the slide ───────────
+   * The categorical tier has THREE inks, told apart by WHAT THE INK SITS ON:
+   *
+   *   --cat-on-fill   text on a --cat-N-fill   (the pale SURFACE tier)
+   *   --cat-on-mark   text on a --cat-N-mark   (the saturated STROKE tier)
+   *   --cat-N-ink     text on --bg / --bg-alt  (the SLIDE — this block)
+   *
+   * The first two are ON-CHIP: one shared ink each, because a chip supplies its
+   * own background. This one is ON-CANVAS, so it is per-slot: the hue has to
+   * survive into the letterforms, and the surface behind it is the deck's.
+   *
+   * WHY IT EXISTS. `--cat-N-mark` reads like the token for "this category's
+   * color, used visibly" — its own theme comments invite that reading — but it
+   * is a STROKE token, gated to 3:1 against the canvas, the WCAG 1.4.11
+   * NON-TEXT bar its border/branch/edge role is scoped to. Normal-size text
+   * needs 4.5:1. So every component that wanted a hued ink invented its own
+   * compensation, and we ended up with four answers to one question:
+   * `statement/premise` bumped its row term to 700 weight to buy the >=18.66px
+   * AND >=700 large-text exemption; `statement/split-panel` mixed its own
+   * 65/80 blend toward `--text-heading`; `chart/matrix-grid` + `chart/quadrant`
+   * mixed 65% of the CHART tier's tokens; and `math/math`'s `.theorem` labels
+   * painted the raw mark and shipped 11 of 56 theme x mode x slot combinations
+   * below AA, worst 3.49:1 (`atelier` light, `--cat-4-mark` #478400 on the
+   * blockquote's `--bg-alt` #e5e0d2). This block is that one answer. (#1263)
+   *
+   * THE RECIPE, and why it is split per mode. Mix the mark toward
+   * `--text-heading` — the ink already gated AA on both `--bg` and `--bg-alt`
+   * by test/unit/palette/theme-surface-aa.test.js — so the shortfall is bought
+   * from a token that is guaranteed to cover it, without giving up the hue. The
+   * two arms take different dilutions because the mark tier FLIPS: it is the
+   * deep tier on a light canvas and a pale tint on a dark one, so it starts far
+   * closer to AA in dark. Every point of dilution is chroma spent, so dark
+   * spends only 20% where light needs 35%.
+   *
+   * MEASURED POPULATION — 1296 pairs = the 27 hue palettes x 2 modes x 12 slots
+   * x 2 surfaces (`--bg` and `--bg-alt`), resolved through the shipped token
+   * values. Result: 0 failures, worst 5.20:1 light (`concrete` cat-6 on `--bg`)
+   * and 5.15:1 dark (`carbone` cat-5 on `--bg-alt`). Gated, fail-closed, by
+   * checkCatContrast in tools/check-ownership.js — which reads THIS declaration
+   * rather than a mirrored constant, so the gate cannot drift off the recipe.
+   *
+   * THE a11y FAMILY PINS INSTEAD OF DERIVING. Its categorical ramp is fixed
+   * grayscale while `--bg` still flips, so no dilution ratio clears both ends
+   * (a dark-slide `_class: dark` puts the derived ink at 2.26:1 on `--bg-alt`).
+   * Those palettes pin `--cat-N-ink: var(--text-heading)` and lose nothing:
+   * their ramp carries zero chroma, so there is no hue for the ink to preserve
+   * — distinctness there rides on `--cat-N-texture`, not on ink color.
+   *
+   * WHAT THIS DOES *NOT* BUY: visible hue on a dark canvas, for most themes.
+   * The ink's mean oklab chroma is 0.066-0.108 in light but <=0.035 in dark for
+   * 13 of the 14 hue families — `carbone` (0.133) is the lone theme whose dark
+   * marks carry hue, and `onyx` is 0.000 in both. On a dark deck these labels
+   * read as barely-tinted heading ink and the FILL carries the category. That
+   * is a property of the dark mark tier, not of this recipe: re-tuning it is
+   * theme-wide (kanban stripes, gantt bars, premise rows all draw from it).
+   * A fill-derived dark arm was measured — 45% fill clears AA and roughly
+   * triples most themes' dark chroma — but it costs `carbone` its hue
+   * (0.133 -> 0.022) and would make the panel and its label agree in dark while
+   * disagreeing in light, which is worse than one consistent rule. Left as a
+   * per-theme palette question. */
+  --cat-1-ink:  light-dark(color-mix(in oklab, var(--cat-1-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-1-mark)  80%, var(--text-heading)));
+  --cat-2-ink:  light-dark(color-mix(in oklab, var(--cat-2-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-2-mark)  80%, var(--text-heading)));
+  --cat-3-ink:  light-dark(color-mix(in oklab, var(--cat-3-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-3-mark)  80%, var(--text-heading)));
+  --cat-4-ink:  light-dark(color-mix(in oklab, var(--cat-4-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark)  80%, var(--text-heading)));
+  --cat-5-ink:  light-dark(color-mix(in oklab, var(--cat-5-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-5-mark)  80%, var(--text-heading)));
+  --cat-6-ink:  light-dark(color-mix(in oklab, var(--cat-6-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-6-mark)  80%, var(--text-heading)));
+  --cat-7-ink:  light-dark(color-mix(in oklab, var(--cat-7-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-7-mark)  80%, var(--text-heading)));
+  --cat-8-ink:  light-dark(color-mix(in oklab, var(--cat-8-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-8-mark)  80%, var(--text-heading)));
+  --cat-9-ink:  light-dark(color-mix(in oklab, var(--cat-9-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-9-mark)  80%, var(--text-heading)));
+  --cat-10-ink: light-dark(color-mix(in oklab, var(--cat-10-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-10-mark) 80%, var(--text-heading)));
+  --cat-11-ink: light-dark(color-mix(in oklab, var(--cat-11-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-11-mark) 80%, var(--text-heading)));
+  --cat-12-ink: light-dark(color-mix(in oklab, var(--cat-12-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-12-mark) 80%, var(--text-heading)));
+
      
      
      

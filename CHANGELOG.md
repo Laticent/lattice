@@ -548,6 +548,27 @@ in patch versions.
 
 ### Added
 
+- **`--cat-1-ink` … `--cat-12-ink` — the categorical tier finally has an ink for the slide
+  itself.** The cycle shipped two inks, both of them ON-CHIP: `--cat-on-fill` for text on a
+  `--cat-N-fill`, `--cat-on-mark` for text on a `--cat-N-mark`. Nothing covered the third
+  case — the category's hue used as *text on `--bg` / `--bg-alt`* — even though four
+  components wanted exactly that. `--cat-N-mark` looks like the token for the job and its own
+  theme comments invite the reading, but it is a STROKE token, gated to the 3:1 WCAG 1.4.11
+  non-text bar its border role is scoped to; normal-size text needs 4.5:1. So each consumer
+  invented its own compensation and one of them was simply wrong (see **Fixed**). The new tier
+  is derived once, centrally, in `lib/base/base.tokens.css` — the mark diluted toward
+  `--text-heading`, 65% in light and 80% in dark, because the mark tier flips deep↔pale with
+  the canvas and starts closer to AA on a dark one. A theme declares nothing: re-hue the mark
+  and the ink follows. Measured over 1296 pairs (27 hue palettes × 2 modes × 12 slots × 2
+  surfaces): zero failures, worst 5.20:1 light and 5.15:1 dark. `checkCatContrast` now gates
+  layer ④ — `--cat-N-ink` vs `--bg` *and* `--bg-alt` ≥ 4.5:1 — fail-closed, on **all 32
+  palettes including the a11y family**, which the previous three layers skip as the sanctioned
+  hue exception. Legibility is not a hue question, and skipping the whole theme would have let
+  the a11y family ship a 2.26:1 ink under a per-slide `_class: dark`; those palettes pin
+  `--cat-N-ink: var(--text-heading)` instead, costing nothing on a ramp that carries zero
+  chroma. The gate reads the shipped declaration and evaluates it with the engine's own
+  `resolve-token-expr`, so it cannot drift off the recipe it is checking. (#1263)
+
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
   pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`
   pane, so a line past the right edge is cut mid-token: no ellipsis, no scrollbar, and no height

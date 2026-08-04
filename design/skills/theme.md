@@ -170,6 +170,9 @@ A base palette's spine (from `themes/indaco.css`):
   --cat-1-mark: light-dark(#2E608A, #D4DFE8);  /* deep light ↔ pale dark — the border */
   --cat-on-fill: var(--text-heading);          /* label ink — FLIPS with the fill tier */
   --cat-on-mark: light-dark(#FFFFFF, #0A1628); /* ink on the mark — also flips */
+  /* NOT declared: --cat-1-ink … --cat-12-ink (the hue as TEXT on --bg/--bg-alt) are
+   * DERIVED from the mark tier in lib/base/base.tokens.css. Re-hue the mark; the ink
+   * follows and is gated ≥4.5:1 on both slide surfaces by checkCatContrast. */
   /* Optional (monochrome/CVD themes): 12 --cat-N-texture: url(#latt-onyx-tex-1) … tokens */
 
   /* Structural — stroke MUST read on white */
@@ -259,6 +262,11 @@ The **dark variant in full** — this is the whole file:
 - [ ] Categorical three-layer contract holds in BOTH modes (mark-vs-`--bg` ≥ 3:1,
       `--cat-on-fill`-vs-fill ≥ 4.5:1, fill ≠ mark) — `checkCatContrast` green;
       `--diagram-stroke` reads on white.
+- [ ] The DERIVED `--cat-N-ink` clears 4.5:1 on `--bg` **and** `--bg-alt` in both
+      modes — same gate. A palette that pins its categorical tier mode-invariant
+      (the a11y family) must pin `--cat-N-ink` and `--cat-on-mark` too: an inherited
+      `light-dark()` ink flips under a per-slide `_class: dark` while the pinned
+      chips stay put.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
 - [ ] Full 95-token contract defined directly (not just the 10 core) — all 12
