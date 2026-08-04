@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
+import { TOURS } from './tours';
 
 // Most flows here exercise the FULL-density Studio against the original deck set
 // (the 6-slide "Q3 Board Review" active). Seed a returning-user state — the saved
@@ -1114,6 +1115,49 @@ describe('StudioShell — Send feedback has ONE fixed address', () => {
 		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		const drawer = within(await screen.findByRole('dialog'));
 		expect(await drawer.findByRole('button', { name: 'Send feedback' })).toBeInTheDocument();
+	});
+});
+
+describe('StudioShell — Show me has ONE launcher per tier', () => {
+	// #1401. The header button is desktop-only: below 1100 the tours ride the ⋯
+	// overflow (tablet) or the drawer's "Show me" door (mobile), which is the width
+	// the posture dial's words are paid for with. The invariant that matters is
+	// "exactly one launcher per tier" — a tour reachable twice on one surface is the
+	// same defect this menu already avoids for Slide settings and Send feedback.
+	it('desktop keeps the 1-tap header button and does NOT duplicate it', () => {
+		setViewport('desktop');
+		setup();
+		expect(screen.getAllByRole('button', { name: 'Show me — guided tours' })).toHaveLength(1);
+	});
+
+	it('tablet drops the header button and offers every tour inside ⋯', async () => {
+		setViewport('tablet');
+		const user = setup();
+		expect(screen.queryByRole('button', { name: 'Show me — guided tours' })).toBeNull();
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		await screen.findByRole('menuitem', { name: /Search \/ commands/ });
+		// Every tour the desktop picker lists is reachable here — asserted against the
+		// live TOURS table, so adding a tour can't silently skip the tablet.
+		const rows = screen.getAllByRole('menuitem').filter((el) => el.hasAttribute('data-tour'));
+		expect(rows.map((el) => el.getAttribute('data-tour')).sort()).toEqual(TOURS.map((t) => t.id).sort());
+	});
+
+	it('a tablet tour row actually starts the tour', async () => {
+		setViewport('tablet');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		const first = (await screen.findAllByRole('menuitem')).find((el) => el.getAttribute('data-tour') === TOURS[0].id);
+		expect(first).toBeDefined();
+		await user.click(first as HTMLElement);
+		// The tour takes the screen over — its stage is the observable effect (the menu
+		// closing proves only that a menu closes).
+		await waitFor(() => expect(document.querySelector('[data-vetrina-stage], [data-demo-stage], .vetrina-stage')).not.toBeNull());
+	});
+
+	it('mobile keeps the drawer door as its one home — no header button', () => {
+		setViewport('mobile');
+		setup();
+		expect(screen.queryByRole('button', { name: 'Show me — guided tours' })).toBeNull();
 	});
 });
 

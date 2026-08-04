@@ -971,6 +971,17 @@ in patch versions.
 
 ### Changed
 
+- **Studio: the guided tours have one launcher per width — the ⋯ menu on a tablet, not a header
+  button.** `Show me` was a header button at every width above a phone; below 1100px it is now a
+  section of the ⋯ overflow menu, listing the same five tours with the same descriptions and the
+  same `data-tour` ids. Desktop is unchanged (the 1-tap header button stays), and phones already
+  reached the tours through the drawer's "Show me" door — so this puts the tablet on the phone's
+  footing rather than inventing a third pattern. The point of the move is width: the header is one
+  non-wrapping row and this buys back 44px of it for the posture dial's words (#1401). A tour is a
+  considered, once-per-session detour, which makes it the cheapest thing in that row to put one tap
+  further away; none of the six protected 1-tap controls (Present, Share, Coach, Chat, Settings,
+  pane toggle) moved.
+
 - **Studio: Send feedback has one fixed address on tablet and desktop, and the header stops
   sliding when you move the dial.** It used to render only in the full (Build/compact) header, so
   stepping the dial on desktop shoved the entire right cluster sideways — Present, Share and the

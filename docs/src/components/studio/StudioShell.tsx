@@ -3372,7 +3372,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    title (2026-07-03 decision). */}
 				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
-				{!mobile && toursOn && (
+				{/* DESKTOP ONLY. Below 1100 the tours ride the ⋯ overflow instead (tablet) or the
+				    drawer's "Show me" door (mobile, `onStartDemo`) — one launcher per tier, never
+				    two. This is width the row has to buy back for the posture dial's words (#1401):
+				    a tour is a considered, once-per-session detour, so it is the cheapest thing in
+				    this run to put one tap further away — and it puts tablet on the SAME footing as
+				    the phone rather than inventing a third pattern. None of the six protected 1-tap
+				    controls (Present/Share/Coach/Chat/Settings/pane toggle) moved. */}
+				{!compact && toursOn && (
 					<DropdownMenu>
 						<Tooltip>
 							<TooltipTrigger asChild>
@@ -3453,6 +3460,22 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								    the same action in two adjacent homes is the exact problem this menu
 								    already avoids for Slide settings. Mobile keeps its drawer row (no
 								    header button there); ⌘K keeps its command everywhere. */}
+								{/* Show me — the tablet's ONE home for the tours, since the header button
+								    is desktop-only (#1401). Same rows, same `data-tour` ids and the same
+								    two-line shape as the desktop picker; `demoActive` drops them while a
+								    tour drives the screen, matching the header button's own hide. */}
+								{toursOn && !demoActive && (
+									<>
+										<DropdownMenuSeparator />
+										<DropdownMenuLabel>Show me…</DropdownMenuLabel>
+										{TOURS.map((t) => (
+											<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2">
+												<span className="font-medium">{t.label}</span>
+												<span className="text-[12px] text-muted-foreground">{t.description}</span>
+											</DropdownMenuItem>
+										))}
+									</>
+								)}
 								<DropdownMenuSeparator />
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</ScrollFade>
