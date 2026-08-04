@@ -53,6 +53,15 @@ Mermaid the whole set — 150-odd keys resolved from the active palette — on b
 paths. Hand-copying freezes a snapshot of one palette: the diagram then ignores a
 theme switch, a dark slide, and the print look.
 
+**One map, two readers.** Which Mermaid variable is fed by which palette token is
+decided once, in `lib/core/mermaid-theme-map.js`. Each path supplies only a
+`readToken` — `getComputedStyle(section)` in the preview, offline token
+resolution against the palette text in the PDF path — and `buildDiagramTheme`
+does the rest. Before that, the two paths held separate copies of the same map
+and 38 values had drifted apart; `fontFamily` is now the one sanctioned
+divergence (`DIVERGENT_KEYS`), and
+`test/unit/core/diagram-theme-parity.test.js` fails on any other.
+
 The two paths deliver it differently, because they have to. The **live preview**
 is in-process, so it sets the palette once on the global config
 (`mermaid.initialize`); Mermaid then merges your in-source `%%{init}%%` over that
@@ -61,12 +70,11 @@ out to `mmdc`, one process per diagram, so its config can only travel *in* the
 diagram source — hence the merge kernel described at the end of this section. What
 the two share is the token→variable map, not the plumbing.
 
-The mapping is `MERMAID_VAR_MAP` in `lattice-emulator.js` (build path) and
-`buildMermaidThemeVars()` in `lib/runtime/index.js` (preview path); a unit test
-(`test/unit/mermaid/mermaid-var-map.test.js`) asserts every token it names
-resolves in indaco and cuoio; the remaining palettes are covered by the CONTRACT
-list in `test/unit/palette/token-parity.test.js` (13 themes — `carta` and the
-five `a11y-*` inherit theirs through `@import`).
+The mapping is `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`, imported by
+both paths. `test/unit/mermaid/mermaid-var-map.test.js` asserts every token it
+names resolves in every self-declaring palette;
+`test/unit/palette/diagram-ink-contrast.test.js` holds each ink key to AA against
+the surface it is actually drawn on, per palette and per scheme.
 
 **A `subgraph` box is drawn entirely from the containment tier** — fill
 `--c-container`, boundary `--c-container-edge`, label ink `--c-on-container` (and
@@ -172,6 +180,122 @@ Mermaid does not fail on an unregistered algorithm: `getRegisteredLayoutAlgorith
 falls back to dagre with a `log.warn` you never see, so the diagram renders
 on-palette, laid out by dagre, looking like the directive worked. Verified on
 Mermaid 11.14. Installing elk is separate work from #1311.
+
+---
+
+## 5.3d Which ink goes where
+
+Diagram text comes from **two** tokens, chosen by what the text sits on:
+
+| site | token | examples |
+|---|---|---|
+| on a categorical **chip** | `--cat-on-fill` | node label, gantt bar, pie slice, sequence actor, band |
+| on the **canvas** (`--bg` / `--bg-alt`) | `--text-heading` | diagram title, pie legend, quadrant axis labels, gantt margin text |
+
+It used to be one token for both. That is invisible on 27 of the 32 palettes,
+where `--cat-on-fill` is declared as `var(--text-heading)` — and wrong on the
+`a11y-*` family, which **pins** its categorical tier mode-invariant (fixed pale
+chips carrying the CVD textures) while the canvas still flips. In a dark context
+that gives `--cat-on-fill: #000000` on a `#000000` canvas: 1.00:1.
+
+**Flowchart edge labels are the exception, and they need CSS.** Mermaid paints
+node labels and edge labels from a single rule (`.label text, span`), so no
+themeVariable can serve both — a node label is on a chip, an edge label is on
+`edgeLabelBackground`. `mermaid.css` re-pairs the edge label's ink with the
+canvas, out-specifying Mermaid's ID-scoped rule.
+
+`test/unit/palette/diagram-ink-contrast.test.js` holds each ink key to AA against
+the surface it is actually drawn on, for every palette in both schemes. Its
+`SITES` table — ink key → the themeVariable it lands on — is deliberately
+hard-coded rather than derived from the map: derive it and the gate simply
+re-judges a mis-assigned key against its new tier and stays green.
+
+---
+
+## 5.3c The subgraph box — corner, and what "padding" can and cannot reach
+
+The cluster (`subgraph`) box is a **containment surface**: `--c-container` fill,
+`--c-container-edge` border, `--c-on-container` label ink. Its corner is
+`--diagram-cluster-radius`, applied by `mermaid.css` as a CSS `rx`/`ry`:
+
+```css
+:is(section, figure) g.cluster:not([class*="section-"]) > rect {
+  rx: var(--diagram-cluster-radius); ry: var(--diagram-cluster-radius);
+}
+```
+
+Three things about that rule are load-bearing:
+
+- **`border-radius` does nothing to an SVG `<rect>`.** Rounding is `rx`/`ry`, and
+  Chromium accepts both as CSS geometry properties. Mermaid writes no `rx` for a
+  flowchart cluster (`node.rx` is undefined for a subgraph), so there is no
+  presentation attribute to fight and no config knob to use instead — CSS is the
+  only lever.
+- **One rule covers both render paths.** The mmdc SVG is embedded inline in the
+  exported HTML, so the same bundle cascades onto it that the preview applies.
+- **The value is in SVG USER SPACE, not `cqi`.** A geometry property is read in
+  the diagram's own viewBox coordinates and then scaled by the fit, so a
+  container-relative unit would land at a different size on every diagram. User
+  space is also the right space: 14-unit type, 8-unit dagre margins and 1-unit
+  strokes all live there, so the corner stays proportional to the box at any
+  scale.
+
+`.section-N` clusters are excluded — they are painted from the **categorical
+band**, not the containment tier, and Mermaid already rounds them at `rx=5`.
+Enumerated from rendered output, three things emit `g.cluster`: a flowchart
+`subgraph`, a classDiagram `namespace` (so that rounds too), and kanban
+(excluded). Timeline and mindmap emit none, and a stateDiagram composite carries
+`statediagram-cluster`, a different class token.
+
+**Padding — read this before reaching for `flowchart.padding`.**
+
+| what you want | the knob | reality |
+|---|---|---|
+| space between a node's label and its border | `flowchart.padding` | works — `DIAGRAM_NODE_PADDING`, one constant, both paths |
+| the cluster's own inset from its children | — | **hardcoded** `marginx/marginy: 8` on the sub-graph Mermaid hands to dagre. No config reaches it. |
+| space between the subgraph title and its content | `flowchart.subGraphTitleMargin` | **do not use** — Mermaid grows the outer box but does not push a NESTED child cluster down with it, so the inner rect paints over the outer title |
+
+`flowchart.padding` is a **node** inset despite the name. Raising it from 8 to 24
+leaves cluster-minus-node constant at 70 × 100 user units — it grows the nodes,
+and the cluster only follows because its children got bigger.
+
+---
+
+## 5.3b Which band a diagram is baked for
+
+A Mermaid SVG **bakes** its colors: `themeVariables` are resolved to literal hex
+before the shape reaches the page, so a later CSS restyle cannot recolor a node
+label. The chip *underneath* it — the categorical fill, the texture, the canvas —
+is live, per-section CSS. Ink and chip are two halves of one decision, and they
+agree only if both halves answer the same question the same way.
+
+`lib/core/diagram-band.js` **is** that question. `resolveDiagramBand({
+frontMatter, slideClass, flagPrint })` returns `light` | `dark` | `print`, in this
+precedence:
+
+1. **Print wins.** Paper is ink-on-white — not a color scheme, so nothing about
+   light/dark outranks it. `color-mode: print`, the legacy `class: print`, the
+   engine `--print` flag, or a per-slide `_class: print`.
+2. **A slide that names a color-mode token owns its scheme.** `_class: light` on
+   a dark deck renders light. "Names a color-mode token" is whole-token
+   membership in `COLOR_MODE_TOKENS` (`lib/core/color-mode.js`) — the same test
+   the deck-class propagation guard uses to decide what the section's class ends
+   up being.
+3. **Otherwise the slide inherits the deck.**
+
+Rule 3 is the one that was missing (#1340). The emulator used to spell rule 2 as
+*"did this slide name **any** `_class:`?"*, so `_class: diagram` — which says
+nothing about scheme, and is how every component is selected — forced light on a
+`color-mode: dark` deck. The section genuinely was `.dark`; only the bake
+disagreed.
+
+**Only the PDF path calls it.** The preview never resolves a band as such: it
+reads tokens through `getComputedStyle(section)`, so CSS inheritance hands it
+whatever the section's own classes resolved to, band included. What the preview
+*does* still get wrong is granularity — it configures Mermaid once per document,
+from the first `<section>` (`lib/runtime/index.js`), so slide 1's scheme is baked
+into every diagram in the deck. That is #1332 step 3, tracked separately; it is a
+different defect from #1340 and needs an export sign-off to change.
 
 ---
 
