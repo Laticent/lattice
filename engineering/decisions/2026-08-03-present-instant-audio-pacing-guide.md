@@ -678,3 +678,34 @@ room the prefetch edge can never lead and the rail sits in its "run dry" state. 
   stop. The user's own key, so not a HARD RULE #24 matter — but it is a bill complaint waiting to
   happen, and the progress display and cancel that the Prepare button had did not survive its
   removal.
+
+### The beat defect, VERIFIED on the real surface (HARD RULE #23)
+
+Finding 3 was the one the trio could only reason about from source — it lives in the overlay's
+state machine on a real timer, which no unit test reaches. It is now driven on the real Present
+overlay, in Chromium, on a production build (`e2e/present-beat.spec.ts`). No key and no voice
+are needed: the beat rides the autoplay chain regardless of rung, so a captions-only deck
+exercises it exactly as a narrated one does.
+
+The instrumented timeline against the UNFIXED build, sampling the transport's accessible name
+every 400 ms with the beat overridden to 4000 ms:
+
+```
+   7622ms  label="Play the presentation"  counter="2 / 7"   ← slide advanced; hold begins
+   8103ms  label="Play the presentation"  counter="2 / 7"
+   …
+  10882ms  label="Play the presentation"  counter="2 / 7"
+  11362ms  label="Pause"                  counter="2 / 7"   ← hold ends, narration starts
+  17399ms  label="Play the presentation"  counter="3 / 7"   ← and again at the next transition
+```
+
+The primary control offered **Play** for the entire hold, at every transition. Confirmed, not
+inferred.
+
+**A note on how the first version of this test lied.** It asserted with
+`expect(transport).toHaveAccessibleName('Pause')`, which auto-retries for up to 15 s — so it
+simply waited out the 4 s hold and passed against the unfixed build. A hold is a WINDOW; catching
+a defect inside one means reading the value once, while it is open, with no retrying matcher. The
+shipped spec polls for the advance and samples immediately, and it was checked in both
+directions: it fails on the unfixed build and passes on the fixed one, each against a full
+rebuild. A test that has only ever been seen to pass has not been verified.
