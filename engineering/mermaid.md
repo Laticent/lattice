@@ -355,6 +355,14 @@ Three things follow, and all three are load-bearing:
   sound only while one palette served the deck; per-slide ink makes it hand slide 2
   slide 1's baked SVG, which is the same mismatch arriving through the cache.
 
+**What per-band configuration costs.** Measured on the real Playground with a
+20-diagram deck that ALTERNATES bands — the worst case, since every slide is a new run:
+first render 936–948 ms before, 987–1013 ms after (+5–8%); the keystroke re-pass is
+unchanged, because everything but the edited fence comes from the (scope, source) cache.
+Re-measure with `node tools/bench-preview-diagrams.mjs` (needs the docs site running);
+`npm run bench` cannot reach this path at all, since it drives the Node renderer and
+there is no `getComputedStyle` there to be slow.
+
 ### The kernel drives; the paths supply capabilities (#1332 step 4)
 
 Neither path assembles a palette any more. `renderDiagrams`
