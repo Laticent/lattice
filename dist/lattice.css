@@ -240,7 +240,32 @@
    * ~9.3–10.1px average advance at --fs-body; the spread is what different
    * sample text gives you). SAY WHAT THIS IS: it is WIDER than the 45–75 band a
    * reading measure is usually held to, and it was chosen because narrower values
-   * clip shipped decks — at 33em (~76 chars) four of them clip, at 36em none do.
+   * clip shipped decks.
+   *
+   * RE-MEASURED with the real oracle (#1355) — `npm run overflow:check`, 257 real
+   * emulator renders through Chromium, one full sweep per candidate value. Do NOT
+   * hand-roll a `scrollHeight - clientHeight` probe: lib/core/overflow-probe.js
+   * documents why the raw delta is wrong (it counts out-of-flow decorative chrome
+   * as content overflow), and one reported `finish-backdrops` clipping at EVERY
+   * candidate including the shipped 36em, which the emulator calls clean.
+   *
+   *   | value | clipped slides | decks that newly clip                          |
+   *   |-------|----------------|------------------------------------------------|
+   *   | 36em  |  8 (= baseline)| — (the shipped value)                          |
+   *   | 35em  |  8 (= baseline)| — CLEAN, so 36em is one notch above the floor  |
+   *   | 34em  | 10             | finish-backdrops p2 · mode-frontmatter p2      |
+   *   | 33em  | 12             | + chart-theme-gallery/README p1 · exemplars/README p1 |
+   *
+   * So the floor today is 35em (~76–81 characters) — still outside the band. The
+   * two slides that block 34em are the same shape: a lede paragraph of three long
+   * lines above a three-item nested list, on a slide that also carries a finish or
+   * a mode banner. Trimming those two ledes is what buys the next notch; the four
+   * at 33em are the one after that. Until then this stays a COMPATIBILITY value.
+   *
+   * 36em is deliberately NOT dropped to 35em: two characters of measure is not
+   * worth reflowing every `content` slide in the corpus (and every committed PDF
+   * with it), and it would still leave the token out of band. The next move on this
+   * token is a trim, not a nudge.
    *
    * An earlier version of this comment claimed "66 characters, measured". That was
    * wrong, and wrong in a way worth recording: the advance was measured from an
@@ -252,8 +277,10 @@
    * characters — genuinely too wide, and the defect. Making `content` the default
    * forces a measure onto those slides for the first time; 36em narrows them
    * without costing any of them a line. Tightening toward the canonical 66 is the
-   * right direction and needs the over-authored decks trimmed first.
-   * engineering/decisions/2026-08-02-default-slide-layout.md §3 */
+   * right direction and needs the over-authored decks trimmed first — and now the
+   * measurement above says which ones, and in what order.
+   * engineering/decisions/2026-08-02-default-slide-layout.md §3,
+   * engineering/decisions/2026-08-04-measure-body-floor.md */
   --measure-body: 36em;             /* ~80 characters at the body tier — see above */
 
   /* ── Radii / line-heights ─────────────────────────────────────────── */
