@@ -54,7 +54,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { EXTRA_NAMES } = require('./build-bucket-galleries');
+const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');
 const {
   loadAll, manifestBucket, BUCKETS,
   UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS,
@@ -4290,9 +4290,14 @@ const PDF_OWNERSHIP = [
     // lib/base would have passed the "it has a producer" gate with no producer, which
     // is #1279's exact defect recurring under a green check. The gate has to assert the
     // `producer:` field is true of the file, not that a regex matched it. (Red team.)
+    // The lib/base arm matches the EXACT PATH the producer writes, not the basename.
+    // Matching the name alone certified `lib/base/_bogus/logo.gallery.light.pdf` and
+    // `lib/base/logo.gallery.dark.pdf` — files build-bucket-galleries would never write —
+    // which is #1279's own defect one directory level away, under a green gate. The
+    // gate has to assert the `producer:` field is true OF THIS FILE. (Red team.)
     test: (f) => /^lib\/components\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
-      || (/^lib\/base\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
-        && EXTRA_NAMES.includes((/([^/]+)\.gallery\.(?:light|dark)\.pdf$/.exec(f) || [])[1])),
+      || EXTRA_NAMES.some((n) => f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.light.pdf`
+        || f === `${path.relative(ROOT, EXTRA_GALLERIES[n]).split(path.sep).join('/')}/${n}.gallery.dark.pdf`),
     what: 'component, bucket and hand-authored galleries',
     producer: 'tools/build-galleries.js · tools/build-bucket-galleries.js (EXTRA_GALLERIES covers the ones outside lib/components)',
     watcher: 'build:galleries:check · build:bucket-galleries:check · npm run regress (pixel) · tools/golden-diff.mjs (PR montage) · overflow:check',

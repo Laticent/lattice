@@ -914,7 +914,10 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     // dated decision on five shipped decks, eleven of thirteen hits, and paint a pill
     // over the very footer it was complaining about. Excluded at the BAND, so a footer
     // outside the Form band still reports.
-    const html = '<section><div class="cell-stage"><p id="body">fits</p></div>'
+    // `section.form` and the exact `.cell-footer > footer` nesting: the allowance is
+    // matched structurally, so a bare `<div class="cell-footer">` an author types cannot
+    // reach it. That is the point of the shape, so the fixture has to carry it.
+    const html = '<section class="form"><div class="cell-stage"><p id="body">fits</p></div>'
       + '<div class="cell-footer"><footer id="ft">A confidentiality line long enough to be truncated</footer></div></section>';
     const rects = {
       section: rect(0, 700, 0, 1280),
@@ -1018,6 +1021,57 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     assert.equal(r.clipSuspect, true, 'but it MUST be worth a content walk, or the ellipsis case is unreachable');
   });
 
+  test('IGNORED_CLIP_SELECTOR does NOT carry the footer BAND — closest() takes its subtree', () => {
+    // The band was in this list for one commit. `closest()` silenced its whole subtree,
+    // but the dated decision prices only the HORIZONTAL ellipsis on the footer's own
+    // TEXT — not the band's `height: 1.6em; overflow: hidden`, and not the images
+    // `footer:` can carry. The exemption lives in probeContentClipped now, keyed on the
+    // axis and the bearer kind. See the two tests below.
+    assert.ok(!IGNORED_CLIP_SELECTOR.includes('cell-footer'),
+      'an axis- and kind-specific allowance cannot be expressed as a subtree exclusion');
+  });
+
+  test('the footer band reports a VERTICAL slice and a lost IMAGE — only the tail is priced', () => {
+    // `2026-07-27-footer-band-allocation.md` accepts the ellipsed tail. It says nothing
+    // about a mark sliced through the middle by `height: 1.6em; overflow: hidden`, nor
+    // about an 80px logo passed through `footer:` raw HTML. Both were silent for one
+    // commit, at every marker level, and both were reported before this branch existed.
+    const html = '<section class="form"><div class="cell-stage"><p id="body">fits</p></div>'
+      + '<div class="cell-footer"><footer id="ft"><img id="logo" alt=""></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 640, 0, 1280),
+      '#body': rect(40, 90, 40, 1240),
+      '.cell-footer': rect(640, 700, 0, 1280),
+      '#ft': rect(650, 690, 40, 640),
+      '#logo': rect(650, 730, 40, 120),        // 40px BELOW the band — sliced
+    };
+    const r = withDom(html, rects, { clipBoxes: ['footer'] },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+    assert.equal(r.cut, true, 'a vertical slice of a replaced element in the band is not the priced loss');
+  });
+
+  test('a STATIC clip box ABOVE the containing block still clips an out-of-flow bearer', () => {
+    // The escape ends at the containing block: above it, the containing block is itself
+    // in flow, so ordinary ancestors clip again. The first cut never cleared the flag and
+    // skipped every `static` clip box for the rest of the climb — and `.cell-stage`, this
+    // engine's primary content cell, is exactly `position: static; overflow: clip`.
+    // Verified in Chromium: an abspos box inside a relative parent inside a static
+    // `overflow:hidden` grandparent IS clipped by the grandparent.
+    const html = '<section><div class="cell-stage"><div id="card" data-pos="relative">'
+      + '<div id="dock" data-pos="absolute"><span id="txt">CUT AWAY</span></div></div></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 700, 64, 1216),   // STATIC, clips
+      '#card': rect(100, 300, 100, 600),
+      '#dock': rect(120, 160, 6, 400),
+      '#txt': rect(120, 160, 6, 55),           // 58px LEFT of the stage's content edge
+    };
+    const r = withDom(html, rects, { clipBoxes: ['.cell-stage'] },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+    assert.equal(r.cut, true, 'the escape must END at the containing block, not run to the section');
+  });
+
   test('IGNORED_CLIP_SELECTOR does NOT carry a bare [aria-hidden] — it silences both ways', () => {
     // `html: true` means a deck author can wrap a slide in `<div aria-hidden="true">`
     // and turn off the ring, the pill, the console line and autosplit for that subtree.
@@ -1029,7 +1083,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   });
 
   test('IGNORED_CLIP_SELECTOR names the boxes that are never evidence', () => {
-    for (const s of ['.split-feat-bleed', 'div.watermark', '.katex-mathml', '.image-scrim', '.cell-footer', '.overflow-tab']) {
+    for (const s of ['.split-feat-bleed', 'div.watermark', '.katex-mathml', '.image-scrim', '.overflow-tab']) {
       assert.ok(IGNORED_CLIP_SELECTOR.includes(s), `${s} must stay excluded`);
     }
   });

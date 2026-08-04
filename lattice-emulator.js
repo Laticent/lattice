@@ -2050,7 +2050,14 @@ ${stateChartScript}
       // section:not(.overflow), so without this class the pill is drawn and then set to
       // display:none -- the reader half of the change would not exist.
       // (No backticks in this comment -- it is injected into a template literal.)
-      s.classList.toggle('content-clipped', tell && !over);
+      // ...but never under the off level, which promises to leave NOTHING. The sweep
+      // clears this class once at boot and the watcher then re-stamps it on every settle
+      // and resize, so a toggle outside the level guard loses that race -- the same
+      // one-shot-vs-watcher race this branch fixed for overflow-silent, reproduced in the
+      // class added to fix it. Inert today (nothing keys on it there), corrected because
+      // "off leaves nothing" was false for it.
+      // (No backticks in this comment -- it is injected into a template literal.)
+      s.classList.toggle('content-clipped', MARKER_LEVEL !== 'off' && tell && !over);
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.

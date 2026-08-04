@@ -578,7 +578,15 @@ describe('check-ownership', () => {
       // mystery to the next reader.
       const css = require('node:fs').readFileSync(
         require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
-      assert.match(css, /section\.overflow > \.overflow-tab \{[\s\S]*?position: absolute !important;/);
+      // Matched on the SELECTOR LIST, not on `selector {` — the rule now also covers
+      // `section.content-clipped > .overflow-tab` (a slide that cut content without
+      // overflowing its own frame). That population had no `position` rule at all for
+      // one commit and the tab rendered IN FLOW, taking 50px out of the very cell it was
+      // reporting on — precisely the defect this exemption records as already fixed once.
+      // The PROPERTY this test guards is unchanged; only the arity of the selector is.
+      assert.match(css, /section\.overflow > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/);
+      assert.match(css, /section\.content-clipped > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/,
+        'the content-clipped population needs the same self-defense, or the tab lands in flow');
     });
   });
 
