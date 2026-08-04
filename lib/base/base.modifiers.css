@@ -1440,38 +1440,31 @@ section.illegible > .illegible-tab {
 }
 /* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
    stays correct at any type scale or preset. */
-/* ── THE CORNER IS A STACK, NOT A SLOT ────────────────────────────────────────
-   Three things want `top: 0; right: 0`, and until the HARD RULE #25 round-4 passes
-   only two of them knew about each other.
+/* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
+   Three things want `top: 0; right: 0`: the STATUS STAMP (`base.variants.css`,
+   painted on `section::before` at `z-index: 100`), the clip tab, and the legibility
+   tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
+   and the pill was moved into the corner on a survey of `lib/components/**` that could
+   not see a base modifier. Rendered, `stamp-notch` swallowed the pill entirely — a
+   SILENT CLIP, the one outcome this register exists to prevent.
 
-   The third is the STATUS STAMP — `confidential` / `wip` / `draft` / `tbd` /
-   `redacted` / `archived` / `pinned` / `revised`, plus every `stamp-*` shape — which
-   base.variants.css paints on `section::before` at the identical coordinates and at
-   `z-index: 100`, over the tabs' `50`. It is a BASE MODIFIER, not a component, which is
-   exactly why the survey behind the pill's placement missed it: that survey read
-   `lib/components/**`. And `confidential` is the marking most likely to ride a
-   DELIVERED deck, which is the reader register's whole reason to exist.
+   The first fix enumerated all 21 stamp class names here and pushed every one by a
+   fixed row. Round 5 measured all 14 shapes and it was wrong on 8: three sit at the
+   corner (pushed correctly), SIX sit ~43px lower and were pushed INTO, and two are
+   full-bleed. `stamp-pin` and `stamp-flag` still ate the label. That is fixing an
+   instance rather than the class — the error `2026-07-30`'s footer note argues against
+   at length, committed in the file that argues it.
 
-   Rendered, before this rule: an overflowing `content confidential` slide read
-   "Conten CONFIDENTIAL" — the stamp painting over the pill. `stamp-notch` spans the
-   full top edge and swallowed the pill entirely, so a reader got a SILENT CLIP, the one
-   outcome the register exists to prevent.
-
-   The answer is not a fourth corner. Stack, using the idiom this file already had:
-   status stamp · clip tab · legibility tab, each step `100%` of the tab's own height so
-   it holds at any type scale or preset.
-
-   The legibility offset used to key on `.overflow`, correct only while a drawn tab
-   implied geometric overflow. It does not any more — the tab is drawn on `.clip-marked`,
-   and the population this change ADDED is precisely `clip-marked && !overflow`, so the
-   two tabs stacked at zero offset on exactly the new case. */
-section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
-  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon,
-  .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin) > .overflow-tab { transform: translateY(100%); }
-section.clip-marked > .illegible-tab { transform: translateY(100%); }
-section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
-  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon,
-  .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin).clip-marked > .illegible-tab { transform: translateY(200%); }
+   So the arithmetic lives with the geometry: each stamp shape declares `--corner-stack`
+   in `base.variants.css`, in the rule its author is already writing, and the tabs read
+   it. A 15th shape needs one edit, in the obvious place, or it reserves nothing and
+   nothing moves. The legibility tab adds its own row on top, which also closes the
+   missing truth-table row (stamp + illegible + no clip tab got no offset at all). */
+section > .overflow-tab { transform: translateY(var(--corner-stack, 0)); }
+section > .illegible-tab {
+  transform: translateY(calc(var(--corner-stack, 0) + var(--clip-stack, 0)));
+}
+section.clip-marked { --clip-stack: 100%; }
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════

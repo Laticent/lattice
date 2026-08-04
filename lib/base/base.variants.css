@@ -275,6 +275,35 @@ section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-
 section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
 section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
 
+/* ── `--corner-stack`: how much room this stamp takes in the TOP-RIGHT corner ──
+ *
+ * The overflow and legibility tabs live at `top: 0; right: 0` too, and need to know how
+ * far to drop to clear the stamp. The offset is declared HERE, beside the geometry it
+ * describes, because that is the only place it can be kept true — and on the SECTION,
+ * not on `::before`, because a custom property set on a pseudo-element does not reach
+ * its siblings.
+ *
+ * A first cut enumerated the 21 stamp class names over in base.modifiers.css and pushed
+ * every one by a fixed row. Measured across all 14 shapes, that was wrong on 8: three
+ * sit at the corner (correct), SIX sit ~43px lower and were pushed INTO by the offset
+ * meant to clear them, and two are full-bleed. It fixed an instance rather than the
+ * class — the error this repo's own footer-exemption note argues against at length.
+ * (HARD RULE #25 inversion, round 5, measured shape by shape.)
+ *
+ * `0` (the default) means "this shape does not occupy the tab's corner". A new stamp
+ * shape declares its own value in the rule its author is already writing. */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised),
+section:is(.stamp-tab, .stamp-notch, .stamp-flag, .stamp-pin) { --corner-stack: 100%; }
+/* Tall and off-axis: the flag hangs vertically and the pin is a 44px disc, so one row
+   does not clear either — they still overlapped the label after the first fix
+   ("Conte\2593t clipped", "\2593\2593ntent clipped" in a rendered PDF). */
+section:is(.stamp-flag, .stamp-pin) { --corner-stack: 200%; }
+/* The shapes that sit BELOW the corner (pill, bracket, seal, underline, dot, bar) and
+   the full-bleed ones (mark, veil) reserve nothing — pushing the tab for them moved it
+   INTO the stamp rather than clear of it. */
+section:is(.stamp-pill, .stamp-bracket, .stamp-seal, .stamp-underline,
+  .stamp-dot, .stamp-bar, .stamp-mark, .stamp-veil, .stamp-ribbon) { --corner-stack: 0; }
+
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) {
   position: relative;
 }

@@ -18462,38 +18462,31 @@ section.illegible > .illegible-tab {
 }
 /* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
    stays correct at any type scale or preset. */
-/* ── THE CORNER IS A STACK, NOT A SLOT ────────────────────────────────────────
-   Three things want `top: 0; right: 0`, and until the HARD RULE #25 round-4 passes
-   only two of them knew about each other.
+/* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
+   Three things want `top: 0; right: 0`: the STATUS STAMP (`base.variants.css`,
+   painted on `section::before` at `z-index: 100`), the clip tab, and the legibility
+   tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
+   and the pill was moved into the corner on a survey of `lib/components/**` that could
+   not see a base modifier. Rendered, `stamp-notch` swallowed the pill entirely — a
+   SILENT CLIP, the one outcome this register exists to prevent.
 
-   The third is the STATUS STAMP — `confidential` / `wip` / `draft` / `tbd` /
-   `redacted` / `archived` / `pinned` / `revised`, plus every `stamp-*` shape — which
-   base.variants.css paints on `section::before` at the identical coordinates and at
-   `z-index: 100`, over the tabs' `50`. It is a BASE MODIFIER, not a component, which is
-   exactly why the survey behind the pill's placement missed it: that survey read
-   `lib/components/**`. And `confidential` is the marking most likely to ride a
-   DELIVERED deck, which is the reader register's whole reason to exist.
+   The first fix enumerated all 21 stamp class names here and pushed every one by a
+   fixed row. Round 5 measured all 14 shapes and it was wrong on 8: three sit at the
+   corner (pushed correctly), SIX sit ~43px lower and were pushed INTO, and two are
+   full-bleed. `stamp-pin` and `stamp-flag` still ate the label. That is fixing an
+   instance rather than the class — the error `2026-07-30`'s footer note argues against
+   at length, committed in the file that argues it.
 
-   Rendered, before this rule: an overflowing `content confidential` slide read
-   "Conten CONFIDENTIAL" — the stamp painting over the pill. `stamp-notch` spans the
-   full top edge and swallowed the pill entirely, so a reader got a SILENT CLIP, the one
-   outcome the register exists to prevent.
-
-   The answer is not a fourth corner. Stack, using the idiom this file already had:
-   status stamp · clip tab · legibility tab, each step `100%` of the tab's own height so
-   it holds at any type scale or preset.
-
-   The legibility offset used to key on `.overflow`, correct only while a drawn tab
-   implied geometric overflow. It does not any more — the tab is drawn on `.clip-marked`,
-   and the population this change ADDED is precisely `clip-marked && !overflow`, so the
-   two tabs stacked at zero offset on exactly the new case. */
-section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
-  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon,
-  .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin) > .overflow-tab { transform: translateY(100%); }
-section.clip-marked > .illegible-tab { transform: translateY(100%); }
-section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
-  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon,
-  .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin).clip-marked > .illegible-tab { transform: translateY(200%); }
+   So the arithmetic lives with the geometry: each stamp shape declares `--corner-stack`
+   in `base.variants.css`, in the rule its author is already writing, and the tabs read
+   it. A 15th shape needs one edit, in the obvious place, or it reserves nothing and
+   nothing moves. The legibility tab adds its own row on top, which also closes the
+   missing truth-table row (stamp + illegible + no clip tab got no offset at all). */
+section > .overflow-tab { transform: translateY(var(--corner-stack, 0)); }
+section > .illegible-tab {
+  transform: translateY(calc(var(--corner-stack, 0) + var(--clip-stack, 0)));
+}
+section.clip-marked { --clip-stack: 100%; }
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -22562,6 +22555,35 @@ section.redacted     { --stamp-label: "Redacted";     --stamp-color: var(--fail)
 section.archived     { --stamp-label: "Archived";     --stamp-color: var(--text-muted); }
 section.pinned       { --stamp-label: "Pinned";       --stamp-color: var(--accent); }
 section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accent); }
+
+/* ── `--corner-stack`: how much room this stamp takes in the TOP-RIGHT corner ──
+ *
+ * The overflow and legibility tabs live at `top: 0; right: 0` too, and need to know how
+ * far to drop to clear the stamp. The offset is declared HERE, beside the geometry it
+ * describes, because that is the only place it can be kept true — and on the SECTION,
+ * not on `::before`, because a custom property set on a pseudo-element does not reach
+ * its siblings.
+ *
+ * A first cut enumerated the 21 stamp class names over in base.modifiers.css and pushed
+ * every one by a fixed row. Measured across all 14 shapes, that was wrong on 8: three
+ * sit at the corner (correct), SIX sit ~43px lower and were pushed INTO by the offset
+ * meant to clear them, and two are full-bleed. It fixed an instance rather than the
+ * class — the error this repo's own footer-exemption note argues against at length.
+ * (HARD RULE #25 inversion, round 5, measured shape by shape.)
+ *
+ * `0` (the default) means "this shape does not occupy the tab's corner". A new stamp
+ * shape declares its own value in the rule its author is already writing. */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised),
+section:is(.stamp-tab, .stamp-notch, .stamp-flag, .stamp-pin) { --corner-stack: 100%; }
+/* Tall and off-axis: the flag hangs vertically and the pin is a 44px disc, so one row
+   does not clear either — they still overlapped the label after the first fix
+   ("Conte\2593t clipped", "\2593\2593ntent clipped" in a rendered PDF). */
+section:is(.stamp-flag, .stamp-pin) { --corner-stack: 200%; }
+/* The shapes that sit BELOW the corner (pill, bracket, seal, underline, dot, bar) and
+   the full-bleed ones (mark, veil) reserve nothing — pushing the tab for them moved it
+   INTO the stamp rather than clear of it. */
+section:is(.stamp-pill, .stamp-bracket, .stamp-seal, .stamp-underline,
+  .stamp-dot, .stamp-bar, .stamp-mark, .stamp-veil, .stamp-ribbon) { --corner-stack: 0; }
 
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised) {
   position: relative;
