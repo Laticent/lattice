@@ -97,6 +97,14 @@ const SITES = {
 for (let i = 0; i < 12; i++) SITES[`cScaleLabel${i}`] = `fillType${i % 8}`;
 // Git branch labels sit on the branch chips themselves.
 for (let i = 0; i < 8; i++) SITES[`gitBranchLabel${i}`] = `git${i}`;
+// NESTED keys are addressed dotted. `xyChart`'s title and axis labels are drawn
+// on the chart's own `backgroundColor`, i.e. the canvas — so they belong to the
+// canvas tier, and a re-wire to chip ink would regress a11y-* dark exactly like
+// the edge labels did. They escaped an earlier version of this file, which only
+// walked top-level entries.
+for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabelColor', 'yAxisTitleColor']) {
+  SITES[`xyChart.${k}`] = 'xyChart.backgroundColor';
+}
 
 /**
  * Ink keys that are BELOW AA today, on every palette, and were before this gate
@@ -174,28 +182,57 @@ function contrast(a, b) {
 
 const isHex = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim());
 
-/** The palette token the map feeds a themeVariable, or null for a literal. */
+/**
+ * The palette token the map feeds a themeVariable, or null for a literal.
+ *
+ * Accepts a dotted key (`xyChart.titleColor`) so nested blocks are addressable —
+ * without that, every nested ink key silently drops out of the gate.
+ */
 function tokenFor(key) {
-  const entry = MERMAID_VAR_MAP[key];
-  return entry?.var ?? null;
+  const [head, nested] = key.split('.');
+  const entry = MERMAID_VAR_MAP[head];
+  if (!entry) return null;
+  if (nested === undefined) return entry.var ?? null;
+  return entry.nested?.[nested]?.var ?? null;
+}
+
+/** Every ink-bearing themeVariable, nested blocks included, as dotted keys. */
+function inkKeys() {
+  const INK_TOKENS = new Set(['cat-on-fill', 'text-heading']);
+  const out = [];
+  for (const [key, entry] of Object.entries(MERMAID_VAR_MAP)) {
+    if (entry.nested) {
+      for (const [nk, ne] of Object.entries(entry.nested)) if (INK_TOKENS.has(ne.var)) out.push(`${key}.${nk}`);
+      continue;
+    }
+    if (INK_TOKENS.has(entry.var)) out.push(key);
+  }
+  return out;
 }
 
 describe('baked diagram ink clears AA on the surface it sits on', () => {
   test('the site table covers every ink key the map feeds from an ink token', () => {
     // Without this, deleting rows from SITES would quietly shrink the gate to
-    // nothing while every remaining assertion stayed green.
-    const INK_TOKENS = new Set(['cat-on-fill', 'text-heading']);
-    const inkKeys = Object.entries(MERMAID_VAR_MAP)
-      .filter(([, e]) => INK_TOKENS.has(e.var))
-      .map(([k]) => k);
-    const uncovered = inkKeys.filter((k) => !SITES[k]);
+    // nothing while every remaining assertion stayed green. NESTED blocks are
+    // walked too: an earlier version of this file looked only at top-level
+    // entries, so the five xyChart label colours were never judged at all.
+    const keys = inkKeys();
+    const uncovered = keys.filter((k) => !SITES[k]);
     assert.deepEqual(uncovered, [],
       'these themeVariables carry ink but name no surface in SITES — add the pairing, do not drop the key');
-    assert.ok(inkKeys.length >= 40, `expected the ink tier to be substantial, got ${inkKeys.length}`);
+    assert.ok(keys.length >= 45, `expected the ink tier to be substantial, got ${keys.length}`);
+    assert.ok(keys.some((k) => k.includes('.')), 'the sweep must reach nested blocks');
   });
 
   test('every surface named in SITES is a real key in the map', () => {
-    const missing = [...new Set(Object.values(SITES))].filter((s) => !MERMAID_VAR_MAP[s]);
+    // Dotted, so a nested surface (`xyChart.backgroundColor`) resolves too.
+    const exists = (key) => {
+      const [head, nested] = key.split('.');
+      const entry = MERMAID_VAR_MAP[head];
+      if (!entry) return false;
+      return nested === undefined ? true : Boolean(entry.nested?.[nested]);
+    };
+    const missing = [...new Set(Object.values(SITES))].filter((k) => !exists(k));
     assert.deepEqual(missing, [], 'SITES names surfaces the map does not define');
   });
 
