@@ -98,6 +98,25 @@ in patch versions.
   invisible to the overflow probe, which measures height only. The guards are now **behavioral**,
   asserting what Chromium computes over the real bundle, after a red-team pass evaded three
   successive textual versions with trivial selector reformulations. (#1346)
+- **The kit's `NOTICE.md` told recipients "if you only want to make decks, nothing about this
+  constrains you," and that is too broad for one of the two render routes.** Measured on a real
+  marp-cli render rather than reasoned about: `marp --pdf` carries **no engine code at all** (no CSS
+  rule, no `@theme` directive survives), while `marp --html` inlines **876 KB of engine stylesheet**
+  across four `<style>` blocks into the output file — the runtime JS stays external, so it is the
+  stylesheet alone. Lattice's output exception is written for assets *Lattice's own export pipeline*
+  embeds; a marp-cli render is not that, so on a literal reading publishing a `marp --html` file
+  conveys engine object code outside the exception — via the exact workflow the kit ships to enable.
+  The notice now states that precisely instead of reassuringly. **The grant itself is unchanged:**
+  whether to extend the exception is the copyright holder's call, and it is escalated with the
+  facts, the options and a recommendation in
+  `engineering/decisions/2026-08-04-marp-render-output-exception.md`. That note also corrects where
+  the gap actually is — §Limits (a) excludes assets distributed "other than inside a rendered deck",
+  and a `--html` file *is* a rendered deck, so (a) never bites; the exclusion comes from the Grant's
+  "as embedded by Lattice itself" — and records, logged rather than fixed (off-path, and it alters
+  exported-artifact bytes), that the **Export-to-Marp bundle ships Mermaid, the KaTeX faces and five
+  OFL font families with no `LICENSE`, no `NOTICE` and no license texts at all** — the same defect
+  the kit was fixed for in #1325, still live in the bundle, which has shipped longer.
+
 - **The repo asserted as fact, in the entry everything else cites, a claim the same file called
   untested.** Whether the marp-vscode preview webview executes `<script>` decides whether
   `lib/runtime/index.js` (2,182 lines) does anything on that surface. `engineering/gotchas.md`

@@ -14,8 +14,23 @@ This kit is deliberately the other thing — the engine handed over loose, for
 reuse — so the AGPL applies to it in full. Slides you write are yours and were
 never covered either way; the terms here are about redistributing these files.
 
-If you only want to make decks, nothing about this constrains you. If you plan to
-redistribute the kit, or ship a service built on it, read `LICENSE`.
+**Rendering is worth one more paragraph**, because the two routes differ and only
+one of them puts engine code in your hands to pass on:
+
+- **`marp --pdf` (and PPTX) carry no engine code.** Measured, not assumed: no
+  CSS rule and no `@theme` directive survives into the PDF. Render this way,
+  share the file however you like — none of this reaches you.
+- **`marp --html` inlines the engine stylesheet** — about 876 KB of it — into
+  the output file. Keeping that file to yourself conveys nothing to anyone. But
+  the exception above is written for assets *Lattice's own export pipeline*
+  embeds, and a marp-cli render is not that, so on a literal reading **publishing
+  a `marp --html` file conveys engine object code outside the exception.**
+  Whether that is intended is an open question on our side, not a trap being set
+  for you; until it is settled, treat a published `.html` as carrying `LICENSE`
+  terms, or render to PDF instead and the question does not arise.
+
+If you plan to redistribute the kit itself, or ship a service built on it, read
+`LICENSE`.
 
 ## Third-party components
 
