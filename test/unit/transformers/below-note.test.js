@@ -344,4 +344,40 @@ describe('below-note — applyToDom (runtime path)', () => {
     adapter.applyToDom(doc);
     assert.equal(doc.querySelectorAll('.below-note').length, 0);
   });
+
+  describe('the layout exclusion list is a SUBSTRING test — `no-*` is withheld from it', () => {
+    // `EXCLUDED` contains `progress`, the chart component. The universal chrome vocabulary
+    // contains `no-progress`, which HIDES the progress rail and says nothing about layout —
+    // and `'content no-progress form'.includes('progress')` is true, so a deck declaring
+    // `class: no-progress` lost below-note promotion on every slide.
+    //
+    // It only became reachable when #1358 fixed the class READ: before that this kernel saw
+    // `data-class` (the raw per-slide `_class:` payload), which never carried a deck-wide
+    // token. The Studio's "Hide rail" switch writes exactly that front matter, so the path is
+    // one click. Withholding `no-*` from the substring arm is the narrow fix; making the whole
+    // list token-exact is #1363 and moves 28 committed sections.
+    const WRAP = '<div class="below-note">';
+    const inner = '<ul><li>a</li></ul><p>note</p>';
+
+    test('a `no-*` chrome token does not read as the component it contains', () => {
+      assert.ok(belowNote.wrapSectionBody(inner, 'content no-progress form').includes(WRAP),
+        '`no-progress` must not exclude via the `progress` component');
+      assert.ok(belowNote.wrapSectionBody(inner, 'content no-header no-footer form').includes(WRAP));
+    });
+
+    test('the components those tokens contain are still excluded on their own', () => {
+      // The narrow fix must not become a general loosening: every pre-existing exclusion,
+      // substring ones included, still holds.
+      for (const cls of ['progress form', 'progress-3 agenda form', 'compare-code', 'citation-card pull-quote form']) {
+        assert.equal(belowNote.wrapSectionBody(inner, cls), inner, `should still skip ${cls}`);
+      }
+    });
+
+    test('`no-note` itself still opts out, and the array shape stays token-exact', () => {
+      assert.equal(belowNote.wrapSectionBody(inner, 'content no-note form'), inner);
+      assert.equal(belowNote.isExcluded(['agenda', 'no-progress']), false);
+      assert.equal(belowNote.isExcluded(['progress']), true);
+      assert.equal(belowNote.isExcluded(['agenda', 'no-note']), true);
+    });
+  });
 });

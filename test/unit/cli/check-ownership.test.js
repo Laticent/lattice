@@ -105,6 +105,8 @@ const {
   checkUniversalTableGuard,
   universalTableDenyEntries,
   subjectIsTableElement,
+  classAttrOffences,
+  SANCTIONED_CLASS_ATTR_READS,
 } = require('../../../tools/check-ownership');
 const { loadAll } = require('../../../lib/components');
 const fs = require('node:fs');
@@ -1822,6 +1824,89 @@ describe('check-ownership', () => {
 
     test('the edge floor is the WCAG graphical-object threshold', () => {
       assert.equal(CAT_EDGE_FLOOR, 3.0);
+    });
+  });
+
+  describe('class-attribute read gate (#1358)', () => {
+    // A `<section>` carries `data-class="<raw _class:>"` BEFORE `class="<resolved>"`, so an
+    // unguarded regex reads the directive payload. The gate's whole value is that it fails on
+    // the SPELLINGS a developer actually reaches for — the first cut passed four of them and
+    // rejected two correct guards, which an adversarial review found before merge. Both lists
+    // below are that review's fixtures, pinned so the hole cannot reopen.
+    const write = (name, lines) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-classattr-'));
+      const p = path.join(dir, name);
+      fs.writeFileSync(p, `${lines.join('\n')}\n`);
+      return p;
+    };
+    const offencesFor = (lines) => classAttrOffences({ roots: [], files: [write('probe.js', lines)] });
+
+    // Every one of these READS `data-class` on a real section tag. `\s*` and `\s?` are
+    // zero-width, i.e. not guards at all — and they are the likeliest thing to write after
+    // being told "add a leading \s".
+    const UNGUARDED = [
+      `const a = /class="([^"]*)"/.exec(t);`,
+      `const b = /class="[^"]*"/.exec(t);`,
+      `const c = /class="([^"]+)"/.exec(t);`,
+      `const d = /class="(.*?)"/.exec(t);`,
+      String.raw`const e = /class="([\w -]*)"/.exec(t);`,
+      String.raw`const f = /class\s*=\s*"([^"]*)"/.exec(t);`,
+      `const g = new RegExp('class="([^"]*)"');`,
+      String.raw`const h = /\s*class="([^"]*)"/.exec(t);`,
+      String.raw`const i = /\s?class="([^"]*)"/.exec(t);`,
+      String.raw`const j = /[\s]*class="([^"]*)"/.exec(t);`,
+    ];
+
+    // Every one of these reads the RESOLVED list, or is not a matcher at all.
+    const GUARDED = [
+      String.raw`const a = /(?:^|\s)class="([^"]*)"/.exec(t);`,
+      String.raw`const b = /(^|\s)class="([^"]*)"/.exec(t);`,
+      String.raw`const c = /(?:\s|^)class="([^"]*)"/.exec(t);`,
+      `const d = /(?<!-)class="([^"]*)"/.exec(t);`,
+      String.raw`const e = /(?<![-\w])class="([^"]*)"/.exec(t);`,
+      String.raw`const f = /(?<![\w-])class="([^"]*)"/.exec(t);`,
+      String.raw`const g = /\sclass="([^"]*)"/.exec(t);`,
+      String.raw`const h = /\s+class="([^"]*)"/.exec(t);`,
+      String.raw`const i = /[\s>]class="([^"]*)"/.exec(t);`,
+      `const j = /data-class="([^"]*)"/.exec(t);`,
+      String.raw`const k = /(?:^|\s)class\s*=\s*"([^"]*)"/.exec(t);`,
+      `const l = ` + '`<div class="below-note"><p>x</p></div>`;',
+    ];
+
+    test('every unguarded spelling is caught — including the zero-width quantifiers', () => {
+      const got = offencesFor(UNGUARDED).map((o) => o.line);
+      assert.deepStrictEqual(got, UNGUARDED.map((_, i) => i + 1),
+        'a spelling walked past the gate; it reads data-class and renders plausibly');
+    });
+
+    test('every correct guard passes, and literal markup is not a matcher', () => {
+      assert.deepStrictEqual(offencesFor(GUARDED), [],
+        'a false positive forces the author to weaken a correct guard or exempt the whole file');
+    });
+
+    test('prose may write the bad pattern down — in either comment style', () => {
+      assert.deepStrictEqual(offencesFor([
+        `// a bare /class="([^"]*)"/ reads data-class`,
+        '/* and so does',
+        ` * /class="[^"]+"/ — explained here`,
+        ' */',
+      ]), [], 'the gate must not flag the docs that explain it');
+    });
+
+    test('a matcher parked after a comment-shaped continuation line is still caught', () => {
+      // The line-based first cut skipped any line whose leading text began `*`, which the
+      // continuation of a multi-line expression also does.
+      const got = offencesFor([
+        'const n = someValue',
+        `  * factor; const PARKED = /class="([^"]*)"/.exec(t);`,
+      ]);
+      assert.strictEqual(got.length, 1, 'a live matcher hid behind a `*` line start');
+    });
+
+    test('the repo is clean and the allowlist is empty', () => {
+      assert.deepStrictEqual(classAttrOffences(), []);
+      assert.deepStrictEqual(SANCTIONED_CLASS_ATTR_READS, [],
+        'an entry here blanket-exempts a whole file — prefer readClassAttr');
     });
   });
 });

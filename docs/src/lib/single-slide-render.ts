@@ -847,7 +847,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// nor the playground re-exports the list, so it can't be imported here).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
-						s.charts = (out.html.match(/<section\b[^>]*\bclass="[^"]*\b(?:progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|funnel|map|journey|word-cloud|roadmap)\b/g) || []).length;
+						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|funnel|map|journey|word-cloud|roadmap)\b/g) || []).length;
 						s.mermaid = (out.html.match(/language-mermaid/g) || []).length;
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown
 						// (render-engine.ts) loads KaTeX when `sourceHasMath(source)` is true on

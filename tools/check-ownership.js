@@ -2317,6 +2317,153 @@ function checkDiagramScopeSelectors(errors) {
   }
 }
 
+// ── #1358 — a class-attribute regex must carry a LEFT BOUNDARY ───────────────
+//
+// A Lattice `<section>` carries BOTH attributes, in this order:
+//
+//   <section id="1" data-class="content" class="content no-note form" …>
+//
+// `data-class` is the RAW `_class:` directive payload (mirrored from marp-core);
+// `class` is the RESOLVED list, with the deck-wide `class:` register, `form`, the
+// default component, `finish-*` and `mode-*` merged in. A bare `/class="([^"]*)"/`
+// matches LEFTMOST — so it reads the raw payload, and every token the engine added
+// is invisible. It fails in the worst direction: a plausible class list that renders,
+// on exactly the slides that name their own `_class:`.
+//
+// That shipped twice before anyone noticed (#1358): below-note promoted a trailing
+// paragraph on `class: no-note` + `_class: content`, and `wrapImageText` skipped the
+// `.image-text` panel on `class: image` + `_class: dark` — the second a silent
+// divergence from the DOM path, which reads `className` and is right for free.
+// The fix is one shared reader (`readClassAttr`, lib/core/section-walk.js); this gate
+// is what stops the idiom growing back.
+//
+// KEYED ON AN UNAMBIGUOUS REGEX SHAPE, not on the string `class="`: the trigger is a
+// `class` attribute match followed by a CAPTURE CONSTRUCT (an optional group opener, then a
+// character class or `.`, then a quantifier). That is a pattern and never literal markup, so
+// the hundreds of `<div class="…">` template strings in this repo cannot false-positive.
+//
+// The trigger and the guard set below are BOTH wider than the first cut, which an adversarial
+// review walked straight through. It missed `[^"]+` (one character), `(.*?)`, `([\w -]*)`, and
+// the `class\s*=\s*"` spelling that `lib/transformers/pill-tag.js` actually ships; and it
+// ACCEPTED `\s*class=` / `\s?class=` — zero-width quantifiers, i.e. no guard at all, and the
+// single likeliest thing to write after being told "add a leading `\s`" — while REJECTING
+// `(?:^|\s)class=` and `(?<!-)class=`, both strictly correct. A ratchet that passes the bug
+// and blocks the fix is worse than no ratchet, because the decision doc cites its existence
+// as the reason the idiom cannot grow back.
+//
+// COVERAGE BOUNDARY, stated plainly, in two parts.
+//   SPELLING: this catches regex reads. `split('class="')`, a `new RegExp` built from a
+//   VARIABLE, and a DOM `getAttribute` are all out of reach.
+//   SCOPE: `lib`, `docs/src`, `docs/scripts`, `tools` and the root emulator, at
+//   `.js/.ts/.tsx/.mjs/.cjs/.astro`. `test/**` is excluded (tests assert payloads, not render
+//   behavior) and so is generated `dist/**`.
+// The load-bearing guarantee is `readClassAttr` being the one reader; this is the ratchet
+// that keeps new code pointed at it.
+const CLASS_ATTR_REGEX = /class(?:\\?s\*)?=(?:\\?s\*)?"(?:\((?:\?:)?)?(?:\[[^\]]*\]|\.)[*+?]/g;
+// A guard is anything that pins the match to a real attribute BOUNDARY. `\b` is NOT one —
+// the `-`→`c` transition inside `data-class` is a word boundary, which is the whole trap.
+// Written to survive a regex LITERAL (`\s`) and a `new RegExp` template (`\\s`) alike:
+//   • a whitespace atom, optionally `+` — but NEVER `*` or `?`, which are zero-width and
+//     therefore not guards at all;
+//   • a character class containing one, same quantifier rule;
+//   • an alternation that pins start-of-string or whitespace — `(?:^|\s)`, `(^|\s)`,
+//     `(?:\s|^)` — which is the STRICTEST correct form, since it also handles a bare
+//     attribute string;
+//   • a negative lookbehind that excludes `-`, in any spelling: `(?<!-)`, `(?<![-\w])`,
+//     `(?<![\w-])`;
+//   • a literal trailing `-`, i.e. the pattern deliberately targets `data-class` or some
+//     other `*-class` attribute.
+const CLASS_ATTR_GUARD = new RegExp(`(?:${[
+  '\\\\{1,2}s\\+?',
+  '\\[[^\\]]*\\\\{1,2}s[^\\]]*\\]\\+?',
+  '\\((?:\\?:)?(?:\\^\\|\\\\{1,2}s|\\\\{1,2}s\\|\\^)\\)',
+  '\\(\\?<!(?:-|\\[[^\\]]*-[^\\]]*\\])\\)',
+  '-',
+].map((a) => `(?:${a})`).join('|')})$`);
+// Files that legitimately keep an unguarded form, with the reason. Empty today, and
+// the gate fails on a STALE entry so it cannot rot into a blanket exemption.
+const SANCTIONED_CLASS_ATTR_READS = [];
+
+// Comment SPANS, not comment LINES. The line-based first cut skipped any line whose leading
+// text began `*`, which a continuation line of a multi-line expression also does — so a live
+// matcher could be parked past the gate by putting it after `  * factor;`. Spans are anchored
+// at line start (`^[ \t]*`), so a `/*` inside a string literal cannot open a bogus span that
+// swallows real code. Prose still gets to write the bad pattern down, which this file and
+// `section-walk.js`'s docblock both need in order to explain it.
+function commentSpans(src) {
+  const spans = [];
+  for (const re of [/^[ \t]*\/\*[\s\S]*?\*\//gm, /^[ \t]*\/\/.*$/gm]) {
+    let m;
+    while ((m = re.exec(src))) spans.push([m.index, m.index + m[0].length]);
+  }
+  return spans;
+}
+
+const CLASS_ATTR_EXTS = /\.(?:js|ts|tsx|mjs|cjs|astro)$/;
+function listClassAttrFiles(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.astro') continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listClassAttrFiles(p, out);
+    else if (CLASS_ATTR_EXTS.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+function classAttrOffences(dirs = {}) {
+  const roots = dirs.roots || [
+    path.join(ROOT, 'lib'),
+    path.join(ROOT, 'docs', 'src'),
+    path.join(ROOT, 'docs', 'scripts'),
+    path.join(ROOT, 'tools'),
+  ];
+  // The root emulator only — there is no root `lattice-runtime.js` (the runtime's source is
+  // `lib/runtime/**`, already covered by the `lib` root), and naming a file that does not
+  // exist reads as a coverage claim the gate does not honor.
+  const extra = dirs.files || [path.join(ROOT, 'lattice-emulator.js')];
+  const files = [...roots.flatMap((d) => listClassAttrFiles(d)), ...extra.filter((f) => fs.existsSync(f))];
+  const out = [];
+  for (const file of files) {
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue; // tests assert payloads, not render behavior
+    const src = fs.readFileSync(file, 'utf8');
+    const spans = commentSpans(src);
+    CLASS_ATTR_REGEX.lastIndex = 0;
+    let m;
+    while ((m = CLASS_ATTR_REGEX.exec(src))) {
+      const before = src.slice(Math.max(0, m.index - 24), m.index);
+      if (CLASS_ATTR_GUARD.test(before)) continue;
+      if (spans.some(([a, b]) => m.index >= a && m.index < b)) continue;
+      out.push({ file: rel, line: src.slice(0, m.index).split('\n').length, snippet: m[0] });
+    }
+  }
+  return out;
+}
+
+function checkClassAttrReads(errors) {
+  const sanctioned = new Map(SANCTIONED_CLASS_ATTR_READS.map((s) => [s.file, s]));
+  const seen = new Set();
+  for (const o of classAttrOffences()) {
+    seen.add(o.file);
+    if (sanctioned.has(o.file)) continue;
+    errors.push(
+      `${o.file}:${o.line} matches a class attribute with no left boundary (\`${o.snippet}…\`) — it will read ` +
+      `\`data-class="<raw _class: payload>"\` instead of the RESOLVED class list, which is #1358. Read it with ` +
+      `\`readClassAttr\` (lib/core/section-walk.js), or guard the pattern with a leading \`\\s\`. ` +
+      `\`\\b\` is not a guard: the boundary inside \`data-class\` is a word boundary.`,
+    );
+  }
+  for (const s of SANCTIONED_CLASS_ATTR_READS) {
+    if (!seen.has(s.file)) {
+      errors.push(
+        `stale class-attribute sanction in tools/check-ownership.js — ${s.file} no longer matches a class ` +
+        `attribute unguarded (#1358). Remove the SANCTIONED_CLASS_ATTR_READS entry so the allowlist stays honest.`,
+      );
+    }
+  }
+}
+
 function checkPreviewHtmlSinks(errors) {
   const DOCS_SRC = path.join(ROOT, 'docs', 'src');
   const sanctioned = new Map(SANCTIONED_PREVIEW_BUILDERS.map((s) => [s.file, s]));
@@ -4141,6 +4288,7 @@ function run() {
   checkRenderNature(manifests, errors);
   checkDensityCoverage(manifests, errors);
   checkDiagramScopeSelectors(errors);
+  checkClassAttrReads(errors);
   checkPreviewHtmlSinks(errors);
   checkSnapshotHtmlSinks(errors);
   checkOpenRouterBudget(errors);
@@ -4241,6 +4389,9 @@ module.exports = {
   SANCTIONED_LAYER_BLOCKS,
   CANONICAL_LAYER_ORDER,
   LAYER_INERT_SENTINEL,
+  checkClassAttrReads,
+  classAttrOffences,
+  SANCTIONED_CLASS_ATTR_READS,
   checkPreviewHtmlSinks,
   checkSnapshotHtmlSinks,
   SANCTIONED_SNAPSHOT_SINKS,

@@ -53,6 +53,18 @@ is untouched, since that is a different register with its own trigger.
 
 ### The deck-wide form has a caveat, and it is the engine's rather than this feature's
 
+> **RETRACTED (#1358, same day).** The mechanism below is not real and the rule it
+> derives — *"put the token on the slide when the slide names its own `_class:`"* — is
+> withdrawn. `class: no-note` reaches every slide. The deck-class merge is a markdown-it
+> **core ruler**: it runs inside `md.render`, so the class list is already complete when
+> the first HTML-stage transform runs. What was actually wrong is that below-note read
+> `data-class="<raw _class: payload>"` instead of the resolved `class` — an unguarded
+> `/class="([^"]*)"/` matches leftmost, and `data-class` comes first in the tag. **The
+> instrumentation printed below reads the wrong attribute by the same bug it was
+> measuring**, which is why it agreed with the theory.
+> See `2026-08-04-data-class-shadows-resolved-class.md`. The section is kept as written
+> because a plausible wrong diagnosis is part of what this note teaches.
+
 `class: no-note` in front matter reaches every slide that declares **no `_class:` of its
 own**. A slide that carries its own `_class:` does not see it at the stage promotion runs.
 Instrumented on the engine path:

@@ -58,13 +58,46 @@ in patch versions.
   exact rather than the substring test the layout list uses, so a future `no-notebook` cannot
   silently disable notes, and it reads a token array as well as a class string (the shape the
   markdown-it plugins pass), where a string-only check would have failed silently.
-  **Caveat, and it is the engine's rather than this feature's:** the deck-wide form
-  (`class: no-note`) reaches slides that declare no `_class:` of their own, but not a slide that
-  carries one — the HTML-transform stage reads the class list before the deck-wide token is
-  merged into it. That is general to every deck-wide `class:` token (`class: dark` behaves
-  identically), so it is filed as #1358 rather than fixed here; put the token on the slide when
-  the slide names its own class. See `engineering/decisions/2026-08-04-below-note-opt-out.md` and the
-  feature deck `examples/frame-chrome-and-notes.md`.
+  The deck-wide form (`class: no-note`) reaches every slide, including the ones that name their
+  own `_class:`. This entry originally carried a caveat saying it did not, and named a per-slide
+  workaround; that was wrong about the engine and is retracted — see the `data-class` fix under
+  **Fixed** below (#1358). One shipped slide now carries the token (`design/forms.gallery.md`
+  p16), so the entry's original "no deck carries it" is no longer true either. See
+  `engineering/decisions/2026-08-04-below-note-opt-out.md` and the feature deck
+  `examples/frame-chrome-and-notes.md`.
+
+### Changed
+
+- **`--measure-body`'s floor is measured, and it is 35em — not the 36em that ships.** The
+  token holds ~78–83 characters, above the 45–75 band, and its comment calls itself a
+  compatibility value because narrower clips shipped decks. Re-derived with the real oracle
+  (`npm run overflow:check` — 257 emulator renders through Chromium, one full sweep per
+  candidate): 36em and 35em are both clean at the committed baseline of 8 clipped slides; 34em
+  clips `examples/finish-backdrops.md` p2 and `examples/mode-frontmatter.md` p2; 33em clips
+  `examples/chart-theme-gallery/README.md` p1 and `exemplars/README.md` p1 as well. **The
+  premise is not stale** — the comment's "four decks clip at 33em" still holds after #1359 —
+  but the comment implied 36em was the floor and it is one notch above it. **The value is
+  deliberately unchanged**: the notch buys ~2 characters, still lands outside the band, and
+  would reflow every `content` slide in the corpus and every committed PDF with it. The next
+  move is trimming the two ledes that block 34em, and the token comment now names them. See
+  `engineering/decisions/2026-08-04-measure-body-floor.md`. (#1355)
+
+- **One slide stops rendering its stage direction as a footnote, and the audit behind that is
+  the deliverable.** #1322 recorded that below-note promotion catches "a list, then a concluding
+  sentence" on `content` slides and left the design call open at "5 slides across 3 decks".
+  Re-measured on the current corpus it is **17 `content` slides across 10 decks** — treat 17 as
+  the fact and the 5 as unverified. Reading all 17: ~8 are genuine footnotes where promotion is
+  right, and 4 exist to demonstrate the treatment. The first cut of this change also proposed
+  suppressing 5 that read as conclusions; an adversarial review overturned 4 of them on a
+  convention the audit had not consulted — `engineering/workflow.md` §Feature decks prescribes
+  *"a one-line below-note explaining the change"* on exactly those slides, so on a FEATURE DECK
+  the promotion is the house shape rather than a misread. What ships is
+  `design/forms.gallery.md` p16, a design gallery rather than a feature deck, whose trailing
+  sentence is an instruction to the reader about the next three slides. **No engine change**:
+  the default stays promotion, and whether it should is still the owner's call — the
+  recommendation is not to flip it, since that would strip the treatment from the twelve slides
+  where it is right to serve one. See
+  `engineering/decisions/2026-08-04-below-note-promotion-audit.md`.
 
 ### Fixed
 
@@ -206,6 +239,46 @@ in patch versions.
   cache is keyed by (scope, source) for the same reason: a source-only key hands slide 2 slide 1's
   baked SVG. Reaches the Studio/Playground, marp-vscode, and — through `lib/core/marp-bundle.js` —
   Export-to-Marp. #1332
+- **A deck-wide `class:` token now reaches the transforms on slides that name their own
+  `_class:`.** A Lattice `<section>` carries the class information twice — `data-class="<raw
+  _class: payload>"` (marp-core's contract) and then `class="<resolved list>"`, with the deck-wide
+  `class:` register, `form`, the default component, `finish-*` and `mode-*` merged in. An
+  unguarded `/class="([^"]*)"/` matches leftmost, so it read the raw directive payload and every
+  token the engine added was invisible — a plausible class list that renders, on exactly the
+  slides carrying their own `_class:`. Two shipped transforms read it that way: `no-note`
+  silently did nothing when set deck-wide, and an `image` deck's `.image-text` panel was not
+  built on a slide whose `_class:` named a modifier, which also put the string path and the DOM
+  path (`className`, right for free) out of agreement. **`\b` is not a guard** — the `-`→`c`
+  transition inside `data-class` is a word boundary — which is why five occurrences across four
+  files were correct only by the accident of greedy backtracking. Fixed with one shared reader
+  in `lib/core/section-walk.js` (the general `readAttr`, plus a named `readClassAttr` wrapper
+  that replaces a private duplicate in `lib/core/collections.js`), applied at all nine files
+  carrying the idiom, and gated: a new `checkClassAttrReads` in `build:check` (budget 0) fails
+  the unguarded regex shape, and `test/unit/engine/deck-class-visibility.test.js` pins the
+  behavior that had no test — which is why this shipped. **All 257 corpus decks render
+  byte-identical HTML**; only the combinations no committed deck uses change. Filed as a
+  transform-ordering defect and it is not one: the deck-class merge is a markdown-it core ruler
+  and always ran first. See
+  `engineering/decisions/2026-08-04-data-class-shadows-resolved-class.md`.
+
+- **A `no-*` chrome token no longer reads as the component whose name it contains.**
+  below-note's layout exclusion is a substring test, and `EXCLUDED` contains `progress`, the
+  chart component — so `'content no-progress form'.includes('progress')` is true and
+  `no-progress`, which only hides the progress rail, suppressed the below-note treatment. That
+  was harmless while below-note read `data-class`; the fix above handed the substring test the
+  whole deck-wide register, so a deck declaring `class: no-progress` — which the Studio's own
+  "Hide rail" switch writes — lost the treatment on every slide naming its own `_class:`. `no-*`
+  suppression tokens are withheld from the substring arm: no `EXCLUDED` entry begins with `no-`,
+  so such a token can never legitimately name a layout. Narrow on purpose — making the whole
+  list token-exact flips 28 committed sections and needs a design ruling on `compare-code` ⊃
+  `code` and `pull-quote` ⊃ `quote` (#1363). One visible consequence: `design/forms.gallery.md`
+  p18 now promotes its trailing note, matching its sibling p17, which it never should have
+  differed from.
+
+- **`mergeClass` no longer emits a duplicate `class` attribute** on an attribute string with no
+  leading whitespace — a browser keeps the first and silently drops the merged token. Introduced
+  and caught inside this release while boundary-guarding the same helper; now covered by
+  `test/unit/core/collections-attrs.test.js`, which the exported helper had never had.
 
 - **Diagram ink is now chosen by what it sits ON, so it stops disappearing on the accessibility
   palettes in dark.** The Mermaid theme map fed every text key from one token, `--cat-on-fill`, on
