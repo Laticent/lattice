@@ -18360,42 +18360,43 @@ section.clip-marked[data-lattice-overflow-marker="reader"] > .overflow-tab {
    * height — assert it here so a future edit to the author rule can't silently
    * reintroduce a measure→mutate→measure loop. */
   position: absolute !important;
-  top: auto !important;
-  right: auto !important;
-  /* CLEAR OF THE FOOTER BAND, and that is a correction, not a nicety.
+
+  /* THE TAB'S OWN CORNER, and getting here took three wrong answers worth recording,
+   * because each one was a smaller version of the same mistake.
    *
-   * This was `bottom: max(0.6rem, env(safe-area-inset-bottom))` — which IS the footer
-   * band. `--footer-reserve` (lib/forms/cell/stage/stage.css, declared on `section.form`)
-   * is the band's own measured height: baseline inset + band height + gap, the number the
-   * stage already uses to keep its content off the footer. The pill is opaque
-   * (`var(--text-body)` at `opacity: .9`, `z-index: 50`), so at the old offset it painted
-   * a capsule ACROSS the running footer — and once detection widened to cuts without
-   * overflow, every deck carrying one ordinary `footer:` in front matter got one on EVERY
-   * page. Both HARD RULE #25 lenses found it independently by rasterizing a committed
-   * golden: `premise.gallery.light.pdf` p3 read "…the categorical p [Content clipped] e."
-   * The marker destroyed readable content in order to report that content was destroyed —
-   * the paint-side twin of the failure overflow-probe.js's header names, and ink overlap
-   * in the one band `2026-07-27-footer-band-allocation.md` exists to have cleared.
-   * TWO FRAME SHAPES, so `max()` rather than a fallback. `--footer-reserve` is declared on
-   * `section.form`, and a first cut used it with the old offset as the fallback — which
-   * assumed "no Form band" meant "no footer". It does not: a SOVEREIGN frame (split-panel,
-   * the anchors) still renders `section footer` at `bottom: var(--frame-inset-y)`, it just
-   * has no capped band, so the footer WRAPS instead of ellipsing. Rendered proof: the fix
-   * cleared the band on a `content` slide and the pill still sat on a two-line wrapped
-   * footer on the `split-panel` slide beside it. The second term clears that shape from its
-   * own tokens — `2.4em` at the tab's own `--fs-meta`, so it covers a two-line wrap at
-   * `line-height: 1` — and `max()` takes whichever band is actually taller. */
-  bottom: calc(
-    max(var(--footer-reserve, 0px), var(--frame-inset-y, 0.6rem) + 2.4em, 0.6rem)
-    + var(--sp-2xs, 0.25rem)
-  ) !important;
-  left: 50%;
-  transform: translateX(-50%);
+   * The pill is OPAQUE (`var(--text-body)` at `opacity: .9`, `z-index: 50`). It shipped
+   * bottom-center, which is the running-footer band, so once detection widened to cuts
+   * with no overflow every deck carrying one ordinary `footer:` got a capsule painted
+   * across its confidentiality line on EVERY page. Both HARD RULE #25 lenses found that
+   * independently by rasterizing a committed golden — `premise.gallery.light.pdf` p3 read
+   * "…the categorical p [Content clipped] e." The marker was destroying readable content
+   * in order to report that content was destroyed.
+   *
+   * Fix 1 raised it by `--footer-reserve`. That token is declared on `section.form` only,
+   * and the fallback assumed "no Form band" meant "no footer" — false, a SOVEREIGN frame
+   * still renders `section footer`, it just wraps instead of ellipsing. Fix 2 added a
+   * `max()` over both shapes. Both cleared the footer and both were still wrong, and the
+   * export text layer said so: on an overflowing slide the stage is FULL by definition, so
+   * the raised pill landed on the body copy instead — extracted PDF text came out
+   * "…engineered / toclipped / push this slide's", caught by
+   * test/integration/export/export-formats.test.js.
+   *
+   * The lesson the third time: an opaque overlay on a full slide overlaps SOMETHING
+   * wherever you put it, so the question is not "which gap" but "whose territory". The
+   * marker's own territory is the top-right corner — `.overflow-tab` and `.illegible-tab`
+   * have both lived there for the life of the register, no component puts content in it,
+   * and `2026-07-30-overflow-marker-register.md` describes `reader` as "the SAME
+   * text-labeled tab restyled", not as a differently-placed one. So the reader pill
+   * inherits the author tab's placement and changes only its TONE. Nothing about position
+   * is overridden here any more; that is the point. */
+
   background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
   color: var(--bg) !important;
-  border-radius: 999px;
+  border-bottom-left-radius: var(--radius-md);
+  border-top-right-radius: 0;
   letter-spacing: 0.04em;
   text-transform: none;
+  font-weight: 600;
   /* NO DROP SHADOW. It used to carry `box-shadow: 0 .125rem .5rem rgb(0 0 0/.28)`
    * with the note "HTML viewer only, never in PDF" — true only while this pill was
    * a fluid-viewer affordance. Now that the emulator's PDF/PNG/PPTX path reads the
