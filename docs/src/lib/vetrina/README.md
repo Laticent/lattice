@@ -196,6 +196,31 @@ The cost of that guarantee is exactly one frame: a reflow lands after the frame 
 it, so a tracking cue is ~16ms behind during a resize. Momentary bursts (the click spark,
 the anticipation ping) stay snapshot-positioned — they are gone before any of this matters.
 
+**How to say "gone".** A `RectSource` has to return a `DOMRect`, so it cannot answer `null`.
+Answer with a **zero-area rect** instead — that is the word for "this is nowhere now", and
+Vetrina reads it as no position at all: the cursor settles where it is rather than gliding to
+the viewport corner. Two other answers are treated the same way, because none of them names a
+place: a rect with a `NaN` in it (one used to poison the layer for the rest of the run), and a
+provider that throws. Anything else is taken literally.
+
+### When you don't always have a target — `setCursorVisible`
+
+```ts
+const target = resolveWhateverIsCurrent();     // may be null
+stage.setCursorVisible(!!target);
+if (target) await stage.point(target);
+```
+
+If your host points at something it does not always have, **hide the cursor rather than leaving
+it where it was**. A stationary pointer is not neutral — it reads as a claim about whatever it
+happens to be sitting on, so a cue you cannot resolve turns into a confident answer that is
+wrong. `setCursorVisible(false)` cross-fades the pointer out and is reversible within the same
+run (it is not `destroy()`); the **dock is never affected**, so Exit stays reachable either way.
+
+If you are also hiding the viewer's real pointer while your cursor stands in for it, tie the two
+together: hide the real one only while yours is actually aiming at something. Otherwise the
+viewer ends up with no usable pointer at all — yours pointing nowhere useful, theirs invisible.
+
 ### A bare pointer layer — `caption: 'none'`
 
 Every caption style keeps **Exit** reachable, because stranding a viewer inside a running tour

@@ -53,8 +53,30 @@ export const progressTier = 'var(--accent)';
  *
  * 2px ink / 2px gap at -45°: dense enough to read as a filled range at a glance on an 8px
  * bar, open enough that the difference from the solid played range is unmistakable.
+ *
+ * The pattern is PINNED to the left edge. A `repeating-linear-gradient`'s gradient line runs
+ * through the box CENTER, so growing the box moves the pattern's phase — at -45° roughly 0.35px
+ * of sideways shift per 1px of width. The buffered range animates its width (`transition:width
+ * 300ms`), so unpinned the whole hatch crawls sideways on every advance instead of the edge
+ * simply moving out: rendered at 40/41/42/43/44px, the left-most stripe walks from a sliver to a
+ * full bar. `background-position: 0 0` + `background-origin: border-box` anchors the phase to
+ * the left edge, so the stripes stay put and only the range's end moves.
  */
 export const bufferedTier = 'repeating-linear-gradient(-45deg, var(--accent) 0 2px, transparent 2px 4px)';
 
-/** The ink the buffered hatch is drawn in — what the sweep measures against the track. */
-export const bufferedInk = 'var(--accent)';
+/** Paint-time companions to `bufferedTier` — see the phase note above. Applied together. */
+export const bufferedPosition = '0 0';
+export const bufferedOrigin = 'border-box';
+
+/**
+ * The ink the buffered hatch is drawn in — what the sweep measures against the track.
+ *
+ * DERIVED from `bufferedTier` rather than restated, so the pair cannot drift: change the
+ * gradient's color and the sweep measures the new one. Restating it is exactly the hand-copy
+ * this module exists to eliminate, and the two were separate literals for one release.
+ */
+export const bufferedInk = (() => {
+	const m = bufferedTier.match(/(var\(--[\w-]+\)|#[0-9a-fA-F]{3,8}|(?:rgb|hsl|color-mix)\([^)]*\))/);
+	if (!m) throw new Error('present-rail-tiers: bufferedTier has no readable ink — the sweep would measure nothing');
+	return m[1];
+})();

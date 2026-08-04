@@ -1340,11 +1340,12 @@ ${indent}   - ${body.trim()}`;
     }
     var PACE_NAMES = ["brisk", "natural", "deliberate"];
     function findUnknownPace(source, paceNames) {
-      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      const fmBlock = source.match(/^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
       if (!fmBlock) return [];
-      const fmPace = fmBlock[1].match(/^\s*pace:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      const fmPace = fmBlock[1].match(/^[ \t]*pace:[ \t]*(.*)$/m);
       if (!fmPace) return [];
-      const value = fmPace[1].trim();
+      const value = fmPace[1].replace(/(^|\s)#.*$/, "").trim().replace(/^['"]/, "").replace(/['"]$/, "");
+      if (!value) return [];
       const known = new Set([...paceNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
       return [{

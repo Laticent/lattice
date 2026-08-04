@@ -47,13 +47,21 @@ import { frameRectSource } from '@/playground/frame-geom.js';
 const norm = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
 /** Strip what a reader normalizes away but the DOM still shows, so a match is not defeated by
- *  punctuation the projection rewrote (a terminating period it added, curly quotes, dashes). */
+ *  punctuation the projection rewrote (a terminating period it added, curly quotes, dashes).
+ *
+ *  LETTERS OF EVERY SCRIPT, not `[a-z0-9]`. An ASCII-only class does not merely fail on a
+ *  Cyrillic or Greek deck — it fails DANGEROUSLY: every letter is dropped and the sentence
+ *  collapses to a run of spaces, which still clears the length guard, so `hay.includes(needle)`
+ *  degrades into "does this block have at least as many words" and the cursor lands on an
+ *  arbitrary line, confidently. (CJK collapses to the empty string and merely goes silent.)
+ *  `\p{L}\p{N}` keeps the letters, so matching stays matching. `frontMatterLang` makes
+ *  non-English decks a supported surface, so this is a real deck, not a hypothetical. */
 const loose = (s: string): string =>
 	norm(s)
 		.toLowerCase()
 		.replace(/[‘’“”]/g, "'")
 		.replace(/[–—]/g, '-')
-		.replace(/[^a-z0-9' -]+/g, '');
+		.replace(/[^\p{L}\p{N}' -]+/gu, '');
 
 /** Blocks worth pointing at — the same shape the projection walks, minus the containers, so a
  *  match lands on the paragraph rather than on the `<section>` that also contains it. */
@@ -69,13 +77,27 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
 export function findCueTarget(frameDoc: Document | null, text: string): Element | null {
 	if (!frameDoc) return null;
 	const needle = loose(text);
-	if (needle.length < 3) return null; // too short to identify anything honestly
+	// Long enough to identify something, and carrying at least one letter or digit. A needle of
+	// pure separators would match the first block with as many of them, which is not a match.
+	if (needle.length < 3 || !/[\p{L}\p{N}]/u.test(needle)) return null;
 	let best: Element | null = null;
 	let bestLen = Number.POSITIVE_INFINITY;
 	for (const el of frameDoc.querySelectorAll(BLOCK_SELECTOR)) {
 		const hay = loose(el.textContent ?? '');
 		if (!hay) continue;
-		if (!(hay.includes(needle) || (needle.length > 24 && hay.length > 8 && needle.includes(hay)))) continue;
+		// CONTAINMENT ONE WAY ONLY: the block must contain the sentence. The reverse — a block
+		// whose text is a SUBSTRING of the sentence — was allowed here for reach, and it is a
+		// target-picking machine for the wrong element: any such block is by definition shorter
+		// than the paragraph that really holds the sentence, so smallest-wins always prefers it.
+		// A heading, a kicker, a table cell or an inline `<code>` whose words recur in the
+		// sentence beneath it takes the cursor every time — the everyday Lattice slide shape.
+		//
+		// Measured over the 124 decks in `examples/` + `test/integration/baseline-decks/`
+		// (5,551 cues): the reverse branch raised the match rate from 83.5% to 90.7% and
+		// produced 639 hits on an element holding less than half the spoken sentence. Without
+		// it: ZERO such hits, and the number of slides where the cursor never moves barely
+		// changes (64 → 62). It bought reach by pointing somewhere wrong.
+		if (!hay.includes(needle)) continue;
 		// Strictly smaller wins. On a TIE, prefer the one nested inside the incumbent: a
 		// `<blockquote>` wrapping a single `<p>` has byte-identical text, and document order hands
 		// you the blockquote — so a plain `<` kept pointing at the wrapper instead of the line.
@@ -98,10 +120,16 @@ export function cueDisplayText(cue: { words?: { display?: string }[] } | null | 
 /**
  * A live `RectSource` for the cue currently being spoken — the thing Vetrina points at.
  *
- * Resolution is deferred into the rect source rather than done once: the frame's own geometry
- * moves with its host's layout, and re-querying is cheap next to being wrong. Returns null when
- * nothing matches, which Vetrina treats as "no target" (a no-op cue) rather than an error — a
- * slide whose narration is a speaker note has no on-slide text to point at, and that is fine.
+ * The ELEMENT is resolved once, here, and captured. What stays live is its RECT: the returned
+ * source re-measures on every call, because the element moves under two independent forces (the
+ * slide's own reflow and the frame's scale/position within its pane) and a rect read once goes
+ * stale under either. Re-resolving the element every frame would buy nothing — the slide's DOM does
+ * not change while one sentence is spoken — and would cost a `querySelectorAll` per frame.
+ *
+ * Returns null when nothing on the slide contains the spoken sentence. That is a real state, not
+ * an error: a slide narrated by a speaker note says things the slide does not show. The CALLER
+ * must then hide the cursor (`setCursorVisible(false)`) rather than leave it parked on the last
+ * sentence's target — a stationary cursor is read as a claim about whatever it sits on.
  */
 export function guideTargetFor(getFrame: () => HTMLIFrameElement | null, text: string): RectSource | null {
 	const frame = getFrame();

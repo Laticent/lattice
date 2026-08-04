@@ -261,16 +261,31 @@ function createStage(opts) {
   const aimAt = (r) => ({ x: r.left + Math.min(r.width * 0.5, 22), y: r.top + Math.min(r.height * 0.5, 18) });
   const liveRect = (src) => {
     if (!src || destroyed) return null;
+    let r;
     try {
-      return src.getBoundingClientRect();
+      r = src.getBoundingClientRect();
     } catch {
       return null;
     }
+    if (!r) return null;
+    if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
+    if (r.width === 0 && r.height === 0) return null;
+    return r;
   };
+  let cursorHidden = false;
+  const paintCursorOpacity = () => {
+    cursor.style.opacity = cursorHidden ? "0" : "1";
+  };
+  function setCursorVisible(visible) {
+    if (destroyed || cursorHidden === !visible) return;
+    cursorHidden = !visible;
+    if (!still) cursor.animate([{ opacity: visible ? 0 : 1 }, { opacity: visible ? 1 : 0 }], { duration: 180, easing: "ease-out" });
+    paintCursorOpacity();
+  }
   requestAnimationFrame(() => {
     if (destroyed) return;
     dock.style.opacity = "1";
-    cursor.style.opacity = "1";
+    paintCursorOpacity();
   });
   function tween(to, dur, signal) {
     const fromX = cx;
@@ -281,9 +296,14 @@ function createStage(opts) {
       const onAbort = () => reject(new AbortError());
       signal?.addEventListener("abort", onAbort, { once: true });
       const tick = (now) => {
-        if (destroyed || signal?.aborted) return;
+        if (destroyed) {
+          signal?.removeEventListener("abort", onAbort);
+          resolve2();
+          return;
+        }
+        if (signal?.aborted) return;
         dest = to() ?? dest;
-        const t = Math.min(1, (now - start) / dur);
+        const t = Math.min(1, Math.max(0, (now - start) / dur));
         const e = easeInOut(t);
         place(fromX + (dest.x - fromX) * e, fromY + (dest.y - fromY) * e);
         if (t < 1) requestAnimationFrame(tick);
@@ -596,12 +616,12 @@ function createStage(opts) {
   async function intro(signal) {
     if (destroyed) return;
     if (silenced.has("intro")) {
-      cursor.style.opacity = "1";
+      paintCursorOpacity();
       return wait(200, signal);
     }
     place(window.innerWidth / 2, window.innerHeight * 0.46);
     if (still) {
-      cursor.style.opacity = "1";
+      paintCursorOpacity();
       return wait(300, signal);
     }
     if (reduced) {
@@ -612,7 +632,7 @@ function createStage(opts) {
         ],
         { duration: 460, easing: "cubic-bezier(.2,.8,.3,1)" }
       );
-      cursor.style.opacity = "1";
+      paintCursorOpacity();
       await wait(560, signal);
       await wave(signal);
       return;
@@ -734,6 +754,7 @@ function createStage(opts) {
     reduced,
     still,
     pace,
+    setCursorVisible,
     contains: (node) => node instanceof Node && layer.contains(node),
     destroy: () => {
       destroyed = true;

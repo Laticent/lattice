@@ -79,7 +79,7 @@ A **delivery** register is a third category, and 1.0 does not define one: `pace:
 (2026-08-04) tells a self-presenting player how long to hold on a new slide before speaking. It
 changes no rendered pixel, so a conforming renderer ignores it exactly as it ignores application
 metadata — but unlike application metadata it belongs to the DECK and must survive an export.
-See `lib/core/resolve-pace.js`.
+See `lib/core/resolve-pace.mjs`.
 
 Note that a *host application* may read its own front-matter keys that LFM does not
 define and a conforming renderer ignores — the Lattice Studio reads `title:` to name

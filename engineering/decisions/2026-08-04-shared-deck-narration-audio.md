@@ -103,11 +103,23 @@ narrator — and it is the only answer that works at all, since the recipient ha
 Record the voice identity in `readAlong.voice` (the manifest field already exists) so the
 artifact can say what it was narrated with.
 
-### 5. Pace — already travels; nothing more to do
+### 5. Pace — the deck already carries it; the player does not yet read it
 
-Front-matter `pace:` (#1399) is carried by both export carriers, and the player would resolve it
-exactly as Present does: millisecond override → deck `pace:` → default. The exported player has
-no workspace preset, so for it the order collapses to deck → default.
+Half done, and worth being precise about which half. What ships today is the **carrier**:
+front-matter `pace:` (#1399) survives both export paths — the `.lattice` envelope byte-exact and
+the baked `application/lattice-front-matter` block — and `test/unit/core/pace-export-roundtrip.test.js`
+pins that at both boundaries.
+
+What does **not** exist is a **consumer**. `lib/export/player-core.mjs` contains no reference to
+`pace` at all; the exported player advances on its own timing and would ignore a declared pace
+today. So this is not "nothing more to do" — it is one small addition on the player side, which
+belongs with the audio transport in step 3 of the build below rather than as a separate change:
+read the baked front matter the player already parses, resolve **millisecond override → deck
+`pace:` → default** (the player has no workspace preset, so the middle rung of Present's order
+collapses out), and hold that beat at the slide boundary.
+
+The reason it is cheap is that the hard part — getting the author's choice out of `localStorage`
+and into the artifact — is the part that shipped.
 
 ## The build
 
@@ -118,7 +130,9 @@ no workspace preset, so for it the order collapses to deck → default.
 2. **Carrier** — none. `buildEnvelope` already carries `readAlong` verbatim.
 3. **Consumer** — `playerJs` in `lib/export/player-core.mjs`: on Play, walk the current slide's
    clips through one `Audio` element, advance the caption highlight off `timeupdate`, hold
-   `slideBeatMs` at the boundary, then advance. Two constraints the file already imposes: the
+   `slideBeatMs` at the boundary, then advance. **`slideBeatMs` is where §5's missing consumer
+   lands** — resolve it from the baked `pace:` rather than a constant, and the deck's declared
+   rhythm finally reaches a viewer. Two constraints the file already imposes: the
    script is **pure ASCII** (WebKit's hashing), and anything lifted from a shared kernel is
    inlined by `.toString()` so it may not reference module-scope bindings.
 4. **CSP** — add `media-src data:`. One line, and the reason this needs sign-off.

@@ -300,7 +300,7 @@ answered that during review — *"a deck that presents itself must carry its own
 author's directorial choice in the viewer's localStorage guarantees it is lost the moment the deck
 leaves the machine"* — and that is now built.
 
-`pace:` is a front-matter register (`lib/core/resolve-pace.js`), and the resolution order is:
+`pace:` is a front-matter register (`lib/core/resolve-pace.mjs`), and the resolution order is:
 
     millisecond override  →  deck `pace:`  →  workspace preset  →  natural
 

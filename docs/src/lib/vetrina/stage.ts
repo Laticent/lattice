@@ -90,6 +90,16 @@ export interface Stage {
 	readonly still: boolean;
 	/** Pacing multiplier from the theme's speed — storyboard settle + typing cadence scale by it. */
 	readonly pace: number;
+	/** Show or hide the CURSOR, without tearing the stage down.
+	 *
+	 *  For a host that points at something it does not always have: a cue whose target cannot be
+	 *  resolved leaves the cursor parked on whatever it pointed at LAST, which reads as a
+	 *  confident claim about an unrelated thing — worse than not pointing at all. Hiding is the
+	 *  honest state, and it has to be reversible within one run, so it is not `destroy()`.
+	 *
+	 *  The DOCK is deliberately unaffected: Exit must stay reachable at all times (I4), so this
+	 *  hides the pointer and nothing else. Idempotent. */
+	setCursorVisible(visible: boolean): void;
 	/** True if the event target belongs to the stage's own chrome (the Exit button). */
 	contains(node: EventTarget | null): boolean;
 	/** Remove every node. Idempotent; all methods no-op afterward (I6 / interleave safety). */
@@ -487,19 +497,55 @@ export function createStage(opts: StageOptions): Stage {
 	// So every LONG-LIVED cue re-reads its target each frame. Momentary bursts (the click
 	// spark, the anticipation ping) stay snapshot-positioned — they are gone within one
 	// layout change, and re-reading them would cost more than it could ever correct.
+	//
+	// "Gone" has three shapes and all of them must answer null, because every caller reads null
+	// as "keep the last known position" and reads a rect as "this is where the thing IS":
+	//
+	//   THREW      — a detached node, or a host provider that blew up. Caught.
+	//   NOT FINITE — one NaN poisons the layer for the rest of the session: `place(NaN,NaN)`
+	//                writes NaN into the cursor's own coordinates, so every later `Math.hypot`
+	//                → duration → `t = Δ/NaN` is NaN, `t < 1` is false, and every subsequent
+	//                tween resolves on frame one having moved nothing. Unreachable from an
+	//                element, reachable from the `RectSource` widening a host now supplies.
+	//   ZERO AREA  — a `display:none` element, and (the case this was written for) a host
+	//                provider whose frame or element has gone away and answers with an
+	//                all-zero rect. A zero-area box at the viewport origin is not a place; read
+	//                literally it flies the cursor to the top-left corner, which is exactly the
+	//                "snap to the origin" this guard is documented as preventing.
 	const liveRect = (src: RectSource | null): DOMRect | null => {
 		if (!src || destroyed) return null;
+		let r: DOMRect;
 		try {
-			return src.getBoundingClientRect();
+			r = src.getBoundingClientRect();
 		} catch {
-			return null; // a detached node / a host provider that threw — treat as "gone"
+			return null;
 		}
+		if (!r) return null;
+		if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
+		if (r.width === 0 && r.height === 0) return null;
+		return r;
 	};
+
+	// Every write to the cursor's opacity goes through here, so a host's `setCursorVisible(false)`
+	// cannot be quietly undone by an intro or a gesture that hard-sets opacity to 1.
+	let cursorHidden = false;
+	const paintCursorOpacity = (): void => {
+		cursor.style.opacity = cursorHidden ? '0' : '1';
+	};
+	function setCursorVisible(visible: boolean): void {
+		if (destroyed || cursorHidden === !visible) return;
+		cursorHidden = !visible;
+		// Cross-fade rather than pop: a host that hides on every unresolvable cue would otherwise
+		// flicker the pointer several times a slide. 'still' snaps (content cadence collapses);
+		// 'legible' keeps the fade, which is opacity-only and therefore motion-safe.
+		if (!still) cursor.animate([{ opacity: visible ? 0 : 1 }, { opacity: visible ? 1 : 0 }], { duration: 180, easing: 'ease-out' });
+		paintCursorOpacity();
+	}
 
 	requestAnimationFrame(() => {
 		if (destroyed) return;
 		dock.style.opacity = '1';
-		cursor.style.opacity = '1';
+		paintCursorOpacity();
 	});
 
 	// A rAF-driven tween of the cursor toward a destination, racing the signal.
@@ -517,9 +563,22 @@ export function createStage(opts: StageOptions): Stage {
 			const onAbort = () => reject(new AbortError());
 			signal?.addEventListener('abort', onAbort, { once: true });
 			const tick = (now: number) => {
-				if (destroyed || signal?.aborted) return;
+				// A teardown mid-glide SETTLES the promise rather than abandoning it. Dropping the
+				// frame loop used to leave `point()` pending forever, held by whatever awaited it —
+				// resolve, because teardown is terminal and there is nothing left to await.
+				if (destroyed) {
+					signal?.removeEventListener('abort', onAbort);
+					resolve();
+					return;
+				}
+				if (signal?.aborted) return; // the abort listener rejects; do not settle twice
 				dest = to() ?? dest;
-				const t = Math.min(1, (now - start) / dur);
+				// Clamped at BOTH ends. `now` is the rAF timestamp, which is not guaranteed to be
+				// at or after the `performance.now()` we started from (it is the frame's own
+				// origin-relative time, and a frame already in flight can carry an earlier one). A
+				// negative `t` runs `easeInOut` outside its domain and extrapolates: measured a
+				// cursor thrown to left=27306px before it came back. Clamping costs nothing.
+				const t = Math.min(1, Math.max(0, (now - start) / dur));
 				const e = easeInOut(t);
 				place(fromX + (dest.x - fromX) * e, fromY + (dest.y - fromY) * e);
 				if (t < 1) requestAnimationFrame(tick);
@@ -875,12 +934,12 @@ export function createStage(opts: StageOptions): Stage {
 	async function intro(signal?: AbortSignal): Promise<void> {
 		if (destroyed) return;
 		if (silenced.has('intro')) {
-			cursor.style.opacity = '1';
+			paintCursorOpacity();
 			return wait(200, signal);
 		}
 		place(window.innerWidth / 2, window.innerHeight * 0.46);
 		if (still) {
-			cursor.style.opacity = '1';
+			paintCursorOpacity();
 			return wait(300, signal);
 		}
 		if (reduced) {
@@ -894,7 +953,7 @@ export function createStage(opts: StageOptions): Stage {
 				],
 				{ duration: 460, easing: 'cubic-bezier(.2,.8,.3,1)' },
 			);
-			cursor.style.opacity = '1';
+			paintCursorOpacity();
 			await wait(560, signal);
 			await wave(signal);
 			return;
@@ -1049,6 +1108,7 @@ export function createStage(opts: StageOptions): Stage {
 		reduced,
 		still,
 		pace,
+		setCursorVisible,
 		contains: (node) => node instanceof Node && layer.contains(node),
 		destroy: () => {
 			destroyed = true;

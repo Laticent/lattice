@@ -33,13 +33,28 @@ type Worst = { gap: number; ring: number[]; target: number[]; say: string } | nu
 const SUSTAIN = 4;
 
 test('a spotlight cue never disagrees with the pane it circles', async ({ page }) => {
+	// FAIL ON A PAGE ERROR, and read this before touching the sampler below.
+	//
+	// The first version of this spec passed against a build with the tracking loop ripped out. The
+	// `addInitScript` callback is SERIALIZED into the page, so it closes over nothing: its
+	// reference to the module-scope `SUSTAIN` threw `ReferenceError` on the first frame that saw a
+	// ring — after `__saw = true` and before any `__worst` was recorded. The oracle died, reported
+	// a clean `null`, and the "guard the oracle itself" check below passed because it had already
+	// been satisfied one statement too early. A sampler that dies silently is worse than no
+	// sampler: it certifies. So the constant is now passed as an ARGUMENT, and any uncaught page
+	// error fails the test outright — that is the guard that generalizes, not a smarter flag.
+	const pageErrors: string[] = [];
+	page.on('pageerror', (e) => pageErrors.push(String(e)));
+
 	// Sample from inside the page. The ring lives ~1.7s and the disagreement is a WINDOW, so a
 	// retrying matcher would simply wait it out and pass against a broken build — the exact way
 	// an earlier e2e spec in this area lied. Read continuously, assert once at the end.
-	await page.addInitScript(() => {
-		const w = window as unknown as { __worst: Worst; __saw: boolean };
+	await page.addInitScript((sustain: number) => {
+		const w = window as unknown as { __worst: Worst; __saw: boolean; __frames: number };
 		w.__worst = null;
 		w.__saw = false;
+		w.__frames = 0;
+		const SUSTAIN = sustain;
 		const arm = () => {
 			const layer = document.querySelector('.vetrina-stage');
 			if (!layer) return requestAnimationFrame(arm);
@@ -51,10 +66,13 @@ test('a spotlight cue never disagrees with the pane it circles', async ({ page }
 				// are not); every other cue is a small transform-centered burst.
 				const ring = [...layer.children].find((c) => (c as HTMLElement).style.borderRadius === '14px') as HTMLElement | undefined;
 				if (ring && target) {
-					w.__saw = true;
 					const a = ring.getBoundingClientRect();
 					const b = target.getBoundingClientRect();
 					const gap = Math.max(Math.abs(a.left - b.left), Math.abs(a.top - b.top), Math.abs(a.width - b.width), Math.abs(a.height - b.height));
+					// Set LAST among the bookkeeping, so a throw anywhere in the measurement above
+					// leaves `__saw` false and the guard below fires instead of certifying.
+					w.__saw = true;
+					w.__frames++;
 					run = gap > 2 ? run + 1 : 0;
 					if (run >= SUSTAIN && (!w.__worst || gap > w.__worst.gap)) {
 						w.__worst = {
@@ -72,7 +90,7 @@ test('a spotlight cue never disagrees with the pane it circles', async ({ page }
 			requestAnimationFrame(tick);
 		};
 		requestAnimationFrame(arm);
-	});
+	}, SUSTAIN);
 
 	await gotoStudio(page);
 	// The `quiet` tour is the shortest one that plays `reskin` — the beat that closes the
@@ -82,12 +100,16 @@ test('a spotlight cue never disagrees with the pane it circles', async ({ page }
 	await expect(page.locator('.vetrina-stage')).toBeVisible();
 	await expect(page.locator('.vetrina-stage')).toHaveCount(0, { timeout: 220_000 });
 
-	const { worst, saw } = await page.evaluate(() => {
-		const g = window as unknown as { __worst: Worst; __saw: boolean };
-		return { worst: g.__worst, saw: g.__saw };
+	const { worst, saw, frames } = await page.evaluate(() => {
+		const g = window as unknown as { __worst: Worst; __saw: boolean; __frames: number };
+		return { worst: g.__worst, saw: g.__saw, frames: g.__frames };
 	});
-	// Guard the oracle itself: a run that never drew a ring would report a clean `null` and be
-	// indistinguishable from a pass. It has to have measured something.
+	// Guard the oracle itself, three ways — a run that measured nothing reports a clean `null`
+	// and is otherwise indistinguishable from a pass.
+	expect(pageErrors, `the sampler threw inside the page, so it measured nothing: ${pageErrors.join(' | ')}`).toEqual([]);
 	expect(saw, 'the tour never drew a spotlight ring — the oracle measured nothing').toBe(true);
+	// More than a handful of frames: a sampler that died after its first ring frame would still
+	// set `__saw`, and `SUSTAIN` frames is the minimum needed to record anything at all.
+	expect(frames, `the oracle sampled only ${frames} ring frame(s) — too few to have observed a sustained gap`).toBeGreaterThan(SUSTAIN * 10);
 	expect(worst, worst ? `sustained disagreement: ring [${worst.ring}] vs pane [${worst.target}] during "${worst.say}"` : '').toBeNull();
 });

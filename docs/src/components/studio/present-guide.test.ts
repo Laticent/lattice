@@ -38,6 +38,61 @@ describe('findCueTarget', () => {
 		expect(findCueTarget(d, 'Spend stayed disciplined.')?.tagName).toBe('P');
 	});
 
+	// ── CONTAINMENT RUNS ONE WAY ────────────────────────────────────────────────────────────
+	//
+	// The first version also accepted a block whose text was a SUBSTRING of the sentence, for
+	// reach. Every such block is by definition shorter than the paragraph that really holds the
+	// sentence, so smallest-wins preferred it every time — and the four shapes below are not
+	// exotic, they are the everyday Lattice slide: a heading, a kicker, a table cell, or an
+	// inline `<code>` chip whose words recur in the prose beneath it. Measured over the 124 decks
+	// in `examples/` + `test/integration/baseline-decks/` (5,551 cues), that branch raised the
+	// match rate from 83.5% to 90.7% and produced 639 hits on an element holding under half the
+	// spoken sentence. It bought reach by pointing somewhere wrong.
+	it('points at the paragraph, not at an inline code chip whose name it contains', () => {
+		const d = doc('<p>Set the retry ceiling to <code>maxRetries</code> before the deploy window closes.</p>');
+		expect(findCueTarget(d, 'Set the retry ceiling to maxRetries before the deploy window closes.')?.tagName).toBe('P');
+	});
+
+	it('points at the paragraph, not at a table cell that repeats a phrase from it', () => {
+		const d = doc('<p>Net revenue grew and margins expanded across the board.</p><table><tr><td>Margins expanded</td></tr></table>');
+		expect(findCueTarget(d, 'Net revenue grew and margins expanded across the board.')?.tagName).toBe('P');
+	});
+
+	it('points at the paragraph, not at the heading above it', () => {
+		const d = doc('<h2>Operating leverage</h2><p>Operating leverage is finally showing up in the numbers this quarter.</p>');
+		expect(findCueTarget(d, 'Operating leverage is finally showing up in the numbers this quarter.')?.tagName).toBe('P');
+	});
+
+	it('points at the paragraph, not at a one-word bullet it echoes', () => {
+		const d = doc('<ul><li>Compounding</li></ul><p>The platform bet is compounding faster than we modeled.</p>');
+		expect(findCueTarget(d, 'The platform bet is compounding faster than we modeled.')?.tagName).toBe('P');
+	});
+
+	// ── LETTERS OF EVERY SCRIPT ─────────────────────────────────────────────────────────────
+	//
+	// `[^a-z0-9' -]` did not merely fail on a Cyrillic deck, it failed DANGEROUSLY: the sentence
+	// collapsed to a run of SPACES, which still cleared the length guard, so containment degraded
+	// into "does this block have at least as many words" and the cursor went to an arbitrary line,
+	// confidently. `frontMatterLang` makes non-English decks a supported surface.
+	it('resolves a Cyrillic sentence to the block that actually holds it', () => {
+		const d = doc('<h2>Итоги квартала</h2><ul><li>Выручка выросла на двадцать процентов</li></ul><p>Рост удержан в этом квартале.</p>');
+		const hit = findCueTarget(d, 'Рост удержан в этом квартале.');
+		expect(hit?.tagName).toBe('P');
+		expect(hit?.textContent).toContain('Рост удержан');
+	});
+
+	it('resolves a CJK sentence rather than going silent on it', () => {
+		const d = doc('<h2>四半期の総括</h2><p>成長は今四半期も維持されました。</p>');
+		expect(findCueTarget(d, '成長は今四半期も維持されました。')?.tagName).toBe('P');
+	});
+
+	it('refuses a needle with no letters or digits at all', () => {
+		// A sentence of pure punctuation loosens to separators, which would otherwise match the
+		// first block carrying as many of them. Nothing is the honest answer.
+		const d = doc('<p>Growth held.</p><p>— — —</p>');
+		expect(findCueTarget(d, '— — —')).toBeNull();
+	});
+
 	it('returns null rather than guessing', () => {
 		const d = doc('<p>Growth held.</p>');
 		// A slide narrated by a speaker note says nothing that is ON the slide. Pointing anyway

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { prefetchFrontOf } from './read-aloud';
+import { mergeReadiness, readinessWindow } from './readiness-window';
 
 // The rail's prefetch edge. Two invariants matter.
 //
@@ -74,39 +75,72 @@ describe('prefetchFrontOf', () => {
 	});
 });
 
-// WINDOWED readiness (#1392): the poll now measures only a bounded window from the playhead
-// and reports 0 for everything outside it. These pin what that costs the rail — which must be
-// nothing, for every state a viewer can actually reach.
-describe('prefetchFrontOf over a WINDOWED readiness array (#1392)', () => {
-	/** Whole-deck readiness: `n` slides, all fully cached. */
+// WINDOWED readiness (#1392) — driven through the SHIPPING window, not a transcription of it.
+//
+// The first version of this block hand-built its arrays with the window bounds written in as
+// literals ("window 8..16 (2 back + current + lookahead 2 + margin 2 + 1)"). Setting
+// READINESS_BACK to 0 and READINESS_MARGIN to -1 in the component left every case green: the
+// window was never imported, so nothing here could see it move. Two of the four assertions were
+// tautologies besides — `prefetchFrontOf` ends in `Math.max(front, progressFront)`, so it cannot
+// return less than the playhead for ANY input.
+describe('the readiness window (#1392)', () => {
+	/** Whole-deck readiness: `n` slides, all fully cached — a deck prepared in an earlier session. */
 	const whole = (n: number): number[] => Array.from({ length: n }, () => 1);
-	/** The same deck as the windowed poll reports it: measured inside [from, to), 0 outside. */
-	const windowed = (n: number, from: number, to: number): number[] => Array.from({ length: n }, (_, i) => (i >= from && i < to ? 1 : 0));
+	/** What ONE windowed poll measures, spliced over what was already known. */
+	const poll = (prev: number[], clamped: number, len: number, lookahead: number, store: number[]): number[] => {
+		const { from, to } = readinessWindow(clamped, len, lookahead);
+		return mergeReadiness(prev, store.slice(from, to), from, len);
+	};
 
-	it('reports the same front as a whole-deck pass while the runway fits the window', () => {
-		// Playhead at 10, window 8..16 (2 back + current + lookahead 2 + margin 2 + 1).
-		const front = prefetchFrontOf(windowed(60, 8, 16), 10);
-		// Everything from the playhead to the window edge is runway — the same answer the
-		// whole-deck array gives for that stretch. Beyond it the deck is simply unmeasured.
-		expect(front).toBe(16);
-		expect(prefetchFrontOf(whole(60), 10)).toBeGreaterThanOrEqual(front);
+	it('bounds the repeating poll at the lookahead depth, not at the deck length', () => {
+		expect(readinessWindow(10, 60, 2)).toEqual({ from: 8, to: 15 });
+		expect(readinessWindow(30, 60, 4)).toEqual({ from: 28, to: 37 });
 	});
 
-	it('is identical to a whole-deck pass when the deck is shorter than the window', () => {
-		expect(prefetchFrontOf(windowed(6, 0, 6), 0)).toBe(prefetchFrontOf(whole(6), 0));
+	it('clamps at both ends of the deck, and collapses to the whole deck for an unbounded lookahead', () => {
+		expect(readinessWindow(0, 60, 2)).toEqual({ from: 0, to: 5 });
+		expect(readinessWindow(59, 60, 2)).toEqual({ from: 57, to: 60 });
+		expect(readinessWindow(0, 0, 2)).toEqual({ from: 0, to: 0 });
+		expect(readinessWindow(30, 60, Number.POSITIVE_INFINITY)).toEqual({ from: 28, to: 60 });
 	});
 
-	it('still stops at a genuine gap inside the window rather than at the window edge', () => {
-		// Slide 12 is half-fetched: the runway must end there, not run on to the window edge.
-		const f = windowed(60, 8, 16);
-		f[12] = 0.5;
-		expect(prefetchFrontOf(f, 10)).toBe(12.5);
+	// THE ONE THAT MATTERS. A prepared deck is cached end to end; a window that zero-fills
+	// outside itself reported a 5-slide runway on a fully-ready 60-slide deck, because
+	// `prefetchFrontOf` stops at the first unmeasured slide. That is the "prepared deck looks
+	// unprepared" regression — on the indicator whose whole job is telling buffering from broken.
+	it('a fully prepared deck draws its FULL runway, not just the window', () => {
+		const store = whole(60);
+		const swept = mergeReadiness([], store, 0, 60); // the one full sweep on open
+		expect(prefetchFrontOf(swept, 0)).toBe(60);
+		// …and every later windowed poll MERGES, so the runway survives navigation.
+		const after = poll(swept, 30, 60, 2, store);
+		expect(prefetchFrontOf(after, 30)).toBe(60);
+		const backwards = poll(after, 5, 60, 2, store);
+		expect(prefetchFrontOf(backwards, 5)).toBe(60);
 	});
 
-	it('never draws runway behind the playhead from the look-back slides', () => {
-		// The look-back exists for the assistive label only. Slides 8-9 read 1 here, and the
-		// front must still start at the playhead — drawing a buffer behind playback is the
-		// thing the floor exists to prevent.
-		expect(prefetchFrontOf(windowed(60, 8, 16), 10)).toBeGreaterThanOrEqual(10);
+	it('without the merge, the same window reports a 5-slide runway on that deck', () => {
+		// The defect, stated as an expectation, so the fix cannot be quietly undone: replacing the
+		// merge with a zero-fill is what this number goes back to.
+		const { from, to } = readinessWindow(0, 60, 2);
+		const zeroFilled = Array.from({ length: 60 }, (_, i) => (i >= from && i < to ? 1 : 0));
+		expect(prefetchFrontOf(zeroFilled, 0)).toBe(5);
+	});
+
+	it('a windowed poll still lowers a slide that has fallen out of the cache', () => {
+		// Merging must not mean "readiness only ever grows": an eviction inside the window has to
+		// land, or the rail would keep drawing runway that is gone.
+		const swept = mergeReadiness([], whole(60), 0, 60);
+		const evicted = whole(60);
+		evicted[3] = 0.5;
+		expect(prefetchFrontOf(poll(swept, 2, 60, 2, evicted), 2)).toBe(3.5);
+	});
+
+	it('a deck that FITS inside the window is measured whole by one poll', () => {
+		expect(readinessWindow(0, 5, 2)).toEqual({ from: 0, to: 5 });
+		expect(prefetchFrontOf(poll([], 0, 5, 2, whole(5)), 0)).toBe(5);
+		// One slide past that and the window no longer covers the deck — which is exactly why the
+		// full sweep on open exists rather than "short decks are fine".
+		expect(readinessWindow(0, 6, 2)).toEqual({ from: 0, to: 5 });
 	});
 });

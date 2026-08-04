@@ -49,7 +49,12 @@ export function innerRectToParent(inner, geom) {
  * host's layout, and the element moves with the slide's own reflow.
  *
  * Returns a zero rect rather than throwing once the element or frame goes away, so a caller
- * animating against it degrades to "nowhere" instead of crashing mid-cue.
+ * animating against it degrades to "nowhere" instead of crashing mid-cue. A zero-AREA rect is
+ * the agreed word for "gone" on this side of the boundary: Vetrina's `liveRect` reads a 0x0 box
+ * as no position at all and holds the cursor where it is, rather than reading `left:0, top:0`
+ * literally and flying it to the viewport corner. Keep the two halves in step — a rect source
+ * that answered `null` would not satisfy `RectSource`, and one that answered a plausible-looking
+ * box would be a lie about where a torn-down frame is.
  *
  * @param {() => HTMLIFrameElement|null} getFrame
  * @param {() => Element|null} getElement

@@ -123,20 +123,60 @@ inherit a box model and now states its own.
 |---|---|---|
 | The defect is a stale rect, not a coordinate space | real Studio, Chromium 1180x703 | layer rect `(0,0,1180,703)`, no transformed ancestor; ring 699/481 vs pane 571/609 |
 | Cues track their target | jsdom unit, `geometry.test.ts` | 3 cases; each verified red with the tracking removed (mutation confirmed applied before the run) |
-| It holds on the real surface | real Studio, Chromium 1180x703 | `e2e/vetrina-geometry.spec.ts` — green; the same oracle reports 128px sustained on the unfixed build |
+| It holds on the real surface | real Studio, Chromium 1180x703 | `e2e/vetrina-geometry.spec.ts` — green; and RED (127px sustained, 102 frames) on a build with the tracking loop removed from both the source and the shipped `vetrina/dist` bundles |
 | A rect source is a first-class target | jsdom unit | `point()` at a non-element target; `resolve()` still element-only |
+| "Gone" holds for a host provider | jsdom unit, `geometry.test.ts` | zero-area, `NaN`, and teardown-mid-glide cases, each verified red with its guard removed |
 
 **UNVERIFIED: real iPad Safari.** The report came from one, and the sandbox has no WebKit
 build. The mechanism is engine-independent (a JS read ordering, not a layout difference),
 and the repro reproduces in Chromium at the same viewport — but "reproduces in Chromium" is
 not "confirmed on the reporter's device", and it is not claimed as such.
 
-**A note on the oracle.** The first version of the e2e spec failed on the *fixed* build,
-reporting 127px — a single frame between the reflow and the tracker's next paint. Asserting
-on an instantaneous gap is asserting against physics. The shipped spec records a gap only
-once it has survived four consecutive frames, which the defect cleared by ~25x. It also
-asserts that it saw a ring at all, because a run that measured nothing would otherwise be
-indistinguishable from a pass.
+**A note on the oracle, and the two ways it lied before it worked.**
+
+The FIRST version failed on the *fixed* build, reporting 127px — a single frame between the
+reflow and the tracker's next paint. Asserting on an instantaneous gap is asserting against
+physics. The shipped spec records a gap only once it has survived four consecutive frames,
+which the defect cleared by ~25x.
+
+The SECOND version passed on an *unfixed* build, which is the worse failure and was caught by
+the independent checker rather than by me. `page.addInitScript` SERIALIZES its callback into
+the page, so the callback closes over nothing — and its reference to the module-scope `SUSTAIN`
+threw `ReferenceError` on the first frame that saw a ring. That throw landed *after* the
+"did we measure anything" flag was set and *before* any gap could be recorded, so the sampler
+died, reported a clean `null`, and the guard written specifically to prevent this passed
+because it had already been satisfied one statement too early.
+
+Three changes, and only the first is about `SUSTAIN`: the constant is passed as an argument;
+**any uncaught page error fails the test**, which is the guard that generalizes to the next
+out-of-scope reference; and the oracle now reports how many ring frames it sampled and requires
+more than a handful, so a sampler that dies after its first frame cannot certify. A silent
+sampler is worse than no sampler — it does not merely fail to catch the defect, it signs off
+on it.
+
+## The three shapes of "gone"
+
+The library documents the guard as *"a target that vanished mid-glide should let the cursor
+settle, not snap to the origin"*, and for a HOST-supplied target it did not hold. `liveRect`
+answered null only on a throw, and a cross-frame source whose frame has been torn down cannot
+throw and cannot answer null — `RectSource` must return a `DOMRect`, so it returns an all-zero
+one. Read literally, `left: 0, top: 0` is the viewport corner, and the cursor flew there. The
+two halves each looked right and disagreed at the seam; the committed test even pinned the ZERO
+contract on the Studio side while the library ignored it.
+
+`liveRect` now reads all three as "no position": a throw, a rect carrying a `NaN`, and a
+zero-area rect. The `NaN` case is the one with the longest blast radius — a single `NaN` wrote
+`NaN` into the cursor's own coordinates, after which every duration and every eased `t` was
+`NaN`, `t < 1` was false, and *every later cue in the session* resolved on frame one having
+moved nothing. Unreachable from an element; reachable from the `RectSource` widening this very
+change introduced.
+
+Two smaller ones landed with it. A teardown mid-glide now SETTLES the `point()` promise rather
+than abandoning it — it was left pending forever, held by whatever awaited it. And the tween's
+`t` is clamped at both ends: a rAF timestamp predating the `performance.now()` the glide started
+from gave a negative `t`, and `easeInOut` extrapolated the cursor to `left = 27306px` before it
+came back. That last one is pre-existing and on `main`, but it sits directly on the path of this
+fix, so it is fixed here rather than logged.
 
 ## Logged, not fixed (HARD RULE #18 — found, not caused)
 

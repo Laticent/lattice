@@ -55,7 +55,16 @@ function tierValues() {
 		track: trackSrc[1].replace('${here ? 26 : 16}', '16'),
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: substituting the shipped template's own placeholder
 		trackHere: trackSrc[1].replace('${here ? 26 : 16}', '26'),
-		ink: grab('bufferedInk'),
+		// The buffered ink is EXTRACTED from the shipped gradient, not read from a second
+		// constant that restates it. A separate `bufferedInk` literal was free to drift from the
+		// gradient the rail actually paints, and this sweep would have kept certifying the old
+		// value against a new hatch — the exact hand-copy this module set out to eliminate.
+		ink: (() => {
+			const tier = grab('bufferedTier');
+			const m = tier.match(/(var\(--[\w-]+\)|#[0-9a-fA-F]{3,8}|(?:rgb|hsl|color-mix)\([^)]*\))/);
+			if (!m) throw new Error(`sweep-rail-contrast: no readable ink in \`bufferedTier\` (${tier}) — refusing to measure nothing`);
+			return m[1];
+		})(),
 		progress: grab('progressTier'),
 	};
 }

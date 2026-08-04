@@ -64,6 +64,16 @@ export interface Stage {
     readonly still: boolean;
     /** Pacing multiplier from the theme's speed — storyboard settle + typing cadence scale by it. */
     readonly pace: number;
+    /** Show or hide the CURSOR, without tearing the stage down.
+     *
+     *  For a host that points at something it does not always have: a cue whose target cannot be
+     *  resolved leaves the cursor parked on whatever it pointed at LAST, which reads as a
+     *  confident claim about an unrelated thing — worse than not pointing at all. Hiding is the
+     *  honest state, and it has to be reversible within one run, so it is not `destroy()`.
+     *
+     *  The DOCK is deliberately unaffected: Exit must stay reachable at all times (I4), so this
+     *  hides the pointer and nothing else. Idempotent. */
+    setCursorVisible(visible: boolean): void;
     /** True if the event target belongs to the stage's own chrome (the Exit button). */
     contains(node: EventTarget | null): boolean;
     /** Remove every node. Idempotent; all methods no-op afterward (I6 / interleave safety). */

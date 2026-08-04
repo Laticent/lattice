@@ -135,6 +135,95 @@ describe('a host rect source is a first-class target (the cross-frame seam)', ()
 		expect(Number.parseFloat(cursor?.style.top ?? 'NaN')).toBeCloseTo(415, 0);
 	});
 
+	// ── "GONE" HAS THREE SHAPES, AND ALL OF THEM MEAN "STAY PUT" ──────────────────────────
+	//
+	// The library documents the guard as "a target that vanished mid-glide should let the cursor
+	// settle, not snap to the origin", and for a host provider it did not hold: `liveRect` only
+	// answered null on a THROW. A cross-frame source whose frame has been torn down answers with
+	// an all-zero rect (it has no rect to give and must still satisfy `RectSource`), which read
+	// literally is the viewport corner — so the cursor flew to (0,0) instead of settling.
+	//
+	// Every case here lands the assertion AFTER the whole cue (a ~480ms register beat plus up to
+	// ~590ms of glide). An earlier version of this case asserted at ~50ms and ~110ms, inside the
+	// register beat: it read the cursor's untouched spawn position and passed with the `point()`
+	// call deleted outright.
+	const settled = () => new Promise<void>((res) => setTimeout(res, 1400));
+
+	it('holds position when the target goes to an all-zero rect mid-cue', async () => {
+		const stage = mount();
+		const { src, moveTo } = movableTarget({ left: 700, top: 400, width: 40, height: 30 });
+		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
+		await stage.point(src);
+		const landed = Number.parseFloat(cursor?.style.left ?? 'NaN');
+		expect(landed).toBeCloseTo(720, 0);
+
+		// The frame the host was aiming into is torn down; `frameRectSource` starts answering ZERO.
+		moveTo({ left: 0, top: 0, width: 0, height: 0 });
+		void stage.point(src);
+		await settled();
+		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(landed, 0);
+	});
+
+	it('is not bricked for the session by a single NaN rect', async () => {
+		const stage = mount();
+		const { src: bad } = movableTarget({ left: Number.NaN, top: Number.NaN, width: Number.NaN, height: Number.NaN });
+		const { src: good } = movableTarget({ left: 600, top: 300, width: 40, height: 30 });
+		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
+		// One NaN used to write NaN into the cursor's own coordinates, after which every duration
+		// and every eased `t` was NaN, `t < 1` was false, and EVERY later cue resolved on frame
+		// one having moved nothing. The layer was dead for the rest of the run.
+		void stage.point(bad);
+		await settled();
+		expect(Number.isFinite(Number.parseFloat(cursor?.style.left ?? 'NaN'))).toBe(true);
+
+		await stage.point(good);
+		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(620, 0);
+	});
+
+	it('settles a glide that a teardown interrupts instead of leaving it pending forever', async () => {
+		const stage = mount();
+		const { src } = movableTarget({ left: 900, top: 500, width: 40, height: 30 });
+		let settledFlag = false;
+		const p = stage.point(src).then(() => {
+			settledFlag = true;
+		});
+		// PAST the register beat, so the teardown lands while the rAF tween is actually running.
+		// Destroying during the `wait()` instead exits through `moveToEl`'s own destroyed guard,
+		// which was never the broken path — a teardown there settles either way.
+		await new Promise((res) => setTimeout(res, 620));
+		stage.destroy();
+		await Promise.race([p, new Promise((res) => setTimeout(res, 1200))]);
+		expect(settledFlag, 'point() never settled after destroy() — whatever awaited it is held forever').toBe(true);
+	});
+});
+
+describe('the cursor can be hidden without tearing the stage down', () => {
+	it('hides and restores the pointer, and the dock never goes with it', async () => {
+		const stage = mount();
+		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
+		await frames(2);
+		expect(cursor?.style.opacity).toBe('1');
+
+		// A host that cannot resolve the current cue's target hides rather than leaving a
+		// confident arrow parked on the LAST one it could resolve.
+		stage.setCursorVisible(false);
+		expect(cursor?.style.opacity).toBe('0');
+		stage.setCursorVisible(true);
+		expect(cursor?.style.opacity).toBe('1');
+	});
+
+	it('stays hidden through a cue that would otherwise re-show it', async () => {
+		const stage = mount();
+		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
+		stage.setCursorVisible(false);
+		// `intro` hard-sets the cursor visible. A host's hide has to survive it, or the pointer
+		// pops back for one beat with nothing to point at.
+		await stage.intro();
+		expect(cursor?.style.opacity).toBe('0');
+	});
+});
+
+describe('a host rect source resolves to no element', () => {
 	it('keeps `resolve` an ELEMENT contract — a rect source has no node to hand back', () => {
 		const stage = mount();
 		const { src } = movableTarget({ left: 0, top: 0, width: 1, height: 1 });

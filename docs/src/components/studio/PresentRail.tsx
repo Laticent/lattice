@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { bufferedTier, progressTier, trackTier } from './present-rail-tiers';
+import { bufferedOrigin, bufferedPosition, bufferedTier, progressTier, trackTier } from './present-rail-tiers';
 import { type DeckSection, sectionOfIndex } from './present-sections';
 
 // A stable identity for the default, so an omitted `ready` can't defeat React.memo.
@@ -173,7 +173,7 @@ function PresentRailImpl({
 											<span
 												data-tier="prefetch"
 													className="absolute bottom-0 left-0 h-[8px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-												style={{ width: `${prePct}%`, background: bufferedTier }}
+												style={{ width: `${prePct}%`, background: bufferedTier, backgroundPosition: bufferedPosition, backgroundOrigin: bufferedOrigin }}
 											/>
 										)}
 										{proPct > 0 && (

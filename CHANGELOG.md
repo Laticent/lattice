@@ -40,7 +40,13 @@ in patch versions.
   points INTO an iframe from a stage that never enters one, using the cross-frame bridge the chart
   layer already computed (now shared rather than duplicated). And there is exactly ONE clock:
   the cursor moves when read-aloud says the cue changed and at no other time, so when synthesis
-  stalls the cursor holds instead of drifting onto the wrong sentence. The real pointer hides
+  stalls the cursor holds instead of drifting onto the wrong sentence. **When the narration says
+  something the slide does not show** — a slide narrated by a speaker note — Guide points at
+  nothing rather than guessing: the cursor hides, and the real pointer comes back with it, because
+  taking a viewer's pointer away is only paid for by putting a better one in its place. Matching is
+  containment ONE WAY (the block must contain the sentence, never the reverse) and reads letters of
+  every script, so a heading or an inline `code` chip whose words recur in the prose beneath it no
+  longer steals the cursor, and a Cyrillic or CJK deck resolves normally. The real pointer hides
   after a few seconds of stillness — only over the slide and its backdrop, never over the dock, so
   Pause is always findable — and returns instantly on any movement.
 
@@ -56,7 +62,13 @@ in patch versions.
   does. The value survives both export carriers (the `.lattice` envelope and the baked
   front-matter block), the editor completes both the key and its values, and a typo is caught by a
   new `unknown-pace` lint rule rather than silently falling back to the viewer's setting — which
-  is the one register whose typo is invisible on the author's own machine.
+  is the one register whose typo is invisible on the author's own machine. The rule reads the
+  register character-for-character the way the resolver does, pinned by a shared table: a rule
+  that parses differently from the code that consumes it reports on a different deck than the one
+  that will play, and the first version went silent on exactly the shapes the resolver discards
+  (`pace: brisk.`, a mis-spelled value carrying a trailing YAML comment, a BOM'd deck). A trailing
+  YAML comment is now stripped rather than folded into the value, so an annotated pace keeps
+  working.
 
 - **The Present rail's buffered range is a hatch, not a third tone — so it clears WCAG contrast in
   all 36 palette/mode combinations.** The three-tone ladder could not: measured against 1.4.11's
@@ -72,7 +84,11 @@ in patch versions.
   against anything beneath it), so the tint only reinforces. The tier values now live in one module
   the rail and the sweep both read, and **the sweep is committed**
   (`docs/scripts/sweep-rail-contrast.mjs`) — it has been written three times and been wrong twice,
-  so it now refuses to report at all if the palette switch is not taking effect.
+  so it now refuses to report at all if the palette switch is not taking effect, and it reads the
+  ink OUT of the shipped gradient rather than from a second constant that restated it. The hatch's
+  phase is pinned to the left edge: a repeating gradient's line runs through the box center, so an
+  animated width otherwise crawls the whole pattern sideways on every advance instead of simply
+  moving its end.
 
 - **Present's readiness poll asks about the window ahead of the playhead, not the whole deck.**
   Every 2 seconds, for as long as Present was open with Voice on, it built a cache key for every
@@ -80,13 +96,20 @@ in patch versions.
   It never needed to: the rail's buffered edge is contiguous from the playhead by construction
   (it stops at the first slide that isn't fully cached, because you would stall at that gap
   before reaching anything past it), so slides far ahead cannot change what is drawn until you
-  get there. The question is now bounded by the lookahead depth plus a small margin, which
-  removes the deck-size term; the store's single `getAllKeys` stays, and is now comfortably the
-  right primitive. Measured on real Chromium, and the bench is committed this time
-  (`docs/scripts/bench-narration-readiness.mjs`): 0.6 → 0.3 ms on a fresh device, 20.6 → 15.6 ms
-  on a 5000-sentence deck against a 5000-record store. The gain is modest once the store is
-  populated, because the store read dominates — that is the honest shape of it, and the bench
-  prints it rather than hiding it.
+  get there. The REPEATING question is now bounded by the lookahead depth plus a small margin,
+  which removes the deck-size term from it; the store's single `getAllKeys` stays, and is now
+  comfortably the right primitive. What the window may NOT do is shrink what the rail draws:
+  readiness reads the on-device store, so a deck prepared in an earlier session is cached end to
+  end, and a windowed poll that zeroed everything outside its bounds reported a 5-slide runway on
+  a fully ready 60-slide deck — the optimization eating the indicator it was optimizing. So there
+  is one full sweep when Present opens, and the windowed refreshes MERGE into what is already
+  known rather than replacing it. Measured on real Chromium with the bench committed
+  (`docs/scripts/bench-narration-readiness.mjs`): ~0.5–0.6 → ~0.3 ms on a fresh device, and
+  ~19–25 → ~15 ms on a 5000-sentence deck against a 5000-record store. Those are ranges, not
+  points, because re-running the bench on the same machine moves the whole-deck figure by several
+  milliseconds; the gain is modest once the store is populated, because the store read dominates.
+  The bench also models the poll tick rather than calling the shipped `narrationReadiness`
+  (the store, the key format and the browser are real; the loop around them is not).
 
 - **Leaving a slide now stops prefetch that has not started — without touching a request already
   in flight.** Nothing a presenter did canceled queued narration synthesis, so closing Present
@@ -119,8 +142,10 @@ in patch versions.
   commit, the effect never re-ran, and the presentation stopped dead with no error and no way
   forward but the presenter's own hand. Present now carries the slide index alongside the text,
   so a navigation always commits and the reader is always started for the slide that actually
-  arrived; when the text repeats, the reader is not rebuilt at all, just replayed. Manual
-  prev/next/jump still never auto-play.
+  arrived; when the text repeats, the reader is not rebuilt at all, just replayed. That record's
+  identity is now the trigger, so it changes only when the narration did — a fresh object for an
+  unchanged slide would re-run the advance effect mid-beat, clear the pending timer and hang the
+  chain through a new door. Manual prev/next/jump still never auto-play.
 
 - **A walkthrough cue now keeps asking where its target is, instead of remembering.** On the
   production Studio a spotlight ring rendered around a pane-width of empty space, its edge cut
@@ -135,7 +160,13 @@ in patch versions.
   making the ring 6px larger than the thing it names. `Target` widens to accept any live rect
   source (`{ getBoundingClientRect() }`) — every element already satisfies it, so nothing
   changes for existing tours, and a host can now aim a cue at something the library cannot
-  reach with a selector without teaching it anything about the host.
+  reach with a selector without teaching it anything about the host. Three answers now mean
+  "nowhere" rather than a position, so the documented "let the cursor settle, don't snap to the
+  origin" guard actually holds for a host provider: a rect that throws, one carrying a `NaN`
+  (which used to poison the layer for the rest of the run), and a zero-area one — which is how a
+  cross-frame source says its frame has gone away. A teardown mid-glide now settles the `point()`
+  promise instead of leaving it pending forever, and `setCursorVisible()` lets a host that cannot
+  always resolve a target hide the pointer rather than park it on the last thing it could.
 
 - **Kokoro prefetches now — the serial hazard is scheduled around instead of banned.** On-device
   synthesis is one model in one worker, so requests run strictly one at a time; prefetch was

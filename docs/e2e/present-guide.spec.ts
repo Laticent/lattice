@@ -1,4 +1,4 @@
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE GUIDE RUNG on the real Present surface (#1397).
 //
@@ -67,15 +67,20 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 	await expect.poll(async () => page.evaluate(() => getComputedStyle(document.querySelector('.lx-ui.fixed.inset-0.z-\\[100\\]') as Element).cursor)).not.toBe('none');
 });
 
+const backdropCursor = (page: import('@playwright/test').Page) =>
+	page.evaluate(() => getComputedStyle(document.querySelector('.lx-ui.fixed.inset-0.z-\\[100\\]') as Element).cursor);
+
 test('the real pointer hides only over the slide, never over the dock', async ({ page }) => {
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Present' });
 	await dialog.getByRole('button', { name: /^Guide (on|off)/ }).click();
+	// Playback, because the pointer is only taken away while Guide is actually AIMING at
+	// something. Turning Guide on is not enough and must not be — see the next spec.
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 
 	// After a few seconds of stillness the backdrop hides the pointer…
-	const backdropCursor = () => page.evaluate(() => getComputedStyle(document.querySelector('.lx-ui.fixed.inset-0.z-\\[100\\]') as Element).cursor);
-	await expect.poll(backdropCursor, { timeout: 15_000 }).toBe('none');
+	await expect.poll(() => backdropCursor(page), { timeout: 20_000 }).toBe('none');
 
 	// …but the dock NEVER does. You must always be able to find and click Pause; a presenter
 	// hunting an invisible cursor over the transport is the failure this rule exists to prevent.
@@ -84,5 +89,52 @@ test('the real pointer hides only over the slide, never over the dock', async ({
 
 	// And it comes back INSTANTLY on any movement — before anything else happens.
 	await page.mouse.move(400, 300);
-    await expect.poll(backdropCursor, { timeout: 2_000 }).not.toBe('none');
+	await expect.poll(() => backdropCursor(page), { timeout: 2_000 }).not.toBe('none');
+});
+
+// A slide narrated ENTIRELY by a speaker note says things the slide does not show, so Guide has
+// nothing to point at. What it used to do then was the worst of both: return early, leaving the
+// cursor parked on the previous sentence's target — a confident arrow resting on an unrelated
+// line — while the real pointer stayed hidden. The viewer had one pointer, and it was lying.
+//
+// The two halves have to fail together: no target means the fake cursor goes away AND the real
+// one comes back. That is the invariant this drives on the real surface.
+test('with nothing on the slide to point at, the cursor hides and the real pointer returns', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(
+		page,
+		[
+			'---',
+			'marp: true',
+			'theme: indaco',
+			'---',
+			'',
+			'<!-- _class: statement -->',
+			'',
+			'## Margins expanded across every region.',
+			'',
+			'<!-- note: The commentary for this slide lives only in the speaker notes and appears nowhere on the slide itself. -->',
+			'',
+		].join('\n'),
+	);
+
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await expect(dialog).toBeVisible();
+	await dialog.getByRole('button', { name: /^Guide (on|off)/ }).click();
+	await expect(page.locator(CURSOR)).toHaveCount(1);
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+
+	// The narration is the note; nothing on the slide contains it. The cursor must go invisible.
+	await expect
+		.poll(() => page.locator(CURSOR).evaluate((el) => getComputedStyle(el).opacity), {
+			timeout: 30_000,
+			message: 'the Guide cursor stayed visible on a slide it could not aim at — it is parked on nothing, claiming something',
+		})
+		.toBe('0');
+
+	// …and having hidden it, the real pointer may NOT be taken away. Held across the idle timer
+	// that would otherwise hide it, so this cannot pass by simply being sampled too early.
+	await page.waitForTimeout(5_000);
+	expect(await backdropCursor(page), 'the real pointer was hidden while Guide had nothing to point at — the viewer has no pointer at all').not.toBe('none');
 });

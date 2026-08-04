@@ -32,6 +32,7 @@ import { cueDisplayText, guideTargetFor } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { mergeReadiness, readinessWindow } from './readiness-window';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -254,8 +255,18 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const autoplayRef = React.useRef(false);
 	autoplayRef.current = autoplay;
 	const autoAdvanceRef = React.useRef(false);
+	// The record's IDENTITY is the advance effect's trigger, so it must change only when the
+	// narration actually did. This effect fires on `set` as well as `clamped` (the lens can
+	// re-derive the slide array without the deck changing), and a fresh `{idx,text}` object for
+	// an unchanged pair would re-run the advance effect mid-beat: its cleanup clears the pending
+	// timer and drops `holding`, the body then bails on the already-consumed `autoAdvanceRef`,
+	// and the chain dies silently — the #1394 symptom through a new door. `setNarrationText`
+	// already guards its half; this is the other half.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: navigation trigger (slide/lens); narrationAt read via ref so a projection landing doesn't re-fire this.
-	React.useEffect(() => { setNarration({ idx: clamped, text: narrationAtRef.current(clamped) }); }, [clamped, set]);
+	React.useEffect(() => {
+		const text = narrationAtRef.current(clamped);
+		setNarration((n) => (n.idx === clamped && n.text === text ? n : { idx: clamped, text }));
+	}, [clamped, set]);
 	// Projection-landing upgrade: swap the CURRENT slide's fallback narration for the
 	// richer DOM-projection text once it resolves — but ONLY when the slide is idle and
 	// NOT in an autoplay run. During autoplay (including the brief between-slides hand-off
@@ -410,7 +421,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const beatForArrival = React.useCallback((): number => {
 		const md = set[clamped] ?? '';
 		const kind = isSectionBoundary(md) ? 'section' : 'slide';
-		// RESOLUTION ORDER (lib/core/resolve-pace.js states it once):
+		// RESOLUTION ORDER (lib/core/resolve-pace.mjs states it once):
 		//   ms override → deck `pace:` → workspace preset → natural.
 		// The deck beats the workspace preset, which is the whole point: a deliberately slow,
 		// weighty deck must not play brisk because the recipient's browser happens to hold that.
@@ -580,42 +591,61 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// on an empty store — the state every new user is in. It was reverted. Ask a smaller
 	// question, don't buy a cleverer answer.
 	//
-	// Slides outside the window report 0, which is honest: not "no narration", but "not
-	// measured". `prefetchFrontOf` scans forward from the playhead and stops at the first
-	// shortfall, so an unmeasured slide simply ends the runway rather than inventing it, and the
-	// assistive "narration ready" label makes no claim about a slide nobody asked about.
 	// A small look-BACK as well as the forward window. It buys nothing for the fills — the front
 	// is floored at the playhead — but the per-slide `ready` array also feeds the rail's
 	// assistive label, and presenters step backwards constantly. Without it, tabbing to the slide
 	// you just left would stop announcing "narration ready" for audio that is plainly cached.
-	const READINESS_BACK = 2;
-	const READINESS_MARGIN = 2;
-	const windowStart = Math.max(0, clamped - READINESS_BACK);
-	const windowEnd = Math.min(readinessSentences.length, clamped + (Number.isFinite(lookahead) ? lookahead : readinessSentences.length) + READINESS_MARGIN + 1);
+	//
+	// WHAT THE WINDOW MAY NOT DO IS SHRINK WHAT THE RAIL DRAWS. Readiness reads the on-device
+	// store, so a deck PREPARED in an earlier session is cached end to end — and a windowed poll
+	// that zero-fills everything outside its bounds reports a 5-slide runway on a 60-slide deck
+	// that is fully ready, because `prefetchFrontOf` stops at the first unmeasured slide. That
+	// turns "prepared" into a bar that looks unprepared, on the one indicator whose entire job is
+	// telling a buffering deck from a broken one (#1389). The optimization would have eaten the
+	// feature it was optimizing.
+	//
+	// So: one FULL sweep when Present opens (or the deck changes), then windowed refreshes that
+	// MERGE into what is already known instead of replacing it. The repeating 2s cost — the one
+	// that lands on the same main thread as `decodeAudioData` — is what gets bounded; the
+	// once-per-open cost is not worth bounding. A value outside the current window is the last
+	// measurement of that slide, which can only be stale toward over-reporting runway the viewer
+	// has not reached yet, and the window sweeps over it as they advance.
+	const { from: windowStart, to: windowEnd } = readinessWindow(clamped, readinessSentences.length, lookahead);
+	// False until this deck has had its one full sweep. Reset by the effect below whenever the
+	// deck (or Present's openness) changes, so a new deck never inherits the previous one's
+	// readiness and never skips its own sweep.
+	const sweptRef = React.useRef(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `readinessSentences` IS the trigger — its identity changing means a different deck, whose sweep has not happened.
+	React.useEffect(() => {
+		sweptRef.current = false;
+	}, [readinessSentences]);
 	React.useEffect(() => {
 		if (!open || muted) {
 			setReadyFractions([]);
 			return;
 		}
 		let live = true;
-		const from = Math.min(windowStart, readinessSentences.length);
 		const refresh = () => {
-			narrationReadiness(readinessSentences.slice(from, windowEnd))
+			const full = !sweptRef.current;
+			const from = full ? 0 : windowStart;
+			const to = full ? readinessSentences.length : windowEnd;
+			narrationReadiness(readinessSentences.slice(from, to))
 				.then((slice) => {
-					// Splice the window back into deck-shaped indices, so every consumer keeps
-					// indexing by absolute slide number and nothing downstream learns about windowing.
-					const r = new Array<number>(readinessSentences.length).fill(0);
-					for (let i = 0; i < slice.length; i++) r[from + i] = slice[i];
-					return r;
-				})
-				.then((r) => {
-					// Keep the OLD array identity when nothing moved. This fires every 2s for as long
-					// as Present is open, and a fresh array each time re-rendered the whole tree —
-					// including the rail — on the same main thread as audio decode, for no visible
-					// change. Most polls report exactly what the last one did.
-					if (live) setReadyFractions((prev) => (sameFractions(prev, r) ? prev : r));
+					if (live && full) sweptRef.current = true;
+					if (live)
+						// Keep the OLD array identity when nothing moved. This fires every 2s for as
+						// long as Present is open, and a fresh array each time re-rendered the whole
+						// tree — including the rail — on the same main thread as audio decode, for no
+						// visible change. Most polls report exactly what the last one did.
+						setReadyFractions((prev) => {
+							const r = mergeReadiness(prev, slice, from, readinessSentences.length);
+							return sameFractions(prev, r) ? prev : r;
+						});
 				})
 				.catch(() => {
+					// A failed read invalidates the sweep too: otherwise the next tick would refresh
+					// only the window and leave the rest of the deck zeroed for good.
+					sweptRef.current = false;
 					if (live) setReadyFractions((prev) => (prev.length === 0 ? prev : EMPTY_SENTENCES_N));
 				});
 		};
@@ -651,6 +681,9 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const guideStageRef = React.useRef<VetrinaStage | null>(null);
 	const guidePointRef = React.useRef<AbortController | null>(null);
 	const guideLive = open && guideOn && !rehearse;
+	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
+	// cursor's visibility and whether the real one may be hidden — see the two notes below.
+	const [guideAiming, setGuideAiming] = React.useState(false);
 	React.useEffect(() => {
 		if (!guideLive) return;
 		const host = dialogRef.current;
@@ -677,6 +710,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			guidePointRef.current?.abort();
 			guidePointRef.current = null;
 			guideStageRef.current = null;
+			setGuideAiming(false); // no stage, nothing aimed — and the real pointer comes straight back
 			stage.destroy();
 		};
 	}, [guideLive]);
@@ -687,11 +721,21 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the reader's cue index IS the trigger; track/frame are read at fire time on purpose.
 	React.useEffect(() => {
 		const stage = guideStageRef.current;
-		if (!stage || activeCue < 0) return;
-		const text = cueDisplayText(reader.track.cues[activeCue]);
+		if (!stage) return;
+		// NO TARGET IS A STATE, NOT A SKIP. Returning early here left the cursor parked on the
+		// PREVIOUS sentence's target — a confident arrow resting on an unrelated line for as long
+		// as the narration stays off-slide, while the real pointer was hidden. That is strictly
+		// worse than not pointing at all, which is the bar this module sets for itself. So the
+		// cursor is hidden while there is nothing to aim at, and an in-flight glide is aborted:
+		// `activeCue` drops to -1 on every slide change, and a glide left running through the
+		// teardown of the frame it was aiming into is exactly the vanished-target case.
+		const text = activeCue >= 0 ? cueDisplayText(reader.track.cues[activeCue]) : '';
 		const target = text ? guideTargetFor(() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null, text) : null;
-		if (!target) return; // nothing on the slide says this (a speaker note) — hold, never guess
 		guidePointRef.current?.abort();
+		guidePointRef.current = null;
+		setGuideAiming(!!target);
+		stage.setCursorVisible(!!target);
+		if (!target) return;
 		const ctl = new AbortController();
 		guidePointRef.current = ctl;
 		stage.point(target, ctl.signal).catch(() => {}); // an abort here is a retarget, not an error
@@ -699,11 +743,17 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
 	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),
-	// only while Guide is live, back INSTANTLY on any movement, and re-hidden after a few seconds
-	// of stillness so bumping the mouse does not kill the effect for the rest of the deck.
+	// only while Guide is live AND actually aiming at something, back INSTANTLY on any movement,
+	// and re-hidden after a few seconds of stillness so bumping the mouse does not kill the effect
+	// for the rest of the deck.
+	//
+	// The `guideAiming` term is the one that matters: taking away the viewer's pointer is only
+	// paid for by putting a better one in its place. On a slide narrated by a speaker note there
+	// is no better one, so hiding would leave them with NO pointer at all — the two halves of
+	// this feature have to fail together.
 	const [pointerHidden, setPointerHidden] = React.useState(false);
 	React.useEffect(() => {
-		if (!guideLive) {
+		if (!guideLive || !guideAiming) {
 			setPointerHidden(false);
 			return;
 		}
@@ -723,7 +773,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			window.removeEventListener('pointermove', onMove);
 			setPointerHidden(false);
 		};
-	}, [guideLive]);
+	}, [guideLive, guideAiming]);
 
 	// The rail's prefetch edge: per-slide fractions collapsed into one contiguous front, floored
 	// at the progress edge so an LRU eviction behind the playhead can never draw the buffer

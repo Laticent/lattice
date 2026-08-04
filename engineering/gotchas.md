@@ -3335,3 +3335,31 @@ own) is not a builder and needs no entry.
   pattern that can't match the current command line.
 - **Triggered by:** "Restart the dev server" one-liners.
 - **Removable when:** Never — inherent to `pkill -f` self-matching.
+
+### The Present rail is completely invisible under `forced-colors: active`
+
+- **Symptom:** In Windows High Contrast (or Chromium with
+  `Emulation.setEmulatedMedia forced-colors: active`), the Present rail's
+  track, its buffered range, its played fill AND the playhead mark all
+  disappear. A `Highlight`-colored reference bar rendered in the same row
+  shows up fine, so the row is laid out and painted — the rail's own ink is
+  what goes.
+- **Cause:** Every tier resolves through `--accent` / `--bg`
+  (`docs/src/components/studio/present-rail-tiers.ts`), and forced-colors mode
+  overrides author colors with the system palette. Nothing in the rail opts
+  into `forced-color-adjust` or restates itself in system colors
+  (`Highlight`, `CanvasText`), so all four tiers collapse to the same
+  system-supplied background.
+- **Mitigation:** None shipped. A `@media (forced-colors: active)` block
+  painting the tiers in system colors — and distinguishing buffered from
+  played by BORDER STYLE rather than tone, since tone is unavailable there —
+  is the shape of the fix.
+- **Triggered by:** Presenting with High Contrast on.
+- **PRE-EXISTING, found not caused.** Verified in real Chromium against both
+  the pre-#1389 three-tone ladder and the hatch that replaced it: **both**
+  vanish identically, so the buffered-range rework did not make this worse and
+  did not introduce it. Logged here rather than pulled into that diff (HARD
+  RULE #18, off-path). It matters more than its size suggests: the buffered
+  edge advancing while the played edge is frozen is the only signal that says
+  "still working, not crashed", and in High Contrast there is no rail at all.
+- **Removable when:** the rail carries a forced-colors block.
