@@ -2197,6 +2197,10 @@
         {
           "title": "Three-way comparison",
           "body": "compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`."
+        },
+        {
+          "title": "Lines wider than the pane",
+          "body": "Past roughly 55 characters a line is clipped at the pane edge. Trim it, or use `code`."
         }
       ],
       "related": [

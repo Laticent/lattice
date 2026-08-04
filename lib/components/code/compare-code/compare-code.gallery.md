@@ -183,6 +183,8 @@ return signals;
   - The text shrinks below readability past 14 lines per side. Split into two slides or extract the key delta into a smaller diff.
 - Three-way comparison
   - compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`.
+- Lines wider than the pane
+  - Past roughly 55 characters a line is clipped at the pane edge. Trim it, or use `code`.
 
 ---
 

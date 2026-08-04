@@ -27,6 +27,31 @@ in patch versions.
 
 ### Fixed
 
+- **A `compare-code` slide with one long line pushed the other pane off the frame.** The two panes
+  were never equal-width: `.code-cols` used `grid-template-columns: 1fr 1fr`, and a grid track's
+  implicit floor is `min-content` — which for a `<pre>` set to `white-space: pre` is its **longest
+  unwrapped line**. So one long line widened its own track past its half and shoved its neighbor out.
+  Measured in Chromium, `section` 1280px: a 100-character line gave tracks of **946px / 183px**; a
+  271-character unbroken token gave **2482px / 183px**, hanging 961px past the frame with the export
+  tagged "Content clipped". Fixed with `minmax(0, 1fr)` tracks, so both panes hold half regardless of
+  content — including on the un-transformed marp / VS-Code fallback grid, which carried the same bare
+  `1fr 1fr`.
+  **Landscape code deliberately still does not wrap**; a too-long line is clipped inside its own pane.
+  A first cut of this fix wrapped instead, and an adversarial pass rendered three failures that
+  followed, so it was reversed. On a two-pane diff the reader pairs line N left with line N right —
+  the component's own gallery states the contract — and wrapping is per-pane, so one long line spends
+  two rows while its counterpart spends one and every row below it slips a line across the gutter.
+  Wrapping also turns horizontal overflow into height, and the pane is `overflow: hidden`, so a
+  full-height pair **lost whole trailing lines from the exported PDF**; and the soft wrap baked into
+  the PDF text layer as a hard break, so a URL copied out of the delivered file came back split
+  mid-token. That traded one rare, loud failure — a pane visibly off-frame, which an author catches on
+  first render — for three quiet ones, and for a deck that goes in front of a board, quiet is worse.
+  The stacked portrait/square/strip families keep wrapping: they have no gutter to keep aligned.
+  It shipped for the life of the component because every gallery specimen tops out at a
+  **43-character** code line — that corpus cannot exercise the defect — and horizontal overflow is
+  invisible to the overflow probe, which measures height only. The guards are now **behavioral**,
+  asserting what Chromium computes over the real bundle, after a red-team pass evaded three
+  successive textual versions with trivial selector reformulations. (#1346)
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`

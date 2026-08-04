@@ -7781,6 +7781,7 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 - **Using a markdown heading (`### Before`) for a column label instead of an inline-code paragraph.** The transform splits columns on `<p><code>` boundaries only — a heading isn't recognized at all, so both fenced blocks collapse into one lopsided column instead of two. Label each side with a backtick-wrapped paragraph (`` `Before` ``), matching the sample.
 - **Omitting the second column's label.** The split happens at each label boundary — a missing second label leaves the second fenced block trailing inside the first column instead of starting a new one. Every side needs its own inline-code label.
+- **Letting a fenced line run past the pane width.** It is clipped, not wrapped — the tail is cut at the pane edge. Keep fenced lines under ~55 characters so each source line renders whole and lines up with its counterpart across the gutter. Portrait and square decks DO wrap instead, because they stack the panes into one column where there is no pairing to preserve.
 
 #### When to use
 
@@ -7793,6 +7794,7 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 - **One side is prose.** If one column is code and the other is description, use a single fenced block with surrounding prose. compare-code is for code-versus-code.
 - **Snippets longer than 14 lines.** The text shrinks below readability past 14 lines per side. Split into two slides or extract the key delta into a smaller diff.
 - **Three-way comparison.** compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`.
+- **Lines wider than the pane.** Past roughly 55 characters a line is clipped at the pane edge. Trim it, or use `code`.
 
 #### Authoring
 

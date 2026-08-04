@@ -5,7 +5,7 @@
  * eyebrow code-paragraph and the heading are preserved before it.
  */
 
-const { test, describe } = require('node:test');
+const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const kernel = require('../../../lib/components/code/compare-code/compare-code.transform');
@@ -61,5 +61,99 @@ describe('compare-code — applyToDom (runtime)', () => {
     assert.equal(cols.querySelector('.code-col code').textContent, 'Before');
     // eyebrow + heading stay outside the grid
     assert.ok(doc.querySelector('section.compare-code > h2'));
+  });
+});
+
+// ── Rot-guard on the two-pane geometry.
+//
+// BEHAVIORAL, not textual, and that is the whole point. Three earlier cuts of these
+// guards matched the stylesheet as a string, and a red-team pass evaded every one of
+// them with trivial reformulations of the forbidden rule — `pre>code` with no spaces,
+// the attribute before the class, the class without `section`, a descendant combinator
+// instead of a child. A guard that only recognizes the byte-identical form of what it
+// forbids provides the appearance of protection, which is worse than none.
+//
+// So these assert what the BROWSER computes, over the real bundle. Selector spelling,
+// property order, whitespace and source position stop mattering; only the resolved
+// behavior does. They skip (not fail) with no Chromium, because `npm test` must stay
+// render-free — the browser-backed tier is on-demand here, same as css:values.
+describe('compare-code — the two-pane geometry, as the browser resolves it', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+
+  const ROOT = path.join(__dirname, '../../..');
+  const chrome = () => {
+    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+    for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
+      if (!fs.existsSync(root)) continue;
+      for (const b of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
+        const bin = path.join(root, b, 'chrome-linux64', 'chrome');
+        if (fs.existsSync(bin)) return bin;
+      }
+    }
+    return undefined;
+  };
+
+  // One page, one long line on the LEFT only — the shape that broke. Returns the two
+  // resolved track widths and the computed white-space, which is all three guards need.
+  const measure = async () => {
+    const exe = chrome();
+    if (!exe) return null;
+    const puppeteer = require('puppeteer-core');
+    const css = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8');
+    const browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 720 });
+      const LONG = 'const enrichedSignalsWithOwners = await database.signals.findAllMatching({ includeOwner: true });';
+      await page.setContent(`<!DOCTYPE html><style>${css}</style>
+        <section class="compare-code" style="width:1280px">
+          <h2>H</h2>
+          <div class="code-cols">
+            <div class="code-col"><p><code>Before</code></p><pre><code>${LONG}</code></pre></div>
+            <div class="code-col"><p><code>After</code></p><pre><code>return signals;</code></pre></div>
+          </div>
+        </section>`);
+      return await page.evaluate(() => {
+        const cols = document.querySelector('.code-cols');
+        const code = document.querySelector('.code-col pre > code');
+        return {
+          tracks: getComputedStyle(cols).gridTemplateColumns.split(/\s+/).map(parseFloat),
+          whiteSpace: getComputedStyle(code).whiteSpace,
+          sectionWidth: document.querySelector('section').getBoundingClientRect().width,
+        };
+      });
+    } finally { await browser.close(); }
+  };
+
+  let m;
+  before(async () => { m = await measure(); });
+
+  test('the two panes resolve to equal widths despite a long line on one side', async (t) => {
+    if (!m) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    const [a, b] = m.tracks;
+    // Before the fix these measured 946.219 / 182.734 in a 1280px section: the long
+    // line's min-content took the left track and the right pane became a sliver.
+    assert.ok(
+      Math.abs(a - b) < 1,
+      `panes must resolve equal regardless of content; got ${a}px / ${b}px in a ${m.sectionWidth}px section`,
+    );
+  });
+
+  test('landscape code stays verbatim — it does not wrap', async (t) => {
+    if (!m) return t.skip('no Chromium — set CHROME_PATH');
+    // Wrapping was tried here and reversed. On a two-pane diff the reader pairs line
+    // N left with line N right; wrapping is per-pane, so one long line offsets every
+    // row below it across the gutter. It also drops trailing lines out of the
+    // `overflow:hidden` pane on export, and bakes a hard break into the PDF text
+    // layer mid-token. The families that DO wrap stack to one column, where none of
+    // that applies. A too-long line here is clipped inside its own pane instead.
+    assert.equal(
+      m.whiteSpace, 'pre',
+      `landscape compare-code must not wrap; computed white-space was "${m.whiteSpace}". `
+      + 'If you are deliberately reintroducing wrapping, read the .code-cols comment first '
+      + 'and re-render the committed decks — this reverses a decision, it is not a tweak.',
+    );
   });
 });
