@@ -2557,12 +2557,13 @@ async function renderBody(browser, g, closeBrowser) {
   //
   // The two probes ask different questions (2026-07-30-overflow-marker-register.md §"The
   // two registers ask different questions"), and geometry is the one that can be blind:
-  // a docked `footer` at `text-overflow: ellipsis` truncates a real title with ZERO
-  // spill past any box, and a `-webkit-line-clamp` card does the same. The export has
-  // been TAGGING these since the reader marker learned to walk every clipping box; it
-  // was not TELLING the author, so the only person who could fix it was the only person
-  // not informed. `overflow:check` reads this line too, so the corpus ratchet counts
-  // them (HARD RULE #23 — a channel nothing reads is not a channel).
+  // `text-overflow: ellipsis` and `-webkit-line-clamp` truncate real copy with ZERO
+  // spill past any box. Live instance: `premise.gallery.md` p3 ellipses 65px — 34% —
+  // off the label "Advanced beginner", and every channel read it as fitting. The export
+  // tags these for the reader; it was not TELLING the author, so the only person who
+  // could fix it was the only person not informed. `overflow:check` reads this line
+  // too, so the corpus ratchet counts them (HARD RULE #23 — a channel nothing reads is
+  // not a channel).
   const contentOnly = await g(() => page.evaluate(({ ignoreSel, ccSrc, probeSrc, clipSel }) => {
     const TOL = 12;
     const probeContentClipped = new Function('return (' + ccSrc + ')')();

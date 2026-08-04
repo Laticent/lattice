@@ -14322,15 +14322,19 @@ section.split-compare > .cell-stage {
  * carry it: the four panel bodies (base, `.metric`, `.steps` left, `.steps`
  * right), `.watermark`'s panel, `.proof`'s cards, and the carousel cover.
  *
- * ONE alignment here cannot be made safe, and it is stated rather than left
- * looking overlooked: `.panel-right > ul` uses `justify-content: space-evenly`,
- * and `safe`/`unsafe` are `<overflow-position>` keywords the grammar only admits
- * before a `<content-position>` — `safe space-evenly` is invalid CSS and would
- * drop the whole declaration. css-align-3 fixes that value's overflow fallback at
- * `center`, so it can still shear. It is DETECTED (`.panel-right` is a probed
- * clip cell and the rect walk reads block-start spill), which is the property
- * that actually matters; changing the fitting layout to buy the last of it would
- * cost the even distribution the list is built on.
+ * ONE alignment here takes no `safe` keyword, and it does not need one:
+ * `.panel-right > ul` uses `justify-content: space-evenly`. `safe`/`unsafe` are
+ * `<overflow-position>` keywords the grammar admits only before a
+ * `<content-position>`, so `safe space-evenly` is invalid CSS that would drop the
+ * whole declaration (`CSS.supports(...) === false`, checked). But MEASURED in the
+ * render browser (Chromium 131), `space-evenly` falls back to **start** on
+ * overflow, not to center: first-child offset 0, and `scrollHeight` grows 100 → 180,
+ * so the overflow is both non-shearing and visible to the probe. `space-around` and
+ * `space-between` measured the same. An earlier version of this comment asserted a
+ * center fallback from the spec grammar and called it a residual shear risk; that
+ * was reasoning where a measurement was available, and the measurement disagrees.
+ * (`section.split-panel.proof.capstone .panel-left`'s `space-between` is start-fallback
+ * for the same reason and is likewise not a hole.)
  */
 
 /* ── base = featured heading + findings (former split-brief) ─────────────── */
@@ -16668,12 +16672,12 @@ section.video.companion:where([data-family="tall"], [data-family="strip"]) {
  * every theme (dark included) — the one place a fixed contrast is correct; it
  * routes through tokens with a fallback so a theme may still retune it. */
 
-/* `safe center`, not `center` (#1299). A flex column that centres and then
+/* `safe center`, not `center` (#1299). A flex column that centers and then
  * overflows throws content off the BLOCK-START edge — and for this card that is the
  * eyebrow and the heading, the two things a reader needs first. Block-start overflow
  * also does not grow `scrollHeight`, so it went unmeasured: pages 2-4 of this
  * component's OWN gallery shipped with 23px of eyebrow and h2 sheared off the top
- * (#1278). `safe` keeps the centring while the card fits and falls back to `start`
+ * (#1278). `safe` keeps the centering while the card fits and falls back to `start`
  * the instant it does not, so the loss moves to the tail where it is both less
  * costly and visible. The budget below is what stops it happening at all; this is
  * the backstop for the deck that still over-authors. */
@@ -16706,7 +16710,7 @@ section.wifi > .cell-stage > .qr-card {
  * recorded rather than silently deleted because the reasoning is worth keeping.
  * `.qr-tile` is content-box sized, so at its old `width: 12em` its border-box
  * (12em + 1em padding + 1px border, each side) was ~1em+1px WIDER than the 12em
- * `.qr-side` column it centres in, and the overhang — the QR's white QUIET ZONE,
+ * `.qr-side` column it centers in, and the overhang — the QR's white QUIET ZONE,
  * which scanners functionally require — crossed the stage's content edge. The paint
  * margin let the stage draw it into the frame's safe margin without giving up
  * `overflow: clip`. The tile is 9.5em now (see the budget note below), so its

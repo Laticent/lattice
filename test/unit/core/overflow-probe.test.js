@@ -828,7 +828,7 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
 
   test('#1299 — the same shear in a box NOT on the allowlist is caught by discovery', () => {
     // The general defect behind #1299: the allowlist is silent by default, so the next
-    // component to centre a clipping box inherits the same silence. Discovery means the
+    // component to center a clipping box inherits the same silence. Discovery means the
     // box does not have to be remembered.
     const html = '<section><div class="qr-card"><p id="head">One scan connects the room</p></div></section>';
     const rects = {
@@ -940,6 +940,35 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
       (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
     assert.equal(r.cut, true, 'a nowrap axis label pushed past its gutter is lost content');
     assert.match(r.first, /Likelihood/);
+  });
+
+  test('a CHILDLESS clipping box still raises clipSuspect — ellipsis and line-clamp', () => {
+    // The guard `if (!el.children?.length) continue` is a flowedSpill optimization, and
+    // putting it at the TOP of the discovery loop quietly made it a clipSuspect filter
+    // too. That gutted the feature: `text-overflow: ellipsis` and `-webkit-line-clamp`
+    // are the two cases this change set names by hand, and both normally sit on a box
+    // whose only content is a TEXT NODE — no element children. They were skipped before
+    // they could raise suspicion, so `probeContentClipped` was never invoked and the
+    // slide stayed silent, while calling the content probe directly returned cut:true.
+    // Reproduced by the HARD RULE #25 checker on premise.gallery.md p3, which ellipses
+    // 65px (34%) off "Advanced beginner". Scroll dims are the RIGHT measure here and the
+    // wrong one for `over`: they see a formatter-truncated line no rect crosses.
+    const html = '<section><div class="cell-stage">'
+      + '<strong id="lab">Advanced beginner</strong></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 700, 0, 1280),
+      '#lab': rect(100, 140, 40, 166),   // the BOX, 126 wide
+    };
+    const scroll = {
+      section: { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 },
+      '.cell-stage': { scrollHeight: 700, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280 },
+      '#lab': { scrollWidth: 191, clientWidth: 126, scrollHeight: 40, clientHeight: 40 }, // 65px ellipsed
+    };
+    const r = withDom(html, rects, { clipBoxes: ['#lab'], scroll },
+      (s) => probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL, IGNORED_CLIP_SELECTOR));
+    assert.equal(r.over, false, 'a formatter truncation crosses no box edge — `over` must stay geometric');
+    assert.equal(r.clipSuspect, true, 'but it MUST be worth a content walk, or the ellipsis case is unreachable');
   });
 
   test('IGNORED_CLIP_SELECTOR names the boxes that are never evidence', () => {

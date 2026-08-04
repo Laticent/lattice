@@ -37,7 +37,7 @@ const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
-const { CLIP_CELL_SELECTOR, probeSectionOverflow } = require('../../../lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow } = require('../../../lib/core/overflow-probe');
 
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -153,7 +153,7 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-    const v = await page.$eval('section', probeSectionOverflow, CLIP_CELL_SELECTOR, 1);
+    const v = await page.$eval('section', probeSectionOverflow, CLIP_CELL_SELECTOR, 1, IGNORED_CLIP_SELECTOR);
     const hasStage = await page.$eval('section', (s) => !!s.querySelector('.cell-stage'));
     const bodyInStage = await page.$eval('section', (s) => !!s.querySelector('.cell-stage > .chart-body'));
     const titleHoisted = await page.$eval('section', (s) => !!s.querySelector('.cell-masthead .masthead-lede > h2'));
