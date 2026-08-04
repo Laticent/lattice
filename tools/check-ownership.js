@@ -1844,7 +1844,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
 // down by lowering US_ENGLISH_BUDGET as it drops. Target zero.
 //
 // PINNED TO THE ACTUAL COUNT, and that is the point. It sat at 1336 against a real count
-// of 1293 — 43 units of slack, which is not headroom, it is a hole: five new British
+// of 1307 — 29 units of slack, which is not headroom, it is a hole: five new British
 // spellings entered on this branch (`CENTRE`, `centre`, `honours`, `behaviour`,
 // `neighbour`, all in test files, one of them in a test NAME that printed on every run)
 // and the gate stayed green through all of them. A ratchet with slack does not ratchet.

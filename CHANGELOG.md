@@ -25,6 +25,30 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **`no-note` — suppress below-note promotion on a slide.** A trailing paragraph that follows a
+  list or a table is promoted to a `.below-note` (hairline rule, muted ink, parked at the stage
+  floor), which is the right default and is not always what the author meant: "a list, then a
+  concluding sentence" is an ordinary prose shape, and promotion turns that conclusion into a
+  footnote. #1322 made this reachable from far more slides by taking `content` off the exclusion
+  list — correctly — without giving authors a lever. `no-note` is that lever, per-slide via
+  `_class` or deck-wide via `class:`, honored on all three render paths through the one
+  `isExcluded` gate. **It changes no existing rendering**: no deck carries the token, so whether
+  promotion should remain the default for `content` is still an open call and still the owner's.
+  Its own `note` vocabulary group rather than a `chrome` entry, so `silent` deliberately does not
+  imply it — `chrome` suppresses the running frame, none of which is the author's words. Token-
+  exact rather than the substring test the layout list uses, so a future `no-notebook` cannot
+  silently disable notes, and it reads a token array as well as a class string (the shape the
+  markdown-it plugins pass), where a string-only check would have failed silently.
+  **Caveat, and it is the engine's rather than this feature's:** the deck-wide form
+  (`class: no-note`) reaches slides that declare no `_class:` of their own, but not a slide that
+  carries one — the HTML-transform stage reads the class list before the deck-wide token is
+  merged into it. That is general to every deck-wide `class:` token (`class: dark` behaves
+  identically), so it is filed as #1358 rather than fixed here; put the token on the slide when
+  the slide names its own class. See `engineering/decisions/2026-08-04-below-note-opt-out.md` and the
+  feature deck `examples/frame-chrome-and-notes.md`.
+
 ### Fixed
 
 - **Diagram ink is now chosen by what it sits ON, so it stops disappearing on the accessibility
