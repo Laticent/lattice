@@ -17,17 +17,15 @@ never covered either way; the terms here are about redistributing these files.
 **Rendering is worth one more paragraph**, because the two routes differ and only
 one of them puts engine code in your hands to pass on:
 
-- **`marp --pdf` (and PPTX) carry no engine code.** Measured, not assumed: no
-  CSS rule and no `@theme` directive survives into the PDF. Render this way,
-  share the file however you like — none of this reaches you.
-- **`marp --html` inlines the engine stylesheet** — about 876 KB of it — into
-  the output file. Keeping that file to yourself conveys nothing to anyone. But
-  the exception above is written for assets *Lattice's own export pipeline*
-  embeds, and a marp-cli render is not that, so on a literal reading **publishing
-  a `marp --html` file conveys engine object code outside the exception.**
-  Whether that is intended is an open question on our side, not a trap being set
-  for you; until it is settled, treat a published `.html` as carrying `LICENSE`
-  terms, or render to PDF instead and the question does not arise.
+- **`marp --pdf` (and PPTX) carry no engine code.** Measured, not assumed: every
+  stream in the PDF was decompressed and searched — no CSS rule, no `@theme`
+  directive, nothing of the engine survives. What a PDF *does* embed is font
+  subsets of the third-party faces below, which the OFL and MIT both permit in a
+  document. Render this way and share the file however you like.
+- **`marp --html` inlines the engine stylesheet** — about 852 KB of it — into
+  the output file. Keeping that file to yourself conveys nothing to anyone.
+  Publishing it conveys the engine in object form, so if that is your plan, read
+  `LICENSE` first. Rendering to PDF instead avoids the question entirely.
 
 If you plan to redistribute the kit itself, or ship a service built on it, read
 `LICENSE`.

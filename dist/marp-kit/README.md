@@ -24,10 +24,12 @@ The version range is deliberate: it is the same range Lattice's own export bundl
 pins, so the kit and the export cannot ask for different tools. Being honest about
 what that does and does not buy you — it is a range, not a pin, so npm will resolve
 a newer 4.x over time. Lattice's CI renders this exact deck through real marp-cli
-on every change and checks the result (one page per slide, the diagram drawn, the
-split panel built, the equation typeset, the palette and the fonts live), which is
-new as of this kit's second revision; before that, nothing on our side had ever
-rendered it. The reference render was made with 4.3.1.
+and checks the result — one page per slide, the diagram drawn, the split panel
+built, the equation typeset, the palette and the fonts live. To be exact about
+the guarantee: that runs on changes to engine/tooling/test code, not on
+documentation-only ones. It is new as of this kit's second revision; before that,
+nothing on our side had ever rendered it. The reference render was made with
+4.3.1; the range currently resolves to 4.5.0.
 
 ## What is in here
 
@@ -78,8 +80,8 @@ that script runs, the deck is whole. Where it does not, those four are raw.
   markdown-it plugins. Whether it executes the deck's `<script>` tags is
   genuinely unsettled in this project's own notes, so treat those four slides as
   unknown there rather than promised. If they come up flat for you, that is the
-  known ceiling and not a broken copy of the kit — everything else on the slide
-  should still be fully styled.
+  unresolved case above and not a broken copy of the kit — everything else on the
+  slide should still be fully styled.
 
 Everything CSS does — layout, palette, typography, every purely-CSS layout —
 holds on all three. Render the deck for anything you need to trust.
@@ -101,8 +103,12 @@ If type looks right but the layout does not, it is the palette rather than the
 engine: `cuoio.min.css` `@import`s `lattice` **by name**, so both files
 have to be registered — one alone renders bare.
 
-If a render hangs on a machine with a small `/dev/shm` (containers, CI), pass
-`--browser-args="--no-sandbox --disable-dev-shm-usage"`.
+If a render hangs on a machine with a small `/dev/shm` (containers, CI), give the
+container more shared memory — `docker run --shm-size=1g` or equivalent. This
+line used to suggest passing `--browser-args=…`; **marp-cli has no such option**
+(only `--browser`, `--browser-path`, `--browser-protocol`, `--browser-timeout`),
+so the advice did nothing. marp-cli already passes `--no-sandbox` itself when it
+detects it is running as root.
 
 ---
 

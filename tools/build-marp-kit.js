@@ -159,14 +159,23 @@ function vscodeSettings() {
  * "If you only want to make decks, nothing about this constrains you," which is
  * too broad. Measured on a real marp-cli render: `--pdf` carries no engine code
  * at all (no CSS rule, no `@theme` directive survives), but `--html` inlines
- * ~876 KB of engine stylesheet into the output file. The exception is written
+ * ~852 KB of engine stylesheet into the output file. The exception is written
  * for assets *Lattice's own export pipeline* embeds, and marp-cli is not that —
  * so publishing a `marp --html` file is, on a literal reading, outside it. That
  * gap is unresolved and is the OWNER's call, not this file's: see
- * engineering/decisions/2026-08-04-marp-render-output-exception.md. Until it is
- * settled the notice states the position accurately rather than reassuringly —
- * it grants nothing and withholds nothing. Do not re-broaden this without the
- * grant itself changing.
+ * engineering/decisions/2026-08-04-marp-render-output-exception.md.
+ *
+ * KEEP THIS PARAGRAPH FACTUAL — it must stay true under BOTH resolutions of that
+ * question, and an earlier draft did not. It said the gap "is an open question on
+ * our side" and told recipients to treat a published `.html` as carrying LICENSE
+ * terms "until it is settled." A Munger inversion killed that: this is a
+ * COPY-AND-GO folder with no update channel, so whatever it says today, the
+ * copies people took say forever. If the exception is later extended, a shipped
+ * warning that publishing conveys code outside it becomes wrong — permanently,
+ * in every copy. What survives both outcomes is only the measurement (`--pdf`
+ * carries nothing, `--html` inlines the stylesheet) and the neutral pointer to
+ * LICENSE. Do not add a verdict here, in either direction, and do not re-broaden
+ * it to the old reassurance either.
  */
 function notice(fonts) {
   return `# Notices
@@ -188,17 +197,15 @@ never covered either way; the terms here are about redistributing these files.
 **Rendering is worth one more paragraph**, because the two routes differ and only
 one of them puts engine code in your hands to pass on:
 
-- **\`marp --pdf\` (and PPTX) carry no engine code.** Measured, not assumed: no
-  CSS rule and no \`@theme\` directive survives into the PDF. Render this way,
-  share the file however you like — none of this reaches you.
-- **\`marp --html\` inlines the engine stylesheet** — about 876 KB of it — into
-  the output file. Keeping that file to yourself conveys nothing to anyone. But
-  the exception above is written for assets *Lattice's own export pipeline*
-  embeds, and a marp-cli render is not that, so on a literal reading **publishing
-  a \`marp --html\` file conveys engine object code outside the exception.**
-  Whether that is intended is an open question on our side, not a trap being set
-  for you; until it is settled, treat a published \`.html\` as carrying \`LICENSE\`
-  terms, or render to PDF instead and the question does not arise.
+- **\`marp --pdf\` (and PPTX) carry no engine code.** Measured, not assumed: every
+  stream in the PDF was decompressed and searched — no CSS rule, no \`@theme\`
+  directive, nothing of the engine survives. What a PDF *does* embed is font
+  subsets of the third-party faces below, which the OFL and MIT both permit in a
+  document. Render this way and share the file however you like.
+- **\`marp --html\` inlines the engine stylesheet** — about 852 KB of it — into
+  the output file. Keeping that file to yourself conveys nothing to anyone.
+  Publishing it conveys the engine in object form, so if that is your plan, read
+  \`LICENSE\` first. Rendering to PDF instead avoids the question entirely.
 
 If you plan to redistribute the kit itself, or ship a service built on it, read
 \`LICENSE\`.
@@ -254,10 +261,12 @@ The version range is deliberate: it is the same range Lattice's own export bundl
 pins, so the kit and the export cannot ask for different tools. Being honest about
 what that does and does not buy you — it is a range, not a pin, so npm will resolve
 a newer 4.x over time. Lattice's CI renders this exact deck through real marp-cli
-on every change and checks the result (one page per slide, the diagram drawn, the
-split panel built, the equation typeset, the palette and the fonts live), which is
-new as of this kit's second revision; before that, nothing on our side had ever
-rendered it. The reference render was made with 4.3.1.
+and checks the result — one page per slide, the diagram drawn, the split panel
+built, the equation typeset, the palette and the fonts live. To be exact about
+the guarantee: that runs on changes to engine/tooling/test code, not on
+documentation-only ones. It is new as of this kit's second revision; before that,
+nothing on our side had ever rendered it. The reference render was made with
+4.3.1; the range currently resolves to 4.5.0.
 
 ## What is in here
 
@@ -308,8 +317,8 @@ that script runs, the deck is whole. Where it does not, those four are raw.
   markdown-it plugins. Whether it executes the deck's \`<script>\` tags is
   genuinely unsettled in this project's own notes, so treat those four slides as
   unknown there rather than promised. If they come up flat for you, that is the
-  known ceiling and not a broken copy of the kit — everything else on the slide
-  should still be fully styled.
+  unresolved case above and not a broken copy of the kit — everything else on the
+  slide should still be fully styled.
 
 Everything CSS does — layout, palette, typography, every purely-CSS layout —
 holds on all three. Render the deck for anything you need to trust.
@@ -331,8 +340,12 @@ If type looks right but the layout does not, it is the palette rather than the
 engine: \`${THEME}.min.css\` \`@import\`s \`lattice\` **by name**, so both files
 have to be registered — one alone renders bare.
 
-If a render hangs on a machine with a small \`/dev/shm\` (containers, CI), pass
-\`--browser-args="--no-sandbox --disable-dev-shm-usage"\`.
+If a render hangs on a machine with a small \`/dev/shm\` (containers, CI), give the
+container more shared memory — \`docker run --shm-size=1g\` or equivalent. This
+line used to suggest passing \`--browser-args=…\`; **marp-cli has no such option**
+(only \`--browser\`, \`--browser-path\`, \`--browser-protocol\`, \`--browser-timeout\`),
+so the advice did nothing. marp-cli already passes \`--no-sandbox\` itself when it
+detects it is running as root.
 
 ---
 

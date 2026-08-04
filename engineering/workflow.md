@@ -475,8 +475,8 @@ runtime/CSS bundles out of `dist/` or breaking that manual recipe.
 transform work wherever the runtime actually EXECUTES: the exported HTML, and
 marp-cli's `npm run pdf` / `npm run html` (it drives a real headless browser).
 Whether it also helps the marp-vscode PREVIEW pane is unsettled — that webview
-is believed to block script execution (`engineering/gotchas.md` § "marp-vscode
-webview CSP"), but the claim has never been tested here and a field report
+is believed to block script execution (`engineering/gotchas.md` § "Does the
+marp-vscode webview execute `<script>`?"), but the claim has never been tested here and a field report
 contradicts it. Don't plan a mirror around the preview either way.
 Two further requirements are easy to miss and were silently unmet until
 #1256: raw HTML must be enabled (`html: true` for marp-cli,

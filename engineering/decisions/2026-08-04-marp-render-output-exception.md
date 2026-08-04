@@ -1,6 +1,6 @@
 ---
 status: blocked
-summary: ESCALATION, not a decision — the licensing call is the owner's. Verified by rendering: `marp --html` inlines 876 KB of engine CSS into the output file, while `marp --pdf` carries no engine source at all. So the output exception's reach matters on exactly one route. The gap is NOT where the on-deck note placed it — §Limits (a) excludes assets "distributed other than inside a rendered deck", and a `marp --html` file IS a rendered deck, so (a) does not bite; the exclusion comes from the Grant's "as embedded by Lattice itself" and §Limits' opening "Lattice's own export pipeline". marp-cli did the embedding, so the literal text does not reach the very workflow the kit ships to enable. Scope is wider than the kit — the Export-to-Marp bundle's documented `npm run html` has the identical gap. Two options (extend the grant / narrow the reassurance), recommendation is to extend, and NOTICE.md is narrowed to what is factually true today WITHOUT touching the grant. Also logs a separate and more clear-cut finding, deliberately not fixed here: the Export-to-Marp bundle ships mermaid (MIT), the KaTeX faces (MIT) and five OFL font families with no LICENSE, no NOTICE and no license texts at all — the exact defect the kit was fixed for in #1325.
+summary: ESCALATION, not a decision — the licensing call is the owner's. Verified by rendering (marp-cli 4.5.0, which is what the `^4.3.1` range resolves to): `marp --html` inlines ~852 KB of engine CSS into the output file, while `marp --pdf` carries no engine source at all. So the output exception's reach matters on exactly one route. The gap is NOT where the on-deck note placed it — §Limits (a) excludes assets "distributed other than inside a rendered deck", and a `marp --html` file IS a rendered deck, so (a) does not bite; the exclusion comes from the Grant's "as embedded by Lattice itself", §Limits' opening "Lattice's own export pipeline", and §Limits (c), since Marpit REWRITES every selector on the way in. marp-cli did the embedding, so the literal text does not reach the very workflow the kit ships to enable. Scope is wider than the kit — the Export-to-Marp bundle's documented `npm run html` has the identical gap. Two options (extend the grant / narrow the reassurance), recommendation is to extend, and NOTICE.md is narrowed to what is factually true today WITHOUT touching the grant. Also logs a separate and more clear-cut finding, tracked as #1354 and deliberately not fixed here: the Export-to-Marp bundle ships mermaid (MIT), the KaTeX faces (MIT) and five OFL font families with no LICENSE, no NOTICE and no license texts at all — the exact defect the kit was fixed for in #1325.
 ---
 
 # The output exception does not reach a Marp render — escalation
@@ -28,13 +28,26 @@ because it changes which sentence has to be edited if the answer is "fix it."
 
 ## The facts, measured rather than assumed
 
-Rendered `dist/marp-kit/Sample-Deck.md` through real marp-cli 4.3.1 and read the
-bytes of each output:
+Rendered `dist/marp-kit/Sample-Deck.md` through real marp-cli — **4.5.0**, which
+is what `MARP_CLI_RANGE`'s `^4.3.1` resolves to today — and read the bytes of
+each output:
 
 | Route | Engine CSS in the output | Engine JS in the output |
 |---|---|---|
-| `marp --pdf` | **none** — no CSS rule, no `@theme` directive survives | none |
-| `marp --html` | **876,200 bytes across 4 `<style>` blocks** — the full engine bundle, Marpit-scoped (larger than the 571,517-byte `lattice.min.css` on disk, because scoping expands every selector) | **none** — the runtime stays an external `<script src="lattice-runtime.min.js">` |
+| `marp --pdf` | **none** — no CSS rule, no `@theme` directive survives, confirmed by decompressing every stream in the file | none |
+| `marp --html` | **851,652 characters in one `<style>` element** — the full engine bundle, Marpit-scoped (larger than `lattice.min.css` on disk at 571,643 bytes / 571,517 characters, because scoping expands every selector) | **none** — the runtime stays an external `<script src="lattice-runtime.min.js">` |
+
+> **Three corrections from the adversarial pass, all in this table.** It first
+> said "4.3.1" — but `MARP_CLI_RANGE` is a *range*, and the measurement was made
+> with whatever it resolved to, which is 4.5.0. (The figures differ by version:
+> pinned 4.3.1 inlines 877,550 characters.) It said "571,517-**byte**
+> `lattice.min.css`" — that is the character count; the file is 571,643 bytes.
+> And it said "876,200 bytes across 4 `<style>` blocks", which counted with a
+> regex: the rendered document has **two** `<style>` elements, and the other two
+> matches were template-literal fragments inside marp-core's `<script>`. Of the
+> two real ones, 24,338 characters are **marp-core's own** scaffold CSS, not
+> Lattice's. A note whose entire authority is "measured rather than reasoned
+> about" has to survive re-measurement, so: re-measure before re-citing.
 
 Three consequences, and they are narrower than the original framing:
 
@@ -66,6 +79,16 @@ The exclusion comes from two other places, both about **who did the embedding**:
 marp-cli did the embedding. The assets are inside a rendered deck; they just
 arrived there by a tool that is not us. On a literal reading the exception does
 not reach them.
+
+**And a third clause bites, which the first draft of this note missed.** §Limits
+(c) also withholds the exception from "any **modified** version of the engine or
+of the embedded assets beyond the mechanical embedding the export pipeline
+performs." Marpit does not copy the stylesheet in — it **rewrites every
+selector** to scope it to the slide, which is why the inlined CSS (851,652
+chars) is half again the size of the file on disk (571,517). That is a
+modification, and it is not one "the export pipeline performs." Found by the red
+team while trying to refute the reading; it strengthens the conclusion, but it
+means "which clause" has three answers, not two.
 
 **That is a gap between the license and the product's own instructions**, which
 is what makes it worth escalating rather than shrugging at. `dist/marp-kit`
@@ -158,12 +181,20 @@ the bundle**, which has been shipping longer.
 **Why it is not fixed in this change**, rather than being punted: it is off the
 path of the marp-kit render gate (HARD RULE #17, one feature one branch), and
 adding files to the export bundle alters the bytes of an exported artifact, which
-CLAUDE.md's QUALITY BAR makes a **hard stop for owner sign-off**. It is logged
-here with the evidence so it can be authorized, and it should outrank the
-exception question on urgency: an unresolved drafting gap in our own grant is a
-question, a missing MIT notice is a compliance failure with a known fix
+CLAUDE.md's QUALITY BAR makes a **hard stop for owner sign-off**. It should
+outrank the exception question on urgency: an unresolved drafting gap in our own
+grant is a question, a missing MIT notice is a compliance failure with a known fix
 (`thirdPartyLicenses()` in `tools/build-marp-kit.js` already generates exactly
 the file needed, from `assets/licenses/`).
+
+> **Tracked as #1354, and deliberately not left in this note.** A Munger
+> inversion caught the filing itself as the defect: this note's front matter is
+> `status: blocked` and it opens "the licensing call is the owner's," so a reader
+> correctly defers the *whole* note — which makes an uncontroversial compliance
+> fix hostage to a controversial, one-way grant decision. "Logged in a decision
+> doc" and "ignored" are indistinguishable exactly when the doc is blocked and
+> there is no issue. **#1354 is independent of everything else in this note** and
+> is not waiting on the A-or-B call below.
 
 ## For whoever picks this up
 

@@ -161,25 +161,60 @@ here.
 
 `test/integration/export/marp-kit-render.test.js`.
 
-**Step 1 — devDependency: REJECTED, and the note's own §case-against is why.**
-It predicted that adding `@marp-team/marp-cli` to `devDependencies` would force
-`marp-independence.md`'s headline — "zero `@marp-team` packages" — to be
-re-scoped to "zero in `dependencies`": *"true, narrower, and less quotable."*
-That cost is avoidable. The gate fetches marp-cli on demand with
+**Step 1 — devDependency: REJECTED, and this is the weakest call in the set.**
+The note predicted that adding `@marp-team/marp-cli` to `devDependencies` would
+force `marp-independence.md`'s headline — "zero `@marp-team` packages" — to be
+re-scoped to "zero in `dependencies`": *"true, narrower, and less quotable."* The
+gate instead fetches marp-cli on demand with
 `npx -y @marp-team/marp-cli@${MARP_CLI_RANGE}`, importing the range from
-`lib/core/marp-bundle.js` so the gate and the artifact it gates cannot ask for
-different tools. The claim stays literally true, the version stays
-single-sourced, and the quarantine the note wanted (HARD RULE #24 shape) is
-stronger than a devDependency: the package is never in the tree at all.
+`lib/core/marp-bundle.js` so the gate and the artifacts it gates cannot ask for
+different tools.
 
-The price is honest and named in `engineering/development.md`: the suite reaches
-the network, so it **self-skips with a printed reason** when the registry is
-unreachable, and a registry blip therefore turns a gate into a pass. A gate that
-goes red on a network hiccup is one people learn to ignore; that trade was made
-deliberately, not overlooked.
+**State the cost plainly, because a Munger inversion was right about it:** a
+`devDependency` buys a lockfile entry, an integrity hash, one resolved version,
+and Dependabot visibility. `npx` at a RANGE buys none of those, and the repo now
+downloads and executes registry content on the required merge path. Trading
+reproducibility for a sentence in a positioning doc is not a good trade, stated
+out loud. Two things make it survivable rather than reckless, and neither is a
+refutation:
 
-**Steps 2 and 3 — the kit deck, through real marp-cli: SHIPPED.** It renders the
-same artifact a recipient copy-pastes, which is what the note asked for.
+- lifecycle scripts are off (`npm_config_ignore_scripts=true`, verified end to
+  end on a cold cache), so an install hook cannot run in a job with the repo
+  checked out;
+- the resolved version is captured and printed into **every** failure message, so
+  a red gate can be triaged as "marp-cli moved" versus "we broke it". It moves:
+  the range resolves to **4.5.0** today, while the kit README's reference render
+  was 4.3.1.
+
+There is also a real argument FOR the range that the inversion did not weigh: it
+is what the kit's README tells recipients to run, so an exact pin would gate a
+version nobody uses. **If this is revisited, the honest options are a
+devDependency plus a corrected `marp-independence.md` sentence, or an exact pin
+plus a scheduled range-drift check — not the status quo defended on the
+positioning claim.**
+
+**The skip is LOCAL-ONLY, and that was a fix, not the original design.** As first
+written the suite self-skipped everywhere, including CI. The inversion named that
+as the change's highest-damage failure mode and it was right: `# skipped 6` in a
+several-hundred-line TAP stream is not a signal anyone reads, so the gate would
+have reported green while covering nothing — permanently and invisibly, on the
+first `npx` ENOENT, proxy, or registry-auth change. It now retries three times,
+skips off-CI (where hard-failing a laptop with no network just trains people to
+ignore it), and **throws on CI**.
+
+**Steps 2 and 3 — SHIPPED, over BOTH artifacts.** The note asked for the kit
+deck. The gate renders the kit *and* an Export-to-Marp bundle produced by
+`tools/export-marp.js`, with the same assertions parameterized over both.
+
+That widening came from the inversion's load-bearing objection, which is worth
+recording because it nearly shipped as a hole: the kit and the bundle share their
+ASSET list by construction, but not the machinery that has actually broken. Two
+independently authored marp configs (`build-marp-kit.js` `marpConfig()` against
+`lib/core/marp-bundle.js` `MARP_CONFIG_CJS`), and `withRuntimeScripts()`, the
+baked front-matter block and per-deck `themeSet` generation existing only in the
+bundle — which is where **all four** defects in the 2026-07-29 post-mortem lived.
+A kit-only gate would have tested the twin of the risky generator while reading,
+to anyone skimming, as "CI renders our Marp export." The bundle costs ~4s.
 
 **Step 4 — one assertion per `marp-fidelity.js` row: NOT DONE.** This is the
 half that turns the ledger from claims into measurements, and it is still the
@@ -193,27 +228,46 @@ starts working is still silent.
 **The four open questions, answered by what shipped:**
 
 1. **PR gate** — it runs in `test:integration:pr`. Chromium cost turned out not
-   to decide it: the whole suite is ~10s warm and ~40s cold, because the deck is
+   to decide it: both fixtures together are ~19s warm, because the decks are
    `size: hd`. (At `size: 4k` the same 13 slides never finished rendering, >200s
-   repeatedly. Keep the deck at `hd`.)
-2. **Rendered DOM, plus one number off the rasterized artifact.** The PDF page
-   count is asserted with `pdfinfo` because a blank trailing sheet is a *print*
-   artifact that exists on no other surface; everything else is asserted on the
-   live DOM of a real browser driving marp's `--html` output. No pixel diffing —
-   that gate was retired for runner-dependent rasterization and nothing here
-   argues for bringing it back.
-3. **`dist/` directly, and yes — the same artifact.** The gate renders
-   `dist/marp-kit` itself, copied to a temp dir so `build:check`'s byte-compare
-   is untouched.
+   repeatedly. Keep them at `hd`.)
+2. **Rendered DOM, plus two things off the rasterized artifact.** `pdfinfo` for
+   the page count, because a blank trailing sheet is a *print* artifact that
+   exists on no other surface, and `pdftotext` on the first and last page —
+   a count alone is satisfied by thirteen blank pages, and the specific bug this
+   gate exists for appends an EMPTY sheet, which a last-page text probe catches
+   independently of the count. Everything else is asserted on the live DOM of a
+   real browser driving marp's `--html` output. No pixel diffing — that gate was
+   retired for runner-dependent rasterization and nothing here argues for
+   bringing it back.
+3. **`dist/` directly, and yes — the same artifact**, plus a freshly exported
+   bundle. Renders go to `.scratch/marp-render/` rather than a random temp dir so
+   CI can upload them on failure; the committed kit is copied, never written
+   into, so `build:check`'s byte-compare is untouched.
 4. **Unanswered, because step 4 was not built.** Still open.
 
 **What the note could not have known, and the gate now proves.** Its case-against
 worried this would be "a gate on an UNVERIFIED surface" — true of marp-vscode,
-irrelevant here: the gate was verified by **mutation**, not by going green.
-Neutering `pinMermaidTooltip` in a scratch copy of the runtime reproduces the
-original 14-pages-for-13-slides bug, and a *partial* regression that the page
-count misses is still caught by the tooltip assertion. Both nets were confirmed
-to fire before the gate was trusted.
+irrelevant here: the assertions were verified by **mutation and deletion**, not by
+going green.
+
+| Experiment | Result |
+|---|---|
+| No-op `pinMermaidTooltip` in a scratch runtime | **14 pages for 13 slides** — the original bug, reproduced |
+| Partial regression (tooltip left `absolute` but repositioned) | 13 pages — the count MISSES it; the tooltip assertion catches it |
+| Delete `fonts/` from a scratch kit | `document.fonts.check()` → false, 37 faces `error` — both font assertions fire |
+
+That last experiment also **killed an assertion**. A third font check matched
+`getComputedStyle(h1).fontFamily` against `/Playfair Display/` — and it passes
+with `fonts/` deleted, because computed `font-family` is the DECLARED list, never
+the resolved face. It read like coverage and was a tautology. Removed. A vacuous
+assertion is worse than a missing one, because it is counted.
+
+Two more nets came out of the adversarial pass and are worth naming as a pattern:
+a `pageerror` assertion (every other check samples ONE construct, so a runtime
+that builds the split panel and then throws on a later slide passed all of them),
+and keeping the renders on disk instead of `rm -rf`-ing them, since the entire
+argument for this gate is that the defects were visible on page one of a PDF.
 
 **Status: `in-progress`, not `shipped`** — step 4 is the remainder, and the
 cheaper runner-up (delete `marp: true` from the authoring contract, 237 files) is

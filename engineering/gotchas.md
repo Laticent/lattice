@@ -1737,8 +1737,11 @@ means "no gap logged for the runtime route", never "the preview is complete.
 
   Open `Sample-Deck.md` and turn on the Marp preview. The deck is built so the
   answer is visible rather than inferred — **four of its thirteen slides are
-  assembled by `lattice-runtime.min.js` and by nothing else** (verified against a
-  real marp-cli render: none of the three appear in the static HTML at all):
+  assembled by `lattice-runtime.min.js` and by nothing else.** Verified against a
+  real marp-cli render with JavaScript disabled and re-enabled: all four flip.
+  Three of them (`.panel-left`, the drawn progress bars, the matrix cell marks)
+  appear nowhere in the static HTML; the fourth, the diagram, is present only as
+  an unrendered code fence.
 
   | Slide | What proves the runtime ran |
   |---|---|
