@@ -677,8 +677,12 @@ room the prefetch edge can never lead and the rail sits in its "run dry" state. 
   is claimed.
 - **The rail shows no runway on Kokoro** (above), and "Fetch ahead: the whole deck" is a silent
   no-op there while the Settings copy promises offline delivery.
-- **"The whole deck" has no cost estimate and no cancel.** Combined with a request that outlives
-  its caller by design, a 60-slide deck is ~300 billed requests that closing Present will not
+- **"The whole deck" has no cost estimate and no cancel.** **PARTLY CLOSED 2026-08-04 (#1391):**
+  queued work that has not started is now dropped when the enqueuing caller walks away, so
+  closing Present stops the backlog. What still stands is the deliberate part — a request already
+  in flight runs on and caches — so on the cloud rung the requests already ISSUED are still
+  billed, and there is still no cost estimate. Combined with a request that outlives its caller
+  by design, a 60-slide deck is ~300 billed requests that closing Present will not
   stop. The user's own key, so not a HARD RULE #24 matter — but it is a bill complaint waiting to
   happen, and the progress display and cancel that the Prepare button had did not survive its
   removal.

@@ -25,6 +25,18 @@ in patch versions.
 
 ## Unreleased
 
+- **Leaving a slide now stops prefetch that has not started — without touching a request already
+  in flight.** Nothing a presenter did cancelled queued narration synthesis, so closing Present
+  or walking to another slide left the device grinding through sentences for a slide the deck had
+  left. On the cloud rung that is arguably right (the request is billed either way, and letting it
+  finish and cache is what makes a slow link self-heal); on the on-device rung the cost is the
+  serial worker's next slot, which is exactly what the presenter is about to need. These were one
+  signal and are now two: a **drop** (don't *start* queued work nobody wants) is honored, an
+  **abort** (kill a paid request mid-flight) is still deliberately not — that was tried once and
+  meant nothing ever reached the cache and the deck went silent. A sentence playback has claimed
+  is never droppable, and a later prefetch pass re-arms the channel, so navigating from slide 3
+  does not drop what slide 4 just asked for.
+
 - **A re-warmed sentence can be promoted again, so on-device playback stops waiting behind the
   prefetch backlog.** Kokoro synthesizes one sentence at a time, and playback jumps a queued
   backlog by flipping a shared `priority` object the queue reads at dequeue time. That only

@@ -426,7 +426,9 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     });
     model.warm(['Prefetched.']);
     await new Promise((r) => setTimeout(r, 20));
-    expect(seen).toEqual({ warm: true });
+    // Field-wise, not shape-wise: the priority object also carries the DROP channel (#1391),
+    // and a whole-object compare would break every time it learns something new.
+    expect(seen?.warm).toBe(true);
   });
 
   it('caps concurrent prefetch requests at WARM_CONCURRENCY (3)', async () => {

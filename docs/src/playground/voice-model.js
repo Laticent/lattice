@@ -420,8 +420,19 @@ export function createSerialQueue() {
     // the warm caller's signal through fetchClip → startRequest, which is a change to the
     // deliberate "a paid-for request finishes and caches" invariant and is not made here.
     for (let i = queue.length - 1; i >= 0; i--) {
-      if (queue[i].signal?.aborted) {
-        queue[i].reject(new Error('aborted'));
+      const j = queue[i];
+      // TWO reasons to remove a job that has not started, and they are different signals.
+      //   · `signal` — the REQUEST's own ceiling controller. Genuinely expired work.
+      //   · `priority.drop` — the enqueuing caller walked away (left the slide, closed
+      //     Present, muted) and nobody else has claimed this sentence. Honored ONLY while
+      //     `priority.warm` is still true: once playback joins, the sentence is promoted,
+      //     `drop` is cleared, and it can never be dropped out from under the room.
+      // Neither can touch a job already running — `inFlight` returns above — which is what
+      // keeps "a paid-for request finishes and caches" intact. On device the cost being
+      // saved is not money but the serial worker's next slot, which is exactly what the
+      // presenter is about to need.
+      if (j.signal?.aborted || (j.priority?.warm && j.priority.drop?.aborted)) {
+        j.reject(new Error('aborted'));
         queue.splice(i, 1);
       }
     }
@@ -682,14 +693,31 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // exactly as long as something can still be reordered.
   const priorities = new Map(); // cacheKeyFor(...) → { warm }
   /** The live priority for `key`, created on first ask. A PLAYBACK caller (`warm:false`)
-   *  promotes whatever is already there; a warm caller never demotes it back. */
-  function priorityFor(key, warm) {
+   *  promotes whatever is already there; a warm caller never demotes it back.
+   *
+   *  `drop` is the SECOND channel, and it is deliberately not the same thing as an abort
+   *  (#1391). DROP means "nobody is waiting for this any more, so don't START it"; ABORT
+   *  means "kill a request already in flight". Only the first is safe to honor: a request
+   *  already issued is already paid for on the cloud rung, and killing it on timeout is what
+   *  once meant nothing ever reached the cache and the deck went silent on a slow link. So
+   *  `drop` is consulted ONLY for work still sitting in a queue, and only while the sentence
+   *  is still merely prefetch — the moment playback claims it, `drop` is cleared for good.
+   *
+   *  Re-arming matters as much as arming: a later warm supersedes an earlier caller's signal,
+   *  so moving from slide 3 to slide 4 does not drop slide 4's own prefetch on slide 3's
+   *  now-aborted controller. */
+  function priorityFor(key, warm, drop) {
     const existing = priorities.get(key);
     if (existing) {
-      if (!warm) existing.warm = false;
+      if (!warm) {
+        existing.warm = false;
+        existing.drop = null; // playback claimed it — never droppable again
+      } else if (drop && !drop.aborted && existing.warm) {
+        existing.drop = drop; // a fresh caller still wants it; adopt its signal
+      }
       return existing;
     }
-    const made = { warm: !!warm };
+    const made = { warm: !!warm, drop: warm ? (drop ?? null) : null };
     priorities.set(key, made);
     return made;
   }
@@ -1080,7 +1108,14 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       const cacheKey = cacheKeyFor(item.rung.name, modelIdFor(item.rung.name), item.effVoice, item.effSpeed, item.text);
       if (audioCache.has(cacheKey)) continue;
       const inflight = inFlightSynths.get(cacheKey);
-      if (inflight && !inflight.sig.aborted) continue;
+      if (inflight && !inflight.sig.aborted) {
+        // Already being fetched — but this caller still WANTS it, so re-arm the drop channel
+        // on the shared priority before skipping (#1391). Without this a sentence named by
+        // both the old and the new prefetch window keeps the OLD window's controller, and
+        // navigating away from slide 3 drops the prefetch slide 4 just asked for.
+        priorityFor(cacheKey, true, item.signal);
+        continue;
+      }
       warmActive++;
       const sig = new AbortController().signal; // this request's own lifetime — never the enqueuing caller's `signal` (see warm()'s own comment)
       // The SAME body playback runs (fetchClip): one persistent-store tier, one bounded
@@ -1088,7 +1123,10 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // used to carry near-copies of this, so an improvement to either silently applied
       // to only half the traffic — and a warm that skipped the on-device store would
       // re-buy audio the device already held.
-      const priority = priorityFor(cacheKey, true);
+      // The enqueuing caller's signal is the DROP channel — never the abort channel. `sig`
+      // above stays a fresh, never-aborted controller precisely so an in-flight request
+      // outlives its caller and still lands in the cache (the self-healing property).
+      const priority = priorityFor(cacheKey, true, item.signal);
       const p = fetchClip(item.rung, { text: item.text, voice: item.effVoice, speed: item.effSpeed, signal: sig, key: cacheKey, priority }).finally(() => {
         if (inFlightSynths.get(cacheKey)?.promise === p) inFlightSynths.delete(cacheKey);
         warmActive--;
