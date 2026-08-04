@@ -293,6 +293,23 @@ in patch versions.
 
 ### Changed
 
+- **Studio: Send feedback has one fixed address on tablet and desktop, and the header stops
+  sliding when you move the dial.** It used to render only in the full (Build/compact) header, so
+  stepping the dial on desktop shoved the entire right cluster sideways — Present, Share and the
+  Read/Write/Build dial all moved 70px on every Read↔Build step — and Read and Write, the two stops
+  a newcomer actually lands on, offered no way to send feedback at all. It now renders in BOTH
+  headers at the same tail slot, directly above the Settings button in the right-hand run. Measured
+  on the real surface: Present, Share and the feedback button hold identical x at all three stops at
+  1440px, 1100px and 820px. Three things make that true — the slim Read/Write header gained the
+  divider and the feedback button its tail was missing, the full header lost a trailing separator
+  that separated nothing (every control after it is compact-only), and the tablet's "Send feedback"
+  row is gone from the ⋯ menu now that the header offers it in one tap. Tablet needed the room:
+  the extra button pushed the ⋯ Menu clean off an 820px viewport, so the "Lattice" wordmark beside
+  the brand mark now appears from `lg` (1024px) rather than `sm` — the mark and its chevron already
+  say "brand, and it opens", and the wordmark returns the moment the row can afford it. **Phones are
+  unchanged**: the eight-cell bar is a closed contract and the drawer stays feedback's one home
+  there.
+
 - **The Mermaid subgraph box now has rounded corners and Lattice's node padding.** A subgraph is a
   containment surface — the role a Lattice card plays — and it was the one such surface in the
   system still drawn with square corners. `border-radius` does nothing to an SVG `<rect>`, and
