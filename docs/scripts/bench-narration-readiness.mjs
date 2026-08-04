@@ -58,7 +58,7 @@ async function main() {
 	// A throwaway pass before the matrix. Without it the FIRST row pays the JIT warm-up for
 	// `JSON.stringify` and the IDB connection and reads slower than a heavier row after it —
 	// which would put the most important number in the table (the fresh device) in the wrong
-	// place. Measured: row 1 fell from 2.6ms to in-line with its neighbours once this existed.
+	// place. Measured: row 1 fell from 2.6ms to in-line with its neighbors once this existed.
 	const WARMUP = { store: 50, deck: 200 };
 	const rows = [];
 	for (const cell of [WARMUP, ...MATRIX]) {

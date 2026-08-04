@@ -25,6 +25,20 @@ in patch versions.
 
 ## Unreleased
 
+- **A deck can declare its own presentation pace, and it travels with the deck.** New front-matter
+  register `pace: brisk | natural | deliberate` — how long a self-presenting deck holds on a newly
+  arrived slide before it speaks. The beat itself shipped in #1352 reading `localStorage`, which
+  made the rhythm a property of the *machine doing the playing*: an author's deliberately slow,
+  weighty deck played at whatever pace the recipient's browser happened to hold, and the
+  directorial choice was lost the moment the deck was shared. Resolution order, stated once and
+  pinned by tests: an explicit millisecond override (the presenter's live "faster/slower", never
+  persisted into the artifact) → the deck's `pace:` → the workspace preset → `natural`. So the
+  workspace preset is now a DEFAULT for decks that declare nothing, not an override of one that
+  does. The value survives both export carriers (the `.lattice` envelope and the baked
+  front-matter block), the editor completes both the key and its values, and a typo is caught by a
+  new `unknown-pace` lint rule rather than silently falling back to the viewer's setting — which
+  is the one register whose typo is invisible on the author's own machine.
+
 - **The Present rail's buffered range is a hatch, not a third tone — so it clears WCAG contrast in
   all 36 palette/mode combinations.** The three-tone ladder could not: measured against 1.4.11's
   3:1, track-to-buffered was below it in 15 of 36 (worst 1.87) and buffered-to-played in 25 of 36
@@ -32,7 +46,7 @@ in patch versions.
   capacity limit, not a tuning problem, because `--accent` against `--bg` is only 4.35:1 in the
   tightest palette and that is the entire range there is to split three ways. The buffered range is
   now drawn in the **same full-strength ink as the played range** and told apart from it by
-  CONTINUITY — played is solid, buffered is striped. A pattern is not a colour relationship, so no
+  CONTINUITY — played is solid, buffered is striped. A pattern is not a color relationship, so no
   palette can flatten it, and the ink-versus-track relationship is the one already proven to pass
   36/36. The current-slide track tint drops 30% → 26%, because the hatch is drawn over it and at
   30% it fell to 2.99:1 in `mustard light`; that cue is carried by the playhead mark anyway (4.35:1
@@ -56,7 +70,7 @@ in patch versions.
   prints it rather than hiding it.
 
 - **Leaving a slide now stops prefetch that has not started — without touching a request already
-  in flight.** Nothing a presenter did cancelled queued narration synthesis, so closing Present
+  in flight.** Nothing a presenter did canceled queued narration synthesis, so closing Present
   or walking to another slide left the device grinding through sentences for a slide the deck had
   left. On the cloud rung that is arguably right (the request is billed either way, and letting it
   finish and cache is what makes a slow link self-heal); on the on-device rung the cost is the

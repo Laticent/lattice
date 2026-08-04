@@ -46,7 +46,7 @@ export const progressTier = 'var(--accent)';
  * and is told apart from it by CONTINUITY rather than by tone. Played is solid; buffered is
  * striped. A pattern is not a color relationship, so no palette can flatten it.
  *
- * The gaps are `transparent` on HARD stops, not a blend toward the track colour: hard stops
+ * The gaps are `transparent` on HARD stops, not a blend toward the track color: hard stops
  * mean no interpolation into transparent (which fringes on premultiplied compositors), and
  * letting the track show through means the stripes sit correctly over BOTH the resting track
  * and the lifted current-slide track without knowing which is beneath them.

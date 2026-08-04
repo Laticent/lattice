@@ -8,6 +8,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
+import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
@@ -395,11 +396,22 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, []);
 	// How long to hold on arriving at the CURRENT slide. Read through a ref by the
 	// auto-advance effect so a pref change never re-fires that effect mid-transition.
+	// The deck's OWN declared rhythm. Memoized on the front-matter block rather than derived
+	// from the source, so an author typing in the editor does not re-create this on every
+	// keystroke and thrash the beat effect that reads it.
+	const deckPace = React.useMemo(() => frontMatterPace(frontMatter), [frontMatter]);
 	const beatForArrival = React.useCallback((): number => {
 		const md = set[clamped] ?? '';
 		const kind = isSectionBoundary(md) ? 'section' : 'slide';
-		return slideBeatMs(kind, pace.name, kind === 'section' ? pace.section : pace.slide);
-	}, [set, clamped, pace]);
+		// RESOLUTION ORDER (lib/core/resolve-pace.js states it once):
+		//   ms override → deck `pace:` → workspace preset → natural.
+		// The deck beats the workspace preset, which is the whole point: a deliberately slow,
+		// weighty deck must not play brisk because the recipient's browser happens to hold that.
+		// The presenter keeps a live escape hatch in the exact-millisecond override, which
+		// `slideBeatMs` applies ahead of any name and which never persists into the artifact.
+		const name = resolvePaceName(deckPace, pace.name) as PaceName;
+		return slideBeatMs(kind, name, kind === 'section' ? pace.section : pace.slide);
+	}, [set, clamped, pace, deckPace]);
 	const beatForArrivalRef = React.useRef(beatForArrival);
 	beatForArrivalRef.current = beatForArrival;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `narration` is the arrival signal (a fresh record per navigation, committed alongside the reader's rebuild); reader/pace are read via ref by design.
@@ -899,6 +911,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				role="dialog"
 				aria-modal="true"
 				aria-label="Present"
+				// The between-slide BEAT, as observable state. Present's transport deliberately
+				// reads `Pause` throughout a hold (making Pause unreachable for the length of every
+				// beat was a defect #1352 fixed), and the rail's fill still carries the previous
+				// slide's progress until the reader rebuilds — so there is no other honest signal
+				// for "the deck has arrived but is not speaking yet", and a test that guesses at one
+				// measures the wrong window. This is the same trick the Vetrina tour uses for its
+				// own oracles (`data-vt-phase`): publish the state rather than infer it.
+				data-beat={holding ? 'hold' : undefined}
 				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
 			>
 			<div className="pointer-events-auto flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">

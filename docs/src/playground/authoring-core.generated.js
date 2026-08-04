@@ -1067,6 +1067,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.eyebrowNames) findings.push(...findUnknownEyebrow(source, vocab.eyebrowNames));
       if (vocab.headlineNames) findings.push(...findUnknownHeadline(source, vocab.headlineNames));
       if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
+      if (vocab.paceNames) findings.push(...findUnknownPace(source, vocab.paceNames));
       findings.push(...findRetiredBackdrop(source));
       findings.push(...findSingleLetterLexiconKeys(source));
       findings.push(...findRetiredFormMinimal(source));
@@ -1335,6 +1336,25 @@ ${indent}   - ${body.trim()}`;
         line: fmMode[0].trim(),
         message: `'${value}' is not a known mode register \u2014 the deck would silently render the boardroom baseline`,
         fix: `Set front-matter \`mode:\` to one of: ${[...modeNames].join(", ")}.`
+      }];
+    }
+    var PACE_NAMES = ["brisk", "natural", "deliberate"];
+    function findUnknownPace(source, paceNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmPace = fmBlock[1].match(/^\s*pace:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmPace) return [];
+      const value = fmPace[1].trim();
+      const known = new Set([...paceNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-pace",
+        severity: "warning",
+        classToken: value,
+        line: fmPace[0].trim(),
+        message: `'${value}' is not a known pace register \u2014 the deck would fall back to whatever pace the VIEWER's browser holds`,
+        fix: `Set front-matter \`pace:\` to one of: ${[...paceNames].join(", ")}.`
       }];
     }
     function findUnknownColorMode(source, colorModeNames) {
@@ -1757,6 +1777,8 @@ ${indent}   - ${body.trim()}`;
       findRetiredAutosplitDirective,
       findUnsupportedPaginateValues,
       findUnknownFinish,
+      findUnknownPace,
+      PACE_NAMES,
       findUnknownMode,
       findUnknownColorMode,
       findDeprecatedClassColorMode,

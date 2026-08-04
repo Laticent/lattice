@@ -292,6 +292,28 @@ With exact millisecond overrides behind an "Advanced" disclosure for people who 
 presets first because "how many milliseconds should a slide pause be" is not a question a presenter
 should have to answer to get a good result.
 
+### 3.5 Where the pace LIVES — amended 2026-08-04 (#1399)
+
+Part 3 shipped the beat as a workspace preference, and §3.3's "control" framing is why: it asked
+where the presenter sets a pace, and never asked whose property it is. The Munger-inversion lens
+answered that during review — *"a deck that presents itself must carry its own rhythm; storing the
+author's directorial choice in the viewer's localStorage guarantees it is lost the moment the deck
+leaves the machine"* — and that is now built.
+
+`pace:` is a front-matter register (`lib/core/resolve-pace.js`), and the resolution order is:
+
+    millisecond override  →  deck `pace:`  →  workspace preset  →  natural
+
+The workspace preset did not go away; it changed rank. It is the default for a deck that declares
+nothing, which is every deck authored before this. The presenter's live escape hatch is the exact
+millisecond override, which `slideBeatMs` already applied ahead of any name and which lives in
+`localStorage` — so it is available mid-delivery and never travels with the artifact.
+
+One thing deliberately NOT changed: the export's `pace: 'moderate'` for caption timing
+(`share-export.ts`, `lattice-emulator.js`). That is Cadenza's `Pace` — how fast words are SPOKEN —
+not `PaceName`, the between-slide hold. Two axes, confusingly similar names; a test pins that they
+share no member, because conflating them is the obvious way to break this.
+
 ### 3.4 The workspace configuration surface
 
 You asked whether prefetch depth belongs in workspace configuration. Yes — and it should sit with
