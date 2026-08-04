@@ -63,6 +63,38 @@ describe('parseEdits', () => {
   });
 });
 
+// LINE ENDINGS AT THE MODEL BOUNDARY. A model reply is external input and models DO emit CRLF.
+// `applyEdit` splices an edit body VERBATIM into deck source, so an unnormalized reply produced a
+// MIXED-EOL deck that was then persisted to localStorage and shared out that way — against the
+// house rule that every export is LF. `parseEdits` is the funnel every edit body crosses, so it
+// normalizes there rather than per-edit inside `applyEdit`; these assert through the funnel, on
+// raw CRLF input, so they fail if the normalization moves or is removed.
+describe('parseEdits — line endings', () => {
+  test('a CRLF edit block yields an LF body, so the splice cannot produce a mixed-EOL deck', async () => {
+    const { parseEdits, applyEdit } = await load();
+    const reply = 'Here you go.\r\n\r\n```lattice-edit slide=1\r\n# One\r\n\r\nnew body\r\n```\r\n';
+    const { edits } = parseEdits(reply);
+    assert.equal(edits.length, 1);
+    assert.equal(edits[0].body, '# One\n\nnew body');
+    const out = applyEdit(DECK, edits[0]);
+    assert.equal(/\r/.test(out), false, 'the spliced deck must carry no carriage return');
+  });
+
+  test('the PROSE half is normalized too — it is rendered as chat', async () => {
+    const { parseEdits } = await load();
+    // (the prose is trimmed by `parseEdits` — the assertion here is the absence of `\r`)
+    const { text } = parseEdits('First line.\r\nSecond line.\r\n');
+    assert.equal(text, 'First line.\nSecond line.');
+  });
+
+  test('lone CR is covered, which a reader-style `\\r?\\n` could not be', async () => {
+    const { parseEdits } = await load();
+    const { edits } = parseEdits('```lattice-edit slide=1\r# One\r\rbody\r```');
+    assert.equal(edits.length, 1);
+    assert.equal(edits[0].body, '# One\n\nbody');
+  });
+});
+
 describe('applyEdit — replace', () => {
   test('replaces only the target slide, preserving the others byte-for-byte', async () => {
     const { applyEdit } = await load();

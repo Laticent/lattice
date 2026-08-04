@@ -387,28 +387,75 @@ in patch versions.
   enforced.** A Windows-authored deck declaring `theme: cuoio` exported **entirely in the default
   palette**, silently: `lib/core/resolve-palette.js` was the one front-matter reader of ~55 whose
   regex lacked `\r?`, and the emulator calls it on raw file text *outside* the engine, so nothing
-  downstream could rescue it (#1349). The fix is not "add `\r?` to reader 55" — 53 readers each
-  independently remembering it is the design that produced the bug. Source is now normalized to LF
-  at every boundary it crosses, and each one is named because "normalized at the boundary" is only
-  worth anything if the boundaries are enumerable: **git** — `.gitattributes` (`* text=auto eol=lf`,
-  so a Windows clone checks out LF and cannot commit CRLF back); **the engine's public door** —
-  `render()` in `lib/engine/index.js`, which is where callers hand it raw source; **the CLI read** —
-  `lattice-emulator.js`, which is the one that actually fixes #1349, because it calls
-  `resolvePalette` *outside* `render()`; **`resolve-palette.js` itself**, which normalizes its own
-  input rather than growing another `\r?`; and **the Studio's three ingests** — deck import
-  (`openImportedDeck`, both `.md` and `.lattice`), workspace-backup restore (`importStudioState`),
-  and a component skeleton from an asset zip (`unpackBundle`). Pasting into the editor needs no code:
-  a `textarea`'s API value is newline-normalized by the HTML spec. A reference doc is deliberately
-  *not* normalized — it is model grounding context, never spliced into deck source and never
-  exported. `\r\n?` covers Windows CRLF **and** classic-Mac lone CR in one pattern; a reader-style
-  `\r?\n` structurally cannot match a lone CR, since there is no `\n` to anchor on.
+  downstream could rescue it (#1349). The fix is not "add `\r?` to that one reader" — fifty-odd
+  readers each independently remembering it is the design that produced the bug, and it is why an
+  earlier repo-wide CRLF sweep missed this one: the sweep fixed readers, one at a time. Source is
+  now normalized to LF **at every boundary it crosses**, and each is named, because "normalized at
+  the boundary" is worth nothing unless the boundaries are enumerable:
+  - **git** — `.gitattributes` (`* text=auto eol=lf`), so a Windows clone checks out LF and cannot
+    commit CRLF back.
+  - **The engine's public door** — `render()` in `lib/engine/index.js`, where callers hand it raw
+    source. Only a *string* argument is touched, so a caller passing a Buffer or an object still
+    gets its old loud `TypeError` rather than a silent render of `[object Object]`.
+  - **The CLI read** — `lattice-emulator.js`, the one that actually fixes #1349, because it calls
+    `resolvePalette` *outside* `render()`. And **the deck linter's read** — `tools/lint-deck.js`,
+    which gave a Windows author *different advice for identical content* (a CRLF copy of
+    `examples/a11y.md` silently dropped a `verbose-eyebrow` finding; a lone-CR copy invented a
+    `title-incomplete` one).
+  - **`resolve-palette.js` itself**, which normalizes its own input rather than growing another
+    `\r?`.
+  - **Three Studio ingests** — deck import (`openImportedDeck`, both `.md` and `.lattice`),
+    workspace-backup restore (`importStudioState`), and a component skeleton from an asset zip
+    (`unpackBundle`). These call one named `normalizeSourceText`
+    (`docs/src/lib/normalize-source-text.ts`) rather than repeating an inline `.replace`.
+  - **Two model boundaries** — `parseEdits` (`architect-edits.js`) and `coerceComponent`
+    (`lib/layout/ai.js`). A model reply is external input and models do emit CRLF; both an edit
+    body and a generated component skeleton are spliced verbatim into deck source, so an
+    unnormalized reply produced a **mixed-EOL** deck that was persisted and shared out that way.
+
+  **The list is a GATE, not a comment** — `checkLineEndingBoundaries` +
+  `SANCTIONED_EOL_BOUNDARIES` in `tools/check-ownership.js`, via `build:check`. It fails on a
+  listed site that stopped normalizing, on a stale entry, and on `\r?\n` used where a boundary
+  needs `\r\n?`. This is the point of the whole change and it is why the gate exists rather than
+  a paragraph: centralizing converts fifty-odd redundant partial guarantees into ONE guarantee
+  plus a list that must stay true, so the list *is* the design. Kept in prose it rotted twice
+  inside this change alone — `.gitattributes` first named "two other boundaries" when there were
+  six, and its replacement claimed to be "the ONE function in `docs/src`" while
+  `compose/deck-source.ts` had been doing the same job since #1170 (now delegating, HARD RULE #15).
+  The gate also caught the one boundary a reviewer could previously delete with the whole suite
+  still green: `lattice-emulator.js`.
+
+  **A UTF-8 BOM is fixed too, and it was worse than the bug this started from.** Notepad,
+  PowerShell `>` / `Out-File` and Visual Studio emit one alongside CRLF, and it defeats the same
+  `^---` anchor. Measured through the real CLI: a BOM'd deck declaring `theme: cuoio` exported in
+  **`indaco`**, lost its `size:`, and rendered its own front matter as a visible extra slide
+  (13 slides → 14). It also diverged **by path** — `Blob.text()` strips a BOM during the UTF-8
+  decode while `fs.readFileSync(p, 'utf8')` does not — so the same file was right in the Studio
+  and wrong through the CLI (HARD RULE #1). Every whole-document ingest now strips it.
+
+  Deliberate non-boundaries, named so nobody has to re-derive them: **pasting** needs no code —
+  CodeMirror 6 (the shipping editor) normalizes CRLF *and* lone CR on document creation and on
+  every transaction, verified against the real editor rather than inferred; and a **reference doc**
+  is left alone, because it is model grounding context, never spliced into deck source and never
+  exported. `saveSource` also stays byte-faithful: it is an editor write, not an ingest.
+
+  `\r\n?` covers Windows CRLF **and** classic-Mac lone CR in one pattern; a reader-style `\r?\n`
+  structurally cannot match a lone CR, since there is no `\n` to anchor on. That matters more than
+  it sounds: a lone-CR deck did not merely render in the wrong palette, it mis-split into slides
+  (8 pages against 7).
+
   Guarded by `test/unit/core/line-endings.test.js`, which asserts the *property* — the same deck as
-  LF, CRLF, CR and mixed renders byte-identical — rather than testing readers one at a time, which
-  is how the original CRLF sweep missed this one. That guard hands its fixtures to shipped code
-  **raw**; an earlier cut normalized them in the test file first and passed with every boundary
-  reverted. Normalization is a no-op on LF, so no already-correct deck changes its exported bytes:
-  measured across all 118 committed example decks, CRLF already rendered identically to LF (0 of 118
-  differed) while a lone CR did not (117 of 118 differed), so this closes a real gap.
+  LF, CRLF, CR and mixed renders byte-identical — rather than testing readers one at a time. **That
+  guard hands its fixtures to shipped code raw**; an earlier cut normalized them inside the test
+  file and passed with every boundary reverted. Each new boundary carries its own guard, and every
+  one was checked by reverting the boundary and watching the guard go red.
+
+  Normalization is a no-op on already-canonical source, so no correct deck changes its exported
+  bytes — measured, not asserted: **252** committed decks (`examples/`, `exemplars/`, every
+  `*.gallery.md`, the baseline decks) rendered on the base commit and on this one, HTML+CSS hashed,
+  **0 differ**. The gap being closed is real rather than theoretical: CRLF already rendered
+  identically to LF, but a lone CR did not (it mis-*split* the deck, 8 pages against 7), and a BOM
+  did not (wrong palette, lost `size:`, and an extra slide).
 
 >>>>>>> ebc88a0 (core(line-endings): normalize at every boundary, so no reader has to remember)
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No

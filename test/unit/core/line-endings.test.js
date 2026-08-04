@@ -5,12 +5,12 @@
 // Windows 10 1809), so nothing is lost by it.
 //
 // WHY THIS FILE EXISTS RATHER THAN A PER-READER TEST. `lib/` has ~55 front-matter readers.
-// 53 carried `\r?\n`; one (`resolve-palette.js`) did not, and a Windows-authored deck
+// All but one carried `\r?\n`; `resolve-palette.js` did not, and a Windows-authored deck
 // declaring `theme: cuoio` therefore exported ENTIRELY IN THE DEFAULT PALETTE, silently
 // (#1349). That bug survived an earlier repo-wide CRLF sweep precisely because the sweep
 // fixed readers one at a time — a per-reader test only guards the reader you were thinking
-// about. Fifty-three readers each independently remembering `\r?` is a design that
-// guarantees a fifty-fourth forgets.
+// about. Fifty-odd readers each independently remembering `\r?` is a design that
+// guarantees the next one forgets.
 //
 // So this asserts the PROPERTY, not the readers: the same deck, written with any of the three
 // line-ending conventions, renders byte-identical output.
@@ -21,6 +21,8 @@
 // shipped boundary reverted. A guard that normalizes its own input is testing its own regex.
 // If you add a case, hand the raw string to shipped code. Never pre-clean a fixture.
 
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../../../lib/engine/index.js');
@@ -57,6 +59,17 @@ const AS = {
 	CR: DECK_LF.replace(/\n/g, '\r'),
 	/** The nastiest real case: content pasted from Windows into an LF file. */
 	mixed: DECK_LF.split('\n').map((l, i) => (i % 3 === 0 ? `${l}\r\n` : `${l}\n`)).join('').replace(/\n$/, ''),
+	/**
+	 * A UTF-8 BOM — the OTHER thing a Windows editor emits, and STRICTLY WORSE than CRLF. Notepad,
+	 * PowerShell `>` / `Out-File` and Visual Studio all write one, and it defeats the same `^---`
+	 * anchor: measured through the real CLI, a BOM'd deck declaring `theme: cuoio` exported in
+	 * `indaco`, lost its `size:`, and rendered its own front matter as an extra visible slide
+	 * (13 slides → 14). It also diverged by PATH — `Blob.text()` strips a BOM during the UTF-8
+	 * decode, `fs.readFileSync(p, 'utf8')` does not — so the same file was right in the Studio and
+	 * wrong through the CLI. Both spellings are the same failure, so both live in one fixture set.
+	 */
+	BOM: `﻿${DECK_LF}`,
+	'BOM+CRLF': `﻿${DECK_LF.replace(/\n/g, '\r\n')}`,
 };
 
 test('every line-ending convention resolves the same declared palette', () => {
@@ -79,13 +92,43 @@ test('every line-ending convention renders byte-identical HTML and CSS', () => {
 	}
 });
 
-test('an LF deck is untouched, so no already-correct artifact changes a byte', () => {
-	// The safety half of the claim, asserted against SHIPPED code rather than a helper: an LF
-	// deck must render exactly as it did before any of this landed. Only files that were
-	// rendering wrong change.
+test('the normalization is a no-op on LF, so no already-correct artifact changes a byte', () => {
+	// THE SAFETY HALF — and note what this test can and cannot establish. "An LF deck renders
+	// exactly as it did BEFORE this landed" is a base-vs-HEAD claim, and no single-build test can
+	// make it: comparing `render(x)` to `render(x)` inside one build is a tautology, which is what
+	// an earlier cut of this test did. So this asserts the property that IS local — the
+	// normalization leaves LF text byte-identical, therefore nothing downstream can observe it —
+	// and the base-vs-HEAD claim is carried by a measurement recorded in the CHANGELOG: 252
+	// committed decks rendered on base and on HEAD, html+css hashed, 0 differ.
+	const norm = (s) => s.replace(/\r\n?/g, '\n');
+	assert.equal(norm(DECK_LF), DECK_LF, 'the pattern must not touch text that is already LF');
+	// And the same, one level up, through shipped code: an LF deck resolves and renders.
 	const eng = engine.createEngine();
-	assert.equal(eng.render(DECK_LF, 'lattice').html, eng.render(DECK_LF, 'lattice').html);
 	assert.equal(resolvePalette({ md: DECK_LF }).name, 'cuoio');
+	assert.ok(eng.render(DECK_LF, 'lattice').html.includes('First'));
+});
+
+test('the engine\'s two public doors agree — geometry() resolves the same box render() uses', () => {
+	// BOTH DOORS, OR NEITHER. Normalizing only `render()` made `geometry()` diverge on a lone-CR
+	// deck: geometry reported 1280x720 for a box render laid out at 960x720. `geometry()` exists
+	// so a host can fit-scale WITHOUT a full render, so a disagreement between them is the
+	// "4K previews rendered 3x oversized + exported a cropped page" bug by another route.
+	//
+	// THE THEME CSS MUST BE LOADED for this to test anything. A bare `createEngine()` has no
+	// registered theme, so `geometryFor` returns the 1280x720 default for EVERY input and all
+	// three conventions "agree" vacuously — a first cut of this test did exactly that and passed
+	// with the fix reverted. Measured with the real stylesheet: without the boundary, `size: 4K`
+	// resolves 3840x2160 as LF and 1280x720 as lone CR.
+	const eng = engine.createEngine();
+	eng.addThemes([fs.readFileSync(path.join(__dirname, '../../../dist/lattice.css'), 'utf8')]);
+	for (const size of ['standard', '4K']) {
+		const SIZED = ['---', `size: ${size}`, '---', '', '# Sized', ''].join('\n');
+		const base = eng.geometry(SIZED, 'lattice');
+		assert.notDeepEqual(base, { width: 1280, height: 720 }, `size: ${size} must resolve to a NON-default box, or this test asserts nothing`);
+		for (const [name, src] of Object.entries({ CRLF: SIZED.replace(/\n/g, '\r\n'), CR: SIZED.replace(/\n/g, '\r') })) {
+			assert.deepEqual(eng.geometry(src, 'lattice'), base, `${name} @ size: ${size} — geometry() must resolve the same slide box as the LF deck`);
+		}
+	}
 });
 
 test('lone CR is covered, which a reader-side `\\r?\\n` cannot be', () => {

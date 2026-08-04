@@ -552,7 +552,7 @@ if (PAPER_FIT && (OUT_FORMAT !== 'pdf' || RASTER_PDF)) {
  */
 function readFileOrDie(p, label) {
   try {
-    return fs.readFileSync(p, 'utf8').replace(/\r\n?/g, '\n');
+    return fs.readFileSync(p, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
   } catch (e) {
     if (e.code === 'ENOENT') console.error(`error: ${label} not found: ${p}`);
     else if (e.code === 'EACCES') console.error(`error: ${label} not readable (permission denied): ${p}`);

@@ -397,6 +397,22 @@ describe('every deck-scope directive writes losslessly (#1256)', () => {
 		expect(out.indexOf('theme: indaco')).toBeLessThan(out.indexOf('tags: [alpha, beta]'));
 	});
 
+	// A NEWLINE IN A VALUE MUST NEVER REACH THE BLOCK — it would end the line and turn the rest of
+	// the value into deck-scope directives applying to every slide. Found by a red-team pass on the
+	// LF policy: a literal CR inside a value used to be inert (nothing matched the CR line), and
+	// normalizing at the ingest promoted it to a real break, materializing three directives out of
+	// one `header:` value. The writer defect is older than the policy; the policy is what made it
+	// fire, so it is fixed here rather than filed (HARD RULE #18).
+	it('a newline inside a value cannot spawn directives — it is flattened before quoting', () => {
+		for (const nl of ['\r', '\n', '\r\n']) {
+			const out = writeFrontMatterLine(BODY, 'header', `hi${nl}paginate: true${nl}footer: PWNED`);
+			expect(getFrontMatter(out, 'paginate')).toBeUndefined();
+			expect(getFrontMatter(out, 'footer')).toBeUndefined();
+			expect(getFrontMatter(out, 'header')).toBe('hi paginate: true footer: PWNED');
+			expect(frontMatterBlock(out).split('\n').filter((l) => l.trim()).length).toBe(3); // ---, header, ---
+		}
+	});
+
 	// PRESERVING CRLF HERE DOES NOT CONTRADICT THE LF-EVERYWHERE POLICY, and the two are worth
 	// reconciling explicitly because they look opposed. The policy normalizes at INGEST — git,
 	// `engine.render()`, the CLI read, the Studio's three import paths — so source reaching this

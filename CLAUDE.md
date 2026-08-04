@@ -453,6 +453,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Running the render pipeline (PDF/HTML/PPTX) | `engineering/pipeline.md` |
 | Authoring/rendering Mermaid diagrams | `engineering/mermaid.md` |
 | Adding a `tint-*` / `mark-*` treatment | `engineering/treatments.md` |
+| Adding an INGEST for markdown (a file read, an import, a model reply, a zip) — line endings + BOM | `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md` + `SANCTIONED_EOL_BOUNDARIES` |
 | Categorical **texture** (a11y/onyx/concrete/print patterns, the `--cat-N-texture` channel) | `engineering/textures.md` |
 | Palette tokens, Mermaid contract | `design/theming.md` |
 | Core visual design principles (hierarchy, restraint) | `design/design-principles.md` |

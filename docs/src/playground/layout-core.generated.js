@@ -1789,7 +1789,7 @@ Return the full updated component JSON \u2014 same shape, only this change.` }
         density: coerceDensity(obj.density)
       };
       const fixes = [];
-      const { skeleton, fixed: nestFixed } = fixCardNesting(asStr(obj.skeleton, obj.markdown, obj.sample).trim());
+      const { skeleton, fixed: nestFixed } = fixCardNesting(asStr(obj.skeleton, obj.markdown, obj.sample).replace(/^﻿/, "").replace(/\r\n?/g, "\n").trim());
       if (nestFixed) fixes.push("card-nesting");
       const { css, fixed: scopeFixed } = addScopePrefix2(asStr(obj.css, obj.styles).trim(), name);
       if (scopeFixed) fixes.push("scope-prefix");

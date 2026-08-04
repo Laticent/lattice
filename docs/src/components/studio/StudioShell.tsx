@@ -25,6 +25,7 @@ import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable
 import { messageForFailure } from '@/lib/chunk-load';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
+import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
@@ -1358,12 +1359,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// every export) assumes LF. `\r\n?` covers Windows CRLF and classic-Mac lone CR, and is
 		// a no-op on text that is already LF.
 		//
-		// It is ONE of three Studio ingest boundaries, not the only one — markdown also enters
-		// via a workspace backup (`importStudioState`, studio-store.ts) and via a component
-		// skeleton in an asset zip (`unpackBundle`, asset-bundle.ts). Each normalizes at its own
-		// ingest. A reference doc (`reference-doc.ts`) deliberately does NOT: it is model
-		// grounding context, never spliced into deck source and never exported.
-		const text = rawText.replace(/\r\n?/g, '\n');
+		// It is ONE of the Studio's ingest boundaries, not the only one. `SANCTIONED_EOL_BOUNDARIES` in `tools/check-ownership.js` is the
+		// authoritative list — that is why the normalization is a NAMED function rather than an
+		// inline `.replace` at each door. A reference doc (`reference-doc.ts`) deliberately does
+		// NOT normalize: it is model grounding context, never spliced into deck source and never
+		// exported.
+		const text = normalizeSourceText(rawText);
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
 		saveSourceGuarded(deck.id, source);
 		const d = createDeck(title || titleFromSource(text), text);

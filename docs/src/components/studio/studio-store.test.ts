@@ -609,6 +609,55 @@ describe('studio-store — workspace backup carries both instruction fields', ()
 	});
 });
 
+// LINE ENDINGS AT THE BACKUP-RESTORE INGEST. These exist because the first cut of this boundary
+// shipped a regression that nothing caught: it normalized the INCOMING source but compared it to
+// a raw `loadSource()`, so the identity test was asymmetric. That did not fix the fork — it MOVED
+// it, from local-LF-vs-backup-CRLF onto local-CRLF-vs-backup-CRLF. The whole docs suite stayed
+// green through both the bug and the fix, which is exactly why these assert on the SUMMARY
+// (added / restoredCopies / skipped) rather than on the stored string: the user-visible symptom
+// is a duplicate "(restored)" deck appearing for content they already have.
+describe('studio-store — a workspace backup normalizes line endings at ingest', () => {
+	const LF = '<!-- _class: title -->\n\n# Ledger\n\nBody copy.\n';
+	const CRLF = LF.replace(/\n/g, '\r\n');
+	/** A backup carrying one deck id with the given source. */
+	const backupOf = (id: string, src: string) => {
+		const snap = exportStudioState();
+		return { ...snap, index: [{ id, title: 'Ledger', builtin: false }], sources: { [id]: src } };
+	};
+
+	it('stores an imported CRLF source as LF — no `\\r` reaches the editor or an export', () => {
+		const id = 'deck-eol-a';
+		importStudioState(backupOf(id, CRLF), 1000);
+		const stored = loadSource(id) ?? '';
+		expect(stored).toBe(LF);
+		expect(/\r/.test(stored)).toBe(false);
+	});
+
+	it('a CRLF backup of a deck we hold as LF is the SAME deck — skipped, not forked', () => {
+		const id = DECKS[0].id;
+		saveSource(id, LF);
+		const summary = importStudioState(backupOf(id, CRLF), 1000);
+		expect(summary).toMatchObject({ restoredCopies: 0, skipped: 1 });
+	});
+
+	it('a CRLF backup of a deck we hold as CRLF is also the same deck — the asymmetric-compare regression', () => {
+		// The case the first fix BROKE. A source persisted before these boundaries landed is
+		// still CRLF in localStorage, because no ingest re-crosses persisted source. Normalizing
+		// only the incoming side made this identical pair look diverged.
+		const id = DECKS[0].id;
+		saveSource(id, CRLF);
+		const summary = importStudioState(backupOf(id, CRLF), 1000);
+		expect(summary).toMatchObject({ restoredCopies: 0, skipped: 1 });
+	});
+
+	it('genuinely different content still forks — the guard does not just always skip', () => {
+		const id = DECKS[0].id;
+		saveSource(id, LF);
+		const summary = importStudioState(backupOf(id, '# Actually different\n'), 1000);
+		expect(summary).toMatchObject({ restoredCopies: 1, skipped: 0 });
+	});
+});
+
 describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', () => {
 	it('deckContentStats counts the deck index and grows with edited content', () => {
 		const before = deckContentStats();

@@ -11,6 +11,7 @@
 //   lattice-assets.zip            manifest.json · themes/<slug>/… · components/<slug>/… · README.md
 
 import { parseScene, type Scene } from '@/lib/anima';
+import { normalizeSourceText } from '@/lib/normalize-source-text';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
@@ -328,7 +329,7 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 			// (`addSlideAfter` in StudioShell), and the zip is external input — so it normalizes
 			// here, at the unpack, for the same reason an imported `.md` does. CSS is left alone:
 			// it is never spliced into markdown and the browser is indifferent to its endings.
-			const skeleton = (await zip.file(item.skeleton)?.async('string'))?.replace(/\r\n?/g, '\n');
+			const skeleton = normalizeSourceText(await zip.file(item.skeleton)?.async('string'));
 			if (css && skeleton != null) out.components.push({ name: item.name, bucket: item.bucket ?? null, css, skeleton });
 		} else if (item.kind === 'finish') {
 			const css = await zip.file(item.css)?.async('string');

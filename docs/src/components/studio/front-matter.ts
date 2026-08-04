@@ -101,9 +101,19 @@ function unquote(v: string): string {
 	return t;
 }
 function quoteIfNeeded(v: string): string {
+	// A NEWLINE IN A VALUE IS A NEW DIRECTIVE, so it can never be written into the block. Front
+	// matter is the one region the engine parses LINE BY LINE itself, before markdown-it, so a
+	// `\n` inside a quoted value does not stay inside it — it ends the line, and everything after
+	// becomes a deck-scope directive applying to every slide. A literal CR was previously inert
+	// here (nothing matched the CR line) and LF normalization at the ingest promotes it to a real
+	// break, which turns a dormant writer defect into a live one: one value spliced three
+	// directives (`paginate`, `footer`, and a truncated `header`) into a deck. Collapse any run of
+	// CR/LF to a single space before quoting — a value is a one-line thing by construction, so
+	// there is nothing to preserve.
+	const flat = v.replace(/[\r\n]+/g, ' ');
 	// Escape backslash FIRST, then quote — else a `\` before a `"` would corrupt the quoting
 	// (mirrors `setFrontMatterBlock`'s key `esc`; the matching decode lives in `unquote`).
-	return /^[\w:.\-/]+$/.test(v) ? v : `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+	return /^[\w:.\-/]+$/.test(flat) ? flat : `"${flat.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
 /** Read a single flat directive's value, or undefined if absent. */

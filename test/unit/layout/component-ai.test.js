@@ -58,6 +58,24 @@ describe('component-ai — coerce', () => {
     skeleton: '<!-- _class: verdict-grid -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.',
   };
 
+  // LINE ENDINGS AT THE MODEL BOUNDARY. The skeleton is markdown that `addSlideAfter` splices
+  // verbatim into deck source, and models DO emit CRLF — so a generated component otherwise
+  // produced a mixed-EOL deck that was persisted and shared out that way. `coerceComponent` is
+  // the funnel (`coerceRefinement` delegates to it), so it normalizes here rather than at each
+  // caller. CSS is deliberately untouched: it is never spliced into markdown.
+  test('normalizes a CRLF skeleton — CSS is deliberately left alone', () => {
+    const cssCRLF = 'section.verdict-grid > .cell-stage {\r\n  display:flex;\r\n}';
+    const r = coerceComponent({ ...GOOD, skeleton: '<!-- _class: verdict-grid -->\r\n\r\n## Verdicts\r\n\r\n- Ship it\r\n  - All gates green.', css: cssCRLF });
+    assert.equal(r.skeleton, '<!-- _class: verdict-grid -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.');
+    assert.equal(/\r/.test(r.skeleton), false, 'no carriage return may reach deck source');
+    assert.equal(r.css, cssCRLF, 'CSS endings are not the engine’s business — pinned so the asymmetry is deliberate');
+  });
+
+  test('a lone-CR skeleton is covered too, which a reader-style `\\r?\\n` could not be', () => {
+    const r = coerceComponent({ ...GOOD, skeleton: '<!-- _class: verdict-grid -->\r\r## Verdicts\r\r- Ship it\r  - All gates green.' });
+    assert.equal(r.skeleton, '<!-- _class: verdict-grid -->\n\n## Verdicts\n\n- Ship it\n  - All gates green.');
+  });
+
   test('shapes a clean reply: slugged name, enum-snapped axes, adapt/capacity, ok', () => {
     const r = coerceComponent({ ...GOOD, adapt: { mode: 'native' }, capacity: { sweet: 4, soft: 6, hard: 8 } });
     assert.equal(r.ok, true);

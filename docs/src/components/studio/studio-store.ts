@@ -1,3 +1,4 @@
+import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
@@ -822,11 +823,8 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// LINE ENDINGS: a backup is EXTERNAL INPUT — a `.json` that traveled through another
 		// machine, possibly a Windows editor — so it crosses the same boundary an imported `.md`
 		// does and normalizes here, at the ingest, rather than in `saveSource` (whose byte-faithful
-		// contract for editor writes must stay untouched). Normalizing BEFORE the `=== currentSrc`
-		// comparison also matters: a CRLF backup of a deck we already hold as LF is the SAME deck,
-		// and comparing raw bytes would fork it into a spurious "(restored)" copy.
-		const raw = data.sources[entry.id];
-		const incomingSrc = typeof raw === 'string' ? raw.replace(/\r\n?/g, '\n') : raw;
+		// contract for editor writes must stay untouched).
+		const incomingSrc = normalizeSourceText(data.sources[entry.id]);
 		const existing = have.get(entry.id);
 		if (!existing) {
 			index.push(entry);
@@ -837,7 +835,15 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			continue;
 		}
 		const currentSrc = loadSource(entry.id);
-		if (incomingSrc == null || incomingSrc === currentSrc) {
+		// COMPARE LIKE WITH LIKE, OR THIS FORKS THE DECK. `incomingSrc` is normalized above and
+		// `currentSrc` is whatever is in localStorage — which for a deck stored before these
+		// boundaries landed is CRLF, since no ingest re-crosses persisted source. A raw `===` is
+		// therefore ASYMMETRIC, and it does not merely fail to fix the old fork: it MOVES it.
+		// A first cut normalized only the incoming side, which fixed local-LF-vs-backup-CRLF and
+		// newly BROKE local-CRLF-vs-backup-CRLF — identical content, restored as a duplicate
+		// "(restored)" deck. Normalize both sides for the identity test; the STORED bytes are
+		// still whatever each side already had, so nothing is rewritten under the user.
+		if (incomingSrc == null || incomingSrc === normalizeSourceText(currentSrc)) {
 			// Same deck — take the backup's history wherever ours is missing.
 			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
@@ -855,8 +861,9 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			summary.added++;
 			continue;
 		}
-		// Truly diverged (both sides carry edits) — restore beside, never over. The source
-		// is stored BYTE-FAITHFUL: restore fidelity is the whole point of this path, and
+		// Truly diverged (both sides carry edits) — restore beside, never over. The source is
+		// stored as it arrived apart from the LF normalization at ingest above: restore fidelity
+		// is the whole point of this path, and
 		// the `(restored)` marker is a display tag on the index row instead (see
 		// IndexEntry.restored). Writing the marker into the copy's heading — which this
 		// briefly did — corrupted the very content the user asked us to restore: it

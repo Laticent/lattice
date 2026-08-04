@@ -134,7 +134,13 @@ export const EDIT_PROTOCOL =
 const EDIT_RE = /(`{3,})lattice-edit([^\n]*)\n([\s\S]*?)\n?\1/g;
 
 export function parseEdits(reply) {
-  const src = String(reply || '');
+  // LINE ENDINGS: a model reply is EXTERNAL INPUT, and this is the funnel every edit body
+  // crosses — so it normalizes here rather than per-edit in `applyEdit`. `applyEdit` splits on
+  // '\n' and splices `body` VERBATIM into deck source, so a model that emits CRLF (they do)
+  // produced a MIXED-EOL deck that was then persisted and shared out that way, against the
+  // LF-out-of-every-export claim. Normalizing the whole reply also covers the prose half, which
+  // is rendered as chat. `\r\n?` covers CRLF and classic-Mac lone CR; it is a no-op on LF.
+  const src = String(reply || '').replace(/^﻿/, '').replace(/\r\n?/g, '\n'); // LF boundary — see SANCTIONED_EOL_BOUNDARIES
   const edits = [];
   let text = '';
   let last = 0;
