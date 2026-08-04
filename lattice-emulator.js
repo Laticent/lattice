@@ -781,10 +781,15 @@ function parsePaletteVars(paletteCSSContent, forceDark) {
 // chased every var() chain to a literal for the scheme being baked.
 //
 // The MISS POLICY is this path's too, and it is not cosmetic: a build-log
-// warning is how a palette gap becomes visible at all here, and the black
-// sentinel keeps a missing color from reading as a deliberate one. It never
-// reaches the diagram — `prune()` in the directive kernel drops the key, so
-// Mermaid's own default stands.
+// warning is how a palette gap becomes visible at all here.
+//
+// The sentinel DOES ship. `prune()` in the directive kernel drops only EMPTY
+// strings, and '#000000' is not one — so a palette missing a `--cat-*` token
+// paints that element literally black in the export rather than falling back to
+// a Mermaid default. The warning above is the only signal. That is unchanged
+// behavior, and `mermaid-var-map.test.js` gates every token the map reads
+// against every self-declaring palette, so a gap should never reach a render;
+// the sentinel is the backstop, not a safety net.
 function readPaletteToken(paletteVars, name) {
   const val = paletteVars[name];
   if (!val) {

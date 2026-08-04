@@ -17,8 +17,9 @@
  *      preview set 15. One constant now, asserted at both call sites.
  *
  * And one anti-assertion: `subGraphTitleMargin` must appear on NEITHER path. It
- * is the only config that reaches the cluster's internal space and it is not
- * usable — any non-zero value renders the subgraph title clipped in half.
+ * is the only config that reaches the cluster's internal space and it breaks
+ * NESTED subgraphs — Mermaid grows the outer box but does not push the child
+ * cluster down with it, so the inner rect paints over the outer title.
  */
 
 const { test, describe } = require('node:test');
@@ -131,10 +132,11 @@ describe('node padding — one constant, both render paths', () => {
 
 describe('subGraphTitleMargin is set on NEITHER path', () => {
   // It is the only Mermaid config that reaches the cluster's internal space, and
-  // it is a trap: any non-zero value shifts the subgraph title out of the box
-  // Mermaid has already sized, so it renders clipped through the middle, and the
-  // `bottom` term adds that many user units of dead space inside the box.
-  // Rendered at top/bottom 5/10, 6/12 and 10/100 — all three clip.
+  // it is a trap for NESTED subgraphs: Mermaid grows the outer box but does not
+  // push the child cluster down with it, so the inner rect paints over the outer
+  // title. Measured at 10/100 — outer rect y=-47, outer label at y=-37, inner
+  // rect at y=-27, i.e. through the middle of the label. `bottom` also adds that
+  // many user units of dead space inside the box.
   test('not in the engine init config', () => {
     const cfg = engineInitConfig({ primaryColor: '#fff' });
     assert.equal(cfg.flowchart.subGraphTitleMargin, undefined);

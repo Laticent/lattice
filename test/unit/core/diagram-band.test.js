@@ -82,8 +82,29 @@ describe('resolveDiagramBand', () => {
       }
     });
 
-    test('a raw `color-scheme: dark` in front matter is the last-resort dark signal', () => {
-      assert.equal(resolveDiagramBand({ frontMatter: fmOf('style: "section { color-scheme: dark }"') }), 'dark');
+    test('the deck half reads EXACTLY what the propagation kernel reads — no looser', () => {
+      // Three decks where a looser read disagreed with the class the section
+      // actually gets. Each rendered a LIGHT section carrying a DARK-baked
+      // diagram — ink and chip apart, the #1326 failure mode. They were latent
+      // while the deck half was only consulted for a slide naming no `_class:`;
+      // #1340's fix routes every slide through it, so they had to close here.
+      const cases = [
+        // An unanchored `color-mode:` read takes `dark` off a line the anchored
+        // one in deckClassPropagate rejects outright.
+        ['color-mode: dark # deck-wide pin', 'light'],
+        // `\bdark\b` matches inside a hyphenated token that is not `dark`.
+        ['class: dark-mode', 'light'],
+        // A raw `color-scheme` sniff fires on CSS scoped to one component.
+        ['style: "section.title { color-scheme: dark }"', 'light'],
+        // …while the supported spellings still resolve.
+        ['color-mode: dark', 'dark'],
+        ['class: lifted dark', 'dark'],
+      ];
+      for (const [line, expected] of cases) {
+        assert.equal(resolveDiagramBand({ frontMatter: fmOf(line), slideClass: 'diagram' }), expected, line);
+        // …and the answer must not depend on whether the slide named a class.
+        assert.equal(resolveDiagramBand({ frontMatter: fmOf(line) }), expected, `${line} (no _class:)`);
+      }
     });
 
     test('no front matter at all → light', () => {

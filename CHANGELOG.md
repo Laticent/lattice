@@ -27,6 +27,23 @@ in patch versions.
 
 ### Fixed
 
+- **Diagram ink is now chosen by what it sits ON, so it stops disappearing on the accessibility
+  palettes in dark.** The Mermaid theme map fed every text key from one token, `--cat-on-fill`, on
+  the reasoning that the fills flip with the canvas so ink and fill always stay matched. That holds
+  for 27 of the 32 shipped palettes and fails hard on the other five: the `a11y-*` family PINS its
+  categorical tier mode-invariant — fixed pale chips carrying the CVD-safe textures — while the
+  canvas still flips. In a dark context that makes `--cat-on-fill` `#000000` (correct, on those pale
+  chips) and `--bg` `#000000` too, so anything drawn on the canvas rather than on a chip landed at
+  1.00:1. Text sited on the canvas — titles, legends, axis labels, gantt margin text — now comes from
+  `--text-heading`, which tracks the canvas; text sited on a chip keeps `--cat-on-fill`. Flowchart
+  EDGE labels needed CSS rather than a token, because Mermaid paints node and edge labels from one
+  rule and they sit on opposite surfaces: `mermaid.css` re-pairs the edge label's ink with the
+  canvas. On the other 27 palettes the two tokens resolve to the same colour, so nothing moves.
+  `test/unit/palette/diagram-ink-contrast.test.js` now holds every ink key to AA against the surface
+  it is actually drawn on, per palette and per scheme — the gate that would have caught this, and
+  that also records two pre-existing failures (gitgraph branch labels, the parse-error box) as
+  named, non-growing sanctions rather than silence.
+
 - **Live preview and exported PDF disagreed about 38 Mermaid theme values, and nothing compared
   them.** Each render path owned a private copy of the token → `themeVariables` map, kept in sync by
   a comment that pointed at the other file. A gate had been watching the two KEY sets since #511, so
@@ -39,8 +56,11 @@ in patch versions.
   `--diagram-stroke` fill instead of the neutral, bordered label chip the export draws. There is one
   map now (`lib/core/mermaid-theme-map.js`), so a value can no longer differ by accident: the paths
   supply only a token READER, and `fontFamily` is the single enumerated exception. The exported PDF
-  is byte-identical — verified page-by-page across indaco, onyx, concrete and a11y-deuteranopia, in
-  both plain and print. Part of #1332.
+  renders identically — every page of examples/containment-tier.md rasterized at 100 dpi and
+  md5-compared across indaco, onyx, concrete and a11y-deuteranopia, plain and print, 64 of 64
+  matching. (PDF *bytes* are not reproducible between runs at all; the pixels are what can be
+  compared, and structurally the export's values could not change — the shared map is deep-equal to
+  the copy the export already had.) Part of #1332.
 
 - **A deck set to dark never reached its Mermaid diagrams on any slide that named its own
   `_class:` — so nearly every diagram in every dark deck.** `color-mode: dark` (and the legacy
@@ -154,17 +174,21 @@ in patch versions.
   that one rule reaches the export and the live preview alike. The radius (`--diagram-cluster-radius`,
   7) is in SVG user space rather than on the `cqi` scale — geometry properties are always read in the
   diagram's own coordinates — and 7 is `--radius-md` rendered at the fitted scale diagrams actually
-  get. Node label padding moves to one shared constant at 10, `--sp-sm` rendered: the export took
-  Mermaid's built-in 8 and the preview set 15, so the same deck's nodes were two different sizes
-  depending on where you looked. `.section-N` clusters — kanban columns, timeline periods, mindmap
-  levels — are painted from the categorical band rather than the containment tier and are left
-  exactly as they render today, at Mermaid's own `rx=5`.
-- **The live preview stopped clipping subgraph titles in half.** It set
-  `flowchart.subGraphTitleMargin: { top: 10, bottom: 100 }`; any non-zero value there shifts the
-  title out of the box Mermaid has already sized, so it renders cut through the middle, and the
-  `bottom` term added 100 user units of dead space inside the box. Dropped rather than re-tuned —
-  it is the only Mermaid config that reaches the cluster's internal space, and it is not usable.
-  The export never set it, so this also puts the two paths back in step.
+  get. Node label padding is now one shared constant instead of a default on one path and a literal
+  on the other — the value is 15, which is what both already rendered at, so no node moves. (A first
+  pass set 10 on the belief that the export took Mermaid's "built-in 8"; Mermaid's schema default for
+  `flowchart.padding` is 15, and `diagramPadding` is the key that defaults to 8. The two paths had
+  never diverged here.) `.section-N` clusters — kanban columns, and any diagram whose cluster carries
+  a categorical band class — are painted from that band rather than the containment tier and are left
+  exactly as they render today, at Mermaid's own `rx=5`. A `classDiagram` `namespace` emits a plain
+  `cluster` and so is rounded too.
+- **The live preview stopped painting over its own subgraph titles.** It set
+  `flowchart.subGraphTitleMargin: { top: 10, bottom: 100 }`. Mermaid grows the outer cluster's box
+  to make room, but does not push a NESTED child cluster down with it — so the inner rect lands on
+  top of the outer title and cuts it through the middle, and the `bottom` term adds 100 user units
+  of dead space inside the box besides. Dropped rather than re-tuned: it is the only Mermaid config
+  that reaches the cluster's internal space, and it is not usable. The export never set it, so this
+  also puts the two paths back in step.
 
 ### Added
 

@@ -23750,6 +23750,34 @@ section .radarLegendBox-6, figure .radarLegendBox-6{ fill: var(--cat-7-mark) !im
 section .radarLegendBox-7, figure .radarLegendBox-7{ fill: var(--cat-8-mark) !important; }
 
 /* ──────────────────────────────────────────────────────────────────────
+ * EDGE LABELS — ink that pairs with the CANVAS, not with a node chip
+ * ──────────────────────────────────────────────────────────────────────
+ * Mermaid paints node labels and edge labels from ONE rule —
+ * `#<id> .label text, #<id> span { fill: nodeTextColor; color: … }` — so no
+ * themeVariable can serve both. They sit on opposite surfaces: a node label
+ * on a categorical chip, an edge label on `edgeLabelBackground` (= --bg).
+ *
+ * On 27 palettes that is invisible, because `--cat-on-fill` is declared as
+ * `var(--text-heading)` and one value happens to suit both. The `a11y-*`
+ * family PINS its categorical tier mode-invariant — fixed pale chips
+ * carrying CVD-safe textures — while the canvas still flips, so in a dark
+ * context `--cat-on-fill` is #000000 (right, on those pale chips) and --bg
+ * is #000000 too. Flowchart edge labels rendered black on black and
+ * disappeared outright; verified on a11y-deuteranopia.
+ *
+ * CSS is the only instrument that can tell the two apart, and it has to
+ * out-specify Mermaid's own ID-scoped rule, hence `!important`. The chip
+ * itself is left as Mermaid draws it (a 50%-opacity --bg wash); only the
+ * ink is re-paired, to the token that tracks the canvas.
+ */
+section .edgeLabel, figure .edgeLabel, section .edgeLabel p, figure .edgeLabel p, section .edgeLabel span, figure .edgeLabel span, section .edgeLabels .label span, figure .edgeLabels .label span{
+  color: var(--text-heading) !important;
+}
+section .edgeLabel text, figure .edgeLabel text, section .edgeLabels .label text, figure .edgeLabels .label text{
+  fill: var(--text-heading) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
  * CONTAINMENT BOX — the subgraph cluster's corner
  * ──────────────────────────────────────────────────────────────────────
  * A subgraph box is a containment SURFACE — the same role a Lattice card
@@ -23767,13 +23795,26 @@ section .radarLegendBox-7, figure .radarLegendBox-7{ fill: var(--cat-8-mark) !im
  * See --diagram-cluster-radius in lib/base/base.tokens.css for why the
  * value is in SVG user space rather than on the `cqi` radius scale.
  *
- * SCOPED TO THE CONTAINMENT TIER, deliberately. A `.section-N` cluster
- * (kanban column, timeline period, mindmap level) is painted from the
- * CATEGORICAL band by the cycle below, not from `--c-container` — a
- * different tier, and Mermaid already rounds those itself at rx=5. Whether
- * they should adopt this radius too is a live question for a human, not an
- * assumption to bury in a selector, so they are left exactly as they
- * render today.
+ * SCOPED TO THE CONTAINMENT TIER, deliberately. A `.section-N` cluster is
+ * painted from the CATEGORICAL band by the cycle below, not from
+ * `--c-container` — a different tier, and Mermaid already rounds those
+ * itself at rx=5. Whether they should adopt this radius too is a live
+ * question for a human, not an assumption to bury in a selector, so they
+ * are left exactly as they render today.
+ *
+ * WHAT ACTUALLY EMITS `g.cluster`, enumerated from rendered output rather
+ * than guessed: a flowchart `subgraph` (`cluster`), a classDiagram
+ * `namespace` (`cluster undefined` — so it rounds too), and kanban
+ * (`cluster undefined section-N` — excluded). Timeline and mindmap emit no
+ * `g.cluster` at all, and a stateDiagram composite is `statediagram-cluster`,
+ * which is a different class token and never matched here.
+ *
+ * `[class*="section-"]` is a SUBSTRING test where the band cycle below uses
+ * a class TOKEN. An author `classDef` named `section-…` on a flowchart
+ * subgraph would therefore lose the rounding. Left as-is rather than
+ * hand-rolled into a token match: `:not()` takes no substring-safe form
+ * without repeating the selector per band index, and the failure is a
+ * missing corner, not a wrong one.
  */
 section g.cluster:not([class*="section-"]) > rect, figure g.cluster:not([class*="section-"]) > rect{
   rx: var(--diagram-cluster-radius);

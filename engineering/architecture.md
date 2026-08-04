@@ -144,9 +144,9 @@ resolution logic, but operates against the live DOM:
 
 1. On load, read CSS custom properties from `document.documentElement`
    (which has the palette's `:root` block applied via the loaded
-   `<link rel=stylesheet>`). The same `MERMAID_VAR_MAP` shape from
-   `lattice-emulator.js` resolves against these — feeding only
-   themeVariables, not themeCSS.
+   `<link rel=stylesheet>`). It supplies those reads as the `readToken`
+   port to the shared `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`
+   — feeding only themeVariables, not themeCSS.
 2. Watch the DOM for `<pre><code class="language-mermaid">` and
    `<marp-pre><code>` blocks (Marp preview emits the latter). Upgrade
    them to `<div class="mermaid">` so Mermaid's own renderer picks them
@@ -163,10 +163,13 @@ HTML preview in editors that support Marp (VS Code, etc.). Both consume
 the same palette file. Both produce visually equivalent output.
 
 A theme author edits one file (`themes/<n>.css`); both paths update.
-The structural mapping (`MERMAID_VAR_MAP`) is duplicated between
-`lattice-emulator.js` and `lattice-runtime.js` because they target different
-runtime environments — Node and browser, respectively. The maps are
-verified byte-equivalent in the smoke test.
+The structural mapping (`MERMAID_VAR_MAP`) lives ONCE, in
+`lib/core/mermaid-theme-map.js`, and each path supplies only a `readToken` —
+`getComputedStyle` in the browser, offline token resolution in Node. It used to
+be duplicated, on the reasoning that the two target different runtime
+environments; the duplication drifted to 38 differing values before anything
+compared them, because nothing did. `test/unit/core/diagram-theme-parity.test.js`
+now compares them, and `fontFamily` is the single sanctioned divergence.
 
 ## Where transforms live — the four roles
 

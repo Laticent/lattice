@@ -70,12 +70,11 @@ out to `mmdc`, one process per diagram, so its config can only travel *in* the
 diagram source — hence the merge kernel described at the end of this section. What
 the two share is the token→variable map, not the plumbing.
 
-The mapping is `MERMAID_VAR_MAP` in `lattice-emulator.js` (build path) and
-`buildMermaidThemeVars()` in `lib/runtime/index.js` (preview path); a unit test
-(`test/unit/mermaid/mermaid-var-map.test.js`) asserts every token it names
-resolves in indaco and cuoio; the remaining palettes are covered by the CONTRACT
-list in `test/unit/palette/token-parity.test.js` (13 themes — `carta` and the
-five `a11y-*` inherit theirs through `@import`).
+The mapping is `MERMAID_VAR_MAP` in `lib/core/mermaid-theme-map.js`, imported by
+both paths. `test/unit/mermaid/mermaid-var-map.test.js` asserts every token it
+names resolves in every self-declaring palette;
+`test/unit/palette/diagram-ink-contrast.test.js` holds each ink key to AA against
+the surface it is actually drawn on, per palette and per scheme.
 
 **A `subgraph` box is drawn entirely from the containment tier** — fill
 `--c-container`, boundary `--c-container-edge`, label ink `--c-on-container` (and
@@ -184,6 +183,35 @@ Mermaid 11.14. Installing elk is separate work from #1311.
 
 ---
 
+## 5.3d Which ink goes where
+
+Diagram text comes from **two** tokens, chosen by what the text sits on:
+
+| site | token | examples |
+|---|---|---|
+| on a categorical **chip** | `--cat-on-fill` | node label, gantt bar, pie slice, sequence actor, band |
+| on the **canvas** (`--bg` / `--bg-alt`) | `--text-heading` | diagram title, pie legend, quadrant axis labels, gantt margin text |
+
+It used to be one token for both. That is invisible on 27 of the 32 palettes,
+where `--cat-on-fill` is declared as `var(--text-heading)` — and wrong on the
+`a11y-*` family, which **pins** its categorical tier mode-invariant (fixed pale
+chips carrying the CVD textures) while the canvas still flips. In a dark context
+that gives `--cat-on-fill: #000000` on a `#000000` canvas: 1.00:1.
+
+**Flowchart edge labels are the exception, and they need CSS.** Mermaid paints
+node labels and edge labels from a single rule (`.label text, span`), so no
+themeVariable can serve both — a node label is on a chip, an edge label is on
+`edgeLabelBackground`. `mermaid.css` re-pairs the edge label's ink with the
+canvas, out-specifying Mermaid's ID-scoped rule.
+
+`test/unit/palette/diagram-ink-contrast.test.js` holds each ink key to AA against
+the surface it is actually drawn on, for every palette in both schemes. Its
+`SITES` table — ink key → the themeVariable it lands on — is deliberately
+hard-coded rather than derived from the map: derive it and the gate simply
+re-judges a mis-assigned key against its new tier and stays green.
+
+---
+
 ## 5.3c The subgraph box — corner, and what "padding" can and cannot reach
 
 The cluster (`subgraph`) box is a **containment surface**: `--c-container` fill,
@@ -212,9 +240,12 @@ Three things about that rule are load-bearing:
   strokes all live there, so the corner stays proportional to the box at any
   scale.
 
-`.section-N` clusters are excluded: kanban columns, timeline periods and mindmap
-levels are painted from the **categorical band**, not the containment tier, and
-Mermaid already rounds them at `rx=5`.
+`.section-N` clusters are excluded — they are painted from the **categorical
+band**, not the containment tier, and Mermaid already rounds them at `rx=5`.
+Enumerated from rendered output, three things emit `g.cluster`: a flowchart
+`subgraph`, a classDiagram `namespace` (so that rounds too), and kanban
+(excluded). Timeline and mindmap emit none, and a stateDiagram composite carries
+`statediagram-cluster`, a different class token.
 
 **Padding — read this before reaching for `flowchart.padding`.**
 
@@ -222,7 +253,7 @@ Mermaid already rounds them at `rx=5`.
 |---|---|---|
 | space between a node's label and its border | `flowchart.padding` | works — `DIAGRAM_NODE_PADDING`, one constant, both paths |
 | the cluster's own inset from its children | — | **hardcoded** `marginx/marginy: 8` on the sub-graph Mermaid hands to dagre. No config reaches it. |
-| space between the subgraph title and its content | `flowchart.subGraphTitleMargin` | **do not use** — any non-zero value shifts the title out of the box Mermaid already sized, and it renders clipped in half |
+| space between the subgraph title and its content | `flowchart.subGraphTitleMargin` | **do not use** — Mermaid grows the outer box but does not push a NESTED child cluster down with it, so the inner rect paints over the outer title |
 
 `flowchart.padding` is a **node** inset despite the name. Raising it from 8 to 24
 leaves cluster-minus-node constant at 70 × 100 user units — it grows the nodes,
