@@ -14,7 +14,7 @@ import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
-import { getFrontMatter, mergeClassTokens, withPrintCanvas, writeFrontMatterLine } from './front-matter';
+import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { OverflowMarker } from './studio-store';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
@@ -642,13 +642,16 @@ export async function shareCaptions(
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading notes + projecting slides…');
-	const [deckMod, authoringMod, readAlongCore, projectionMod, resolveCaptionsMod] = await Promise.all([
+	const [deckMod, authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod] = await Promise.all([
 		import('@/playground/deck-preview.js'),
 		import('@/playground/authoring-core.generated.js'),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
 		import('@/lib/resolve-captions'),
+		import('./narration-resolve'),
+		import('./lint'),
 	]);
+	const { splitSlides } = lintMod;
 	const deck = deckMod as unknown as { splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const sections = deck.splitSections(out.html);
@@ -679,6 +682,13 @@ export async function shareCaptions(
 	} catch {
 		projected = []; // projection unavailable → note/caption text still narrates
 	}
+	// Chart-narration parity. A recognized chart slide narrates COMPUTED facts — a funnel's
+	// conversion rate, the auto-fit scale an unlabeled axis is plotted against — that exist
+	// only in the render, never in the figure projection's heading-only caption. The CLI
+	// export has substituted them at projection precedence since #902 Gap 1; this browser
+	// export never did, so the same deck's captions disagreed with what Present spoke. Same
+	// substitution, shared rather than copied (narration-resolve.ts).
+	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
 	const slideTexts = readAlongCore.mergeNarration(notes, projected, { captions, fmCaptions });
 
 	onStatus?.('Building captions…');
