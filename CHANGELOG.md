@@ -135,6 +135,22 @@ in patch versions.
   closing line and a pointer to a `Sample-Deck.pdf` that was never in the kit, and gains an
   "If the slides look plain" section for the one failure mode there that produces no error message.
 
+- **The default-component rule stopped applying after the first render on a live-editing
+  preview.** `applyDefaultComponent` (the browser runtime's mirror of #1292 — a slide naming no
+  component renders as `content`) ran once, from bootstrap, and was the one member of the
+  deck-wide register family missing from the re-apply block that `applyCachedDeckLogo` /
+  `applyCachedMastheadMeta` / `applyCachedDeckClass` share. A surface that replaces `<section>`
+  elements on every edit — the marp-vscode webview, which is the entire reason that DOM mirror
+  exists — therefore served every render after the first with un-classed, unstyled slides: #1292's
+  own symptom, returning as soon as the author typed. It now re-stamps on each transform pass,
+  idempotently (`withDefaultComponent` returns the same array when a component is already named),
+  placed immediately after `applyCachedDeckClass` and gated on the front matter having settled —
+  both load-bearing, because stamping before the deck-wide `class:` lands yields `content kpi`,
+  two components on one slide. Covered by two new cases in
+  `test/integration/parity/runtime-frontmatter-refire.test.js`, each verified to bite: removing
+  the re-stamp fails the first, and removing the ordering gate fails the second. **The
+  marp-vscode surface itself remains UNVERIFIED** (HARD RULE #23) — it cannot be driven from the
+  sandbox; what is verified is the runtime's re-render path against the real bundle.
 - **A slide `finish:` silently dragged the running header, the running footer and the deck logo
   into the content flow, displacing all three.** `base.finish.css` lifted slide content above the
   backdrop with `section.finish > *:not(.backdrop) { position: relative; z-index: 2 }`, where only
