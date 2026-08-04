@@ -14800,7 +14800,12 @@ section.state-chart.chart-frame .chart-body {
   width: 100%;
   padding: var(--sp-md) var(--sp-2xl);
   display: flex;
-  flex-direction: column;       /* figure stacks above the status legend band */
+  /* The figure is the only in-flow child on the DEFAULT variant; the status legend
+   * is a SIBLING of .chart-body inside .cell-stage, not a child of it (extractChartBody
+   * wraps the figure alone). This comment used to say the legend stacked here — it
+   * does not, and the `gap` below never applied to it. The legend's band is still
+   * subtracted before the figure is sized, one level up in .cell-stage's column. */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--sp-sm);
@@ -15143,10 +15148,25 @@ section.state-chart .state-marker-line {
 
 /* ── Inline variant (HTML chips, no SVG) ─────────────────────────────── */
 
+/* The figure keeps the base `width: 100%` (it is the positioning context for the
+ * absolute scale box, which would collapse it to zero under a shrink-to-fit width);
+ * the CAP moves onto the scale box, where `fit-content` + `max-width: 100%` resolves
+ * to exactly what the old `width: auto` on the figure produced — max-content, capped.
+ * Same rendered width, but now out of flow and therefore fittable (#1360). */
 section.state-chart.inline .state-chart-figure,
 section.state-chart.horizontal .state-chart-figure {
-  width: auto;
   max-width: 59.375cqi;
+}
+
+/* `max-content`, NOT the base `fit-content`. A row's transition chips wrap, so a
+ * shrink-to-fit width is self-defeating here: the box narrows, the chips wrap onto
+ * extra lines, and the natural height GROWS (measured: 342x520 at fit-content
+ * against 342x434 in flow) — the letterbox then pays for wrapping nobody asked for.
+ * max-content pins the rows at their unwrapped width and lets applyFit() letterbox
+ * both axes, which is what the default variant already does. */
+section.state-chart.inline .state-chart-scale,
+section.state-chart.horizontal .state-chart-scale {
+  width: max-content;
 }
 
 section.state-chart.inline .state-rows,

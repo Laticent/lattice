@@ -496,6 +496,39 @@ in patch versions.
   ONE default (`DEFAULT_OR_MODEL`, the `~anthropic/claude-sonnet-latest` alias) instead of two
   in two files, pinned by a test. The picker's copy is version-neutral too — it named
   "Sonnet 4" against a `~*-latest` alias that moves.
+- **A state-chart's `inline` variant now fits its stage like every other variant — it was the one
+  the self-scale never reached.** `examples/state-chart.md` p6 rendered its sixth state, "Archived",
+  as a top sliver with the label gone. The cause was not the letterbox mis-measuring, as the issue
+  supposed: **the letterbox never ran on that slide.** `draw()` is gated twice on
+  `data-sc-transitions` — the serialized SVG edge payload — and `inline` draws its transitions as
+  HTML chips, so it has no edges to serialize and was never visited. Both gates are about edge
+  *routing*, which inline genuinely does not need; neither is about *fitting*, which it needs
+  exactly as much as the rest. So the one presentation that can neither scroll, letterbox nor split
+  had no fit at all, and its rows sat in flow at natural height inside a figure that flex-fills a
+  fixed stage: measured, `.chart-body` client 406 / scroll 458 — **52px hidden**, 434px of rows in a
+  358px figure — with `probeSectionOverflow` reporting `over: false` throughout, because nothing
+  crossed the frame. **A mechanism gap, not an authoring error**, so the fix is the predicate rather
+  than the deck: every inline machine past the stage height was shearing on every deck, silently.
+  `renderInline` emits the same `.state-chart-scale` box the default variant uses, the letterbox is
+  split into a shared `applyFit()` (the default variant's path passes the rect it had already
+  measured, so it is untouched byte for byte), and `drawAll()` runs a fit-only pass selected by the
+  **absence** of the edge payload rather than by variant name — so the next presentation that draws
+  no SVG is fitted by construction instead of being left out the way this one was. Two things the
+  first cut got wrong, both caught by measuring: `fit-content` let the box shrink-wrap to 342px,
+  which made the transition chips wrap and grew the natural height 434 → 520 — a narrower box is a
+  taller one here, so the inline scale box is `width: max-content`; and an uncapped fit scaled a
+  3-row machine *up* to own the stage (`k` 1.15–1.34 is normal for the default variant), rendering
+  chips at heading size and contradicting a variant whose own gallery slide is captioned "the chart
+  sits beside its prose" — so the fit is **shrink-only** for inline, declared at the call site with
+  its reasoning, because the failure this whole entry is about is a variant difference left
+  implicit. Nothing caps the shrink direction; the type floor reports a scale that went too far.
+  **Committed pixels move on exactly one page in each mood** of the state-chart gallery (9.1%, all
+  of it the row column becoming vertically centred now that it is out of flow); the chart bucket
+  gallery does not move, and the default variant's `k` is unchanged on every page. Guarded by a
+  seven-state inline case in `chart-overflow-preserved.test.js` that asserts **hidden pixels and
+  rendered rows** rather than `over` — an `over`-only assertion passes against the broken build —
+  and confirmed non-vacuous (88px hidden with the fix reverted). See
+  `engineering/decisions/2026-07-16-state-chart-self-scale.md` §Follow-up (2026-08-04). (#1360)
 
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose
