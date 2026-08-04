@@ -343,12 +343,18 @@ If type looks right but the layout does not, it is the palette rather than the
 engine: \`${THEME}.min.css\` \`@import\`s \`lattice\` **by name**, so both files
 have to be registered — one alone renders bare.
 
-If a render hangs on a machine with a small \`/dev/shm\` (containers, CI), give the
-container more shared memory — \`docker run --shm-size=1g\` or equivalent. This
-line used to suggest passing \`--browser-args=…\`; **marp-cli has no such option**
-(only \`--browser\`, \`--browser-path\`, \`--browser-protocol\`, \`--browser-timeout\`),
-so the advice did nothing. marp-cli already passes \`--no-sandbox\` itself when it
-detects it is running as root.
+**If a render fails with "No usable sandbox!"** — common on CI runners and
+hardened Linux — set \`CHROME_NO_SANDBOX=1\` in the environment. marp-cli turns
+the Chromium sandbox off by itself for root, and inside a container, but a plain
+non-root machine with unprivileged user namespaces restricted is neither, and
+Chromium refuses to start. This is marp-cli's own switch.
+
+If a render hangs instead, the usual cause is a small \`/dev/shm\` — give the
+container more shared memory (\`docker run --shm-size=1g\` or equivalent).
+
+Both of these lines used to say "pass \`--browser-args=…\`". **marp-cli has no
+such option** (only \`--browser\`, \`--browser-path\`, \`--browser-protocol\`,
+\`--browser-timeout\`), so that advice did nothing at all.
 
 ---
 

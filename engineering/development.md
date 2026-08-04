@@ -116,7 +116,10 @@ Export-to-Marp bundle — through real marp-cli, fetched on demand with `npx` at
 the version range `lib/core/marp-bundle.js` exports. marp-cli is deliberately not
 a dependency (HARD RULE #1: Marp is an export target, not a render path), and it
 runs with `npm_config_ignore_scripts=true` since it executes registry content on
-the merge path.
+the merge path, and `CHROME_NO_SANDBOX=1` because marp-cli turns the Chromium
+sandbox off for root and inside a container but NOT for a plain non-root VM —
+which is exactly what a GitHub runner is, so without it every render dies with
+"No usable sandbox!". `--browser-args` is not a marp-cli option and never was.
 
 **The skip is local-only.** With no registry access it retries three times, then
 skips *off* CI with a printed reason — hard-failing a laptop with no network just

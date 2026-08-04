@@ -261,7 +261,9 @@ in patch versions.
   the artifacts it gates cannot ask for different tools, and the resolved version is printed into
   every failure message because a range can move under a PR that changed nothing. With no registry
   access it retries, then **skips off-CI and FAILS on CI** — a gate that self-skips on the runner is
-  a decoration that reports green.
+  a decoration that reports green. It also sets `CHROME_NO_SANDBOX=1`: marp-cli disables the Chromium
+  sandbox for root and inside a container, but a GitHub runner is a plain non-root VM with
+  unprivileged user namespaces restricted, so without it every render dies with "No usable sandbox!".
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The

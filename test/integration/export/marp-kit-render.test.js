@@ -121,6 +121,15 @@ function marpEnv() {
 	// an unpinned range reproducible — see ensureMarp() — it just stops an install
 	// hook from executing in a job with the repo checked out.
 	env.npm_config_ignore_scripts = 'true';
+	// CHROME_NO_SANDBOX is marp-cli's OWN documented lever, and on a GitHub
+	// Actions runner it is required. Its launcher enables the Chromium sandbox
+	// unless `!process.env.CHROME_NO_SANDBOX && 0 !== process.getuid() && !inContainer && !inWSL`
+	// — so it self-disables for root and inside a container, but a runner is
+	// neither: the job runs as `runner` on a VM whose kernel restricts
+	// unprivileged user namespaces, so Chromium dies with "No usable sandbox!"
+	// and the render never happens. Setting this is the only supported way in;
+	// `--browser-args` is not an option marp-cli has (see runMarp below).
+	env.CHROME_NO_SANDBOX = '1';
 	// marp-cli finds its own browser, but its search does not know about
 	// puppeteer's cached download — which is the ONLY Chromium on a CI runner
 	// (`npm ci` puts it in ~/.cache/puppeteer, which the integration job caches).
@@ -141,13 +150,20 @@ function marpEnv() {
  * yargs silently swallows the unknown option. An earlier revision of this file
  * passed `--browser-args=--no-sandbox --disable-dev-shm-usage` with a comment
  * calling it mandatory; a deliberately bogus value renders byte-identically, so
- * it was doing nothing. marp-cli adds `--no-sandbox` ITSELF when it detects uid 0
- * (`puppeteerArgs()` in its launcher), which is why the renders worked. Verified
- * here by rendering as root with no flags at all: 13 pages, exit 0.
+ * it was doing nothing at all. The sandbox lever is `CHROME_NO_SANDBOX` in
+ * marpEnv() above.
+ *
+ * A LESSON WORTH KEEPING, because it is this suite's own subject matter. When
+ * the dead flag came out, the replacement reasoning was "marp-cli adds
+ * `--no-sandbox` itself for uid 0" — verified by rendering as root here, 13
+ * pages, exit 0. That verification was true and did not generalize: CI runs as
+ * `runner`, not root, and the first CI run failed on both fixtures with "No
+ * usable sandbox!". A check on the surface you have is not a check on the
+ * surface that matters (HARD RULE #23) — the gate caught its own author.
  *
  * `--disable-dev-shm-usage` genuinely cannot be passed through marp-cli; if a
- * small `/dev/shm` ever bites, the lever is Chromium's own env or a bigger shm,
- * not an option marp-cli does not read.
+ * small `/dev/shm` ever bites, the lever is a bigger shm, not an option
+ * marp-cli does not read.
  */
 function runMarp(args, cwd, timeout = TIMEOUT) {
 	return spawnSync('npx', ['-y', MARP_PKG, ...args], {
