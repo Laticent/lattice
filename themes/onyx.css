@@ -305,15 +305,17 @@ section pre.hljs {
  * deck that is both printed and per-slide dark. `color-system`/`inherited` are
  * deliberately absent: their polarity is only known at view time, so they keep the
  * scheme-aware set.
- * PRINT GUARD: the emulator BAKES each Mermaid diagram's label ink for the band it
- * is rendering — dark tokens for a dark slide, the B&W print band under `--print`.
+ * PRINT GUARD: both render paths BAKE each Mermaid diagram's label ink for the band
+ * being rendered — dark tokens for a dark slide, the B&W print band under `--print`.
  * CSS repaints the chip but never that baked ink, so a pin is only correct when it
- * agrees with what was baked. On a print render a per-slide `_class` REPLACES the
- * deck's `class: print`, so the slide keeps `dark` and loses `print` — baked print
- * ink (dark) would then land on a pinned dark chip at ~2.7:1. `--print` stamps
- * data-lattice-print on every SECTION, so the pins stand down and the light chips
- * the print bake expects stay put. The runtime needs no such guard: print is an
- * export band it never bakes.
+ * agrees with what was baked. `:not(.print)` is the whole guard, and it is sufficient
+ * because `print` reaches EVERY section: a per-slide `_class: dark` used to evict the
+ * deck's `print`, leaving a section that kept `dark`, lost `print`, and still carried
+ * a print-BAKED diagram — dark print ink on a pinned dark chip at ~2.7:1. Print is a
+ * render target rather than a scheme, so it is no longer droppable
+ * (lib/core/color-mode.js slidePinEvictsDeckToken) and the CSS agrees with the bake by
+ * construction. That is what let `data-lattice-slide-bake` be deleted (#1332 step 4)
+ * rather than replaced with yet another marker.
  *
  * The guard is a `:not()` on the SECTION COMPOUND, not an ancestor gate, and that is
  * load-bearing. packTheme (and marp-core) scope every theme rule off its LEFTMOST
@@ -323,7 +325,7 @@ section pre.hljs {
  * <section> — and were silently DEAD on the Studio and Export-to-Marp paths while
  * passing on the emulator's unpacked CSS. See engineering/gotchas.md, "A theme rule
  * gated on :root[…] silently does nothing in a Marp render". */
-section.dark[data-lattice-slide-bake]:not(.print) {
+section.dark:not(.print) {
   --cat-1-texture: url(#latt-onyx-tex-dark-1);
   --cat-2-texture: url(#latt-onyx-tex-dark-2);
   --cat-3-texture: url(#latt-onyx-tex-dark-3);
@@ -338,8 +340,8 @@ section.dark[data-lattice-slide-bake]:not(.print) {
   --cat-12-texture: url(#latt-onyx-tex-dark-12);
 }
 
-section.light[data-lattice-slide-bake]:not(.print),
-section.color-light[data-lattice-slide-bake]:not(.print) {
+section.light:not(.print),
+section.color-light:not(.print) {
   --cat-1-texture: url(#latt-onyx-tex-light-1);
   --cat-2-texture: url(#latt-onyx-tex-light-2);
   --cat-3-texture: url(#latt-onyx-tex-light-3);

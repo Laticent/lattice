@@ -51,6 +51,94 @@ in patch versions.
 
 ### Fixed
 
+- **Preview and export now send Mermaid the same non-palette config, and flowchart labels
+  wrap the same way in both.** `engineInitConfig` claimed to be "shared so the PDF path and
+  the runtime send Mermaid the same non-palette options, not just the same colors" — and the
+  runtime did not call it, so eight config keys diverged with nothing watching them
+  (`DIVERGENT_KEYS` governs `themeVariables` only). The one that bit was
+  `flowchart.wrappingWidth`: 480 in the preview against Mermaid's default 200 in the export.
+  Wrapping width decides where a label breaks and a label break decides the node's WIDTH, so
+  the same deck laid its flowcharts out differently on the two paths. Measured on one
+  long-labeled node, exported: `461.86 × 151` before, `741.86 × 88` after — the label now
+  stays on one line, as the preview always showed it. **Exported diagrams change**: any
+  flowchart with a label wider than 200 user units re-wraps, exported quadrant charts pick up
+  the seven slide-scale type sizes that were preview-only, and C4 diagrams in the PREVIEW
+  pick up the 3-shapes-per-row limit that was export-only. `markdownAutoWrap: false` is
+  shared too — the reasoning ("Marp does not support line breaks in a code fence") reads the
+  same fence on both paths and was never preview-specific. `DIVERGENT_CONFIG` enumerates what
+  remains, and three of its four entries are not choices: `securityLevel`, `startOnLoad` and
+  `suppressErrorRendering` sit on Mermaid's own secure-key list, so its `sanitize` deletes
+  them from anything that is not `mermaid.initialize` and a `%%{init}%%` directive cannot
+  carry them at all. `test/unit/mermaid/init-config-parity.test.js` fails on an unlisted
+  divergence, on a stale sanction, and on a Mermaid upgrade that takes a key off that list.
+  #1347
+
+- **A print render now reaches a slide that pins its own color scheme.** Deck-wide `print`
+  (`--print`, `--image-mode print`, `color-mode: print`, or the legacy `class: print`) sat on
+  the same class axis as `dark`/`light`, so the propagation guard let a slide's own
+  `<!-- _class: dark -->` EVICT it: that section rendered as a dark canvas inside a B&W
+  handout, while `resolveDiagramBand` baked its diagram in the print band regardless
+  ("print wins — nothing about light/dark can outrank it"). CSS and bake disagreeing is what
+  forced a reconciliation marker to exist, and it measured ~2.7:1 once the marker went: the
+  section kept `dark`, lost `print`, and its texture pin selected the dark-polarity chip set
+  — built for white ink — under dark print ink. **Print is a render target, not a color
+  scheme**, so it is no longer evictable (`slidePinEvictsDeckToken`, `lib/core/color-mode.js`,
+  read by both propagation kernels). Such a slide now carries `dark print` and renders in the
+  ink-on-white band, which is what `color-mode: print` always claimed ("mutually exclusive
+  with the scheme values — a printed deck is ink, not light/dark"). **This changes exported
+  bytes** for a print render of a deck with a per-slide color pin; no committed deck combines
+  the two, so no shipped artifact moves. #1332
+
+- **The diagram render kernel now drives both paths, and the reconciliation marker is
+  gone.** `renderDiagrams(deck, ports)` (`lib/core/render-diagrams.js`) walks the deck,
+  resolves each slide's `themeVariables` from the one shared map, and calls each render
+  path back; the paths supply a token reader, a scope key and a renderer, and decide no
+  policy. A `scope` is whatever a path needs to read a token for one slide — the resolved
+  band on the PDF path, the `<section>` element in the preview — which is the only real
+  difference between the two. That made the deletion #1332 named as its own acceptance
+  test possible: **`data-lattice-slide-bake` is removed**, along with `SLIDE_BAKE_ATTR` /
+  `stampSlideBake` and the qualifier on all nine pinned selectors in
+  `themes/{onyx,concrete,a11y-base}.css`. The marker existed only to announce which
+  granularity a render had used, and both paths now bake per slide. The texture polarity
+  pins keep the two requirements that still mean something — a literal leading `section`
+  compound, and `:not(.print)` — and the gate asserts the marker's absence in both
+  directions, because a rule still requiring it would be a permanently dead selector.
+  #1332
+
+- **A `_class:` directive no longer leaks into the next slide's diagram bake.** The PDF
+  path resolved a diagram's band from the last `<!-- _class: … -->` appearing anywhere
+  before the fence, and that scan never reset at a slide boundary — but Marp's `_class`
+  is a single-slide directive that does not carry forward. A slide with no directive
+  following a `<!-- _class: dark -->` slide therefore got a dark-baked diagram on a light
+  canvas: white node ink on a light chip. The fallback was asymmetric too — once any
+  `_class:` had appeared earlier in the deck, the deck-wide default stopped being
+  consulted for every later slide. Walking real slides fixed both: each fence reads its
+  OWN slide's directive, with boundaries taken from markdown-it's `hr` tokens plus the
+  `split: headings` points (`lib/core/slide-class-spans.js`) rather than a line regex, so
+  every thematic-break form counts, a setext underline does not, and a `---` inside a
+  fenced code sample does not. Measured on a light / `_class: dark` / no-directive deck:
+  `origin/main` baked `light, dark, dark`; it now bakes `light, dark, light`. #1329
+
+- **A diagram in the live preview is baked for ITS OWN slide, not for slide 1.** The preview built
+  Mermaid's `themeVariables` from `document.querySelector('section')` — always the first slide — and
+  applied them once, behind a one-shot guard. So a deck whose opening slide is light baked LIGHT ink
+  into every diagram in the deck, including slide 9's `_class: dark` one: black arrowheads and pale
+  node fills on a dark canvas, with the chip underneath painted correctly by per-section CSS. Chip is
+  live, ink is baked, and the two were describing different slides — the last surviving instance of
+  the bug class #1326 shipped four fixes for. The reader now takes the section as a
+  parameter (`openSectionReader`), which is the whole fix: `getComputedStyle(section)` already returns what that slide's
+  cascade produced, including its own `_class:`, so no band has to be resolved in the browser at all.
+  Measured on the real Playground with a light-slide-1 / dark-slide-2 deck: 26 of the 54 rules in the
+  dark slide's baked stylesheet change, among them the arrowhead fill (`#000000` → `#ffffff`), the
+  edge stroke, the node fill (`rgb(232,232,232)` → `rgb(46,46,46)`) and the cluster background
+  (`rgb(238,238,238)` → `rgb(28,28,28)`) — none of which any external CSS can reach. Because
+  `mermaid.initialize` is global, the palette is applied once per BAND rather than once per diagram
+  (`lib/core/diagram-scope.js` keys the grouping) and the renders are ordered against it through one
+  promise chain, so a reconfigure can never land between another band's renders. The rendered-SVG
+  cache is keyed by (scope, source) for the same reason: a source-only key hands slide 2 slide 1's
+  baked SVG. Reaches the Studio/Playground, marp-vscode, and — through `lib/core/marp-bundle.js` —
+  Export-to-Marp. #1332
+
 - **Diagram ink is now chosen by what it sits ON, so it stops disappearing on the accessibility
   palettes in dark.** The Mermaid theme map fed every text key from one token, `--cat-on-fill`, on
   the reasoning that the fills flip with the canvas so ink and fill always stay matched. That holds

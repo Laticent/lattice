@@ -117,6 +117,43 @@ label ink. Same for `layout`, `defaultRenderer`, per-diagram-type config, or a
 partial `themeVariables` override — name `lineColor` alone and only `lineColor`
 changes.
 
+### One non-palette config, both paths (#1347)
+
+`engineInitConfig` (`lib/integrations/mermaid/init-directive.js`) holds the shared
+**non-palette** options, and the preview builds its `mermaid.initialize` argument from
+it rather than hand-rolling a second copy. It always claimed to be shared; the runtime
+did not call it, so eight keys diverged with nothing watching — `DIVERGENT_KEYS` covers
+`themeVariables` only.
+
+The one that bit was `flowchart.wrappingWidth`: 480 in the preview against Mermaid's
+default 200 in the export. Wrapping width decides where a label breaks and a label
+break decides the node's **width**, so the same deck laid its flowcharts out
+differently on the two paths. Measured on one long-labeled node, exported:
+`461.86 × 151` before, `741.86 × 88` after — narrow-and-tall becomes wide-and-short,
+which is what the preview had been showing all along.
+
+Now shared: `flowchart.wrappingWidth`, `flowchart.htmlLabels`, `markdownAutoWrap`, the
+seven `quadrantChart` type sizes (preview-only before, so an exported quadrant rendered
+its labels at Mermaid's much smaller defaults), and `c4.c4ShapeInRow` /
+`c4BoundaryInRow` (export-only before, so a C4 diagram crammed one row live and fanned
+across two in the export).
+
+`DIVERGENT_CONFIG` is the enumerated exception set, and three of its four entries are
+not choices at all. `securityLevel`, `startOnLoad` and `suppressErrorRendering` are on
+Mermaid's own **secure-key list**, and its `sanitize` deletes them from anything that is
+not `mermaid.initialize` — so the PDF path, whose config can only travel in a
+`%%{init}%%` directive, structurally cannot state them. Putting them in
+`engineInitConfig` would emit keys Mermaid silently drops and call it parity. (The
+effective values agree anyway: Mermaid's default `securityLevel` IS `strict`.) The
+fourth, `flowchart.useMaxWidth`, is a deliberate preview behavior — inside
+`section.diagram` mermaid.css forces sizing with `!important` and the key cannot be
+seen; outside one, flipping the export would change how every exported diagram is
+constrained, which is a layout change rather than a parity fix.
+
+`test/unit/mermaid/init-config-parity.test.js` fails on an unlisted divergence, on a
+sanction that no longer diverges, and on a Mermaid upgrade that takes one of those three
+off its secure list (which would make it shareable).
+
 **The two paths use different diagram fonts, and there is a constraint behind it.**
 The preview uses `--font-body`; the PDF path uses `"JetBrains Mono", monospace`
 (`DIAGRAM_FONT_STACK` in the kernel). That is not arbitrary: `sanitizeDirective`'s
@@ -289,13 +326,80 @@ nothing about scheme, and is how every component is selected — forced light on
 `color-mode: dark` deck. The section genuinely was `.dark`; only the bake
 disagreed.
 
-**Only the PDF path calls it.** The preview never resolves a band as such: it
-reads tokens through `getComputedStyle(section)`, so CSS inheritance hands it
-whatever the section's own classes resolved to, band included. What the preview
-*does* still get wrong is granularity — it configures Mermaid once per document,
-from the first `<section>` (`lib/runtime/index.js`), so slide 1's scheme is baked
-into every diagram in the deck. That is #1332 step 3, tracked separately; it is a
-different defect from #1340 and needs an export sign-off to change.
+**Only the PDF path calls it, and that asymmetry is the port, not a gap.** The
+preview never resolves a band as such: it reads tokens through
+`getComputedStyle(section)`, so CSS inheritance hands it whatever the section's own
+classes resolved to, band included.
+
+**Granularity — both paths are per slide (#1332 step 3).** The preview used to
+configure Mermaid *once per document*, from the first `<section>`, so slide 1's
+scheme was baked into every diagram in the deck: a light first slide gave slide 9's
+`_class: dark` diagram light ink on a dark chip. That was the last surviving
+instance of the #1326 bug class — chip is per-section CSS, ink is baked, and the two
+were describing different slides. The reader now takes the section as a parameter
+(`openSectionReader(scopeEl)`), which is all it takes: passing the right element in *is*
+the fix, because inheritance already does the resolving.
+
+Three things follow, and all three are load-bearing:
+
+- **The palette is applied per BAND, not per diagram.** `mermaid.initialize` is
+  global and `mermaid.render` takes no config, so per-slide themeVariables mean
+  re-initializing between diagrams that resolve differently. Diagrams are grouped by
+  the slide's cascade-context key (`lib/core/diagram-scope.js`) and the palette is
+  built and applied once per group — one to three groups per deck, never one per
+  slide. Rebuilding 166 variables per fence on a 150 ms debounce is what that avoids.
+- **The renders are ordered against the config.** One promise chain, so
+  `initialize` for band B cannot land between band A's render calls. Diagrams
+  *within* a band still render concurrently, exactly as the whole deck used to.
+- **The SVG cache is keyed by (scope, source), not source.** A source-only key was
+  sound only while one palette served the deck; per-slide ink makes it hand slide 2
+  slide 1's baked SVG, which is the same mismatch arriving through the cache.
+
+**What per-band configuration costs.** Measured on the real Playground with a
+20-diagram deck that ALTERNATES bands — the worst case, since every slide is a new run:
+first render 936–948 ms before, 987–1013 ms after (+5–8%); the keystroke re-pass is
+unchanged, because everything but the edited fence comes from the (scope, source) cache.
+Re-measure with `node tools/bench-preview-diagrams.mjs` (needs the docs site running);
+`npm run bench` cannot reach this path at all, since it drives the Node renderer and
+there is no `getComputedStyle` there to be slow.
+
+### The kernel drives; the paths supply capabilities (#1332 step 4)
+
+Neither path assembles a palette any more. `renderDiagrams`
+(`lib/core/render-diagrams.js`) walks the deck, resolves each slide's
+`themeVariables` from the one map, and calls the path back:
+
+```js
+renderDiagrams(deck, { readToken, renderOne, scopeKey, beginRun, finishTheme })
+```
+
+A `scope` is whatever a path needs in order to read a token for one slide, and the
+two hand in genuinely different things — the PDF path a resolved band
+(`'light' | 'dark' | 'print'`), the preview the `<section>` element itself.
+`scopeKey(scope)` names the palette that scope resolves, so the theme is built once
+per distinct palette rather than once per slide: the band string on the PDF path, the
+section's class signature (`lib/core/diagram-scope.js`) on the preview. Two spellings
+of "these slides paint the same", which is all the kernel needs.
+
+`finishTheme` is the ONE place a path may differ from the other inside the palette,
+and its only licensed use is `DIVERGENT_KEYS` — today `fontFamily`, per §5.3. The
+parity gate fails on any other key that comes apart, and on a sanctioned key that
+stops diverging.
+
+**The acceptance test was a deletion.** #1332 stated it: *"a correct fix should let us
+DELETE the reconciliation devices, not accumulate more."* `data-lattice-slide-bake` —
+a marker that announced "this render baked per slide" — is gone, along with
+`SLIDE_BAKE_ATTR`/`stampSlideBake` and the qualifier on all nine pinned theme
+selectors. Once both paths resolve per slide there is no granularity left to announce.
+See `engineering/textures.md`.
+
+**It also closed #1329 for free.** The PDF path used to take the last `_class:`
+directive appearing anywhere before the fence, and `before` never reset at a slide
+boundary — so a bare slide following a `<!-- _class: dark -->` slide got a dark-baked
+diagram on a light canvas. Walking real slides means each fence reads its OWN slide's
+directive (`lib/core/slide-class-spans.js`, boundaries from markdown-it's `hr` tokens
+plus the `split: headings` points, not a line regex). Measured on the same three-slide
+deck: `origin/main` logged `light, dark, dark`; this logs `light, dark, light`.
 
 ---
 

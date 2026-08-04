@@ -42,12 +42,12 @@
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",
 		"page": 4,
-		"srcSha256": "9c4757ae185927a9c789c5367bc0d6b3e571b3eaea31454b86ebba79b2953720"
+		"srcSha256": "60ca026f1e1a20a52f3e41698d204bed7e03a53e960de56769cbb0a6eb3265cd"
 	},
 	"diagram.dark": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.dark.pdf",
 		"page": 4,
-		"srcSha256": "150f39386fe56b24bab8876df75dcb80ea6ce9ec9bb57e2ee7e9ebcda5acefbc"
+		"srcSha256": "2ab110119a1bf181d51d1818793b0efc090fd8a0cf9db17e93c19732b1ddc0e5"
 	},
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",

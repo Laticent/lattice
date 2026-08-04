@@ -1350,9 +1350,10 @@ never turn "passed in headless" into "works on iOS."
   surface tokens are stored as `light-dark(<light>, <dark>)`. Mermaid's
   color parser only accepts hex / rgb / hsl / named colors and throws
   on the function form.
-- **Mitigation:** `buildMermaidThemeVars` in `lattice-runtime.js`
-  attaches a hidden probe element to the scope section, sets its `color`
-  to `var(--token)`, and reads back `getComputedStyle(probe).color`.
+- **Mitigation:** `openSectionReader` in `lattice-runtime.js` (was
+  `buildMermaidThemeVars` before #1332 step 4 made the reader the port)
+  attaches a hidden probe element to the SECTION being rendered, sets its
+  `color` to `var(--token)`, and reads back `getComputedStyle(probe).color`.
   Browsers DO resolve `light-dark()` (and `color-mix()`) on real color
   properties — only the custom-property accessor returns unresolved tokens.
   If the probe still returns `rgba(0,0,0,0)` (older Chromium that doesn't
@@ -1488,25 +1489,33 @@ never turn "passed in headless" into "works on iOS."
 
 ### Mermaid `themeVariables` must come from a `<section>`, not `:root`
 
-- **Symptom:** `buildMermaidThemeVars()` reads CSS custom properties
-  from `document.documentElement` and gets empty strings for every
-  theme token. Mermaid falls back to its yellow/orange built-in
-  defaults; preview shows wrong cluster colors and broken cScale.
+- **Symptom:** the runtime's diagram token reader gets empty strings for
+  every theme token when it reads from `document.documentElement`. Mermaid
+  falls back to its yellow/orange built-in defaults; preview shows wrong
+  cluster colors and broken cScale.
 - **Cause:** Marp scopes theme custom properties to `<section>`
   elements, not `:root` / `<html>`. The themeSet rules become
   `div#:$p > svg > foreignobject > section { --bg: …; }`, never
   `:root { --bg: …; }`. Reading from `documentElement` returns the
   unset value (empty string).
-- **Mitigation:** `buildMermaidThemeVars` in
-  [lattice-runtime.js:31](../dist/lattice-runtime.js#L31) reads from
-  `document.querySelector('section') ?? document.documentElement`. A
-  sentinel-color guard before `mermaid.initialize()` retries until
-  the stylesheet has applied (the first tick can fire before
-  paint).
+- **Mitigation:** `openSectionReader(scopeEl)` in `lattice-runtime.js`
+  reads from **the section being rendered**, which the shared kernel
+  hands it per slide (`renderDiagrams`, `lib/core/render-diagrams.js`).
+  `document.documentElement` survives only as a last-resort fallback for
+  a fence outside any section, where it reads empty and the retry budget
+  takes over. A sentinel-color guard (`themeSettled`) gates the first
+  render until the stylesheet has applied — the first tick can fire
+  before paint.
+- **Do NOT "simplify" this back to `document.querySelector('section')`.**
+  That WAS the code here until #1332 step 3, and reading slide 1 for the
+  whole document is the bug it fixed: a Mermaid SVG bakes its colors, so
+  a light first slide baked light ink into every diagram in the deck,
+  including a `_class: dark` one. Ink is baked, the chip under it is live
+  CSS, and the two must describe the same slide.
 - **Triggered by:** Any deck through Marp preview where the JS reads
   theme tokens.
 - **Removable when:** Marpit hoists theme variables to `:root`.
-- **Commits:** `f7f6558c`, `7079e65c`.
+- **Commits:** `f7f6558c`, `7079e65c`, #1332.
 
 ### `:where(:root)` token blocks are dropped from every rendered slide
 
@@ -3117,6 +3126,25 @@ justification. The same gate also fires if a *listed* builder drops its
 `sanitizeSlideHtml` call, or if a sanction goes stale — keep both in sync. A file
 that only assigns a builder's output to `.srcdoc` (no `<script>` injection of its
 own) is not a builder and needs no entry.
+
+### Docs build fails `stale: <name>.<mood>: gallery PDF changed since the WebP was generated`
+
+- **Symptom:** `docs-build` (and the Cloudflare `preview` job) go red on
+  `npm run showcase:check` — before Astro even starts — naming one or two
+  component·mood pairs. Nothing about the docs site was touched in the PR.
+- **Cause:** The landing showcase strip is rasterized from the **committed
+  component gallery PDFs** (`lib/components/<bucket>/<name>/<name>.gallery.<mood>.pdf`),
+  and `docs/scripts/showcase-sources.json` records each source PDF's sha256 at
+  generation time. Re-blessing a gallery golden — which any engine or theme change
+  that legitimately moves pixels has to do — changes that sha, so the WebPs are by
+  definition cut from a PDF that no longer exists. The gate is doing its job
+  (#794: the set drifted silently for a week and shipped a stale render).
+- **Fix:** `node docs/scripts/rasterize-showcase.mjs` and commit what changes.
+  Often that is **only** `showcase-sources.json` — the strip samples one page per
+  gallery (`page` in that file), so if the drift missed that page the WebP bytes
+  are identical and just the hash record needs updating.
+- **Do it in the same commit as the re-bless.** `npm run build:check` does not
+  cover the docs workspace, so a local all-green tree can still land this red.
 
 ### A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)
 
