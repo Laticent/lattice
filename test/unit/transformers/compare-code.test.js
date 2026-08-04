@@ -5,7 +5,7 @@
  * eyebrow code-paragraph and the heading are preserved before it.
  */
 
-const { test, describe } = require('node:test');
+const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const kernel = require('../../../lib/components/code/compare-code/compare-code.transform');
@@ -64,87 +64,96 @@ describe('compare-code — applyToDom (runtime)', () => {
   });
 });
 
-// ── Rot-guard on the two-pane geometry. Not a transform test — a pin on the CSS
-// contract the transform's output depends on, because the defect it guards was
-// invisible to every other gate: horizontal overflow, which the overflow probe
-// (vertical only) cannot see, on a layout whose every gallery specimen has short
-// lines. It shipped for the life of the component.
-describe('compare-code — the two panes stay equal-width and wrap (CSS contract)', () => {
+// ── Rot-guard on the two-pane geometry.
+//
+// BEHAVIORAL, not textual, and that is the whole point. Three earlier cuts of these
+// guards matched the stylesheet as a string, and a red-team pass evaded every one of
+// them with trivial reformulations of the forbidden rule — `pre>code` with no spaces,
+// the attribute before the class, the class without `section`, a descendant combinator
+// instead of a child. A guard that only recognizes the byte-identical form of what it
+// forbids provides the appearance of protection, which is worse than none.
+//
+// So these assert what the BROWSER computes, over the real bundle. Selector spelling,
+// property order, whitespace and source position stop mattering; only the resolved
+// behavior does. They skip (not fail) with no Chromium, because `npm test` must stay
+// render-free — the browser-backed tier is on-demand here, same as css:values.
+describe('compare-code — the two-pane geometry, as the browser resolves it', () => {
   const fs = require('node:fs');
+  const os = require('node:os');
   const path = require('node:path');
-  const raw = fs.readFileSync(
-    path.join(__dirname, '../../../lib/components/code/compare-code/compare-code.styles.css'),
-    'utf8',
-  );
-  // Normalize before matching. The first cut of these guards matched the source
-  // byte-for-byte, so `minmax( 0, 1fr)` or a missing space before `{` failed them —
-  // and the failure message said "rule missing", which points at the wrong thing
-  // entirely. A guard that trips on harmless reformatting gets deleted by whoever
-  // reformats, which costs the protection it was written for.
-  const css = raw
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')   // comments carry the same words as the rules
-    .replace(/\s+/g, ' ');
-  const block = (selectorRe) => {
-    const m = css.match(new RegExp(`${selectorRe}\\s*\\{([^}]*)\\}`));
-    return m?.[1];
+
+  const ROOT = path.join(__dirname, '../../..');
+  const chrome = () => {
+    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+    for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
+      if (!fs.existsSync(root)) continue;
+      for (const b of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
+        const bin = path.join(root, b, 'chrome-linux64', 'chrome');
+        if (fs.existsSync(bin)) return bin;
+      }
+    }
+    return undefined;
   };
 
-  test('the column tracks floor at 0, not min-content', () => {
-    // `1fr` alone is `minmax(auto, 1fr)`, and `auto` resolves to min-content — which
-    // for a `<pre>` is its LONGEST UNWRAPPED LINE. One long line then widens its own
-    // track past its half and pushes the other pane off the frame.
-    const body = block('section\\.compare-code \\.code-cols');
-    assert.ok(body, '.code-cols rule missing');
-    const decl = body.match(/grid-template-columns:([^;]*)/);
-    assert.ok(decl, 'grid-template-columns missing from .code-cols');
-    const tracks = decl[1].replace(/\s+/g, '');
+  // One page, one long line on the LEFT only — the shape that broke. Returns the two
+  // resolved track widths and the computed white-space, which is all three guards need.
+  const measure = async () => {
+    const exe = chrome();
+    if (!exe) return null;
+    const puppeteer = require('puppeteer-core');
+    const css = fs.readFileSync(path.join(ROOT, 'dist/lattice.css'), 'utf8');
+    const browser = await puppeteer.launch({ executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 720 });
+      const LONG = 'const enrichedSignalsWithOwners = await database.signals.findAllMatching({ includeOwner: true });';
+      await page.setContent(`<!DOCTYPE html><style>${css}</style>
+        <section class="compare-code" style="width:1280px">
+          <h2>H</h2>
+          <div class="code-cols">
+            <div class="code-col"><p><code>Before</code></p><pre><code>${LONG}</code></pre></div>
+            <div class="code-col"><p><code>After</code></p><pre><code>return signals;</code></pre></div>
+          </div>
+        </section>`);
+      return await page.evaluate(() => {
+        const cols = document.querySelector('.code-cols');
+        const code = document.querySelector('.code-col pre > code');
+        return {
+          tracks: getComputedStyle(cols).gridTemplateColumns.split(/\s+/).map(parseFloat),
+          whiteSpace: getComputedStyle(code).whiteSpace,
+          sectionWidth: document.querySelector('section').getBoundingClientRect().width,
+        };
+      });
+    } finally { await browser.close(); }
+  };
+
+  let m;
+  before(async () => { m = await measure(); });
+
+  test('the two panes resolve to equal widths despite a long line on one side', async (t) => {
+    if (!m) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    const [a, b] = m.tracks;
+    // Before the fix these measured 946.219 / 182.734 in a 1280px section: the long
+    // line's min-content took the left track and the right pane became a sliver.
+    assert.ok(
+      Math.abs(a - b) < 1,
+      `panes must resolve equal regardless of content; got ${a}px / ${b}px in a ${m.sectionWidth}px section`,
+    );
+  });
+
+  test('landscape code stays verbatim — it does not wrap', async (t) => {
+    if (!m) return t.skip('no Chromium — set CHROME_PATH');
+    // Wrapping was tried here and reversed. On a two-pane diff the reader pairs line
+    // N left with line N right; wrapping is per-pane, so one long line offsets every
+    // row below it across the gutter. It also drops trailing lines out of the
+    // `overflow:hidden` pane on export, and bakes a hard break into the PDF text
+    // layer mid-token. The families that DO wrap stack to one column, where none of
+    // that applies. A too-long line here is clipped inside its own pane instead.
     assert.equal(
-      tracks, 'minmax(0,1fr)minmax(0,1fr)',
-      `both tracks must be minmax(0,1fr) — a bare \`1fr\` reintroduces the min-content floor; got "${decl[1].trim()}"`,
-    );
-  });
-
-  test('code wraps unconditionally, not only for the reflow families', () => {
-    // The pair must be on the BASE rule. It used to be scoped to square/tall/strip on
-    // the reasoning that landscape "keeps the width the author wrote for" — landscape
-    // has the same floor, so it did not.
-    const body = block('section\\.compare-code pre > code');
-    assert.ok(body, 'base `pre > code` rule missing');
-    assert.match(body, /white-space:\s*pre-wrap/, 'long lines must wrap, not clip');
-    assert.match(
-      body, /overflow-wrap:\s*anywhere/,
-      '`anywhere` (not `break-word`) — verified in Chromium: with break-word the track stays blown out (1862px), with anywhere it collapses to its half (564px)',
-    );
-  });
-
-  test('no later rule re-narrows wrapping to a subset of families', () => {
-    // Fails OPEN in the first cut: the regex pinned `[data-family="square"]` as the
-    // FIRST argument and pinned double quotes, so reordering the families or using
-    // single quotes let the forbidden rule back in with the guard still green — it
-    // caught only the byte-identical form of the thing it forbids. Now it asks the
-    // real question: does ANY rule after the base one set white-space or
-    // overflow-wrap on compare-code's code, scoped to a family or not?
-    const base = css.indexOf('section.compare-code pre > code');
-    assert.ok(base > -1, 'base rule missing');
-    const after = css.slice(base + 1);
-    // `(?![-\w])` matters: without it this also matches `section.compare-code-block`,
-    // the SPLIT path — a different class that sets pre-wrap legitimately on its own
-    // full-width block. Catching it would be a false positive that trains people to
-    // ignore the guard.
-    // Scoped to FAMILY-narrowing specifically, not to any later declaration. The
-    // first correction over-corrected: it failed on ANY later rule touching
-    // white-space/overflow-wrap, which bans work that is legitimate — a `strip`
-    // tuning, a `verbatim` modifier that deliberately restores `pre`, a future
-    // hanging-indent scheme. Its message then told that maintainer their correct
-    // change was the bug, and a guard that misdescribes its own failure gets
-    // deleted rather than understood. What actually reopens the defect is
-    // re-narrowing to a SUBSET of families, which is the shape matched here.
-    const offenders = [...after.matchAll(/section\.compare-code(?![-\w])[^{}]*pre > code\s*\{([^}]*)\}/g)]
-      .filter((m) => /white-space|overflow-wrap/.test(m[1]) && /\[data-family=/.test(m[0]));
-    assert.deepEqual(
-      offenders.map((m) => m[0].slice(0, 90)), [],
-      'wrapping must stay family-agnostic — narrowing it to some families reopens the clip for the rest. '
-      + 'A later rule changing wrapping for ALL families is fine and is not what this guards.',
+      m.whiteSpace, 'pre',
+      `landscape compare-code must not wrap; computed white-space was "${m.whiteSpace}". `
+      + 'If you are deliberately reintroducing wrapping, read the .code-cols comment first '
+      + 'and re-render the committed decks — this reverses a decision, it is not a tweak.',
     );
   });
 });

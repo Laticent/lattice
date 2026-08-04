@@ -184,7 +184,7 @@ return signals;
 - Three-way comparison
   - compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`.
 - Lines wider than the pane
-  - A pane holds roughly 55 characters. A longer line WRAPS — it is no longer clipped, but a wrapped line spends two rows where its counterpart spends one, so every row below it is offset across the gutter and the line-N-to-line-N pairing this layout exists for is broken. Wrapping is the safety net, not the plan: trim the line, or move to `code` for a single full-width block.
+  - Past roughly 55 characters a line is clipped at the pane edge. Trim it, or use `code`.
 
 ---
 

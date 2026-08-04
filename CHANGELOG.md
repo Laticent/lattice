@@ -30,31 +30,28 @@ in patch versions.
 - **A `compare-code` slide with one long line pushed the other pane off the frame.** The two panes
   were never equal-width: `.code-cols` used `grid-template-columns: 1fr 1fr`, and a grid track's
   implicit floor is `min-content` — which for a `<pre>` set to `white-space: pre` is its **longest
-  unwrapped line**. So one long line widened its own track past its half and shoved its neighbor
-  out. Measured in Chromium on a two-pane slide holding one 100-character line, `section` 1280px
-  wide: tracks went **946.219px / 182.734px** — the right pane a sliver — and an unbroken 200-char
-  token drove the pane 961px past the frame edge with the export tagged "Content clipped". After:
-  **564px / 564px**. Fixed by `white-space: pre-wrap` / `overflow-wrap: anywhere` on the code, so a
-  long line wraps instead of being cut mid-token — in a PDF there is no scrollbar to recover it —
-  with `minmax(0, 1fr)` tracks alongside. To be precise about which does the work: the wrap pair
-  is the active fix: with it in place the tracks already measure 564px/564px under a bare
-  `1fr 1fr`, so `minmax(0, 1fr)` is the direct statement of "equal regardless of content" and
-  insurance if wrapping is ever narrowed again — not a co-equal cause. Which half of the wrap pair
-  carries it depends on the line. On an ordinary line `pre-wrap` alone suffices, because there are
-  spaces to break at. On an UNBROKEN token only `overflow-wrap: anywhere` works, and `break-word`
-  will not substitute for it — measured on a 271-character token, `break-word` leaves the track at
-  **2338px** (it wraps the glyphs without lowering min-content) where `anywhere` gives 564px.
-  The repo had already diagnosed this exact mechanism and fixed it for the `square`/`tall`/`strip`
-  families, but scoped the fix away from landscape on the reasoning that "landscape keeps `pre`,
-  where the two columns have the width the author wrote for". Landscape has the same floor, so the
-  columns did not keep that width — a long line took it. It survived because the `compare-code`
-  gallery's longest fenced code line is **43 characters** — comfortably inside a pane, so that
-  corpus cannot exercise the defect at all — and horizontal overflow is invisible to the overflow
-  probe, which measures height only. The committed decks that DO carry long lines
-  (`test/integration/baseline-decks/gallery.pdf`, `examples/gallery-jargon.pdf`,
-  `examples/read-across-carousel.pdf`, at 68-74 characters) are re-rendered here. The now-redundant family-scoped wrap rule is deleted rather than left as an override that
-  reads as if landscape were still excluded. Three rot-guard tests pin the contract.
-
+  unwrapped line**. So one long line widened its own track past its half and shoved its neighbor out.
+  Measured in Chromium, `section` 1280px: a 100-character line gave tracks of **946px / 183px**; a
+  271-character unbroken token gave **2482px / 183px**, hanging 961px past the frame with the export
+  tagged "Content clipped". Fixed with `minmax(0, 1fr)` tracks, so both panes hold half regardless of
+  content — including on the un-transformed marp / VS-Code fallback grid, which carried the same bare
+  `1fr 1fr`.
+  **Landscape code deliberately still does not wrap**; a too-long line is clipped inside its own pane.
+  A first cut of this fix wrapped instead, and an adversarial pass rendered three failures that
+  followed, so it was reversed. On a two-pane diff the reader pairs line N left with line N right —
+  the component's own gallery states the contract — and wrapping is per-pane, so one long line spends
+  two rows while its counterpart spends one and every row below it slips a line across the gutter.
+  Wrapping also turns horizontal overflow into height, and the pane is `overflow: hidden`, so a
+  full-height pair **lost whole trailing lines from the exported PDF**; and the soft wrap baked into
+  the PDF text layer as a hard break, so a URL copied out of the delivered file came back split
+  mid-token. That traded one rare, loud failure — a pane visibly off-frame, which an author catches on
+  first render — for three quiet ones, and for a deck that goes in front of a board, quiet is worse.
+  The stacked portrait/square/strip families keep wrapping: they have no gutter to keep aligned.
+  It shipped for the life of the component because every gallery specimen tops out at a
+  **43-character** code line — that corpus cannot exercise the defect — and horizontal overflow is
+  invisible to the overflow probe, which measures height only. The guards are now **behavioral**,
+  asserting what Chromium computes over the real bundle, after a red-team pass evaded three
+  successive textual versions with trivial selector reformulations. (#1346)
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`

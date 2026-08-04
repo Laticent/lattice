@@ -89,7 +89,7 @@
     },
     {
       "title": "Lines wider than the pane",
-      "body": "A pane holds roughly 55 characters. A longer line WRAPS — it is no longer clipped, but a wrapped line spends two rows where its counterpart spends one, so every row below it is offset across the gutter and the line-N-to-line-N pairing this layout exists for is broken. Wrapping is the safety net, not the plan: trim the line, or move to `code` for a single full-width block."
+      "body": "Past roughly 55 characters a line is clipped at the pane edge. Trim it, or use `code`."
     }
   ],
   "related": [
@@ -120,8 +120,8 @@
       "fix": "The split happens at each label boundary — a missing second label leaves the second fenced block trailing inside the first column instead of starting a new one. Every side needs its own inline-code label."
     },
     {
-      "mistake": "Assuming a long code line renders verbatim because the panes look right.",
-      "fix": "It wraps. Continuations start at the left edge of the block, not under the line they continue — in Python and other indentation-sensitive languages that reads as a dedent. Keep fenced lines under ~55 characters so each source line is one rendered row."
+      "mistake": "Letting a fenced line run past the pane width.",
+      "fix": "It is clipped, not wrapped — the tail is cut at the pane edge. Keep fenced lines under ~55 characters so each source line renders whole and lines up with its counterpart across the gutter. Portrait and square decks DO wrap instead, because they stack the panes into one column where there is no pairing to preserve."
     }
   ],
   "specimenVoice": true

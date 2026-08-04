@@ -3125,37 +3125,38 @@ section.code:is(.claim-hero, .claim-bleed) pre { flex: 0 1 auto; }
  */
 section.compare-code { }
 section.compare-code h2 { padding-bottom:var(--sp-sm); }
-/* `minmax(0, 1fr)`, NOT `1fr`. A grid track's implicit floor is min-content, and a
- * `<pre>` with `white-space: pre` reports its LONGEST UNWRAPPED LINE as min-content,
- * so one long line widens its own track past its half and pushes the other pane off
- * the frame. Measured in this repo's Chromium on a two-pane slide whose left pane
- * holds one 100-character line, `section` 1280px wide:
+/* `minmax(0, 1fr)`, NOT `1fr`, and it IS the fix. A grid track's implicit floor is
+ * min-content, and a `<pre>` with `white-space: pre` reports its LONGEST UNWRAPPED
+ * LINE as min-content — so one long line widens its own track past its half and
+ * pushes the other pane off the frame. Measured in this repo's Chromium on a
+ * two-pane slide whose left pane holds one 100-character line, `section` 1280px:
  *
  *     before  tracks 946.219px / 182.734px   (right pane a sliver, export CLIPPED)
  *     after   tracks 564px / 564px
  *
- * HONEST SCOPE OF THIS DECLARATION: it is defensive, not the active fix. Measured
- * with `1fr 1fr` restored and only the wrap pair below applied, the tracks are
- * ALREADY 564px/564px — `overflow-wrap: anywhere` drops min-content to about one
- * character, so the `auto` floor never bites. Keep both anyway: `minmax(0,1fr)` is
- * the direct statement of "these tracks are equal regardless of content", and it
- * holds if a future rule ever narrows the wrapping. Do not read it as the thing
- * doing the work — deleting the wrap pair on the strength of it reopens the bug.
+ * LANDSCAPE DELIBERATELY DOES NOT WRAP, and that is a reversal worth explaining
+ * because a first cut of this fix did wrap and an adversarial pass killed it. On a
+ * two-pane diff the reader pairs line N left with line N right — the component's own
+ * gallery states it: "the panes must stay line-comparable". Wrapping is per-pane and
+ * content-dependent, so ONE long line spends two rows while its counterpart spends
+ * one, and every row below it is offset across the gutter. Rendered on the committed
+ * gallery deck, `axis=1,` came to sit beside `calibrator.flush()`. Two more followed:
+ * wrapping turns horizontal overflow into HEIGHT, and `pre` is `overflow:hidden`
+ * inside a `flex:1` track, so a full-height pair lost whole trailing lines FROM THE
+ * EXPORT (pdftotext found the right pane's last line and not the left's); and the
+ * soft wrap bakes into the PDF text layer as a hard break, so a URL copied out of the
+ * delivered PDF came back as `…reconci` + newline + `le#step-4`.
  *
- * Within the wrap pair, which half carries it depends on the line. An ordinary line
- * has spaces to break at, so `pre-wrap` alone collapses the track. An UNBROKEN token
- * needs `overflow-wrap: anywhere`, and `break-word` does NOT substitute: measured on
- * a 271-character token, `break-word` leaves the track at 2338px because it wraps the
- * glyphs without lowering the element's min-content contribution; `anywhere` lowers
- * it and the track goes to 564px. That is why the value is `anywhere`.
+ * So the trade was a rare LOUD failure (a pane visibly off-frame, which an author
+ * catches on first render) for three quiet ones (a diff that silently means
+ * something else, content missing from the export, a broken copy). For a deck that
+ * goes in front of a board, quiet is worse. With the tracks pinned here, a too-long
+ * line is clipped INSIDE ITS OWN PANE — visibly truncated, honest, and it no longer
+ * displaces its neighbor. The authoring lint that tells the author to shorten it is
+ * the missing complement, tracked separately.
  *
- * The reflow block further down already carried this pair but scoped it away from
- * landscape, reasoning that "landscape keeps `pre`, where the two columns have the
- * width the author wrote for". That is the assumption this repairs: landscape has
- * the same implicit floor, so the columns do NOT keep that width — a long line takes
- * it. It went unseen because every gallery specimen tops out at a 43-character code
- * line, well inside a pane, and horizontal overflow is invisible to the overflow
- * probe, which measures height only. */
+ * The non-landscape families still wrap (see the reflow block below): they stack to
+ * ONE column, so there is no gutter and no pairing to break. */
 section.compare-code .code-cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--sp-md); flex:1; }
 section.compare-code .code-col { display:flex; flex-direction:column; gap:var(--sp-xs); }
 /* Column label: p>code inside .code-col (JS path) or h2 ~ p>code (fallback path) */
@@ -3175,15 +3176,14 @@ section.compare-code h2 ~ p:has(> code:only-child) > code {
   background:none; border:none; padding:0; border-radius:0;
 }
 section.compare-code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
-/* Long lines WRAP rather than vanish — `pre` is `overflow:hidden`, so without this
- * a line past the column width is cut mid-token, and a PDF has no scrollbar to
- * recover it. A wrapped line is still readable code; a clipped one misreports what
- * the source says. `overflow-wrap:anywhere` (not `break-word`) because it also
- * lowers the element's min-content contribution, which is what lets the track
- * above actually shrink; `break-word` would wrap the glyphs and still report the
- * long line as the floor. Identical to the pair the reflow block sets for the
- * other families. */
-section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; white-space:pre-wrap; overflow-wrap:anywhere; }
+/* NO wrap here — landscape code is verbatim, inheriting `white-space: pre` from
+ * base.elements.css. A line past the pane is clipped by the `overflow:hidden` above,
+ * inside its own pane, without displacing its neighbor. See the .code-cols note for
+ * why wrapping was tried and reversed: it breaks the line-N-to-line-N pairing a
+ * two-pane diff exists for, drops trailing lines from the export, and bakes hard
+ * breaks into the PDF text layer mid-token. The families that DO wrap are stacked to
+ * one column, where none of those apply. */
+section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
 /* ── COMPARE-CODE fallback ───────────────────────────────────────────────────
  * Column labels are p>code (inline code paragraphs), matching the eyebrow convention.
@@ -3199,7 +3199,12 @@ section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--
 /* Shared grid shell */
 section.compare-code:not(:has(.code-cols)) {
   display:grid;
-  grid-template-columns:1fr 1fr;
+  /* `minmax(0,1fr)` for the same reason as the transformed path — this grid has the
+   * identical min-content floor, so a long line displaces the other pane here too.
+   * It was left bare while the first cut of this fix wrapped unconditionally, which
+   * masked it; dropping the wrap makes it live again, on the one path the unit tests
+   * do not cover (this is the un-transformed marp / VS-Code preview fallback). */
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:0 var(--sp-md);
 }
 
@@ -3299,13 +3304,23 @@ section.compare-code:where([data-family="square"], [data-family="tall"], [data-f
    * vertical overflow probe cannot see this, so nothing would have said so. */
   grid-template-columns: minmax(0, 1fr);
 }
-/* The family-scoped wrap rule that used to sit here is GONE, not moved: wrapping is
- * now unconditional on `section.compare-code pre > code` at the top of this file.
- * It was scoped to these three families on the reasoning that "landscape keeps
- * `pre`, where the two columns have the width the author wrote for" — which was
- * wrong, and cost landscape the same clip this rule was written to prevent. With
- * the base rule set, repeating it here would be a redundant override that reads as
- * if landscape were still excluded. */
+/* Long lines WRAP rather than disappear — for THESE families only. The pair is
+ * `overflow: hidden`, so without this a line past the column width is cut mid-token,
+ * and a PDF has no scrollbar to recover it.
+ *
+ * This is scoped, and the scope is load-bearing rather than incidental. These three
+ * families stack to ONE column (the rule above), so a wrapped line costs vertical
+ * rows and nothing else. Landscape keeps two columns side by side, where a wrapped
+ * line also destroys the row-for-row pairing between them, drops trailing lines out
+ * of the `overflow:hidden` pane on export, and bakes a hard break into the PDF text
+ * layer mid-token. A first cut of the equal-track fix made wrapping unconditional and
+ * deleted this rule as redundant; an adversarial pass rendered all three failures on
+ * committed decks, so wrapping is back to being exactly what it was — the answer when
+ * there is no gutter to keep aligned. */
+section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) pre > code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 /* The un-transformed fallback pins each block to an explicit grid column, so
  * collapsing the track is not enough — the assignments have to fold to one
  * column and the rows have to grow from four/five to six/seven. */
