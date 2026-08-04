@@ -137,7 +137,7 @@
   "variantDocs": {
     "capsule": {
       "label": "capsule",
-      "summary": "Centered editorial group: pill badge per step in its own categorical hue, serif title, no connector arrows, no masthead hairline.",
+      "summary": "Centered, editorial: pill badges, serif titles, no connectors.",
       "sample": "<!-- _class: list-steps capsule -->\n\n## Turn the framework into a habit.\n\n1. Name it\n   - Say the verb and the reach you operate at today.\n2. Pick the next move\n   - One deeper verb, or the same verb carried wider.\n3. Keep the evidence\n   - A doc, a metric, a postmortem — proof the shift happened.\n"
     },
     "chevron": {

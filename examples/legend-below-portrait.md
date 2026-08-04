@@ -100,7 +100,7 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 ---
 
 <!-- _class: map us -->
-<!-- _footer: "Map · the basemap letterboxes, the key stacks below" -->
+<!-- _footer: "Map · basemap letterboxes, key stacks below" -->
 
 `Adoption by state`
 

@@ -887,9 +887,9 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     // label "Advanced beginner" inside a `<strong>` at `white-space: nowrap;
     // text-overflow: ellipsis`, with ZERO geometric spill anywhere. No measure the
     // geometry probe owns can see it; the content probe can, once it stops taking an
-    // allowlist. (An earlier version of this test used a docked `footer`. The Form
-    // footer BAND is exempt now — its ellipsis is a dated, deliberately accepted cost,
-    // see IGNORED_CLIP_SELECTOR — so the fixture moved to the instance that reproduces.)
+    // allowlist. (An earlier version of this test used a docked `footer`; the fixture
+    // moved to the instance that actually reproduces on the corpus, which is a better
+    // test regardless of what the footer band's policy happens to be this week.)
     const html = '<section><div class="cell-stage"><p id="body">fits</p>'
       + '<strong id="lab">Advanced beginner practitioner</strong></div></section>';
     const rects = {
@@ -906,17 +906,20 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     assert.match(r.first, /Advanced beginner/);
   });
 
-  test('the Form FOOTER BAND is exempt — its ellipsis was decided, not discovered', () => {
-    // `section.form > .cell-footer > footer` is height-capped with
-    // `text-overflow: ellipsis`, and 2026-07-27-footer-band-allocation.md §"What it
-    // costs, accepted deliberately" measures that loss and takes it — eight days before
-    // this probe learned to see it. Reporting it made the new channel shout about a
-    // dated decision on five shipped decks, eleven of thirteen hits, and paint a pill
-    // over the very footer it was complaining about. Excluded at the BAND, so a footer
-    // outside the Form band still reports.
-    // `section.form` and the exact `.cell-footer > footer` nesting: the allowance is
-    // matched structurally, so a bare `<div class="cell-footer">` an author types cannot
-    // reach it. That is the point of the shape, so the fixture has to carry it.
+  test('the Form FOOTER BAND is NOT exempt — the doc that priced its loss asked to be told', () => {
+    // An exemption for `section.form > .cell-footer > footer` shipped here for two
+    // commits and was taken back out. The case for it: 2026-07-27-footer-band-allocation.md
+    // §"What it costs, accepted deliberately" measures the ellipsed tail and takes it,
+    // so re-reporting it is a dated decision shouted at — 11 of this channel's first 13
+    // corpus hits.
+    // The case against it, which won: that doc does not ask for silence. It says
+    // "anyone whose footer is legally operative should keep it short enough to fit, and
+    // THAT IS NOT ENFORCED OR WARNED ABOUT", then names the fix — option (d), "route
+    // over-subscription into the existing alarm so the author is told … the only option
+    // that closes the CLASS rather than an instance". This probe IS option (d), so
+    // carving the footer out of it would ship the mechanism with its motivating case
+    // excluded. "Cry wolf" governs FALSE positives; a deleted confidentiality line is
+    // a true one. The corpus noise was answered by shortening our own decks' footers.
     const html = '<section class="form"><div class="cell-stage"><p id="body">fits</p></div>'
       + '<div class="cell-footer"><footer id="ft">A confidentiality line long enough to be truncated</footer></div></section>';
     const rects = {
@@ -929,7 +932,8 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     const textRects = { '#ft': rect(650, 690, 40, 900) };
     const r = withDom(html, rects, { clipBoxes: ['footer'], textRects },
       (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
-    assert.equal(r.cut, false, 'the footer band must not cry wolf about an accepted truncation');
+    assert.equal(r.cut, true, 'an ellipsed confidentiality line is deleted text — the author must be told');
+    assert.match(r.first, /confidentiality line/);
   });
 
   test('a bearer under an OUT-OF-FLOW ancestor is not cut by a static clip box', () => {
@@ -1022,20 +1026,20 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   });
 
   test('IGNORED_CLIP_SELECTOR does NOT carry the footer BAND — closest() takes its subtree', () => {
-    // The band was in this list for one commit. `closest()` silenced its whole subtree,
-    // but the dated decision prices only the HORIZONTAL ellipsis on the footer's own
-    // TEXT — not the band's `height: 1.6em; overflow: hidden`, and not the images
-    // `footer:` can carry. The exemption lives in probeContentClipped now, keyed on the
-    // axis and the bearer kind. See the two tests below.
+    // The band was in this list for one commit, and `closest()` silenced its whole
+    // subtree — every loss under it, on every axis, at every marker level. The footer
+    // has no exemption at all now (see above), but the shape of the mistake is what
+    // this pins: a subtree exclusion is the bluntest instrument in the file, and it
+    // reached far past the one truncation anyone had argued for.
     assert.ok(!IGNORED_CLIP_SELECTOR.includes('cell-footer'),
-      'an axis- and kind-specific allowance cannot be expressed as a subtree exclusion');
+      'a subtree exclusion silences far more than the case that motivated it');
   });
 
-  test('the footer band reports a VERTICAL slice and a lost IMAGE — only the tail is priced', () => {
-    // `2026-07-27-footer-band-allocation.md` accepts the ellipsed tail. It says nothing
-    // about a mark sliced through the middle by `height: 1.6em; overflow: hidden`, nor
-    // about an 80px logo passed through `footer:` raw HTML. Both were silent for one
-    // commit, at every marker level, and both were reported before this branch existed.
+  test('the footer band reports a VERTICAL slice and a lost IMAGE, not just the tail', () => {
+    // Even under the (now removed) tail exemption these had to report: the dated doc
+    // prices the ellipsed TAIL and says nothing about a mark sliced through the middle
+    // by `height: 1.6em; overflow: hidden`, nor about an 80px logo passed through
+    // `footer:` raw HTML. Both were silent for one commit, at every marker level.
     const html = '<section class="form"><div class="cell-stage"><p id="body">fits</p></div>'
       + '<div class="cell-footer"><footer id="ft"><img id="logo" alt=""></footer></div></section>';
     const rects = {

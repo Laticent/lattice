@@ -651,11 +651,15 @@ in patch versions.
   took 50px off the `.cell-stage` it was reporting on. `.overflow` stays pure geometry;
   `.content-cut` IS `tell`; the same predicate that draws the tab now gates and styles it, so
   the two cannot disagree.
-- **The new `⚠ CONTENT CLIPPED` channel no longer shouts about the running footer's ellipsis.**
-  That truncation is measured, named and accepted in
-  `engineering/decisions/2026-07-27-footer-band-allocation.md`; reporting it made the channel
-  cry wolf on 11 of its first 13 hits and paint a pill over the very footer it complained
-  about. The Form footer BAND is exempt; a footer outside it still reports.
+- **The `⚠ CONTENT CLIPPED` channel DOES report the running footer's ellipsis** — an exemption
+  for it shipped here and was taken back out. `2026-07-27-footer-band-allocation.md` prices that
+  truncation, so the case for silence was real: it was 11 of the channel's first 13 hits. But
+  the same doc says the loss "is not enforced or warned about", and names the remedy — option
+  (d), route over-subscription into the existing alarm so the author is told, "the only option
+  that closes the class rather than an instance". This probe IS option (d); exempting the footer
+  would have shipped the mechanism that closes the class with the class carved out of it.
+  Cry-wolf is a rule about FALSE positives, and a legally-operative line deleted from an
+  exported text layer — in portrait, roughly three quarters of it — is not one.
 - **`safe` alignment now covers the class, not two components.** `stage.css`'s `align-middle`
   / `fill-center` / `align-bottom` / `fill-anchor` are universal modifiers on every component
   and could throw a slide's first list item off the block-start edge with no signal. 34

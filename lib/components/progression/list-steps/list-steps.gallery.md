@@ -215,7 +215,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 ---
 
 <!-- _class: list-steps capsule -->
-<!-- _footer: "capsule · list-steps capsule — Centered editorial group: pill badge per step in its own categorical hue, serif title, no connector arrows, no masthead hairline." -->
+<!-- _footer: "capsule · list-steps capsule — Centered, editorial: pill badges, serif titles, no connectors." -->
 
 ## Turn the framework into a habit.
 

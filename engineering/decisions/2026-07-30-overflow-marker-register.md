@@ -746,14 +746,31 @@ visibility, its `position: absolute`, and its restyle all key on the same predic
 draws it. The test grew a level axis at the same time, because the surviving bug lived at
 the only level the test did not drive.
 
-**The new channel's first real yield was 11 parts noise.** Across the corpus it named
-13 slides on 5 shipped decks, and 11 of those were the running footer's ellipsis — a
-loss that `2026-07-27-footer-band-allocation.md` §"What it costs, accepted deliberately"
-measures, names and takes, eight days earlier. The register's own governing sentence is
-"a warning that cries wolf teaches its reader to silence it"; the first thing the
-widened probe must not do is prove it. The footer BAND is exempt (a footer outside it
-still reports). What survives the exemption is one genuine find — `examples/state-chart.md`
-p6 slices its sixth state box to a sliver — which is the ratio the channel should have.
+**The new channel's first real yield was 11 parts noise — and the fix for that was
+wrong.** Across the corpus it named 13 slides on 5 shipped decks, and 11 were the running
+footer's ellipsis, a loss `2026-07-27-footer-band-allocation.md` §"What it costs, accepted
+deliberately" measures and takes eight days earlier. The register's own governing sentence
+is "a warning that cries wolf teaches its reader to silence it", so the footer band was
+exempted. That exemption shipped for two commits and is now removed. Reading the cited doc
+past the section that prices the loss: it says the truncation "is not enforced or warned
+about", and names the remedy — option (d), "route over-subscription into the existing alarm
+so the author is told … the only option that closes the CLASS rather than an instance."
+This probe IS option (d). Exempting the footer shipped the mechanism that closes the class
+with the class carved out of it, and the ratio argument concealed that: cry-wolf is a rule
+about FALSE positives, and every one of those 11 is a legally-operative line being deleted
+from an exported text layer — in portrait, roughly three quarters of it. A ratio of true
+positives is not a noise measurement.
+
+The exemption also cost two bugs on its way out, which is the real argument against a
+carve-out inside a detector. Expressed in `IGNORED_CLIP_SELECTOR` it was matched with
+`closest()` and silenced the band's whole subtree — the vertical slice through a
+confidentiality mark and any image `footer:` carries, neither of which the doc prices.
+Moved into `probeContentClipped` and keyed on axis and bearer kind, it then did not work
+at all: layout is UNCLIPPED, so a rect the footer had already cut still overflowed every
+box above it, and `continue` simply handed the same loss to the section, which reported it
+anyway (`examples/portrait-journey.md` p3: the footer clips at x=992, the text lays out to
+x=1115, the section edge is 1080). Two commits, two different mechanisms, one carve-out
+that was never justified in the first place.
 
 **Two silent-by-default holes, inside the change whose thesis is that silent-by-default
 is the enemy.** A bare `.watermark` in the ignore list also matched the universal
