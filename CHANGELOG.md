@@ -635,6 +635,25 @@ in patch versions.
   reason, rather than being quietly uncovered. Proven with deliberately-broken canaries in all
   three directions (an unowned PDF, a stale rule, and each of the three widened gates), which is
   what the card asked for.
+- **The reader was never actually shown the "Content clipped" pill on a slide that loses
+  content without overflowing.** The JS half shipped correct — both watchers drew the pill,
+  every unit test passed, the console said the right thing — and `base.modifiers.css` hid it,
+  because tab visibility keys on `.overflow` and `.overflow` is (correctly) pure geometry. A
+  new `.content-clipped` class, the mirror of `.overflow-silent`, is stamped on
+  `tell && !over` and gates the pill alongside it. Found by rasterizing the export rather than
+  reading the diff; pinned by an integration test that drives a real export and asserts
+  computed `display`, since a class assertion passes against the broken build.
+- **The new `⚠ CONTENT CLIPPED` channel no longer shouts about the running footer's ellipsis.**
+  That truncation is measured, named and accepted in
+  `engineering/decisions/2026-07-27-footer-band-allocation.md`; reporting it made the channel
+  cry wolf on 11 of its first 13 hits and paint a pill over the very footer it complained
+  about. The Form footer BAND is exempt; a footer outside it still reports.
+- **`safe` alignment now covers the class, not two components.** `stage.css`'s `align-middle`
+  / `fill-center` / `align-bottom` / `fill-anchor` are universal modifiers on every component
+  and could throw a slide's first list item off the block-start edge with no signal. 34
+  alignments carry `safe` across the engine, including the chart family's `.chart-body` and
+  both mermaid wrappers. `safe` is byte-identical when content fits — verified by the pixel
+  gate across every gallery.
 - **`redline split` dropped the closing phrase of a statute clause on its own gallery.** The NEW
   column — always the longer of the pair, since an amendment adds words — ran 31px past its own
   `overflow: hidden` and cut "…their personal information."  The `.cell-stage` fit and the section

@@ -1910,3 +1910,50 @@ describe('check-ownership', () => {
     });
   });
 });
+
+// ── checkCommittedPdfs — every committed PDF names a producer AND a watcher ────
+// The gate landed with its canaries run by hand and no artifact (#1279). That is the
+// shape HARD RULE #23 rejects: a claim of verification whose evidence does not survive
+// the session it was made in. Pinned here, in all three directions the canaries covered.
+describe('check-ownership: checkCommittedPdfs (#1279)', () => {
+  const { checkCommittedPdfs, PDF_OWNERSHIP } = require('../../../tools/check-ownership');
+  const { EXTRA_NAMES } = require('../../../tools/build-bucket-galleries');
+
+  test('the real tree is fully owned — no orphan, no stale rule', () => {
+    const errors = [];
+    checkCommittedPdfs(errors);
+    assert.deepEqual(errors, [], errors.join('\n'));
+  });
+
+  test('every rule names a producer, and says so explicitly when it has no watcher', () => {
+    for (const r of PDF_OWNERSHIP) {
+      assert.equal(typeof r.what, 'string');
+      assert.ok(r.producer && r.producer.length > 0, `${r.what}: a rule must name how the PDF is produced`);
+      // `watcher: null` is a deliberate, reviewable statement — but it must be the
+      // literal null, never simply absent, or "nobody checked" and "nothing watches
+      // this, here is why" become indistinguishable.
+      assert.ok(Object.hasOwn(r, 'watcher'), `${r.what}: state the watcher, or state null`);
+    }
+  });
+
+  test('a lib/base gallery with no BUILDER is an orphan, not a free pass', () => {
+    // The first cut matched all of `lib/base/**` on the strength of EXTRA_GALLERIES
+    // existing at all, so a second hand-authored gallery would have passed the
+    // "it has a producer" check with no producer — #1279's own defect, recurring
+    // under a green gate.
+    const rule = PDF_OWNERSHIP[0];
+    const known = EXTRA_NAMES[0];
+    assert.ok(rule.test(`lib/base/_${known}/${known}.gallery.light.pdf`), 'the known gallery is claimed');
+    assert.equal(rule.test('lib/base/_foo/foo.gallery.light.pdf'), false,
+      'an unbuilt lib/base gallery must fall through to the orphan check');
+    assert.ok(rule.test('lib/components/chart/kanban/kanban.gallery.dark.pdf'), 'components are claimed');
+  });
+
+  test('the examples rule does not silently claim the chart-theme reviewer decks', () => {
+    // They have their own rule, with `watcher: null` and the reason. If the broad
+    // examples rule swallowed them, that honesty would be unreachable.
+    const byExamples = PDF_OWNERSHIP.findIndex((r) => r.test('examples/chart-theme-gallery/chart-onyx-light.pdf'));
+    const own = PDF_OWNERSHIP.findIndex((r) => r.what.includes('curated chart palettes'));
+    assert.equal(byExamples, own);
+  });
+});

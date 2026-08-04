@@ -54,6 +54,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { EXTRA_NAMES } = require('./build-bucket-galleries');
 const {
   loadAll, manifestBucket, BUCKETS,
   UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS,
@@ -4283,7 +4284,15 @@ function checkUniversalTableGuard(manifests, errors, dirs = {}) {
 // dated decision record, where rebuilding would destroy the thing being evidenced.
 const PDF_OWNERSHIP = [
   {
-    test: (f) => /^lib\/(components|base)\/.+\.gallery\.(light|dark)\.pdf$/.test(f),
+    // `lib/base/**` is admitted ONLY for a gallery build-bucket-galleries actually
+    // knows how to build. The first cut matched all of `lib/base/**` on the strength of
+    // EXTRA_GALLERIES existing — so a SECOND hand-authored gallery dropped under
+    // lib/base would have passed the "it has a producer" gate with no producer, which
+    // is #1279's exact defect recurring under a green check. The gate has to assert the
+    // `producer:` field is true of the file, not that a regex matched it. (Red team.)
+    test: (f) => /^lib\/components\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
+      || (/^lib\/base\/.+\.gallery\.(light|dark)\.pdf$/.test(f)
+        && EXTRA_NAMES.includes((/([^/]+)\.gallery\.(?:light|dark)\.pdf$/.exec(f) || [])[1])),
     what: 'component, bucket and hand-authored galleries',
     producer: 'tools/build-galleries.js · tools/build-bucket-galleries.js (EXTRA_GALLERIES covers the ones outside lib/components)',
     watcher: 'build:galleries:check · build:bucket-galleries:check · npm run regress (pixel) · tools/golden-diff.mjs (PR montage) · overflow:check',

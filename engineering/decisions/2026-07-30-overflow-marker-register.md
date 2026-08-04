@@ -664,8 +664,13 @@ all of it at once:
 | box discovery added | +7.4ms | +0.06ms |
 | `probeContentClipped`, when it runs | 23.6ms | 0.20ms |
 
-Discovery skips childless elements (4706 → 1761), which is half its cost and loses
-nothing: `flowedSpill` reads element children, so a box with none cannot contribute.
+Discovery skips childless elements (4706 → 1761), which is half its cost — but ONLY
+for `over`. That skip sat at the top of the loop in the first cut and therefore also
+filtered `clipSuspect`, which made the two cases this whole change is named after
+unreachable: `text-overflow: ellipsis` and `-webkit-line-clamp` both normally sit on a
+box whose only content is a text node. The scroll-dims test runs on every clipping box
+now; the childless skip guards `flowedSpill` alone. Found by the HARD RULE #25 checker,
+reproduced on `premise.gallery.md` p3 (65px — 34% — off "Advanced beginner", silent).
 
 ### What the widened set found on the first sweep
 
@@ -709,3 +714,58 @@ One alignment could not be made safe and is stated rather than quietly skipped:
 fixes that value's overflow fallback at `center`, so it can still shear — it is
 *detected* (`.panel-right` is a probed cell and the rect walk reads block-start spill),
 which is the property that matters.
+
+
+### What the adversarial trio changed (HARD RULE #25)
+
+Three lenses on the shipping diff, and between them they found six defects the maker
+did not. Recorded because the pattern in them is more useful than the list.
+
+**The reader half did not exist.** The gate was removed in JS, both watchers drew the
+pill on `tell`, every unit test passed, and the export console said the right thing —
+and `base.modifiers.css`'s `section:not(.overflow) > .overflow-tab { display: none }`
+set the pill to `display: none` on exactly the new population, because `.overflow` is
+still (correctly) pure geometry. A `matrix-grid` axis label sliced mid-word rendered
+with no pill at all. The inversion pass found it by RASTERIZING THE EXPORT; nobody who
+read the diff found it, and the suppressing rule is quoted in a comment one screen away
+from the change that trips it. `.content-clipped` is the fix — the mirror of
+`.overflow-silent`, stamped on `tell && !over` — and the regression test drives a real
+export and asserts computed `display`, because a class assertion passes against the
+broken build.
+
+**The new channel's first real yield was 11 parts noise.** Across the corpus it named
+13 slides on 5 shipped decks, and 11 of those were the running footer's ellipsis — a
+loss that `2026-07-27-footer-band-allocation.md` §"What it costs, accepted deliberately"
+measures, names and takes, eight days earlier. The register's own governing sentence is
+"a warning that cries wolf teaches its reader to silence it"; the first thing the
+widened probe must not do is prove it. The footer BAND is exempt (a footer outside it
+still reports). What survives the exemption is one genuine find — `examples/state-chart.md`
+p6 slices its sixth state box to a sliver — which is the ratio the channel should have.
+
+**Two silent-by-default holes, inside the change whose thesis is that silent-by-default
+is the enemy.** A bare `.watermark` in the ignore list also matched the universal
+section VARIANT, and both probes exclude via `closest()`, so an entire slide's subtree
+dropped out of both. `[aria-hidden="true"]` was worse in both directions: `html: true`
+means a deck author can silence detection by wrapping content in it, and this engine
+puts `aria-hidden` on elements carrying visible author text. Both are named as elements
+now. The lesson generalizes: **a denylist applied through `closest()` is silent over a
+whole subtree**, so every entry must name an element, never a class an author can reach.
+
+**`skipped()` closed the ancestor-walk hole for the ignore list and not for
+`position`.** A docked `footer` is absolute and the `<code>` inside it is static, so
+eight phantom cuts lived in split-panel's own gallery, masked only because
+`clipSuspect` happened to be false there. CSS's own rule settles it: an absolutely
+positioned element is clipped by an ancestor only if that ancestor is its containing
+block.
+
+**Two claims were reasoning where a measurement was available**, and both were wrong:
+`space-evenly` falls back to `start` in Chromium 131, not `center` (so it cannot shear
+at all), and the content probe was 5.7× dearer than the comment beside it claimed. The
+absolute millisecond figures are gone rather than corrected — this machine gives a 3×
+spread on identical code, which is the trap `2026-08-03-performance-guard.md` documents.
+
+**And the `safe` sweep was too narrow.** The first cut fixed the two components with
+issue numbers. `stage.css`'s `align-middle` / `fill-center` / `align-bottom` /
+`fill-anchor` are UNIVERSAL modifiers riding on every component, and the inversion
+reproduced whole-item loss with a bare `_class: list align-middle`. 34 alignments carry
+`safe` now, including the chart family's `.chart-body` and both mermaid wrappers.

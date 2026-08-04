@@ -883,24 +883,71 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
   });
 
   test('#1300 — a cut in a box the allowlist never named is found by the content probe', () => {
-    // The live corpus instance: a docked `footer` at `text-overflow: ellipsis` truncates
-    // 43px of a real title with ZERO geometric spill anywhere. No measure the geometry
-    // probe owns can see it; the content probe can, once it stops taking an allowlist.
+    // The live corpus instance: premise.gallery.md p3 ellipses 65px — 34% — off the
+    // label "Advanced beginner" inside a `<strong>` at `white-space: nowrap;
+    // text-overflow: ellipsis`, with ZERO geometric spill anywhere. No measure the
+    // geometry probe owns can see it; the content probe can, once it stops taking an
+    // allowlist. (An earlier version of this test used a docked `footer`. The Form
+    // footer BAND is exempt now — its ellipsis is a dated, deliberately accepted cost,
+    // see IGNORED_CLIP_SELECTOR — so the fixture moved to the instance that reproduces.)
+    const html = '<section><div class="cell-stage"><p id="body">fits</p>'
+      + '<strong id="lab">Advanced beginner practitioner</strong></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.cell-stage': rect(0, 700, 0, 1280),
+      '#body': rect(40, 90, 40, 1240),
+      '#lab': rect(200, 240, 40, 166),          // the BOX, 126 wide
+    };
+    // …and the TEXT laid out at its full nowrap width, 65px past the box that clips it.
+    const textRects = { '#lab': rect(200, 240, 40, 231) };
+    const r = withDom(html, rects, { clipBoxes: ['#lab'], textRects },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+    assert.equal(r.cut, true, 'an ellipsed label loses real text and nothing was watching');
+    assert.match(r.first, /Advanced beginner/);
+  });
+
+  test('the Form FOOTER BAND is exempt — its ellipsis was decided, not discovered', () => {
+    // `section.form > .cell-footer > footer` is height-capped with
+    // `text-overflow: ellipsis`, and 2026-07-27-footer-band-allocation.md §"What it
+    // costs, accepted deliberately" measures that loss and takes it — eight days before
+    // this probe learned to see it. Reporting it made the new channel shout about a
+    // dated decision on five shipped decks, eleven of thirteen hits, and paint a pill
+    // over the very footer it was complaining about. Excluded at the BAND, so a footer
+    // outside the Form band still reports.
     const html = '<section><div class="cell-stage"><p id="body">fits</p></div>'
-      + '<div class="cell-footer"><footer id="ft">A title long enough to be truncated</footer></div></section>';
+      + '<div class="cell-footer"><footer id="ft">A confidentiality line long enough to be truncated</footer></div></section>';
     const rects = {
       section: rect(0, 700, 0, 1280),
       '.cell-stage': rect(0, 640, 0, 1280),
       '#body': rect(40, 90, 40, 1240),
       '.cell-footer': rect(640, 700, 0, 1280),
-      '#ft': rect(650, 690, 40, 640),           // the BOX
+      '#ft': rect(650, 690, 40, 640),
     };
-    // …and the TEXT laid out at its full nowrap width, 60px past the box that clips it.
-    const textRects = { '#ft': rect(650, 690, 40, 700) };
+    const textRects = { '#ft': rect(650, 690, 40, 900) };
     const r = withDom(html, rects, { clipBoxes: ['footer'], textRects },
       (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
-    assert.equal(r.cut, true, 'an ellipsed footer loses real text and nothing was watching');
-    assert.match(r.first, /A title long enough/);
+    assert.equal(r.cut, false, 'the footer band must not cry wolf about an accepted truncation');
+  });
+
+  test('a bearer under an OUT-OF-FLOW ancestor is not cut by a static clip box', () => {
+    // A docked `<footer>` is `position: absolute`; the `<code>` inside it is `static`,
+    // so `skipped()` — which read only the bearer's own position — let it through while
+    // its parent had already escaped the panel that "clips" it. Measured on split-panel's
+    // own gallery: pages 11-18 each reported cut:true for a `<code>` sitting 461px left
+    // of `.panel-right`, with nothing cut. Eight phantoms in one shipped gallery.
+    // CSS's own rule decides it: an absolutely-positioned element is clipped by an
+    // ancestor only if that ancestor is its containing block, i.e. is itself positioned.
+    const html = '<section><div class="panel-right">'
+      + '<footer id="dock" data-pos="absolute"><code id="c">proof</code></footer></div></section>';
+    const rects = {
+      section: rect(0, 700, 0, 1280),
+      '.panel-right': rect(0, 700, 550, 1280),
+      '#dock': rect(660, 690, 30, 1200),        // docked across the whole slide
+      '#c': rect(665, 688, 89, 146),            // 461px LEFT of .panel-right
+    };
+    const r = withDom(html, rects, { clipBoxes: ['.panel-right'] },
+      (s) => probeContentClipped(s, IGNORED_CLIP_SELECTOR, TOL));
+    assert.equal(r.cut, false, 'a static clip box does not clip an out-of-flow descendant');
   });
 
   test('#1300 — an invisible a11y mirror is not a bearer (KaTeX)', () => {
@@ -971,8 +1018,18 @@ describe('overflow-probe: BLOCK-START shear, and the boxes an allowlist missed',
     assert.equal(r.clipSuspect, true, 'but it MUST be worth a content walk, or the ellipsis case is unreachable');
   });
 
+  test('IGNORED_CLIP_SELECTOR does NOT carry a bare [aria-hidden] — it silences both ways', () => {
+    // `html: true` means a deck author can wrap a slide in `<div aria-hidden="true">`
+    // and turn off the ring, the pill, the console line and autosplit for that subtree.
+    // And this engine puts `aria-hidden` on elements carrying VISIBLE author text
+    // (journey's actor dots), which could then never be reported as cut. "Hidden from
+    // assistive technology" is not "not content a sighted reader can lose".
+    assert.ok(!IGNORED_CLIP_SELECTOR.includes('aria-hidden'),
+      'name the specific decorative elements, not the ARIA attribute');
+  });
+
   test('IGNORED_CLIP_SELECTOR names the boxes that are never evidence', () => {
-    for (const s of ['.split-feat-bleed', 'div.watermark', '.katex-mathml', '[aria-hidden="true"]', '.overflow-tab']) {
+    for (const s of ['.split-feat-bleed', 'div.watermark', '.katex-mathml', '.image-scrim', '.cell-footer', '.overflow-tab']) {
       assert.ok(IGNORED_CLIP_SELECTOR.includes(s), `${s} must stay excluded`);
     }
   });

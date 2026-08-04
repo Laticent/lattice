@@ -1266,7 +1266,26 @@ section.overflow > .overflow-tab {
 }
 /* Only visible on an overflowing section — hidden if the element lingers after
  * the slide is fixed (the runtime watcher also removes it). */
-section:not(.overflow) > .overflow-tab { display: none; }
+/* `.content-clipped` — the MIRROR of `.overflow-silent`, and the CSS half of the
+ * 2026-08-03 change (#1300). `.overflow-silent` says "the box overflowed but nothing
+ * was cut, so do not tell the reader"; this says the opposite — "the box did NOT
+ * overflow, but content was cut inside a clipping descendant, so DO tell them."
+ *
+ * It exists because that population had no name here and was therefore invisible. The
+ * watchers were extended to draw the pill on `tell`, which can now be true while
+ * `over` is false (an ellipsed label, a line-clamped card, a sheared panel head — none
+ * of them grow the section's own extent). The rule below then set the pill they had
+ * just drawn to `display: none`, because it keys on `.overflow` and `.overflow` is
+ * still, correctly, pure geometry. The JS was right, shipped, and had no reader: a
+ * `matrix-grid` axis label sliced mid-word rendered with no pill at all. Caught by the
+ * HARD RULE #25 inversion pass, which rasterized the export instead of reading the
+ * diff — the suppression is documented one screen away in lattice-emulator.js and was
+ * still missed by everyone who only read JS.
+ *
+ * `.overflow` deliberately stays geometric: autosplit and the console report key off
+ * it and both want the geometric truth. So the reader's visibility question needed its
+ * own class rather than a widening of that one. */
+section:not(.overflow):not(.content-clipped) > .overflow-tab { display: none; }
 
 /* `overflow-marker: off` — the CSS half of "no marker". The JS half sweeps once at
  * boot, which is not enough on a `--fluid` export: the emulator embeds its own
@@ -1276,6 +1295,9 @@ section:not(.overflow) > .overflow-tab { display: none; }
  * its own rule above, so this only has the tabs left to handle. */
 section[data-lattice-overflow-marker="off"] > .overflow-tab,
 section[data-lattice-overflow-marker="off"] > .illegible-tab { display: none !important; }
+/* …and `.content-clipped` draws its pill without `.overflow`, so `off` has to suppress
+ * it on the same terms as everything else. */
+section.content-clipped[data-lattice-overflow-marker="off"] > .overflow-tab { display: none !important; }
 section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !important; }
 
 /* ── The READER variant of the same marker ────────────────────────────────────
@@ -1309,7 +1331,8 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * slide section instead.
  * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
  * engineering/decisions/2026-07-30-overflow-marker-register.md. */
-section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab {
+section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab,
+section.content-clipped[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* Self-contained (not inherited from the author rule above): the settle
    * guarantee relies on the tab being out of flow so it can't change the measured
    * height — assert it here so a future edit to the author rule can't silently

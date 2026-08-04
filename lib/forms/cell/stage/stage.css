@@ -358,8 +358,17 @@ section.form:is(.align-top, .align-middle, .align-bottom, .align-left, .align-ce
   display: flex;
   flex-direction: column;
 }
-section.form:is(.align-middle, .fill-center) > .cell-stage { justify-content: center; }
-section.form:is(.align-bottom, .fill-anchor) > .cell-stage { justify-content: flex-end; }
+/* Every alignment below that can push content off the BLOCK-START edge is `safe`
+ * (#1299). A flex container that centers or end-aligns and then OVERFLOWS throws its
+ * content off the TOP — and block-start overflow does not grow `scrollHeight`, so it
+ * is invisible to every scroll-dims measure in the system. A cut tail announces
+ * itself; a cut head does not. `safe` falls back to `start` the instant content
+ * overflows and keeps the intended alignment while it fits, so a fitting slide is
+ * byte-identical and an overflowing one loses its LAST line instead of its first.
+ * `flex-start` needs nothing; `space-between`/`space-around`/`space-evenly` measured
+ * as start-fallback in Chromium 131 and take no `safe` keyword (invalid CSS). */
+section.form:is(.align-middle, .fill-center) > .cell-stage { justify-content: safe center; }
+section.form:is(.align-bottom, .fill-anchor) > .cell-stage { justify-content: safe flex-end; }
 section.form.align-top    > .cell-stage { justify-content: flex-start; }
 section.form.align-center > .cell-stage { align-items: center; }
 section.form.align-right  > .cell-stage { align-items: flex-end; }
@@ -370,12 +379,12 @@ section.form.align-left   > .cell-stage { align-items: flex-start; }
  * "grid of correct boxes" and a board deck. Default is `start` (top-anchored
  * flow, unchanged). Authors opt a slide into a board-style distribution; each
  * is a Cell `fill` value made selectable. */
-section.form.fill-center  { justify-content: center; }
-section.form.fill-anchor  { justify-content: flex-end; }
+section.form.fill-center  { justify-content: safe center; }
+section.form.fill-anchor  { justify-content: safe flex-end; }
 /* optical-center sits the content slightly above true centre (the eye reads a
  * geometric centre as low) — extra bottom reserve biases it up. */
 section.form.fill-optical {
-  justify-content: center;
+  justify-content: safe center;
   padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl));
 }
 

@@ -109,14 +109,14 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li {
  * then leaves dead space at the card bottom ("a grid of boxes", forms.md §6). Centre
  * the content block so the full-height cards read as a board deck. Portrait only;
  * the wide 2×2 is untouched. */
-section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: center; }
+section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: safe center; }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
  * (≤0.9) collapse the verdict grid to one column, keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
 section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
 }
-section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: center; }
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: safe center; }
 
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical

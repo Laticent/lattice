@@ -2090,7 +2090,7 @@ section.authority-chain > .cell-stage {
 
 
 
-section.big-number > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.big-number > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 section.big-number > .cell-stage > ul { list-style:none; padding:0; margin:0; text-align:center; }
 section.big-number > .cell-stage > ul > li { font-family:var(--font-display); font-size:var(--fs-hero); font-weight:700; color:var(--accent); line-height:1; }
 section.big-number > .cell-stage > ul > li > ul { list-style:none; padding:var(--sp-lg) 0 0 0; margin:0; display:flex; flex-direction:column; align-items:center; }
@@ -2727,7 +2727,7 @@ section.checklist > .cell-stage > ol > li em {
  *
  * Variants: .split, .pull-quote, .margin, .triptych.
  * ──────────────────────────────────────────────────────────────────── */
-section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:center; }
+section.citation-card > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); justify-content:safe center; }
 /* Hanging citation eyebrow — leading paragraph that is just a `<code>`. */
 section.citation-card > .cell-stage > p:has(> code:only-child) {
   margin:0;
@@ -4531,7 +4531,7 @@ section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .
 /* Each card fills a share of the tall frame; centre the justification so it sits
    in the card's optical middle (the corner tag stays pinned top-left) instead of
    orphaning at the top over empty space. */
-section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
+section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: safe center; }
 /* One option per full-width card — the justification is the card's hero, so it
    carries statement weight (--fs-message), not body weight. */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
@@ -7927,7 +7927,7 @@ section.form.list-steps.capsule .cell-masthead .masthead-lede {
  * `rule-full` modifier can still put it back; `rule-short`/`rule-accent`
  * already clear the border themselves. */
 section.form.list-steps.capsule:not(.rule-full) .cell-masthead { border-bottom: none; }
-section.list-steps.capsule > .cell-stage { justify-content: center; }
+section.list-steps.capsule > .cell-stage { justify-content: safe center; }
 /* A slide-proportional cap so three cards stay a readable centered group
  * rather than stretching the full frame width. */
 section.list-steps.capsule ol { flex: 0 1 auto; max-width: 80cqi; align-self: center; width: 100%; }
@@ -7991,7 +7991,7 @@ section.list-steps.capsule ol > li:nth-child(8n)::before   { background: var(--c
  * ol → numbered discs; ul → plain dots. Resets the list-steps card + STEP-badge
  * + arrow-connector chrome. Merged from the standalone timeline on 2026-06-07.
  * Lifted to <strong> by the timeline token in the shared slot-label-lift paths. */
-section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading is framing text — it follows the headline-alignment seam (`headline:`) via its
  * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
  * identical). */
@@ -8062,7 +8062,7 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em
 
 /* shared: centre the flow, stack as a column, strip the default card + STEP
  * badge (::before) + right-arrow connector (::after) chrome. */
-section.list-steps:is(.chevron, .converge, .ghost) > .cell-stage { justify-content:center; }
+section.list-steps:is(.chevron, .converge, .ghost) > .cell-stage { justify-content:safe center; }
 section.list-steps:is(.chevron, .converge, .ghost) ol { flex-direction:column; align-items:stretch; flex:0 1 auto; }
 section.list-steps:is(.chevron, .converge, .ghost) ol > li { flex:0 0 auto; border:none; background:none; padding:0; font-weight:400; }
 section.list-steps:is(.chevron, .converge, .ghost) ol > li::before { content:none; }
@@ -11970,7 +11970,7 @@ section.quadrant.dark {
 
 
 
-section.quote > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.quote > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 section.quote blockquote {
   position:relative;
   background:var(--bg-alt); border:1px solid var(--border);
@@ -15442,7 +15442,7 @@ section.state-chart .state-node-shape.chart-mark-active {
  * See lib/components/evidence/stats/stats.manifest.json for the contract.
  */
 
-section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
+section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:safe center; align-items:center; }
 /* The heading + subtitle are framing text — they follow the headline-alignment seam
  * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
  * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
@@ -16368,14 +16368,14 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li {
  * then leaves dead space at the card bottom ("a grid of boxes", forms.md §6). Centre
  * the content block so the full-height cards read as a board deck. Portrait only;
  * the wide 2×2 is untouched. */
-section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: center; }
+section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: safe center; }
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
  * (≤0.9) collapse the verdict grid to one column, keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
 section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
 }
-section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: center; }
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: safe center; }
 
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
@@ -18303,7 +18303,26 @@ section.overflow > .overflow-tab {
 }
 /* Only visible on an overflowing section — hidden if the element lingers after
  * the slide is fixed (the runtime watcher also removes it). */
-section:not(.overflow) > .overflow-tab { display: none; }
+/* `.content-clipped` — the MIRROR of `.overflow-silent`, and the CSS half of the
+ * 2026-08-03 change (#1300). `.overflow-silent` says "the box overflowed but nothing
+ * was cut, so do not tell the reader"; this says the opposite — "the box did NOT
+ * overflow, but content was cut inside a clipping descendant, so DO tell them."
+ *
+ * It exists because that population had no name here and was therefore invisible. The
+ * watchers were extended to draw the pill on `tell`, which can now be true while
+ * `over` is false (an ellipsed label, a line-clamped card, a sheared panel head — none
+ * of them grow the section's own extent). The rule below then set the pill they had
+ * just drawn to `display: none`, because it keys on `.overflow` and `.overflow` is
+ * still, correctly, pure geometry. The JS was right, shipped, and had no reader: a
+ * `matrix-grid` axis label sliced mid-word rendered with no pill at all. Caught by the
+ * HARD RULE #25 inversion pass, which rasterized the export instead of reading the
+ * diff — the suppression is documented one screen away in lattice-emulator.js and was
+ * still missed by everyone who only read JS.
+ *
+ * `.overflow` deliberately stays geometric: autosplit and the console report key off
+ * it and both want the geometric truth. So the reader's visibility question needed its
+ * own class rather than a widening of that one. */
+section:not(.overflow):not(.content-clipped) > .overflow-tab { display: none; }
 
 /* `overflow-marker: off` — the CSS half of "no marker". The JS half sweeps once at
  * boot, which is not enough on a `--fluid` export: the emulator embeds its own
@@ -18313,6 +18332,9 @@ section:not(.overflow) > .overflow-tab { display: none; }
  * its own rule above, so this only has the tabs left to handle. */
 section[data-lattice-overflow-marker="off"] > .overflow-tab,
 section[data-lattice-overflow-marker="off"] > .illegible-tab { display: none !important; }
+/* …and `.content-clipped` draws its pill without `.overflow`, so `off` has to suppress
+ * it on the same terms as everything else. */
+section.content-clipped[data-lattice-overflow-marker="off"] > .overflow-tab { display: none !important; }
 section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !important; }
 
 /* ── The READER variant of the same marker ────────────────────────────────────
@@ -18346,7 +18368,8 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * slide section instead.
  * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
  * engineering/decisions/2026-07-30-overflow-marker-register.md. */
-section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab {
+section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab,
+section.content-clipped[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* Self-contained (not inherited from the author rule above): the settle
    * guarantee relies on the tab being out of flow so it can't change the measured
    * height — assert it here so a future edit to the author rule can't silently
@@ -19459,7 +19482,9 @@ section.chart-frame .chart-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* `safe` (#1299): this box is `overflow: hidden`, so a figure taller than it would
+   * otherwise be sheared off the TOP — where scrollHeight cannot see it. */
+  justify-content: safe center;
   align-items: center;
   box-sizing: border-box;
   width: calc(100cqi - 2 * var(--sp-2xl));
@@ -19503,7 +19528,7 @@ section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-gri
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
  * height) would otherwise sit at the stage top; an SVG body (flex:1) already fills the
  * stage, so this is a no-op for it. An `align-*` modifier overrides at higher specificity. */
-section.chart-frame > .cell-stage { justify-content: center; }
+section.chart-frame > .cell-stage { justify-content: safe center; }
 
 /* ── Box-local: reclaim horizontal room for the figure on a tall/narrow box. The
  * default body reserves --sp-2xl on EACH side in both the width calc and the
@@ -23285,8 +23310,17 @@ section.form:is(.align-top, .align-middle, .align-bottom, .align-left, .align-ce
   display: flex;
   flex-direction: column;
 }
-section.form:is(.align-middle, .fill-center) > .cell-stage { justify-content: center; }
-section.form:is(.align-bottom, .fill-anchor) > .cell-stage { justify-content: flex-end; }
+/* Every alignment below that can push content off the BLOCK-START edge is `safe`
+ * (#1299). A flex container that centers or end-aligns and then OVERFLOWS throws its
+ * content off the TOP — and block-start overflow does not grow `scrollHeight`, so it
+ * is invisible to every scroll-dims measure in the system. A cut tail announces
+ * itself; a cut head does not. `safe` falls back to `start` the instant content
+ * overflows and keeps the intended alignment while it fits, so a fitting slide is
+ * byte-identical and an overflowing one loses its LAST line instead of its first.
+ * `flex-start` needs nothing; `space-between`/`space-around`/`space-evenly` measured
+ * as start-fallback in Chromium 131 and take no `safe` keyword (invalid CSS). */
+section.form:is(.align-middle, .fill-center) > .cell-stage { justify-content: safe center; }
+section.form:is(.align-bottom, .fill-anchor) > .cell-stage { justify-content: safe flex-end; }
 section.form.align-top    > .cell-stage { justify-content: flex-start; }
 section.form.align-center > .cell-stage { align-items: center; }
 section.form.align-right  > .cell-stage { align-items: flex-end; }
@@ -23297,12 +23331,12 @@ section.form.align-left   > .cell-stage { align-items: flex-start; }
  * "grid of correct boxes" and a board deck. Default is `start` (top-anchored
  * flow, unchanged). Authors opt a slide into a board-style distribution; each
  * is a Cell `fill` value made selectable. */
-section.form.fill-center  { justify-content: center; }
-section.form.fill-anchor  { justify-content: flex-end; }
+section.form.fill-center  { justify-content: safe center; }
+section.form.fill-anchor  { justify-content: safe flex-end; }
 /* optical-center sits the content slightly above true centre (the eye reads a
  * geometric centre as low) — extra bottom reserve biases it up. */
 section.form.fill-optical {
-  justify-content: center;
+  justify-content: safe center;
   padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl));
 }
 
@@ -23749,7 +23783,7 @@ section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-c
    broke that. Instead the runtime marks state on the <pre> itself and
    inserts a sibling `<div class="mermaid">` (SVG target) and, on
    failure, a sibling `<div class="mermaid-error">`. */
-.mermaid-svg                             { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+.mermaid-svg                             { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
 /* `> .cell-stage > .mermaid`: since diagram opted into `conformance:"strict"`
  * (model-driven frame render §4), the masthead kernel now wraps the diagram body
  * — the source `<pre>` AND the runtime-inserted `.mermaid` sibling next to it —
@@ -23758,7 +23792,7 @@ section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-c
  * needs the wrapped arm too. The bare `section.diagram > .mermaid` arm stays for
  * the `no-form` (unwrapped) slide. */
 section.diagram > .mermaid,
-section.diagram > .cell-stage > .mermaid { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+section.diagram > .cell-stage > .mermaid { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
 .mermaid-svg svg,
 section.diagram > .mermaid svg,
 section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }

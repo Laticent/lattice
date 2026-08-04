@@ -2044,6 +2044,13 @@ ${stateChartScript}
       // the section so the CSS can tell "over" from "worth telling a reader about".
       // (No backticks in this comment -- it is injected into a template literal.)
       s.classList.toggle('overflow-silent', over && !tell);
+      // …and its MIRROR: tell can be true while over is false (an ellipsed label, a
+      // line-clamped card, a sheared panel head cut content without growing the
+      // section's extent). base.modifiers.css hides any tab under
+      // section:not(.overflow), so without this class the pill is drawn and then set to
+      // display:none -- the reader half of the change would not exist.
+      // (No backticks in this comment -- it is injected into a template literal.)
+      s.classList.toggle('content-clipped', tell && !over);
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
@@ -2590,8 +2597,11 @@ async function renderBody(browser, g, closeBrowser) {
   // any `.overflow` section — invaluable while authoring in the live preview,
   // but a red box in front of a board is worse than the silent clip that
   // overflow:hidden already applies. The author is warned on stderr at EVERY level;
-  // what the artifact shows is the `overflow-marker` setting's job, resolved above. (Removing the class also hides the .overflow-tab via
-  // `section:not(.overflow) > .overflow-tab { display:none }`.)
+  // what the artifact shows is the `overflow-marker` setting's job, resolved above.
+  // (Removing `.overflow` also hides the tab via
+  // `section:not(.overflow):not(.content-clipped) > .overflow-tab { display:none }` —
+  // note the second clause: `.content-clipped` marks a slide that cut content WITHOUT
+  // overflowing, so `off` has to clear that class too or its pill survives the strip.)
   const level = OVERFLOW_MARKER.marker;
   await g(() => page.evaluate((lvl) => {
     // `off` — the historical behavior of this path, now a CHOICE rather than the
@@ -2600,6 +2610,8 @@ async function renderBody(browser, g, closeBrowser) {
     // never a standing default (lib/core/resolve-overflow-marker.js).
     if (lvl === 'off') {
       for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
+      for (const s of document.querySelectorAll('section.overflow-silent')) s.classList.remove('overflow-silent');
+      for (const s of document.querySelectorAll('section.content-clipped')) s.classList.remove('content-clipped');
       for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
     }
     // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:

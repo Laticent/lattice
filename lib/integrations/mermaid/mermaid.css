@@ -27,7 +27,7 @@
    broke that. Instead the runtime marks state on the <pre> itself and
    inserts a sibling `<div class="mermaid">` (SVG target) and, on
    failure, a sibling `<div class="mermaid-error">`. */
-.mermaid-svg                             { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+.mermaid-svg                             { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
 /* `> .cell-stage > .mermaid`: since diagram opted into `conformance:"strict"`
  * (model-driven frame render §4), the masthead kernel now wraps the diagram body
  * — the source `<pre>` AND the runtime-inserted `.mermaid` sibling next to it —
@@ -36,7 +36,7 @@
  * needs the wrapped arm too. The bare `section.diagram > .mermaid` arm stays for
  * the `no-form` (unwrapped) slide. */
 section.diagram > .mermaid,
-section.diagram > .cell-stage > .mermaid { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+section.diagram > .cell-stage > .mermaid { display:flex; align-items:safe center; justify-content:safe center; width:100%; flex:1; min-height:0; overflow:hidden; }
 .mermaid-svg svg,
 section.diagram > .mermaid svg,
 section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:100% !important; height:100% !important; max-height:100% !important; display:block; }
