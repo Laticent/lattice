@@ -2,6 +2,7 @@ import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
 import { fenceRanges } from '../../components/studio/slide-directives';
+import { normalizeSourceText } from '../normalize-source-text';
 
 // Pure deck-source helpers — the fence-aware split/join between a Lattice deck's
 // canonical markdown and its parts (front-matter, per-slide directives, prose).
@@ -17,9 +18,15 @@ export const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)/;
 const SEP = '\n\n---\n\n';
 
 /** CRLF → LF. The slide separator `\n-{3,}\n` doesn't match `\r\n---\r\n`, so a CRLF
- *  deck must be normalized before splitting or it collapses to one slide. */
+ *  deck must be normalized before splitting or it collapses to one slide.
+ *
+ *  DELEGATES to the shared `toLf` rather than carrying its own `.replace` (HARD RULE #15).
+ *  This predates the LF policy and was an independent second implementation of the same
+ *  regex — exactly the duplication the policy exists to end, and it is why `SANCTIONED_EOL_BOUNDARIES` in `tools/check-ownership.js`
+ *  can be trusted as the boundary list: a second normalizer outside that grep would make the
+ *  list a lie. Kept as a named export because callers here read better for it. */
 export function normalizeSource(source: string): string {
-	return source.replace(/\r\n?/g, '\n');
+	return normalizeSourceText(source);
 }
 
 /** Split one slide chunk into preserved directive lines + the prose body. FENCE-AWARE:

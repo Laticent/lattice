@@ -25,6 +25,7 @@ import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable
 import { messageForFailure } from '@/lib/chunk-load';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
+import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome';
@@ -1348,7 +1349,22 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Open a deck source into a fresh deck. `comments` (from a .lattice import) are
 	// restored onto the NEW deck id so they travel with the file. Returns nothing;
 	// notifies on success.
-	function openImportedDeck(text: string, title: string, comments?: unknown) {
+	function openImportedDeck(rawText: string, title: string, comments?: unknown) {
+		// THE STUDIO'S DECK-IMPORT LINE-ENDING BOUNDARY, and it belongs HERE — at the funnel —
+		// not in a caller. Deck source reaches this function two ways: a plain `.md` via
+		// `file.text()`, and a `.lattice` zip whose `deck.md` carries whatever the machine that
+		// exported it wrote. A first cut normalized only the `.md` caller and called the boundary
+		// covered, which is the same mistake that produced #1349: fix the path you were looking
+		// at, declare the class closed. Everything downstream (the editor, ~55 register kernels,
+		// every export) assumes LF. `\r\n?` covers Windows CRLF and classic-Mac lone CR, and is
+		// a no-op on text that is already LF.
+		//
+		// It is ONE of the Studio's ingest boundaries, not the only one. `SANCTIONED_EOL_BOUNDARIES` in `tools/check-ownership.js` is the
+		// authoritative list — that is why the normalization is a NAMED function rather than an
+		// inline `.replace` at each door. A reference doc (`reference-doc.ts`) deliberately does
+		// NOT normalize: it is model grounding context, never spliced into deck source and never
+		// exported.
+		const text = normalizeSourceText(rawText);
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
 		saveSourceGuarded(deck.id, source);
 		const d = createDeck(title || titleFromSource(text), text);
@@ -1363,6 +1379,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setView('compose');
 		notify(`Imported “${d.title}”.`);
 	}
+	// Normalization happens in `openImportedDeck` (the funnel both import paths cross), so
+	// this caller does not repeat it — `titleFromSource` reads a heading, which no line-ending
+	// convention affects.
 	function importDeckFromText(text: string) {
 		openImportedDeck(text, titleFromSource(text));
 	}

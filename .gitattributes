@@ -1,0 +1,78 @@
+# LINE ENDINGS ARE LF, EVERYWHERE, AND THIS FILE IS WHAT MAKES THAT TRUE.
+#
+# Lattice's house convention is LF: LF in the repo, LF in the editor, LF out of every
+# export. Windows understands LF everywhere that matters (Notepad was the last holdout and
+# was fixed in Windows 10 1809, October 2018), and Lattice's own artifacts are indifferent
+# to it — PDF is binary, PPTX is zipped XML whose parsers normalize line endings per spec,
+# HTML is browser-rendered. The one artifact where line endings are observable is the raw
+# `.md` a user downloads or shares, and that should be LF like everything else.
+#
+# WHY A FILE RATHER THAN A CONVENTION. Before this, nothing enforced it. The tree happened
+# to be clean — zero CRLF across every committed .md/.ts/.js/.mjs — but that was each
+# contributor's local `core.autocrlf`, not policy. A contributor with `autocrlf=false`
+# could commit CRLF and no gate would notice.
+#
+# WHAT IT COST TO LEARN. A CRLF deck rendered with the WRONG PALETTE through the emulator,
+# silently: `lib/core/resolve-palette.js` was the one front-matter reader of ~55 whose regex
+# lacked `\r?`, so a Windows-authored deck declaring `theme: cuoio` exported entirely in
+# the default theme (#1349). The repair is not "add `\r?` to that one reader" — fifty-odd
+# readers each independently remembering it is a design that guarantees the next one forgets.
+# The repair is to normalize at every boundary source crosses, so no reader has to remember.
+# This file is the GIT boundary. The AUTHORITATIVE list of the others is
+# `SANCTIONED_EOL_BOUNDARIES` in `tools/check-ownership.js` — a gate, not a comment, because a
+# boundary list kept in prose rots. This very paragraph is the proof: it named "two others" when
+# there were six, and it took a review pass to notice.
+
+# Normalize every text file to LF in the repo, and check it out as LF on every platform
+# INCLUDING Windows. `text=auto` lets git detect text vs binary; `eol=lf` pins the working
+# tree, so a Windows clone gets LF rather than CRLF and cannot commit CRLF back.
+* text=auto eol=lf
+
+# Binaries git must never touch. `text=auto` detects most of these correctly, but naming
+# them is cheap and a mis-detection here CORRUPTS the file rather than merely annoying
+# someone. Types actually committed today (counted with `git ls-files`): 340 pdf,
+# 108 woff2, 95 mp3, 36 png, 30 webp, 30 wav, 4 jpg. The rest are prospective — a format
+# we don't ship yet but plausibly will, listed so the first one committed is already safe
+# rather than depending on whoever adds it remembering this file.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.avif  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.zip   binary
+*.pptx  binary
+*.docx  binary
+*.xlsx  binary
+*.lattice binary
+*.wasm  binary
+*.gz    binary
+*.mp3   binary
+*.wav   binary
+*.m4a   binary
+*.ogg   binary
+*.opus  binary
+*.mp4   binary
+*.webm  binary
+
+# A PATCH IS BYTE-SENSITIVE. `docs/patches/*.patch` is applied by `patch-package
+# --error-on-fail` on install, and a hunk's line endings are part of the match. Today's one
+# patch is pure LF, so `text=auto` is harmless — but a future patch against a CRLF upstream
+# file would be silently renormalized on `git add` and then fail install. `-text` opts the
+# whole extension out of any conversion.
+*.patch -text
+
+# CRLF TEST FIXTURES, IF ONE IS EVER COMMITTED. `* text=auto eol=lf` makes a genuinely-CRLF
+# fixture impossible to commit: git stores a CR-free blob, prints a `warning:` that is easy to
+# miss, and leaves `git status` clean while the working tree still has CRLF — so the fixture
+# would pass locally for the right reason and in CI for the wrong one. Today every CRLF test
+# builds its fixture at runtime with `.replace()`, which is better; this escape hatch exists so
+# that a fixture that MUST live on disk has a correct way to.
+*.crlf.* -text

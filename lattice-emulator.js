@@ -534,9 +534,25 @@ if (PAPER_FIT && (OUT_FORMAT !== 'pdf' || RASTER_PDF)) {
 // Friendly error wrapper for file reads. Bare ENOENT throws produce
 // stack traces that look like crashes; this surfaces them as one-line
 // errors with exit code 1.
+/**
+ * Read a text file, and NORMALIZE ITS LINE ENDINGS TO LF at this boundary.
+ *
+ * This is the CLI's only door for author-supplied text, so it is where the house LF
+ * convention is enforced rather than in each of the ~55 readers downstream. `\r\n?` covers
+ * Windows CRLF and classic-Mac lone CR in one pattern, at no extra cost over `\r\n`.
+ *
+ * WHY HERE AND NOT IN `render()`. A CRLF deck used to export in the DEFAULT PALETTE,
+ * silently: `resolvePalette` is called on this raw string BEFORE and OUTSIDE the engine's
+ * `render()`, so normalizing inside the engine would not have caught it (#1349). The
+ * boundary has to be the read.
+ *
+ * Byte-safe for anything already LF — the replace is a no-op, so no committed deck's export
+ * changes. It changes output only for a CRLF file, which is the file that was rendering
+ * wrong. Palette CSS goes through here too; CSS is whitespace-insensitive, so that is inert.
+ */
 function readFileOrDie(p, label) {
   try {
-    return fs.readFileSync(p, 'utf8');
+    return fs.readFileSync(p, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
   } catch (e) {
     if (e.code === 'ENOENT') console.error(`error: ${label} not found: ${p}`);
     else if (e.code === 'EACCES') console.error(`error: ${label} not readable (permission denied): ${p}`);

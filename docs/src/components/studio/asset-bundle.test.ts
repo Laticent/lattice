@@ -129,6 +129,47 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		await expect(unpackBundle(await z.generateAsync({ type: 'blob' }))).rejects.toThrow(/manifest/i);
 	});
 
+	// LINE ENDINGS. A component skeleton is MARKDOWN, and `addSlideAfter` splices it verbatim into
+	// deck source — so a CRLF skeleton in an imported zip produces a mixed-EOL deck that is then
+	// persisted and shared out that way. The zip is external input, so `unpackBundle` normalizes
+	// at the unpack. This asserts on the UNPACKED value rather than a round-trip through our own
+	// packer, because our packer never emits CRLF: the case only arises from a zip built
+	// elsewhere, which is exactly the one a round-trip test cannot reach.
+	it('normalizes a CRLF skeleton at the unpack — CSS is deliberately left alone', async () => {
+		const { default: JSZip } = await import('jszip');
+		const z = new JSZip();
+		const skeletonCRLF = '<!-- _class: callout -->\r\n\r\n# Heads up\r\n\r\nBody.\r\n';
+		const cssCRLF = 'section.callout {\r\n  color: var(--text);\r\n}\r\n';
+		z.file('callout.skeleton.md', skeletonCRLF);
+		z.file('callout.css', cssCRLF);
+		z.file('manifest.json', JSON.stringify({
+			format: 'lattice-asset/1',
+			kind: 'component',
+			items: [{ kind: 'component', name: 'callout', bucket: 'statement', css: 'callout.css', skeleton: 'callout.skeleton.md' }],
+		}));
+		const round = await unpackBundle(await z.generateAsync({ type: 'blob' }));
+		expect(round.components).toHaveLength(1);
+		expect(round.components[0].skeleton).toBe('<!-- _class: callout -->\n\n# Heads up\n\nBody.\n');
+		expect(/\r/.test(round.components[0].skeleton)).toBe(false);
+		// CSS is NOT normalized — it is never spliced into markdown and the browser is
+		// indifferent to its line endings. Pinned so the asymmetry is deliberate, not an oversight.
+		expect(round.components[0].css).toBe(cssCRLF);
+	});
+
+	it('a lone-CR skeleton is covered too, which a reader-style `\\r?\\n` could not be', async () => {
+		const { default: JSZip } = await import('jszip');
+		const z = new JSZip();
+		z.file('callout.skeleton.md', '<!-- _class: callout -->\r\r# Heads up\r');
+		z.file('callout.css', 'section.callout { color: var(--text); }');
+		z.file('manifest.json', JSON.stringify({
+			format: 'lattice-asset/1',
+			kind: 'component',
+			items: [{ kind: 'component', name: 'callout', bucket: 'statement', css: 'callout.css', skeleton: 'callout.skeleton.md' }],
+		}));
+		const round = await unpackBundle(await z.generateAsync({ type: 'blob' }));
+		expect(round.components[0].skeleton).toBe('<!-- _class: callout -->\n\n# Heads up\n');
+	});
+
 	it('showcase deck exercises the engine range', () => {
 		const d = showcaseDeck('Harbor');
 		for (const cls of ['title', 'kpi', 'journey', 'diagram', 'split-panel', 'closing']) expect(d).toContain(`_class: ${cls}`);

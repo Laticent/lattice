@@ -417,6 +417,31 @@ describe('deck linter', () => {
     assert.doesNotMatch(hint.message, /PDF|HTML|VTT/); // format initialisms skipped
   });
 
+  // LINE ENDINGS AT THE CLI'S FILE READ. A deck on disk is author input and may be CRLF. Before
+  // this, `lint-deck` read it raw and gave a Windows author DIFFERENT advice for identical
+  // content — measured on examples/a11y.md, where CRLF silently dropped a verbose-eyebrow finding
+  // and lone CR invented a title-incomplete one. This asserts through `main()`, the real CLI
+  // entry, on genuinely raw fixtures, so it fails if the normalization is removed.
+  test('a deck lints identically as LF, CRLF and lone CR — the CLI normalizes at the read', async () => {
+    const LF = `${FM}<!-- _class: cards-grid -->\n\n## H.\n\n- **First.** body on same line.\n`;
+    const run = async (src, tag) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), `lint-eol-${tag}-`));
+      const file = path.join(dir, 'deck.md');
+      fs.writeFileSync(file, src);
+      const chunks = [];
+      const orig = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (s) => { chunks.push(String(s)); return true; };
+      try { await main(['--json', file]); } finally { process.stdout.write = orig; fs.rmSync(dir, { recursive: true, force: true }); }
+      const out = JSON.parse(chunks.join(''));
+      // Compare the FINDINGS, not the whole payload — the payload carries the temp path.
+      return JSON.stringify([...(out.findings ?? []), ...(out.reviewFindings ?? [])].map((f) => [f.rule, f.severity, f.message]));
+    };
+    const lf = await run(LF, 'lf');
+    assert.equal(await run(LF.replace(/\n/g, '\r\n'), 'crlf'), lf, 'a CRLF deck must lint identically to the same deck as LF');
+    assert.equal(await run(LF.replace(/\n/g, '\r'), 'cr'), lf, 'a lone-CR deck must lint identically too');
+    assert.match(lf, /card-style-inline-title/, 'the fixture must actually produce a finding, or this asserts nothing');
+  });
+
   test('every committed deck is completely lint-clean (no errors, no warnings)', () => {
     // The deck tree is clean and the gate is --strict, so warnings count too.
     // Locks in the fixes for the baseline gallery (cards-stack inline-title),

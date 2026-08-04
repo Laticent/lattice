@@ -145,7 +145,13 @@ async function main(argv) {
   let warnings = 0;
 
   for (const file of files) {
-    const source = fs.readFileSync(file, 'utf8');
+    // LINE ENDINGS: normalize at the READ, like `lattice-emulator.js` does, because a deck on
+    // disk is author input and may be CRLF. Without it the same deck lints DIFFERENTLY by
+    // encoding — measured on examples/a11y.md: LF reported verbose-eyebrow, verbose-key-insight
+    // and no-ask; CRLF silently dropped verbose-eyebrow; lone CR dropped it and invented
+    // title-incomplete. A Windows author got different advice for identical content.
+    // `\r\n?` covers CRLF and classic-Mac lone CR; it is a no-op on LF.
+    const source = fs.readFileSync(file, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
     const findings = lintText(source, { vocab });
     for (const f of findings) {
       // `info` / `suggestion` are the ADVISORY tier — they report something true about a

@@ -216,6 +216,30 @@ describe('notes-core: caption channel (caption:)', () => {
     assert.match(out, /<p>Body<\/p>/);
   });
 
+  // A CRLF SOURCE MUST STILL STRIP, AND THIS IS THE ONLY PLACE THAT CAN PROVE IT.
+  // The integration test that used to guard this (`test/integration/export/html-player.test.js`,
+  // "--strip-notes scrubs a MULTI-LINE note in a CRLF (Windows) deck") wrote a real CRLF file and
+  // ran the CLI. Once the CLI began normalizing at its file read, that test stopped discriminating
+  // — it still passes, but the CRLF never reaches the kernel, so it can no longer catch a
+  // regression in the kernel's own `\r` handling. It is kept there as an end-to-end check of the
+  // boundary, and the discriminating assertion moved HERE, where the raw CRLF actually arrives.
+  //
+  // This is not hypothetical residue: `share-export.ts:298` calls this same kernel on Studio
+  // `source`, which `saveSource` keeps byte-faithful — so a deck persisted before the boundaries
+  // landed still hands this function CRLF today. It is a PRIVACY strip (speaker notes leaking
+  // into a shared HTML), so a silent failure here is the expensive kind.
+  test('stripNotesFromSource strips a MULTI-LINE note from a raw CRLF source (no newline-mismatch leak)', () => {
+    // The note-body SET always arrives LF-normalized, because it is derived from rendered slide
+    // HTML where markdown-it already normalized newlines. The SOURCE being stripped may still be
+    // CRLF. That mismatch is the leak, so the fixture reproduces it exactly: an LF set against a
+    // genuinely CRLF source, both raw.
+    const crlf = ['# S', '', '<!-- Pause here.', 'Then CRLFLEAK ask the room. -->', '', 'Body.'].join('\r\n');
+    const bodiesFromRenderedHtml = new Set(['Pause here.\nThen CRLFLEAK ask the room.']);
+    const out = core.stripNotesFromSource(crlf, bodiesFromRenderedHtml);
+    assert.doesNotMatch(out, /CRLFLEAK/, 'a multi-line note must not survive in a CRLF source');
+    assert.match(out, /# S/, 'body content untouched');
+  });
+
   // The privacy strip for the self-contained player's envelope (design doc §Notes on export).
   test('stripNotesFromSource removes ONLY the known note comments — directives + tooling survive', () => {
     const source = [

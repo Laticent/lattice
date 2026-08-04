@@ -232,9 +232,16 @@ describe('html-player export — speaker notes + --strip-notes (P3d)', () => {
 		assert.equal(parseEnvelope(html).source.includes('LEAKMARK'), false, 'and from the decoded envelope source');
 	});
 
-	test('--strip-notes scrubs a MULTI-LINE note in a CRLF (Windows) deck (no newline-mismatch leak)', { timeout: TIMEOUT }, () => {
-		// The checker's blocker: a CRLF source + a multi-line note leaked because the
-		// strip set was \n-normalized. Author the deck with real \r\n endings.
+	test('--strip-notes scrubs a MULTI-LINE note in a CRLF (Windows) deck, end to end', { timeout: TIMEOUT }, () => {
+		// A CRLF source + a multi-line note leaked because the strip set was \n-normalized.
+		// Author the deck with real \r\n endings.
+		//
+		// WHAT THIS TEST NOW PROVES, AND WHAT IT NO LONGER DOES. The CLI normalizes at its file
+		// read, so the CRLF authored here never reaches `stripNotesFromSource` — this asserts the
+		// BOUNDARY holds end to end, which is worth keeping, but it can no longer catch a
+		// regression in the kernel's own `\r` handling. That discriminating assertion lives in
+		// `test/unit/authoring/notes-core.test.js`, which hands the kernel raw CRLF directly —
+		// the path `share-export.ts` still takes on byte-faithful Studio source.
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-crlf-'));
 		const deck = path.join(dir, 'd.md');
 		fs.writeFileSync(deck, ['# S', '', '<!-- Pause here.', 'Then CRLFLEAK ask the room. -->', '', 'Body.'].join('\r\n'));
