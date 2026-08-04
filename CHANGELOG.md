@@ -939,7 +939,10 @@ in patch versions.
   Library, Reader views, Workspace settings and the theme picker. The 87px it was short comes from
   the row's own slack, not from the posture dial: **the guided tours moved into ⋯ below desktop**
   and **the whole row runs at the phone's density there** (6px gaps, 10px side padding), which
-  between them free ~122px and leave 35px spare at the 700px floor. The dial keeps its words at
+  together free 122px — measured as 87px over → 35px spare at the 700px floor (how that splits
+  between the two depends on which lands first, since the tours button's gap shrinks with the
+  row). The 35px is what keeps the row honest when the webfont has not loaded: the system-ui
+  fallback grows the dial from 219px to ~240px, and it still fits. The dial keeps its words at
   every width it renders at. An interim fix took the width out of the dial instead (icon-only
   below 1100px) and that was the wrong trade, for a reason worth writing down: on a touch tablet
   those words became **unreachable, not merely hidden** — the tooltip that carries them is
@@ -980,9 +983,10 @@ in patch versions.
   instead of a squeezed desktop one. The row carries ~14 gaps, which makes this ~78px of width
   reclaimed with no control moved, hidden or shrunk: the largest saving available anywhere in it,
   and most of what the posture dial's words are paid for (#1401). Gated on the app's own 1100px
-  `compact` boundary rather than Tailwind's `lg` (1024) — an `lg` gate would have left 1024–1099
-  at desktop density, and that band is where the row is tightest, since Present and Share take
-  their words back at `lg`.
+  `compact` boundary rather than Tailwind's `lg` (1024), which disagrees with it by 76px — an `lg`
+  gate would have left 1024–1099 at desktop density while still `compact`. The density earns its
+  place across the whole band, not only at the floor: put desktop density back and the deck title
+  truncates to `Markdown for the …` at 1024 and to `M…` at 820.
 
 - **Studio: the guided tours have one launcher per width — the ⋯ menu on a tablet, not a header
   button.** `Show me` was a header button at every width above a phone; below 1100px it is now a
@@ -993,7 +997,11 @@ in patch versions.
   non-wrapping row and this buys back 44px of it for the posture dial's words (#1401). A tour is a
   considered, once-per-session detour, which makes it the cheapest thing in that row to put one tap
   further away; none of the six protected 1-tap controls (Present, Share, Coach, Chat, Settings,
-  pane toggle) moved.
+  pane toggle) moved. **What it costs, said plainly:** the tours are a first-visit *discovery*
+  surface, and nobody opens an overflow menu looking for a feature they don't know exists — so a
+  tablet visitor is now less likely to find them at all, not merely one tap slower. That is the
+  price of the words, and it is a real one; ⌘K's "Watch demo" and the phone drawer's door are
+  unchanged.
 
 - **Studio: Send feedback has one fixed address on tablet and desktop, and the header stops
   sliding when you move the dial.** It used to render only in the full (Build/compact) header, so

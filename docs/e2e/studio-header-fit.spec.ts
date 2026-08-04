@@ -32,6 +32,15 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 const WIDTHS = [700, 720, 760, 820, 1024, 1099, 1100, 1440];
 const DESKTOP = 1100; // the app's own boundary (use-breakpoint.ts), not Tailwind's `lg`
 const TOLERANCE = 2; // sub-pixel rounding, same as check:overflow
+const X_DRIFT = 1; // sub-pixel only: #1371's defect was a 70px jump, not a rounded pixel
+// The row must not merely FIT at its floor — it must fit with room a person could spend.
+// `scrollWidth <= clientWidth` is a cliff-edge oracle: the deck switcher truncates to
+// absorb pressure, so the first thing a squeeze destroys is the deck title (the user's
+// orientation), and the fit assertion cannot fail until that is already at zero. This
+// floor fires BEFORE the cliff. 24px is not arbitrary: with the webfont unavailable the
+// system-ui fallback grows the dial by ~20px, so a row under ~24px of spare is a row that
+// breaks for anyone whose font has not loaded yet. Today's measurement is 35px.
+const MIN_SPARE_AT_FLOOR = 24;
 
 // Step the dial by ARIA NAME, never by text: an icon-only dial has no text, so a
 // textContent lookup would match nothing, the click would be a no-op, and every
@@ -76,6 +85,43 @@ async function readHeader(page: import('@playwright/test').Page, tail: string[],
 	}, [tail, menuName] as const);
 }
 
+/**
+ * How much MORE could this row carry before it clips? Binary-searches the width of a
+ * rigid probe appended to the header, then removes it.
+ *
+ * The probe must carry INK. An empty `<div>` of any width does not grow a flex row's
+ * `scrollWidth` in Chrome, so an empty probe reports infinite headroom — measured, and
+ * it is exactly the kind of silently-passing measurement this file exists to prevent.
+ */
+async function spareAt(page: import('@playwright/test').Page, tolerance: number): Promise<number> {
+	return page.evaluate((tol) => {
+		const h = document.querySelector('[data-studio-root] header');
+		if (!h) throw new Error('no [data-studio-root] header');
+		const probe = document.createElement('span');
+		probe.textContent = '·';
+		probe.style.cssText = 'flex:0 0 auto;display:inline-block;overflow:hidden;visibility:hidden';
+		h.appendChild(probe);
+		const fits = (px: number) => {
+			probe.style.width = `${px}px`;
+			void (h as HTMLElement).offsetWidth; // force layout
+			return h.scrollWidth - h.clientWidth <= tol;
+		};
+		try {
+			if (!fits(0)) return -1;
+			let lo = 0;
+			let hi = 400;
+			while (lo < hi) {
+				const mid = Math.ceil((lo + hi) / 2);
+				if (fits(mid)) lo = mid;
+				else hi = mid - 1;
+			}
+			return lo;
+		} finally {
+			probe.remove(); // never leave the probe behind — later widths measure the real row
+		}
+	}, tolerance);
+}
+
 test('@smoke the Studio header fits — and keeps its words — at every supported width', async ({ page }) => {
 	test.slow(); // 8 widths x 3 dial stops in one page: headroom, not an expectation
 	await gotoStudio(page);
@@ -117,10 +163,25 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 		// #1371: stepping the dial must not slide the controls beside it. Compared
 		// only across controls present in ALL three stops — at desktop the Read/Write
 		// slim header genuinely carries fewer of them, and that is not drift.
+		//
+		// Within X_DRIFT, not exactly equal. At 1100 the three stops do not even render
+		// the same row — Read and Write get the slim header, Build the full one — and CI
+		// measured Present at 616 / 616 / 617 there, a sub-pixel rounding difference
+		// between two layouts. The defect this guards is a cluster JUMPING (#1371 was
+		// 70px on every Write↔Build step); a pixel of rounding is not that, and failing
+		// on it would make the spec a flake generator, which is exactly what keeps
+		// `studio-smoke` from ever earning promotion off advisory (#800).
 		const shared = TAIL.filter((n) => STOPS.every((s) => perStop[s.word].x[n] !== undefined));
 		for (const name of shared) {
 			const xs = STOPS.map((s) => perStop[s.word].x[name]);
-			expect(new Set(xs).size, `${name} moved across the dial at ${width}px (x = ${xs.join(' / ')})`).toBe(1);
+			const drift = Math.max(...xs) - Math.min(...xs);
+			expect(drift, `${name} moved across the dial at ${width}px (x = ${xs.join(' / ')})`).toBeLessThanOrEqual(X_DRIFT);
+		}
+
+		// Headroom, at the floor only — see MIN_SPARE_AT_FLOOR above.
+		if (width === WIDTHS[0]) {
+			const spare = await spareAt(page, TOLERANCE);
+			expect(spare, `spare capacity at the ${width}px floor`).toBeGreaterThanOrEqual(MIN_SPARE_AT_FLOOR);
 		}
 	}
 });

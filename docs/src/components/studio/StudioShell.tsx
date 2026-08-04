@@ -3298,9 +3298,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    the posture dial's words are paid for (#1401). Not a third density: below `sm`
 				    the header already sat at 6px/10px, so a tablet now reads as a wider phone
 				    header rather than a squeezed desktop one. Gated on `compact` — the app's own
-				    1100px boundary — never on Tailwind's `lg` (1024), which would leave 1024–1099
-				    at desktop density on the band where this row is TIGHTEST (Present and Share
-				    take their words back at `lg`). A JSX ternary branch admits exactly one
+				    1100px boundary — never on Tailwind's `lg` (1024), whose 76px of disagreement
+				    with it would leave 1024–1099 at desktop density while still `compact`. The
+				    density earns its place across the WHOLE band, not just at the floor: force
+				    desktop density back on and the deck title truncates to `Markdown for the …`
+				    at 1024 and to `M…` at 820 (measured). A JSX ternary branch admits exactly one
 				    element, which is why this note sits inside the tag rather than above it. */}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -3383,8 +3385,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
 				{/* DESKTOP ONLY. Below 1100 the tours ride the ⋯ overflow instead (tablet) or the
-				    drawer's "Show me" door (mobile, `onStartDemo`) — one launcher per tier, never
-				    two. This is width the row has to buy back for the posture dial's words (#1401):
+				    drawer's "Show me" door (mobile, `onStartDemo`) — one CHROME launcher per tier,
+				    never two. (⌘K's "Watch demo" is not a second one: the palette reaches every
+				    feature at every width by standing invariant, which is what makes it not a
+				    duplicate home.) This is width the row buys back for the dial's words (#1401):
 				    a tour is a considered, once-per-session detour, so it is the cheapest thing in
 				    this run to put one tap further away — and it puts tablet on the SAME footing as
 				    the phone rather than inventing a third pattern. None of the six protected 1-tap
