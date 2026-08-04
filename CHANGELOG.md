@@ -455,8 +455,17 @@ in patch versions.
   at the 700px floor of the `tablet` breakpoint it wanted 787px and pushed the ⋯ Menu clean off the
   screen — and on a tablet that menu is the only route to Library, Reader views, Workspace settings
   and the theme picker. The reclaim comes from the row's largest item: the **posture dial is now
-  icon-only below desktop** (219px labeled → 116px), keeping its three distinct icons, its
-  tooltips and its per-stop `aria-label`, with the Read/Write/Build words returning at 1100px.
+  icon-only below desktop** (219px labeled → 116px), keeping its three distinct icons and its
+  per-stop `aria-label`, with the Read/Write/Build words returning at 1100px. **Be clear about
+  what that costs**: assistive tech is unaffected (each stop keeps its accessible name and
+  `aria-pressed`), but a sighted TOUCH user between 700 and 1099px now has no way to read those
+  words at all — the tooltip that carries them is hover-only (Radix returns early on
+  `pointerType === 'touch'`), and the ⋯ menu has no Read/Write/Build rows. That is a real
+  downgrade for tablet, accepted because the alternative it replaces is worse: the ⋯ Menu — the
+  only route to Library, Reader views and Workspace settings on a tablet — was off the screen
+  entirely. Icon-only at tablet is at least the row's existing idiom (Present and Share drop their
+  labels below 1024 the same way), though those are conventional glyphs and this is a three-way
+  mode dial.
   Every width from 700 up now fits with zero overflow, and the ~103px goes back to the deck title —
   the user's orientation — which at 820px grows from nothing to 82px and at 1024px from 87px to its
   full 188px. Gated on the app's own `compact` breakpoint, the same source of truth as the wordmark
@@ -471,9 +480,12 @@ in patch versions.
   stayed green, even after adding the 700px viewport. Cases may now declare `noSelfOverflow`
   selectors, asserted as `scrollWidth <= clientWidth` on the element itself; the Studio header is
   the first. Scoped to an explicit list because plenty of elements are legitimately wider than their
-  box (the slide navigator scrolls on purpose) and a blanket rule would be noise. The breakpoint set
-  also gains **`tablet-floor` (700px)**: testing a band only at its widest point tests the case least
-  likely to break.
+  box (the slide navigator scrolls on purpose) and a blanket rule would be noise. A selector that
+  matches NOTHING is reported as a miss rather than passing silently — the same disguised-coverage
+  hole this script already closed for its interaction steps. The breakpoint set also gains
+  **`tablet-floor` (700px)**: testing a band only at its widest point tests the case least likely to
+  break. Note the step is `continue-on-error` in CI and so cannot block a merge; the blocking cover
+  for the icon-only dial is a unit test in the required tier.
 
 ### Changed
 

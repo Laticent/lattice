@@ -6,8 +6,10 @@
 // topbar overflow. A pure static check would have MISSED the first (it only
 // surfaced after a pane switch), so this exercises the interaction states too.
 //
-// Asserts scrollWidth <= clientWidth (+2px tolerance) at 390 / 820 / 1440 for
-// every converted surface, after each interaction step. Requires a built
+// Asserts scrollWidth <= clientWidth (TOLERANCE px) at 390 / 700 / 820 / 1440 for
+// every converted surface, after each interaction step — on the PAGE, and
+// additionally on any element a case names in `noSelfOverflow` (a row that fits
+// the page but not itself hides the controls at its end). Requires a built
 // `dist/` (the perf step / `astro build` produces it) and CHROME_PATH.
 //
 // Run: `npm run check:overflow` (after a build). CI: ci.yml `docs-build` job (advisory).
@@ -129,17 +131,32 @@ const overflow = (page) => page.evaluate(() => document.documentElement.scrollWi
 // explicit selector list because plenty of elements are legitimately wider than
 // their box (the slide navigator scrolls on purpose) — a blanket rule would cry
 // wolf and get muted.
-const selfOverflow = (page, selectors) =>
-	page.evaluate((sels) => {
-		const out = [];
-		for (const sel of sels) {
-			for (const el of document.querySelectorAll(sel)) {
-				const d = el.scrollWidth - el.clientWidth;
-				if (d > 1) out.push(`${sel}·wants ${el.scrollWidth} in ${el.clientWidth} (+${d}px)`);
+// A selector that matches NOTHING returns an empty list, which is indistinguishable
+// from "measured and fine" — the same disguised-coverage hole this file already
+// closed for `steps` a few lines down, reintroduced. Rename `data-studio-root`,
+// retag the bar as a `div[role=banner]`, or move the route, and this guard would
+// go on reporting ✓ over a defect. So a zero-match selector is reported as a MISS,
+// not silence.
+const selfOverflow = (page, selectors, tolerance) =>
+	page.evaluate(
+		(sels, tol) => {
+			const out = [];
+			for (const sel of sels) {
+				const els = document.querySelectorAll(sel);
+				if (!els.length) {
+					out.push(`${sel}·MATCHED NOTHING — the guard measured no element; fix the selector or drop it`);
+					continue;
+				}
+				for (const el of els) {
+					const d = el.scrollWidth - el.clientWidth;
+					if (d > tol) out.push(`${sel}·wants ${el.scrollWidth} in ${el.clientWidth} (+${d}px)`);
+				}
 			}
-		}
-		return out;
-	}, selectors);
+			return out;
+		},
+		selectors,
+		tolerance,
+	);
 const offenders = (page) =>
 	page.evaluate(() => {
 		const vw = document.documentElement.clientWidth;
@@ -177,7 +194,7 @@ async function main() {
 				const ov = await overflow(page);
 				if (ov > TOLERANCE) failures.push(`${bp} ${c.name} [${label}] overflow=${ov}px — ${JSON.stringify(await offenders(page))}`);
 				if (c.noSelfOverflow) {
-					const self = await selfOverflow(page, c.noSelfOverflow);
+					const self = await selfOverflow(page, c.noSelfOverflow, TOLERANCE);
 					if (self.length) failures.push(`${bp} ${c.name} [${label}] clipped row — ${JSON.stringify(self)}`);
 				}
 			};

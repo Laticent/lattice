@@ -1116,3 +1116,36 @@ describe('StudioShell — Send feedback has ONE fixed address', () => {
 		expect(await drawer.findByRole('button', { name: 'Send feedback' })).toBeInTheDocument();
 	});
 });
+
+describe('StudioShell — the posture dial sheds its words below desktop', () => {
+	// #1381. The dial is the largest item in a top bar that had 87px more content
+	// than viewport at the 700px floor of `tablet`, so below desktop it renders
+	// icon-only and the ⋯ Menu stays on screen. The geometry lives in
+	// `check:overflow` — but that step is `continue-on-error` in CI, so it can go red
+	// without blocking anything. This tier DOES block, so the behavior it guards is
+	// the one thing jsdom can actually hold: the words are present at desktop, gone
+	// below it, and the accessible name survives either way (the words are the only
+	// thing that goes — never the name).
+	const STOPS = [
+		['Read — just the slides', 'Read'],
+		['Write — editor + preview', 'Write'],
+		['Build — every panel', 'Build'],
+	] as const;
+
+	it('desktop renders the words', () => {
+		setViewport('desktop');
+		setup();
+		for (const [name, word] of STOPS) {
+			expect(screen.getByRole('button', { name }).textContent).toContain(word);
+		}
+	});
+
+	it('tablet renders icons only — and every stop keeps its accessible name', () => {
+		setViewport('tablet');
+		setup();
+		for (const [name, word] of STOPS) {
+			const b = screen.getByRole('button', { name }); // the name is the assertion: it survives
+			expect(b.textContent).not.toContain(word);
+		}
+	});
+});

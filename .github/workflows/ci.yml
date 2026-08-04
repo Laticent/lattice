@@ -437,7 +437,9 @@ jobs:
         run: npm run build
         working-directory: docs
       # Responsive guard (advisory): no page may exceed its viewport width at
-      # 390/820/1440 — a pannable page breaks on touch. Reuses the build above.
+      # 390/700/820/1440 — a pannable page breaks on touch — and no row named in a
+      # case's `noSelfOverflow` may exceed ITSELF, which is how a toolbar loses the
+      # controls at its end without the page ever growing. Reuses the build above.
       - name: Horizontal-overflow guard (mobile/tablet/desktop)
         continue-on-error: true
         run: npm run check:overflow
