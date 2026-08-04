@@ -1,12 +1,19 @@
 ---
-status: proposed
+status: in-progress
 summary: Scoping note, not a decision. Both adversarial lenses independently converged on one structural change — add @marp-team/marp-cli as a devDependency and make a real end-to-end export render a blocking gate. Today marp-fidelity.js's `mirrored` rows are verified by STRING SEARCH (does `${e.via}(` appear in lib/runtime/index.js), which is spelling, not fidelity; nothing on our side has ever rendered an exported bundle, and the 2026-07-29 post-mortem names that as the root cause of four shipped defects. The argument for it is that everything in this repo which stuck became a gate and everything that stayed prose rotted — the preview-gaps table, the 90-day timer, the "~800 lines" figure, the Two-renderer demotion. The argument against is real: it re-introduces a Marp dependency, costs CI minutes, and the runner needs Chromium. Includes the cheaper runner-up (delete `marp: true` from the authoring contract) and an honest account of what neither fixes.
 ---
 
 # Scoping: an executable export-fidelity gate
 
 **Not a decision — a scoping note.** The owner asked for this to be scoped, not
-built. Nothing here has been implemented.
+built.
+
+> **Partly built, 2026-08-04.** The line above used to end "Nothing here has been
+> implemented," and that stopped being true. `test/integration/export/marp-kit-render.test.js`
+> now renders `dist/marp-kit` through real marp-cli on every `code` PR. **Steps 2
+> and 3 of The shape shipped; step 4 did not, and step 1 was deliberately
+> rejected.** See §Resolution at the end before treating anything here as
+> outstanding.
 
 ## Where it came from
 
@@ -149,3 +156,65 @@ here.
    directly — and is it the *same* artifact §5b ships to recipients?
 4. Does an `unmirrored` row asserted to fail become a maintenance burden of its
    own, and what happens when Marp upstream fixes one?
+
+## Resolution (2026-08-04) — what shipped, what was rejected, what is still open
+
+`test/integration/export/marp-kit-render.test.js`.
+
+**Step 1 — devDependency: REJECTED, and the note's own §case-against is why.**
+It predicted that adding `@marp-team/marp-cli` to `devDependencies` would force
+`marp-independence.md`'s headline — "zero `@marp-team` packages" — to be
+re-scoped to "zero in `dependencies`": *"true, narrower, and less quotable."*
+That cost is avoidable. The gate fetches marp-cli on demand with
+`npx -y @marp-team/marp-cli@${MARP_CLI_RANGE}`, importing the range from
+`lib/core/marp-bundle.js` so the gate and the artifact it gates cannot ask for
+different tools. The claim stays literally true, the version stays
+single-sourced, and the quarantine the note wanted (HARD RULE #24 shape) is
+stronger than a devDependency: the package is never in the tree at all.
+
+The price is honest and named in `engineering/development.md`: the suite reaches
+the network, so it **self-skips with a printed reason** when the registry is
+unreachable, and a registry blip therefore turns a gate into a pass. A gate that
+goes red on a network hiccup is one people learn to ignore; that trade was made
+deliberately, not overlooked.
+
+**Steps 2 and 3 — the kit deck, through real marp-cli: SHIPPED.** It renders the
+same artifact a recipient copy-pastes, which is what the note asked for.
+
+**Step 4 — one assertion per `marp-fidelity.js` row: NOT DONE.** This is the
+half that turns the ledger from claims into measurements, and it is still the
+most valuable thing left here. Today's gate asserts a targeted set (page count,
+the Mermaid tooltip pin, the split panel, MathJax layout, theme registration,
+font loading) chosen from what actually broke in #1325 — not a row-by-row sweep,
+and specifically **no `unmirrored` row is asserted to fail in its documented
+way.** So the note's sharpest idea is unbuilt: an `unmirrored` row that silently
+starts working is still silent.
+
+**The four open questions, answered by what shipped:**
+
+1. **PR gate** — it runs in `test:integration:pr`. Chromium cost turned out not
+   to decide it: the whole suite is ~10s warm and ~40s cold, because the deck is
+   `size: hd`. (At `size: 4k` the same 13 slides never finished rendering, >200s
+   repeatedly. Keep the deck at `hd`.)
+2. **Rendered DOM, plus one number off the rasterized artifact.** The PDF page
+   count is asserted with `pdfinfo` because a blank trailing sheet is a *print*
+   artifact that exists on no other surface; everything else is asserted on the
+   live DOM of a real browser driving marp's `--html` output. No pixel diffing —
+   that gate was retired for runner-dependent rasterization and nothing here
+   argues for bringing it back.
+3. **`dist/` directly, and yes — the same artifact.** The gate renders
+   `dist/marp-kit` itself, copied to a temp dir so `build:check`'s byte-compare
+   is untouched.
+4. **Unanswered, because step 4 was not built.** Still open.
+
+**What the note could not have known, and the gate now proves.** Its case-against
+worried this would be "a gate on an UNVERIFIED surface" — true of marp-vscode,
+irrelevant here: the gate was verified by **mutation**, not by going green.
+Neutering `pinMermaidTooltip` in a scratch copy of the runtime reproduces the
+original 14-pages-for-13-slides bug, and a *partial* regression that the page
+count misses is still caught by the tooltip assertion. Both nets were confirmed
+to fire before the gate was trusted.
+
+**Status: `in-progress`, not `shipped`** — step 4 is the remainder, and the
+cheaper runner-up (delete `marp: true` from the authoring contract, 237 files) is
+untouched and still available.

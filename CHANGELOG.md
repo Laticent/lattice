@@ -192,6 +192,28 @@ in patch versions.
 
 ### Added
 
+- **CI renders the copy-and-go Marp kit now — the gate it shipped without
+  (`test/integration/export/marp-kit-render.test.js`).** Nothing exercised `dist/marp-kit`, so
+  every defect found in #1325 passed lint, `build:check` and ~4,900 unit tests while being visible
+  on the first page of a PDF. The worst was silent: a deck with a flowchart exported 13 slides as
+  **14 pages**, the last blank, because Mermaid appends a body-level `.mermaidTooltip` that lands
+  after the final slide and pushes document height past the deck's own. The gate renders the
+  shipped kit through real marp-cli on both routes its README tells a recipient to trust —
+  `--pdf` for the page-count invariant (a blank trailing sheet is a *print* artifact and exists on
+  no other surface) and `--html` driven in a real browser for everything the runtime builds. Six
+  assertions: one PDF page per slide; the Mermaid tooltip **pinned and still present** (removing it
+  also kills `click` tooltips everywhere — the two obvious fixes are each other's bug, so both
+  directions are pinned); `.panel-left`/`.panel-right` built, proving the runtime executed on a
+  Marp-rendered DOM; the `$$…$$` block typeset by MathJax and laid out inside its slide; `--accent`
+  resolving, which is the only thing that distinguishes a styled deck from the kit's #1 silent
+  failure (an unregistered theme renders bare with no error); and the bundled faces loading, the
+  #1256 fall-back-to-system-serif defect. Verified by mutation, not by going green: neutering
+  `pinMermaidTooltip` reproduces 14 pages, and a *partial* regression that the page count misses is
+  still caught by the tooltip assertion. marp-cli stays out of `package.json` — it is fetched with
+  `npx` at the range `lib/core/marp-bundle.js` exports, so the gate and the artifact it gates
+  cannot ask for different tools, and it **self-skips with a printed reason** when the registry is
+  unreachable rather than going red on a network hiccup.
+
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The
   rule keys on the RESOLVED class list, not on the presence of a directive, so a deck-wide

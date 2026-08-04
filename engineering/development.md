@@ -87,7 +87,9 @@ test/unit/components/   component-manifest, journey, roadmap,
 test/unit/cli/          cli
 test/integration/parity/      color-parity, deck-class/finish/logo-fm,   [PR]
                               speaker-notes, chart-family
-test/integration/export/      export-formats                            [PR]
+test/integration/export/      export-formats, html-player, present-mode, [PR]
+                              marp-kit-render (real marp-cli; self-skips
+                              with no registry access)
 test/integration/invariants/  component-invariants (semantic gate)      [PR]
 test/integration/galleries/   emulator.gallery                      [nightly]
 test/integration/components/  component- + bucket-galleries          [nightly]
@@ -106,6 +108,15 @@ correctness gate blocking, and moves the slow fresh-render regression suites off
 the PR critical path — their stale-committed-artifact half is already backstopped
 at pre-commit, so a next-morning catch on `main` is cheap to revert. Rationale:
 `engineering/decisions/2026-06-27-integration-nightly-split.md`.
+
+**`marp-kit-render` is the one suite that reaches outside the repo.** It renders
+`dist/marp-kit` through real marp-cli, fetched on demand with `npx` at the
+version range `lib/core/marp-bundle.js` exports — marp-cli is deliberately not a
+dependency (HARD RULE #1: Marp is an export target, not a render path). With no
+registry access it **self-skips with a printed reason** rather than failing: a
+gate that goes red when the network hiccups is a gate people learn to ignore.
+The trade is real and worth naming — a registry blip turns the gate into a pass.
+Watch for `[marp-kit-render] SKIPPED` in the job log if you are relying on it.
 
 The CI visual-correctness gate is the **per-component semantic-invariant suite**
 (`test/integration/invariants/component-invariants.test.js`): it renders each
