@@ -507,11 +507,17 @@ export function createStage(opts: StageOptions): Stage {
 	//                → duration → `t = Δ/NaN` is NaN, `t < 1` is false, and every subsequent
 	//                tween resolves on frame one having moved nothing. Unreachable from an
 	//                element, reachable from the `RectSource` widening a host now supplies.
-	//   ZERO AREA  — a `display:none` element, and (the case this was written for) a host
-	//                provider whose frame or element has gone away and answers with an
-	//                all-zero rect. A zero-area box at the viewport origin is not a place; read
-	//                literally it flies the cursor to the top-left corner, which is exactly the
-	//                "snap to the origin" this guard is documented as preventing.
+	//   ALL ZERO   — a `display:none` element, and (the case this was written for) a host
+	//                provider whose frame or element has gone away: it cannot answer null, because
+	//                `RectSource` must return a `DOMRect`, so it answers an all-zero one. Read
+	//                literally that is the viewport's top-left corner, which is exactly the "snap
+	//                to the origin" this guard is documented as preventing.
+	//
+	// ALL FOUR FIELDS, not just the size. A zero-AREA rect at a real position is a legitimate
+	// target — a zero-size anchor or marker element is a perfectly ordinary thing to point a tour
+	// at, `aimAt` lands exactly on it, and rejecting it would silently turn a working cue into a
+	// no-op. What is meaningless is a box with no size AND no position: nothing renders there,
+	// and both cases this guard exists for produce exactly that.
 	const liveRect = (src: RectSource | null): DOMRect | null => {
 		if (!src || destroyed) return null;
 		let r: DOMRect;
@@ -522,7 +528,7 @@ export function createStage(opts: StageOptions): Stage {
 		}
 		if (!r) return null;
 		if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
-		if (r.width === 0 && r.height === 0) return null;
+		if (r.left === 0 && r.top === 0 && r.width === 0 && r.height === 0) return null;
 		return r;
 	};
 

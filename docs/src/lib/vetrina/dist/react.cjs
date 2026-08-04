@@ -269,7 +269,7 @@ function createStage(opts) {
     }
     if (!r) return null;
     if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
-    if (r.width === 0 && r.height === 0) return null;
+    if (r.left === 0 && r.top === 0 && r.width === 0 && r.height === 0) return null;
     return r;
   };
   let cursorHidden = false;

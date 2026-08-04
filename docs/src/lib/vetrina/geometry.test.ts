@@ -164,6 +164,18 @@ describe('a host rect source is a first-class target (the cross-frame seam)', ()
 		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(landed, 0);
 	});
 
+	it('still points at a zero-SIZE target that has a real position', async () => {
+		// The guard above is about a box with no size AND no position. A zero-size anchor or
+		// marker element is an ordinary thing to aim a tour at — `aimAt` lands exactly on it —
+		// and rejecting it on size alone would silently turn a working cue into a no-op.
+		const stage = mount();
+		const { src } = movableTarget({ left: 400, top: 300, width: 0, height: 0 });
+		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
+		await stage.point(src);
+		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(400, 0);
+		expect(Number.parseFloat(cursor?.style.top ?? 'NaN')).toBeCloseTo(300, 0);
+	});
+
 	it('is not bricked for the session by a single NaN rect', async () => {
 		const stage = mount();
 		const { src: bad } = movableTarget({ left: Number.NaN, top: Number.NaN, width: Number.NaN, height: Number.NaN });
