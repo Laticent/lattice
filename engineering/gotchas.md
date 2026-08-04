@@ -1683,32 +1683,86 @@ means "no gap logged for the runtime route", never "the preview is complete.
   build deps.
 - **Commits:** `8607e65`.
 
-### marp-vscode webview CSP blocks `<script>` — the preview is a CSS-only surface
+### Does the marp-vscode webview execute `<script>`? — UNVERIFIED, and this is the entry that says so
+
+> **Read the status line before the content.** This entry is the ORIGIN of the
+> "the preview is a CSS-only surface" claim that the rest of the repo cites, and
+> **the claim has never been tested against a real VS Code.** It used to be
+> written here as flat fact — Symptom/Cause/Mitigation, no hedge — while the
+> preview-gaps register 130 lines above called that same claim "UNVERIFIED and
+> contested." A reader who found this entry first got a fact; a reader who found
+> the register first got a caveat about a fact they hadn't read yet. Same file,
+> two epistemic statuses, and the unhedged one was the one people quoted.
+>
+> Nothing below is new evidence. The only change is that the entry now carries
+> its own status, and tells you how to settle it.
 
 - **Symptom:** A DOM transform authored in `lattice-runtime.js` (or any
-  `<script src="...">` tag in the markdown) works in PDF export and the
-  browser but never fires in VS Code Marp preview. The slide HTML looks
-  correct in the build output but wrong in preview.
-- **Cause:** marp-vscode loads preview content in a sandboxed webview with
-  a strict Content Security Policy that disallows script execution. Even
-  with `enableHtml: true`, relative `<script src="...">` paths do not
-  resolve reliably inside the webview context.
-- **Mitigation:** There isn't a general one — this is a real ceiling on that
-  surface, and the honest framing is that **the marp-vscode preview shows
-  palette + CSS layout, not the composed deck.** Anything the runtime builds
-  (Mermaid, split panels, the chart family, premise) stays flat there. The
-  previous version of this entry claimed structural transforms "run at build
-  time — before the webview CSP applies," which is **wrong for any Marp
-  surface**: marp-vscode renders with raw marp-core and never runs
-  `lib/integrations/markdown-it/plugins.js` at all (see the entry above), so
-  there is no build-time pass to be early for. That mistake is why the
-  Export-to-Marp README promised a fidelity it never delivered until #1256.
-  For the full deck, render the bundle: `npm run pdf` / `npm run html` DO
-  execute the runtime, because marp-cli drives a real headless browser.
+  `<script src="...">` tag in the markdown) is *reported* to work in PDF export
+  and the browser but not fire in VS Code Marp preview. The slide HTML looks
+  correct in the build output and (per this reading) wrong in preview.
+- **Claimed cause — UNVERIFIED:** that marp-vscode loads preview content in a
+  sandboxed webview with a Content Security Policy disallowing script execution,
+  and that even with `enableHtml: true`, relative `<script src="...">` paths do
+  not resolve inside the webview context. **No test against a real VS Code
+  backs this**, and no marp-vscode issue or doc has been cited for it here.
+- **The contradicting evidence:** a field report (2026-07-29) describes
+  structural components rendering correctly in the preview pane — which would
+  require the runtime to have executed. One report, not a measurement, but it
+  points the other way and has never been reconciled.
+- **Mitigation — unchanged either way, which is why this stayed unsettled so
+  long.** Treat the preview as **palette + CSS layout, and everything the
+  runtime builds as UNKNOWN there** — do not promise it, do not rely on it.
+  Anything a reader needs to trust gets rendered: `npm run pdf` / `npm run html`
+  and marp-cli's own `--pdf`/`--html` DO execute the runtime, because they drive
+  a real headless browser. That advice is correct under both readings, so the
+  open question costs nothing operationally; what it costs is that
+  `lib/runtime/index.js` (2,182 lines) is partly priced against a surface nobody
+  has checked.
+- **A separate thing that IS settled:** marp-vscode renders with raw marp-core
+  and never runs `lib/integrations/markdown-it/plugins.js` (see the entry above),
+  so there is no build-time plugin pass on that surface regardless of the script
+  question. An earlier version of this entry claimed structural transforms "run
+  at build time — before the webview CSP applies," which is wrong for any Marp
+  surface, and is why the Export-to-Marp README promised a fidelity it did not
+  deliver until #1256. Do not let the two questions merge again: "no plugins"
+  is established, "no scripts" is not.
+- **HOW TO SETTLE IT — ten minutes, needs a real VS Code (unreachable from a
+  headless sandbox, HARD RULE #23).** `dist/marp-kit` exists precisely to be the
+  fixture:
+
+  ```sh
+  cp -r dist/marp-kit ~/kit-test && code ~/kit-test   # open the FOLDER as workspace root
+  ```
+
+  Open `Sample-Deck.md` and turn on the Marp preview. The deck is built so the
+  answer is visible rather than inferred — **four of its thirteen slides are
+  assembled by `lattice-runtime.min.js` and by nothing else** (verified against a
+  real marp-cli render: none of the three appear in the static HTML at all):
+
+  | Slide | What proves the runtime ran |
+  |---|---|
+  | `_class: diagram` | a drawn Mermaid flowchart, not a code fence |
+  | `_class: split-panel` | two panels — `.panel-left` / `.panel-right` |
+  | `_class: progress` | drawn bars, not a bullet list |
+  | `_class: obligation-matrix` | drawn cell marks, not literal `[x]` / `[ ]` text |
+
+  Styled slides with all four flat ⇒ the CSS-only reading is right. Any one of
+  the four composed ⇒ the webview executes scripts and this entry is wrong.
+  Unstyled slides ⇒ neither — the theme did not register, so fix that first
+  (workspace root, see the kit README) before reading anything into the rest.
+
+  Whatever it shows, correct **this entry**, the preview-gaps register above,
+  `engineering/marp-independence.md` (§Scorecard and §5 Cost 3, both currently
+  hedged to match), and the kit README's Fidelity section
+  (`tools/build-marp-kit.js` `readme()`) — and record the VS Code and
+  marp-vscode versions, because a CSP is a property of a version, not of the
+  extension forever.
 - **Triggered by:** Any structural transform viewed in the VS Code Marp preview.
-- **Removable when:** marp-vscode lifts its CSP for trusted workspace
-  scripts. No indication this is planned.
-- **Commits:** Split-panel feature commit; corrected in #1256.
+- **Removable when:** the experiment above is run — then this becomes either a
+  real ceiling entry or a deleted one.
+- **Commits:** Split-panel feature commit; corrected in #1256; status made
+  honest in the marp-kit render-gate change.
 
 ### `enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT
 

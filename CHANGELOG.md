@@ -98,6 +98,23 @@ in patch versions.
   invisible to the overflow probe, which measures height only. The guards are now **behavioral**,
   asserting what Chromium computes over the real bundle, after a red-team pass evaded three
   successive textual versions with trivial selector reformulations. (#1346)
+- **The repo asserted as fact, in the entry everything else cites, a claim the same file called
+  untested.** Whether the marp-vscode preview webview executes `<script>` decides whether
+  `lib/runtime/index.js` (2,182 lines) does anything on that surface. `engineering/gotchas.md`
+  carried it *both* ways: the preview-gaps register said "UNVERIFIED and contested … has never been
+  tested against a real VS Code", while the CSP entry 130 lines below stated it flatly as
+  Symptom/Cause/Mitigation — and the unhedged one was the one that got quoted. That entry now leads
+  with its own status, keeps the operational advice unchanged (treat runtime-built content on that
+  surface as unknown; render anything you need to trust), and carries a **ten-minute protocol to
+  settle it**: open `dist/marp-kit` as a VS Code workspace and read four specific slides, which are
+  runtime-built and by nothing else — confirmed against a real marp-cli render, where none of the
+  three constructs appear in the static HTML at all. A fourth passage no audit had catalogued is
+  fixed with it: `lib/forms/form-default.js` stated "the webview runs no scripts" as settled fact in
+  a source comment. **No hedge was softened and no new evidence is claimed** — the question is still
+  open and still needs a human with VS Code (HARD RULE #23). The kit README also loses a duplicated
+  closing line and a pointer to a `Sample-Deck.pdf` that was never in the kit, and gains an
+  "If the slides look plain" section for the one failure mode there that produces no error message.
+
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
