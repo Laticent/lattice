@@ -3127,6 +3127,25 @@ justification. The same gate also fires if a *listed* builder drops its
 that only assigns a builder's output to `.srcdoc` (no `<script>` injection of its
 own) is not a builder and needs no entry.
 
+### Docs build fails `stale: <name>.<mood>: gallery PDF changed since the WebP was generated`
+
+- **Symptom:** `docs-build` (and the Cloudflare `preview` job) go red on
+  `npm run showcase:check` — before Astro even starts — naming one or two
+  component·mood pairs. Nothing about the docs site was touched in the PR.
+- **Cause:** The landing showcase strip is rasterized from the **committed
+  component gallery PDFs** (`lib/components/<bucket>/<name>/<name>.gallery.<mood>.pdf`),
+  and `docs/scripts/showcase-sources.json` records each source PDF's sha256 at
+  generation time. Re-blessing a gallery golden — which any engine or theme change
+  that legitimately moves pixels has to do — changes that sha, so the WebPs are by
+  definition cut from a PDF that no longer exists. The gate is doing its job
+  (#794: the set drifted silently for a week and shipped a stale render).
+- **Fix:** `node docs/scripts/rasterize-showcase.mjs` and commit what changes.
+  Often that is **only** `showcase-sources.json` — the strip samples one page per
+  gallery (`page` in that file), so if the drift missed that page the WebP bytes
+  are identical and just the hash record needs updating.
+- **Do it in the same commit as the re-bless.** `npm run build:check` does not
+  cover the docs workspace, so a local all-green tree can still land this red.
+
 ### A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)
 
 - **Symptom:** In `astro dev` (local docs preview), a whole `<script>` block's

@@ -75,9 +75,21 @@ await page.setViewport({ width: 1440, height: 900 });
 
 const mermaidJs = fs.readFileSync(MERMAID_LOCAL, 'utf8');
 await page.setRequestInterception(true);
+// Serve the installed Mermaid instead of the CDN's, so the number measured is the
+// engine's and not the network's. Match on the parsed HOST, not on a substring of
+// the URL: `includes('cdn.jsdelivr.net')` also matches a path or query that merely
+// mentions it (`https://evil.example/?r=cdn.jsdelivr.net`), which is the shape
+// CodeQL's incomplete-URL-sanitization query flags.
+const MERMAID_CDN_HOST = 'cdn.jsdelivr.net';
 page.on('request', (req) => {
   const u = req.url();
-  if (u.includes('cdn.jsdelivr.net') && u.includes('mermaid')) {
+  let host = '';
+  try {
+    host = new URL(u).hostname;
+  } catch {
+    host = '';
+  }
+  if (host === MERMAID_CDN_HOST && u.includes('mermaid')) {
     req.respond({ status: 200, contentType: 'application/javascript', body: mermaidJs });
     return;
   }
