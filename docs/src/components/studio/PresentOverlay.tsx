@@ -680,6 +680,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// so the library still knows nothing about iframes and the Studio supplies the mapping.
 	const guideStageRef = React.useRef<VetrinaStage | null>(null);
 	const guidePointRef = React.useRef<AbortController | null>(null);
+	/** Is the fake cursor currently ON SCREEN? Decides glide-then-show vs show-then-glide below. */
+	const guideShownRef = React.useRef(false);
 	const guideLive = open && guideOn && !rehearse;
 	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
 	// cursor's visibility and whether the real one may be hidden — see the two notes below.
@@ -705,11 +707,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		// `fast` scales both the register beat and the glide by 0.72, which is the in-API lever
 		// for this and keeps the motion curve the library curates.
 		const stage = createStage({ root: host, onExit: () => setGuideOn(false), theme: resolveTheme({ accent: 'var(--accent, #2b6ef2)', caption: 'none', pointer: 'arrow', speed: 'fast', cues: { anticipate: false } }) });
+		// BORN HIDDEN. Vetrina spawns its cursor at the center of the screen, which in a walkthrough
+		// is neutral chrome — and in Present is the middle of the slide card, directly on the title.
+		// So switching Guide on dropped an arrow onto the deck's own words and left it there until
+		// the first cue resolved. No target yet is the same state as no target later, and it gets
+		// the same answer.
+		stage.setCursorVisible(false);
+		guideShownRef.current = false;
 		guideStageRef.current = stage;
 		return () => {
 			guidePointRef.current?.abort();
 			guidePointRef.current = null;
 			guideStageRef.current = null;
+			guideShownRef.current = false;
 			setGuideAiming(false); // no stage, nothing aimed — and the real pointer comes straight back
 			stage.destroy();
 		};
@@ -734,11 +744,33 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		guidePointRef.current?.abort();
 		guidePointRef.current = null;
 		setGuideAiming(!!target);
-		stage.setCursorVisible(!!target);
-		if (!target) return;
+		if (!target) {
+			stage.setCursorVisible(false);
+			guideShownRef.current = false;
+			return;
+		}
 		const ctl = new AbortController();
 		guidePointRef.current = ctl;
-		stage.point(target, ctl.signal).catch(() => {}); // an abort here is a retarget, not an error
+		if (guideShownRef.current) {
+			// Already on screen: GLIDE. The travel is the good part — it carries the eye from the
+			// last thing named to this one, which is most of what makes it read as a gesture.
+			stage.point(target, ctl.signal).catch(() => {}); // an abort here is a retarget, not an error
+			return;
+		}
+		// COMING FROM HIDDEN: arrive first, THEN appear. A hidden cursor has no meaningful "from",
+		// and revealing it before the glide put a visible arrow at wherever it was last parked —
+		// on the first cue that is Vetrina's spawn point, the center of the screen, which in Present
+		// is the middle of the slide. Measured: ~350ms of register beat with the pointer sitting on
+		// the deck's own title before it set off. Appearing at the destination is both correct and
+		// what a laser looks like: it is off, then it is on the thing.
+		stage
+			.point(target, ctl.signal)
+			.then(() => {
+				if (ctl.signal.aborted || guideStageRef.current !== stage) return;
+				guideShownRef.current = true;
+				stage.setCursorVisible(true);
+			})
+			.catch(() => {});
 	}, [activeCue, guideLive]);
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over

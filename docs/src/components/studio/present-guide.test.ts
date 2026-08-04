@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cueDisplayText, findCueTarget, guideTargetFor } from './present-guide';
+import { cueDisplayText, findCueTarget, guideTargetFor, POINTER_BOX, pointerAnchor } from './present-guide';
 
 // THE GUIDE RUNG's target resolution (#1397).
 //
@@ -9,6 +9,12 @@ import { cueDisplayText, findCueTarget, guideTargetFor } from './present-guide';
 // live slide, by matching the cue's display text back to the smallest block that contains it.
 // These pin the properties that makes-or-breaks: smallest block, not first container; robust to
 // the punctuation the projection rewrites; and honest silence when nothing matches.
+
+/** The pointer's real ink footprint: a POINTER_BOX square centered on where it is placed. */
+const atPoint = (x: number, y: number) => ({ left: x - POINTER_BOX / 2, top: y - POINTER_BOX / 2, width: POINTER_BOX, height: POINTER_BOX }) as DOMRect;
+/** Do two boxes overlap at all? Touching edges do not count as covering. */
+const pointerCovers = (p: { left: number; top: number; width: number; height: number }, t: { left: number; top: number; width: number; height: number }): boolean =>
+	p.left < t.left + t.width && p.left + p.width > t.left && p.top < t.top + t.height && p.top + p.height > t.top;
 
 const doc = (html: string): Document => new DOMParser().parseFromString(`<html><body><section class="lattice">${html}</section></body></html>`, 'text/html');
 
@@ -138,16 +144,18 @@ describe('guideTargetFor — the cross-frame seam', () => {
 		return frame;
 	}
 
-	it('maps an inner rect into parent-viewport coordinates through the frame scale', () => {
+	it('maps through the frame scale and lands BESIDE the text, never on it', () => {
 		// The Studio scales the slide iframe to fit its pane: 1280 layout px shown at 640 => S=0.5.
+		// The matched <p> is at inner (10,20) 100x30, so in parent coords it is (205,60) 50x15.
 		const frame = fakeFrame('<p>Growth held.</p>', { left: 200, top: 50, width: 640 }, 1280);
 		const target = guideTargetFor(() => frame, 'Growth held.');
 		expect(target).not.toBeNull();
-		const r = target?.getBoundingClientRect();
-		// left = frameLeft + innerLeft * S = 200 + 10*0.5; width = 100*0.5
-		expect(r?.left).toBeCloseTo(205, 5);
-		expect(r?.top).toBeCloseTo(60, 5);
-		expect(r?.width).toBeCloseTo(50, 5);
+		const r = target?.getBoundingClientRect() as DOMRect;
+		// The scale is applied — the anchor is placed relative to the MAPPED box, not the inner one.
+		// Text runs x 205..255, y 60..75; the pointer sits clear of that in both axes or one.
+		expect(pointerCovers(r, { left: 205, top: 60, width: 50, height: 15 })).toBe(false);
+		// And it is a small anchor box, not the text's own box — the whole point of the change.
+		expect(r.width).toBeLessThan(POINTER_BOX);
 	});
 
 	it('re-measures on every call — the frame and the element both move', () => {
@@ -161,9 +169,73 @@ describe('guideTargetFor — the cross-frame seam', () => {
 			getBoundingClientRect: () => ({ x: left, y: 0, left, top: 0, width: 100, height: 100, right: left + 100, bottom: 100, toJSON: () => ({}) }) as DOMRect,
 		} as unknown as HTMLIFrameElement;
 		const target = guideTargetFor(() => frame, 'Growth held.');
-		expect(target?.getBoundingClientRect().left).toBe(200);
-		left = 500; // the host reflowed — a snapshotted rect would still say 200 (#1400)
-		expect(target?.getBoundingClientRect().left).toBe(500);
+		const first = target?.getBoundingClientRect().left as number;
+		left = 500; // the host reflowed — a snapshotted rect would still be at the old offset (#1400)
+		const second = target?.getBoundingClientRect().left as number;
+		expect(second - first).toBeCloseTo(300, 5); // it tracked the frame, exactly as far as it moved
+	});
+
+	// ── THE POINTER MUST NEVER OBSCURE THE TEXT IT IS READING ────────────────────────────────
+	//
+	// Vetrina's `aimAt` lands a cue INSIDE its target's box (`left + 22`, `top + 18`) — right for
+	// a walkthrough aiming at a button, because that is where a click lands, and exactly wrong for
+	// a line of prose: the arrow tip lands mid-first-line and its 28px body hangs across the
+	// opening words. Guide shipped that. These drive the anchor policy over the positions a real
+	// slide puts a block in, including the awkward ones.
+	it.each([
+		['a paragraph mid-slide', { left: 300, top: 300, width: 600, height: 40 }],
+		['a heading at the top edge', { left: 300, top: 4, width: 600, height: 60 }],
+		['a block flush to the left edge', { left: 0, top: 300, width: 600, height: 40 }],
+		['a block flush to the right edge', { left: 700, top: 300, width: 260, height: 40 }],
+		['a block at the bottom edge', { left: 300, top: 500, width: 600, height: 40 }],
+		['a tall multi-line block', { left: 200, top: 100, width: 500, height: 380 }],
+		['a narrow chip', { left: 480, top: 260, width: 60, height: 22 }],
+		['a corner-pinned kicker', { left: 0, top: 0, width: 180, height: 24 }],
+	])('points at %s without covering it, and stays on the slide', (_name, box) => {
+		const frame = { left: 0, top: 0, width: 960, height: 540 };
+		const { x, y } = pointerAnchor(box, frame, [box]);
+		expect(pointerCovers(atPoint(x, y), box), `the pointer box overlaps the text at (${x},${y})`).toBe(false);
+		expect(x - POINTER_BOX / 2).toBeGreaterThanOrEqual(frame.left);
+		expect(x + POINTER_BOX / 2).toBeLessThanOrEqual(frame.left + frame.width);
+		expect(y - POINTER_BOX / 2).toBeGreaterThanOrEqual(frame.top);
+		expect(y + POINTER_BOX / 2).toBeLessThanOrEqual(frame.top + frame.height);
+	});
+
+	it('clears the NEIGHBORING block too, not just its own target', () => {
+		// This is what failed on the real Present surface after the first fix: the obvious place to
+		// stand beside a heading is directly under it, and directly under a heading is where the
+		// paragraph is. A slide is mostly text — the pointer has to find whitespace, not merely
+		// step off one block.
+		const frame = { left: 0, top: 0, width: 960, height: 540 };
+		const heading = { left: 80, top: 120, width: 800, height: 70 };
+		const body = { left: 80, top: 200, width: 800, height: 120 };
+		const { x, y } = pointerAnchor(heading, frame, [heading, body]);
+		expect(pointerCovers(atPoint(x, y), heading), 'covers its own target').toBe(false);
+		expect(pointerCovers(atPoint(x, y), body), 'covers the paragraph beneath the heading').toBe(false);
+	});
+
+	it('scales its clearance with the frame — a preview at half size halves the pointer in slide units', () => {
+		// The cursor's 28px is PARENT pixels and does not shrink with a scaled preview, so in the
+		// slide's own coordinates it covers TWICE as much at S=0.5. Getting this backwards would
+		// clear the text on an unscaled Playground and cover it in the scaled Studio.
+		const frame = { left: 0, top: 0, width: 1280, height: 720 };
+		const box = { left: 100, top: 300, width: 900, height: 40 };
+		const atFull = pointerAnchor(box, frame, [box], POINTER_BOX / 2);
+		const atHalf = pointerAnchor(box, frame, [box], POINTER_BOX / 2 / 0.5);
+		expect(pointerCovers({ left: atHalf.x - POINTER_BOX, top: atHalf.y - POINTER_BOX, width: POINTER_BOX * 2, height: POINTER_BOX * 2 }, box)).toBe(false);
+		expect(Math.abs(atHalf.x - box.left)).toBeGreaterThan(Math.abs(atFull.x - box.left));
+	});
+
+	it('falls back to a clamped position rather than off the slide when a block fills it', () => {
+		// A block edge to edge leaves no clear side. Overlap becomes possible — a pointer half off
+		// the card is the worse failure — but it must still be ON the slide.
+		const frame = { left: 0, top: 0, width: 960, height: 540 };
+		const full = { left: 0, top: 0, width: 960, height: 540 };
+		const { x, y } = pointerAnchor(full, frame, [full]);
+		expect(x).toBeGreaterThanOrEqual(POINTER_BOX / 2);
+		expect(x).toBeLessThanOrEqual(960 - POINTER_BOX / 2);
+		expect(y).toBeGreaterThanOrEqual(POINTER_BOX / 2);
+		expect(y).toBeLessThanOrEqual(540 - POINTER_BOX / 2);
 	});
 
 	it('degrades to nowhere rather than throwing when the frame goes away', () => {

@@ -49,6 +49,14 @@ in patch versions.
   longer steals the cursor, and a Cyrillic or CJK deck resolves normally. The real pointer hides
   after a few seconds of stillness — only over the slide and its backdrop, never over the dock, so
   Pause is always findable — and returns instantly on any movement.
+  **The pointer never comes to rest on the words it is reading.** Vetrina aims a cue INSIDE its
+  target's box, which is right for a walkthrough pointing at a button — that is where a click
+  lands — and exactly wrong for a sentence: the arrow tip lands mid-first-line and its body covers
+  the opening words. Guide now places it in the nearest whitespace that clears EVERY block on the
+  slide, not merely its own target (the obvious spot beside a heading is where the paragraph is),
+  solved once per cue in the slide's own coordinates so it rides the preview's scale for free. The
+  cursor is also born hidden and arrives before it appears, rather than materializing at Vetrina's
+  spawn point — the center of the screen, which in Present is the middle of the slide card.
 
 - **A deck can declare its own presentation pace, and it travels with the deck.** New front-matter
   register `pace: brisk | natural | deliberate` — how long a self-presenting deck holds on a newly

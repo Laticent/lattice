@@ -61,6 +61,57 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 	}
 	expect(seen.length, `the Guide cursor never settled on two distinct places inside the slide (saw ${JSON.stringify(seen)}) — it either resolved no target or resolved the wrong coordinate space`).toBeGreaterThanOrEqual(2);
 
+	// THE POINTER MUST NEVER COME TO REST ON THE TEXT IT IS READING — real frame, real layout.
+	//
+	// Guide shipped aiming INSIDE the matched block (Vetrina's `aimAt`: right for a walkthrough
+	// pointing at a button, because that is where a click lands; wrong for a sentence, where the
+	// arrow tip lands mid-first-line and its 28px body covers the opening words).
+	//
+	// AT REST, not at any instant, and that distinction is the whole design of this oracle. A
+	// pointer that moves has to cross whatever lies between where it was and where it is going —
+	// failing on a transit frame would be failing on physics, the same mistake the geometry spec
+	// made first. What is a defect is SETTLING there: sitting on the words while they are read.
+	// So a hit counts only once the cursor has held the same position for `STILL` samples.
+	//
+	// Scoped to the DIALOG. There are two `iframe.live` on this page — the editor's live preview
+	// and Present's slide card — and `document.querySelector` returns the editor's, which is
+	// behind the overlay. Measuring Present's cursor against the editor's frame finds no overlap
+	// ever: the first version of this check passed against the defect, twice.
+	const resting = await page.evaluate(async () => {
+		const STILL = 5; // ~500ms of not moving. A glide never holds a position that long.
+		const hits: string[] = [];
+		let last = '';
+		let held = 0;
+		const deadline = Date.now() + 30_000;
+		while (Date.now() < deadline) {
+			const cur = document.querySelector('.vetrina-cursor');
+			const frame = document.querySelector('[role="dialog"] iframe.live') as HTMLIFrameElement | null;
+			const doc = frame?.contentDocument;
+			if (cur && frame && doc && getComputedStyle(cur).opacity !== '0') {
+				const c = cur.getBoundingClientRect();
+				const key = `${Math.round(c.left)},${Math.round(c.top)}`;
+				held = key === last ? held + 1 : 0;
+				last = key;
+				if (held === STILL) {
+					const fr = frame.getBoundingClientRect();
+					const S = frame.offsetWidth ? fr.width / frame.offsetWidth : 1;
+					for (const el of doc.querySelectorAll('p, li, h1, h2, h3, h4, td, th, blockquote, code')) {
+						const t = el.getBoundingClientRect();
+						if (!t.width || !t.height || !(el.textContent ?? '').trim()) continue;
+						const b = { l: fr.left + t.left * S, t: fr.top + t.top * S, r: fr.left + (t.left + t.width) * S, b: fr.top + (t.top + t.height) * S };
+						if (c.left < b.r && c.right > b.l && c.top < b.b && c.bottom > b.t) hits.push(`${el.tagName} "${(el.textContent ?? '').trim().slice(0, 36)}"`);
+					}
+				}
+			} else {
+				held = 0;
+				last = '';
+			}
+			await new Promise((r) => setTimeout(r, 100));
+		}
+		return [...new Set(hits)];
+	});
+	expect(resting, `the Guide cursor SETTLED on slide text — it covers what it is asking you to read: ${resting.join(' · ')}`).toEqual([]);
+
 	// Switching Guide off tears the stage down; the real pointer is never left hidden.
 	await guide.click();
 	await expect(page.locator(CURSOR)).toHaveCount(0);

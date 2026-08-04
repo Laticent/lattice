@@ -1,5 +1,5 @@
 import type { RectSource } from '@/lib/vetrina';
-import { frameRectSource } from '@/playground/frame-geom.js';
+import { frameGeom, innerRectToParent } from '@/playground/frame-geom.js';
 
 // THE GUIDE RUNG — pointing at the part of the slide currently being narrated (#1397).
 //
@@ -117,6 +117,76 @@ export function cueDisplayText(cue: { words?: { display?: string }[] } | null | 
 	return norm(cue.words.map((w) => w.display ?? '').join(' '));
 }
 
+/** The Vetrina cursor's own footprint, in PARENT pixels — a 28x28 box centered on the point it
+ *  is placed at (`stage.ts`: `width:28px;height:28px;transform:translate(-50%,-50%)`). It does
+ *  not scale with the frame, because the cursor lives in the parent document, not in the slide. */
+export const POINTER_BOX = 28;
+
+export type Box = { left: number; top: number; width: number; height: number };
+
+const overlaps = (a: Box, b: Box): boolean => a.left < b.left + b.width && a.left + a.width > b.left && a.top < b.top + b.height && a.top + a.height > b.top;
+const boxAt = (x: number, y: number, half: number): Box => ({ left: x - half, top: y - half, width: half * 2, height: half * 2 });
+const inside = (b: Box, f: Box): boolean => b.left >= f.left && b.top >= f.top && b.left + b.width <= f.left + f.width && b.top + b.height <= f.top + f.height;
+
+/**
+ * Where to put the pointer so it POINTS AT `target` without covering ANY text on the slide.
+ *
+ * THE POINTER MUST NEVER OBSCURE THE TEXT IT IS READING. Vetrina's `aimAt` lands a cue INSIDE
+ * its target's box (`left + 22`, `top + 18`) — right for a walkthrough aiming at a button,
+ * because that is where a click lands, and exactly wrong for a line of prose: the arrow tip lands
+ * mid-first-line and its 28px body hangs across the opening words. Guide shipped that.
+ *
+ * CLEARING THE TARGET IS NOT ENOUGH, and that is the whole reason this takes `obstacles`. The
+ * first version tried four positions around the target's own box and still failed on the real
+ * surface, because the obvious place to stand — just below a heading — is where the paragraph
+ * is. A slide is mostly text; the pointer has to find the whitespace, not merely step off one
+ * block.
+ *
+ * So: candidate positions on the four sides at three distances, plus the slide's own left and
+ * right margins, scored by how much text they would cover and then by how far they sit from the
+ * thing being named. The nearest position that covers nothing wins; if a slide genuinely has no
+ * clear spot the least-covering one does, because a pointer slightly over a neighbor still beats
+ * a pointer half off the card.
+ *
+ * Everything is in ONE coordinate space — the caller works in the frame's INNER coordinates and
+ * maps the result out, so the anchor is computed once per cue and rides the frame's scale and
+ * position for free rather than being recomputed every animation frame.
+ */
+export function pointerAnchor(target: Box, frame: Box, obstacles: readonly Box[] = [], half: number = POINTER_BOX / 2): { x: number; y: number } {
+	const pad = half + 5;
+	const midY = target.top + target.height / 2;
+	const nearX = target.left + Math.min(target.width / 2, pad);
+	const candidates: Array<{ x: number; y: number }> = [];
+	for (const gap of [5, 20, 44]) {
+		candidates.push({ x: target.left - gap - half, y: midY }); // left margin, level — the classic deictic
+		candidates.push({ x: nearX, y: target.top + target.height + gap + half }); // under the line
+		candidates.push({ x: nearX, y: target.top - gap - half }); // above it
+		candidates.push({ x: target.left + target.width + gap + half, y: midY }); // right margin, level
+	}
+	// The slide's own margins, as a last resort before giving up on clearance entirely.
+	candidates.push({ x: frame.left + pad, y: midY }, { x: frame.left + frame.width - pad, y: midY });
+
+	let best: { x: number; y: number } | null = null;
+	let bestScore = Number.POSITIVE_INFINITY;
+	for (const c of candidates) {
+		const box = boxAt(c.x, c.y, half);
+		if (!inside(box, frame)) continue; // a pointer half off the card reads as a bug, not a gesture
+		const hits = obstacles.reduce((n, o) => n + (overlaps(box, o) ? 1 : 0), 0);
+		const dist = Math.hypot(c.x - target.left, c.y - midY);
+		const score = hits * 1e6 + dist;
+		if (score < bestScore) {
+			bestScore = score;
+			best = c;
+		}
+	}
+	if (best) return best;
+	const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+	return {
+		x: clamp(nearX, frame.left + pad, frame.left + frame.width - pad),
+		y: clamp(target.top + target.height + 5 + half, frame.top + pad, frame.top + frame.height - pad),
+	};
+}
+
 /**
  * A live `RectSource` for the cue currently being spoken — the thing Vetrina points at.
  *
@@ -130,6 +200,11 @@ export function cueDisplayText(cue: { words?: { display?: string }[] } | null | 
  * an error: a slide narrated by a speaker note says things the slide does not show. The CALLER
  * must then hide the cursor (`setCursorVisible(false)`) rather than leave it parked on the last
  * sentence's target — a stationary cursor is read as a claim about whatever it sits on.
+ *
+ * The rect handed back is NOT the matched element's box — it is a small anchor beside it, chosen
+ * by `pointerAnchor` so the cursor points at the text without covering it. Vetrina aims a cue
+ * inside its target's box, which is right for a button and wrong for a sentence, and the host is
+ * the side that knows which of those it just resolved.
  */
 export function guideTargetFor(getFrame: () => HTMLIFrameElement | null, text: string): RectSource | null {
 	const frame = getFrame();
@@ -141,6 +216,48 @@ export function guideTargetFor(getFrame: () => HTMLIFrameElement | null, text: s
 		}
 	})();
 	const el = findCueTarget(doc, text);
-	if (!el) return null;
-	return frameRectSource(getFrame, () => el);
+	if (!el || !doc) return null;
+
+	// Solve the placement ONCE, in the frame's INNER coordinates, and map it out every frame.
+	//
+	// Not per frame: finding whitespace means measuring every block on the slide, and doing that
+	// at 60fps to answer a question whose inputs cannot change mid-sentence would be real
+	// main-thread work on the one surface that must not stutter. The slide's own layout is fixed
+	// while a sentence is spoken; what moves is the FRAME, and mapping an inner point out through
+	// `frameGeom` picks that up for free — which is the same reason `frameRectSource` re-measures
+	// rather than snapshotting (#1400).
+	const geom0 = frameGeom(getFrame());
+	const S = geom0?.S ?? 1;
+	const root = doc.documentElement.getBoundingClientRect();
+	const obstacles: Box[] = [];
+	for (const node of doc.querySelectorAll(BLOCK_SELECTOR)) {
+		const r = node.getBoundingClientRect();
+		if (r.width > 0 && r.height > 0 && (node.textContent ?? '').trim()) obstacles.push({ left: r.left, top: r.top, width: r.width, height: r.height });
+	}
+	const t0 = el.getBoundingClientRect();
+	// The pointer's 28px is PARENT pixels and does not scale with the frame, so its half-extent in
+	// inner coordinates is `half / S` — the one conversion that has to happen for this to be right
+	// on a scaled preview.
+	const anchor = pointerAnchor(
+		{ left: t0.left, top: t0.top, width: t0.width, height: t0.height },
+		{ left: root.left, top: root.top, width: root.width, height: root.height },
+		obstacles,
+		POINTER_BOX / 2 / (S || 1),
+	);
+
+	const GONE = { x: 0, y: 0, left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0, toJSON: () => ({}) } as DOMRect;
+	return {
+		getBoundingClientRect(): DOMRect {
+			try {
+				const geom = frameGeom(getFrame());
+				if (!geom || !el.isConnected) return GONE;
+				// A 2x2 box centered on the anchor: `aimAt` takes `left + min(w/2, 22)`, so a box
+				// this small resolves to the anchor point itself rather than to an offset into it.
+				const r = innerRectToParent({ left: anchor.x - 1, top: anchor.y - 1, width: 2, height: 2 }, geom);
+				return { x: r.left, y: r.top, left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom, toJSON: () => ({ left: r.left, top: r.top, width: r.width, height: r.height }) } as DOMRect;
+			} catch {
+				return GONE; // a cross-origin or torn-down frame is "nowhere", never a throw
+			}
+		},
+	};
 }
