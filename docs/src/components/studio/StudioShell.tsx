@@ -3143,6 +3143,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		</nav>
 	);
 
+	// Feedback — a persistent, one-tap entry point (not gated on onboarded — first
+	// impressions matter too). Opens a pre-filled GitHub issue; no token, no backend.
+	// ONE definition, rendered by BOTH headers (the slim Read/Write header and the
+	// full Build/compact one) at the SAME tail slot, so stepping the dial never moves
+	// it — nor anything beside it. Before this it lived only in the full header, which
+	// made the desktop right cluster jump 70px on every Write↔Build step and left Read
+	// and Write with no feedback affordance at all.
+	const feedbackButton = (
+		<Tip label="Send feedback">
+			<Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
+		</Tip>
+	);
+
 	// The deck switcher — deck identity + CRUD (Switch / Rename / New). SHARED by the
 	// full header (Build / compact) AND the slim Write header: deck-switching and
 	// New deck are the Write persona's most basic navigation, not strippable chrome,
@@ -3250,7 +3263,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
 				<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
 				<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
+				{/* The tail — separator · dial · feedback — mirrors the full header's tail
+				    exactly, and that is the point: Present, Share, the dial and feedback all
+				    sit at the SAME x at Read, Write and Build. Drop either the divider or the
+				    feedback button here and the whole cluster slides on every dial step. */}
+				<Separator orientation="vertical" className="h-5" />
 				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
+				{feedbackButton}
 			</header>
 			) : (
 			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
@@ -3261,7 +3280,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    not a menu. */}
 						<button type="button" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
 							<LatticeMark mode={mode} className="size-7" />
-							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] sm:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
+							{/* The wordmark shows from `lg` (1024px), not `sm`. Below that the header is
+							    out of room — adding the feedback button pushed the ⋯ Menu clean off a
+							    820px tablet — and 62px of decoration is the first thing to spend when
+							    the mark and the chevron already say "brand, and it opens". It returns
+							    the moment the row can afford it. */}
+							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] lg:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
 							<ChevronDown className="size-4 text-muted-foreground" />
 						</button>
 					</DropdownMenuTrigger>
@@ -3352,9 +3376,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    at every stop (never a buried setting), so no stop can read as a room you
 				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
 				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />}
-				{/* Feedback — a persistent, one-tap entry point (not gated on onboarded — first
-				    impressions matter too). Opens a pre-filled GitHub issue; no token, no backend. */}
-				{!compact && <Tip label="Send feedback"><Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -3364,8 +3385,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    no header at all — the cinema morph — so no leak here.) */}
 				{bp === 'tablet' && <Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><ChatIcon className="size-[18px]" /></Button></Tip>}
+				{/* Feedback sits directly above the Settings button in this right-hand run, at
+				    tablet AND desktop — the one fixed address for it. Tablet reaches it in one
+				    tap here instead of two through ⋯ (that row is gone: one action, one home).
+				    Desktop has no header Settings button (the activity bar owns it), so the same
+				    slot puts feedback last — which is exactly where the slim header ends too. */}
+				{!mobile && feedbackButton}
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
-				{!compact && <Separator orientation="vertical" className="h-5" />}
+				{/* No trailing separator on desktop: it separated the feedback button from
+				    nothing (the controls after it are compact-only), and the 13px it spent
+				    was 13px the slim header could never match. */}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap). The Menu
 				    trigger below it is SHARED by tablet and mobile (same position, same
@@ -3392,7 +3421,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								<DropdownMenuItem onSelect={() => setLensesOpen(true)}><LensIcon className="size-4" />Lenses — reader views</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><SettingsCog className="size-4" />Workspace settings</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<Kbd className="ml-auto text-[10px]">⌘K</Kbd></DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><FeedbackIcon className="size-4" />Send feedback</DropdownMenuItem>
+								{/* No "Send feedback" row — it's a 1-tap button in the header now, and
+								    the same action in two adjacent homes is the exact problem this menu
+								    already avoids for Slide settings. Mobile keeps its drawer row (no
+								    header button there); ⌘K keeps its command everywhere. */}
 								<DropdownMenuSeparator />
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</ScrollFade>

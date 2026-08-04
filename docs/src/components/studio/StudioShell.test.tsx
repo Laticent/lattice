@@ -1059,3 +1059,60 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		expect(screen.getAllByText('Starter')).toHaveLength(1);
 	});
 });
+
+describe('StudioShell — Send feedback has ONE fixed address', () => {
+	// It used to render only in the FULL header, which is the Build/compact one. So on
+	// desktop it appeared and vanished with the dial, and the 44px it took (plus a
+	// trailing separator that separated nothing) shoved Present, Share and the dial
+	// 70px sideways on every Read↔Build step. Read and Write, the two stops a newcomer
+	// actually lands on, offered no way to send feedback at all.
+	//
+	// Where it lands is geometry, and geometry is measured on the real surface — the
+	// PR carries the puppeteer numbers at 1440 / 1100 / 820. What jsdom can hold is
+	// the invariant that MAKES that geometry possible: one button, present at every
+	// stop on both pointer tiers, and never offered from two places at once.
+	const seedPosture = (posture: 'read' | 'write' | 'build') =>
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture, lensDefaults: false }));
+
+	it.each([
+		['desktop', 'read'],
+		['desktop', 'write'],
+		['desktop', 'build'],
+		['tablet', 'read'],
+		['tablet', 'write'],
+		['tablet', 'build'],
+	] as const)('%s at the %s stop carries it in the header', (bp, posture) => {
+		seedPosture(posture);
+		setViewport(bp);
+		setup();
+		expect(screen.getByRole('button', { name: 'Send feedback' })).toBeInTheDocument();
+		// Pin WHICH header rendered, so this can't pass by accident. Desktop Read and
+		// Write get the slim header (a brand mark, not a launcher button); every other
+		// stop/width combination gets the full one.
+		const slim = bp === 'desktop' && posture !== 'build';
+		expect(screen.queryByRole('button', { name: 'Workspace launcher' }) === null).toBe(slim);
+	});
+
+	it('the tablet ⋯ menu does not offer it a second time', async () => {
+		setViewport('tablet');
+		const user = setup();
+		// Count the header's copy BEFORE opening the menu: Radix marks everything
+		// outside an open dropdown `aria-hidden`, so a role query taken with the menu
+		// up can no longer see the button we are comparing against.
+		expect(screen.getAllByRole('button', { name: 'Send feedback' })).toHaveLength(1);
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		await screen.findByRole('menuitem', { name: /Search \/ commands/ });
+		expect(screen.queryAllByRole('menuitem', { name: 'Send feedback' })).toHaveLength(0);
+	});
+
+	it('mobile keeps it in the drawer and OUT of the header', async () => {
+		// The phone header has no room and the eight-cell bar is a closed contract, so
+		// the drawer stays its one home there — the change is tablet-and-up only.
+		setViewport('mobile');
+		const user = setup();
+		expect(screen.queryByRole('button', { name: 'Send feedback' })).toBeNull();
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		const drawer = within(await screen.findByRole('dialog'));
+		expect(await drawer.findByRole('button', { name: 'Send feedback' })).toBeInTheDocument();
+	});
+});

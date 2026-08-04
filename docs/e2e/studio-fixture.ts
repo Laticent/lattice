@@ -45,6 +45,13 @@ export const CHROME = {
 	/** The version-history sheet trigger. */
 	versionHistory: 'Version history',
 	/**
+	 * "Send feedback" — a 1-tap header button on tablet AND desktop, at the same tail
+	 * slot in both headers (directly above Settings in the right-hand run), so it holds
+	 * position across the Read/Write/Build dial. On MOBILE there is no header button:
+	 * it is a `role="button"` row inside the StudioDrawer, behind `moreControls`.
+	 */
+	feedback: 'Send feedback',
+	/**
 	 * The "···" overflow trigger — SAME accessible name and header position at every
 	 * breakpoint, but a DIFFERENT surface underneath (2026-07-26-studio-mobile-eight-
 	 * cell-bar.md): tablet opens the flat DropdownMenu (rows are `role="menuitem"`);
