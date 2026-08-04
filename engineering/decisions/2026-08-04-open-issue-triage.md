@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Triaged all 138 open issues against the tree at 7b8a219, on two axes the queue never carried — did the defect survive (fixed / still reproduces / premise moved), and what kind of work is it (gate failure, upgrade, bug, docs drift, debt, verification owed, chore). Nothing in the queue is simply WRONG — no card asserts a defect that never existed; the failure mode is that nothing CLOSES cards, and all five verified-fixed ones were fixed by a PR solving something adjacent. Five close on sight (#684, #1188, #1197 now pass their integration test; #1194's coverWindow uses evenGroups; #1155's CHANGELOG is clean), four more are near-certain (#669, #757-A, #876, the marp-kit half of #1354). Five moved out from under their premise and need rescoping rather than working (#414, #476, #477, #870 cite the REMOVED Drawing Board; #310 cites a deleted doc). Two ratchets run backwards (#577's US-English budget rose 1288 to 1307; #1310's empty index rows rose 58/339 to 70/357). Gate-failure work is 22 cards — 12 red/flaky, 10 blind — and is load-bearing: #1324 was CONFIRMED red here at 9 files / 87 tests, but its cited files are stale and the true failing set is now studio.controls + StudioShell, while the Node integration tier is green at 671/671, so the rot is docs/vitest-specific rather than main-wide. #1208 and #1250 are the same failing test filed twice. #1364 and #1354 were reproduced end to end. BACKLOG.md is stale by 93 issues (claims 45 open, actual 138) because sync-backlog has not run since 2026-07-30.
+summary: Triaged all 138 open issues against the tree at 7b8a219, on two axes the queue never carried — did the defect survive (fixed / still reproduces / premise moved), and what kind of work is it (gate failure, upgrade, bug, docs drift, debt, verification owed, chore). Nothing in the queue is simply WRONG — no card asserts a defect that never existed; the failure mode is that nothing CLOSES cards, and all five verified-fixed ones were fixed by a PR solving something adjacent. Six close on sight (#684, #1188, #1197 now pass their integration test; #1194's coverWindow uses evenGroups; #1155's CHANGELOG is clean; #1361's overflow gate is green, fixed by #1359 and gone from the baseline rather than blessed into it), four more are near-certain (#669, #757-A, #876, the marp-kit half of #1354). Five moved out from under their premise and need rescoping rather than working (#414, #476, #477, #870 cite the REMOVED Drawing Board; #310 cites a deleted doc). Two ratchets run backwards (#577's US-English budget rose 1288 to 1307; #1310's empty index rows rose 58/339 to 70/357). Gate-failure work is 22 cards — 12 red/flaky, 10 blind — and is load-bearing: #1324 was CONFIRMED red here at 9 files / 87 tests, but its cited files are stale and the true failing set is now studio.controls + StudioShell, while the Node integration tier is green at 671/671, so the rot is docs/vitest-specific rather than main-wide. #1208 and #1250 are the same failing test filed twice. #1364 and #1354 were reproduced end to end. BACKLOG.md is stale by 93 issues (claims 45 open, actual 138) because sync-backlog has not run since 2026-07-30.
 ---
 
 # Open-issue triage — what is fixed, what is real, what moved
@@ -35,11 +35,11 @@ a judgment. `VALID` and `FIXED` each carry the evidence that earned them.
 
 | | count |
 |---|---|
-| **Already fixed — close on sight** | **5 verified + 3 near-certain** |
+| **Already fixed — close on sight** | **6 verified + 4 near-certain** |
 | **Premise moved — rescope, don't work** | **5** |
 | **Worse than filed** | **2** |
-| Verified still real | 24 |
-| Not independently verified this pass | 104 |
+| Verified still real | 25 |
+| Not independently verified this pass | 101 |
 
 **Nothing in the queue was found to be simply *wrong*** — no card asserted a
 defect that never existed. The failure mode here is not bad reports; it is that
@@ -57,6 +57,7 @@ verified-fixed cards was fixed by a PR that was solving something else.
 | **#1197** | imagery gallery stale against `scene.manifest.json` | the "rotor turns and a bead" line is now in **both** manifest and gallery; the ` ```anima ` block is present |
 | **#1194** | `coverWindow` chunks greedily → runt last page | `lib/core/carousel.js` now calls `evenGroups(items.length, per)`; the code comment names the exact defect: *"`per` is a CEILING; chunking `i += per` treated it as a chunk size and left a runt last"* |
 | **#1155** | ~a dozen CHANGELOG entries orphaned above `## Unreleased` | `## Unreleased` is at line 26; **zero** entry-shaped lines above it |
+| **#1361** | `overflow:check` red on clean `main` | clean run is green (exit 0, 8 clips, none above baseline). Fixed by **#1359** (`75b3e1b`); the offending deck is gone from `overflow-baseline.json`, so it was fixed rather than blessed — see §4a |
 
 Near-certain, worth one confirming read before closing:
 
@@ -122,7 +123,7 @@ are red/flaky** and **gates that are blind**.
 | **#793** | `[preview-e2e]` playground preview fails to render | open, active (27 comments, last 2026-08-03) |
 | **#1324** | `docs-build` flaky on main, ejects unrelated PRs from the merge queue | **CONFIRMED.** Full docs vitest on this tree: **9 files / 87 tests failed** (204 files, 2369 tests). But the failing SET has moved: the card named `single-slide-render.alignment` + `chart-anima`; today it is `studio.controls` (39), `StudioShell` (26), `studio.findings-fix` (7), `studio.theme-depth` (6), and five more. The card's claim holds; its cited files no longer do |
 | **#1328** | `studio.theme-depth` flakes under full-suite load | **CONFIRMED, and under exactly the stated condition.** `studio.theme-depth.test.tsx` failed 6 times in a full-suite run that was sharing the box with `overflow:check` (~49 concurrent Chromium processes). Load-sensitivity is the mechanism, as filed |
-| **#1361** | `overflow:check` red on clean `main` | **not settled here.** The first run was invalid — it crashed under the concurrency above (3 decks `failed to render`, no verdict emitted). Re-run clean; result not folded into this note |
+| **#1361** | `overflow:check` red on clean `main` | **FIXED — close it.** Clean re-run on an idle box: `✓ overflow corpus — 8 clipped slide(s) across 4 deck(s), none above baseline (8)`, exit 0. Fixed by **#1359** (`75b3e1b`), whose decision note names `examples/marp-export-fidelity.md` five times as the root-cause case — the 23px was the deck logo dragged into flow by `base.finish.css`'s stacking rule. The deck is **gone from `overflow-baseline.json` entirely**, so the clip was *fixed*, not blessed away. (My first run reported exit 1; it had crashed under self-inflicted load with 3 decks `failed to render` and no verdict. That run was invalid, not evidence.) |
 | **#1315** | `studio-jargon-alignment.spec.ts:81` fails on main | not re-run |
 | **#1208 / #1250** | *the same failing test* — `demo.spec.ts` "walkthrough reskin drives the REAL deck Inspector" | **duplicates.** #1208 cites line 61, #1250 cites line 65, same locator, same deterministic failure. Merge them |
 | **#684 / #1188 / #1197** | bucket-gallery drift | **all three now pass** — see §1 |
@@ -209,6 +210,7 @@ Everything here reproduces on the current tree. Ordered by what I'd fix first.
 | **#970** | three superseded branches need deleting | all three still exist on `origin` |
 | **#1327** | nine tools each carry their own Chromium resolver | 15 tools reference Chrome resolution; `tools/lib/` has no shared resolver |
 | **#1336** | the `content` stress-test slide no longer demonstrates its claimed ceiling | the heading still claims *"as much text as one slide should ever carry"* |
+| **#1278** | `wifi` clips real content on 4 of its own gallery slides | **exact match in the ratchet.** `overflow-baseline.json` sanctions `connect.gallery.md = [3]` and `wifi.gallery.md = [2, 3, 4]` — precisely the four slides the card names. They are *baselined*, i.e. accepted as known clips, not fixed |
 | **#1355** | `--measure-body: 36em` is a compatibility value, not a typographic one | still 36em. **Note:** the card says *"do not fix the comment"* — the comment has since been softened from "769.5px, ~78–83 characters" to "~80 characters at the body tier" |
 
 ---
@@ -254,9 +256,13 @@ classified, but the defect itself was not re-tested. Specifically not driven:
   comment threads, not re-run. `npm run regress` (the #688 check) was not run.
   Note that #683's tier (`test:integration`) passes locally on this tree, which
   neither confirms nor refutes a nightly failure on a different runner.
-- **`overflow:check` (#1361) is unsettled.** The first run crashed under
-  self-inflicted load and produced no verdict; a clean re-run was still executing
-  when this note was written. Do not read §4a as evidence either way on #1361.
+- **#1360 needs a re-read, not a re-run.** Its acceptance check is *"`overflow:check`
+  drops `examples/state-chart.md` from the baseline"* — but that deck is **not in
+  the baseline now and the gate is green**, while the card's actual complaint
+  (p6's sixth state box renders as a labelless sliver) is a *visual* loss the
+  geometric probe would not catch anyway. The acceptance criterion is already
+  satisfied without the defect necessarily being fixed. Verify by eye, and give
+  the card a criterion that can fail.
 - **#1246 was not re-exploited.** The card carries an end-to-end real-Chromium
   demonstration; I confirmed only that the architectural gap is still there —
   `checkPreviewHtmlSinks` gates that a builder *calls* `sanitizeSlideHtml`, and
