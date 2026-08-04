@@ -79,21 +79,10 @@ describe('compare-code — applyToDom (runtime)', () => {
 // render-free — the browser-backed tier is on-demand here, same as css:values.
 describe('compare-code — the two-pane geometry, as the browser resolves it', () => {
   const fs = require('node:fs');
-  const os = require('node:os');
   const path = require('node:path');
 
   const ROOT = path.join(__dirname, '../../..');
-  const chrome = () => {
-    if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-    for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-      if (!fs.existsSync(root)) continue;
-      for (const b of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-        const bin = path.join(root, b, 'chrome-linux64', 'chrome');
-        if (fs.existsSync(bin)) return bin;
-      }
-    }
-    return undefined;
-  };
+  const { resolveChrome: chrome } = require('../../../tools/lib/resolve-chrome');
 
   // One page, one long line on the LEFT only — the shape that broke. Returns the two
   // resolved track widths and the computed white-space, which is all three guards need.

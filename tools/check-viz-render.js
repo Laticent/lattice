@@ -50,8 +50,8 @@
  */
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
 const BASELINE_FILE = path.join(ROOT, 'test', 'viz-render', 'black-baseline.json');
@@ -100,19 +100,6 @@ const TRANSPARENT = new Set(['none', 'transparent', 'rgba(0, 0, 0, 0)']);
 // (defs, gradients, <stop>, <g> groups, desc/title) compute fill:black by
 // default but paint nothing, so they are pure noise for a dropped-colour check.
 const PAINTABLE_TAGS = new Set(['path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline', 'line', 'text', 'tspan', 'use']);
-
-/** Best-effort Chromium path — mirrors tools/screenshot.js + color-parity.test.js. */
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
 
 /**
  * A stable key for a black finding: family + component + element tag.class +

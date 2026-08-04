@@ -51,6 +51,16 @@ in patch versions.
 
 ### Fixed
 
+- **Every tool now finds Chromium the same way.** Nine tools each carried a hand-copied resolver
+  under two different names, and they had drifted apart: the one in `check-geometry-parity.js`
+  shelled out to `bash -lc 'ls /root/.cache/puppeteer/…'`, hard-coding root's home so it could never
+  resolve on a CI runner or a developer machine. They are now one `tools/lib/resolve-chrome.js`,
+  which still returns `undefined` rather than throwing so each caller keeps its own "skips loudly
+  with no Chromium" message. Two latent bugs shared by all nine are fixed on the way: builds are
+  ordered numerically, so `linux-131` no longer sorts below `linux-99`, and macOS and Windows cache
+  layouts resolve instead of falling through to whatever puppeteer guessed. A guard fails if a tenth
+  copy appears under `tools/`; the 15 remaining copies under `test/` are tracked separately.
+
 - **Preview and export now send Mermaid the same non-palette config, and flowchart labels
   wrap the same way in both.** `engineInitConfig` claimed to be "shared so the PDF path and
   the runtime send Mermaid the same non-palette options, not just the same colors" — and the

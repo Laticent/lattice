@@ -34,9 +34,9 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const puppeteer = require('puppeteer');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
 const MARK = path.join(ROOT, 'design', 'logo', 'lattice-mark.svg');
@@ -50,29 +50,6 @@ const ICONS = [
   ['icon-512-maskable.png', 512, 0.8],
   ['apple-touch-icon.png', 180, 0.92],
 ];
-
-/** Best-effort path to a Chromium the sandbox already has. */
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
-    return process.env.CHROME_PATH;
-  }
-  const cacheRoots = [
-    path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'),
-    '/root/.cache/puppeteer/chrome',
-  ];
-  for (const root of cacheRoots) {
-    if (!fs.existsSync(root)) continue;
-    const builds = fs
-      .readdirSync(root)
-      .filter(d => d.startsWith('linux-'))
-      .sort();
-    for (const build of builds.reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
 
 async function main() {
   const svg = fs.readFileSync(MARK, 'utf8');

@@ -83,6 +83,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const { loadAll, manifestBucket } = require('../lib/components');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 /** The two buckets whose components are visualizations — the family that declares `render`. */
 const VIZ_BUCKETS = ['chart', 'diagram'];
@@ -124,19 +125,6 @@ function vizComponents() {
       deck: path.join(ROOT, 'lib', 'components', manifestBucket(m), m.name, `${m.name}.gallery.md`),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/** Best-effort Chromium path — mirrors tools/check-viz-render.js + tools/screenshot.js. */
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
 }
 
 /** Where a deck's emulator artifacts land. Derived BEFORE the render, so a render

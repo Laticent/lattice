@@ -60,8 +60,8 @@
  */
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
 const SCAN_DIRS = ['lib', 'themes'].map((d) => path.join(ROOT, d)).filter((d) => fs.existsSync(d));
@@ -293,33 +293,6 @@ function declarations(css) {
 }
 
 /**
- * Resolve a Chromium, or return undefined so the caller can exit cleanly.
- *
- * A stale `CHROME_PATH` — the sandbox's puppeteer cache is not durable, so the
- * exported path can outlive the binary — falls through to the cache probe rather
- * than failing outright, since the probe is exactly what the hook would have found.
- *
- * PORTABLE, unlike the first cut. That one shelled out to `bash -lc 'ls
- * /root/.cache/puppeteer/…'`: it hardcoded root's home, so the tool could only ever
- * run in this sandbox, and it needed a shell to do a directory listing. This is the
- * resolver from tools/check-family-tiers.js:46, which probes `$HOME` first and the
- * root path second and uses fs directly. (Nine tools now carry a near-identical
- * resolver — off-path duplication for this change, filed rather than folded in.)
- */
-function chromePath() {
-  const env = process.env.CHROME_PATH;
-  if (env && fs.existsSync(env)) return env;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
-/**
  * Replace every `var(…)` in a value with `probe`, matching parens properly.
  *
  * A regex cannot do this — `var(--a, var(--b, 1px))` nests, and
@@ -478,7 +451,7 @@ async function main() {
   const pairs = group(testable);
   const varPairs = group(varred);
 
-  const exe = chromePath();
+  const exe = resolveChrome();
   if (!exe) {
     console.error('✗ no Chrome found — set CHROME_PATH (the SessionStart hook exports it).');
     process.exit(2);

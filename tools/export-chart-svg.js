@@ -35,11 +35,11 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const puppeteer = require('puppeteer');
 const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = require('../lib/components/chart/_chart-family/standalone-svg.js');
 const { buildChartFontFaceCss } = require('./lib/chart-font-embed.js');
+const { resolveChrome } = require('./lib/resolve-chrome');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -58,20 +58,6 @@ function parseArgs(argv) {
   }
   a.deck = pos[0];
   return a;
-}
-
-/** Best-effort path to a Chromium the sandbox already has (mirrors screenshot.js). */
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  const roots = [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome'];
-  for (const root of roots) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter(d => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
 }
 
 /** Front-matter `theme:` of a deck, or null. */
