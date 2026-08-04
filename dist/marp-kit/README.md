@@ -23,8 +23,13 @@ npx @marp-team/marp-cli@^4.3.1 Sample-Deck.md --config-file marp.config.cjs --al
 The version range is deliberate: it is the same range Lattice's own export bundle
 pins, so the kit and the export cannot ask for different tools. Being honest about
 what that does and does not buy you — it is a range, not a pin, so npm will resolve
-a newer 4.x over time, and this project runs no automated test against marp-cli at
-all. The render that produced the committed `Sample-Deck.pdf` used 4.3.1.
+a newer 4.x over time. Lattice's CI renders this exact deck through real marp-cli
+and checks the result — one page per slide, the diagram drawn, the split panel
+built, the equation typeset, the palette and the fonts live. To be exact about
+the guarantee: that runs on changes to engine/tooling/test code, not on
+documentation-only ones. It is new as of this kit's second revision; before that,
+nothing on our side had ever rendered it. The reference render was made with
+4.3.1; the range currently resolves to 4.5.0.
 
 ## What is in here
 
@@ -74,15 +79,42 @@ that script runs, the deck is whole. Where it does not, those four are raw.
 - **The VS Code preview pane** runs marp-core directly, without Lattice's
   markdown-it plugins. Whether it executes the deck's `<script>` tags is
   genuinely unsettled in this project's own notes, so treat those four slides as
-  unknown there rather than promised.
+  unknown there rather than promised. If they come up flat for you, that is the
+  unresolved case above and not a broken copy of the kit — everything else on the
+  slide should still be fully styled.
 
 Everything CSS does — layout, palette, typography, every purely-CSS layout —
 holds on all three. Render the deck for anything you need to trust.
 
-Render the deck for anything you need to trust.
+## If the slides look plain
 
-If a render hangs on a machine with a small `/dev/shm` (containers, CI), pass
-`--browser-args="--no-sandbox --disable-dev-shm-usage"`.
+Unstyled slides — system fonts, no palette, no layout — mean the stylesheets did
+not register, which is the one failure here that produces no error message. In
+order of likelihood:
+
+1. **The folder is not your workspace root.** `.vscode/settings.json` uses
+   workspace-relative paths. Open THIS folder, not its parent.
+2. **The whole folder did not come across.** `lattice.min.css` must sit beside
+   `Sample-Deck.md`, and `fonts/` beside that.
+3. **VS Code has not reloaded the setting.** Run *Developer: Reload Window* after
+   the folder is first opened.
+
+If type looks right but the layout does not, it is the palette rather than the
+engine: `cuoio.min.css` `@import`s `lattice` **by name**, so both files
+have to be registered — one alone renders bare.
+
+**If a render fails with "No usable sandbox!"** — common on CI runners and
+hardened Linux — set `CHROME_NO_SANDBOX=1` in the environment. marp-cli turns
+the Chromium sandbox off by itself for root, and inside a container, but a plain
+non-root machine with unprivileged user namespaces restricted is neither, and
+Chromium refuses to start. This is marp-cli's own switch.
+
+If a render hangs instead, the usual cause is a small `/dev/shm` — give the
+container more shared memory (`docker run --shm-size=1g` or equivalent).
+
+Both of these lines used to say "pass `--browser-args=…`". **marp-cli has no
+such option** (only `--browser`, `--browser-path`, `--browser-protocol`,
+`--browser-timeout`), so that advice did nothing at all.
 
 ---
 

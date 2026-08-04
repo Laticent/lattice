@@ -14,8 +14,24 @@ This kit is deliberately the other thing — the engine handed over loose, for
 reuse — so the AGPL applies to it in full. Slides you write are yours and were
 never covered either way; the terms here are about redistributing these files.
 
-If you only want to make decks, nothing about this constrains you. If you plan to
-redistribute the kit, or ship a service built on it, read `LICENSE`.
+**Rendering is worth one more paragraph**, because the two routes differ and only
+one of them puts engine code in your hands to pass on:
+
+- **`marp --pdf` and `marp --pptx` carry no engine code.** Measured, not
+  assumed, on both: every stream in the PDF was decompressed and searched, and
+  all 81 entries of the PPTX (which carries the deck as one image per slide).
+  No CSS rule, no `@theme` directive, nothing of the engine survives either.
+  What the PDF *does* embed is font subsets of the third-party faces below,
+  which the OFL and MIT both permit in a document; the PPTX embeds no fonts.
+  Render either way and share the file however you like. (The one route not
+  measured is `--pptx-editable`, which converts through LibreOffice.)
+- **`marp --html` inlines the engine stylesheet** — about 852 KB of it — into
+  the output file. Keeping that file to yourself conveys nothing to anyone.
+  Publishing it conveys the engine in object form, so if that is your plan, read
+  `LICENSE` first. Rendering to PDF instead avoids the question entirely.
+
+If you plan to redistribute the kit itself, or ship a service built on it, read
+`LICENSE`.
 
 ## Third-party components
 

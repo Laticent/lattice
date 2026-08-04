@@ -98,6 +98,43 @@ in patch versions.
   invisible to the overflow probe, which measures height only. The guards are now **behavioral**,
   asserting what Chromium computes over the real bundle, after a red-team pass evaded three
   successive textual versions with trivial selector reformulations. (#1346)
+- **The kit's `NOTICE.md` told recipients "if you only want to make decks, nothing about this
+  constrains you," and that is too broad for one of the two render routes.** Measured on a real
+  marp-cli render rather than reasoned about: `marp --pdf` and `marp --pptx` carry **no engine code
+  at all** (every PDF stream decompressed; all 81 PPTX entries searched), while `marp --html` inlines
+  **~852 KB of engine stylesheet** into the output file — the runtime JS stays external, so it is the
+  stylesheet alone. `--pptx-editable` is marked UNMEASURED rather than assumed. Lattice's output exception is written for assets *Lattice's own export pipeline*
+  embeds; a marp-cli render is not that, so on a literal reading publishing a `marp --html` file
+  conveys engine object code outside the exception — via the exact workflow the kit ships to enable.
+  The notice now states that precisely instead of reassuringly. **The grant itself is unchanged:**
+  whether to extend the exception is the copyright holder's call, and it is escalated with the
+  facts, the options and a recommendation in
+  `engineering/decisions/2026-08-04-marp-render-output-exception.md`. That note also corrects where
+  the gap actually is — §Limits (a) excludes assets distributed "other than inside a rendered deck",
+  and a `--html` file *is* a rendered deck, so (a) never bites; the exclusion comes from the Grant's
+  "as embedded by Lattice itself" and from §Limits (c), since Marpit rewrites every selector on the
+  way in — and records, logged rather than fixed (off-path, and it alters
+  exported-artifact bytes), that the **Export-to-Marp bundle ships Mermaid, the KaTeX faces and five
+  OFL font families with no `LICENSE`, no `NOTICE` and no license texts at all** — the same defect
+  the kit was fixed for in #1325, still live in the bundle, which has shipped longer.
+
+- **The repo asserted as fact, in the entry everything else cites, a claim the same file called
+  untested.** Whether the marp-vscode preview webview executes `<script>` decides whether
+  `lib/runtime/index.js` (2,182 lines) does anything on that surface. `engineering/gotchas.md`
+  carried it *both* ways: the preview-gaps register said "UNVERIFIED and contested … has never been
+  tested against a real VS Code", while the CSP entry 130 lines below stated it flatly as
+  Symptom/Cause/Mitigation — and the unhedged one was the one that got quoted. That entry now leads
+  with its own status, keeps the operational advice unchanged (treat runtime-built content on that
+  surface as unknown; render anything you need to trust), and carries a **ten-minute protocol to
+  settle it**: open `dist/marp-kit` as a VS Code workspace and read four specific slides, which are
+  runtime-built and by nothing else — confirmed against a real marp-cli render with JavaScript
+  toggled off and on, where all four flip. A fourth passage no audit had catalogued is
+  fixed with it: `lib/forms/form-default.js` stated "the webview runs no scripts" as settled fact in
+  a source comment. **No hedge was softened and no new evidence is claimed** — the question is still
+  open and still needs a human with VS Code (HARD RULE #23). The kit README also loses a duplicated
+  closing line and a pointer to a `Sample-Deck.pdf` that was never in the kit, and gains an
+  "If the slides look plain" section for the one failure mode there that produces no error message.
+
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
@@ -191,6 +228,42 @@ in patch versions.
   also puts the two paths back in step.
 
 ### Added
+
+- **CI renders the copy-and-go Marp kit now — the gate it shipped without
+  (`test/integration/export/marp-kit-render.test.js`).** Nothing exercised `dist/marp-kit`, so
+  every defect found in #1325 passed lint, `build:check` and ~4,900 unit tests while being visible
+  on the first page of a PDF. The worst was silent: a deck with a flowchart exported 13 slides as
+  **14 pages**, the last blank, because Mermaid appends a body-level `.mermaidTooltip` that lands
+  after the final slide and pushes document height past the deck's own. The gate renders the
+  shipped kit through real marp-cli on both routes its README tells a recipient to trust —
+  `--pdf` for the page-count invariant (a blank trailing sheet is a *print* artifact and exists on
+  no other surface) and `--html` driven in a real browser for everything the runtime builds. Six
+  assertions per artifact: one PDF page per slide, plus first/last/diagram page TEXT (a count alone
+  is satisfied by blank sheets, and a print-only rule can empty a middle slide while every DOM check
+  stays green); the Mermaid tooltip **pinned and still present** (removing it also kills `click`
+  tooltips everywhere — the two obvious fixes are each other's bug, so both directions are pinned);
+  `.panel-left`/`.panel-right` built, proving the runtime executed on a Marp-rendered DOM; no
+  uncaught runtime exception anywhere in the deck; the `$$…$$` block typeset by MathJax and laid out
+  inside its slide; `--fs-h1` **and** `--accent` resolving — one declared only by the engine bundle,
+  one by the palette, so the pair actually proves both registered; and the faces both declared and
+  loaded, the #1256 fall-back-to-system-serif defect.
+
+  **It runs over BOTH Marp hand-off artifacts** — `dist/marp-kit` and a freshly exported
+  Export-to-Marp bundle. They share their asset list by construction but not the machinery that has
+  actually broken: two independently authored marp configs, and `withRuntimeScripts()` / the baked
+  front-matter block / per-deck `themeSet` generation existing only in the bundle — which is where
+  all four defects in the 2026-07-29 post-mortem lived.
+
+  Verified by mutation and deletion, not by going green: neutering `pinMermaidTooltip` reproduces
+  14 pages; a *partial* regression the page count misses is still caught by the tooltip assertion;
+  deleting `fonts/` fires both font assertions. marp-cli stays out of `package.json` — it is fetched
+  with `npx` (lifecycle scripts off) at the range `lib/core/marp-bundle.js` exports, so the gate and
+  the artifacts it gates cannot ask for different tools, and the resolved version is printed into
+  every failure message because a range can move under a PR that changed nothing. With no registry
+  access it retries, then **skips off-CI and FAILS on CI** — a gate that self-skips on the runner is
+  a decoration that reports green. It also sets `CHROME_NO_SANDBOX=1`: marp-cli disables the Chromium
+  sandbox for root and inside a container, but a GitHub runner is a plain non-root VM with
+  unprivileged user namespaces restricted, so without it every render dies with "No usable sandbox!".
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The

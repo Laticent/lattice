@@ -61,6 +61,12 @@ jobs:
               # exemplars-only change must run the integration tier so the
               # render + committed-PDF-freshness gate fires on its primary trigger.
               - 'exemplars/**'
+              # kit/Sample-Deck.md is the source of dist/marp-kit's deck AND the
+              # fixture test/integration/export/marp-kit-render.test.js renders
+              # through real marp-cli. Editing it must run the gate that renders
+              # it — build:check would catch the resulting dist staleness, but
+              # only after the render tier had been skipped.
+              - 'kit/**'
               - 'lattice-emulator.js'
               - 'mermaid-v11.min.js'
               - 'package.json'
@@ -200,6 +206,18 @@ jobs:
       - run: npm ci
       - name: Integration tests (PR slice)
         run: npm run test:integration:pr
+      - name: Upload Marp renders on failure
+        # The marp-kit render gate exists because every defect it guards was
+        # VISIBLE ON THE FIRST PAGE OF A PDF. A red run that leaves nothing to look
+        # at throws that away — so its renders go to .scratch/marp-render/ (a stable
+        # path, gitignored) and ride out as an artifact when the job fails.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: marp-renders
+          path: .scratch/marp-render/
+          if-no-files-found: ignore
+          retention-days: 7
 
   # ── (Engine visual parity REMOVED — marp retired, P4 Step 3) ────────────────
   # The `engine-parity` job pixel-diffed every gallery slide through the owned
