@@ -337,6 +337,8 @@ export function useReadAloud(
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	const [progress, setProgress] = React.useState(0);
+	// Last progress value pushed into React state — the quantizer's reference (see tick).
+	const lastProgressRef = React.useRef(0);
 	const [rung, setRung] = React.useState<string | null>(null);
 	// Audio-starved: the sequence wants to play and has nothing yet. Mirrored into a ref
 	// because the RAF tick (deps `[]` by design) reads it every frame.
@@ -455,6 +457,7 @@ export function useReadAloud(
 		elapsedRef.current = 0;
 		audioBaseRef.current = null;
 		modeRef.current = 'silent';
+		lastProgressRef.current = 0;
 		clearBuffering();
 		readerRef.current?.reset();
 		setActive(null);
@@ -539,6 +542,7 @@ export function useReadAloud(
 			clearBuffering();
 			setPlaying(false);
 			setActive(null);
+			lastProgressRef.current = 0; // the quantizer's reference follows the state it mirrors
 			setProgress(0);
 		};
 	}, [track, cancelRaf, clearBuffering]);
@@ -580,7 +584,20 @@ export function useReadAloud(
 		lastTRef.current = now;
 		const activeNow = reader.sync(elapsedRef.current);
 		const dur = reader.durationMs();
-		setProgress(dur ? Math.min(1, elapsedRef.current / dur) : 0);
+		// QUANTIZED. This ran `setProgress` on every animation frame, so a ~60 Hz React render
+		// of the whole Present tree rode on the audio clock. That was survivable when the only
+		// consumer was a thin bar; it is not now that the rail draws three layers per slide with
+		// fresh inline styles, and a saturated main thread both stutters playback and starves
+		// this very loop — the bar then looks frozen while the audio chops. The rail is a few
+		// pixels tall, so sub-half-percent motion is invisible: update state only when the value
+		// actually moves enough to see, and always at the 0 and 1 endpoints so start and finish
+		// are exact. The reader's own clock still advances every frame; only the React state
+		// does not.
+		const nextProgress = dur ? Math.min(1, elapsedRef.current / dur) : 0;
+		if (nextProgress === 0 || nextProgress === 1 || Math.abs(nextProgress - lastProgressRef.current) >= 0.004) {
+			lastProgressRef.current = nextProgress;
+			setProgress(nextProgress);
+		}
 		if (debugRef.current) {
 			const stage = stageRef.current;
 			const activeCue = activeNow?.cueIndex ?? -1;

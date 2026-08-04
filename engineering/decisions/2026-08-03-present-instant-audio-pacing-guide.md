@@ -559,3 +559,48 @@ reads the *viewer's* own key. So a shared deck opened by someone with no key flo
 optimizes the path where the author rehearses with their own key. Making a shared deck speak
 means baking prepared audio into the artifact, which is a separate feature with export-format
 consequences and needs its own design pass.
+
+---
+
+## Amendment (2026-08-04): the readiness band's render cost, and who pays it
+
+Reported after the first working build: *"playing sound is janky / we don't get playback
+progress in the rail anymore."* Both symptoms, one cause.
+
+`useReadAloud`'s `tick` called `setProgress` on **every animation frame**. That was survivable
+when the transport bar's only progress element was a single thin fill. It stopped being
+survivable the moment the rail became the readiness display: three absolutely-positioned
+spans per slide, two of them with fresh inline `style` objects and a `width` transition, times
+the slide count. A ~60 Hz React render of the whole Present tree now sat on the same main
+thread as `decodeAudioData` and the scheduler's own callbacks. The thread saturated, so the
+audio chopped **and** the rAF loop was starved — which made the bar look frozen. The feature
+built to prove "still working" was itself the thing making playback look broken.
+
+Three changes, all narrowing what rides the audio clock rather than making the rail cheaper:
+
+1. **Quantize the state update.** `progress` reaches React only when it moves ≥0.4%, plus
+   exactly at 0 and 1 so start and finish stay precise. The reader's internal clock still
+   advances every frame; only the React state does not. The rail is 5px tall — sub-half-percent
+   motion was never visible.
+2. **Memoize `PresentRail`.** Its props are primitives plus a memoized `sections` and the
+   stable `setIdx`, so the shallow compare is cheap and actually hits. Unrelated overlay state
+   (the 2s readiness poll, hint dismissal, caption text) no longer redraws 150 nodes
+   mid-sentence.
+3. **Floor the prefetch front at the slide index, not `slide + frac`.** Mixing the within-slide
+   fraction into that memo made an O(slides) scan run per frame for nothing: the floor exists
+   only to stop the buffer edge drawing *behind* the playhead, and slide granularity settles
+   that.
+
+**A separate defect found while tracing it.** Suono arms its starvation watch at the top of
+every item and clears it from the clip's real onset. An item that produces no bytes — or whose
+decode fails or times out — never reaches an onset, so its arm survived into the deliberate
+inter-item gap that follows (the next iteration's `armStarve` is a no-op while one is pending).
+The consumer then froze its highlight through a pause the scheduler had *chosen*, and if the
+skipped item was the last, until the run's `finally`. The loop now balances its own watch after
+each item. Pinned by `sequence.test.ts` — "does not report the deliberate gap after a skipped
+item as a stall", which fails without the fix.
+
+**The general lesson, worth carrying to the shipped player:** a progress indicator driven by
+the audio clock is on the *audio* budget. Anything that makes it heavier has to be paid for by
+making the update *rarer*, not by hoping the frame budget absorbs it. The vanilla export player
+will hit exactly this when the readiness band lands there.

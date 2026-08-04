@@ -301,6 +301,14 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 						if (res && res.ok === false && res.error) setError(res.error);
 					}
 				}
+				// Balance the watch armed at the top of this iteration. `clearStarve` normally rides
+				// the clip's real onset — but an item that produced NO bytes, or whose decode failed
+				// or timed out, never reaches an onset, so its arm survives into the deliberate gap
+				// below (and the next iteration's `armStarve` is a no-op while one is pending). The
+				// consumer would then freeze its highlight through a pause we CHOSE, and, if the
+				// skipped item was the last, until the run's `finally`. By here the await has
+				// returned and any clip has finished: we are provably not waiting on audio.
+				clearStarve();
 				// Breathe between items — a real pause the clip itself doesn't carry. Not after the last.
 				if (i < items.length - 1 && !sig.aborted) {
 					await sleep(safeGap(items[i], items[i + 1] ?? null, i), sig);

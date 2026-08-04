@@ -392,6 +392,7 @@ function makeSequence(stage, opts) {
             if (res && res.ok === false && res.error) setError(res.error);
           }
         }
+        clearStarve();
         if (i < items.length - 1 && !sig.aborted) {
           await sleep(safeGap(items[i], items[i + 1] ?? null, i), sig);
         }

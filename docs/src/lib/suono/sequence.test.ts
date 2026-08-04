@@ -586,6 +586,32 @@ describe('onStarve', () => {
 		expect(seen[seen.length - 1]).toBe(false); // resolved once the second item sounded
 	});
 
+	it('does not report the deliberate gap after a skipped item as a stall', async () => {
+		// A skipped item never reaches an onset, so the arm taken at the top of its iteration
+		// has no clip to clear it. Left alone it survives into the inter-item gap — a pause the
+		// scheduler CHOSE — and the consumer freezes its highlight through it; if the skipped
+		// item is the last one, it survives until the run's `finally`. The balance is the loop's.
+		const stage = fakeStage();
+		const seen: boolean[] = [];
+		let done: () => void;
+		const finished = new Promise<void>((r) => (done = r));
+		const seq = makeSequence(stage, {
+			// The SKIPPED item is in the middle, with a long deliberate gap on either side.
+			items: ['a', 'b', 'c'],
+			produce: async (_i: string, { index }: { index: number }) => (index === 1 ? null : bytes()),
+			gapMs: () => 60,
+			onStarve: (s) => seen.push(s),
+			starveGraceMs: 10,
+			onState: (e) => {
+				if (!e.playing) done();
+			},
+		});
+		seq.play();
+		await finished;
+		// Every clip that existed was ready instantly; the only silence was the gaps we chose.
+		expect(seen.filter(Boolean).length).toBe(0);
+	});
+
 	it('a throwing onStarve handler never breaks the scheduler', async () => {
 		const stage = fakeStage();
 		const seq = makeSequence(stage, {

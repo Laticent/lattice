@@ -216,15 +216,15 @@ in patch versions.
 
 
 - **Present's narration no longer hangs silently while the captions run on without it.** A sentence
-  whose synthesis stalled was given a flat **20 seconds** and then dropped with **no retry**, while
-  the caption highlight — which rides the WebAudio clock, and that clock advances whether or not a
-  clip is sounding — crawled straight through the silence and snapped when audio returned. Three
-  changes close it: the per-attempt timeout is now **6s**, a *fast* failure (a 429/5xx that returned
-  before the timeout) earns **one retry** while a genuine timeout does not (retrying a stuck model
-  just doubles a stall the listener is already hearing), and Suono now reports **starvation** — "I
-  want to play and have nothing" — so the reader **holds** the highlight at the cue boundary instead
-  of racing ahead, and the dock says *Catching up…* rather than naming a voice that isn't sounding.
-  An invisible defect became an honest, visible beat.
+  whose synthesis stalled left the caption highlight — which rides the WebAudio clock, and that
+  clock advances whether or not a clip is sounding — crawling straight through the silence, then
+  snapping when audio returned. Two changes close it. Suono now reports **starvation** ("I want to
+  play and have nothing"), so the reader **holds** the highlight and the rail's progress edge at the
+  cue boundary instead of racing ahead; the prefetch edge keeps advancing underneath it, which is
+  what tells an audience a silence is buffering rather than broken. And a synthesis request now
+  **outlives the player's patience**: the player gives a sentence 20s before moving on, but the
+  request itself runs to 45s and its audio still lands in the cache, so a slow link warms itself
+  instead of dropping every sentence. No label changes and no new widget — the rail carries it.
 - **Six gallery goldens were stale on `main`, so `npm run regress` failed on a clean checkout.** No
   engine or theme SOURCE changed here — only the committed golden PDFs are refreshed. The renders
   themselves had already shipped, in three PRs that re-blessed two goldens between them: `content`
@@ -404,6 +404,17 @@ in patch versions.
   **eleven** of them, and in `onyx dark` the two tokens are both `#FFFFFF`, so any tint-based tier
   would be invisible in the a11y, onyx and print palettes. Thickness is palette-blind by
   construction; color now only reinforces.
+
+- **Present's narration plays smoothly again, and the rail's progress edge moves with it.** The
+  read-aloud clock pushed a React state update on **every animation frame**, so the whole Present
+  tree — including a rail that now draws three layered spans per slide with fresh inline styles —
+  re-rendered ~60 times a second on top of audio decode. The main thread saturated, which both
+  chopped the sound and starved the very frame loop driving the bar, so playback stuttered *and*
+  progress looked frozen. Progress now updates only when it moves enough to see (and exactly at
+  the 0 and 1 endpoints), the rail is memoized, and the prefetch edge is computed at slide
+  granularity rather than recomputed per frame. Separately, an item whose audio never sounded left
+  Suono's starvation watch armed into the deliberate gap that follows it, so the reader froze its
+  highlight through a pause the scheduler had *chosen* — the loop now balances its own watch.
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The

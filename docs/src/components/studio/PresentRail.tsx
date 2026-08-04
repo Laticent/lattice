@@ -12,7 +12,7 @@ import { type DeckSection, sectionOfIndex } from './present-sections';
 // the section title lives in a STABLE aria-live region (a remounting node isn't announced);
 // and the rail is ONE tab stop with roving arrow-key movement (not N stops) — its arrow
 // handling stops the native event so the overlay's global ←/→ slide-nav doesn't double-fire.
-export function PresentRail({
+function PresentRailImpl({
 	sections,
 	current,
 	frac,
@@ -171,3 +171,12 @@ export function PresentRail({
 		</div>
 	);
 }
+
+// Memoized because this is the ONE component on the present bar that re-renders in step with the
+// read-aloud clock. It draws three absolutely-positioned spans per slide, two of them animating
+// `width`, so a 50-slide deck is 150 nodes with fresh inline styles. Without this, every unrelated
+// overlay state change (the readiness poll, a hint dismissal, caption text) redraws all of it
+// mid-sentence — and a busy main thread makes the AUDIO stutter, not just the bar. Props are
+// primitives plus a memoized `sections` and the stable `setIdx`, so the shallow compare is cheap
+// and actually hits.
+export const PresentRail = React.memo(PresentRailImpl);
