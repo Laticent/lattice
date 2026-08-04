@@ -605,7 +605,7 @@ in patch versions.
   `--step-prefix` families) is now a bearer — a `TreeWalker(SHOW_TEXT)` returns zero nodes for
   a box whose only content is generated; KaTeX's invisible `.katex-mathml` mirror no longer
   qualifies as one (23 boxes, a 955px phantom rect each); and `sweepOverflowMarkers` now clears
-  `.overflow-silent`, which its own "EXHAUSTIVE by contract" docstring had been wrong about.
+  the reader class too, which its own "EXHAUSTIVE by contract" docstring had been wrong about.
 - **`lattice-emulator.js` prints a second channel: `⚠ CONTENT CLIPPED`** for slides that lose
   content inside a clipping box WITHOUT exceeding the frame — an ellipsed footer, a line-clamped
   card, a sheared panel head. The export had been tagging these for the reader without telling
@@ -638,11 +638,19 @@ in patch versions.
 - **The reader was never actually shown the "Content clipped" pill on a slide that loses
   content without overflowing.** The JS half shipped correct — both watchers drew the pill,
   every unit test passed, the console said the right thing — and `base.modifiers.css` hid it,
-  because tab visibility keys on `.overflow` and `.overflow` is (correctly) pure geometry. A
-  new `.content-clipped` class, the mirror of `.overflow-silent`, is stamped on
-  `tell && !over` and gates the pill alongside it. Found by rasterizing the export rather than
-  reading the diff; pinned by an integration test that drives a real export and asserts
-  computed `display`, since a class assertion passes against the broken build.
+  because tab visibility keys on `.overflow` and `.overflow` is (correctly) pure geometry.
+  Found by rasterizing the export rather than reading the diff; pinned by an integration test
+  that drives a real export and asserts computed `display` AND `position` at all three marker
+  levels, since a class assertion passes against the broken build.
+- **The reader register is now ONE class, `.content-cut`, orthogonal to `.overflow`.** The
+  first fix for the above added a second conjunction class beside the first — `.overflow-silent`
+  (`over && !tell`) and `.content-clipped` (`tell && !over`) — three classes encoding two
+  booleans, so a slide that BOTH overflows and cuts carried neither, and the pill's visibility
+  keyed on one predicate while its styling keyed on another. That gap is exactly how the
+  author-level tab shipped un-hidden by one rule and styled by neither: it rendered in flow and
+  took 50px off the `.cell-stage` it was reporting on. `.overflow` stays pure geometry;
+  `.content-cut` IS `tell`; the same predicate that draws the tab now gates and styles it, so
+  the two cannot disagree.
 - **The new `⚠ CONTENT CLIPPED` channel no longer shouts about the running footer's ellipsis.**
   That truncation is measured, named and accepted in
   `engineering/decisions/2026-07-27-footer-band-allocation.md`; reporting it made the channel

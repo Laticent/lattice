@@ -192,7 +192,8 @@ narrow one runs only on sections the geometric one already flagged, which is wha
 
 `.overflow` still lands on the section on geometry, because autosplit and the console report
 both key off it and both want the geometric truth. Only the reader treatment yields, via
-`.overflow-silent`.
+`.content-cut` — see §"One class, not three" below for why that is a single orthogonal
+class rather than a pair of conjunctions.
 
 **The component defects are NOT fixed here** — they are pre-existing and off this change's
 path (HARD RULE #18's log-don't-pull arm), and `kpi.styles.css` already records one failed
@@ -718,8 +719,9 @@ which is the property that matters.
 
 ### What the adversarial trio changed (HARD RULE #25)
 
-Three lenses on the shipping diff, and between them they found six defects the maker
-did not. Recorded because the pattern in them is more useful than the list.
+Three lenses on the shipping diff, twice — the second round against the state that
+actually ships — and between them they found ten defects the maker did not. Recorded
+because the pattern in them is more useful than the list.
 
 **The reader half did not exist.** The gate was removed in JS, both watchers drew the
 pill on `tell`, every unit test passed, and the export console said the right thing —
@@ -728,10 +730,21 @@ set the pill to `display: none` on exactly the new population, because `.overflo
 still (correctly) pure geometry. A `matrix-grid` axis label sliced mid-word rendered
 with no pill at all. The inversion pass found it by RASTERIZING THE EXPORT; nobody who
 read the diff found it, and the suppressing rule is quoted in a comment one screen away
-from the change that trips it. `.content-clipped` is the fix — the mirror of
-`.overflow-silent`, stamped on `tell && !over` — and the regression test drives a real
-export and asserts computed `display`, because a class assertion passes against the
-broken build.
+from the change that trips it. The regression test drives a real export and asserts
+computed `display`, because a class assertion passes against the broken build.
+
+**One class, not three.** The first fix for that added a class beside the existing one:
+`.overflow-silent` (`over && !tell`) and `.content-clipped` (`tell && !over`) — three
+classes for two booleans, each of the new two encoding a CONJUNCTION of both. Round two
+found what that shape costs. At `author` the tab was un-hidden by one rule
+(`:not(.overflow)` did not match) and styled by neither (both restyle rules key on a
+class `author` never gets), so it rendered IN FLOW and took 50px off `.cell-stage` —
+438px to 388px — on every author-level slide: the marker was manufacturing the clip it
+reported. A predicate split across two classes is a predicate that can disagree with
+itself. The register is one orthogonal class now, `.content-cut` = `tell`, and the tab's
+visibility, its `position: absolute`, and its restyle all key on the same predicate that
+draws it. The test grew a level axis at the same time, because the surviving bug lived at
+the only level the test did not drive.
 
 **The new channel's first real yield was 11 parts noise.** Across the corpus it named
 13 slides on 5 shipped decks, and 11 of those were the running footer's ellipsis — a

@@ -2037,27 +2037,14 @@ ${stateChartScript}
           oTab.remove();
         }
       }
-      // The RING follows the same answer at reader level. The overflow class is toggled
-      // above on geometry (autosplit and the console report both key off it, and both
-      // want the geometric truth), so at reader a section that overflows without cutting
-      // anything would still take base.modifiers.css's treatment. Mark the difference on
-      // the section so the CSS can tell "over" from "worth telling a reader about".
+      // ONE class, orthogonal to the geometric .overflow: content-cut IS tell. It
+      // replaced two conjunction classes that between them left a slide which BOTH
+      // overflows and cuts carrying neither, and let CSS un-hide a population by one
+      // class while styling it by the other. Never stamped under the off level, which
+      // promises to leave nothing -- the sweep clears once at boot and this watcher
+      // re-stamps on every settle, so an unguarded toggle loses that race.
       // (No backticks in this comment -- it is injected into a template literal.)
-      s.classList.toggle('overflow-silent', over && !tell);
-      // …and its MIRROR: tell can be true while over is false (an ellipsed label, a
-      // line-clamped card, a sheared panel head cut content without growing the
-      // section's extent). base.modifiers.css hides any tab under
-      // section:not(.overflow), so without this class the pill is drawn and then set to
-      // display:none -- the reader half of the change would not exist.
-      // (No backticks in this comment -- it is injected into a template literal.)
-      // ...but never under the off level, which promises to leave NOTHING. The sweep
-      // clears this class once at boot and the watcher then re-stamps it on every settle
-      // and resize, so a toggle outside the level guard loses that race -- the same
-      // one-shot-vs-watcher race this branch fixed for overflow-silent, reproduced in the
-      // class added to fix it. Inert today (nothing keys on it there), corrected because
-      // "off leaves nothing" was false for it.
-      // (No backticks in this comment -- it is injected into a template literal.)
-      s.classList.toggle('content-clipped', MARKER_LEVEL !== 'off' && tell && !over);
+      s.classList.toggle('content-cut', MARKER_LEVEL !== 'off' && tell);
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
@@ -2605,10 +2592,8 @@ async function renderBody(browser, g, closeBrowser) {
   // but a red box in front of a board is worse than the silent clip that
   // overflow:hidden already applies. The author is warned on stderr at EVERY level;
   // what the artifact shows is the `overflow-marker` setting's job, resolved above.
-  // (Removing `.overflow` also hides the tab via
-  // `section:not(.overflow):not(.content-clipped) > .overflow-tab { display:none }` —
-  // note the second clause: `.content-clipped` marks a slide that cut content WITHOUT
-  // overflowing, so `off` has to clear that class too or its pill survives the strip.)
+  // (Tab visibility keys on `.content-cut`, not on `.overflow` — a slide can cut content
+  // without overflowing — so `off` has to clear THAT class or the pill survives the strip.)
   const level = OVERFLOW_MARKER.marker;
   await g(() => page.evaluate((lvl) => {
     // `off` — the historical behavior of this path, now a CHOICE rather than the
@@ -2617,8 +2602,7 @@ async function renderBody(browser, g, closeBrowser) {
     // never a standing default (lib/core/resolve-overflow-marker.js).
     if (lvl === 'off') {
       for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
-      for (const s of document.querySelectorAll('section.overflow-silent')) s.classList.remove('overflow-silent');
-      for (const s of document.querySelectorAll('section.content-clipped')) s.classList.remove('content-clipped');
+      for (const s of document.querySelectorAll('section.content-cut')) s.classList.remove('content-cut');
       for (const t of document.querySelectorAll('.overflow-tab')) t.remove();
     }
     // The §8 rule 8 TYPE-FLOOR marker is AUTHOR-ONLY at every level below `author`:

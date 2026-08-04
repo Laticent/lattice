@@ -30,7 +30,28 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
-const { renderHtml } = require('../../helpers/semantic-render');
+const { execFileSync } = require('node:child_process');
+
+// Rendered by invoking the emulator DIRECTLY rather than through
+// test/helpers/semantic-render, because these cases turn on `--overflow-marker`, which
+// is a CLI/export setting with no deck-level key (the front-matter key was deliberately
+// removed — 2026-07-30-overflow-marker-register.md §"It is a setting, not a deck
+// register"). Widening the shared helper for one suite's flag is the worse trade.
+const ROOT = path.join(__dirname, '..', '..', '..');
+const OUT = path.join(ROOT, '.scratch', 'pill-levels');
+
+function renderAt(markdown, key, level) {
+  fs.mkdirSync(OUT, { recursive: true });
+  const md = path.join(OUT, `${key}.md`);
+  const pdf = path.join(OUT, `${key}.pdf`);
+  fs.writeFileSync(md, markdown);
+  const args = [path.join(ROOT, 'lattice-emulator.js'), md, pdf, '-q'];
+  if (level) args.push(`--overflow-marker=${level}`);
+  execFileSync(process.execPath, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 240000 });
+  const html = pdf.replace(/\.pdf$/, '.html');
+  if (!fs.existsSync(html)) throw new Error(`emulator produced no HTML sidecar for ${key}`);
+  return html;
+}
 
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -97,8 +118,8 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     if (browser) await browser.close();
   });
 
-  async function inspect(body, key) {
-    const html = renderHtml(deck(body), { key, timeout: 240000 });
+  async function inspect(body, key, level) {
+    const html = renderAt(deck(body), key, level);
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
@@ -109,12 +130,16 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
       const tab = s.querySelector(':scope > .overflow-tab');
       return {
         over: s.classList.contains('overflow'),
-        contentClipped: s.classList.contains('content-clipped'),
+        contentCut: s.classList.contains('content-cut'),
         marker: s.getAttribute('data-lattice-overflow-marker'),
         text: tab ? tab.textContent : null,
         // The whole point: COMPUTED display, not class presence. The broken build
         // stamped every class correctly and rendered nothing.
         visible: tab ? getComputedStyle(tab).display !== 'none' && tab.getBoundingClientRect().width > 0 : false,
+        // The AUTHOR bug was never about display — the tab was visible. It was
+        // `position: static`, so it sat IN FLOW and took height from the cell being
+        // probed. Assert the property that actually matters.
+        position: tab ? getComputedStyle(tab).position : null,
       };
     });
     await page.close();
@@ -124,7 +149,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   test('ELLIPSIS — cut content with no frame overflow is told to the reader', async () => {
     const v = await inspect(ELLIPSIS, 'pill-ellipsis');
     assert.equal(v.over, false, 'a formatter truncation crosses no box edge — `over` stays geometric');
-    assert.equal(v.contentClipped, true, 'the section must carry .content-clipped');
+    assert.equal(v.contentCut, true, 'the section must carry .content-cut');
     assert.equal(v.text, 'Content clipped');
     assert.equal(
       v.visible,
@@ -143,10 +168,29 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     assert.equal(v.text, 'Content clipped');
   });
 
+  test('AUTHOR — the tab is ABSOLUTE, so the marker cannot take height from the cell', async () => {
+    // `author` is the DEFAULT on every live surface (preview, Studio, Playground), and it
+    // was the level this suite did not test — which is how a tab that rendered IN FLOW,
+    // stealing 50px of the very `.cell-stage` being probed, survived a green suite. The
+    // marker manufacturing the clip it reports is the failure the probe's own header
+    // names; assert the property, at the level where it broke.
+    const v = await inspect(ELLIPSIS, 'pill-author', 'author');
+    assert.equal(v.contentCut, true);
+    assert.equal(v.visible, true);
+    assert.equal(v.position, 'absolute',
+      'REGRESSION: a static tab sits in flow and takes height from the cell it reports on');
+  });
+
+  test('OFF — nothing is drawn and no class survives the strip', async () => {
+    const v = await inspect(ELLIPSIS, 'pill-off', 'off');
+    assert.equal(v.visible, false, 'off promises to leave nothing');
+    assert.equal(v.contentCut, false, 'and that includes the class, not just the tab');
+  });
+
   test('CLEAN — a fitting slide carries no pill at all', async () => {
     const v = await inspect(CLEAN, 'pill-clean');
     assert.equal(v.over, false);
-    assert.equal(v.contentClipped, false);
+    assert.equal(v.contentCut, false);
     assert.equal(v.visible, false, 'a fitting slide must not be marked — the control for the two above');
   });
 });

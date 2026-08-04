@@ -18241,39 +18241,38 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
   box-shadow: inset 0 0 0 4px #d4351c;
 }
 
-/* `.overflow-silent` — the box overflowed, but nothing readable or visible was CUT
- * (lib/core/overflow-probe.js `probeContentClipped`). The class is stamped by both
- * watchers and means exactly one thing: do not tell a READER about this one.
+/* ── ONE class for the reader question: `.content-cut` = "something was CUT" ──
  *
- * `.overflow` itself still lands on the section, because autosplit and the console
- * report both key off it and both want the geometric truth. It is only the reader's
- * TREATMENT that yields. The author's ring above deliberately does NOT check this
- * class — an over-subscribed box is a defect worth fixing whether or not today's copy
- * happens to fit inside the spill, and the author is the one who can fix it.
+ * This used to be two classes, each encoding a CONJUNCTION: `.overflow-silent`
+ * (`over && !tell`) and `.content-clipped` (`tell && !over`). Three classes for two
+ * booleans, so a slide that BOTH overflows and cuts carried neither of them, and anyone
+ * writing a rule for "content was clipped" got the minority of that population. Recovering
+ * the quantity every rule actually wants — `tell` — took boolean algebra.
  *
- * !important because the reader tab rule below is more specific than this selector,
- * and this has to beat it on the sections it applies to. */
-section.overflow-silent[data-lattice-overflow-marker="reader"] > .overflow-tab {
-  display: none !important;
-}
-/* The ring is colour-only (fails WCAG 1.4.1 "use of colour"), so the watcher
- * also injects a labelled tab — a red corner flag reading "OVERFLOWS" — that
- * names the condition in text. Authoring signal; loud by design, top-right,
- * above all content. The red matches the ring (a fixed danger colour, not a
- * theme token — same exception the ring itself takes). */
-/* BOTH populations, and the second one is a correction. `.content-clipped` draws a tab
- * WITHOUT `.overflow` (a slide that cut content inside a clipping descendant without
- * exceeding its own frame). Omitting it here left that population with no
- * `position: absolute` rule at all at `author` level — the DEFAULT for every live
- * surface (preview, Studio, Playground). The tab rendered as an unstyled IN-FLOW block
- * and took 50px out of the very `.cell-stage` being probed (measured: stage 438 → 388),
- * so the marker could manufacture the clip it was reporting — "draw a tab, measure the
- * tab, keep the tab", the failure this module's header names. It is also the SAME defect
- * the comment below documents as already fixed once for `finish:` decks, reintroduced
- * for a new class three screens from its own warning. Found independently by the HARD
- * RULE #25 checker and red team on a real export at `--overflow-marker=author`. */
-section.overflow > .overflow-tab,
-section.content-clipped > .overflow-tab {
+ * `.content-cut` IS `tell`, orthogonal to `.overflow`:
+ *
+ *   .overflow      the box's content extent exceeded the box   (geometry — author, autosplit)
+ *   .content-cut   something readable or visible was CUT       (reader)
+ *
+ * Two independent booleans, one rule per question, no unreachable combinations. It also
+ * makes a whole defect class impossible rather than fixable: the tab's styling and the
+ * tab's VISIBILITY now key on the same predicate that DRAWS it, so the population can
+ * never again be un-hidden by one rule and left unstyled by another. That is exactly how
+ * the author-level tab came to render in flow and steal 50px of the cell it was reporting
+ * on — un-hidden by a rule keyed on the new class, styled by a rule keyed on the old one.
+ * (HARD RULE #25 inversion, round 2; it argued this shape dominates and it was right.)
+ *
+ * `.overflow` stays PURE GEOMETRY and keeps the author ring: an over-subscribed box is a
+ * defect worth fixing whether or not today's copy happens to fit inside the spill. Only
+ * the reader's treatment keys on `.content-cut`. */
+
+/* Keyed on `.content-cut` — the SAME predicate that draws the tab — so a drawn tab is
+ * always a styled tab. When these were two rules over two conjunction classes, the
+ * author-level population was un-hidden by one and styled by neither: the tab rendered
+ * as an unstyled IN-FLOW block and took 50px out of the very `.cell-stage` being probed
+ * (measured: stage 438 → 388), letting the marker manufacture the clip it was reporting.
+ * That is structurally impossible now. */
+section.content-cut > .overflow-tab {
   /* `!important` because base.finish.css's `section.finish > *:not(.backdrop)`
    * sets `position: relative` at the SAME specificity (0,2,1) from a later file,
    * and won — so on a `finish:` deck this "corner flag" rendered as a full-width
@@ -18300,26 +18299,12 @@ section.content-clipped > .overflow-tab {
 }
 /* Only visible on an overflowing section — hidden if the element lingers after
  * the slide is fixed (the runtime watcher also removes it). */
-/* `.content-clipped` — the MIRROR of `.overflow-silent`, and the CSS half of the
- * 2026-08-03 change (#1300). `.overflow-silent` says "the box overflowed but nothing
- * was cut, so do not tell the reader"; this says the opposite — "the box did NOT
- * overflow, but content was cut inside a clipping descendant, so DO tell them."
- *
- * It exists because that population had no name here and was therefore invisible. The
- * watchers were extended to draw the pill on `tell`, which can now be true while
- * `over` is false (an ellipsed label, a line-clamped card, a sheared panel head — none
- * of them grow the section's own extent). The rule below then set the pill they had
- * just drawn to `display: none`, because it keys on `.overflow` and `.overflow` is
- * still, correctly, pure geometry. The JS was right, shipped, and had no reader: a
- * `matrix-grid` axis label sliced mid-word rendered with no pill at all. Caught by the
- * HARD RULE #25 inversion pass, which rasterized the export instead of reading the
- * diff — the suppression is documented one screen away in lattice-emulator.js and was
- * still missed by everyone who only read JS.
- *
- * `.overflow` deliberately stays geometric: autosplit and the console report key off
- * it and both want the geometric truth. So the reader's visibility question needed its
- * own class rather than a widening of that one. */
-section:not(.overflow):not(.content-clipped) > .overflow-tab { display: none; }
+/* One gate, one predicate. This subsumes BOTH the old `:not(.overflow)` hide and the
+ * `.overflow-silent[reader]` `display: none !important` that used to sit above — a slide
+ * that overflows without cutting anything simply has no `.content-cut`, so it is hidden
+ * by the same rule that hides a clean slide. No `!important` needed, because there is no
+ * longer a more-specific rule to beat. */
+section:not(.content-cut) > .overflow-tab { display: none; }
 
 /* `overflow-marker: off` — the CSS half of "no marker". The JS half sweeps once at
  * boot, which is not enough on a `--fluid` export: the emulator embeds its own
@@ -18329,10 +18314,8 @@ section:not(.overflow):not(.content-clipped) > .overflow-tab { display: none; }
  * its own rule above, so this only has the tabs left to handle. */
 section[data-lattice-overflow-marker="off"] > .overflow-tab,
 section[data-lattice-overflow-marker="off"] > .illegible-tab { display: none !important; }
-/* (`.content-clipped` needs no entry of its own here: the attribute selector above is
- * class-agnostic and already matches every section carrying `off`. An earlier cut added
- * one and claimed it was required — it changed nothing, which is worse than absent
- * because the next reader believes it.) */
+/* (`.content-cut` needs no entry of its own here: the attribute selector above is
+ * class-agnostic and already matches every section carrying `off`.) */
 section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !important; }
 
 /* ── The READER variant of the same marker ────────────────────────────────────
@@ -18366,8 +18349,7 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * slide section instead.
  * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1,
  * engineering/decisions/2026-07-30-overflow-marker-register.md. */
-section.overflow[data-lattice-overflow-marker="reader"] > .overflow-tab,
-section.content-clipped[data-lattice-overflow-marker="reader"] > .overflow-tab {
+section.content-cut[data-lattice-overflow-marker="reader"] > .overflow-tab {
   /* Self-contained (not inherited from the author rule above): the settle
    * guarantee relies on the tab being out of flow so it can't change the measured
    * height — assert it here so a future edit to the author rule can't silently

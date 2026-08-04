@@ -584,9 +584,8 @@ describe('check-ownership', () => {
       // one commit and the tab rendered IN FLOW, taking 50px out of the very cell it was
       // reporting on — precisely the defect this exemption records as already fixed once.
       // The PROPERTY this test guards is unchanged; only the arity of the selector is.
-      assert.match(css, /section\.overflow > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/);
-      assert.match(css, /section\.content-clipped > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/,
-        'the content-clipped population needs the same self-defense, or the tab lands in flow');
+      assert.match(css, /section\.content-cut > \.overflow-tab[\s\S]{0,900}?position: absolute !important;/,
+        'the tab must defend its own position, or it lands in flow and takes height from the cell');
     });
   });
 
