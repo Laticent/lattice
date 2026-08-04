@@ -410,11 +410,19 @@ a question the renderer already answers will drift; the only question is whether
 drift is caught.** It was not, three times, each with the same signature: baked ink
 against a live chip that does not match it.
 
-| It disagreed when… | Because | Live proof |
+| It disagreed when… | Because | Divergence live in the corpus at |
 |---|---|---|
-| the deck used a GLOBAL `<!-- class: X -->` | only the spot `_class` form was read; the bare form carries forward to the end of the deck | — |
-| a directive was QUOTED as prose | a raw text scan can't tell `` `<!-- _class: kpi -->` `` in a bullet from a real one, and the last on a slide wins | `kit/Sample-Deck.md` |
-| a slide held a `$$…$$` equation | its LaTeX was parsed as Markdown, and a lone `=` line is a setext H1 — a boundary under `split: headings` | `lib/components/math/math/math.gallery.md` |
+| the deck used a GLOBAL `<!-- class: X -->` | only the spot `_class` form was read; the bare form carries forward to the end of the deck | — (no committed deck uses the form) |
+| a directive was QUOTED as prose | a raw text scan can't tell `` `<!-- _class: kpi -->` `` in a bullet from a real one, and the last on a slide wins | `kit/Sample-Deck.md` (slide 3) |
+| a slide held a `$$…$$` equation | its LaTeX was parsed as Markdown, and a lone `=` line is a setext H1 — a boundary under `split: headings` | `lib/components/math/math/math.gallery.md` (16 sections, 17 spans) |
+
+**Read that third column precisely.** It names where the RECONSTRUCTION diverged, not
+where a diagram came out wrong. Both live instances land on slides that carry no
+Mermaid fence, and all 119 fences in the tree resolve the same band before and after
+the fix — so nothing in the corpus was rendering wrong, and the fix repairs no
+committed artifact. That is the honest claim, and it is the one worth defending: the
+value here is that three reachable shapes are closed and gated, on a question whose
+last five defects (#1326 ×4, #1329) each shipped green.
 
 Three structural answers, in the order they close the gap:
 
@@ -436,7 +444,16 @@ Three structural answers, in the order they close the gap:
 
 The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
 several at render time. It is safe for the band question because every expanded copy
-carries the class of the slide it was copied from.
+carries the class of the slide it was copied from. The gate detects it off the token
+stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
+prose must not be excused from the slide-count check.
+
+**What the gate structurally cannot see**, and is worth knowing before trusting it: it
+verifies `spans(md) ≡ render(md)`, while production needs
+`spans(md) ≡ render(preprocessMermaid(md))`. The bake splices SVG back into Markdown,
+and a blank line followed by `---` inside that SVG really does produce a section the
+reconstruction has no span for. That gap is not closable from this side — it is a
+consequence of baking before rendering at all, which is the question #1385 asks.
 
 ---
 

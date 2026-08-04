@@ -295,3 +295,52 @@ describe('slideClassSpans — the class in force, not the class written nearest'
     assertMatchesRender(src, ['dark', '']);
   });
 });
+
+/**
+ * Boundary shapes the ENGINE resolves one way and a naive reconstruction another.
+ *
+ * These are not directive questions — they are "how many slides are there", which
+ * is the other half of the same answer. A count that is off by one offsets the
+ * whole mapping, so every diagram after the extra boundary reads its band from a
+ * slide it does not render on.
+ */
+describe('slideClassSpans — the slide COUNT the engine actually renders', () => {
+  test('a body that opens with `---` makes no leading slide', () => {
+    // `splitOnHr` drops its first group when that group is empty, and a body
+    // opening with a thematic break is an ordinary Marp idiom — so a deck written
+    // this way would otherwise fail its own parity gate while rendering correctly.
+    const src = deck([
+      '---', '',
+      '<!-- _class: dark -->', '', '## First real slide', '', '@MARK', '',
+      '---', '',
+      '## Second', '', '@MARK', '',
+    ].join('\n'));
+    assertMatchesRender(src, ['dark', '']);
+    assert.deepEqual(classesAtMarkers(src), ['dark', '']);
+  });
+
+  test('the merged leading span still covers every byte from the front matter', () => {
+    // Merged forward rather than deleted: deleting it would leave a hole that
+    // `slideClassAt` answers `''` for — the silent-wrong-band shape again.
+    const src = deck(['---', '', '<!-- _class: dark -->', '', '## Only', '', 'body', ''].join('\n'));
+    const { spans } = slideClassSpans(src);
+    assert.equal(spans.length, 1);
+    assert.equal(spans[0].start, FM.length);
+    for (let i = FM.length; i < src.length; i++) {
+      assert.notEqual(slideIndexAt(spans, i), -1, `offset ${i} belongs to no slide`);
+    }
+  });
+
+  test('a deck that is nothing but a rule is one slide, not two', () => {
+    assertMatchesRender(deck(['---', ''].join('\n')), ['']);
+  });
+
+  test('front matter with no body at all is not a slide of raw YAML', () => {
+    // The front-matter regex has to make its trailing newline optional, as
+    // `parseFrontMatter` does — requiring it leaves the closing `---` in the body.
+    for (const src of ['---\nmarp: true\ntheme: onyx\n---', '---\nmarp: true\ntheme: onyx\n---\n']) {
+      assert.equal(sectionClasses(src).length, slideClassSpans(src).spans.length,
+        `slide count must match the render for ${JSON.stringify(src.slice(-8))}`);
+    }
+  });
+});

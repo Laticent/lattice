@@ -352,12 +352,18 @@ in patch versions.
   ordered numerically, so `linux-131` no longer sorts below `linux-99`, and macOS and Windows cache
   layouts resolve instead of falling through to whatever puppeteer guessed. A guard fails if a tenth
   copy appears under `tools/`; the 15 remaining copies under `test/` are tracked separately.
-- **The export now reads a slide's class the way the engine does, so three more decks stop
-  baking Mermaid ink for a band their section is not in.** The PDF path resolves a diagram's
-  palette from the source, before any `<section>` exists, by reconstructing the slide split
-  and each slide's class (`lib/core/slide-class-spans.js`). That reconstruction is a second
-  answer to a question the renderer already answers, and it disagreed in three ways — each
-  producing the #1326 symptom of baked ink against a live chip that does not match it:
+- **The export now reads a slide's class the way the engine does, closing three deck shapes
+  that would have baked Mermaid ink for a band their section is not in.** The PDF path resolves
+  a diagram's palette from the source, before any `<section>` exists, by reconstructing the slide
+  split and each slide's class (`lib/core/slide-class-spans.js`). That reconstruction is a second
+  answer to a question the renderer already answers, and it disagreed in three ways — each the
+  #1326 shape of baked ink against a live chip that does not match it.
+  **No committed deck's exported bytes change**, and the number is measured rather than assumed:
+  every ` ```mermaid ` fence in the tree (119 of them) resolves the same band before and after.
+  Two of the three divergences are live in the corpus but land on slides that carry no diagram,
+  and the third has no committed instance at all. What ships here is the closed shape and the
+  gate, not a repaired artifact — the fix deck and the integration fixture are where the wrong
+  bands were reproduced:
   - **A global `<!-- class: X -->` directive was invisible.** Marp has two class forms: spot
     `_class` (this slide) and a bare `class` that carries forward from its slide to the end of
     the deck. Only the spot form was read, so a deck that switches to a dark canvas mid-way
@@ -367,12 +373,15 @@ in patch versions.
   - **A directive quoted as prose counted as a directive.** `` `<!-- _class: kpi -->` `` inside
     inline code, or inside a fenced block, was matched by a raw text scan; the last directive on
     a slide wins, so a deck documenting its own syntax overrode its own layout.
-    `kit/Sample-Deck.md` was live proof. Directives now come from the token stream, so a `fence`
-    or `code_inline` token is prose, as the renderer already treats it.
+    `kit/Sample-Deck.md` is the live instance — its `split-panel` slide names `kpi` while
+    explaining the API, and reported itself as `kpi`; the deck's one diagram is elsewhere, so the
+    export was unharmed. Directives now come from the token stream, so a `fence` or `code_inline`
+    token is prose, as the renderer already treats it.
   - **A `$$…$$` equation could invent a slide.** Its LaTeX was parsed as Markdown, and a lone
     `=` line is a setext H1 — a slide boundary under `split: headings`. Every byte after the
     equation was attributed to a slide that does not render.
-    `lib/components/math/math/math.gallery.md` was live proof.
+    `lib/components/math/math/math.gallery.md` is the live instance — 16 sections, 17 spans —
+    and it carries no diagram, so nothing there rendered wrong either.
 - **One markdown-it instance now answers "where does a slide begin?" for every off-render
   caller.** `bake-splits.js`, `section-source-split.js` and `slide-class-spans.js` each built
   their own parser beside a comment promising it "mirrors the lib/engine parser"; none of the

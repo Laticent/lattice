@@ -37,6 +37,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const latticeEngine = require('../../../lib/engine');
+const { boundaryParser, FRONT_MATTER } = require('../../../lib/core/boundary-parser');
+const { readDirectiveComment } = require('../../../lib/core/comment-directive');
 const { resolveDiagramBand } = require('../../../lib/core/diagram-band');
 const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
 
@@ -56,23 +58,51 @@ function corpus(dir = REPO, out = []) {
   return out;
 }
 
-/** Each rendered section's class tokens, in document order. */
-function sectionClasses(src) {
-  const html = engine.render(src).html;
-  return [...html.matchAll(/<section\b[^>]*\bclass="([^"]*)"/g)]
-    .map((m) => m[1].split(/\s+/).filter(Boolean));
+/**
+ * Each rendered section's class tokens, in document order.
+ *
+ * Memoized per deck: three tests need the same render, and rendering the corpus
+ * three times costs three times as much for one answer.
+ */
+const RENDERED = new Map();
+function sectionClasses(file, src) {
+  if (!RENDERED.has(file)) {
+    let classes = null;
+    try {
+      classes = [...engine.render(src).html.matchAll(/<section\b[^>]*\bclass="([^"]*)"/g)]
+        .map((m) => m[1].split(/\s+/).filter(Boolean));
+    } catch {
+      classes = null; // a file that does not render is not this gate's business
+    }
+    RENDERED.set(file, classes);
+  }
+  return RENDERED.get(file);
 }
 
 const DECKS = corpus()
   .map((file) => ({ file, src: fs.readFileSync(file, 'utf8') }))
   .filter(({ src }) => /^---\r?\n[\s\S]*?\r?\n---/.test(src));
 
-// `_focusSteps` EXPANDS one authored slide into several at render time, so a focus
-// deck legitimately renders more sections than the source has slides. That is the
-// one sanctioned divergence, and it is safe for the band question because every
-// expanded copy carries the class of the slide it was copied from. Listed by
-// content rather than by name so a new focus deck does not silently fail.
-const expandsAtRender = (src) => /<!--\s*_?focusSteps\s*:/.test(src);
+/**
+ * `_focusSteps` EXPANDS one authored slide into several at render time, so a focus
+ * deck legitimately renders more sections than the source has slides. That is the
+ * one sanctioned divergence, and it is safe for the band question because every
+ * expanded copy carries the class of the slide it was copied from
+ * (`focusSteps` in lib/integrations/markdown-it/plugins.js clones the whole token
+ * group, `_class` comment included).
+ *
+ * Detected off the TOKEN STREAM, not a text scan. A text scan is the technique this
+ * whole gate exists to eliminate, and it misfires here for the same reason it
+ * misfires there: a decision record that DISCUSSES `_focusSteps` in prose would be
+ * silently excused from the slide-count check.
+ */
+const FOCUS_STEPS = { known: new Set(['focusSteps']), flags: new Set() };
+function expandsAtRender(src) {
+  const body = src.replace(FRONT_MATTER, '');
+  return boundaryParser.parse(body, {}).some(
+    (t) => t.type === 'html_block' && readDirectiveComment(t.content, FOCUS_STEPS),
+  );
+}
 
 describe('slideClassSpans ≡ the engine, over the committed corpus', () => {
   test('the corpus is actually there (a walk that finds nothing proves nothing)', () => {
@@ -83,8 +113,9 @@ describe('slideClassSpans ≡ the engine, over the committed corpus', () => {
     const wrong = [];
     for (const { file, src } of DECKS) {
       if (expandsAtRender(src)) continue;
-      let rendered;
-      try { rendered = sectionClasses(src).length; } catch { continue; }
+      const classes = sectionClasses(file, src);
+      if (!classes) continue;
+      const rendered = classes.length;
       const reconstructed = slideClassSpans(src).spans.length;
       if (rendered !== reconstructed) {
         wrong.push(`${path.relative(REPO, file)}: engine ${rendered}, spans ${reconstructed}`);
@@ -103,8 +134,8 @@ describe('slideClassSpans ≡ the engine, over the committed corpus', () => {
     const wrong = [];
     let slides = 0;
     for (const { file, src } of DECKS) {
-      let classes;
-      try { classes = sectionClasses(src); } catch { continue; }
+      const classes = sectionClasses(file, src);
+      if (!classes) continue;
       const { spans } = slideClassSpans(src);
       if (classes.length !== spans.length) continue; // counted by the test above
       spans.forEach((span, i) => {
@@ -136,8 +167,8 @@ describe('slideClassSpans ≡ the engine, over the committed corpus', () => {
     // its own, which is precisely the resolution rule `resolveDiagramBand` applies.
     const wrong = [];
     for (const { file, src } of DECKS) {
-      let classes;
-      try { classes = sectionClasses(src); } catch { continue; }
+      const classes = sectionClasses(file, src);
+      if (!classes) continue;
       const { spans } = slideClassSpans(src);
       if (classes.length !== spans.length) continue; // counted by the first test
       const frontMatter = /^---\r?\n[\s\S]*?\r?\n---/.exec(src)?.[0] ?? '';
