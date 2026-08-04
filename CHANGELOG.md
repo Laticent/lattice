@@ -867,6 +867,21 @@ in patch versions.
   rendered rows** rather than `over` — an `over`-only assertion passes against the broken build —
   and confirmed non-vacuous (88px hidden with the fix reverted). See
   `engineering/decisions/2026-07-16-state-chart-self-scale.md` §Follow-up (2026-08-04). (#1360)
+- **`math.theorem`'s Definition and Theorem labels were below AA on 11 of 56 theme/mode
+  combinations, and are not any more.** They painted the raw `--cat-4-mark` / `--cat-7-mark`
+  as `color:` on the blockquote's `--bg-alt`, bottoming out at **3.49:1** (`atelier` light,
+  `#478400` on `#e5e0d2`; also `ardesia` 3.87, `brina` 3.93, `burgundy` 3.81, `concrete`
+  4.42/4.50, `atelier` cat-7 4.19). The label now takes the new `--cat-N-ink`, which keeps
+  the hue and clears 4.5:1 on every palette; the blockquote's `border-left` keeps the mark,
+  which is a stroke and correctly gated at 3:1. Two components that had already worked around
+  the same gap move onto the shared tier with it: `split-panel`'s `--panel-label-ink` was a
+  local `light-dark(color-mix(mark 65%, text-heading), …)` and is now `var(--cat-N-ink)`,
+  with the twenty lines of justification moved to the token definition where the other
+  consumers can find it; `premise`'s row term drops the `font-weight: 700` it was carrying
+  **purely** to qualify for the 3:1 large-text exemption, and returns to the 600 that matches
+  every other `section strong` in the engine. `chart/matrix-grid` and `chart/quadrant` are
+  deliberately untouched — they mix the *chart* categorical tier, not the universal one.
+  (#1263)
 
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose

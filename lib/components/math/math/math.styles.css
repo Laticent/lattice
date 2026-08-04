@@ -342,20 +342,32 @@ section.math.theorem blockquote strong:first-child {
   padding-right: 0.5em;
 }
 /* Position-based accent stripe — Definition (start) cooler, Theorem (middle)
- * warmer, Proof (end) neutral. Uses the palette's --cN-dark categorical
- * tokens that every Lattice theme defines; falls back to --accent if a
- * future palette ever drops them. */
+ * warmer, Proof (end) neutral. Two tiers of the same categorical slot, because
+ * the stripe and the label are different WCAG cases:
+ *
+ *   border-left-color → --cat-N-mark  the stroke tier, gated 3:1 vs the canvas
+ *                                     (WCAG 1.4.11 non-text) — exactly its role.
+ *   strong:first-child → --cat-N-ink  the label is TEXT on the blockquote's
+ *                                     --bg-alt, so it needs 4.5:1.
+ *
+ * These labels used to paint the raw mark as well, which is what put 11 of 56
+ * theme x mode x slot combinations below AA — worst 3.49:1, `atelier` light,
+ * --cat-4-mark #478400 on --bg-alt #e5e0d2. --cat-N-ink is the shared tier
+ * (lib/base/base.tokens.css) that keeps the hue and clears the floor; it is
+ * gated on every palette, both modes, by checkCatContrast. (#1263)
+ *
+ * Both fall back to --accent if a future palette ever drops the cycle. */
 section.math.theorem blockquote:nth-of-type(3n+1) {
   border-left-color: var(--cat-4-mark, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n+1) strong:first-child {
-  color: var(--cat-4-mark, var(--accent));
+  color: var(--cat-4-ink, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n+2) {
   border-left-color: var(--cat-7-mark, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n+2) strong:first-child {
-  color: var(--cat-7-mark, var(--accent));
+  color: var(--cat-7-ink, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n) {
   border-left-color: var(--text-muted);

@@ -346,86 +346,38 @@ section.split-panel > .cell-stage {
  * cat-6 brown rule sat under a blue label on the same slide. The source deck
  * colors its checkpoint labels with the level's own hue (`.l1 h6, .l1 h3 { color:
  * var(--l1) }`), which is the behavior this reproduces. */
-section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); }
-section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); }
-section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); }
-section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); }
-section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); }
-section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); }
-section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); }
-section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); }
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
-  background: var(--panel-fill);
-}
 /* NOT the raw `--panel-mark`. The card labels sit on `--bg-alt` (`--bg` under
  * `capstone`), where `--cat-N-mark` carries only the 3:1 NON-TEXT guarantee its
- * stroke role is gated to — text qualifies for 3:1 only at >=18.66px AND >=700
- * weight, the exemption `statement/premise` earns by bumping its row term to 700.
- * These labels are `--fs-meta` mono at 600 and can't take that weight without
- * losing their caption voice, so they fall under the 4.5:1 normal-text rule, where
- * the raw mark measures as low as 3.27:1 (`concrete` light cat-4 on `--bg`; 87 of
- * 448 pairs fail). Mixing in `--text-heading` — the ink already gated AA on both of
- * these surfaces by test/unit/palette/theme-surface-aa.test.js — buys the missing
- * contrast without giving up the hue. Same space and same 65/35 ratio as
- * `chart/matrix-grid`'s row labels and `chart/quadrant`'s `.quadrant-label` for the
- * identical "a graphical hue now carries text" problem.
- *
- * The DARK arm dilutes only 20%, not 35%: the mark tier flips to a pale tint on a
- * dark canvas, so it starts far closer to AA there (only `carbone`, whose marks
- * stay vivid in both modes, fails raw), and every point of dilution is chroma
- * spent. 20% is what clears the floor on the worst slot; taking the light arm's
- * 35% into dark would wash the tint out for nothing.
- *
- * MEASURED POPULATION — 448 pairs = the 14 HUE themes × 2 modes × 8 slots × 2
- * surfaces. Not "all 32 theme files": the 13 `-dark` files are a `color-scheme`
- * flip over their base (so they ARE the dark arm measured here, not extra pairs),
- * and the 5 `a11y-*` files are excluded exactly as `checkCatContrast` excludes
- * them. Result: 0 failures, worst 5.20:1 light (`concrete` cat-6), 5.15:1 dark
- * (`carbone` cat-5).
- *
- * WHAT THIS DOES **NOT** BUY: visible hue on a dark canvas, for almost every
- * theme. The label ink's mean oklab chroma is 0.066–0.108 in light mode but
- * ≤0.035 in dark for 13 of the 14 — `carbone` (0.133) is the lone theme whose
- * dark marks carry hue, and `onyx` is 0.000 in both modes (a pure gray ramp). So
- * on a dark deck these labels read as barely-tinted white and the panel FILL is
- * what carries the category. That is a property of the dark mark tier, not of this
- * rule: re-tuning it is theme-wide (kanban stripes, gantt bars, `premise` rows all
- * draw from it). Tracked in #1263, which also measured the alternative — a
- * fill-derived dark arm at 45% fill clears AA (worst 4.70:1) and roughly triples
- * most themes' dark chroma, but costs `carbone` its hue (0.133 → 0.022), so it is
- * a per-theme call for the shared token tier rather than a swap here.
- *
- * (Min adjacent-slot ΔE is NOT the metric to judge this by: it sits under the
- * ~0.15 "just about distinct" mark of `oklabDistance` in lib/theme/color.js for
- * every theme in BOTH modes, including the light mode that demonstrably reads as
- * six distinct hues. It is a worst-pair statistic over 8 hues, so it cannot
- * separate the working case from the failing one. Chroma can, and does.)
+ * stroke role is gated to; these labels are `--fs-meta` mono at 600, so they fall
+ * under the 4.5:1 normal-text rule, where the raw mark measures as low as 3.27:1
+ * (`concrete` light cat-4 on `--bg`). `--cat-N-ink` is the shared tier that
+ * answers exactly this — the mark diluted toward `--text-heading` until it clears
+ * AA on both slide surfaces, gated on every palette by checkCatContrast. This
+ * component used to carry the mix (and its justification) itself; it now reads the
+ * token, and the reasoning lives at the definition in lib/base/base.tokens.css
+ * where `math.theorem` and `premise` can find it too. (#1263)
  *
  * ACCEPTED CONSEQUENCE — the panel and its labels carry DIFFERENT categorical hues
  * on most slots. A theme's fill and mark cycles are INDEPENDENT (themes/*.css: "two
  * independent cycles") and need not share a hue per slot: on `indaco` light they
- * diverge on 6 of 8 (cat-5 by 118°, cat-4 by 108°, cat-2 by 77°; only cat-1 and
- * cat-6 agree), and on `cuoio` by up to 155°. So a level slide reads as a cream
+ * diverge on 6 of 8 (cat-5 by 118 degrees, cat-4 by 108, cat-2 by 77; only cat-1
+ * and cat-6 agree), and on `cuoio` by up to 155. So a level slide reads as a cream
  * panel with dark-red labels, or a green panel with navy labels. This is deliberate
  * and it is the better of the two available readings: it makes the SUPPORTING ZONE
  * internally consistent — each label now matches the border and rules directly
  * around it, which all take `--panel-mark` (`.panel-left::before`, and `capstone`'s
  * quote border + pillar rules) — where before the labels clashed with those same
- * rules. Two hues used consistently beats one hue used half the time.
- *
- * Deriving the ink from `--panel-fill` to make the two agree was measured and
- * rejected for the LIGHT arm, which is what forces the choice: the fill tier is a
- * SURFACE tier, pale on a light canvas by construction, so it cannot carry small
- * text there at any ratio that leaves the hue visible (301 of 448 pairs fail with a
- * uniform 65% fill, still 11 at 40%, by which point the ink is mostly
- * `--text-heading`). A DARK-only fill arm is viable in isolation — see the #1263
- * note above — but splitting the derivation by mode would make the panel and labels
- * agree in dark and disagree in light, which is worse than a consistent rule. */
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) {
-  --panel-label-ink: light-dark(
-    color-mix(in oklab, var(--panel-mark) 65%, var(--text-heading)),
-    color-mix(in oklab, var(--panel-mark) 80%, var(--text-heading))
-  );
+ * rules. Two hues used consistently beats one hue used half the time. */
+section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); --panel-label-ink: var(--cat-1-ink); }
+section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); --panel-label-ink: var(--cat-2-ink); }
+section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); --panel-label-ink: var(--cat-3-ink); }
+section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); --panel-label-ink: var(--cat-4-ink); }
+section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); --panel-label-ink: var(--cat-5-ink); }
+section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); --panel-label-ink: var(--cat-6-ink); }
+section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); --panel-label-ink: var(--cat-7-ink); }
+section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); --panel-label-ink: var(--cat-8-ink); }
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
+  background: var(--panel-fill);
 }
 section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before {
   background: var(--panel-mark);

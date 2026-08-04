@@ -120,15 +120,17 @@ section.premise > ol > li::before {
 }
 section.premise > ol > li > strong {
   font-size: var(--fs-body);
-  color: var(--row-mark, var(--text-heading));
-  /* 700, not the inherited 600, and this is a contrast requirement rather than a
-   * taste call. `--cat-N-mark` is guaranteed 3:1 against the background — the
-   * WCAG NON-TEXT / large-text bar, which is what a stroke token is scoped to.
-   * Text only qualifies for that 3:1 bar at >=18.66px AND >=700 weight; at 600
-   * the verb names fell under the 4.5:1 normal-text rule and measured 4.16–4.25:1.
-   * Bumping the weight puts them inside the guarantee the token actually carries
-   * instead of borrowing a token that was never gated for small type. */
-  font-weight: 700;
+  /* `--row-ink`, not `--row-mark`. The mark tier is guaranteed 3:1 against the
+   * background — the WCAG NON-TEXT bar a stroke token is scoped to, right for the
+   * row's border-left and wrong for its verb name. Text qualifies for 3:1 only at
+   * >=18.66px AND >=700 weight, so this rule used to buy the exemption by forcing
+   * the weight to 700; at the inherited 600 the verb names measured 4.16-4.25:1,
+   * under the 4.5:1 normal-text floor. `--cat-N-ink` (lib/base/base.tokens.css)
+   * clears 4.5:1 on `--bg-alt` on every palette in both modes, gated by
+   * checkCatContrast, so the term can go back to the 600 that matches every other
+   * `section strong` in the engine — the weight was a contrast workaround, and
+   * with the contrast bought properly there is nothing left for it to do. (#1263) */
+  color: var(--row-ink, var(--text-heading));
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -155,20 +157,23 @@ section.premise > ol > li > ul > li:nth-child(2) {
   text-align: right;
 }
 
-/* ── Row color — the UNIVERSAL 8-slot categorical palette (--cat-N-mark),
- * NOT the chart family's own tokens: this is a structure-substance HTML
- * list, not an SVG/chart-frame member (design/theming.md's two-system
- * split). Precedent: math.theorem's blockquote border-left + strong color
- * pairing (lib/components/math/math/math.styles.css) uses the exact same
- * --cat-N-mark-as-text-on-a-neutral-background pattern. */
-section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); }
-section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); }
-section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); }
-section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); }
-section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
-section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
-section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
-section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
+/* ── Row color — the UNIVERSAL 8-slot categorical palette, NOT the chart
+ * family's own tokens: this is a structure-substance HTML list, not an
+ * SVG/chart-frame member (design/theming.md's two-system split).
+ *
+ * TWO tokens per row, because the row uses its hue for two different WCAG cases:
+ *   --row-mark → --cat-N-mark  the 4px border-left, a stroke, gated 3:1 vs canvas
+ *   --row-ink  → --cat-N-ink   the verb name, TEXT on --bg-alt, gated 4.5:1
+ * Same split as `math.theorem`'s blockquote border-left + label pairing, which
+ * moved onto the ink tier in the same change (#1263). */
+section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); --row-ink: var(--cat-1-ink); }
+section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); --row-ink: var(--cat-2-ink); }
+section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); --row-ink: var(--cat-3-ink); }
+section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); --row-ink: var(--cat-4-ink); }
+section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); --row-ink: var(--cat-5-ink); }
+section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); --row-ink: var(--cat-6-ink); }
+section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); --row-ink: var(--cat-7-ink); }
+section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); --row-ink: var(--cat-8-ink); }
 
 /* ── Family reflow (#1220). `premise` declared `adapt.mode: "reflow"` and shipped
  * NONE — its landscape row (a 34% claim rail beside the ledger) was the only
