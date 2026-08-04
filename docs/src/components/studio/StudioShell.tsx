@@ -3287,7 +3287,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    sit at the SAME x at Read, Write and Build. Drop either the divider or the
 				    feedback button here and the whole cluster slides on every dial step. */}
 				<Separator orientation="vertical" className="h-5" />
-				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
+				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} labeled />
 				{feedbackButton}
 			</header>
 			) : (
@@ -3299,12 +3299,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    not a menu. */}
 						<button type="button" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
 							<LatticeMark mode={mode} className="size-7" />
-							{/* The wordmark shows from `lg` (1024px), not `sm`. Below that the header is
-							    out of room — adding the feedback button pushed the ⋯ Menu clean off a
-							    820px tablet — and 62px of decoration is the first thing to spend when
-							    the mark and the chevron already say "brand, and it opens". It returns
-							    the moment the row can afford it. */}
-							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] lg:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
+							{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
+							    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
+							    decoration is the first thing to spend when the mark and the chevron
+							    already say "brand, and it opens".
+							    Gated on `compact`, NOT on a Tailwind width class, because Tailwind's
+							    `lg` is 1024px and this app's desktop boundary is 1100px. A `lg:inline`
+							    here reclaimed nothing across 700–1023 that mattered and nothing AT ALL
+							    across 1024–1099 — that band rendered the wordmark either way, so it
+							    paid the feedback button's 44px straight out of the deck title (at
+							    1024 the title fell from `Markdo…` to `M…`). Same source of truth as
+							    every other gate in this header is what keeps that from recurring. */}
+							{!compact && <span className="font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)]" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>}
 							<ChevronDown className="size-4 text-muted-foreground" />
 						</button>
 					</DropdownMenuTrigger>
@@ -3394,7 +3400,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* The posture dial — the always-visible, reversible way to any stop. Present
 				    at every stop (never a buried setting), so no stop can read as a room you
 				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />}
+				{/* `labeled` on DESKTOP only — same `compact` gate as the wordmark above, and
+				    the same reason: below 1100 the row has no width to spend on words. The slim
+				    Read/Write header renders on desktop only, so it always passes `labeled`. */}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} labeled={!compact} />}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -3910,7 +3919,7 @@ const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.Rea
 	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
 	{ id: 'build', label: 'Build', hint: 'Build — every panel', icon: <Layers className="size-4" /> },
 ];
-function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void }) {
+function PostureDial({ posture, quietened, revealBuild, onChange, labeled }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void; labeled: boolean }) {
 	// Light the EFFECTIVE stop — a transient reveal shows Build, a quiet shows Write —
 	// so the dial always matches the surface you're looking at, then re-lights your
 	// saved stop when the transient recedes.
@@ -3928,7 +3937,16 @@ function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: P
 				return (
 					<Tip key={s.id} label={lit && transient ? `${s.hint} · showing now — click to make it your saved home` : s.hint}>
 						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-card text-[var(--accent)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-card text-[var(--accent)] shadow-sm') : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
-							{s.icon}<span className="hidden sm:inline">{s.label}</span>
+							{/* The words are DESKTOP-ONLY (#1381). Below 1100 this row is over budget:
+						    at its 700px floor the header wanted 787px and pushed the ⋯ Menu — the
+						    only way to Library / Reader views / Workspace settings on a tablet —
+						    clean off the screen. The dial is the single largest item in it (219px
+						    labeled vs 116px not), and the six protected 1-tap controls
+						    (Present/Share/Coach/Chat/Settings/pane toggle) may not move into ⋯, so
+						    this is where the 87px has to come from. The icons are distinct, every
+						    stop keeps its tooltip and its `aria-label`, and the reclaim goes back to
+						    the deck title — the user's orientation — at every compact width. */}
+						{s.icon}{labeled && <span>{s.label}</span>}
 						</button>
 					</Tip>
 				);

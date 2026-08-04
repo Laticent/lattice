@@ -597,6 +597,46 @@ in patch versions.
   exactly like a defect, so the scope is now stated in `base.tokens.css`, in kanban's common
   mistakes, and in an amendment to `engineering/decisions/2026-07-12-struck-elevation.md`.
 
+### Fixed
+
+- **Studio: the tablet header no longer runs off its own viewport, and the ⋯ Menu stays reachable.**
+  The top bar is one non-wrapping flex row in which every control is `shrink-0` except the deck
+  switcher, so once the title truncated to its floor the row had no give left and simply overflowed:
+  at the 700px floor of the `tablet` breakpoint it wanted 787px and pushed the ⋯ Menu clean off the
+  screen — and on a tablet that menu is the only route to Library, Reader views, Workspace settings
+  and the theme picker. The reclaim comes from the row's largest item: the **posture dial is now
+  icon-only below desktop** (219px labeled → 116px), keeping its three distinct icons and its
+  per-stop `aria-label`, with the Read/Write/Build words returning at 1100px. **Be clear about
+  what that costs**: assistive tech is unaffected (each stop keeps its accessible name and
+  `aria-pressed`), but a sighted TOUCH user between 700 and 1099px now has no way to read those
+  words at all — the tooltip that carries them is hover-only (Radix returns early on
+  `pointerType === 'touch'`), and the ⋯ menu has no Read/Write/Build rows. That is a real
+  downgrade for tablet, accepted because the alternative it replaces is worse: the ⋯ Menu — the
+  only route to Library, Reader views and Workspace settings on a tablet — was off the screen
+  entirely. Icon-only at tablet is at least the row's existing idiom (Present and Share drop their
+  labels below 1024 the same way), though those are conventional glyphs and this is a three-way
+  mode dial.
+  Every width from 700 up now fits with zero overflow, and the ~103px goes back to the deck title —
+  the user's orientation — which at 820px grows from nothing to 82px and at 1024px from 87px to its
+  full 188px. Gated on the app's own `compact` breakpoint, the same source of truth as the wordmark
+  beside it. The six protected 1-tap controls (Present, Share, Coach, Chat, Settings, pane toggle)
+  were never candidates for the ⋯ menu, which is what made the dial the place the width had to come
+  from. Fixes #1381.
+
+- **`check:overflow` now measures rows that clip, not just pages that grow.** The guard asserted
+  `documentElement.scrollWidth <= clientWidth`, which is blind to the failure above: a too-wide row
+  inside a clipping ancestor never grows the document, so the page reads as fine while the controls
+  at the end of the row are gone. Verified by mutation — with the bug reintroduced the old check
+  stayed green, even after adding the 700px viewport. Cases may now declare `noSelfOverflow`
+  selectors, asserted as `scrollWidth <= clientWidth` on the element itself; the Studio header is
+  the first. Scoped to an explicit list because plenty of elements are legitimately wider than their
+  box (the slide navigator scrolls on purpose) and a blanket rule would be noise. A selector that
+  matches NOTHING is reported as a miss rather than passing silently — the same disguised-coverage
+  hole this script already closed for its interaction steps. The breakpoint set also gains
+  **`tablet-floor` (700px)**: testing a band only at its widest point tests the case least likely to
+  break. Note the step is `continue-on-error` in CI and so cannot block a merge; the blocking cover
+  for the icon-only dial is a unit test in the required tier.
+
 ### Changed
 
 - **Studio: Send feedback has one fixed address on tablet and desktop, and the header stops
@@ -611,10 +651,18 @@ in patch versions.
   that separated nothing (every control after it is compact-only), and the tablet's "Send feedback"
   row is gone from the ⋯ menu now that the header offers it in one tap. Tablet needed the room:
   the extra button pushed the ⋯ Menu clean off an 820px viewport, so the "Lattice" wordmark beside
-  the brand mark now appears from `lg` (1024px) rather than `sm` — the mark and its chevron already
-  say "brand, and it opens", and the wordmark returns the moment the row can afford it. **Phones are
-  unchanged**: the eight-cell bar is a closed contract and the drawer stays feedback's one home
-  there.
+  the brand mark is now **desktop-only** — the mark and its chevron already say "brand, and it
+  opens", and the words return at 1100px. That reclaims 64px against the 44px the button costs, so
+  every width below desktop nets +20px: at 1024px the deck title reads 87px wide, against 67px
+  before this change. The gate is the app's own `compact` breakpoint, deliberately **not** a
+  Tailwind width class — Tailwind's `lg` is 1024px while this app's desktop boundary is 1100px, and
+  a first cut at `lg:inline` reclaimed nothing at all across 1024–1099 (that band showed the
+  wordmark either way) and so paid the button's 44px straight out of the deck title, cutting it to
+  23px at 1024. **Phones are
+  unchanged in their controls**: the eight-cell bar is a closed contract and the drawer stays
+  feedback's one home there. The one thing that does change below desktop is the wordmark (above):
+  at 640–699px the phone's full header rendered it before and no longer does — the tightest header
+  in the system, so it gains the 64px too.
 
 - **The Mermaid subgraph box now has rounded corners and Lattice's node padding.** A subgraph is a
   containment surface — the role a Lattice card plays — and it was the one such surface in the
