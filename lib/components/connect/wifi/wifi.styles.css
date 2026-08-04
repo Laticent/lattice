@@ -6,12 +6,21 @@
  * every theme (dark included) — the one place a fixed contrast is correct; it
  * routes through tokens with a fallback so a theme may still retune it. */
 
+/* `safe center`, not `center` (#1299). A flex column that centres and then
+ * overflows throws content off the BLOCK-START edge — and for this card that is the
+ * eyebrow and the heading, the two things a reader needs first. Block-start overflow
+ * also does not grow `scrollHeight`, so it went unmeasured: pages 2-4 of this
+ * component's OWN gallery shipped with 23px of eyebrow and h2 sheared off the top
+ * (#1278). `safe` keeps the centring while the card fits and falls back to `start`
+ * the instant it does not, so the loss moves to the tail where it is both less
+ * costly and visible. The budget below is what stops it happening at all; this is
+ * the backstop for the deck that still over-authors. */
 section.wifi .qr-card {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   height: 100%;
-  gap: 1.9em;
+  gap: 1.2em;
 }
 
 /* wifi is a `conformance:"strict"` CANVAS (model-driven frame render §4): the
@@ -31,25 +40,19 @@ section.wifi > .cell-stage > .qr-card {
   flex: 0 0 auto;
 }
 
-/* Preserve the QR's quiet zone across the stage clip. wifi's QR tile is the
- * LEFT column of the card, and its `.qr-tile` is content-box sized (width:12em
- * of SVG + 1em padding + 1px border), so its border-box is ~1em+1px WIDER than
- * its `.qr-side` column and — centered in that column — overhangs it by 1em+1px
- * on each side. The SVG itself sits exactly at the stage's left content edge; the
- * overhang that crosses that edge is the tile's white QUIET-ZONE padding + hairline
- * border, which lives in the frame's left safe-margin. A QR's quiet zone is
- * functionally required (scanners need the light border), so the stage must not
- * shear it. `overflow-clip-margin` lets the stage PAINT that decoration out into
- * the safe margin while keeping `overflow:clip` — so the overflow PROBE (which
- * reads scrollHeight−clientHeight, unaffected by the paint margin) still walls a
- * genuinely over-tall card exactly as before. 1.5em clears the 1em+1px overhang
- * with anti-aliasing headroom; the section's own `overflow:hidden` is the outer
- * backstop at the slide edge. This is wifi-specific: contact's tile sits on the
- * RIGHT, fully inside the content box, so it never reaches a stage edge and needs
- * no margin. (model-driven frame render §6 — canvas migration is per-component.) */
-section.wifi > .cell-stage {
-  overflow-clip-margin: 1.5em;
-}
+/* The stage carried `overflow-clip-margin: 1.5em` here until 2026-08-03, and it is
+ * recorded rather than silently deleted because the reasoning is worth keeping.
+ * `.qr-tile` is content-box sized, so at its old `width: 12em` its border-box
+ * (12em + 1em padding + 1px border, each side) was ~1em+1px WIDER than the 12em
+ * `.qr-side` column it centres in, and the overhang — the QR's white QUIET ZONE,
+ * which scanners functionally require — crossed the stage's content edge. The paint
+ * margin let the stage draw it into the frame's safe margin without giving up
+ * `overflow: clip`. The tile is 9.5em now (see the budget note below), so its
+ * border-box is 11.5em+2px inside a 12em column and reaches no stage edge at all:
+ * the quiet zone is preserved by ordinary layout, and a paint margin that clears an
+ * overhang which no longer exists is inert CSS with a rationale that has stopped
+ * being true. If the tile is ever widened past ~10.9em, this comes back WITH the
+ * measurement that justifies it. */
 
 section.wifi .qr-eyebrow {
   font-size: var(--fs-meta);
@@ -74,17 +77,32 @@ section.wifi .qr-body {
   gap: 3.6em;
 }
 
+/* The column stays 12em — that is the CTA's MEASURE, not the tile's. Narrowing it
+ * with the tile wrapped "One scan connects the room" (uppercase at 0.16em tracking)
+ * onto a third line and cost more height than the smaller tile saved: measured, 24px
+ * worse than leaving it alone. */
 section.wifi .qr-side {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.9em;
+  gap: 0.7em;
   width: 12em;
 }
 
+/* 9.5em, down from 12em (#1278). THE CARD HAD NO ROOM FOR ITS OWN CONTENT: at 12em
+ * the tile's border-box is 301px of a 524px stage — 57% of the card's height for the
+ * code alone, leaving 223px for a heading, an eyebrow, three credential rows and a
+ * CTA that together want 274. Four gallery slides clipped, and the reported cause (a
+ * `.qr-cta` overshooting by ~25px) was never the cause: the CTA is 48px and the
+ * arithmetic simply did not close. Measured on the real gallery card at 1280x720, the
+ * retune below (tile 12em->9.5em, card gap 1.9->1.2em, side gap 0.9->0.7em, field gap
+ * and rule inset 1.5->0.9em) takes the worst slide from 51px OVER to 22px under, and
+ * a one-line title from 14px of headroom to 87 — a whole extra heading line either
+ * way. 9.5em is still 19% larger than `contact`'s 8em tile, and 203px of SVG on a
+ * 1280px slide scans from the back of a room. */
 section.wifi .qr-tile {
-  width: 12em;
+  width: 9.5em;
   padding: 1em;
   background: var(--qr-paper, #ffffff);
   color: var(--qr-ink, #14140f);
@@ -115,7 +133,7 @@ section.wifi .qr-fields {
   max-width: 24em;
   display: flex;
   flex-direction: column;
-  gap: 1.5em;
+  gap: 0.9em;
   padding: 0;
 }
 
@@ -126,7 +144,7 @@ section.wifi .qr-row {
 }
 section.wifi .qr-row + .qr-row {
   border-top: 1px solid var(--border);
-  padding-top: 1.5em;
+  padding-top: 0.9em;
 }
 section.wifi .qr-row dt {
   font-size: var(--fs-meta);
