@@ -1198,6 +1198,16 @@ describe('StudioShell — the posture dial keeps its words at every width it ren
 		for (const [name, word] of STOPS) {
 			const b = screen.getByRole('button', { name }); // the name survives either way
 			expect(b.textContent).toContain(word);
+			// …and the word is not merely IN the DOM. jsdom has no layout, so it cannot ask
+			// whether the span is visible; what it can do is refuse the two shapes that would
+			// reproduce the defect while `textContent` still reads "Read". `hidden lg:inline`
+			// is not hypothetical — it is exactly the idiom Present and Share use three lines
+			// up in this same header, which makes it the likeliest way this regresses next.
+			// The real visibility oracle is the browser spec (`e2e/studio-header-fit.spec.ts`).
+			const label = [...b.querySelectorAll('span')].find((el) => el.textContent === word);
+			expect(label, `${word} should render in its own span`).toBeDefined();
+			expect(label?.className ?? '', `${word}'s label must not be hidden or sr-only`).not.toMatch(/\bhidden\b|\bsr-only\b/);
+			expect((label as HTMLElement | undefined)?.style.display ?? '', `${word}'s label must not be display:none`).not.toBe('none');
 		}
 	});
 

@@ -951,9 +951,22 @@ in patch versions.
   whose icons are book / pencil / layers has no conventional reading. Assistive tech was never
   affected either way (every stop keeps its `aria-label` and `aria-pressed`); the cost fell
   specifically on sighted touch. Below 700px the dial is not in the header at all — the phone
-  carries the density on its own pane bar — so phones are unaffected. The six protected 1-tap
+  carries the density on its own pane bar — so no phone loses the dial or gains one. (The density
+  change recorded below does reach a phone's 640–699px band; the dial does not.) The six protected 1-tap
   controls (Present, Share, Coach, Chat, Settings, pane toggle) were never candidates for ⋯, and
-  none of them moved. Fixes #1381, #1401.
+  none of them moved.
+
+  **The limit this leaves, stated with numbers.** Words cost width that icons don't, and a
+  fixed-height single row at a 700px floor cannot absorb unbounded text growth. Measured at 700px
+  with Chrome's *minimum font size* (Settings → Appearance → Customize fonts) raised: the row
+  fits up to **17px** (dial 254px, ⋯ Menu on-screen), and from **18px** it overflows — by 4px at
+  18, 18px at 20, 46px at 24, clipping the ⋯ Menu by the same amount. Hiding just the dial's word
+  spans returns it to zero at every setting, so the words are the cause. Under that setting the
+  previous icon-only dial had roughly 32px more room, which makes this a real trade and not a free
+  one: it is the same trade the words themselves are, one notch further out. Chrome's *default*
+  font size at Large (20px) already overflowed before this change (107px on the old header) and
+  overflows less after it (72px). Neither `check:overflow` nor the new spec varies font settings,
+  so nothing catches this automatically today. Fixes #1381, #1401.
 
 - **`check:overflow` now measures rows that clip, not just pages that grow.** The guard asserted
   `documentElement.scrollWidth <= clientWidth`, which is blind to the failure above: a too-wide row
@@ -977,8 +990,8 @@ in patch versions.
 
 ### Changed
 
-- **Studio: below desktop the top bar runs at the phone's density, not the desktop's.** Between
-  700 and 1099px the header's gaps drop from 12px to 6px and its side padding from 14px to 10px —
+- **Studio: below desktop the top bar runs at the phone's density, not the desktop's.** From 640px
+  to 1099px the header's gaps drop from 12px to 6px and its side padding from 14px to 10px —
   the values the same header already used on a phone, so a tablet reads as a wider phone header
   instead of a squeezed desktop one. The row carries ~14 gaps, which makes this ~78px of width
   reclaimed with no control moved, hidden or shrunk: the largest saving available anywhere in it,
@@ -986,7 +999,10 @@ in patch versions.
   `compact` boundary rather than Tailwind's `lg` (1024), which disagrees with it by 76px — an `lg`
   gate would have left 1024–1099 at desktop density while still `compact`. The density earns its
   place across the whole band, not only at the floor: put desktop density back and the deck title
-  truncates to `Markdown for the …` at 1024 and to `M…` at 820.
+  truncates to `Markdown for the …` at 1024 and to `M…` at 820. The band starts at 640, not 700:
+  `compact` is true on a phone as well and `sm:` starts at 640, so 640–699 — which used to jump to
+  desktop density for 60px just before the mobile layout takes over — now matches the phone header
+  below it.
 
 - **Studio: the guided tours have one launcher per width — the ⋯ menu on a tablet, not a header
   button.** `Show me` was a header button at every width above a phone; below 1100px it is now a

@@ -3293,7 +3293,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			) : (
 			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 				{/* Below desktop this row runs at the PHONE's density — 6px gaps, 10px side
-				    padding — instead of the desktop 12px/14px. It carries ~14 gaps, so that is
+				    padding — instead of the desktop 12px/14px. `compact` is true on mobile too and
+				    `sm:` starts at 640, so this reaches 640–699 as well: that band used to jump to
+				    desktop density for 60px just before the mobile layout takes over, and now matches
+				    the phone header below it. One fewer seam, not a new one. It carries ~14 gaps, so that is
 				    ~78px of width reclaimed at no cost in function at all, which is most of what
 				    the posture dial's words are paid for (#1401). Not a third density: below `sm`
 				    the header already sat at 6px/10px, so a tablet now reads as a wider phone
