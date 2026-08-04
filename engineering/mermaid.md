@@ -401,6 +401,43 @@ directive (`lib/core/slide-class-spans.js`, boundaries from markdown-it's `hr` t
 plus the `split: headings` points, not a line regex). Measured on the same three-slide
 deck: `origin/main` logged `light, dark, dark`; this logs `light, dark, light`.
 
+### 5.3.1 The source-side reconstruction, and why it keeps drifting
+
+`slideClassSpans` answers a question the renderer already answers — "which slide is
+this byte on, and what class does that slide carry?" — and it has to, because the PDF
+path bakes a diagram's palette before a single `<section>` exists. **A second answer to
+a question the renderer already answers will drift; the only question is whether the
+drift is caught.** It was not, three times, each with the same signature: baked ink
+against a live chip that does not match it.
+
+| It disagreed when… | Because | Live proof |
+|---|---|---|
+| the deck used a GLOBAL `<!-- class: X -->` | only the spot `_class` form was read; the bare form carries forward to the end of the deck | — |
+| a directive was QUOTED as prose | a raw text scan can't tell `` `<!-- _class: kpi -->` `` in a bullet from a real one, and the last on a slide wins | `kit/Sample-Deck.md` |
+| a slide held a `$$…$$` equation | its LaTeX was parsed as Markdown, and a lone `=` line is a setext H1 — a boundary under `split: headings` | `lib/components/math/math/math.gallery.md` |
+
+Three structural answers, in the order they close the gap:
+
+1. **One parser.** `lib/core/boundary-parser.js` is the single markdown-it instance for
+   every off-render boundary caller (`bake-splits.js`, `section-source-split.js`,
+   `slide-class-spans.js`). Each used to build its own beside a comment claiming it
+   "mirrors the lib/engine parser"; a comment cannot make that true. It carries the
+   `math_block` rule (`lib/core/math-block-rule.js`, split out of the KaTeX plugin so
+   the grammar has one definition and no render dependency).
+2. **One directive grammar.** `lib/core/comment-directive.js` owns the
+   `<!-- key: value -->` parse; `lib/engine/slides.js` binds the engine's vocabulary to
+   it, `slide-class-spans.js` binds `class` alone. Directives are read off the TOKEN
+   STREAM, so a `fence` or `code_inline` token is prose — as the renderer already
+   treats it.
+3. **One gate.** `test/unit/core/slide-class-span-parity.test.js` renders the WHOLE
+   committed corpus through the real engine and asserts the reconstruction matches its
+   sections — count and class, ~6,600 slides. None of the three defects was reachable
+   by a test that only covers cases someone thought to write down; all three fail this.
+
+The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
+several at render time. It is safe for the band question because every expanded copy
+carries the class of the slide it was copied from.
+
 ---
 
 ## 5.4 Diagram Titles
