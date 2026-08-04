@@ -78,4 +78,52 @@ test.describe('Present — the between-slide beat', () => {
 		expect(await label(), 'no timer survived the tap to resume playback').toBe('Play the presentation');
 		expect(await position(), 'and the deck did not advance past the slide it was paused on').toBe(held);
 	});
+
+	test('the rail marks the current slide at rest and advances its progress fill during playback', async ({ page }) => {
+		// Two things reported broken on the real surface, neither reachable from a unit test.
+		//
+		// 1. "we don't get playback progress in the rail anymore" — the read-aloud clock pushed a
+		//    React state update every frame, saturating the same main thread as audio decode and
+		//    starving the very rAF loop driving the bar. Quantizing the update fixed it; this pins
+		//    that the fill actually MOVES on a running deck.
+		// 2. The current-slide cue. Making the track a flat `--border` for every segment left the
+		//    rail with no "you are here" at all before the first word — position was carried only
+		//    by a progress fill that is zero-width at rest (independent checker, #1352).
+		//
+		// Needs no voice: the captions-only rung drives the same reader clock.
+		await page.getByRole('button', { name: 'Present', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Present' });
+		await expect(dialog).toBeVisible();
+		const rail = dialog.getByRole('group', { name: /Deck progress/ });
+		await expect(rail).toBeVisible();
+
+		/** Per segment: the track's computed background, and the width of the tallest (progress) fill. */
+		const segments = () =>
+			rail.evaluate((el) =>
+				Array.from(el.querySelectorAll('button')).map((b) => {
+					const spans = Array.from(b.querySelectorAll('span')).filter((s) => getComputedStyle(s).position === 'absolute');
+					const track = spans.find((s) => getComputedStyle(s).height === '2px');
+					const progress = spans.find((s) => getComputedStyle(s).height === '5px');
+					return {
+						track: track ? getComputedStyle(track).backgroundColor : '',
+						progress: progress ? parseFloat(getComputedStyle(progress).width) : 0,
+					};
+				}),
+			);
+
+		const atRest = await segments();
+		expect(atRest.length).toBeGreaterThan(2);
+		expect(atRest[0].progress, 'nothing has played yet').toBe(0);
+		expect(atRest[0].track, 'the current segment is distinguishable with nothing playing').not.toBe(atRest[1].track);
+		expect(new Set(atRest.slice(1).map((s) => s.track)).size, 'every other segment shares one resting track').toBe(1);
+
+		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+		await page.waitForTimeout(1500);
+		const early = (await segments())[0].progress;
+		await page.waitForTimeout(3000);
+		const later = (await segments())[0].progress;
+
+		expect(early, 'the progress fill appeared once playback started').toBeGreaterThan(0);
+		expect(later, `the fill advanced with the clock (${early}px → ${later}px)`).toBeGreaterThan(early);
+	});
 });

@@ -709,3 +709,26 @@ a defect inside one means reading the value once, while it is open, with no retr
 shipped spec polls for the advance and samples immediately, and it was checked in both
 directions: it fails on the unfixed build and passes on the fixed one, each against a full
 rebuild. A test that has only ever been seen to pass has not been verified.
+
+### The rail, measured on the real surface
+
+Also driven on the real overlay, same spec file. Computed styles read off the live DOM at
+1440x900, captions-only (no key), with the deck playing:
+
+```
+AT REST     seg0 track=color(srgb 0.734 0.669 0.535)   progress=0px      ← the current-slide tint
+            seg1..6 track=rgb(224,216,204)             progress=0px      ← plain --border
++1.5s       seg0 progress=12px  of 103                                   ← the fill appears
++4.5s       seg0 progress=53px  of 103                                   ← and advances
++7.5s       seg0 progress=103px, seg1 now carries the tint               ← the deck advanced
+```
+
+That settles both surface reports: the progress fill moves (the quantized state update did not
+break it), and the current slide is distinguishable with nothing playing (the tint the flat-track
+change had dropped). Magnified captures confirm it reads as a scrubber — a played segment solid,
+the current one filling against its tinted remainder, the rest plain.
+
+Still UNVERIFIED, and marked so deliberately: everything about how narration SOUNDS. The
+captions-only rung exercises the clock, the rail, the beat and the transport — it does not
+exercise synthesis, the cache, the prefetch window, or the starvation hold against real audio.
+Time-to-first-audio and whether playback is smooth need a real key on a real link.
