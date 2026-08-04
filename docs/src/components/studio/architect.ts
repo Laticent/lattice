@@ -231,9 +231,14 @@ export function architectModel(): Promise<ArchitectModel | null> {
 		modelPromise = import('@/components/studio/ai/architect-model.js')
 			// explicitTierWins: a deliberate on-device pick outranks the connected cloud
 			// (Studio Policy B — connection ≠ active; one tap resumes the cloud).
-			// defaultModel: the cheap Haiku family's `~*-latest` ALIAS — OpenRouter resolves
-			// it to the current version server-side, so it can't rot when a model is retired
-			// (a pinned id 404s "No endpoints found"). The user upgrades deliberately.
+			// defaultModel: DELIBERATELY NOT PASSED. The Studio used to override it to the
+			// cheap Haiku alias on the reasoning that "the user upgrades deliberately" — but
+			// the Workspace picker sitting right next to it has always told the author
+			// "Defaults to Claude Sonnet", so an author who never opened the picker got a
+			// model the UI denied they were using. Two defaults in two files is how that
+			// drifts; there is now ONE, `DEFAULT_OR_MODEL` in architect-model.js (the Sonnet
+			// `~*-latest` alias — OpenRouter resolves it server-side, so it can't rot when a
+			// version is retired the way a pinned id 404s "No endpoints found").
 			// defaultMaxTokens: an output ceiling so a runaway reply can't blow the budget.
 			// Both Studio-scoped (the Drawing Board keeps its own default + stays uncapped),
 			// so no shared blast radius. It was 4096 — a figure sized for "tighten this
@@ -241,7 +246,7 @@ export function architectModel(): Promise<ArchitectModel | null> {
 			// diagrams is several times that, so the ceiling was hit routinely and silently:
 			// the reply stopped mid-block and the parser salvaged a partial slide out of it.
 			// Raised to CHAT_MAX_TOKENS, and truncation is now REPORTED rather than inferred.
-			.then((m) => m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultModel: '~anthropic/claude-haiku-latest', defaultMaxTokens: CHAT_MAX_TOKENS }) as ArchitectModel)
+			.then((m) => m.createArchitectModel({ getSettings: () => ({}), explicitTierWins: true, defaultMaxTokens: CHAT_MAX_TOKENS }) as ArchitectModel)
 			.catch(() => null);
 	}
 	return modelPromise;

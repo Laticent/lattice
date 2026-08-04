@@ -138,6 +138,21 @@ protocol couldn't express it. `applyEditChecked` now splits such a body (fence-a
 so a `---` inside Mermaid front matter isn't a boundary) and inserts the run. A
 `slide=` body is still exactly one slide, and an unclosed fence is still fatal to both.
 
+### One default cloud model, and it is the one the UI promises
+
+The Studio overrode `createArchitectModel`'s `defaultModel` to
+`~anthropic/claude-haiku-latest`, on the reasoning that the author "upgrades
+deliberately". The Workspace picker rendered two panels away has always said
+**"Defaults to Claude Sonnet"** — so an author who never opened the picker was
+authoring on a model the UI denied they were using. That is a contributor to the
+churn in its own right: a small model was drafting fourteen Mermaid diagrams while
+the panel claimed otherwise.
+
+Two defaults in two files is how that drifts. The override is gone; the Studio
+inherits `DEFAULT_OR_MODEL` (`~anthropic/claude-sonnet-latest`), and a test pins it.
+The picker's copy is version-neutral now as well — it named "Sonnet 4" against an
+alias that moves by design.
+
 ### One sentence in the prompt about tools
 
 `EDIT_PROTOCOL` now states the model has no shell, cannot render or validate anything,

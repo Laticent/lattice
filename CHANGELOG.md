@@ -439,6 +439,14 @@ in patch versions.
   so "add these slides" stops being a silent no-op.
   `engineering/decisions/2026-08-04-chat-edit-protocol.md`
 
+- **The Studio chat runs the model the Workspace panel says it does.** The picker has always
+  told authors "Defaults to Claude Sonnet", while the Studio overrode the module default to
+  the cheap Haiku alias — so anyone who never opened the picker was authoring on a model the
+  UI denied they were using, which is its own contribution to a churning chat. There is now
+  ONE default (`DEFAULT_OR_MODEL`, the `~anthropic/claude-sonnet-latest` alias) instead of two
+  in two files, pinned by a test. The picker's copy is version-neutral too — it named
+  "Sonnet 4" against a `~*-latest` alias that moves.
+
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose
   moved from `--fs-message` to `--fs-body` the same content filled about 60% of the stage with a

@@ -534,3 +534,20 @@ describe('chat output ceiling vs. the priced expectation', () => {
 		expect(CHAT_OUTPUT_EST).toBeLessThan(CHAT_MAX_TOKENS);
 	});
 });
+
+// ONE default, in one file. The Studio used to override `defaultModel` to the cheap Haiku
+// alias while the Workspace picker two panels over told the author "Defaults to Claude
+// Sonnet" — so anyone who never opened the picker ran a model the UI denied they were
+// using. This pins the fallback to the module default and to what the copy promises.
+describe('the Studio\'s default cloud model', () => {
+	it('falls back to the Sonnet ~latest alias — matching what the picker tells the author', async () => {
+		localStorage.removeItem('lattice-db-or-model'); // no deliberate pick
+		const m = await architectModel();
+		expect(m?.openRouterModel()).toBe('~anthropic/claude-sonnet-latest');
+	});
+
+	it('is an ALIAS, not a pinned version — a pinned id 404s when that version retires', async () => {
+		const m = await architectModel();
+		expect(m?.openRouterModel()).toMatch(/^~/);
+	});
+});
