@@ -7,7 +7,7 @@
 
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { __resetForTests, clearClips, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
+import { __evictionsSettled, __resetForTests, clearClips, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
 
 /** A blob-like in the same duck-typed shape voice-model.js's rungs return. */
 function fakeBlob(bytes: number, type = 'audio/mpeg') {
@@ -108,6 +108,27 @@ describe('narration-store', () => {
 			const stats = await clipStats();
 			expect(stats.bytes).toBeLessThanOrEqual(1000);
 			expect(await getClip('big')).not.toBeNull();
+		});
+
+		// CONCURRENT writes are the normal case, not a corner: the warm window routes up to six
+		// unawaited putClip calls through eviction at once (WARM_CONCURRENCY plus Suono's run
+		// concurrency). Each pass used to read the SAME total and each delete its own full
+		// overage, so a store sitting exactly at budget gutted itself the moment a burst landed
+		// — three concurrent puts left 400 of 1000 bytes, six left zero. Found by the red team.
+		it('a burst of concurrent puts at budget trims to budget, not to empty', async () => {
+			setBudgetBytes(1000);
+			for (let i = 0; i < 10; i++) await putClip(`seed-${i}`, fakeBlob(100));
+			expect((await clipStats()).bytes).toBe(1000); // exactly at budget
+
+			await Promise.all([putClip('x', fakeBlob(100)), putClip('y', fakeBlob(100)), putClip('z', fakeBlob(100))]);
+			await __evictionsSettled();
+
+			const stats = await clipStats();
+			expect(stats.bytes).toBe(1000); // three in, three oldest out — still full
+			expect(stats.count).toBe(10);
+			// The three newest survive; the three oldest are the ones gone.
+			for (const k of ['x', 'y', 'z']) expect(await getClip(k)).not.toBeNull();
+			for (const k of ['seed-0', 'seed-1', 'seed-2']) expect(await getClip(k)).toBeNull();
 		});
 	});
 

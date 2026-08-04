@@ -41,6 +41,18 @@ import { buildPresenterStageDoc } from './studio-presenter';
 // engine render.
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+// Stable empty identities. Both feed memo/state comparisons that run on the audio thread —
+// a fresh `[]` each pass would defeat exactly the re-render narrowing they exist for.
+const EMPTY_SENTENCES: string[][] = [];
+const EMPTY_SENTENCES_N: number[] = [];
+/** Cheap elementwise compare, so an unchanged readiness poll keeps its array identity. */
+function sameFractions(a: number[], b: number[]): boolean {
+	if (a === b) return true;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+	return true;
+}
+
 // The narration-source priority read-aloud speaks: a slide's speaker note (the real
 // talk track) — else a recognized chart's computed facts — else the component-aware
 // DOM projection (`projectDeckSpeech`, the SAME shared kernel the CLI export narrates,
@@ -353,6 +365,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// Drives the caption band's reservation (below) so the band doesn't collapse and re-grow
 	// across every transition — that flicker would be a new jank the beat itself introduced.
 	const [holding, setHolding] = React.useState(false);
+	// The pending between-slide beat, so a transport tap can CANCEL it rather than race it.
+	const beatTimerRef = React.useRef(0);
 	// The pace prefs, re-read on change so a Workspace switch takes effect on the live deck.
 	const [pace, setPace] = React.useState<{ name: PaceName; slide?: number; section?: number }>({ name: 'natural' });
 	React.useEffect(() => {
@@ -390,14 +404,23 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		}
 		setHolding(true);
 		const id = window.setTimeout(() => {
+			beatTimerRef.current = 0;
 			setHolding(false);
 			// Re-check intent at FIRE time, not schedule time: Pause (or leaving Present)
 			// during the beat must not be overridden by a timer set before it. `autoplay` is
 			// cleared by pause/close, so it is the honest signal that the chain is still wanted.
-			if (autoplayRef.current) readerRef.current.play();
+			//
+			// `playing` is the second guard, and it is not redundant. Tapping the transport
+			// during a beat starts the slide immediately; this timer is still pending and the
+			// tap SET `autoplay`, so on autoplay alone it would fire a second, non-resume
+			// play() — which is a barge-in: abort, reset, back to word one, cutting off the
+			// sentence already sounding (red team, #1352).
+			if (autoplayRef.current && !readerRef.current.playing) readerRef.current.play();
 		}, beat);
+		beatTimerRef.current = id;
 		return () => {
 			window.clearTimeout(id);
+			beatTimerRef.current = 0;
 			setHolding(false);
 		};
 	}, [reader.track]);
@@ -495,9 +518,13 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// `narrationAt` (not the ref) is the honest dependency: it already re-creates when the DOM
 	// projection lands, which is exactly when a slide's narration text — and therefore its
 	// cache keys — change.
+	// GATED ON `open`. This memo sits above the `if (!open) return null` and PresentOverlay is
+	// mounted for the whole Studio session, so ungated it ran a full buildTrack over every slide
+	// on every deck edit — an O(deck) pass on the EDITOR's typing path, for a readiness display
+	// nobody had open (Munger inversion, #1352). Present-only work belongs to Present.
 	const readinessSentences = React.useMemo(
-		() => spokenSentencesPerSlide(set.map((_, i) => narrationAt(i)), { acronyms, lang, lexicon }),
-		[set, narrationAt, acronyms, lang, lexicon],
+		() => (open ? spokenSentencesPerSlide(set.map((_, i) => narrationAt(i)), { acronyms, lang, lexicon }) : EMPTY_SENTENCES),
+		[open, set, narrationAt, acronyms, lang, lexicon],
 	);
 	const [readyFractions, setReadyFractions] = React.useState<number[]>([]);
 	React.useEffect(() => {
@@ -509,10 +536,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		const refresh = () => {
 			narrationReadiness(readinessSentences)
 				.then((r) => {
-					if (live) setReadyFractions(r);
+					// Keep the OLD array identity when nothing moved. This fires every 2s for as long
+					// as Present is open, and a fresh array each time re-rendered the whole tree —
+					// including the rail — on the same main thread as audio decode, for no visible
+					// change. Most polls report exactly what the last one did.
+					if (live) setReadyFractions((prev) => (sameFractions(prev, r) ? prev : r));
 				})
 				.catch(() => {
-					if (live) setReadyFractions([]);
+					if (live) setReadyFractions((prev) => (prev.length === 0 ? prev : EMPTY_SENTENCES_N));
 				});
 		};
 		refresh();
@@ -539,7 +570,21 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// The ONE Play (present redesign S3): Play narrates the current slide AND advances (like a
 	// video) — it enables autoplay-chaining and plays; Pause pauses (autoplay stays on, so resume
 	// keeps chaining; the deck's natural end turns autoplay off via onFinish). No separate "Auto".
+	//
+	// THE BEAT COUNTS AS PLAYING. During a between-slide hold the previous slide's reader has
+	// ended and the next has not started, so `reader.playing` is false — but the deck is
+	// mid-delivery and the button says Pause. Without this branch the tap took the ELSE path:
+	// it started the slide early AND left the beat's timer pending, which then fired a second,
+	// non-resume play() — a barge-in that cut the sentence and restarted from word one. So a
+	// beat is paused by CANCELING it, not by pausing a reader that isn't running yet.
 	const togglePresentation = React.useCallback(() => {
+		if (beatTimerRef.current) {
+			window.clearTimeout(beatTimerRef.current);
+			beatTimerRef.current = 0;
+			setHolding(false);
+			setAutoplay(false);
+			return;
+		}
 		if (readerRef.current.playing) {
 			readerRef.current.pause();
 			setAutoplay(false); // pausing stops the chain; resume re-enables it. Prevents the empty-slide
@@ -750,7 +795,13 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// slide resizing twice per slide, a jank the beat itself would have introduced. During the
 	// hold it shows the new slide's opening line unhighlighted, which is exactly the intent:
 	// the audience reads it, then the voice starts.
-	const showCaption = !rehearse && captionsOn && (reader.playing || holding) && reader.track.cues.length > 0;
+	// DELIVERING = "the deck is mid-presentation", which is NOT the same as "a reader is
+	// sounding". Between two slides the previous reader has ended and the next has not started,
+	// yet the deck is plainly still presenting — so the transport must read Pause and the
+	// caption band must stay reserved. Keying either on `reader.playing` alone made the primary
+	// control flip to Play for 0.8–4s at every single slide transition.
+	const delivering = reader.playing || holding;
+	const showCaption = !rehearse && captionsOn && delivering && reader.track.cues.length > 0;
 	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
 	// dim when the slide edge is reached, full on reveal.
 	// Is a transient overlay pill occupying the band below the slide? Keyed on the
@@ -936,7 +987,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<div className="flex max-w-full items-center gap-2">
 					<div className="flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-2 shadow-[0_8px_24px_rgba(10,22,40,.10)] sm:gap-3">
 						<button type="button" onClick={goPrev} disabled={clamped === 0} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Previous slide"><ChevronLeft className="size-5" /></button>
-						<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : reader.playing ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : reader.playing) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
+						<button type="button" onClick={() => (rehearse ? setPlaying((v) => !v) : togglePresentation())} className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground" aria-label={rehearse ? (playing ? 'Pause rehearsal' : 'Start rehearsal') : delivering ? 'Pause' : 'Play the presentation'}>{(rehearse ? playing : delivering) ? <Pause className="size-5" /> : <Play className="size-5" />}</button>
 						<button type="button" onClick={goNext} disabled={clamped >= count - 1} className="grid size-11 shrink-0 place-items-center rounded-full text-foreground hover:text-[var(--accent)] disabled:opacity-30 sm:hidden" aria-label="Next slide"><ChevronRight className="size-5" /></button>
 						<span className="h-5 w-px shrink-0 bg-border" />
 						<span className="shrink-0 whitespace-nowrap font-mono text-[12px] font-semibold tabular-nums text-[var(--text-heading)]">{clamped + 1} / {count}</span>
@@ -965,7 +1016,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				</div>
 
 				{/* Section title + full-width rail (bottom) — the ONE progress element. */}
-				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} prefetchFront={rehearse ? 0 : prefetchFront} onJump={setIdx} className="w-full" />
+				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} prefetchFront={rehearse ? 0 : prefetchFront} ready={rehearse ? undefined : readyFractions} onJump={setIdx} className="w-full" />
 			</div>
 			{/* The overview covers the whole surface when open (its own iframes) — re-enable
 			    pointer events for it above the chrome's `pointer-events-none` root. */}

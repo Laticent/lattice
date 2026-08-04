@@ -322,8 +322,12 @@ function makeSequence(stage, opts) {
         armStarve();
         const bytes = await pending[i];
         if (sig.aborted) break;
-        await waitIfPaused(sig);
-        if (sig.aborted) break;
+        if (pausedGate) {
+          clearStarve();
+          await waitIfPaused(sig);
+          if (sig.aborted) break;
+          armStarve();
+        }
         emitState(true, i, firstError);
         if (bytes) {
           let clip = null;

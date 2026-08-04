@@ -405,6 +405,23 @@ in patch versions.
   would be invisible in the a11y, onyx and print palettes. Thickness is palette-blind by
   construction; color now only reinforces.
 
+- **The adversarial trio found seven more defects in Present's narration, all now fixed.** The
+  rail's prefetch edge scanned from slide 0 rather than from the playhead, so **jumping to a
+  slide reported zero runway** even with the next five fully cached, and one sentence that never
+  landed early on pinned the edge for the rest of the deck — in both cases the buffer edge sat on
+  the frozen progress edge, making a stall look exactly like a crash. The **between-slide beat
+  broke the transport button**: mid-beat it flipped to Play, Pause was unreachable, and a tap left
+  the beat's timer pending to fire a second `play()` that cut the sentence and restarted the slide
+  from word one. **Concurrent cache writes each ran their own eviction**, so a store at budget gutted
+  itself — three simultaneous writes left 40% of the budget, six left nothing. The **latency
+  reservoir was censored** (a timed-out attempt recorded nothing) **and join-poisoned** (a late
+  caller recorded its own short wait), which handed the *slowest* links the *shallowest* prefetch
+  window — the exact inverse of the design. A **caller's abort no longer burns the full patience
+  window**, so a barge-in or a slide change releases immediately while the paid-for request still
+  finishes and caches. The rail **no longer announces "narration ready"** for slides with no
+  narration — the fills use the floored front, the label now uses the raw measurement. And a **user
+  pause between sentences is no longer reported as buffering**.
+
 - **"Fetch ahead → The whole deck" set the shallowest window instead of the deepest.** The select's
   value went through `Number(v)`, so `'all'` became `NaN` and the preference floored to `0` — "only
   the current slide" — while the toast said *"it will be ready to present offline."* A presenter

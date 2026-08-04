@@ -1,6 +1,9 @@
 import * as React from 'react';
 import { type DeckSection, sectionOfIndex } from './present-sections';
 
+// A stable identity for the default, so an omitted `ready` can't defeat React.memo.
+const EMPTY_READY: number[] = [];
+
 // The ONE progress element (2026-07-12-studio-present-redesign.md, S1): a segmented,
 // section-grouped rail. One segment per presented slide, grouped by section with a gap
 // between groups; the CURRENT segment fills by `frac` (within-slide read progress); click
@@ -17,6 +20,7 @@ function PresentRailImpl({
 	current,
 	frac,
 	prefetchFront = 0,
+	ready = EMPTY_READY,
 	onJump,
 	className,
 }: {
@@ -42,6 +46,16 @@ function PresentRailImpl({
 	 *  it would overstate the runway. 0 when there is nothing to report (no clocked voice,
 	 *  cache off), which simply draws no prefetch fill. */
 	prefetchFront?: number;
+	/** Per-slide cached fraction, ONLY for the assistive label — never for the fills.
+	 *
+	 *  The fills read `prefetchFront`, which is floored at the playhead so the buffer edge can
+	 *  never draw behind it. That floor is right for a width and wrong for a claim: with nothing
+	 *  cached (Voice muted — the DEFAULT — no key, cache off, private window) it put every
+	 *  visited segment at 100%, and the label then announced "narration ready" for slides that
+	 *  had no narration and never would. Visually the taller progress fill hid it; a screen
+	 *  reader heard the lie in full (independent checker + red team, #1352). This is the raw
+	 *  measurement, so an empty array simply makes no claim. */
+	ready?: number[];
 	onJump: (i: number) => void;
 	className?: string;
 }) {
@@ -134,7 +148,7 @@ function PresentRailImpl({
 										tabIndex={gi === focusIdx ? 0 : -1}
 										onClick={() => onJump(gi)}
 										onFocus={() => setFocusIdx(gi)}
-										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${prePct >= 100 && !here ? ' — narration ready' : ''}`}
+										aria-label={`Go to slide ${gi + 1}${sec.name ? ` — ${sec.name}` : ''}${(ready[gi] ?? 0) >= 1 && !here ? ' — narration ready' : ''}`}
 										aria-current={here ? 'step' : undefined}
 										className="relative h-[5px] min-w-0 flex-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
 									>
@@ -146,7 +160,17 @@ function PresentRailImpl({
 										    print palettes. Thickness is palette-blind by construction, which is
 										    what "layouts are palette-blind" actually demands. Color still
 										    reinforces; it just isn't what carries the meaning. */}
-										<span className="absolute inset-x-0 bottom-0 h-[2px] rounded-full" style={{ background: 'var(--border)' }} />
+										<span
+												className="absolute inset-x-0 bottom-0 h-[2px] rounded-full"
+												// The CURRENT segment's track stays tinted even with nothing playing.
+												// Position is otherwise carried only by the progress fill, which is
+												// zero-width before the first word and in rehearse mode — so on slide 1
+												// with Voice muted (the default) every segment rendered identically and
+												// the rail showed no "here" at all. `aria-current` survives, so this was
+												// visual only; it is still a cue the rail had before this branch
+												// (independent checker, #1352).
+												style={{ background: here ? 'color-mix(in srgb, var(--accent) 36%, var(--border))' : 'var(--border)' }}
+											/>
 										{prePct > 0 && (
 											<span
 												className="absolute bottom-0 left-0 h-[3px] rounded-full transition-[width] duration-300 motion-reduce:transition-none"

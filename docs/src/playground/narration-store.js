@@ -275,6 +275,20 @@ export async function clearClips() {
   }
 }
 
+// Eviction runs one at a time, GLOBALLY. Each pass reads the total, computes how far over
+// budget it is, and deletes that much — so two passes racing each other both measure the SAME
+// rows and each deletes the full overage independently. The warm window makes that the normal
+// case, not a corner: up to six writers (WARM_CONCURRENCY plus Suono's run concurrency) route
+// unawaited putClip calls through here. Measured with a 1000-byte budget at exactly budget:
+// three concurrent 100-byte puts left 400 bytes, six left ZERO — the cache emptying itself
+// precisely when it is full, which is when it is finally earning its keep (red team, #1352).
+// Serializing makes every pass read a total that already reflects the one before it.
+let evictChain = Promise.resolve();
+function evictToBudget() {
+  evictChain = evictChain.then(evictOnce, evictOnce);
+  return evictChain;
+}
+
 /**
  * LRU trim: while the store is over budget, delete the least-recently-used entry.
  *
@@ -282,7 +296,7 @@ export async function clearClips() {
  * total is back under budget — so a store that is barely over pays for one delete, not a
  * full scan. Best-effort; a failure here only means the store stays temporarily large.
  */
-async function evictToBudget() {
+async function evictOnce() {
   try {
     const { bytes } = await clipStats();
     if (bytes <= budgetBytes) return;
@@ -309,4 +323,12 @@ async function evictToBudget() {
 export function __resetForTests() {
   dbPromise = null;
   budgetBytes = DEFAULT_BUDGET_BYTES;
+  evictChain = Promise.resolve();
+}
+
+/** Test seam: resolve once every queued eviction has run. Eviction is deliberately fired
+ *  unawaited from `putClip` (a write must not wait on a trim), so a test that asserts on the
+ *  post-eviction store has to join the chain rather than guess at a timeout. */
+export function __evictionsSettled() {
+  return evictChain;
 }

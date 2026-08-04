@@ -610,3 +610,71 @@ item as a stall", which fails without the fix.
 the audio clock is on the *audio* budget. Anything that makes it heavier has to be paid for by
 making the update *rarer*, not by hoping the frame budget absorbs it. The vanilla export player
 will hit exactly this when the readiness band lands there.
+
+---
+
+## Amendment (2026-08-04): the adversarial trio, and the eight defects it found
+
+Run per HARD RULE #25 on the shipping diff — red team, Munger inversion, independent checker,
+three agents in parallel on ~3,000 lines across three shared kernels. Recorded here because
+several findings were *silent* and would have shipped: every machine gate was green, both
+suites passed, and CI had been green on the branch for three commits.
+
+### Fixed
+
+| # | Defect | Why it was invisible |
+|---|---|---|
+| 1 | **"Fetch ahead → The whole deck" stored `0`** — the shallowest window. `Number('all')` is `NaN`, which fell through `setLookaheadPref` to `Math.floor(NaN \|\| 0)`. | The prefs module was correct and tested; the bug lived in the one line between the widget and it. No test touched any of the three new controls. |
+| 2 | **The prefetch front scanned from slide 0, not the playhead.** Jumping to slide 10 with 10–14 fully warm reported *zero* runway; one sentence that never landed early pinned the front for the rest of the deck. | The happy path — play from slide 0, everything lands — works perfectly. |
+| 3 | **The beat broke the transport button three ways.** During a hold `reader.playing` is false, so the primary control flipped to Play at every slide transition, Pause was unreachable, and a tap left the beat's timer pending — which then fired a second, non-resume `play()`: a barge-in that cut the sentence and restarted from word one. | Needs a tap inside a 0.8–4 s window. |
+| 4 | **Concurrent `putClip` calls each ran their own eviction.** Every pass measured the same rows and deleted the full overage independently. At budget: three concurrent puts left 400 of 1000 bytes, six left **zero**. | Degrades to a network fetch. The cache empties itself precisely when full — i.e. when it is finally earning its keep. |
+| 5 | **The latency reservoir was censored and join-poisoned.** A timed-out attempt recorded *nothing*, so p95 was a p95 of the successes under the deadline; a joiner measured from its own start, so a request five seconds old could contribute five milliseconds. `resolveLookahead` therefore gave the **worst** links the **shallowest** window. | The reservoir looked healthy — everything in it was fast. |
+| 6 | **A caller's abort did not end its wait.** Barge-in, slide nav and closing Present still parked the call, Suono's produce slot, and the `liveProduce` counter for the full 20 s. | Nothing surfaces it; it just feels slow. |
+| 7 | **The rail announced "narration ready" for slides with no narration.** The front's floor is right for a *width* and wrong for a *claim*: with nothing cached (Voice muted — the default) every visited segment read 100%. The taller progress fill hid it visually; a screen reader heard it in full. | Invisible unless you listen to it. |
+| 8 | **A user pause between clips was reported as starvation.** `sleep()` for the inter-item gap is not pause-aware, so a tap during a gap reached the next iteration with the watch already armed. | Harmless only while nothing renders the flag. |
+
+Also fixed: the current-slide track tint this branch dropped (with Voice muted on slide 1 every
+segment rendered identically — `aria-current` survived, so visual only); the readiness memo that
+sat above `if (!open) return null` and ran an O(deck) pass on the **editor's** typing path; and
+the 2 s poll that pushed a fresh array every time.
+
+**And the test suite's own regression.** Three cases had to cross the 20 s patience to assert
+anything, taking `voice-model.test.js` from 0.17 s to 86 s on every push. The deadline is now
+injectable — production passes nothing. Worse, one of those three was *named* "the caller's
+abort cancels the in-flight request" while asserting the **opposite** of the shipped design; it
+passed only because the patience eventually expired. Rewritten to pin what actually ships.
+
+Every fix above carries a test that **fails without it** — verified by reverting each fix in
+turn. Root suite 5204 green (and 118 s → 43 s); docs 2416 green.
+
+### Judged and NOT taken
+
+**Inversion's headline: cut the readiness rail.** Its case is real — the rail caused the audio
+regression, it lied in several configurations, and its stated beneficiary (the audience of a
+self-presenting deck) cannot exist on any shipped surface, because `share-export.ts` writes
+captions only. But the maintainer asked for the rail directly and called the buffering-prefetch
+scrubber "the genius and familiar move." That is a settled decision, not an open question. The
+lies were fixable; they are fixed.
+
+**Kokoro not warming is correct, not a bug.** `warm()` returns early for every rung but
+`openrouter-tts` — an earlier inversion finding, because Kokoro is one shared single-threaded
+worker and prefetching there competes with the sentence now playing. What IS a real gap: the
+readiness poll still treats Kokoro as a clocked voice, so on the rung we recommend for a live
+room the prefetch edge can never lead and the rail sits in its "run dry" state. Logged below.
+
+### Logged, not fixed (HARD RULE #18 — found, not caused)
+
+- **Autoplay hangs on two consecutive slides with identical narration text.** The advance effect
+  keys on `[reader.track]`, and `track` is memoized on its text, so identical text means identical
+  identity and the effect never re-runs. Verified present on `main` — the same effect, same deps.
+- **`putClip` materializes the whole `meta` store on every write**, and the readiness poll reads
+  `getAllKeys()` over the entire origin store every 2 s. Both scale with all decks ever presented
+  rather than the one being delivered. Measured only under `fake-indexeddb`, so no browser number
+  is claimed.
+- **The rail shows no runway on Kokoro** (above), and "Fetch ahead: the whole deck" is a silent
+  no-op there while the Settings copy promises offline delivery.
+- **"The whole deck" has no cost estimate and no cancel.** Combined with a request that outlives
+  its caller by design, a 60-slide deck is ~300 billed requests that closing Present will not
+  stop. The user's own key, so not a HARD RULE #24 matter — but it is a bill complaint waiting to
+  happen, and the progress display and cancel that the Prepare button had did not survive its
+  removal.

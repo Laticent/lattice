@@ -506,7 +506,14 @@ export const SENTENCE_PAUSE_MS = { ',': 60, ';': 105, ':': 105, '.': 165, '!': 1
 // every typed caller (read-aloud.ts, architect.ts's Studio bridge). Default inside
 // the body instead — `=== true` / `|| 'db'` below are already correct for undefined,
 // so an inline default is unnecessary anyway.
-export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix } = {}) {
+// The two deadlines are injectable ONLY so tests can reach them without burning wall clock.
+// Three cases in the unit suite have to cross the player's patience to assert anything, and at
+// the shipped 20 s that took the file from 0.2 s to 86 s — a self-inflicted 86 s on every push
+// (HARD RULE #18, found by the independent checker). Production passes nothing and gets the
+// constants above.
+export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, allowBrowserVoice, keyPrefix, waitMs, ceilingMs } = {}) {
+  const synthWaitMs = Number.isFinite(waitMs) && waitMs > 0 ? waitMs : SYNTH_WAIT_MS;
+  const requestCeilingMs = Number.isFinite(ceilingMs) && ceilingMs > 0 ? ceilingMs : REQUEST_CEILING_MS;
   const settings = () => (getSettings ? getSettings() : {}) || {};
   const getKey = () => (getOpenRouterKey ? getOpenRouterKey() : null) || null;
   const K = voiceKeys(keyPrefix || 'db');
@@ -664,12 +671,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
    * Three tiers, in order:
    *   1. the ON-DEVICE store — a hit here is instant and free, and is the whole reason a
    *      rehearsed deck presents without touching the network the second time;
-   *   2. one real attempt, bounded by SYNTH_TIMEOUT_MS;
+   *   2. one real attempt, bounded by the player's PATIENCE (SYNTH_WAIT_MS). That is not
+   *      the request's lifetime: a request we stop waiting for keeps running to
+   *      REQUEST_CEILING_MS and still caches — see startRequest for why;
    *   3. ONE retry, but only after a FAST failure (a 429/5xx that came back before the
-   *      timeout). A request that TIMED OUT is not retried — the model is stuck or the
-   *      link is bad, and a second 6-second wait doubles a stall the listener is already
+   *      deadline). A request that TIMED OUT is not retried — the model is stuck or the
+   *      link is bad, and a second full wait doubles a stall the listener is already
    *      hearing. This asymmetry is the point: retry what is likely transient, give up
    *      quickly on what is not.
+   *
+   * Three things end the wait: the request lands, the patience runs out, or the CALLER
+   * aborts. Only the first two say anything about the link, and both are recorded.
    *
    * Never throws and never rejects — every failure path resolves `null`, which the
    * callers already treat as "skip this sentence".
@@ -695,6 +707,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     const existing = liveRequests.get(key);
     if (existing) return existing;
     const ctl = new AbortController();
+    // The REQUEST's own age, not any caller's wait. A second caller that JOINS a request
+    // already five seconds old must not record five milliseconds when it lands — that
+    // poisoned the latency reservoir with the join, and `auto` lookahead is sized off its
+    // p95 (red team, #1352). The entry, not the bare promise, is what callers hold.
+    const entry = { startedAt: Date.now(), promise: null };
     let ceiling;
     const p = Promise.race([
       rung.synth({ text, voice, speed, signal: ctl.signal }),
@@ -702,7 +719,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
         ceiling = setTimeout(() => {
           ctl.abort(); // genuinely hung — stop paying for an answer that is never coming
           res(null);
-        }, REQUEST_CEILING_MS);
+        }, requestCeilingMs);
       }),
     ])
       .then((blob) => {
@@ -719,10 +736,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       .catch(() => null)
       .finally(() => {
         clearTimeout(ceiling);
-        if (liveRequests.get(key) === p) liveRequests.delete(key);
+        if (liveRequests.get(key) === entry) liveRequests.delete(key);
       });
-    liveRequests.set(key, p);
-    return p;
+    entry.promise = p;
+    liveRequests.set(key, entry);
+    return entry;
   }
 
   async function fetchClip(rung, { text, voice, speed, signal, key }) {
@@ -743,7 +761,6 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     const voiceKey = latencyKeyFor(rung.name, voice);
     for (let attempt = 0; attempt < 2; attempt++) {
       if (signal?.aborted) return null;
-      const startedAt = Date.now();
       // Race OUR PATIENCE against the shared request — not against the request's life. A
       // request we stop waiting for keeps running and still caches (startRequest), which is
       // what makes a slow link self-healing: the sentence lands late, and the next pass or
@@ -753,26 +770,46 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       const request = startRequest(rung, { text, voice, speed, key });
       let timer;
       const outcome = await Promise.race([
-        request.then((blob) => (blob ? { blob } : { failed: true })),
+        request.promise.then((blob) => (blob ? { blob } : { failed: true })),
         new Promise((res) => {
-          timer = setTimeout(() => res({ timedOut: true }), SYNTH_WAIT_MS);
+          timer = setTimeout(() => res({ timedOut: true }), synthWaitMs);
+        }),
+        // The caller's abort ENDS OUR WAIT — it does not end the request. Without this the
+        // race could only be settled by the deadline, so a barge-in, a slide change, or
+        // closing Present still parked this call (and Suono's produce slot, and the
+        // `liveProduce` counter that gates warm) for the full patience window (red team,
+        // #1352). The request itself deliberately runs on and still caches.
+        new Promise((res) => {
+          if (signal?.aborted) res({ aborted: true });
+          else signal?.addEventListener('abort', () => res({ aborted: true }), { once: true });
         }),
       ]).finally(() => clearTimeout(timer));
 
       // The CALLER walked away mid-wait (barge-in, slide change, Present closed). Not a
       // failure to retry — just stop waiting. The request itself continues and still caches.
-      if (signal?.aborted) return null;
+      if (outcome.aborted || signal?.aborted) return null;
 
       if (outcome.blob) {
         // Measure REAL work only — a cache hit returns above, so this reservoir stays a
-        // reading of the model/network rather than of our own hit rate.
-        recordLatency(voiceKey, Date.now() - startedAt);
+        // reading of the model/network rather than of our own hit rate. Measured from the
+        // REQUEST's start, not this caller's: a joiner that arrives late would otherwise
+        // record a fraction of the true latency and drag the p95 down.
+        recordLatency(voiceKey, Date.now() - request.startedAt);
         return outcome.blob;
       }
       // Timed out: give up on THIS sentence so the run moves on, but leave the request
       // alive. Not retried — a second wait would only stack more silence on a link that is
       // already too slow, and the in-flight request will cache if it ever lands.
-      if (outcome.timedOut) return null;
+      //
+      // RECORD IT ANYWAY, censored at the deadline. Dropping the sample entirely made the
+      // reservoir a p95 of the successes-under-20s only — so the slower the link, the more
+      // of its slow samples were discarded, and `resolveLookahead` handed the WORST links
+      // the SHALLOWEST prefetch window. That is the exact inverse of the design, and it hid
+      // itself: the reservoir looked healthy because everything in it was fast.
+      if (outcome.timedOut) {
+        recordLatency(voiceKey, Math.max(synthWaitMs, Date.now() - request.startedAt));
+        return null;
+      }
       // A genuine fast failure (429/5xx) earns exactly one retry.
       if (attempt === 0 && !signal?.aborted) {
         await new Promise((res) => setTimeout(res, SYNTH_RETRY_DELAY_MS));

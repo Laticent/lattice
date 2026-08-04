@@ -612,6 +612,28 @@ describe('onStarve', () => {
 		expect(seen.filter(Boolean).length).toBe(0);
 	});
 
+	it('a user pause between clips is not reported as a stall', async () => {
+		// The gap between items is a pause the scheduler CHOSE, and `sleep()` is not pause-aware —
+		// so a tap during the gap reaches the next iteration with the watch already armed and
+		// trips it a grace window later. The consumer freezes its highlight on a silence the user
+		// asked for. Found by the red team (#1352).
+		const stage = fakeStage();
+		const seen: boolean[] = [];
+		const seq = makeSequence(stage, {
+			items: ['a', 'b'],
+			produce: async () => bytes(),
+			gapMs: () => 20,
+			onStarve: (s) => seen.push(s),
+			starveGraceMs: 10,
+		});
+		seq.play();
+		await new Promise((r) => setTimeout(r, 5));
+		seq.pause();
+		await new Promise((r) => setTimeout(r, 80)); // several grace windows, paused throughout
+		expect(seen.filter(Boolean).length).toBe(0);
+		seq.resume();
+	});
+
 	it('a throwing onStarve handler never breaks the scheduler', async () => {
 		const stage = fakeStage();
 		const seq = makeSequence(stage, {

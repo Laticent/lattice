@@ -249,8 +249,17 @@ export function makeSequence<T>(stage: SequenceStage, opts: SequenceOptions<T>):
 				armStarve();
 				const bytes = await pending[i];
 				if (sig.aborted) break;
-				await waitIfPaused(sig);
-				if (sig.aborted) break;
+				// A PAUSE IS NOT A STALL. The user asked for the silence, so the consumer must not
+				// freeze its highlight on it — and `sleep()` for the inter-item gap is not
+				// pause-aware, so a tap during the gap lands here with the watch already armed and
+				// trips it 250 ms later (red team, #1352). Disarm across the gate, re-arm after: on
+				// the far side we are genuinely waiting for sound again.
+				if (pausedGate) {
+					clearStarve();
+					await waitIfPaused(sig);
+					if (sig.aborted) break;
+					armStarve();
+				}
 				emitState(true, i, firstError);
 				if (bytes) {
 					// Race decode against abort AND a watchdog: stage.decode isn't passed the signal and

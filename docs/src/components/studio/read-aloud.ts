@@ -115,9 +115,14 @@ export type ReadAloudState = {
 	progress: number;
 	/** The active voice rung — 'silent' (captions only) | 'openrouter-tts' | 'kokoro' | … */
 	rung: string | null;
-	/** The clocked voice wants to speak but has no audio yet — a synth/decode stall. The
-	 *  highlight HOLDS while this is true (see the tick clock), so the dock can show an
-	 *  honest "catching up" beat instead of captions crawling over silence. */
+	/** The clocked voice wants to speak but has no audio yet — a synth/decode stall.
+	 *
+	 *  The EFFECT of this is the hold: while it is true the tick freezes the caption highlight
+	 *  and the rail's progress edge instead of riding the WebAudio clock over silence, so the
+	 *  prefetch edge visibly runs on alone. Nothing renders the flag directly, deliberately —
+	 *  the 2026-08-04 amendment reverted a "Catching up…" label because a control that renames
+	 *  itself mid-delivery reads, to a screen reader, as becoming a different control. Exposed
+	 *  for diagnostics and for a consumer that has no rail of its own. */
 	buffering: boolean;
 	/** Captured audio-timing events this read (debug mode only; empty otherwise). */
 	debugEvents: ReadAloudDebugEvent[];
@@ -340,8 +345,14 @@ export function useReadAloud(
 	// Last progress value pushed into React state — the quantizer's reference (see tick).
 	const lastProgressRef = React.useRef(0);
 	const [rung, setRung] = React.useState<string | null>(null);
-	// Audio-starved: the sequence wants to play and has nothing yet. Mirrored into a ref
-	// because the RAF tick (deps `[]` by design) reads it every frame.
+	// Audio-starved: the sequence wants to play and has nothing yet.
+	//
+	// The REF is what does the work — the RAF tick (deps `[]` by design) reads it every frame,
+	// and the hold is the whole mechanism. The state exists only so the flag is observable from
+	// the outside; it is set through the same guarded helpers so the two can never disagree.
+	// Kept rather than dropped because a consumer WITHOUT the rail (the export player, the
+	// diagnostics overlay) has no other way to see a stall — but nothing in Present renders it,
+	// and nothing should start without re-reading why the "Catching up…" label was reverted.
 	const [buffering, setBuffering] = React.useState(false);
 	const bufferingRef = React.useRef(false);
 	// Identity of the sequence whose starvation reports we still honor. A torn-down run
@@ -1109,25 +1120,35 @@ export async function narrationReadiness(perSlide: string[][]): Promise<number[]
 
 /**
  * Collapse per-slide cached fractions into the rail's prefetch FRONT — a fractional slide
- * index marking how far narration can play without stalling.
+ * index marking how far narration can play, FROM WHERE THE DECK IS NOW, without stalling.
  *
  * Contiguous by construction: it accumulates whole slides while they are fully cached, adds
  * the partial fraction of the first incomplete one, and stops there. A slide cached AFTER a
  * gap is deliberately not counted — you would stall at the gap before ever reaching it, so
  * including it would draw runway that does not exist.
  *
- * Floored at `progressFront` so the prefetch edge can never render BEHIND the progress edge:
- * audio already played can be evicted by the LRU, which would otherwise show the buffer
- * trailing the playhead — true of the cache, but nonsense as a runway.
+ * The scan STARTS at the playhead, not at slide 0. Scanning from 0 made the runway mean
+ * "how far from the top of the deck", which is not a question anyone is asking mid-delivery,
+ * and it collapsed the signal in two everyday cases (red team, #1352): jumping to slide 10
+ * pinned the front at 10 even with the next five slides fully warm, and ONE sentence that
+ * never landed early on pinned it for the entire rest of the deck. In both, the prefetch
+ * edge sat exactly on the frozen progress edge — so a stall looked identical to a crash,
+ * which is the one thing this indicator exists to tell apart.
+ *
+ * `progressFront` is a slide INDEX, so within the current slide the prefetch edge can still
+ * sit behind the progress edge when that slide is only partly cached. That is honest — you
+ * really will stall there — and the taller progress fill covers it either way.
  */
 export function prefetchFrontOf(fractions: number[], progressFront = 0): number {
-	let front = 0;
-	for (const f of fractions) {
+	const start = Math.max(0, Math.floor(progressFront));
+	let front = start;
+	for (let i = start; i < fractions.length; i++) {
+		const f = fractions[i];
 		if (f >= 1) {
-			front += 1;
+			front = i + 1;
 			continue;
 		}
-		front += Math.max(0, Math.min(1, f));
+		front = i + Math.max(0, Math.min(1, f));
 		break;
 	}
 	return Math.max(front, progressFront);
