@@ -247,13 +247,16 @@ test('stop()/pause()/resume(): drive ONLY the speechSynthesis rung, and are safe
 function ScriptedRung(script, { name = 'openrouter-tts' } = {}) {
   let i = 0;
   const calls = [];
+  const aborts = []; // the signal handed to each attempt, so a test can assert it was cut
   return {
     name,
     ready() { return true; },
     calls,
-    async synth({ text }) {
+    aborts,
+    async synth({ text, signal }) {
       const step = script[Math.min(i++, script.length - 1)];
       calls.push(text);
+      aborts.push(signal);
       if (step === 'error') throw new Error('429 rate limited');
       if (step === 'hang') return new Promise(() => {}); // never settles — the timeout must win
       return { size: 128, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(128) };
@@ -330,4 +333,56 @@ test('fetchClip: degrades cleanly with no IndexedDB and no localStorage (plain n
   v.__setRung(rung);
   const res = await v.synthOne({ text: 'Still works.' });
   assert.ok(res.bytes, 'playback never depends on either store being present');
+});
+
+test('fetchClip: a timed-out attempt ABORTS its request rather than leaving it running at a paid backend', async () => {
+  // Losing the timeout race is not enough. An un-aborted request keeps costing money after
+  // we stop waiting for it, and since the in-flight registry clears when fetchClip resolves,
+  // the next call for the same key fires a SECOND request alongside the orphan. Lowering the
+  // timeout 20s -> 6s made this window reachable in practice (Copilot review, #1352).
+  const { createVoiceModel } = await load();
+  const rung = ScriptedRung(['hang']);
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const res = await v.synthOne({ text: 'Never returns.' });
+  assert.equal(res.bytes, null);
+  assert.equal(rung.aborts.length, 1);
+  assert.ok(rung.aborts[0], 'the rung is handed a signal it can honor');
+  assert.equal(rung.aborts[0].aborted, true, 'the timed-out request was actually cancelled');
+});
+
+test("fetchClip: the caller's abort cancels the in-flight request and does NOT count as a retryable failure", async () => {
+  const { createVoiceModel } = await load();
+  // Rejects as soon as its signal aborts — what a real fetch does.
+  const rung = {
+    name: 'openrouter-tts',
+    calls: [],
+    ready: () => true,
+    synth({ text, signal }) {
+      rung.calls.push(text);
+      return new Promise((_res, rej) => {
+        signal.addEventListener('abort', () => rej(new Error('aborted')), { once: true });
+      });
+    },
+  };
+  const v = createVoiceModel({});
+  v.__setRung(rung);
+  const ctl = new AbortController();
+  const p = v.synthOne({ text: 'Mid-flight barge-in.', signal: ctl.signal });
+  await new Promise((r) => setTimeout(r, 10));
+  ctl.abort();
+  const res = await p;
+  assert.equal(res.bytes, null);
+  assert.equal(rung.calls.length, 1, 'an abort is not a transient failure — it must not earn the retry');
+});
+
+test('latencyKey(): the ACTIVE rung\'s key, in the same shape fetchClip records under', async () => {
+  // One builder for the writer and every reader. Present previously assembled its own
+  // calibration-shaped key, so no lookup ever matched and `auto` lookahead could not adapt.
+  const { createVoiceModel } = await load();
+  const v = createVoiceModel({});
+  v.__setRung({ name: 'openrouter-tts', ready: () => true, synth: async () => null });
+  const key = v.latencyKey();
+  assert.match(key, /^openrouter-tts\|[^|]+\|[^|]*$/, 'rung | modelId | voice');
+  assert.ok(key.includes('|'), 'not a bare rung name');
 });

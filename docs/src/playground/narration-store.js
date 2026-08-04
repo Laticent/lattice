@@ -41,7 +41,7 @@ export function getBudgetBytes() {
   return budgetBytes;
 }
 
-// The recency stamp, STRICTLY MONOTONIC — not a bare `Date.now()`.
+// The recency stamp: monotonic WITHIN THIS TAB, not a bare `Date.now()`.
 //
 // Warm-ahead writes several clips inside the same millisecond (concurrency 3), so raw
 // clock stamps TIE. IndexedDB breaks a tie on an index by primary key, which means the
@@ -49,6 +49,14 @@ export function getBudgetBytes() {
 // oldest-first. Caught by the eviction test: three same-millisecond puts evicted the
 // middle one. Clamping to `last + 1` keeps insertion order within a millisecond while
 // still tracking wall-clock across sessions (a later session's `Date.now()` always wins).
+//
+// The counter is per tab, so two tabs writing in the same millisecond can still tie and
+// fall back to primary-key order (Copilot review, #1352). That residual is accepted, not
+// overlooked: it costs at most a slightly wrong eviction choice between two clips written
+// the same millisecond in different tabs, and the fix — a shared counter in the database
+// — would put a read-modify-write on the path of every clip write to reorder an LRU that
+// is already only a hint. The single-tab case, which is the one warm-ahead actually
+// produces, is ordered correctly.
 let lastStamp = 0;
 function nextStamp() {
   lastStamp = Math.max(Date.now(), lastStamp + 1);

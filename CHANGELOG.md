@@ -369,7 +369,9 @@ in patch versions.
   looks up, so a rehearsed deck presents instantly, offline, and without paying to synthesize the
   same words twice — surfaced and clearable under **Data → Narration audio**, and switchable off.
   And a **Prepare** button in the Present dock synthesizes the entire deck up front with live
-  progress, so a live room has no network in the loop at all.
+  progress, so a live room has no network in the loop at all — shown only when a voice is actually
+  connected, since with none the ladder floors to silent and a prepare pass would report "0 of 42
+  lines" after doing nothing.
 
 - **Breaking: a slide that names no component now renders as `content`, the catch-all prose
   layout (#1292).** Writing nothing and writing `<!-- _class: content -->` are the same thing. The

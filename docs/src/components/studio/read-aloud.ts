@@ -142,6 +142,10 @@ type VoiceModel = {
 	stop: () => void;
 	pause: () => void;
 	resume: () => void;
+	/** The key measured synth latencies are stored under for the ACTIVE rung
+	 *  (`rung | modelId | voice`) — ask for it rather than assembling one, or a reader and
+	 *  the recorder drift into never matching. */
+	latencyKey: () => string;
 	/** Background-prefetch these spoken sentences into the shared audio cache — no playback, best-effort. `signal` stops any FURTHER requests once aborted (already-started ones finish; see voice-model.js). */
 	warm: (sentences: string[], opts?: { signal?: AbortSignal }) => void;
 	rung: () => string;
@@ -1076,6 +1080,18 @@ export function useReadAloud(
 // speak() with no separate instance/download. Mirrors architect.ts's bridge-
 // function style (listStudioModels/setStudioModel/summonWebLLM/…) so the
 // Workspace components never touch a raw model object directly.
+
+/** The active voice's latency key — the identity `resolveLookahead` sizes the prefetch
+ *  window from. Bridged through the SAME shared voice-model instance playback records
+ *  against, so the reader and the writer can never key differently. '' when no voice has
+ *  loaded (callers then get the default window). */
+export async function narrationLatencyKey(): Promise<string> {
+	try {
+		return (await getVoice())?.latencyKey() ?? '';
+	} catch {
+		return '';
+	}
+}
 
 /** Live voice status — which rung is active, what's ready/cached/supported. */
 export async function voiceAvailability(): Promise<VoiceAvailability> {

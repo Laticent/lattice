@@ -16,7 +16,6 @@ import { DEFAULT_LOOKAHEAD, onNarrationPrefsChange, resolveLookahead } from '@/p
 // surfaces (they agree on which Markdown is a chart slide under the house `---`-per-
 // section convention; the export aligns to rendered sections, this to the `---` set). #902
 import { narrateChart } from '@/playground/read-along-core.generated.js';
-import { voiceKeyOf } from '@/playground/readaloud-calibration';
 import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
@@ -28,7 +27,7 @@ import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
-import { prepareNarration, slideToSpeech, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { narrationLatencyKey, prepareNarration, slideToSpeech, useReadAloud, voiceAvailability, warmNarrationWindow } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -397,11 +396,26 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// does the synth itself when it arrives.
 	const [lookahead, setLookahead] = React.useState(DEFAULT_LOOKAHEAD);
 	// Resolve the window against the live voice + pref, and re-resolve when either moves.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-resolve when the active voice changes (rung) as well as on a pref change.
 	React.useEffect(() => {
 		if (!open) return;
-		const resolve = () => setLookahead(resolveLookahead(voiceKeyOf(reader.rung === 'kokoro' ? 'kokoro' : reader.rung || '')));
+		let live = true;
+		// Ask the voice model for the key it RECORDS under. Assembling one here is what
+		// broke this the first time: Present built a calibration-shaped `openrouter-tts`
+		// while the recorder wrote `openrouter-tts|hexgrad/kokoro-82m|af_heart`, so every
+		// lookup missed, `n` stayed 0, and `auto` silently pinned to the default forever
+		// while looking healthy (Copilot review, #1352).
+		const resolve = () => {
+			narrationLatencyKey().then((k) => {
+				if (live) setLookahead(resolveLookahead(k));
+			});
+		};
 		resolve();
-		return onNarrationPrefsChange(resolve);
+		const unsubscribe = onNarrationPrefsChange(resolve);
+		return () => {
+			live = false;
+			unsubscribe();
+		};
 	}, [open, reader.rung]);
 	React.useEffect(() => {
 		if (!open || muted) return; // never synth (bill) TTS the user won't hear while Voice is muted
@@ -441,6 +455,31 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// room has no network in the loop at all. That is the difference between "usually
 	// fast" and "safe to present on", and a stall mid-sentence in front of an audience is
 	// the failure this exists to make impossible.
+	// Is there a voice that could actually prepare anything? Present opens muted and the
+	// rung isn't resolved until playback starts, so "unmuted" is NOT the same as "a voice
+	// is connected" — with no key and no on-device model the ladder floors to `silent`,
+	// where a prepare pass would dutifully synthesize nothing and report "0 of 42 lines".
+	// Offering a billed-looking action that cannot do anything is worse than not offering
+	// it. Caught by looking at the real dock, not by any test. (See the design record's
+	// verification note: this is exactly the class of defect a green suite doesn't reach.)
+	const [voiceReady, setVoiceReady] = React.useState(false);
+	React.useEffect(() => {
+		if (!open || muted) {
+			setVoiceReady(false);
+			return;
+		}
+		let live = true;
+		voiceAvailability()
+			.then((a) => {
+				if (live) setVoiceReady(!!a && (a.openRouterReady || a.kokoroReady));
+			})
+			.catch(() => {
+				if (live) setVoiceReady(false);
+			});
+		return () => {
+			live = false;
+		};
+	}, [open, muted]);
 	const [prepare, setPrepare] = React.useState<{ done: number; total: number } | null>(null);
 	const prepareCtl = React.useRef<AbortController | null>(null);
 	const runPrepare = React.useCallback(async () => {
@@ -887,7 +926,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 							}</span></button></Tip>
 							{/* Prepare — only offered when Voice is on (it is a synthesis spend) and the
 							    deck is worth preparing. Second press cancels. */}
-							{!muted && set.length > 1 && (
+							{!muted && voiceReady && set.length > 1 && (
 								<Tip label={prepare ? 'Stop preparing' : 'Prepare the whole deck now — synthesize every line up front so delivery never waits on the network'}>
 									<button type="button" onClick={runPrepare} aria-label={prepare ? `Preparing narration, ${preparePct}% — press to stop` : 'Prepare narration for the whole deck'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', prepare ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
 										<CloudDownload className="size-3.5" />

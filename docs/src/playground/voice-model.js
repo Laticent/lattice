@@ -558,6 +558,28 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     return '';
   }
 
+  /**
+   * The key latency samples are stored under: `rung | modelId | voice`.
+   *
+   * ONE builder, used by the writer (`fetchClip`) AND every reader, because the two were
+   * built independently and silently disagreed — the recorder wrote
+   * `openrouter-tts|hexgrad/kokoro-82m|af_heart` while Present asked for the
+   * calibration-shaped `openrouter-tts`. Every lookup missed, so `auto` lookahead saw
+   * `n = 0` forever and could never adapt: the adaptive window was dead on arrival while
+   * looking entirely healthy (Copilot review, #1352). A key shape shared across modules
+   * has to have a single definition, or this recurs.
+   */
+  function latencyKeyFor(rungName, voice) {
+    const effVoice = voice || (rungName === 'openrouter-tts' ? orVoice() : rungName === 'kokoro' ? kokoroVoice() : '');
+    return `${rungName}|${modelIdFor(rungName)}|${effVoice || ''}`;
+  }
+
+  /** The latency key for the ACTIVE rung — what a consumer sizing its prefetch window
+   *  should ask for, rather than assembling a key of its own. */
+  function latencyKey() {
+    return latencyKeyFor(pickRung().name);
+  }
+
   // Is Kokoro on disk? Probed async (Cache Storage) and cached here so the
   // synchronous availability() the button reads can distinguish "downloaded but not
   // loaded" from "never downloaded". Probed once on creation; re-probed after a
@@ -638,20 +660,42 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       }
     }
     if (signal?.aborted) return null;
-    const voiceKey = `${rung.name}|${modelIdFor(rung.name)}|${voice || ''}`;
+    const voiceKey = latencyKeyFor(rung.name, voice);
     for (let attempt = 0; attempt < 2; attempt++) {
       if (signal?.aborted) return null;
       const startedAt = Date.now();
       let timer;
+      // A per-ATTEMPT controller, chained to the caller's signal. Losing the timeout race
+      // is not enough: without aborting, the request keeps running at a paid backend after
+      // we've stopped waiting for it, and since `inFlightSynths` clears when fetchClip
+      // resolves, the next call for the same key fires a SECOND request alongside the
+      // orphan. The old code had the same shape, but at a 20s timeout the window was rarely
+      // reached; at 6s it would be, so lowering the timeout is what made this worth fixing
+      // (Copilot review, #1352). Every rung honors `signal` — openRouterRung passes it
+      // straight to fetch, kokoroRung rejects its pending worker job on abort.
+      const attemptCtl = new AbortController();
+      const chainAbort = () => attemptCtl.abort();
+      if (signal) signal.addEventListener('abort', chainAbort, { once: true });
       const outcome = await Promise.race([
         rung
-          .synth({ text, voice, speed, signal })
+          .synth({ text, voice, speed, signal: attemptCtl.signal })
           .then((blob) => ({ blob }))
           .catch((error) => ({ error })),
         new Promise((res) => {
-          timer = setTimeout(() => res({ timedOut: true }), SYNTH_TIMEOUT_MS);
+          timer = setTimeout(() => {
+            attemptCtl.abort(); // stop paying for an answer we will no longer use
+            res({ timedOut: true });
+          }, SYNTH_TIMEOUT_MS);
         }),
-      ]).finally(() => clearTimeout(timer));
+      ]).finally(() => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', chainAbort);
+      });
+
+      // The CALLER walked away mid-attempt (barge-in, slide change, Present closed). Not a
+      // failure to retry — just stop. Checked before the retry branch so an abort-induced
+      // rejection can't be mistaken for a transient one.
+      if (signal?.aborted) return null;
 
       if (outcome.blob) {
         // Measure REAL work only — a cache hit returns above, so this reservoir stays a
@@ -883,6 +927,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     pause,
     resume,
     warm,
+    latencyKey,
     rung() { return pickRung().name },
     kokoroSupported,
     availability() {
