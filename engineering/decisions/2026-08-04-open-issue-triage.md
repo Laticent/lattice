@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Triaged all 138 open issues against the tree at 7b8a219, on two axes the queue never carried — did the defect survive (fixed / still reproduces / premise moved), and what kind of work is it (gate failure, upgrade, bug, docs drift, debt, verification owed, chore). Nothing in the queue is simply WRONG — no card asserts a defect that never existed; the failure mode is that nothing CLOSES cards, and all five verified-fixed ones were fixed by a PR solving something adjacent. Six close on sight (#684, #1188, #1197 now pass their integration test; #1194's coverWindow uses evenGroups; #1155's CHANGELOG is clean; #1361's overflow gate is green, fixed by #1359 and gone from the baseline rather than blessed into it), four more are near-certain (#669, #757-A, #876, the marp-kit half of #1354). Five moved out from under their premise and need rescoping rather than working (#414, #476, #477, #870 cite the REMOVED Drawing Board; #310 cites a deleted doc). Two ratchets run backwards (#577's US-English budget rose 1288 to 1307; #1310's empty index rows rose 58/339 to 70/357). Gate-failure work is 22 cards — 12 red/flaky, 10 blind — and is load-bearing: #1324 was CONFIRMED red here at 9 files / 87 tests, but its cited files are stale and the true failing set is now studio.controls + StudioShell, while the Node integration tier is green at 671/671, so the rot is docs/vitest-specific rather than main-wide. #1208 and #1250 are the same failing test filed twice. #1364 and #1354 were reproduced end to end. BACKLOG.md is stale by 93 issues (claims 45 open, actual 138) because sync-backlog has not run since 2026-07-30.
+summary: Triaged all 138 open issues against the tree at 7b8a219, on two axes the queue never carried — did the defect survive (fixed / still reproduces / premise moved), and what kind of work is it (gate failure, upgrade, bug, docs drift, debt, verification owed, chore). Nothing in the queue is simply WRONG — no card asserts a defect that never existed; the failure mode is that nothing CLOSES cards, and every verified-fixed one was fixed by a PR solving something adjacent. EIGHT were closed in this sweep, each with a pickup note on the card: #684, #1188, #1197 now pass their integration test; #1194's coverWindow uses evenGroups; #1155's CHANGELOG is clean; #1361's overflow gate is green, fixed by #1359 and gone from the baseline rather than blessed into it; #876's font paths are Vite-rewritten relative URLs with a theme-fetch absolutizer behind them; #870's whole surface was deleted. #1250 closed as a duplicate of #1208. #669 was NEARLY closed and should NOT be — its mechanism shipped but its author surface was SUBSTITUTED (the ratified front-matter backdrop map became the Studio's finish-override: map), which is a different deliverable than the card ratified; the mechanism landing is not the feature landing, and #287, #511, #757 and #596 have the same shape. Four cards moved out from under their premise and need rescoping rather than working (#414, #476, #477 cite the REMOVED Drawing Board; #310 cites a deleted doc). Two ratchets run backwards (#577's US-English budget rose 1288 to 1307; #1310's empty index rows rose 58/339 to 70/357). Gate-failure work is 22 cards — 12 red/flaky, 10 blind — and is load-bearing: #1324 was CONFIRMED red here at 9 files / 87 tests, but its cited files are stale and the true failing set is now studio.controls + StudioShell, while the Node integration tier is green at 671/671, so the rot is docs/vitest-specific rather than main-wide. #1364 and #1354 were reproduced end to end. BACKLOG.md is stale by 93 issues (claims 45 open, actual 138) because sync-backlog has not run since 2026-07-30.
 ---
 
 # Open-issue triage — what is fixed, what is real, what moved
@@ -35,20 +35,24 @@ a judgment. `VALID` and `FIXED` each carry the evidence that earned them.
 
 | | count |
 |---|---|
-| **Already fixed — close on sight** | **6 verified + 4 near-certain** |
-| **Premise moved — rescope, don't work** | **5** |
+| **Already fixed — CLOSED in this pass** | **8** |
+| **Premise moved — rescoped, not closed** | **4** |
 | **Worse than filed** | **2** |
 | Verified still real | 25 |
 | Not independently verified this pass | 101 |
 
 **Nothing in the queue was found to be simply *wrong*** — no card asserted a
 defect that never existed. The failure mode here is not bad reports; it is that
-**nothing closes cards when the fix lands elsewhere.** Every one of the five
+**nothing closes cards when the fix lands elsewhere.** Every one of the
 verified-fixed cards was fixed by a PR that was solving something else.
 
 ---
 
-## 1 · Fixed — close these
+## 1 · Fixed — CLOSED, each with a pickup note on the card
+
+These eight were closed as part of this sweep, each with a comment carrying the
+evidence below so a session that lands on the card from a search knows why it is
+shut and what to reopen it for.
 
 | # | Title | Evidence |
 |---|---|---|
@@ -58,15 +62,41 @@ verified-fixed cards was fixed by a PR that was solving something else.
 | **#1194** | `coverWindow` chunks greedily → runt last page | `lib/core/carousel.js` now calls `evenGroups(items.length, per)`; the code comment names the exact defect: *"`per` is a CEILING; chunking `i += per` treated it as a chunk size and left a runt last"* |
 | **#1155** | ~a dozen CHANGELOG entries orphaned above `## Unreleased` | `## Unreleased` is at line 26; **zero** entry-shaped lines above it |
 | **#1361** | `overflow:check` red on clean `main` | clean run is green (exit 0, 8 clips, none above baseline). Fixed by **#1359** (`75b3e1b`); the offending deck is gone from `overflow-baseline.json`, so it was fixed rather than blessed — see §4a |
+| **#876** | preview-font `@font-face` 404s at `//fonts/*.woff2` | **FIXED.** `docs/src/styles/fonts.css` now reads `url('../playground/fonts/…')` for every face, under a header comment stating *"Vite rewrites each relative `url()` to the hashed, base-aware bundled asset"* — exactly the fix asked for. `font-embed.js` moved to `docs/src/playground/`, beside `fonts/`, so its own `./fonts/…` import resolves. The remaining channel (bare `url('fonts/…')` inside *fetched* theme CSS) is now absolutized by `docs/src/lib/theme-fetch.ts` and covered by tests |
+| **#870** | Drawing Board theme fetch serialized behind an engine-bundle poll | **MOOT — close.** The cited file and the whole surface are gone (§2). The card's own text says it went unfixed *because* the Drawing Board was frozen for feature work; the freeze became a deletion |
 
-Near-certain, worth one confirming read before closing:
+### The one I got wrong, and the correction
 
-| # | Title | Evidence |
-|---|---|---|
-| **#669** | Backdrop controls — strength / clearance / spotlight | `lib/engine/index.js:337` injects the `.backdrop` wrapper per finish section; `base.finish.css` carries `--fin-backdrop-strength` (strength), `--backdrop-clear-mask` (clearance) and the spotlight layer |
-| **#757 (part A)** | the self-contained `.html` player | `lib/export/html-player.js` exists and its header records the player as shipped in #798–#824. **Part B** (the `.lattice` envelope carrying theme + components + assets) is still open — rescope the card to B only |
-| **#876** | preview-font `@font-face` 404s at `//fonts/*.woff2` | `docs/src/styles/fonts.css:56` now reads `url('../playground/fonts/outfit-300.woff2')` — a correctly-resolving relative path, not the bare `fonts/…` that 404'd. `docs/src/lib/font-embed.js` (the cited file) no longer exists. Confirm against the built site before closing |
-| **#587 / #588 / #596 / #668 / #1270 / #1308** | — | each has had its substrate land via a later PR; see §5 |
+I first listed **#669 (backdrop controls)** here as near-certain fixed. **It is not.**
+Checking the author surface rather than the mechanism shows a **substitution**, and
+the distinction matters to whoever picks it up:
+
+- **Shipped** — the architectural half. `applyBackdropToHtml`
+  (`lib/integrations/markdown-it/plugins.js:495`) injects
+  `<div class="backdrop"><i class="backdrop-mask"></i></div>` as the first child of
+  every finish section, mirrored on all three render paths, and the compositor in
+  `base.finish.css` reads `--fin-backdrop-strength` + `--backdrop-clear-mask`. The
+  code comment credits **"Backdrop-controls work (#669)"** directly.
+- **Did NOT ship as specified** — the author surface. The card asks for *"a NEW
+  nested front-matter map `backdrop: { strength, clearance, spotlight }`"*.
+  `KNOWN_DIRECTIVES` has **no** `backdrop` key, no deck in the corpus authors one,
+  and the function explicitly declines to: *"the wrapper carries no deck-level
+  inline style; the deck author tunes it through the Studio's `finish-override:`
+  map (regenerated CSS)."*
+
+So the controls became a **baked layer of the generated finish CSS** reached through
+`finish-override:` (`examples/finish-override.md`) instead of a front-matter map.
+That may well be the better design — but it is a *different* deliverable than the
+card ratified, and only someone who knows the intent should decide whether that
+closes it. **Left open deliberately, with this comment on the card.**
+
+The lesson generalizes: **the mechanism landing is not the feature landing.**
+#287, #511, #596 and #757 in §7 have exactly this shape — substrate in, surface
+out — and none of them should be closed on a grep for the substrate either.
+
+**#1250** was also closed, as a **duplicate of #1208** — the same
+`demo.spec.ts` test, the same locator, the same deterministic failure, filed
+twice two days apart. #1208 is the older card and stays open.
 
 ---
 
@@ -78,7 +108,7 @@ cards are written against those files:
 
 | # | Cites | What it needs |
 |---|---|---|
-| **#870** | `docs/src/playground/drawing-board-render.js:182-191` — serialized theme fetch | **Close.** The surface is gone; the card's own text says it was left unfixed *because* the Drawing Board was frozen. There is nothing left to fix |
+| **#870** | `docs/src/playground/drawing-board-render.js:182-191` — serialized theme fetch | **CLOSED in this sweep** (§1). The surface is gone; the card's own text says it was left unfixed *because* the Drawing Board was frozen. Nothing left to fix |
 | **#476** | `drawing-board-chart-interact.js` (kanban per-card reveal) | Rescope onto `docs/src/playground/chart-interact.js`. The feature itself is genuinely unbuilt |
 | **#477** | same file (`tb` reveal-lift magnitude) | same rescope |
 | **#414** | consolidate 3 theme/palette dropdowns | One of the three surfaces (the Drawing Board's Radix select) no longer exists. Re-count before estimating |
