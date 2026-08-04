@@ -209,10 +209,13 @@ export async function putClip(key, blob) {
     if (!bytes?.byteLength) return false;
     const db = await openDB();
     const at = nextStamp();
+    const existing = await read(db, META, (meta) => meta.get(key));
     await write(db, (clips, meta) => {
       clips.put({ key, bytes, type: blob.type || 'audio/mpeg' });
       meta.put({ key, size: bytes.byteLength, at });
     });
+    // Overwriting an existing key replaces its bytes rather than adding to them.
+    if (approxBytes != null) approxBytes += bytes.byteLength - (existing?.size || 0);
     await evictToBudget();
     return true;
   } catch {
@@ -250,12 +253,23 @@ export async function clipStats() {
  * cannot produce.
  */
 export async function readyKeys(keys) {
-  const want = Array.isArray(keys) ? keys : [];
+  const want = [...new Set(Array.isArray(keys) ? keys : [])];
   if (!want.length || typeof indexedDB === 'undefined') return new Set();
   try {
     const db = await openDB();
-    const have = new Set((await read(db, META, (meta) => meta.getAllKeys())) || []);
-    return new Set(want.filter((k) => have.has(k)));
+    // ONE transaction, one index probe per WANTED key — deliberately not `getAllKeys()`.
+    // That materialized every key in the store on every call, and each key is a JSON array
+    // carrying a whole sentence, so the cost scaled with every deck ever presented rather
+    // than the one being delivered. The readiness poll runs this every 2s while Present is
+    // open, on the same main thread as audio decode — the surface a whole commit went into
+    // proving must not stutter. `getKey` is an index lookup that returns nothing but the
+    // key, so this is O(deck) small reads instead of O(store) deserializations.
+    const tx = db.transaction(META, 'readonly');
+    const meta = tx.objectStore(META);
+    const found = await Promise.all(
+      want.map((k) => reqAsPromise(meta.getKey(k)).then((r) => (r === undefined ? null : k), () => null)),
+    );
+    return new Set(found.filter(Boolean));
   } catch {
     return new Set();
   }
@@ -270,6 +284,7 @@ export async function clearClips() {
       clips.clear();
       meta.clear();
     });
+    approxBytes = 0;
   } catch {
     /* nothing to clear / no storage */
   }
@@ -284,6 +299,13 @@ export async function clearClips() {
 // precisely when it is full, which is when it is finally earning its keep (red team, #1352).
 // Serializing makes every pass read a total that already reflects the one before it.
 let evictChain = Promise.resolve();
+// Running byte total, so a write that lands nowhere near the budget costs NO read at all.
+// `evictOnce` used to open with `clipStats()` — a `getAll()` over the whole meta store — on
+// EVERY clip write, which meant the warm window's writes each materialized every record of
+// every deck ever presented. `null` means "unknown, go ask"; the authoritative read then
+// re-seeds it, so a drifting estimate (another tab writing) self-corrects the moment it
+// matters, which is when we are at or over budget.
+let approxBytes = null;
 function evictToBudget() {
   evictChain = evictChain.then(evictOnce, evictOnce);
   return evictChain;
@@ -298,7 +320,10 @@ function evictToBudget() {
  */
 async function evictOnce() {
   try {
+    // The cheap gate. Only when the estimate says we might be over do we pay for the truth.
+    if (approxBytes != null && approxBytes <= budgetBytes) return;
     const { bytes } = await clipStats();
+    approxBytes = bytes;
     if (bytes <= budgetBytes) return;
     let over = bytes - budgetBytes;
     const db = await openDB();
@@ -311,6 +336,7 @@ async function evictOnce() {
         clips.delete(m.key);
         meta.delete(m.key);
         over -= m.size || 0;
+        if (approxBytes != null) approxBytes -= m.size || 0;
         cur.continue();
       };
     });
@@ -324,6 +350,7 @@ export function __resetForTests() {
   dbPromise = null;
   budgetBytes = DEFAULT_BUDGET_BYTES;
   evictChain = Promise.resolve();
+  approxBytes = null;
 }
 
 /** Test seam: resolve once every queued eviction has run. Eviction is deliberately fired

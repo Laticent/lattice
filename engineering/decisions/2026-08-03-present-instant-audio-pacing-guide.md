@@ -790,3 +790,67 @@ fills beneath the progress edge had reduced the resting track to 2px — on ever
 those with no narration at all. Nobody decided that; it fell out of the implementation, and it
 went unnoticed because every capture taken during the original work had no cached narration to
 show the middle tier. Uniform 8px settles it.
+
+---
+
+## Amendment (2026-08-04): Kokoro prefetches — schedule the hazard, don't ban it
+
+An earlier Munger-inversion pass concluded that Kokoro must be excluded from prefetch, and
+`warm()` returned early for every rung but `openrouter-tts`. The reasoning was sound as far as it
+went: Kokoro is ONE model instance in ONE worker, so synthesis is strictly serial however many
+requests are posted, and a warm pass for the next slide would sit in the worker's FIFO ahead of
+the sentence the room is waiting to hear.
+
+**Right about the hazard, wrong about the remedy.** The ban cost the rung we recommend for a
+*live room* — precisely the rung with no network in the loop — the entire benefit of prefetch. And
+because `narrationReadiness` still treated Kokoro as a clocked voice, the rail's buffered edge
+could never lead the playhead there: it displayed its "audio has run dry" state permanently while
+narration played perfectly. "Fetch ahead → the whole deck" was a silent no-op on-device while the
+Settings copy promised offline delivery.
+
+**A scheduler, not a ban.** `createSerialQueue()` runs exactly one job at a time and holds the
+rest on the MAIN THREAD, where they can still be reordered — a message already posted to the
+worker cannot be. Selection reads `priority.warm` at DEQUEUE time, and that object is shared with
+the request entry in the model, so a playback caller that joins an already-queued prefetch
+**promotes it in place** instead of waiting behind the backlog.
+
+That sharing is the subtle part, and it took a failing test to find: there are **two** dedup
+layers. `synthOne` joins at `inFlightSynths` *above* `startRequest`'s own `liveRequests`, so a
+playback caller that joined at the outer layer never reached the promotion at the inner one. The
+priority object is therefore created by the CALLER and published on both entries, so whichever
+layer a join lands at can promote the same object.
+
+**The honest limit**, stated because it is not zero: preemption is per SENTENCE. A playback
+request arriving mid-inference waits for that one warm sentence to finish, since inference already
+running cannot be canceled. It never waits for the whole backlog, which was the failure mode the
+ban existed to prevent.
+
+**A note on how the first test lied.** The first attempt drove this through an injected test rung
+via `__setRung` — which bypasses `kokoroRung` entirely, and with it the queue. It reported
+`warm:w1 | warm:w2 | warm:w3 | play:PLAYBACK` and would have "proved" the scheduler did not work,
+when in fact no scheduler was in the path at all. The queue is now an exported factory tested
+directly, and the model's half (hand the rung a mutable priority; flip it on a join) is tested
+separately. Same lesson as the e2e spec that passed against an unfixed build: **confirm the
+mechanism under test is actually in the path.**
+
+## Amendment (2026-08-04): the store's two O(everything) paths — mine, not pre-existing
+
+The red team filed these under "pre-existing, logged not owned." That was a misfiling and it is
+worth correcting in the record: `narration-store.js` is new in #1352, so both are defects this
+work introduced, and HARD RULE #18 makes them fixes rather than follow-ups.
+
+1. **`putClip` → `evictToBudget` → `clipStats()` → `getAll()` on every write.** Totaling the
+   store's bytes materialized every metadata record — of every deck ever presented — on each clip
+   the warm window wrote. Now a running total gates it: only when the estimate says the budget
+   might be breached is the authoritative read paid for, and that read re-seeds the estimate, so
+   drift (another tab writing) self-corrects exactly when it matters. The subtle case is an
+   overwrite, where the delta is `new − old` and not `+new`; a test pins it, because getting it
+   wrong makes the store evict for no reason.
+2. **`readyKeys` → `getAllKeys()` over the whole store, every 2 seconds.** Each key is a JSON
+   array carrying a whole sentence, so the readiness poll deserialized the entire origin store on
+   a timer, on the same main thread as `decodeAudioData` — the surface an entire commit went into
+   proving must not stutter. Now one small index probe per sentence of the current deck.
+
+Both were invisible in testing because a fresh store is small. They only bite at the scale the
+feature is designed for, which is the worst kind of defect to ship: it arrives once the user has
+been using it long enough to trust it.

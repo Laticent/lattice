@@ -391,7 +391,13 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     expect(calls).toEqual([]);
   });
 
-  it("is a no-op for the kokoro rung — this prefetch only hides NETWORK latency (openrouter-tts); Kokoro's synthesis shares ONE compute resource (its worker), so prefetching there would compete for it instead of hiding anything (Munger-inversion finding)", async () => {
+  // Kokoro was excluded from prefetch because its synthesis is serial on one worker, so a
+  // warm pass could queue ahead of the sentence the room is waiting to hear. Right about the
+  // hazard, wrong about the remedy: it cost the rung recommended for a LIVE ROOM the whole
+  // benefit of prefetch, and left the rail's prefetch edge permanently unable to lead the
+  // playhead there. The hazard now lives in that rung's own scheduler (`createSerialQueue`:
+  // one job at a time, playback jumps the prefetch backlog), so warming is safe.
+  it('DOES prefetch on the kokoro rung — the serial hazard is handled by its scheduler, not by a ban', async () => {
     const model = createVoiceModel({});
     const calls: string[] = [];
     model.__setRung({
@@ -404,7 +410,23 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     });
     model.warm(['Would-be next slide sentence.']);
     await new Promise((r) => setTimeout(r, 20));
-    expect(calls).toEqual([]);
+    expect(calls).toEqual(['Would-be next slide sentence.']);
+  });
+
+  it('marks prefetch traffic as prefetch, so a serial rung can order it behind playback', async () => {
+    const model = createVoiceModel({});
+    let seen: { warm: boolean } | undefined;
+    model.__setRung({
+      name: 'kokoro',
+      ready: () => true,
+      synth: async ({ priority }: { priority?: { warm: boolean } }) => {
+        seen = priority;
+        return { size: 8, arrayBuffer: async () => new ArrayBuffer(8) };
+      },
+    });
+    model.warm(['Prefetched.']);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(seen).toEqual({ warm: true });
   });
 
   it('caps concurrent prefetch requests at WARM_CONCURRENCY (3)', async () => {

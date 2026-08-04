@@ -132,6 +132,52 @@ describe('narration-store', () => {
 		});
 	});
 
+	// The running byte total behind the eviction gate. `evictOnce` used to open with a
+	// `getAll()` over the whole meta store on EVERY write — so each warm-window write
+	// materialized every record of every deck ever presented, on the same main thread as
+	// audio decode. The estimate makes the common case (well under budget) cost no read at
+	// all; these pin the arithmetic that makes it safe to trust.
+		it('answers for the CURRENT deck without depending on how much else is stored', async () => {
+		// The readiness poll runs this every 2s while Present is open. It used to read every
+		// key in the store — each one a JSON array carrying a whole sentence — so its cost grew
+		// with every deck ever presented rather than with the deck being delivered.
+		for (let i = 0; i < 200; i++) await putClip(`other-deck-${i}`, fakeBlob(16));
+		await putClip('mine-1', fakeBlob(16));
+		await putClip('mine-3', fakeBlob(16));
+		const ready = await readyKeys(['mine-1', 'mine-2', 'mine-3']);
+		expect([...ready].sort()).toEqual(['mine-1', 'mine-3']);
+	});
+
+describe('the eviction gate\'s running total', () => {
+		it('an OVERWRITE replaces the old size rather than adding to it', async () => {
+			setBudgetBytes(1000);
+			for (let i = 0; i < 9; i++) await putClip(`k${i}`, fakeBlob(100));
+			await putClip('big', fakeBlob(400)); // 1300 → over by 300, evicts k0..k2
+			await __evictionsSettled();
+			expect((await clipStats()).bytes).toBeLessThanOrEqual(1000);
+
+			// Rewrite `big` SMALLER. A total that added instead of replacing would now believe
+			// the store is 400 bytes heavier than it is and evict on the next write for no reason.
+			await putClip('big', fakeBlob(100));
+			await __evictionsSettled();
+			const after = await clipStats();
+			expect(after.bytes).toBe(700); // 6 survivors x100 + big at 100
+			expect(await getClip('big')).not.toBeNull();
+		});
+
+		it('stays correct across a clear, so the next write is measured from zero', async () => {
+			setBudgetBytes(1000);
+			for (let i = 0; i < 10; i++) await putClip(`k${i}`, fakeBlob(100));
+			await clearClips();
+			await putClip('fresh', fakeBlob(100));
+			await __evictionsSettled();
+			const stats = await clipStats();
+			expect(stats.count).toBe(1);
+			expect(stats.bytes).toBe(100);
+			expect(await getClip('fresh')).not.toBeNull();
+		});
+	});
+
 	describe('budget', () => {
 		it('defaults to 100 MB and ignores nonsense overrides', async () => {
 			expect(getBudgetBytes()).toBe(DEFAULT_BUDGET_BYTES);

@@ -25,6 +25,31 @@ in patch versions.
 
 ## Unreleased
 
+- **Kokoro prefetches now — the serial hazard is scheduled around instead of banned.** On-device
+  synthesis is one model in one worker, so requests run strictly one at a time; prefetch was
+  excluded from that rung entirely because a warm pass for the next slide would queue ahead of the
+  sentence the room was waiting to hear. That was right about the hazard and wrong about the
+  remedy: it cost the rung recommended for a **live room** — the one with no network in the loop —
+  the whole benefit of prefetch, and left the Present rail's buffered edge permanently unable to
+  lead the playhead there, so it sat in its "audio has run dry" state while narration played
+  perfectly. **Fetch ahead → the whole deck** was a silent no-op on-device for the same reason,
+  while the setting's copy promised offline delivery. The rung now runs exactly one job at a time
+  with the rest queued on the main thread where they can still be *reordered*, and playback jumps
+  the prefetch backlog. A playback request that joins a sentence prefetch already started
+  **promotes it in place** rather than waiting behind the queue. The honest limit: preemption is
+  per sentence — a playback request arriving mid-inference waits for that one warm sentence,
+  because inference already running cannot be canceled. It never waits for the whole backlog,
+  which was the failure the ban existed to prevent.
+
+- **The narration cache stopped scaling with every deck you have ever presented.** Two paths in
+  the on-device store were O(everything stored) rather than O(the deck being delivered) — both on
+  the same main thread as audio decode. Every clip write opened with a full `getAll()` over the
+  metadata store to total its bytes — so each write of the warm window materialized every record
+  of every deck. And the readiness poll, which runs every 2 seconds while Present is open, read
+  **every key in the store**, each one a JSON array carrying a whole sentence. Writes now keep a
+  running total and only read the store when that total says the budget might be breached, and
+  readiness does one small index probe per sentence of the current deck.
+
 - **The Present rail is a real scrubber now: one height, three strengths of one token.** It
   shipped with the three tiers separated by *thickness* (2px track / 3px prefetch / 5px progress)
   because the obvious tonal encoding — `--accent` against `--border` — collapses in eleven of the
