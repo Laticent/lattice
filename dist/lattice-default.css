@@ -18477,7 +18477,38 @@ section.illegible > .illegible-tab {
 }
 /* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
    stays correct at any type scale or preset. */
-section.overflow.illegible > .illegible-tab { transform: translateY(100%); }
+/* ── THE CORNER IS A STACK, NOT A SLOT ────────────────────────────────────────
+   Three things want `top: 0; right: 0`, and until the HARD RULE #25 round-4 passes
+   only two of them knew about each other.
+
+   The third is the STATUS STAMP — `confidential` / `wip` / `draft` / `tbd` /
+   `redacted` / `archived` / `pinned` / `revised`, plus every `stamp-*` shape — which
+   base.variants.css paints on `section::before` at the identical coordinates and at
+   `z-index: 100`, over the tabs' `50`. It is a BASE MODIFIER, not a component, which is
+   exactly why the survey behind the pill's placement missed it: that survey read
+   `lib/components/**`. And `confidential` is the marking most likely to ride a
+   DELIVERED deck, which is the reader register's whole reason to exist.
+
+   Rendered, before this rule: an overflowing `content confidential` slide read
+   "Conten CONFIDENTIAL" — the stamp painting over the pill. `stamp-notch` spans the
+   full top edge and swallowed the pill entirely, so a reader got a SILENT CLIP, the one
+   outcome the register exists to prevent.
+
+   The answer is not a fourth corner. Stack, using the idiom this file already had:
+   status stamp · clip tab · legibility tab, each step `100%` of the tab's own height so
+   it holds at any type scale or preset.
+
+   The legibility offset used to key on `.overflow`, correct only while a drawn tab
+   implied geometric overflow. It does not any more — the tab is drawn on `.clip-marked`,
+   and the population this change ADDED is precisely `clip-marked && !overflow`, so the
+   two tabs stacked at zero offset on exactly the new case. */
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
+  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon,
+  .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin) > .overflow-tab { transform: translateY(100%); }
+section.clip-marked > .illegible-tab { transform: translateY(100%); }
+section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised,
+  .stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon,
+  .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin).clip-marked > .illegible-tab { transform: translateY(200%); }
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════
