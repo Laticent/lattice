@@ -358,12 +358,16 @@ in patch versions.
   split and each slide's class (`lib/core/slide-class-spans.js`). That reconstruction is a second
   answer to a question the renderer already answers, and it disagreed in three ways — each the
   #1326 shape of baked ink against a live chip that does not match it.
-  **No committed deck's exported bytes change**, and the number is measured rather than assumed:
+  **No committed deck's Mermaid bake changes**, and the number is measured rather than assumed:
   every ` ```mermaid ` fence in the tree (119 of them) resolves the same band before and after.
   Two of the three divergences are live in the corpus but land on slides that carry no diagram,
-  and the third has no committed instance at all. What ships here is the closed shape and the
-  gate, not a repaired artifact — the fix deck and the integration fixture are where the wrong
-  bands were reproduced:
+  and the third has no committed instance at all — the fix deck and the integration fixture are
+  where the wrong bands are reproduced.
+  **One committed artifact does change, and it was wrong**: the Export-to-Marp bake of
+  `lib/components/math/math/math.gallery.md` emitted 18 separators for a deck Lattice renders as
+  16 slides, so the exported Marp deck carried a phantom slide. The shared parser removes it —
+  17 separators, and the baked deck now re-renders to the same 16 sections as the original. That
+  is an export-pipeline byte change and is called out for sign-off rather than folded in quietly:
   - **A global `<!-- class: X -->` directive was invisible.** Marp has two class forms: spot
     `_class` (this slide) and a bare `class` that carries forward from its slide to the end of
     the deck. Only the spot form was read, so a deck that switches to a dark canvas mid-way

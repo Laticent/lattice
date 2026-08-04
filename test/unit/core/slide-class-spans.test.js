@@ -344,3 +344,45 @@ describe('slideClassSpans — the slide COUNT the engine actually renders', () =
     }
   });
 });
+
+/**
+ * Line endings and a BOM — the input the boundary path forgot to reconcile.
+ *
+ * The engine normalizes at its door (lib/engine/index.js): it strips a leading BOM
+ * and folds `\r\n` / lone `\r` to `\n`, because a lone CR changed 118 of 119
+ * committed decks and a BOM defeats the `^---` anchor so front matter reads as
+ * body (#1357). The boundary modules reconciled their markdown-it OPTIONS with the
+ * engine's and left the INPUT unreconciled — the same divergence one level up.
+ *
+ * This module cannot normalize by rewriting: it returns offsets into the string
+ * the CALLER holds. So it reads a normalized copy and counts lines over the real
+ * terminators, and these pin that it lands in the same place either way.
+ */
+describe('slideClassSpans — CRLF, lone CR, and a BOM resolve like the engine', () => {
+  const body = ['<!-- _class: dark -->', '', '## A', '', '@MARK', '', '---', '', '## B', '', '@MARK', ''].join('\n');
+  const LF = deck(body);
+
+  for (const [name, src] of [
+    ['LF', LF],
+    ['CRLF', LF.replace(/\n/g, '\r\n')],
+    ['lone CR', LF.replace(/\n/g, '\r')],
+    ['BOM + LF', `\uFEFF${LF}`],
+    ['BOM + CRLF', `\uFEFF${LF.replace(/\n/g, '\r\n')}`],
+  ]) {
+    test(`${name} reconstructs the same slides the engine renders`, () => {
+      assert.equal(slideClassSpans(src).spans.length, sectionClasses(src).length,
+        'markdown-it folds `\\r` internally, so its token.map counts NORMALIZED lines — '
+        + 'a raw `split(\'\\n\')` over CR-delimited text sees one enormous line and every '
+        + 'boundary lands in the wrong place');
+      assert.deepEqual(classesAtMarkers(src), ['dark', ''],
+        'and the offsets must still index the CALLER\'s bytes, not a normalized copy');
+    });
+  }
+
+  test('a BOM does not turn front matter into a slide of raw YAML', () => {
+    // `^---` does not match `\uFEFF---`, so the front matter reads as body — and
+    // `split: rule` silently becomes the default `headings` at the same time.
+    const src = `\uFEFF${deck(['## Only', '', 'text', ''].join('\n'))}`;
+    assert.equal(slideClassSpans(src).spans.length, sectionClasses(src).length);
+  });
+});

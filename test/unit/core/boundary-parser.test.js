@@ -24,10 +24,12 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const MarkdownIt = require('markdown-it');
 const { installMath } = require('../../../lib/engine/math');
 const { installSlidePipeline } = require('../../../lib/engine/slides');
-const { createBoundaryParser, boundaryParser } = require('../../../lib/core/boundary-parser');
+const { createBoundaryParser, boundaryParser, normalizeSource } = require('../../../lib/core/boundary-parser');
 
 /**
  * The engine's parser, assembled the way `buildMd` (lib/engine/index.js) does.
@@ -50,13 +52,41 @@ function engineLikeParser() {
 }
 
 const enabledBlockRules = (md) =>
-  md.block.ruler.__rules__.filter((r) => r.enabled).map((r) => r.name).sort();
+  md.block.ruler.__rules__.filter((r) => r.enabled).map((r) => r.name);
 
 describe('boundary-parser ≡ the engine, where boundaries are decided', () => {
-  test('the same block rules are enabled, by name', () => {
+  test('the same block rules are enabled, in the same ORDER', () => {
     assert.deepEqual(enabledBlockRules(createBoundaryParser()), enabledBlockRules(engineLikeParser()),
       'a block rule the engine has and this does not (or vice versa) is a boundary the two '
       + 'disagree about — which is how a `$$…$$` equation came to invent a slide');
+  });
+
+  test('the same markdown-it OPTIONS, which the rule names cannot show', () => {
+    // The rule-name comparison alone is not enough, and the hole is the big one:
+    // flipping `html: true` to `false` deletes every `html_block` token — i.e.
+    // every directive this parser exists to read — while leaving the enabled rule
+    // NAMES identical. Options are half the configuration being hand-copied.
+    const mine = { ...createBoundaryParser().options };
+    const theirs = { ...engineLikeParser().options };
+    // `highlight` is a renderer callback the engine supplies and this does not.
+    // It cannot move a block boundary, and comparing function identity would
+    // fail for a reason that means nothing.
+    delete mine.highlight;
+    delete theirs.highlight;
+    assert.deepEqual(mine, theirs);
+  });
+
+  test('the door normalization is spelled the same as the engine door', () => {
+    // `normalizeSource` is a hand-copy of lib/engine/index.js's own line. The
+    // boundary path reconciled its parser OPTIONS with the engine's and left the
+    // INPUT unreconciled, which is the same divergence one level up: a lone `\r`
+    // desyncs markdown-it's folded `token.map` from a caller's raw line offsets,
+    // and a BOM defeats the `^---` anchor so front matter reads as body.
+    const engineDoor = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'engine', 'index.js'), 'utf8');
+    assert.match(engineDoor, /\.replace\(\/\^\uFEFF\/, ''\)\.replace\(\/\\r\\n\?\/g, '\\n'\)/,
+      "the engine's door normalization moved — lib/core/boundary-parser.js copies it");
+    assert.equal(normalizeSource('\uFEFFa\r\nb\rc\nd'), 'a\nb\nc\nd');
+    assert.equal(normalizeSource(undefined), '');
   });
 
   test('`math_block` is enabled — the rule whose absence was the defect', () => {

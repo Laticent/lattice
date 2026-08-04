@@ -432,19 +432,27 @@ Three structural answers, in the order they close the gap:
    "mirrors the lib/engine parser"; a comment cannot make that true. It carries the
    `math_block` rule (`lib/core/math-block-rule.js`, split out of the KaTeX plugin so
    the grammar has one definition and no render dependency).
-2. **One directive grammar.** `lib/core/comment-directive.js` owns the
-   `<!-- key: value -->` parse; `lib/engine/slides.js` binds the engine's vocabulary to
-   it, `slide-class-spans.js` binds `class` alone. Directives are read off the TOKEN
-   STREAM, so a `fence` or `code_inline` token is prose — as the renderer already
-   treats it.
+2. **One directive grammar on the RENDER + BAND path.** `lib/core/comment-directive.js`
+   owns the `<!-- key: value -->` parse; `lib/engine/slides.js` binds the engine's
+   vocabulary to it, `slide-class-spans.js` binds `class` alone. Directives are read off
+   the TOKEN STREAM, so a `fence` or `code_inline` token is prose — as the renderer
+   already treats it. Two source-side readers of the same syntax survive OUTSIDE that
+   path and are tracked rather than claimed fixed: the deck linter
+   (`lib/authoring/lint-core.js`) and the editor's autocomplete
+   (`docs/src/playground/slide-context.js`) each still carry a `_class:`-only line regex
+   with all three defect shapes intact. Neither decides a palette, which is why they are
+   #1383 and not this change.
 3. **One gate.** `test/unit/core/slide-class-span-parity.test.js` renders the WHOLE
    committed corpus through the real engine and asserts the reconstruction matches its
    sections — count and class, ~6,600 slides. None of the three defects was reachable
    by a test that only covers cases someone thought to write down; all three fail this.
 
 The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
-several at render time. It is safe for the band question because every expanded copy
-carries the class of the slide it was copied from. The gate detects it off the token
+several at render time. It is safe for the BAND because every expanded copy carries the
+class of the slide it was copied from — but not for the COUNT in one case: `focusSteps`
+groups on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a focus
+slide containing a nested `---` (inside a blockquote or a list) renders one section more
+than it should. Pre-existing engine bug, tracked at #1387. The gate detects it off the token
 stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
 prose must not be excused from the slide-count check.
 

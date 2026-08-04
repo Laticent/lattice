@@ -36,6 +36,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const latticeEngine = require('../../../lib/engine');
 const { boundaryParser, FRONT_MATTER } = require('../../../lib/core/boundary-parser');
 const { readDirectiveComment } = require('../../../lib/core/comment-directive');
@@ -45,17 +46,20 @@ const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
 const REPO = path.join(__dirname, '..', '..', '..');
 const engine = latticeEngine.createEngine();
 
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.scratch', 'coverage']);
-
-/** Every committed Markdown file with front matter — i.e. everything that renders. */
-function corpus(dir = REPO, out = []) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) corpus(p, out);
-    else if (entry.name.endsWith('.md')) out.push(p);
-  }
-  return out;
+/**
+ * Every COMMITTED Markdown file — asked of git, not of the filesystem.
+ *
+ * A directory walk finds build output too, and it did: 45 generated decks under
+ * `docs/public/playground/v/<hash>/exemplars/**` (gitignored, staged at docs-build
+ * time) were being rendered by this gate. That makes the corpus size depend on
+ * whether the docs were built, so the number in a report is not reproducible, and
+ * it points a failure at a path that does not exist in git. `git ls-files` is the
+ * definition the word "committed" already carries.
+ */
+function corpus() {
+  return execFileSync('git', ['ls-files', '-z', '--', '*.md'], { cwd: REPO, encoding: 'utf8' })
+    .split('\0').filter(Boolean).map((rel) => path.join(REPO, rel))
+    .filter((p) => fs.existsSync(p)); // a deleted-but-staged path is not a deck
 }
 
 /**
