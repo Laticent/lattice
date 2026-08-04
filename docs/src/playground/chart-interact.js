@@ -29,6 +29,7 @@
 // node to point at) and gives real flip/shift/collision handling instead of a
 // hand-rolled clamp. A direct dependency (not borrowed transitively from Radix).
 import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
+import { frameGeom as sharedFrameGeom } from './frame-geom.js';
 
 const REDUCED = (() => {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -126,19 +127,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
 
   const doc = () => { try { return getFrame().contentDocument; } catch { return null; } };
 
-  // The frame's on-screen rect PLUS its CSS-transform scale. A preview host can `transform: scale()`
-  // the iframe (the Studio scales it to fit its pane), so the iframe's OUTER rect is scaled while its
-  // INNER layout coords (what `elementFromPoint` / a mark's `getBoundingClientRect` speak) are not.
-  // Every parent↔frame coordinate hop must bridge that scale: parent→inner divides by S, inner→parent
-  // multiplies. `offsetWidth` is the untransformed layout width, so `rect.width / offsetWidth` = S
-  // (1 on an unscaled host — the Playground / Drawing-Board — so this is a no-op there).
-  function frameGeom() {
-    const f = getFrame();
-    if (!f) return null;
-    const fr = f.getBoundingClientRect();
-    const S = f.offsetWidth ? fr.width / f.offsetWidth : 1;
-    return { fr, S };
-  }
+  // The frame's on-screen rect PLUS its CSS-transform scale — see ./frame-geom.js for the why.
+  // Lifted out of this closure when the Guide rung became a second consumer: two copies of a
+  // coordinate bridge is how they end up disagreeing by a pane width (HARD RULE #15).
+  const frameGeom = () => sharedFrameGeom(getFrame());
 
   // ── generic mark access (one code path for every chart kind) ────────────────
   // Marks are the addressable data elements INSIDE the chart <svg> (pie wedges,

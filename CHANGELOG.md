@@ -25,6 +25,157 @@ in patch versions.
 
 ## Unreleased
 
+- **Designed, not built: giving a shared deck a voice.** `engineering/decisions/2026-08-04-shared-deck-narration-audio.md`
+  answers the five open questions on #1393 — format (inline data URIs), size (opt-in, with the
+  megabytes named before the write), staleness (ship what is cached, report coverage, never
+  refuse), whose voice (the author's, baked at export), and pace (already travels via front
+  matter) — and specifies the build. It is deliberately not implemented: it changes the bytes of
+  an exported artifact, which is a maintainer sign-off gate, and it is an export-format fork that
+  bears on #757.
+
+- **Guide — Present can now point at what it is narrating.** A third dock toggle beside CC and
+  Voice: CC shows the words, Voice speaks them, Guide shows you where to look. It works on every
+  existing deck with no authoring, because the target is resolved from the sentence being spoken
+  against the live slide. Two things decide whether it feels right and both are structural. It
+  points INTO an iframe from a stage that never enters one, using the cross-frame bridge the chart
+  layer already computed (now shared rather than duplicated). And there is exactly ONE clock:
+  the cursor moves when read-aloud says the cue changed and at no other time, so when synthesis
+  stalls the cursor holds instead of drifting onto the wrong sentence. **When the narration says
+  something the slide does not show** — a slide narrated by a speaker note — Guide points at
+  nothing rather than guessing: the cursor hides, and the real pointer comes back with it, because
+  taking a viewer's pointer away is only paid for by putting a better one in its place. Matching is
+  containment ONE WAY (the block must contain the sentence, never the reverse) and reads letters of
+  every script, so a heading or an inline `code` chip whose words recur in the prose beneath it no
+  longer steals the cursor, and a Cyrillic or CJK deck resolves normally. The real pointer hides
+  after a few seconds of stillness — only over the slide and its backdrop, never over the dock, so
+  Pause is always findable — and returns instantly on any movement.
+  **The pointer never comes to rest on the words it is reading.** Vetrina aims a cue INSIDE its
+  target's box, which is right for a walkthrough pointing at a button — that is where a click
+  lands — and exactly wrong for a sentence: the arrow tip lands mid-first-line and its body covers
+  the opening words. Guide now places it in the nearest whitespace that clears EVERY block on the
+  slide, not merely its own target (the obvious spot beside a heading is where the paragraph is),
+  solved once per cue in the slide's own coordinates so it rides the preview's scale for free. The
+  cursor is also born hidden and arrives before it appears, rather than materializing at Vetrina's
+  spawn point — the center of the screen, which in Present is the middle of the slide card.
+
+- **A deck can declare its own presentation pace, and it travels with the deck.** New front-matter
+  register `pace: brisk | natural | deliberate` — how long a self-presenting deck holds on a newly
+  arrived slide before it speaks. The beat itself shipped in #1352 reading `localStorage`, which
+  made the rhythm a property of the *machine doing the playing*: an author's deliberately slow,
+  weighty deck played at whatever pace the recipient's browser happened to hold, and the
+  directorial choice was lost the moment the deck was shared. Resolution order, stated once and
+  pinned by tests: an explicit millisecond override (the presenter's live "faster/slower", never
+  persisted into the artifact) → the deck's `pace:` → the workspace preset → `natural`. So the
+  workspace preset is now a DEFAULT for decks that declare nothing, not an override of one that
+  does. The value survives both export carriers (the `.lattice` envelope and the baked
+  front-matter block), the editor completes both the key and its values, and a typo is caught by a
+  new `unknown-pace` lint rule rather than silently falling back to the viewer's setting — which
+  is the one register whose typo is invisible on the author's own machine. The rule reads the
+  register character-for-character the way the resolver does, pinned by a shared table: a rule
+  that parses differently from the code that consumes it reports on a different deck than the one
+  that will play, and the first version went silent on exactly the shapes the resolver discards
+  (`pace: brisk.`, a mis-spelled value carrying a trailing YAML comment, a BOM'd deck). A trailing
+  YAML comment is now stripped rather than folded into the value, so an annotated pace keeps
+  working.
+
+- **The Present rail's buffered range is a hatch, not a third tone — so it clears WCAG contrast in
+  all 36 palette/mode combinations.** The three-tone ladder could not: measured against 1.4.11's
+  3:1, track-to-buffered was below it in 15 of 36 (worst 1.87) and buffered-to-played in 25 of 36
+  (worst 1.92), and a brute-force search over the whole blend space tops out at **2.07:1** — a
+  capacity limit, not a tuning problem, because `--accent` against `--bg` is only 4.35:1 in the
+  tightest palette and that is the entire range there is to split three ways. The buffered range is
+  now drawn in the **same full-strength ink as the played range** and told apart from it by
+  CONTINUITY — played is solid, buffered is striped. A pattern is not a color relationship, so no
+  palette can flatten it, and the ink-versus-track relationship is the one already proven to pass
+  36/36. The current-slide track tint drops 30% → 26%, because the hatch is drawn over it and at
+  30% it fell to 2.99:1 in `mustard light`; that cue is carried by the playhead mark anyway (4.35:1
+  against anything beneath it), so the tint only reinforces. The tier values now live in one module
+  the rail and the sweep both read, and **the sweep is committed**
+  (`docs/scripts/sweep-rail-contrast.mjs`) — it has been written three times and been wrong twice,
+  so it now refuses to report at all if the palette switch is not taking effect, and it reads the
+  ink OUT of the shipped gradient rather than from a second constant that restated it. The hatch's
+  phase is pinned to the left edge: a repeating gradient's line runs through the box center, so an
+  animated width otherwise crawls the whole pattern sideways on every advance instead of simply
+  moving its end.
+
+- **Present's readiness poll asks about the window ahead of the playhead, not the whole deck.**
+  Every 2 seconds, for as long as Present was open with Voice on, it built a cache key for every
+  sentence in the deck and scored every one of them — on the same main thread as audio decode.
+  It never needed to: the rail's buffered edge is contiguous from the playhead by construction
+  (it stops at the first slide that isn't fully cached, because you would stall at that gap
+  before reaching anything past it), so slides far ahead cannot change what is drawn until you
+  get there. The REPEATING question is now bounded by the lookahead depth plus a small margin,
+  which removes the deck-size term from it; the store's single `getAllKeys` stays, and is now
+  comfortably the right primitive. What the window may NOT do is shrink what the rail draws:
+  readiness reads the on-device store, so a deck prepared in an earlier session is cached end to
+  end, and a windowed poll that zeroed everything outside its bounds reported a 5-slide runway on
+  a fully ready 60-slide deck — the optimization eating the indicator it was optimizing. So there
+  is one full sweep when Present opens, and the windowed refreshes MERGE into what is already
+  known rather than replacing it. Measured on real Chromium with the bench committed
+  (`docs/scripts/bench-narration-readiness.mjs`): ~0.5–0.6 → ~0.3 ms on a fresh device, and
+  ~19–25 → ~15 ms on a 5000-sentence deck against a 5000-record store. Those are ranges, not
+  points, because re-running the bench on the same machine moves the whole-deck figure by several
+  milliseconds; the gain is modest once the store is populated, because the store read dominates.
+  The bench also models the poll tick rather than calling the shipped `narrationReadiness`
+  (the store, the key format and the browser are real; the loop around them is not).
+
+- **Leaving a slide now stops prefetch that has not started — without touching a request already
+  in flight.** Nothing a presenter did canceled queued narration synthesis, so closing Present
+  or walking to another slide left the device grinding through sentences for a slide the deck had
+  left. On the cloud rung that is arguably right (the request is billed either way, and letting it
+  finish and cache is what makes a slow link self-heal); on the on-device rung the cost is the
+  serial worker's next slot, which is exactly what the presenter is about to need. These were one
+  signal and are now two: a **drop** (don't *start* queued work nobody wants) is honored, an
+  **abort** (kill a paid request mid-flight) is still deliberately not — that was tried once and
+  meant nothing ever reached the cache and the deck went silent. A sentence playback has claimed
+  is never droppable, and a later prefetch pass re-arms the channel, so navigating from slide 3
+  does not drop what slide 4 just asked for.
+
+- **A re-warmed sentence can be promoted again, so on-device playback stops waiting behind the
+  prefetch backlog.** Kokoro synthesizes one sentence at a time, and playback jumps a queued
+  backlog by flipping a shared `priority` object the queue reads at dequeue time. That only
+  works while every layer holding the sentence references the *same* object — and each caller
+  was minting its own. A warm whose 20s patience expired settled its outer dedup entry while
+  the request and its queued job lived on to the 45s ceiling, so the next prefetch pass found
+  nothing, made a second priority object, and the playback caller that joined promoted the
+  detached copy: the job in the queue still read "prefetch" and ran in backlog order. The
+  precondition is a warm slower than the patience window, i.e. the q8/WASM no-WebGPU path —
+  exactly the rung where prioritization is the entire point. Priority is now one object per
+  sentence for as long as anything can still be reordered.
+
+- **Autoplay no longer hangs when two slides in a row narrate identically.** The effect that
+  starts a newly-arrived slide's reader was keyed on the reader's `track`, and `track` is
+  memoized on its text — so two consecutive slides that resolve to the same spoken words (the
+  same speaker note, two content-free slides) produced the same object, React bailed out of the
+  commit, the effect never re-ran, and the presentation stopped dead with no error and no way
+  forward but the presenter's own hand. Present now carries the slide index alongside the text,
+  so a navigation always commits and the reader is always started for the slide that actually
+  arrived; when the text repeats, the reader is not rebuilt at all, just replayed. That record's
+  identity is now the trigger, so it changes only when the narration did — a fresh object for an
+  unchanged slide would re-run the advance effect mid-beat, clear the pending timer and hang the
+  chain through a new door. Manual prev/next/jump still never auto-play.
+
+- **A walkthrough cue now keeps asking where its target is, instead of remembering.** On the
+  production Studio a spotlight ring rendered around a pane-width of empty space, its edge cut
+  at the splitter, while the cursor orbited a stale center — reported as geometry resolved in
+  the wrong coordinate space. Measured on the real surface it is neither: the stage layer sits
+  exactly on the viewport with no transformed ancestor. It is a **stale rect**. A tour step that
+  closes a panel and then circles the pane it just widened reads that pane's box *before* the
+  host's own setter has committed, and a cue positioned from fixed pixels never corrects itself
+  — so it was wrong for its whole 1.7s life. Cues now re-read their target every frame while
+  they are on screen: the ring repaints, and the cursor's glide re-aims mid-flight. The
+  spotlight also draws `border-box`, so its 3px border sits inside the target rather than
+  making the ring 6px larger than the thing it names. `Target` widens to accept any live rect
+  source (`{ getBoundingClientRect() }`) — every element already satisfies it, so nothing
+  changes for existing tours, and a host can now aim a cue at something the library cannot
+  reach with a selector without teaching it anything about the host. Three answers now mean
+  "nowhere" rather than a position, so the documented "let the cursor settle, don't snap to the
+  origin" guard actually holds for a host provider: a rect that throws, one carrying a `NaN`
+  (which used to poison the layer for the rest of the run), and a zero-area one — which is how a
+  cross-frame source says its frame has gone away. A teardown mid-glide now settles the `point()`
+  promise instead of leaving it pending forever, and `setCursorVisible()` lets a host that cannot
+  always resolve a target hide the pointer rather than park it on the last thing it could.
+
 - **Kokoro prefetches now — the serial hazard is scheduled around instead of banned.** On-device
   synthesis is one model in one worker, so requests run strictly one at a time; prefetch was
   excluded from that rung entirely because a warm pass for the next slide would queue ahead of the

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Monitor, MousePointer2, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
@@ -8,8 +8,10 @@ import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
+import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import { createStage, resolveTheme, type Stage as VetrinaStage } from '@/lib/vetrina';
 import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
 // The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
 // bundled to the browser via read-along-core — the SAME kernel the CLI/export
@@ -26,9 +28,11 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
+import { cueDisplayText, guideTargetFor } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { mergeReadiness, readinessWindow } from './readiness-window';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
@@ -112,6 +116,10 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const [rehearse, setRehearse] = React.useState(false); // Practice mode — folded into Present (plan §line 266)
 	const [elapsed, setElapsed] = React.useState(0); // rehearsal seconds
 	const [captionsOn, setCaptionsOn] = React.useState(true); // CC — show/hide the caption crawl (independent of voice)
+	// GUIDE — the third rung (#1397). CC shows the words, Voice speaks them, Guide points at the
+	// part of the slide being narrated. Independent of both, and off by default: it is a delivery
+	// flourish, not something to surprise a presenter with.
+	const [guideOn, setGuideOn] = React.useState(false);
 	const [muted, setMuted] = React.useState(true); // Voice — muted by default (boardroom-safe); captions still run on the silent cadence
 	// Quiet Bloom (S4): the chrome is quiet at rest (Play + position + section title + thin
 	// rail) and BLOOMS the arrows / CC / Voice / caption on intent (pointer move, wheel, key,
@@ -123,6 +131,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// current chart, re-pinned after each slide render (onRender → onSlide), plus number-key reveal
 	// routed through the presenter key handler. The card is the positioning stage; the frame lives in it.
 	const cardRef = React.useRef<HTMLDivElement>(null);
+	const dialogRef = React.useRef<HTMLDivElement>(null);
 	const chartDetailRef = React.useRef<ChartDetailHandle>(null);
 
 	// Reader projection — FAIL CLOSED (design §6.3). A registry (tag-driven) lens routes through the
@@ -224,7 +233,20 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// slide's text only while it is NOT being read — otherwise the swap would rebuild
 	// the track, stop playback, and (worst) hang autoplay on the slide, since the
 	// teardown fires no onFinish. The projection is picked up on the next slide instead.
-	const [narrationText, setNarrationText] = React.useState('');
+	//
+	// It is a RECORD — `{ idx, text }` — not a bare string, and that is load-bearing (#1394).
+	// The auto-advance effect below needs a signal meaning "the reader is now ready for the
+	// slide we just moved to". A bare string cannot say that: React bails out of the whole
+	// re-render when a `useState` setter is handed an equal string, so two consecutive slides
+	// whose narration resolves IDENTICALLY (the same speaker note, two contentless slides)
+	// produced no commit, no new track, and therefore no effect — `autoAdvanceRef` stayed
+	// armed, the new slide never spoke, and the chain was dead until the presenter stepped in.
+	// A fresh record commits on every navigation regardless of what the text says, while the
+	// `track` memo still keys on the STRING, so identical text keeps the same track object and
+	// the reader is not needlessly torn down.
+	const [narration, setNarration] = React.useState<{ idx: number; text: string }>({ idx: -1, text: '' });
+	const narrationText = narration.text;
+	const setNarrationText = React.useCallback((text: string) => setNarration((n) => (n.text === text ? n : { idx: n.idx, text })), []);
 	const playingRef = React.useRef(false);
 	// Autoplay intent (chain across slides) + a per-advance flag. Declared HERE (read by
 	// the projection-upgrade guard below) though set later; the guard runs post-commit
@@ -233,8 +255,18 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const autoplayRef = React.useRef(false);
 	autoplayRef.current = autoplay;
 	const autoAdvanceRef = React.useRef(false);
+	// The record's IDENTITY is the advance effect's trigger, so it must change only when the
+	// narration actually did. This effect fires on `set` as well as `clamped` (the lens can
+	// re-derive the slide array without the deck changing), and a fresh `{idx,text}` object for
+	// an unchanged pair would re-run the advance effect mid-beat: its cleanup clears the pending
+	// timer and drops `holding`, the body then bails on the already-consumed `autoAdvanceRef`,
+	// and the chain dies silently — the #1394 symptom through a new door. `setNarrationText`
+	// already guards its half; this is the other half.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: navigation trigger (slide/lens); narrationAt read via ref so a projection landing doesn't re-fire this.
-	React.useEffect(() => { setNarrationText(narrationAtRef.current(clamped)); }, [clamped, set]);
+	React.useEffect(() => {
+		const text = narrationAtRef.current(clamped);
+		setNarration((n) => (n.idx === clamped && n.text === text ? n : { idx: clamped, text }));
+	}, [clamped, set]);
 	// Projection-landing upgrade: swap the CURRENT slide's fallback narration for the
 	// richer DOM-projection text once it resolves — but ONLY when the slide is idle and
 	// NOT in an autoplay run. During autoplay (including the brief between-slides hand-off
@@ -344,20 +376,26 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			},
 		},
 	);
-	// After an autoplay advance, start the NEW slide's reader. Keyed on `reader.track`,
-	// NOT `clamped` — this is the #904 fix. Since narration is async STATE, the slide
-	// index changes ONE commit before the track (and thus the reader) is rebuilt for the
-	// new text; a play() fired on the index-change commit (the old `[clamped]` + rAF)
-	// raced that rebuild and, on a loaded main thread, ran on a reader the pending rebuild
-	// then tore down — reader.playing=false, no caption, chain frozen (the "two slides
-	// then stops" report). `useReadAloud` is called before this effect, so its per-track
-	// rebuild effect is registered first and runs first in the SAME commit; playing here
-	// (no rAF) therefore always hits the freshly-built reader, deterministically, on fast
-	// and slow devices alike. The autoAdvanceRef guard keeps manual prev/next/jump (which
-	// also change the track) from auto-playing. (Edge: two ADJACENT slides whose narration
-	// is byte-identical share a track object, so this wouldn't re-fire — the skip-empty
-	// effect covers identical EMPTY slides; identical non-empty adjacent narration is a
-	// pathological case a real deck doesn't hit, tracked but not handled here.)
+	// After an autoplay advance, start the NEW slide's reader. Keyed on the NARRATION RECORD,
+	// NOT on `clamped` and no longer on `reader.track`.
+	//
+	// Not `clamped` — the #904 fix. Narration is async STATE, so the slide index changes ONE
+	// commit before the reader is rebuilt for the new text; a play() fired on the index-change
+	// commit raced that rebuild and, on a loaded main thread, ran on a reader the pending
+	// rebuild then tore down — reader.playing=false, no caption, chain frozen (the "two slides
+	// then stops" report).
+	//
+	// Not `reader.track` either — the #1394 fix. `track` is memoized on its TEXT, so two
+	// consecutive slides narrating identically produced the same object, the effect never
+	// re-ran, and autoplay hung there permanently. The record commits once per navigation
+	// whatever the text says, which is the honest "a new slide arrived" signal; and because it
+	// commits in the same pass that (re)builds the reader — `useReadAloud` is called before
+	// this effect, so its per-track rebuild effect is registered first and runs first in the
+	// SAME commit — the reader is always ready by the time we play. When the text repeats, no
+	// rebuild is needed at all and the intact reader is simply replayed from the top.
+	//
+	// The autoAdvanceRef guard still keeps manual prev/next/jump from auto-playing, and it is
+	// what makes the extra fires this key can produce (a projection landing) free.
 	const readerRef = React.useRef(reader);
 	readerRef.current = reader;
 	playingRef.current = reader.playing;
@@ -376,14 +414,25 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	}, []);
 	// How long to hold on arriving at the CURRENT slide. Read through a ref by the
 	// auto-advance effect so a pref change never re-fires that effect mid-transition.
+	// The deck's OWN declared rhythm. Memoized on the front-matter block rather than derived
+	// from the source, so an author typing in the editor does not re-create this on every
+	// keystroke and thrash the beat effect that reads it.
+	const deckPace = React.useMemo(() => frontMatterPace(frontMatter), [frontMatter]);
 	const beatForArrival = React.useCallback((): number => {
 		const md = set[clamped] ?? '';
 		const kind = isSectionBoundary(md) ? 'section' : 'slide';
-		return slideBeatMs(kind, pace.name, kind === 'section' ? pace.section : pace.slide);
-	}, [set, clamped, pace]);
+		// RESOLUTION ORDER (lib/core/resolve-pace.mjs states it once):
+		//   ms override → deck `pace:` → workspace preset → natural.
+		// The deck beats the workspace preset, which is the whole point: a deliberately slow,
+		// weighty deck must not play brisk because the recipient's browser happens to hold that.
+		// The presenter keeps a live escape hatch in the exact-millisecond override, which
+		// `slideBeatMs` applies ahead of any name and which never persists into the artifact.
+		const name = resolvePaceName(deckPace, pace.name) as PaceName;
+		return slideBeatMs(kind, name, kind === 'section' ? pace.section : pace.slide);
+	}, [set, clamped, pace, deckPace]);
 	const beatForArrivalRef = React.useRef(beatForArrival);
 	beatForArrivalRef.current = beatForArrival;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `reader.track` is the rebuild signal (the new slide's reader is ready once it changes); reader is read via ref by design.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `narration` is the arrival signal (a fresh record per navigation, committed alongside the reader's rebuild); reader/pace are read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
 		autoAdvanceRef.current = false;
@@ -423,7 +472,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			beatTimerRef.current = 0;
 			setHolding(false);
 		};
-	}, [reader.track]);
+	}, [narration]);
 	// A slide with no readable prose never fires onFinish (nothing to read), which
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
 	// the next (or end the run if it's the last).
@@ -527,6 +576,49 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		[open, set, narrationAt, acronyms, lang, lexicon],
 	);
 	const [readyFractions, setReadyFractions] = React.useState<number[]>([]);
+	// WINDOWED, from the playhead forward (#1392). The poll used to ask about every sentence in
+	// the deck, every 2s, on the same main thread as `decodeAudioData` — the surface a whole
+	// commit went into proving must not stutter.
+	//
+	// It never needed to. The rail's prefetch front is contiguous from the playhead by
+	// construction: it stops at the first slide that is not fully cached, because you would
+	// stall at that gap before reaching anything beyond it. Slides far ahead therefore cannot
+	// change what is drawn until you get there. Bounding the question at the lookahead depth
+	// plus a small margin removes the deck-size term entirely — and at that point the store's
+	// single `getAllKeys` is comfortably the right primitive, which is the other half of the
+	// lesson: the previous attempt here replaced that read with one probe per sentence, on the
+	// reasoning that it should scale with the deck rather than the store, and measured 7x SLOWER
+	// on an empty store — the state every new user is in. It was reverted. Ask a smaller
+	// question, don't buy a cleverer answer.
+	//
+	// A small look-BACK as well as the forward window. It buys nothing for the fills — the front
+	// is floored at the playhead — but the per-slide `ready` array also feeds the rail's
+	// assistive label, and presenters step backwards constantly. Without it, tabbing to the slide
+	// you just left would stop announcing "narration ready" for audio that is plainly cached.
+	//
+	// WHAT THE WINDOW MAY NOT DO IS SHRINK WHAT THE RAIL DRAWS. Readiness reads the on-device
+	// store, so a deck PREPARED in an earlier session is cached end to end — and a windowed poll
+	// that zero-fills everything outside its bounds reports a 5-slide runway on a 60-slide deck
+	// that is fully ready, because `prefetchFrontOf` stops at the first unmeasured slide. That
+	// turns "prepared" into a bar that looks unprepared, on the one indicator whose entire job is
+	// telling a buffering deck from a broken one (#1389). The optimization would have eaten the
+	// feature it was optimizing.
+	//
+	// So: one FULL sweep when Present opens (or the deck changes), then windowed refreshes that
+	// MERGE into what is already known instead of replacing it. The repeating 2s cost — the one
+	// that lands on the same main thread as `decodeAudioData` — is what gets bounded; the
+	// once-per-open cost is not worth bounding. A value outside the current window is the last
+	// measurement of that slide, which can only be stale toward over-reporting runway the viewer
+	// has not reached yet, and the window sweeps over it as they advance.
+	const { from: windowStart, to: windowEnd } = readinessWindow(clamped, readinessSentences.length, lookahead);
+	// False until this deck has had its one full sweep. Reset by the effect below whenever the
+	// deck (or Present's openness) changes, so a new deck never inherits the previous one's
+	// readiness and never skips its own sweep.
+	const sweptRef = React.useRef(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `readinessSentences` IS the trigger — its identity changing means a different deck, whose sweep has not happened.
+	React.useEffect(() => {
+		sweptRef.current = false;
+	}, [readinessSentences]);
 	React.useEffect(() => {
 		if (!open || muted) {
 			setReadyFractions([]);
@@ -534,15 +626,26 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		}
 		let live = true;
 		const refresh = () => {
-			narrationReadiness(readinessSentences)
-				.then((r) => {
-					// Keep the OLD array identity when nothing moved. This fires every 2s for as long
-					// as Present is open, and a fresh array each time re-rendered the whole tree —
-					// including the rail — on the same main thread as audio decode, for no visible
-					// change. Most polls report exactly what the last one did.
-					if (live) setReadyFractions((prev) => (sameFractions(prev, r) ? prev : r));
+			const full = !sweptRef.current;
+			const from = full ? 0 : windowStart;
+			const to = full ? readinessSentences.length : windowEnd;
+			narrationReadiness(readinessSentences.slice(from, to))
+				.then((slice) => {
+					if (live && full) sweptRef.current = true;
+					if (live)
+						// Keep the OLD array identity when nothing moved. This fires every 2s for as
+						// long as Present is open, and a fresh array each time re-rendered the whole
+						// tree — including the rail — on the same main thread as audio decode, for no
+						// visible change. Most polls report exactly what the last one did.
+						setReadyFractions((prev) => {
+							const r = mergeReadiness(prev, slice, from, readinessSentences.length);
+							return sameFractions(prev, r) ? prev : r;
+						});
 				})
 				.catch(() => {
+					// A failed read invalidates the sweep too: otherwise the next tick would refresh
+					// only the window and leave the rest of the deck zeroed for good.
+					sweptRef.current = false;
 					if (live) setReadyFractions((prev) => (prev.length === 0 ? prev : EMPTY_SENTENCES_N));
 				});
 		};
@@ -554,7 +657,155 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			live = false;
 			window.clearInterval(id);
 		};
-	}, [open, muted, readinessSentences]);
+		// `clamped` and `windowEnd` join the deps because the WINDOW moves with the playhead —
+		// without them the poll would keep asking about the slides around wherever Present was
+		// opened. Re-arming on navigation is also what refreshes the rail immediately on a jump
+		// rather than up to 2s later.
+	}, [open, muted, readinessSentences, windowStart, windowEnd]);
+
+	// ── THE GUIDE RUNG (#1397) ───────────────────────────────────────────────────────────────
+	//
+	// A Vetrina cursor that points at the part of the slide currently being narrated. Two things
+	// decide whether it feels right, and both are architectural rather than cosmetic.
+	//
+	// ONE CONDUCTOR. Read-aloud owns the clock. There is no timer anywhere in here: the cursor
+	// moves when `reader.active.cueIndex` changes and at no other time. Vetrina's storyboard
+	// would have paced itself on its own `readMs` dwell, and two clocks over one narration drift
+	// apart WITHIN a slide — the cursor ends up pointing at the sentence before or after the one
+	// being spoken, which is worse than not pointing at all. So this drives the bare stage, not
+	// a walkthrough, and when synthesis stalls the cursor simply holds where it is.
+	//
+	// CROSS-FRAME. The slide is a same-origin iframe and Vetrina's stage never enters one. The
+	// target is a `RectSource` (the #1400 widening) backed by the shared frame-geometry bridge,
+	// so the library still knows nothing about iframes and the Studio supplies the mapping.
+	const guideStageRef = React.useRef<VetrinaStage | null>(null);
+	const guidePointRef = React.useRef<AbortController | null>(null);
+	/** Is the fake cursor currently ON SCREEN? Decides glide-then-show vs show-then-glide below. */
+	const guideShownRef = React.useRef(false);
+	const guideLive = open && guideOn && !rehearse;
+	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
+	// cursor's visibility and whether the real one may be hidden — see the two notes below.
+	const [guideAiming, setGuideAiming] = React.useState(false);
+	React.useEffect(() => {
+		if (!guideLive) return;
+		const host = dialogRef.current;
+		if (!host) return;
+		// `caption: 'none'` — a bare pointer layer. Present already owns its chrome and its exit;
+		// a second Exit button and a "click anywhere to take over" hint would be chrome competing
+		// with chrome. Guide never drives the deck, so there is nothing to take over FROM.
+		// Two theme choices, both made by looking at it on the real surface rather than by taste:
+		//
+		// `cues: { anticipate: false }` — no streak. In a walkthrough the anticipation sweep leads
+		// the eye across a whole app once per beat; here the cursor moves a short distance several
+		// times per SLIDE, and a light streak drawn across the deck on every sentence reads as a
+		// scratch on the slide rather than as guidance.
+		//
+		// `speed: 'fast'` — the cursor must not trail the voice. `point()` spends a "register
+		// beat" before it glides, which exists because in a walkthrough the viewer reads the
+		// caption FIRST and the cursor follows. Guide inverts that: the narration is already
+		// speaking, so the same pause lands the cursor on a sentence the voice has half finished.
+		// `fast` scales both the register beat and the glide by 0.72, which is the in-API lever
+		// for this and keeps the motion curve the library curates.
+		const stage = createStage({ root: host, onExit: () => setGuideOn(false), theme: resolveTheme({ accent: 'var(--accent, #2b6ef2)', caption: 'none', pointer: 'arrow', speed: 'fast', cues: { anticipate: false } }) });
+		// BORN HIDDEN. Vetrina spawns its cursor at the center of the screen, which in a walkthrough
+		// is neutral chrome — and in Present is the middle of the slide card, directly on the title.
+		// So switching Guide on dropped an arrow onto the deck's own words and left it there until
+		// the first cue resolved. No target yet is the same state as no target later, and it gets
+		// the same answer.
+		stage.setCursorVisible(false);
+		guideShownRef.current = false;
+		guideStageRef.current = stage;
+		return () => {
+			guidePointRef.current?.abort();
+			guidePointRef.current = null;
+			guideStageRef.current = null;
+			guideShownRef.current = false;
+			setGuideAiming(false); // no stage, nothing aimed — and the real pointer comes straight back
+			stage.destroy();
+		};
+	}, [guideLive]);
+
+	// Move on the reader's beat. Abort any glide still in flight first: a cue change while the
+	// cursor is mid-travel must retarget, not queue up behind it and arrive two sentences late.
+	const activeCue = reader.active?.cueIndex ?? -1;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the reader's cue index IS the trigger; track/frame are read at fire time on purpose.
+	React.useEffect(() => {
+		const stage = guideStageRef.current;
+		if (!stage) return;
+		// NO TARGET IS A STATE, NOT A SKIP. Returning early here left the cursor parked on the
+		// PREVIOUS sentence's target — a confident arrow resting on an unrelated line for as long
+		// as the narration stays off-slide, while the real pointer was hidden. That is strictly
+		// worse than not pointing at all, which is the bar this module sets for itself. So the
+		// cursor is hidden while there is nothing to aim at, and an in-flight glide is aborted:
+		// `activeCue` drops to -1 on every slide change, and a glide left running through the
+		// teardown of the frame it was aiming into is exactly the vanished-target case.
+		const text = activeCue >= 0 ? cueDisplayText(reader.track.cues[activeCue]) : '';
+		const target = text ? guideTargetFor(() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null, text) : null;
+		guidePointRef.current?.abort();
+		guidePointRef.current = null;
+		setGuideAiming(!!target);
+		if (!target) {
+			stage.setCursorVisible(false);
+			guideShownRef.current = false;
+			return;
+		}
+		const ctl = new AbortController();
+		guidePointRef.current = ctl;
+		if (guideShownRef.current) {
+			// Already on screen: GLIDE. The travel is the good part — it carries the eye from the
+			// last thing named to this one, which is most of what makes it read as a gesture.
+			stage.point(target, ctl.signal).catch(() => {}); // an abort here is a retarget, not an error
+			return;
+		}
+		// COMING FROM HIDDEN: arrive first, THEN appear. A hidden cursor has no meaningful "from",
+		// and revealing it before the glide put a visible arrow at wherever it was last parked —
+		// on the first cue that is Vetrina's spawn point, the center of the screen, which in Present
+		// is the middle of the slide. Measured: ~350ms of register beat with the pointer sitting on
+		// the deck's own title before it set off. Appearing at the destination is both correct and
+		// what a laser looks like: it is off, then it is on the thing.
+		stage
+			.point(target, ctl.signal)
+			.then(() => {
+				if (ctl.signal.aborted || guideStageRef.current !== stage) return;
+				guideShownRef.current = true;
+				stage.setCursorVisible(true);
+			})
+			.catch(() => {});
+	}, [activeCue, guideLive]);
+
+	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
+	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),
+	// only while Guide is live AND actually aiming at something, back INSTANTLY on any movement,
+	// and re-hidden after a few seconds of stillness so bumping the mouse does not kill the effect
+	// for the rest of the deck.
+	//
+	// The `guideAiming` term is the one that matters: taking away the viewer's pointer is only
+	// paid for by putting a better one in its place. On a slide narrated by a speaker note there
+	// is no better one, so hiding would leave them with NO pointer at all — the two halves of
+	// this feature have to fail together.
+	const [pointerHidden, setPointerHidden] = React.useState(false);
+	React.useEffect(() => {
+		if (!guideLive || !guideAiming) {
+			setPointerHidden(false);
+			return;
+		}
+		let idle = 0;
+		const arm = () => {
+			window.clearTimeout(idle);
+			idle = window.setTimeout(() => setPointerHidden(true), 3000);
+		};
+		const onMove = () => {
+			setPointerHidden(false);
+			arm();
+		};
+		window.addEventListener('pointermove', onMove, { passive: true });
+		arm();
+		return () => {
+			window.clearTimeout(idle);
+			window.removeEventListener('pointermove', onMove);
+			setPointerHidden(false);
+		};
+	}, [guideLive, guideAiming]);
 
 	// The rail's prefetch edge: per-slide fractions collapsed into one contiguous front, floored
 	// at the progress edge so an LRU eviction behind the playhead can never draw the buffer
@@ -832,15 +1083,28 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			<div
 				aria-hidden="true"
 				className="lx-ui fixed inset-0 z-[100] bg-background"
+				// The real pointer hides ONLY here and on the slide card — never on the dock, so
+				// Pause is always findable. It returns on the first `pointermove` (the listener
+				// above), before anything else happens.
+				style={pointerHidden ? { cursor: 'none' } : undefined}
 				onPointerMove={wake}
 				onWheel={onWheel}
 				onTouchStart={onTouchStart}
 				onTouchEnd={onTouchEnd}
 			/>
 			<div
+				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-label="Present"
+				// The between-slide BEAT, as observable state. Present's transport deliberately
+				// reads `Pause` throughout a hold (making Pause unreachable for the length of every
+				// beat was a defect #1352 fixed), and the rail's fill still carries the previous
+				// slide's progress until the reader rebuilds — so there is no other honest signal
+				// for "the deck has arrived but is not speaking yet", and a test that guesses at one
+				// measures the wrong window. This is the same trick the Vetrina tour uses for its
+				// own oracles (`data-vt-phase`): publish the state rather than infer it.
+				data-beat={holding ? 'hold' : undefined}
 				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
 			>
 			<div className="pointer-events-auto flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
@@ -910,7 +1174,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						<div ref={cardRef} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+						<div ref={cardRef} style={pointerHidden ? { cursor: 'none' } : undefined} className="pointer-events-none relative aspect-video w-[min(100cqw,calc(100cqh*16/9))] overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<DeckPreview focused options={options} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} slideMarkdown={presentSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
@@ -1011,6 +1275,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 							    reads as the control itself becoming a different control. Buffering
 							    is reported on the rail, where it belongs. */}
 							<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button></Tip>
+							<Tip label="Guide — point at what is being narrated"><button type="button" onClick={() => setGuideOn((v) => !v)} aria-pressed={guideOn} aria-label={guideOn ? 'Guide on — turn off to stop pointing at the narrated text' : 'Guide off — turn on to point at the narrated text'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', guideOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}><MousePointer2 className="size-3.5" /><span className="hidden sm:inline">Guide</span></button></Tip>
 						</div>
 					)}
 				</div>

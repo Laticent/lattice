@@ -1,0 +1,140 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
+
+const { findUnknownPace } = require('../../../lib/authoring/lint-core');
+
+let PACE_NAMES;
+let paceLine;
+let frontMatterPace;
+test.before(async () => {
+	({ PACE_NAMES, paceLine, frontMatterPace } = await import('../../../lib/core/resolve-pace.mjs'));
+});
+
+// The pace vocabulary is stated in THREE places, and it has to be, because the boundaries
+// between them are real:
+//
+//   lib/core/resolve-pace.mjs         ESM (Rollup will not read named exports off a CJS file
+//                                     outside the docs root) — the front-matter parse.
+//   lib/authoring/lint-core.js        CommonJS and browser-safe by contract, so it cannot import
+//                                     the ESM register; the `unknown-pace` rule lives here.
+//   docs/src/lib/cadenza/cadence.ts   TypeScript in a workspace package — owns the MILLISECOND
+//                                     presets. `lib/core` cannot import it.
+//   docs/src/playground/narration-prefs.js   node-loadable with no aliases (voice-model.js
+//                                     imports it under plain `node --test`), so it cannot
+//                                     import the TS module either. Owns the workspace preset.
+//
+// Nobody can import their way out of that, so this test is the seam instead: if the three
+// lists ever disagree, a deck could declare a pace the kernel has no numbers for, or the
+// linter could reject a value the Workspace happily writes.
+const read = (...p) => readFileSync(join(__dirname, '../../..', ...p), 'utf8');
+
+/** Names from a source file, given the regex that isolates its list literal. */
+function namesFrom(source, listRe, label) {
+	const m = source.match(listRe);
+	assert.ok(m, `${label}: could not find the pace list — did its shape change?`);
+	const found = [...m[1].matchAll(/['"]([a-z]+)['"]/g)].map((x) => x[1]);
+	assert.ok(found.length, `${label}: matched the list but read no names out of it`);
+	return found;
+}
+
+test('the pace names agree across the engine register, the cadence kernel and the workspace prefs', () => {
+	const cadence = namesFrom(read('docs/src/lib/cadenza/cadence.ts'), /export type PaceName\s*=\s*([^;]+);/, 'cadence.ts PaceName');
+	const prefs = namesFrom(read('docs/src/playground/narration-prefs.js'), /PACE_NAMES\s*=\s*\[([^\]]*)\]/, 'narration-prefs.js PACE_NAMES');
+	const lint = namesFrom(read('lib/authoring/lint-core.js'), /PACE_NAMES\s*=\s*\[([^\]]*)\]/, 'lint-core.js PACE_NAMES');
+
+	assert.deepEqual([...PACE_NAMES].sort(), [...cadence].sort(), 'resolve-pace.mjs vs cadence.ts PaceName');
+	assert.deepEqual([...PACE_NAMES].sort(), [...prefs].sort(), 'resolve-pace.mjs vs narration-prefs.js PACE_NAMES');
+	assert.deepEqual([...PACE_NAMES].sort(), [...lint].sort(), 'resolve-pace.mjs vs lint-core.js PACE_NAMES');
+});
+
+test('every registered pace has millisecond presets in the kernel', () => {
+	const src = read('docs/src/lib/cadenza/cadence.ts');
+	const block = src.match(/PACE_PRESETS[^=]*=\s*\{([\s\S]*?)\n\};/);
+	assert.ok(block, 'could not find PACE_PRESETS');
+	for (const name of PACE_NAMES) {
+		assert.match(block[1], new RegExp(`\\b${name}\\s*:`), `PACE_PRESETS is missing \`${name}\` — a deck could declare a pace with no numbers behind it`);
+	}
+});
+
+// ── pace-parse-parity ────────────────────────────────────────────────────────────────────────
+//
+// The list agreeing is not enough — the two PARSES have to agree too. The linter's whole reason
+// to exist is that "a typo here is invisible on the author's own machine and only wrong on
+// someone else's", and a rule that reads the register differently from the resolver reports on a
+// different deck than the one that will play. The first version of `findUnknownPace` matched only
+// a clean bare word, so every shape below with a trailing character produced NO finding while the
+// resolver discarded the pace. Silence on precisely the typos it was written to catch.
+//
+// The contract this pins, for every shape: the resolver returns a pace  <=>  the linter is quiet.
+const PARSE_CASES = [
+	['pace: brisk', 'brisk'],
+	['pace: natural', 'natural'],
+	['pace: deliberate', 'deliberate'],
+	['pace: DELIBERATE', 'deliberate'],
+	['pace:    deliberate   ', 'deliberate'],
+	["pace: 'brisk'", 'brisk'],
+	['pace: "brisk"', 'brisk'],
+	['pace: brik', null],
+	['pace: delibrate', null],
+	['pace: slowly', null],
+	// A trailing YAML comment: front matter IS YAML, so the value is the word, not the word plus
+	// the annotation. Both sides strip it, so a documented pace keeps working and a MIS-SPELLED
+	// documented pace still gets reported.
+	['pace: deliberate # a weighty deck', 'deliberate'],
+	['pace: delibrate # a weighty deck', null],
+	['pace: brisk   # demo', 'brisk'],
+	// Trailing punctuation is NOT a comment; it makes the value unknown and must be reported.
+	['pace: brisk.', null],
+	['pace: deliberate;', null],
+	// `pace:` with nothing after it is an unfinished key, not an unknown register.
+	['pace:', 'EMPTY'],
+	['pace:   ', 'EMPTY'],
+];
+
+test('pace-parse-parity: the linter and the resolver read the register identically', () => {
+	for (const [line, expected] of PARSE_CASES) {
+		for (const bom of ['', '﻿']) {
+			for (const fence of ['---', '--- ']) {
+				const src = `${bom}${fence}\ntheme: cuoio\n${line}\n---\n\n# Slide\n`;
+				const label = `${JSON.stringify(line)}${bom ? ' (BOM)' : ''}${fence === '--- ' ? ' (padded fence)' : ''}`;
+
+				const resolved = frontMatterPace(src);
+				const findings = findUnknownPace(src, PACE_NAMES);
+
+				if (expected === 'EMPTY') {
+					assert.equal(resolved, null, `${label}: an empty value declares no pace`);
+					assert.equal(findings.length, 0, `${label}: an unfinished key is not an unknown register`);
+					continue;
+				}
+				assert.equal(resolved, expected, `${label}: resolver`);
+				if (expected === null) {
+					assert.equal(findings.length, 1, `${label}: the resolver DISCARDED this pace and the linter said nothing — the deck would silently play at the viewer's pace`);
+					assert.equal(findings[0].rule, 'unknown-pace');
+					assert.equal(findings[0].classToken, paceLine(src).value, `${label}: the finding must name the value the resolver actually saw`);
+				} else {
+					assert.equal(findings.length, 0, `${label}: the resolver ACCEPTED this pace and the linter warned about it — a false alarm on a working deck`);
+				}
+			}
+		}
+	}
+});
+
+test('pace-parse-parity: a deck with no front-matter fence declares no pace and draws no warning', () => {
+	const src = '# Slide\n\npace: deliberate\n';
+	assert.equal(frontMatterPace(src), null, 'prose is not front matter');
+	assert.equal(findUnknownPace(src, PACE_NAMES).length, 0);
+});
+
+test('the word-rate axis is NOT the same vocabulary, and stays separate', () => {
+	// `Pace` (slow/moderate/fast) is how fast words are SPOKEN; `PaceName` is how long the deck
+	// HOLDS between slides. They are different axes with confusingly similar names, and the
+	// export hardcodes `pace: 'moderate'` for the former. Conflating them is the obvious bug
+	// here, so pin that they share no member.
+	const src = read('docs/src/lib/cadenza/cadence.ts');
+	const wordRate = namesFrom(src, /export type Pace\s*=\s*([^;]+);/, 'cadence.ts Pace');
+	for (const n of PACE_NAMES) {
+		assert.ok(!wordRate.includes(n), `'${n}' appears in BOTH the between-slide and word-rate vocabularies`);
+	}
+});

@@ -10,7 +10,7 @@ companion:
 
 # Present: instant audio, a real presentation pace, and a Guide rung
 
-**Status:** Parts 2 and 3 ACCEPTED + IMPLEMENTED (2026-08-03/04); Part 4 PROPOSED.
+**Status:** Parts 2, 3 and 4 ACCEPTED + IMPLEMENTED (2026-08-03/04).
 Confirmed with the maintainer in one round: **both** adaptive prefetch and a full-deck
 Prepare; persist narration **on device** with a Data-tab governor; Guide targets derived
 from the **speech projection** with an author override; **three PRs, Part 2 first.**
@@ -292,6 +292,28 @@ With exact millisecond overrides behind an "Advanced" disclosure for people who 
 presets first because "how many milliseconds should a slide pause be" is not a question a presenter
 should have to answer to get a good result.
 
+### 3.5 Where the pace LIVES — amended 2026-08-04 (#1399)
+
+Part 3 shipped the beat as a workspace preference, and §3.3's "control" framing is why: it asked
+where the presenter sets a pace, and never asked whose property it is. The Munger-inversion lens
+answered that during review — *"a deck that presents itself must carry its own rhythm; storing the
+author's directorial choice in the viewer's localStorage guarantees it is lost the moment the deck
+leaves the machine"* — and that is now built.
+
+`pace:` is a front-matter register (`lib/core/resolve-pace.mjs`), and the resolution order is:
+
+    millisecond override  →  deck `pace:`  →  workspace preset  →  natural
+
+The workspace preset did not go away; it changed rank. It is the default for a deck that declares
+nothing, which is every deck authored before this. The presenter's live escape hatch is the exact
+millisecond override, which `slideBeatMs` already applied ahead of any name and which lives in
+`localStorage` — so it is available mid-delivery and never travels with the artifact.
+
+One thing deliberately NOT changed: the export's `pace: 'moderate'` for caption timing
+(`share-export.ts`, `lattice-emulator.js`). That is Cadenza's `Pace` — how fast words are SPOKEN —
+not `PaceName`, the between-slide hold. Two axes, confusingly similar names; a test pins that they
+share no member, because conflating them is the obvious way to break this.
+
 ### 3.4 The workspace configuration surface
 
 You asked whether prefetch depth belongs in workspace configuration. Yes — and it should sit with
@@ -328,6 +350,23 @@ Three ways to source "the relevant part of the slide", in order of how much they
 slide's narration, which means at projection time it knows **which DOM node each sentence came from**
 and throws that away. Make it emit `{ text, selector }` pairs instead of bare text, and the mapping
 from "cue index N is being spoken" to "highlight this element" becomes a lookup.
+
+> **CORRECTED WHEN BUILT (2026-08-04, #1397).** This is half right, and the false half is the
+> load-bearing one. `speakGeneric` does hold `el` beside its text — but **per BLOCK, not per
+> sentence**, and it joins those blocks into one string per slide. Sentences do not exist yet at
+> that point; they are created later and elsewhere, by `buildTrack` segmenting the projected
+> string. There is no per-sentence node to keep. Threading one through would mean carrying node
+> identity across four string-only boundaries, including the `string[]` return that the **CLI
+> export** also consumes — changing the shared kernel's contract for a Studio-only feature.
+>
+> And it would be the WRONG DOCUMENT anyway: the projection parses a detached copy, while the
+> slide a viewer sees is a live iframe the runtime has since mutated (Mermaid inflated, charts
+> drawn, KaTeX typeset). A node from the detached parse is not a node you can point at.
+>
+> **What shipped instead:** resolve LATE, against the live frame, matching the cue's DISPLAY text
+> to the smallest block containing it (`present-guide.ts`). Same property the recommendation was
+> chosen for — every existing deck, zero authoring — with no kernel change, and robust to
+> whatever the runtime did to the DOM after render.
 
 This is the strong option: it works on **every existing deck with zero authoring**, it reuses the
 shared kernel rather than adding a parallel one (HARD RULE #1), and it is exactly "the mouse points
@@ -450,7 +489,7 @@ and a test suite is not evidence for any of it. Live OpenRouter timings cannot b
 sandbox (no key, and HARD RULE #24 keeps ours off the per-PR path), so those numbers are yours to
 run, or mine against a key you supply.
 
-Part 4 (Guide) remains unbuilt. Part 3 shipped with the live measurements above.
+Part 4 (Guide) shipped 2026-08-04 (#1397) — see the correction in §4.2 and the amendment below. Part 3 shipped with the live measurements above.
 
 ## Amendment (2026-08-04): the readiness signal, and why Prepare stopped being a button
 
@@ -664,17 +703,27 @@ room the prefetch edge can never lead and the rail sits in its "run dry" state. 
 
 ### Logged, not fixed (HARD RULE #18 — found, not caused)
 
-- **Autoplay hangs on two consecutive slides with identical narration text.** The advance effect
-  keys on `[reader.track]`, and `track` is memoized on its text, so identical text means identical
-  identity and the effect never re-runs. Verified present on `main` — the same effect, same deps.
-- **`putClip` materializes the whole `meta` store on every write**, and the readiness poll reads
-  `getAllKeys()` over the entire origin store every 2 s. Both scale with all decks ever presented
-  rather than the one being delivered. Measured only under `fake-indexeddb`, so no browser number
-  is claimed.
+- ~~**Autoplay hangs on two consecutive slides with identical narration text.**~~ **FIXED
+  2026-08-04 (#1394).** The advance effect keyed on `[reader.track]`, and `track` is memoized on
+  its text, so identical text meant identical identity and the effect never re-ran. It now keys
+  on a narration RECORD (`{ idx, text }`) set on every navigation: a fresh object commits
+  regardless of what the text says, while the `track` memo still keys on the string, so repeated
+  text costs no reader rebuild. Pinned by `studio.present-autoplay-chain.test.tsx`, which chains
+  through three slides where the first two narrate identically and fails without the fix.
+- **`putClip` materializes the whole `meta` store on every write** — fixed in the amendment below.
+  The readiness poll's whole-deck question is **FIXED 2026-08-04 (#1392)**: it is now bounded to a
+  window from the playhead, and the numbers are measured on real Chromium by a committed bench
+  (`docs/scripts/bench-narration-readiness.mjs`) rather than reasoned. What remains, deliberately,
+  is the single `getAllKeys()` over the origin store — it dominates on a populated store, and
+  replacing it with per-sentence probes is precisely the pessimization that was reverted.
 - **The rail shows no runway on Kokoro** (above), and "Fetch ahead: the whole deck" is a silent
   no-op there while the Settings copy promises offline delivery.
-- **"The whole deck" has no cost estimate and no cancel.** Combined with a request that outlives
-  its caller by design, a 60-slide deck is ~300 billed requests that closing Present will not
+- **"The whole deck" has no cost estimate and no cancel.** **PARTLY CLOSED 2026-08-04 (#1391):**
+  queued work that has not started is now dropped when the enqueuing caller walks away, so
+  closing Present stops the backlog. What still stands is the deliberate part — a request already
+  in flight runs on and caches — so on the cloud rung the requests already ISSUED are still
+  billed, and there is still no cost estimate. Combined with a request that outlives its caller
+  by design, a 60-slide deck is ~300 billed requests that closing Present will not
   stop. The user's own key, so not a HARD RULE #24 matter — but it is a bill complaint waiting to
   happen, and the progress display and cancel that the Prepare button had did not survive its
   removal.
@@ -814,6 +863,16 @@ worker cannot be. Selection reads `priority.warm` at DEQUEUE time, and that obje
 the request entry in the model, so a playback caller that joins an already-queued prefetch
 **promotes it in place** instead of waiting behind the backlog.
 
+**Amended 2026-08-04 (#1390): the object has to be per SENTENCE, not per caller.** Publishing
+the caller's object on both entries was still not enough. A warm whose patience expired settled
+its `inFlightSynths` entry while the request and its queued job lived on to the ceiling, so a
+re-warm found no outer entry, minted a SECOND object, and `startRequest` returned the existing
+entry without adopting it — playback then promoted a detached copy. Priority is now owned by the
+model, keyed by cache key, and released when the request settles. Pinned by
+`voice-model.kokoro-priority.test.ts`, which drives the REAL rung and its REAL queue (only the
+inference call is replaced, via a seam that keeps the scheduler in the path) and asks for the
+OLDEST queued sentence — because asking for the newest passes whether or not promotion works.
+
 That sharing is the subtle part, and it took a failing test to find: there are **two** dedup
 layers. `synthOne` joins at `inFlightSynths` *above* `startRequest`'s own `liveRequests`, so a
 playback caller that joined at the outer layer never reached the promotion at the inner one. The
@@ -881,6 +940,17 @@ And a brute-force search over the entire `(track%, prefetch%)` space gives a **c
 on the worst adjacent pair: no one-token blend can reach 3:1 here, because `--accent` vs `--bg` is
 only 4.35:1 in the tightest palette. The optimizer *proved the encoding inadequate* and its output
 was read as a success.
+
+**RESOLVED 2026-08-04 (#1389): the second channel is a HATCH.** The buffered range is now drawn
+in the SAME full-strength `--accent` as the played range and distinguished from it by continuity —
+solid versus striped — rather than by tone. That makes the only ratio that has to clear 3:1 the
+ink-against-track one, which is the relationship already passing 36/36; measured worst case 3.58:1
+resting and 3.15:1 on the current slide. The current-slide tint drops 30% → 26% to get there (at
+30% the hatch fell to 2.99:1 in `mustard light`), which is affordable because the playhead mark,
+not the tint, is what states position. The sweep that produced these numbers is committed at
+`docs/scripts/sweep-rail-contrast.mjs`, reads the tier values from the module the rail paints from,
+and aborts if `--accent` does not actually change between palettes — the two ways the previous
+sweeps lied.
 
 **What survives, and why the ladder still ships:** progress-vs-track — the signal that carries
 position — went from under 3:1 in 11 palettes (**1.00, literally invisible in `onyx dark`**) to

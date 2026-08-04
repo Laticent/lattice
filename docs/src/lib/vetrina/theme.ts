@@ -39,8 +39,19 @@ export interface Theme {
 	 *   - 'scrim'    no box — a film-subtitle over a soft gradient (most premium; best over
 	 *                busy/dark content, which is why the Studio demo opts into it);
 	 *   - 'progress' the bar with a beat-progress ring in place of the live dot.
-	 *  Exit stays reachable in every style (an icon button, always inside `.vetrina-caption`). */
-	caption?: 'bar' | 'split' | 'scrim' | 'progress';
+	 *   - 'none'     NO DOCK AT ALL — see the warning below.
+ *
+ *  Exit stays reachable in every style but 'none' (an icon button, always inside
+ *  `.vetrina-caption`).
+ *
+ *  'none' is for a host driving the stage as a bare POINTER LAYER: no beats, no narration, no
+ *  `awaitUser`, and the host's own chrome owning the exit. Lattice's Guide rung is the case it
+ *  exists for — a cursor that points at what a narrator is currently saying, inside a Present
+ *  overlay that already has its own controls, where a second Exit button and a "click anywhere
+ *  to take over" hint would be chrome competing with chrome. Do NOT use it for a walkthrough:
+ *  with no dock there is no Exit, and stranding a viewer inside a running tour is the one thing
+ *  this library will not do. */
+	caption?: 'bar' | 'split' | 'scrim' | 'progress' | 'none';
 	/** How to honor motion preference (default 'system'):
 	 *   - 'system'  read `prefers-reduced-motion`: reduce → 'legible', else → 'full';
 	 *   - 'full'    play everything, ignore the OS preference;
@@ -69,7 +80,7 @@ export interface ResolvedTheme {
 	pace: number; // duration multiplier (slow > 1 > fast)
 	pointer: 'arrow' | 'ring' | 'dot';
 	placement: 'top' | 'bottom'; // which edge the narration dock sits at
-	caption: 'bar' | 'split' | 'scrim' | 'progress'; // the narration dock style
+	caption: 'bar' | 'split' | 'scrim' | 'progress' | 'none'; // the narration dock style ('none' = pointer layer only)
 	motion: 'full' | 'legible' | 'still' | 'system'; // motion policy; 'system' resolves against the device in the stage
 	silenced: Set<string>; // cue names to skip
 }

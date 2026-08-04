@@ -328,7 +328,9 @@ test('warm traffic reaches the rung marked as prefetch, and a playback join prom
 
   v.warm(['Shared sentence.']);
   await new Promise((r) => setTimeout(r, 20));
-  assert.deepEqual(seen, { warm: true }, 'prefetch traffic is marked as prefetch');
+  // Field-wise, not shape-wise: the priority object also carries the DROP channel (#1391),
+  // and a deep-equal here would break every time that object learns something new.
+  assert.equal(seen.warm, true, 'prefetch traffic is marked as prefetch');
 
   const playing = v.synthOne({ text: 'Shared sentence.' }); // JOINS the live warm request
   await new Promise((r) => setTimeout(r, 20));

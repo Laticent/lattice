@@ -1,4 +1,4 @@
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE BETWEEN-SLIDE BEAT, on the real Present overlay.
 //
@@ -135,5 +135,64 @@ test.describe('Present — the between-slide beat', () => {
 
 		expect(early, 'the progress fill appeared once playback started').toBeGreaterThan(0);
 		expect(later, `the fill advanced with the clock (${early}px → ${later}px)`).toBeGreaterThan(early);
+	});
+});
+
+// THE DECK'S OWN PACE, on the real overlay (#1399).
+//
+// This is the register's whole claim — that the author's rhythm travels with the deck and beats
+// whatever the recipient's browser happens to hold — and it had only ever been driven in jsdom,
+// with the preview, the voice model and the presenter view all mocked. HARD RULE #23 names jsdom
+// as not verification, so here it is on the surface a presenter actually uses.
+//
+// The workspace is set to the FASTEST preset and the deck declares the SLOWEST, so the two
+// disagree by ~1.4s and only one of them can be producing the observed hold.
+test.describe('Present — a deck carries its own pace', () => {
+	test('a `pace: deliberate` deck holds long on a machine set to brisk', async ({ page }) => {
+		await page.addInitScript(() => {
+			try {
+				localStorage.setItem('lattice-present-pace', 'brisk');
+				localStorage.removeItem('lattice-present-slide-beat');
+				localStorage.removeItem('lattice-present-section-beat');
+			} catch {
+				/* storage unavailable — the app falls back to its defaults */
+			}
+		});
+		await gotoStudio(page);
+		await setEditorContent(
+			page,
+			['---', 'marp: true', 'theme: indaco', 'pace: deliberate', '---', '', '# One', '', 'Growth held.', '', '---', '', '# Two', '', 'Spend stayed disciplined.', ''].join('\n'),
+		);
+
+		await page.getByRole('button', { name: 'Present', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Present' });
+		await expect(dialog).toBeVisible();
+		const counter = dialog.locator('span.font-mono').first();
+		const position = async () => (await counter.textContent())?.trim() ?? '';
+
+		// Present opens where the editor caret is, which after replacing the document is the LAST
+		// slide — with nothing to advance to, and nothing to time. Start at the top.
+		await dialog.getByRole('group', { name: /Deck progress/ }).getByRole('button').first().click();
+		await expect.poll(position).toBe('1 / 2');
+
+		const first = await position();
+		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+
+		// Time the hold on ARRIVAL at slide 2, read off the dialog's own published beat state
+		// (`data-beat="hold"`) rather than inferred from a control's label — the transport
+		// deliberately keeps reading Pause through a hold, which is the #1352 fix.
+		const advanced = Date.now() + 60_000;
+		while (Date.now() < advanced && (await position()) === first) await page.waitForTimeout(60);
+		expect(await position(), 'the deck never advanced to the second slide').not.toBe(first);
+
+		const start = Date.now();
+		const holdEnd = Date.now() + 20_000;
+		while (Date.now() < holdEnd && (await dialog.getAttribute('data-beat')) === 'hold') await page.waitForTimeout(60);
+		const held = Date.now() - start;
+
+		// `deliberate` is ~2.2s and `brisk` ~0.8s. Anything under 1.5s means the workspace preset
+		// won and the deck's declaration was thrown away the moment it left its author's machine —
+		// which is the entire defect this register exists to close.
+		expect(held, `the hold was ${held}ms — the deck asked for deliberate (~2200ms) and the machine holds brisk (~800ms)`).toBeGreaterThan(1500);
 	});
 });

@@ -164,6 +164,82 @@ reads (the set is frozen by a build gate; a new one must earn a new meaning):
 | `cross` | wrong / rejected / deleted |
 | `shake` | "no — careful / try again" |
 
+## Targets — and why a cue keeps asking where its target is
+
+A `Target` is a **selector** (resolved inside the `root` you passed), an **element**, a
+**thunk** returning one, or — since the same widening — anything that can answer
+`getBoundingClientRect()`:
+
+```ts
+export interface RectSource {
+  getBoundingClientRect(): DOMRect;   // viewport coordinates, live
+  scrollIntoView?(arg?): void;        // optional; used before a drag glide
+}
+```
+
+Every `HTMLElement` already satisfies that, so nothing you have written changes. What it
+adds is the escape hatch for a target the stage **cannot reach with a selector** — a region
+inside an iframe, a canvas hit box, a row in a virtualized list. You hand Vetrina a small
+object that knows where that thing currently is; Vetrina keeps knowing nothing about your
+app's structure. (`stage.resolve()` still returns elements only — a rect source has no node
+to hand back, so it resolves `null` there while remaining a perfectly good cue target.)
+
+**Live, not snapshotted.** A cue is anchored to a target, not to a copy of where it was.
+The spotlight ring re-reads its target every frame for as long as it is on screen, and the
+cursor's glide re-aims every frame while it is in flight. That is not a nicety: your `act`
+setters commit asynchronously, so the rect available the instant `act` returns can be a
+whole pane out of date by the time the cue paints — and a cue drawn from that never
+corrects itself. Vetrina got this wrong once, in production, and a walkthrough that points
+confidently at the wrong thing is worse than no walkthrough.
+
+The cost of that guarantee is exactly one frame: a reflow lands after the frame that caused
+it, so a tracking cue is ~16ms behind during a resize. Momentary bursts (the click spark,
+the anticipation ping) stay snapshot-positioned — they are gone before any of this matters.
+
+**How to say "gone".** A `RectSource` has to return a `DOMRect`, so it cannot answer `null`.
+Answer with a **zero-area rect** instead — that is the word for "this is nowhere now", and
+Vetrina reads it as no position at all: the cursor settles where it is rather than gliding to
+the viewport corner. Two other answers are treated the same way, because none of them names a
+place: a rect with a `NaN` in it (one used to poison the layer for the rest of the run), and a
+provider that throws. Anything else is taken literally.
+
+### When you don't always have a target — `setCursorVisible`
+
+```ts
+const target = resolveWhateverIsCurrent();     // may be null
+stage.setCursorVisible(!!target);
+if (target) await stage.point(target);
+```
+
+If your host points at something it does not always have, **hide the cursor rather than leaving
+it where it was**. A stationary pointer is not neutral — it reads as a claim about whatever it
+happens to be sitting on, so a cue you cannot resolve turns into a confident answer that is
+wrong. `setCursorVisible(false)` cross-fades the pointer out and is reversible within the same
+run (it is not `destroy()`); the **dock is never affected**, so Exit stays reachable either way.
+
+If you are also hiding the viewer's real pointer while your cursor stands in for it, tie the two
+together: hide the real one only while yours is actually aiming at something. Otherwise the
+viewer ends up with no usable pointer at all — yours pointing nowhere useful, theirs invisible.
+
+### A bare pointer layer — `caption: 'none'`
+
+Every caption style keeps **Exit** reachable, because stranding a viewer inside a running tour
+is the one thing this library will not do. `caption: 'none'` is the deliberate exception, and it
+is not for tours:
+
+```ts
+createStage({ root, onExit, theme: resolveTheme({ caption: 'none' }) });
+```
+
+No dock, no narration, no Exit — just the cursor and its cues. Use it only when the HOST owns
+the chrome and the escape, and nothing awaits user input: a stage driven as a pure pointer layer
+over an app that already has its own controls. Lattice's Guide rung is the case it exists for —
+a cursor pointing at the sentence a narrator is currently speaking, inside a presentation overlay
+that already has Pause and Exit. A second Exit button and a "click anywhere to take over" hint
+there would be chrome competing with chrome.
+
+If your run has beats, narration, or an `awaitUser`, you want one of the four docked styles.
+
 ## Cooperative hand-off — `awaitUser`
 
 Sometimes the tour should stop and let the viewer *do* the thing themselves. That's

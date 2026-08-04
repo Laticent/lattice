@@ -194,6 +194,13 @@ spectrum-card-edge  spectrum-edge  spectrum-trim  theme  title
 plus `acronyms` / `lexicon` (`setFrontMatterAcronyms` / `setFrontMatterLexicon`) and `class`
 (`front-matter.ts:304`).
 
+**Added 2026-08-04 (#1399): `pace`.** A DELIVERY register rather than a rendering one — it sets
+how long a self-presenting deck holds on a newly-arrived slide before it speaks (`brisk` /
+`natural` / `deliberate`, `lib/core/resolve-pace.mjs`). Nothing in the Studio writes it yet, so it
+is author-typed today (with editor completion and an `unknown-pace` lint rule); it is listed here
+because it is an official key a deck can carry, and because it is the first register whose value a
+RENDERER may legitimately ignore while a PLAYER must not.
+
 | written | produced by | affordance | why | consumed by | context |
 |---|---|---|---|---|---|
 | `theme:` `size:` `paginate:` `header:` `footer:` `lang:` `debug:` `title:` | `StudioShell.tsx` (`size:` at `:1226`) | Deck Setup | the official Marpit directives | engine `directives.js` | every path |

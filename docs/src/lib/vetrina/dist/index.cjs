@@ -21,6 +21,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // docs/src/lib/vetrina/index.ts
 var index_exports = {};
 __export(index_exports, {
+  asElement: () => asElement,
   createStage: () => createStage,
   isAbortError: () => isAbortError,
   loop: () => loop,
@@ -36,6 +37,9 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // docs/src/lib/vetrina/stage.ts
+function asElement(src) {
+  return src && src.nodeType === 1 ? src : null;
+}
 var AbortError = class extends Error {
   constructor() {
     super("vetrina aborted");
@@ -114,6 +118,17 @@ function ensureDefaultTokens(doc) {
 var HINT = "click anywhere to take over";
 var EXIT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 function buildDock(doc, caption, placement, onExit) {
+  if (caption === "none") {
+    const dock2 = doc.createElement("div");
+    dock2.className = "vetrina-caption";
+    dock2.setAttribute("aria-hidden", "true");
+    dock2.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;";
+    const narration2 = doc.createElement("span");
+    dock2.appendChild(narration2);
+    return { dock: dock2, narration: narration2, setNarration: () => {
+    }, setProgress: () => {
+    } };
+  }
   const top = placement === "top";
   const glass = "background:var(--vt-caption-bg);color:var(--vt-caption-ink);box-shadow:0 10px 34px rgba(0,0,0,.40);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);";
   const narration = doc.createElement("span");
@@ -244,23 +259,53 @@ function createStage(opts) {
     window.setTimeout(() => el.remove(), life);
   }
   const aimAt = (r) => ({ x: r.left + Math.min(r.width * 0.5, 22), y: r.top + Math.min(r.height * 0.5, 18) });
+  const liveRect = (src) => {
+    if (!src || destroyed) return null;
+    let r;
+    try {
+      r = src.getBoundingClientRect();
+    } catch {
+      return null;
+    }
+    if (!r) return null;
+    if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
+    if (r.left === 0 && r.top === 0 && r.width === 0 && r.height === 0) return null;
+    return r;
+  };
+  let cursorHidden = false;
+  const paintCursorOpacity = () => {
+    cursor.style.opacity = cursorHidden ? "0" : "1";
+  };
+  function setCursorVisible(visible) {
+    if (destroyed || cursorHidden === !visible) return;
+    cursorHidden = !visible;
+    if (!still) cursor.animate([{ opacity: visible ? 0 : 1 }, { opacity: visible ? 1 : 0 }], { duration: 180, easing: "ease-out" });
+    paintCursorOpacity();
+  }
   requestAnimationFrame(() => {
     if (destroyed) return;
     dock.style.opacity = "1";
-    cursor.style.opacity = "1";
+    paintCursorOpacity();
   });
-  function tween(tx, ty, dur, signal) {
+  function tween(to, dur, signal) {
     const fromX = cx;
     const fromY = cy;
+    let dest = to() ?? { x: cx, y: cy };
     const start = performance.now();
     return new Promise((resolve2, reject) => {
       const onAbort = () => reject(new AbortError());
       signal?.addEventListener("abort", onAbort, { once: true });
       const tick = (now) => {
-        if (destroyed || signal?.aborted) return;
-        const t = Math.min(1, (now - start) / dur);
+        if (destroyed) {
+          signal?.removeEventListener("abort", onAbort);
+          resolve2();
+          return;
+        }
+        if (signal?.aborted) return;
+        dest = to() ?? dest;
+        const t = Math.min(1, Math.max(0, (now - start) / dur));
         const e = easeInOut(t);
-        place(fromX + (tx - fromX) * e, fromY + (ty - fromY) * e);
+        place(fromX + (dest.x - fromX) * e, fromY + (dest.y - fromY) * e);
         if (t < 1) requestAnimationFrame(tick);
         else {
           signal?.removeEventListener("abort", onAbort);
@@ -270,9 +315,12 @@ function createStage(opts) {
       requestAnimationFrame(tick);
     });
   }
-  function anticipate(el) {
+  const tweenTo = (tx, ty, dur, signal) => tween(() => ({ x: tx, y: ty }), dur, signal);
+  function anticipate(src) {
     if (reduced || destroyed) return;
-    const { x: tx, y: ty } = aimAt(el.getBoundingClientRect());
+    const r0 = liveRect(src);
+    if (!r0) return;
+    const { x: tx, y: ty } = aimAt(r0);
     const ang = Math.atan2(ty - cy, tx - cx) * 180 / Math.PI;
     const dist = Math.hypot(tx - cx, ty - cy);
     spawnFx(
@@ -300,14 +348,19 @@ function createStage(opts) {
         1750 + k * 320
       );
   }
-  async function moveToEl(el, signal) {
-    const { x: tx, y: ty } = aimAt(el.getBoundingClientRect());
+  async function moveToEl(src, signal) {
+    const aim = () => {
+      const r = liveRect(src);
+      return r ? aimAt(r) : null;
+    };
+    const first = aim();
+    if (!first) return;
     if (reduced) {
-      place(tx, ty);
+      place(first.x, first.y);
       return wait(160, signal);
     }
-    const dur = Math.max(300, Math.min(820, Math.hypot(tx - cx, ty - cy))) * pace;
-    return tween(tx, ty, dur, signal);
+    const dur = Math.max(300, Math.min(820, Math.hypot(first.x - cx, first.y - cy))) * pace;
+    return tween(aim, dur, signal);
   }
   async function press(signal) {
     if (destroyed) return;
@@ -350,8 +403,8 @@ function createStage(opts) {
     return wait(reduced ? 80 : 480, signal);
   }
   async function drag(from, to, signal) {
-    const fromEl = resolve(from);
-    const toEl = resolve(to);
+    const fromEl = resolveSource(from);
+    const toEl = resolveSource(to);
     if (fromEl) {
       await moveToEl(fromEl, signal);
       if (!reduced)
@@ -381,11 +434,15 @@ function createStage(opts) {
     requestAnimationFrame(followLoop);
     if (toEl) {
       toEl.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-      const r = toEl.getBoundingClientRect();
-      const tx = r.left + Math.min(r.width * 0.5, 22);
-      const ty = r.top + Math.min(r.height * 0.5, 18);
-      if (reduced) place(tx, ty);
-      else await tween(tx, ty, Math.max(300, Math.min(820, Math.hypot(tx - cx, ty - cy))), signal);
+      const aim = () => {
+        const r = liveRect(toEl);
+        return r ? aimAt(r) : null;
+      };
+      const first = aim();
+      if (first) {
+        if (reduced) place(first.x, first.y);
+        else await tween(aim, Math.max(300, Math.min(820, Math.hypot(first.x - cx, first.y - cy))), signal);
+      }
     }
     const stopCarry = () => {
       carrying = false;
@@ -411,8 +468,14 @@ function createStage(opts) {
       },
       async snapBack(sig) {
         if (fromEl && !reduced) {
-          const r = fromEl.getBoundingClientRect();
-          await tween(r.left + Math.min(r.width * 0.5, 22), r.top + Math.min(r.height * 0.5, 18), 360, sig ?? signal).catch(() => {
+          await tween(
+            () => {
+              const r = liveRect(fromEl);
+              return r ? aimAt(r) : null;
+            },
+            360,
+            sig ?? signal
+          ).catch(() => {
           });
         }
         stopCarry();
@@ -450,32 +513,55 @@ function createStage(opts) {
     );
     window.setTimeout(() => g.remove(), 1250);
   }
-  async function circleGesture(el, signal) {
-    const r = el.getBoundingClientRect();
-    const mx = r.left + r.width / 2;
-    const my = r.top + r.height / 2;
+  async function circleGesture(src, signal) {
+    const r0 = liveRect(src);
+    if (!r0) return;
     const glow = doc.createElement("div");
-    glow.style.cssText = `position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;z-index:3;border-radius:14px;border:3px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 36px 2px ${A};opacity:0;pointer-events:none;`;
+    glow.style.cssText = `position:absolute;box-sizing:border-box;z-index:3;border-radius:14px;border:3px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 36px 2px ${A};opacity:0;pointer-events:none;`;
+    let box = r0;
+    const paint = (r) => {
+      box = r;
+      glow.style.left = `${r.left}px`;
+      glow.style.top = `${r.top}px`;
+      glow.style.width = `${r.width}px`;
+      glow.style.height = `${r.height}px`;
+    };
+    paint(r0);
     layer.appendChild(glow);
     glow.animate([{ opacity: 0 }, { opacity: 0.85, offset: 0.22 }, { opacity: 0.85, offset: 0.75 }, { opacity: 0 }], {
       duration: 1600,
       easing: "ease-in-out"
     });
-    window.setTimeout(() => glow.remove(), 1700);
+    let tracking = true;
+    const track = () => {
+      if (!tracking || destroyed) return;
+      const r = liveRect(src);
+      if (r) paint(r);
+      requestAnimationFrame(track);
+    };
+    requestAnimationFrame(track);
+    const stopTracking = () => {
+      tracking = false;
+      glow.remove();
+    };
+    window.setTimeout(stopTracking, 1700);
     if (reduced) return wait(500, signal);
-    const rx = Math.min(r.width * 0.42, 260);
-    const ry = Math.min(r.height * 0.42, 180);
-    const a0 = Math.atan2(cy - my, cx - mx);
+    const a0 = Math.atan2(cy - (r0.top + r0.height / 2), cx - (r0.left + r0.width / 2));
     const dur = 1400;
     const start = performance.now();
     return new Promise((resolve2, reject) => {
-      const onAbort = () => reject(new AbortError());
+      const onAbort = () => {
+        stopTracking();
+        reject(new AbortError());
+      };
       signal?.addEventListener("abort", onAbort, { once: true });
       const tick = (now) => {
         if (destroyed || signal?.aborted) return;
         const t = Math.min(1, (now - start) / dur);
         const a = a0 + easeInOut(t) * Math.PI * 2 * 1.25;
-        place(mx + rx * Math.cos(a), my + ry * Math.sin(a));
+        const mx = box.left + box.width / 2;
+        const my = box.top + box.height / 2;
+        place(mx + Math.min(box.width * 0.42, 260) * Math.cos(a), my + Math.min(box.height * 0.42, 180) * Math.sin(a));
         if (t < 1) requestAnimationFrame(tick);
         else {
           signal?.removeEventListener("abort", onAbort);
@@ -530,12 +616,12 @@ function createStage(opts) {
   async function intro(signal) {
     if (destroyed) return;
     if (silenced.has("intro")) {
-      cursor.style.opacity = "1";
+      paintCursorOpacity();
       return wait(200, signal);
     }
     place(window.innerWidth / 2, window.innerHeight * 0.46);
     if (still) {
-      cursor.style.opacity = "1";
+      paintCursorOpacity();
       return wait(300, signal);
     }
     if (reduced) {
@@ -546,7 +632,7 @@ function createStage(opts) {
         ],
         { duration: 460, easing: "cubic-bezier(.2,.8,.3,1)" }
       );
-      cursor.style.opacity = "1";
+      paintCursorOpacity();
       await wait(560, signal);
       await wave(signal);
       return;
@@ -575,7 +661,7 @@ function createStage(opts) {
   }
   async function gesture(kind, target, signal) {
     if (destroyed) return;
-    const el = target != null ? resolve(target) : null;
+    const el = target != null ? resolveSource(target) : null;
     switch (kind) {
       case "wave":
         return wave(signal);
@@ -585,34 +671,37 @@ function createStage(opts) {
       case "shake":
         return shake(signal);
       case "check": {
-        const p = el ? centerOf(el) : { x: cx, y: cy };
+        const p = (el && centerOf(el)) ?? { x: cx, y: cy };
         glyphBloom(p.x, p.y, "M5 13 l4 4 l10 -11");
         return wait(still ? 120 : 700, signal);
       }
       case "cross": {
-        const p = el ? centerOf(el) : { x: cx, y: cy };
+        const p = (el && centerOf(el)) ?? { x: cx, y: cy };
         glyphBloom(p.x, p.y, "M6 6 l12 12 M18 6 l-12 12");
         return wait(still ? 120 : 700, signal);
       }
     }
   }
-  function centerOf(el) {
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  function centerOf(src) {
+    const r = liveRect(src);
+    return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
   }
-  function resolve(target) {
+  function resolveSource(target) {
     if (destroyed) return null;
     if (typeof target === "string") return root.querySelector(target);
     if (typeof target === "function") return target();
     return target;
   }
+  function resolve(target) {
+    return asElement(resolveSource(target));
+  }
   async function point(target, signal) {
     if (destroyed) return;
-    const el = resolve(target);
-    if (!el) return;
-    if (!silenced.has("anticipate")) anticipate(el);
+    const src = resolveSource(target);
+    if (!src) return;
+    if (!silenced.has("anticipate")) anticipate(src);
     await wait(reduced ? 0 : 480 * pace, signal);
-    await moveToEl(el, signal);
+    await moveToEl(src, signal);
   }
   let sayTimer = 0;
   function say(text) {
@@ -637,7 +726,7 @@ function createStage(opts) {
     const tx = Math.min(Math.max(nr.left + nr.width / 2, 40), window.innerWidth - 40);
     const ty = placement === "top" ? nr.bottom + 16 : nr.top - 16;
     if (reduced) place(tx, ty);
-    else await tween(tx, ty, Math.max(280, Math.min(640, Math.hypot(tx - cx, ty - cy))), signal);
+    else await tweenTo(tx, ty, Math.max(280, Math.min(640, Math.hypot(tx - cx, ty - cy))), signal);
     if (!still) {
       narration.animate(
         [
@@ -665,6 +754,7 @@ function createStage(opts) {
     reduced,
     still,
     pace,
+    setCursorVisible,
     contains: (node) => node instanceof Node && layer.contains(node),
     destroy: () => {
       destroyed = true;
@@ -694,7 +784,7 @@ async function waitFor(ctx, probe, opts = {}) {
       }
       if (typeof r === "boolean") {
         if (r) return;
-      } else if (r) return r;
+      } else if (r) return asElement(r) ?? void 0;
     } else {
       const el = stage.resolve(probe);
       if (el) return el;
@@ -1202,6 +1292,7 @@ function scene(seed = "") {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  asElement,
   createStage,
   isAbortError,
   loop,

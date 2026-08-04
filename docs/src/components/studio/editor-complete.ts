@@ -1,4 +1,5 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import { PACE_NAMES } from '@/lib/resolve-pace';
 import { STUDIO_LANGUAGES } from './studio-language';
 
 // Studio editor autocomplete — context-aware completion for the three things an
@@ -26,12 +27,21 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'lang', info: 'Document language — overrides the workspace default (e.g. en-US). Drives <html lang> + read-aloud.' },
 	{ key: 'ai-lang', info: 'AI-output language — what the AI writes in, if it should differ from the document language. Defaults to lang.' },
 	{ key: 'present', info: 'Open the exported PDF in presentation mode — true / false.' },
+	{ key: 'pace', info: 'Presentation rhythm — how long a self-presenting deck holds on a new slide before speaking: brisk / natural / deliberate.' },
 ];
 
 // The `lang:` front-matter VALUE vocabulary — the supported document languages
 // (studio-language, English-only for now). Static, so built once at module load;
 // the `info` shows the human label beside each BCP-47 code.
 const LANG_OPTIONS: Completion[] = STUDIO_LANGUAGES.map((l) => ({ label: l.code, type: 'constant', detail: 'language', info: l.label }));
+// The `pace:` register's values, from the engine's own list — the same names the linter
+// validates against, so the editor can never offer a value the linter would then flag.
+const PACE_INFO: Record<string, string> = {
+	brisk: 'A demo, or an audience that already knows the material.',
+	natural: 'Boardroom delivery — the default.',
+	deliberate: 'A technical audience, or one reading in a second language.',
+};
+const PACE_OPTIONS: Completion[] = PACE_NAMES.map((n: string) => ({ label: n, type: 'constant', detail: 'pace', info: PACE_INFO[n] }));
 
 // Fenced-block languages the engine renders specially, plus common code langs.
 const FENCE_LANGS: { lang: string; info: string }[] = [
@@ -118,6 +128,12 @@ export function makeStudioCompletion(
 		if (/^[ \t]*(?:ai-)?lang:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
 			const word = context.matchBefore(/[\w-]*/);
 			return { from: word ? word.from : context.pos, options: LANG_OPTIONS, validFor: /^[\w-]*$/ };
+		}
+
+		// 1e. The `pace:` front-matter VALUE — the presentation-rhythm register.
+		if (/^[ \t]*pace:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
+			const word = context.matchBefore(/[\w-]*/);
+			return { from: word ? word.from : context.pos, options: PACE_OPTIONS, validFor: /^[\w-]*$/ };
 		}
 
 		// 2. Fenced-block language right after the opening ``` .
