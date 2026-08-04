@@ -17,7 +17,7 @@ const CLASS_LINE = /<!--\s*_class:\s*([^\n>]*?)\s*-->/;
  * waypoint ("a lighter context switch for narrowing focus WITHIN a section"), so it must not
  * open a top-level rail group. (There is no `section` class — an earlier draft assumed one.)
  */
-function isSectionBoundary(md: string): boolean {
+export function isSectionBoundary(md: string): boolean {
 	const m = CLASS_LINE.exec(String(md || ''));
 	if (!m) return false;
 	const tokens = m[1].trim().split(/[ \t]+/);

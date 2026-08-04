@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
-import { lookaheadPref, narrationCacheEnabled, setLookaheadPref, setNarrationCacheEnabled } from '@/playground/narration-prefs.js';
+import { lookaheadPref, narrationCacheEnabled, pacePref, setLookaheadPref, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
@@ -228,10 +228,12 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	// change made in another tab is reflected when the sheet is next opened.
 	const [lookahead, setLookaheadState] = React.useState<string>('auto');
 	const [narrationCache, setNarrationCacheState] = React.useState(true);
+	const [pace, setPaceState] = React.useState('natural');
 	React.useEffect(() => {
 		if (!open) return;
 		setLookaheadState(String(lookaheadPref()));
 		setNarrationCacheState(narrationCacheEnabled());
+		setPaceState(pacePref());
 	}, [open]);
 	React.useEffect(() => {
 		setStorageOverlay(storageOverlayEnabled());
@@ -538,7 +540,20 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							{/* ── PRESENT — how narrated delivery fetches and keeps its audio ──────── */}
 							<div className="mt-6">
 								<GroupLabel icon={<Volume2 className="size-3.5" />}>Narration in Present</GroupLabel>
-								<p className="mb-3 text-xs text-muted-foreground">Spoken narration is synthesized a slide at a time, so a slide whose audio isn't ready yet has to wait for it. These control how far ahead Present fetches, and whether what it fetched is kept for next time.</p>
+								<p className="mb-3 text-xs text-muted-foreground">How narrated delivery is paced, how far ahead Present fetches its audio, and whether what it fetched is kept for next time.</p>
+								<div className="mb-2 rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-pace" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Pace</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How long Present holds on a new slide before it starts speaking. The slide appears first and the beat gives the room time to read it — the order every presentation coach prescribes. A <strong>divider</strong> slide opens a section and gets a longer beat, the way a chapter break does.</p>
+									<Select value={pace} onValueChange={(v) => { setPaceState(v); setPacePref(v); notify(`Pace: ${v}.`); }}>
+										<SelectTrigger id="ws-pace" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="brisk">Brisk — 0.8s between slides, 1.6s between sections</SelectItem>
+											<SelectItem value="natural">Natural — 1.4s / 2.6s (recommended)</SelectItem>
+											<SelectItem value="deliberate">Deliberate — 2.2s / 4.0s</SelectItem>
+										</SelectContent>
+									</Select>
+									<p className="mt-1.5 text-[11px] text-muted-foreground">Deliberate suits a technical or non-native audience; Brisk suits a demo or a room that already knows the material.</p>
+								</div>
 								<div className="rounded-xl border border-border bg-background px-3 py-2.5">
 									<label htmlFor="ws-lookahead" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Fetch ahead</label>
 									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many upcoming slides to synthesize in the background while you present. <strong>Automatic</strong> sizes it from how fast your voice has actually been responding on this network — deeper on a slow link, shallower on a fast one — so you shouldn't normally need to change it.</p>

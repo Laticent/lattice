@@ -23,6 +23,55 @@ export declare const FINAL_LENGTHEN_MS = 30;
  *  not the ~1000 mid) after on-device review: a deep dark pause at every block seam read as the
  *  highlight lagging, so the beat is kept short (and the highlight now HOLDS through it — see cursor.ts). */
 export declare const PARAGRAPH_PAUSE_MS = 750;
+/**
+ * The SLIDE-boundary beat — the top rung of the ladder, above the paragraph tier.
+ *
+ * The ladder used to stop at the paragraph, which meant the deepest boundary a deck has
+ * carried NO deliberate pause at all: autoplay advanced and started speaking in the same
+ * tick, so the only gap between slides was whatever the network happened to cost. That is
+ * why narrated delivery read as both "way too fast" and "it hangs" — the deliberate pause
+ * was 0 ms and the accidental one was seconds.
+ *
+ * Two depths, because a deck has two kinds of slide boundary:
+ *   · `slide`   — the next slide within a section: a beat to take in the new visual.
+ *   · `section` — a `divider` slide opens a new section: a chapter break, where the
+ *                 audience re-orients. Broadcast and audiobook convention puts a section
+ *                 boundary at roughly 1.5–2× a paragraph; the craft literature (Duarte's
+ *                 contrasting beats, Reynolds's *ma*, Winston's deliberate stop) agrees on
+ *                 the shape even where it doesn't name a number.
+ *
+ * NOT simply the research mid-range, deliberately. `PARAGRAPH_PAUSE_MS` above was tuned
+ * DOWN from ~1000 to 750 after on-device review, because a deep pause at every block seam
+ * read as the highlight LAGGING. That was a sync artifact rather than a verdict on silence
+ * — and it is now fixed twice over (the highlight holds through a paragraph beat, and
+ * through a starved clip) — but it is real evidence from this engine that long pauses feel
+ * worse here than the literature predicts. So the slide tier starts near the conservative
+ * end of what the craft prescribes, and is user-tunable rather than asserted.
+ *
+ * The beat is spent ON THE NEW SLIDE, already rendered: advance, hold, THEN speak. That
+ * ordering is the one thing every practitioner agrees on — the audience's eyes arrive
+ * before their ears are ready, so let them read it first. Present did the reverse.
+ */
+export declare const SLIDE_PAUSE_MS = 1400;
+export declare const SECTION_PAUSE_MS = 2600;
+/** A named delivery pace. The preset is the primary control — "how many milliseconds
+ *  should a slide pause be" is not a question a presenter should have to answer to get a
+ *  good result — with exact overrides available for people who want them. */
+export type PaceName = 'brisk' | 'natural' | 'deliberate';
+/** Slide/section beats per pace, in ms. `natural` is the default and is the pair above. */
+export declare const PACE_PRESETS: Record<PaceName, {
+    slide: number;
+    section: number;
+}>;
+/**
+ * The beat to hold when arriving at a slide, in ms.
+ *
+ * `kind` is the boundary depth; `pace` names the preset; `override` (when a finite
+ * non-negative number) wins outright, so an author who wants an exact value gets it — and
+ * `0` is a legitimate override meaning "no beat", which is why this checks finiteness
+ * rather than truthiness.
+ */
+export declare function slideBeatMs(kind: 'slide' | 'section', pace?: PaceName, override?: number): number;
 /** The longest trailing pause implied by a token's punctuation (0 if none). Scans the trailing run
  *  of boundary glyphs from the END — a linear reverse scan, NOT a `/[…]+$/` regex, whose `+` retries
  *  at every start position (polynomial on a long punctuation run — a ReDoS on untrusted deck text,

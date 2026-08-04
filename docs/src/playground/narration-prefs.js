@@ -95,6 +95,46 @@ export function resolveLookahead(voiceKey) {
 	return MAX_LOOKAHEAD;
 }
 
+// ── Delivery pace ────────────────────────────────────────────────────────────
+// The between-slide beat. Stored here as a NAME plus optional exact overrides; the
+// milliseconds themselves live in cadenza's `PACE_PRESETS` (the one pace kernel), because
+// this module is imported by node-loadable voice-model.js and structurally cannot import a
+// TypeScript module — the same constraint the file header describes. So: names and numbers
+// travel through here, meaning comes from cadence.ts.
+
+const PACE_KEY = 'lattice-present-pace';
+const SLIDE_BEAT_KEY = 'lattice-present-slide-beat';
+const SECTION_BEAT_KEY = 'lattice-present-section-beat';
+
+const PACE_NAMES = ['brisk', 'natural', 'deliberate'];
+
+/** The named delivery pace — 'brisk' | 'natural' | 'deliberate'. Defaults to 'natural'. */
+export function pacePref() {
+	const raw = String(readLS(PACE_KEY) ?? '');
+	return PACE_NAMES.includes(raw) ? raw : 'natural';
+}
+
+export function setPacePref(name) {
+	writeLS(PACE_KEY, PACE_NAMES.includes(name) ? name : null);
+	emit();
+}
+
+/** Exact per-boundary overrides in ms, or `undefined` when unset (use the preset).
+ *  `0` is a MEANINGFUL value — "no beat at all" — so this distinguishes unset from zero
+ *  rather than treating both as falsy. */
+export function beatOverride(kind) {
+	const raw = readLS(kind === 'section' ? SECTION_BEAT_KEY : SLIDE_BEAT_KEY);
+	if (raw == null || raw === '') return undefined;
+	const n = Number(raw);
+	return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+export function setBeatOverride(kind, ms) {
+	const key = kind === 'section' ? SECTION_BEAT_KEY : SLIDE_BEAT_KEY;
+	writeLS(key, ms == null || !Number.isFinite(Number(ms)) || Number(ms) < 0 ? null : String(Math.round(Number(ms))));
+	emit();
+}
+
 /** Is synthesized narration kept on this device between sessions? Default ON — it is
  *  what makes the second run of a deck instant and free, and the Workspace Data tab
  *  surfaces and clears it. */

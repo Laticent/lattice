@@ -10,7 +10,7 @@ companion:
 
 # Present: instant audio, a real presentation pace, and a Guide rung
 
-**Status:** Part 2 ACCEPTED + IMPLEMENTED (2026-08-03); Parts 3–4 PROPOSED.
+**Status:** Parts 2 and 3 ACCEPTED + IMPLEMENTED (2026-08-03/04); Part 4 PROPOSED.
 Confirmed with the maintainer in one round: **both** adaptive prefetch and a full-deck
 Prepare; persist narration **on device** with a Data-tab governor; Guide targets derived
 from the **speech projection** with an author override; **three PRs, Part 2 first.**
@@ -226,6 +226,11 @@ control, not just as a settings option.
 
 ## Part 3 — A presentation pace, prescribed and configurable
 
+> **Implemented.** `SLIDE_PAUSE_MS` / `SECTION_PAUSE_MS` / `PACE_PRESETS` / `slideBeatMs` in
+> `cadenza/cadence.ts` (the pace kernel keeps one source of truth), the pace prefs in
+> `narration-prefs.js`, the advance→hold→speak sequencing in `PresentOverlay.tsx`, and the
+> Pace control in the Workspace. **Measured on the real surface** — see below.
+
 ### 3.1 What the practitioners actually prescribe
 
 The craft literature is unanimous on the shape, if not the millisecond:
@@ -392,6 +397,30 @@ Two defects surfaced while building it, both fixed here rather than filed:
   the abort signal — so a `stop()` during a hung produce left the consumer frozen on an unbalanced
   `true` for up to the produce timeout. The clear now rides `stop()` too.
 
+## Part 3, measured (HARD RULE #23)
+
+Unlike Part 2's audio behavior, the beat IS verifiable without a key: autoplay chains on the
+silent cadence, so the hold is observable in a real browser. Driven on the real Present
+surface at 1440×900, sampling the transport state every 25 ms:
+
+| Pace | Target | Measured holds | Mean |
+|---|---|---|---|
+| Brisk | 800 ms | 847 / 837 / 830 / 846 | **840 ms** |
+| Natural | 1400 ms | 1423 / 1433 / 1419 | **1425 ms** |
+| Deliberate | 2200 ms | 2234 / 2239 / 2245 | **2239 ms** |
+
+The consistent ~30–40 ms overhead is the 25 ms sampling granularity plus a React commit —
+expected, and well inside the perceptual noise floor for a pause of this length.
+
+The caption band was also traced across a transition: it holds at 76 px for the whole beat
+rather than collapsing and re-growing (one 25 ms sample reads 0 during the track swap — a
+single frame of re-render, not a fold). That reservation is why the beat doesn't introduce a
+slide that resizes twice per transition.
+
+**Not measured live:** the SECTION beat. The default deck carries no `divider` slide, so the
+2.6 s tier is covered by unit tests over `slideBeatMs` plus the pre-existing, already-tested
+`isSectionBoundary` — not by a stopwatch on a running deck. Flagged rather than implied.
+
 ## Verification note (HARD RULE #23)
 
 **What is verified:** the logic, by test — 13 device-cache cases against `fake-indexeddb` (a real
@@ -406,4 +435,4 @@ and a test suite is not evidence for any of it. Live OpenRouter timings cannot b
 sandbox (no key, and HARD RULE #24 keeps ours off the per-PR path), so those numbers are yours to
 run, or mine against a key you supply.
 
-Parts 3 (pace) and 4 (Guide) remain unbuilt.
+Part 4 (Guide) remains unbuilt. Part 3 shipped with the live measurements above.

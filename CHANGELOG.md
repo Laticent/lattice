@@ -355,6 +355,22 @@ in patch versions.
   sandbox for root and inside a container, but a GitHub runner is a plain non-root VM with
   unprivileged user namespaces restricted, so without it every render dies with "No usable sandbox!".
 
+- **Present now has a real presentation pace: the deck holds a beat on each new slide before
+  speaking.** The between-slide pause used to be *zero by construction* — `onFinish` advanced and
+  started narrating in the same tick — so the only gap between slides was whatever the network
+  happened to cost. That is why narrated delivery read as both "way too fast" and "it hangs": the
+  deliberate pause was 0 ms and the accidental one was seconds. The graded pause ladder in
+  `cadenza/cadence.ts` (comma 200 / clause 350 / sentence 550 / paragraph 750) now has its missing
+  top rung: a **slide** boundary (~1.4s) and, for a `divider` slide that opens a section, a deeper
+  **section** beat (~2.6s) — the chapter break an audience re-orients across. Crucially the beat is
+  spent **on the new slide, already rendered**: advance, hold, *then* speak, so the room reads the
+  slide before the voice starts, which is the one thing every presentation coach agrees on and the
+  exact opposite of what Present did before. Three named paces under **General → Narration in
+  Present** — Brisk (0.8s/1.6s), **Natural** (1.4s/2.6s, default), Deliberate (2.2s/4.0s) — with
+  exact per-boundary overrides available, where `0` legitimately means "no beat". Pausing during a
+  beat cancels it rather than being overridden by a timer set before the pause, and the caption band
+  stays reserved through the hold so the slide doesn't resize twice per transition.
+
 - **Present narrates without waiting on the network: prefetch ahead, keep the audio, and prepare a
   whole deck up front.** Narrated playback used to pay a cold, un-hidden synth round trip at the
   start of every Play and at most slide boundaries, because the prefetch was one slide deep, ran one

@@ -5,11 +5,12 @@ import DeckPreview from '@/components/DeckPreview';
 import { createPresenterController } from '@/components/studio/present/presenter-window.js';
 import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present/rehearsal.js';
 import { Tip } from '@/components/ui/tooltip';
+import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
-import { DEFAULT_LOOKAHEAD, onNarrationPrefsChange, resolveLookahead } from '@/playground/narration-prefs.js';
+import { beatOverride, DEFAULT_LOOKAHEAD, onNarrationPrefsChange, pacePref, resolveLookahead } from '@/playground/narration-prefs.js';
 // The chart narrators live once in lib/core/chart-narration.js (HARD RULE #1),
 // bundled to the browser via read-along-core — the SAME kernel the CLI/export
 // narrates chart slides from, so a given chart slide narrates identically on both
@@ -25,7 +26,7 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { sectionsFromSlides } from './present-sections';
+import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, prepareNarration, slideToSpeech, useReadAloud, voiceAvailability, warmNarrationWindow } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
@@ -348,11 +349,57 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const readerRef = React.useRef(reader);
 	readerRef.current = reader;
 	playingRef.current = reader.playing;
+	// Holding the between-slide beat: the new slide is up, the voice hasn't started yet.
+	// Drives the caption band's reservation (below) so the band doesn't collapse and re-grow
+	// across every transition — that flicker would be a new jank the beat itself introduced.
+	const [holding, setHolding] = React.useState(false);
+	// The pace prefs, re-read on change so a Workspace switch takes effect on the live deck.
+	const [pace, setPace] = React.useState<{ name: PaceName; slide?: number; section?: number }>({ name: 'natural' });
+	React.useEffect(() => {
+		const read = () => setPace({ name: pacePref() as PaceName, slide: beatOverride('slide'), section: beatOverride('section') });
+		read();
+		return onNarrationPrefsChange(read);
+	}, []);
+	// How long to hold on arriving at the CURRENT slide. Read through a ref by the
+	// auto-advance effect so a pref change never re-fires that effect mid-transition.
+	const beatForArrival = React.useCallback((): number => {
+		const md = set[clamped] ?? '';
+		const kind = isSectionBoundary(md) ? 'section' : 'slide';
+		return slideBeatMs(kind, pace.name, kind === 'section' ? pace.section : pace.slide);
+	}, [set, clamped, pace]);
+	const beatForArrivalRef = React.useRef(beatForArrival);
+	beatForArrivalRef.current = beatForArrival;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `reader.track` is the rebuild signal (the new slide's reader is ready once it changes); reader is read via ref by design.
 	React.useEffect(() => {
 		if (!autoAdvanceRef.current) return;
 		autoAdvanceRef.current = false;
-		readerRef.current.play();
+		// THE BETWEEN-SLIDE BEAT (Part 3). The new slide is already rendered and on screen;
+		// hold here before speaking so the audience reads it first. Advancing and speaking in
+		// the same tick — what this did before — is the reverse of what every practitioner
+		// prescribes, and it is why delivery read as "way too fast" even while individual
+		// slides sounded fine. The deliberate pause was literally 0 ms; the only gap was
+		// whatever the network cost, which is the accidental pause Part 2 removed.
+		//
+		// Depth comes from the boundary: arriving at a `divider` slide is a section break and
+		// gets the longer beat. A 0 beat (Brisk with an explicit 0 override) plays immediately
+		// rather than scheduling a pointless timer.
+		const beat = beatForArrivalRef.current();
+		if (beat <= 0) {
+			readerRef.current.play();
+			return;
+		}
+		setHolding(true);
+		const id = window.setTimeout(() => {
+			setHolding(false);
+			// Re-check intent at FIRE time, not schedule time: Pause (or leaving Present)
+			// during the beat must not be overridden by a timer set before it. `autoplay` is
+			// cleared by pause/close, so it is the honest signal that the chain is still wanted.
+			if (autoplayRef.current) readerRef.current.play();
+		}, beat);
+		return () => {
+			window.clearTimeout(id);
+			setHolding(false);
+		};
 	}, [reader.track]);
 	// A slide with no readable prose never fires onFinish (nothing to read), which
 	// would stall the chain — so while autoplaying, skip an empty slide straight to
@@ -712,7 +759,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// The caption band reserves space only while it's actually crawling (playing) — so
 	// pressing Play BLOOMS it in and the slide shrinks to fit, and Pause folds it back
 	// (Quiet Bloom). The vertical grow/shrink is animated (motion-reduce snaps).
-	const showCaption = !rehearse && captionsOn && reader.playing && reader.track.cues.length > 0;
+	// The band stays reserved through the between-slide beat (`holding`), not just while the
+	// voice is sounding. Without that it would collapse and re-grow at every transition — the
+	// slide resizing twice per slide, a jank the beat itself would have introduced. During the
+	// hold it shows the new slide's opening line unhighlighted, which is exactly the intent:
+	// the audience reads it, then the voice starts.
+	const showCaption = !rehearse && captionsOn && (reader.playing || holding) && reader.track.cues.length > 0;
 	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
 	// dim when the slide edge is reached, full on reveal.
 	// Is a transient overlay pill occupying the band below the slide? Keyed on the

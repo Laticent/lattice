@@ -9,18 +9,22 @@ export type { Narration } from './builder';
 // Fluent CONFIG front door — configure once (pace/acronyms/lang/rate/lexicon), emit many
 // (toTrack/toReader/toVtt/toSrt). Pure sugar over buildTrack/makeReader/toVtt/toSrt.
 export { narration } from './builder';
-export type { Pace } from './cadence';
+export type { Pace, PaceName } from './cadence';
 export {
   CLIP_TRAILING_FRACTION,
   clipTrailingMs,
   estimateWordMs,
   FINAL_LENGTHEN_MS,
   interCueGapMs,
+  PACE_PRESETS,
   PACE_WPM,
   PARAGRAPH_PAUSE_MS,
   pauseAfter,
   readMs,
+  SECTION_PAUSE_MS,
+  SLIDE_PAUSE_MS,
   SYLLABLE_MS,
+  slideBeatMs,
   syllableCount,
 } from './cadence';
 export type { CalibrationState } from './calibrate';

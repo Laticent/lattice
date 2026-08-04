@@ -1,7 +1,7 @@
 export type { Narration } from './builder';
 export { narration } from './builder';
-export type { Pace } from './cadence';
-export { CLIP_TRAILING_FRACTION, clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, PACE_WPM, PARAGRAPH_PAUSE_MS, pauseAfter, readMs, SYLLABLE_MS, syllableCount, } from './cadence';
+export type { Pace, PaceName } from './cadence';
+export { CLIP_TRAILING_FRACTION, clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, PACE_PRESETS, PACE_WPM, PARAGRAPH_PAUSE_MS, pauseAfter, readMs, SECTION_PAUSE_MS, SLIDE_PAUSE_MS, SYLLABLE_MS, slideBeatMs, syllableCount, } from './cadence';
 export type { CalibrationState } from './calibrate';
 export { CALIBRATION_MAX_K, CALIBRATION_MIN_K, CALIBRATION_MIN_N, CALIBRATION_WINDOW, deserializeCalibration, emptyCalibration, observe, rateScale, serializeCalibration, } from './calibrate';
 export type { Active, Cursor } from './cursor';
