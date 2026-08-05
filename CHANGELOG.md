@@ -531,6 +531,19 @@ in patch versions.
   ONE default (`DEFAULT_OR_MODEL`, the `~anthropic/claude-sonnet-latest` alias) instead of two
   in two files, pinned by a test. The picker's copy is version-neutral too — it named
   "Sonnet 4" against a `~*-latest` alias that moves.
+- **The overflow ratchet drops to 7, and two of its entries are closed rather than banked.** A full
+  262-deck sweep confirms three decks stopped clipping: `examples/state-chart.md` p6 (fixed on this
+  branch), and `examples/gallery-jargon.md` p45 + `test/integration/baseline-decks/gallery.md` p34,
+  which are **one defect seen twice** (#1367 — the same `compare-code` sample) and were already
+  fixed by #1337's `minmax(0, 1fr)` equal tracks. #1361 is closed the same way: `overflow:check` is
+  green on a clean checkout, and the deck it named — `examples/marker-export-fidelity.md` p1 —
+  reproduces at neither `8f19d2d` nor its parent when measured with the gate's own instrument, so it
+  was fixed somewhere between `c946f62` and `cdf8686`. The floor would be **5** but for
+  `examples/marker-corner.md`, this branch's own demo deck, which clips two slides *deliberately* —
+  a marker deck that does not clip demonstrates nothing. Net 8 → 7. No other deck in the corpus
+  moved, which is the corpus-wide evidence that the state-chart and marker-corner changes above
+  introduced no new clipping anywhere. (#1361, #1367)
+
 - **The marker corner had a fourth occupant it could not see, and a stamped slide sliced the
   deck logo.** #1365 made the slide's top-right a *stack* because three absolutely-positioned
   boxes want `top: 0; right: 0` — the status stamp, the clip tab, the legibility tab. There are
