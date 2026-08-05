@@ -65,10 +65,10 @@ in patch versions.
   own stroke geometry, so it clears the text by construction; #1403's whitespace search survives
   only as the fallback for when the stroke's natural ending is occupied, or would leave the card.
 
-  Measured over the 125 committed decks (5,830 real cues), reported per GESTURE rather than per
+  Measured over the 126 committed decks (5,879 real cues), reported per GESTURE rather than per
   cue — the cadence rests between them, so a per-cue tally describes a population no viewer sees:
-  underline 38.4% / bracket 34.3% / wash 22.0% / tap 4.8% / ring 0.6%, with the match rate
-  unchanged at 83.7%. The block cadence suppresses about **one move in six**, not most of them:
+  underline 38.4% / bracket 34.2% / wash 22.0% / tap 4.8% / ring 0.6%, with the match rate
+  unchanged at 83.6%. The block cadence suppresses about **one move in six**, not most of them:
   the dominant Lattice slide is bullets and cells, where each cue genuinely is its own block.
 
 - **Fixed in Vetrina, found by adversarial review:** `gesture('circle')` never settled when the

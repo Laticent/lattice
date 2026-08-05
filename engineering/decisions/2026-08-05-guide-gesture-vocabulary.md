@@ -238,7 +238,7 @@ Guide keeps the previously named element and compares. Same element → **rest**
 no stroke, nothing. A five-sentence paragraph gets one gesture and then twenty seconds of a
 still hand, which is what a presenter does.
 
-**How much this buys, measured: about one move in six** (§7 — 4,081 gestures against 4,879
+**How much this buys, measured: about one move in six** (§7 — 4,105 gestures against 4,912
 resolved cues). The paragraph picture is real and is the minority case, because the dominant
 Lattice slide is bullets, cells and headings, where each cue genuinely *is* its own block. The
 first draft of this section implied the reduction was most of the motion; it is not, and the
@@ -387,34 +387,34 @@ A per-CUE tally describes something no viewer sees, because the cadence gestures
 change and rests otherwise. The sweep now replays that rest guard, so the per-GESTURE column is
 what actually reaches a screen. The Munger-inversion lens found this; the correction is its.
 
-**125 decks · 5,830 cues:**
+**126 decks · 5,879 cues:**
 
 ```
-resolved to a target            4879  83.7%     (83.5% before this work — the matcher did not move)
-slides with narration           1241, of which 79 resolve nothing at all
+resolved to a target            4912  83.6%     (83.5% before this work — the matcher did not move)
+slides with narration           1249, of which 79 resolve nothing at all
 notable (a `_focus:` element)      6   0.1%
-gestures 4081 · rests 798 · hides 951
-rest fell back to the search    29.9% of gestures
+gestures 4105 · rests 807 · hides 967
+rest fell back to the search    30.0% of gestures
 
 vocabulary        per CUE        per GESTURE
-  underline   1594  32.7%      1566  38.4%
-  bracket     1485  30.4%      1400  34.3%
-  wash        1581  32.4%       896  22.0%
-  tap          196   4.0%       196   4.8%
-  circle        23   0.5%        23   0.6%
+  underline   1606  32.7%      1578  38.4%
+  bracket     1490  30.3%      1404  34.2%
+  wash        1595  32.5%       902  22.0%
+  tap          197   4.0%       197   4.8%
+  circle        24   0.5%        24   0.6%
 ```
 
 **What the numbers say, including the parts that are not flattering.**
 
-- **The match rate is unchanged at 83.7%**, against 83.5% before. That was the cross-check that
+- **The match rate is unchanged at 83.6%**, against 83.5% before. That was the cross-check that
   mattered: the vocabulary changes what happens *after* a target is found, and the number
   confirms it did not quietly move the matcher.
 - **The vocabulary really varies.** No verb exceeds 39% of what a viewer sees, and the three
   that carry it — underline, bracket, wash — split 38 / 34 / 22. A rule set that answered
   `underline` to everything would be the karaoke follower with extra steps, and this rules
   that out.
-- **THE CADENCE BUYS LESS THAN §5.1 IMPLIES, AND THE HONEST NUMBER IS 16%.** 4,081 gestures
-  against 4,879 resolved cues: the block cadence suppresses about one move in six, not most of
+- **THE CADENCE BUYS LESS THAN §5.1 IMPLIES, AND THE HONEST NUMBER IS 16%.** 4,105 gestures
+  against 4,912 resolved cues: the block cadence suppresses about one move in six, not most of
   them. §5.1's picture — a five-sentence paragraph reduced to one gesture — is real and is the
   minority case, because the dominant Lattice slide is bullets, cells and headings, where each
   cue genuinely *is* its own block. The premise of §1's diagnosis holds for prose decks and
@@ -425,12 +425,12 @@ vocabulary        per CUE        per GESTURE
   it needs a person watching a deck (§8).
 - **`circle` is nearly unreachable (0.6%), and that is a consequence, not a target.** The ring
   needs a target compact in both axes and wider than a tap's threshold, which after the
-  line-count fix means a genuinely large single-line stat. 23 cues in 125 decks have one. It
+  line-count fix means a genuinely large single-line stat. 24 cues in 126 decks have one. It
   earns its place on the slides that do rather than by frequency, and it stays because `circle`
   predates this work and is a tour cue regardless.
 - **Escalation is nearly invisible: 6 cues, 0.1%.** Only one deck in the corpus authors
   `_focus:` at all. Stated plainly, because a 0.1% path is one nobody has really seen run.
-- **The stroke's own ending is occupied 29.9% of the time.** So geometry answers about seven
+- **The stroke's own ending is occupied 30.0% of the time.** So geometry answers about seven
   gestures in ten and #1403's search covers the rest. That is lower than "impossible by
   construction" sounds, and the distinction is exact: occlusion of the NAMED thing is impossible
   by construction; landing on some OTHER block nearby is not, and never was. (The rate is
@@ -445,7 +445,7 @@ vocabulary        per CUE        per GESTURE
 | The vocabulary draws, tracks, disposes on abort, and leaves the cursor clear | jsdom unit | `docs/src/lib/vetrina/deictic.test.ts` — 27 cases |
 | `circle` and every existing tour are unchanged with no options | jsdom unit | pinned by the "byte-identical" case; the two deliberate exceptions are named in §3 |
 | The classifier, the focus refinement, the range mapping, the rest fallback | jsdom unit | `present-guide.test.ts` — 64 cases |
-| The vocabulary over the real corpus, per cue AND per gesture | real Chromium, 125 decks | §7 |
+| The vocabulary over the real corpus, per cue AND per gesture | real Chromium, 126 decks | §7 |
 | One gesture per BLOCK, and more than one verb across shapes | real Present overlay, Chromium | `docs/e2e/present-guide.spec.ts` |
 | The cursor never comes to REST on slide text | real Present overlay | the pre-existing #1403 oracle, unchanged and re-run green |
 
