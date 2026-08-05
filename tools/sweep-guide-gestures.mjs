@@ -1,0 +1,234 @@
+#!/usr/bin/env node
+/**
+ * sweep-guide-gestures — what does the Guide vocabulary ACTUALLY do to our decks?
+ *
+ * THE GAP THIS CLOSES. `chooseGesture` encodes five thresholds — how many lines make a
+ * block, how narrow is "small", what aspect ratio is still compact, how much of a block a
+ * sentence has to be to count as a phrase. Every one of them is a design constant, and a
+ * design constant reasoned about rather than measured is how #1386 shipped an
+ * "optimization" that was 7x slower on the state every new user is in. So the thresholds
+ * were set from this sweep's output, not the other way round.
+ *
+ * It also answers the question nobody can eyeball: does the vocabulary VARY? A rule set
+ * that resolves 96% of cues to `underline` is a karaoke follower with extra steps.
+ *
+ * IT DRIVES THE CODE THAT SHIPS. `docs/src/components/studio/present-guide.ts` is bundled
+ * and injected, and this calls its `guideCueIn` per cue — not a re-implementation of the
+ * rules that agrees today and drifts next month. Three separate amendments to the
+ * narration decision record are about a harness that measured something other than the
+ * shipping path; this one keeps the mechanism in the path by construction.
+ *
+ * THE CORPUS is every committed deck: `examples/` + `test/integration/baseline-decks/`.
+ * The cues are the deck's REAL narration, read out of the read-along WebVTT the emulator
+ * writes with `--captions` — the same `buildTrack` segmentation Present narrates from,
+ * so a cue here is a cue there.
+ *
+ * Usage:
+ *   node tools/sweep-guide-gestures.mjs              # the whole corpus
+ *   node tools/sweep-guide-gestures.mjs --limit 8    # a fast sample while iterating
+ *   node tools/sweep-guide-gestures.mjs --json out.json
+ *
+ * Needs a Chromium (CHROME_PATH or the puppeteer cache) — shape is layout, and layout
+ * needs a browser. With none it SKIPS loudly and exits 0, never a false green (#23).
+ * On-demand: it is ~124 full deck renders, so it is not in `build:check`.
+ */
+
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import esbuild from 'esbuild';
+
+const require = createRequire(import.meta.url);
+const { resolveChrome } = require('./lib/resolve-chrome');
+
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const OUT = path.join(ROOT, '.scratch', 'guide-sweep');
+/** The cursor's half-footprint, in the slide's own coordinates at S=1 (`POINTER_BOX / 2`). */
+const HALF = 14;
+
+const decks = () => [
+	...fs
+		.readdirSync(path.join(ROOT, 'examples'))
+		.filter((f) => f.endsWith('.md'))
+		.map((f) => path.join(ROOT, 'examples', f)),
+	...fs
+		.readdirSync(path.join(ROOT, 'test', 'integration', 'baseline-decks'))
+		.filter((f) => f.endsWith('.md'))
+		.map((f) => path.join(ROOT, 'test', 'integration', 'baseline-decks', f)),
+];
+
+/** The cue TEXTS of one read-along VTT, in order — the sentences Present speaks.
+ *  Word-level timestamps are stripped; the entities the writer escaped are put back. */
+function vttCues(file) {
+	const out = [];
+	let buf = [];
+	for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+		if (line.includes('-->')) {
+			buf = [];
+			continue;
+		}
+		if (!line.trim()) {
+			if (buf.length) out.push(buf.join(' '));
+			buf = [];
+			continue;
+		}
+		if (line.startsWith('WEBVTT') || /^\s*(NOTE|STYLE)\b/.test(line)) continue;
+		buf.push(
+			line
+				.replace(/<\d\d:\d\d:\d\d\.\d\d\d>/g, '')
+				.replace(/<\/?[cv][^>]*>/g, '')
+				.replace(/&lt;/g, '<')
+				.replace(/&gt;/g, '>')
+				.replace(/&amp;/g, '&')
+				.replace(/\s+/g, ' ')
+				.trim(),
+		);
+	}
+	if (buf.length) out.push(buf.join(' '));
+	return out.filter(Boolean);
+}
+
+/** The shipping decision module, bundled for the page. */
+async function bundleGuide() {
+	const r = await esbuild.build({
+		entryPoints: [path.join(ROOT, 'docs', 'src', 'components', 'studio', 'present-guide.ts')],
+		bundle: true,
+		format: 'iife',
+		globalName: 'LatticeGuide',
+		write: false,
+		platform: 'browser',
+		alias: { '@': path.join(ROOT, 'docs', 'src') },
+		logLevel: 'silent',
+	});
+	return r.outputFiles[0].text;
+}
+
+async function main() {
+	const argv = process.argv.slice(2);
+	const limit = argv.includes('--limit') ? Number(argv[argv.indexOf('--limit') + 1]) : Infinity;
+	const jsonAt = argv.includes('--json') ? argv[argv.indexOf('--json') + 1] : null;
+	const reuse = argv.includes('--reuse');
+
+	const chrome = resolveChrome();
+	if (!chrome) {
+		console.error('sweep-guide-gestures: no Chromium (set CHROME_PATH) — SKIPPED, nothing measured.');
+		process.exit(0);
+	}
+	fs.mkdirSync(OUT, { recursive: true });
+	const guideJs = await bundleGuide();
+	const puppeteer = require('puppeteer');
+	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
+
+	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const perDeck = [];
+	try {
+		for (const md of decks().slice(0, limit)) {
+			const stem = path.basename(md, '.md').replace(/[^\w.-]/g, '_');
+			const base = path.join(OUT, stem);
+			// `--reuse` skips the render when the sidecar is already on disk. A full pass is ~124
+			// deck renders; iterating on the MEASUREMENT should not re-pay for the corpus.
+			if (!(reuse && fs.existsSync(`${base}.html`))) {
+				try {
+					execFileSync(process.execPath, [EMULATOR, md, `${base}.pdf`, 'indaco', '--captions', '-q'], {
+						cwd: ROOT,
+						stdio: ['ignore', 'ignore', 'ignore'],
+						timeout: 10 * 60_000,
+					});
+				} catch {
+					console.error(`  skipped (render failed): ${path.relative(ROOT, md)}`);
+					continue;
+				}
+			}
+			if (!fs.existsSync(`${base}.html`)) continue;
+
+			// Per-slide cue lists, keyed by the 1-based slide number in the sidecar's filename.
+			const cuesBySlide = new Map();
+			for (const f of fs.readdirSync(OUT)) {
+				const m = new RegExp(`^${stem.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\.(\\d+)\\.vtt$`).exec(f);
+				if (m) cuesBySlide.set(Number(m[1]), vttCues(path.join(OUT, f)));
+			}
+			if (!cuesBySlide.size) continue;
+
+			const page = await browser.newPage();
+			await page.setViewport({ width: 1920, height: 1080 });
+			await page.goto(`file://${base}.html`, { waitUntil: 'networkidle0', timeout: 120_000 });
+			// `Runtime.evaluate`, NOT a `<script>` node: an exported deck can carry a
+			// Content-Security-Policy, and a blocked script tag leaves `window.LatticeGuide`
+			// undefined — which killed a whole run 42 decks in. Asserted, not assumed, because a
+			// harness that silently measures nothing is worse than one that stops.
+			await page.evaluate(guideJs);
+			if (!(await page.evaluate(() => typeof window.LatticeGuide?.guideCueIn === 'function'))) {
+				await page.close();
+				console.error(`  skipped (the classifier would not load): ${path.relative(ROOT, md)}`);
+				continue;
+			}
+			const rows = await page.evaluate(
+				(cueEntries, half) => {
+					const G = window.LatticeGuide;
+					const sections = [...document.querySelectorAll('section[data-lattice-slide]')];
+					const out = [];
+					for (const [n, cues] of cueEntries) {
+						const sec = sections[n - 1];
+						if (!sec) continue;
+						const r = sec.getBoundingClientRect();
+						const frame = { left: r.left, top: r.top, width: r.width, height: r.height };
+						let any = false;
+						for (const text of cues) {
+							const d = G.guideCueIn(sec, text, frame, half);
+							if (d) any = true;
+							out.push(d ? { kind: d.kind, notable: d.strength === 'notable', fellBack: d.fellBack } : null);
+						}
+						out.push({ slideDone: true, any });
+					}
+					return out;
+				},
+				[...cuesBySlide.entries()],
+				HALF,
+			);
+			await page.close();
+
+			const deckRow = { deck: path.relative(ROOT, md), cues: 0, resolved: 0, byKind: {} };
+			for (const row of rows) {
+				if (row?.slideDone) {
+					tally.slidesWithNarration += 1;
+					if (!row.any) tally.slidesNoCue += 1;
+					continue;
+				}
+				tally.cues += 1;
+				deckRow.cues += 1;
+				if (!row) continue;
+				tally.resolved += 1;
+				deckRow.resolved += 1;
+				tally.byKind[row.kind] = (tally.byKind[row.kind] ?? 0) + 1;
+				deckRow.byKind[row.kind] = (deckRow.byKind[row.kind] ?? 0) + 1;
+				if (row.notable) tally.notable += 1;
+				if (row.fellBack) tally.fellBack += 1;
+			}
+			tally.decks += 1;
+			perDeck.push(deckRow);
+			process.stderr.write(`  ${deckRow.deck}: ${deckRow.resolved}/${deckRow.cues}\n`);
+		}
+	} finally {
+		await browser.close();
+	}
+
+	const pct = (n, d) => (d ? `${((100 * n) / d).toFixed(1)}%` : 'n/a');
+	console.log(`\n── Guide gesture sweep — ${tally.decks} decks, ${tally.cues} cues ──`);
+	console.log(`  resolved to a target   ${tally.resolved} (${pct(tally.resolved, tally.cues)})`);
+	console.log(`  slides with narration  ${tally.slidesWithNarration}, of which ${tally.slidesNoCue} resolve nothing at all`);
+	console.log(`  notable (a \`_focus:\` element) ${tally.notable} (${pct(tally.notable, tally.resolved)})`);
+	console.log(`  rest fell back to the search  ${tally.fellBack} (${pct(tally.fellBack, tally.resolved)})`);
+	console.log('  vocabulary:');
+	for (const [k, v] of Object.entries(tally.byKind).sort((a, b) => b[1] - a[1])) {
+		console.log(`    ${k.padEnd(10)} ${String(v).padStart(5)}  ${pct(v, tally.resolved)}`);
+	}
+	if (jsonAt) fs.writeFileSync(jsonAt, `${JSON.stringify({ tally, perDeck }, null, 2)}\n`);
+}
+
+main().catch((e) => {
+	console.error(e);
+	process.exit(1);
+});

@@ -148,6 +148,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `overflow:bless` | Re-record the overflow ratchet from the current tree. Lower the floor when you fix slides; raise it only with the PR that justifies the new number. |
 | `overflow:check` | Render every shipped deck (examples + component galleries + the baseline deck) and ratchet the per-deck CLIPPED pages against test/integration/overflow-baseline.json. Catches an engine change that quietly over-subscribes the corpus — nothing else measures fit corpus-wide. On-demand (185 real renders), not a blocking CI gate. |
 | `regress` | Visual regression gate (LOCAL spot-check): render every gallery fresh and pixel-diff it against the committed golden PDF; fails on unblessed drift. |
+| `sweep:guide` | Measure what the Guide gesture vocabulary actually does to the committed corpus: render every deck, read its real read-along cues, and run the SHIPPING classifier (`guideCueIn`) over them. Reports the gesture distribution, the match rate, the `_focus:` escalation rate and how often the stroke's own resting place had to fall back to the whitespace search. The thresholds in `chooseGesture` were set from this output (HARD RULE #19 discipline applied to a design constant). On-demand — ~124 full deck renders. |
 | `test` | Full unit suite (node:test). The inner loop. |
 | `test:adaptive` | Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract. |
 | `test:all` | Unit + integration umbrella. |
@@ -292,6 +293,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/lint-deck.js` | Deck linter CLI — run the authoring footgun checks on a draft deck and |
 | `tools/pixel-check.js` | pixel-check — snapshot/diff harness for the _legacy.css elimination work. |
 | `tools/quality-assessment.js` | Quality assessment — the single entry point for the seven codebase-health dimensions from CLAUDE.md's "complexity is the mother of all killers of productivity" list. |
+| `tools/sweep-guide-gestures.mjs` | sweep-guide-gestures — what does the Guide vocabulary ACTUALLY do to our decks? |
 | `tools/theme-scorecard.js` | Theme scorecard — token-parity + palette-quality scoring for every theme. |
 
 ### Render / visual

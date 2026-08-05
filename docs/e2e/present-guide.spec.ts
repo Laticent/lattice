@@ -189,3 +189,131 @@ test('with nothing on the slide to point at, the cursor hides and the real point
 	await page.waitForTimeout(5_000);
 	expect(await backdropCursor(page), 'the real pointer was hidden while Guide had nothing to point at — the viewer has no pointer at all').not.toBe('none');
 });
+
+// ── THE GESTURE VOCABULARY (#1404) ──────────────────────────────────────────────────────────
+//
+// Two claims that only the real surface can settle, because both are about a real reader driving
+// a real cursor over real layout: the CADENCE (one gesture per block, not per sentence) and the
+// VARIETY (more than one verb, chosen by shape). jsdom can answer neither — it has no line boxes
+// and no clock.
+//
+// The oracle counts INK, not cursor positions. A cue node carries `data-vt-cue` naming its
+// gesture, so "how many gestures happened" and "which ones" are both directly observable, and
+// neither depends on catching the cursor at an instant — the mistake the geometry spec and the
+// beat spec each made once (assert on rest, never on a moment).
+
+const SLIDE_WITH_ONE_PARAGRAPH = [
+	'---',
+	'marp: true',
+	'theme: indaco',
+	'---',
+	'',
+	'## The quarter in one paragraph',
+	'',
+	'Growth held across every region. Spend stayed disciplined through the second half. The quarter landed on plan with room to spare. Nothing in the pipeline moved against us.',
+	'',
+].join('\n');
+
+/** Watch the stage for cue ink and report what was drawn, for `ms`. */
+async function watchCues(page: import('@playwright/test').Page, ms: number) {
+	return page.evaluate(async (duration) => {
+		const seen: string[] = [];
+		if (!document.querySelector('.vetrina-stage')) return { seen, error: 'no stage' };
+		// OBSERVE THE DOCUMENT, not the stage node found right now. The stage is torn down and
+		// rebuilt whenever Guide's own effect re-runs, and an observer holding the OLD node then
+		// watches a detached element for the rest of the window — it reports a clean empty list
+		// and the spec fails (or worse, passes) for a reason that has nothing to do with the
+		// gestures. Watching the document for `data-vt-cue` cannot go stale.
+		const obs = new MutationObserver((records) => {
+			for (const r of records) {
+				for (const n of r.addedNodes) {
+					const cue = (n as HTMLElement).dataset?.vtCue;
+					if (cue) seen.push(cue);
+				}
+			}
+		});
+		obs.observe(document.body, { childList: true, subtree: true });
+		await new Promise((r) => setTimeout(r, duration));
+		obs.disconnect();
+		return { seen, error: '' };
+	}, ms);
+}
+
+test('one gesture per BLOCK, not one per sentence', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, SLIDE_WITH_ONE_PARAGRAPH);
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await expect(dialog).toBeVisible();
+	await dialog.getByRole('button', { name: /^Guide (on|off)/ }).click();
+	await expect(page.locator(CURSOR)).toHaveCount(1);
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+
+	// FIVE cues, TWO blocks. The slide narrates its heading and then four sentences of one
+	// paragraph, and the cadence under test is that the hand names each BLOCK once: a burst for
+	// the heading, a burst for the paragraph, and NOTHING for the three sentences that follow
+	// inside it. Per-sentence would be five bursts.
+	//
+	// The count is of BURSTS, not of nodes: a `wash` paints one band per line of the phrase, so
+	// one gesture can add several nodes in the same tick. Consecutive nodes of the same kind
+	// collapse back into the gesture that produced them.
+	//
+	// Two KINDS here is correct and was briefly asserted against — the heading is one wide line
+	// (underline) and the paragraph is a phrase inside a block (wash). Asserting one kind was
+	// asserting that two different shapes get the same verb, which is the opposite of the design.
+	const { seen, error } = await watchCues(page, 22_000);
+	expect(error).toBe('');
+	expect(seen.length, `no cue ink was drawn at all — the gesture never ran (saw ${JSON.stringify(seen)})`).toBeGreaterThan(0);
+	const bursts = seen.filter((_, i) => i === 0 || seen[i - 1] !== seen[i]).length;
+	expect(bursts, `the hand gestured once per SENTENCE, not once per block: ${JSON.stringify(seen)}`).toBeLessThanOrEqual(2);
+});
+
+test('the vocabulary varies with the shape of what is named', async ({ page }) => {
+	// Motivated variety is the whole design: a rule set that answers `underline` to everything is
+	// a karaoke follower with extra steps. Three deliberately different shapes on three slides —
+	// a paragraph read whole, a compact stat, and a phrase inside a longer paragraph.
+	await gotoStudio(page);
+	await setEditorContent(
+		page,
+		[
+			'---',
+			'marp: true',
+			'theme: indaco',
+			'---',
+			'',
+			'## Margins expanded across every region this year and the next',
+			'',
+			'Margins expanded across every region this year and the next, and the pipeline held its shape through the whole of the second half.',
+			'',
+			'---',
+			'',
+			'<!-- _class: statement -->',
+			'',
+			'## Growth held.',
+			'',
+			'---',
+			'',
+			'Growth held across every region. Spend stayed disciplined. The quarter landed on plan.',
+			'',
+		].join('\n'),
+	);
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await dialog.getByRole('button', { name: /^Guide (on|off)/ }).click();
+	// WAIT FOR THE STAGE. The observer attaches once the stage exists, and a first version of
+	// this spec ran `page.evaluate` in the same tick as the click — before React had mounted it.
+	// A silent sampler is worse than no sampler.
+	await expect(page.locator(CURSOR)).toHaveCount(1);
+	// START AT SLIDE 1, and this is the whole reason the first version of this spec failed.
+	// `setEditorContent` leaves the editor on the LAST slide and Present opens where the editor
+	// is, so a three-slide deck opened on slide three and never advanced — which reads exactly
+	// like Guide stopping after one gesture. The failure was the oracle's, not the feature's.
+	await dialog.getByRole('button', { name: 'Go to slide 1' }).click();
+	await expect(dialog.getByText('1 / 3')).toBeVisible();
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+
+	const { seen, error } = await watchCues(page, 45_000);
+	expect(error).toBe('');
+	expect(seen.length, 'no cue ink at all across three slides').toBeGreaterThan(0);
+	expect(new Set(seen).size, `only one gesture across three different shapes — the classifier is not discriminating: ${JSON.stringify([...new Set(seen)])}`).toBeGreaterThanOrEqual(2);
+});
