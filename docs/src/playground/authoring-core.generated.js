@@ -252,7 +252,7 @@ var require_front_matter_key = __commonJS({
 // lib/core/resolve-color-mode.js
 var require_resolve_color_mode = __commonJS({
   "lib/core/resolve-color-mode.js"(exports, module) {
-    var { frontMatterValue, topLevelFrontMatterValue } = require_front_matter_key();
+    var { topLevelFrontMatterValue } = require_front_matter_key();
     var COLOR_MODE_REGISTER = Object.freeze({
       light: "color-light",
       dark: "dark",
@@ -289,14 +289,14 @@ var require_resolve_color_mode = __commonJS({
     function colorModeClassFromSource(md) {
       return colorModeClass(readFrontMatterColorMode(md) || "");
     }
-    var FRONT_MATTER_FENCE = /^﻿?---\r?\n[\s\S]*?\r?\n---/;
+    var FRONT_MATTER_FENCE = /^﻿?---[ \t]*\r?\n[\s\S]*?\r?\n---/;
     function frontMatterFence(md) {
       const m = String(md ?? "").match(FRONT_MATTER_FENCE);
       return m ? m[0] : "";
     }
     function frontMatterBody(md) {
       const fence = frontMatterFence(md);
-      return fence ? fence.replace(/^﻿?---\r?\n/, "").replace(/\r?\n---$/, "") : "";
+      return fence ? fence.replace(/^﻿?---[ \t]*\r?\n/, "").replace(/\r?\n---$/, "") : "";
     }
     function deckPrintBand(md, flagPrint = false) {
       if (flagPrint) return true;
@@ -304,7 +304,7 @@ var require_resolve_color_mode = __commonJS({
       if (!fm) return false;
       const token = deckColorModeToken(fm);
       if (token) return token === "print";
-      return classTokens(frontMatterValue(fm, "class")).includes("print");
+      return classTokens(topLevelFrontMatterValue(fm, "class")).includes("print");
     }
     function withPrintColorMode(source) {
       const src = String(source ?? "");
@@ -445,7 +445,7 @@ var require_deck_class_register = __commonJS({
     var { COLOR_MODE_TOKENS } = require_color_mode();
     var { classTokens, colorModeClass, deckColorModeToken } = require_resolve_color_mode();
     var { isComponentToken } = require_resolve_component();
-    var { frontMatterValue } = require_front_matter_key();
+    var { topLevelFrontMatterValue } = require_front_matter_key();
     var COLOR_AXIS = new Set(COLOR_MODE_TOKENS);
     function deckClassRefusal(token, colorModeToken = "") {
       if (isComponentToken(token)) return "component";
@@ -467,10 +467,10 @@ var require_deck_class_register = __commonJS({
       return out;
     }
     function deckClassTokensFromFrontMatter(fmBody) {
-      return deckClassTokens(frontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
+      return deckClassTokens(topLevelFrontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
     }
     function deckClassRefusalsFromFrontMatter(fmBody) {
-      return deckClassRefusals(frontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
+      return deckClassRefusals(topLevelFrontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
     }
     var CLASS_LINE = /^class:[ \t]*([^\r\n]*?)[ \t]*(\r?)$/;
     var FRONT_MATTER_FENCE = /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n---)/;
@@ -500,7 +500,7 @@ var require_deck_class_register = __commonJS({
         seen = true;
         if (next) out.push(`class: ${next}${hit[2]}`);
       }
-      const nextBody = out.join("\n").replace(/\r$/, "");
+      const nextBody = out.join("\n");
       if (nextBody === body) return src;
       if (!nextBody.trim()) return src.slice(0, m.index) + src.slice(m.index + whole.length).replace(/^(?:\r?\n)+/, "");
       return src.slice(0, m.index) + open + nextBody + close + src.slice(m.index + whole.length);
@@ -517,27 +517,27 @@ var require_deck_class_register = __commonJS({
   }
 });
 
-// lib/core/comment-directive.mjs
-function stripQuotes(v) {
-  const t = String(v ?? "").trim();
-  if (t.startsWith('"') && t.endsWith('"') || t.startsWith("'") && t.endsWith("'")) {
-    return t.slice(1, -1);
-  }
-  return t;
-}
-function readDirectiveComment(raw, { known, flags } = {}) {
-  const text = String(raw ?? "").trim();
-  if (!text.endsWith("-->") || !text.startsWith("<!--")) return null;
-  const inner = text.slice(4, -3);
-  const m = /^\s*(_?)([A-Za-z][\w]*)\s*(?::([\s\S]*))?$/.exec(inner);
-  if (!m) return null;
-  const [, spot, key, value] = m;
-  if (!known?.has(key)) return null;
-  if (value === void 0 && !flags?.has(key)) return null;
-  return { spot: Boolean(spot), key, value: stripQuotes(value ?? "") };
-}
-var init_comment_directive = __esm({
-  "lib/core/comment-directive.mjs"() {
+// lib/core/comment-directive.js
+var require_comment_directive = __commonJS({
+  "lib/core/comment-directive.js"(exports, module) {
+    function stripQuotes(v) {
+      const t = String(v ?? "").trim();
+      if (t.startsWith('"') && t.endsWith('"') || t.startsWith("'") && t.endsWith("'")) {
+        return t.slice(1, -1);
+      }
+      return t;
+    }
+    function readDirectiveComment2(raw, { known, flags } = {}) {
+      const text = String(raw ?? "").trim();
+      if (!text.endsWith("-->") || !text.startsWith("<!--")) return null;
+      const m = /^<!--\s*(_?)([A-Za-z][\w]*)\s*(?::\s*([\s\S]*?))?\s*-->$/.exec(text);
+      if (!m) return null;
+      const [, spot, key, value] = m;
+      if (!known?.has(key)) return null;
+      if (value === void 0 && !flags?.has(key)) return null;
+      return { spot: Boolean(spot), key, value: stripQuotes(value ?? "") };
+    }
+    module.exports = { readDirectiveComment: readDirectiveComment2, stripQuotes };
   }
 });
 
@@ -582,26 +582,15 @@ function walk(getLine, lineCount, onSlideEnd) {
       continue;
     }
     if (!COMMENT_OPEN.test(line)) continue;
-    const opener = line.slice(line.indexOf("<!--"));
-    let raw = opener;
+    let raw = line;
     let close = n;
-    let closed = commentCloses(opener);
-    while (!closed && close < lineCount) {
+    while (!COMMENT_CLOSE.test(raw) && close < lineCount) {
       close += 1;
-      const next = getLine(close) ?? "";
       raw += `
-${next}`;
-      closed = commentCloses(next);
+${getLine(close) ?? ""}`;
     }
-    if (!closed) continue;
+    if (!COMMENT_CLOSE.test(raw)) continue;
     const dir = readDirectiveComment(raw.trim(), CLASS_ONLY);
-    for (let k = start; k <= close; k++) {
-      if (!SEPARATOR.test(getLine(k) ?? "")) continue;
-      if (onSlideEnd) onSlideEnd(state());
-      spot = null;
-      spotText = "";
-      spotLine = 0;
-    }
     n = close;
     if (!dir) continue;
     if (dir.spot) {
@@ -627,15 +616,16 @@ function classDirectiveAt(getLine, lineNo) {
   const state = walk(getLine, lineNo, null);
   return state.payload ? state : null;
 }
-var CLASS_ONLY, SEPARATOR, FENCE_OPEN, COMMENT_OPEN, commentCloses, LINE_TERMINATOR, class_directive_scan_default;
+var import_comment_directive, readDirectiveComment, CLASS_ONLY, SEPARATOR, FENCE_OPEN, COMMENT_OPEN, COMMENT_CLOSE, LINE_TERMINATOR, class_directive_scan_default;
 var init_class_directive_scan = __esm({
   "lib/core/class-directive-scan.mjs"() {
-    init_comment_directive();
+    import_comment_directive = __toESM(require_comment_directive(), 1);
+    ({ readDirectiveComment } = import_comment_directive.default);
     CLASS_ONLY = { known: /* @__PURE__ */ new Set(["class"]), flags: /* @__PURE__ */ new Set() };
     SEPARATOR = /^---\r?$/;
     FENCE_OPEN = /^\s{0,3}(`{3,}|~{3,})/;
-    COMMENT_OPEN = /^[ ]{0,3}(?:>[ \t]*|(?:[-*+]|\d{1,9}[.)])[ \t]+)*<!--/;
-    commentCloses = (line) => line.includes("-->");
+    COMMENT_OPEN = /^\s{0,3}<!--/;
+    COMMENT_CLOSE = /-->/;
     LINE_TERMINATOR = /\r\n|[\n\r\u2028\u2029]/;
     class_directive_scan_default = { slideClassDirectives, classDirectiveAt };
   }
@@ -1795,7 +1785,7 @@ ${indent}   - ${body.trim()}`;
       }];
     }
     function findUnknownColorMode(source, colorModeNames) {
-      const fmBlock = source.match(/^﻿?---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+      const fmBlock = source.match(/^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
       if (!fmBlock) return [];
       const fm = fmBlock[1].match(/^color-mode:[ \t]*(.*)$/m);
       if (!fm) return [];
@@ -1837,7 +1827,7 @@ ${indent}   - ${body.trim()}`;
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
       const body = fmBlock[1];
-      const cm = body.match(/^class:.*$/m);
+      const cm = body.match(/^class:[ \t]*["']?([^"'\n]*)["']?[ \t]*$/m);
       if (!cm) return [];
       const mode = topLevelFrontMatterValue(body, "color-mode");
       return deckClassRefusalsFromFrontMatter(body).map(({ token, reason }) => ({

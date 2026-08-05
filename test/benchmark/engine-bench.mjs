@@ -465,9 +465,6 @@ function blessBaseline(summary, printSummary, render) {
  *   pass of a two-pass timing check: only those datasets are compared, the
  *   workload/drift sweeps are skipped (pass 1 already settled them), and nothing
  *   sets an exit code — `main()` owns the verdict. See the two-pass note in main().
- * @param opts.comparable  Force the same-machine verdict rather than re-deriving it.
- *   Pass 2 inherits pass 1's, because re-deriving it on a loaded box could flip the
- *   confirming run to NOT COMPARABLE and silently clear a real regression.
  */
 function checkBaseline(summary, printSummary, render, opts = {}) {
   const confirming = opts.confirming ?? null;
@@ -511,10 +508,7 @@ function checkBaseline(summary, printSummary, render, opts = {}) {
   // machine, where it keeps full teeth.
   const here = machineFingerprint();
   const verdictOnMachine = comparableMachine(base, here, render?.calibration);
-  // `opts.comparable` is pass 2 inheriting pass 1's verdict — see the note at the
-  // call site. Only ever narrows to `true` for a confirming run; a first pass
-  // always derives its own.
-  const comparable = opts.comparable ?? verdictOnMachine.ok;
+  const comparable = verdictOnMachine.ok;
   console.log(confirming ? '\n=== PERF CHECK · pass 2 (confirming) ===' : '\n=== PERF CHECK · current vs committed baseline ===');
   if (base.calibration?.ms && render?.calibration) {
     const ratio = render.calibration / base.calibration.ms;
@@ -689,17 +683,8 @@ async function main() {
       // run twice on a hunch — so an export-tier regression stands on pass 1 alone.
       // Its ±50% band is already sized for that.
       const exportRegressed = pass1.regressedDatasets.filter((n) => !render.summary.some((s) => s.dataset === n));
-      // PASS 2 INHERITS PASS 1's comparability verdict instead of re-deriving it.
-      // `comparableMachine` also fails when the calibration probe reads more than
-      // PROBE_BAND off the blessed value — and pass 2 runs precisely when the box
-      // looked slow, which is when the probe is most likely to drift. Re-deriving
-      // it there meant a loaded machine could flip pass 2 to NOT COMPARABLE, and
-      // `regressedDatasets` is only appended to `if (comparable)` — so every
-      // pass-1 regression came back "not reproduced" and the run exited 0. A real
-      // slowdown would have been reported as machine noise by the machine noise.
       const again = checkBaseline(second.summary, null, second, {
         confirming: new Set(pass1.regressedDatasets),
-        comparable: true,
       });
       const confirmed = [...exportRegressed, ...pass1.regressedDatasets.filter((n) => again.regressedDatasets.includes(n))];
       const cleared = pass1.regressedDatasets.filter((n) => !confirmed.includes(n));

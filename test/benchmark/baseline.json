@@ -1,47 +1,61 @@
 {
-  "version": 1,
-  "note": "Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; compare with `npm run bench:check`. Numbers are machine-relative — see engineering/workflow.md §Performance.",
+  "version": 2,
+  "note": "Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; compare with `npm run bench:check`. TWO SIGNALS: a moved `slides` count fails on any machine; TIMING gates only when the checking machine matches `blessedOn` AND reads the calibration probe within band — there it compares `ms`, the tightest signal. Anywhere else the timing is REPORTED as `index` (dataset ms ÷ probe ms, which divides clock speed out) and does not gate. See engineering/workflow.md §Performance.",
   "tolerancePct": 12,
+  "calibration": {
+    "probe": "calibration (markdown-it)",
+    "ms": 4.92,
+    "rmePct": 3.81
+  },
+  "blessedOn": {
+    "node": "v22",
+    "platform": "linux/x64",
+    "cpus": 4,
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz"
+  },
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "ms": 41.89,
-      "slidesPerSec": 1385,
-      "rmePct": 4.85
+      "index": 10.49,
+      "ms": 51.61,
+      "slidesPerSec": 1124,
+      "rmePct": 2.08
     },
     "charts": {
-      "slides": 14,
-      "ms": 34.1,
-      "slidesPerSec": 411,
-      "rmePct": 2.12
+      "slides": 15,
+      "index": 8.84,
+      "ms": 43.52,
+      "slidesPerSec": 345,
+      "rmePct": 1.89
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "ms": 115.43,
-      "slidesPerSec": 3015,
-      "rmePct": 5.71
+      "index": 28.07,
+      "ms": 138.14,
+      "slidesPerSec": 2519,
+      "rmePct": 1.96
     }
   },
   "printDatasets": {
     "print full · normal (jargon)": {
       "slides": 58,
-      "ms": 115829.68,
-      "rmePct": 0.89
+      "ms": 121698.75,
+      "rmePct": 5.61
     },
     "print re-place · normal (jargon)": {
       "slides": 58,
-      "ms": 79467.96,
-      "rmePct": 2.4
+      "ms": 80520.1,
+      "rmePct": 2.67
     },
     "print full · charts": {
-      "slides": 14,
-      "ms": 5989.54,
-      "rmePct": 2.74
+      "slides": 15,
+      "ms": 7415.82,
+      "rmePct": 2.38
     },
     "print re-place · charts": {
-      "slides": 14,
-      "ms": 2518.15,
-      "rmePct": 11.49
+      "slides": 15,
+      "ms": 2936.28,
+      "rmePct": 1.05
     }
   }
 }

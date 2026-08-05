@@ -157,6 +157,7 @@ in patch versions.
   until then that module is on a retirement path, not a growth path.
   `engineering/decisions/2026-08-05-bake-before-render-ordering.md`, #1385.
 
+
 - **Fixed: `npm run bench:check` was red on a clean tree, and its one honest signal exited 0.**
   The committed baseline held absolute milliseconds from whatever machine last blessed it, so
   anywhere slower read every dataset as a ~20% regression before any change was made — while the
@@ -167,6 +168,7 @@ in patch versions.
   print, as an index against a fixed upstream-markdown-it probe, so the baseline's diff stays a
   readable trend. `charts` re-blessed at its true count.
   `engineering/decisions/2026-08-05-bench-ratchet-two-signals.md`, #1382.
+
 
 
 - **Fixed: the deck linter and five other authoring surfaces read the class directive with a regex
