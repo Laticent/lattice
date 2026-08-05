@@ -165,10 +165,10 @@ function describeTarget(attrs) {
   if (del) return `the deletion of slide ${del[1]}`;
   if (after) return after[1] === 'end' ? 'the new slides at the end' : `the new slide after slide ${after[1]}`;
   if (slide) return `slide ${slide[1]}`;
-  return 'an unlabelled slide';
+  return 'an unlabeled slide';
 }
 
-// Attributes → a structured edit, or null when none is recognised.
+// Attributes → a structured edit, or null when none is recognized.
 function editFromAttrs(attrs, body) {
   const del = /delete=(\d+)/.exec(attrs);
   const after = /(?:insert-)?after=(\d+|end)/.exec(attrs);
@@ -180,8 +180,8 @@ function editFromAttrs(attrs, body) {
 }
 
 // Pull EDIT BLOCKS out of a model reply. Returns the prose (blocks removed), the list
-// of structured edits, and a list of PROBLEMS — blocks that were recognisably meant as
-// edits but can't be trusted as one. Tolerant where tolerance is safe (an unrecognised
+// of structured edits, and a list of PROBLEMS — blocks that were recognizably meant as
+// edits but can't be trusted as one. Tolerant where tolerance is safe (an unrecognized
 // attribute leaves the raw block in the prose); LOUD where it isn't.
 //
 // The two problems that matter, both of which used to produce a silently mangled slide:
@@ -225,7 +225,7 @@ export function parseEdits(reply) {
     const start = i;
     i = end;
     if (!edit) {
-      prose.push(...lines.slice(start, end + 1)); // unrecognised attributes — keep the raw block
+      prose.push(...lines.slice(start, end + 1)); // unrecognized attributes — keep the raw block
       continue;
     }
     // A body whose own fence never closes means the wrapper was closed by the PAYLOAD's

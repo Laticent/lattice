@@ -169,19 +169,54 @@ guardrail must not depend on a product default someone else is free to re-tune.
 `EDIT_PROTOCOL` now states the model has no shell, cannot render or validate anything,
 and must never claim it did.
 
+### The chat is grounded in Mermaid's own verdict
+
+Forbidding the fabrication only converts it into "I don't know". `mermaid-check.ts`
+supplies the answer: it extracts every ```mermaid fence per slide and runs Mermaid's own
+`parse()` over it, and the errors ride a new `ChatGrounding.diagrams` channel into the
+prompt, labelled as measured and attributed to the parser.
+
+Not by scraping the preview. The runtime's `.mermaid-error` boxes are the same data, but
+they live inside the preview iframe and the Studio's live preview renders only the
+CURRENT slide — a source that structurally cannot account for a deck. Asking the parser
+directly can.
+
+It is a RENDER diagnostic, not an authoring lint rule, so it deliberately does not become
+a lint finding: `lib/authoring/lint-core.js` is pure, fs-free and shared with the CLI
+(HARD RULE #7), and cannot take a ~1MB dependency. Hence its own channel. The library
+loads lazily and only for a deck that actually contains a diagram, from the same vendored
+`mermaid-v11.min.js` the preview and the export bundle already use.
+
+Three states, deliberately distinguished — `undefined` (not checked; the model says
+nothing), `[]` (checked, all clean; the model can say so, which stops it inventing a
+problem to be helpful), and a non-empty list (these, exactly these).
+
+Verified against the real library in the running Studio: a valid diagram returns clean, an
+unknown type and garbage each return Mermaid's own message, and a **truncated**
+`classDiagram` returns `Parse error on line 3: Expecting 'STRUCT_STOP', 'MEMBER', got
+'EOF_IN_STRUCT'` — which is precisely the corruption defect 2 used to create. The reducer
+keeps that pairing: taking only the first line, the obvious reduction, yields a bare
+"Parse error on line 3:" — a location with no diagnosis.
+
+### The price strip prices the prompt it sends
+
+The budget *gate* was taught to count the ~16.5K-token primer ("would under-count a chat
+turn several-fold"); the readout the author actually reads never was, and priced the deck
+source alone. It looked plausible only because its output assumption erred the other way —
+two errors cancelling, which stops working the moment either moves, as raising the ceiling
+just did.
+
+`chatSystemTokens` prices the real system turn via the already-exported `buildChatSystem`.
+It weights a cached prefix at roughly a tenth: after the first turn of a thread the primer
+is a cache READ, and charging it at full rate on every turn would replace an under-count
+with an over-count rather than fix anything.
+
 ## What this does NOT fix
 
-**The chat still cannot see Mermaid parse errors.** The runtime knows them; the
-grounding doesn't carry them. Until it does, the Architect's account of *which* diagram
-is broken remains a guess — a better-behaved guess that no longer claims to be a test
-result, but a guess. Feeding `.mermaid-error` into `ChatGrounding` is the obvious next
-move and is deliberately not in this change.
-
-**The price strip still under-counts its input.** `architect.ts` fixed the budget
-*gate* to count the ~16.5K-token primer per turn, noting that ignoring it would
-"under-count a chat turn several-fold". The displayed estimate never got that fix — it
-prices the deck source alone. It lands in the right range only because the output
-assumption errs the other way. Two errors cancelling is not a design.
+**The apply path is not verified end-to-end on the real surface.** Seeing the "Applied 2
+of 3" badge and the refusal notice requires a real model reply on a real key. The model
+default, the copy, and the diagram check were driven on the running Studio; that path was
+not.
 
 ## The reproductions
 

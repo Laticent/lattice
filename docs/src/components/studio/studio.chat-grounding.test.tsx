@@ -37,6 +37,7 @@ vi.mock('./architect', () => ({
 	applyProposedEditsChecked: vi.fn((src: string) => ({ source: src, applied: 1, refusals: [] })),
 	estimateUsd: () => 0.004,
 	CHAT_OUTPUT_EST: 4096,
+	chatSystemTokens: () => 0,
 	CHAT_MAX_TOKENS: 16384,
 	refineSelection: vi.fn(async () => ({ status: 'offline' })),
 	REFINE_ACTIONS: [],

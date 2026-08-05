@@ -439,6 +439,25 @@ in patch versions.
   so "add these slides" stops being a silent no-op.
   `engineering/decisions/2026-08-04-chat-edit-protocol.md`
 
+- **The Architect can finally tell you which diagram is broken, because it checked.** Asked
+  to verify a deck's Mermaid diagrams it had no way to find out — no shell, no renderer, no
+  parser — so it guessed and called the guess a test result. The prompt now forbids that
+  claim, but forbidding a fabrication only turns it into "I don't know", so the answer is
+  supplied instead: `mermaid-check.ts` runs Mermaid's own `parse()` over every ```mermaid
+  fence in the deck and the errors reach the prompt on a new `ChatGrounding.diagrams`
+  channel, attributed to the parser. Three states are distinguished on purpose — not
+  checked (says nothing), checked and clean (says so, which stops it inventing a problem to
+  be helpful), and these exact failures. Mermaid loads lazily and only for a deck that has a
+  diagram, from the same vendored copy the preview already uses.
+
+- **The per-turn cost estimate prices the prompt it actually sends.** The budget gate was
+  taught to count the ~16.5K-token primer ("would under-count a chat turn several-fold");
+  the `≈ $/turn` readout the author reads never was, and priced the deck source alone. It
+  looked plausible only because its output assumption erred the other way — two errors
+  cancelling, which stopped working the moment the output ceiling moved. It now prices the
+  real system turn, weighting a cached prefix at roughly a tenth rather than charging a
+  burst as N first turns.
+
 - **The Studio chat runs the model the Workspace panel says it does.** The picker has always
   told authors "Defaults to Claude Sonnet", while the Studio overrode the module default to
   the cheap Haiku alias — so anyone who never opened the picker was authoring on a model the

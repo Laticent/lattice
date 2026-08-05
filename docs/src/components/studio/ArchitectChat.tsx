@@ -2,10 +2,12 @@ import DOMPurify from 'dompurify';
 import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
 import * as React from 'react';
 import { diffLines, sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { readCachingEnabled } from '@/components/studio/ai/spend.js';
 import { cn } from '@/lib/utils';
-import { applyProposedEditsChecked, architectSpend, CHAT_OUTPUT_EST, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
+import { applyProposedEditsChecked, architectSpend, CHAT_OUTPUT_EST, type ChatGrounding, type ChatTurn, chatComplete, chatSystemTokens, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
+import { refDocsTokens } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
@@ -115,7 +117,16 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 	// noise, not reassurance). Suppressed entirely on the free on-device tier.
 	// Priced on the TYPICAL turn (CHAT_OUTPUT_EST), not the hard ceiling — see the note on
 	// those two constants. The budget gate is the one that assumes the worst case.
-	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, CHAT_OUTPUT_EST) : null), [cloud, source, status.price]);
+	//
+	// The SYSTEM turn is counted too. It used to price the deck source alone, which left
+	// the ~16.5K-token primer — by far the largest part of the prompt — out of the only
+	// number the author ever sees. Memoized on the grounding because building the primer
+	// walks the whole component catalog; `refDocsTokens` adds an attached reference doc,
+	// which the author also pays for. After the first turn of a thread the static prefix is
+	// a cache READ, so it's weighted accordingly rather than charged at full rate.
+	const primed = cloud && readCachingEnabled() && messages.length > 0;
+	const promptExtra = React.useMemo(() => (cloud ? chatSystemTokens('openrouter', grounding, primed) + refDocsTokens(refDoc.docs) : 0), [cloud, grounding, primed, refDoc.docs]);
+	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, CHAT_OUTPUT_EST, promptExtra) : null), [cloud, source, status.price, promptExtra]);
 
 	const run = async (history: ChatMessage[], sendDeckId: string) => {
 		const commit = (next: ChatMessage[]) => {
