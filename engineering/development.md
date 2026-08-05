@@ -438,10 +438,27 @@ locally from `docs/`:
 
 - **`npm run check:overflow`** (`docs/scripts/check-overflow.mjs`) — per-PR
   (runs in `ci.yml` `docs-build`, advisory via `continue-on-error`). A horizontal-overflow
-  guard: loads every converted surface at **390 / 820 / 1440**
-  (mobile/tablet/desktop), exercises the interaction states (drawer/pane
+  guard: loads every converted surface at **390 / 700 / 820 / 1440**
+  (mobile / tablet-floor / tablet / desktop), exercises the interaction states (drawer/pane
   switches, overlay opens), and fails if any page is wider than its viewport (a
   pannable page breaks on touch). Needs a built `dist/` + `CHROME_PATH`.
+  It measures **three different things**, and a case opts into the last two by name —
+  reach for the right one, because they do not substitute for each other:
+
+  | Measurement | Case key | Catches |
+  | --- | --- | --- |
+  | page `scrollWidth > clientWidth` | (always) | the page pans on touch |
+  | element `scrollWidth > clientWidth` | `noSelfOverflow` | a row that fits the page but not itself, so the controls at its end are off-screen (#1381) |
+  | child rects vs. the parent's **padding box** | `noChildSpill` | a box shrunk past its own non-shrinking children, which now paint outside it (#1417) |
+
+  The third exists because the first two are blind to it. A flex item with `min-width: 0`
+  may shrink below the intrinsic width of its `shrink-0` children; nothing about that grows
+  any ancestor's `scrollWidth`, and `scrollWidth` on the offender itself under-reports too
+  (an `overflow: visible` box omits its end padding, so 11px of real spill read as 1px).
+  Any element engineered to *absorb* a row's pressure — the Studio deck pill is the
+  canonical one — needs `noChildSpill`, precisely because keeping `scrollWidth` quiet is its
+  job. A selector matching nothing is reported as a MISS under every one of the three, never
+  as silence.
 - **`npm run perf`** (= `perf:collect` to `.perf/local` + a report) — measures
   the current site, median-of-3, desktop (`lighthouserc.cjs`) + mobile
   (`lighthouserc.mobile.cjs`), and prints the numbers. **Report-only locally**

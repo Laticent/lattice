@@ -3188,9 +3188,35 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    absorb the bar's free space. It's the one shrinkable item (min-w-0 + a
 				    truncating title; every sibling is shrink-0), so it shows the title in FULL
 				    whenever there's room and truncates only when the bar genuinely fills —
-				    never clipped to an arbitrary 180/260px. */}
-				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:px-2.5">
-					<span className="size-2 shrink-0 rounded-full bg-primary" />
+				    never clipped to an arbitrary 180/260px.
+				    ── THE FLOOR (#1417) ──────────────────────────────────────────────
+				    `min-w-0` alone lets this pill shrink BELOW the intrinsic width of its own
+				    `shrink-0` children, which then render OUTSIDE its border box: at 700px the
+				    chevron sat up to 20.5px past the pill's right edge, visibly clipped. That
+				    failure is invisible to every overflow oracle in the repo, because all of
+				    them read `scrollWidth` on the HEADER — and the pill is precisely the element
+				    engineered to keep the header's `scrollWidth` quiet while it absorbs the
+				    pressure, so it is the one element that can break silently. `min-w-*` stops
+				    the shrink where the pill's own children still fit and lets the ROW overflow
+				    honestly instead, where the header-level guards can see it.
+				    The number is the pill's non-shrinking content, and it is arithmetic over the
+				    classes on this very tag — keep the two in step (the e2e spec re-derives it
+				    from the rendered box and fails if they drift):
+				      compact  2px border + 2x8px `px-2`    + 8px `gap-2` + 16px chevron = 42px
+				      desktop  2px border + 2x10px `px-2.5` + 2x8px gaps + 8px dot + 16px = 62px
+				    Structural alternatives were measured and rejected: dropping `min-w-0` so the
+				    pill's own `min-width: auto` floors it pins the pill at the FULL title width
+				    (a flex item's min-content contribution is not reduced by `min-width:0` on the
+				    truncating child), and `contain: inline-size` on the title zeroes its intrinsic
+				    size in BOTH directions — the pill then never grows to show a title at all. */}
+				<button type="button" data-demo="deck-switcher" className={cn('flex items-center gap-2 rounded-md border border-border bg-background py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', compact ? 'min-w-[42px] px-2' : 'min-w-[62px] px-2.5')}>
+					{/* The active-deck dot is DESKTOP-ONLY decoration. Below 1100 it cost 16px
+					    (dot + its gap) out of a pill that had 51px to spend at the 700px floor —
+					    so the deck title, the thing this pill exists to show, rendered at ZERO
+					    width while a decorative dot held its ground. Same trade the wordmark in
+					    the launcher beside it already makes, and the same boundary (`compact`,
+					    the app's own 1100px line, never Tailwind's `lg`). */}
+					{!compact && <span className="size-2 shrink-0 rounded-full bg-primary" />}
 					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deckTitle}</span>
 					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
 					    desktop/tablet the deck title takes priority. */}
@@ -3357,7 +3383,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</DropdownMenuContent>
 				</DropdownMenu>
 
-				<Separator orientation="vertical" className="hidden h-5 sm:block" />
+				{/* DESKTOP-ONLY, like the two dividers further down the row. `hidden sm:block`
+				    drew these from 640px up, so a tablet paid 7px each (1px rule + one 6px gap)
+				    for a banding device the phone header below it does without — and at the
+				    700px floor this row had NO free width to pay it from, so it came out of the
+				    deck title. Gating on `compact` finishes the #1408 density move (below
+				    desktop this row reads as a wider phone header, not a squeezed desktop one)
+				    and is the same source of truth as every other gate here: the app's 1100px
+				    boundary, never Tailwind's `sm`/`lg`. */}
+				{!compact && <Separator orientation="vertical" className="h-5" />}
 
 				{deckSwitcher}
 
@@ -3436,7 +3470,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{!mobile && <Tip label="Present"><Button variant="outline" size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 
-				<Separator orientation="vertical" className="hidden h-5 sm:block" />
+				{/* DESKTOP-ONLY — see the note on its twin above the deck switcher. At ≥1100
+				    this still renders in BOTH headers at the same slot, so the #1371 tail-x
+				    invariant (Present / Share / dial / feedback hold their x across the dial)
+				    is untouched; below 1100 all three stops render THIS header, so there is no
+				    second row for it to disagree with. */}
+				{!compact && <Separator orientation="vertical" className="h-5" />}
 				{/* The posture dial — the always-visible, reversible way to any stop. Present
 				    at every stop (never a buried setting), so no stop can read as a room you
 				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}

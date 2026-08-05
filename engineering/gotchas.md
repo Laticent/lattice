@@ -3363,3 +3363,39 @@ own) is not a builder and needs no entry.
   edge advancing while the played edge is frozen is the only signal that says
   "still working, not crashed", and in High Contrast there is no rail at all.
 - **Removable when:** the rail carries a forced-colors block.
+
+### A control's own icon renders sliced/outside its button, and every overflow guard is green
+
+- **Symptom:** A control in a tight toolbar paints part of itself outside its
+  own border — the Studio deck switcher's chevron sat up to 20.5px past the
+  pill's right edge, visibly clipped against the pill's border. Meanwhile
+  `check:overflow` passes, `studio-header-fit.spec.ts` passes, and
+  `header.scrollWidth - header.clientWidth` reads **0** the whole time.
+- **Cause:** `min-width: 0` on a flex item lets it shrink below the intrinsic
+  width of its OWN `shrink-0` children. They keep their size and render
+  outside the parent's box. Nothing about that grows any ancestor's
+  `scrollWidth`, so a page- or row-level oracle cannot see it — and the
+  element most likely to hit this is precisely the one designed to *absorb* a
+  row's pressure so the row's `scrollWidth` stays quiet.
+- **Why `scrollWidth` on the offender doesn't catch it either:** an
+  `overflow: visible` box omits its end padding from `scrollWidth`. Measured
+  on the real pill: 11px of actual spill reported as `scrollWidth -
+  clientWidth === 1` — inside the 2px tolerance both guards use. Measure
+  **geometrically** (child rects vs. the parent's padding box) or you get a
+  green run over a visible defect.
+- **Fix:** Floor the absorber with `min-width` at the width its own
+  non-shrinking content occupies (paddings + gaps + every `shrink-0` child),
+  so the ROW overflows honestly where the row-level guards can see it. Then
+  find the width that floor costs — if the row only "fit" because the absorber
+  was clipping itself, it did not fit.
+- **Guard:** `noChildSpill` in `docs/scripts/check-overflow.mjs` (per-PR) and
+  `readPill` in `docs/e2e/studio-header-fit.spec.ts`, which also re-derives the
+  declared `min-width` from the rendered box so the constant can't rot.
+- **Two structural alternatives that do NOT work** (both measured in Chromium,
+  don't re-litigate): dropping `min-width: 0` so the parent's own
+  `min-width: auto` floors it pins the parent at the FULL untruncated title
+  width — a flex item's min-content contribution is not reduced by
+  `min-width: 0` on the truncating child; and `contain: inline-size` on that
+  child zeroes its intrinsic size in BOTH directions, so the parent never
+  grows to show a title at all, at any width.
+- **Triggered by:** #1417.

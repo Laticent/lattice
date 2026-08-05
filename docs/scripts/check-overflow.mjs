@@ -9,8 +9,11 @@
 // Asserts scrollWidth <= clientWidth (TOLERANCE px) at 390 / 700 / 820 / 1440 for
 // every converted surface, after each interaction step — on the PAGE, and
 // additionally on any element a case names in `noSelfOverflow` (a row that fits
-// the page but not itself hides the controls at its end). Requires a built
-// `dist/` (the perf step / `astro build` produces it) and CHROME_PATH.
+// the page but not itself hides the controls at its end). A case may also name
+// elements in `noChildSpill`, which is a DIFFERENT measurement — geometric, not
+// scrollWidth-based — for the failure no scrollWidth can see: a box shrunk past
+// its own non-shrinking children, painting them outside itself (#1417). Requires a
+// built `dist/` (the perf step / `astro build` produces it) and CHROME_PATH.
 //
 // Run: `npm run check:overflow` (after a build). CI: ci.yml `docs-build` job (advisory).
 
@@ -71,6 +74,16 @@ const CASES = [
 		// `shrink-0` bar the deck switcher. Once the title truncates to its floor the row
 		// has no give left and the tail controls leave the screen silently. #1381.
 		noSelfOverflow: ['[data-studio-root] header'],
+		// …and the deck switcher is the one element the line above CANNOT speak for. It is
+		// the row's designated shock absorber, so it keeps the header's `scrollWidth` quiet
+		// while it takes the pressure — which means it is also the one element that can
+		// break in silence. #1417: it shrank below the intrinsic width of its own `shrink-0`
+		// children and rendered the chevron up to 20.5px OUTSIDE its border box, with
+		// `header.scrollWidth - clientWidth === 0` throughout. `scrollWidth` cannot see it
+		// either: an `overflow: visible` box omits its end padding from `scrollWidth`, so the
+		// same 11px of real spill reported as 1px — inside this file's 2px tolerance. So this
+		// is a DIFFERENT measurement, not another selector for the same one.
+		noChildSpill: ['[data-studio-root] header [data-demo="deck-switcher"]'],
 		steps: [
 			{ label: 'coach', find: () => [...document.querySelectorAll('button')].find((b) => /Toggle Coach/.test(b.getAttribute('aria-label') || '')) },
 			{ label: 'chat', find: () => [...document.querySelectorAll('button')].find((b) => /Toggle Chat/.test(b.getAttribute('aria-label') || '')) },
@@ -157,6 +170,49 @@ const selfOverflow = (page, selectors, tolerance) =>
 		selectors,
 		tolerance,
 	);
+// "Does this box's own content fit INSIDE it?" — measured geometrically, against the
+// PADDING box, because `scrollWidth` cannot answer it for an `overflow: visible` box.
+//
+// A flex item with `min-width: 0` may shrink past the intrinsic width of its own
+// non-shrinking children; those children then paint outside their parent, clipped by
+// whatever the parent sits in. Nothing about that grows any ancestor's `scrollWidth`, so
+// every guard above reads green while a control is visibly sliced in half (#1417).
+//
+// The line is the padding box, not the border box, and deliberately so: content that has
+// started eating its own padding is already past the design and one step from leaving the
+// element entirely, so this trips while there is still something to lose. `display: none`
+// children are skipped — they are not flex items and have no box to spill.
+const childSpill = (page, selectors, tolerance) =>
+	page.evaluate(
+		(sels, tol) => {
+			const out = [];
+			for (const sel of sels) {
+				const els = document.querySelectorAll(sel);
+				// Same disguised-coverage rule as `selfOverflow`: a selector that matches
+				// nothing has measured nothing, and must not read as "measured and fine".
+				if (!els.length) {
+					out.push(`${sel}·MATCHED NOTHING — the guard measured no element; fix the selector or drop it`);
+					continue;
+				}
+				for (const el of els) {
+					const r = el.getBoundingClientRect();
+					const cs = getComputedStyle(el);
+					const left = r.left + Number.parseFloat(cs.borderLeftWidth) + Number.parseFloat(cs.paddingLeft);
+					const right = r.right - Number.parseFloat(cs.borderRightWidth) - Number.parseFloat(cs.paddingRight);
+					for (const kid of el.children) {
+						if (getComputedStyle(kid).display === 'none') continue;
+						const k = kid.getBoundingClientRect();
+						if (k.width === 0 && k.height === 0) continue;
+						const over = Math.max(left - k.left, k.right - right);
+						if (over > tol) out.push(`${sel}·<${kid.tagName.toLowerCase()}> spills ${over.toFixed(1)}px outside its parent's padding box`);
+					}
+				}
+			}
+			return out;
+		},
+		selectors,
+		tolerance,
+	);
 const offenders = (page) =>
 	page.evaluate(() => {
 		const vw = document.documentElement.clientWidth;
@@ -197,6 +253,10 @@ async function main() {
 					const self = await selfOverflow(page, c.noSelfOverflow, TOLERANCE);
 					if (self.length) failures.push(`${bp} ${c.name} [${label}] clipped row — ${JSON.stringify(self)}`);
 				}
+				if (c.noChildSpill) {
+					const spill = await childSpill(page, c.noChildSpill, TOLERANCE);
+					if (spill.length) failures.push(`${bp} ${c.name} [${label}] child spill — ${JSON.stringify(spill)}`);
+				}
 			};
 			await record('initial');
 			if (c.steps && bp !== 'desktop') {
@@ -235,6 +295,8 @@ async function main() {
 		console.error('\n"overflow=" — the PAGE is wider than the viewport, so it pans on touch. Fix with minmax(0,1fr) / min-width:0 / flex-wrap.');
 		console.error('"clipped row" — the row fits the page but not ITSELF, so the controls at its end are off-screen and unreachable.');
 		console.error('  Give the row less to carry at that width (drop a label, fold a non-protected control into the overflow menu), not more room to overflow into.');
+		console.error('"child spill" — a box shrank past its own non-shrinking children, which now paint outside it (a sliced icon).');
+		console.error('  Floor it with `min-width` at the width its own children still fit, so the ROW overflows honestly where the guards above can see it.');
 		process.exit(1);
 	}
 	console.log(`✓ no horizontal overflow — ${checks} states checked across mobile/tablet/desktop on every converted surface.`);
