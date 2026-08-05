@@ -1494,9 +1494,26 @@ section.illegible > .illegible-tab {
    the logo with `logo-x`/`logo-y`: a moved logo leaves the corner free, and reserving
    for a mark that is no longer there would push the marker left for nothing. */
 section { --corner-stack: 0%; --clip-stack: 0%; --corner-logo-reserve: 0px; }
-section[data-logo-corner] {
+/* `:has(> img.deck-logo)` as well as the attribute, because the two can disagree. The
+   attribute is stamped on the section's OPEN TAG, and auto-split clones that tag onto the
+   generated cover pages — where the injected `<img>` (a child) does not follow. A cover
+   therefore carried `data-logo-corner` with no mark to reserve for, and pushed the tab
+   ~118px in from the frame edge for nothing: the exact case the comment above says must not
+   happen. Requiring the element makes the reserve follow the LOGO rather than the intent to
+   have one. (HARD RULE #25 red team.) */
+section[data-logo-corner]:has(> img.deck-logo) {
   --corner-logo-reserve: calc(
     var(--frame-inset-x) + 6.25cqi * var(--logo-scale, 1) + var(--sp-xs)
+  );
+}
+/* `logo-style: brand` puts the mark on a plate: `padding: 0.4cqi` with
+   `box-sizing: content-box`, so the box grows by 0.8cqi that the reserve above does not
+   count — and `--sp-xs` (0.625cqi) is smaller than that overhang, so the tab overlapped the
+   plate's left edge by ~1px. A hairline, but it falsified the claim beside the reserve that
+   it is "written with the logo's own tokens, so the two cannot drift". Now it is. */
+section[data-logo-corner]:has(> img.deck-logo.deck-logo-brand) {
+  --corner-logo-reserve: calc(
+    var(--frame-inset-x) + 6.25cqi * var(--logo-scale, 1) + 0.8cqi + var(--sp-xs)
   );
 }
 section.clip-marked { --clip-stack: 100%; }

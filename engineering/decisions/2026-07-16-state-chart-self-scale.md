@@ -147,7 +147,8 @@ saw it was `⚠ CONTENT CLIPPED`, because the loss never crossed the frame.
 
 **This is a mechanism gap, not an authoring error**, which is why the fix is the
 predicate rather than the deck: every inline machine past the stage height was
-shearing, on every deck, silently.
+shearing, on every deck. Not *silently* — `⚠ CONTENT CLIPPED` named the cut item and the
+ratchet counted the page — but with nothing preventing it.
 
 ### The fix
 
@@ -181,8 +182,23 @@ Letterboxing it up rendered chips at heading size and contradicted the variant's
 reason to exist, so `applyFit` takes a `maxK` and `fitOnly` passes `1`. The cap is
 declared at the call site with that reasoning attached, deliberately, because the
 failure this whole note is about is a variant difference that was left **implicit**.
-Nothing caps the shrink direction: `probeFigureLegibility`'s type floor is what
-reports a scale that went too far.
+Nothing caps the shrink direction, and the first cut of this change left that
+unguarded in a way worth recording, because it is the same class of defect the whole
+swimlane is about. `probeFigureLegibility` selects `svg[viewBox]`, and `renderInline`
+emits no SVG at all — so the probe returned `null` ("nothing to judge", which reads
+downstream as "legible") and a letterboxed inline machine had NO channel. Measured on a
+24-state fixture: `k = 0.2284`, effective type **3.42px against a 7.2px floor** (0.475%
+of slide height vs a 1.00% floor), and not one of `⚠ OVERFLOW`, `⚠ CONTENT CLIPPED` or
+`⚠ TYPE FLOOR` said a word. That is strictly worse than the shear it replaced, which the
+export named and the ratchet counted.
+
+`applyFit` stamps `data-fit-k` when it scales, and `probeFigureLegibility` grew a second
+arm: for a box carrying that attribute and containing no `svg[viewBox]`, the effective
+glyph size is `font-size x k` over its text-bearing leaves, judged against the same
+floor. The two arms are kept disjoint because a rect is post-transform — where both an
+SVG and a CSS scale are present the figure arm already counts the scale, and running both
+would double it. Found by the HARD RULE #25 inversion, which rendered the case instead of
+reading the diff.
 
 ### Verified
 

@@ -37,7 +37,10 @@ const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
-const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow } = require('../../../lib/core/overflow-probe');
+const {
+  CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow,
+  probeFigureLegibility, FIGURE_TEXT_FLOOR_RATIO,
+} = require('../../../lib/core/overflow-probe');
 
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -152,6 +155,23 @@ const OVER_TALL_INLINE = `<!-- _class: state-chart inline -->
 ## A seven-state inline machine.
 
 ${OVER_INLINE_STATES}
+`;
+
+// Dense enough that the letterbox has to shrink hard. The point is NOT that it clips —
+// after the inline fit it never clips — but that a shrink this deep is REPORTED. Before
+// the `data-fit-k` arm existed, `probeFigureLegibility` selected `svg[viewBox]` only, the
+// inline variant emits no SVG, and the probe returned null: "nothing to judge", which
+// reads downstream as "legible". Measured on this shape: k = 0.23, effective type 1.8px
+// against a 7.2px floor, and not one channel said a word.
+const DENSE_INLINE_STATES = Array.from(
+  { length: 24 },
+  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`advance => ${i < 23 ? i + 2 : 1}\``,
+).join('\n');
+const ILLEGIBLE_INLINE = `<!-- _class: state-chart inline -->
+
+## A 24-state inline machine.
+
+${DENSE_INLINE_STATES}
 `;
 
 describe('chart overflow detection is preserved after the .viz-frame stage wrap', () => {
@@ -275,5 +295,35 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
       false,
       'an inline state-chart must not report frame overflow either — it is the same self-scaling chart',
     );
+  });
+
+  test('a letterboxed inline chart that shrinks past the type floor IS reported', async () => {
+    // The other half of the inline fit, and the more important one. Making the variant
+    // fit removed a loud failure (a sheared row, reported on CONTENT CLIPPED and counted
+    // by the ratchet); if nothing watched the shrink, that would be a trade DOWN — an
+    // unreported illegible slide for a reported broken one. This asserts the channel.
+    const html = renderHtml(formDeck(ILLEGIBLE_INLINE), { key: 'chart-legibility-inline', timeout: 240000 });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise((r) => setTimeout(r, 1200));
+    const v = await page.$eval('section', probeFigureLegibility, FIGURE_TEXT_FLOOR_RATIO);
+    const stamped = await page.$eval('section', (s) => {
+      const box = s.querySelector('[data-fit-k]');
+      return { k: box ? Number(box.getAttribute('data-fit-k')) : null, svgViewBoxes: s.querySelectorAll('svg[viewBox]').length };
+    });
+    await page.close();
+
+    assert.equal(stamped.svgViewBoxes, 0, 'the fixture must be the SVG-less variant, or this proves nothing');
+    assert.ok(stamped.k > 0 && stamped.k < 0.5, `the fit must actually shrink hard here — got k=${stamped.k}`);
+    assert.ok(
+      v && v.under === true,
+      `REGRESSION: a letterboxed inline chart at k=${stamped.k} rendered below the legibility floor and the `
+      + `probe did not report it (got ${JSON.stringify(v)}). probeFigureLegibility selects svg[viewBox]; this `
+      + 'variant has none, so it is judged through the `data-fit-k` arm — which needs applyFit() to keep '
+      + 'stamping the attribute. Without it the probe returns null, which reads downstream as "legible".',
+    );
+    assert.ok(v.minPx < v.floorPx, `reported minPx ${v.minPx} must be under the floor ${v.floorPx}`);
   });
 });

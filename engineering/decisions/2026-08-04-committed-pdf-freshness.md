@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: 183 committed PDFs — every `examples/` deck, all 45 exemplars, the design galleries, the CI baseline deck, the palette audit — had a producer and a named watcher, and the watcher did not read them. `#1279` closed OWNERSHIP deliberately without closing FRESHNESS, and the `watcher:` those rules named was `overflow:check`, which re-renders the markdown to a scratch dir and deletes it: it never opens the committed artifact. So an engine change staleified all of them silently. The issue proposed three designs — an input-hash sidecar, a scheduled re-render PR, or declaring them unfresh-by-design — and the answer is a fourth that dominates all three: THE WATCHER ALREADY EXISTS. `regression-gate.mjs` renders a deck fresh and pixel-diffs it against the committed golden; its corpus simply stopped at `lib/`. Widening it needed no new tool, no new committed artifact class, and no new gate concept (HARD RULE #15). The corpus is DERIVED from `git ls-files` rather than hand-listed, because a hand-kept set of artifacts is silent by default — the lesson #1279 itself records. Measured before deciding: the staleness is real and visible, not bookkeeping — `examples/pricing.pdf` p2 differs from a fresh render by 8.9% of the page, the committed artifact still carrying a larger body type and a narrower measure than the engine now produces. Cost is ~11s per deck, ~35 minutes for the scope on 4 cores, which puts it in the same on-demand tier as `overflow:check` rather than in CI, for the reason `ci.yml` already documents: Skia's CPU-dispatched rasterization is not bit-identical across GitHub's heterogeneous runners.
+summary: 185 committed PDFs — every `examples/` deck, all 45 exemplars, the design galleries, the CI baseline deck, the palette audit — had a producer and a named watcher, and the watcher did not read them. `#1279` closed OWNERSHIP deliberately without closing FRESHNESS, and the `watcher:` those rules named was `overflow:check`, which re-renders the markdown to a scratch dir and deletes it: it never opens the committed artifact. So an engine change staleified all of them silently. The issue proposed three designs — an input-hash sidecar, a scheduled re-render PR, or declaring them unfresh-by-design — and the answer is a fourth that dominates all three: THE WATCHER ALREADY EXISTS. `regression-gate.mjs` renders a deck fresh and pixel-diffs it against the committed golden; its corpus simply stopped at `lib/`. Widening it needed no new tool, no new committed artifact class, and no new gate concept (HARD RULE #15). The corpus is DERIVED from `git ls-files` rather than hand-listed, because a hand-kept set of artifacts is silent by default — the lesson #1279 itself records. Measured before deciding: the staleness is real and visible, not bookkeeping — `examples/pricing.pdf` p2 differs from a fresh render by 8.9% of the page, the committed artifact still carrying a larger body type and a narrower measure than the engine now produces. Cost is ~11s per deck, ~35 minutes for the scope on 4 cores, which puts it in the same on-demand tier as `overflow:check` rather than in CI, for the reason `ci.yml` already documents: Skia's CPU-dispatched rasterization is not bit-identical across GitHub's heterogeneous runners.
 ---
 
 # Committed PDFs get the watcher they were already credited with
@@ -65,7 +65,7 @@ The issue offered three designs. All three build something new:
 The fourth option is that **none of that is needed**. `regression-gate.mjs` already
 answers exactly this question — "does the committed PDF still match a fresh render?" —
 for the gallery goldens. Its corpus walk was rooted at `lib/`. Widening it to the other
-183 artifacts adds no new tool, no new artifact class, and no new concept
+185 artifacts adds no new tool, no new artifact class, and no new concept
 (HARD RULE #15). It is the same widening `#1279` itself performed when the walk moved
 from `lib/components` to `lib/`, one directory further out.
 
@@ -99,8 +99,8 @@ deck naming another one.
 
 **Mermaid is detected per deck, not per directory.** The gallery path widens its
 tolerance for the `chart` and `diagram` buckets, because mmdc's SVG anti-aliasing is not
-bit-identical across machine classes. These decks are not bucketed — 18 of the 121
-example decks carry a ` ```mermaid ` fence and they are scattered — so the tolerance is
+bit-identical across machine classes. These decks are not bucketed — 24 of the 185 deck
+goldens carry a ` ```mermaid ` fence and they are scattered — so the tolerance is
 chosen by reading the deck for a fence.
 
 ### Blessing rewrites only what drifted
@@ -111,15 +111,15 @@ tolerance. Two reasons, and the first is the load-bearing one:
 
 1. **PDF bytes are not reproducible between runs** — timestamps and font-subset ordering
    differ, which is why this gate compares pixels rather than bytes at all. A blanket
-   re-render would rewrite all 183 files to land a handful of real changes, burying the
+   re-render would rewrite all 185 files to land a handful of real changes, burying the
    review in noise.
 2. The fresh render is already on disk and already rasterized, so promoting it costs one
    rename rather than a second sweep.
 
 ## Cost, and why it is not a CI gate
 
-**~11 seconds per deck; ~35 minutes for the 183-deck scope on this 4-core sandbox.**
-That puts it in the same on-demand tier as `overflow:check` (185 renders, "tens of
+**~11 seconds per deck; ~35 minutes for the 185-deck scope on this 4-core sandbox.**
+That puts it in the same on-demand tier as `overflow:check` (263 decks, "tens of
 minutes") and `bench:check`, not in the per-PR gate set.
 
 That is not only a runtime argument. `ci.yml` already records why the *gallery* half of
@@ -140,17 +140,38 @@ the galleries have", not "freshness is now guaranteed".
 - The gate reproduces the drift it was built to find: `examples/pricing` p2 at 8.9%,
   before/after rasterized and compared side by side.
 - Deck scope run whole; results and the blessing pass are recorded in the PR body.
-- `--only` accepts a gallery stem, a deck path (`examples/pricing`), or an unambiguous
-  basename; `--scope galleries` reproduces the pre-#1379 run exactly.
+- `--only` accepts a gallery stem or a deck path (`examples/pricing`) — **not** a bare
+  basename. Twelve gallery stems collide with deck-golden basenames (`pricing`, `map`,
+  `funnel`, `state-chart`, `inventory` — which matches two at once — and seven more), so a
+  bare stem aimed at a gallery would silently re-bless an example PDF too. `--scope
+  galleries` reproduces the pre-#1379 run exactly.
+- `--bless` with no `--scope` means GALLERIES. `npm run bless` is documented as re-rendering
+  the gallery goldens; letting the widened default reach the deck scope made it a 35-minute
+  sweep that banked unrelated example-PDF drift into whatever commit you were making. The
+  deck bless is opt-in; the CHECK default stays `all`.
+- A typo'd `--bless --only zzz` exits **2** with `nothing named "zzz"`. The first cut exited
+  **0** silently, which is the worst direction for a bless command to fail.
 
 ## What this does NOT claim
 
 - It is **not** a per-PR gate and cannot become one without solving the cross-runner
   rasterization problem `ci.yml` documents.
-- It does not watch `examples/chart-theme-gallery/**` (six hand-produced PDFs with no
-  sibling deck — their own README calls them "reviewer deliverables, not regression
-  baselines"), `kit/Sample-Deck.pdf`, or the decision-record evidence. Those keep
-  `watcher: null`, which remains the honest answer for each.
+- **Ten committed PDFs remain outside both scopes**, and the honest count is ten rather
+  than the eight this note first gave:
+  - `examples/chart-theme-gallery/**` (6) — hand-produced, no sibling deck; their own README
+    calls them "reviewer deliverables, not regression baselines."
+  - `kit/Sample-Deck.pdf` — rendered by real marp-cli on purpose.
+  - `engineering/decisions/2026-05-12-kpi-candidates.pdf` — frozen evidence.
+  - **`examples/data-viz-gallery.{light,dark}.pdf`** — and this pair is a genuine remaining
+    gap, not a deliberate exclusion. They are a showcase light/dark pair built from
+    `examples/data-viz-gallery.md`, so the sibling-`.md` rule drops them (the sibling would
+    have to be `data-viz-gallery.light.md`) and the `lib/`-rooted gallery walk never sees
+    them. Their `PDF_OWNERSHIP` watcher names `build:showcase-galleries:check`, which
+    verifies the deck matches its manifests and that the PDF **exists** — it never opens the
+    bytes. That is the same overstatement this change corrects for five other rules, in a
+    third artifact shape (a pair from one deck, outside `lib/`) that neither scope handles.
+    Found by the HARD RULE #25 checker; filed rather than fixed here, because supporting it
+    means teaching the deck scope about light/dark pairs and `injectDark`.
 - The `PDF_OWNERSHIP` `watcher:` column is now true for the five rules that named
   `overflow:check` alone. It was overstated before, and that is corrected in the same
   change rather than filed.

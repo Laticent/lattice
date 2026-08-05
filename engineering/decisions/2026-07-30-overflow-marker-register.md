@@ -927,3 +927,72 @@ wrong reason.
   banner, two hanging off-axis), so it splits the vocabulary rather than unifying it,
   and it moves the stamp off `section::before` where ten mark treatments and two anchor
   layouts also squat. That squat is real and pre-existing; it is not what #1404 is.
+
+### What the adversarial trio changed (HARD RULE #25), round 6
+
+Three lenses on the frozen diff. Between them they found one defect that was **worse than
+the bug being fixed**, and four smaller ones — the pattern being that every finding lived
+where a *near miss* had been mistaken for a clearance.
+
+**Red team — an author's front matter could break the slide open.** The corner fix merges
+`--logo-*` into the section's existing `style`, and `setAttr` did that with a **string**
+replacement. `String.replace` expands `$&`, `` $` `` and `$'` in the replacement, so a
+value carrying one splices the surrounding tag into itself. Measured, with
+`footer: "Q3 · $'25 plan"` on a deck that also sets `logo-scale`:
+
+```html
+<section … style="--logo-scale:1.5;--footer: class="content form">
+```
+
+The slide lost `class="content form"` entirely, lost `data-logo-corner` with it, and
+rendered the rest of its own open tag as body text. `$&` produced a duplicate `style`
+attribute nested inside the first. **This was reachable only because a caller began
+MERGING rather than creating** — `setAttr`'s other branch already passed a function — so
+the diff introduced it. The replacement is a function now, and
+`collections-attrs.test.js` pins all four `$` forms on both branches. The runtime path
+uses `setProperty` and was never affected, which is itself the tell: the three render
+paths had silently stopped agreeing.
+
+**Red team + checker, independently — `logo-style: brand` overlapped by one pixel.** The
+plate adds `padding: 0.4cqi` at `box-sizing: content-box`, so the mark's box is `0.8cqi`
+wider than the reserve's `6.25cqi * scale` term, and the gap token absorbing it is only
+`0.625cqi`. That is the *same one-pixel near-miss* that hid the original defect through
+five rounds, in the one variant the new canary did not cover. Both the reserve and the
+canary now carry the brand case.
+
+**Red team — the reserve fired on slides with no logo.** `data-logo-corner` is stamped on
+the section's open tag, and auto-split **clones that tag** onto its generated cover pages,
+where the injected `<img>` (a child) does not follow. Measured on `examples/cover-paginate.md`:
+five covers carrying the attribute with `logos=0`, reserving ~118px for a mark that is not
+there — precisely what the reserve's own comment says must not happen. The rule requires
+`:has(> img.deck-logo)` now, so the reserve follows the **logo** rather than the intent to
+have one.
+
+**Checker — two implementations of one contract, and no gate.** `deckLogoVars` /
+`deckLogoInCorner` in `plugins.js` and `applyLogoPlacement` in `lib/runtime/index.js` were
+hand-kept copies of the same clamps and the same both-axes rule. They agreed, on
+inspection, on every input the checker enumerated — and nothing failed if one changed,
+while `logo.docs.md` asserted that a change "must land in the runtime in the same commit
+(HARD RULE #1)". The clamps and the predicate are now ONE exported function
+(`deckLogoPlacement`) that the runtime imports, so there is nothing left to drift.
+
+**Red team — a latent concatenation landmine.** `deckLogoVars` emitted no trailing `;`,
+and `applyRails` appends into an existing style with no separator of its own. Chained,
+that yields `--logo-nudge:translate(-50%, -50%)--lat-split-offset:2;`, invalidating both
+declarations. Unreachable today only because the directive mirror always writes a trailing
+`;` first — a fact about a different file. Terminated.
+
+**Where the trio confirmed the design:** the horizontal reserve rather than a vertical
+one; dissolving the ownership question instead of ranking the occupants; declining round
+5's `.slide-corner` column (the blast-radius argument "checks out" — five of the thirteen
+stamp shapes are not corner boxes at all); the `--logo-*` move to the section; and the
+specificity compound that makes the reserve bite.
+
+**Left open, and now named rather than implied:** the inversion's point that the corner is
+governed by **pairwise** reserves, so each new occupant costs O(N) arithmetic — and that
+the diff's own §"Still open" already lists the pair it did not do (`stamp-flag` /
+`stamp-pin` versus the logo, which measures as a ~7px x-overlap at hd). The cheaper
+version of round 5's proposal — a `.slide-corner` column over **the two tabs and the logo
+only**, leaving the stamp on `::before` — was never priced, and the argument recorded above
+answers the expensive version of it. That is the ticket to open before a fifth occupant
+arrives, not this PR.

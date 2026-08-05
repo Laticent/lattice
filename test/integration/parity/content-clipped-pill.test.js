@@ -295,6 +295,14 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   const LOGO_SRC = path.join(ROOT, 'test', 'fixtures', 'acme-logo.svg');
   const deckWithLogo = (body) =>
     `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\n---\n\n${body.trim()}\n`;
+  // `logo-style: brand` puts the mark on a plate — `padding: 0.4cqi` at
+  // `box-sizing: content-box`, so the BOX is 0.8cqi wider than the reserve's
+  // `6.25cqi * scale` term, and the gap token absorbing it is only 0.625cqi. Measured, the
+  // tab overlapped the plate by 1px: the same one-pixel near-miss that hid the original
+  // defect through five adversarial rounds, in the one variant the first canary did not
+  // cover. (HARD RULE #25 checker + red team, independently.)
+  const deckWithBrandLogo = (body) =>
+    `---\nmarp: true\ntheme: indaco\nlogo: ${LOGO_SRC}\nlogo-style: brand\n---\n\n${body.trim()}\n`;
 
   async function corners(cls, key, build = deck) {
     const html = renderAt(build(CORNER(cls)), key, 'author');
@@ -392,6 +400,19 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
       );
       assert.ok(disjoint(v.clip, v.leg), `the two tabs must still not overlap each other on "${cls}"`);
     }
+  });
+
+  test('CORNER — a BRAND-plated logo is cleared too, plate and all', async () => {
+    const v = await corners('content confidential', 'corner-logo-brand', deckWithBrandLogo);
+    assert.ok(v.logo, 'the fixture must render a logo');
+    assert.ok(v.clip, 'the clip tab must be drawn');
+    assert.ok(
+      disjoint2d(v.logo, v.clip),
+      `REGRESSION: the clip tab overlaps the BRAND plate. logo=${JSON.stringify(v.logo)} `
+      + `clip=${JSON.stringify(v.clip)}. \`logo-style: brand\` grows the mark's box by 0.8cqi `
+      + '(content-box padding) which --corner-logo-reserve must add — the plain reserve is short by '
+      + 'more than the gap token can absorb.',
+    );
   });
 
   test('CORNER — a repositioned logo releases the corner, so the tabs reclaim the full width', async () => {

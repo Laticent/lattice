@@ -2527,7 +2527,9 @@ async function renderBody(browser, g, closeBrowser) {
   const illegible = overflow.filter((o) => o.illegible);
   if (illegible.length) {
     const n = illegible.length;
-    console.warn(`  ⚠ TYPE FLOOR — ${n} viewBox figure${n > 1 ? 's' : ''} render${n > 1 ? '' : 's'} text below the ` +
+    // "scaled figure", not "viewBox figure": the probe judges a CSS-letterboxed box
+    // (`data-fit-k`) on the same axis now, and that box may carry no `<svg>` at all.
+    console.warn(`  ⚠ TYPE FLOOR — ${n} scaled figure${n > 1 ? 's' : ''} render${n > 1 ? '' : 's'} text below the ` +
       `legibility floor (${(FIGURE_TEXT_FLOOR_RATIO * 100).toFixed(2)}% of slide height = ${illegible[0].illegible.floorPx}px here): ` +
       illegible.map((o) => `page ${o.slide} at ${o.illegible.minPx}px (${o.illegible.pct}%)`).join(', ') + '.');
     console.warn('    A container-responsive figure never overflows — it scales its own labels instead, so the');

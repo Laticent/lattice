@@ -388,7 +388,7 @@ in patch versions.
 
 ### Changed
 
-- **183 committed PDFs now have the watcher the ownership table already credited them with.**
+- **185 committed PDFs now have the watcher the ownership table already credited them with.**
   `#1279` closed *ownership* — every PDF in `git ls-files` is claimed by a rule naming a producer
   and a watcher — deliberately without closing *freshness*. The trouble was what went in the
   watcher column: five rules named `overflow:check`, which renders each deck's **markdown** into a
@@ -415,8 +415,8 @@ in patch versions.
   and mermaid tolerance is chosen by reading each deck for a fence, since these decks are not
   bucketed. `--bless` rewrites **only what drifted**, promoting the fresh render this run already
   made, because PDF bytes are not reproducible between runs and a blanket re-render would rewrite
-  all 183 files to land a handful of real changes. **Cost: ~9s per deck, ~28 minutes for the
-  scope on 4 cores** — the same on-demand tier as `overflow:check`, and it stays out of CI for the
+  all 185 files to land a handful of real changes. **Cost: ~10s per deck, ~35 minutes for the
+  185-deck scope on 4 cores** — the same on-demand tier as `overflow:check`, and it stays out of CI for the
   reason `ci.yml` already records (Skia's rasterization is not bit-identical across GitHub's
   runners, which flaked the gallery half at 0.4–2% per run). Stated plainly: this makes drift
   **findable and provable**, not impossible — an engine change can still staleify these artifacts
@@ -532,17 +532,38 @@ in patch versions.
   in two files, pinned by a test. The picker's copy is version-neutral too — it named
   "Sonnet 4" against a `~*-latest` alias that moves.
 - **The overflow ratchet drops to 7, and two of its entries are closed rather than banked.** A full
-  262-deck sweep confirms three decks stopped clipping: `examples/state-chart.md` p6 (fixed on this
+  262-deck sweep — run alone — confirms three decks stopped clipping: `examples/state-chart.md` p6 (fixed on this
   branch), and `examples/gallery-jargon.md` p45 + `test/integration/baseline-decks/gallery.md` p34,
   which are **one defect seen twice** (#1367 — the same `compare-code` sample) and were already
   fixed by #1337's `minmax(0, 1fr)` equal tracks. #1361 is closed the same way: `overflow:check` is
-  green on a clean checkout, and the deck it named — `examples/marker-export-fidelity.md` p1 —
+  green on a clean checkout, and the deck it named — `examples/marp-export-fidelity.md` p1 —
   reproduces at neither `8f19d2d` nor its parent when measured with the gate's own instrument, so it
   was fixed somewhere between `c946f62` and `cdf8686`. The floor would be **5** but for
   `examples/marker-corner.md`, this branch's own demo deck, which clips two slides *deliberately* —
   a marker deck that does not clip demonstrates nothing. Net 8 → 7. No other deck in the corpus
   moved, which is the corpus-wide evidence that the state-chart and marker-corner changes above
-  introduced no new clipping anywhere. (#1361, #1367)
+  introduced no new clipping anywhere. `examples/present-narration-delivery.md` landed from `main`
+  after that sweep, taking the corpus to 263; it was checked separately and is clean, so the
+  banked floor still describes the whole corpus. (#1361, #1367)
+
+- **An author's front matter could break a slide's `<section>` tag open — a defect the corner fix
+  above introduced and the adversarial trio caught.** `setAttr` merged the new `--logo-*` payload
+  into the section's existing inline style with a **string** replacement, and `String.replace`
+  expands `$&`, `` $` `` and `$'` in a replacement. So a deck combining `logo-scale:` with a
+  directive value containing one — `footer: "Q3 · $'25 plan"` is not exotic — spliced the
+  surrounding tag into the attribute: the slide lost `class="content form"` entirely, lost the new
+  `data-logo-corner` with it, and rendered the rest of its own open tag as visible body text; `$&`
+  produced a duplicate `style` attribute nested inside the first. Reachable only because a caller
+  began MERGING rather than creating — `setAttr`'s other branch already passed a function — and
+  invisible on the runtime path, which uses `setProperty`, so the three render paths had silently
+  stopped agreeing. The replacement is a function now, and all four `$` forms are pinned on both
+  branches. Two smaller siblings fixed with it: `logo-style: brand` puts the mark on a
+  `content-box` plate 0.8cqi wider than the reserve counted, so the tab overlapped it by 1px — the
+  same one-pixel near-miss that hid the original defect through five rounds, in the one variant the
+  new canary did not cover; and `data-logo-corner`, being on the section's open tag, was **cloned
+  by auto-split onto cover pages** where the logo itself does not follow, reserving ~118px for a
+  mark that is not there. The reserve now requires `:has(> img.deck-logo)`, so it follows the logo
+  rather than the intent to have one.
 
 - **The marker corner had a fourth occupant it could not see, and a stamped slide sliced the
   deck logo.** #1365 made the slide's top-right a *stack* because three absolutely-positioned
@@ -587,7 +608,8 @@ in patch versions.
   fixed stage: measured, `.chart-body` client 406 / scroll 458 — **52px hidden**, 434px of rows in a
   358px figure — with `probeSectionOverflow` reporting `over: false` throughout, because nothing
   crossed the frame. **A mechanism gap, not an authoring error**, so the fix is the predicate rather
-  than the deck: every inline machine past the stage height was shearing on every deck, silently.
+  than the deck: every inline machine past the stage height was shearing, on every deck. Not silently — the export
+  named the cut item and the ratchet counted the page — but with no fit to prevent it.
   `renderInline` emits the same `.state-chart-scale` box the default variant uses, the letterbox is
   split into a shared `applyFit()` (the default variant's path passes the rect it had already
   measured, so it is untouched byte for byte), and `drawAll()` runs a fit-only pass selected by the
@@ -600,7 +622,12 @@ in patch versions.
   chips at heading size and contradicting a variant whose own gallery slide is captioned "the chart
   sits beside its prose" — so the fit is **shrink-only** for inline, declared at the call site with
   its reasoning, because the failure this whole entry is about is a variant difference left
-  implicit. Nothing caps the shrink direction; the type floor reports a scale that went too far.
+  implicit. Nothing caps the shrink direction, and closing that channel is part of this change: the type-floor
+  probe keyed on `svg[viewBox]`, and the inline variant emits no SVG at all, so the first cut of this
+  fix traded a **reported** shear for an **unreported** shrink — measured, a 24-state machine rendered
+  at 3.42px against a 7.2px floor with no warning on any channel. `applyFit` now stamps `data-fit-k`
+  and `probeFigureLegibility` grew a second arm that judges a CSS-letterboxed box on the same floor,
+  so the scale is watched in both directions.
   **Committed pixels move on exactly one page in each mood** of the state-chart gallery (9.1%, all
   of it the row column becoming vertically centred now that it is out of flow); the chart bucket
   gallery does not move, and the default variant's `k` is unchanged on every page. Guarded by a

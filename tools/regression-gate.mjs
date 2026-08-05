@@ -29,17 +29,23 @@
 //
 // TWO SCOPES (#1379). `galleries` is the light/dark pairs under lib/ described above.
 // `decks` is every OTHER committed PDF with a sibling deck — examples/, exemplars/,
-// design/, themes/, the CI baseline — 183 artifacts that had no watcher reading their
+// design/, themes/, the CI baseline — 185 artifacts that had no watcher reading their
 // bytes at all. Default is BOTH, because a gate that silently covers a third of the
 // committed corpus is the defect this one exists to catch.
 //
 // Usage:
 //   node tools/regression-gate.mjs                      # everything (~45 min, 4 cores)
 //   node tools/regression-gate.mjs --scope galleries    # the pre-#1379 run
-//   node tools/regression-gate.mjs --scope decks        # the newly-watched 183
+//   node tools/regression-gate.mjs --scope decks        # the newly-watched 185
 //   node tools/regression-gate.mjs --only kpi           # one gallery (component or bucket)
 //   node tools/regression-gate.mjs --only examples/pricing   # one deck golden
-//   node tools/regression-gate.mjs --bless [--only …]   # re-render goldens, then exit
+//   node tools/regression-gate.mjs --bless              # GALLERIES only (see below)
+//   node tools/regression-gate.mjs --scope decks --bless [--only examples/x]
+//
+// `--bless` with no `--scope` means GALLERIES, deliberately: `npm run bless` is documented
+// as re-rendering the gallery goldens, and letting it reach the deck scope made it a
+// 35-minute sweep that silently banked unrelated example-PDF drift into your commit. The
+// deck bless is opt-in. (The CHECK default stays `all`.)
 //   node tools/regression-gate.mjs --json               # machine-readable report
 //
 // Exit code is non-zero if any target drifts past tolerance, so it can gate.
@@ -113,14 +119,14 @@ function galleryDecks() {
 }
 
 // ── The OTHER two thirds of the committed corpus (#1379) ─────────────────────
-// The 148 gallery goldens under lib/ (74 decks x 2 moods) were watched by the walk
-// above. 183 more committed PDFs — every `examples/` deck and the token-contrast set
-// (134), all 45 worked exemplars, the two design galleries, the CI baseline deck and the
+// The 150 gallery goldens under lib/ (75 decks x 2 moods) were watched by the walk
+// above. 185 more committed PDFs — every `examples/` deck and the token-contrast set
+// (136 together), all 45 worked exemplars, the two design galleries, the CI baseline deck and the
 // palette audit — were watched by NOTHING that reads their bytes.
 // `#1279` closed OWNERSHIP (every PDF names a producer and a watcher) and deliberately
 // not FRESHNESS, and the `watcher:` those rules named was `overflow:check`, which
 // re-renders the markdown to a scratch dir and deletes it. It never opens the committed
-// artifact. So an engine change staleified those 183 artifacts and no gate could say so.
+// artifact. So an engine change staleified those 185 artifacts and no gate could say so.
 //
 // This is the same gate, pointed at them. Nothing new was needed — which is the point:
 // the machinery for "does the committed PDF still match a fresh render" already existed
@@ -235,7 +241,7 @@ function renderFreshDeck(md) {
 }
 
 // Mermaid is detected per DECK here rather than by directory, because these decks are
-// not bucketed: 18 of the 121 example decks carry a ```mermaid fence and they are spread
+// not bucketed: 24 of the 185 deck goldens carry a ```mermaid fence and they are spread
 // across the tree. Same reason the galleries need it — mmdc's SVG anti-aliasing is not
 // bit-identical across machine classes.
 const MERMAID_FENCE_RE = /^[ \t]*(?:```|~~~)[ \t]*mermaid\b/m;
@@ -253,7 +259,7 @@ function failFractionForDeck(md) {
 //
 //   1. PDF bytes are NOT reproducible between runs (timestamps, font-subset ordering —
 //      it is why this gate compares pixels at all). A blanket re-render would rewrite
-//      all 183 files to land ~30 real changes, burying the review in noise.
+//      all 185 files to land ~20 real changes, burying the review in noise.
 //   2. The fresh render is already on disk and already rasterized. Promoting it costs
 //      one rename; re-rendering costs another full sweep.
 function runDeckGolden(md, opts = {}) {
@@ -276,17 +282,26 @@ function runDeckGolden(md, opts = {}) {
     result.fail = true;
     return result;
   }
-  const diff = pixelDiff(golden, outPdf, `regr-deck-${name.replace(/[/\\]/g, '_')}`, { fuzz: FUZZ });
-  const drifted = diff.perPage.filter(
-    (p) => p.pixels === -1 || (p.total ? p.pixels / p.total > failFraction : p.pixels > 0),
-  );
-  // Promote BEFORE cleanup — `outPdf` is one of the paths cleanup removes. pixelDiff has
-  // already rasterized both sides into its own tmpDir, so the montage still builds.
-  if (opts.bless && drifted.length) {
-    renameSync(outPdf, golden);
-    result.blessed = true;
+  // `finally`, because a throw between here and the cleanup (a corrupt golden, a rasterizer
+  // failure, a full disk) would otherwise strand a `.regr-*.pdf` beside a committed deck.
+  // The .gitignore additions contain the blast radius, but a leak the tool can prevent is
+  // not one to leave to a denylist. (HARD RULE #25 checker.)
+  let diff;
+  let drifted;
+  try {
+    diff = pixelDiff(golden, outPdf, `regr-deck-${name.replace(/[/\\]/g, '_')}`, { fuzz: FUZZ });
+    drifted = diff.perPage.filter(
+      (p) => p.pixels === -1 || (p.total ? p.pixels / p.total > failFraction : p.pixels > 0),
+    );
+    // Promote BEFORE cleanup — `outPdf` is one of the paths cleanup removes. pixelDiff has
+    // already rasterized both sides into its own tmpDir, so the montage still builds.
+    if (opts.bless && drifted.length) {
+      renameSync(outPdf, golden);
+      result.blessed = true;
+    }
+  } finally {
+    cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
   }
-  cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
   const worst = diff.perPage.reduce((m, p) => Math.max(m, p.total ? p.pixels / p.total : (p.pixels > 0 ? 1 : 0)), 0);
   result.themes[key] = {
     status: drifted.length ? 'DRIFT' : 'ok',
@@ -403,7 +418,14 @@ function main() {
   // a default that silently covers a third of them re-creates the defect in a new place.
   // `--scope galleries` restores the pre-#1379 (faster) run when that is what you want.
   const scopeIdx = args.indexOf('--scope');
-  const scope = scopeIdx >= 0 ? args[scopeIdx + 1] : 'all';
+  // `--bless` with NO explicit scope means GALLERIES, not everything. `npm run bless` is
+  // documented as "re-render the gallery goldens", and letting the widened default reach
+  // the deck scope turned it into a 35-minute 185-deck sweep that silently rewrote every
+  // drifted example PDF into whatever commit you were making — banking unreviewed drift as
+  // a side effect of re-blessing one gallery. The CHECK default stays `all`, because a
+  // gate that silently covers a third of the corpus is the defect this tool exists to
+  // catch; blessing is the direction where a surprise is expensive. (HARD RULE #25 checker.)
+  const scope = scopeIdx >= 0 ? args[scopeIdx + 1] : (args.includes('--bless') ? 'galleries' : 'all');
   if (!['all', 'galleries', 'decks'].includes(scope)) {
     process.stderr.write(`error: --scope must be all | galleries | decks (got "${scope}")\n`);
     return 2;
@@ -411,12 +433,17 @@ function main() {
   const wantGalleries = scope === 'all' || scope === 'galleries';
   const wantDecks = scope === 'all' || scope === 'decks';
 
-  // `--only` matches a gallery stem (`kpi`, `chart`) OR a deck golden by repo-relative
-  // path (`examples/pricing`) or unambiguous basename (`pricing`).
+  // `--only` matches a gallery stem (`kpi`, `chart`) or a deck golden by REPO-RELATIVE PATH
+  // (`examples/pricing`, with or without the extension). Deliberately NOT by bare basename:
+  // twelve gallery stems collide with deck-golden basenames (`funnel`, `map`, `state-chart`,
+  // `pricing`, `scene`, `video`, `inventory` — which matches two at once — `logo-wall`,
+  // `q-and-a`, `policy-recommendation`, `cycle`), so `--bless --only pricing` aimed at the
+  // gallery would also re-bless `examples/pricing.pdf`. A path is unambiguous by construction.
+  // (HARD RULE #25 red team.)
   const matchesOnly = (md) => {
     if (!only) return true;
     const full = goldenDeckName(md);
-    return full === only || full.replace(/\.md$/, '') === only.replace(/\.md$/, '') || basename(full) === only;
+    return full === only || full === only.replace(/\.md$/, '');
   };
 
   let galleries = wantGalleries ? galleryDecks() : [];
@@ -430,12 +457,21 @@ function main() {
   //   · GALLERIES delegate to build-galleries / build-bucket-galleries, which overwrite
   //     their goldens outright. Unchanged from before this scope existed. Once blessed
   //     there is nothing left to compare, so they drop out of the run below — otherwise
-  //     `--bless` would re-render all 148 and then diff them against themselves.
+  //     `--bless` would re-render all 150 and then diff them against themselves.
   //   · DECK GOLDENS fall THROUGH into the comparison with `bless: true`, so only the
   //     ones that actually drifted are rewritten. Blindly re-rendering the scope would
-  //     rewrite all 183 files — PDF bytes are not reproducible between runs — to land a
+  //     rewrite all 185 files — PDF bytes are not reproducible between runs — to land a
   //     handful of real changes.
   let decks = galleries;
+  // The "nothing matched" guard runs BEFORE the bless branch, not after it. With it below,
+  // a typo'd `--bless --only zzz` found no gallery to bless and no golden to compare, hit
+  // `return 0`, and reported success having refreshed nothing — the worst direction for a
+  // bless command to fail, and a regression against main, which threw. (HARD RULE #25.)
+  if (!decks.length && !goldens.length) {
+    process.stderr.write(only ? `error: nothing named "${only}" in scope "${scope}"\n` : `error: no targets found in scope "${scope}"\n`);
+    return 2;
+  }
+
   if (blessMode) {
     if (decks.length) {
       bless(only);
@@ -443,11 +479,6 @@ function main() {
       decks = [];
     }
     if (!goldens.length) return 0;
-  }
-
-  if (!decks.length && !goldens.length) {
-    process.stderr.write(only ? `error: nothing named "${only}" in scope "${scope}"\n` : `error: no targets found in scope "${scope}"\n`);
-    return 2;
   }
 
   rmSync(OUT, { recursive: true, force: true });
