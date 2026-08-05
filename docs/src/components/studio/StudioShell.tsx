@@ -1847,12 +1847,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const diagramSignature = React.useMemo(() => extractDiagrams(source).map((d) => d.code).join(' '), [source]);
 	React.useEffect(() => {
 		let live = true;
-		if (!diagramSignature) {
-			// No diagrams — that IS the checked answer, so ground on the empty list rather
-			// than null (null means "unknown", and would leave the model free to speculate).
-			setDiagramErrors([]);
-			return;
-		}
+		// UNKNOWN until this round answers. Without the reset, the previous deck's verdict —
+		// or the pre-edit one, across the 900ms debounce — kept grounding the prompt as
+		// current fact. A deck with no diagrams is also `null`: there is nothing to report,
+		// and "every diagram parses cleanly" over a deck with none is a vacuous claim that
+		// invites the model to discuss diagrams that don't exist.
+		setDiagramErrors(null);
+		if (!diagramSignature) return;
 		// Read the deck through the ref, so the DIAGRAM TEXT is the only trigger — depending
 		// on `source` would re-parse on every prose keystroke for no change in the answer.
 		const id = setTimeout(() => {

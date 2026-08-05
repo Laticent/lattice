@@ -33,7 +33,6 @@ vi.mock('./architect', () => ({
 	useArchitectStatus: statusSpy,
 	requestFindingFix: vi.fn(async () => ({ status: 'offline' })),
 	applyDeckEdit: vi.fn((src: string) => src),
-	applyProposedEdits: vi.fn((src: string) => src),
 	applyProposedEditsChecked: vi.fn((src: string) => ({ source: src, applied: 1, refusals: [] })),
 	estimateUsd: () => 0.004,
 	CHAT_OUTPUT_EST: 4096,

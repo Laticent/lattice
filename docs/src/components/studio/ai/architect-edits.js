@@ -146,7 +146,9 @@ export const EDIT_PROTOCOL =
 // the old expression was unanchored and could start its match ONE CHARACTER INTO a
 // four-backtick fence, degrading it to a three-backtick match that the payload's own
 // ```mermaid then closed. See the decision doc.
-const EDIT_OPEN = /^[ \t]{0,3}(~{3,}|`{3,})lattice-edit([^\n]*)$/;
+// The `(?![\w-])` is load-bearing: without it `~~~lattice-edit-example slide=2` and
+// `~~~lattice-editslide=2` both parsed as LIVE EDITS (red team). The token has to end.
+const EDIT_OPEN = /^[ \t]{0,3}(~{3,}|`{3,})lattice-edit(?![\w-])([^\n]*)$/;
 
 // CommonMark's closing-fence rule: same marker, run at least as long as the opener,
 // and NOTHING else on the line. An info-string line (```mermaid) is an OPENER and can
@@ -204,9 +206,21 @@ export function parseEdits(reply) {
   const edits = [];
   const problems = [];
   const prose = [];
+  // Fence state for the model's OWN prose. An opener inside a ``` block is an EXAMPLE, not
+  // an instruction — and, worse, a reply that quotes a slide from an untrusted shared deck
+  // could otherwise turn a planted `~~~lattice-edit delete=1` line into a live proposal
+  // card (red team). Track the prose's fences and skip openers inside them.
+  let proseFence = null;
   for (let i = 0; i < lines.length; i++) {
+    if (proseFence) {
+      prose.push(lines[i]);
+      if (new RegExp(`^[ \\t]{0,3}[${proseFence[0]}]{${proseFence.length},}[ \\t]*$`).test(lines[i])) proseFence = null;
+      continue;
+    }
     const open = EDIT_OPEN.exec(lines[i]);
     if (!open) {
+      const fenced = /^[ \t]{0,3}(~{3,}|`{3,})/.exec(lines[i]);
+      if (fenced) proseFence = fenced[1];
       prose.push(lines[i]);
       continue;
     }
@@ -216,8 +230,12 @@ export function parseEdits(reply) {
     let end = i + 1;
     while (end < lines.length && !closes.test(lines[end])) end++;
     if (end >= lines.length) {
-      // Everything after the opener is this block's body, so there is nothing left to scan.
-      problems.push({ kind: 'unterminated', target: describeTarget(attrs), message: `The edit block for ${describeTarget(attrs)} was never closed — the reply looks cut off, so nothing was applied from it.` });
+      // The block never closed. Report it — but KEEP the remaining lines as prose rather
+      // than dropping them: a stray opener mid-reply (planted, or echoed from a deck) would
+      // otherwise silently swallow the real answer and blame a truncation that never
+      // happened (red team). Say what is known, not what is guessed.
+      problems.push({ kind: 'unterminated', target: describeTarget(attrs), message: `The edit block for ${describeTarget(attrs)} was never closed, so nothing was applied from it. The reply may have been cut off.` });
+      prose.push(...lines.slice(i));
       break;
     }
     const body = lines.slice(i + 1, end).join('\n');
@@ -237,6 +255,14 @@ export function parseEdits(reply) {
       const marker = fence[0] === '~' ? 'tildes' : 'backticks';
       const remedy = fence[0] === '~' ? `a longer tilde fence than the slide's own ${fence.length}` : 'a tilde fence (~~~)';
       problems.push({ kind: 'fence-collision', target: describeTarget(attrs), message: `The edit block for ${describeTarget(attrs)} was wrapped in ${marker}, so the slide's own code fence closed it early and it came through incomplete — it needs ${remedy}. Nothing was applied from it.` });
+      // The WRAPPER's real closer is still out there, after the payload's. Left in the
+      // prose it reads as an unterminated fence opener, and chat-markdown then swallows
+      // everything after it — including this very explanation, which rendered as an
+      // unlabelled code block (checker). Consume it.
+      const closer = new RegExp(`^[ \\t]{0,3}[${fence[0]}]{${fence.length},}[ \\t]*$`);
+      let orphan = i + 1;
+      while (orphan < lines.length && !closer.test(lines[orphan])) orphan++;
+      if (orphan < lines.length) i = orphan;
       continue;
     }
     edits.push(edit);
@@ -307,6 +333,10 @@ export function applyEditChecked(source, edit) {
     if (edit.slide < 1 || n > count) return refuse(`Slide ${edit.slide} doesn't exist — the deck has ${realCount} slide${realCount === 1 ? '' : 's'}.`);
     // A replace targets ONE slide; a body that would split slides (top-level `---` or an
     // unclosed fence) corrupts the deck, so refuse rather than corrupt (trio red team).
+    // An empty body is not "replace with nothing" — it is a block whose payload went
+    // missing (a truncated reply, an off-by-one in the fence scan). It used to blank the
+    // slide and report success, which is the mirror of the bug this module exists to fix.
+    if (!String(edit.body || '').trim()) return refuse(`The replacement for slide ${edit.slide} is empty — nothing was applied. Ask again if you meant to clear the slide.`);
     if (splitTopLevel(String(edit.body || '').trim()).length > 1) return refuse(`The replacement for slide ${edit.slide} contains a \`---\` separator, so it is more than one slide. A \`slide=\` block replaces exactly one.`);
     if (fenceOpen(String(edit.body || '').trim())) return refuse(`The replacement for slide ${edit.slide} has a code fence that never closes — it came through incomplete.`);
     const [a, b] = ranges[n - 1];
@@ -333,7 +363,11 @@ export function applyEditChecked(source, edit) {
     // Drop the slide's lines AND one bordering separator so we don't leave `---\n---`.
     const [a, b] = ranges[n - 1];
     if (n < count) lines.splice(a, b - a + 2); // include the `---` that follows
-    else if (a > 0) lines.splice(a - 1, b - a + 2); // last slide: take the leading `---`
+    // Take the LEADING separator only when the line before this slide is really a slide
+    // separator. On a deck whose last slide is also its FIRST, that line is the front
+    // matter's closing `---`, and eating it turned the YAML into body text and dropped the
+    // deck's theme — reported as "Applied" (red team). `n - 1 > fm` is the test.
+    else if (a > 0 && n - 1 > fm) lines.splice(a - 1, b - a + 2);
     else lines.splice(a, b - a + 1);
     return { source: lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n', ok: true, reason: null };
   }
@@ -354,6 +388,10 @@ export function applyEditChecked(source, edit) {
     if (!blocks.length) return refuse('That edit block is empty.');
     const all = splitTopLevel(source);
     const real = all.slice(fm).map((s) => s.replace(/^\n+|\n+$/g, ''));
+    // `after=end` is the sanctioned append. Any OTHER number past the deck's end is a
+    // hallucinated slide reference, and silently clamping it to append put the slides
+    // somewhere the author never asked for (red team).
+    if (edit.slide !== Number.MAX_SAFE_INTEGER && edit.slide > real.length) return refuse(`Can't insert after slide ${edit.slide} — the deck has ${real.length} slide${real.length === 1 ? '' : 's'}. Use \`after=end\` to append.`);
     const at = edit.slide === Number.MAX_SAFE_INTEGER ? real.length : Math.max(0, Math.min(real.length, edit.slide));
     real.splice(at, 0, ...blocks);
     const body = real.join('\n\n---\n\n');

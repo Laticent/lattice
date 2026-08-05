@@ -151,7 +151,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				setStreaming(null);
 				setPulse((p) => p + 1);
 				// The gauge is rendered elsewhere now — announce, don't set.
-				globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
+				try {
+					globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
+				} catch {
+					/* no window */
+				}
 			}
 		}
 	};
@@ -185,22 +189,24 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		if (!m?.proposed?.length) return;
 		// Re-apply against the CURRENT deck (not a stale snapshot) — edits to OTHER slides
 		// are preserved; a same-slide edit is replaced (flagged stale in the review).
-		const run = applyProposedEditsChecked(source, m.proposed);
+		const outcome = applyProposedEditsChecked(source, m.proposed);
 		// NOTHING LANDED. This used to paint the green "Applied" tick, toast "Edit applied",
 		// and burn a History checkpoint over an untouched deck — the author's only clue that
 		// their edit hadn't happened was looking at the slide. Say so, and leave the proposal
 		// standing so they can Discard it deliberately.
-		if (!run.applied) {
-			setNotice({ kind: 'error', text: run.refusals[0] || "That edit couldn't be applied to this deck." });
+		if (!outcome.applied) {
+			setNotice({ kind: 'error', text: outcome.refusals[0] || "That edit couldn't be applied to this deck." });
 			return;
 		}
-		onApply(run.source);
-		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, applied: true, appliedCount: run.applied, refused: run.refusals.length || undefined } : x)));
+		onApply(outcome.source);
+		setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, applied: true, appliedCount: outcome.applied, refused: outcome.refusals.length || undefined } : x)));
 		// A PARTIAL run is reported as partial — "applied" over a run where half the blocks
 		// were refused is the same false claim, just smaller.
-		if (run.refusals.length) {
-			setNotice({ kind: 'error', text: run.refusals[0] });
-			notify(`Applied ${run.applied} of ${run.applied + run.refusals.length} edits — restore from History to undo.`);
+		if (outcome.refusals.length) {
+			setNotice({ kind: 'error', text: outcome.refusals[0] });
+			// BLOCKS on both sides of the "of" — `slides` is a different unit and summing them
+			// produced counts describing nothing that existed (checker).
+			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);
 		} else notify('Edit applied — restore from History to undo.');
 	};
 	const discardProposal = (idx: number) => setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
@@ -306,7 +312,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 					    which wrecks a textarea's own text layout — with it, 800 characters
 					    measured as 67 wrapped lines against a ~72px-wide box. `min-w-0` lets it
 					    actually shrink inside the flex row instead of being floored by content.
-					    `min-h-7` matches the buttons' `size-7`, and `py-[5px]` centres a single
+					    `min-h-7` matches the buttons' `size-7`, and `py-[5px]` centers a single
 					    line inside that box ((28 − 18.1) / 2). Without both, `items-end` pinned a
 					    22px field to the bottom of a 28px row and the first line sat 6px low —
 					    measured 13px above / 7px below, which is the asymmetry that reads as "off".

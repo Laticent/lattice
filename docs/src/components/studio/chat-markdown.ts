@@ -179,7 +179,7 @@ export function clampStreaming(md: string): string {
 	// 1. An unclosed fence: scan tracking the open marker; if one is still open at the
 	//    end, hold everything from its opener onward (marker-aware — a ~~~ block is only
 	//    closed by ~~~, so a ``` line inside it does not prematurely balance it). This
-	//    also holds the four-backtick lattice-edit block until it closes.
+	//    also holds a `lattice-edit` block (tilde- or backtick-wrapped) until it closes.
 	let openAt = -1;
 	let open: { marker: string; len: number } | null = null;
 	for (let i = 0; i < lines.length; i++) {

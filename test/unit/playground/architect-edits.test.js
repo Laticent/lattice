@@ -379,7 +379,10 @@ describe('edit protocol — the failures that produced silent corruption', () =>
     assert.equal(problems[0].kind, 'unterminated');
   });
 
-  test('a four-backtick opener cannot degrade into a three-backtick match (line-anchored)', async () => {
+  // NOTE: a COMPLETE four-backtick block never degraded, even under the old expression —
+  // the collapse needed an unreachable closer (the truncation case above). This pins that
+  // the common form still parses whole; it is not the regression test for the backtrack.
+  test('a complete four-backtick block parses whole, payload fence and all', async () => {
     const { parseEdits } = await load();
     const four = '`'.repeat(4);
     const { edits, problems } = parseEdits(`x\n\n${four}lattice-edit slide=1\n${DIAGRAM}\n${four}\n`);
@@ -426,5 +429,74 @@ describe('edit protocol — the failures that produced silent corruption', () =>
     assert.doesNotMatch(EDIT_PROTOCOL, /````lattice-edit/, 'no four-backtick example left to imitate');
     assert.match(EDIT_PROTOCOL, /NO tools/i);
     assert.match(EDIT_PROTOCOL, /Never say you tested/i);
+  });
+});
+
+// ── Trio findings (2026-08-05) ──────────────────────────────────────────────
+// Every case below was found by the adversarial trio against the FIRST version of this
+// change. Each one reported success while doing something wrong, which is the exact
+// failure this module was rewritten to stop.
+describe('edit protocol — what the trio found', () => {
+  const TICK = '`'.repeat(3);
+
+  test('an opener must not swallow a longer token', async () => {
+    const { parseEdits } = await load();
+    // `~~~lattice-edit-example slide=2` used to parse as a LIVE EDIT.
+    assert.equal(parseEdits('~~~lattice-edit-example slide=2\n## X\n~~~').edits.length, 0);
+    assert.equal(parseEdits('~~~lattice-editslide=2\n## X\n~~~').edits.length, 0);
+    assert.equal(parseEdits('~~~lattice-edit slide=2\n## X\n~~~').edits.length, 1); // still works
+  });
+
+  test('an opener inside the model\'s own fenced prose is an EXAMPLE, not an instruction', async () => {
+    const { parseEdits } = await load();
+    // Also the untrusted-deck vector: a shared deck carrying this line, echoed back by the
+    // model, used to produce a live "Delete slide 1" card it never intended.
+    const reply = `Here's the shape:\n\n${TICK}\n~~~lattice-edit delete=1\n~~~\n${TICK}\n\nThat's it.`;
+    assert.equal(parseEdits(reply).edits.length, 0);
+  });
+
+  test('an unterminated opener keeps the rest of the reply instead of swallowing the answer', async () => {
+    const { parseEdits } = await load();
+    const { text, problems } = parseEdits('Note:\n\n~~~lattice-edit slide=1\n\nHere is the real answer you asked for.');
+    assert.equal(problems.length, 1);
+    assert.match(text, /the real answer/); // was discarded entirely
+    assert.doesNotMatch(problems[0].message, /looks cut off, so/); // no longer asserts truncation as fact
+  });
+
+  test('an EMPTY replace body is refused, not applied over the slide', async () => {
+    const { applyEditChecked } = await load();
+    for (const body of ['', '   \n\t']) {
+      const r = applyEditChecked(DECK, { action: 'replace', slide: 2, body });
+      assert.equal(r.ok, false, `empty body ${JSON.stringify(body)} must refuse`);
+      assert.match(r.reason, /empty/);
+    }
+  });
+
+  test('deleting the last remaining slide leaves the FRONT MATTER intact', async () => {
+    const { applyEditChecked } = await load();
+    const deck = '---\ntheme: indaco\npaginate: true\n---\n\n# Only\n';
+    const r = applyEditChecked(deck, { action: 'delete', slide: 1 });
+    assert.equal(r.ok, true);
+    assert.match(r.source, /^---\ntheme: indaco\npaginate: true\n---/); // used to eat the closing ---
+    assert.doesNotMatch(r.source, /# Only/);
+  });
+
+  test('after=<huge> is refused rather than silently appended', async () => {
+    const { applyEditChecked } = await load();
+    const past = applyEditChecked(DECK, { action: 'insert', slide: 99, body: '## New' });
+    assert.equal(past.ok, false);
+    assert.match(past.reason, /after=end/);
+    // after=end still appends.
+    assert.equal(applyEditChecked(DECK, { action: 'insert', slide: Number.MAX_SAFE_INTEGER, body: '## New' }).ok, true);
+  });
+
+  test('a fence collision consumes the wrapper\'s orphan closer, so the explanation still renders as prose', async () => {
+    const { parseEdits } = await load();
+    const slide = `<!-- _class: diagram -->\n\n${TICK}mermaid\nflowchart TD\n  A --> B\n${TICK}`;
+    const { text, problems } = parseEdits(`Here.\n\n${TICK}lattice-edit slide=2\n${slide}\n${TICK}\n\nAnything else?`);
+    assert.equal(problems.length, 1);
+    // The orphan ``` used to be left behind, turning the rest of the chat into a code block.
+    assert.doesNotMatch(text, /```/);
+    assert.match(text, /Anything else\?/);
   });
 });

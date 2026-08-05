@@ -12,7 +12,7 @@
 // the Studio's live preview renders only the CURRENT slide, so it can never account for a
 // deck. Rather than scrape a frame that only knows one slide, ask the parser directly.
 //
-// COST. Mermaid is ~1MB, so it is loaded LAZILY and only for a deck that actually
+// COST. Mermaid is ~3MB, so it is loaded LAZILY and only for a deck that actually
 // contains a diagram — a deck with no ```mermaid fence never pays. It is the same
 // locally-vendored `mermaid-v11.min.js` the preview and the export bundle use (our own
 // origin, never a CDN — offline / strict-CSP safe), so no new asset ships.
@@ -45,11 +45,26 @@ export function extractDiagrams(source: string): Diagram[] {
 	const out: Diagram[] = [];
 	real.forEach((chunk, i) => {
 		const lines = String(chunk).split('\n');
+		// Outer-fence state. A slide that DOCUMENTS a diagram — a ```mermaid block nested
+		// inside a ````markdown block — has no diagram the renderer will ever draw, but the
+		// first pass extracted the sample anyway and told the model, authoritatively, to fix
+		// a deliberately-broken teaching example (red team). This is the same fence-blindness
+		// `splitTopLevel` exists to avoid, so track the enclosing fence the same way.
+		let outer = null;
 		for (let k = 0; k < lines.length; k++) {
+			if (outer) {
+				if (new RegExp(`^[ \\t]{0,3}[${outer[0]}]{${outer.length},}[ \\t]*$`).test(lines[k])) outer = null;
+				continue;
+			}
 			// An OPENER whose info-string is `mermaid`. The closer must be the same marker,
 			// at least as long, and bare — CommonMark, the same rule the edit parser follows.
 			const open = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*mermaid[ \t]*$/.exec(lines[k]);
-			if (!open) continue;
+			if (!open) {
+				// Any OTHER fence opener encloses whatever follows.
+				const other = /^[ \t]{0,3}(`{3,}|~{3,})[ \t]*\S/.exec(lines[k]);
+				if (other) outer = other[1];
+				continue;
+			}
 			const fence = open[1];
 			const closes = new RegExp(`^[ \\t]{0,3}[${fence[0]}]{${fence.length},}[ \\t]*$`);
 			let end = k + 1;
@@ -111,7 +126,16 @@ function loadMermaid(url: string): Promise<MermaidLib | null> {
  * both ends and drop the caret art.
  */
 export function parseErrorMessage(e: unknown): string {
-	const raw = String((e as { message?: string })?.message ?? String(e));
+	// UNTRUSTED. Mermaid quotes the offending source back at you — for a diagram whose type
+	// it can't detect, the message is literally "No diagram type detected ... : " + the
+	// whole diagram. The Studio opens shared and AI-generated decks, so every character
+	// here can be attacker-chosen, and it lands in the SYSTEM turn, which a model weights
+	// as instruction. JSON-quoting at the callsite covers `"`, `\` and `\n` — it does NOT
+	// cover U+2028/U+2029, which `JSON.stringify` leaves raw, `trim` doesn't strip, and
+	// `split('\n')` doesn't split on: they broke the bullet onto its own line and let a
+	// forged header through (red team). Neutralize the line terminators the JSON layer
+	// misses, here, where the untrusted text enters.
+	const raw = String((e as { message?: string })?.message ?? String(e)).replace(/[\u2028\u2029\u0085\r]/g, ' ');
 	const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
 	if (!lines.length) return 'Failed to parse.';
 	const detail = lines.find((l) => /^(Expecting|Unrecognized|Syntax error)/i.test(l));
@@ -120,17 +144,29 @@ export function parseErrorMessage(e: unknown): string {
 }
 
 /**
- * Parse every diagram in the deck and report the ones Mermaid rejects. Resolves to an
- * EMPTY list when the deck has no diagrams, or when the library can't be loaded — the
- * chat is then exactly as grounded as it was before, never worse and never invented.
+ * Parse every diagram in the deck and report the ones Mermaid rejects.
+ *
+ * THE RETURN TYPE IS THE WHOLE CONTRACT. `[]` means "checked, and every diagram parses" —
+ * a positive claim the prompt repeats to the model as measured fact. `null` means "no
+ * answer": the deck has no diagrams to check, or the library could not be loaded (offline,
+ * CSP, a 404 on the vendored asset, no URL). Collapsing those into `[]` — which this
+ * module did on its first pass — made the app assert a verification it never performed,
+ * the exact fabrication this whole change exists to remove, only now coming from us
+ * instead of the model and impossible for the author to challenge. `loadMermaid` memoizes
+ * its failure, so that lie would have been sticky for the session.
  */
-export async function checkDiagrams(source: string, mermaidUrl: string): Promise<DiagramError[]> {
+export async function checkDiagrams(source: string, mermaidUrl: string): Promise<DiagramError[] | null> {
 	const diagrams = extractDiagrams(source);
-	if (!diagrams.length || !mermaidUrl) return [];
+	if (!diagrams.length || !mermaidUrl) return null;
 	const lib = await loadMermaid(mermaidUrl);
-	if (!lib) return [];
+	if (!lib) return null;
 	const errors: DiagramError[] = [];
-	for (const d of diagrams) {
+	// Bounded on purpose: this parses serially on the PARENT page's main thread, so a deck
+	// with many large diagrams froze the Studio for seconds on every debounce tick (red
+	// team measured ~1.5s for 8000 sequence messages). Past the cap we report what we have
+	// rather than what we wish we had — the caller states only what was actually checked.
+	for (const d of diagrams.slice(0, MAX_DIAGRAMS)) {
+		if (d.code.length > MAX_DIAGRAM_CHARS) continue;
 		try {
 			await lib.parse(d.code);
 		} catch (e) {
@@ -139,3 +175,7 @@ export async function checkDiagrams(source: string, mermaidUrl: string): Promise
 	}
 	return errors;
 }
+
+/** Bounds on the main-thread parse loop. */
+const MAX_DIAGRAMS = 40;
+const MAX_DIAGRAM_CHARS = 20_000;

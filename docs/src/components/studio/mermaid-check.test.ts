@@ -48,8 +48,7 @@ describe('extractDiagrams — finding the diagrams to check', () => {
 // The message the model is grounded in. Mermaid's raw error is four lines, two of which
 // are ASCII caret art; the useful ends are the FIRST (where) and the "Expecting" line
 // (what). These are the real strings the library produced, captured from a live parse.
-describe('messageOf — keeping the diagnosis, not just the location', () => {
-	// Exercised through checkDiagrams' export surface via a stubbed parser.
+describe('parseErrorMessage — keeping the diagnosis, not just the location', () => {
 	it('keeps both the location and the expectation', async () => {
 		const raw = "Parse error on line 3:\n...ass Order {    +id\n---------------------^\nExpecting 'STRUCT_STOP', 'MEMBER', got 'EOF_IN_STRUCT'";
 		const { parseErrorMessage } = await import('./mermaid-check');

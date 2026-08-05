@@ -422,7 +422,7 @@ in patch versions.
 ### Fixed
 
 - **The Studio chat no longer says "Applied" over a deck it never touched.** Four defects
-  stacked into one bad transcript: `applyEdit` signalled a refusal exactly as it signalled
+  stacked into one bad transcript: `applyEdit` signaled a refusal exactly as it signaled
   success (so a fully-refused run painted a green ✓ Applied and burned a History
   checkpoint over an untouched deck); the four-backtick edit fence could backtrack into a
   three-backtick match that the slide's own ```mermaid block closed, applying a heading
@@ -459,6 +459,17 @@ in patch versions.
   matches the buttons' height, so a single line sits level with them: it used to be pinned
   to the bottom of a taller row and sat 6px low — measured 13px above the text, 7px below.
 
+- **The diagram check says nothing when it could not check.** `checkDiagrams` returned an
+  empty list both for "every diagram parses" and for "Mermaid could not be loaded", and the
+  prompt turned that into *"Every Mermaid diagram in this deck parses cleanly"* — an
+  assertion the app had not earned, in the surface this release exists to make honest. It
+  now returns `null` for "no answer" and reserves `[]` for a run that happened. Found by the
+  adversarial trio, along with a U+2028 escape that broke the JSON-quoted bullet in the
+  system turn, an opener token with no boundary (`~~~lattice-edit-example` parsed as a live
+  edit), an empty edit body that blanked a slide and reported success, a delete that ate the
+  front matter of a one-slide deck, and a partial-run badge that mixed two counting units.
+  Details and the full table: `engineering/decisions/2026-08-04-chat-edit-protocol.md`.
+
 - **The Architect can finally tell you which diagram is broken, because it checked.** Asked
   to verify a deck's Mermaid diagrams it had no way to find out — no shell, no renderer, no
   parser — so it guessed and called the guess a test result. The prompt now forbids that
@@ -474,7 +485,7 @@ in patch versions.
   taught to count the ~16.5K-token primer ("would under-count a chat turn several-fold");
   the `≈ $/turn` readout the author reads never was, and priced the deck source alone. It
   looked plausible only because its output assumption erred the other way — two errors
-  cancelling, which stopped working the moment the output ceiling moved. It now prices the
+  canceling, which stopped working the moment the output ceiling moved. It now prices the
   real system turn, weighting a cached prefix at roughly a tenth rather than charging a
   burst as N first turns.
 
@@ -9756,7 +9767,7 @@ in patch versions.
   by a synthetic fixture rather than a real one.* Two smaller readers fixed with it: a
   `<tbody>`-less table counted its `<thead>` row as a member, and a member's label was read from a
   `<strong>` anywhere in its body rather than a leading one (so "Sign off — the chair signs the
-  **policy hash**" signalled "next: policy hash").
+  **policy hash**" signaled "next: policy hash").
 - **`capabilities:check` — and therefore `build:check` — was red on `main`.** Seven npm scripts added
   by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
   `test:forms`, `test:transform-dsl`) were never described in `SCRIPT_META`, so the freshness gate

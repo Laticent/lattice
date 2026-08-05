@@ -183,7 +183,7 @@ directly can.
 
 It is a RENDER diagnostic, not an authoring lint rule, so it deliberately does not become
 a lint finding: `lib/authoring/lint-core.js` is pure, fs-free and shared with the CLI
-(HARD RULE #7), and cannot take a ~1MB dependency. Hence its own channel. The library
+(HARD RULE #7), and cannot take a ~3MB dependency. Hence its own channel. The library
 loads lazily and only for a deck that actually contains a diagram, from the same vendored
 `mermaid-v11.min.js` the preview and the export bundle already use.
 
@@ -215,6 +215,52 @@ component for both surfaces — a widget per surface is what HARD RULE #15 forbi
 It weights a cached prefix at roughly a tenth: after the first turn of a thread the primer
 is a cache READ, and charging it at full rate on every turn would replace an under-count
 with an over-count rather than fix anything.
+
+## What the adversarial trio found (HARD RULE #25)
+
+Red team, Munger inversion, and an independent checker, run against the FIRST version of
+this change. They agreed on the shape of the worst finding, and it was mine.
+
+**The fix contained the bug it was written to remove.** `checkDiagrams` returned `[]` both
+for "checked, all clean" and for "the library could not load", and `buildChatSystem` turned
+`[]` into *"Every Mermaid diagram in this deck parses cleanly"* — labelled *measured, treat
+it as authoritative*. Offline, a blocked script, a 404 on the vendored asset: the app
+asserted a verification it never performed. Worse than the original defect, because a
+model's fabrication is soft — the author typed "you lie" and it folded — while this one is
+in the system turn, the model is told to trust it, and the author cannot see it. The
+failure was memoized for the session. `checkDiagrams` now returns `null` for "no answer";
+`[]` is reserved for a run that actually happened.
+
+Everything else they found in this change, fixed here:
+
+| Finding | Was |
+|---|---|
+| U+2028 in a Mermaid error | Broke the JSON-quoted bullet in the SYSTEM turn — `JSON.stringify` doesn't escape it, `trim` doesn't strip it, `split('\n')` doesn't split on it. The message is *fully* attacker-authored for an undetectable diagram type. |
+| `extractDiagrams` fence-blindness | A diagram documented inside an outer fence was reported as a real error to "fix exactly" |
+| `~~~lattice-edit-example` | Parsed as a live edit — the token had no boundary |
+| Empty replace body | Blanked the slide and reported success |
+| Delete of the last remaining slide | Ate the front matter's closing `---`, turning the YAML into body text |
+| `after=<huge>` | Silently appended instead of refusing |
+| An opener in the model's fenced prose | Became a live proposal — including one echoed from an untrusted deck |
+| Unterminated opener | Discarded the rest of the reply and blamed a truncation that may not have happened |
+| Fence-collision refusal | Left the wrapper's orphan closer in the prose, so the chat renderer swallowed the explanation itself |
+| "Applied 3 of 4" | Two counters, two units — `applied` counted slides, `refusals` counted blocks |
+| Stale diagram grounding | The signature keyed on code only, so inserting a slide above a diagram kept the old slide number authoritative |
+| `CHAT_MAX_TOKENS` | Set on the SHARED model, re-tuning every Studio cloud path and pushing the hard-stop gate to price ~$0.25 to shorten a sentence |
+| Uncapped parse loop | Serial, on the parent page's main thread — ~1.5s freeze for a hostile deck, per debounce tick |
+
+**What held under attack, and is worth recording as such:** the `<script src>` injection is
+clean — `mermaidUrl` is a build-time same-origin constant, and `mermaid.parse()` does not
+render, so HARD RULE #22's model is not weakened (tested with `onerror` payloads,
+`securityLevel: loose`, `javascript:` clicks — no DOM mutation, no network). The tilde
+fence rules hold against every payload tried. JSON-quoting holds for `"`, `\` and newlines.
+Descending-sort ordering with multi-slide inserts is correct.
+
+**Deliberately NOT fixed here, because it is off-path and architectural:** the slide
+splitter and the renderer disagree about what a boundary is — `--- ` with a trailing space,
+`***`, and U+2028 all desync numbering, so an edit can land on the wrong slide. That is
+pre-existing, shared with `lib/authoring/slide-split.js`, and reaches well beyond this
+change; dragging it in would break HARD RULE #17. It needs its own issue.
 
 ## What this does NOT fix
 

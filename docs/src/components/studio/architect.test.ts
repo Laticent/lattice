@@ -521,9 +521,12 @@ describe('applyProposedEditsChecked — refusals are reported, not swallowed', (
 		expect(run.source).toMatch(/One \(new\)/);
 	});
 
-	it('counts every slide of a multi-slide insert', () => {
+	it('counts a multi-slide insert as ONE applied block, and reports its slides separately', () => {
+		// This test previously asserted `applied === 2` — the bug. `applied` is compared
+		// against `refusals`, which is per-BLOCK, so slides cannot share that counter.
 		const run = applyProposedEditsChecked(DECK, [prop({ action: 'insert', slide: 2, body: '## A\n\n---\n\n## B' })]);
-		expect(run.applied).toBe(2);
+		expect(run.applied).toBe(1);
+		expect(run.slides).toBe(2);
 	});
 });
 
@@ -602,5 +605,42 @@ describe('chatSystemTokens — the price strip counts the prompt it actually sen
 		const deckOnly = estimateUsd(deck, price, CHAT_OUTPUT_EST) ?? 0;
 		const withSystem = estimateUsd(deck, price, CHAT_OUTPUT_EST, chatSystemTokens('openrouter', grounding)) ?? 0;
 		expect(withSystem).toBeGreaterThan(deckOnly);
+	});
+});
+
+
+// The trio's headline finding: "couldn't check" must never render as "checked, clean".
+describe('diagram grounding — silence when we do not know', () => {
+	const G = { catalog: [], findings: [] };
+
+	it('says NOTHING when the check could not run (null, not empty)', () => {
+		// checkDiagrams returns null on a load failure; StudioShell passes it through as
+		// absent. The prompt must not claim a verification that never happened.
+		const { dynamicTail } = buildChatSystem('openrouter', { ...G, diagrams: undefined });
+		expect(dynamicTail).not.toMatch(/parses cleanly/);
+		expect(dynamicTail).not.toMatch(/Diagram parse errors/);
+	});
+
+	it('still makes the positive claim when the check DID run clean', () => {
+		expect(buildChatSystem('openrouter', { ...G, diagrams: [] }).dynamicTail).toMatch(/parses cleanly/);
+	});
+});
+
+describe('applyProposedEditsChecked — blocks and slides are different units', () => {
+	const DECK = '# One\n\nbody\n---\n## Two';
+	const prop = (raw: { action: string; slide: number; body: string }) => ({ raw });
+
+	it('counts BLOCKS in `applied`, so it can be compared with refusals', () => {
+		// One block carrying three slides is ONE applied edit. Summing slides with a
+		// per-block refusal count produced "Applied 3 of 4" over two blocks.
+		const run = applyProposedEditsChecked(DECK, [prop({ action: 'insert', slide: 2, body: '## A\n\n---\n\n## B\n\n---\n\n## C' })]);
+		expect(run.applied).toBe(1);
+		expect(run.slides).toBe(3);
+	});
+
+	it('reports a partial run in one unit end to end', () => {
+		const run = applyProposedEditsChecked(DECK, [prop({ action: 'insert', slide: 1, body: '## A\n\n---\n\n## B' }), prop({ action: 'replace', slide: 99, body: '## Ghost' })]);
+		expect(run.applied + run.refusals.length).toBe(2); // two blocks proposed, two accounted for
+		expect(run.slides).toBe(2);
 	});
 });
