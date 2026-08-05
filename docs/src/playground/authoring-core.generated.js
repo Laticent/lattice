@@ -89,7 +89,13 @@ function listContentIndent(rest, sCount) {
   return sCount + markerLen + spaces;
 }
 function isTableDelimiterRow(rest) {
-  if (!rest.includes("|")) return false;
+  let bar = false;
+  for (let i = 0; i < rest.length; i++) {
+    const c = rest[i];
+    if (c === "|") bar = true;
+    else if (c !== ":" && c !== "-" && c !== " " && c !== "	") return false;
+  }
+  if (!bar) return false;
   return /^\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/.test(rest);
 }
 function htmlBlockOpener(rest) {
@@ -100,6 +106,8 @@ function htmlBlockOpener(rest) {
   if (/^<![A-Za-z]/.test(rest)) return { end: />/, blankCloses: false, interrupts: true };
   if (HTML_RAW_TEXT_RE.test(rest)) return { end: /<\/(?:script|pre|style|textarea)>/i, blankCloses: false, interrupts: true };
   if (HTML_BLOCK_NAME_RE.test(rest)) return { end: null, blankCloses: true, interrupts: true };
+  const tail = rest.trimEnd();
+  if (tail.charCodeAt(tail.length - 1) !== 62) return null;
   if (HTML_ANY_TAG_RE.test(rest)) return { end: null, blankCloses: true, interrupts: false };
   return null;
 }
