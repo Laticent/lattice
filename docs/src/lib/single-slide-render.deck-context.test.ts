@@ -543,9 +543,29 @@ describe('supplied position is verified, not trusted', () => {
 		expect((await run('---\npaginate: true\n---\n\n# A\n\n## B\n\n---\n\n# C\n', 2))?.page).toBeUndefined();
 	});
 
-	it('does NOT supply a position when a non-`---` hr form splits the deck', async () => {
-		// markdown-it treats `***` as an hr; the Studio's `\n---\n` splitter does not.
-		expect((await run('---\npaginate: true\n---\n\n# A\n\n***\n\n# C\n', 2))?.page).toBeUndefined();
+	it('DOES supply a position for a non-`---` hr form, now that the counts agree', async () => {
+		// THE REFUSAL THIS REPLACES. `***` is an hr to markdown-it and was invisible to the
+		// Studio's `\n---\n` splitter, so the two counted different decks and the only safe
+		// answer was to refuse — every `***`/`___`/`- - -`/`--- ` deck paying a whole-deck
+		// render for a divergence it could not otherwise survive.
+		//
+		// The Studio now derives boundaries from the engine's own `hr` rule, so it counts two
+		// slides here exactly as the engine renders two sections, and the position is sound.
+		// The refusal is retired rather than loosened: there is no longer a disagreement to
+		// fail closed around.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n***\n\n# C\n', 2))?.page).toEqual({ offset: 1, total: 2 });
+	});
+
+	it.each(['___', '- - -', '--- ', '----'])('…and for %j too', async (sep) => {
+		const deck = `---\npaginate: true\n---\n\n# A\n\n${sep}\n\n# C\n`;
+		expect((await run(deck, 2))?.page).toEqual({ offset: 1, total: 2 });
+	});
+
+	it('still refuses when the boundary scan cannot settle the deck', async () => {
+		// What replaces the retired form-by-form refusals: the scanner's own verdict. An
+		// unclosed fence is what a deck looks like mid-keystroke, and an index into a slide
+		// list nobody can vouch for is the plausible lie the guard exists to prevent.
+		expect((await run('---\npaginate: true\n---\n\n# A\n\n```\n---\n\n# C\n', 2))?.page).toBeUndefined();
 	});
 
 	it('DOES supply a position for an ordinary deck — the optimization must survive the guard', async () => {

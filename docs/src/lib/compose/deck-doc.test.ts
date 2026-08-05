@@ -64,13 +64,35 @@ describe('deck round-trip (one document)', () => {
 		expect(norm(rt(source))).toBe(norm(source));
 	});
 
-	it('a thematic break in prose does not split the slide (stays one slide, keeps its class)', () => {
+	it('a top-level thematic break IS a slide split, and the round-trip says so', () => {
+		// THIS TEST USED TO ASSERT THE OPPOSITE — "a thematic break in prose does not split the
+		// slide (stays one slide, keeps its class)" — and the premise was never true of the
+		// RENDER. `***` is a top-level markdown-it `hr`, so `lib/engine/slides.js splitOnHr`
+		// breaks there and the engine emits TWO sections, the second with no `_class`. Checked
+		// against the real parser, not assumed.
+		//
+		// What the old assertion described was the compose layer's own splitter, which matched
+		// only a bare `\n---\n` and so kept the break inside the slide. The editor therefore
+		// showed one slide where the deck rendered two — the same "two derivations of what a
+		// slide is" defect #1271 is about, reached through the Write surface.
+		//
+		// The round-trip now models the split, which CANONICALIZES the separator: a deck
+		// written with `***` comes back with `---`. Same render, different bytes; recorded in
+		// the CHANGELOG rather than hidden.
 		const source = '<!-- _class: content -->\n\n## A\n\nfoo\n\n***\n\nbar';
 		const out = rt(source);
-		// Still exactly one slide with its directive — no phantom second slide.
-		expect((out.match(/<!-- _class:/g) || []).length).toBe(1);
 		expect(out).toContain('<!-- _class: content -->');
-		expect(out).toContain('***');
+		expect((out.match(/\n---\n/g) || []).length).toBe(1);
+		expect(out).toContain('bar');
+		// The second slide carries no directive, exactly as the engine renders it.
+		expect((out.match(/<!-- _class:/g) || []).length).toBe(1);
+	});
+
+	it('a thematic break INSIDE a container is not a slide split', () => {
+		// Where a horizontal rule can still live in prose: below a container's content column,
+		// where the engine emits it under level 0. One slide, rule intact.
+		const source = '<!-- _class: content -->\n\n## A\n\n> foo\n>\n> ***\n>\n> bar';
+		const out = rt(source);
 		expect((out.match(/\n---\n/g) || []).length).toBe(0);
 	});
 });

@@ -1,13 +1,40 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { boundaryParser as md } from '../../../../lib/core/boundary-parser.js';
 import { stripFrontMatter } from './front-matter';
 import { presentationIndices, presentationSet, slideClass, slideIndexAt, slideStartOffset, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 
 const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'stats'];
 // Component-name-ish tokens (won't accidentally contain a `-->` or a fence).
 const nameArb = fc.stringMatching(/^[a-z][a-z0-9-]{0,11}$/);
-// Slide body that can't introduce an accidental `\n---\n` fence.
-const bodyArb = fc.stringMatching(/^[\p{L}\p{N} .,!?#*]{0,40}$/u);
+// A slide body that carries no slide boundary of its own.
+//
+// The character class alone does not guarantee that: `*` is in it, so the generator produces
+// `***` — a thematic break — and a deck built from it has more slides than bodies. The old
+// splitter did not recognize `***`, so the claim held by accident.
+//
+// FILTERED BY THE PARSER, NOT BY THE CODE UNDER TEST. An interim cut filtered on
+// `slideBoundaries(b)` — the very kernel `splitSlides` is built on — which made the property
+// circular: a false negative in the kernel would silently EXCLUDE the input that exposes it
+// (found by the independent checker). The filter asks markdown-it directly, so it stays an
+// independent statement about the generated deck.
+const boundaryFree = (b: string) =>
+	md
+		.parse(b, {})
+		.filter((t: { type: string; level: number }) => t.type === 'hr' && t.level === 0).length === 0;
+const bodyArb = fc.stringMatching(/^[\p{L}\p{N} .,!?#*]{0,40}$/u).filter((b) => b.trim().length > 0 && boundaryFree(b));
+// HOW A DECK JOINS ITS SLIDES, and it is not `\n---\n`.
+//
+// These fuzz decks used to be built with the separator hard against the text above it. To the
+// ENGINE that is not a separator at all: a run of `-` directly under a paragraph is that
+// paragraph's setext underline, so `one\n---\ntwo\n---\nthree` renders as ONE slide titled
+// "one". The old splitter cut it into three, the tests asserted three, and the property held
+// while every assertion in it described behavior the renderer does not have.
+//
+// Blank-line-flanked is what every committed deck writes and what the engine reads as a break.
+// The tight form now has its own test asserting it is a HEADING (below), so the shape is still
+// covered — it is just covered with the right expectation.
+const SEP = '\n\n---\n\n';
 
 describe('splitSlides (fuzz)', () => {
 	it('never throws and yields trimmed, non-empty chunks for ANY input', () => {
@@ -25,8 +52,8 @@ describe('splitSlides (fuzz)', () => {
 
 	it('recovers exactly N slides from N fenced bodies', () => {
 		fc.assert(
-			fc.property(fc.array(bodyArb.filter((b) => b.trim().length > 0), { minLength: 1, maxLength: 8 }), (bodies) => {
-				const src = bodies.join('\n---\n');
+			fc.property(fc.array(bodyArb, { minLength: 1, maxLength: 8 }), (bodies) => {
+				const src = bodies.join(SEP);
 				expect(splitSlides(src)).toHaveLength(bodies.length);
 			}),
 		);
@@ -118,8 +145,8 @@ describe('slideTitle (reader-facing navigator label)', () => {
 describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => {
 	it('the index at a slide start round-trips back to that slide — for any deck', () => {
 		fc.assert(
-			fc.property(fc.array(bodyArb.filter((b) => b.trim().length > 0), { minLength: 1, maxLength: 8 }), (bodies) => {
-				const src = bodies.join('\n---\n');
+			fc.property(fc.array(bodyArb, { minLength: 1, maxLength: 8 }), (bodies) => {
+				const src = bodies.join(SEP);
 				for (let i = 0; i < bodies.length; i++) {
 					const start = slideStartOffset(src, i);
 					// The offset lands inside slide i, so reading the index back gives i.
@@ -144,8 +171,22 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 	it('clamps degenerate input', () => {
 		expect(slideIndexAt('', 0)).toBe(0);
 		expect(slideIndexAt(undefined as unknown as string, 5)).toBe(0);
-		expect(slideStartOffset('a\n---\nb', 0)).toBe(0);
-		expect(slideStartOffset('a\n---\nb', 1)).toBe(6);
+		expect(slideStartOffset('a\n\n---\n\nb', 0)).toBe(0);
+		expect(slideStartOffset('a\n\n---\n\nb', 1)).toBe(8);
+	});
+
+	it('a separator hard against the text above it is a HEADING, not a slide break', () => {
+		// The shape these tests used to be built from, now asserted the way the ENGINE reads it.
+		// `a` over `---` with no blank line is a setext h2, so the deck is ONE slide called "a"
+		// — and `slideStartOffset(src, 1)` has no second slide to reach, so it clamps to the
+		// only one there is. The old splitter cut here, the old tests asserted the cut, and the
+		// preview painted a slide the renderer never produced.
+		const tight = 'a\n---\nb';
+		expect(splitSlides(tight)).toEqual([tight]);
+		expect(slideStartOffset(tight, 1)).toBe(0);
+		expect(slideIndexAt(tight, 6)).toBe(0);
+		// Every OTHER thematic-break form does split there, because none of them is an underline.
+		for (const sep of ['***', '___', '- - -']) expect(splitSlides(`a\n${sep}\nb`)).toHaveLength(2);
 	});
 
 	// THE GAP THE FUZZ TEST ABOVE COULD NOT SEE. It joins non-empty bodies with `\n---\n`, so it never
@@ -158,8 +199,8 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 
 	it('indexes slides the same way the rail does — WITH front matter', () => {
 		fc.assert(
-			fc.property(fc.array(bodyArb.filter((b) => b.trim().length > 0), { minLength: 1, maxLength: 8 }), (bodies) => {
-				const src = FM + bodies.join('\n---\n');
+			fc.property(fc.array(bodyArb, { minLength: 1, maxLength: 8 }), (bodies) => {
+				const src = FM + bodies.join(SEP);
 				const slides = splitSlides(stripFrontMatter(src));
 				expect(slides.length).toBe(bodies.length);
 				for (let i = 0; i < slides.length; i++) {
@@ -184,7 +225,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 	it('an EMPTY slide chunk does not shift every later slide', () => {
 		// `splitSlides` drops empty chunks; a raw separator count did not, so a stray double separator
 		// desynced the rest of the deck on top of the front-matter offset.
-		const src = `${FM}one\n---\n\n---\ntwo\n---\nthree`;
+		const src = `${FM}one${SEP}---${SEP}two${SEP}three`;
 		const slides = splitSlides(stripFrontMatter(src));
 		expect(slides).toEqual(['one', 'two', 'three']);
 		for (let i = 0; i < slides.length; i++) {
@@ -196,7 +237,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 
 	it('a separator inside a fence is still not a slide boundary', () => {
 		// Guards the interaction: fence masking has to survive the front-matter offset.
-		const src = `${FM}one\n\n\`\`\`yaml\n---\nkey: v\n---\n\`\`\`\n\n---\ntwo`;
+		const src = `${FM}one\n\n\`\`\`yaml\n---\nkey: v\n---\n\`\`\`${SEP}two`;
 		const slides = splitSlides(stripFrontMatter(src));
 		expect(slides.length).toBe(2);
 		expect(slideStartOffset(src, 1)).toBe(src.lastIndexOf('two'));

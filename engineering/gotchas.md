@@ -656,6 +656,56 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   export. `matrix-grid` and `compare-prose axis` were fixed that way; the others
   above remain.
 
+### The Studio counts fewer slides than the deck renders — or an edit destroys a slide
+
+- **Symptom:** the rail shows one slide where the exported PDF has two; the page number skips; a
+  caret jump lands on the wrong slide; or — the worst of it — the chat rewrites "slide 1" and the
+  deck's SECOND slide vanishes under a green "Applied" tick. All of it on a deck that looks
+  perfectly ordinary. The tell is the separator: it is not a bare `---`.
+
+- **Cause:** the engine breaks a slide on **every top-level markdown-it `hr`**
+  (`splitOnHr`, `lib/engine/slides.js`). Every caller-side splitter used to derive that set from
+  its own regex over `---`, and `/^---$/m` (or `/\r?\n-{3,}\r?\n/`) matches only a bare run of
+  exactly three hyphens with nothing after it. Six forms therefore split for the renderer and were
+  invisible to the rail, the editor sync, the Coach, the rehearsal planner and the chat edit path
+  (measuring found eight, not the four the issue named):
+
+  | written as | engine | the old caller-side splitters |
+  |---|---|---|
+  | `***` · `___` · `- - -` | 2 slides | 1 |
+  | `--- ` (a trailing space) · `---` + tab | 2 slides | 1 |
+  | `----` (four or more) | 2 slides | 1 |
+  | `  ---` (indented 1–3 spaces) | 2 slides | 1 |
+
+  And in the other direction — where the old splitters cut and the engine does not — a `---`
+  directly beneath a line of text is a **setext heading**, and a `---` inside `$$` math, an HTML
+  block, an HTML comment or a code fence is masked. Each made the rail offer a slide the deck does
+  not render.
+
+- **Fix (shipped, #1271):** `lib/core/slide-boundaries.mjs` is the ONE derivation, and it CALLS THE
+  ENGINE'S PARSER — `md.block.parse` on `lib/core/boundary-parser.js`, memoized per source. Every
+  caller reads it. If you are writing anything that asks "which slide is this?", **call that
+  module** — do not add a regex, and do not write a scanner that imitates markdown-it. The first cut
+  of this fix did exactly that and shipped six confirmed wrong answers behind a confidence flag; the
+  decision record has the bill.
+
+- **The one rule callers still share:** `splitOnHr` drops its first token group when that group is
+  empty, so a body opening with a separator renders N sections from N+1 chunks. `dropLeadingEmpty`
+  is that rule, exported once. It keys on the TOKEN stream rather than the text, because "produces
+  no tokens" and "is blank" differ — a link reference definition is real source that produces
+  neither.
+
+- **There is no "unsure" any more, and that is deliberate.** An interim cut of this fix returned a
+  `certain` flag for shapes a hand-written scanner could not settle, and two callers refused when it
+  went false. A parse has no undecided answer: an unclosed fence, a half-typed HTML block, a deck
+  caught mid-keystroke — each parses exactly as the engine parses it, so the boundaries are right
+  rather than admitted-to-be-doubtful. The flag also gave false comfort, reading `true` on all six
+  shapes the scanner got wrong.
+
+- **Authoring note:** write separators as a bare `---` with a blank line on each side. Every other
+  `hr` form works, but the blank lines are what keep a `---` from being read as the heading
+  underline for the line above it — which is a different slide count, not a style preference.
+
 ### A `split-panel proof` run is one hue in the Studio, but only when the deck doesn't paginate
 
 - **Symptom:** a leveled deck's `split-panel proof` slides each show their own categorical tint in
@@ -815,9 +865,12 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   wrong. Two confirmed causes, both on decks that ship here: a **1→N expansion** (`_focusSteps`
   clones one slide into a section per step — `examples/focus.md` is 11 authored → 14 sections;
   `split: headings` divides one chunk at every heading — `examples/split-headings.md` is 1 → 7),
-  and **splitter disagreement** (the engine's `splitOnHr` breaks on ANY markdown-it `hr` —
-  `***`, `___`, `- - -`, `---` with trailing spaces — while the Studio's `SEP_RE` in
-  `docs/src/components/studio/lint.ts` matches only a bare `\n---\n`). So a host passes
+  and — until 2026-08-05 — **splitter disagreement**: the engine's `splitOnHr` breaks on ANY
+  markdown-it `hr` (`***`, `___`, `- - -`, `--- `, `----`, an indented `---`) while the Studio
+  matched only a bare `\n---\n`, so six forms split for the engine and not for the caller.
+  **That cause is retired** — the Studio derives boundaries from the engine's own rule
+  (`lib/core/slide-boundaries.mjs`, #1271), so the counts agree. The 1→N expansion above
+  REMAINS, so the guard is still load-bearing. So a host passes
   `slideCount` and `slideMarkdown` alongside `slideIndex`: narrowing happens only when the
   engine's section count agrees, and otherwise the shown slide is re-rendered alone and
   honestly numbered 1 of 1. **Right slide always; true number only when provably true.**

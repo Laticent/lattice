@@ -34,71 +34,180 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
+// lib/core/math-block-rule.mjs
+function mathBlockRule(state, startLine, endLine, silent) {
+  const begin = state.bMarks[startLine] + state.tShift[startLine];
+  const firstLine = state.src.slice(begin, state.eMarks[startLine]);
+  if (!firstLine.startsWith("$$")) return false;
+  if (state.__mathNoCloserFrom !== void 0 && startLine >= state.__mathNoCloserFrom) return false;
+  let line = startLine;
+  let content = firstLine.slice(2);
+  let closed = content.trim().endsWith("$$");
+  if (closed) content = content.trim().slice(0, -2);
+  while (!closed && line < endLine) {
+    line += 1;
+    const text = state.src.slice(state.bMarks[line] + state.tShift[line], state.eMarks[line]);
+    if (text.trim().endsWith("$$")) {
+      content += `
+${text.trim().slice(0, -2)}`;
+      closed = true;
+    } else {
+      content += `
+${text}`;
+    }
+  }
+  if (!closed) {
+    state.__mathNoCloserFrom = startLine;
+    return false;
+  }
+  if (silent) return true;
+  const token = state.push("math_block", "div", 0);
+  token.block = true;
+  token.content = content.trim();
+  token.markup = "$$";
+  token.map = [startLine, line + 1];
+  state.line = line + 1;
+  return true;
+}
+function installMathBlockRule(md) {
+  md.block.ruler.before("fence", "math_block", mathBlockRule);
+}
+var init_math_block_rule = __esm({
+  "lib/core/math-block-rule.mjs"() {
+  }
+});
+
+// lib/core/boundary-parser.mjs
+import MarkdownIt from "markdown-it";
+function createBoundaryParser() {
+  const md = new MarkdownIt("commonmark", { html: true, breaks: true });
+  md.enable(["table", "strikethrough"]);
+  installMathBlockRule(md);
+  return md;
+}
+function normalizeSource(text) {
+  return typeof text === "string" ? text.replace(/^﻿/, "").replace(/\r\n?/g, "\n") : "";
+}
+var boundaryParser;
+var init_boundary_parser = __esm({
+  "lib/core/boundary-parser.mjs"() {
+    init_math_block_rule();
+    boundaryParser = createBoundaryParser();
+  }
+});
+
+// lib/core/slide-boundaries.mjs
+var slide_boundaries_exports = {};
+__export(slide_boundaries_exports, {
+  chunkBoundaryLines: () => chunkBoundaryLines,
+  dropLeadingEmpty: () => dropLeadingEmpty,
+  frontMatterBlockOf: () => frontMatterBlockOf,
+  normalizeSourceText: () => normalizeSourceText,
+  separatorRanges: () => separatorRanges,
+  slideBoundaries: () => slideBoundaries,
+  splitSlideChunks: () => splitSlideChunks
+});
+function normalizeSourceText(text) {
+  return normalizeSource(typeof text === "string" ? text : "");
+}
+function frontMatterBlockOf(src) {
+  return (/^---(?:\r\n|\r|\n)[\s\S]*?(?:\r\n|\r|\n)---[ \t]*(?:\r\n|\r|\n)?/.exec(String(src ?? "")) || [""])[0];
+}
+function slideBoundaries(body) {
+  const text = normalizeSourceText(String(body ?? ""));
+  if (text === memoKey) return memoValue;
+  const tokens = [];
+  boundaryParser.block.parse(text, boundaryParser, {}, tokens);
+  const lines = [];
+  for (const t of tokens) if (t.type === "hr" && t.level === 0 && Array.isArray(t.map)) lines.push(t.map[0]);
+  const leadingEmpty = tokens.length > 0 && tokens[0].type === "hr" && tokens[0].level === 0;
+  memoKey = text;
+  memoValue = { lines, leadingEmpty };
+  return memoValue;
+}
+function splitSlideChunks(body) {
+  const text = normalizeSourceText(String(body ?? ""));
+  const { lines: seps } = slideBoundaries(text);
+  const lines = text.split("\n");
+  const chunks = [];
+  let start = 0;
+  for (const at of seps) {
+    chunks.push(lines.slice(start, at).join("\n"));
+    start = at + 1;
+  }
+  chunks.push(lines.slice(start).join("\n"));
+  return { chunks: dropLeadingEmpty(chunks, slideBoundaries(text).leadingEmpty) };
+}
+function dropLeadingEmpty(chunks, leadingEmpty) {
+  return chunks.length > 1 && leadingEmpty ? chunks.slice(1) : chunks;
+}
+function chunkBoundaryLines(source) {
+  const text = normalizeSourceText(String(source ?? ""));
+  const fm = frontMatterBlockOf(text);
+  const out = [];
+  let skip = 0;
+  if (fm) {
+    skip = fm.replace(/\n$/, "").split("\n").length;
+    out.push(0, skip - 1);
+  }
+  const { lines: seps, leadingEmpty } = slideBoundaries(text.slice(fm.length));
+  for (let i = leadingEmpty ? 1 : 0; i < seps.length; i++) out.push(seps[i] + skip);
+  return out;
+}
+function separatorRanges(text, offset = 0) {
+  const src = String(text ?? "");
+  const { lines: seps } = slideBoundaries(src);
+  const ranges = [];
+  if (seps.length) {
+    const bom = src.charCodeAt(0) === 65279 ? 1 : 0;
+    const starts = [bom];
+    const TERMINATOR = /\r\n|\r|\n/g;
+    TERMINATOR.lastIndex = bom;
+    for (let m = TERMINATOR.exec(src); m; m = TERMINATOR.exec(src)) starts.push(m.index + m[0].length);
+    for (const ln of seps) ranges.push({ index: starts[ln] + offset, length: (starts[ln + 1] ?? src.length) - starts[ln] });
+  }
+  return { ranges };
+}
+var memoKey, memoValue;
+var init_slide_boundaries = __esm({
+  "lib/core/slide-boundaries.mjs"() {
+    init_boundary_parser();
+    memoKey = null;
+    memoValue = null;
+  }
+});
+
 // lib/authoring/slide-split.js
 var require_slide_split = __commonJS({
   "lib/authoring/slide-split.js"(exports, module) {
+    var { chunkBoundaryLines: chunkBoundaryLines2, splitSlideChunks: splitSlideChunks2 } = (init_slide_boundaries(), __toCommonJS(slide_boundaries_exports));
+    var FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/;
     function fenceOpen(text) {
-      let inFence = false;
-      let fenceChar = "";
-      let fenceLen = 0;
-      const lines = String(text).split("\n");
-      for (const line of lines) {
-        if (!inFence) {
-          const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
-          if (open) {
-            inFence = true;
-            fenceChar = open[1][0];
-            fenceLen = open[1].length;
+      let marker = null;
+      let len = 0;
+      for (const line of String(text ?? "").split("\n")) {
+        const m = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
+        if (!marker) {
+          if (m) {
+            marker = m[1][0];
+            len = m[1].length;
           }
-        } else {
-          const close = line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`));
-          if (close) {
-            inFence = false;
-            fenceChar = "";
-            fenceLen = 0;
-          }
+        } else if (m && m[1][0] === marker && m[1].length >= len && /^[ \t]{0,3}[`~]+[ \t]*$/.test(line)) {
+          marker = null;
+          len = 0;
         }
       }
-      return inFence;
+      return marker !== null;
     }
     function splitTopLevel(source) {
-      const naive = String(source || "").split(/^---$/m);
-      if (naive.length < 2) return naive;
-      const out = [];
-      let cur = naive[0];
-      for (let k = 1; k < naive.length; k++) {
-        if (fenceOpen(cur)) cur = `${cur}---${naive[k]}`;
-        else {
-          out.push(cur);
-          cur = naive[k];
-        }
-      }
-      out.push(cur);
-      return out;
+      const src = String(source || "");
+      const fm = FRONT_MATTER.exec(src);
+      if (!fm) return splitSlideChunks2(src).chunks;
+      const yaml = fm[0].replace(/^---\r?\n/, "").replace(/\r?\n---[ \t]*(\r?\n|$)/, "");
+      return ["", yaml, ...splitSlideChunks2(src.slice(fm[0].length)).chunks];
     }
     function separatorLines(lines) {
-      const set = /* @__PURE__ */ new Set();
-      let inFence = false;
-      let fenceChar = "";
-      let fenceLen = 0;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (!inFence) {
-          const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
-          if (open) {
-            inFence = true;
-            fenceChar = open[1][0];
-            fenceLen = open[1].length;
-            continue;
-          }
-          if (/^---\r?$/.test(line)) set.add(i);
-        } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
-          inFence = false;
-          fenceChar = "";
-          fenceLen = 0;
-        }
-      }
-      return set;
+      return new Set(chunkBoundaryLines2((Array.isArray(lines) ? lines : []).join("\n")));
     }
     module.exports = { splitTopLevel, fenceOpen, separatorLines };
   }
@@ -548,7 +657,7 @@ __export(class_directive_scan_exports, {
   default: () => class_directive_scan_default,
   slideClassDirectives: () => slideClassDirectives
 });
-function walk(getLine, lineCount, onSlideEnd) {
+function walk(getLine, lineCount, onSlideEnd, isBoundary) {
   let inFence = false;
   let fenceClose = null;
   let global = "";
@@ -558,9 +667,19 @@ function walk(getLine, lineCount, onSlideEnd) {
   let spotText = "";
   let spotLine = 0;
   const state = () => spot !== null ? { payload: spot, text: spotText, line: spotLine } : { payload: global, text: globalText, line: globalLine };
+  const endSlide = () => {
+    if (onSlideEnd) onSlideEnd(state());
+    spot = null;
+    spotText = "";
+    spotLine = 0;
+  };
   for (let n = 1; n <= lineCount; n++) {
     const start = n;
     const line = getLine(n) ?? "";
+    if (isBoundary(n)) {
+      endSlide();
+      continue;
+    }
     if (inFence) {
       if (fenceClose.test(line)) {
         inFence = false;
@@ -572,13 +691,6 @@ function walk(getLine, lineCount, onSlideEnd) {
     if (open) {
       inFence = true;
       fenceClose = new RegExp(`^\\s{0,3}(\\${open[1][0]}{${open[1].length},})\\s*$`);
-      continue;
-    }
-    if (SEPARATOR.test(line)) {
-      if (onSlideEnd) onSlideEnd(state());
-      spot = null;
-      spotText = "";
-      spotLine = 0;
       continue;
     }
     if (!COMMENT_OPEN.test(line)) continue;
@@ -595,13 +707,7 @@ ${next}`;
     }
     if (!closed) continue;
     const dir = readDirectiveComment(raw.trim(), CLASS_ONLY);
-    for (let k = start; k <= close; k++) {
-      if (!SEPARATOR.test(getLine(k) ?? "")) continue;
-      if (onSlideEnd) onSlideEnd(state());
-      spot = null;
-      spotText = "";
-      spotLine = 0;
-    }
+    for (let k = start + 1; k <= close; k++) if (isBoundary(k)) endSlide();
     n = close;
     if (!dir) continue;
     if (dir.spot) {
@@ -617,26 +723,34 @@ ${next}`;
   return state();
 }
 function slideClassDirectives(source) {
-  const lines = String(source ?? "").split(LINE_TERMINATOR);
+  const lines = normalizeSourceText(String(source ?? "")).split("\n");
+  const boundaries = new Set(chunkBoundaryLines(source).map((ln) => ln + 1));
   const out = [];
-  const last = walk((n) => lines[n - 1], lines.length, (state) => out.push(state));
+  const last = walk(
+    (n) => lines[n - 1],
+    lines.length,
+    (state) => out.push(state),
+    (n) => boundaries.has(n)
+  );
   out.push(last);
   return out;
 }
 function classDirectiveAt(getLine, lineNo) {
-  const state = walk(getLine, lineNo, null);
+  const above = [];
+  for (let n = 1; n <= lineNo; n++) above.push(getLine(n) ?? "");
+  const boundaries = new Set(chunkBoundaryLines(above.join("\n")).map((ln) => ln + 1));
+  const state = walk(getLine, lineNo, null, (n) => boundaries.has(n));
   return state.payload ? state : null;
 }
-var CLASS_ONLY, SEPARATOR, FENCE_OPEN, COMMENT_OPEN, commentCloses, LINE_TERMINATOR, class_directive_scan_default;
+var CLASS_ONLY, FENCE_OPEN, COMMENT_OPEN, commentCloses, class_directive_scan_default;
 var init_class_directive_scan = __esm({
   "lib/core/class-directive-scan.mjs"() {
     init_comment_directive();
+    init_slide_boundaries();
     CLASS_ONLY = { known: /* @__PURE__ */ new Set(["class"]), flags: /* @__PURE__ */ new Set() };
-    SEPARATOR = /^---\r?$/;
     FENCE_OPEN = /^\s{0,3}(`{3,}|~{3,})/;
     COMMENT_OPEN = /^[ ]{0,3}(?:>[ \t]*|(?:[-*+]|\d{1,9}[.)])[ \t]+)*<!--/;
     commentCloses = (line) => line.includes("-->");
-    LINE_TERMINATOR = /\r\n|[\n\r\u2028\u2029]/;
     class_directive_scan_default = { slideClassDirectives, classDirectiveAt };
   }
 });

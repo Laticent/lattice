@@ -3,34 +3,32 @@
 // are property-testable without rendering anything.
 
 import { type LensRegistry, lensPairs } from '@/lib/lente';
-import { slideSeparatorRe } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
+import { separatorRanges } from '../../../../lib/core/slide-boundaries.mjs';
 import { frontMatterBlock } from './front-matter';
-import { fenceRanges } from './slide-directives';
 
-// A slide separator is a `---` (3+ dashes) line flanked by newlines — but NOT one
-// inside a fenced code block (a mermaid block's `---` front matter, a YAML sample).
-// Scanning was fence-blind, which split such slides into pieces and corrupted the
-// deck on the next structural edit. `separatorPositions` masks fences once and every
-// splitter/locator below shares it, so they never disagree.
+// WHERE A SLIDE BEGINS — asked once, of the one module that knows.
 //
-// The PATTERN itself comes from lib/diagnostics/slice-equivalence-core.mjs, which is also what
-// `positionIsTrustworthy` and `deckSectionFor` cut on when they decide whether this view's slide
-// indices may be handed to the engine. Four copies of the literal used to exist, and their whole
-// job is to agree: the moment they don't, the rail, the editor↔preview sync and the supplied page
-// number are counting different things. A factory rather than a shared instance — a `/g` literal
-// carries `lastIndex`, so one shared object would let two scans interleave.
+// This used to scan for `\r?\n-{3,}\r?\n` and mask fenced ranges itself. It found the
+// separators the ENGINE finds only when they were written as a bare `---`: `***`, `___`,
+// `- - -`, `--- ` with a trailing space, `----` and a `---` indented one to three spaces
+// are all thematic breaks to markdown-it and were invisible here, while `Interlude` over
+// `---` is a HEADING to the engine and was counted as a separator here. So the rail, the
+// editor↔preview sync and the supplied page number were all counting a slide list the
+// renderer does not have.
+//
+// `lib/core/slide-boundaries.mjs` reproduces the engine's own `hr` set from source text —
+// fences, `$$` math, HTML blocks, blockquotes, lists, tables and setext underlines
+// included — and every locator below reads it, so they cannot disagree with each other or
+// with the render.
+//
+// FRONT MATTER IS EXCLUDED BY SLICING, not by filtering the results. Its closing `---` is
+// a thematic break to any scanner that sees it and its opening `---` makes the first key a
+// setext heading, so the block is cut off before the scan and the ranges are shifted back
+// into full-document coordinates.
 function separatorPositions(src: string): Array<{ index: number; length: number }> {
 	const text = String(src ?? '');
-	const fences = fenceRanges(text);
-	const inFence = (i: number) => fences.some(([a, b]) => i >= a && i < b);
-	const out: Array<{ index: number; length: number }> = [];
-	let m: RegExpExecArray | null;
-	const SEP_RE = slideSeparatorRe('g');
-	while ((m = SEP_RE.exec(text))) {
-		// The separator "line" is the dashes; the match includes the flanking newlines.
-		if (!inFence(m.index + 1)) out.push({ index: m.index, length: m[0].length });
-	}
-	return out;
+	const fmLen = frontMatterBlock(text).length;
+	return separatorRanges(text.slice(fmLen), fmLen).ranges;
 }
 
 /** Split deck source into trimmed, non-empty slide chunks on `---` fences (fence-aware). */
@@ -97,10 +95,11 @@ export function slideTitle(slideSrc: string): string {
  * disagrees with `splitSlides` in two ways, and both showed up as the editor framing a DIFFERENT
  * slide than the one selected in the preview:
  *
- *   1. FRONT MATTER. Its closing `---` is preceded and followed by a newline, so it matches `SEP_RE`
- *      and was counted as separator #0 — while the rail counts slides in the STRIPPED body. Every
- *      deck with front matter (i.e. every real deck) was off by one: `revealSlide(3)` framed slide 2,
- *      and a caret in slide 0 reported slide 1. `examples/gallery-jargon.md` reproduces it exactly.
+ *   1. FRONT MATTER. Its closing `---` is preceded and followed by a newline, so it matched the
+ *      separator pattern and was counted as separator #0 — while the rail counts slides in the
+ *      STRIPPED body. Every deck with front matter (i.e. every real deck) was off by one:
+ *      `revealSlide(3)` framed slide 2, and a caret in slide 0 reported slide 1.
+ *      `examples/gallery-jargon.md` reproduces it exactly.
  *   2. EMPTY CHUNKS. `splitSlides` drops them (`.trim()` then `.filter(Boolean)`); a raw separator
  *      count does not, so two consecutive separators shifted every later slide by one more.
  *
@@ -126,8 +125,11 @@ function slideRanges(src: string): Array<{ from: number; start: number; end: num
 		out.push({ from, start: from + (raw.length - raw.trimStart().length), end });
 	};
 	let pos = fmLen;
+	// No `s.index < fmLen` guard: `separatorPositions` scans the body ALONE and shifts its
+	// answers back, so a separator inside the front matter is not reported rather than
+	// reported-and-skipped. A filter that can never match is the same defect as a test that
+	// cannot fail — it reads like a guard and guards nothing.
 	for (const s of separatorPositions(text)) {
-		if (s.index < fmLen) continue;
 		push(pos, s.index);
 		pos = s.index + s.length;
 	}

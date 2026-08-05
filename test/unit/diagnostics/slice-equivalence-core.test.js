@@ -85,33 +85,47 @@ test('synthesizePrelude at slide 0 is empty — nothing precedes it', () => {
 // specs. They are the shipped repair for the "1 of 1" bug, and the headless sweep now calls the
 // same copy, so a change here moves `npm run equiv` as well as the Studio.
 
-test('slideSeparatorRe is a FACTORY — two callers cannot share a lastIndex', () => {
-  // The caller-side separator had four copies of its literal (lint.ts, positionIsTrustworthy,
-  // deckSectionFor twice), and their entire job is to agree: when they don't, the rail, the
-  // editor↔preview sync and the supplied page number are counting different things. One
-  // definition now — but handed out as a factory, because a shared `/g` instance carries
-  // `lastIndex` and two interleaved scans would silently skip matches.
-  const a = core.slideSeparatorRe('g');
-  const b = core.slideSeparatorRe('g');
-  assert.notEqual(a, b);
-  assert.equal(a.source, b.source);
-  a.exec('x\n---\ny');
-  assert.notEqual(a.lastIndex, 0);
-  assert.equal(b.lastIndex, 0, 'a second instance must not inherit the first\'s scan position');
-  assert.equal(core.slideSeparatorRe().flags, '', 'no flags unless asked — a global default is the footgun');
-  assert.deepEqual('a\n---\nb\n-----\nc'.split(core.slideSeparatorRe()), ['a', 'b', 'c']);
+test('the caller-side separator definition is GONE, not merely deduplicated', () => {
+  // This file used to pin `slideSeparatorRe` — one factory replacing four copies of a
+  // `\r?\n-{3,}\r?\n` literal, handed out fresh each call so two `/g` scans could not share a
+  // `lastIndex`. That was the right fix for the problem as it was then understood: the caller's
+  // definition of a separator was assumed to be permanently different in KIND from the engine's,
+  // so the most that could be done was to make the tree hold exactly one of it.
+  //
+  // It is not different in kind. `lib/core/slide-boundaries.mjs` reproduces the engine's own
+  // boundary set by scanning lines, so the caller-side definition has nothing left to define and
+  // the shared-`lastIndex` footgun cannot recur — there is no regex to share. What replaces the
+  // old assertions is the one that actually matters now: this module's splitter and the engine
+  // agree on the forms the retired literal got wrong.
+  assert.equal(typeof core.slideSeparatorRe, 'undefined', 'the caller-side separator regex should be retired, not re-exported');
+  for (const sep of ['---', '***', '___', '- - -', '--- ', '----', '  ---']) {
+    assert.equal(core.splitSlides(`# One\n\n${sep}\n\n# Two\n`).length, 2, `${JSON.stringify(sep)} is a slide boundary`);
+    assert.equal(core.positionIsTrustworthy(`# One\n\n${sep}\n\n# Two\n`, 2), true, `${JSON.stringify(sep)} no longer forces a refusal`);
+  }
+  // And the disagreement of opposite sign: a setext underline is a heading, never a separator.
+  assert.equal(core.splitSlides('# One\n\nInterlude\n---\n\n# Two\n').length, 1);
 });
 
-test('slideSeparatorRe is CRLF-tolerant — the module must not disagree with itself', () => {
-  // `splitSlides` in this same module handles CRLF; the separator factory did not, so a CRLF deck
-  // cut to ONE chunk here and `positionIsTrustworthy` refused every one of them. Fail-closed, so
-  // never a wrong number — but the optimization silently off for a whole class of decks, and the
-  // single shared definition disagreeing with the splitter it is supposed to be shared WITH.
+test('CRLF is folded at the door — the module must not disagree with itself', () => {
+  // A CRLF deck once cut to ONE chunk in `positionIsTrustworthy` and correctly in `splitSlides`,
+  // so every CRLF deck was refused: fail-closed, never a wrong number, but the optimization
+  // silently off for a whole class of decks. Both now normalize at the same door.
   const crlf = '# One\r\n\r\n---\r\n\r\n# Two\r\n';
-  assert.equal(crlf.split(core.slideSeparatorRe()).length, core.splitSlides(crlf).length);
+  assert.equal(core.splitSlides(crlf).length, 2);
   assert.equal(core.positionIsTrustworthy(crlf, 2), true);
-  // LF is untouched.
-  assert.equal('a\n---\nb'.split(core.slideSeparatorRe()).length, 2);
+  assert.equal(core.splitSlides('a\n\n---\n\nb').length, 2, 'LF is untouched');
+  // The line this replaces asserted `'a\n---\nb'` cuts into TWO, which the retired regex did and
+  // the ENGINE does not: with no blank line, `---` underlines the paragraph above it and the deck
+  // renders one slide titled "a". Keeping the old expectation would have pinned the defect.
+  assert.equal(core.splitSlides('a\n---\nb').length, 1, 'a setext underline is a heading, not a separator');
+});
+
+test('a boundary set the scanner cannot vouch for is refused, not supplied', () => {
+  // The replacement for the three retired refusals. An unclosed fence is what a deck looks like
+  // mid-keystroke, and the scanner says so rather than betting a slide index on it.
+  const midEdit = '# One\n\n```\n---\n\n# Two\n';
+  assert.equal(core.positionIsTrustworthy(midEdit, 1), false, 'an undecided boundary set must not supply a position');
+  assert.equal(core.supplyablePosition(midEdit, 0, 1), undefined);
 });
 
 test('positionIsTrustworthy needs a slide count it can compare against', () => {

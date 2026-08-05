@@ -50,6 +50,12 @@ const writtenClass = (chunk) => {
   return m === null ? '' : m.trim();
 };
 
+/**
+ * How many sections the ENGINE renders — the oracle for "how many slides is this?".
+ * Required lazily so the cheap grammar tests above do not pay for loading it.
+ */
+const sectionCount = (src) => (require('../../../lib/engine').render(src).html.match(/<section\b/g) || []).length;
+
 const at = (src, lineNo) => {
   const lines = src.split('\n');
   return classDirectiveAt((n) => lines[n - 1], lineNo);
@@ -322,10 +328,15 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
   // arriving through the fix for it. It is unchecked at the call sites, so it is
   // checked here.
   //
-  // The shape that broke it: consuming a multi-line comment skipped its lines from
-  // the walk, and `splitTopLevel` still splits on a `---` written INSIDE such a
-  // comment — which is an ordinary thing to do when commenting a run of slides out.
-  test('a `---` inside a multi-line comment still counts as a boundary', () => {
+  // Both sides now count from `chunkBoundaryLines`, so the pairing is structural
+  // rather than two files agreeing by inspection. These cases pin the two shapes
+  // that used to break it from opposite directions.
+  //
+  // The first: a `---` written INSIDE a multi-line comment — an ordinary thing to do
+  // when commenting a run of slides out. The engine does not split there (the whole
+  // comment is one `html_block`), and neither reader does now; the earlier pair
+  // agreed that it DID, which was two copies of the same mistake.
+  test('a `---` inside a multi-line comment is not a boundary, on either side', () => {
     const src = [
       '# One', '', '---', '', '<!-- _class: kpi -->', '', '## Two', '', '---', '',
       '<!--', 'commented out for now:', '', '---', '', '## Dropped', '', '-->', '',
@@ -335,6 +346,10 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
     const chunks = splitTopLevel(src);
     assert.equal(dirs.length, chunks.length,
       'the scan and the splitter must agree on how many slides there are');
+    // The ENGINE is the oracle for the NUMBER, so "they agree" cannot mean "they
+    // are wrong together" — the failure mode this whole pair used to have.
+    assert.equal(chunks.length, sectionCount(src),
+      'and both must agree with the number of sections the engine actually renders');
     // …and the pairing must be right, not merely the same length.
     chunks.forEach((chunk, i) => {
       const own = writtenClass(chunk);
@@ -342,6 +357,38 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
       assert.equal(dirs[i].payload, own,
         `chunk ${i} carries \`${own}\` but was paired with \`${dirs[i].payload}\``);
     });
+  });
+
+  // The second shape, and the one this module could not see at all until it stopped
+  // deciding boundaries itself: a separator the ENGINE breaks on that is not a bare
+  // `---`. Every finding after such a line was attributed to the wrong slide.
+  const SEPARATORS = [
+    ['***', 'asterisk rule'],
+    ['___', 'underscore rule'],
+    ['- - -', 'spaced dashes'],
+    ['--- ', 'a trailing space'],
+    ['----', 'four dashes'],
+    ['  ---', 'indented two spaces'],
+  ];
+  for (const [sep, label] of SEPARATORS) {
+    test(`a separator written as ${label} pairs the class with its own slide`, () => {
+      const src = ['<!-- _class: kpi -->', '', '# One', '', sep, '',
+        '<!-- _class: quote -->', '', '# Two', ''].join('\n');
+      const dirs = slideClassDirectives(src);
+      const chunks = splitTopLevel(src);
+      assert.equal(sectionCount(src), 2, `the engine must break on ${JSON.stringify(sep)}`);
+      assert.equal(chunks.length, 2);
+      assert.deepEqual(dirs.map((d) => d.payload), ['kpi', 'quote'],
+        'the second slide must carry its own class, not the first slide\'s');
+    });
+  }
+
+  test('a setext underline is a heading, so both readers keep one slide', () => {
+    // The divergence of opposite sign: `/^---$/m` split here and the engine does not.
+    const src = ['<!-- _class: kpi -->', '', 'Interlude', '---', '', 'body', ''].join('\n');
+    assert.equal(sectionCount(src), 1, 'a `---` under a paragraph line is a setext underline');
+    assert.equal(splitTopLevel(src).length, 1);
+    assert.deepEqual(slideClassDirectives(src).map((d) => d.payload), ['kpi']);
   });
 
   test('every committed deck keeps the two in lockstep', () => {

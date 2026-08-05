@@ -41,12 +41,22 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
           chrome-version: stable
 
+      # The docs build loads the owned engine from ROOT `lib/**`, whose boundary
+      # kernel imports `markdown-it` by bare specifier (#1271) — resolved upward from
+      # lib/core, so it needs ROOT node_modules, not docs/. Mirrors ci.yml's
+      # docs-build and docs.yml; without it the build dies with ERR_MODULE_NOT_FOUND.
+      - name: Install root deps (engine deps the docs build loads)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
       - name: Install docs deps
         run: npm ci
         working-directory: docs

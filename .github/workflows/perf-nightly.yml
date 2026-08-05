@@ -45,7 +45,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
@@ -64,6 +66,14 @@ jobs:
           echo "Base commit: $BASE (head: $HEAD_SHA)"
 
       # ---- HEAD (current main) ----
+      # The docs build loads the owned engine from ROOT `lib/**`, whose boundary
+      # kernel imports `markdown-it` by bare specifier (#1271) — resolved upward from
+      # lib/core, so it needs ROOT node_modules, not docs/. Mirrors ci.yml's
+      # docs-build and docs.yml; without it the build dies with ERR_MODULE_NOT_FOUND.
+      - name: Install root deps (engine deps the docs build loads)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
       - name: Install docs deps (head)
         run: npm ci
         working-directory: docs
@@ -89,6 +99,11 @@ jobs:
           set -euo pipefail
           git worktree add --detach "$BASE_TREE" "${{ steps.base.outputs.sha }}"
           cp docs/scripts/perf-collect.mjs docs/scripts/perf-regression.mjs "$BASE_TREE/docs/scripts/"
+          # Root deps in the worktree too — the docs build loads root `lib/**`, whose
+          # boundary kernel imports `markdown-it` by bare specifier and resolves it
+          # upward from lib/core (#1271). Same reason as the head install above.
+          cd "$BASE_TREE"
+          npm ci
           cd "$BASE_TREE/docs"
           npm ci
           node scripts/perf-collect.mjs --out "$BASE_OUT"

@@ -497,7 +497,11 @@ describe('refineSelection — honest selection refine', () => {
 // "Applied" tick over a deck that never moved (the #chat-churn transcript, 2026-08-04).
 // These assert the OUTCOME is reported, not merely that the source is right.
 describe('applyProposedEditsChecked — refusals are reported, not swallowed', () => {
-	const DECK = '# One\n\nbody one\n---\n## Two\n\nbody two';
+	// BLANK-LINE-FLANKED. Written as `body one\n---\n## Two`, the `---` is a setext underline
+	// of `body one` and the deck renders as ONE slide — so `replace slide 2` had no slide 2 to
+	// address. These tests passed only because the splitter shared the mistake; see
+	// engineering/decisions/2026-08-05-slide-boundary-reconciliation.md §7.
+	const DECK = '# One\n\nbody one\n\n---\n\n## Two\n\nbody two';
 	const prop = (raw: { action: string; slide: number; body: string }) => ({ raw });
 
 	it('counts what landed', () => {
@@ -627,7 +631,7 @@ describe('diagram grounding — silence when we do not know', () => {
 });
 
 describe('applyProposedEditsChecked — blocks and slides are different units', () => {
-	const DECK = '# One\n\nbody\n---\n## Two';
+	const DECK = '# One\n\nbody\n\n---\n\n## Two';
 	const prop = (raw: { action: string; slide: number; body: string }) => ({ raw });
 
 	it('counts BLOCKS in `applied`, so it can be compared with refusals', () => {

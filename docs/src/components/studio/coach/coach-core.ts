@@ -7,6 +7,8 @@
 
 import { buildVocabSets } from '@/playground/editor-diagnostics.js';
 import type { Finding } from '../architect';
+import { stripFrontMatter } from '../front-matter';
+import { splitSlides as studioSplitSlides } from '../lint';
 
 export type ScoreCategory = { key: string; label: string; score: number | null; na?: boolean; notes: string[] };
 export type DeckScorecard = { overall: number; band: string; categories: ScoreCategory[] };
@@ -33,7 +35,12 @@ async function core(): Promise<any> {
  *  Studio doesn't inherit the empty-deck-scores-A trap of the raw engine scoreDeck. */
 export function hasContent(src: string): boolean {
 	const s = String(src ?? '');
-	return /<!--\s*_class:/.test(s) && s.split(/^---$/m).filter((x) => x.trim()).length > 1;
+	// `> 0`, not `> 1`. The old threshold counted the FRONT-MATTER chunk as a slide — its
+	// splitter cut the raw source on `/^---$/m`, so `['', yaml, slide]` made a one-slide deck
+	// read as two. Counting real slides and keeping `> 1` made a one-slide deck with front
+	// matter report NO CONTENT, and the Coach shows a placeholder instead of assessing a real
+	// deck (found by the independent checker). One classed slide is content.
+	return /<!--\s*_class:/.test(s) && splitSlides(s).length > 0;
 }
 
 /** The real deck assessment: the engine scorecard + the union of lint + review
@@ -83,14 +90,14 @@ export type CoachCard = { title: string; body: string[]; jump?: number; needMinu
 const SEV_WEIGHT: Record<string, number> = { error: 3, warning: 2, suggestion: 1 };
 const SEV_ORDER: Record<string, number> = { error: 0, warning: 1, suggestion: 2 };
 
+// A THIRD local `/^---$/m` splitter lived here, and it counted a slide list the renderer
+// does not have: `***`, `___`, `- - -`, `----`, `--- ` and an indented `---` are all slide
+// breaks to the engine and were invisible to it, while a setext underline was a break to it
+// and a heading to the engine. The Coach's per-finding "jump to slide N" therefore pointed
+// somewhere else on any deck written with one of those. It reads the Studio's own splitter
+// now — which reads `lib/core/slide-boundaries.mjs`, pinned against the real parser.
 function splitSlides(source: string): string[] {
-	let src = source || '';
-	const fm = src.match(/^\s*---\n[\s\S]*?\n---\n?/);
-	if (fm) src = src.slice(fm[0].length);
-	return src
-		.split(/^---$/m)
-		.map((c) => c.trim())
-		.filter(Boolean);
+	return studioSplitSlides(stripFrontMatter(String(source ?? '')));
 }
 export function countSlides(source: string): number {
 	return splitSlides(source).length;

@@ -13,7 +13,18 @@ async function load() {
   return import('../../../docs/src/components/studio/ai/architect-edits.js');
 }
 
-const DECK = ['# One', '', 'body one', '---', '## Two', '', 'body two', '---', '### Three'].join('\n');
+// THE SEPARATOR IS BLANK-LINE-FLANKED, and that is not cosmetic.
+//
+// This fixture used to read `'body one', '---', '## Two'` — the separator hard against the
+// text above it. Rendered, that deck is ONE slide: a run of `-` directly under a paragraph
+// is that paragraph's setext underline, so `body one` becomes an h2 and the `---` is never
+// a break. Every assertion below about "slide 2" and "slide 3" described a slide model the
+// renderer does not have; they passed because the splitter under test shared the mistake.
+//
+// Checked against the real parser rather than assumed: `lib/core/boundary-parser.js` finds
+// zero top-level `hr` in the old fixture and two in this one. The tight form now has its own
+// test asserting it is a heading (see "a separator hard against the text above it").
+const DECK = ['# One', '', 'body one', '', '---', '', '## Two', '', 'body two', '', '---', '', '### Three'].join('\n');
 
 describe('parseEdits', () => {
   test('extracts a four-backtick replace block and returns the prose without it', async () => {
@@ -188,7 +199,7 @@ describe('numberSlides (prompt view)', () => {
 });
 
 describe('front matter is excluded from slide numbering (human 1-based)', () => {
-  const FM_DECK = ['---', 'marp: true', '---', '', '<!-- _class: title -->', '# One', '---', '## Two', '', 'body two'].join('\n');
+  const FM_DECK = ['---', 'marp: true', '---', '', '<!-- _class: title -->', '# One', '', '---', '', '## Two', '', 'body two'].join('\n');
 
   test('numberSlides drops front matter and numbers real slides from 1', async () => {
     const { numberSlides } = await load();
@@ -226,7 +237,7 @@ describe('front matter is excluded from slide numbering (human 1-based)', () => 
     const { applyEdit } = await load();
     const pre = applyEdit(FM_DECK, { action: 'insert', slide: 0, body: '## NEW FIRST' });
     assert.match(pre, /^---\nmarp: true\n---\n\n/); // fence intact at the very top
-    const slides = pre.replace(/^---\nmarp: true\n---\n\n/, '').split(/^---$/m).map((s) => s.trim());
+    const slides = pre.replace(/^---\nmarp: true\n---\n\n/, '').split(/^\n?---\n?$/m).map((s) => s.trim());
     assert.equal(slides[0], '## NEW FIRST'); // new real slide 1
     assert.match(slides[1], /# One/);
   });
@@ -317,7 +328,16 @@ describe('fence-aware slide boundaries', () => {
     const { applyEdit } = await load();
     assert.equal(applyEdit(DECK, { action: 'insert', slide: 1, body: '## A\n\n```\nunclosed' }), DECK);
   });
-  test('the lib splitter and the architect-edits copy agree (no drift between the two hand-maintained fence trackers)', async () => {
+  test('the lib splitter and this module agree — because there is only one splitter left', async () => {
+    // This test used to guard "two hand-maintained fence trackers" from drifting apart.
+    // They HAD drifted, in a way neither copy could see: both derived slide boundaries from
+    // `/^---$/m`, which the engine does not, so the two agreed with each other and disagreed
+    // with the renderer on six separator forms. That is the shape #1271 named as the defect
+    // generator — agreement between copies is not correctness.
+    //
+    // Both now read `lib/core/slide-boundaries.mjs`, which is pinned against the real parser.
+    // The assertion is kept rather than deleted because the packaging around it is still
+    // per-module (each reconstructs the front-matter chunks), and THAT can still drift.
     const lib = require('../../../lib/authoring/slide-split.js');
     const ae = await load();
     const corpus = [
@@ -326,16 +346,64 @@ describe('fence-aware slide boundaries', () => {
       '---\nmarp: true\n---\n\n# S1\n\n---\n\n# S2\n',
       FENCED,
       '# A\n\n---\n\n```\na\n---\nb\n```\n\n---\n\n# C',
-      'a\r\n---\r\nb\r\n---\r\nc', // CRLF
+      'a\r\n\r\n---\r\n\r\nb\r\n\r\n---\r\n\r\nc', // CRLF
       '~~~md\nfront\n---\nback\n~~~',
       '```\nunclosed\n---\nstill in',
-      '--- \n', // trailing space (both preserve naive behavior: not a split)
+      '# A\n\n--- \n\n# B', // trailing space — an `hr` to the engine, invisible to /^---$/m
+      '# A\n\n***\n\n# B',
+      '# A\n\nInterlude\n---\n\n# B', // a setext underline — a heading, not a break
     ];
     for (const src of corpus) {
       assert.deepEqual(ae.splitTopLevel(src), lib.splitTopLevel(src), `splitTopLevel drift on: ${JSON.stringify(src)}`);
       assert.equal(ae.fenceOpen(src), lib.fenceOpen(src), `fenceOpen drift on: ${JSON.stringify(src)}`);
       const lines = src.split('\n');
       assert.deepEqual([...ae.separatorLines(lines)], [...lib.separatorLines(lines)], `separatorLines drift on: ${JSON.stringify(src)}`);
+    }
+  });
+
+  test('a separator form the old splitter could not see no longer destroys a slide', async () => {
+    // THE REPORTED FAILURE, reproduced. `slideCount` read 1 where the engine renders 2, so
+    // `replace slide 1` overwrote the whole deck — and the chat painted its green "Applied"
+    // tick over the loss. Six forms did it; all six are checked.
+    const { applyEditChecked, slideCount } = await load();
+    for (const sep of ['--- ', '---\t', '***', '___', '- - -', '----', '  ---']) {
+      const deck = `# Slide One\n\nalpha\n\n${sep}\n\n# Slide Two\n\nbravo\n`;
+      assert.equal(slideCount(deck), 2, `${JSON.stringify(sep)} should count two slides`);
+      const r = applyEditChecked(deck, { action: 'replace', slide: 1, body: '# Rewritten' });
+      assert.equal(r.ok, true);
+      assert.match(r.source, /# Rewritten/);
+      assert.match(r.source, /# Slide Two/, `${JSON.stringify(sep)}: slide two must survive an edit to slide one`);
+      assert.match(r.source, /bravo/);
+    }
+  });
+
+  test('a deck caught mid-keystroke splices correctly rather than being refused', async () => {
+    // THIS ASSERTION FLIPPED, and the flip is the point. It used to require a REFUSAL on a deck
+    // with an unclosed fence, because boundaries came from a hand-written scanner that reported
+    // it could not settle such a deck. Boundaries now come from the engine's own parser, which
+    // has no undecided answer: the fence swallows the rest of the deck here exactly as it does
+    // in the render, so there is ONE slide and an edit to it lands correctly. Refusing would
+    // now be a false alarm on a deck the author is halfway through typing.
+    const { applyEditChecked, slideCount } = await load();
+    const midEdit = '# One\n\n```\n---\n\n# Two\n';
+    assert.equal(slideCount(midEdit), 1, 'the unclosed fence swallows the separator, as it does in the render');
+    const r = applyEditChecked(midEdit, { action: 'replace', slide: 1, body: '# Rewritten' });
+    assert.equal(r.ok, true);
+    assert.match(r.source, /# Rewritten/);
+  });
+
+  test('an unclosed fence in the EDIT BODY is still refused', async () => {
+    // The guard that survives, and it is about the model's output rather than the deck's state:
+    // a spliced fence that never closes swallows the deck's next separator and traps the
+    // following slide inside a code block. It was DEFEATED once — `fenceOpen` read a boundary
+    // scanner's single-slot "reason", so any earlier note masked the fence and the edit applied
+    // (`ok: true`, two sections in and one out, red team). It reads the text now.
+    const { applyEditChecked } = await load();
+    const deck = '---\ntheme: indaco\n---\n\n# One\n\nBody one.\n\n---\n\n# Two\n\nBody two.\n';
+    for (const body of ['# T\n\n```mermaid\ngraph TD\n', '# T\n\n- ```js\n\n```mermaid\ngraph TD\n']) {
+      const r = applyEditChecked(deck, { action: 'replace', slide: 1, body });
+      assert.equal(r.ok, false, `should refuse: ${JSON.stringify(body)}`);
+      assert.equal(r.source, deck, 'a refused edit changes nothing');
     }
   });
 });
