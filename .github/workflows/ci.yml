@@ -476,7 +476,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      # The Studio imports the boundary kernel from ROOT `lib/core/*.mjs`, which
+      # imports `markdown-it` by bare specifier (#1271). Node resolves that upward
+      # from lib/core, so it needs ROOT node_modules — the docs `npm ci` below only
+      # populates docs/node_modules. Without this the preview server dies at startup
+      # with ERR_MODULE_NOT_FOUND and every test fails on "webServer was not able to
+      # start". Same reason `docs-build` installs root deps; see its note.
+      - name: Install root deps (for lib/core's markdown-it import)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1' # this job never renders; skip the ~150MB Chrome
       - name: Install docs deps
         run: npm ci
         working-directory: docs
