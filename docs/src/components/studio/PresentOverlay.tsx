@@ -28,7 +28,7 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
-import { cueDisplayText, guideTargetFor } from './present-guide';
+import { cueDisplayText, guideAimFor, guideCueFor, POINTER_BOX } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
@@ -680,8 +680,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// so the library still knows nothing about iframes and the Studio supplies the mapping.
 	const guideStageRef = React.useRef<VetrinaStage | null>(null);
 	const guidePointRef = React.useRef<AbortController | null>(null);
-	/** Is the fake cursor currently ON SCREEN? Decides glide-then-show vs show-then-glide below. */
+	/** Is the fake cursor currently ON SCREEN? Decides gesture-then-show vs gesture-only below. */
 	const guideShownRef = React.useRef(false);
+	/** The element the last gesture named. The BLOCK-change cadence compares on this: a cue that
+	 *  resolves to the same element is a rest, not another trip. */
+	const guideAimRef = React.useRef<Element | null>(null);
 	const guideLive = open && guideOn && !rehearse;
 	// Does the CURRENT sentence have something on the slide to point at? Drives both the fake
 	// cursor's visibility and whether the real one may be hidden — see the two notes below.
@@ -720,15 +723,36 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			guidePointRef.current = null;
 			guideStageRef.current = null;
 			guideShownRef.current = false;
+			guideAimRef.current = null; // the next run starts with no "last named thing" to rest on
 			setGuideAiming(false); // no stage, nothing aimed — and the real pointer comes straight back
 			stage.destroy();
 		};
 	}, [guideLive]);
 
-	// Move on the reader's beat. Abort any glide still in flight first: a cue change while the
-	// cursor is mid-travel must retarget, not queue up behind it and arrive two sentences late.
+	// Move on the reader's beat — but on the BLOCK, not on the sentence.
+	//
+	// A cue is a sentence, and gesturing on every one of them is what made Guide read as a
+	// karaoke follower: six or eight trips per dense slide, several of them between two
+	// sentences of the same paragraph. The hand of a presenter rests, moves to a thing worth
+	// naming, makes a gesture that fits it, and withdraws. So a cue that resolves to the SAME
+	// element as the last one is a REST: no move, no ink, nothing at all.
+	//
+	// Abort any gesture still in flight first: a block change while the cursor is mid-stroke
+	// must retarget, not queue up behind it and arrive two sentences late.
 	const activeCue = reader.active?.cueIndex ?? -1;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the reader's cue index IS the trigger; track/frame are read at fire time on purpose.
+	// THE SLIDE IS PART OF THE TRIGGER, and leaving it out is a silent stop.
+	//
+	// A cue index is per-SLIDE, so it resets to 0 on every navigation. On a deck whose slides
+	// narrate in one or two sentences, the index that ends slide 1 can be the index that begins
+	// slide 2 — the state never changes, React bails out of the effect entirely, and Guide
+	// simply stops after the first slide with no error anywhere. Measured on the real overlay: a
+	// three-slide deck produced exactly ONE gesture in forty seconds.
+	//
+	// This is #1394's defect in a second place (the advance effect keyed on a memo that repeated
+	// text made identical), and the same fix applies — trigger on a value that changes whenever a
+	// navigation happens, regardless of what the narration says.
+	const guideBeat = `${narration.idx}:${activeCue}`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the beat (slide + cue index) IS the trigger; track/frame are read at fire time on purpose.
 	React.useEffect(() => {
 		const stage = guideStageRef.current;
 		if (!stage) return;
@@ -736,42 +760,56 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		// PREVIOUS sentence's target — a confident arrow resting on an unrelated line for as long
 		// as the narration stays off-slide, while the real pointer was hidden. That is strictly
 		// worse than not pointing at all, which is the bar this module sets for itself. So the
-		// cursor is hidden while there is nothing to aim at, and an in-flight glide is aborted:
-		// `activeCue` drops to -1 on every slide change, and a glide left running through the
-		// teardown of the frame it was aiming into is exactly the vanished-target case.
+		// cursor is hidden while there is nothing to aim at, and an in-flight gesture is aborted:
+		// `activeCue` drops to -1 on every slide change, and a stroke left running through the
+		// teardown of the frame it was drawn into is exactly the vanished-target case.
+		const frame = () => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null;
 		const text = activeCue >= 0 ? cueDisplayText(reader.track.cues[activeCue]) : '';
-		const target = text ? guideTargetFor(() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null, text) : null;
-		guidePointRef.current?.abort();
-		guidePointRef.current = null;
-		setGuideAiming(!!target);
-		if (!target) {
+		// ASK THE CHEAP QUESTION FIRST. `guideAimFor` reads no layout; the full decision measures
+		// every block on the slide. This effect runs once per SENTENCE and acts once per BLOCK, so
+		// on the common path — the next sentence of a paragraph already named — nothing here
+		// forces a reflow while audio is playing.
+		const aim = text ? guideAimFor(frame, text) : null;
+		// THE REST. Same element as the last cue → the hand stays where the last gesture left it.
+		// Guarded on the cursor actually being on screen, so the first cue of a block still gets
+		// its gesture after a stretch of unresolvable narration on the same block.
+		if (aim && aim === guideAimRef.current && guideShownRef.current) return;
+		const cue = aim ? guideCueFor(frame, text) : null;
+		setGuideAiming(!!cue);
+		if (!cue) {
+			guidePointRef.current?.abort();
+			guidePointRef.current = null;
+			guideAimRef.current = null;
 			stage.setCursorVisible(false);
 			guideShownRef.current = false;
 			return;
 		}
+		guidePointRef.current?.abort();
 		const ctl = new AbortController();
 		guidePointRef.current = ctl;
+		guideAimRef.current = cue.el;
+		// THE CURSOR'S KEEP-OUT is its own 28px footprint plus a hair, in PARENT pixels — the
+		// space Vetrina's stage works in. The frame-scale conversion belongs on the other side of
+		// the bridge, where the slide's own coordinates are (`guideCueFor`).
+		const opts = { strength: cue.strength, clearance: POINTER_BOX / 2 + 5, rest: cue.rest };
+		const run = stage.gesture(cue.kind, cue.target, ctl.signal, opts);
 		if (guideShownRef.current) {
-			// Already on screen: GLIDE. The travel is the good part — it carries the eye from the
-			// last thing named to this one, which is most of what makes it read as a gesture.
-			stage.point(target, ctl.signal).catch(() => {}); // an abort here is a retarget, not an error
+			run.catch(() => {}); // an abort here is a retarget, not an error
 			return;
 		}
-		// COMING FROM HIDDEN: arrive first, THEN appear. A hidden cursor has no meaningful "from",
-		// and revealing it before the glide put a visible arrow at wherever it was last parked —
-		// on the first cue that is Vetrina's spawn point, the center of the screen, which in Present
-		// is the middle of the slide. Measured: ~350ms of register beat with the pointer sitting on
-		// the deck's own title before it set off. Appearing at the destination is both correct and
-		// what a laser looks like: it is off, then it is on the thing.
-		stage
-			.point(target, ctl.signal)
-			.then(() => {
-				if (ctl.signal.aborted || guideStageRef.current !== stage) return;
-				guideShownRef.current = true;
-				stage.setCursorVisible(true);
-			})
-			.catch(() => {});
-	}, [activeCue, guideLive]);
+		// COMING FROM HIDDEN: the INK draws, and the hand materializes at rest when it is done.
+		//
+		// Vetrina spawns its cursor at the center of the screen, which in Present is the middle
+		// of the slide card — directly on the deck's own title. Revealing before the stroke put a
+		// visible arrow there and then swept it across the slide. Revealing after is both correct
+		// and what the gesture is for: the underline draws itself, and the hand is simply there,
+		// beside it, when it finishes. Nothing is ever shown mid-travel from an arbitrary origin.
+		run.then(() => {
+			if (ctl.signal.aborted || guideStageRef.current !== stage) return;
+			guideShownRef.current = true;
+			stage.setCursorVisible(true);
+		}).catch(() => {});
+	}, [guideBeat, guideLive]);
 
 	// HIDE THE REAL POINTER, with the safety rules that matter more than the effect: only over
 	// the slide and its backdrop (never the dock — Pause must always be findable and clickable),

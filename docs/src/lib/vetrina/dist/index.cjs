@@ -23,6 +23,8 @@ var index_exports = {};
 __export(index_exports, {
   asElement: () => asElement,
   createStage: () => createStage,
+  gestureRest: () => gestureRest,
+  handOffset: () => handOffset,
   isAbortError: () => isAbortError,
   loop: () => loop,
   readMs: () => readMs,
@@ -88,8 +90,53 @@ var TOKEN_DEFAULTS = {
 var A = "var(--vt-accent)";
 var RING_SHADOW = "0 0 0 1.5px var(--vt-ring-halo), 0 0 22px 2px var(--vt-accent)";
 var BAR_SHADOW = "0 0 8px var(--vt-accent), 0 0 0 1px var(--vt-tick-halo)";
+var INK_GAP = 3;
+var INK_OUT = 6;
+var r2 = (r) => ({ right: r.left + r.width, bottom: r.top + r.height });
+function gestureRest(kind, box, rects, clearance = 0) {
+  const pad = Math.max(0, clearance);
+  const b = r2(box);
+  switch (kind) {
+    case "underline":
+    case "wash": {
+      const line = rects?.length ? kind === "underline" ? rects[0] : rects[rects.length - 1] : box;
+      return { x: b.right + pad, y: r2(line).bottom + INK_GAP + pad };
+    }
+    case "bracket":
+      return { x: box.left - INK_OUT - pad, y: box.top + box.height / 2 };
+    case "tap":
+      return { x: b.right + pad, y: b.bottom + pad };
+    case "circle":
+      return { x: b.right + INK_OUT + pad, y: box.top + box.height / 2 };
+    default:
+      return null;
+  }
+}
 function easeInOut(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+function handOffset(t, dist, phase, amount, elapsedMs = 0) {
+  if (!(amount > 0) || !Number.isFinite(dist) || !Number.isFinite(t) || !Number.isFinite(phase)) return { along: 0, across: 0 };
+  const u = Math.min(1, Math.max(0, t));
+  const env = Math.sin(Math.PI * u) ** 0.65;
+  const arc = Math.sin(Math.PI * u) * Math.min(dist * 0.055, 22) * (Math.cos(phase) >= 0 ? 1 : -1);
+  const secs = (Number.isFinite(elapsedMs) ? elapsedMs : 0) / 1e3;
+  const span = Math.min(1 + dist * 0.012, 4.2);
+  const drift = Math.sin(2 * Math.PI * 1.7 * secs + phase) * span;
+  const micro = Math.sin(2 * Math.PI * 9 * secs + phase * 2.3) * span * 0.28;
+  const over = u < OVERSHOOT_AT ? 0 : Math.sin(Math.PI * (u - OVERSHOOT_AT) / (1 - OVERSHOOT_AT)) * Math.min(dist * 0.02, 9);
+  return {
+    along: (drift * 0.35 + micro + over) * env * amount,
+    across: (arc + drift * 0.65 + micro) * env * amount
+  };
+}
+var OVERSHOOT_AT = 0.78;
+function handPhase(n) {
+  let h = n * 2654435761 >>> 0;
+  h ^= h >>> 15;
+  h = h * 2246822519 >>> 0;
+  h ^= h >>> 13;
+  return (h >>> 0) / 4294967296 * Math.PI * 2;
 }
 function reducedMotion() {
   try {
@@ -217,6 +264,8 @@ function createStage(opts) {
   const reduced = motionMode !== "full";
   const still = motionMode === "still";
   const pace = opts.theme?.pace ?? 1;
+  const hand = reduced ? 0 : opts.theme?.hand ?? 1;
+  let moveSeq = 0;
   const silenced = opts.theme?.silenced ?? /* @__PURE__ */ new Set();
   const placement = opts.theme?.placement ?? "bottom";
   const caption = opts.theme?.caption ?? "bar";
@@ -224,8 +273,8 @@ function createStage(opts) {
   ensureDefaultTokens(doc);
   const layer = doc.createElement("div");
   layer.className = "vetrina-stage";
+  layer.style.cssText = `position:fixed;inset:0;z-index:${opts.zIndex ?? 2147482e3};pointer-events:none;font:500 14px system-ui,-apple-system,sans-serif;`;
   if (opts.theme) for (const [k, v] of Object.entries(opts.theme.tokens)) layer.style.setProperty(k, v);
-  layer.style.cssText += `position:fixed;inset:0;z-index:${opts.zIndex ?? 2147482e3};pointer-events:none;font:500 14px system-ui,-apple-system,sans-serif;`;
   const cursor = doc.createElement("div");
   cursor.className = "vetrina-cursor";
   cursor.setAttribute("aria-hidden", "true");
@@ -242,17 +291,23 @@ function createStage(opts) {
   portal.appendChild(layer);
   let cx = window.innerWidth / 2;
   let cy = window.innerHeight * 0.42;
+  let hx = 0;
+  let hy = 0;
+  const paintCursorAt = () => {
+    cursor.style.left = `${cx + hx}px`;
+    cursor.style.top = `${cy + hy}px`;
+  };
   const place = (x, y) => {
     cx = x;
     cy = y;
-    cursor.style.left = `${x}px`;
-    cursor.style.top = `${y}px`;
+    paintCursorAt();
   };
   place(cx, cy);
-  function spawnFx(x, y, css, frames, timing, life, z = 4) {
+  function spawnFx(x, y, css, frames, timing, life, z = 4, cue) {
     if (destroyed) return;
     const el = doc.createElement("div");
     el.setAttribute("aria-hidden", "true");
+    if (cue) el.dataset.vtCue = cue;
     el.style.cssText = `position:absolute;left:${x}px;top:${y}px;z-index:${z};transform:translate(-50%,-50%);pointer-events:none;${css}`;
     layer.appendChild(el);
     el.animate(frames, timing);
@@ -271,6 +326,18 @@ function createStage(opts) {
     if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
     if (r.left === 0 && r.top === 0 && r.width === 0 && r.height === 0) return null;
     return r;
+  };
+  const liveRects = (src) => {
+    if (!src || destroyed || typeof src.getClientRects !== "function") return null;
+    let list;
+    try {
+      list = src.getClientRects();
+    } catch {
+      return null;
+    }
+    if (!list) return null;
+    const out = Array.from(list).filter((r) => Number.isFinite(r.left) && Number.isFinite(r.top) && Number.isFinite(r.width) && Number.isFinite(r.height) && r.width > 0 && r.height > 0);
+    return out.length ? out : null;
   };
   let cursorHidden = false;
   const paintCursorOpacity = () => {
@@ -292,11 +359,22 @@ function createStage(opts) {
     const fromY = cy;
     let dest = to() ?? { x: cx, y: cy };
     const start = performance.now();
+    const phase = handPhase(++moveSeq);
     return new Promise((resolve2, reject) => {
-      const onAbort = () => reject(new AbortError());
+      const settleHand = () => {
+        cx += hx;
+        cy += hy;
+        hx = 0;
+        hy = 0;
+      };
+      const onAbort = () => {
+        settleHand();
+        reject(new AbortError());
+      };
       signal?.addEventListener("abort", onAbort, { once: true });
       const tick = (now) => {
         if (destroyed) {
+          settleHand();
           signal?.removeEventListener("abort", onAbort);
           resolve2();
           return;
@@ -305,9 +383,25 @@ function createStage(opts) {
         dest = to() ?? dest;
         const t = Math.min(1, Math.max(0, (now - start) / dur));
         const e = easeInOut(t);
-        place(fromX + (dest.x - fromX) * e, fromY + (dest.y - fromY) * e);
+        const dx = dest.x - fromX;
+        const dy = dest.y - fromY;
+        const dist = Math.hypot(dx, dy);
+        if (hand > 0 && dist > 1) {
+          const ux = dx / dist;
+          const uy = dy / dist;
+          const { along, across } = handOffset(t, dist, phase, hand, now - start);
+          hx = ux * along - uy * across;
+          hy = uy * along + ux * across;
+        } else {
+          hx = 0;
+          hy = 0;
+        }
+        place(fromX + dx * e, fromY + dy * e);
         if (t < 1) requestAnimationFrame(tick);
         else {
+          hx = 0;
+          hy = 0;
+          paintCursorAt();
           signal?.removeEventListener("abort", onAbort);
           resolve2();
         }
@@ -513,22 +607,26 @@ function createStage(opts) {
     );
     window.setTimeout(() => g.remove(), 1250);
   }
-  async function circleGesture(src, signal) {
+  async function circleGesture(src, signal, opts2) {
     const r0 = liveRect(src);
     if (!r0) return;
+    const { notable, alpha } = inkOf(opts2);
+    const out = clearanceOf(opts2) ? INK_OUT + clearanceOf(opts2) : 0;
+    const bw = notable ? 4.5 : 3;
     const glow = doc.createElement("div");
-    glow.style.cssText = `position:absolute;box-sizing:border-box;z-index:3;border-radius:14px;border:3px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 36px 2px ${A};opacity:0;pointer-events:none;`;
+    glow.dataset.vtCue = "circle";
+    glow.style.cssText = `position:absolute;box-sizing:border-box;z-index:3;border-radius:${14 + out}px;border:${bw}px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 36px 2px ${A};opacity:0;pointer-events:none;`;
     let box = r0;
     const paint = (r) => {
       box = r;
-      glow.style.left = `${r.left}px`;
-      glow.style.top = `${r.top}px`;
-      glow.style.width = `${r.width}px`;
-      glow.style.height = `${r.height}px`;
+      glow.style.left = `${r.left - out}px`;
+      glow.style.top = `${r.top - out}px`;
+      glow.style.width = `${r.width + out * 2}px`;
+      glow.style.height = `${r.height + out * 2}px`;
     };
     paint(r0);
     layer.appendChild(glow);
-    glow.animate([{ opacity: 0 }, { opacity: 0.85, offset: 0.22 }, { opacity: 0.85, offset: 0.75 }, { opacity: 0 }], {
+    glow.animate([{ opacity: 0 }, { opacity: alpha - 0.05, offset: 0.22 }, { opacity: alpha - 0.05, offset: 0.75 }, { opacity: 0 }], {
       duration: 1600,
       easing: "ease-in-out"
     });
@@ -545,7 +643,7 @@ function createStage(opts) {
       glow.remove();
     };
     window.setTimeout(stopTracking, 1700);
-    if (reduced) return wait(500, signal);
+    if (reduced) return withInk(stopTracking, () => wait(500, signal));
     const a0 = Math.atan2(cy - (r0.top + r0.height / 2), cx - (r0.left + r0.width / 2));
     const dur = 1400;
     const start = performance.now();
@@ -556,12 +654,18 @@ function createStage(opts) {
       };
       signal?.addEventListener("abort", onAbort, { once: true });
       const tick = (now) => {
-        if (destroyed || signal?.aborted) return;
+        if (destroyed) {
+          stopTracking();
+          signal?.removeEventListener("abort", onAbort);
+          resolve2();
+          return;
+        }
+        if (signal?.aborted) return;
         const t = Math.min(1, (now - start) / dur);
         const a = a0 + easeInOut(t) * Math.PI * 2 * 1.25;
         const mx = box.left + box.width / 2;
         const my = box.top + box.height / 2;
-        place(mx + Math.min(box.width * 0.42, 260) * Math.cos(a), my + Math.min(box.height * 0.42, 180) * Math.sin(a));
+        place(mx + (Math.min(box.width * 0.42, 260) + out) * Math.cos(a), my + (Math.min(box.height * 0.42, 180) + out) * Math.sin(a));
         if (t < 1) requestAnimationFrame(tick);
         else {
           signal?.removeEventListener("abort", onAbort);
@@ -570,6 +674,221 @@ function createStage(opts) {
       };
       requestAnimationFrame(tick);
     });
+  }
+  const inkOf = (o) => {
+    const notable = o?.strength === "notable";
+    return { notable, weight: notable ? 5 : 3, alpha: notable ? 1 : 0.9, hold: still ? 160 : notable ? 1500 : 1050 };
+  };
+  const clearanceOf = (o) => Number.isFinite(o?.clearance) ? Math.max(0, o?.clearance) : 0;
+  const restOf = (kind, opts2, box, rects, pad) => {
+    const given = opts2?.rest != null ? resolveSource(opts2.rest) : null;
+    const rect = given && liveRect(given);
+    if (rect) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    return gestureRest(kind, box, rects, pad);
+  };
+  function inkNode(kind, src, css, layout, life) {
+    const el = doc.createElement("div");
+    el.setAttribute("aria-hidden", "true");
+    el.dataset.vtCue = kind;
+    el.style.cssText = `position:absolute;box-sizing:border-box;pointer-events:none;${css}`;
+    const paint = () => {
+      const r = liveRect(src);
+      if (r) layout(el, r, () => liveRects(src));
+    };
+    paint();
+    layer.appendChild(el);
+    let tracking = true;
+    const tick = () => {
+      if (!tracking || destroyed) return;
+      paint();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      tracking = false;
+      el.remove();
+    };
+    window.setTimeout(stop, life);
+    return { el, stop };
+  }
+  async function approach(x, y, signal) {
+    if (reduced) {
+      place(x, y);
+      return wait(still ? 40 : 140, signal);
+    }
+    return tweenTo(x, y, Math.max(260, Math.min(720, Math.hypot(x - cx, y - cy))) * pace, signal);
+  }
+  async function withInk(stop, body) {
+    try {
+      await body();
+    } catch (e) {
+      stop();
+      throw e;
+    }
+  }
+  async function sweepAlong(bands, rest, pad, signal) {
+    if (reduced) {
+      place(rest.x, rest.y);
+      return wait(still ? 60 : 200, signal);
+    }
+    for (let i = 0; i < bands.length; i++) {
+      const b = bands[i];
+      const y = b.top + b.height + INK_GAP + pad;
+      if (i === 0) await approach(b.left, y, signal);
+      else await tweenTo(b.left, y, 180 * pace, signal);
+      await tweenTo(b.left + b.width, y, Math.max(300, Math.min(900, Math.abs(b.width) * 1.15)) * pace, signal);
+    }
+    if (Math.hypot(rest.x - cx, rest.y - cy) > 1) await tweenTo(rest.x, rest.y, Math.max(240, Math.min(760, Math.hypot(rest.x - cx, rest.y - cy) * 1.15)) * pace, signal);
+  }
+  async function underlineGesture(src, opts2, signal) {
+    const r0 = liveRect(src);
+    if (!r0) return;
+    const { weight, alpha, hold } = inkOf(opts2);
+    const pad = clearanceOf(opts2);
+    const life = hold + 900;
+    const line0 = () => liveRects(src)?.[0] ?? liveRect(src);
+    const l0 = line0() ?? r0;
+    const { el, stop } = inkNode(
+      "underline",
+      src,
+      `z-index:3;height:${weight}px;border-radius:${weight}px;background:${A};box-shadow:0 0 10px ${A},0 0 0 1px var(--vt-glow-halo);transform-origin:left center;opacity:0;`,
+      (node, r, rects) => {
+        const l = rects()?.[0] ?? r;
+        node.style.left = `${l.left}px`;
+        node.style.top = `${l.top + l.height + INK_GAP}px`;
+        node.style.width = `${l.width}px`;
+      },
+      life
+    );
+    const rest = restOf("underline", opts2, r0, [l0], pad);
+    return withInk(stop, async () => {
+      await approach(l0.left, l0.top + l0.height + INK_GAP + pad, signal);
+      const draw = reduced ? [{ opacity: 0 }, { opacity: alpha, offset: 0.18 }, { opacity: alpha, offset: 0.82 }, { opacity: 0 }] : [
+        { transform: "scaleX(0)", opacity: alpha },
+        { transform: "scaleX(1)", opacity: alpha, offset: 0.42 },
+        { transform: "scaleX(1)", opacity: alpha, offset: 0.82 },
+        { transform: "scaleX(1)", opacity: 0 }
+      ];
+      el.animate?.(draw, { duration: life, easing: "cubic-bezier(.2,.8,.3,1)" });
+      await sweepAlong([l0], rest, pad, signal);
+    });
+  }
+  async function washGesture(src, opts2, signal) {
+    const r0 = liveRect(src);
+    if (!r0) return;
+    const { notable, hold } = inkOf(opts2);
+    const pad = clearanceOf(opts2);
+    const bands = liveRects(src) ?? [r0];
+    const life = hold + 900 + bands.length * 180;
+    const nodes = bands.map(
+      (_, i) => inkNode(
+        "wash",
+        src,
+        `z-index:2;border-radius:3px;background:${A};opacity:0;transform-origin:left center;`,
+        (node, r, rects) => {
+          const b = (rects() ?? [r])[i];
+          if (!b) {
+            node.style.width = "0px";
+            return;
+          }
+          node.style.left = `${b.left}px`;
+          node.style.top = `${b.top - 1}px`;
+          node.style.width = `${b.width}px`;
+          node.style.height = `${b.height + 2}px`;
+        },
+        life
+      )
+    );
+    const stop = () => {
+      for (const n of nodes) n.stop();
+    };
+    const a = notable ? 0.34 : 0.22;
+    const rest = restOf("wash", opts2, r0, bands, pad);
+    return withInk(stop, async () => {
+      for (let i = 0; i < nodes.length; i++) {
+        nodes[i].el.animate?.(
+          reduced ? [{ opacity: 0 }, { opacity: a, offset: 0.2 }, { opacity: a, offset: 0.84 }, { opacity: 0 }] : [
+            { transform: "scaleX(0)", opacity: a },
+            { transform: "scaleX(1)", opacity: a, offset: 0.3 },
+            { transform: "scaleX(1)", opacity: a, offset: 0.84 },
+            { transform: "scaleX(1)", opacity: 0 }
+          ],
+          { duration: life - i * 120, delay: i * 120, easing: "cubic-bezier(.2,.8,.3,1)" }
+        );
+      }
+      await sweepAlong(bands, rest, pad, signal);
+    });
+  }
+  async function bracketGesture(src, opts2, signal) {
+    const r0 = liveRect(src);
+    if (!r0) return;
+    const { notable, alpha, hold } = inkOf(opts2);
+    const pad = clearanceOf(opts2);
+    const w = notable ? 4 : 2.5;
+    const life = hold + 900;
+    const { el, stop } = inkNode(
+      "bracket",
+      src,
+      `z-index:3;border-radius:16px;border:${w}px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 30px 2px ${A};opacity:0;`,
+      (node, r) => {
+        node.style.left = `${r.left - INK_OUT}px`;
+        node.style.top = `${r.top - INK_OUT}px`;
+        node.style.width = `${r.width + INK_OUT * 2}px`;
+        node.style.height = `${r.height + INK_OUT * 2}px`;
+      },
+      life
+    );
+    const rest = restOf("bracket", opts2, r0, null, pad);
+    return withInk(stop, async () => {
+      el.animate?.(
+        reduced ? [{ opacity: 0 }, { opacity: alpha, offset: 0.2 }, { opacity: alpha, offset: 0.84 }, { opacity: 0 }] : [
+          { transform: "scale(1.035)", opacity: 0 },
+          { transform: "scale(1)", opacity: alpha, offset: 0.28 },
+          { transform: "scale(1)", opacity: alpha, offset: 0.84 },
+          { transform: "scale(1)", opacity: 0 }
+        ],
+        { duration: life, easing: "cubic-bezier(.2,.8,.3,1)" }
+      );
+      if (reduced) {
+        place(rest.x, rest.y);
+        return wait(still ? 60 : 220, signal);
+      }
+      await approach(rest.x, r0.top + Math.min(r0.height * 0.18, 40), signal);
+      await tweenTo(rest.x, rest.y, Math.max(280, Math.min(760, r0.height * 0.9)) * pace, signal);
+    });
+  }
+  async function tapGesture(src, opts2, signal) {
+    const r0 = liveRect(src);
+    if (!r0) return;
+    const { notable, alpha, hold } = inkOf(opts2);
+    const pad = clearanceOf(opts2);
+    const rest = restOf("tap", opts2, r0, null, pad);
+    await approach(rest.x, rest.y, signal);
+    const c = { x: r0.left + r0.width / 2, y: r0.top + r0.height / 2 };
+    const size = Math.max(30, Math.min(96, Math.hypot(r0.width, r0.height)));
+    if (reduced) {
+      spawnFx(c.x, c.y, `width:${size}px;height:${size}px;border-radius:50%;border:${notable ? 3.5 : 2.5}px solid ${A};box-shadow:${RING_SHADOW};opacity:0;`, [{ opacity: 0 }, { opacity: alpha, offset: 0.3 }, { opacity: 0 }], { duration: 900, easing: "ease-out" }, 950, 4, "tap");
+    } else {
+      for (let k = 0; k < (notable ? 3 : 2); k++)
+        spawnFx(
+          c.x,
+          c.y,
+          `width:${size}px;height:${size}px;border-radius:50%;border:${notable ? 3 : 2.5}px solid ${A};box-shadow:${RING_SHADOW};opacity:0;`,
+          [
+            { transform: "translate(-50%,-50%) scale(.35)", opacity: alpha },
+            { transform: "translate(-50%,-50%) scale(1.9)", opacity: 0 }
+          ],
+          { duration: 1e3, delay: k * 220, easing: "ease-out" },
+          1100 + k * 240,
+          4,
+          "tap"
+        );
+      cursor.animate([{ transform: "translate(-50%,-50%) scale(1)" }, { transform: "translate(-50%,-50%) scale(0.8)" }, { transform: "translate(-50%,-50%) scale(1)" }], { duration: 380, easing: "ease-out" });
+    }
+    await wait(still ? 120 : hold * 0.5, signal);
   }
   async function shake(signal) {
     if (destroyed) return;
@@ -659,15 +978,45 @@ function createStage(opts) {
     await wait(760, signal);
     await wave(signal);
   }
-  async function gesture(kind, target, signal) {
+  async function gesture(kind, target, signal, opts2) {
     if (destroyed) return;
     const el = target != null ? resolveSource(target) : null;
+    const withdraw = async () => {
+      const r = opts2?.rest != null ? resolveSource(opts2.rest) : null;
+      const rect = r && liveRect(r);
+      if (!rect) return;
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      if (reduced) {
+        place(x, y);
+        return;
+      }
+      await tweenTo(x, y, Math.max(200, Math.min(560, Math.hypot(x - cx, y - cy))) * pace, signal);
+    };
     switch (kind) {
       case "wave":
         return wave(signal);
       case "circle":
         if (!el || silenced.has("circle")) return;
-        return circleGesture(el, signal);
+        await circleGesture(el, signal, opts2);
+        return withdraw();
+      // The DEICTIC set — every one needs a target, and a null resolve is a no-op rather
+      // than a throw, exactly as `circle` has always been: a cue you cannot place is a cue
+      // that does not happen, never an error thrown into a host's narration loop.
+      // The four DEICTIC gestures END on `opts.rest` themselves (`restOf`), so there is no
+      // withdrawal to run afterwards — the stroke already went there, once.
+      case "underline":
+        if (!el || silenced.has("underline")) return;
+        return underlineGesture(el, opts2, signal);
+      case "wash":
+        if (!el || silenced.has("wash")) return;
+        return washGesture(el, opts2, signal);
+      case "bracket":
+        if (!el || silenced.has("bracket")) return;
+        return bracketGesture(el, opts2, signal);
+      case "tap":
+        if (!el || silenced.has("tap")) return;
+        return tapGesture(el, opts2, signal);
       case "shake":
         return shake(signal);
       case "check": {
@@ -932,6 +1281,9 @@ function resolveTheme(theme = {}) {
     // 'system' stays symbolic here — the stage resolves it against the live device (matchMedia),
     // keeping the one media read in one testable place.
     motion: theme.motion ?? "system",
+    // Clamped rather than trusted: `hand` scales a per-frame displacement, so a NaN would put
+    // the cursor at `NaN px` permanently and a large number would throw it off screen.
+    hand: Number.isFinite(theme.hand) ? Math.min(2, Math.max(0, theme.hand)) : 1,
     silenced: new Set(
       Object.entries(theme.cues ?? {}).filter(([, v]) => v === false).map(([k]) => k)
     )
@@ -1294,6 +1646,8 @@ function scene(seed = "") {
 0 && (module.exports = {
   asElement,
   createStage,
+  gestureRest,
+  handOffset,
   isAbortError,
   loop,
   readMs,

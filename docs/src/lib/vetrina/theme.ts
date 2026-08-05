@@ -64,8 +64,20 @@ export interface Theme {
 	 *  Apple HIG target vestibular triggers (sweeps, parallax, spin, zoom), not typing or a
 	 *  cross-fade — so the demo stays watchable instead of flashing past in an instant blur. */
 	motion?: 'full' | 'legible' | 'still' | 'system';
-	/** Silence a cue (never replace one with a callback). */
-	cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>;
+	/** How much HAND is in the cursor's travel, 0..2 (default 1; 0 = the straight, perfectly
+	 *  smooth glide this library shipped before).
+	 *
+	 *  A pointer that travels a straight line at a symmetric ease reads as a machine, because a
+	 *  hand does neither: it bows its path into an arc, it overshoots-and-corrects rather than
+	 *  arriving exactly, and it carries a physiological tremor the whole way. `hand` scales all
+	 *  three; see `stage.ts` § "The hand". Suppressed entirely under the `legible` and `still`
+	 *  motion tiers — a wobble is vestibular motion, and a viewer who asked for less of that did
+	 *  not ask for a more realistic version of it. */
+	hand?: number;
+	/** Silence a cue (never replace one with a callback). The four DEICTIC cues are here for the
+	 *  same reason `circle` is: a host that wants the cursor's TRAVEL as guidance but not the ink
+	 *  drawn over its content should be able to say so without giving up the gesture API. */
+	cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro' | 'underline' | 'wash' | 'bracket' | 'tap', false>>;
 	/** Escape hatch: set any --vt-* token value directly, in JS. */
 	tokens?: Partial<Record<VtToken, Color>>;
 	/** Where the overlay mounts (default: the root's document body). */
@@ -82,6 +94,7 @@ export interface ResolvedTheme {
 	placement: 'top' | 'bottom'; // which edge the narration dock sits at
 	caption: 'bar' | 'split' | 'scrim' | 'progress' | 'none'; // the narration dock style ('none' = pointer layer only)
 	motion: 'full' | 'legible' | 'still' | 'system'; // motion policy; 'system' resolves against the device in the stage
+	hand: number; // how much arc + tremor + overshoot the cursor's travel carries (0 = a straight glide)
 	silenced: Set<string>; // cue names to skip
 }
 
@@ -195,6 +208,9 @@ export function resolveTheme(theme: Theme = {}): ResolvedTheme {
 		// 'system' stays symbolic here — the stage resolves it against the live device (matchMedia),
 		// keeping the one media read in one testable place.
 		motion: theme.motion ?? 'system',
+		// Clamped rather than trusted: `hand` scales a per-frame displacement, so a NaN would put
+		// the cursor at `NaN px` permanently and a large number would throw it off screen.
+		hand: Number.isFinite(theme.hand) ? Math.min(2, Math.max(0, theme.hand as number)) : 1,
 		silenced: new Set(
 			Object.entries(theme.cues ?? {})
 				.filter(([, v]) => v === false)

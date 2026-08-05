@@ -3121,12 +3121,23 @@ function checkAudioPlaybackBoundary(errors) {
 // an allowlist edit that forces the "what meaning?" question — a NEW member in
 // the type that isn't sanctioned fails, and a stale sanction the type dropped
 // fails, so the two can't drift.
+// Two families, and the second one earned its place by naming something the first
+// cannot. The original five are all about the TOUR's own state — hello, look here,
+// it worked, it failed, careful. None of them can name a piece of the host's PROSE,
+// so a pointer whose only verb is "go somewhere" says "this" by travelling, which is
+// why the Guide rung read as a karaoke follower. The DEICTIC four are chosen by the
+// SHAPE of the thing being named, which is what makes the variety motivated rather
+// than a die roll, and each one's cursor rests where its own stroke ends.
 const SANCTIONED_GESTURES = {
   wave: 'greeting / hello (the opening flourish)',
   circle: '"look here / this just rendered" — a glow on the bounding box + the cursor orbiting it',
   check: 'success / done / correct',
   cross: 'wrong / rejected / deleted',
   shake: '"no — careful / try again" (universal negation)',
+  underline: '"this line" — a stroke swept along the baseline of one line of text (deictic)',
+  wash: '"these words" — a highlighter band per line rect of a phrase inside a longer block (deictic)',
+  bracket: '"this whole block" — a soft outline just outside a multi-line block or card (deictic)',
+  tap: '"this one" — a ripple on something small and discrete, where a ring would be a dot (deictic)',
 };
 
 function checkSanctionedGestures(errors) {

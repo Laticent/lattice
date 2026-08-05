@@ -153,8 +153,11 @@ suppressed) — see *Accessibility & reduced motion*.
 
 ## Gestures — the cursor's body language
 
-A curated **five-gesture alphabet**, each carrying a distinct *meaning* the eye
-reads (the set is frozen by a build gate; a new one must earn a new meaning):
+A curated alphabet, each member carrying a distinct *meaning* the eye reads (the
+set is gated by a build check; a new one must earn a new meaning). It comes in
+two families.
+
+**The tour's own state** — how the run is going:
 
 | Gesture | Meaning |
 |---|---|
@@ -164,6 +167,72 @@ reads (the set is frozen by a build gate; a new one must earn a new meaning):
 | `cross` | wrong / rejected / deleted |
 | `shake` | "no — careful / try again" |
 
+**Deictic** — naming a piece of *your content*, the way a presenter's hand does.
+Pick by the **shape** of the thing you are naming, so the variety is motivated
+rather than a die roll:
+
+| target | Gesture | Meaning |
+|---|---|---|
+| one wide, short line of text | `underline` | "this line" — a stroke swept along the baseline |
+| compact, roughly square | `circle` | "look here" — the ring, doing double duty |
+| a phrase inside a longer block | `wash` | "these words" — a highlighter band per line |
+| a whole card / multi-line block | `bracket` | "this whole block" — a soft outline just outside it |
+| something small and discrete | `tap` | "this one" — a ripple, where a ring would be a dot |
+
+What separates the second family is the property they all share:
+
+> **The cursor's position is a consequence of the stroke.**
+
+Each one glides along its own ink and stops where the ink stops, and every one of
+those endings is outside the target by `clearance`. A pointer that picks its
+position independently has to be *checked* against what it might be covering —
+a search. A pointer that rides the stroke cannot cover the thing the stroke is
+drawn around, so there is nothing to check.
+
+```ts
+await stage.gesture('underline', target, signal, { clearance: 19, strength: 'notable' });
+```
+
+| option | what it does |
+|---|---|
+| `strength` | `'quiet'` (default) or `'notable'` — heavier ink, held longer. Never a *different* gesture: the shape says which one, emphasis says how loudly. |
+| `clearance` | px the **cursor** (and the ring/bracket ink) keeps off the target's box. Default `0`, so every call written before this is byte-identical. |
+| `rest` | where the cursor ends up, overriding the gesture's own ending. The four deictic strokes **end there directly** — a host passes `rest` because the default ending is occupied, so traveling there first and correcting afterwards would hop *through* the position you rejected. `circle` applies it as a withdrawal after the orbit, which has no ending to redirect. |
+
+`gestureRest(kind, box, rects, clearance)` is exported and pure: it reports where
+a gesture *will* leave the cursor. Ask it when your layout knows something the
+stage cannot — "past the block's right edge" is the page margin on one screen and
+the second column on another — and pass a different `rest` when the answer would
+land somewhere you know is occupied.
+
+**Two rectangles, two jobs.** `getBoundingClientRect()` is what the cursor must
+*clear*; `getClientRects()` is what the ink *follows*. They are usually the same
+and are allowed not to be — naming a phrase inside a paragraph wants ink on the
+phrase's own lines and a cursor clear of the whole paragraph.
+
+## The hand — why the cursor does not travel in a straight line
+
+The cursor stands in for a presenter's hand, and a hand does none of the three
+things a plain tween does. `theme.hand` (0..2, default `1`) scales all three:
+
+- **an arc**, because a limb is hinged and a straight path is the one trajectory
+  an arm cannot take without correcting for it (Thomas & Johnston's "arcs");
+- **an overshoot and a correction**, because aimed movement is ballistic then
+  closed-loop, not one smooth deceleration (Woodworth; Meyer et al.);
+- **a tremor** — a band-limited wobble at hand frequencies, because a held hand
+  is never still and its *absence* is what reads as CGI.
+
+It is a sum of sinusoids with a seeded per-movement phase, **not** a random
+offset per frame: white noise is a rattle, and it could never be pinned by a test.
+Two properties the library depends on and `handOffset` guarantees — **the
+endpoints are exact** (a glide lands on the point it was given, so every ink and
+every `gestureRest` answer still holds) and **the logical position never wobbles**
+(the displacement is applied when painting, never to the cursor's coordinates).
+
+`hand: 0` reproduces the previous straight glide sample for sample, and the
+`legible` / `still` motion tiers force it to 0 without the host asking — a wobble
+*is* vestibular motion.
+
 ## Targets — and why a cue keeps asking where its target is
 
 A `Target` is a **selector** (resolved inside the `root` you passed), an **element**, a
@@ -172,10 +241,17 @@ A `Target` is a **selector** (resolved inside the `root` you passed), an **eleme
 
 ```ts
 export interface RectSource {
-  getBoundingClientRect(): DOMRect;   // viewport coordinates, live
-  scrollIntoView?(arg?): void;        // optional; used before a drag glide
+  getBoundingClientRect(): DOMRect;          // viewport coordinates, live
+  getClientRects?(): DOMRect[] | DOMRectList; // optional; per LINE, for the deictic cues
+  scrollIntoView?(arg?): void;               // optional; used before a drag glide
 }
 ```
+
+Both `Element` and `Range` satisfy all of it already. `getClientRects` exists
+because a bounding box is a *lying rectangle* for anything that wraps: a phrase
+running across three lines has three rectangles, and its bounding box names words
+the phrase does not contain. Answer it and `wash` follows the words; leave it out
+and every cue falls back to the bounding box.
 
 Every `HTMLElement` already satisfies that, so nothing you have written changes. What it
 adds is the escape hatch for a target the stage **cannot reach with a selector** — a region
@@ -348,7 +424,7 @@ zoom (WCAG 2.3.3 / Apple HIG) — **not** the content cadence a viewer reads by:
 
 | tier | vestibular motion | content cadence |
 |---|---|---|
-| `full` | plays (glides, rings, orbit, hand-wave, drag sweeps) | plays |
+| `full` | plays (glides, rings, orbit, hand-wave, drag sweeps, `theme.hand`) | plays |
 | `legible` | **suppressed** (glides teleport, rings/orbit/sweeps skip, wave → in-place pulse) | **kept** (typing reveal, caption cross-fades, full reading settles) |
 | `still` | suppressed | **collapsed** (typing snaps in, settles shorten) |
 
