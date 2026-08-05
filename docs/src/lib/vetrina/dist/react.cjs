@@ -113,6 +113,27 @@ function gestureRest(kind, box, rects, clearance = 0) {
 function easeInOut(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
+function handOffset(t, dist, phase, amount) {
+  if (!(amount > 0) || !Number.isFinite(dist)) return { along: 0, across: 0 };
+  const u = Math.min(1, Math.max(0, t));
+  const env = Math.sin(Math.PI * u) ** 0.65;
+  const arc = Math.sin(Math.PI * u) * Math.min(dist * 0.055, 22) * (Math.cos(phase) >= 0 ? 1 : -1);
+  const span = Math.min(1 + dist * 0.012, 4.2);
+  const drift = Math.sin(u * 10.7 + phase) * span;
+  const micro = Math.sin(u * 55 + phase * 2.3) * span * 0.28;
+  const over = Math.sin(Math.PI * Math.min(1, u / 0.78) ** 1.6) * Math.min(dist * 0.02, 9) * (u < 0.78 ? 0 : 1);
+  return {
+    along: (drift * 0.35 + micro + over) * env * amount,
+    across: (arc + drift * 0.65 + micro) * env * amount
+  };
+}
+function handPhase(n) {
+  let h = n * 2654435761 >>> 0;
+  h ^= h >>> 15;
+  h = h * 2246822519 >>> 0;
+  h ^= h >>> 13;
+  return (h >>> 0) / 4294967296 * Math.PI * 2;
+}
 function reducedMotion() {
   try {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -239,6 +260,8 @@ function createStage(opts) {
   const reduced = motionMode !== "full";
   const still = motionMode === "still";
   const pace = opts.theme?.pace ?? 1;
+  const hand = reduced ? 0 : opts.theme?.hand ?? 1;
+  let moveSeq = 0;
   const silenced = opts.theme?.silenced ?? /* @__PURE__ */ new Set();
   const placement = opts.theme?.placement ?? "bottom";
   const caption = opts.theme?.caption ?? "bar";
@@ -264,11 +287,16 @@ function createStage(opts) {
   portal.appendChild(layer);
   let cx = window.innerWidth / 2;
   let cy = window.innerHeight * 0.42;
+  let hx = 0;
+  let hy = 0;
+  const paintCursorAt = () => {
+    cursor.style.left = `${cx + hx}px`;
+    cursor.style.top = `${cy + hy}px`;
+  };
   const place = (x, y) => {
     cx = x;
     cy = y;
-    cursor.style.left = `${x}px`;
-    cursor.style.top = `${y}px`;
+    paintCursorAt();
   };
   place(cx, cy);
   function spawnFx(x, y, css, frames, timing, life, z = 4, cue) {
@@ -327,11 +355,21 @@ function createStage(opts) {
     const fromY = cy;
     let dest = to() ?? { x: cx, y: cy };
     const start = performance.now();
+    const phase = handPhase(++moveSeq);
     return new Promise((resolve2, reject) => {
-      const onAbort = () => reject(new AbortError());
+      const settleHand = () => {
+        hx = 0;
+        hy = 0;
+        paintCursorAt();
+      };
+      const onAbort = () => {
+        settleHand();
+        reject(new AbortError());
+      };
       signal?.addEventListener("abort", onAbort, { once: true });
       const tick = (now) => {
         if (destroyed) {
+          settleHand();
           signal?.removeEventListener("abort", onAbort);
           resolve2();
           return;
@@ -340,9 +378,25 @@ function createStage(opts) {
         dest = to() ?? dest;
         const t = Math.min(1, Math.max(0, (now - start) / dur));
         const e = easeInOut(t);
-        place(fromX + (dest.x - fromX) * e, fromY + (dest.y - fromY) * e);
+        const dx = dest.x - fromX;
+        const dy = dest.y - fromY;
+        const dist = Math.hypot(dx, dy);
+        if (hand > 0 && dist > 1) {
+          const ux = dx / dist;
+          const uy = dy / dist;
+          const { along, across } = handOffset(t, dist, phase, hand);
+          hx = ux * along - uy * across;
+          hy = uy * along + ux * across;
+        } else {
+          hx = 0;
+          hy = 0;
+        }
+        place(fromX + dx * e, fromY + dy * e);
         if (t < 1) requestAnimationFrame(tick);
         else {
+          hx = 0;
+          hy = 0;
+          paintCursorAt();
           signal?.removeEventListener("abort", onAbort);
           resolve2();
         }
@@ -1139,6 +1193,9 @@ function resolveTheme(theme = {}) {
     // 'system' stays symbolic here — the stage resolves it against the live device (matchMedia),
     // keeping the one media read in one testable place.
     motion: theme.motion ?? "system",
+    // Clamped rather than trusted: `hand` scales a per-frame displacement, so a NaN would put
+    // the cursor at `NaN px` permanently and a large number would throw it off screen.
+    hand: Number.isFinite(theme.hand) ? Math.min(2, Math.max(0, theme.hand)) : 1,
     silenced: new Set(
       Object.entries(theme.cues ?? {}).filter(([, v]) => v === false).map(([k]) => k)
     )

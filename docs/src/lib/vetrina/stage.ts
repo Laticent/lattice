@@ -306,6 +306,87 @@ export function gestureRest(kind: Gesture, box: RectLike, rects: readonly RectLi
 function easeInOut(t: number): number {
 	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
+
+// ── The hand: why a straight line at a symmetric ease reads as a machine ──────
+//
+// Vetrina's cursor stands in for a PRESENTER'S HAND, and a hand does not move the way this
+// tween did. Three departures, each with a name outside this file:
+//
+//  1. ARCS. Hands are hinged at the shoulder and elbow, so a reach traces a curve; a straight
+//     path is the one trajectory a limb cannot take without actively correcting for it. "Arcs"
+//     is one of Thomas & Johnston's twelve principles for exactly this reason, and it is the
+//     single cheapest change that stops a cursor reading as a tween.
+//  2. BALLISTIC + CORRECTIVE. Aimed human movement is two phases, not one (Woodworth 1899;
+//     Meyer et al. 1988): a fast open-loop throw that covers most of the distance and lands
+//     slightly off, then a slow closed-loop correction onto the target. A symmetric ease-in-out
+//     has neither — it decelerates into the target perfectly, every time.
+//  3. TREMOR. A held hand is never still: ~8-12 Hz physiological tremor rides on a ~1-3 Hz
+//     postural drift. The amplitude is small; its ABSENCE is what the eye notices, the way a
+//     perfectly steady camera reads as CGI.
+//
+// WHAT THIS IS NOT: it is not `Math.random()` per frame. White noise is a rattle, not a hand —
+// it has energy at every frequency including ones no limb produces, and it is un-reproducible,
+// so a test can never pin it. This is a sum of a few sinusoids at hand frequencies with a
+// per-movement phase from a seeded hash: band-limited by construction, and deterministic given
+// the same sequence of movements.
+//
+// TWO INVARIANTS THE DISPLACEMENT MUST HOLD, because the rest of this library depends on them:
+//
+//   ENDPOINTS ARE EXACT. The envelope is zero at t=0 and t=1, so a glide still STARTS where the
+//   cursor is and ENDS on the point it was given. Everything about the deictic set — that a
+//   gesture's ink lands on its target, that `gestureRest` predicts where the hand stops, that a
+//   host's occlusion check means anything — rests on the destination being the destination.
+//
+//   THE LOGICAL POSITION NEVER WOBBLES. The displacement is applied when PAINTING, never to
+//   `cx`/`cy`. A tween's start point, `centerOf`, the anticipation streak's angle and every
+//   `gestureRest` answer read the logical position, so they see the clean path; only the pixels
+//   the viewer looks at carry the hand.
+//
+// Suppressed entirely under 'legible'/'still': a wobble IS vestibular motion, and a viewer who
+// asked for less of that did not ask for a more lifelike version of it.
+
+/** Hand-frequency displacement along the two path axes, at `t` in 0..1 of a movement.
+ *
+ *  `along` is the direction of travel, `across` its perpendicular. Amplitudes scale with the
+ *  distance covered (a longer reach wanders more, in the same way a longer stroke of a pen
+ *  does) and are capped, so a cross-screen glide does not swing wildly.
+ *
+ *  Exported for the test battery, which pins the endpoints and the band rather than the shape. */
+export function handOffset(t: number, dist: number, phase: number, amount: number): { along: number; across: number } {
+	if (!(amount > 0) || !Number.isFinite(dist)) return { along: 0, across: 0 };
+	const u = Math.min(1, Math.max(0, t));
+	// Zero at both ends. `sin(pi u)` alone peaks flat and wide; the 0.65 power widens the
+	// plateau so the wander lives through the middle of the reach and vanishes at the target.
+	const env = Math.sin(Math.PI * u) ** 0.65;
+	// 1 — the arc. One-sided (the sign is the seeded phase's), ~5.5% of the distance, capped so
+	// a full-screen traverse bows by a hand's width rather than a fist's.
+	const arc = Math.sin(Math.PI * u) * Math.min(dist * 0.055, 22) * (Math.cos(phase) >= 0 ? 1 : -1);
+	// 2 — the two tremor bands. ~1.7 Hz postural drift over a ~9 Hz micro-tremor, expressed
+	// against the movement's own progress rather than wall-clock so it does not alias with the
+	// frame rate. Amplitude grows with distance and floors at a pixel, because even a short
+	// correction is not perfectly still.
+	const span = Math.min(1 + dist * 0.012, 4.2);
+	const drift = Math.sin(u * 10.7 + phase) * span;
+	const micro = Math.sin(u * 55.0 + phase * 2.3) * span * 0.28;
+	// 3 — the overshoot. The ballistic phase lands past the mark around 78% of the way in and
+	// the corrective phase pulls back; along-axis only, which is what an aimed reach does.
+	const over = Math.sin(Math.PI * Math.min(1, u / 0.78) ** 1.6) * Math.min(dist * 0.02, 9) * (u < 0.78 ? 0 : 1);
+	return {
+		along: (drift * 0.35 + micro + over) * env * amount,
+		across: (arc + drift * 0.65 + micro) * env * amount,
+	};
+}
+
+/** A stable, cheap phase for one movement. Not `Math.random()`: the same run of movements has to
+ *  reproduce, or nothing about the hand is testable. */
+function handPhase(n: number): number {
+	// A 32-bit integer hash (xorshift-flavored), mapped onto a full turn.
+	let h = (n * 2654435761) >>> 0;
+	h ^= h >>> 15;
+	h = (h * 2246822519) >>> 0;
+	h ^= h >>> 13;
+	return ((h >>> 0) / 4294967296) * Math.PI * 2;
+}
 function reducedMotion(): boolean {
 	try {
 		return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -531,6 +612,13 @@ export function createStage(opts: StageOptions): Stage {
 	const reduced = motionMode !== 'full';
 	const still = motionMode === 'still';
 	const pace = opts.theme?.pace ?? 1;
+	// How much HAND the cursor's travel carries. Zero under 'legible'/'still' — the arc, the
+	// tremor and the overshoot are all vestibular motion, which is precisely what those tiers
+	// suppress. A host can also switch it off outright with `hand: 0`, which reproduces the
+	// straight, perfectly-eased glide this library shipped before (a test pins that).
+	const hand = reduced ? 0 : (opts.theme?.hand ?? 1);
+	/** Movement counter — seeds each glide's phase, so a run reproduces frame for frame. */
+	let moveSeq = 0;
 	const silenced = opts.theme?.silenced ?? new Set<string>();
 	const placement = opts.theme?.placement ?? 'bottom';
 	const caption = opts.theme?.caption ?? 'bar';
@@ -592,11 +680,19 @@ export function createStage(opts: StageOptions): Stage {
 
 	let cx = window.innerWidth / 2;
 	let cy = window.innerHeight * 0.42;
+	// The hand's per-frame displacement (see § "The hand"). PAINT-ONLY: `cx`/`cy` stay the clean
+	// logical position, so a glide's start point, `centerOf`, the anticipation angle and every
+	// `gestureRest` answer are unaffected by the wobble the viewer sees.
+	let hx = 0;
+	let hy = 0;
+	const paintCursorAt = () => {
+		cursor.style.left = `${cx + hx}px`;
+		cursor.style.top = `${cy + hy}px`;
+	};
 	const place = (x: number, y: number) => {
 		cx = x;
 		cy = y;
-		cursor.style.left = `${x}px`;
-		cursor.style.top = `${y}px`;
+		paintCursorAt();
 	};
 	place(cx, cy);
 
@@ -717,14 +813,29 @@ export function createStage(opts: StageOptions): Stage {
 		const fromY = cy;
 		let dest = to() ?? { x: cx, y: cy };
 		const start = performance.now();
+		// One phase per movement, so the arc's direction and the tremor's offset differ from glide
+		// to glide the way a real hand's do — and reproduce exactly on a replay of the same run.
+		const phase = handPhase(++moveSeq);
 		return new Promise((resolve, reject) => {
-			const onAbort = () => reject(new AbortError());
+			// An abandoned glide must not leave the hand's displacement painted: the next beat may
+			// place the cursor without tweening, and it would sit `hx,hy` off the point it was
+			// given — a permanent, compounding offset from one interrupted move.
+			const settleHand = () => {
+				hx = 0;
+				hy = 0;
+				paintCursorAt();
+			};
+			const onAbort = () => {
+				settleHand();
+				reject(new AbortError());
+			};
 			signal?.addEventListener('abort', onAbort, { once: true });
 			const tick = (now: number) => {
 				// A teardown mid-glide SETTLES the promise rather than abandoning it. Dropping the
 				// frame loop used to leave `point()` pending forever, held by whatever awaited it —
 				// resolve, because teardown is terminal and there is nothing left to await.
 				if (destroyed) {
+					settleHand();
 					signal?.removeEventListener('abort', onAbort);
 					resolve();
 					return;
@@ -738,9 +849,33 @@ export function createStage(opts: StageOptions): Stage {
 				// cursor thrown to left=27306px before it came back. Clamping costs nothing.
 				const t = Math.min(1, Math.max(0, (now - start) / dur));
 				const e = easeInOut(t);
-				place(fromX + (dest.x - fromX) * e, fromY + (dest.y - fromY) * e);
+				// THE HAND rides the path, not the destination. `handOffset`'s envelope is zero at
+				// both ends, so the glide still starts where the cursor is and lands exactly on
+				// `dest` — the property every deictic gesture's ink and every `gestureRest` answer
+				// is built on. The offset is resolved into screen axes here, because "along" and
+				// "across" mean nothing until there is a direction of travel.
+				const dx = dest.x - fromX;
+				const dy = dest.y - fromY;
+				const dist = Math.hypot(dx, dy);
+				if (hand > 0 && dist > 1) {
+					const ux = dx / dist;
+					const uy = dy / dist;
+					const { along, across } = handOffset(t, dist, phase, hand);
+					hx = ux * along - uy * across;
+					hy = uy * along + ux * across;
+				} else {
+					hx = 0;
+					hy = 0;
+				}
+				place(fromX + dx * e, fromY + dy * e);
 				if (t < 1) requestAnimationFrame(tick);
 				else {
+					// Land clean. The envelope already reaches zero at t=1, but a frame loop can be
+					// cut short by a clamp, and a cursor left permanently a pixel off its logical
+					// position would drift by that pixel on every subsequent glide.
+					hx = 0;
+					hy = 0;
+					paintCursorAt();
 					signal?.removeEventListener('abort', onAbort);
 					resolve();
 				}
@@ -1097,6 +1232,7 @@ export function createStage(opts: StageOptions): Stage {
 	// subsequent tween resolves having moved nothing. `liveRect` already guards this shape coming
 	// from a rect; `clearance` is new public surface and needs the same guard.
 	const clearanceOf = (o?: GestureOptions) => (Number.isFinite(o?.clearance) ? Math.max(0, o?.clearance as number) : 0);
+
 
 	/** A cue node that re-reads its target every frame for as long as it is on screen. Returns
 	 *  the node AND its disposer — the node so the caller can animate the thing it just made

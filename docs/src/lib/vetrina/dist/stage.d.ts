@@ -171,4 +171,15 @@ export declare function gestureRest(kind: Gesture, box: RectLike, rects: readonl
     x: number;
     y: number;
 } | null;
+/** Hand-frequency displacement along the two path axes, at `t` in 0..1 of a movement.
+ *
+ *  `along` is the direction of travel, `across` its perpendicular. Amplitudes scale with the
+ *  distance covered (a longer reach wanders more, in the same way a longer stroke of a pen
+ *  does) and are capped, so a cross-screen glide does not swing wildly.
+ *
+ *  Exported for the test battery, which pins the endpoints and the band rather than the shape. */
+export declare function handOffset(t: number, dist: number, phase: number, amount: number): {
+    along: number;
+    across: number;
+};
 export declare function createStage(opts: StageOptions): Stage;

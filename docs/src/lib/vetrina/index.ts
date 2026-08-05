@@ -18,7 +18,7 @@ export { run } from './runner';
 export type { SceneBuilder } from './scene';
 export { scene } from './scene';
 export type { DragHandle, Gesture, GestureOptions, RectLike, RectSource, Stage, StageOptions, Target } from './stage';
-export { asElement, createStage, gestureRest, isAbortError, wait } from './stage';
+export { asElement, createStage, gestureRest, handOffset, isAbortError, wait } from './stage';
 export type { Step } from './storyboard';
 export { readMs, storyboard } from './storyboard';
 export type { Color, ResolvedTheme, Theme, VtToken } from './theme';
