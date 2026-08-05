@@ -30,11 +30,30 @@ export interface RectSource {
 	/** Current position + size in the STAGE's viewport coordinates. Called repeatedly (per
 	 *  animation frame while a cue is live), so keep it cheap and keep it live. */
 	getBoundingClientRect(): DOMRect;
+	/** OPTIONAL, and the same shape of widening as `RectSource` itself: both `Element` and
+	 *  `Range` already satisfy it, so nothing existing changes.
+	 *
+	 *  It exists because a bounding box is a LYING rectangle for anything that wraps. A phrase
+	 *  running across three lines of a paragraph has three rectangles; its bounding box is the
+	 *  whole paragraph's width and names words the phrase does not contain. `wash` paints one
+	 *  band per rectangle and `underline` sweeps the line it was given, so a host that can
+	 *  answer with more resolution gets a highlighter that follows the words. A host that
+	 *  cannot is not penalized — every cue falls back to `getBoundingClientRect()`. */
+	getClientRects?(): DOMRectList | DOMRect[];
 	/** Optional; the stage calls it before a drag glide exactly as it does on an element. */
 	scrollIntoView?(arg?: boolean | ScrollIntoViewOptions): void;
 }
 
 export type Target = string | RectSource | (() => RectSource | null);
+
+/** The minimum a rect has to be for the pure geometry helpers below — so `gestureRest` can be
+ *  called with a plain object in a test, or with a real `DOMRect` at runtime. */
+export interface RectLike {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+}
 
 /** Narrow a resolved target to a real element, or null. Duck-typed rather than
  *  `instanceof HTMLElement`: the stage is framework-free and may be handed a node from
@@ -44,8 +63,34 @@ export function asElement(src: RectSource | null | undefined): HTMLElement | nul
 }
 
 /** The cursor's body language — a curated alphabet, each carrying a distinct MEANING.
- *  Frozen at five; extending it is an allowlist edit gated in check-ownership. */
-export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake';
+ *  Extending it is an allowlist edit gated in check-ownership (`SANCTIONED_GESTURES`), which
+ *  is where the "what does this one SAY that the others don't" question gets asked.
+ *
+ *  Two families. The first five are about the TOUR's own state — hello, look-here, it worked,
+ *  it failed, careful. The last four are DEICTIC: they name a piece of the host's content the
+ *  way a presenter's hand does, and they are chosen by the SHAPE of the thing being named
+ *  (`underline` a line, `wash` a phrase, `bracket` a block, `tap` something small); `circle`
+ *  belongs to both families, since "look here" is already the right thing to say about a
+ *  compact target. */
+export type Gesture = 'wave' | 'circle' | 'check' | 'cross' | 'shake' | 'underline' | 'wash' | 'bracket' | 'tap';
+
+export interface GestureOptions {
+	/** Emphasis. `'notable'` draws heavier ink and holds it longer — for when the HOST knows
+	 *  this one matters more than the last one. Default `'quiet'`. */
+	strength?: 'quiet' | 'notable';
+	/** Keep the CURSOR — and the ring/bracket ink — this many px clear of the target's box.
+	 *  Default `0`, so every call written before this existed is byte-identical.
+	 *
+	 *  It is a real number rather than a boolean because the cursor's footprint is the host's
+	 *  business: a stage over a 1:1 app and a stage over a scaled preview want different
+	 *  clearances for the same visual result. */
+	clearance?: number;
+	/** Where the cursor comes to rest when the gesture is done. Default: the gesture's own
+	 *  outer end — see `gestureRest`, which is exported precisely so a host can ask what that
+	 *  will be and override it when it knows something about what surrounds the target that
+	 *  the stage cannot. `null` is the same as omitting it. */
+	rest?: Target | null;
+}
 
 export interface DragHandle {
 	/** Release/settle the dragged item at `to` (call on `act` success). */
@@ -69,8 +114,9 @@ export interface Stage {
 	/** Demonstrate a move (mechanic): glide pick-up → hold at `to`. The caller gates the drop
 	 *  on the real `act` (drop on success, snapBack on failure) so the theater never lies. */
 	drag(from: Target, to: Target, signal?: AbortSignal): Promise<DragHandle>;
-	/** Body language (§6.1). `circle` needs a target; the rest play at the cursor or a target. */
-	gesture(kind: Gesture, target?: Target, signal?: AbortSignal): Promise<void>;
+	/** Body language (§6.1). `circle` and the four DEICTIC gestures need a target; the rest play
+	 *  at the cursor or a target. `opts` is emphasis + clearance + an explicit rest. */
+	gesture(kind: Gesture, target?: Target, signal?: AbortSignal, opts?: GestureOptions): Promise<void>;
 	/** Opening flourish: the cursor materializes at center + waves hello (once per run). */
 	intro(signal?: AbortSignal): Promise<void>;
 	/** TEACHING cue: draw the eye to the narration — the cursor dips to the dock edge and the
@@ -177,6 +223,78 @@ const A = 'var(--vt-accent)';
 // can retune the legibility floor — its default is the mode-agnostic white.
 const RING_SHADOW = '0 0 0 1.5px var(--vt-ring-halo), 0 0 22px 2px var(--vt-accent)';
 const BAR_SHADOW = '0 0 8px var(--vt-accent), 0 0 0 1px var(--vt-tick-halo)';
+
+// ── Deictic ink geometry (§ the gesture vocabulary) ──────────────────────────
+//
+// The gap between a target's edge and the cue's OWN ink. Deliberately small and fixed
+// rather than derived from `clearance`: clearance is about the cursor's 28px footprint,
+// while ink hugging what it names is what makes an underline read as an underline. These
+// are viewport px, so they hold at any host scale.
+const INK_GAP = 3; // underline / wash: below the text's bottom edge
+const INK_OUT = 6; // bracket / ring: outside the target's box
+
+/** Right/bottom of a `RectLike`, without requiring a real `DOMRect`. */
+const r2 = (r: RectLike) => ({ right: r.left + r.width, bottom: r.top + r.height });
+
+/**
+ * Where a gesture LEAVES the cursor — the whole point of the deictic set.
+ *
+ * A pointer that picks its position independently of the cue has to be CHECKED for
+ * occlusion afterwards, which is a search. A pointer that rides the cue's own stroke has
+ * its position decided by geometry that already lives outside the thing being named, so
+ * the named thing cannot be covered — there is nothing to check.
+ *
+ * Exported because that default is a promise this library makes to a host. A host that has
+ * to decide whether the promise is safe in ITS layout (Lattice's Guide does: "past the
+ * block's right edge" is the slide margin on one deck and the second column on another)
+ * must be able to ASK, rather than re-deriving the geometry here and drifting from it.
+ *
+ * TWO RECTANGLES, TWO JOBS, and the split is the contract a host writes to:
+ *
+ *   `box`   — what the cursor must CLEAR. Every answer below is outside it by `clearance`.
+ *   `rects` — what the INK follows, per line (see `RectSource.getClientRects`). Null = use
+ *             the box.
+ *
+ * They are usually the same thing and are allowed not to be, which is the whole reason both
+ * are parameters. Naming a phrase inside a paragraph is exactly that case: the ink belongs on
+ * the phrase's own lines, while the cursor has to clear the WHOLE paragraph — resting just
+ * past the phrase would put the hand on the words that follow it. So a host hands over a
+ * source whose bounding box is the block and whose client rects are the phrase, and the rest
+ * takes its Y from the last line of the ink and its X from the edge of the block.
+ *
+ * Returns null for the five NON-deictic gestures, whose cursor motion is defined by the
+ * gesture itself and is not changing.
+ */
+export function gestureRest(kind: Gesture, box: RectLike, rects: readonly RectLike[] | null, clearance = 0): { x: number; y: number } | null {
+	const pad = Math.max(0, clearance);
+	const b = r2(box);
+	switch (kind) {
+		case 'underline':
+		case 'wash': {
+			// Along the stroke and out past the block's edge — where a hand ends an underline.
+			// The Y is the stroke's own line, so the cursor sits BELOW the words it just swept,
+			// never beside them at reading height.
+			const last = rects?.length ? rects[rects.length - 1] : box;
+			return { x: b.right + pad, y: r2(last).bottom + INK_GAP + pad };
+		}
+		case 'bracket':
+			// The left margin, level with the middle — the flat hand held beside a card. Outside
+			// the bracket's own ink as well as the box, or the cursor sits on the outline.
+			return { x: box.left - INK_OUT - pad, y: box.top + box.height / 2 };
+		case 'tap':
+			// Just off the corner, so the arrow's tip points back up-left at the thing it tapped.
+			return { x: b.right + pad, y: b.bottom + pad };
+		case 'circle':
+			// ADVISORY for this one, and deliberately so. `circle` ends its orbit a quarter turn
+			// past wherever the cursor came in from, which is not deterministic and is NOT being
+			// changed — every tour written against it would move. So this reports the sane resting
+			// place (the ring's right edge, level with its middle) for a host that needs one, and
+			// that host passes it straight back as `opts.rest`. The gesture never applies it itself.
+			return { x: b.right + INK_OUT + pad, y: box.top + box.height / 2 };
+		default:
+			return null; // wave / check / cross / shake — cursor motion is the gesture's own
+	}
+}
 
 function easeInOut(t: number): number {
 	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
@@ -427,10 +545,17 @@ export function createStage(opts: StageOptions): Stage {
 	// JS Theme convenience: an EXPLICIT per-run override, written inline (so it wins over the
 	// default layer). The Studio's `accent: 'var(--accent,…)'` idiom keeps host-cascade-driven
 	// values through the var() indirection — host CSS still leads when the JS value references it.
+	//
+	// LAYOUT FIRST, TOKENS SECOND — and the order is the whole point. This used to set the
+	// tokens with `setProperty` and then `cssText +=` the layout on top. `cssText` serializes
+	// only what an engine chooses to expose, and custom properties are historically among the
+	// omissions; on any such engine the `+=` reads back a token-free string and writes it
+	// whole, silently dropping every JS theme value. The 2026-07-05 decision doc asserts
+	// tokens are "applied via setProperty, never concatenated into cssText" — the source
+	// disagreed with it, which #1400 logged and did not own. Assigning the layout first and
+	// setting the tokens after makes the doc true and removes the read-back entirely.
+	layer.style.cssText = `position:fixed;inset:0;z-index:${opts.zIndex ?? 2147482000};pointer-events:none;font:500 14px system-ui,-apple-system,sans-serif;`;
 	if (opts.theme) for (const [k, v] of Object.entries(opts.theme.tokens)) layer.style.setProperty(k, v);
-	layer.style.cssText +=
-		`position:fixed;inset:0;z-index:${opts.zIndex ?? 2147482000};pointer-events:none;` +
-		'font:500 14px system-ui,-apple-system,sans-serif;';
 
 	const cursor = doc.createElement('div');
 	cursor.className = 'vetrina-cursor';
@@ -468,10 +593,11 @@ export function createStage(opts: StageOptions): Stage {
 	};
 	place(cx, cy);
 
-	function spawnFx(x: number, y: number, css: string, frames: Keyframe[], timing: KeyframeAnimationOptions, life: number, z = 4): void {
+	function spawnFx(x: number, y: number, css: string, frames: Keyframe[], timing: KeyframeAnimationOptions, life: number, z = 4, cue?: Gesture): void {
 		if (destroyed) return;
 		const el = doc.createElement('div');
 		el.setAttribute('aria-hidden', 'true');
+		if (cue) el.dataset.vtCue = cue;
 		el.style.cssText = `position:absolute;left:${x}px;top:${y}px;z-index:${z};transform:translate(-50%,-50%);pointer-events:none;${css}`;
 		layer.appendChild(el);
 		el.animate(frames, timing);
@@ -530,6 +656,25 @@ export function createStage(opts: StageOptions): Stage {
 		if (!Number.isFinite(r.left) || !Number.isFinite(r.top) || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
 		if (r.left === 0 && r.top === 0 && r.width === 0 && r.height === 0) return null;
 		return r;
+	};
+
+	// The per-line rectangles of a target, or null. Same three shapes of "gone" as `liveRect`,
+	// applied per rectangle — a target that answers with a list of zero-area or non-finite boxes
+	// is answering "nowhere", and the caller must fall back to the bounding box rather than paint
+	// a band at the viewport corner. A source that does not implement it at all is not an error:
+	// `getClientRects` is optional, and the whole point of the fallback is that a host with no
+	// per-line resolution still gets the cue.
+	const liveRects = (src: RectSource | null): DOMRect[] | null => {
+		if (!src || destroyed || typeof src.getClientRects !== 'function') return null;
+		let list: DOMRectList | DOMRect[];
+		try {
+			list = src.getClientRects();
+		} catch {
+			return null;
+		}
+		if (!list) return null;
+		const out = Array.from(list).filter((r) => Number.isFinite(r.left) && Number.isFinite(r.top) && Number.isFinite(r.width) && Number.isFinite(r.height) && r.width > 0 && r.height > 0);
+		return out.length ? out : null;
 	};
 
 	// Every write to the cursor's opacity goes through here, so a host's `setCursorVisible(false)`
@@ -821,31 +966,38 @@ export function createStage(opts: StageOptions): Stage {
 		window.setTimeout(() => g.remove(), 1250);
 	}
 
-	async function circleGesture(src: RectSource, signal?: AbortSignal): Promise<void> {
+	async function circleGesture(src: RectSource, signal?: AbortSignal, opts?: GestureOptions): Promise<void> {
 		const r0 = liveRect(src);
 		if (!r0) return;
+		// The RING, when it is used deictically: `clearance` inflates both the ink and the orbit
+		// so a small target is circled rather than covered. Default 0 keeps every tour written
+		// before this byte-identical — the ring is still drawn ON the target's own box.
+		const { notable, alpha } = inkOf(opts);
+		const out = clearanceOf(opts) ? INK_OUT + clearanceOf(opts) : 0;
+		const bw = notable ? 4.5 : 3;
 		const glow = doc.createElement('div');
+		glow.dataset.vtCue = 'circle';
 		// `box-sizing:border-box` so the 3px border sits INSIDE the target's box. Without it the
 		// ring is drawn 6px wider and taller than the thing it names — the layer lives outside
 		// the host's own reset (the Studio scopes `border-box` to `.lx-ui`), so the stage cannot
 		// assume one and states its own.
 		glow.style.cssText =
 			'position:absolute;box-sizing:border-box;z-index:3;' +
-			`border-radius:14px;border:3px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 36px 2px ${A};opacity:0;pointer-events:none;`;
+			`border-radius:${14 + out}px;border:${bw}px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 36px 2px ${A};opacity:0;pointer-events:none;`;
 		// The ring TRACKS its target for its whole life (#1400) — placed now, corrected every
 		// frame. This is what makes the cue honest when the host is still settling: whatever the
 		// ring is drawn around, it is the target's CURRENT box, never a snapshot of an older one.
 		let box = r0;
 		const paint = (r: DOMRect) => {
 			box = r;
-			glow.style.left = `${r.left}px`;
-			glow.style.top = `${r.top}px`;
-			glow.style.width = `${r.width}px`;
-			glow.style.height = `${r.height}px`;
+			glow.style.left = `${r.left - out}px`;
+			glow.style.top = `${r.top - out}px`;
+			glow.style.width = `${r.width + out * 2}px`;
+			glow.style.height = `${r.height + out * 2}px`;
 		};
 		paint(r0);
 		layer.appendChild(glow);
-		glow.animate([{ opacity: 0 }, { opacity: 0.85, offset: 0.22 }, { opacity: 0.85, offset: 0.75 }, { opacity: 0 }], {
+		glow.animate([{ opacity: 0 }, { opacity: alpha - 0.05, offset: 0.22 }, { opacity: alpha - 0.05, offset: 0.75 }, { opacity: 0 }], {
 			duration: 1600,
 			easing: 'ease-in-out',
 		});
@@ -880,7 +1032,9 @@ export function createStage(opts: StageOptions): Stage {
 				const a = a0 + easeInOut(t) * Math.PI * 2 * 1.25;
 				const mx = box.left + box.width / 2;
 				const my = box.top + box.height / 2;
-				place(mx + Math.min(box.width * 0.42, 260) * Math.cos(a), my + Math.min(box.height * 0.42, 180) * Math.sin(a));
+				// The orbit radius carries `out` too, so a ring drawn with clearance is ORBITED with
+				// clearance — otherwise the ink would clear a small target while the cursor sat on it.
+				place(mx + (Math.min(box.width * 0.42, 260) + out) * Math.cos(a), my + (Math.min(box.height * 0.42, 180) + out) * Math.sin(a));
 				if (t < 1) requestAnimationFrame(tick);
 				else {
 					signal?.removeEventListener('abort', onAbort);
@@ -889,6 +1043,290 @@ export function createStage(opts: StageOptions): Stage {
 			};
 			requestAnimationFrame(tick);
 		});
+	}
+
+	// ── The DEICTIC set — naming a piece of the host's CONTENT ───────────────────────────
+	//
+	// Four gestures (five with `circle`) that say "this", picked by the SHAPE of the thing
+	// being named. What separates them from the five above — which are all about the tour's
+	// own state — is the property they share:
+	//
+	//   THE CURSOR'S POSITION IS A CONSEQUENCE OF THE STROKE.
+	//
+	// Each one glides along its own ink and stops where the ink stops (`gestureRest`), and
+	// every one of those endings is outside the target's box by `clearance`. A pointer placed
+	// independently has to be CHECKED against what it might be covering, which is a search;
+	// a pointer that rides the stroke cannot cover the thing the stroke is drawn around.
+	//
+	// All four track their target every frame for their whole life (#1400) and all four honor
+	// the three-tier motion policy: `legible` keeps the CUE (knowing where to look is content)
+	// and drops the sweep — ink fades in place, the cursor teleports to rest; `still` also
+	// collapses the dwell.
+
+	/** Ink weight + dwell for the two emphasis levels. The HOST decides which; here it is only
+	 *  ever "heavier and held longer", never a different gesture (that would put two inputs on
+	 *  one output, and the shape rule would lose every argument it had with emphasis). */
+	const inkOf = (o?: GestureOptions) => {
+		const notable = o?.strength === 'notable';
+		return { notable, weight: notable ? 5 : 3, alpha: notable ? 1 : 0.9, hold: still ? 160 : notable ? 1500 : 1050 };
+	};
+	const clearanceOf = (o?: GestureOptions) => Math.max(0, o?.clearance ?? 0);
+
+	/** A cue node that re-reads its target every frame for as long as it is on screen. Returns
+	 *  the node AND its disposer — the node so the caller can animate the thing it just made
+	 *  (reading it back off `layer.lastElementChild` would break the moment any other cue
+	 *  appended between the two statements), the disposer so an abort takes the ink away with
+	 *  the motion instead of leaving it painted over a slide nobody is on any more. */
+	function inkNode(kind: Gesture, src: RectSource, css: string, layout: (el: HTMLElement, r: DOMRect, rects: DOMRect[] | null) => void, life: number): { el: HTMLElement; stop: () => void } {
+		const el = doc.createElement('div');
+		el.setAttribute('aria-hidden', 'true');
+		// A stable hook on the ink, in the same spirit as `.vetrina-stage` / `.vetrina-cursor`:
+		// these cues are the thing an oracle has to find on a real surface, and matching them by
+		// inline style (`div[style*="border-radius:14px"]`) is how a test ends up pinned to a
+		// decoration value rather than to the cue.
+		el.dataset.vtCue = kind;
+		el.style.cssText = `position:absolute;box-sizing:border-box;pointer-events:none;${css}`;
+		const paint = () => {
+			const r = liveRect(src);
+			if (r) layout(el, r, liveRects(src));
+		};
+		paint();
+		layer.appendChild(el);
+		let tracking = true;
+		const tick = () => {
+			if (!tracking || destroyed) return;
+			paint();
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+		let stopped = false;
+		const stop = () => {
+			if (stopped) return;
+			stopped = true;
+			tracking = false;
+			el.remove();
+		};
+		window.setTimeout(stop, life);
+		return { el, stop };
+	}
+
+	/** The travel INTO a gesture — from wherever the hand was resting to where the stroke begins. */
+	async function approach(x: number, y: number, signal?: AbortSignal): Promise<void> {
+		if (reduced) {
+			place(x, y);
+			return wait(still ? 40 : 140, signal);
+		}
+		return tweenTo(x, y, Math.max(260, Math.min(720, Math.hypot(x - cx, y - cy))) * pace, signal);
+	}
+
+	/** Run a deictic gesture's motion, guaranteeing the ink is disposed on abort as well as on
+	 *  completion — every one of them owns a tracked node and a rAF loop. */
+	async function withInk(stop: () => void, body: () => Promise<void>): Promise<void> {
+		try {
+			await body();
+		} catch (e) {
+			stop();
+			throw e;
+		}
+	}
+
+	/** Sweep the cursor along a stroke and out past its end — the shared motion of underline
+	 *  and wash. `bands` are the line rectangles the ink was painted on. */
+	async function sweepAlong(bands: readonly DOMRect[], rest: { x: number; y: number }, pad: number, signal?: AbortSignal): Promise<void> {
+		if (reduced) {
+			place(rest.x, rest.y);
+			return wait(still ? 60 : 200, signal);
+		}
+		for (let i = 0; i < bands.length; i++) {
+			const b = bands[i];
+			const y = b.top + b.height + INK_GAP + pad;
+			// Start of the line — but only for the FIRST band; a wrapped phrase reads as one
+			// continuous highlighter stroke, so the hand drops to the next line's start rather
+			// than being re-placed there.
+			if (i === 0) await approach(b.left, y, signal);
+			else await tweenTo(b.left, y, 180 * pace, signal);
+			const last = i === bands.length - 1;
+			const to = last ? rest : { x: b.left + b.width, y };
+			await tweenTo(to.x, to.y, Math.max(300, Math.min(900, Math.abs(to.x - cx) * 1.15)) * pace, signal);
+		}
+	}
+
+	/** UNDERLINE — "this line". A stroke swept along the baseline of a single line of text.
+	 *  The workhorse: it lives in the descender gap, so it occludes nothing by construction. */
+	async function underlineGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const { weight, alpha, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const life = hold + 900;
+		// THE INK FOLLOWS THE LINE, THE CURSOR CLEARS THE BOX (see `gestureRest`). Underline is
+		// the one-line gesture, so it strokes the first line rect the target offers and falls
+		// back to the bounding box for a host that offers none.
+		const line0 = () => liveRects(src)?.[0] ?? liveRect(src);
+		const l0 = line0() ?? r0;
+		const { el, stop } = inkNode(
+			'underline',
+			src,
+			`z-index:3;height:${weight}px;border-radius:${weight}px;background:${A};box-shadow:0 0 10px ${A},0 0 0 1px var(--vt-glow-halo);transform-origin:left center;opacity:0;`,
+			(node, r, rects) => {
+				const l = rects?.[0] ?? r;
+				node.style.left = `${l.left}px`;
+				node.style.top = `${l.top + l.height + INK_GAP}px`;
+				node.style.width = `${l.width}px`;
+			},
+			life,
+		);
+		const rest = gestureRest('underline', r0, [l0], pad) as { x: number; y: number };
+		return withInk(stop, async () => {
+			await approach(l0.left, l0.top + l0.height + INK_GAP + pad, signal);
+			const draw = reduced
+				? [{ opacity: 0 }, { opacity: alpha, offset: 0.18 }, { opacity: alpha, offset: 0.82 }, { opacity: 0 }]
+				: [
+						{ transform: 'scaleX(0)', opacity: alpha },
+						{ transform: 'scaleX(1)', opacity: alpha, offset: 0.42 },
+						{ transform: 'scaleX(1)', opacity: alpha, offset: 0.82 },
+						{ transform: 'scaleX(1)', opacity: 0 },
+					];
+			el.animate?.(draw, { duration: life, easing: 'cubic-bezier(.2,.8,.3,1)' });
+			await sweepAlong([l0], rest, pad, signal);
+		});
+	}
+
+	/** WASH — "these words". A highlighter band per line rect of a phrase inside a longer
+	 *  block: the only gesture that can name PART of a paragraph without naming the paragraph. */
+	async function washGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const { notable, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const bands = liveRects(src) ?? [r0];
+		const life = hold + 900 + bands.length * 180;
+		// One node per band, each tracking the SAME index of the live rect list. A reflow that
+		// changes the line count collapses the extras to zero width rather than leaving a band
+		// painted where no words are — the #1400 rule applied to a multi-rect cue.
+		const nodes = bands.map((_, i) =>
+			inkNode(
+				'wash',
+				src,
+				`z-index:2;border-radius:3px;background:${A};opacity:0;transform-origin:left center;`,
+				(node, r, rects) => {
+					const b = (rects ?? [r])[i];
+					if (!b) {
+						node.style.width = '0px';
+						return;
+					}
+					node.style.left = `${b.left}px`;
+					node.style.top = `${b.top - 1}px`;
+					node.style.width = `${b.width}px`;
+					node.style.height = `${b.height + 2}px`;
+				},
+				life,
+			),
+		);
+		const stop = () => {
+			for (const n of nodes) n.stop();
+		};
+		// A wash sits OVER the words (an overlay cannot get behind them), so the alpha is the
+		// whole design: high enough to read as a highlighter, low enough that the sentence it is
+		// naming stays legible underneath. Measured against the ink, not guessed — see the doc.
+		const a = notable ? 0.34 : 0.22;
+		const rest = gestureRest('wash', r0, bands, pad) as { x: number; y: number };
+		return withInk(stop, async () => {
+			for (let i = 0; i < nodes.length; i++) {
+				nodes[i].el.animate?.(
+					reduced
+						? [{ opacity: 0 }, { opacity: a, offset: 0.2 }, { opacity: a, offset: 0.84 }, { opacity: 0 }]
+						: [
+								{ transform: 'scaleX(0)', opacity: a },
+								{ transform: 'scaleX(1)', opacity: a, offset: 0.3 },
+								{ transform: 'scaleX(1)', opacity: a, offset: 0.84 },
+								{ transform: 'scaleX(1)', opacity: 0 },
+							],
+					{ duration: life - i * 120, delay: i * 120, easing: 'cubic-bezier(.2,.8,.3,1)' },
+				);
+			}
+			await sweepAlong(bands, rest, pad, signal);
+		});
+	}
+
+	/** BRACKET — "this whole block". A soft outline just outside a multi-line block or card;
+	 *  the cursor runs down its left side and rests there, the flat hand beside the thing. */
+	async function bracketGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const { notable, alpha, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const w = notable ? 4 : 2.5;
+		const life = hold + 900;
+		const { el, stop } = inkNode(
+			'bracket',
+			src,
+			`z-index:3;border-radius:16px;border:${w}px solid ${A};box-shadow:0 0 0 1.5px var(--vt-glow-halo),0 0 30px 2px ${A};opacity:0;`,
+			(node, r) => {
+				node.style.left = `${r.left - INK_OUT}px`;
+				node.style.top = `${r.top - INK_OUT}px`;
+				node.style.width = `${r.width + INK_OUT * 2}px`;
+				node.style.height = `${r.height + INK_OUT * 2}px`;
+			},
+			life,
+		);
+		const rest = gestureRest('bracket', r0, null, pad) as { x: number; y: number };
+		return withInk(stop, async () => {
+			el.animate?.(
+				reduced
+					? [{ opacity: 0 }, { opacity: alpha, offset: 0.2 }, { opacity: alpha, offset: 0.84 }, { opacity: 0 }]
+					: [
+							{ transform: 'scale(1.035)', opacity: 0 },
+							{ transform: 'scale(1)', opacity: alpha, offset: 0.28 },
+							{ transform: 'scale(1)', opacity: alpha, offset: 0.84 },
+							{ transform: 'scale(1)', opacity: 0 },
+						],
+				{ duration: life, easing: 'cubic-bezier(.2,.8,.3,1)' },
+			);
+			if (reduced) {
+				place(rest.x, rest.y);
+				return wait(still ? 60 : 220, signal);
+			}
+			await approach(rest.x, r0.top + Math.min(r0.height * 0.18, 40), signal);
+			await tweenTo(rest.x, rest.y, Math.max(280, Math.min(760, r0.height * 0.9)) * pace, signal);
+		});
+	}
+
+	/** TAP — "this one". A ripple on something small and discrete; a ring around a two-word chip
+	 *  would be a dot. The cursor rests just off the corner, tip pointing back at what it named. */
+	async function tapGesture(src: RectSource, opts: GestureOptions | undefined, signal?: AbortSignal): Promise<void> {
+		const r0 = liveRect(src);
+		if (!r0) return;
+		const { notable, alpha, hold } = inkOf(opts);
+		const pad = clearanceOf(opts);
+		const rest = gestureRest('tap', r0, null, pad) as { x: number; y: number };
+		await approach(rest.x, rest.y, signal);
+		const c = { x: r0.left + r0.width / 2, y: r0.top + r0.height / 2 };
+		const size = Math.max(30, Math.min(96, Math.hypot(r0.width, r0.height)));
+		if (reduced) {
+			// Motion-safe tap: the ring appears at the target's size and fades. No expansion —
+			// that is the vestibular part — but the CUE still happens, which is the whole policy.
+			spawnFx(c.x, c.y, `width:${size}px;height:${size}px;border-radius:50%;border:${notable ? 3.5 : 2.5}px solid ${A};box-shadow:${RING_SHADOW};opacity:0;`, [{ opacity: 0 }, { opacity: alpha, offset: 0.3 }, { opacity: 0 }], { duration: 900, easing: 'ease-out' }, 950, 4, 'tap');
+		} else {
+			for (let k = 0; k < (notable ? 3 : 2); k++)
+				spawnFx(
+					c.x,
+					c.y,
+					`width:${size}px;height:${size}px;border-radius:50%;border:${notable ? 3 : 2.5}px solid ${A};box-shadow:${RING_SHADOW};opacity:0;`,
+					[
+						{ transform: 'translate(-50%,-50%) scale(.35)', opacity: alpha },
+						{ transform: 'translate(-50%,-50%) scale(1.9)', opacity: 0 },
+					],
+					{ duration: 1000, delay: k * 220, easing: 'ease-out' },
+					1100 + k * 240,
+					4,
+					'tap',
+				);
+			// The in-place press pulse — the cursor's own half of a tap, and motion-safe by
+			// construction (a scale on the cursor is not a screen sweep), so it is not gated.
+			cursor.animate([{ transform: 'translate(-50%,-50%) scale(1)' }, { transform: 'translate(-50%,-50%) scale(0.8)' }, { transform: 'translate(-50%,-50%) scale(1)' }], { duration: 380, easing: 'ease-out' });
+		}
+		await wait(still ? 120 : hold * 0.5, signal);
 	}
 
 	async function shake(signal?: AbortSignal): Promise<void> {
@@ -987,15 +1425,50 @@ export function createStage(opts: StageOptions): Stage {
 		await wave(signal);
 	}
 
-	async function gesture(kind: Gesture, target?: Target, signal?: AbortSignal): Promise<void> {
+	async function gesture(kind: Gesture, target?: Target, signal?: AbortSignal, opts?: GestureOptions): Promise<void> {
 		if (destroyed) return;
 		const el = target != null ? resolveSource(target) : null;
+		// An explicit rest overrides the gesture's own ending — the host knowing something about
+		// what surrounds the target that the stage cannot (see `gestureRest`). Applied AFTER the
+		// gesture, so it is a withdrawal rather than a replacement for the stroke's motion.
+		const withdraw = async (): Promise<void> => {
+			const r = opts?.rest != null ? resolveSource(opts.rest) : null;
+			const rect = r && liveRect(r);
+			if (!rect) return;
+			const x = rect.left + rect.width / 2;
+			const y = rect.top + rect.height / 2;
+			if (reduced) {
+				place(x, y);
+				return;
+			}
+			await tweenTo(x, y, Math.max(200, Math.min(560, Math.hypot(x - cx, y - cy))) * pace, signal);
+		};
 		switch (kind) {
 			case 'wave':
 				return wave(signal);
 			case 'circle':
 				if (!el || silenced.has('circle')) return; // circle needs a target; null-resolve/silenced = no-op
-				return circleGesture(el, signal);
+				await circleGesture(el, signal, opts);
+				return withdraw();
+			// The DEICTIC set — every one needs a target, and a null resolve is a no-op rather
+			// than a throw, exactly as `circle` has always been: a cue you cannot place is a cue
+			// that does not happen, never an error thrown into a host's narration loop.
+			case 'underline':
+				if (!el || silenced.has('underline')) return;
+				await underlineGesture(el, opts, signal);
+				return withdraw();
+			case 'wash':
+				if (!el || silenced.has('wash')) return;
+				await washGesture(el, opts, signal);
+				return withdraw();
+			case 'bracket':
+				if (!el || silenced.has('bracket')) return;
+				await bracketGesture(el, opts, signal);
+				return withdraw();
+			case 'tap':
+				if (!el || silenced.has('tap')) return;
+				await tapGesture(el, opts, signal);
+				return withdraw();
 			case 'shake':
 				return shake(signal);
 			case 'check': {

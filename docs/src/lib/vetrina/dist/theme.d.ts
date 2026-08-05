@@ -41,8 +41,10 @@ export interface Theme {
      *  Apple HIG target vestibular triggers (sweeps, parallax, spin, zoom), not typing or a
      *  cross-fade — so the demo stays watchable instead of flashing past in an instant blur. */
     motion?: 'full' | 'legible' | 'still' | 'system';
-    /** Silence a cue (never replace one with a callback). */
-    cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro', false>>;
+    /** Silence a cue (never replace one with a callback). The four DEICTIC cues are here for the
+     *  same reason `circle` is: a host that wants the cursor's TRAVEL as guidance but not the ink
+     *  drawn over its content should be able to say so without giving up the gesture API. */
+    cues?: Partial<Record<'anticipate' | 'press' | 'circle' | 'intro' | 'underline' | 'wash' | 'bracket' | 'tap', false>>;
     /** Escape hatch: set any --vt-* token value directly, in JS. */
     tokens?: Partial<Record<VtToken, Color>>;
     /** Where the overlay mounts (default: the root's document body). */
