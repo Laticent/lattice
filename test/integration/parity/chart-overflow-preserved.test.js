@@ -37,7 +37,10 @@ const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
-const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow } = require('../../../lib/core/overflow-probe');
+const {
+  CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow,
+  probeFigureLegibility, FIGURE_TEXT_FLOOR_RATIO,
+} = require('../../../lib/core/overflow-probe');
 
 function resolveChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -131,6 +134,46 @@ const OVER_TALL_STATE = `<!-- _class: state-chart -->
 ${OVER_STATES}
 `;
 
+// The INLINE variant of the same self-scaling chart. It renders chips instead of an
+// SVG overlay, and for the life of the component that meant it carried no
+// `data-sc-transitions` — so draw() never visited it and it was the ONE presentation
+// with no fit at all. Its rows sat in flow at natural height inside a figure that
+// flex-fills a fixed stage, and `.chart-body`'s clip sheared the tail: on
+// examples/state-chart.md p6, 434px of rows in a 358px figure lost the sixth state's
+// label entirely (#1360). Seven states here, comfortably past what the stage holds.
+//
+// This case is gated on HIDDEN PIXELS and RENDERED ROWS rather than on `over`,
+// because the loss never grew the section: `probeSectionOverflow` reported
+// `over: false` throughout and the channel that caught it was CONTENT CLIPPED. An
+// `over`-only assertion passes against the broken build.
+const OVER_INLINE_STATES = Array.from(
+  { length: 7 },
+  (_v, i) => `${i + 1}. Inline state ${i + 1} with a reasonably long name\n   - \`advance => ${i < 6 ? i + 2 : 1}\``,
+).join('\n');
+const OVER_TALL_INLINE = `<!-- _class: state-chart inline -->
+
+## A seven-state inline machine.
+
+${OVER_INLINE_STATES}
+`;
+
+// Dense enough that the letterbox has to shrink hard. The point is NOT that it clips —
+// after the inline fit it never clips — but that a shrink this deep is REPORTED. Before
+// the `data-fit-k` arm existed, `probeFigureLegibility` selected `svg[viewBox]` only, the
+// inline variant emits no SVG, and the probe returned null: "nothing to judge", which
+// reads downstream as "legible". Measured on this shape: k = 0.23, effective type 1.8px
+// against a 7.2px floor, and not one channel said a word.
+const DENSE_INLINE_STATES = Array.from(
+  { length: 24 },
+  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`advance => ${i < 23 ? i + 2 : 1}\``,
+).join('\n');
+const ILLEGIBLE_INLINE = `<!-- _class: state-chart inline -->
+
+## A 24-state inline machine.
+
+${DENSE_INLINE_STATES}
+`;
+
 describe('chart overflow detection is preserved after the .viz-frame stage wrap', () => {
   const chrome = resolveChrome();
   let browser;
@@ -158,8 +201,16 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
     const bodyInStage = await page.$eval('section', (s) => !!s.querySelector('.cell-stage > .chart-body'));
     const titleHoisted = await page.$eval('section', (s) => !!s.querySelector('.cell-masthead .masthead-lede > h2'));
     const stateNodes = await page.$eval('section', (s) => s.querySelectorAll('.state-node').length);
+    const stateRows = await page.$eval('section', (s) => s.querySelectorAll('.state-node-row').length);
+    // What `over` structurally cannot answer: does any box CLIP its own content? A
+    // sheared inline row grows no section and no cell — it just disappears inside
+    // `.chart-body`'s `overflow: hidden` (#1360).
+    const bodyHidden = await page.$eval('section', (s) => {
+      const b = s.querySelector('.chart-body');
+      return b ? b.scrollHeight - b.clientHeight : null;
+    });
     await page.close();
-    return { over: v.over, hasStage, bodyInStage, titleHoisted, stateNodes };
+    return { over: v.over, hasStage, bodyInStage, titleHoisted, stateNodes, stateRows, bodyHidden };
   }
 
   test('a fitting SVG chart does NOT overflow (body in stage, title hoisted)', async () => {
@@ -220,5 +271,59 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
         "stress test); the engine does not flag it. If this trips, the letterbox scale isn't fitting a dense " +
         'machine (2026-07-16-state-chart-self-scale.md).',
     );
+  });
+
+  test('an overstuffed INLINE state-chart loses no rows — the one variant the fit used to skip', async () => {
+    const v = await probeFirstSection(OVER_TALL_INLINE, 'chart-overflow-over-inline');
+    assert.equal(v.hasStage, true);
+    assert.equal(
+      v.stateRows,
+      7,
+      'the fixture must actually render seven inline rows — otherwise the clip assertion below proves nothing',
+    );
+    assert.equal(
+      v.bodyHidden,
+      0,
+      `REGRESSION: .chart-body is hiding ${v.bodyHidden}px of an inline state-chart. The inline variant renders ` +
+        'chips rather than an SVG overlay, so it carries no `data-sc-transitions` and draw() does not visit it — ' +
+        'it is fitted by the separate fitOnly() pass, which keys on the `.state-chart-scale` box instead. If this ' +
+        'trips, either renderInline stopped emitting that box or drawAll() stopped running the fit-only pass, and ' +
+        'the rows are being sheared away inside a box that clips (#1360).',
+    );
+    assert.equal(
+      v.over,
+      false,
+      'an inline state-chart must not report frame overflow either — it is the same self-scaling chart',
+    );
+  });
+
+  test('a letterboxed inline chart that shrinks past the type floor IS reported', async () => {
+    // The other half of the inline fit, and the more important one. Making the variant
+    // fit removed a loud failure (a sheared row, reported on CONTENT CLIPPED and counted
+    // by the ratchet); if nothing watched the shrink, that would be a trade DOWN — an
+    // unreported illegible slide for a reported broken one. This asserts the channel.
+    const html = renderHtml(formDeck(ILLEGIBLE_INLINE), { key: 'chart-legibility-inline', timeout: 240000 });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
+    await page.evaluate(() => document.fonts.ready);
+    await new Promise((r) => setTimeout(r, 1200));
+    const v = await page.$eval('section', probeFigureLegibility, FIGURE_TEXT_FLOOR_RATIO);
+    const stamped = await page.$eval('section', (s) => {
+      const box = s.querySelector('[data-fit-k]');
+      return { k: box ? Number(box.getAttribute('data-fit-k')) : null, svgViewBoxes: s.querySelectorAll('svg[viewBox]').length };
+    });
+    await page.close();
+
+    assert.equal(stamped.svgViewBoxes, 0, 'the fixture must be the SVG-less variant, or this proves nothing');
+    assert.ok(stamped.k > 0 && stamped.k < 0.5, `the fit must actually shrink hard here — got k=${stamped.k}`);
+    assert.ok(
+      v && v.under === true,
+      `REGRESSION: a letterboxed inline chart at k=${stamped.k} rendered below the legibility floor and the `
+      + `probe did not report it (got ${JSON.stringify(v)}). probeFigureLegibility selects svg[viewBox]; this `
+      + 'variant has none, so it is judged through the `data-fit-k` arm — which needs applyFit() to keep '
+      + 'stamping the attribute. Without it the probe returns null, which reads downstream as "legible".',
+    );
+    assert.ok(v.minPx < v.floorPx, `reported minPx ${v.minPx} must be under the floor ${v.floorPx}`);
   });
 });

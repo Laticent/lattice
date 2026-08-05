@@ -14800,7 +14800,12 @@ section.state-chart.chart-frame .chart-body {
   width: 100%;
   padding: var(--sp-md) var(--sp-2xl);
   display: flex;
-  flex-direction: column;       /* figure stacks above the status legend band */
+  /* The figure is the only in-flow child on the DEFAULT variant; the status legend
+   * is a SIBLING of .chart-body inside .cell-stage, not a child of it (extractChartBody
+   * wraps the figure alone). This comment used to say the legend stacked here — it
+   * does not, and the `gap` below never applied to it. The legend's band is still
+   * subtracted before the figure is sized, one level up in .cell-stage's column. */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--sp-sm);
@@ -15058,7 +15063,15 @@ section.state-chart .state-edge {
  * default auto height collapses the fill (the node column strands in the middle).
  * At full height the natural column ≈ the viewport, so the landscape self-scale is
  * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
-section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-chart-scale { height: 100%; }
+/* NOT the inline variant. This rule exists for `.state-nodes { height: 100% }` below, which
+ * only the DEFAULT variant emits — and pinning the scale box to the figure's height makes
+ * `applyFit`'s height ratio exactly 1 by construction, so an over-tall INLINE machine is
+ * letterboxed on width alone and still shears its last row on a portrait deck. Measured on a
+ * 7-state portrait fixture: 933px of rows scaled by 0.7 (width-only) into a 678px figure,
+ * last row cut through the middle — #1360's symptom, surviving #1360's fix. The inline
+ * variant has no `.state-nodes` and no `space-evenly` fill to serve, so it wants its natural
+ * height here. (HARD RULE #25 red team.) */
+section.state-chart:where([data-family="tall"], [data-family="strip"]):not(.inline):not(.horizontal) .state-chart-scale { height: 100%; }
 section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-nodes {
   height: 100%;
   justify-content: space-evenly;
@@ -15143,10 +15156,27 @@ section.state-chart .state-marker-line {
 
 /* ── Inline variant (HTML chips, no SVG) ─────────────────────────────── */
 
+/* The figure keeps the base `width: 100%` — it is the positioning context for the absolute
+ * scale box, which would collapse it to zero under a shrink-to-fit width — and keeps the CAP.
+ * The scale box below is `width: max-content`, so an abspos box is capped by its containing
+ * block anyway: same rendered width as the old `width: auto` on the figure, but now out of
+ * flow and therefore fittable (#1360). (An earlier version of this note named a
+ * `max-width: 100%` on the scale box; no such declaration exists — the cap comes from the
+ * figure. Corrected by the HARD RULE #25 red team.) */
 section.state-chart.inline .state-chart-figure,
 section.state-chart.horizontal .state-chart-figure {
-  width: auto;
   max-width: 59.375cqi;
+}
+
+/* `max-content`, NOT the base `fit-content`. A row's transition chips wrap, so a
+ * shrink-to-fit width is self-defeating here: the box narrows, the chips wrap onto
+ * extra lines, and the natural height GROWS (measured: 342x520 at fit-content
+ * against 342x434 in flow) — the letterbox then pays for wrapping nobody asked for.
+ * max-content pins the rows at their unwrapped width and lets applyFit() letterbox
+ * both axes, which is what the default variant already does. */
+section.state-chart.inline .state-chart-scale,
+section.state-chart.horizontal .state-chart-scale {
+  width: max-content;
 }
 
 section.state-chart.inline .state-rows,
@@ -15207,12 +15237,20 @@ section.state-chart.horizontal .state-node-row .state-label {
   font-weight: 500;
 }
 
+/* The badge is LARGER on the inline variant than on the default, and the difference is
+ * the letterbox. At the shared 0.703125cqi it computes to ~8.1px here — 1.125% of slide
+ * height against a 1.00% legibility floor, i.e. 11% of headroom — so ANY fit below
+ * k = 0.888 pushed it under, and `examples/state-chart.md` p6 (k = 0.8233) landed at
+ * 6.67px the moment this variant learned to scale. The default variant does not scale
+ * its own badge into that corner the same way, so it keeps the smaller value.
+ * The numeral is not decoration: the transition chips read "→ 2", which is a reference
+ * to it, so it has to survive the shrink that its own labels survive. */
 section.state-chart.inline .state-node-row .state-index,
 section.state-chart.horizontal .state-node-row .state-index {
   position: absolute;
   top: 0.15625cqi;
   right: 0.46875cqi;
-  font-size: 0.703125cqi; /* cqi-ok: index numeral inside a cqi-sized state node */
+  font-size: 0.875cqi; /* cqi-ok: index numeral inside a cqi-sized state node */
   color: var(--state-index-ink);
 }
 
@@ -18463,7 +18501,8 @@ section.illegible > .illegible-tab {
 /* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
    stays correct at any type scale or preset. */
 /* ── THE CORNER IS A STACK, AND THE GEOMETRY OWNS THE ARITHMETIC ──────────────
-   Three things want `top: 0; right: 0`: the STATUS STAMP (`base.variants.css`,
+   FOUR things want this corner. Three want `top: 0; right: 0`: the STATUS STAMP
+   (`base.variants.css`,
    painted on `section::before` at `z-index: 100`), the clip tab, and the legibility
    tab. Until the HARD RULE #25 round-4 pass only the latter two knew about each other,
    and the pill was moved into the corner on a survey of `lib/components/**` that could
@@ -18491,19 +18530,82 @@ section.illegible > .illegible-tab {
    is round 4's finding re-created by the fix for round 5's. Caught by the HARD RULE #25
    red team on a real export before it reached a reviewer; the truth table below is what
    the canary asserts. */
-section { --corner-stack: 0%; --clip-stack: 0%; }
+/* ── THE FOURTH OCCUPANT: `img.deck-logo` ────────────────────────────────────
+   The three above are engine chrome with engine-owned geometry, so the stack can
+   reason about them. The logo is not: it is the AUTHOR's mark, at
+   `top: var(--frame-inset-y)` / `right: var(--frame-inset-x)`, `4cqi` tall — a box of
+   roughly y 24→75, x 1170→1250 at hd. A bare tab (y 0→23) clears it by one pixel,
+   which is why this went unnoticed; add a status stamp and the 100% reserve lands the
+   tab at y 23→46, INSIDE the mark, and the tab is opaque, so it slices the logo's top
+   off. `logo:` + `confidential` is close to the modal delivered board deck (#1404).
+
+   THE TABS STACK TO ITS LEFT, NOT BELOW IT. Clearing the logo vertically needs ~80px
+   of drop, which would put a marker a third of the way into the slide body — where the
+   note above this block promises no component puts content. Horizontal keeps every
+   occupant inside the top chrome band and leaves the mark untouched, so nothing has to
+   decide whether a transient marker outranks permanent branding: they do not overlap.
+
+   The reserve is the logo's own box, written with the logo's own tokens, so the two
+   cannot drift. It needs `--logo-scale`, which is why that property is now declared on
+   the SECTION rather than in the img's inline style — custom properties inherit
+   downward only, so for as long as it lived on the img no sibling and no section rule
+   could read it, and that invisibility IS the bug. `data-logo-corner` is stamped by the
+   same injectors (one per render path) and only when the author has NOT repositioned
+   the logo with `logo-x`/`logo-y`: a moved logo leaves the corner free, and reserving
+   for a mark that is no longer there would push the marker left for nothing. */
+section { --corner-stack: 0%; --clip-stack: 0%; --corner-logo-reserve: 0px; }
+/* `:has(> img.deck-logo)` as well as the attribute, because the two can disagree. The
+   attribute is stamped on the section's OPEN TAG, and auto-split clones that tag onto the
+   generated cover pages — where the injected `<img>` (a child) does not follow. A cover
+   therefore carried `data-logo-corner` with no mark to reserve for, and pushed the tab
+   ~118px in from the frame edge for nothing: the exact case the comment above says must not
+   happen. Requiring the element makes the reserve follow the LOGO rather than the intent to
+   have one. (HARD RULE #25 red team.) */
+section[data-logo-corner]:has(> img.deck-logo) {
+  --corner-logo-reserve: calc(
+    var(--frame-inset-x) + 6.25cqi * var(--logo-scale, 1) + var(--sp-xs)
+  );
+}
+/* `logo-style: brand` puts the mark on a plate: `padding: 0.4cqi` with
+   `box-sizing: content-box`, so the box grows by 0.8cqi that the reserve above does not
+   count — and `--sp-xs` (0.625cqi) is smaller than that overhang, so the tab overlapped the
+   plate's left edge by ~1px. A hairline, but it falsified the claim beside the reserve that
+   it is "written with the logo's own tokens, so the two cannot drift". Now it is. */
+section[data-logo-corner]:has(> img.deck-logo.deck-logo-brand) {
+  --corner-logo-reserve: calc(
+    var(--frame-inset-x) + 6.25cqi * var(--logo-scale, 1) + 0.8cqi + var(--sp-xs)
+  );
+}
 section.clip-marked { --clip-stack: 100%; }
 section > .overflow-tab { transform: translateY(var(--corner-stack, 0%)); }
 section > .illegible-tab {
   transform: translateY(calc(var(--corner-stack, 0%) + var(--clip-stack, 0%)));
+}
+/* The `[data-logo-corner]` compound is what makes these BITE, not decoration: the
+   rules that anchor each tab (`section.clip-marked > .overflow-tab`,
+   `section.illegible > .illegible-tab`) both declare `right: 0` at (0,2,1), so a plain
+   `section > .overflow-tab` here loses on specificity and the reserve computes but
+   never applies — measured, the tab stayed flush at the frame edge. Equal specificity
+   plus later source order is what wins, and it keeps the arithmetic in this block
+   beside the geometry it belongs to rather than smuggled into the anchor rules. */
+section[data-logo-corner] > .overflow-tab,
+section[data-logo-corner] > .illegible-tab {
+  right: var(--corner-logo-reserve, 0px);
 }
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.
  * Author contract, gotchas, and full rationale at lib/base/_logo/logo.docs.md.
- * Implementation: applyDeckLogoToHtml (lib/engine), inline copy in
- * lattice-emulator.js, applyDeckLogoFromFrontMatter (lattice-runtime.js).
+ * Implementation: applyDeckLogoToHtml (lib/integrations/markdown-it/plugins.js),
+ * which lattice-emulator.js `require`s rather than re-implementing — this note used
+ * to claim an "inline copy" there and there has not been one; plus
+ * applyDeckLogoFromFrontMatter (lattice-runtime.js), the one genuine second
+ * implementation, which must mirror deckLogoVars / deckLogoInCorner.
+ *
+ * The `--logo-*` placement properties are declared on the SECTION, not on this img.
+ * That is what lets the marker stack read them (see --corner-logo-reserve above);
+ * the img picks them up by inheritance, so its own rules are unchanged.
  * ──────────────────────────────────────────────────────────────────── */
 img.deck-logo {
   position: absolute;
@@ -22582,7 +22684,12 @@ section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accen
  * (HARD RULE #25 inversion, round 5, measured shape by shape.)
  *
  * `0` (the default) means "this shape does not occupy the tab's corner". A new stamp
- * shape declares its own value in the rule its author is already writing. */
+ * shape joins one of the THREE grouped rules below — 100% at the corner, 200% for the
+ * tall off-axis shapes, 0% for everything sitting lower or full-bleed. This note used
+ * to say a shape "declares its own value in the rule its author is already writing",
+ * which was never true of the code beneath it: no per-shape rule declares
+ * `--corner-stack`, so a 15th corner-sitting shape added without editing one of those
+ * three lists silently reserves nothing and the tab lands inside it. */
 /* THE SEMANTIC CLASS IS THE GATE, and the shape only MODIFIES the reserve. `content:
    var(--stamp-label)` above is what actually paints, and `--stamp-label` comes from the
    semantic class alone — so a shape class on its own paints nothing. `stamp:` front

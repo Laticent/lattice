@@ -48,7 +48,12 @@ section.state-chart.chart-frame .chart-body {
   width: 100%;
   padding: var(--sp-md) var(--sp-2xl);
   display: flex;
-  flex-direction: column;       /* figure stacks above the status legend band */
+  /* The figure is the only in-flow child on the DEFAULT variant; the status legend
+   * is a SIBLING of .chart-body inside .cell-stage, not a child of it (extractChartBody
+   * wraps the figure alone). This comment used to say the legend stacked here — it
+   * does not, and the `gap` below never applied to it. The legend's band is still
+   * subtracted before the figure is sized, one level up in .cell-stage's column. */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--sp-sm);
@@ -306,7 +311,15 @@ section.state-chart .state-edge {
  * default auto height collapses the fill (the node column strands in the middle).
  * At full height the natural column ≈ the viewport, so the landscape self-scale is
  * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
-section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-chart-scale { height: 100%; }
+/* NOT the inline variant. This rule exists for `.state-nodes { height: 100% }` below, which
+ * only the DEFAULT variant emits — and pinning the scale box to the figure's height makes
+ * `applyFit`'s height ratio exactly 1 by construction, so an over-tall INLINE machine is
+ * letterboxed on width alone and still shears its last row on a portrait deck. Measured on a
+ * 7-state portrait fixture: 933px of rows scaled by 0.7 (width-only) into a 678px figure,
+ * last row cut through the middle — #1360's symptom, surviving #1360's fix. The inline
+ * variant has no `.state-nodes` and no `space-evenly` fill to serve, so it wants its natural
+ * height here. (HARD RULE #25 red team.) */
+section.state-chart:where([data-family="tall"], [data-family="strip"]):not(.inline):not(.horizontal) .state-chart-scale { height: 100%; }
 section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-nodes {
   height: 100%;
   justify-content: space-evenly;
@@ -391,10 +404,27 @@ section.state-chart .state-marker-line {
 
 /* ── Inline variant (HTML chips, no SVG) ─────────────────────────────── */
 
+/* The figure keeps the base `width: 100%` — it is the positioning context for the absolute
+ * scale box, which would collapse it to zero under a shrink-to-fit width — and keeps the CAP.
+ * The scale box below is `width: max-content`, so an abspos box is capped by its containing
+ * block anyway: same rendered width as the old `width: auto` on the figure, but now out of
+ * flow and therefore fittable (#1360). (An earlier version of this note named a
+ * `max-width: 100%` on the scale box; no such declaration exists — the cap comes from the
+ * figure. Corrected by the HARD RULE #25 red team.) */
 section.state-chart.inline .state-chart-figure,
 section.state-chart.horizontal .state-chart-figure {
-  width: auto;
   max-width: 59.375cqi;
+}
+
+/* `max-content`, NOT the base `fit-content`. A row's transition chips wrap, so a
+ * shrink-to-fit width is self-defeating here: the box narrows, the chips wrap onto
+ * extra lines, and the natural height GROWS (measured: 342x520 at fit-content
+ * against 342x434 in flow) — the letterbox then pays for wrapping nobody asked for.
+ * max-content pins the rows at their unwrapped width and lets applyFit() letterbox
+ * both axes, which is what the default variant already does. */
+section.state-chart.inline .state-chart-scale,
+section.state-chart.horizontal .state-chart-scale {
+  width: max-content;
 }
 
 section.state-chart.inline .state-rows,
@@ -455,12 +485,20 @@ section.state-chart.horizontal .state-node-row .state-label {
   font-weight: 500;
 }
 
+/* The badge is LARGER on the inline variant than on the default, and the difference is
+ * the letterbox. At the shared 0.703125cqi it computes to ~8.1px here — 1.125% of slide
+ * height against a 1.00% legibility floor, i.e. 11% of headroom — so ANY fit below
+ * k = 0.888 pushed it under, and `examples/state-chart.md` p6 (k = 0.8233) landed at
+ * 6.67px the moment this variant learned to scale. The default variant does not scale
+ * its own badge into that corner the same way, so it keeps the smaller value.
+ * The numeral is not decoration: the transition chips read "→ 2", which is a reference
+ * to it, so it has to survive the shrink that its own labels survive. */
 section.state-chart.inline .state-node-row .state-index,
 section.state-chart.horizontal .state-node-row .state-index {
   position: absolute;
   top: 0.15625cqi;
   right: 0.46875cqi;
-  font-size: 0.703125cqi; /* cqi-ok: index numeral inside a cqi-sized state node */
+  font-size: 0.875cqi; /* cqi-ok: index numeral inside a cqi-sized state node */
   color: var(--state-index-ink);
 }
 

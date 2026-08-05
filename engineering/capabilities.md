@@ -148,7 +148,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `oracle:check` | Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift. |
 | `overflow:bless` | Re-record the overflow ratchet from the current tree. Lower the floor when you fix slides; raise it only with the PR that justifies the new number. |
 | `overflow:check` | Render every shipped deck (examples + component galleries + the baseline deck) and ratchet the per-deck CLIPPED pages against test/integration/overflow-baseline.json. Catches an engine change that quietly over-subscribes the corpus — nothing else measures fit corpus-wide. On-demand (185 real renders), not a blocking CI gate. |
-| `regress` | Visual regression gate (LOCAL spot-check): render every gallery fresh and pixel-diff it against the committed golden PDF; fails on unblessed drift. |
+| `regress` | Visual regression gate (LOCAL spot-check): render every committed deck fresh and pixel-diff it against its golden PDF; fails on unblessed drift. Covers BOTH scopes — the 75 gallery goldens under lib/ (light+dark) and the 185 single-artifact deck goldens under examples/, exemplars/, design/, themes/ and the CI baseline deck (#1379). `--scope galleries|decks|all` (default all), `--only <gallery-stem|deck/path>`, `--bless`. |
 | `sweep:guide` | Measure what the Guide gesture vocabulary actually does to the committed corpus: render every deck, read its real read-along cues, and run the SHIPPING classifier (`guideCueIn`) over them. Reports the gesture distribution, the match rate, the `_focus:` escalation rate and how often the stroke's own resting place had to fall back to the whitespace search. The thresholds in `chooseGesture` were set from this output (HARD RULE #19 discipline applied to a design constant). On-demand — ~124 full deck renders. |
 | `test` | Full unit suite (node:test). The inner loop. |
 | `test:adaptive` | Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract. |
@@ -305,7 +305,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/emulator-engine-parity.mjs` | Engine ↔ emulator HTML parity harness (P2 step 1 — see |
 | `tools/preview.js` | Preview tool — fast visual-iteration loop for Lattice decks. |
 | `tools/rasterize-for-review.sh` | Rasterize a PDF for inline review at FULL QUALITY. |
-| `tools/regression-gate.mjs` | Render every gallery fresh, pixel-diff it against the committed golden PDF, and fail on unblessed drift. |
+| `tools/regression-gate.mjs` | Render every committed deck fresh, pixel-diff it against its golden PDF, and fail on unblessed drift. |
 | `tools/screenshot-slides.js` | Screenshot each slide of a rendered deck to PNGs (dev helper). |
 | `tools/screenshot.js` | Screenshot a URL to a PNG with the puppeteer-cached Chromium. |
 

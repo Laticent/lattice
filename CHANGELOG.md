@@ -388,6 +388,41 @@ in patch versions.
 
 ### Changed
 
+- **185 committed PDFs now have the watcher the ownership table already credited them with.**
+  `#1279` closed *ownership* — every PDF in `git ls-files` is claimed by a rule naming a producer
+  and a watcher — deliberately without closing *freshness*. The trouble was what went in the
+  watcher column: five rules named `overflow:check`, which renders each deck's **markdown** into a
+  scratch directory, scrapes the console report, and unlinks the PDF it just made. **It never
+  opens the committed artifact.** So the column said `examples/`, the 45 exemplars, the design
+  galleries and the CI baseline deck were watched, and nothing read their bytes; the pre-commit
+  hook only fires when *that deck's markdown* is staged, so an engine change staleified all of
+  them silently. **Measured before deciding, and the issue's stated symptom did not reproduce**:
+  the clipping decks pixel-match their committed PDFs exactly, because their markdown was staged
+  in the PR that changed the probes. The chronic case is the real one — `examples/pricing.pdf` p2
+  differs from a fresh render by **8.9% of the page**, still carrying a larger body type and a
+  narrower measure than the engine now produces, on a deck nothing about which changed. The issue
+  proposed three designs (an input-hash sidecar, a scheduled re-render PR, declaring them
+  unfresh-by-design) and all three build something new; **the answer is that the watcher already
+  exists.** `regression-gate.mjs` renders a deck fresh and pixel-diffs it against the committed
+  golden — its corpus walk simply stopped at `lib/`. `npm run regress` now covers both scopes
+  (`--scope galleries|decks|all`, default all), and the deck corpus is **derived from
+  `git ls-files`** rather than hand-listed, because a hand-kept set of artifacts is silent by
+  default — the lesson `#1279` is entirely about. Three exclusions, each restating a
+  `PDF_OWNERSHIP` rule in force: decision-record evidence (rebuilding destroys what is being
+  evidenced), the Marp kit sample (rendered by real marp-cli on purpose), and the gallery pairs
+  (the other scope). Two details that would have made it false-fail: the render invocation must
+  match the producers' exactly — no CSS path and no palette, so the deck's own `theme:` decides —
+  and mermaid tolerance is chosen by reading each deck for a fence, since these decks are not
+  bucketed. `--bless` rewrites **only what drifted**, promoting the fresh render this run already
+  made, because PDF bytes are not reproducible between runs and a blanket re-render would rewrite
+  all 185 files to land a handful of real changes. **Cost: ~10s per deck, ~35 minutes for the
+  185-deck scope on 4 cores** — the same on-demand tier as `overflow:check`, and it stays out of CI for the
+  reason `ci.yml` already records (Skia's rasterization is not bit-identical across GitHub's
+  runners, which flaked the gallery half at 0.4–2% per run). Stated plainly: this makes drift
+  **findable and provable**, not impossible — an engine change can still staleify these artifacts
+  between sweeps, exactly as with `overflow:check`. See
+  `engineering/decisions/2026-08-04-committed-pdf-freshness.md`. (#1379)
+
 - **`--measure-body`'s floor is measured, and it is 35em — not the 36em that ships.** The
   token holds ~78–83 characters, above the 45–75 band, and its comment calls itself a
   compatibility value because narrower clips shipped decks. Re-derived with the real oracle
@@ -496,6 +531,120 @@ in patch versions.
   ONE default (`DEFAULT_OR_MODEL`, the `~anthropic/claude-sonnet-latest` alias) instead of two
   in two files, pinned by a test. The picker's copy is version-neutral too — it named
   "Sonnet 4" against a `~*-latest` alias that moves.
+- **The overflow ratchet drops to 7, and two of its entries are closed rather than banked.** A full
+  262-deck sweep — run alone — confirms three decks stopped clipping: `examples/state-chart.md` p6 (fixed on this
+  branch), and `examples/gallery-jargon.md` p45 + `test/integration/baseline-decks/gallery.md` p34,
+  which are **one defect seen twice** (#1367 — the same `compare-code` sample) and were already
+  fixed by #1337's `minmax(0, 1fr)` equal tracks. #1361 is closed the same way: `overflow:check` is
+  green on a clean checkout, and the deck it named — `examples/marp-export-fidelity.md` p1 —
+  reproduces at neither `8f19d2d` nor its parent when measured with the gate's own instrument, so it
+  was fixed somewhere between `c946f62` and `cdf8686`. The floor would be **5** but for
+  `examples/marker-corner.md`, this branch's own demo deck, which clips two slides *deliberately* —
+  a marker deck that does not clip demonstrates nothing. Net 8 → 7. No other deck in the corpus
+  moved, which is the corpus-wide evidence that the state-chart and marker-corner changes above
+  introduced no new clipping anywhere. `examples/present-narration-delivery.md` landed from `main`
+  after that sweep, taking the corpus to 263; it was checked separately and is clean, so the
+  banked floor still describes the whole corpus. (#1361, #1367)
+
+- **`setAttr` escapes the attribute values it writes, closing an injection shape CodeQL flagged.**
+  A `"` inside a `"`-quoted attribute *ends* it, so an unescaped value lets the remainder of the
+  string parse as sibling attributes — and this helper's callers include author-derived text
+  (`data-build-axis`, and now the merged `--logo-*` payload). Escaping is what the HTML grammar
+  requires rather than mere defense: a quoted attribute value cannot contain a raw `"` at all. Only
+  `"` is escaped, deliberately — values read back **out** of a tag already carry `&quot;`, and
+  escaping `&` too would double-encode them into `&amp;quot;` and corrupt exactly the value the
+  merge path exists to preserve. Raised by CodeQL on the PR that introduced the merge caller; no
+  committed artifact moves, because no current value carries a raw quote.
+
+- **An author's front matter could break a slide's `<section>` tag open — a defect the corner fix
+  above introduced and the adversarial trio caught.** `setAttr` merged the new `--logo-*` payload
+  into the section's existing inline style with a **string** replacement, and `String.replace`
+  expands `$&`, `` $` `` and `$'` in a replacement. So a deck combining `logo-scale:` with a
+  directive value containing one — `footer: "Q3 · $'25 plan"` is not exotic — spliced the
+  surrounding tag into the attribute: the slide lost `class="content form"` entirely, lost the new
+  `data-logo-corner` with it, and rendered the rest of its own open tag as visible body text; `$&`
+  produced a duplicate `style` attribute nested inside the first. Reachable only because a caller
+  began MERGING rather than creating — `setAttr`'s other branch already passed a function — and
+  invisible on the runtime path, which uses `setProperty`, so the three render paths had silently
+  stopped agreeing. The replacement is a function now, and all four `$` forms are pinned on both
+  branches. Two smaller siblings fixed with it: `logo-style: brand` puts the mark on a
+  `content-box` plate 0.8cqi wider than the reserve counted, so the tab overlapped it by 1px — the
+  same one-pixel near-miss that hid the original defect through five rounds, in the one variant the
+  new canary did not cover; and `data-logo-corner`, being on the section's open tag, was **cloned
+  by auto-split onto cover pages** where the logo itself does not follow, reserving ~118px for a
+  mark that is not there. The reserve now requires `:has(> img.deck-logo)`, so it follows the logo
+  rather than the intent to have one.
+
+- **The marker corner had a fourth occupant it could not see, and a stamped slide sliced the
+  deck logo.** #1365 made the slide's top-right a *stack* because three absolutely-positioned
+  boxes want `top: 0; right: 0` — the status stamp, the clip tab, the legibility tab. There are
+  four: `img.deck-logo` sits in the same corner at the frame inset, roughly y 24→75. Without a
+  stamp the clip tab occupies y 0→23 and clears the mark **by one pixel**, which is why this
+  survived five adversarial rounds; add `confidential` and the stamp's reserve lands the tab at
+  y 23→46, inside the mark, and the tab is opaque — so it took the top off the logo. `logo:` plus
+  `confidential` is close to the modal delivered board deck, on the *reader* register the whole
+  feature exists to serve. **The tabs now stack to the logo's LEFT, not below it**: clearing it
+  vertically needs ~80px of drop, which would put a marker a third of the way into the slide body,
+  where the engine promises no component puts chrome. That dissolves the priority question the
+  issue posed — transient marker versus permanent branding — instead of answering it, because the
+  two no longer overlap. **The real change is not CSS.** The `--logo-*` placement properties were
+  declared in the img's own `style` attribute, and custom properties inherit downward only, so no
+  sibling and no section-level rule could read them — the corner arithmetic was structurally unable
+  to account for the one occupant whose geometry it does not own. They are declared on the
+  `<section>` now (the img reads them by inheritance, so placement is unchanged — the logo gallery
+  matches its committed goldens in both moods, untouched), the reserve is written from the logo's
+  own tokens so the two cannot drift, and a `data-logo-corner` attribute — stamped by every logo
+  injector, and only when the author has not repositioned the mark with both `logo-x` and `logo-y`
+  — is what turns it on. A repositioned logo releases the corner, because a reserve that never
+  releases is how chrome creeps into the body. One trap worth the retelling: the first cut declared
+  the reserve on `section > .overflow-tab`, computed it correctly, and it **never applied** — the
+  rules that anchor each tab declare `right: 0` at (0,2,1) and beat it, so the render looked exactly
+  like the bug. Measured before and after on a real export: the stamped slide's tab moved from
+  x 1104→1280 (overlapping a mark at x 1178→1250) to x 994→1170, an 8px gap. Two `CORNER —`
+  canaries assert logo/tab disjointness **in both axes** — the existing helper is y-only and would
+  have called a horizontal overlap fine — plus the release case; confirmed non-vacuous. Demo deck:
+  `examples/marker-corner.md`. See
+  `engineering/decisions/2026-07-30-overflow-marker-register.md` §Follow-up (2026-08-04). (#1404)
+
+- **A state-chart's `inline` variant now fits its stage like every other variant — it was the one
+  the self-scale never reached.** `examples/state-chart.md` p6 rendered its sixth state, "Archived",
+  as a top sliver with the label gone. The cause was not the letterbox mis-measuring, as the issue
+  supposed: **the letterbox never ran on that slide.** `draw()` is gated twice on
+  `data-sc-transitions` — the serialized SVG edge payload — and `inline` draws its transitions as
+  HTML chips, so it has no edges to serialize and was never visited. Both gates are about edge
+  *routing*, which inline genuinely does not need; neither is about *fitting*, which it needs
+  exactly as much as the rest. So the one presentation that can neither scroll, letterbox nor split
+  had no fit at all, and its rows sat in flow at natural height inside a figure that flex-fills a
+  fixed stage: measured, `.chart-body` client 406 / scroll 458 — **52px hidden**, 434px of rows in a
+  358px figure — with `probeSectionOverflow` reporting `over: false` throughout, because nothing
+  crossed the frame. **A mechanism gap, not an authoring error**, so the fix is the predicate rather
+  than the deck: every inline machine past the stage height was shearing, on every deck. Not silently — the export
+  named the cut item and the ratchet counted the page — but with no fit to prevent it.
+  `renderInline` emits the same `.state-chart-scale` box the default variant uses, the letterbox is
+  split into a shared `applyFit()` (the default variant's path passes the rect it had already
+  measured, so it is untouched byte for byte), and `drawAll()` runs a fit-only pass selected by the
+  **absence** of the edge payload rather than by variant name — so the next presentation that draws
+  no SVG is fitted by construction instead of being left out the way this one was. Two things the
+  first cut got wrong, both caught by measuring: `fit-content` let the box shrink-wrap to 342px,
+  which made the transition chips wrap and grew the natural height 434 → 520 — a narrower box is a
+  taller one here, so the inline scale box is `width: max-content`; and an uncapped fit scaled a
+  3-row machine *up* to own the stage (`k` 1.15–1.34 is normal for the default variant), rendering
+  chips at heading size and contradicting a variant whose own gallery slide is captioned "the chart
+  sits beside its prose" — so the fit is **shrink-only** for inline, declared at the call site with
+  its reasoning, because the failure this whole entry is about is a variant difference left
+  implicit. Nothing caps the shrink direction, and closing that channel is part of this change: the type-floor
+  probe keyed on `svg[viewBox]`, and the inline variant emits no SVG at all, so the first cut of this
+  fix traded a **reported** shear for an **unreported** shrink — measured, a 24-state machine rendered
+  at 3.42px against a 7.2px floor with no warning on any channel. `applyFit` now stamps `data-fit-k`
+  and `probeFigureLegibility` grew a second arm that judges a CSS-letterboxed box on the same floor,
+  so the scale is watched in both directions.
+  **Committed pixels move on exactly one page in each mood** of the state-chart gallery (9.1%, all
+  of it the row column becoming vertically centred now that it is out of flow); the chart bucket
+  gallery does not move, and the default variant's `k` is unchanged on every page. Guarded by a
+  seven-state inline case in `chart-overflow-preserved.test.js` that asserts **hidden pixels and
+  rendered rows** rather than `over` — an `over`-only assertion passes against the broken build —
+  and confirmed non-vacuous (88px hidden with the fix reverted). See
+  `engineering/decisions/2026-07-16-state-chart-self-scale.md` §Follow-up (2026-08-04). (#1360)
 
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose

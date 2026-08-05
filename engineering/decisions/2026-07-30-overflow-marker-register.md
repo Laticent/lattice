@@ -809,3 +809,190 @@ issue numbers. `stage.css`'s `align-middle` / `fill-center` / `align-bottom` /
 `fill-anchor` are UNIVERSAL modifiers riding on every component, and the inversion
 reproduced whole-item loss with a bare `_class: list align-middle`. 34 alignments carry
 `safe` now, including the chart family's `.chart-body` and both mermaid wrappers.
+
+---
+
+## Follow-up (2026-08-04) — #1404: the corner's fourth occupant
+
+The section above made the corner a **stack** because three absolutely-positioned
+boxes want `top: 0; right: 0`. There are four. `img.deck-logo` sits in the same corner
+at the frame inset — roughly y 24→75, x 1170→1250 at hd — and the stack could not see
+it.
+
+### Why it hid for so long
+
+Without a stamp the clip tab occupies y 0→23 and clears the mark by **one pixel**. Add
+a status stamp and the 100% reserve lands the tab at y 23→46, inside the mark; the tab
+is opaque, so it takes the top off the logo. `logo:` + `confidential` is close to the
+modal delivered board deck, and it is the **reader** register — the one this whole
+register exists to serve.
+
+The near-miss is the entire reason it survived five adversarial rounds: every fixture
+that exercised the corner was logo-less, and the one arrangement that collides needs
+two independent deck features at once.
+
+### The reserve is horizontal, and that is the design decision
+
+The issue framed it as a priority question — *a marker is transient and a logo is
+permanent, which owns the corner?* That framing has no good answer, so the fix
+dissolves it: **they do not overlap.**
+
+Clearing the mark **vertically** needs ~80px of drop, which puts a marker a third of
+the way into the slide body — where the block comment two screens up promises no
+component puts content. So the tabs stack to the logo's **left** instead. Every
+occupant stays inside the top chrome band, and nothing has to rank branding against
+diagnostics.
+
+The reserve is the logo's own box written with the logo's own tokens
+(`--frame-inset-x + 6.25cqi * --logo-scale + --sp-xs`), so the two cannot drift.
+
+### What actually had to change, and why it is not just CSS
+
+`--logo-scale`, `--logo-x`, `--logo-y`, `--logo-anchor-right` and `--logo-nudge` were
+declared in the **img's own `style` attribute**. Custom properties inherit *downward*
+only, so no sibling and no section-level rule could read them. **That invisibility is
+the bug**, not a detail of it: the corner arithmetic was structurally unable to
+account for the one occupant whose geometry it did not own.
+
+They are declared on the **`<section>`** now. The img reads them by inheritance, so
+placement is unchanged — confirmed by the logo gallery matching its committed goldens
+in both moods, untouched.
+
+Two further things follow:
+
+- **`data-logo-corner`** is stamped by the injectors, and only when the author has NOT
+  set both `logo-x` and `logo-y`. A repositioned mark leaves the corner free, and a
+  reserve that never releases is how chrome creeps into the body. A *lone* axis is
+  ignored by the placement code, so it still claims the corner — the attribute follows
+  the placement rule rather than restating it.
+- **The section's existing inline style is preserved, not replaced.** Every Lattice
+  section from a deck with a `class:` directive already carries `style="--class:…"`,
+  and Marp background directives write one too. `setAttr` overwrites, so the injector
+  reads the prior value and prepends — which also leaves a later author declaration
+  winning, the safer direction to lose.
+
+### The cascade trap, measured
+
+The first cut declared `right: var(--corner-logo-reserve)` on `section > .overflow-tab`.
+The reserve computed correctly and **never applied**: the rules that anchor each tab
+(`section.clip-marked > .overflow-tab`, `section.illegible > .illegible-tab`) declare
+`right: 0` at specificity (0,2,1), and a bare `section > .overflow-tab` is (0,1,1). The
+tab stayed flush at the frame edge and the render looked exactly like the bug.
+
+Worth recording because it is the same shape as this file's typed-fallback trap: the
+arithmetic was right and something in the cascade quietly discarded it. The rule carries
+the `[data-logo-corner]` compound now — equal specificity, later source order — which
+keeps the arithmetic in the block that owns it rather than smuggling it into the anchor
+rules.
+
+### Verified
+
+Real emulator export at `--overflow-marker=reader`, computed geometry rather than eye:
+
+| | clip tab | logo | overlap |
+|---|---|---|---|
+| plain slide, before | y 4→27, x 1104→1280 | y 28→74, x 1178→1250 | no (by 1px) |
+| **stamped slide, before** | y 27→50, x 1104→1280 | y 28→74, x 1178→1250 | **YES** |
+| plain slide, after | y 4→27, x 994→1170 | unchanged | no |
+| **stamped slide, after** | y 27→50, x 994→1170 | unchanged | **no** — 8px gap |
+
+Then rasterized and looked at: stamp flush in the corner, pill to its left one row
+down, mark whole.
+
+Two canaries in `content-clipped-pill.test.js`, in the existing `CORNER —` idiom: one
+asserts logo/tab disjointness **in both axes** with and without a stamp (the existing
+`disjoint` is y-only and would call a horizontal overlap fine), one asserts a
+repositioned logo releases the reserve. Confirmed non-vacuous — with the reserve rule
+removed the first fails. Unit tests cover the section-vs-img placement, the style
+merge, and `data-logo-corner`'s three cases.
+
+The canary's logo `src` is **absolute on purpose**: `renderAt` writes its deck into
+`.scratch/`, and a relative `logo:` resolves against the output directory rather than
+the deck (#1406), so a relative path would have rendered no logo and passed for the
+wrong reason.
+
+### What this leaves open
+
+- **#1406** — the relative-`logo:` resolution bug above. It also means
+  `check-overflow-corpus.js`, which renders every deck into a temp dir, has never
+  measured a logo-bearing slide *with its logo present*. This collision was
+  structurally invisible to the corpus gate, which is worth more than the one defect.
+- **`stamp-flag` / `stamp-pin` versus the logo.** Both hang from the top edge at
+  `right: 8%` / `11%`, which puts them near the mark's own column independently of the
+  marker tabs. Not reproduced here and not addressed; the reserve above does not apply
+  to `section::before`.
+- **The `.slide-corner` flex column** that round 5 proposed remains unbuilt, and this
+  change is deliberately not it. Mapped honestly, it is ~10x the blast radius — five of
+  the thirteen stamp shapes are not corner boxes at all (two full-bleed, one a 45°
+  banner, two hanging off-axis), so it splits the vocabulary rather than unifying it,
+  and it moves the stamp off `section::before` where ten mark treatments and two anchor
+  layouts also squat. That squat is real and pre-existing; it is not what #1404 is.
+
+### What the adversarial trio changed (HARD RULE #25), round 6
+
+Three lenses on the frozen diff. Between them they found one defect that was **worse than
+the bug being fixed**, and four smaller ones — the pattern being that every finding lived
+where a *near miss* had been mistaken for a clearance.
+
+**Red team — an author's front matter could break the slide open.** The corner fix merges
+`--logo-*` into the section's existing `style`, and `setAttr` did that with a **string**
+replacement. `String.replace` expands `$&`, `` $` `` and `$'` in the replacement, so a
+value carrying one splices the surrounding tag into itself. Measured, with
+`footer: "Q3 · $'25 plan"` on a deck that also sets `logo-scale`:
+
+```html
+<section … style="--logo-scale:1.5;--footer: class="content form">
+```
+
+The slide lost `class="content form"` entirely, lost `data-logo-corner` with it, and
+rendered the rest of its own open tag as body text. `$&` produced a duplicate `style`
+attribute nested inside the first. **This was reachable only because a caller began
+MERGING rather than creating** — `setAttr`'s other branch already passed a function — so
+the diff introduced it. The replacement is a function now, and
+`collections-attrs.test.js` pins all four `$` forms on both branches. The runtime path
+uses `setProperty` and was never affected, which is itself the tell: the three render
+paths had silently stopped agreeing.
+
+**Red team + checker, independently — `logo-style: brand` overlapped by one pixel.** The
+plate adds `padding: 0.4cqi` at `box-sizing: content-box`, so the mark's box is `0.8cqi`
+wider than the reserve's `6.25cqi * scale` term, and the gap token absorbing it is only
+`0.625cqi`. That is the *same one-pixel near-miss* that hid the original defect through
+five rounds, in the one variant the new canary did not cover. Both the reserve and the
+canary now carry the brand case.
+
+**Red team — the reserve fired on slides with no logo.** `data-logo-corner` is stamped on
+the section's open tag, and auto-split **clones that tag** onto its generated cover pages,
+where the injected `<img>` (a child) does not follow. Measured on `examples/cover-paginate.md`:
+five covers carrying the attribute with `logos=0`, reserving ~118px for a mark that is not
+there — precisely what the reserve's own comment says must not happen. The rule requires
+`:has(> img.deck-logo)` now, so the reserve follows the **logo** rather than the intent to
+have one.
+
+**Checker — two implementations of one contract, and no gate.** `deckLogoVars` /
+`deckLogoInCorner` in `plugins.js` and `applyLogoPlacement` in `lib/runtime/index.js` were
+hand-kept copies of the same clamps and the same both-axes rule. They agreed, on
+inspection, on every input the checker enumerated — and nothing failed if one changed,
+while `logo.docs.md` asserted that a change "must land in the runtime in the same commit
+(HARD RULE #1)". The clamps and the predicate are now ONE exported function
+(`deckLogoPlacement`) that the runtime imports, so there is nothing left to drift.
+
+**Red team — a latent concatenation landmine.** `deckLogoVars` emitted no trailing `;`,
+and `applyRails` appends into an existing style with no separator of its own. Chained,
+that yields `--logo-nudge:translate(-50%, -50%)--lat-split-offset:2;`, invalidating both
+declarations. Unreachable today only because the directive mirror always writes a trailing
+`;` first — a fact about a different file. Terminated.
+
+**Where the trio confirmed the design:** the horizontal reserve rather than a vertical
+one; dissolving the ownership question instead of ranking the occupants; declining round
+5's `.slide-corner` column (the blast-radius argument "checks out" — five of the thirteen
+stamp shapes are not corner boxes at all); the `--logo-*` move to the section; and the
+specificity compound that makes the reserve bite.
+
+**Left open, and now named rather than implied:** the inversion's point that the corner is
+governed by **pairwise** reserves, so each new occupant costs O(N) arithmetic — and that
+the diff's own §"Still open" already lists the pair it did not do (`stamp-flag` /
+`stamp-pin` versus the logo, which measures as a ~7px x-overlap at hd). The cheaper
+version of round 5's proposal — a `.slide-corner` column over **the two tabs and the logo
+only**, leaving the stamp on `::before` — was never priced, and the argument recorded above
+answers the expensive version of it. That is the ticket to open before a fifth occupant
+arrives, not this PR.

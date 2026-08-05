@@ -73,6 +73,14 @@ test/integration/**/*.html
 # a `.regr-*.pdf` left behind by a killed-mid-run. Re-ignore the whole family.
 lib/components/**/.regr-*
 lib/base/**/.regr-*
+# The `decks` scope (#1379) renders into FIVE more directories for the same reason —
+# the emulator resolves a deck's relative assets against the output path — so the same
+# killed-mid-run hazard now exists beside every committed deck, not just the galleries.
+examples/**/.regr-*
+exemplars/**/.regr-*
+design/.regr-*
+themes/.regr-*
+test/integration/baseline-decks/.regr-*
 
 # emulator render sidecars next to the palette-audit deck
 themes/*.html

@@ -607,7 +607,50 @@ describe('markdown-it-plugins', () => {
     const html = '<section id="1" data-lattice-slide="1"><h1>Title</h1></section>';
     const md = '---\nlogo: ./acme.svg\n---\n';
     const out = plugins.applyDeckLogoToHtml(html, md);
-    assert.match(out, /<section id="1" data-lattice-slide="1"><img[^>]*class="deck-logo[^>]*><h1>Title<\/h1><\/section>/);
+    // Deliberately NOT pinned to the section's exact attribute list — the injector also
+    // stamps `data-logo-corner` now, and a whole-tag regex here made an unrelated
+    // attribute addition look like a positioning regression. What matters is that the
+    // img is the FIRST thing after the section's open tag.
+    assert.match(out, /<section [^>]*data-lattice-slide="1"[^>]*><img[^>]*class="deck-logo[^>]*><h1>Title<\/h1><\/section>/);
+  });
+
+  test('applyDeckLogoToHtml: the --logo-* props land on the SECTION, not on the img', () => {
+    // Custom properties inherit downward only. While these sat in the img's own style
+    // attribute, no sibling and no section-level rule could read them — which is why
+    // the marker stack could not see the logo it was colliding with (#1404). The img
+    // still reads them by inheritance, so placement is unchanged.
+    const html = '<section id="1" data-lattice-slide="1"></section>';
+    const md = '---\nlogo: ./acme.svg\nlogo-scale: 1.5\n---\n';
+    const out = plugins.applyDeckLogoToHtml(html, md);
+    const sectionTag = out.match(/<section [^>]*>/)[0];
+    const imgTag = out.match(/<img [^>]*>/)[0];
+    assert.match(sectionTag, /--logo-scale:1\.5/, 'the section carries the placement vars');
+    assert.doesNotMatch(imgTag, /--logo-/, 'the img must NOT carry them — a sibling could not read them there');
+  });
+
+  test('applyDeckLogoToHtml: an existing section style is PRESERVED, not overwritten', () => {
+    // Every Lattice section from a deck with a `class:` directive carries `style="--class:…"`,
+    // and Marp background directives write one too. `setAttr` replaces, so merging is the
+    // whole point; prepending also leaves a later author declaration winning.
+    const html = '<section id="1" data-lattice-slide="1" style="--class:content;"></section>';
+    const md = '---\nlogo: ./acme.svg\nlogo-scale: 1.5\n---\n';
+    const out = plugins.applyDeckLogoToHtml(html, md);
+    assert.match(out, /--class:content;/, 'REGRESSION: the section lost its own inline style');
+    assert.match(out, /--logo-scale:1\.5/);
+    assert.equal((out.match(/style="/g) || []).length, 1, 'exactly one style attribute — a duplicate is silently dropped');
+  });
+
+  test('applyDeckLogoToHtml: `data-logo-corner` marks a logo that is actually IN the corner', () => {
+    const html = '<section id="1" data-lattice-slide="1"></section>';
+    const corner = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\n---\n');
+    assert.match(corner, /data-logo-corner=""/, 'a default logo sits in the corner the marker tabs share');
+    // Repositioned with BOTH axes: the corner is free again, so the tabs must not
+    // reserve width for a mark that is no longer there.
+    const moved = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\nlogo-x: 50\nlogo-y: 84\n---\n');
+    assert.doesNotMatch(moved, /data-logo-corner/, 'a repositioned logo must NOT claim the corner');
+    // A LONE axis is ignored by the placement code, so the logo stays in the corner.
+    const halfMoved = plugins.applyDeckLogoToHtml(html, '---\nlogo: ./acme.svg\nlogo-x: 50\n---\n');
+    assert.match(halfMoved, /data-logo-corner=""/, 'a lone axis does not move the logo, so the corner is still claimed');
   });
 
   test('applyDeckLogoToHtml: ignores literal <section> text inside code blocks (no `data-lattice-slide`)', () => {

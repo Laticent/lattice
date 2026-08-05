@@ -17,7 +17,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { mergeClass, addClassToFirstTag } = require('../../../lib/core/collections');
+const { mergeClass, addClassToFirstTag, setAttr } = require('../../../lib/core/collections');
 const { readAttr, readClassAttr } = require('../../../lib/core/section-walk');
 
 describe('collections — class/attribute helpers', () => {
@@ -82,6 +82,59 @@ describe('collections — class/attribute helpers', () => {
     test('a bare attribute string with no leading whitespace still reads', () => {
       assert.equal(readClassAttr('class="a b"'), 'a b');
       assert.equal(readAttr('id="x" class="a"', 'id'), 'x');
+    });
+  });
+
+  describe('setAttr treats the VALUE as literal, never as a replacement pattern', () => {
+    // `String.replace` with a string replacement expands `$&`, `` $` ``, `$'` and `$n`.
+    // While `setAttr` only ever CREATED attributes that was unreachable; the moment a
+    // caller merged into an existing one (#1404's logo vars into the section's style) an
+    // author's front matter could splice the surrounding tag into the attribute value.
+    // `footer: "Q3 · $'25 plan"` cost the section its `class` and rendered the rest of
+    // the open tag as body text on the slide. Found by the HARD RULE #25 red team.
+    const WITH_STYLE = '<section id="1" style="--footer:x;">';
+
+    test('$-prefixed sequences survive verbatim on the REPLACE branch', () => {
+      for (const val of ["--a:$'", '--a:$&', '--a:$`', '--a:$1', "--a:$'$&$`"]) {
+        assert.equal(
+          setAttr(WITH_STYLE, 'style', val),
+          `<section id="1" style="${val}">`,
+          `REGRESSION: setAttr expanded a $-sequence in ${JSON.stringify(val)} — pass a FUNCTION to `
+          + 'String.replace, or an author value carrying $\' splices the tag into itself.',
+        );
+      }
+    });
+
+    test('and on the CREATE branch, which was always safe and must stay so', () => {
+      const val = "--a:$'";
+      assert.equal(setAttr('<section id="1">', 'style', val), `<section id="1" style="${val}">`);
+    });
+
+    test('a raw double quote in the value cannot open a sibling attribute', () => {
+      // CodeQL `js/incomplete-html-attribute-sanitization`, raised on this PR. A `"` inside
+      // a `"`-quoted attribute ENDS it, so an unescaped value lets the remainder become
+      // sibling attributes — and `setAttr`'s callers include author-derived text
+      // (`data-build-axis`). Escaping is what the HTML grammar requires, not just defense.
+      const out = setAttr('<section id="1">', 'data-x', 'a" onload=alert(1) b');
+      assert.match(out, /data-x="a&quot; onload=alert\(1\) b"/);
+      // The injection shape is a RAW quote followed by what would parse as a new attribute.
+      assert.doesNotMatch(out, /"\s+onload=/, 'the payload must not break out into a sibling attribute');
+      assert.equal((out.match(/"/g) || []).length, 4, 'exactly two quoted attributes, no stray quote');
+    });
+
+    test('an ALREADY-escaped value is preserved, not double-encoded', () => {
+      // `prior` values are read back OUT of a tag, so an embedded quote is already `&quot;`.
+      // Escaping `&` too would turn that into `&amp;quot;` and corrupt a value this function
+      // exists to preserve — which is why only `"` is escaped.
+      const out = setAttr('<section style="--f:&quot;q&quot;;">', 'style', '--a:1;--f:&quot;q&quot;;');
+      assert.match(out, /style="--a:1;--f:&quot;q&quot;;"/);
+      assert.doesNotMatch(out, /&amp;quot;/);
+    });
+
+    test('the replace branch still replaces rather than duplicating', () => {
+      const out = setAttr(WITH_STYLE, 'style', '--b:2');
+      assert.equal((out.match(/style="/g) || []).length, 1);
+      assert.match(out, /style="--b:2"/);
     });
   });
 });

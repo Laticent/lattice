@@ -291,7 +291,12 @@ section.revised      { --stamp-label: "Revised";      --stamp-color: var(--accen
  * (HARD RULE #25 inversion, round 5, measured shape by shape.)
  *
  * `0` (the default) means "this shape does not occupy the tab's corner". A new stamp
- * shape declares its own value in the rule its author is already writing. */
+ * shape joins one of the THREE grouped rules below — 100% at the corner, 200% for the
+ * tall off-axis shapes, 0% for everything sitting lower or full-bleed. This note used
+ * to say a shape "declares its own value in the rule its author is already writing",
+ * which was never true of the code beneath it: no per-shape rule declares
+ * `--corner-stack`, so a 15th corner-sitting shape added without editing one of those
+ * three lists silently reserves nothing and the tab lands inside it. */
 /* THE SEMANTIC CLASS IS THE GATE, and the shape only MODIFIES the reserve. `content:
    var(--stamp-label)` above is what actually paints, and `--stamp-label` comes from the
    semantic class alone — so a shape class on its own paints nothing. `stamp:` front
