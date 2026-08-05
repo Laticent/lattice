@@ -52,6 +52,30 @@ in patch versions.
   unfixed component: they report 11px of chevron spill at the 700px tablet floor in exactly the
   state where every pre-existing guard reads green. (#1417)
 
+- **Guide gestures instead of following.** Present's Guide rung moved on every SENTENCE and had
+  one verb — go somewhere — so a dense slide got six or eight trips, several of them between two
+  sentences of the same paragraph. It now moves on the BLOCK: a cue that resolves to the same
+  element as the last one is a rest, so a five-sentence paragraph gets one gesture and then a
+  still hand. Which gesture is chosen by the SHAPE of the thing being named — a sweep along one
+  line of prose, a ring round a stat, a highlighter behind a phrase inside a paragraph, an
+  outline around a card, a ripple on something small — and it escalates where the deck itself
+  said what matters, by composing with the existing `_focus:` grammar rather than inventing a
+  second notion of importance: a `_focus`-tagged element inside the matched block becomes the
+  thing named, at heavier weight. The pointer's position is now a consequence of the gesture's
+  own stroke geometry, so it clears the text by construction; #1403's whitespace search survives
+  only as the fallback for when the stroke's natural ending is occupied.
+
+- **Vetrina learns a deictic gesture vocabulary.** The alphabet gains four members — `underline`
+  ("this line"), `wash` ("these words"), `bracket` ("this whole block") and `tap` ("this one") —
+  which name a piece of the HOST's content rather than reporting the tour's own state, and which
+  a caller picks by the shape of the thing being named. They share one property the existing cues
+  do not: the cursor's position is a consequence of the stroke, so it comes to rest outside the
+  thing it just named by construction instead of being placed and then checked. `gesture()` takes
+  an options bag (`strength`, `clearance`, `rest`), `gestureRest()` is exported so a host can ask
+  where a gesture will leave the cursor, and `RectSource` gains an optional `getClientRects()` so
+  a phrase that wraps is highlighted per line instead of as one lying rectangle. Every addition is
+  defaulted: with no options passed, `circle` and every existing tour are byte-identical.
+
 - **Designed, not built: giving a shared deck a voice.** `engineering/decisions/2026-08-04-shared-deck-narration-audio.md`
   answers the five open questions on #1393 — format (inline data URIs), size (opt-in, with the
   megabytes named before the write), staleness (ship what is cached, report coverage, never
