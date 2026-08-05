@@ -815,9 +815,12 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   wrong. Two confirmed causes, both on decks that ship here: a **1→N expansion** (`_focusSteps`
   clones one slide into a section per step — `examples/focus.md` is 11 authored → 14 sections;
   `split: headings` divides one chunk at every heading — `examples/split-headings.md` is 1 → 7),
-  and **splitter disagreement** (the engine's `splitOnHr` breaks on ANY markdown-it `hr` —
-  `***`, `___`, `- - -`, `---` with trailing spaces — while the Studio's `SEP_RE` in
-  `docs/src/components/studio/lint.ts` matches only a bare `\n---\n`). So a host passes
+  and — until 2026-08-05 — **splitter disagreement**: the engine's `splitOnHr` breaks on ANY
+  markdown-it `hr` (`***`, `___`, `- - -`, `--- `, `----`, an indented `---`) while the Studio
+  matched only a bare `\n---\n`, so six forms split for the engine and not for the caller.
+  **That cause is retired** — the Studio derives boundaries from the engine's own rule
+  (`lib/core/slide-boundaries.mjs`, #1271), so the counts agree. The 1→N expansion above
+  REMAINS, so the guard is still load-bearing. So a host passes
   `slideCount` and `slideMarkdown` alongside `slideIndex`: narrowing happens only when the
   engine's section count agrees, and otherwise the shown slide is re-rendered alone and
   honestly numbered 1 of 1. **Right slide always; true number only when provably true.**

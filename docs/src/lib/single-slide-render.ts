@@ -200,11 +200,13 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string): boolean {
 //   · a 1→N EXPANSION — `_focusSteps` clones one authored slide into a step per section
 //     (`examples/focus.md`: 11 authored → 14 sections), and `split: headings` divides one
 //     chunk at every heading (`examples/split-headings.md`: 1 → 7);
-//   · SPLITTER DISAGREEMENT — the engine's `splitOnHr` (lib/engine/slides.js) breaks on ANY
-//     markdown-it `hr` (`***`, `___`, `- - -`, `---` with trailing spaces), while the Studio's
-//     `SEP_RE` (docs/src/components/studio/lint.ts) is `/\n-{3,}\n/` — three-or-more hyphens alone
-//     on a line, nothing after them — so `***`, `___`, `- - -` and a trailing space split for the
-//     engine and not for the Studio.
+//   · SPLITTER DISAGREEMENT — RETIRED as a cause (2026-08-05, #1271). It used to be the second
+//     half of this list: the engine's `splitOnHr` breaks on ANY markdown-it `hr` (`***`, `___`,
+//     `- - -`, `--- `, `----`, an indented `---`) while the Studio matched only a bare
+//     `/\n-{3,}\n/`, so six forms split for the engine and not for the caller. The Studio now
+//     derives boundaries from the engine's own rule (`lib/core/slide-boundaries.mjs`), so the
+//     counts agree on every one of them. The 1→N expansion above is the cause that REMAINS, and
+//     the guard below is still load-bearing for it.
 // So the caller passes the count it believes (`slideCount`) and narrowing happens ONLY when the
 // engine agrees. On disagreement `narrowToSlide` returns null and the caller re-renders the one
 // slide alone — the pre-deck-context behavior: the RIGHT slide with a "1 of 1" number. Right
