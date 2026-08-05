@@ -1026,9 +1026,19 @@ in patch versions.
   box by the row's end padding — every overflow figure above reads ~10px higher, and truer, than it
   did before. That re-basing also moved the guard's own headroom number (35px → 25px for an
   unchanged row), which is why `MIN_SPARE_AT_FLOOR` now records its measurement basis alongside its
-  value: a budget compared against the wrong ruler is worse than no budget. Chrome's *default* font
-  size at Large (20px) already overflowed before this change and overflows less after it. No gate
-  varies font settings, so the numbers above are a measurement, not a guarded invariant.
+  value: a budget compared against the wrong ruler is worse than no budget.
+
+  **Correcting a claim this entry made when it first landed:** it said Chrome's *default* font size
+  at Large already overflowed before this change and "overflows less after it". That is backwards.
+  Built and measured on both sides at 700px — the header before this change against the header
+  after — `header.scrollWidth - clientWidth` at `defaultFontSize: 20` is **12px before and 85px
+  after**; at 24px, **152 before and 222 after**. (Part of that gap is the ruler: the old header's
+  `overflow: visible` under-reports by its ~12px end padding. It does not close it.) Words scale
+  where icons don't, so on this axis the labeled dial is meaningfully worse — and the honest
+  summary is the one the scroll fix makes available: the row goes over sooner, and the tail stays
+  reachable at every size instead of leaving the screen. No gate varies font settings, so every
+  number here is a measurement rather than a guarded invariant; all of them are cold loads at 700px
+  with the Build stop seeded, which is what makes them reproducible.
   Fixes #1381, #1401.
 
 - **`check:overflow` now measures rows that clip, not just pages that grow.** The guard asserted

@@ -206,35 +206,61 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 			await button.click();
 			// The step really happened — see the note on STOPS above.
 			await expect(button, `${stop.word} @ ${width}px should be the lit stop`).toHaveAttribute('aria-pressed', 'true');
-			// …and the dial SHOWS the word, not just the icon (#1401). The claim being
-			// guarded is "a sighted user can READ this stop", and each cheap proxy for it
-			// leaks somewhere — measured against 13 hostile mutations of the label span:
-			//   `toHaveText`          reads textContent; blind to all CSS.
-			//   `toBeVisible`         catches `display:none` / `visibility:hidden` / zero
-			//                         box — but PASSES `sr-only`, `clip-path: inset(50%)`,
-			//                         Radix `VisuallyHidden`, `opacity: 0`.
-			//   `boundingBox() > 0`   PASSES `sr-only`: that idiom leaves a 1x1 box.
-			// `sr-only` is not a hypothetical: it is the standard "keep the accessible
-			// name, drop the visual" move — exactly what someone reaches for the next time
-			// this row runs out of width, and precisely the regression #1401 exists to
-			// prevent. So the assertion is the conjunction below, and the word must be big
-			// enough to be a word (a 4-letter label is ~28px; 8px catches every collapsed
-			// or clipped form), opaque enough to see, and not painted in the void.
+			// …and the dial SHOWS the word (#1401). "Shows" is the hard part: every cheap
+			// proxy leaks, and enumerating CSS shapes is a losing game — the previous version
+			// of this block listed eight of them and still let `clip-path: inset(50%)` through,
+			// because that idiom hides a word without touching its box. So the check is mostly
+			// GENERAL rather than a list: does the browser actually paint this span, here?
+			//   `toHaveText`            reads textContent; blind to all CSS.
+			//   `toBeVisible`           catches display/visibility/zero-box only.
+			//   box >= 8x6              catches `sr-only` and every 1x1 collapse.
+			//   opacity + ink alpha     catches `opacity: 0` and `color: transparent` — parsed
+			//                           from ANY color syntax, since this app's tokens resolve
+			//                           to `oklch(… / a)` and `color(… / a)`, not just `rgba()`.
+			//   `clipPath === 'none'`   catches the modern visually-hidden idiom.
+			//   hit test at its center  catches what no property check can: painted off-screen,
+			//                           clipped by an ancestor, or covered. If the browser does
+			//                           not return this node (or its own subtree/ancestry) at the
+			//                           middle of its own box, a human is not reading it there.
 			await expect(button, `${stop.word} @ ${width}px should render its word`).toHaveText(new RegExp(stop.word));
 			const word = button.getByText(stop.word, { exact: true });
 			await expect(word, `${stop.word} @ ${width}px should be VISIBLE, not just present`).toBeVisible();
 			const legible = await word.evaluate((el) => {
 				const r = el.getBoundingClientRect();
 				const cs = getComputedStyle(el);
-				const alpha = (c: string) => {
-					const m = c.match(/rgba?\(([^)]+)\)/);
-					return m ? Number((m[1].split(',')[3] ?? '1').trim()) : 1;
+				// Alpha out of any CSS color: modern syntaxes put it after a slash
+				// (`oklch(.5 0 0 / 0)`, `color(srgb 0 0 0 / 0)`), legacy `rgba()` puts it
+				// fourth. Percentages count too.
+				const alphaOf = (color: string) => {
+					const slash = color.match(/\/\s*([0-9.]+%?)\s*\)/);
+					if (slash) return slash[1].endsWith('%') ? Number.parseFloat(slash[1]) / 100 : Number(slash[1]);
+					const legacy = color.match(/rgba?\(([^)]+)\)/);
+					if (legacy) {
+						const parts = legacy[1].split(',');
+						return parts.length > 3 ? Number(parts[3].trim()) : 1;
+					}
+					return color === 'transparent' ? 0 : 1;
 				};
-				return { width: Math.round(r.width), opacity: Number(cs.opacity), inkAlpha: alpha(cs.color) };
+				// `hit === el` or one of ITS OWN descendants — deliberately not "an ancestor
+				// was hit". An ancestor showing through at the label's centre is the signature
+				// of the label being clipped away, so accepting it would have passed exactly the
+				// case this is here to catch (measured: a zero-width `overflow: hidden` wrapper).
+				const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+				return {
+					width: Math.round(r.width),
+					height: Math.round(r.height),
+					opacity: Number(cs.opacity),
+					inkAlpha: alphaOf(cs.color),
+					clipPath: cs.clipPath,
+					paintedHere: !!hit && (hit === el || el.contains(hit)),
+				};
 			});
-			expect(legible.width, `${stop.word} @ ${width}px is collapsed or clipped (sr-only, clip-path, VisuallyHidden all land here)`).toBeGreaterThanOrEqual(8);
+			expect(legible.width, `${stop.word} @ ${width}px is collapsed or clipped (sr-only and friends land here)`).toBeGreaterThanOrEqual(8);
+			expect(legible.height, `${stop.word} @ ${width}px has no height`).toBeGreaterThanOrEqual(6);
 			expect(legible.opacity, `${stop.word} @ ${width}px is transparent`).toBeGreaterThan(0.1);
 			expect(legible.inkAlpha, `${stop.word} @ ${width}px is painted in a transparent color`).toBeGreaterThan(0.1);
+			expect(legible.clipPath, `${stop.word} @ ${width}px is clipped away (the modern visually-hidden idiom)`).toBe('none');
+			expect(legible.paintedHere, `${stop.word} @ ${width}px is not painted where its box says it is (off-screen, ancestor-clipped, or covered)`).toBe(true);
 
 			const shape = await readHeaderSettled(page, TAIL, CHROME.moreControls);
 			expect(shape.over, `header self-overflow at ${width}px on ${stop.word}`).toBeLessThanOrEqual(TOLERANCE);

@@ -1206,7 +1206,12 @@ describe('StudioShell — the posture dial keeps its words at every width it ren
 			// The real visibility oracle is the browser spec (`e2e/studio-header-fit.spec.ts`).
 			const label = [...b.querySelectorAll('span')].find((el) => el.textContent === word);
 			expect(label, `${word} should render in its own span`).toBeDefined();
-			expect(label?.className ?? '', `${word}'s label must not be hidden or sr-only`).not.toMatch(/\bhidden\b|\bsr-only\b/);
+			// Class TOKENS, not a substring match. `/\bhidden\b/` also matches
+			// `overflow-hidden` — the `-` is a word boundary — so a perfectly visible label
+			// carrying that utility would have failed the blocking gate for no reason.
+			const classes = (label?.className ?? '').split(/\s+/).filter(Boolean);
+			const hiding = classes.filter((c) => c === 'hidden' || c === 'invisible' || c === 'sr-only' || c === 'opacity-0' || c.endsWith(':hidden'));
+			expect(hiding, `${word}'s label must not carry a hiding utility`).toEqual([]);
 			expect((label as HTMLElement | undefined)?.style.display ?? '', `${word}'s label must not be display:none`).not.toBe('none');
 		}
 	});
