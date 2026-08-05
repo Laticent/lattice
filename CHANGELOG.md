@@ -958,24 +958,28 @@ in patch versions.
 
   **The limit this leaves, stated with numbers.** Words cost width that icons don't, and a
   fixed-height single row at a 700px floor cannot absorb unbounded text growth. Measured at 700px
-  with Chrome's *minimum font size* (Settings → Appearance → Customize fonts) raised: the row
-  fits up to **17px** (dial 254px, ⋯ Menu on-screen), and from **18px** it overflows — by 4px at
-  18, 18px at 20, 46px at 24, clipping the ⋯ Menu by the same amount. Hiding just the dial's word
-  spans returns it to zero at every setting, so the words are the cause, and the icon-only dial did
-  not have this problem: Chrome's minimum-font-size scales text, and below 1100px that row had
-  almost none — the dial, Present and Share were all icons.
+  with Chrome's *minimum font size* (Settings → Appearance → Customize fonts) raised, re-measured on
+  the shipped build: the row fits to **16px** (dial 247px); at **17px** it is 6px over but the ⋯
+  Menu is still on-screen at 696 of 700; from **18px** the Menu itself leaves the viewport — right
+  edge 704 at 18px, 718 at 20px, 746 at 24px. Hiding just the dial's word spans returns the
+  overflow to zero at every setting, so the words are the cause, and the icon-only dial did not
+  have this problem: Chrome's minimum-font-size scales text, and below 1100px that row had almost
+  none — the dial, Present and Share were all icons.
 
   **So the tail stays reachable past the limit instead.** The header is now
   `overflow-x: auto`, which changes the failure from *"the ⋯ Menu is off the screen and there is no
   way to it"* — #1381, exactly — to *"the row scrolls"*. Measured at 700px with
-  `minimumFontSize: 24`: before, the ⋯ Menu's right edge sat at 746 against a 700px viewport and
-  was simply gone; now the row scrolls and it comes fully into view. The declaration is inert
+  `minimumFontSize: 24`: the ⋯ Menu's right edge sits at 746 against a 700px viewport — 46px past
+  the edge and, before this, simply gone; the row now scrolls and brings it fully into view. The declaration is inert
   whenever the row fits (a row whose content fits cannot scroll and shows no scrollbar) — the
   rendered header is byte-identical at 700 and 820 in both modes — and the scrollbar is
   deliberately left visible, because it is the only signal that there is more in the row. It does
   not weaken either geometry guard: both still assert `scrollWidth <= clientWidth` on this element.
   If anything it sharpens them, since Chrome under-reports `scrollWidth` on an `overflow: visible`
-  box — the same setting that read as 4px over now reads its true 14px. Chrome's *default* font
+  box by the row's end padding — every overflow figure above reads ~10px higher, and truer, than it
+  did before. That re-basing also moved the guard's own headroom number (35px → 25px for an
+  unchanged row), which is why `MIN_SPARE_AT_FLOOR` now records its measurement basis alongside its
+  value: a budget compared against the wrong ruler is worse than no budget. Chrome's *default* font
   size at Large (20px) already overflowed before this change and overflows less after it. No gate
   varies font settings, so the numbers above are a measurement, not a guarded invariant.
   Fixes #1381, #1401.

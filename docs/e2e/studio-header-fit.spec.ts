@@ -43,21 +43,32 @@ const X_DRIFT = 1; // sub-pixel only: #1371's defect was a 70px jump, not a roun
 // mean what they say: the SETTLED row fits, and the SETTLED cluster does not move.
 const SETTLE_STEP_MS = 100;
 const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bounded
-// The row must not merely FIT at its floor — it must fit with room a person could spend.
-// `scrollWidth <= clientWidth` cannot fail until the row is ALREADY over, and by then the
-// deck switcher has been squeezed to a dot and a chevron; this fires while there is still
-// something to protect.
+// The row must not merely FIT at its floor — it must fit with room left. `scrollWidth <=
+// clientWidth` cannot fail until the row is ALREADY over; this is the tripwire that goes
+// off while there is still margin to lose.
 //
-// 24 is not arbitrary, and the reason is specifically NOT "the deck title truncates first"
-// — at 700px, the only width this runs at, the title is already 0px wide with or without
-// the dial's words. The load-bearing case is the FONT: with the webfont unavailable the
-// system-ui fallback grows the dial from 219px to 240px, so a row under ~24px of spare is
-// a row that breaks for anyone whose font has not loaded yet. Measured today: 35px.
+// READ THE BASIS BEFORE CHANGING THE NUMBER. Spare is measured as extra content the row
+// can absorb before `scrollWidth` exceeds `clientWidth`, and that measurement was re-based
+// once already: when the header became `overflow-x: auto`, the same physical row went from
+// reporting 35px to 25px, because an `overflow: visible` box omits its end padding from
+// `scrollWidth` and a scroll container includes it. The row did not change; the ruler did.
+// A number compared against the wrong basis is worse than no number.
 //
-// It is a FLOOR, not a target. If a change frees width, raise this number to match — the
-// same ratchet discipline every budget in `tools/check-ownership.js` carries, so the
-// margin cannot quietly erode one PR at a time. Lowering it is how this row regresses.
-const MIN_SPARE_AT_FLOOR = 24;
+// Measured today: **25px**, stable across five cold runs (700px, Build stop, fonts loaded).
+// The floor sits at 16 — under it by 9px, which is tolerance for font-metric differences
+// between this machine and a CI runner, and tight enough that any real erosion trips it
+// long before the row breaks. One `icon-sm` control plus its gap is 38px, so a whole new
+// control does not merely trip this, it overflows the row outright.
+//
+// What it is NOT: a guarantee about the FALLBACK font. With the webfont blocked the dial
+// grows 219px → 240px and spare falls to ~4px — the row still fits (`over` is 0), but no
+// floor in this range would hold there. That state is excluded by design: the spec waits
+// for `document.fonts.ready`, so this number always describes the same font state.
+//
+// It is a FLOOR, not a target. If a change frees width, raise it to match — the same
+// ratchet discipline every budget in `tools/check-ownership.js` carries, so the margin
+// cannot erode one PR at a time. Lowering it is how this row regresses.
+const MIN_SPARE_AT_FLOOR = 16;
 
 // Step the dial by ARIA NAME, never by text: an icon-only dial has no text, so a
 // textContent lookup would match nothing, the click would be a no-op, and every
@@ -84,6 +95,15 @@ async function readHeader(page: import('@playwright/test').Page, tail: string[],
 	return page.evaluate(([names, menuLabel]) => {
 		const h = document.querySelector('[data-studio-root] header');
 		if (!h) throw new Error('no [data-studio-root] header — the selector or the route moved');
+		// Rewind the row before reading any rect. The header is a scroll container now
+		// (StudioShell's `overflow-x-auto`), so every `getBoundingClientRect().x` is a
+		// function of `scrollLeft` — and merely FOCUSING the ⋯ Menu makes the browser
+		// scroll it into view. Without this, "the ⋯ Menu is fully on-screen" could be
+		// satisfied by the very scrolling that only happens when the row does NOT fit,
+		// i.e. the oracle would go green exactly when its defect is present. Measured:
+		// at `minimumFontSize: 24` and 700px, `menu.right` reads 745 at `scrollLeft: 0`
+		// and 690 after focus scrolls it 55px, with the row 55px over throughout.
+		h.scrollLeft = 0;
 		const at = (name: string) => {
 			const el = [...h.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === name);
 			return el ? el.getBoundingClientRect() : null;
@@ -157,6 +177,13 @@ async function spareAt(page: import('@playwright/test').Page, tolerance: number)
 test('@smoke the Studio header fits — and keeps its words — at every supported width', async ({ page }) => {
 	test.slow(); // 8 widths x 3 dial stops in one page: headroom, not an expectation
 	await gotoStudio(page);
+	// Measure in ONE font state. `docs/src/styles/fonts.css` ships `font-display: swap`,
+	// so the page genuinely renders in system-ui first and reflows when Outfit lands —
+	// and the fallback is 21px wider on the dial alone. Timed on this machine, Outfit
+	// landed 7ms after `gotoStudio`'s readiness gate; a cold cache or a busy runner puts
+	// the measurement on the other side of that. Every number here would then be a
+	// coin-flip between two layouts. `document.fonts.ready` makes the state deterministic.
+	await page.evaluate(() => document.fonts.ready);
 	// EVERY query below is scoped to the Studio header, never to the page. A local
 	// `astro dev` run injects its own dev-toolbar buttons — including one named
 	// "Menu" — into the accessibility tree, which turns a page-wide role query into
@@ -179,16 +206,35 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 			await button.click();
 			// The step really happened — see the note on STOPS above.
 			await expect(button, `${stop.word} @ ${width}px should be the lit stop`).toHaveAttribute('aria-pressed', 'true');
-			// …and the dial SHOWS the word, not just the icon (#1401). Both halves matter:
-			// `toHaveText` alone passes on an `sr-only` span, a `display:none` span, or a
-			// clipped one — every one of which reproduces the exact defect this guards
-			// (a sighted user who cannot READ the stop). So assert the span is visible
-			// and has real width, not merely that the text is in the DOM.
+			// …and the dial SHOWS the word, not just the icon (#1401). The claim being
+			// guarded is "a sighted user can READ this stop", and each cheap proxy for it
+			// leaks somewhere — measured against 13 hostile mutations of the label span:
+			//   `toHaveText`          reads textContent; blind to all CSS.
+			//   `toBeVisible`         catches `display:none` / `visibility:hidden` / zero
+			//                         box — but PASSES `sr-only`, `clip-path: inset(50%)`,
+			//                         Radix `VisuallyHidden`, `opacity: 0`.
+			//   `boundingBox() > 0`   PASSES `sr-only`: that idiom leaves a 1x1 box.
+			// `sr-only` is not a hypothetical: it is the standard "keep the accessible
+			// name, drop the visual" move — exactly what someone reaches for the next time
+			// this row runs out of width, and precisely the regression #1401 exists to
+			// prevent. So the assertion is the conjunction below, and the word must be big
+			// enough to be a word (a 4-letter label is ~28px; 8px catches every collapsed
+			// or clipped form), opaque enough to see, and not painted in the void.
 			await expect(button, `${stop.word} @ ${width}px should render its word`).toHaveText(new RegExp(stop.word));
 			const word = button.getByText(stop.word, { exact: true });
 			await expect(word, `${stop.word} @ ${width}px should be VISIBLE, not just present`).toBeVisible();
-			const wordBox = await word.boundingBox();
-			expect(wordBox?.width ?? 0, `${stop.word} @ ${width}px should occupy real width`).toBeGreaterThan(0);
+			const legible = await word.evaluate((el) => {
+				const r = el.getBoundingClientRect();
+				const cs = getComputedStyle(el);
+				const alpha = (c: string) => {
+					const m = c.match(/rgba?\(([^)]+)\)/);
+					return m ? Number((m[1].split(',')[3] ?? '1').trim()) : 1;
+				};
+				return { width: Math.round(r.width), opacity: Number(cs.opacity), inkAlpha: alpha(cs.color) };
+			});
+			expect(legible.width, `${stop.word} @ ${width}px is collapsed or clipped (sr-only, clip-path, VisuallyHidden all land here)`).toBeGreaterThanOrEqual(8);
+			expect(legible.opacity, `${stop.word} @ ${width}px is transparent`).toBeGreaterThan(0.1);
+			expect(legible.inkAlpha, `${stop.word} @ ${width}px is painted in a transparent color`).toBeGreaterThan(0.1);
 
 			const shape = await readHeaderSettled(page, TAIL, CHROME.moreControls);
 			expect(shape.over, `header self-overflow at ${width}px on ${stop.word}`).toBeLessThanOrEqual(TOLERANCE);
