@@ -640,6 +640,12 @@ function createStage(opts) {
     return { notable, weight: notable ? 5 : 3, alpha: notable ? 1 : 0.9, hold: still ? 160 : notable ? 1500 : 1050 };
   };
   const clearanceOf = (o) => Number.isFinite(o?.clearance) ? Math.max(0, o?.clearance) : 0;
+  const restOf = (kind, opts2, box, rects, pad) => {
+    const given = opts2?.rest != null ? resolveSource(opts2.rest) : null;
+    const rect = given && liveRect(given);
+    if (rect) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    return gestureRest(kind, box, rects, pad);
+  };
   function inkNode(kind, src, css, layout, life) {
     const el = doc.createElement("div");
     el.setAttribute("aria-hidden", "true");
@@ -718,7 +724,7 @@ function createStage(opts) {
       },
       life
     );
-    const rest = gestureRest("underline", r0, [l0], pad);
+    const rest = restOf("underline", opts2, r0, [l0], pad);
     return withInk(stop, async () => {
       await approach(l0.left, l0.top + l0.height + INK_GAP + pad, signal);
       const draw = reduced ? [{ opacity: 0 }, { opacity: alpha, offset: 0.18 }, { opacity: alpha, offset: 0.82 }, { opacity: 0 }] : [
@@ -761,7 +767,7 @@ function createStage(opts) {
       for (const n of nodes) n.stop();
     };
     const a = notable ? 0.34 : 0.22;
-    const rest = gestureRest("wash", r0, bands, pad);
+    const rest = restOf("wash", opts2, r0, bands, pad);
     return withInk(stop, async () => {
       for (let i = 0; i < nodes.length; i++) {
         nodes[i].el.animate?.(
@@ -796,7 +802,7 @@ function createStage(opts) {
       },
       life
     );
-    const rest = gestureRest("bracket", r0, null, pad);
+    const rest = restOf("bracket", opts2, r0, null, pad);
     return withInk(stop, async () => {
       el.animate?.(
         reduced ? [{ opacity: 0 }, { opacity: alpha, offset: 0.2 }, { opacity: alpha, offset: 0.84 }, { opacity: 0 }] : [
@@ -820,7 +826,7 @@ function createStage(opts) {
     if (!r0) return;
     const { notable, alpha, hold } = inkOf(opts2);
     const pad = clearanceOf(opts2);
-    const rest = gestureRest("tap", r0, null, pad);
+    const rest = restOf("tap", opts2, r0, null, pad);
     await approach(rest.x, rest.y, signal);
     const c = { x: r0.left + r0.width / 2, y: r0.top + r0.height / 2 };
     const size = Math.max(30, Math.min(96, Math.hypot(r0.width, r0.height)));
@@ -958,22 +964,20 @@ function createStage(opts) {
       // The DEICTIC set — every one needs a target, and a null resolve is a no-op rather
       // than a throw, exactly as `circle` has always been: a cue you cannot place is a cue
       // that does not happen, never an error thrown into a host's narration loop.
+      // The four DEICTIC gestures END on `opts.rest` themselves (`restOf`), so there is no
+      // withdrawal to run afterwards — the stroke already went there, once.
       case "underline":
         if (!el || silenced.has("underline")) return;
-        await underlineGesture(el, opts2, signal);
-        return withdraw();
+        return underlineGesture(el, opts2, signal);
       case "wash":
         if (!el || silenced.has("wash")) return;
-        await washGesture(el, opts2, signal);
-        return withdraw();
+        return washGesture(el, opts2, signal);
       case "bracket":
         if (!el || silenced.has("bracket")) return;
-        await bracketGesture(el, opts2, signal);
-        return withdraw();
+        return bracketGesture(el, opts2, signal);
       case "tap":
         if (!el || silenced.has("tap")) return;
-        await tapGesture(el, opts2, signal);
-        return withdraw();
+        return tapGesture(el, opts2, signal);
       case "shake":
         return shake(signal);
       case "check": {

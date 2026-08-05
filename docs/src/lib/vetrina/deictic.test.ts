@@ -286,6 +286,38 @@ describe('tap — "this one"', () => {
 	});
 });
 
+describe('an explicit `rest` is where the stroke ENDS, not somewhere it withdraws to', () => {
+	// A host passes `rest` precisely because the gesture's own ending is occupied. Ending at the
+	// default and correcting afterwards is a double hop THROUGH the rejected position — a visible
+	// stutter, and a moment of the cursor sitting on the words it was placed to avoid.
+	//
+	// The oracle is DIRECTIONAL, which is what makes it able to fail: the natural ending of every
+	// one of these is to the RIGHT of the target, and the rest given is to the LEFT. If the stroke
+	// still visits its default first, the cursor's furthest-right sample is past the target.
+	const leftOf = (b: { left: number; top: number; height: number }) => ({
+		getBoundingClientRect: () => rect({ left: b.left - 60, top: b.top + b.height / 2 - 1, width: 2, height: 2 }),
+	});
+
+	for (const kind of ['underline', 'wash', 'bracket', 'tap'] as const) {
+		it(`${kind} goes straight there`, async () => {
+			const stage = mount('full');
+			const box = { left: 600, top: 200, width: 300, height: 24 };
+			const t = target(box, [box]);
+			let furthestRight = Number.NEGATIVE_INFINITY;
+			const run = stage.gesture(kind, t.src, undefined, { clearance: POINTER / 2 + 5, rest: leftOf(box) });
+			for (let i = 0; i < 260; i++) {
+				const p = cursorAt();
+				if (Number.isFinite(p.x)) furthestRight = Math.max(furthestRight, p.x);
+				await frames(1);
+			}
+			await run;
+			const end = cursorAt();
+			expect(end.x).toBeCloseTo(box.left - 59, 0);
+			expect(furthestRight).toBeLessThan(box.left + box.width + POINTER);
+		});
+	}
+});
+
 describe('circle — the ring, and the tours that already use it', () => {
 	it('is byte-identical with no clearance: the ink is still the target box', async () => {
 		// The regression this pins: `clearance` inflates the ring and the orbit, and the default
@@ -409,7 +441,7 @@ describe('the shapes of "gone", and the shapes of "no"', () => {
 describe('the motion policy', () => {
 	it('keeps the CUE and drops the SWEEP under legible', async () => {
 		// The tier's whole rule: knowing where to look is content, the sweep across the screen is
-		// vestibular. So the ink must still appear, and the cursor must arrive without travelling.
+		// vestibular. So the ink must still appear, and the cursor must arrive without traveling.
 		const stage = mount('legible');
 		const box = { left: 300, top: 200, width: 400, height: 24 };
 		const t = target(box);

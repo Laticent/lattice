@@ -1233,6 +1233,25 @@ export function createStage(opts: StageOptions): Stage {
 	// from a rect; `clearance` is new public surface and needs the same guard.
 	const clearanceOf = (o?: GestureOptions) => (Number.isFinite(o?.clearance) ? Math.max(0, o?.clearance as number) : 0);
 
+	/**
+	 * Where a deictic stroke should LEAVE the cursor: the host's explicit `rest` when it gave one,
+	 * otherwise the stroke's own ending.
+	 *
+	 * THE STROKE ENDS THERE, rather than ending at its default and then withdrawing. A host passes
+	 * `rest` precisely because it knows the default ending is occupied — so moving there first and
+	 * correcting afterwards is a double hop THROUGH the position the host rejected, which is a
+	 * visible stutter and, worse, a moment of the cursor sitting on the words it was placed to
+	 * avoid. One continuous motion to the right place is what the host asked for.
+	 *
+	 * `circle` is the exception and keeps the post-gesture withdrawal: its orbit ends a quarter turn
+	 * past wherever the cursor came in from, so there is no point in the stroke to redirect.
+	 */
+	const restOf = (kind: Gesture, opts: GestureOptions | undefined, box: RectLike, rects: readonly RectLike[] | null, pad: number): { x: number; y: number } => {
+		const given = opts?.rest != null ? resolveSource(opts.rest) : null;
+		const rect = given && liveRect(given);
+		if (rect) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+		return gestureRest(kind, box, rects, pad) as { x: number; y: number };
+	};
 
 	/** A cue node that re-reads its target every frame for as long as it is on screen. Returns
 	 *  the node AND its disposer — the node so the caller can animate the thing it just made
@@ -1341,7 +1360,7 @@ export function createStage(opts: StageOptions): Stage {
 			},
 			life,
 		);
-		const rest = gestureRest('underline', r0, [l0], pad) as { x: number; y: number };
+		const rest = restOf('underline', opts, r0, [l0], pad);
 		return withInk(stop, async () => {
 			await approach(l0.left, l0.top + l0.height + INK_GAP + pad, signal);
 			const draw = reduced
@@ -1395,7 +1414,7 @@ export function createStage(opts: StageOptions): Stage {
 		// whole design: high enough to read as a highlighter, low enough that the sentence it is
 		// naming stays legible underneath. Measured against the ink, not guessed — see the doc.
 		const a = notable ? 0.34 : 0.22;
-		const rest = gestureRest('wash', r0, bands, pad) as { x: number; y: number };
+		const rest = restOf('wash', opts, r0, bands, pad);
 		return withInk(stop, async () => {
 			for (let i = 0; i < nodes.length; i++) {
 				nodes[i].el.animate?.(
@@ -1435,7 +1454,7 @@ export function createStage(opts: StageOptions): Stage {
 			},
 			life,
 		);
-		const rest = gestureRest('bracket', r0, null, pad) as { x: number; y: number };
+		const rest = restOf('bracket', opts, r0, null, pad);
 		return withInk(stop, async () => {
 			el.animate?.(
 				reduced
@@ -1464,7 +1483,7 @@ export function createStage(opts: StageOptions): Stage {
 		if (!r0) return;
 		const { notable, alpha, hold } = inkOf(opts);
 		const pad = clearanceOf(opts);
-		const rest = gestureRest('tap', r0, null, pad) as { x: number; y: number };
+		const rest = restOf('tap', opts, r0, null, pad);
 		await approach(rest.x, rest.y, signal);
 		const c = { x: r0.left + r0.width / 2, y: r0.top + r0.height / 2 };
 		const size = Math.max(30, Math.min(96, Math.hypot(r0.width, r0.height)));
@@ -1594,8 +1613,9 @@ export function createStage(opts: StageOptions): Stage {
 		if (destroyed) return;
 		const el = target != null ? resolveSource(target) : null;
 		// An explicit rest overrides the gesture's own ending — the host knowing something about
-		// what surrounds the target that the stage cannot (see `gestureRest`). Applied AFTER the
-		// gesture, so it is a withdrawal rather than a replacement for the stroke's motion.
+		// what surrounds the target that the stage cannot (see `gestureRest`). For `circle` it is a
+		// withdrawal AFTER the orbit, because an orbit has no ending to redirect; the deictic four
+		// consume it inside their own stroke instead (`restOf`).
 		const withdraw = async (): Promise<void> => {
 			const r = opts?.rest != null ? resolveSource(opts.rest) : null;
 			const rect = r && liveRect(r);
@@ -1618,22 +1638,20 @@ export function createStage(opts: StageOptions): Stage {
 			// The DEICTIC set — every one needs a target, and a null resolve is a no-op rather
 			// than a throw, exactly as `circle` has always been: a cue you cannot place is a cue
 			// that does not happen, never an error thrown into a host's narration loop.
+			// The four DEICTIC gestures END on `opts.rest` themselves (`restOf`), so there is no
+			// withdrawal to run afterwards — the stroke already went there, once.
 			case 'underline':
 				if (!el || silenced.has('underline')) return;
-				await underlineGesture(el, opts, signal);
-				return withdraw();
+				return underlineGesture(el, opts, signal);
 			case 'wash':
 				if (!el || silenced.has('wash')) return;
-				await washGesture(el, opts, signal);
-				return withdraw();
+				return washGesture(el, opts, signal);
 			case 'bracket':
 				if (!el || silenced.has('bracket')) return;
-				await bracketGesture(el, opts, signal);
-				return withdraw();
+				return bracketGesture(el, opts, signal);
 			case 'tap':
 				if (!el || silenced.has('tap')) return;
-				await tapGesture(el, opts, signal);
-				return withdraw();
+				return tapGesture(el, opts, signal);
 			case 'shake':
 				return shake(signal);
 			case 'check': {
