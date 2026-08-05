@@ -1,13 +1,15 @@
 import DOMPurify from 'dompurify';
 import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { diffLines, sliceSlide } from '@/components/studio/ai/architect-edits.js';
 import { readCachingEnabled } from '@/components/studio/ai/spend.js';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { applyProposedEditsChecked, architectSpend, CHAT_OUTPUT_EST, type ChatGrounding, type ChatTurn, chatComplete, chatSystemTokens, type DiffRow, estimateUsd, useArchitectStatus } from './architect';
+import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, useArchitectStatus } from './architect';
 import { ChatCodeBlock } from './ChatCodeBlock';
+import { ChatCost } from './ChatCost';
 import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming } from './chat-markdown';
-import { refDocsTokens } from './reference-doc';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type ChatMessage, type ChatProposal, loadChat, loadChatDraft, saveChat, saveChatDraft } from './studio-store';
 
@@ -45,7 +47,7 @@ function AssistantBody({ text, streaming }: { text: string; streaming: boolean }
 	);
 }
 
-export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, notify }: { deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
+export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onConnect, onManageDocs, notify }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; onConnect: () => void; onManageDocs?: () => void; notify: (m: string) => void }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
@@ -62,7 +64,6 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const refDoc = useReferenceDoc(notify, onManageDocs);
 	const status = useArchitectStatus(pulse);
-	const [spend, setSpend] = React.useState(() => architectSpend());
 
 	const deckIdRef = React.useRef(deckId);
 	deckIdRef.current = deckId;
@@ -87,15 +88,6 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 			// and commits to its originating deck (the survival contract). Only Stop aborts.
 		};
 	}, []);
-	// Re-read the spend gauge when a background aborted-turn reconciliation trues the cost
-	// (fired by chatComplete after the /generation fetch), so the correction shows now — not
-	// only after the next turn's finally.
-	React.useEffect(() => {
-		const onSpend = () => mountedRef.current && setSpend(architectSpend());
-		globalThis.addEventListener?.('lattice-spend-changed', onSpend);
-		return () => globalThis.removeEventListener?.('lattice-spend-changed', onSpend);
-	}, []);
-
 	React.useEffect(() => setMessages(loadChat(deckId)), [deckId]);
 	React.useEffect(() => setInput(loadChatDraft(deckId)), [deckId]);
 	React.useEffect(() => {
@@ -111,22 +103,14 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 	}, [input]);
 	React.useEffect(() => () => saveChatDraft(deckIdRef.current, inputRef.current), []);
 
-	const cloud = status.generation === 'openrouter';
-	// Per-turn cost estimate — the DECK dominates the token count, so estimate over the
-	// deck (recomputed when it changes), NOT per keystroke (a live cents-ticker is anxiety
-	// noise, not reassurance). Suppressed entirely on the free on-device tier.
-	// Priced on the TYPICAL turn (CHAT_OUTPUT_EST), not the hard ceiling — see the note on
-	// those two constants. The budget gate is the one that assumes the worst case.
-	//
-	// The SYSTEM turn is counted too. It used to price the deck source alone, which left
-	// the ~16.5K-token primer — by far the largest part of the prompt — out of the only
-	// number the author ever sees. Memoized on the grounding because building the primer
-	// walks the whole component catalog; `refDocsTokens` adds an attached reference doc,
-	// which the author also pays for. After the first turn of a thread the static prefix is
-	// a cache READ, so it's weighted accordingly rather than charged at full rate.
-	const primed = cloud && readCachingEnabled() && messages.length > 0;
-	const promptExtra = React.useMemo(() => (cloud ? chatSystemTokens('openrouter', grounding, primed) + refDocsTokens(refDoc.docs) : 0), [cloud, grounding, primed, refDoc.docs]);
-	const turnEst = React.useMemo(() => (cloud && status.price ? estimateUsd(source, status.price, CHAT_OUTPUT_EST, promptExtra) : null), [cloud, source, status.price, promptExtra]);
+	// After the first turn of a thread the cached prefix is a READ, not a write — the cost
+	// readout weights it accordingly. Chat state, so it is resolved here and handed down.
+	const primed = status.generation === 'openrouter' && readCachingEnabled() && messages.length > 0;
+	// The money readout lives in the PANEL HEADER now (ChatCost), not in a strip of its
+	// own between the transcript and the composer — that row cost a whole line of a narrow
+	// panel to show two short numbers. ChatCost reads the spend gauge itself and refreshes
+	// on `lattice-spend-changed`, which is why a turn ending fires that event below: it is
+	// the one signal that crosses from here to a header this component doesn't own.
 
 	const run = async (history: ChatMessage[], sendDeckId: string) => {
 		const commit = (next: ChatMessage[]) => {
@@ -166,7 +150,8 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 				setBusy(false);
 				setStreaming(null);
 				setPulse((p) => p + 1);
-				setSpend(architectSpend());
+				// The gauge is rendered elsewhere now — announce, don't set.
+				globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
 			}
 		}
 	};
@@ -220,10 +205,34 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 	};
 	const discardProposal = (idx: number) => setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
 
+	// One element, two destinations (this panel's own header row, or a host header's actions
+	// slot via a portal) — built once so the two can't drift.
+	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} />;
+
 	const empty = messages.length === 0 && !streaming && !notice;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
+			{/* HEADER — the panel title and the money, on ONE row. The cost readout used to own
+			    a full-width strip between the transcript and the composer: a whole line of the
+			    narrowest panel in the app, spent on two short numbers, while this row sat half
+			    empty.
+
+			    A host with its OWN header (the mobile PanelSheet) passes `costSlot` instead of a
+			    title, and the readout is portalled into that header's actions area — otherwise
+			    the strip just reappears one row lower, which is the same waste on the surface
+			    with the least room. A portal rather than props because the two facts the price
+			    needs — the attached reference docs and whether this thread is already warm — are
+			    chat state, and hoisting them to a shell that renders the header would be a much
+			    larger change than moving one element. */}
+			{title ? (
+				<div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+					<span>{title}</span>
+					{costReadout}
+				</div>
+			) : costSlot ? (
+				createPortal(costReadout, costSlot)
+			) : null}
 			<div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
 				{empty && (
 					<div className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-[12px] leading-relaxed text-muted-foreground">
@@ -284,39 +293,28 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 				)}
 			</div>
 
-			{/* Cost strip — calm, always present. Session gauge + a per-turn estimate; on the
-			    free on-device tier the money UI is suppressed entirely (honest, not a fake $0). */}
-			<div className="flex items-center justify-between gap-2 border-t border-border px-3 py-1.5 text-[11px]">
-				{cloud ? (
-					<>
-						<span className="flex items-center gap-1.5 text-muted-foreground">
-							{turnEst != null && (
-								<span>
-									≈ <span className="font-semibold text-foreground">${turnEst.toFixed(turnEst < 0.1 ? 3 : 2)}</span>/turn
-								</span>
-							)}
-						</span>
-						<span className="flex items-center gap-1.5">
-							{spend.cap > 0 && (
-								<span className="h-[5px] w-14 overflow-hidden rounded-full bg-border" aria-hidden>
-									<span className={cn('block h-full rounded-full', spend.status.level === 'over' ? 'bg-[var(--fail,#b3261e)]' : spend.status.level === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary')} style={{ width: `${Math.min(100, spend.cap ? (spend.session / spend.cap) * 100 : 0)}%` }} />
-								</span>
-							)}
-							<span className="text-muted-foreground">
-								<span className="font-semibold text-foreground">${spend.session.toFixed(2)}</span>
-								{spend.cap > 0 ? ` / $${spend.cap.toFixed(2)}` : ' session'}
-							</span>
-						</span>
-					</>
-				) : (
-					<span className="text-muted-foreground">⚡ On-device · free &amp; private</span>
-				)}
-			</div>
-
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
 				<div className="flex items-end gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1.5 focus-within:border-[var(--accent)]">
-					<textarea
+					{/* `block` is load-bearing: the shadcn base sets `display:flex` on the field,
+					    which wrecks a textarea's own text layout — with it, 800 characters
+					    measured as 67 wrapped lines against a ~72px-wide box. `min-w-0` lets it
+					    actually shrink inside the flex row instead of being floored by content.
+					    Grows with the prompt, to FOUR rows, so a typical instruction is visible
+					    while it is being written instead of scrolling inside one line. The
+					    surrounding row is `items-end`, so the buttons stay pinned to the bottom
+					    edge as it grows rather than drifting to the middle. */}
+					<Textarea
+						autosize
+						maxRows={4}
+						// The ROW paints the focus affordance (`focus-within:border-[var(--accent)]`),
+						// so the field must not paint a second one inside it. `outline-none` cannot
+						// do this: the global rule in native-widgets.css is
+						// `:where(…textarea…):focus-visible:not([data-focus-ring='container'])`, which
+						// outscores a utility 2:1 — the attribute IS the documented opt-out. (The
+						// double ring predates this change; the old raw textarea carried `outline-none`
+						// and lost the same way. Fixed here because this is the element being edited.)
+						data-focus-ring="container"
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						onKeyDown={(e) => {
@@ -328,7 +326,7 @@ export function ArchitectChat({ deckId, source, aiReady, grounding, onApply, onC
 						rows={1}
 						placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'}
 						aria-label="Message the Architect"
-						className="max-h-[120px] min-h-[22px] flex-1 resize-none bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
+						className="block min-h-[22px] w-full min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]"
 					/>
 					{refDoc.attachButton}
 					<button

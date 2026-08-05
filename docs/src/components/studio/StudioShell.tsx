@@ -2634,7 +2634,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		() => ({ scorecard, findings, catalog: components, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
 		[scorecard, findings, components, diagramErrors],
 	);
-	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
+	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
+	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.
+	const [chatCostSlot, setChatCostSlot] = React.useState<HTMLElement | null>(null);
+	// A FACTORY, not one element: the docked column wants the chat to render its own header
+	// row (title left, cost right — see ChatCost), while the mobile sheet already has
+	// PanelHeader and only wants the cost.
+	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
@@ -3794,12 +3800,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 											{coachBody}
 										</>
 									)}
-									{chatOpen && (
-										<>
-											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Chat</div>
-											{chatBody}
-										</>
-									)}
+									{chatOpen && chatBodyWith('Chat')}
 									{lensesOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
@@ -3886,8 +3887,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							icon={<ChatIcon />}
 							title="Chat"
 							srDescription="A conversation with the AI Architect about this deck, with reviewable edits."
+							// The chat portals its cost readout in here, rather than spending a row of its
+							// own on it directly under this header — see ArchitectChat's header note.
+							actions={<span ref={setChatCostSlot} className="flex items-center" />}
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
 					</PanelSheet>
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel

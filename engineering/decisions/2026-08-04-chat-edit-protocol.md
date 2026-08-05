@@ -206,6 +206,11 @@ source alone. It looked plausible only because its output assumption erred the o
 two errors cancelling, which stops working the moment either moves, as raising the ceiling
 just did.
 
+It also moved. The readout owned a full-width strip between the transcript and the
+composer; it now rides the panel header, right-aligned opposite the title, and is portalled
+into the mobile sheet's header rather than reappearing one row lower. `ChatCost` is one
+component for both surfaces — a widget per surface is what HARD RULE #15 forbids.
+
 `chatSystemTokens` prices the real system turn via the already-exported `buildChatSystem`.
 It weights a cached prefix at roughly a tenth: after the first turn of a thread the primer
 is a cache READ, and charging it at full rate on every turn would replace an under-count

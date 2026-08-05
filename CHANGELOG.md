@@ -439,6 +439,23 @@ in patch versions.
   so "add these slides" stops being a silent no-op.
   `engineering/decisions/2026-08-04-chat-edit-protocol.md`
 
+- **The chat composer grows with your prompt, and the money moves to the header.** The cost
+  readout owned a full-width strip between the transcript and the composer — a whole row of
+  the narrowest panel in the app, spent on two short numbers, while the panel header sat
+  half empty. It now rides that header, right-aligned opposite the title (and on mobile it
+  is portalled into the sheet header rather than reappearing one row lower). The input is an
+  auto-sizing textarea that grows to **four rows**, so a typical instruction is visible while
+  you write it instead of scrolling inside a single line; the attach / preserve-facts / send
+  buttons stay pinned to its bottom edge as it grows. Autosize lives on the shared
+  `ui/textarea` primitive: shadcn's own mechanism is `field-sizing-content`, which is
+  Chromium-only, so on an iPad the box never grew — the primitive now measures in JS when
+  asked, and re-measures on width changes (a resized panel, a rotation), which CSS-only
+  growth also never handled. Two defects found by driving the real Studio rather than the
+  tests: the shadcn base sets `display:flex` on the field, which wrecks a textarea's own text
+  layout (800 characters measured as 67 wrapped lines), and the field drew a second focus
+  ring inside the row's — it now uses the documented `data-focus-ring="container"` opt-out,
+  which a utility class cannot beat.
+
 - **The Architect can finally tell you which diagram is broken, because it checked.** Asked
   to verify a deck's Mermaid diagrams it had no way to find out — no shell, no renderer, no
   parser — so it guessed and called the guess a test result. The prompt now forbids that
