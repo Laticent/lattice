@@ -154,11 +154,22 @@ const latticeNodes = {
 	bullet_list(state: SerializerState, node: PMNode) {
 		state.renderList(node, '  ', () => `${(node.attrs.bullet as string) || '-'} `);
 	},
-	// A thematic break serializes as `***`, NEVER the default `---`. Inside a slide a
-	// bare `---` line IS the deck's slide separator (`splitSlides` cuts on `/\n-{3,}\n/`),
-	// so an author typing `***`/`___`/`- - -` (all valid engine `<hr>` forms) must not have
-	// it degrade into a slide split that silently drops the next slide's `_class`. `***`
-	// is an equivalent `<hr>` that the separator regex can never match.
+	// A thematic break serializes as `***`, never the default `---` — but the REASON given
+	// here was wrong, and correcting it matters more than the choice it justified.
+	//
+	// It said `***` "is an equivalent `<hr>` that the separator regex can never match", i.e.
+	// a form an author could use without it degrading into a slide split. That was true of
+	// the old caller-side splitter and false of the ENGINE: `splitOnHr` breaks on every
+	// top-level markdown-it `hr`, so `***`, `___` and `- - -` were all slide splits in the
+	// render already. The "safe" form was safe only from the code that was supposed to be
+	// modelling the render.
+	//
+	// A TOP-LEVEL break is now parsed as the slide boundary it is, so this serializer only
+	// ever emits a rule that lives INSIDE a container (a blockquote, a list item), where the
+	// engine keeps it below level 0. `***` stays the right spelling there for a narrower
+	// reason that does hold: a `---` written at a low indent can close its container and
+	// become a top-level break, and `***` at any indent cannot be mistaken for anything the
+	// deck's own separator convention uses.
 	horizontal_rule(state: SerializerState, node: PMNode) {
 		state.write('***');
 		state.closeBlock(node);

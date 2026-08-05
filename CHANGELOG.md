@@ -25,6 +25,30 @@ in patch versions.
 
 ## Unreleased
 
+- **Breaking: slide boundaries are derived once, from the engine's own `hr` rule — six separator
+  forms that were invisible to the Studio now split a slide, and a setext underline no longer
+  does.** The engine breaks a slide on every top-level markdown-it `hr`; every caller-side splitter
+  derived that set from its own regex over `---`, and each derived it differently. Measured against
+  the real parser, `***`, `___`, `- - -`, `--- ` (with a trailing space), `----` and a `---`
+  indented one to three spaces were all slide breaks in the render and invisible to the rail, the
+  editor sync, the Coach, the rehearsal planner and the chat edit path — while `Interlude` over
+  `---` (no blank line) is a HEADING to the engine and was counted as a separator by all of them.
+  The worst consequence was silent data loss: `slideCount` read 1 where the engine renders 2, so a
+  chat edit addressed to slide 1 overwrote the whole deck and the app reported success over it.
+  `lib/core/slide-boundaries.mjs` is now the one derivation, pinned to the real parser by a
+  differential test over every committed deck, a generated marker-by-context corpus and a seeded
+  fuzz (720,000 decks across 12 seeds, zero disagreements). It reports when it cannot settle a deck
+  (an unclosed fence or HTML block — what a deck looks like mid-keystroke), and the two callers that
+  cannot afford a wrong boundary refuse rather than guess. **Marked breaking because a deck written
+  with one of those forms now counts, numbers and edits as more slides than it did** — which is how
+  many slides it always rendered as. Three refusals in `positionIsTrustworthy` retired with the
+  divergence they guarded, so a `***`-separated deck earns a true page number on the fast path
+  instead of paying for a whole-deck render. Details:
+  `engineering/decisions/2026-08-05-slide-boundary-reconciliation.md`.
+- **Changed: round-tripping a deck through the Studio's Write surface canonicalizes a non-`---`
+  separator to `---`.** Same render, different bytes. It follows from the Write surface modelling
+  the split at all: `***` in prose was always two slides to the engine and one slide in the editor.
+
 - **Studio — the deck pill can no longer render its own chevron outside itself, and the tablet
   floor stopped lying about how much room it has.** The deck switcher is the top bar's designated
   shock absorber (`min-w-0` + a truncating title, every sibling `shrink-0`), which meant it could

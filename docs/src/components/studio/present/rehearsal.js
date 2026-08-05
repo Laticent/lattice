@@ -22,15 +22,22 @@
 
 export const SPEAK_WPM = 135; // boardroom delivery pace, pauses folded in
 
-// KNOWN NARROW, deliberately. `lib/core/class-directive-scan.mjs` is the shared
-// reader for "what class governs this slide?", and it sees the running global
-// `<!-- class: … -->` this pattern is blind to (#1383). It is not wired in here
-// because it indexes slides the way `splitTopLevel` does and `chunks()` below
-// splits differently (front matter stripped, empties dropped), so the two index
-// spaces do not line up — aligning them is a behavior change to the planner, not
-// a swap. The cost of the gap is bounded: a mid-deck global makes a slide's ROLE
-// fall back to the density heuristic, which shifts a dwell weight, never
-// correctness. Wire it in if `chunks()` ever moves onto the shared splitter.
+// The BOUNDARY KERNEL directly, not the Studio's `lint.ts` wrapper around it. This module's
+// stated contract is "Pure + Node-testable", and `test/unit/playground/rehearsal.test.js`
+// imports it under plain Node — which cannot resolve a `.ts` module at all. The `.mjs` kernel
+// is the same derivation `lint.ts` reads, so the two still cannot disagree.
+import { frontMatterBlockOf, splitSlideChunks } from '../../../../../lib/core/slide-boundaries.mjs';
+
+// KNOWN NARROW, deliberately, and #1271 moved HALF of its precondition. `lib/core/class-directive-scan.mjs`
+// is the shared reader for "what class governs this slide?", and it sees the running global
+// `<!-- class: … -->` this pattern is blind to (#1383). The note here used to say "wire it in
+// if `chunks()` ever moves onto the shared splitter" — `chunks()` has now moved (it reads
+// `splitSlideChunks` above), but the index spaces STILL do not line up: that reader indexes the
+// way `splitTopLevel` does, front matter as the first two chunks and empties kept, while
+// `parseSlides` strips front matter and drops empties. Aligning them is a behavior change to the
+// planner rather than a swap, so it stays out of #1271's diff (HARD RULE #17). The cost of the
+// gap is unchanged and bounded: a mid-deck global makes a slide's ROLE fall back to the density
+// heuristic, which shifts a dwell weight, never correctness.
 const CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
 const TABLE_COMPS = new Set(['matrix-2x2', 'compare-table', 'list-tabular', 'obligation-matrix', 'verdict-grid', 'glossary']);
 const BEAT_KINDS = new Set(['pause', 'eye', 'breathe', 'transition', 'emphasis']);
@@ -57,13 +64,16 @@ function hash(s) {
   return h >>> 0;
 }
 
-// Split a source into slide chunks the SAME way the app indexes them: strip a
-// leading YAML front-matter block, split on standalone `---`, drop the blanks.
+// Slide chunks, indexed the same way the rest of the app indexes them — by CALLING what
+// the rest of the app calls, rather than by a local copy claiming to match it. The comment
+// here used to say "the SAME way the app indexes them" over a `/^---$/m` split that missed
+// `***`, `___`, `- - -`, `----`, `--- ` and an indented `---`, and cut on a setext
+// underline the engine renders as a heading. A rehearsal timing keyed to the wrong slide is
+// the mildest thing that went wrong with those; see #1271.
 export function parseSlides(source) {
-  let src = source || '';
-  const fm = src.match(/^\s*---\n[\s\S]*?\n---\n?/);
-  if (fm) src = src.slice(fm[0].length);
-  return src.split(/^---$/m).map((c) => c.trim()).filter(Boolean);
+  const src = String(source ?? '');
+  const body = src.slice(frontMatterBlockOf(src).length);
+  return splitSlideChunks(body).chunks.map((c) => c.trim()).filter(Boolean);
 }
 
 function classOf(chunk) {

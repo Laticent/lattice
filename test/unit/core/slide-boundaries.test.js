@@ -29,7 +29,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { boundaryParser: md, FRONT_MATTER, normalizeSource } = require('../../../lib/core/boundary-parser.js');
-const { slideBoundaries, splitSlideChunks, separatorRanges, normalizeSourceText } = require('../../../lib/core/slide-boundaries.mjs');
+const { slideBoundaries, splitSlideChunks, separatorRanges, normalizeSourceText, MARKDOWN_IT_TAG_SOURCE } = require('../../../lib/core/slide-boundaries.mjs');
 
 const ROOT = path.join(__dirname, '../../..');
 
@@ -351,6 +351,22 @@ test('the embedded HTML block-tag list still matches markdown-it own', async () 
 	const embedded = /const HTML_BLOCK_NAMES =\n\t'([^']+)'/.exec(src);
 	assert.ok(embedded, 'the embedded block-name list should be findable');
 	assert.deepEqual(embedded[1].split('|').sort(), [...blocks].sort(), 'the embedded CommonMark block-tag list has drifted from markdown-it own');
+});
+
+test('the transcribed open/close-tag pattern is markdown-it own, character for character', async () => {
+	// Type 7 is the html-block kind that decides whether a `<`-led line opens a block that runs
+	// to the next blank line or is just inline HTML in a paragraph — and the difference decides
+	// whether every `---` after it is a slide boundary. A LOOSER transcription of this pattern
+	// matched `<svg viewBox="…">…</svg>`, which markdown-it reads as a paragraph, and cost four
+	// committed decks their fast path. Close is not good enough here, so it is pinned exactly.
+	const { HTML_OPEN_CLOSE_TAG_RE } = await import('markdown-it/lib/common/html_re.mjs');
+	assert.equal(MARKDOWN_IT_TAG_SOURCE, HTML_OPEN_CLOSE_TAG_RE.source, 'the transcribed tag pattern has drifted from markdown-it own');
+	// And the shape that motivated it: an inline graphic is a paragraph, and the `---` after it
+	// is a real boundary the scan is able to decide.
+	const svg = '# One\n\n<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>\n\n---\n\n# Two\n';
+	const got = agrees(svg, 'inline svg line');
+	assert.deepEqual(got.lines, [4]);
+	assert.equal(got.certain, true, 'an inline graphic must not make the scan give up');
 });
 
 // ── The derived shapes ───────────────────────────────────────────────────────

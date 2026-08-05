@@ -79,16 +79,36 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 		expect(headingAt(2)).not.toBe('Omega');
 	});
 
-	it('separator forms the two splitters disagree about also break 1:1', () => {
-		// The engine's `splitOnHr` breaks on ANY markdown-it `hr`; the Studio's SEP_RE matches
-		// only a bare `\n---\n`. Each of these is one authored slide to the Studio and two to
-		// the engine.
-		for (const sep of ['***', '___', '- - -', '---   ']) {
+	it('separator forms the two splitters USED to disagree about now break 1:1', () => {
+		// THE ALLOWANCE THIS FILE USED TO CARRY, inverted. It asserted that `***`, `___`,
+		// `- - -` and `---   ` are one authored slide to the Studio and TWO to the engine —
+		// a divergence documented, guarded against, and lived with, because the Studio's
+		// splitter matched only a bare `\n---\n`.
+		//
+		// The Studio now derives boundaries from the engine's own `hr` rule
+		// (`lib/core/slide-boundaries.mjs`), so the count agrees and the caller's index means
+		// what the engine means by it. That is the whole point of #1271, and this is the
+		// assertion that proves it on the REAL engine over the REAL splitter rather than in
+		// the scanner's own unit test.
+		for (const sep of ['***', '___', '- - -', '---   ', '----', '  ---']) {
 			const src = `---\npaginate: true\n---\n\n## Alpha\n\none\n\n${sep}\n\n## Beta\n\ntwo\n`;
 			const { slides, doc } = deckDoc(src);
 			const sections = sectionCount(engine.render(doc, 'lattice').html);
-			expect(sections, `separator ${JSON.stringify(sep)}`).toBeGreaterThan(slides.length);
+			expect(slides.length, `separator ${JSON.stringify(sep)}`).toBe(2);
+			expect(sections, `separator ${JSON.stringify(sep)}`).toBe(slides.length);
 		}
+	});
+
+	it('a setext underline is a heading to BOTH, not a separator to either', () => {
+		// The divergence of opposite sign, and the one that produced a caller counting a slide
+		// the deck does not render. `Interlude` over `---` is a level-2 heading.
+		// `split: rule` isolates the question to the SEPARATOR. Under the default heading split
+		// a setext underline also makes a new h2, which divides the slide for a different reason
+		// — the one `positionIsTrustworthy` still refuses on, and not the one under test here.
+		const src = '---\npaginate: true\nsplit: rule\n---\n\n## Alpha\n\nInterlude\n---\n\nmore\n';
+		const { slides, doc } = deckDoc(src);
+		expect(slides.length).toBe(1);
+		expect(sectionCount(engine.render(doc, 'lattice').html)).toBe(slides.length);
 	});
 });
 

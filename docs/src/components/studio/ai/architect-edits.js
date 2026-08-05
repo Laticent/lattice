@@ -14,49 +14,66 @@
 // body); fmChunks() translates a human slide number to the raw chunk index the
 // splice machinery below works in, so that machinery stays untouched.
 
+import { slideBoundaries, splitSlideChunks } from '../../../../../lib/core/slide-boundaries.mjs';
+
 const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/;
 function fmChunks(source) {
   return FRONT_MATTER.test(String(source || '')) ? 2 : 0;
 }
 
-// ── Fence-aware slide boundaries ───────────────────────────────────────────────
-// A `---` INSIDE a ```/~~~ code fence (routine in decks that show Markdown / diff /
-// YAML samples) is not a slide boundary. Treating it as one desynced every slide
-// number after it — and so made the Coach's per-finding AI fix target the wrong
-// slide. These mirror lib/authoring/slide-split.js but are kept LOCAL so this module
-// stays dependency-free + headless-verifiable (its stated contract).
+// ── Slide boundaries ──────────────────────────────────────────────────────────
+// WHERE A SLIDE ENDS, asked of the module that knows — `lib/core/slide-boundaries.mjs`,
+// which reproduces the engine's own top-level `hr` set from source text.
+//
+// This file used to carry its OWN copy of a `/^---$/m` splitter, on the stated grounds
+// that staying dependency-free kept it headless-verifiable. The copy recognized a slide
+// break only when it was written as exactly three hyphens with nothing after them, and
+// the cost of that was not a miscount — it was DATA LOSS reported as success:
+//
+//   deck:  `# Slide One`  ·  `--- ` (trailing space)  ·  `# Slide Two`
+//   the engine renders 2 sections;  `slideCount()` returned 1
+//   applyEditChecked(deck, { action: 'replace', slide: 1, … })  ->  { ok: true }
+//
+// The replacement overwrote the WHOLE deck — `# Slide Two` and its body gone, with the
+// chat's green "Applied" tick painted over it. Six separator forms reproduced that:
+// `--- `, `---\t`, `***`, `___`, `- - -`, `----` and a `---` indented one to three
+// spaces. The shared module is still pure and still headless-verifiable; it just is not
+// a second opinion about what a slide is.
 
-// Does `text` end with an unclosed code fence? (opener char + run length tracked so a
-// shorter inner fence can't close it; up to 3 leading spaces per CommonMark.)
+/** Does `text` carry a code fence that never closes? */
 export function fenceOpen(text) {
-  let inFence = false;
-  let fenceChar = '';
-  let fenceLen = 0;
-  for (const line of String(text).split('\n')) {
-    if (!inFence) {
-      const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
-      if (open) { inFence = true; fenceChar = open[1][0]; fenceLen = open[1].length; }
-    } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
-      inFence = false; fenceChar = ''; fenceLen = 0;
-    }
-  }
-  return inFence;
+  return /code fence that never closes/.test(slideBoundaries(String(text ?? '')).reason ?? '');
 }
 
-// Byte-faithful to `source.split(/^---$/m)` EXCEPT a fenced `---` doesn't split (the
-// chunk is re-merged, re-inserting the exact `---` the naive split removed). So the
-// front-matter chunk model + every index calc below are preserved for fence-free decks.
+/**
+ * Why this source's slide boundaries cannot be trusted — or null when they can.
+ *
+ * The splice below rewrites a byte range identified by a slide index. If the boundary set
+ * that index refers to is itself in doubt, the splice does not land where the author
+ * thinks it does, and this module's whole contract is to refuse rather than corrupt.
+ */
+function boundaryDoubt(source) {
+  const src = String(source || '');
+  const fm = FRONT_MATTER.exec(src);
+  return slideBoundaries(fm ? src.slice(fm[0].length) : src).reason;
+}
+
+/**
+ * The deck's chunks in the shape this module's index math expects: front matter occupies
+ * the first two, real slides follow.
+ *
+ * The two front-matter chunks are RECONSTRUCTED rather than derived, because the boundary
+ * scanner is not allowed to look inside front matter — a YAML block's closing `---` is a
+ * thematic break to anything that reads it, and its opening `---` makes the first key a
+ * setext heading. `fmChunks()` translates a human slide number into this list, exactly as
+ * it always did, so every caller below is untouched.
+ */
 export function splitTopLevel(source) {
-  const naive = String(source || '').split(/^---$/m);
-  if (naive.length < 2) return naive;
-  const out = [];
-  let cur = naive[0];
-  for (let k = 1; k < naive.length; k++) {
-    if (fenceOpen(cur)) cur = `${cur}---${naive[k]}`;
-    else { out.push(cur); cur = naive[k]; }
-  }
-  out.push(cur);
-  return out;
+  const src = String(source || '');
+  const fm = FRONT_MATTER.exec(src);
+  if (!fm) return splitSlideChunks(src).chunks;
+  // The `['', <yaml>]` prefix `source.split(/^---$/m)` produced for a front-matter block.
+  return ['', fm[0].replace(/^---\r?\n/, '').replace(/\r?\n---[ \t]*(\r?\n|$)/, ''), ...splitSlideChunks(src.slice(fm[0].length)).chunks];
 }
 
 // (`bodySplitsSlides` lived here: one predicate covering both "the body smuggles a
@@ -67,23 +84,32 @@ export function splitTopLevel(source) {
 // swallows the deck's next real `---` on reparse, trapping a later slide inside this
 // one's code block. Contract unchanged — refuse rather than corrupt (trio red team).)
 
-// Line indices that are TOP-LEVEL slide separators (a `---` line outside any fence) —
-// the line-based analog the surgical splice reads.
+/**
+ * Line indices that are TOP-LEVEL slide separators — the line-based analog the surgical
+ * splice reads, and the same derivation `splitTopLevel` uses, so a line walk and a chunk
+ * split can never disagree about where a boundary is.
+ *
+ * `lines` is the WHOLE document including front matter, because that is what the splice
+ * works in. The scan runs on the body and its answers are shifted back by the number of
+ * front-matter lines.
+ */
 export function separatorLines(lines) {
+  const all = Array.isArray(lines) ? lines : [];
+  const src = all.join('\n');
+  const fm = FRONT_MATTER.exec(src);
   const set = new Set();
-  let inFence = false;
-  let fenceChar = '';
-  let fenceLen = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!inFence) {
-      const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
-      if (open) { inFence = true; fenceChar = open[1][0]; fenceLen = open[1].length; continue; }
-      if (/^---\r?$/.test(line)) set.add(i); // CRLF-tolerant so it agrees with splitTopLevel (/^---$/m splits `---\r\n`)
-    } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
-      inFence = false; fenceChar = ''; fenceLen = 0;
-    }
+  let skip = 0;
+  if (fm) {
+    // The front matter's OWN two `---` lines stay in the set. They are not slide boundaries —
+    // nothing renders between them — but they are what produces the leading `['', <yaml>]`
+    // chunks that `fmChunks()` counts past, and every index calculation in this file is
+    // written against that shape. Dropping them silently shifted every real slide by two.
+    skip = fm[0].replace(/\n$/, '').split('\n').length;
+    set.add(0);
+    set.add(skip - 1);
   }
+  const body = fm ? src.slice(fm[0].length) : src;
+  for (const ln of slideBoundaries(body).lines) set.add(ln + skip);
   return set;
 }
 
@@ -321,6 +347,14 @@ export function applyEdit(source, edit) {
 export function applyEditChecked(source, edit) {
   const refuse = (reason) => ({ source, ok: false, reason });
   if (!edit) return refuse('No edit to apply.');
+  // THE DECK'S OWN BOUNDARIES FIRST. Every branch below identifies bytes by a slide index,
+  // so an index into a slide list nobody can vouch for splices into the wrong place — the
+  // failure mode this module exists to prevent, and the one that reached a human as a
+  // destroyed slide under a green "Applied" tick. `slideBoundaries` says when it cannot
+  // settle a deck (an unclosed fence or HTML block — what a deck looks like mid-edit), and
+  // the honest answer there is to decline and say why.
+  const doubt = boundaryDoubt(source);
+  if (doubt) return refuse(`This deck has ${doubt}, so it isn't clear where its slides begin — nothing was applied. Close it and try again.`);
   const fm = fmChunks(source);
   const lines = String(source || '').split('\n');
   const ranges = slideRanges(lines);
