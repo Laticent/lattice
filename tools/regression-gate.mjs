@@ -517,6 +517,16 @@ function main() {
       const artifact = buildMontage(r.name.replace(/[/\\]/g, '_'), 'golden', tr);
       if (artifact) tr.artifact = relative(ROOT, artifact);
     }
+    // Drop pixelDiff's rasterized PNGs once the montage has been built from them. It
+    // never cleans its own tmpDir, which was survivable at 75 galleries and is not at
+    // 185 decks: a few sweeps left 502 directories and 1.3GB under /tmp, and the next
+    // run of the SAME deck went from 7.7s to ~3 minutes. Measured, after chasing it as
+    // a regression in this tool. A DRIFTED deck keeps its directory — the report points
+    // reviewers at those PNGs.
+    if (tr?.status !== 'DRIFT' && tr?.tmpDir) {
+      try { rmSync(tr.tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+      tr.tmpDir = undefined;
+    }
     report.push(r);
     // A BLESSED golden is not a failure — the drift was resolved by this very run, so
     // reporting it red (and telling the reader to "re-bless") would be a lie about what

@@ -135,6 +135,34 @@ makes the drift *findable and provable* — it does not make it *impossible*. Th
 is the same one `overflow:check` carries, and the honest description is "the same watcher
 the galleries have", not "freshness is now guaranteed".
 
+## The strongest objection, recorded rather than answered
+
+The HARD RULE #25 inversion put it sharply: `#1279`'s defect was that `watcher:` named
+something that does not read the bytes; this change's remedy is a `watcher:` that names
+something **no process requires anyone to run**. There is no CI job, no hook, no nightly,
+and no line in `workflow.md` saying when to sweep. That is a real weakening of the word,
+and it deserves to be written down next to the claim rather than left for a reader to
+notice.
+
+It also sharpened the reason `regress` left CI, which is worse than the flake:
+`2026-06-12-p4-regression-gate-retire-marp.md` §0 records that post-marp a self-golden
+pixel gate detects **change, not correctness** — a golden blessed with a bug passes
+forever. This change then blesses 19 goldens. The inspection of the four largest is what
+stands between that and a permanently-passing wrong golden, and inspection does not scale.
+
+**The recommended next step, not taken here:** add `regress --scope decks` to
+`.github/workflows/integration-nightly.yml`, which already runs a slow render tier on
+`main` and opens a rolling tracking issue on failure, at a tolerance set **above** the
+cross-runner rasterization noise (~3% rather than the local 0.05%). At that threshold the
+four drifts a reader could actually see — 8.9%, 8.3%, 5.3%, 3.7% — are caught
+automatically and forever, while the fourteen sub-1% ones stay a local concern. That is
+strictly better than a 35-minute command nobody is obliged to run.
+
+It is not in this change for one reason, stated plainly: **a workflow arm cannot be
+exercised from this sandbox.** Adding CI I cannot run and then describing it as a gate
+would be the same species of claim this whole swimlane exists to stamp out (HARD RULE
+#23). It wants its own change, on a surface where it can be watched working.
+
 ## Verified
 
 - The gate reproduces the drift it was built to find: `examples/pricing` p2 at 8.9%,
