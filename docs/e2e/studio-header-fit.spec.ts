@@ -44,12 +44,19 @@ const X_DRIFT = 1; // sub-pixel only: #1371's defect was a 70px jump, not a roun
 const SETTLE_STEP_MS = 100;
 const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bounded
 // The row must not merely FIT at its floor — it must fit with room a person could spend.
-// `scrollWidth <= clientWidth` is a cliff-edge oracle: the deck switcher truncates to
-// absorb pressure, so the first thing a squeeze destroys is the deck title (the user's
-// orientation), and the fit assertion cannot fail until that is already at zero. This
-// floor fires BEFORE the cliff. 24px is not arbitrary: with the webfont unavailable the
-// system-ui fallback grows the dial by ~20px, so a row under ~24px of spare is a row that
-// breaks for anyone whose font has not loaded yet. Today's measurement is 35px.
+// `scrollWidth <= clientWidth` cannot fail until the row is ALREADY over, and by then the
+// deck switcher has been squeezed to a dot and a chevron; this fires while there is still
+// something to protect.
+//
+// 24 is not arbitrary, and the reason is specifically NOT "the deck title truncates first"
+// — at 700px, the only width this runs at, the title is already 0px wide with or without
+// the dial's words. The load-bearing case is the FONT: with the webfont unavailable the
+// system-ui fallback grows the dial from 219px to 240px, so a row under ~24px of spare is
+// a row that breaks for anyone whose font has not loaded yet. Measured today: 35px.
+//
+// It is a FLOOR, not a target. If a change frees width, raise this number to match — the
+// same ratchet discipline every budget in `tools/check-ownership.js` carries, so the
+// margin cannot quietly erode one PR at a time. Lowering it is how this row regresses.
 const MIN_SPARE_AT_FLOOR = 24;
 
 // Step the dial by ARIA NAME, never by text: an icon-only dial has no text, so a

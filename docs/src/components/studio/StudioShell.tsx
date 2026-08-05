@@ -3260,7 +3260,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* The cinema morph (iPhone landscape) shows NO header — the slide is the whole
 			    screen. Every other width/stop keeps its header. */}
 			{!landscapePhone && (effectiveStop !== 'build' && !compact ? (
-			<header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
+			<header className="flex h-[54px] shrink-0 items-center gap-3 overflow-x-auto overscroll-x-contain border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
 				    switching / New deck is a Write-and-up concern). Write gets the real
@@ -3291,7 +3291,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{feedbackButton}
 			</header>
 			) : (
-			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out overflow-x-auto overscroll-x-contain', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+				{/* SCROLLABLE WHEN IT OVERFLOWS — the failure mode, made survivable. Everything
+				    above is about making the row FIT; this is about what happens the day it
+				    doesn't. Today the tail simply leaves the screen, silently, and on a tablet
+				    the control it takes with it is the ⋯ Menu — the only route to Library,
+				    Reader views and Workspace settings (that is #1381, exactly). Raise Chrome's
+				    minimum font size (a low-vision setting: Settings → Appearance → Customize
+				    fonts) to 18px and the words push this row over again at 700px; at 24px the
+				    ⋯ is gone entirely. `overflow-x: auto` turns "unreachable" into "scroll to
+				    it" for THAT case and every future one, and it is INERT the rest of the
+				    time: a row whose content fits cannot scroll, and shows no scrollbar. The
+				    scrollbar is deliberately NOT hidden — it is the only signal that the row
+				    has more in it, and `native-widgets.css` already owns how it looks.
+				    `overscroll-x-contain` keeps a swipe at either end from chaining into the
+				    browser's back gesture. This does NOT weaken the guards: `check:overflow`
+				    and `studio-header-fit.spec.ts` both assert `scrollWidth <= clientWidth` on
+				    this element, which is exactly as red on a real overflow as it was before. */}
 				{/* Below desktop this row runs at the PHONE's density — 6px gaps, 10px side
 				    padding — instead of the desktop 12px/14px. `compact` is true on mobile too and
 				    `sm:` starts at 640, so this reaches 640–699 as well: that band used to jump to

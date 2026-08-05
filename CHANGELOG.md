@@ -961,12 +961,24 @@ in patch versions.
   with Chrome's *minimum font size* (Settings → Appearance → Customize fonts) raised: the row
   fits up to **17px** (dial 254px, ⋯ Menu on-screen), and from **18px** it overflows — by 4px at
   18, 18px at 20, 46px at 24, clipping the ⋯ Menu by the same amount. Hiding just the dial's word
-  spans returns it to zero at every setting, so the words are the cause. Under that setting the
-  previous icon-only dial had roughly 32px more room, which makes this a real trade and not a free
-  one: it is the same trade the words themselves are, one notch further out. Chrome's *default*
-  font size at Large (20px) already overflowed before this change (107px on the old header) and
-  overflows less after it (72px). Neither `check:overflow` nor the new spec varies font settings,
-  so nothing catches this automatically today. Fixes #1381, #1401.
+  spans returns it to zero at every setting, so the words are the cause, and the icon-only dial did
+  not have this problem: Chrome's minimum-font-size scales text, and below 1100px that row had
+  almost none — the dial, Present and Share were all icons.
+
+  **So the tail stays reachable past the limit instead.** The header is now
+  `overflow-x: auto`, which changes the failure from *"the ⋯ Menu is off the screen and there is no
+  way to it"* — #1381, exactly — to *"the row scrolls"*. Measured at 700px with
+  `minimumFontSize: 24`: before, the ⋯ Menu's right edge sat at 746 against a 700px viewport and
+  was simply gone; now the row scrolls and it comes fully into view. The declaration is inert
+  whenever the row fits (a row whose content fits cannot scroll and shows no scrollbar) — the
+  rendered header is byte-identical at 700 and 820 in both modes — and the scrollbar is
+  deliberately left visible, because it is the only signal that there is more in the row. It does
+  not weaken either geometry guard: both still assert `scrollWidth <= clientWidth` on this element.
+  If anything it sharpens them, since Chrome under-reports `scrollWidth` on an `overflow: visible`
+  box — the same setting that read as 4px over now reads its true 14px. Chrome's *default* font
+  size at Large (20px) already overflowed before this change and overflows less after it. No gate
+  varies font settings, so the numbers above are a measurement, not a guarded invariant.
+  Fixes #1381, #1401.
 
 - **`check:overflow` now measures rows that clip, not just pages that grow.** The guard asserted
   `documentElement.scrollWidth <= clientWidth`, which is blind to the failure above: a too-wide row
