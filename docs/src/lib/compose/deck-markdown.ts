@@ -162,7 +162,7 @@ const latticeNodes = {
 	// the old caller-side splitter and false of the ENGINE: `splitOnHr` breaks on every
 	// top-level markdown-it `hr`, so `***`, `___` and `- - -` were all slide splits in the
 	// render already. The "safe" form was safe only from the code that was supposed to be
-	// modelling the render.
+	// modeling the render.
 	//
 	// A TOP-LEVEL break is now parsed as the slide boundary it is, so this serializer only
 	// ever emits a rule that lives INSIDE a container (a blockquote, a list item), where the

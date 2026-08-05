@@ -46,7 +46,7 @@ in patch versions.
   instead of paying for a whole-deck render. Details:
   `engineering/decisions/2026-08-05-slide-boundary-reconciliation.md`.
 - **Changed: round-tripping a deck through the Studio's Write surface canonicalizes a non-`---`
-  separator to `---`.** Same render, different bytes. It follows from the Write surface modelling
+  separator to `---`.** Same render, different bytes. It follows from the Write surface modeling
   the split at all: `***` in prose was always two slides to the engine and one slide in the editor.
 
 - **Studio — the deck pill can no longer render its own chevron outside itself, and the tablet

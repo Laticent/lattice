@@ -390,6 +390,29 @@ test('separatorRanges locates the separator line in the source string', () => {
 	assert.equal(deck.slice(ranges[0].index + ranges[0].length), '\n# Two\n');
 });
 
+test('separatorRanges indexes the RAW string, whatever its line endings', () => {
+	// `slideBoundaries` counts NORMALIZED lines; these offsets index what the caller actually
+	// holds. An earlier cut measured the geometry with `src.split('\n')`, which agrees on CRLF
+	// by luck and THREW on a lone `\r` (one giant "line", every boundary index out of range) —
+	// a crash in the editor's slide locator, argued away by a comment saying the caller
+	// normalizes at its ingest door. That is true of the editor and is not a property of this
+	// function, so it is a property of this function now.
+	for (const [name, src] of [
+		['LF', '# A\n\n---\n\n# B\n'],
+		['CRLF', '# A\r\n\r\n---\r\n\r\n# B\r\n'],
+		['lone CR', '# A\r\r---\r\r# B\r'],
+		['BOM', '\uFEFF# A\n\n---\n\n# B\n'],
+		['no trailing newline', '# A\n\n---'],
+		['mixed endings', '# A\r\n\n---\r\n\r# B'],
+	]) {
+		const { ranges } = separatorRanges(src);
+		assert.equal(ranges.length, 1, `${name}: one separator`);
+		assert.match(src.slice(ranges[0].index, ranges[0].index + ranges[0].length), /^---(\r\n|\r|\n)?$/, `${name}: the range covers the separator line and its terminator`);
+		// And the text before it is the first slide, with nothing of the separator in it.
+		assert.match(src.slice(0, ranges[0].index).replace(/^\uFEFF/, ''), /^# A(\r\n|\r|\n){2}$/, `${name}: the slice above the range is slide one`);
+	}
+});
+
 test('separatorRanges offsets into the full document when the body was stripped', () => {
 	const full = '---\ntitle: x\n---\n\n# One\n\n***\n\n# Two\n';
 	const fm = FRONT_MATTER.exec(full)[0];

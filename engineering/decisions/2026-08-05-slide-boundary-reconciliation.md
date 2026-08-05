@@ -225,7 +225,7 @@ and the fix in every case was to test against the engine rather than against a s
 
 Round-tripping a deck through the Studio's Write surface now **canonicalizes a non-`---` separator
 to `---`**. A deck written with `***` comes back with `---`: same render, different bytes. It
-follows from modelling the split at all, and it is in the CHANGELOG rather than hidden.
+follows from modeling the split at all, and it is in the CHANGELOG rather than hidden.
 
 `deck-markdown.ts` still serializes a horizontal rule as `***`, but the reason in its comment was
 wrong and is corrected: `***` was never "an `<hr>` the separator regex can never match" — the
