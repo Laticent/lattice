@@ -151,12 +151,15 @@ in patch versions.
   player's "verbatim" envelope, which ships frozen SVG instead of diagram source) is actively
   harmed, and seven are indifferent — plus the chart narrator, which already pays to re-derive a
   fence-intact source to route around it. Inverting it deletes the reconstruction, its 654-deck gate, and the
+  fence-intact source to route around it. Inverting it deletes the reconstruction, its 651-deck gate, and the
+
+  harmed, one already re-derives a fence-intact source to work around it, and six read front matter
+  and do not care. Inverting it deletes the reconstruction, its 643-deck gate, and the
   SVG-through-markdown-it hazard that already shipped a sankey label bug. Scheduled with a plan;
   fence-intact source to route around it. Inverting it deletes the reconstruction, its 654-deck gate,
   and the SVG-through-markdown-it hazard that already shipped a sankey label bug. Scheduled with a plan;
   until then that module is on a retirement path, not a growth path.
   `engineering/decisions/2026-08-05-bake-before-render-ordering.md`, #1385.
-
 
 - **Fixed: `npm run bench:check` was red on a clean tree, and its one honest signal exited 0.**
   The committed baseline held absolute milliseconds from whatever machine last blessed it, so
@@ -168,8 +171,6 @@ in patch versions.
   print, as an index against a fixed upstream-markdown-it probe, so the baseline's diff stays a
   readable trend. `charts` re-blessed at its true count.
   `engineering/decisions/2026-08-05-bench-ratchet-two-signals.md`, #1382.
-
-
 
 - **Fixed: the deck linter and five other authoring surfaces read the class directive with a regex
   that could not see half of it.** Marp has two class directives — the spot `<!-- _class: … -->`
@@ -8650,7 +8651,7 @@ in patch versions.
     but keep their landscape composition for now; a portrait reflow is tracked as
     follow-on. PPTX export remains 16:9-only (PDF export is correct at every size).
 
-- **Color-vision-deficiency accessibility — four first-class CVD themes.** Four
+- **Colour-vision-deficiency accessibility — four first-class CVD themes.** Four
   selectable themes — `a11y-deuteranopia`, `a11y-protanopia`, `a11y-tritanopia`,
   `a11y-achromatopsia` — chosen exactly like any theme (`theme: a11y-deuteranopia`
   in front matter, or the Drawing Board theme picker's "Accessibility" group). No

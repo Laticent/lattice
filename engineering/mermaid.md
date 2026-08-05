@@ -466,6 +466,20 @@ and a blank line followed by `---` inside that SVG really does produce a section
 reconstruction has no span for. That gap is not closable from this side — it is a
 consequence of baking before rendering at all, which is the question #1385 asks.
 
+**#1385 is answered: this module is on a RETIREMENT path, not a growth path.**
+Nothing between the bake and the render needs the baked SVG — measured, not argued:
+of the nine real `rawMd` reads in the emulator, one is the render itself, one (the
+player envelope's "verbatim source") is actively harmed by it, one already
+re-derives a fence-intact source to work around it, and six read front matter and
+do not care. `engine.render` is called exactly once, so the early bake amortizes
+nothing either. The ordering is an accident of module-evaluation position.
+Inverting it — render first, bake per `<section>`, which is what the runtime path
+already does — deletes this module, its corpus gate, and the SVG-through-markdown-it
+hazard above. Scheduled, with the plan and the one piece that can go silently wrong
+(the image-set re-bake's index alignment), in
+`engineering/decisions/2026-08-05-bake-before-render-ordering.md`. **A new defect
+here is a reason to bring that forward, not a reason to add a fourth layer.**
+
 
 ---
 
