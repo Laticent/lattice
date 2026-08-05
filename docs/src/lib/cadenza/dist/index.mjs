@@ -50,14 +50,11 @@ function deserializeCalibration(raw) {
 }
 
 // docs/src/lib/cadenza/cursor.ts
-function cloneTrack(track) {
-  return {
-    durationMs: track.durationMs,
-    cues: track.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) }))
-  };
-}
 function makeCursor(input) {
-  const track = cloneTrack(input);
+  const track = {
+    durationMs: input.durationMs,
+    cues: input.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) }))
+  };
   let flat = [];
   const reindex = () => {
     flat = [];

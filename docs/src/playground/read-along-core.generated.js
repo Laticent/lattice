@@ -121,14 +121,11 @@ var require_dist = __commonJS({
       const updatedAt = typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) ? r.updatedAt : 0;
       return { samples, n, updatedAt };
     }
-    function cloneTrack(track) {
-      return {
-        durationMs: track.durationMs,
-        cues: track.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) }))
-      };
-    }
     function makeCursor(input) {
-      const track = cloneTrack(input);
+      const track = {
+        durationMs: input.durationMs,
+        cues: input.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) }))
+      };
       let flat = [];
       const reindex = () => {
         flat = [];
