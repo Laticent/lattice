@@ -86,8 +86,9 @@ the emulator, and the VS Code preview.
 | Whole deck dark, simplest theme swap | `theme: cuoio-dark` (or `indaco-dark`) |
 | One slide dark on a light deck | `<!-- _class: dark -->` on that slide |
 
-The first-class `color-mode:` key is the recommended way (the legacy `class: dark`/
-`class: light` still works but is deprecated). Default is light. Layout classes that always want a dark canvas
+The first-class `color-mode:` key is the way. The legacy `class: dark`/`class: light`
+still works on a deck that sets nothing else — but where a deck carries both, **the key
+wins and the alias is dropped**, not merged. Default is light. Layout classes that always want a dark canvas
 (`section.title`, `section.divider`, `section.closing`) keep their dark
 chrome regardless of the deck's color-scheme.
 
@@ -162,7 +163,7 @@ Works on SVG, PNG, and JPEG. Composes with every treatment
 |---|---|
 | Logo on every slide | `logo: ./logo.svg` |
 | Title slide only | `logo: ./logo.svg` + `logo-on: title` |
-| Preserve brand colours on a plate | `logo: ./logo.svg` + `logo-style: brand` |
+| Preserve brand colors on a plate | `logo: ./logo.svg` + `logo-style: brand` |
 
 The directive runs at build time. It does **not** render in the
 marp-vscode preview pane, which runs marp-core directly without Lattice's

@@ -14,7 +14,7 @@ import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
-import { getFrontMatter, mergeClassTokens, writeFrontMatterLine } from './front-matter';
+import { getFrontMatter, mergeClassTokens, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { OverflowMarker } from './studio-store';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
@@ -525,7 +525,7 @@ export type ImageSetOptions = {
  *  shared kernel (HARD RULE #1), so both surfaces emit the same set.
  *
  *  `previewMode` is the current light/dark preview; `imageOpts.mode` overrides it:
- *  light/dark render the matching palette variant, print stamps the B&W `class: print`
+ *  light/dark render the matching palette variant, print stamps the B&W `color-mode: print`
  *  canvas (rendered light), and inherit keeps the preview mode — mirroring the CLI's
  *  `--image-mode`. The chosen mode also rides in `imageOpts` so the manifest records it. */
 export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, previewMode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
@@ -534,7 +534,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	let src = source;
 	if (chosen === 'light') renderMode = 'light';
 	else if (chosen === 'dark') renderMode = 'dark';
-	else if (chosen === 'print') { renderMode = 'light'; src = mergeClassTokens(source, 'print'); }
+	else if (chosen === 'print') { renderMode = 'light'; src = withPrintCanvas(source); }
 	// Honor `dark` only when a `-dark` companion is actually reachable: ensureTheme() silently falls
 	// back to the base (light) palette otherwise — many palettes (a11y-*) ship no dark — while leaving
 	// the requested mode 'dark'. Coerce here so BOTH the render AND the recorded slideScheme match the
@@ -551,7 +551,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	// independent of the slides. When it differs from the slides' own scheme, do a SECOND full
 	// engine render in that look — so the print texture defs, dark palette, and Mermaid re-bake
 	// are all correct (an in-page toggle can't reliably do that). The exporter extracts the SVGs
-	// from this render instead of the slide render. print → the B&W `class: print`; light/dark →
+	// from this render instead of the slide render. print → the B&W `color-mode: print`; light/dark →
 	// the matching palette (skipped for a saved library theme, which has no companion scheme).
 	// The scheme the slides are ACTUALLY in — recorded in the manifest so it self-describes
 	// (not the raw `inherit`). For `inherit` that's the preview mode; the two surfaces can pick
@@ -563,7 +563,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	// Only re-render for the look when SVGs are actually extracted (else the second render is wasted).
 	if (svgLook && svgLook !== slideScheme && imageOpts.extractSvg !== false) {
 		if (svgLook === 'print') {
-			svgRender = await buildDeckRender(options, mergeClassTokens(source, 'print'), palette, 'light', extra, extraCss);
+			svgRender = await buildDeckRender(options, withPrintCanvas(source), palette, 'light', extra, extraCss);
 		} else if (svgLook === 'light' && !extra) {
 			svgRender = await buildDeckRender(options, source, palette, 'light', extra, extraCss);
 		} else if (svgLook === 'dark' && !extra) {

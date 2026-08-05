@@ -61,7 +61,9 @@ every chart and diagram unbuilt. Both config files here set it.
 front-matter key and it stamps every slide, which is exactly what Lattice's dark
 styling keys off. Lattice's richer deck registers (`color-mode:`, `finish:`,
 `logo:`, …) are read from a block that only the full export pipeline writes, so
-in a hand-authored deck like this one they do nothing.
+in a hand-authored deck like this one they do nothing. Set one or the other, never
+both: in Lattice's own pipeline `color-mode:` supersedes the `class:` alias and
+drops it, so a deck carrying both renders differently on the two sides.
 
 ## Fidelity
 

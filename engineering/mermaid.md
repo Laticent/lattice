@@ -311,8 +311,11 @@ frontMatter, slideClass, flagPrint })` returns `light` | `dark` | `print`, in th
 precedence:
 
 1. **Print wins.** Paper is ink-on-white — not a color scheme, so nothing about
-   light/dark outranks it. `color-mode: print`, the legacy `class: print`, the
-   engine `--print` flag, or a per-slide `_class: print`.
+   light/dark outranks it. `color-mode: print`, the engine `--print` /
+   `--image-mode print` flag (which writes that key), or a per-slide `_class: print`.
+   The legacy `class: print` also sets it — but only on a deck with no `color-mode:`
+   key at all, because the key supersedes the whole legacy color axis
+   (`lib/core/deck-class-register.js`).
 2. **A slide that names a color-mode token owns its scheme.** `_class: light` on
    a dark deck renders light. "Names a color-mode token" is whole-token
    membership in `COLOR_MODE_TOKENS` (`lib/core/color-mode.js`) — the same test
@@ -462,6 +465,7 @@ verifies `spans(md) ≡ render(md)`, while production needs
 and a blank line followed by `---` inside that SVG really does produce a section the
 reconstruction has no span for. That gap is not closable from this side — it is a
 consequence of baking before rendering at all, which is the question #1385 asks.
+
 
 ---
 

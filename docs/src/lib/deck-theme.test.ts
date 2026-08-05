@@ -185,4 +185,20 @@ describe('resolveDeckTheme — the first-class color-mode: key', () => {
 		const r = resolveDeckTheme(fm('class: dark'), { sitePalette: 'indaco', siteMode: 'light', isKnownTheme });
 		expect(r.colorMode).toBe('dark');
 	});
+
+	it('an INDENTED `color-mode:` is not the deck register — the preview must not pin off a nested key', () => {
+		// `^\s*color-mode:` matched a key nested under another one (and a line inside a
+		// `style: |` block scalar). The engine reads this register at column 0, because
+		// `--print` and the export boundary WRITE it there; a preview that pinned dark
+		// off a nested key showed a mode the render would not produce.
+		const r = resolveDeckTheme(fm('foo:\n  color-mode: dark\nclass: light'), { sitePalette: 'indaco', siteMode: 'light', isKnownTheme });
+		expect(r.colorMode).toBe('light');
+		expect(r.pinnedLight).toBe(true);
+	});
+
+	it('an INDENTED `class:` is not the deck register either', () => {
+		const r = resolveDeckTheme(fm('style: |\n  class: dark\ntheme: indaco'), { sitePalette: 'laguna', siteMode: 'light', isKnownTheme });
+		expect(r.pinnedDark).toBe(false);
+		expect(r.colorMode).toBe(null);
+	});
 });

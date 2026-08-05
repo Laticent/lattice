@@ -194,7 +194,7 @@ OPTIONS
                           series) for paper handouts, instead of the screen /
                           colour palette. Every text token clears WCAG AA on
                           white. Any output format; also settable per-deck with
-                          'class: print'.
+                          'color-mode: print'.
       --raster            Print the PDF as one full-bleed slide image per page
                           (2x JPEG, from the same screenshots the PPTX path
                           takes) instead of vector pages. Maximum viewer
@@ -562,28 +562,35 @@ function readFileOrDie(p, label) {
   }
 }
 
-// --print stamps the deck-wide `print` canvas class (the B&W-safe ink-on-white
-// band; base.modifiers.css section.print) by merging it into the front-matter
-// `class:`, so the existing deck-class propagation (plugins.js deckClassPropagate)
-// applies it to every slide — the same path as authoring `class: print` directly.
-function withPrintClass(src) {
-  const fm = src.match(/^(---\r?\n)([\s\S]*?)(\r?\n---\r?\n)/);
-  if (!fm) return `---\nclass: print\n---\n\n${src}`; // no front matter → add one
-  const [full, open, body, close] = fm;
-  if (/^[ \t]*class:.*\bprint\b/m.test(body)) return src; // already present
-  const merged = /^[ \t]*class:/m.test(body)
-    // Anchor the value to the class LINE ([^\n], not \s* which would cross the
-    // newline and append `print` onto the next key). Handles an empty `class:`
-    // (→ `class: print`) and drops any quotes (a class list needs none).
-    ? body.replace(/^[ \t]*class:[ \t]*["']?([^"'\n]*)["']?[ \t]*$/m, (_m, val) => `class: ${[val.trim(), 'print'].filter(Boolean).join(' ')}`)
-    : `${body}\nclass: print`;
-  return src.replace(full, open + merged + close);
-}
 const mdRaw = readFileOrDie(mdFile, 'source markdown');
 // PRINT canvas is stamped by `--print` OR by an image set's `--image-mode print`
-// (same deck-wide class:print path, so the whole set renders the B&W-safe handout).
+// (one `color-mode: print` path, so the whole set renders the B&W-safe handout).
+// The source transform lives in the kernel (lib/core/resolve-color-mode.js) so it
+// is testable as behavior and so the permutation gate can drive this axis exactly
+// as the CLI does.
+const {
+  withPrintColorMode, deckColorModeToken, classTokens,
+} = require('./lib/core/resolve-color-mode');
+const { frontMatterValue } = require('./lib/core/front-matter-key');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
-const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
+const md = WANT_PRINT ? withPrintColorMode(mdRaw) : mdRaw;
+
+// A REFUSED deck-wide `class:` token says so HERE, not only in `lint:deck`.
+//
+// The register drops a component name outright, and a color token superseded by
+// `color-mode:` — both silently, at the boundary, by design. That is the right
+// place for the FILTER and the wrong place for the only notice: the person whose
+// deck changed shape is rendering it, not linting it, and a deck that used to
+// carry `class: kpi` on every slide now renders as prose with a successful exit
+// code. One line on stderr is the difference between a breaking change and a
+// mysterious one. The linter says the same thing with a fix (`deck-wide-component`).
+const { deckClassRefusalsFromFrontMatter } = require('./lib/core/deck-class-register');
+const { frontMatterBody: deckFrontMatterBody } = require('./lib/core/resolve-color-mode');
+for (const { token, reason } of deckClassRefusalsFromFrontMatter(deckFrontMatterBody(md))) {
+  console.error(reason === 'component'
+    ? `warning: deck-wide \`class: ${token}\` names a COMPONENT — it is ignored (every slide would be a ${token} slide). Name it per slide with <!-- _class: ${token} -->, or once for a run with <!-- class: ${token} -->.`
+    : `warning: deck-wide \`class: ${token}\` is superseded by \`color-mode:\` — it is dropped, not merged. Remove it from the class list.`);
+}
 
 // Resolve palette name from the precedence chain (CLI > env > front
 // matter > default). Logic lives in lib/resolve-palette.js so it can
@@ -613,7 +620,7 @@ const {
 // An image set's `--image-mode light|dark` forces the palette's light / dark variant
 // (the same `<name>-dark` companion the Studio's dark export picks — HARD RULE #1),
 // on top of the normal precedence chain. `inherit`/`print` leave the resolved name alone
-// (print rides the class:print stamp above, palette-independent). A missing dark
+// (print rides the color-mode:print stamp above, palette-independent). A missing dark
 // companion falls back to the base name with a warning rather than a hard error.
 function applyImageModePalette(name) {
   if (OUT_FORMAT !== 'imageset') return name;
@@ -1231,7 +1238,11 @@ function preprocessMermaid(source) {
         scope: resolveDiagramBand({
           frontMatter: fm,
           slideClass: fence.slideClass,
-          flagPrint: !!flags.print,
+          // WANT_PRINT, not `flags.print`: `--image-mode print` sets the print
+          // canvas too, and passing the narrower flag made the band depend on the
+          // front-matter merge alone — so an image set exported in print mode
+          // baked full-color ink while manifest.json recorded "print".
+          flagPrint: WANT_PRINT,
         }),
         diagrams: [],
       };
@@ -2770,7 +2781,7 @@ async function renderBody(browser, g, closeBrowser) {
     // The scheme the slides are ACTUALLY in (so the manifest self-describes, and a matching SVG
     // look needs no re-style). Derived from the resolved palette, not the raw flag: `--image-mode
     // dark` with no `-dark` companion falls back to the base palette, so this correctly reads
-    // 'light'. print is palette-independent (the class:print stamp) — and is authoritative via
+    // 'light'. print is palette-independent (the color-mode:print stamp) — and is authoritative via
     // WANT_PRINT, which is ALSO set by the standalone `--print` flag (not just `--image-mode
     // print`), so a `deck.md out.zip --print` records 'print' to match its ink-on-white pixels.
     const resolvedScheme = WANT_PRINT
@@ -3088,21 +3099,32 @@ async function renderBody(browser, g, closeBrowser) {
       // The first-class `color-mode:` key WINS when present:
       //   · light / dark → PIN that mode.  · system → defer to the receiver's OS.
       //   · inherited → no host in a standalone player, so BAKE AS SYSTEM (follow the OS).
-      // When `color-mode:` is absent, infer from the effective `color-scheme` (theme
-      // palette or a deck `style:`/`class: … dark` alias):
-      //   · `light dark` (both) → SYSTEM.  · `dark` only, or `class: … dark` → DARK.
+      // `color-mode:` DECIDES when it is set — it supersedes the legacy `class:` color
+      // alias, so a deck carrying both must not seed the player from the token the render
+      // just dropped. Read through the shared `deckColorModeToken` rather than a local
+      // regex: this was the FOURTH spelling of that key, and the three before it disagreed
+      // on a value with a trailing YAML comment (lib/core/resolve-color-mode.js).
+      // `print` is a paper canvas, not a scheme, so the player opens light — the same
+      // coercion the Studio's image-set export makes.
+      //
+      // Only when the key is ABSENT does the effective `color-scheme` decide (theme palette
+      // or a deck `style:` / `class: … dark` alias):
+      //   · `light dark` (both) → SYSTEM.  · `dark` only, or `class: dark` → DARK.
       //   · anything else → LIGHT.
       // Strip CSS comments from the palette first — a theme's DOC comment mentioning
       // `color-scheme:light dark` (indaco's does) must NOT read as an actual declaration.
-      const cmKey = ((fm.match(/^\s*color-mode:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1] || '').trim().toLowerCase();
+      const cmToken = deckColorModeToken(fm);
       const paletteDecls = paletteCSS.replace(/\/\*[\s\S]*?\*\//g, '');
       const csDeclares = (re) => re.test(paletteDecls) || re.test(fm);
       const deckScheme =
-        cmKey === 'light' || cmKey === 'dark' ? cmKey
-          : cmKey === 'system' || cmKey === 'inherited' ? 'system'
-            : csDeclares(/color-scheme\s*:\s*(light\s+dark|dark\s+light)\b/) ? 'system'
-              : csDeclares(/color-scheme\s*:\s*dark\b/) || /^\s*class:\s*["']?[^"'\n]*\bdark\b/m.test(fm) ? 'dark'
-                : 'light';
+        cmToken === 'dark' ? 'dark'
+          : cmToken === 'color-light' || cmToken === 'print' ? 'light'
+            : cmToken === 'color-system' || cmToken === 'color-inherited' ? 'system'
+              : csDeclares(/color-scheme\s*:\s*(light\s+dark|dark\s+light)\b/) ? 'system'
+                // WHOLE-token membership, matching the propagation kernel: `\bdark\b` also
+                // matches inside `dark-mode`, which is not the `dark` class token.
+                : csDeclares(/color-scheme\s*:\s*dark\b/) || classTokens(frontMatterValue(fm, 'class')).includes('dark') ? 'dark'
+                  : 'light';
       const { html: playerHtml, report } = await buildPlayerHtml({
         // The browser-baked DOM (captured after the overflow-marker level was applied,
         // with state-chart / function-plot inflated to static SVG). Falls back to the

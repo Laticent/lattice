@@ -385,7 +385,7 @@ describe('texture-polarity', () => {
     // THE CASE THE DELETED MARKER EXISTED FOR, and the one that made removing it a
     // regression until the root cause was fixed.
     //
-    // `--print` merges a deck-wide `class: print`, and `resolveDiagramBand` bakes EVERY
+    // `--print` writes a deck-wide `color-mode: print`, and `resolveDiagramBand` bakes EVERY
     // slide in the print band — rule 1, "print wins … nothing about light/dark can
     // outrank it". But the class-propagation guard used to treat `print` as just another
     // color-axis token, so a slide carrying `_class: dark` EVICTED it: the section came

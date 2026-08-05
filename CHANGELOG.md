@@ -144,6 +144,119 @@ in patch versions.
   a phrase that wraps is highlighted per line instead of as one lying rectangle. Every addition is
   defaulted: with no options passed, `circle` and every existing tour are byte-identical.
 
+- **Decided, not built: the export should render before it bakes Mermaid.** The source-side slide
+  reconstruction (`lib/core/slide-class-spans.js`) exists only because the export bakes diagrams at
+  module-evaluation time, before a single `<section>` exists — an ordering nobody wrote down.
+  Measured: of the nine real reads of the baked source, one is the render itself, one (the shared
+  player's "verbatim" envelope, which ships frozen SVG instead of diagram source) is actively
+  harmed, and seven are indifferent — plus the chart narrator, which already pays to re-derive a
+  fence-intact source to route around it. Inverting it deletes the reconstruction, its 651-deck gate, and the
+  SVG-through-markdown-it hazard that already shipped a sankey label bug. Scheduled with a plan;
+  until then that module is on a retirement path, not a growth path.
+  `engineering/decisions/2026-08-05-bake-before-render-ordering.md`, #1385.
+
+- **Fixed: `npm run bench:check` was red on a clean tree, and its one honest signal exited 0.**
+  The committed baseline held absolute milliseconds from whatever machine last blessed it, so
+  anywhere slower read every dataset as a ~20% regression before any change was made — while the
+  `charts` row, blessed at 14 slides against a 15-slide deck, printed `WORKLOAD CHANGED` on every
+  run and exited 0 for over a month. The two signals are separated now: a moved slide count is
+  machine-independent and **fails on any machine**, and a wall-clock delta gates **only on the
+  machine that blessed the baseline** (which the file records). Cross-machine the timings still
+  print, as an index against a fixed upstream-markdown-it probe, so the baseline's diff stays a
+  readable trend. `charts` re-blessed at its true count.
+  `engineering/decisions/2026-08-05-bench-ratchet-two-signals.md`, #1382.
+
+- **Fixed: the deck linter and five other authoring surfaces read the class directive with a regex
+  that could not see half of it.** Marp has two class directives — the spot `<!-- _class: … -->`
+  and the bare `<!-- class: … -->`, a running global in force to the end of the deck — and seven
+  modules re-spelled a `_class:`-only pattern that matched the first form. On a deck using the
+  global form, that made the real directive invisible; and because the pattern is non-global and
+  used with `.match()`, whatever `_class:` the PROSE happened to quote took its place. A slide read
+  as the wrong component is checked against the wrong contract in both directions. All six
+  resolvers — the linter, the deck reviewer, the scorecard, the fact-checker, the prose-budget
+  strip, and the editor's autocomplete — now share `lib/core/class-directive-scan.mjs`, which reads
+  both forms — including the multi-line `<!--\n_class: kpi\n-->` spelling — and counts a comment
+  as a directive only when it opens its own line, outside a fence. Gated by comparing every
+  committed deck against the engine-derived reader: of 275 decks with a class directive, 273
+  compared (2,931 slides) with 0 disagreements and 2 skipped (both `split: headings` boundary
+  divergences), where the regex it replaces gets six slides wrong across three decks.
+  `engineering/decisions/2026-08-05-one-class-directive-reader.md`, #1383.
+
+- **Fixed: a `---` inside a blockquote or a list added a phantom slide to a `_focusSteps` walk.**
+  The progressive-expansion pass grouped the token stream on any `hr` token, while the rule that
+  actually decides slides guards the same test with `level === 0` — so a nested horizontal rule,
+  which markdown-it emits as a nested `hr`, read as a slide boundary. A focus slide containing one
+  rendered 4 sections where 3 is correct, and every consumer that indexes sections (pagination,
+  the PPTX one-image-per-slide path, the source-side band reconstruction) inherited the off-by-one.
+  Six places asked "where does a slide end?" and one asked it without the guard; they now share
+  `lib/core/slide-rule.js`. #1387.
+
+- **Breaking: the deck-wide `class:` register refuses two kinds of token, and refuses them where
+  it is read.** `color-mode:` now always wins over the legacy `class: dark`/`light`/`print`
+  color alias — the alias is dropped, not merged — and a **component name** in the front-matter
+  `class:` is a no-op with a new `deck-wide-component` lint warning. Both were already broken
+  rather than working: a deck carrying `color-mode:` and a `class:` color token got 40 of 168
+  combinations wrong (#1402), including a slide whose own `_class: dark` was silently deleted;
+  and `class: kpi` was appended *over* a slide's own `_class:`, leaving two layouts on one section
+  for CSS source order to pick between. The refusal happens at every boundary the register is READ
+  — the engine door, both propagation kernels, and the bytes an Export-to-Marp bundle emits (Marp
+  stamps the front matter before our append-only runtime loads) — so no kernel removes anything
+  and no provenance is needed. Two spellings are deliberately untouched: a per-slide
+  `<!-- _class: … -->` and a mid-deck `<!-- class: … -->`, which is bounded, cannot collide, and
+  still overrides `color-mode:` from its own slide on. Zero committed decks change.
+  `engineering/decisions/2026-08-05-deck-class-register-boundary.md`, #1416, #1402.
+
+- **Fixed: `--print` and `--image-mode print` reached the ink but not the canvas.** The flags
+  merged `print` into the deck-wide `class:` — the register `color-mode:` supersedes — so on any
+  deck that set `color-mode:` at all, a print export rendered a light or dark canvas while the
+  Mermaid ink and `manifest.json` both said print. Measured at print ink `#1A1A1A` on a dark chip
+  `rgb(46,46,46)`: **1.28:1**. They write `color-mode: print` now, and the band resolution is
+  handed the flag that both of them set rather than the narrower `--print` boolean.
+
+- **Fixed: `color-mode:` had five readers that disagreed.** An anchored key/value regex decided
+  the class, an unanchored one decided the print band, a third decided the diagram band, a fourth
+  answered "did the author write this key at all" for `readFrontMatterColorMode`, and the docs
+  site's `deck-theme.ts` a fifth — so `color-mode: light  # migrated` plus `class: print` set the
+  band from one reader and the canvas from another. One reader now (`deckColorModeToken`), routed
+  through the shared front-matter reader; `deck-theme.ts` cannot import it (Rollup will not read
+  named exports off a CJS file outside the docs root) and mirrors its rule with a note.
+  `deckPrintBand`'s class test is whole-token membership rather than `\bprint\b`, which also
+  matched inside `print-safe`.
+
+- **Fixed: the two registers with a WRITER are read at column 0, like they are written.** The
+  shared `frontMatterValue` matches an indented key, and every writer in the repo anchors at
+  column 0 (an indented `class:` may be a key nested under another one, or a line inside a
+  `style: |` block scalar, and rewriting either corrupts the deck). For a read-only register that
+  gap is invisible; for `class:` and `color-mode:` it made the render path and the exported bytes
+  disagree about which line was the register — a deck whose nested `color-mode:` "superseded" a
+  real top-level `class: dark` rendered without it while an Export-to-Marp of the same source kept
+  it. `topLevelFrontMatterValue` is the strict read; the looser one stays the default everywhere
+  else. The docs-site preview (`deck-theme.ts`) applies the same rule, so it can no longer pin a
+  mode off a nested key.
+
+- **Fixed: `unknown-color-mode` was silent on the one input it was written for.** The rule
+  captured `[A-Za-z0-9_-]+` to end of line, so `color-mode: light  # migrated 2026-08` — which the
+  resolver rejects, falling the deck through to the theme default — produced no finding at all. It
+  now parses character-for-character as the resolver does, the way `unknown-pace` already did, and
+  `color-mode-parse-parity` pins the two together: the resolver returns a token ⇔ the linter is
+  quiet.
+
+- **Fixed: `npm run bench:check` could go red on an unchanged tree because the box was busy.**
+  "Same machine" is a hardware fingerprint, and on a shared or virtualized one it does not imply
+  the same machine STATE: two runs of an identical tree measured 65.1ms and 56.3ms for
+  `normal (jargon)`, 15% apart against a ±12% band. A timing REGRESSION is now re-measured once
+  before it can fail the run, and only a dataset that regresses on both passes exits 1 — noise is
+  not correlated across passes, a real slowdown is. The cost is paid only when something already
+  looks red. The check table also prints the two numbers Δ% is actually computed from (it showed
+  index values beside a wall-clock delta).
+
+- **Breaking: `engines` is `>=22.12.0`.** `require()` of an ES module is unflagged from that
+  release, and `lib/authoring/{lint,review,scorecard,fact-check}-core.js` now `require()` the ESM
+  `lib/core/class-directive-scan.mjs` so the six authoring resolvers share one reader.
+  `tools/export-marp.js` had been doing the same with `glossary-auto.mjs` under the looser
+  `>=22.0.0` claim; CI pins `node-version: 22`, which resolves to the newest 22.x and so could
+  never have caught it.
+
 - **Designed, not built: giving a shared deck a voice.** `engineering/decisions/2026-08-04-shared-deck-narration-audio.md`
   answers the five open questions on #1393 — format (inline data URIs), size (opt-in, with the
   megabytes named before the write), staleness (ship what is cached, report coverage, never
@@ -8450,7 +8563,7 @@ in patch versions.
     but keep their landscape composition for now; a portrait reflow is tracked as
     follow-on. PPTX export remains 16:9-only (PDF export is correct at every size).
 
-- **Colour-vision-deficiency accessibility — four first-class CVD themes.** Four
+- **Color-vision-deficiency accessibility — four first-class CVD themes.** Four
   selectable themes — `a11y-deuteranopia`, `a11y-protanopia`, `a11y-tritanopia`,
   `a11y-achromatopsia` — chosen exactly like any theme (`theme: a11y-deuteranopia`
   in front matter, or the Drawing Board theme picker's "Accessibility" group). No

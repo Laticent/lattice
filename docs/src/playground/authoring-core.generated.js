@@ -210,12 +210,313 @@ var require_export_settings = __commonJS({
   }
 });
 
+// lib/core/color-mode.js
+var require_color_mode = __commonJS({
+  "lib/core/color-mode.js"(exports, module) {
+    var COLOR_MODE_TOKENS = Object.freeze(["dark", "light", "color-light", "color-system", "color-inherited", "print"]);
+    function slidePinEvictsDeckToken(deckToken) {
+      return deckToken !== "print" && COLOR_MODE_TOKENS.includes(deckToken);
+    }
+    module.exports = { COLOR_MODE_TOKENS, slidePinEvictsDeckToken };
+  }
+});
+
+// lib/core/front-matter-key.js
+var require_front_matter_key = __commonJS({
+  "lib/core/front-matter-key.js"(exports, module) {
+    function escapeKey(key) {
+      return String(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+    function frontMatterValue(fm, key) {
+      const m = String(fm ?? "").match(new RegExp(`^[ \\t]*${escapeKey(key)}:[ \\t]*(.*)$`, "m"));
+      if (!m) return null;
+      return m[1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
+    }
+    function topLevelFrontMatterValue(fm, key) {
+      const m = String(fm ?? "").match(new RegExp(`^${escapeKey(key)}:[ \\t]*(.*)$`, "m"));
+      if (!m) return null;
+      return m[1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
+    }
+    module.exports = { frontMatterValue, topLevelFrontMatterValue };
+  }
+});
+
+// lib/core/resolve-color-mode.js
+var require_resolve_color_mode = __commonJS({
+  "lib/core/resolve-color-mode.js"(exports, module) {
+    var { topLevelFrontMatterValue } = require_front_matter_key();
+    var COLOR_MODE_REGISTER = Object.freeze({
+      light: "color-light",
+      dark: "dark",
+      system: "color-system",
+      inherited: "color-inherited",
+      // PRINT is a fifth, medium-not-scheme value: it renders the whole deck in the
+      // B&W-safe ink-on-white print band (section.print; base.modifiers.css), for
+      // paper handouts. Mutually exclusive with the scheme values (a printed deck is
+      // ink, not light/dark) — that exclusivity rides COLOR_MODE_TOKENS for free. It
+      // maps to the bare `print` class (no component collision), and is the authoring
+      // sibling of the engine `--print` export flag.
+      print: "print"
+    });
+    var COLOR_MODE_NAMES = Object.freeze(Object.keys(COLOR_MODE_REGISTER));
+    function readFrontMatterColorMode(md) {
+      const fm = frontMatterBody(md);
+      if (!fm) return null;
+      return topLevelFrontMatterValue(fm, "color-mode");
+    }
+    function classTokens(value) {
+      return String(value ?? "").split(/\s+/).filter(Boolean);
+    }
+    function deckColorModeToken(fmBody) {
+      return colorModeClass(topLevelFrontMatterValue(fmBody, "color-mode") || "");
+    }
+    function isKnownColorMode(value) {
+      return typeof value === "string" && Object.hasOwn(COLOR_MODE_REGISTER, value.trim().toLowerCase());
+    }
+    function colorModeClass(value) {
+      if (typeof value !== "string") return "";
+      const key = value.trim().toLowerCase();
+      return Object.hasOwn(COLOR_MODE_REGISTER, key) ? COLOR_MODE_REGISTER[key] : "";
+    }
+    function colorModeClassFromSource(md) {
+      return colorModeClass(readFrontMatterColorMode(md) || "");
+    }
+    var FRONT_MATTER_FENCE = /^﻿?---[ \t]*\r?\n[\s\S]*?\r?\n---/;
+    function frontMatterFence(md) {
+      const m = String(md ?? "").match(FRONT_MATTER_FENCE);
+      return m ? m[0] : "";
+    }
+    function frontMatterBody(md) {
+      const fence = frontMatterFence(md);
+      return fence ? fence.replace(/^﻿?---[ \t]*\r?\n/, "").replace(/\r?\n---$/, "") : "";
+    }
+    function deckPrintBand(md, flagPrint = false) {
+      if (flagPrint) return true;
+      const fm = frontMatterBody(md);
+      if (!fm) return false;
+      const token = deckColorModeToken(fm);
+      if (token) return token === "print";
+      return classTokens(topLevelFrontMatterValue(fm, "class")).includes("print");
+    }
+    function withPrintColorMode(source) {
+      const src = String(source ?? "");
+      const fm = src.match(/^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n---(?:\r?\n|$))/);
+      if (!fm) return `---
+color-mode: print
+---
+
+${src}`;
+      const [full, open, body, close] = fm;
+      let seen = false;
+      const lines = body.split("\n").flatMap((line) => {
+        if (!/^color-mode:/.test(line)) return [line];
+        if (seen) return [];
+        seen = true;
+        return [line.replace(/^color-mode:[^\r\n]*(\r?)$/, "color-mode: print$1")];
+      });
+      const merged = seen ? lines.join("\n") : `${body}
+color-mode: print`;
+      return src.slice(0, fm.index) + open + merged + close + src.slice(fm.index + full.length);
+    }
+    module.exports = {
+      COLOR_MODE_REGISTER,
+      COLOR_MODE_NAMES,
+      readFrontMatterColorMode,
+      isKnownColorMode,
+      colorModeClass,
+      colorModeClassFromSource,
+      classTokens,
+      deckColorModeToken,
+      withPrintColorMode,
+      frontMatterFence,
+      frontMatterBody,
+      deckPrintBand
+    };
+  }
+});
+
+// lib/forms/cell/masthead/stage-catalog.generated.js
+var require_stage_catalog_generated = __commonJS({
+  "lib/forms/cell/masthead/stage-catalog.generated.js"(exports, module) {
+    module.exports = {
+      "actors": "flow",
+      "agenda": "flow",
+      "authority-chain": "flow",
+      "big-number": "flow",
+      "cards-grid": "flow",
+      "cards-stack": "flow",
+      "checklist": "flow",
+      "citation-card": "flow",
+      "closing": "sovereign",
+      "code": "flow",
+      "compare-code": "sovereign",
+      "compare-prose": "flow",
+      "compare-table": "flow",
+      "contact": "canvas",
+      "content": "flow",
+      "cycle": "flow",
+      "decision": "flow",
+      "diagram": "canvas",
+      "divider": "sovereign",
+      "funnel": "canvas",
+      "gantt": "canvas",
+      "glossary": "flow",
+      "image": "sovereign",
+      "inventory": "flow",
+      "journey": "canvas",
+      "kanban": "canvas",
+      "kpi": "flow",
+      "list": "flow",
+      "list-criteria": "flow",
+      "list-steps": "flow",
+      "list-tabular": "flow",
+      "logo-wall": "flow",
+      "map": "canvas",
+      "math": "sovereign",
+      "matrix-2x2": "flow",
+      "matrix-grid": "canvas",
+      "obligation-matrix": "flow",
+      "piechart": "canvas",
+      "policy-recommendation": "flow",
+      "premise": "sovereign",
+      "pricing": "flow",
+      "progress": "canvas",
+      "q-and-a": "flow",
+      "quadrant": "canvas",
+      "quote": "flow",
+      "radar": "canvas",
+      "redline": "flow",
+      "regulatory-update": "flow",
+      "roadmap": "canvas",
+      "scene": "sovereign",
+      "split-compare": "sovereign",
+      "split-panel": "sovereign",
+      "state-chart": "canvas",
+      "stats": "flow",
+      "statute-stack": "flow",
+      "timeline-list": "canvas",
+      "title": "sovereign",
+      "verdict-grid": "flow",
+      "video": "canvas",
+      "wifi": "canvas",
+      "word-cloud": "canvas"
+    };
+  }
+});
+
+// lib/core/resolve-component.js
+var require_resolve_component = __commonJS({
+  "lib/core/resolve-component.js"(exports, module) {
+    var STAGE_CATALOG = require_stage_catalog_generated();
+    var COMPONENT_NAMES = Object.freeze(Object.keys(STAGE_CATALOG).sort());
+    var COMPONENT_SET = new Set(COMPONENT_NAMES);
+    var DEFAULT_COMPONENT = "content";
+    function isComponentToken(token) {
+      return COMPONENT_SET.has(token);
+    }
+    function hasComponent(tokens) {
+      for (const t of tokens) if (COMPONENT_SET.has(t)) return true;
+      return false;
+    }
+    function withDefaultComponent(tokens) {
+      return hasComponent(tokens) ? tokens : [...tokens, DEFAULT_COMPONENT];
+    }
+    module.exports = {
+      COMPONENT_NAMES,
+      DEFAULT_COMPONENT,
+      isComponentToken,
+      hasComponent,
+      withDefaultComponent
+    };
+  }
+});
+
+// lib/core/deck-class-register.js
+var require_deck_class_register = __commonJS({
+  "lib/core/deck-class-register.js"(exports, module) {
+    var { COLOR_MODE_TOKENS } = require_color_mode();
+    var { classTokens, colorModeClass, deckColorModeToken } = require_resolve_color_mode();
+    var { isComponentToken } = require_resolve_component();
+    var { topLevelFrontMatterValue } = require_front_matter_key();
+    var COLOR_AXIS = new Set(COLOR_MODE_TOKENS);
+    function deckClassRefusal(token, colorModeToken = "") {
+      if (isComponentToken(token)) return "component";
+      if (colorModeToken && COLOR_AXIS.has(token)) return "color-mode";
+      return null;
+    }
+    function deckClassTokens(value, colorModeToken = "") {
+      return classTokens(value).filter((t) => !deckClassRefusal(t, colorModeToken));
+    }
+    function deckClassValue(value, colorModeToken = "") {
+      return deckClassTokens(value, colorModeToken).join(" ");
+    }
+    function deckClassRefusals(value, colorModeToken = "") {
+      const out = [];
+      for (const token of classTokens(value)) {
+        const reason = deckClassRefusal(token, colorModeToken);
+        if (reason) out.push({ token, reason });
+      }
+      return out;
+    }
+    function deckClassTokensFromFrontMatter(fmBody) {
+      return deckClassTokens(topLevelFrontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
+    }
+    function deckClassRefusalsFromFrontMatter(fmBody) {
+      return deckClassRefusals(topLevelFrontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
+    }
+    var CLASS_LINE = /^class:[ \t]*([^\r\n]*?)[ \t]*(\r?)$/;
+    var FRONT_MATTER_FENCE = /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n---)/;
+    var COLOR_MODE_LINE = /^color-mode:[ \t]*([^\r\n]*?)[ \t]*\r?$/;
+    function topLevelColorModeToken(lines) {
+      const line = lines.find((l) => COLOR_MODE_LINE.test(l));
+      return line === void 0 ? "" : colorModeClass(COLOR_MODE_LINE.exec(line)[1]);
+    }
+    function withSanitizedDeckClass(source) {
+      const src = String(source ?? "");
+      const m = FRONT_MATTER_FENCE.exec(src);
+      if (!m) return src;
+      const [whole, open, body, close] = m;
+      const lines = body.split("\n");
+      const first = lines.find((line) => CLASS_LINE.test(line));
+      if (first === void 0) return src;
+      const next = deckClassValue(CLASS_LINE.exec(first)[1], topLevelColorModeToken(lines));
+      const out = [];
+      let seen = false;
+      for (const line of lines) {
+        const hit = CLASS_LINE.exec(line);
+        if (!hit) {
+          out.push(line);
+          continue;
+        }
+        if (seen) continue;
+        seen = true;
+        if (next) out.push(`class: ${next}${hit[2]}`);
+      }
+      const nextBody = out.join("\n");
+      if (nextBody === body) return src;
+      if (!nextBody.trim()) return src.slice(0, m.index) + src.slice(m.index + whole.length).replace(/^(?:\r?\n)+/, "");
+      return src.slice(0, m.index) + open + nextBody + close + src.slice(m.index + whole.length);
+    }
+    module.exports = {
+      deckClassRefusal,
+      deckClassTokens,
+      deckClassValue,
+      deckClassRefusals,
+      deckClassTokensFromFrontMatter,
+      deckClassRefusalsFromFrontMatter,
+      withSanitizedDeckClass
+    };
+  }
+});
+
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
     var { splitTopLevel, separatorLines } = require_slide_split();
     var { OVERFLOW_MARKER_LEVELS } = require_resolve_overflow_marker();
     var { EXPORT_SETTINGS_TYPE } = require_export_settings();
+    var { deckClassRefusalsFromFrontMatter } = require_deck_class_register();
+    var { topLevelFrontMatterValue } = require_front_matter_key();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
@@ -1055,6 +1356,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.modeNames) findings.push(...findUnknownMode(source, vocab.modeNames));
       if (vocab.colorModeNames) findings.push(...findUnknownColorMode(source, vocab.colorModeNames));
       findings.push(...findDeprecatedClassColorMode(source));
+      findings.push(...findRefusedDeckClass(source));
       if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
       if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
       if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
@@ -1359,11 +1661,12 @@ ${indent}   - ${body.trim()}`;
       }];
     }
     function findUnknownColorMode(source, colorModeNames) {
-      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      const fmBlock = source.match(/^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
       if (!fmBlock) return [];
-      const fm = fmBlock[1].match(/^\s*color-mode:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      const fm = fmBlock[1].match(/^color-mode:[ \t]*(.*)$/m);
       if (!fm) return [];
-      const value = fm[1].trim();
+      const value = fm[1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
+      if (!value) return [];
       const known = new Set([...colorModeNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
       return [{
@@ -1380,21 +1683,38 @@ ${indent}   - ${body.trim()}`;
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
       const body = fmBlock[1];
+      if (/^\s*color-mode:\s*\S/m.test(body)) return [];
       const cm = body.match(/^\s*class:\s*["']?([^"'\n]*)["']?\s*$/m);
       if (!cm) return [];
       const token = cm[1].split(/\s+/).filter(Boolean).find((t2) => t2.toLowerCase() === "dark" || t2.toLowerCase() === "light");
       if (!token) return [];
       const t = token.toLowerCase();
-      const hasKey = /^\s*color-mode:\s*\S/m.test(body);
       return [{
         slide: 0,
         rule: "deprecated-class-color-mode",
         severity: "info",
         classToken: token,
         line: cm[0].trim(),
-        message: hasKey ? `\`class: ${t}\` is superseded by the \`color-mode:\` key present in this deck \u2014 the key wins, so this legacy color token is redundant` : `\`class: ${t}\` is the legacy color axis \u2014 prefer the first-class \`color-mode: ${t}\` (which also offers system / inherited)`,
-        fix: hasKey ? `Remove the redundant \`${t}\` from the deck-wide \`class:\` (the \`color-mode:\` key already governs color).` : `Replace the deck-wide \`class: ${t}\` with \`color-mode: ${t}\`.`
+        message: `\`class: ${t}\` is the legacy color axis \u2014 prefer the first-class \`color-mode: ${t}\` (which also offers system / inherited)`,
+        fix: `Replace the deck-wide \`class: ${t}\` with \`color-mode: ${t}\`.`
       }];
+    }
+    function findRefusedDeckClass(source) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const body = fmBlock[1];
+      const cm = body.match(/^class:[ \t]*["']?([^"'\n]*)["']?[ \t]*$/m);
+      if (!cm) return [];
+      const mode = topLevelFrontMatterValue(body, "color-mode");
+      return deckClassRefusalsFromFrontMatter(body).map(({ token, reason }) => ({
+        slide: 0,
+        rule: "deck-wide-component",
+        severity: "warning",
+        classToken: token,
+        line: cm[0].trim(),
+        message: reason === "component" ? `\`class: ${token}\` names a COMPONENT deck-wide \u2014 every slide would be a ${token} slide. It is ignored.` : `\`class: ${token}\` is superseded by \`color-mode: ${String(mode || "").trim()}\` \u2014 the key wins, so this token is dropped, not merged`,
+        fix: reason === "component" ? `Name the layout per slide with \`<!-- _class: ${token} -->\`, or once for a run with \`<!-- class: ${token} -->\`.` : `Remove \`${token}\` from the deck-wide \`class:\` \u2014 \`color-mode:\` already governs the color axis.`
+      }));
     }
     function findUnknownClaim(source, claimNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
@@ -1754,7 +2074,6 @@ ${indent}   - ${body.trim()}`;
       return out;
     }
     module.exports = {
-      CLASS_DIRECTIVE,
       MODIFIER_PREFIXES,
       FOCUS_AXES,
       FOCUS_STYLES,
@@ -1781,7 +2100,9 @@ ${indent}   - ${body.trim()}`;
       findUnknownPace,
       PACE_NAMES,
       findUnknownMode,
+      CLASS_DIRECTIVE,
       findUnknownColorMode,
+      findRefusedDeckClass,
       findDeprecatedClassColorMode,
       findUnknownStamp,
       findUnknownToneStyle,

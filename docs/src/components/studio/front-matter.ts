@@ -333,6 +333,21 @@ export function removeClassTokens(source: string, tokens: string): string {
 }
 
 /**
+ * The source rendered for the B&W PAPER canvas — `color-mode: print`, with the legacy
+ * `class:` color alias cleared so the two registers cannot disagree.
+ *
+ * It writes the KEY, not `class: print`, because `color-mode:` supersedes that alias
+ * (lib/core/deck-class-register.js): merging `print` into `class:` on a deck that sets
+ * `color-mode:` at all is a silent no-op — a light or dark canvas exported under a
+ * print label. Mirrors what the CLI's `--print` does (`withPrintColorMode` in
+ * lib/core/resolve-color-mode.js) and what the Inspector's own color-mode control
+ * already did.
+ */
+export function withPrintCanvas(source: string): string {
+	return writeFrontMatterLine(removeClassTokens(source, 'dark light print'), 'color-mode', 'print');
+}
+
+/**
  * Set (or, with empty `entries`, remove) a NESTED child-map block — a bare `key:` header with
  * indented `"child": value` lines. This is the shape the narration keys use (`lexicon:` token →
  * spoken, and `acronyms:` term → spoken); `writeFrontMatterLine` handles only flat scalars and
