@@ -503,9 +503,14 @@ commit per milestone, the adversarial trio after each. Status:
   persists Write — verified end-to-end on a real 390px surface. The responsive
   *clamp* is structural, not a new mechanism: `posture` is never overwritten by a
   breakpoint (mobile/tablet just render their own layout for the same posture and
-  re-bloom at width), and the dial is never icon-only (labels show ≥640px; below
-  that mobile uses the Edit/Preview pane toggle instead of the dial). Dial fit at
-  tablet confirmed at 820px.
+  re-bloom at width), and the dial is never icon-only (labels show wherever the dial
+  renders; below that mobile uses the Edit/Preview pane toggle instead of the dial).
+  Dial fit at tablet confirmed at 820px. *(Amended 2026-08-05: this read "labels show
+  ≥640px", which never matched the code — the dial is `!mobile`-gated and `mobile`
+  ends at 699, so between 640 and 699 there is no dial to label. Measured: no
+  Read/Write/Build control exists in the header at 639/640/660/690/699; it appears at
+  700. Found while verifying #1401, which now states the 700px floor in the CHANGELOG
+  and would have contradicted this line.)*
 - **M6 shipped (docs + e2e sweep).** `CHANGELOG` `## Unreleased` records the
   change; this doc is `status: in-progress` (design accepted + implemented on the
   branch; flips to `shipped` at merge). The `docs/e2e` selector sweep is
