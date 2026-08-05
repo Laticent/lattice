@@ -587,3 +587,27 @@ commit per milestone, the adversarial trio after each. Status:
   title + content slides both show their full top/bottom. (Not unit-tested: jsdom
   has no layout, so the observer can't compute there — this is a HARD RULE #23
   real-surface verification.)
+- **Amendment (2026-08-04) — R8's never-icon-only rule was broken, then restored.**
+  #1380 fixed a real tablet-header overflow (#1381) by taking the width out of the
+  dial: below 1100px it rendered icon-only, reclaiming 103px. That is exactly the
+  trade R8 above forbids — *"the dial never degrades to icon-only; at tight widths,
+  yield other chrome before the dial's labels"* — and the reason R8 gave held up in
+  practice: on a touch tablet the words were not merely hidden but **unreachable**,
+  because the tooltip carrying them is hover-only (Radix returns early on
+  `pointerType === 'touch'`) and the tablet ⋯ menu has no Read/Write/Build rows.
+  #1401 restores the rule and pays for it the way R8 prescribed. R8's exact words are
+  *"the dial **never degrades to icon-only** — at tight widths, yield *other* chrome
+  (Present/Share overflow) before the dial's labels, since the newcomer who most needs
+  the labels is disproportionately on tablet/mobile"* — and the parenthesis is worth
+  keeping, because the chrome it nominated is no longer available: Present and Share
+  became two of the six protected 1-tap controls after it was written. So the yield
+  came from elsewhere in the same row: the guided tours move into ⋯ below desktop, and
+  the row runs at the phone's density there (~122px between them, 35px spare at the
+  700px floor). The deck SWITCHER ends up wider than it was under the icon-only dial
+  (51px vs 24px at 700) — the deck *title* inside it is 0px at 700 either way, and
+  gains 109px vs 82px at 820. The fit is
+  now measured by a `@smoke` Playwright spec on every PR rather than by desk
+  arithmetic — but neither browser oracle BLOCKS: `check:overflow` is
+  `continue-on-error`, and `studio-smoke` is absent from the required gate's `needs`
+  until a nightly green streak promotes it (#800). The blocking cover is still the
+  jsdom tier, which can assert what the header renders and never that it fits.

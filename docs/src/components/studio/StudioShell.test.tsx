@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
+import { TOURS } from './tours';
 
 // Most flows here exercise the FULL-density Studio against the original deck set
 // (the 6-slide "Q3 Board Review" active). Seed a returning-user state — the saved
@@ -1117,15 +1118,66 @@ describe('StudioShell — Send feedback has ONE fixed address', () => {
 	});
 });
 
-describe('StudioShell — the posture dial sheds its words below desktop', () => {
-	// #1381. The dial is the largest item in a top bar that had 87px more content
-	// than viewport at the 700px floor of `tablet`, so below desktop it renders
-	// icon-only and the ⋯ Menu stays on screen. The geometry lives in
-	// `check:overflow` — but that step is `continue-on-error` in CI, so it can go red
-	// without blocking anything. This tier DOES block, so the behavior it guards is
-	// the one thing jsdom can actually hold: the words are present at desktop, gone
-	// below it, and the accessible name survives either way (the words are the only
-	// thing that goes — never the name).
+describe('StudioShell — Show me has ONE launcher per tier', () => {
+	// #1401. The header button is desktop-only: below 1100 the tours ride the ⋯
+	// overflow (tablet) or the drawer's "Show me" door (mobile), which is the width
+	// the posture dial's words are paid for with. The invariant that matters is
+	// "exactly one launcher per tier" — a tour reachable twice on one surface is the
+	// same defect this menu already avoids for Slide settings and Send feedback.
+	it('desktop keeps the 1-tap header button and does NOT duplicate it', () => {
+		setViewport('desktop');
+		setup();
+		expect(screen.getAllByRole('button', { name: 'Show me — guided tours' })).toHaveLength(1);
+	});
+
+	it('tablet drops the header button and offers every tour inside ⋯', async () => {
+		setViewport('tablet');
+		const user = setup();
+		expect(screen.queryByRole('button', { name: 'Show me — guided tours' })).toBeNull();
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		await screen.findByRole('menuitem', { name: /Search \/ commands/ });
+		// Every tour the desktop picker lists is reachable here — asserted against the
+		// live TOURS table, so adding a tour can't silently skip the tablet.
+		const rows = screen.getAllByRole('menuitem').filter((el) => el.hasAttribute('data-tour'));
+		expect(rows.map((el) => el.getAttribute('data-tour')).sort()).toEqual(TOURS.map((t) => t.id).sort());
+	});
+
+	it('a tablet tour row actually starts the tour', async () => {
+		setViewport('tablet');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
+		const first = (await screen.findAllByRole('menuitem')).find((el) => el.getAttribute('data-tour') === TOURS[0].id);
+		expect(first).toBeDefined();
+		await user.click(first as HTMLElement);
+		// The tour takes the screen over — its stage is the observable effect (the menu
+		// closing proves only that a menu closes).
+		await waitFor(() => expect(document.querySelector('[data-vetrina-stage], [data-demo-stage], .vetrina-stage')).not.toBeNull());
+	});
+
+	it('mobile keeps the drawer door as its one home — no header button', () => {
+		setViewport('mobile');
+		setup();
+		expect(screen.queryByRole('button', { name: 'Show me — guided tours' })).toBeNull();
+	});
+});
+
+describe('StudioShell — the posture dial keeps its words at every width it renders at', () => {
+	// INVERTED from "sheds its words below desktop" (#1401), deliberately kept rather
+	// than deleted: this describe is the BLOCKING cover for the behavior, and the
+	// behavior reversed. The icon-only dial #1381 shipped reclaimed real width (219px
+	// labeled vs 116px), but it took it from the one control in the row that could not
+	// survive it — on a touch tablet the words became unreachable, not merely hidden
+	// (Radix's tooltip returns early on `pointerType === 'touch'`, and the tablet ⋯ menu
+	// has no Read/Write/Build rows). The 87px comes out of the row's own slack now.
+	//
+	// The geometry — does the row actually FIT with the words back — is not something
+	// jsdom can answer: it has no layout. Two browser oracles measure it on the PR path
+	// (`check:overflow`, and `e2e/studio-header-fit.spec.ts` at eight widths) and NEITHER
+	// can fail a merge: the first is `continue-on-error`, and `studio-smoke` is absent
+	// from the required gate's `needs` until a nightly green streak promotes it (#800).
+	// So this tier is still the only blocking cover. What it holds is the part jsdom can:
+	// the words are rendered at every width the dial appears at, and each stop keeps
+	// its accessible name (the name never depended on the words, and still doesn't).
 	const STOPS = [
 		['Read — just the slides', 'Read'],
 		['Write — editor + preview', 'Write'],
@@ -1140,12 +1192,33 @@ describe('StudioShell — the posture dial sheds its words below desktop', () =>
 		}
 	});
 
-	it('tablet renders icons only — and every stop keeps its accessible name', () => {
+	it('tablet renders the words too — and every stop keeps its accessible name', () => {
 		setViewport('tablet');
 		setup();
 		for (const [name, word] of STOPS) {
-			const b = screen.getByRole('button', { name }); // the name is the assertion: it survives
-			expect(b.textContent).not.toContain(word);
+			const b = screen.getByRole('button', { name }); // the name survives either way
+			expect(b.textContent).toContain(word);
+			// …and the word is not merely IN the DOM. jsdom has no layout, so it cannot ask
+			// whether the span is visible; what it can do is refuse the two shapes that would
+			// reproduce the defect while `textContent` still reads "Read". `hidden lg:inline`
+			// is not hypothetical — it is exactly the idiom Present and Share use three lines
+			// up in this same header, which makes it the likeliest way this regresses next.
+			// The real visibility oracle is the browser spec (`e2e/studio-header-fit.spec.ts`).
+			const label = [...b.querySelectorAll('span')].find((el) => el.textContent === word);
+			expect(label, `${word} should render in its own span`).toBeDefined();
+			expect(label?.className ?? '', `${word}'s label must not be hidden or sr-only`).not.toMatch(/\bhidden\b|\bsr-only\b/);
+			expect((label as HTMLElement | undefined)?.style.display ?? '', `${word}'s label must not be display:none`).not.toBe('none');
+		}
+	});
+
+	it('mobile has no dial in the header at all — the pane bar carries the density there', () => {
+		// The floor of this behavior: below 700 the dial is `!mobile`-gated out of the
+		// header, so "words at every width" is a claim about ≥700 only. Without this the
+		// suite could not tell "renders words" from "renders at all" on a phone.
+		setViewport('mobile');
+		setup();
+		for (const [name] of STOPS) {
+			expect(screen.queryByRole('button', { name })).toBeNull();
 		}
 	});
 });

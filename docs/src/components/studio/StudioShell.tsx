@@ -3260,7 +3260,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* The cinema morph (iPhone landscape) shows NO header — the slide is the whole
 			    screen. Every other width/stop keeps its header. */}
 			{!landscapePhone && (effectiveStop !== 'build' && !compact ? (
-			<header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
+			<header className="flex h-[54px] shrink-0 items-center gap-3 overflow-x-auto overscroll-x-contain border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
 				    switching / New deck is a Write-and-up concern). Write gets the real
@@ -3287,11 +3287,42 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    sit at the SAME x at Read, Write and Build. Drop either the divider or the
 				    feedback button here and the whole cluster slides on every dial step. */}
 				<Separator orientation="vertical" className="h-5" />
-				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} labeled />
+				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
 				{feedbackButton}
 			</header>
 			) : (
-			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out overflow-x-auto overscroll-x-contain', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+				{/* SCROLLABLE WHEN IT OVERFLOWS — the failure mode, made survivable. Everything
+				    above is about making the row FIT; this is about what happens the day it
+				    doesn't. Today the tail simply leaves the screen, silently, and on a tablet
+				    the control it takes with it is the ⋯ Menu — the only route to Library,
+				    Reader views and Workspace settings (that is #1381, exactly). Raise Chrome's
+				    minimum font size (a low-vision setting: Settings → Appearance → Customize
+				    fonts) to 18px and the words push this row over again at 700px; at 24px the
+				    ⋯ is gone entirely. `overflow-x: auto` turns "unreachable" into "scroll to
+				    it" for THAT case and every future one, and it is INERT the rest of the
+				    time: a row whose content fits cannot scroll, and shows no scrollbar. The
+				    scrollbar is deliberately NOT hidden — it is the only signal that the row
+				    has more in it, and `native-widgets.css` already owns how it looks.
+				    `overscroll-x-contain` keeps a swipe at either end from chaining into the
+				    browser's back gesture. This does NOT weaken the guards: `check:overflow`
+				    and `studio-header-fit.spec.ts` both assert `scrollWidth <= clientWidth` on
+				    this element, which is exactly as red on a real overflow as it was before. */}
+				{/* Below desktop this row runs at the PHONE's density — 6px gaps, 10px side
+				    padding — instead of the desktop 12px/14px. `compact` is true on mobile too and
+				    `sm:` starts at 640, so this reaches 640–699 as well: that band used to jump to
+				    desktop density for 60px just before the mobile layout takes over, and now matches
+				    the phone header below it. One fewer seam, not a new one. It carries ~14 gaps, so that is
+				    ~78px of width reclaimed at no cost in function at all, which is most of what
+				    the posture dial's words are paid for (#1401). Not a third density: below `sm`
+				    the header already sat at 6px/10px, so a tablet now reads as a wider phone
+				    header rather than a squeezed desktop one. Gated on `compact` — the app's own
+				    1100px boundary — never on Tailwind's `lg` (1024), whose 76px of disagreement
+				    with it would leave 1024–1099 at desktop density while still `compact`. The
+				    density earns its place across the WHOLE band, not just at the floor: force
+				    desktop density back on and the deck title truncates to `Markdown for the …`
+				    at 1024 and to `M…` at 820 (measured). A JSX ternary branch admits exactly one
+				    element, which is why this note sits inside the tag rather than above it. */}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						{/* The real brand mark (not a text tile), and the chevron shows at EVERY
@@ -3372,7 +3403,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    title (2026-07-03 decision). */}
 				{/* Show Me — the guided-tour menu. Five self-driving tours (one engine, five angles);
 				    the icon opens the picker. Hidden while a tour runs (take-over owns the screen). */}
-				{!mobile && toursOn && (
+				{/* DESKTOP ONLY. Below 1100 the tours ride the ⋯ overflow instead (tablet) or the
+				    drawer's "Show me" door (mobile, `onStartDemo`) — one CHROME launcher per tier,
+				    never two. (⌘K's "Watch demo" is not a second one: the palette reaches every
+				    feature at every width by standing invariant, which is what makes it not a
+				    duplicate home.) This is width the row buys back for the dial's words (#1401):
+				    a tour is a considered, once-per-session detour, so it is the cheapest thing in
+				    this run to put one tap further away — and it puts tablet on the SAME footing as
+				    the phone rather than inventing a third pattern. None of the six protected 1-tap
+				    controls (Present/Share/Coach/Chat/Settings/pane toggle) moved. */}
+				{!compact && toursOn && (
 					<DropdownMenu>
 						<Tooltip>
 							<TooltipTrigger asChild>
@@ -3400,10 +3440,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* The posture dial — the always-visible, reversible way to any stop. Present
 				    at every stop (never a buried setting), so no stop can read as a room you
 				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
-				{/* `labeled` on DESKTOP only — same `compact` gate as the wordmark above, and
-				    the same reason: below 1100 the row has no width to spend on words. The slim
-				    Read/Write header renders on desktop only, so it always passes `labeled`. */}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} labeled={!compact} />}
+				{/* WORDS AT EVERY WIDTH THIS RENDERS AT (≥700px). The dial shipped icon-only
+				    below 1100 for one release and that was the wrong trade (#1401): on a touch
+				    tablet the words became UNREACHABLE, not merely hidden — Radix's tooltip
+				    returns early on `pointerType === 'touch'` and the tablet ⋯ menu has no
+				    Read/Write/Build rows — and unlike ▶ Present or the share glyph, a three-way
+				    MODE control whose icons are book / pencil / layers has no conventional
+				    reading. The width it costs is bought elsewhere in this row instead: the
+				    tours moved into ⋯ and the row runs at the phone's density below desktop.
+				    Below 700 the dial is not in the header at all (`!mobile`) — the phone
+				    carries the density on its own pane bar. */}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -3453,6 +3500,22 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								    the same action in two adjacent homes is the exact problem this menu
 								    already avoids for Slide settings. Mobile keeps its drawer row (no
 								    header button there); ⌘K keeps its command everywhere. */}
+								{/* Show me — the tablet's ONE home for the tours, since the header button
+								    is desktop-only (#1401). Same rows, same `data-tour` ids and the same
+								    two-line shape as the desktop picker; `demoActive` drops them while a
+								    tour drives the screen, matching the header button's own hide. */}
+								{toursOn && !demoActive && (
+									<>
+										<DropdownMenuSeparator />
+										<DropdownMenuLabel>Show me…</DropdownMenuLabel>
+										{TOURS.map((t) => (
+											<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2">
+												<span className="font-medium">{t.label}</span>
+												<span className="text-[12px] text-muted-foreground">{t.description}</span>
+											</DropdownMenuItem>
+										))}
+									</>
+								)}
 								<DropdownMenuSeparator />
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</ScrollFade>
@@ -3919,7 +3982,7 @@ const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.Rea
 	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
 	{ id: 'build', label: 'Build', hint: 'Build — every panel', icon: <Layers className="size-4" /> },
 ];
-function PostureDial({ posture, quietened, revealBuild, onChange, labeled }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void; labeled: boolean }) {
+function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void }) {
 	// Light the EFFECTIVE stop — a transient reveal shows Build, a quiet shows Write —
 	// so the dial always matches the surface you're looking at, then re-lights your
 	// saved stop when the transient recedes.
@@ -3937,16 +4000,14 @@ function PostureDial({ posture, quietened, revealBuild, onChange, labeled }: { p
 				return (
 					<Tip key={s.id} label={lit && transient ? `${s.hint} · showing now — click to make it your saved home` : s.hint}>
 						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-card text-[var(--accent)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-card text-[var(--accent)] shadow-sm') : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
-							{/* The words are DESKTOP-ONLY (#1381). Below 1100 this row is over budget:
-						    at its 700px floor the header wanted 787px and pushed the ⋯ Menu — the
-						    only way to Library / Reader views / Workspace settings on a tablet —
-						    clean off the screen. The dial is the single largest item in it (219px
-						    labeled vs 116px not), and the six protected 1-tap controls
-						    (Present/Share/Coach/Chat/Settings/pane toggle) may not move into ⋯, so
-						    this is where the 87px has to come from. The icons are distinct, every
-						    stop keeps its tooltip and its `aria-label`, and the reclaim goes back to
-						    the deck title — the user's orientation — at every compact width. */}
-						{s.icon}{labeled && <span>{s.label}</span>}
+							{/* The words are not optional. They shipped as desktop-only for one release
+							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
+							    the one control in this row that cannot survive it: a touch user between 700
+							    and 1099px had NO route to these words, since the tooltip carrying them is
+							    hover-only and the tablet ⋯ menu has no Read/Write/Build rows. The 87px now
+							    comes out of the row's own slack instead (#1401): the guided tours moved into
+							    ⋯ below desktop, and the whole row runs at the phone's density there. */}
+						{s.icon}<span>{s.label}</span>
 						</button>
 					</Tip>
 				);
