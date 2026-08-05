@@ -143,6 +143,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `equiv:bless` | Write the committed slice/deck equivalence baseline (test/benchmark/slice-equivalence.json) from a fresh `equiv` run. |
 | `equiv:check` | Re-run `equiv` and compare vs the committed baseline: decks/slides/preludes/positions must match exactly, and the rate may drift 1.5 points. Verified able to fail by mutation, re-derived after each re-bless: stubbing `positionIsTrustworthy` to `return false` takes it 99.2% -> 10.5%, and stubbing `deckSectionFor` to `undefined` takes it to 73.3%. Note it can only fail in the FAIL-CLOSED direction: `positions` equals `slides` by construction, because every deck where the supply would be refused is already skipped for a section/chunk mismatch. |
 | `geometry:check` | Assert a slide measures identically on every surface — real emulator render, real Chromium at four window sizes, sections optionally transform-scaled the way a preview pane scales them. Catches a bare cq* on the section itself or a getBoundingClientRect() that ignores the host transform. |
+| `mutate:guide` | Break what each Guide-gesture test NAMES and confirm it goes red — a committed 42-mutation battery over the Vetrina gesture library and the Guide classifier, each mutation asserted to have applied before its spec runs. "Verified by a test" has been a false claim seven times in this feature area; this is the operational form of the lesson. On-demand. |
 | `oracle:bless` | Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component's derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11). |
 | `oracle:check` | Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift. |
 | `overflow:bless` | Re-record the overflow ratchet from the current tree. Lower the floor when you fix slides; raise it only with the PR that justifies the new number. |
@@ -291,6 +292,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/complexity-report.js` | Complexity report — cyclomatic complexity + lines-of-code per function, aggregated per file, across lib/ and tools/. |
 | `tools/contrast-audit.js` | Contrast audit for all Lattice themes. |
 | `tools/lint-deck.js` | Deck linter CLI — run the authoring footgun checks on a draft deck and |
+| `tools/mutate-guide-gestures.mjs` | mutate-guide-gestures — break what each test NAMES, and watch it go red. |
 | `tools/pixel-check.js` | pixel-check — snapshot/diff harness for the _legacy.css elimination work. |
 | `tools/quality-assessment.js` | Quality assessment — the single entry point for the seven codebase-health dimensions from CLAUDE.md's "complexity is the mother of all killers of productivity" list. |
 | `tools/sweep-guide-gestures.mjs` | sweep-guide-gestures — what does the Guide vocabulary ACTUALLY do to our decks? |

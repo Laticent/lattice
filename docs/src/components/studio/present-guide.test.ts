@@ -312,12 +312,6 @@ describe('guideCueFor — the whole cue for one sentence', () => {
 		// which is what keeps the withdrawal one continuous motion instead of two glides.
 		const clear = fakeFrame('<p>Growth held.</p>', { rect: { left: 0, top: 0, width: 1280 }, offsetWidth: 1280, box: { left: 80, top: 300, width: 700, height: 30 } });
 		expect(guideCueFor(() => clear, 'Growth held.')?.rest).toBeNull();
-		// `circle` always needs one: its orbit ends a quarter turn past wherever the cursor came
-		// in from, so it has no deterministic ending for a host to reason about.
-		const ring = fakeFrame('<p>Growth held.</p>', { rect: { left: 0, top: 0, width: 1280 }, offsetWidth: 1280, box: { left: 400, top: 300, width: 150, height: 48 } });
-		const cue = guideCueFor(() => ring, 'Growth held.');
-		expect(cue?.kind).toBe('circle');
-		expect(cue?.rest).not.toBeNull();
 	});
 
 	it('degrades to nowhere rather than throwing when the frame goes away', () => {
@@ -372,12 +366,16 @@ describe('pointerAnchor — the fallback placement', () => {
 		// stand beside a heading is directly under it, and directly under a heading is where the
 		// paragraph is. A slide is mostly text — the fallback has to find whitespace, not merely
 		// step off one block.
+		//
+		// The neighbor sits where the NEAREST candidate would go, which is the whole point. An
+		// earlier fixture put the body below the heading, and there the left-margin candidate wins
+		// on distance alone — so deleting the obstacle term from the score left the test green.
 		const frame = { left: 0, top: 0, width: 960, height: 540 };
-		const heading = { left: 80, top: 120, width: 800, height: 70 };
-		const body = { left: 80, top: 200, width: 800, height: 120 };
-		const { x, y } = pointerAnchor(heading, frame, [heading, body]);
+		const heading = { left: 300, top: 120, width: 400, height: 70 };
+		const leftNeighbor = { left: 0, top: 100, width: 290, height: 110 };
+		const { x, y } = pointerAnchor(heading, frame, [heading, leftNeighbor]);
 		expect(pointerCovers(atPoint(x, y), heading), 'covers its own target').toBe(false);
-		expect(pointerCovers(atPoint(x, y), body), 'covers the paragraph beneath the heading').toBe(false);
+		expect(pointerCovers(atPoint(x, y), leftNeighbor), 'covers the block in the margin it stepped into').toBe(false);
 	});
 
 	it('scales its clearance with the frame — a preview at half size halves the pointer in slide units', () => {
@@ -395,13 +393,23 @@ describe('pointerAnchor — the fallback placement', () => {
 	it('falls back to a clamped position rather than off the slide when a block fills it', () => {
 		// A block edge to edge leaves no clear side. Overlap becomes possible — a pointer half off
 		// the card is the worse failure — but it must still be ON the slide.
-		const frame = { left: 0, top: 0, width: 960, height: 540 };
-		const full = { left: 0, top: 0, width: 960, height: 540 };
+		//
+		// The frame is LARGER than the slot the block leaves, deliberately. With a block exactly the
+		// frame's size, the two slide-margin candidates still fit inside the frame and score
+		// finite, so `pointerAnchor` returns before the clamp — an earlier version of this test was
+		// named for the clamp and never reached it (removing the clamp entirely left it green).
+		// The frame is SMALLER than the cursor's own footprint, so no candidate can sit inside it
+		// and the clamp is the only branch left. At 960x540 the slide-margin candidates still fit
+		// and score finite, so `pointerAnchor` returned before the clamp — removing the clamp
+		// entirely left the earlier version of this test green.
+		const frame = { left: 0, top: 0, width: 20, height: 20 };
+		const full = { left: 0, top: 0, width: 20, height: 20 };
 		const { x, y } = pointerAnchor(full, frame, [full]);
-		expect(x).toBeGreaterThanOrEqual(POINTER_BOX / 2);
-		expect(x).toBeLessThanOrEqual(960 - POINTER_BOX / 2);
-		expect(y).toBeGreaterThanOrEqual(POINTER_BOX / 2);
-		expect(y).toBeLessThanOrEqual(540 - POINTER_BOX / 2);
+		// A frame this small has no in-bounds answer at all, so the clamp's job is only to keep the
+		// result ON the card. Without it the fallback returns the under-the-line position, which is
+		// twice the frame's height below its top.
+		expect(x, 'the clamped x left the card').toBeLessThanOrEqual(20);
+		expect(y, 'the clamped y left the card').toBeLessThanOrEqual(20);
 	});
 });
 
@@ -430,15 +438,20 @@ describe('guideCueFor, with line boxes', () => {
 		Range.prototype.getClientRects = original;
 	});
 
-	function frameOf(html: string, elBox: { left: number; top: number; width: number; height: number }, sel = 'p') {
+	function frameOf(html: string, elBox: { left: number; top: number; width: number; height: number }, sel = 'p', slideW = 1280, shownAt = slideW) {
 		const d = doc(html);
+		// The SLIDE's own box. jsdom gives the root a zero-area rect, which falls through to the
+		// classifier's constant — so a test that means to exercise the frame has to state one.
+		d.documentElement.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: slideW, height: 720, right: slideW, bottom: 720, toJSON: () => ({}) }) as DOMRect;
 		for (const el of d.querySelectorAll(sel)) {
 			(el as HTMLElement).getBoundingClientRect = () => ({ x: elBox.left, y: elBox.top, left: elBox.left, top: elBox.top, width: elBox.width, height: elBox.height, right: elBox.left + elBox.width, bottom: elBox.top + elBox.height, toJSON: () => ({}) }) as DOMRect;
 		}
 		return {
 			contentDocument: d,
-			offsetWidth: 1280,
-			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720, toJSON: () => ({}) }) as DOMRect,
+			// `offsetWidth` is the frame's UNTRANSFORMED width and the rect is what it is shown at,
+			// so their ratio is the preview's scale — the thing `frameGeom` reads.
+			offsetWidth: slideW,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: shownAt, height: (720 * shownAt) / slideW, right: shownAt, bottom: (720 * shownAt) / slideW, toJSON: () => ({}) }) as DOMRect,
 		} as unknown as HTMLIFrameElement;
 	}
 
@@ -470,25 +483,86 @@ describe('guideCueFor, with line boxes', () => {
 	it('counts a line, not the fragments inline markup splits it into', () => {
 		// A line with a `<strong>` in it is three rects at the same top and ONE line. Counting
 		// rects would make every emphasized sentence a multi-line card.
+		// Tops that DIFFER by a pixel or two, because that is what real inline fragments do — a line
+		// carrying a `<code>` measures 11 / 12 / 11 in Chromium. Identical tops make any grouping
+		// rule look correct, which is how the first version of this test stayed green against a
+		// mutation that counted every rect as its own line.
 		LAYOUT.set('Spend stayed disciplined.', [
 			{ left: 300, top: 120, width: 90, height: 24 },
-			{ left: 390, top: 120, width: 80, height: 24 },
-			{ left: 470, top: 120, width: 60, height: 24 },
+			{ left: 390, top: 121.5, width: 80, height: 21 },
+			{ left: 470, top: 120.5, width: 60, height: 24 },
 		]);
 		const frame = frameOf('<p>Spend stayed <strong>disciplined</strong>.</p>', { left: 80, top: 118, width: 800, height: 28 });
 		expect(guideCueFor(() => frame, 'Spend stayed disciplined.')?.kind).toBe('underline');
 	});
 
-	it('still has ink when the sentence could not be located inside the block', () => {
-		// The `_focus:` case: the aim moves to the called-out element, so the sentence's rects are
-		// not inside it. The cue falls back to that element's OWN lines rather than to no ink at
-		// all — an underline drawn on the padded box instead of on the words is the thing this
-		// avoids, and a wash with nothing to follow would simply not appear.
+	it('names the focused element only when the focused element holds the spoken words', () => {
+		// `_focus:` names an ORDINAL — `row 4`, `item 3` — with no relation to which sentence is
+		// being read. An unconditional re-aim is the one path here that can point at text nobody is
+		// saying, which is the failure #1403 set the bar against. So the deck's call-out takes the
+		// aim only when it contains the sentence; otherwise the block keeps it, at notable weight.
 		LAYOUT.set('Spend stayed disciplined.', [{ left: 300, top: 120, width: 150, height: 24 }]);
-		const frame = frameOf('<p>Growth held. <span class="lat-focus">Spend stayed disciplined.</span></p>', { left: 80, top: 118, width: 800, height: 28 }, 'p, span');
+		const html = '<p>Growth held. <span class="lat-focus">Spend stayed disciplined.</span></p>';
+		const other = guideCueFor(() => frameOf(html, { left: 80, top: 118, width: 800, height: 28 }, 'p, span'), 'Growth held.');
+		expect(other?.el.tagName, 'the aim moved to a focused element that does not hold the spoken sentence').toBe('P');
+		expect(other?.strength, 'the deck still declared focus on this block').toBe('notable');
+		const named = guideCueFor(() => frameOf(html, { left: 80, top: 118, width: 800, height: 28 }, 'p, span'), 'Spend stayed disciplined.');
+		expect(named?.el.tagName).toBe('SPAN');
+		expect(named?.target.getClientRects?.()).toMatchObject([{ left: 300, top: 120, width: 150, height: 24 }]);
+	});
+
+	it('measures the SLIDE it is on, not a constant, through the whole cue path', () => {
+		// The classifier's width thresholds are fractions of the slide, and `guideCueIn` is handed
+		// the frame's real width. jsdom reports a zero-area root, so a fallback constant is what
+		// every other test in this file silently exercises — the wiring needs the root stubbed.
+		LAYOUT.set('Growth held.', [{ left: 100, top: 100, width: 200, height: 30 }]);
+		const narrow = frameOf('<p>Growth held.</p>', { left: 100, top: 100, width: 200, height: 30 }, 'p', 640);
+		const wide = frameOf('<p>Growth held.</p>', { left: 100, top: 100, width: 200, height: 30 }, 'p', 3840);
+		expect(guideCueFor(() => narrow, 'Growth held.')?.kind).toBe('underline');
+		expect(guideCueFor(() => wide, 'Growth held.')?.kind).toBe('tap');
+	});
+
+	it('converts the cursor’s footprint into the SLIDE’s units, not the parent’s', () => {
+		// The cursor's 28px lives in the parent document and does NOT shrink with the preview, so
+		// inside a slide shown at half size it covers twice as much. Getting this backwards clears
+		// the text on an unscaled Playground and covers it in the scaled Studio — which is why the
+		// conversion has a name in `POINTER_BOX`'s comment. Same slide, same neighbor, two scales:
+		// at 1:1 the hand fits in the gap and the stroke's own ending stands; at 1:2 it does not.
+		const html = '<p>Growth held.</p><p>Neighbor.</p>';
+		const withGap = (shownAt: number) => {
+			const d = doc(html);
+			d.documentElement.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720, toJSON: () => ({}) }) as DOMRect;
+			const [a, b] = [...d.querySelectorAll('p')] as HTMLElement[];
+			a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 100, top: 100, width: 300, height: 24, right: 400, bottom: 124, toJSON: () => ({}) }) as DOMRect;
+			b.getBoundingClientRect = () => ({ x: 0, y: 0, left: 440, top: 165, width: 260, height: 35, right: 700, bottom: 200, toJSON: () => ({}) }) as DOMRect;
+			return {
+				contentDocument: d,
+				offsetWidth: 1280,
+				getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: shownAt, height: 720, right: shownAt, bottom: 720, toJSON: () => ({}) }) as DOMRect,
+			} as unknown as HTMLIFrameElement;
+		};
+		expect(guideCueFor(() => withGap(1280), 'Growth held.')?.rest, 'at 1:1 the hand fits the gap').toBeNull();
+		expect(guideCueFor(() => withGap(640), 'Growth held.')?.rest, 'at 1:2 the footprint is twice as wide in slide units and no longer fits').not.toBeNull();
+	});
+
+	it('treats a resting place off the slide card as occupied', () => {
+		// `pointerAnchor` has always refused a candidate that is not inside the frame — a pointer
+		// half off the card reads as a bug, not a gesture. The geometry path checked only against
+		// BLOCKS, so "past the block's right edge" could run off the slide with nothing there to
+		// object; measured, ten gestures in the corpus came to rest on the Present backdrop.
+		LAYOUT.set('Growth held.', [{ left: 300, top: 100, width: 90, height: 24 }]);
+		const frame = frameOf('<p>Growth held.</p>', { left: 300, top: 100, width: 90, height: 24 }, 'p', 400);
+		expect(guideCueFor(() => frame, 'Growth held.')?.rest, 'the stroke ends past the right edge of the slide itself').not.toBeNull();
+	});
+
+	it('always hands back a rest for `circle`, whose orbit has no deterministic ending', () => {
+		// Every other kind rides its own stroke's end. `circle` ends a quarter turn past wherever
+		// the cursor came in from, so the host has nothing to reason about unless it supplies one.
+		LAYOUT.set('Growth held.', [{ left: 400, top: 300, width: 180, height: 64 }]);
+		const frame = frameOf('<p>Growth held.</p>', { left: 400, top: 300, width: 180, height: 64 });
 		const cue = guideCueFor(() => frame, 'Growth held.');
-		expect(cue?.strength).toBe('notable');
-		expect(cue?.target.getClientRects?.()).toMatchObject([{ left: 300, top: 120, width: 150, height: 24 }]);
+		expect(cue?.kind).toBe('circle');
+		expect(cue?.rest).not.toBeNull();
 	});
 
 	it('brackets the same paragraph when the narration reads it whole', () => {
@@ -523,6 +597,68 @@ describe('looseIndex — refusing to guess', () => {
 			if (words.replace(/[^\p{L}\p{N}]/gu, '').length < 3) continue;
 			expect(sentenceRange(p, words), `no range for "${raw}"`).not.toBeNull();
 		}
+	});
+});
+
+describe('the geometry the classifier is handed, and the units it is handed in', () => {
+	// Every one of these was a silent mutant: change the source and nothing failed, because jsdom
+	// reports a zero-area root and a zero-area element, so the real inputs were never exercised.
+
+	it('measures the slide, not a constant, when the frame can be measured', () => {
+		// `guideCueIn` takes the slide's own width and every width threshold is a fraction of it.
+		// A 200px-wide target is "small" on a 3840 deck and "wide" on a 640 one.
+		const box = { left: 0, top: 0, width: 200, height: 30 };
+		const wide = chooseGesture({ box, lines: 1, rects: null, slideW: 3840, coverage: 1 });
+		const narrow = chooseGesture({ box, lines: 1, rects: null, slideW: 640, coverage: 1 });
+		expect(wide).toBe('tap');
+		expect(narrow).toBe('underline');
+	});
+
+	it('keeps a cue out when the element it named has gone', () => {
+		// The rect source answers "nowhere" once its element leaves the document, which is the
+		// contract Vetrina's `liveRect` reads as no position at all. Without it a detached node's
+		// all-zero rect maps to the frame's own corner and the cursor flies there.
+		const d = doc('<p>Growth held.</p>');
+		const p = d.querySelector('p') as HTMLElement;
+		p.getBoundingClientRect = () => ({ x: 0, y: 0, left: 10, top: 20, width: 100, height: 30, right: 110, bottom: 50, toJSON: () => ({}) }) as DOMRect;
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 100,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		const cue = guideCueFor(() => frame, 'Growth held.');
+		expect(cue?.target.getBoundingClientRect().width).toBeGreaterThan(0);
+		p.remove();
+		expect(cue?.target.getBoundingClientRect()).toMatchObject({ left: 0, width: 0 });
+		expect(cue?.target.getClientRects?.()).toEqual([]);
+	});
+
+	it('refuses a target with no area rather than gesturing at a point', () => {
+		const d = doc('<p>Growth held.</p>');
+		const p = d.querySelector('p') as HTMLElement;
+		p.getBoundingClientRect = () => ({ x: 0, y: 0, left: 10, top: 20, width: 0, height: 0, right: 10, bottom: 20, toJSON: () => ({}) }) as DOMRect;
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 100,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		expect(guideCueFor(() => frame, 'Growth held.')).toBeNull();
+	});
+
+	it('checks the resting place against the slide’s OWN blocks', () => {
+		// §"position is a consequence" leans on exactly one mechanical check: the geometric rest,
+		// tested against every block on the slide. With the obstacle list empty nothing ever falls
+		// back, and the fallback is what stops the hand landing on the next column.
+		const d = doc('<p>Growth held.</p><p>Another block sits exactly where the hand would go.</p>');
+		const [a, b] = [...d.querySelectorAll('p')] as HTMLElement[];
+		a.getBoundingClientRect = () => ({ x: 0, y: 0, left: 10, top: 20, width: 100, height: 24, right: 110, bottom: 44, toJSON: () => ({}) }) as DOMRect;
+		b.getBoundingClientRect = () => ({ x: 0, y: 0, left: 110, top: 20, width: 200, height: 60, right: 310, bottom: 80, toJSON: () => ({}) }) as DOMRect;
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 400,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		expect(guideCueFor(() => frame, 'Growth held.')?.rest, 'the hand rests past the block, straight onto its neighbor').not.toBeNull();
 	});
 });
 

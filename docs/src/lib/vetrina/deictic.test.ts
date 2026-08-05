@@ -57,6 +57,17 @@ const cursorAt = () => {
 const covers = (p: { x: number; y: number }, b: { left: number; top: number; width: number; height: number }) =>
 	p.x - POINTER / 2 < b.left + b.width && p.x + POINTER / 2 > b.left && p.y - POINTER / 2 < b.top + b.height && p.y + POINTER / 2 > b.top;
 const px = (el: HTMLElement, prop: 'left' | 'top' | 'width' | 'height') => Number.parseFloat(el.style[prop]);
+/** The underline stroke's drawn thickness at a given emphasis — the one observable `strength` has. */
+function inkWeight(strength: 'quiet' | 'notable'): number {
+	const stage = mount();
+	const t = target({ left: 300, top: 200, width: 400, height: 24 });
+	stage.gesture('underline', t.src, undefined, { clearance: 19, strength }).catch(() => {});
+	const h = Number.parseFloat(ink('underline')[0].style.height);
+	stage.destroy();
+	document.body.innerHTML = '';
+	active = null;
+	return h;
+}
 
 beforeEach(() => {
 	if (!Element.prototype.animate) {
@@ -111,6 +122,20 @@ describe('gestureRest — the promise a host can check', () => {
 		expect(rest.y).toBeGreaterThan(280); // below the phrase's LAST LINE…
 		expect(rest.y).toBeLessThan(400); // …not below the whole paragraph
 		expect(rest.x).toBeGreaterThan(700); // clear of the BLOCK, not just of the phrase
+	});
+
+	it('reads the line its own stroke will use — first for underline, last for wash', () => {
+		// The two gestures share a rest formula and NOT a line: `underline` strokes the first rect,
+		// `wash` paints every rect and ends on the last. Reading the last for both made the library
+		// disagree with itself, and a host asking where the cursor would stop got an answer one
+		// line-height away from the truth.
+		const lines = [
+			{ left: 300, top: 200, width: 400, height: 24 },
+			{ left: 300, top: 240, width: 200, height: 24 },
+		];
+		const block = { left: 300, top: 200, width: 400, height: 64 };
+		expect((gestureRest('underline', block, lines, 19) as { y: number }).y).toBeLessThan(260);
+		expect((gestureRest('wash', block, lines, 19) as { y: number }).y).toBeGreaterThan(280);
 	});
 
 	it('reports nothing for the five non-deictic gestures — their motion is their own', () => {
@@ -203,6 +228,21 @@ describe('wash — "these words"', () => {
 		expect(px(bands[0], 'width')).toBe(400);
 	});
 
+	it('ignores a line box that is nowhere — a zero-area or non-finite rect is not a line', async () => {
+		// `getClientRects()` legitimately returns empty boxes (a collapsed range, a hidden span), and
+		// a band painted from one lands at the viewport corner. Same three shapes of "gone" the
+		// bounding-box path has guarded since #1400, applied per rect.
+		const stage = mount();
+		const t = target({ left: 300, top: 200, width: 400, height: 24 }, [
+			{ left: 0, top: 0, width: 0, height: 0 },
+			{ left: 300, top: 200, width: 400, height: 24 },
+		]);
+		await stage.gesture('wash', t.src, undefined, { clearance: 19 });
+		const bands = ink('wash');
+		expect(bands, 'a zero-area rect was painted as a band').toHaveLength(1);
+		expect(px(bands[0], 'left')).toBe(300);
+	});
+
 	it('collapses a band whose line stopped existing, rather than leaving it over nothing', async () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 400, height: 52 }, [
@@ -279,6 +319,67 @@ describe('circle — the ring, and the tours that already use it', () => {
 	});
 });
 
+describe('teardown and the reduced tier — the two ways `circle` used to leak', () => {
+	it('SETTLES when the stage is destroyed mid-orbit, rather than parking its caller forever', async () => {
+		// The rAF tick returned on `destroyed` without resolving or rejecting, so the promise stayed
+		// pending and held everything awaiting it — the target, its range, the frame document.
+		// `tween` carries a comment about exactly this from #1400; the orbit had the same bug, and
+		// it became reachable the moment the vocabulary started routing real traffic through it.
+		const stage = mount('full');
+		const t = target({ left: 300, top: 200, width: 200, height: 120 });
+		let settled = 'pending';
+		stage.gesture('circle', t.src).then(
+			() => {
+				settled = 'resolved';
+			},
+			() => {
+				settled = 'rejected';
+			},
+		);
+		await frames(3);
+		stage.destroy();
+		await frames(3);
+		await Promise.resolve();
+		expect(settled, 'the caller is still waiting on a stage that no longer exists').toBe('resolved');
+	});
+
+	it('takes the ring away on an abort under the reduced tier, not only under full motion', async () => {
+		// `if (reduced) return wait(…)` returned BEFORE the promise that owned the disposer, so on a
+		// prefers-reduced-motion device every retarget left the previous ring painted for up to
+		// 1.7s — stacking with the next one, on exactly the devices least able to tolerate it.
+		const root = document.createElement('div');
+		document.body.appendChild(root);
+		active = createStage({ root, onExit: () => {}, theme: resolveTheme({ motion: 'legible' }) });
+		const t = target({ left: 300, top: 200, width: 200, height: 120 });
+		const ctl = new AbortController();
+		const run = active.gesture('circle', t.src, ctl.signal).catch(() => {});
+		await frames(2);
+		expect(ink('circle')).toHaveLength(1);
+		ctl.abort();
+		await run;
+		await frames(2);
+		expect(ink('circle'), 'the ring outlived the cue that drew it').toHaveLength(0);
+	});
+
+	it('refuses a clearance that is not a number, rather than pinning the cursor forever', async () => {
+		// `Math.max(0, NaN)` is NaN. One NaN reaches `place()`, writes "NaNpx" (which the CSSOM
+		// silently drops), and every later duration and eased `t` is NaN — so every subsequent
+		// tween resolves having moved nothing. Unrecoverable, silent, and one guard away.
+		// FULL motion, deliberately. The reduced tiers `place()` the cursor outright, which writes a
+		// finite value back over a poisoned one and hides the defect; the poisoning lives in the
+		// TWEEN, where a NaN coordinate makes the duration NaN, then `t` NaN, then `t < 1` false —
+		// so the tween resolves on frame one having moved nothing, forever.
+		const stage = mount('full');
+		const a = target({ left: 300, top: 200, width: 400, height: 24 });
+		await stage.gesture('underline', a.src, undefined, { clearance: Number.NaN });
+		const b = target({ left: 800, top: 500, width: 300, height: 24 });
+		await stage.gesture('underline', b.src, undefined, { clearance: 19 });
+		const p = cursorAt();
+		expect(Number.isFinite(p.x), 'the cursor coordinates are NaN — every later gesture is a no-op').toBe(true);
+		expect(p.x).toBeGreaterThan(800);
+	}, 30_000);
+});
+
 describe('the shapes of "gone", and the shapes of "no"', () => {
 	it('is a no-op — never a throw — for a target that resolves to nothing', async () => {
 		const stage = mount();
@@ -323,17 +424,34 @@ describe('the motion policy', () => {
 	it('actually sweeps under full motion, ending past the block', async () => {
 		const stage = mount('full');
 		const t = target({ left: 300, top: 200, width: 400, height: 24 });
-		const seen = new Set<string>();
+		const path: number[] = [];
 		const run = stage.gesture('underline', t.src, undefined, { clearance: 19 });
 		const watch = window.setInterval(() => {
 			const p = cursorAt();
-			if (Number.isFinite(p.x)) seen.add(`${Math.round(p.x)}`);
+			if (Number.isFinite(p.x)) path.push(Math.round(p.x));
 		}, 30);
 		await run;
 		window.clearInterval(watch);
-		// A teleport visits one x. A sweep visits many — this is the difference between the two
-		// tiers, measured rather than assumed.
-		expect(seen.size).toBeGreaterThan(3);
+		// AFTER THE TURN, and that is the whole design of this oracle.
+		//
+		// Every deictic gesture APPROACHES its stroke and then SWEEPS along it, and the approach is
+		// itself a tween — so "the cursor visited many positions" is satisfied by the approach
+		// alone. Two earlier versions of this test stayed green with `sweepAlong`'s motion deleted
+		// outright, one of them after being written specifically to catch that. The cursor arrives
+		// from the right, so the approach runs x DOWNWARD to the stroke's left end and the sweep
+		// runs back UP: the turning point is the minimum, and only what happens after it is the
+		// sweep. A teleport to rest contributes exactly one position there.
+		const turn = path.indexOf(Math.min(...path));
+		const after = new Set(path.slice(turn + 1));
+		expect(after.size, `no motion along the stroke itself — only the approach to it (path ${JSON.stringify(path)})`).toBeGreaterThan(3);
 		expect(cursorAt().x).toBeGreaterThan(700);
 	}, 20_000);
+
+	it('draws heavier ink for a notable target than for a quiet one', () => {
+		// `strength` is public surface and nothing else asserts it does anything: a mutation making
+		// notable identical to quiet passed the whole suite.
+		const quiet = inkWeight('quiet');
+		const notable = inkWeight('notable');
+		expect(notable).toBeGreaterThan(quiet);
+	});
 });

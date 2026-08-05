@@ -79,6 +79,7 @@
     "equiv:bless": "node tools/slice-equivalence.mjs --bless",
     "equiv:check": "node tools/slice-equivalence.mjs --check",
     "sweep:guide": "node tools/sweep-guide-gestures.mjs",
+    "mutate:guide": "node tools/mutate-guide-gestures.mjs",
     "quality": "node tools/quality-assessment.js",
     "quality:bless": "node tools/quality-assessment.js --bless",
     "quality:check": "node tools/quality-assessment.js --check",

@@ -46,8 +46,12 @@ const { resolveChrome } = require('./lib/resolve-chrome');
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const OUT = path.join(ROOT, '.scratch', 'guide-sweep');
-/** The cursor's half-footprint, in the slide's own coordinates at S=1 (`POINTER_BOX / 2`). */
-const HALF = 14;
+/** The cursor's half-footprint in PARENT pixels (`POINTER_BOX / 2`), and the width Present shows
+ *  a slide at. The footprint does NOT scale with the preview, so inside a 3840-wide deck shown in
+ *  a ~1440 card it covers `14 / (1440/3840)` ≈ 37 slide px — and a check run at 14 understates how
+ *  often the geometric rest is occupied. Modelled here rather than assumed at 1:1. */
+const HALF_PARENT = 14;
+const PRESENT_WIDTH = 1440;
 
 const decks = () => [
 	...fs
@@ -122,7 +126,7 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	try {
 		for (const md of decks().slice(0, limit)) {
@@ -166,7 +170,7 @@ async function main() {
 				continue;
 			}
 			const rows = await page.evaluate(
-				(cueEntries, half) => {
+				(cueEntries, halfParent, presentWidth) => {
 					const G = window.LatticeGuide;
 					const sections = [...document.querySelectorAll('section[data-lattice-slide]')];
 					const out = [];
@@ -175,18 +179,26 @@ async function main() {
 						if (!sec) continue;
 						const r = sec.getBoundingClientRect();
 						const frame = { left: r.left, top: r.top, width: r.width, height: r.height };
+						const half = halfParent / (presentWidth / (r.width || presentWidth));
 						let any = false;
+						// THE CADENCE, REPLAYED. Guide gestures on a BLOCK change and RESTS when a cue
+						// resolves to the element the last one did, so a per-cue tally describes a
+						// population no viewer sees. `prev` reproduces `PresentOverlay`'s rest guard.
+						let prev = null;
 						for (const text of cues) {
-							const d = G.guideCueIn(sec, text, frame, half);
+							const d = G.guideCueIn(sec, text, frame, half, half + 5);
 							if (d) any = true;
-							out.push(d ? { kind: d.kind, notable: d.strength === 'notable', fellBack: d.fellBack } : null);
+							const rest = !!d && d.el === prev;
+							prev = d ? d.el : null;
+							out.push(d ? { kind: d.kind, notable: d.strength === 'notable', fellBack: d.fellBack, rest } : null);
 						}
 						out.push({ slideDone: true, any });
 					}
 					return out;
 				},
 				[...cuesBySlide.entries()],
-				HALF,
+				HALF_PARENT,
+				PRESENT_WIDTH,
 			);
 			await page.close();
 
@@ -199,13 +211,23 @@ async function main() {
 				}
 				tally.cues += 1;
 				deckRow.cues += 1;
-				if (!row) continue;
+				if (!row) {
+					tally.hides += 1;
+					continue;
+				}
 				tally.resolved += 1;
 				deckRow.resolved += 1;
 				tally.byKind[row.kind] = (tally.byKind[row.kind] ?? 0) + 1;
 				deckRow.byKind[row.kind] = (deckRow.byKind[row.kind] ?? 0) + 1;
 				if (row.notable) tally.notable += 1;
 				if (row.fellBack) tally.fellBack += 1;
+				if (row.rest) {
+					tally.rests += 1;
+					continue;
+				}
+				tally.gestures += 1;
+				tally.byGesture[row.kind] = (tally.byGesture[row.kind] ?? 0) + 1;
+				if (row.fellBack) tally.gFellBack += 1;
 			}
 			tally.decks += 1;
 			perDeck.push(deckRow);
@@ -221,9 +243,15 @@ async function main() {
 	console.log(`  slides with narration  ${tally.slidesWithNarration}, of which ${tally.slidesNoCue} resolve nothing at all`);
 	console.log(`  notable (a \`_focus:\` element) ${tally.notable} (${pct(tally.notable, tally.resolved)})`);
 	console.log(`  rest fell back to the search  ${tally.fellBack} (${pct(tally.fellBack, tally.resolved)})`);
-	console.log('  vocabulary:');
-	for (const [k, v] of Object.entries(tally.byKind).sort((a, b) => b[1] - a[1])) {
-		console.log(`    ${k.padEnd(10)} ${String(v).padStart(5)}  ${pct(v, tally.resolved)}`);
+	console.log(`\n  THE CADENCE — what a viewer actually sees:`);
+	console.log(`    gestures ${tally.gestures} · rests ${tally.rests} (${pct(tally.rests, tally.resolved)} of resolved cues) · hides ${tally.hides}`);
+	console.log(`    rest fell back, per GESTURE   ${tally.gFellBack} (${pct(tally.gFellBack, tally.gestures)})`);
+	console.log('\n  vocabulary          per CUE            per GESTURE');
+	const kinds = new Set([...Object.keys(tally.byKind), ...Object.keys(tally.byGesture)]);
+	for (const k of [...kinds].sort((a, b) => (tally.byGesture[b] ?? 0) - (tally.byGesture[a] ?? 0))) {
+		const c = tally.byKind[k] ?? 0;
+		const g = tally.byGesture[k] ?? 0;
+		console.log(`    ${k.padEnd(10)} ${String(c).padStart(5)} ${pct(c, tally.resolved).padStart(7)}     ${String(g).padStart(5)} ${pct(g, tally.gestures).padStart(7)}`);
 	}
 	if (jsonAt) fs.writeFileSync(jsonAt, `${JSON.stringify({ tally, perDeck }, null, 2)}\n`);
 }

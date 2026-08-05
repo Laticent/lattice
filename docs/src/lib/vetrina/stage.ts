@@ -274,8 +274,15 @@ export function gestureRest(kind: Gesture, box: RectLike, rects: readonly RectLi
 			// Along the stroke and out past the block's edge — where a hand ends an underline.
 			// The Y is the stroke's own line, so the cursor sits BELOW the words it just swept,
 			// never beside them at reading height.
-			const last = rects?.length ? rects[rects.length - 1] : box;
-			return { x: b.right + pad, y: r2(last).bottom + INK_GAP + pad };
+			//
+			// WHICH line depends on which stroke. `wash` paints every rect and ends on the LAST;
+			// `underline` is the one-line gesture and strokes the FIRST. Reading the last for both
+			// made the library disagree with itself — a host asking `gestureRest` about a
+			// multi-line underline got a point one line-height from where the cursor would stop,
+			// and six rests in the corpus landed on another block's text while the host's check
+			// reported "clear". The host should not have to know that; now it does not.
+			const line = rects?.length ? (kind === 'underline' ? rects[0] : rects[rects.length - 1]) : box;
+			return { x: b.right + pad, y: r2(line).bottom + INK_GAP + pad };
 		}
 		case 'bracket':
 			// The left margin, level with the middle — the flat hand held beside a card. Outside
@@ -1014,7 +1021,11 @@ export function createStage(opts: StageOptions): Stage {
 			glow.remove();
 		};
 		window.setTimeout(stopTracking, 1700);
-		if (reduced) return wait(500, signal);
+		// The reduced tier still owns its ink. Returning the bare `wait` here skipped the promise
+		// below — the only thing that disposed the ring on an abort — so on a reduced-motion device
+		// every retarget left the previous ring painted over the previous target for up to 1.7s,
+		// stacking with the next one. `withInk` is the same disposer the deictic four use.
+		if (reduced) return withInk(stopTracking, () => wait(500, signal));
 		// The orbit rides the SAME live box, so the cursor circles where the ring is drawn —
 		// the two cues cannot disagree, because there is one source of geometry for both.
 		const a0 = Math.atan2(cy - (r0.top + r0.height / 2), cx - (r0.left + r0.width / 2));
@@ -1027,7 +1038,17 @@ export function createStage(opts: StageOptions): Stage {
 			};
 			signal?.addEventListener('abort', onAbort, { once: true });
 			const tick = (now: number) => {
-				if (destroyed || signal?.aborted) return;
+				// A teardown mid-orbit SETTLES, exactly as `tween` does: dropping the frame loop left
+				// `gesture('circle')` pending forever, holding whatever awaited it — and with it the
+				// target, its range and the frame document. `destroy()` is documented as terminal and
+				// idempotent, so there is nothing left to await; an ABORT still rejects, via onAbort.
+				if (destroyed) {
+					stopTracking();
+					signal?.removeEventListener('abort', onAbort);
+					resolve();
+					return;
+				}
+				if (signal?.aborted) return;
 				const t = Math.min(1, (now - start) / dur);
 				const a = a0 + easeInOut(t) * Math.PI * 2 * 1.25;
 				const mx = box.left + box.width / 2;
@@ -1070,14 +1091,19 @@ export function createStage(opts: StageOptions): Stage {
 		const notable = o?.strength === 'notable';
 		return { notable, weight: notable ? 5 : 3, alpha: notable ? 1 : 0.9, hold: still ? 160 : notable ? 1500 : 1050 };
 	};
-	const clearanceOf = (o?: GestureOptions) => Math.max(0, o?.clearance ?? 0);
+	// NOT `Math.max(0, x)` — `Math.max(0, NaN)` is NaN, and one NaN reaches `place()`, writes
+	// "NaNpx" (which the CSSOM silently drops), and pins the cursor for the REST OF THE SESSION:
+	// every later `Math.hypot` is NaN, every eased `t` is NaN, `t < 1` is false, and every
+	// subsequent tween resolves having moved nothing. `liveRect` already guards this shape coming
+	// from a rect; `clearance` is new public surface and needs the same guard.
+	const clearanceOf = (o?: GestureOptions) => (Number.isFinite(o?.clearance) ? Math.max(0, o?.clearance as number) : 0);
 
 	/** A cue node that re-reads its target every frame for as long as it is on screen. Returns
 	 *  the node AND its disposer — the node so the caller can animate the thing it just made
 	 *  (reading it back off `layer.lastElementChild` would break the moment any other cue
 	 *  appended between the two statements), the disposer so an abort takes the ink away with
 	 *  the motion instead of leaving it painted over a slide nobody is on any more. */
-	function inkNode(kind: Gesture, src: RectSource, css: string, layout: (el: HTMLElement, r: DOMRect, rects: DOMRect[] | null) => void, life: number): { el: HTMLElement; stop: () => void } {
+	function inkNode(kind: Gesture, src: RectSource, css: string, layout: (el: HTMLElement, r: DOMRect, rects: () => DOMRect[] | null) => void, life: number): { el: HTMLElement; stop: () => void } {
 		const el = doc.createElement('div');
 		el.setAttribute('aria-hidden', 'true');
 		// A stable hook on the ink, in the same spirit as `.vetrina-stage` / `.vetrina-cursor`:
@@ -1086,9 +1112,12 @@ export function createStage(opts: StageOptions): Stage {
 		// decoration value rather than to the cue.
 		el.dataset.vtCue = kind;
 		el.style.cssText = `position:absolute;box-sizing:border-box;pointer-events:none;${css}`;
+		// The rect list is a THUNK, not a value: `bracket` and `circle` never read it, and computing
+		// it eagerly cost them a cross-frame `getClientRects()` every animation frame for something
+		// they discard. Cheap per frame is the only budget a cue on the narration path has.
 		const paint = () => {
 			const r = liveRect(src);
-			if (r) layout(el, r, liveRects(src));
+			if (r) layout(el, r, () => liveRects(src));
 		};
 		paint();
 		layer.appendChild(el);
@@ -1169,7 +1198,7 @@ export function createStage(opts: StageOptions): Stage {
 			src,
 			`z-index:3;height:${weight}px;border-radius:${weight}px;background:${A};box-shadow:0 0 10px ${A},0 0 0 1px var(--vt-glow-halo);transform-origin:left center;opacity:0;`,
 			(node, r, rects) => {
-				const l = rects?.[0] ?? r;
+				const l = rects()?.[0] ?? r;
 				node.style.left = `${l.left}px`;
 				node.style.top = `${l.top + l.height + INK_GAP}px`;
 				node.style.width = `${l.width}px`;
@@ -1210,7 +1239,7 @@ export function createStage(opts: StageOptions): Stage {
 				src,
 				`z-index:2;border-radius:3px;background:${A};opacity:0;transform-origin:left center;`,
 				(node, r, rects) => {
-					const b = (rects ?? [r])[i];
+					const b = (rects() ?? [r])[i];
 					if (!b) {
 						node.style.width = '0px';
 						return;

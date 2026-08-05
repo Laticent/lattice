@@ -98,8 +98,8 @@ function gestureRest(kind, box, rects, clearance = 0) {
   switch (kind) {
     case "underline":
     case "wash": {
-      const last = rects?.length ? rects[rects.length - 1] : box;
-      return { x: b.right + pad, y: r2(last).bottom + INK_GAP + pad };
+      const line = rects?.length ? kind === "underline" ? rects[0] : rects[rects.length - 1] : box;
+      return { x: b.right + pad, y: r2(line).bottom + INK_GAP + pad };
     }
     case "bracket":
       return { x: box.left - INK_OUT - pad, y: box.top + box.height / 2 };
@@ -585,7 +585,7 @@ function createStage(opts) {
       glow.remove();
     };
     window.setTimeout(stopTracking, 1700);
-    if (reduced) return wait(500, signal);
+    if (reduced) return withInk(stopTracking, () => wait(500, signal));
     const a0 = Math.atan2(cy - (r0.top + r0.height / 2), cx - (r0.left + r0.width / 2));
     const dur = 1400;
     const start = performance.now();
@@ -596,7 +596,13 @@ function createStage(opts) {
       };
       signal?.addEventListener("abort", onAbort, { once: true });
       const tick = (now) => {
-        if (destroyed || signal?.aborted) return;
+        if (destroyed) {
+          stopTracking();
+          signal?.removeEventListener("abort", onAbort);
+          resolve2();
+          return;
+        }
+        if (signal?.aborted) return;
         const t = Math.min(1, (now - start) / dur);
         const a = a0 + easeInOut(t) * Math.PI * 2 * 1.25;
         const mx = box.left + box.width / 2;
@@ -615,7 +621,7 @@ function createStage(opts) {
     const notable = o?.strength === "notable";
     return { notable, weight: notable ? 5 : 3, alpha: notable ? 1 : 0.9, hold: still ? 160 : notable ? 1500 : 1050 };
   };
-  const clearanceOf = (o) => Math.max(0, o?.clearance ?? 0);
+  const clearanceOf = (o) => Number.isFinite(o?.clearance) ? Math.max(0, o?.clearance) : 0;
   function inkNode(kind, src, css, layout, life) {
     const el = doc.createElement("div");
     el.setAttribute("aria-hidden", "true");
@@ -623,7 +629,7 @@ function createStage(opts) {
     el.style.cssText = `position:absolute;box-sizing:border-box;pointer-events:none;${css}`;
     const paint = () => {
       const r = liveRect(src);
-      if (r) layout(el, r, liveRects(src));
+      if (r) layout(el, r, () => liveRects(src));
     };
     paint();
     layer.appendChild(el);
@@ -687,7 +693,7 @@ function createStage(opts) {
       src,
       `z-index:3;height:${weight}px;border-radius:${weight}px;background:${A};box-shadow:0 0 10px ${A},0 0 0 1px var(--vt-glow-halo);transform-origin:left center;opacity:0;`,
       (node, r, rects) => {
-        const l = rects?.[0] ?? r;
+        const l = rects()?.[0] ?? r;
         node.style.left = `${l.left}px`;
         node.style.top = `${l.top + l.height + INK_GAP}px`;
         node.style.width = `${l.width}px`;
@@ -720,7 +726,7 @@ function createStage(opts) {
         src,
         `z-index:2;border-radius:3px;background:${A};opacity:0;transform-origin:left center;`,
         (node, r, rects) => {
-          const b = (rects ?? [r])[i];
+          const b = (rects() ?? [r])[i];
           if (!b) {
             node.style.width = "0px";
             return;

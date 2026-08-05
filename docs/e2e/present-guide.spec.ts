@@ -214,11 +214,21 @@ const SLIDE_WITH_ONE_PARAGRAPH = [
 	'',
 ].join('\n');
 
-/** Watch the stage for cue ink and report what was drawn, for `ms`. */
+/** Watch the stage for cue ink and report what was drawn, for `ms`.
+ *
+ *  Each node is timestamped, because ONE gesture adds several nodes: a `wash` paints one band per
+ *  line, a `tap` spawns two or three rings. Grouping by ARRIVAL — nodes further apart than any
+ *  single gesture's own paint burst belong to different gestures — is the only grouping that can
+ *  separate "one gesture on a block" from "one gesture per sentence of it". Grouping by KIND
+ *  cannot: a paragraph's four sentences all classify the same way, so a per-sentence regression
+ *  emits four consecutive `wash` entries and collapses to one. That is exactly what the first
+ *  version of this oracle did, and it is why it could not fail for the reason it was written. */
 async function watchCues(page: import('@playwright/test').Page, ms: number) {
 	return page.evaluate(async (duration) => {
 		const seen: string[] = [];
-		if (!document.querySelector('.vetrina-stage')) return { seen, error: 'no stage' };
+		const at: number[] = [];
+		const t0 = Date.now();
+		if (!document.querySelector('.vetrina-stage')) return { seen, at, error: 'no stage' };
 		// OBSERVE THE DOCUMENT, not the stage node found right now. The stage is torn down and
 		// rebuilt whenever Guide's own effect re-runs, and an observer holding the OLD node then
 		// watches a detached element for the rest of the window — it reports a clean empty list
@@ -228,14 +238,17 @@ async function watchCues(page: import('@playwright/test').Page, ms: number) {
 			for (const r of records) {
 				for (const n of r.addedNodes) {
 					const cue = (n as HTMLElement).dataset?.vtCue;
-					if (cue) seen.push(cue);
+					if (cue) {
+						seen.push(cue);
+						at.push(Date.now() - t0);
+					}
 				}
 			}
 		});
 		obs.observe(document.body, { childList: true, subtree: true });
 		await new Promise((r) => setTimeout(r, duration));
 		obs.disconnect();
-		return { seen, error: '' };
+		return { seen, at, error: '' };
 	}, ms);
 }
 
@@ -261,11 +274,14 @@ test('one gesture per BLOCK, not one per sentence', async ({ page }) => {
 	// Two KINDS here is correct and was briefly asserted against — the heading is one wide line
 	// (underline) and the paragraph is a phrase inside a block (wash). Asserting one kind was
 	// asserting that two different shapes get the same verb, which is the opposite of the design.
-	const { seen, error } = await watchCues(page, 22_000);
+	const { seen, at, error } = await watchCues(page, 22_000);
 	expect(error).toBe('');
 	expect(seen.length, `no cue ink was drawn at all — the gesture never ran (saw ${JSON.stringify(seen)})`).toBeGreaterThan(0);
-	const bursts = seen.filter((_, i) => i === 0 || seen[i - 1] !== seen[i]).length;
-	expect(bursts, `the hand gestured once per SENTENCE, not once per block: ${JSON.stringify(seen)}`).toBeLessThanOrEqual(2);
+	// A gesture paints its nodes together; the next one is a sentence away. 400ms is well above any
+	// single gesture's paint burst (a wash staggers its bands by 120ms) and well below the shortest
+	// sentence, so it separates gestures without splitting one.
+	const bursts = at.filter((t, i) => i === 0 || t - at[i - 1] > 400).length;
+	expect(bursts, `the hand gestured once per SENTENCE, not once per block: ${JSON.stringify(seen.map((k, i) => `${k}@${at[i]}`))}`).toBeLessThanOrEqual(2);
 });
 
 test('the vocabulary varies with the shape of what is named', async ({ page }) => {
@@ -315,5 +331,9 @@ test('the vocabulary varies with the shape of what is named', async ({ page }) =
 	const { seen, error } = await watchCues(page, 45_000);
 	expect(error).toBe('');
 	expect(seen.length, 'no cue ink at all across three slides').toBeGreaterThan(0);
+	// THE DECK MUST HAVE MOVED. Without this the spec is satisfied by slide 1 alone (its heading and
+	// its paragraph are already two shapes), so "three deliberately different shapes on three
+	// slides" would be a claim the oracle never checks.
+	await expect(dialog.getByText('3 / 3')).toBeVisible();
 	expect(new Set(seen).size, `only one gesture across three different shapes — the classifier is not discriminating: ${JSON.stringify([...new Set(seen)])}`).toBeGreaterThanOrEqual(2);
 });

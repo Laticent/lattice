@@ -280,7 +280,16 @@ export function textGeometry(range: Range | null): { rects: DOMRect[]; box: Box;
 	const top = Math.min(...rects.map((r) => r.top));
 	const right = Math.max(...rects.map((r) => r.left + r.width));
 	const bottom = Math.max(...rects.map((r) => r.top + r.height));
-	const lines = new Set(rects.map((r) => Math.round(r.top))).size;
+	// LINES ARE CLUSTERED, NOT BINNED ON `top`. Inline fragments on the same visual line do not
+	// share a top — a line carrying a `<code>` measures 11 / 12 / 11 in real Chromium, and rounding
+	// counts that as three lines. Measured on the committed gallery render: 74 of 770 blocks report
+	// more lines than they occupy, and 45 of those get a DIFFERENT gesture for it. Sort by top and
+	// start a new line only when the gap exceeds most of a line's own height, which is scale-free
+	// (the old `Math.round` was an absolute-pixel bin, so the same deck reclassified at 1.5x).
+	const tops = rects.map((r) => r.top).sort((a, b) => a - b);
+	const h = Math.max(1, Math.min(...rects.map((r) => r.height)));
+	let lines = 1;
+	for (let i = 1; i < tops.length; i++) if (tops[i] - tops[i - 1] > h * 0.6) lines += 1;
 	return { rects, box: { left, top, width: right - left, height: bottom - top }, lines };
 }
 
@@ -313,11 +322,17 @@ export const sentenceRects = (block: Element, text: string): DOMRect[] | null =>
  *  deck said "row 4", so pointing at the table would be ignoring it. Escalation then falls out
  *  of the vocabulary — a smaller box picks a stronger gesture through `chooseGesture` — rather
  *  than being a second knob bolted beside it. */
-export function aimTarget(block: Element): { el: Element; notable: boolean } {
+export function aimTarget(block: Element, text = ''): { el: Element; notable: boolean } {
 	if (block.classList.contains('lat-focus') || block.closest('.lat-focus')) return { el: block, notable: true };
 	const inner = block.querySelector('.lat-focus');
-	if (inner && inner !== block) return { el: inner, notable: true };
-	return { el: block, notable: false };
+	// THE REFINED AIM MUST STILL HOLD THE SPOKEN WORDS. `_focus:` names an ordinal — `row 4`,
+	// `item 3`, `line 8-9` — with no relation to which sentence is being read, so an unconditional
+	// re-aim is the one path in this whole feature that can point at text nobody is saying. That is
+	// the failure #1403 set the bar against ("strictly worse than not pointing at all"), so the
+	// deck's call-out wins only when it actually contains the sentence; otherwise the block keeps
+	// the aim and the cue is merely drawn at notable weight.
+	if (inner && inner !== block && loose(inner.textContent ?? '').includes(loose(text))) return { el: inner, notable: true };
+	return { el: block, notable: !!inner };
 }
 
 // ── The vocabulary, chosen by the SHAPE of the thing being named ───────────────────────────
@@ -338,8 +353,14 @@ export type GuideShape = {
 	coverage: number;
 };
 
-/** More lines than this is a block, not a line: a wrapped heading is still a line-ish thing. */
-const LINES_BLOCK = 2;
+/** More lines than this is a BLOCK, not a line — and the bound is 1, deliberately.
+ *
+ *  It was 2, which let a two-line target fall through to `underline`. But underline is the
+ *  one-line gesture in both halves: it strokes the first line rect and rests beside it, so on a
+ *  two-line sentence the ink named half the words and the hand parked in the middle of the rest.
+ *  32% of underlines in the corpus were that shape. A wrapped sentence is a block; `bracket` says
+ *  "all of this", which is what a wrapped sentence needs. */
+const LINES_BLOCK = 1;
 /** A sentence covering less than this much of its block is a PHRASE inside it. */
 const PHRASE_COVERAGE = 0.7;
 /** Narrower than this share of the slide, on a single line, is "small and discrete". */
@@ -533,11 +554,11 @@ export type GuideDecision = {
  * Returns null when nothing under `root` contains the sentence. That is a real state, not an
  * error — a slide narrated by a speaker note says things the slide does not show.
  */
-export function guideCueIn(root: Document | Element, text: string, frame: Box, half: number): GuideDecision | null {
+export function guideCueIn(root: Document | Element, text: string, frame: Box, half: number, pad: number = half + 5): GuideDecision | null {
 	const block = findCueTarget(root, text);
 	if (!block) return null;
 
-	const { el, notable } = aimTarget(block);
+	const { el, notable } = aimTarget(block, text);
 	// A refined aim is a DIFFERENT element from the one the sentence was found in, so the
 	// sentence's rects are not inside it — using them would paint ink outside the thing being
 	// named. The deck's own call-out is the target now; the box is the whole cue.
@@ -556,7 +577,9 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 		// The text's geometry decides the SHAPE; the element's box (`t0`) is the cursor's
 		// keep-out. Two rectangles, two jobs — the same split the library draws with.
 		box: geo?.box ?? t0,
-		lines: geo?.lines ?? t0.height / lineHeightOf(el),
+		// The fallback is a FLOOR, not a ratio: with real line boxes `lines` is a whole number, and
+		// a box carrying one line plus padding must not read as one-and-two-thirds of a block.
+		lines: geo?.lines ?? Math.max(1, Math.floor(t0.height / lineHeightOf(el))),
 		rects: rects?.map(boxOf) ?? null,
 		slideW: frame.width || 1280,
 		coverage: loose(text).length / Math.max(1, loose(el.textContent ?? '').length),
@@ -572,9 +595,21 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 		const r = node.getBoundingClientRect();
 		if (r.width > 0 && r.height > 0 && (node.textContent ?? '').trim()) obstacles.push(boxOf(r));
 	}
-	const natural = gestureRest(kind, t0, rects?.map(boxOf) ?? null, half + 5);
+	// The full rect list, and the library picks the line its own stroke will use — it reads the
+	// FIRST for `underline` and the LAST for `wash`. This used to be sliced here to compensate for
+	// a library that read the last for both; the compensation lived on the wrong side of the
+	// boundary, so the disagreement is fixed in `gestureRest` and the host just asks.
+	const natural = gestureRest(kind, t0, rects?.map(boxOf) ?? null, pad);
 	const footprint = (p: { x: number; y: number }): Box => ({ left: p.x - half, top: p.y - half, width: half * 2, height: half * 2 });
-	const occupied = !natural || overlapsAny(footprint(natural), obstacles);
+	// OFF THE CARD COUNTS AS OCCUPIED. `pointerAnchor` rejects any candidate not inside the frame
+	// (a pointer half off the card reads as a bug, not a gesture); the geometry path checked only
+	// against BLOCKS, so "past the block's right edge" could run off the slide with nothing there
+	// to object. Measured: ten gestures in the corpus came to rest on the Present backdrop.
+	// The containment half FAILS OPEN on an unmeasurable frame (a zero-area root, which is what a
+	// layout-free host reports): a frame with no area would otherwise veto every geometric rest and
+	// silently turn the fallback search back into the only placement mechanism.
+	const offCard = frame.width > 0 && frame.height > 0 && !inside(footprint(natural ?? { x: 0, y: 0 }), frame);
+	const occupied = !natural || offCard || overlapsAny(footprint(natural), obstacles);
 	// `circle`'s orbit ends a quarter turn past wherever the cursor came in from, so it has no
 	// deterministic ending of its own — the library reports an advisory one and expects the host
 	// to hand it back. Every other kind rides its own stroke's end unless that end is occupied,
@@ -608,7 +643,7 @@ const frameDoc = (getFrame: () => HTMLIFrameElement | null): Document | null => 
  */
 export function guideAimFor(getFrame: () => HTMLIFrameElement | null, text: string): Element | null {
 	const block = findCueTarget(frameDoc(getFrame), text);
-	return block ? aimTarget(block).el : null;
+	return block ? aimTarget(block, text).el : null;
 }
 
 /**
@@ -627,7 +662,12 @@ export function guideCueFor(getFrame: () => HTMLIFrameElement | null, text: stri
 	// the preview, so the half-extent inside the frame is `half / S` — the one conversion that
 	// has to happen for this to clear on the Playground AND cover nothing in the Studio.
 	const S = frameGeom(getFrame())?.S || 1;
-	const cue = guideCueIn(doc, text, { left: root.left, top: root.top, width: root.width, height: root.height }, POINTER_BOX / 2 / S);
+	// BOTH numbers cross the scale boundary. The cursor's 28px footprint AND the 5px breathing room
+	// the library adds are PARENT pixels, so inside the frame they are `/ S` — predicting with a
+	// parent-space 5 while the stage applies an inner-space one puts the check a few pixels off
+	// on every scaled preview, which is exactly the class of error #1403 wrote `POINTER_BOX` down for.
+	const half = POINTER_BOX / 2 / S;
+	const cue = guideCueIn(doc, text, { left: root.left, top: root.top, width: root.width, height: root.height }, half, half + 5 / S);
 	if (!cue) return null;
 
 	const { el, inkRange } = cue;

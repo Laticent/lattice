@@ -63,7 +63,20 @@ in patch versions.
   second notion of importance: a `_focus`-tagged element inside the matched block becomes the
   thing named, at heavier weight. The pointer's position is now a consequence of the gesture's
   own stroke geometry, so it clears the text by construction; #1403's whitespace search survives
-  only as the fallback for when the stroke's natural ending is occupied.
+  only as the fallback for when the stroke's natural ending is occupied, or would leave the card.
+
+  Measured over the 125 committed decks (5,830 real cues), reported per GESTURE rather than per
+  cue — the cadence rests between them, so a per-cue tally describes a population no viewer sees:
+  underline 38.4% / bracket 34.3% / wash 22.0% / tap 4.8% / ring 0.6%, with the match rate
+  unchanged at 83.7%. The block cadence suppresses about **one move in six**, not most of them:
+  the dominant Lattice slide is bullets and cells, where each cue genuinely is its own block.
+
+- **Fixed in Vetrina, found by adversarial review:** `gesture('circle')` never settled when the
+  stage was destroyed mid-orbit, so its caller waited forever and held the target, its range and
+  the frame document with it; the reduced-motion tier left the ring painted after an abort, so on
+  a `prefers-reduced-motion` device every retarget stacked ink for up to 1.7s; and a non-finite
+  `clearance` wrote `NaN` into the cursor's own coordinates, silently pinning it for the rest of
+  the session. All three are reachable now that a host routes real traffic through those paths.
 
 - **Vetrina learns a deictic gesture vocabulary.** The alphabet gains four members — `underline`
   ("this line"), `wash` ("these words"), `bracket` ("this whole block") and `tap` ("this one") —

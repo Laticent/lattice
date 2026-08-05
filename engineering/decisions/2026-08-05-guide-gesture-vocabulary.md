@@ -52,9 +52,19 @@ re-opened by whoever reads this next.
 
 ## 3. The Vetrina surface delta (R1 — read this part first)
 
-Vetrina is a general-purpose library. This adds **three things** and changes no existing
-behavior. Every addition is host-agnostic: nothing here knows what a slide, a deck, an
-iframe or a Lattice token is.
+Vetrina is a general-purpose library. This adds **three things**, fixes **three library
+defects the adversarial trio found**, and changes no existing behavior that a tour can see.
+Every addition is host-agnostic: nothing here knows what a slide, a deck, an iframe or a
+Lattice token is.
+
+**The precise byte-identity claim, since it was overstated once.** With no options passed,
+`circle`'s ring box, corner radius, border weight, orbit radius and opacity keyframes are
+numerically identical (`0.9 - 0.05 === 0.85` exactly). Two things about every tour DO change:
+the ring node now carries a `data-vt-cue="circle"` attribute — inert to render, visible to a
+host's `MutationObserver` — and `createStage` assigns the layer's layout `cssText` BEFORE
+setting the theme tokens instead of `+=`-ing it after, which removes a read-back that could
+drop custom properties on an engine that omits them from `cssText`. Both are deliberate; neither
+was disclosed in the first draft of this section, and the checker was right to say so.
 
 ### 3.1 Four new members of the frozen gesture alphabet
 
@@ -129,6 +139,31 @@ Exported because the DEFAULT rest is a promise the library makes to the host, an
 that has to decide whether that promise is safe (Guide does — see §5.4) must be able to
 ask, rather than re-deriving the geometry and drifting from it.
 
+**Asking is not free of the same mistake, and the trio caught it.** `underlineGesture` strokes
+and rests on the target's FIRST line rect; `gestureRest` reads the LAST. Handing it every rect
+therefore validated a point one line-height from where the cursor stops — six rests in the
+corpus landed the footprint on another block's text while the check reported "clear". The host
+now asks about the rect the gesture will use, and §4's `LINES_BLOCK = 1` makes a multi-line
+underline rare in the first place.
+
+### 3.5 Three library defects, found and fixed
+
+None of these is new code's fault alone; all three are reachable now that Guide routes real
+traffic through paths that were tour-only.
+
+- **`circle` never settled when the stage was destroyed mid-orbit.** The rAF tick returned on
+  `destroyed` without resolving or rejecting, so `gesture('circle')` stayed pending forever,
+  holding whatever awaited it — and with it the target, its range and the frame document.
+  `tween` carries a comment about this exact bug from #1400; the orbit had the same one.
+- **The reduced-motion tier leaked `circle`'s ink on abort.** `if (reduced) return wait(…)`
+  returned *before* the promise that owns the disposer, so on a `prefers-reduced-motion` device
+  every retarget left the previous ring painted for up to 1.7 s, stacking with the next.
+- **A non-finite `clearance` pinned the cursor for the rest of the session.** `Math.max(0, NaN)`
+  is `NaN`; one NaN reaches `place()`, writes `"NaNpx"` (silently dropped by the CSSOM), and
+  every later duration and eased `t` is NaN, so every subsequent tween resolves having moved
+  nothing. `liveRect` already guarded this shape coming from a rect; `clearance` is new public
+  surface and needed the same guard.
+
 ## 4. The vocabulary, chosen by target shape
 
 Motivated variety, never a die roll. **The shape of the thing being named picks the
@@ -144,19 +179,29 @@ knowledge, not the library's.
 | a whole card / multi-line block | **bracket** | an outline is the only honest way to say "all of this" |
 | something small and discrete | **tap** | a ring around a two-word chip is a dot; a ripple reads |
 
-The rules, in order (the first that matches wins). `lh` is the target's computed line
-height; `W` is the slide's own width, so every threshold is resolution-independent:
+The rules, in order (the first that matches wins). `lines` is how many lines the target's
+TEXT actually occupies; `W` is the slide's own width, so every threshold is
+resolution-independent:
 
 1. **wash** — the spoken sentence resolves to its own rectangles inside the block AND
    covers less than 70% of the block's text. This is the "phrase inside a longer block"
    row, and it is first because it is a fact about the CUE, not about the box.
-2. **bracket** — the block is taller than `2.6 lh`. Multi-line: a card, a quote, a
-   wrapped paragraph read whole.
-3. **tap** — narrower than `0.10 W` and no taller than `1.5 lh`. A chip, a bullet glyph,
-   an inline `<code>`, a two-word cell.
-4. **ring** — no taller than `2.6 lh`, no wider than `0.42 W`, aspect ratio at most 3.2.
-   The compact-and-substantial case: a stat, a table cell, a short heading.
+2. **bracket** — `lines > 1`. A card, a quote, a wrapped paragraph read whole.
+3. **tap** — narrower than `0.10 W`, on a single line. A chip, a bullet glyph, an inline
+   `<code>`, a two-word cell.
+4. **ring** — no wider than `0.42 W`, aspect ratio at most 3.2. The compact-and-substantial
+   case: a stat, a table cell, a short heading.
 5. **underline** — everything else. One wide, short line.
+
+**A line COUNT, not a height ratio — and the bound is 1.** Both of those were wrong before the
+adversarial trio, and both are the same mistake: measuring the box instead of the text. A ratio
+of height over line-height calls a table cell with 20px of padding a multi-line card, so the
+classifier counts the text's own line boxes, clustered by vertical gap so that inline markup does
+not split one line into three (measured on the committed gallery render: **74 of 770 blocks**
+reported more lines than they occupy, and **45 of those got a different gesture** for it). And
+the bound was 2, which let a **two**-line sentence fall through to `underline` — but underline
+strokes and rests on its FIRST line rect, so it named half the words and parked the hand in the
+middle of the rest, on **32% of underlines** corpus-wide. A wrapped sentence is a block.
 
 The thresholds are not taste: §7 sweeps the corpus and reports the distribution each one
 produces, and they were set from that distribution rather than the other way round.
@@ -190,16 +235,29 @@ the shape says which gesture, the deck says how loudly.
 
 The cue still changes per sentence; what changes on a **block change** is the gesture.
 Guide keeps the previously named element and compares. Same element → **rest**: no move,
-no stroke, nothing. That is most of the fix. A five-sentence paragraph now gets one
-gesture and then twenty seconds of a still hand, which is what a presenter does.
+no stroke, nothing. A five-sentence paragraph gets one gesture and then twenty seconds of a
+still hand, which is what a presenter does.
+
+**How much this buys, measured: about one move in six** (§7 — 4,081 gestures against 4,879
+resolved cues). The paragraph picture is real and is the minority case, because the dominant
+Lattice slide is bullets, cells and headings, where each cue genuinely *is* its own block. The
+first draft of this section implied the reduction was most of the motion; it is not, and the
+Munger-inversion lens was right to measure it rather than accept the framing.
 
 ### 5.2 Withdrawal is the ink's, not the cursor's
 
 "…and withdraws" is the ink. Every cue fades after its life (as `circle` already does),
-leaving the cursor at rest, clear of the text. The cursor itself stays on screen, because
-hiding it between blocks would flicker the viewer's REAL pointer back on every few seconds
-— the two are tied together deliberately (#1403), and untying them to buy an animation
-would be a bad trade. No target at all is still the hide case; that is unchanged.
+leaving the cursor at rest, clear of the text. The cursor itself stays on screen. No target at
+all is still the hide case; that is unchanged.
+
+**A correction to the first draft's reasoning, which was wrong about our own wiring.** It said
+hiding the cursor between blocks would flicker the viewer's REAL pointer back, because the two
+are tied together. They are not tied that tightly: the real pointer is gated on `guideAiming`,
+which is set from whether the CUE RESOLVED, not from whether the fake cursor is visible. The
+fake cursor could be hidden between gestures without touching the real one at all. So the trade
+declined in that paragraph was never the trade on offer — the honest statement is that a
+withdrawal between blocks is available, was not built, and is worth trying if the resting hand
+reads as clutter when someone finally watches a deck.
 
 ### 5.3 Position as a consequence of the stroke
 
@@ -234,6 +292,22 @@ often that fallback fires.
 This is deliberate and it is not a hedge: one candidate derived from the gesture, one
 mechanical check, one fallback. Not twelve candidates every time.
 
+**The withdrawal is TWO motions on that path, and the record should say so.** The stroke always
+ends at the gesture's own resting place — including when the host has already decided that place
+is occupied — and the fallback is then applied as a short second glide. So on ~30% of gestures
+the hand rides out to a spot over another block, stops, and corrects. The alternative (always
+compute the rest host-side and pass it) would make one motion of it, at the cost of making
+`gestureRest`'s export purely advisory. Left as is, named rather than glossed.
+
+**Two corrections the trio made to this mechanism.** The check tested against BLOCKS only, so a
+rest could run off the slide card entirely with nothing there to object — `pointerAnchor` has
+always refused a candidate outside the frame, and the geometry path now does too (ten gestures
+in the corpus were resting on the Present backdrop). And `gestureRest` read the LAST line rect
+for both `underline` and `wash`, while `underlineGesture` strokes the FIRST — so the check
+validated a point one line-height from where the cursor stops. That is fixed in the library
+rather than compensated for in the host, because a library that disagrees with itself will
+disagree with the next host too.
+
 ## 6. Motion, abort, and the invariants that must not move
 
 - **Three-tier motion policy.** `legible` suppresses the vestibular part of every new
@@ -247,6 +321,31 @@ mechanical check, one fallback. Not twelve candidates every time.
   life. A gesture that snapshots is the defect #1400 shipped and fixed.
 - **The cursor never rests on the words it is naming** (#1403). Preserved, and now by
   construction; the e2e oracle that pins it is unchanged and still green.
+
+### 4.2 OPEN, for the maintainer: `wash` and the block cadence pull against each other
+
+Both halves of this are the maintainer's own decisions, and together they produce something
+neither of them asked for. Decision 1 says **one gesture per block**. The vocabulary table says
+**wash names a phrase inside a longer block**. So on a paragraph narrated across four sentences,
+the only gesture that fires is the first one — and it highlights the OPENING CLAUSE, then the
+ink dies while the narrator reads the remaining three sentences with nothing on screen.
+
+Measured on the corpus: a wash's ink names a **median 39%** of its block's text, and **582 of
+887 washes** are followed by at least one further sentence of the same block, narrated silently.
+A highlighter over two-fifths of a paragraph does not only fail to name the rest — it implies
+the rest is not the thing you were told to look at, which is a softer version of the failure
+#1403 set the bar against ("strictly worse than not pointing at all").
+
+**Not resolved here, deliberately.** Every way out contradicts one of the two decisions:
+
+| option | what it costs |
+|---|---|
+| **A — let `wash` alone keep the sentence cadence** (one condition in the effect) | a paragraph gets a highlighter walking down it — which is the karaoke cadence decision 1 rejected, in the one place it is arguably right |
+| **B — cut `wash`** | 22% of gestures become `bracket`/`underline`; the vocabulary loses its only phrase-level verb and `underline` climbs past 50% |
+| **C — ship as is** | the gesture is honest about *where* it starts and quiet about the rest of the block |
+
+I have shipped **C**, because A and B each overturn a settled decision and neither is mine to
+overturn while you are asleep. The numbers are here so the choice can be made in a minute.
 
 ## 6.1 A test that looked like a product defect, and the one real hardening in it
 
@@ -281,71 +380,114 @@ both burned by. Committed sweep: `tools/sweep-guide-gestures.mjs` (`npm run swee
 It renders every deck in `examples/` + `test/integration/baseline-decks/`, reads each one's
 REAL narration out of the read-along WebVTT the emulator writes — the same `buildTrack`
 segmentation Present narrates from — and calls the SHIPPING `guideCueIn` per cue in a real
-Chromium. The classifier is bundled and injected, not re-implemented, so the mechanism is in
-the path by construction.
+Chromium. The classifier is bundled and injected, not re-implemented.
 
-**124 decks · 5,782 cues:**
+**It reports two populations, and the first draft of this section only reported the wrong one.**
+A per-CUE tally describes something no viewer sees, because the cadence gestures on a BLOCK
+change and rests otherwise. The sweep now replays that rest guard, so the per-GESTURE column is
+what actually reaches a screen. The Munger-inversion lens found this; the correction is its.
+
+**125 decks · 5,830 cues:**
 
 ```
-resolved to a target            4839  83.7%
-slides with narration           1232, of which 79 resolve nothing at all
-notable (a `_focus:` element)      6   0.1% of resolved
-rest fell back to the search    1360  28.1% of resolved
+resolved to a target            4879  83.7%     (83.5% before this work — the matcher did not move)
+slides with narration           1241, of which 79 resolve nothing at all
+notable (a `_focus:` element)      6   0.1%
+gestures 4081 · rests 798 · hides 951
+rest fell back to the search    29.9% of gestures
 
-underline  2163  44.7%
-wash       1569  32.4%
-bracket     760  15.7%
-tap         178   3.7%
-circle      169   3.5%
+vocabulary        per CUE        per GESTURE
+  underline   1594  32.7%      1566  38.4%
+  bracket     1485  30.4%      1400  34.3%
+  wash        1581  32.4%       896  22.0%
+  tap          196   4.0%       196   4.8%
+  circle        23   0.5%        23   0.6%
 ```
 
 **What the numbers say, including the parts that are not flattering.**
 
-- **The match rate is unchanged at 83.7%**, against #1403's 83.5% on a slightly smaller corpus.
-  That is the cross-check that mattered: the vocabulary is a change of what happens *after* a
-  target is found, and the number confirms it did not quietly move the matcher.
-- **The vocabulary really varies.** No verb exceeds 45%, and the two that name a whole block
-  (underline for one line, bracket for several) together account for 60% — which is the right
-  shape for prose decks. A rule set that answered `underline` to everything would be the karaoke
-  follower with extra steps, and this is the measurement that rules that out.
-- **`tap` and `circle` are rare (3.7% / 3.5%) and that is correct, not a defect.** They name a
-  target that is compact in BOTH axes, and a compact thing rarely carries a whole spoken
-  sentence — the narration for a stat tile says "Total revenue: four point two million dollars",
-  which lives in the tile, not in the number. They earn their place on the slides that have
-  them rather than by frequency.
+- **The match rate is unchanged at 83.7%**, against 83.5% before. That was the cross-check that
+  mattered: the vocabulary changes what happens *after* a target is found, and the number
+  confirms it did not quietly move the matcher.
+- **The vocabulary really varies.** No verb exceeds 39% of what a viewer sees, and the three
+  that carry it — underline, bracket, wash — split 38 / 34 / 22. A rule set that answered
+  `underline` to everything would be the karaoke follower with extra steps, and this rules
+  that out.
+- **THE CADENCE BUYS LESS THAN §5.1 IMPLIES, AND THE HONEST NUMBER IS 16%.** 4,081 gestures
+  against 4,879 resolved cues: the block cadence suppresses about one move in six, not most of
+  them. §5.1's picture — a five-sentence paragraph reduced to one gesture — is real and is the
+  minority case, because the dominant Lattice slide is bullets, cells and headings, where each
+  cue genuinely *is* its own block. The premise of §1's diagnosis holds for prose decks and
+  much less for the rest, and nothing here should be read as claiming otherwise.
+- **And each surviving move is heavier than what it replaced.** A `point()` was a half-second
+  glide with no ink; a gesture is an approach, a swept stroke, and ink with a ~2 s life. Whether
+  fewer-but-louder is a net win for the eye is **not measured and not measurable from here** —
+  it needs a person watching a deck (§8).
+- **`circle` is nearly unreachable (0.6%), and that is a consequence, not a target.** The ring
+  needs a target compact in both axes and wider than a tap's threshold, which after the
+  line-count fix means a genuinely large single-line stat. 23 cues in 125 decks have one. It
+  earns its place on the slides that do rather than by frequency, and it stays because `circle`
+  predates this work and is a tour cue regardless.
 - **Escalation is nearly invisible: 6 cues, 0.1%.** Only one deck in the corpus authors
-  `_focus:` at all, and its focused rows rarely hold the spoken sentence. The mechanism is
-  right and the corpus simply does not exercise it — stated plainly rather than dressed up,
-  because a 0.1% path is one nobody has really seen run.
-- **The stroke's own ending is occupied 28.1% of the time.** So geometry answers about seven
-  cases in ten and #1403's search covers the rest. That is lower than "impossible by
+  `_focus:` at all. Stated plainly, because a 0.1% path is one nobody has really seen run.
+- **The stroke's own ending is occupied 29.9% of the time.** So geometry answers about seven
+  gestures in ten and #1403's search covers the rest. That is lower than "impossible by
   construction" sounds, and the distinction is exact: occlusion of the NAMED thing is impossible
-  by construction; landing on some OTHER block nearby is not, and never was.
+  by construction; landing on some OTHER block nearby is not, and never was. (The rate is
+  measured with the cursor footprint Present actually has — a 4K deck shown in a ~1440 card
+  makes the 28px pointer cover ~75 slide px, and measuring it at 1:1 understated this by six
+  points.)
 
 ## 8. Verification (HARD RULE #23)
 
 | Claim | Surface | Artifact |
 |---|---|---|
-| The vocabulary is drawn, tracks its target, disposes on abort, and leaves the cursor clear | jsdom unit | `docs/src/lib/vetrina/deictic.test.ts` — 21 cases, 14 mutations run |
-| `circle` and every existing tour are byte-identical with no options | jsdom unit | the mutation "circle inflates even at clearance 0" goes red |
-| The classifier, the focus refinement, the range mapping, the rest fallback | jsdom unit | `present-guide.test.ts` — 60 cases, 20 mutations run |
-| The vocabulary over the real corpus | real Chromium, 124 decks | §7 |
+| The vocabulary draws, tracks, disposes on abort, and leaves the cursor clear | jsdom unit | `docs/src/lib/vetrina/deictic.test.ts` — 27 cases |
+| `circle` and every existing tour are unchanged with no options | jsdom unit | pinned by the "byte-identical" case; the two deliberate exceptions are named in §3 |
+| The classifier, the focus refinement, the range mapping, the rest fallback | jsdom unit | `present-guide.test.ts` — 64 cases |
+| The vocabulary over the real corpus, per cue AND per gesture | real Chromium, 125 decks | §7 |
 | One gesture per BLOCK, and more than one verb across shapes | real Present overlay, Chromium | `docs/e2e/present-guide.spec.ts` |
-| The cursor never comes to REST on slide text | real Present overlay | the pre-existing #1403 oracle, unchanged and still green |
+| The cursor never comes to REST on slide text | real Present overlay | the pre-existing #1403 oracle, unchanged and re-run green |
 
-**Every unit test was verified by breaking what it names and watching it go red** — 34
-mutations across the two files. The eight that survived are recorded rather than written off:
-two exposed real defects in the code (`gestureRest` ignored the ink rects it was handed; the
-`legible` tier could stop at the stroke's start), three exposed a coverage hole (jsdom has no
-line boxes, so the text-geometry path was untested until a layout-stubbed suite drove it), and
-one was genuinely behavior-preserving thanks to a second guard, which is recorded as such.
+**Every unit test is verified by breaking what it names and watching it go red** — a committed
+battery of 42 mutations, each one confirmed to have applied before its spec is run, because a
+mutation that did not apply proves nothing.
+
+**The first version of that claim was false, and the checker proved it.** Four tests survived the
+exact defect they were named for, every one of them because the fixture could not reach the
+mechanism: the sweep test was satisfied by the APPROACH tween that runs before the sweep; the
+clamp test never reached the clamp (the slide-margin candidates fit, so `pointerAnchor` returned
+first); the neighbor test put its obstacle where distance alone already won; and the
+inline-fragment test stubbed three rects at an identical `top`, which no real inline fragment has.
+All four are rewritten to reach what they name. The checker also found twelve places where a
+behavior change failed nothing at all — the frame-scale conversion, the slide width, the
+`isConnected` guard, the obstacle list, `strength` — and those now have tests too.
+
+### 8.1 Logged, not fixed (HARD RULE #18 — found, not caused)
+
+- **Inline `<code>` is in `BLOCK_SELECTOR` and can take a cue.** It is the only inline element in
+  that list, and a whole spoken sentence sitting inside one resolves to the `<code>` rather than
+  its paragraph. Pre-existing since #1397, rare, and narrowing the selector is a change to the
+  MATCHER, which this branch deliberately does not touch (its 83.7% is the cross-check that this
+  work moved nothing).
+- **`guideAimFor` and `guideCueIn` disagree about a zero-area element.** The cheap pre-check
+  answers the element; the full decision then rejects it for having no area, so the rest guard can
+  never engage for that block and the expensive path re-runs on every following sentence of it.
+  Wasteful, never wrong.
 
 **UNVERIFIED, deliberately:**
 
-- **How it FEELS.** Nothing here says the underline reads as an underline, or that the cadence
-  reads as a presenter rather than a machine holding still. That needs a person watching a deck.
+- **How it FEELS — and this is the gate that matters most.** Nothing here says the underline
+  reads as an underline, that the cadence reads as a presenter rather than a machine holding
+  still, or that fewer-but-heavier moves are a net win for the eye. §7 says the last of those is
+  not measurable from here. It needs a person, a deck, and two minutes; `examples/guide-gestures.md`
+  is built to be that deck.
 - **Anything about narrated AUDIO.** The e2e tier drives the silent rung; synthesis, the cache
   and the prefetch window are untouched by this work and unexercised by it.
 - **The `_focus:` escalation on a real slide.** Its unit coverage is complete and the corpus
-  gives it 6 cues; it has not been watched running.
+  gives it 6 cues; nobody has watched it run.
+- **A Greek deck loses phrase-level ink.** `toLowerCase` maps a word-final `Σ` contextually, so
+  the reconstruction guard refuses the range and every cue degrades to its block's own box. It
+  fails safe, and it fails.
 - **The e2e tier is NIGHTLY and off the PR gate.** Green PR checks do not mean these specs ran.
+  They were run here, against a production build, and are green.
