@@ -295,11 +295,21 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 			<div className="flex flex-col gap-1.5 border-t border-border p-2.5">
 				{refDoc.chip}
-				<div className="flex items-end gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1.5 focus-within:border-[var(--accent)]">
+				{/* PADDING. One value on every side (p-2) rather than a 10/6 split, and it has to
+					    clear the `rounded-xl` corner — content inset closer than the radius reads as
+					    crowding into the curve. The buttons are `shrink-0` and the field is the only
+					    flexible child, so the row reflows by changing the FIELD's width and nothing
+					    else. Gap matches the padding (both 8px) so the spacing keeps one rhythm
+					    instead of two nearly-equal values reading as a mistake. */}
+				<div className="flex items-end gap-2 rounded-xl border border-border bg-background p-2 focus-within:border-[var(--accent)]">
 					{/* `block` is load-bearing: the shadcn base sets `display:flex` on the field,
 					    which wrecks a textarea's own text layout — with it, 800 characters
 					    measured as 67 wrapped lines against a ~72px-wide box. `min-w-0` lets it
 					    actually shrink inside the flex row instead of being floored by content.
+					    `min-h-7` matches the buttons' `size-7`, and `py-[5px]` centres a single
+					    line inside that box ((28 − 18.1) / 2). Without both, `items-end` pinned a
+					    22px field to the bottom of a 28px row and the first line sat 6px low —
+					    measured 13px above / 7px below, which is the asymmetry that reads as "off".
 					    Grows with the prompt, to FOUR rows, so a typical instruction is visible
 					    while it is being written instead of scrolling inside one line. The
 					    surrounding row is `items-end`, so the buttons stay pinned to the bottom
@@ -326,7 +336,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						rows={1}
 						placeholder={aiReady ? 'Ask or instruct…' : 'Connect a model to chat…'}
 						aria-label="Message the Architect"
-						className="block min-h-[22px] w-full min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]"
+						className="block min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-[5px] text-[12.5px] leading-[1.45] text-foreground shadow-none outline-none focus-visible:ring-0 placeholder:text-muted-foreground md:text-[12.5px]"
 					/>
 					{refDoc.attachButton}
 					<button

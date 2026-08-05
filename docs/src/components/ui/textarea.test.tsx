@@ -26,7 +26,9 @@ describe('Textarea — autosize', () => {
 
 	it('forwards a ref while keeping its own handle on the element', () => {
 		const seen: (HTMLTextAreaElement | null)[] = [];
-		render(<Textarea autosize ref={(el) => seen.push(el)} value="" onChange={() => {}} />);
+		render(<Textarea autosize ref={(el) => {
+					seen.push(el);
+				}} value="" onChange={() => {}} />);
 		expect(seen.some((el) => el instanceof HTMLTextAreaElement)).toBe(true);
 	});
 });

@@ -454,7 +454,10 @@ in patch versions.
   tests: the shadcn base sets `display:flex` on the field, which wrecks a textarea's own text
   layout (800 characters measured as 67 wrapped lines), and the field drew a second focus
   ring inside the row's — it now uses the documented `data-focus-ring="container"` opt-out,
-  which a utility class cannot beat.
+  which a utility class cannot beat. The composer's own padding is uniform (8px on every
+  side, matched by an 8px gap, clearing the 12px corner radius) and the field's box now
+  matches the buttons' height, so a single line sits level with them: it used to be pinned
+  to the bottom of a taller row and sat 6px low — measured 13px above the text, 7px below.
 
 - **The Architect can finally tell you which diagram is broken, because it checked.** Asked
   to verify a deck's Mermaid diagrams it had no way to find out — no shell, no renderer, no
