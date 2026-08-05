@@ -87,11 +87,21 @@ const BLOCK_SELECTOR = 'p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, t
 /**
  * The element inside `frameDoc` that a spoken sentence came from, or null.
  *
- * Smallest-containing-block, not first-match: a `<li>` inside a `<ul>` inside a `<section>` all
- * "contain" the sentence, and only the `<li>` is worth pointing at. Ties break INWARD — see the
- * loop, where document order would otherwise hand back the wrapper.
+ * Smallest-containing-block first; a cue that no single block contains is then matched piecewise
+ * (`findSpanningTarget`), which is how a label joined to its body finds the thing it names.
  */
 export function findCueTarget(frameDoc: Document | Element | null, text: string): Element | null {
+	return findCueTargetIn(frameDoc, text) ?? findSpanningTarget(frameDoc, text);
+}
+
+/**
+ * The smallest BLOCK containing the sentence, or null.
+ *
+ * Not first-match: a `<li>` inside a `<ul>` inside a `<section>` all "contain" the sentence, and
+ * only the `<li>` is worth pointing at. Ties break INWARD — see the loop, where document order
+ * would otherwise hand back the wrapper.
+ */
+function findCueTargetIn(frameDoc: Document | Element | null, text: string): Element | null {
 	if (!frameDoc) return null;
 	const needle = loose(text);
 	// Long enough to identify something, and carrying at least one letter or digit. A needle of
@@ -126,6 +136,94 @@ export function findCueTarget(frameDoc: Document | Element | null, text: string)
 	}
 	return best;
 }
+
+// ── A cue the projection built out of TWO blocks ───────────────────────────────────────────
+//
+// `speakGeneric` joins a slot label to its body with ": " — "Build everything: Owns the plumbing
+// and the scoring alike." — and `buildTrack` then segments that into ONE sentence, because it is
+// one sentence. No single element contains it, so smallest-containing-block returned null and the
+// cursor HID. On the everyday label+body shapes that is not an edge case, it is the FIRST item of
+// every group: split-compare's two options, and every `stats` figure (where the projection also
+// puts the label BEFORE the value, so the joined string is not even in DOM order).
+//
+// Measured on the four shapes the maintainer named: split-compare lost its first bullet on both
+// sides and `stats` lost every cue on the slide — which is exactly the reported symptom, "the
+// first bullet is not highlighted but the subsequent ones are".
+//
+// So a cue that no block contains is matched PIECEWISE: split it at the join, resolve each part,
+// and name the smallest element that contains the parts that resolved.
+
+/** Where the projection joins a label to what it labels. Not a general sentence splitter — a
+ *  colon or semicolon FOLLOWED BY A SPACE, which is what the join emits and what prose rarely
+ *  carries inside a clause worth splitting on. */
+const JOIN = /[:;]\s+/;
+
+/** The lowest element containing both, or null when they share no element under the root. */
+function commonAncestor(a: Element, b: Element): Element | null {
+	let node: Element | null = a;
+	while (node && !node.contains(b)) node = node.parentElement;
+	return node;
+}
+
+/**
+ * The element a JOINED cue names, when no single block holds the whole thing.
+ *
+ * TWO GUARDS, because "widen the search until something matches" is how a cursor ends up pointing
+ * at the slide:
+ *
+ *   - only parts that are themselves long enough to identify a block are used, so a stray "Q3"
+ *     cannot drag the answer somewhere;
+ *   - the common ancestor is rejected when it holds much more text than the cue does. A container
+ *     that is three times the cue is not "the thing being said", it is the group the thing is in —
+ *     and pointing at the group is the failure this feature already refused once (the reverse
+ *     containment branch, §findCueTarget). On rejection the answer is the element holding the
+ *     LONGEST part, which is a real block that carries most of what is being said.
+ */
+export function findSpanningTarget(root: Document | Element | null, text: string): Element | null {
+	if (!root) return null;
+	const parts = text.split(JOIN).map((s) => s.trim());
+	// TWO PARTS BEFORE THE FILTER, not after. A stats figure narrates "<label>: <value>." and the
+	// value is a bare number — `loose('42%.')` is "42", two characters, too short to identify a
+	// block on its own. Requiring two SEARCHABLE parts threw the whole cue away over that, and
+	// every stats slide in the corpus went dark. The split is the evidence that this cue was
+	// joined; whether both halves are searchable is a separate question, answered below.
+	if (parts.length < 2) return null;
+	const hits: { el: Element; len: number }[] = [];
+	for (const part of parts.filter((s) => loose(s).length >= 3)) {
+		const el = findCueTargetIn(root, part);
+		if (el) hits.push({ el, len: loose(part).length });
+	}
+	if (!hits.length) return null;
+	const longest = hits.reduce((a, b) => (b.len > a.len ? b : a)).el;
+	// CLIMB TO WHAT HOLDS ALL OF IT, from wherever the parts landed. Starting at the common
+	// ancestor of the matched parts and climbing is not the same as taking the common ancestor:
+	// a stats figure whose VALUE was too short to search matches one part and would otherwise stop
+	// at that part's own block, so the same slide would resolve differently figure by figure
+	// depending on whether its number happened to be three characters long. The climb asks the
+	// same question of every cue — "what element holds everything this sentence says" — so the
+	// answer is a property of the slide, not of the arithmetic.
+	let node: Element | null = hits[0].el;
+	for (const h of hits.slice(1)) {
+		if (!node) break;
+		node = commonAncestor(node, h.el);
+	}
+	const pieces = parts.map(loose).filter((p) => p.length > 0);
+	const budget = loose(text).length * SPAN_SLACK;
+	while (node && node !== root) {
+		const hay = loose(node.textContent ?? '');
+		// The bound is what stops "widen until something matches" from walking to the slide: a
+		// container holding several times the cue is the GROUP the thing is in, and pointing at the
+		// group is the failure this feature already refused once (§findCueTarget).
+		if (hay.length > budget) break;
+		if (pieces.every((p) => hay.includes(p))) return node;
+		node = node.parentElement;
+	}
+	return longest;
+}
+
+/** How much more text than the cue a spanning container may hold before it stops being "the
+ *  thing being said" and becomes the group it belongs to. Set from the corpus sweep. */
+const SPAN_SLACK = 3;
 
 // ── The sentence's OWN rectangles, inside the block ────────────────────────────────────────
 //

@@ -1,5 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { aimTarget, type Box, chooseGesture, cueDisplayText, findCueTarget, type GuideShape, guideAimFor, guideCueFor, POINTER_BOX, pointerAnchor, sentenceRange } from './present-guide';
+import {
+	aimTarget,
+	type Box,
+	chooseGesture,
+	cueDisplayText,
+	findCueTarget,
+	findSpanningTarget,
+	type GuideShape,
+	guideAimFor,
+	guideCueFor,
+	POINTER_BOX,
+	pointerAnchor,
+	sentenceRange,
+} from './present-guide';
 
 // THE GUIDE RUNG's target resolution (#1397).
 //
@@ -705,5 +718,50 @@ describe('guideAimFor — the cheap question, asked once per sentence', () => {
 		const { frame } = countingFrame('<p>Growth held.</p>');
 		expect(guideAimFor(() => frame, 'Only in the notes.')).toBeNull();
 		expect(guideAimFor(() => null, 'Growth held.')).toBeNull();
+	});
+});
+
+describe('findSpanningTarget — a cue the projection built out of two blocks', () => {
+	const OPTION = '<div class="option"><strong>Build everything</strong><ul><li>Owns the plumbing and the scoring alike</li><li>Two engineer-quarters before anyone scores</li></ul></div>';
+	const STAT = '<ul><li><strong>42%</strong><ul><li>Renewal risk caught before the CRM noticed</li></ul></li><li><strong>7</strong><ul><li>Competitive losses, one competitor</li></ul></li></ul>';
+
+	it('names the card when a cue joins its label to its first body line', () => {
+		// The reported symptom: split-compare's FIRST bullet was not cued and the others were,
+		// because "Build everything: Owns the plumbing…" is in no single block.
+		const d = doc(OPTION);
+		expect(findCueTarget(d, 'Build everything: Owns the plumbing and the scoring alike.')?.className).toBe('option');
+	});
+
+	it('resolves a stats figure whose VALUE is too short to search on its own', () => {
+		// `loose('7.')` is one character. Requiring two SEARCHABLE parts threw the whole cue away
+		// and every stats slide went dark; the SPLIT is the evidence the cue was joined.
+		const d = doc(STAT);
+		const el = findCueTarget(d, 'Competitive losses, one competitor: 7.');
+		expect(el?.tagName).toBe('LI');
+		expect(el?.textContent).toContain('7');
+	});
+
+	it('cues every figure on a stats slide the same way, whatever its digits', () => {
+		const d = doc(STAT);
+		const a = findCueTarget(d, 'Renewal risk caught before the CRM noticed: 42%.');
+		const b = findCueTarget(d, 'Competitive losses, one competitor: 7.');
+		expect(a?.tagName).toBe(b?.tagName);
+		expect(a).not.toBe(b);
+	});
+
+	it('refuses to climb to the group when the container is much bigger than the cue', () => {
+		// "Widen the search until something matches" is how a cursor ends up pointing at the slide.
+		const d = doc(`<div class="wrap">${OPTION}<p>${'Unrelated prose. '.repeat(40)}</p></div>`);
+		const el = findCueTarget(d, 'Build everything: Owns the plumbing and the scoring alike.');
+		expect(el?.className).toBe('option'); // the option still fits; the wrapper never would
+	});
+
+	it('leaves an ordinary sentence alone — no split, no fallback', () => {
+		const d = doc('<p>Expansion outran churn every month.</p>');
+		expect(findSpanningTarget(d, 'Expansion outran churn every month.')).toBeNull();
+	});
+
+	it('is null when neither half of a joined cue is on the slide', () => {
+		expect(findSpanningTarget(doc('<p>Something else entirely.</p>'), 'Build everything: Owns the plumbing.')).toBeNull();
 	});
 });
