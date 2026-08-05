@@ -123,25 +123,34 @@ function lefthookFires(bin, globs, paths) {
   return out;
 }
 
-/** Every markdown file in the repo that ships a sibling committed PDF. */
+/**
+ * Every markdown file in the repo that ships a sibling committed PDF.
+ *
+ * Sourced from `git ls-files`, NOT a directory walk. The question this file asks is
+ * about what the pre-commit hook rebuilds, and a hook only ever sees TRACKED paths —
+ * so an untracked or gitignored file on disk is not a deck that "ships a PDF", it is
+ * a local artifact. The walk this replaces disagreed: run the regression gate (which
+ * writes `.regr-*.md` / `.regr-*.pdf` pairs beside the galleries, gitignored) and the
+ * next `npm test` failed, naming a scratch file the hook could not reach even in
+ * principle. A corpus test's corpus is the index.
+ */
 function decksShippingPdfs() {
-  const out = [];
-  (function walk(dir) {
-    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (ent.name === 'node_modules' || ent.name === '.git' || ent.name === '.scratch') continue;
-      const p = path.join(dir, ent.name);
-      if (ent.isDirectory()) { walk(p); continue; }
-      if (!ent.name.endsWith('.md')) continue;
-      // A deck "ships a PDF" if a sibling artifact exists under the plain name or
-      // either half of the light/dark gallery pair. `.dark.pdf` is probed too — a
-      // deck shipping only a dark artifact would otherwise be invisible here.
-      const stem = p.replace(/\.md$/, '');
-      if (fs.existsSync(`${stem}.pdf`) || fs.existsSync(`${stem}.light.pdf`) || fs.existsSync(`${stem}.dark.pdf`)) {
-        out.push(path.relative(ROOT, p).split(path.sep).join('/'));
-      }
-    }
-  })(ROOT);
-  return out.sort();
+  const tracked = spawnSync('git', ['ls-files', '-z', '--', '*.md', '*.pdf'], {
+    cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  });
+  if (tracked.status !== 0) throw new Error(`git ls-files failed: ${tracked.stderr}`);
+  const files = tracked.stdout.split('\0').filter(Boolean);
+  const pdfs = new Set(files.filter((f) => f.endsWith('.pdf')));
+  // A deck "ships a PDF" if a sibling artifact is COMMITTED under the plain name or
+  // either half of the light/dark gallery pair. `.dark.pdf` is probed too — a deck
+  // shipping only a dark artifact would otherwise be invisible here.
+  return files
+    .filter((f) => f.endsWith('.md'))
+    .filter((f) => {
+      const stem = f.replace(/\.md$/, '');
+      return pdfs.has(`${stem}.pdf`) || pdfs.has(`${stem}.light.pdf`) || pdfs.has(`${stem}.dark.pdf`);
+    })
+    .sort();
 }
 
 describe('pre-commit PDF rebuild — glob and classifier agree', () => {
