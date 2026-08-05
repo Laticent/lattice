@@ -9,6 +9,9 @@ import {
 	type GuideShape,
 	guideAimFor,
 	guideCueFor,
+	hasOwnBoundary,
+	headerRange,
+	markerBox,
 	POINTER_BOX,
 	pointerAnchor,
 	sentenceRange,
@@ -151,7 +154,7 @@ describe('cueDisplayText', () => {
 
 describe('chooseGesture', () => {
 	const W = 1280;
-	const shape = (box: Box, lines: number, extra: Partial<GuideShape> = {}): GuideShape => ({ box, lines, rects: null, slideW: W, coverage: 1, ...extra });
+	const shape = (box: Box, lines: number, extra: Partial<GuideShape> = {}): GuideShape => ({ box, lines, rects: null, slideW: W, coverage: 1, role: 'body', enclosed: false, ...extra });
 
 	it('underlines one wide, short line of prose — the workhorse', () => {
 		expect(chooseGesture(shape({ left: 80, top: 300, width: 900, height: 30 }, 1))).toBe('underline');
@@ -174,7 +177,7 @@ describe('chooseGesture', () => {
 		// paragraph read WHOLE is a bracket; read one clause at a time it is a wash.
 		const block = { left: 80, top: 120, width: 800, height: 300 };
 		const rects = [{ left: 80, top: 150, width: 400, height: 24 }];
-		expect(chooseGesture(shape(block, 8, { rects, coverage: 0.2 }))).toBe('wash');
+		expect(chooseGesture(shape(block, 8, { rects, coverage: 0.2, role: 'phrase' }))).toBe('wash');
 		expect(chooseGesture(shape(block, 8, { rects, coverage: 0.95 }))).toBe('bracket');
 	});
 
@@ -193,7 +196,7 @@ describe('chooseGesture', () => {
 	it('reads the same at 1280 and at 1920, because every threshold is in slide units', () => {
 		// A deck rendered at a different size is the same deck. A pixel threshold would silently
 		// reclassify every target on it.
-		const at = (k: number) => chooseGesture({ box: { left: 0, top: 0, width: 180 * k, height: 64 * k }, lines: 1, rects: null, slideW: W * k, coverage: 1 });
+		const at = (k: number) => chooseGesture({ box: { left: 0, top: 0, width: 180 * k, height: 64 * k }, lines: 1, rects: null, slideW: W * k, coverage: 1, role: 'body', enclosed: false });
 		expect(at(1)).toBe(at(1.5));
 	});
 });
@@ -588,6 +591,34 @@ describe('guideCueFor, with line boxes', () => {
 		const frame = frameOf(`<p>${full}</p>`, { left: 80, top: 120, width: 800, height: 90 });
 		expect(guideCueFor(() => frame, full)?.kind).toBe('bracket');
 	});
+
+	it('checks the rest against the WORDS on the slide, not the boxes around them', () => {
+		// A block's bounding box is not its text: a card is mostly padding, a table cell mostly
+		// gap. Checking boxes rejected the clear space beside a target and pushed the cue onto the
+		// fallback search — the mechanism this pins is that the check reads line rects.
+		//
+		// The cell below is positioned so its BOX covers where the underline would leave the hand
+		// and its TEXT does not. `rest` is null when the stroke's own ending was fine and non-null
+		// when the search had to be asked, so it is the observable.
+		LAYOUT.set('Growth held.', [{ left: 80, top: 120, width: 300, height: 24 }]);
+		LAYOUT.set('Q3 actuals', [{ left: 450, top: 260, width: 100, height: 20 }]);
+		const d = doc('<p>Growth held.</p><table><tbody><tr><td>Q3 actuals</td></tr></tbody></table>');
+		d.documentElement.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720, toJSON: () => ({}) }) as DOMRect;
+		const put = (sel: string, b: { left: number; top: number; width: number; height: number }) => {
+			const el = d.querySelector(sel) as HTMLElement;
+			el.getBoundingClientRect = () => ({ x: b.left, y: b.top, left: b.left, top: b.top, width: b.width, height: b.height, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect;
+		};
+		put('p', { left: 80, top: 120, width: 300, height: 24 });
+		put('td', { left: 400, top: 100, width: 300, height: 200 });
+		const frame = {
+			contentDocument: d,
+			offsetWidth: 1280,
+			getBoundingClientRect: () => ({ x: 0, y: 0, left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720, toJSON: () => ({}) }) as DOMRect,
+		} as unknown as HTMLIFrameElement;
+		const cue = guideCueFor(() => frame, 'Growth held.');
+		expect(cue?.kind).toBe('underline');
+		expect(cue?.rest, 'the stroke ended in clear space, so nothing should have overridden it').toBeNull();
+	});
 });
 
 describe('looseIndex — refusing to guess', () => {
@@ -621,8 +652,8 @@ describe('the geometry the classifier is handed, and the units it is handed in',
 		// `guideCueIn` takes the slide's own width and every width threshold is a fraction of it.
 		// A 200px-wide target is "small" on a 3840 deck and "wide" on a 640 one.
 		const box = { left: 0, top: 0, width: 200, height: 30 };
-		const wide = chooseGesture({ box, lines: 1, rects: null, slideW: 3840, coverage: 1 });
-		const narrow = chooseGesture({ box, lines: 1, rects: null, slideW: 640, coverage: 1 });
+		const wide = chooseGesture({ box, lines: 1, rects: null, slideW: 3840, coverage: 1, role: 'body', enclosed: false });
+		const narrow = chooseGesture({ box, lines: 1, rects: null, slideW: 640, coverage: 1, role: 'body', enclosed: false });
 		expect(wide).toBe('tap');
 		expect(narrow).toBe('underline');
 	});
@@ -718,6 +749,264 @@ describe('guideAimFor — the cheap question, asked once per sentence', () => {
 		const { frame } = countingFrame('<p>Growth held.</p>');
 		expect(guideAimFor(() => frame, 'Only in the notes.')).toBeNull();
 		expect(guideAimFor(() => null, 'Growth held.')).toBeNull();
+	});
+});
+
+// ── THE HANDLE — what a hand actually points AT (round three) ────────────────────────────────
+//
+// Round two picked a gesture from the container's geometry, and drew a box around a card that had
+// a border, a box around a timeline stage that was a node on a rail, and an underline under a
+// bullet whose bullet was right there. These pin the three mechanisms that replaced it.
+//
+// SCOPE, STATED: jsdom has no layout and no pseudo-elements, so the geometry here is STUBBED —
+// which makes these tests about the RULES, not about real slides. The real-surface evidence for
+// the rules is `npm run sweep:guide` (126 committed decks rendered in Chromium, driving this
+// module) and `docs/e2e/present-guide.spec.ts`. Neither of those is replaced by anything below.
+
+describe('hasOwnBoundary — the redundant-boundary rule', () => {
+	// A DOMParser document has NO defaultView, so `getComputedStyle` is unreachable there and every
+	// style-driven rule degrades to "no boundary / no marker" — which is the safe fallback and is
+	// what the older suites in this file exercise. To test the rules themselves the element has to
+	// live in a document that HAS a window, so these mount into the real one.
+	const styled = (css: Partial<CSSStyleDeclaration>) => {
+		const host = document.createElement('div');
+		host.innerHTML = '<p>x</p>';
+		document.body.appendChild(host);
+		const el = host.querySelector('p') as Element;
+		const view = window as unknown as { getComputedStyle: (e: Element, p?: string | null) => CSSStyleDeclaration };
+		const base: Record<string, string> = {
+			'border-top-width': '0px',
+			'border-right-width': '0px',
+			'border-bottom-width': '0px',
+			'border-left-width': '0px',
+			'border-top-style': 'none',
+			'border-right-style': 'none',
+			'border-bottom-style': 'none',
+			'border-left-style': 'none',
+			'border-top-color': 'rgb(0, 0, 0)',
+			'border-right-color': 'rgb(0, 0, 0)',
+			'border-bottom-color': 'rgb(0, 0, 0)',
+			'border-left-color': 'rgb(0, 0, 0)',
+		};
+		const decl = {
+			getPropertyValue: (k: string) => base[k] ?? '',
+			backgroundColor: 'rgba(0, 0, 0, 0)',
+			backgroundImage: 'none',
+			boxShadow: 'none',
+			...css,
+		} as unknown as CSSStyleDeclaration;
+		view.getComputedStyle = () => decl;
+		return el;
+	};
+	const realStyle = window.getComputedStyle;
+	afterEach(() => {
+		window.getComputedStyle = realStyle;
+		document.body.innerHTML = '';
+	});
+
+	it('sees a real border', () => {
+		const el = styled({
+			getPropertyValue: (k: string) =>
+				k === 'border-left-width' ? '1px' : k === 'border-left-style' ? 'solid' : k === 'border-left-color' ? 'rgb(20, 30, 40)' : k.endsWith('style') ? 'none' : k.endsWith('color') ? 'rgb(0, 0, 0)' : '0px',
+		} as unknown as Partial<CSSStyleDeclaration>);
+		expect(hasOwnBoundary(el)).toBe(true);
+	});
+
+	it('sees a fill', () => {
+		expect(hasOwnBoundary(styled({ backgroundColor: 'rgb(242, 245, 250)' } as Partial<CSSStyleDeclaration>))).toBe(true);
+	});
+
+	it('does NOT see a fully transparent shadow, which half the slide inherits', () => {
+		// Chromium reports `rgba(0, 0, 0, 0) 0px 0px 0px 0px` for an element that merely sits in a
+		// shadow token's scope. Reading that as a boundary would exempt most of a deck from
+		// `bracket` and quietly turn the redundant-boundary rule into "never bracket anything".
+		expect(hasOwnBoundary(styled({ boxShadow: 'rgba(0, 0, 0, 0) 0px 0px 0px 0px' } as Partial<CSSStyleDeclaration>))).toBe(false);
+		expect(hasOwnBoundary(styled({ backgroundColor: 'rgba(0, 0, 0, 0)' } as Partial<CSSStyleDeclaration>))).toBe(false);
+	});
+
+	it('sees a real shadow', () => {
+		expect(hasOwnBoundary(styled({ boxShadow: 'rgba(10, 12, 20, 0.18) 0px 2px 8px 0px' } as Partial<CSSStyleDeclaration>))).toBe(true);
+	});
+});
+
+describe('chooseGesture — the semantic rules that come before the measurements', () => {
+	const W = 1280;
+	const shape = (extra: Partial<GuideShape>): GuideShape => ({
+		box: { left: 0, top: 0, width: 400, height: 200 },
+		lines: 6,
+		rects: null,
+		slideW: W,
+		coverage: 1,
+		role: 'body',
+		enclosed: false,
+		...extra,
+	});
+
+	it('never draws a second boundary around something that already has one', () => {
+		// Gestalt common region: a bordered card is ALREADY grouped, and an outline around it makes
+		// the eye choose between two nested regions. This is the "no box on the timeline items"
+		// report, stated as a rule.
+		expect(chooseGesture(shape({ enclosed: false }))).toBe('bracket');
+		expect(chooseGesture(shape({ enclosed: true }))).toBe('wash');
+	});
+
+	it('rings a substantial marker and taps a small one', () => {
+		// A rail disc or a criteria index has enough of itself to ring. A `disc` bullet is ~9px on a
+		// 1280 deck, and a ring around it would be mostly empty space.
+		expect(chooseGesture(shape({ role: 'marker', box: { left: 0, top: 0, width: 23, height: 23 } }))).toBe('circle');
+		expect(chooseGesture(shape({ role: 'marker', box: { left: 0, top: 0, width: 9, height: 9 } }))).toBe('tap');
+	});
+
+	it('names a marker as a marker whatever its container measures', () => {
+		// The container is 1152x98 and encloses itself; none of that reaches the choice. This is
+		// the whole point of asking what the thing IS before asking how big it is.
+		expect(chooseGesture(shape({ role: 'marker', box: { left: 0, top: 0, width: 75, height: 98 }, lines: 9, enclosed: true }))).toBe('circle');
+	});
+
+	it('still lets a phrase win over everything', () => {
+		expect(chooseGesture(shape({ role: 'phrase', coverage: 0.2, enclosed: true }))).toBe('wash');
+	});
+});
+
+describe('markerBox — deriving a bullet nobody can measure', () => {
+	const realStyle = window.getComputedStyle;
+	afterEach(() => {
+		window.getComputedStyle = realStyle;
+		document.body.innerHTML = '';
+	});
+
+	/** A `<li>` with a stubbed box, first line, computed style and `::before`. */
+	function li(opts: {
+		box: { left: number; top: number; width: number; height: number };
+		line: { left: number; top: number; width: number; height: number };
+		style?: Record<string, string>;
+		before?: Record<string, string>;
+		gutter?: string;
+	}) {
+		const host = document.createElement('div');
+		host.innerHTML = '<ul><li>Renewal risk clustered at the ceiling.</li></ul>';
+		document.body.appendChild(host);
+		const el = host.querySelector('li') as Element;
+		const r = (b: { left: number; top: number; width: number; height: number }) =>
+			({ x: b.left, y: b.top, left: b.left, top: b.top, width: b.width, height: b.height, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect;
+		(el as HTMLElement).getBoundingClientRect = () => r(opts.box);
+		const view = window as unknown as { getComputedStyle: (e: Element, p?: string | null) => CSSStyleDeclaration };
+		view.getComputedStyle = (target: Element, pseudo?: string | null) => {
+			if (pseudo === '::before') return { content: 'none', display: 'inline', width: 'auto', height: 'auto', ...(opts.before ?? {}) } as unknown as CSSStyleDeclaration;
+			if (pseudo === '::marker') return { fontSize: '21.4px' } as unknown as CSSStyleDeclaration;
+			if (target !== el) return { paddingLeft: opts.gutter ?? '24px' } as unknown as CSSStyleDeclaration;
+			return { listStyleType: 'disc', listStylePosition: 'outside', listStyleImage: 'none', fontSize: '21.4px', ...(opts.style ?? {}) } as unknown as CSSStyleDeclaration;
+		};
+		return { el, line: opts.line };
+	}
+
+	it('finds a `list-style: disc` marker in the parent list’s gutter, OUTSIDE the item', () => {
+		// `list-style-position: outside` is the default and what every Lattice list uses: the
+		// bullet is painted left of the item's own box, in the list's padding.
+		const { el, line } = li({ box: { left: 529, top: 111, width: 294, height: 70 }, line: { left: 529, top: 113, width: 258, height: 27 } });
+		const m = markerBox(el, line) as Box;
+		expect(m).not.toBeNull();
+		expect(m.left + m.width).toBeCloseTo(529, 6); // flush against the item's leading edge
+		expect(m.width).toBeCloseTo(21.4 * 0.42, 3); // the GLYPH, not the 24px gutter it sits in
+	});
+
+	it('measures the glyph, not the gutter — the difference decides ring vs tap', () => {
+		// A gutter is authored for the widest marker the list will hold. Measuring it reported a
+		// 9px bullet at 19px, which crossed the ring threshold that the real bullet does not.
+		const wide = li({ box: { left: 0, top: 0, width: 300, height: 40 }, line: { left: 0, top: 4, width: 280, height: 27 }, gutter: '96px' });
+		expect((markerBox(wide.el, wide.line) as Box).width).toBeLessThan(12);
+	});
+
+	it('finds a `::before` rail disc ABOVE its label, centered when the label is', () => {
+		// list-steps.timeline: the disc is a flex child at the top of a centered column.
+		const { el, line } = li({
+			box: { left: 112, top: 3187, width: 162, height: 181 },
+			line: { left: 133, top: 3218, width: 120, height: 39 },
+			style: { listStyleType: 'none', listStylePosition: 'outside', listStyleImage: 'none', fontSize: '15px' },
+			before: { content: 'counter(x)', display: 'flex', width: '23.4px', height: '23.4px' },
+		});
+		const m = markerBox(el, line) as Box;
+		expect(m.top).toBeCloseTo(3187, 6);
+		expect(m.width).toBeCloseTo(23.4, 3);
+		expect(m.left + m.width / 2).toBeCloseTo(112 + 162 / 2, 1); // centered on the item
+	});
+
+	it('finds a `::before` index in the LEFT gutter, spanning the item', () => {
+		// list-criteria: an absolutely-placed number, as tall as the row.
+		const { el, line } = li({
+			box: { left: 64, top: 3778, width: 1152, height: 98 },
+			line: { left: 577, top: 3790, width: 182, height: 34 },
+			style: { listStyleType: 'none', listStylePosition: 'outside', listStyleImage: 'none', fontSize: '22px' },
+			before: { content: 'counter(x)', display: 'flex', width: '74.6px', height: '97.5px' },
+		});
+		const m = markerBox(el, line) as Box;
+		expect(m.left).toBeCloseTo(64, 6);
+		expect(m.width).toBeCloseTo(74.6, 3);
+	});
+
+	it('refuses when there is no marker at all', () => {
+		const { el, line } = li({
+			box: { left: 0, top: 0, width: 300, height: 40 },
+			line: { left: 0, top: 4, width: 280, height: 27 },
+			style: { listStyleType: 'none', listStylePosition: 'outside', listStyleImage: 'none', fontSize: '21.4px' },
+		});
+		expect(markerBox(el, line)).toBeNull();
+	});
+
+	it('refuses when the gap does not agree with the pseudo’s own size', () => {
+		// A `::before` that is neither above the text nor left of it is not a marker — it is
+		// decoration this has no business locating. Guessing would put ink on empty space.
+		const { el, line } = li({
+			box: { left: 0, top: 0, width: 300, height: 40 },
+			line: { left: 1, top: 1, width: 280, height: 27 },
+			style: { listStyleType: 'none', listStylePosition: 'outside', listStyleImage: 'none', fontSize: '21.4px' },
+			before: { content: '""', display: 'block', width: '40px', height: '40px' },
+		});
+		expect(markerBox(el, line)).toBeNull();
+	});
+
+	it('is only ever asked of a list item', () => {
+		const d = doc('<p>Renewal risk clustered at the ceiling.</p>');
+		expect(markerBox(d.querySelector('p') as Element, { left: 0, top: 0, width: 100, height: 20 })).toBeNull();
+	});
+
+	it('degrades to "no marker" where computed styles are unreachable', () => {
+		// A parsed, window-less document — which is exactly what a torn-down preview frame looks
+		// like. The answer has to be "no handle", never a throw and never a guessed rectangle.
+		const d = doc('<ul><li>Renewal risk clustered at the ceiling.</li></ul>');
+		expect(markerBox(d.querySelector('li') as Element, { left: 0, top: 0, width: 100, height: 20 })).toBeNull();
+	});
+});
+
+describe('headerRange — a card’s own leading text', () => {
+	it('takes a `<strong>` label before a nested list', () => {
+		const d = doc('<ul><li><strong>Build everything</strong><ul><li>Owns the plumbing.</li></ul></li></ul>');
+		expect(headerRange(d.querySelector('li') as Element)?.toString().trim()).toBe('Build everything');
+	});
+
+	it('takes a BARE TEXT NODE before a nested list — cards-grid ships no element for its title', () => {
+		// One range covers both shapes, which is why this is a range and not a `querySelector` for
+		// whatever tag a given component happens to use for its header.
+		const d = doc('<ul><li>Ship the connectors<ul><li>Six weeks, two engineers.</li></ul></li></ul>');
+		expect(headerRange(d.querySelector('li') as Element)?.toString().trim()).toBe('Ship the connectors');
+	});
+
+	it('accepts a one-character header — a stats value is "7"', () => {
+		// A two-character floor handed back a header for "42%" and "18 days" and the whole card for
+		// "7", so the same slide cued its three figures three different ways.
+		const d = doc('<ul><li><strong>7</strong><ul><li>Competitive losses.</li></ul></li></ul>');
+		expect(headerRange(d.querySelector('li') as Element)?.toString().trim()).toBe('7');
+	});
+
+	it('is null when there is no nested block — that is just text, not a card', () => {
+		const d = doc('<ul><li>Renewal risk clustered at the ceiling.</li></ul>');
+		expect(headerRange(d.querySelector('li') as Element)).toBeNull();
+	});
+
+	it('is null when the nested block comes FIRST — there is no leading text to take', () => {
+		const d = doc('<li><ul><li>a</li></ul>trailing</li>');
+		expect(headerRange(doc('<ul><li><ul><li>a</li></ul>trailing</li></ul>').querySelector('li') as Element)).toBeNull();
+		expect(d).toBeTruthy();
 	});
 });
 
