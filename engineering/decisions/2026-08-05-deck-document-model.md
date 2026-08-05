@@ -12,10 +12,16 @@ summary: >
   type, legal values, consuming kernel, precedence and exclusivity group. Mechanism copies
   lib/components/manifest.schema.json exactly: standard JSON Schema as the declaration, a
   hand-written checker that DERIVES its vocabulary from the schema, and fixture-pinned tests
-  so a schema edit can never read as "just docs". (2) The DECK INDEX — a per-deck, read-only
-  projection emitted by the engine (counts, resolved front matter, and a slides[] carrying a
-  stable id, page number, class tokens, component, title and source span). The index is the
-  valuable half because the surfaces demonstrably CANNOT derive it: positionIsTrustworthy
+  so a schema edit can never read as "just docs". (2) The DECK INDEX — a per-deck projection
+  emitted by the engine (counts, front matter, and a slides[] carrying a stable id, page number,
+  class tokens, component, title and source span), never edited in place but NOT "the un-authored
+  half": slide metadata IS authored — a human types `<!-- _class: … -->` / describe / tier with
+  autocomplete assisting, and the Studio Inspector writes the same directives — so every field
+  carries a PROVENANCE (authored / resolved / computed), and authored vs resolved class tokens stay
+  separate rather than collapsed. Provenance is load-bearing, not decorative: #1416 names its
+  absence as the root of four regressions ("subtraction needs to know whether a token came from the
+  deck or from the slide"). The index is still the valuable half, because the COMPUTED part is what
+  the surfaces demonstrably cannot derive: positionIsTrustworthy
   exists solely to REFUSE the question (126 of 128 corpus decks refused before one fix), and
   the Studio re-parses the whole deck to learn one slide's page number at a measured 4x cost.
   CRUD splits along that seam: reads come from the index, writes go to the SOURCE through a
@@ -149,13 +155,20 @@ fails.
 
 | | **The vocabulary** | **The deck index** |
 |---|---|---|
-| What it is | The rules: which keys exist, what they mean | One deck's derived facts |
-| Authored or derived? | **Authored**, ships with the engine | **Derived**, per deck, per edit |
+| What it is | The rules: which keys exist, what they mean | One deck's facts, field by field |
+| Authored or derived? | **Authored**, ships with the engine | **Projected** — carries authored *and* computed fields |
 | Same for every deck? | Yes | No |
-| Written by a human? | Yes, in a reviewed diff | **Never** |
-| Written by a surface? | No | **Never** |
+| Opened and edited directly? | Yes, in a reviewed diff | **Never** — it is not a file anyone opens |
+| How its contents change | a reviewed PR | by editing the **source** (§5) |
 | Lifetime | A release | A render |
 | Analogue in tree | `lib/components/manifest.schema.json` | *(does not exist)* |
+
+> **The index is not "the un-authored half."** Much of what it carries *is* authored —
+> a slide's `_class`, its `describe`, its `tier` are all typed by a human (or written by
+> the Studio Inspector on their behalf, with autocomplete assisting). What is never
+> authored is **the index artifact itself**: you change a slide's component by editing
+> the comment in the source, never by editing the index. See §4.1 — the distinction is
+> per FIELD, and getting it wrong is what #1416 is about.
 
 They answer different questions. "Is `color-mode` a real key, and does it outrank
 `class`?" is the vocabulary. "What page is this slide on, and what component does it
@@ -274,14 +287,19 @@ knows.
   },
   "slides": [
     {
-      "id": "s_ab12",              // STABLE across reorder — not an ordinal
-      "ordinal": 3,
-      "page": 4,
-      "classTokens": ["kpi", "form"],
-      "component": "kpi",
-      "title": "Q3 revenue",
-      "sourceSpan": { "start": 1204, "end": 1876 },
-      "hasNotes": true
+      "id": "s_ab12",              // computed · STABLE across reorder, not an ordinal
+      "ordinal": 3,                // computed
+      "page": 4,                   // computed · differs from ordinal when focusSteps expands
+      "classTokens": {
+        "authored": ["kpi"],       // AUTHORED — what the slide's own comment says
+        "resolved": ["kpi", "form"] // resolved — after the deck-wide merge + engine rules
+      },
+      "component": "kpi",          // resolved
+      "describe": "Revenue by …",  // AUTHORED — a body annotation (#1339 vocabulary 3)
+      "tier": "short",             // AUTHORED
+      "title": "Q3 revenue",       // computed — read off the slide's heading
+      "sourceSpan": { "start": 1204, "end": 1876 },  // computed
+      "hasNotes": true             // computed
     }
   ]
 }
@@ -289,10 +307,44 @@ knows.
 
 **Three properties are non-negotiable:**
 
-1. **Derived, never authored.** No human edits it, no surface writes it.
+1. **Never edited in place.** No human opens the index and types; no surface writes to
+   it. Its *contents* are a different matter — see §4.1 — but every change to them
+   enters through the source.
 2. **Regenerable.** Rebuilding it from source reproduces it byte-for-byte. That is a
    property test, not a comment.
 3. **Not the write target.** See §5.
+
+### 4.1 — Authored slide metadata is first-class, and provenance is per field
+
+Slide metadata **is authored.** A human types `<!-- _class: split-compare -->`,
+`<!-- describe: … -->`, `<!-- tier: short -->` directly into the deck, with the
+editor's autocomplete assisting; the Studio Inspector writes the same directives on
+the author's behalf. That is the normal path, not an edge case — so the index is not
+"the derived object" in contrast to "the authored object". Both objects carry authored
+material; they differ in **who may change it and how**.
+
+What that means concretely:
+
+- **Every field carries a provenance:** `authored` (a directive a human wrote),
+  `resolved` (authored plus the engine's precedence and merge rules), or `computed`
+  (the engine alone — ordinals, pages, spans, ids).
+- **Slide-comment directives are full vocabulary entries**, not an afterthought. §3's
+  `channel` field already admits `slide-comment`, and it is what makes autocomplete
+  correct: today `editor-complete.ts` offers a stale hand-list, and #1339's *third*
+  vocabulary — the body annotations `describe`, `caption`, `tier`, `note`, `Speaker` —
+  has **no registry at all**. Those are exactly the authored slide metadata this
+  paragraph is about.
+- **`authored` and `resolved` are kept as separate fields**, never collapsed. Collapsing
+  them is the #1358 defect in a different costume: a transform that reads the directive
+  payload where it meant the resolved list, or the reverse.
+
+**Provenance is not a nicety — its absence caused four regressions.** #1416's postmortem
+states the root directly: *"Subtraction needs to know whether a token came from the deck
+or from the slide — and only one of the three code paths can know that."* The attempt
+recorded provenance for spot keys only, which is why a mid-deck global directive was
+silently deleted (R4) and why the runtime stripped a slide's own component (R1). An index
+that publishes provenance per field makes that question answerable by every surface
+instead of by one.
 
 ### Why the index is the valuable half
 
