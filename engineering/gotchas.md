@@ -3403,3 +3403,34 @@ own) is not a builder and needs no entry.
   child zeroes its intrinsic size in BOTH directions, so the parent never
   grows to show a title at all, at any width.
 - **Triggered by:** #1417.
+
+## CI (GitHub Actions / code scanning)
+
+### The `CodeQL` check reports a verdict BEFORE its `Analyze` jobs finish
+
+- **Symptom:** A push lands, the `CodeQL` check goes red within seconds naming a
+  security alert, and the alert points at code that does not exist — a line
+  number landing on test data, or on a construct you already removed. You "fix"
+  it, push, and the same red check reappears against the new head.
+- **Cause:** `CodeQL` is an aggregate check run, not a job. It is posted early
+  and summarizes the alerts *known at that moment*, which on a fresh push are the
+  ones uploaded by the PREVIOUS commit's analysis. The jobs that actually
+  recompute them — `Analyze (javascript-typescript)` and friends — are still
+  running, and finish a minute or two later. Observed on #1427: the `CodeQL`
+  check started 11:18:27 and concluded `failure` at 11:18:30, while the two
+  JavaScript analyses ran until 11:19:34 and 11:19:45. The check was never
+  refreshed afterwards.
+- **How to tell:** compare `completed_at` on the `CodeQL` check against
+  `completed_at` on the `Analyze (…)` jobs. If the check finished first, its
+  verdict predates the evidence. A three-second `CodeQL` check is always stale.
+- **Fix:** wait for every `Analyze` job to complete before reading the check, and
+  before changing anything read the annotation's file at the reported line. A
+  successful `Analyze` run with no matching code in the diff means the alert is
+  from the previous head. `rerun_workflow_run` will NOT help — a run whose jobs
+  all succeeded cannot be retried, so the only way to refresh the aggregate is a
+  new commit.
+- **Cost of not knowing this:** four force-push rounds on #1427, three of them
+  chasing an alert that had already been fixed. The general rule it belongs to is
+  the same one the two-pass bench gate encodes: **a check-run conclusion is not
+  evidence until its inputs have completed.**
+- **Triggered by:** #1427.

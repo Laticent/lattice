@@ -11,31 +11,37 @@
 // replacing the per-feature backward-walkers that used to drift from the
 // grammar (see the map default-basemap bug, fixed in map-complete.js).
 
-// The class directive, matched anywhere on a line. Mirrors the class-token
-// notion in lib/authoring/lint-core.js so completion and lint agree by
-// construction. Module-private — used by slideClassAt below.
-const CLASS_RE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
+// THE class-directive reader, shared with the deck linter so completion and lint
+// agree by construction rather than by comment. See lib/core/class-directive-scan.mjs.
+import { classDirectiveAt } from '../../../lib/core/class-directive-scan.mjs';
 
 const SLIDE_BREAK = /^---\s*$/;
 
-// Walk back from 1-based `lineNo` to the active `_class` directive. `getLine(n)`
-// returns the text of 1-based line n (the caller adapts CodeMirror's doc, or a
-// test passes a plain array accessor). Returns
-// `{ name, modifiers, tokens, directiveLine }` or `null` when the cursor is not
-// inside a classed slide (between slides, in front matter, or no directive
-// above it on this slide).
+// Which `_class` directive governs 1-based `lineNo`. `getLine(n)` returns the
+// text of 1-based line n (the caller adapts CodeMirror's doc, or a test passes a
+// plain array accessor). Returns `{ name, modifiers, tokens, directiveLine }` or
+// `null` when the cursor is not inside a classed slide.
+//
+// A FORWARD SCAN, not the backward walk this used to do, and the difference is
+// three defects rather than a refactor:
+//
+//   · the running GLOBAL `<!-- class: … -->` — which governs from its own slide
+//     to the end of the deck — is now visible. A backward walk stopped at the
+//     first slide boundary, so on a deck using the global form completion offered
+//     the wrong component's variants from that slide onward;
+//   · a directive QUOTED in prose (`` the docs write `<!-- _class: kpi -->` ``)
+//     no longer counts: only a whole-line comment can be a directive, which is
+//     the same shape markdown-it requires to open an `html_block`;
+//   · a directive inside a fenced code block is skipped.
+//
+// Still O(lines-above-the-cursor) with one regex per line — this runs on every
+// keystroke, and the backward walk it replaces was the same order of work.
 export function slideClassAt(getLine, lineNo) {
-	for (let n = lineNo; n >= 1; n--) {
-		const text = getLine(n) ?? '';
-		if (n !== lineNo && SLIDE_BREAK.test(text)) return null; // crossed a boundary
-		const m = text.match(CLASS_RE);
-		if (m) {
-			const tokens = m[1].split(/\s+/).filter(Boolean);
-			if (!tokens.length) return null;
-			return { name: tokens[0], modifiers: tokens.slice(1), tokens, directiveLine: n };
-		}
-	}
-	return null;
+	const hit = classDirectiveAt(getLine, lineNo);
+	if (!hit) return null;
+	const tokens = hit.payload.split(/\s+/).filter(Boolean);
+	if (!tokens.length) return null;
+	return { name: tokens[0], modifiers: tokens.slice(1), tokens, directiveLine: hit.line };
 }
 
 // What to complete given the current line's text BEFORE the cursor, when that

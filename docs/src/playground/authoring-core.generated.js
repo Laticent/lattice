@@ -6,8 +6,15 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -25,6 +32,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // lib/authoring/slide-split.js
 var require_slide_split = __commonJS({
@@ -244,7 +252,7 @@ var require_front_matter_key = __commonJS({
 // lib/core/resolve-color-mode.js
 var require_resolve_color_mode = __commonJS({
   "lib/core/resolve-color-mode.js"(exports, module) {
-    var { topLevelFrontMatterValue } = require_front_matter_key();
+    var { frontMatterValue, topLevelFrontMatterValue } = require_front_matter_key();
     var COLOR_MODE_REGISTER = Object.freeze({
       light: "color-light",
       dark: "dark",
@@ -281,14 +289,14 @@ var require_resolve_color_mode = __commonJS({
     function colorModeClassFromSource(md) {
       return colorModeClass(readFrontMatterColorMode(md) || "");
     }
-    var FRONT_MATTER_FENCE = /^﻿?---[ \t]*\r?\n[\s\S]*?\r?\n---/;
+    var FRONT_MATTER_FENCE = /^﻿?---\r?\n[\s\S]*?\r?\n---/;
     function frontMatterFence(md) {
       const m = String(md ?? "").match(FRONT_MATTER_FENCE);
       return m ? m[0] : "";
     }
     function frontMatterBody(md) {
       const fence = frontMatterFence(md);
-      return fence ? fence.replace(/^﻿?---[ \t]*\r?\n/, "").replace(/\r?\n---$/, "") : "";
+      return fence ? fence.replace(/^﻿?---\r?\n/, "").replace(/\r?\n---$/, "") : "";
     }
     function deckPrintBand(md, flagPrint = false) {
       if (flagPrint) return true;
@@ -296,7 +304,7 @@ var require_resolve_color_mode = __commonJS({
       if (!fm) return false;
       const token = deckColorModeToken(fm);
       if (token) return token === "print";
-      return classTokens(topLevelFrontMatterValue(fm, "class")).includes("print");
+      return classTokens(frontMatterValue(fm, "class")).includes("print");
     }
     function withPrintColorMode(source) {
       const src = String(source ?? "");
@@ -437,7 +445,7 @@ var require_deck_class_register = __commonJS({
     var { COLOR_MODE_TOKENS } = require_color_mode();
     var { classTokens, colorModeClass, deckColorModeToken } = require_resolve_color_mode();
     var { isComponentToken } = require_resolve_component();
-    var { topLevelFrontMatterValue } = require_front_matter_key();
+    var { frontMatterValue } = require_front_matter_key();
     var COLOR_AXIS = new Set(COLOR_MODE_TOKENS);
     function deckClassRefusal(token, colorModeToken = "") {
       if (isComponentToken(token)) return "component";
@@ -459,10 +467,10 @@ var require_deck_class_register = __commonJS({
       return out;
     }
     function deckClassTokensFromFrontMatter(fmBody) {
-      return deckClassTokens(topLevelFrontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
+      return deckClassTokens(frontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
     }
     function deckClassRefusalsFromFrontMatter(fmBody) {
-      return deckClassRefusals(topLevelFrontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
+      return deckClassRefusals(frontMatterValue(fmBody, "class") || "", deckColorModeToken(fmBody));
     }
     var CLASS_LINE = /^class:[ \t]*([^\r\n]*?)[ \t]*(\r?)$/;
     var FRONT_MATTER_FENCE = /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n---)/;
@@ -492,7 +500,7 @@ var require_deck_class_register = __commonJS({
         seen = true;
         if (next) out.push(`class: ${next}${hit[2]}`);
       }
-      const nextBody = out.join("\n");
+      const nextBody = out.join("\n").replace(/\r$/, "");
       if (nextBody === body) return src;
       if (!nextBody.trim()) return src.slice(0, m.index) + src.slice(m.index + whole.length).replace(/^(?:\r?\n)+/, "");
       return src.slice(0, m.index) + open + nextBody + close + src.slice(m.index + whole.length);
@@ -509,6 +517,130 @@ var require_deck_class_register = __commonJS({
   }
 });
 
+// lib/core/comment-directive.mjs
+function stripQuotes(v) {
+  const t = String(v ?? "").trim();
+  if (t.startsWith('"') && t.endsWith('"') || t.startsWith("'") && t.endsWith("'")) {
+    return t.slice(1, -1);
+  }
+  return t;
+}
+function readDirectiveComment(raw, { known, flags } = {}) {
+  const text = String(raw ?? "").trim();
+  if (!text.endsWith("-->") || !text.startsWith("<!--")) return null;
+  const inner = text.slice(4, -3);
+  const m = /^\s*(_?)([A-Za-z][\w]*)\s*(?::([\s\S]*))?$/.exec(inner);
+  if (!m) return null;
+  const [, spot, key, value] = m;
+  if (!known?.has(key)) return null;
+  if (value === void 0 && !flags?.has(key)) return null;
+  return { spot: Boolean(spot), key, value: stripQuotes(value ?? "") };
+}
+var init_comment_directive = __esm({
+  "lib/core/comment-directive.mjs"() {
+  }
+});
+
+// lib/core/class-directive-scan.mjs
+var class_directive_scan_exports = {};
+__export(class_directive_scan_exports, {
+  classDirectiveAt: () => classDirectiveAt,
+  default: () => class_directive_scan_default,
+  slideClassDirectives: () => slideClassDirectives
+});
+function walk(getLine, lineCount, onSlideEnd) {
+  let inFence = false;
+  let fenceClose = null;
+  let global = "";
+  let globalText = "";
+  let globalLine = 0;
+  let spot = null;
+  let spotText = "";
+  let spotLine = 0;
+  const state = () => spot !== null ? { payload: spot, text: spotText, line: spotLine } : { payload: global, text: globalText, line: globalLine };
+  for (let n = 1; n <= lineCount; n++) {
+    const start = n;
+    const line = getLine(n) ?? "";
+    if (inFence) {
+      if (fenceClose.test(line)) {
+        inFence = false;
+        fenceClose = null;
+      }
+      continue;
+    }
+    const open = FENCE_OPEN.exec(line);
+    if (open) {
+      inFence = true;
+      fenceClose = new RegExp(`^\\s{0,3}(\\${open[1][0]}{${open[1].length},})\\s*$`);
+      continue;
+    }
+    if (SEPARATOR.test(line)) {
+      if (onSlideEnd) onSlideEnd(state());
+      spot = null;
+      spotText = "";
+      spotLine = 0;
+      continue;
+    }
+    if (!COMMENT_OPEN.test(line)) continue;
+    const opener = line.slice(line.indexOf("<!--"));
+    let raw = opener;
+    let close = n;
+    let closed = commentCloses(opener);
+    while (!closed && close < lineCount) {
+      close += 1;
+      const next = getLine(close) ?? "";
+      raw += `
+${next}`;
+      closed = commentCloses(next);
+    }
+    if (!closed) continue;
+    const dir = readDirectiveComment(raw.trim(), CLASS_ONLY);
+    for (let k = start; k <= close; k++) {
+      if (!SEPARATOR.test(getLine(k) ?? "")) continue;
+      if (onSlideEnd) onSlideEnd(state());
+      spot = null;
+      spotText = "";
+      spotLine = 0;
+    }
+    n = close;
+    if (!dir) continue;
+    if (dir.spot) {
+      spot = dir.value;
+      spotText = raw.trim();
+      spotLine = start;
+    } else {
+      global = dir.value;
+      globalText = raw.trim();
+      globalLine = start;
+    }
+  }
+  return state();
+}
+function slideClassDirectives(source) {
+  const lines = String(source ?? "").split(LINE_TERMINATOR);
+  const out = [];
+  const last = walk((n) => lines[n - 1], lines.length, (state) => out.push(state));
+  out.push(last);
+  return out;
+}
+function classDirectiveAt(getLine, lineNo) {
+  const state = walk(getLine, lineNo, null);
+  return state.payload ? state : null;
+}
+var CLASS_ONLY, SEPARATOR, FENCE_OPEN, COMMENT_OPEN, commentCloses, LINE_TERMINATOR, class_directive_scan_default;
+var init_class_directive_scan = __esm({
+  "lib/core/class-directive-scan.mjs"() {
+    init_comment_directive();
+    CLASS_ONLY = { known: /* @__PURE__ */ new Set(["class"]), flags: /* @__PURE__ */ new Set() };
+    SEPARATOR = /^---\r?$/;
+    FENCE_OPEN = /^\s{0,3}(`{3,}|~{3,})/;
+    COMMENT_OPEN = /^[ ]{0,3}(?:>[ \t]*|(?:[-*+]|\d{1,9}[.)])[ \t]+)*<!--/;
+    commentCloses = (line) => line.includes("-->");
+    LINE_TERMINATOR = /\r\n|[\n\r\u2028\u2029]/;
+    class_directive_scan_default = { slideClassDirectives, classDirectiveAt };
+  }
+});
+
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
@@ -517,7 +649,7 @@ var require_lint_core = __commonJS({
     var { EXPORT_SETTINGS_TYPE } = require_export_settings();
     var { deckClassRefusalsFromFrontMatter } = require_deck_class_register();
     var { topLevelFrontMatterValue } = require_front_matter_key();
-    var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
+    var { slideClassDirectives: slideClassDirectives2 } = (init_class_directive_scan(), __toCommonJS(class_directive_scan_exports));
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
     var FOCUS_STEPS_DIRECTIVE = /<!--\s*_focusSteps:\s*([^>]+?)\s*-->/;
@@ -914,11 +1046,10 @@ ${indent}   - ${body.trim()}`;
       const findings = [];
       const norm = (s) => String(s).toLowerCase().replace(/[.’']/g, "").replace(/\s+/g, " ").trim();
       const slides = splitTopLevel(source);
+      const directives = slideClassDirectives2(source);
       const fm = fmChunks(source);
       slides.forEach((slide, idx) => {
-        const m = slide.match(CLASS_DIRECTIVE);
-        if (!m) return;
-        const tokens = m[1].split(/\s+/).filter(Boolean);
+        const tokens = (directives[idx]?.payload || "").split(/\s+/).filter(Boolean);
         if (!tokens.includes("map")) return;
         const which = tokens.includes("us") || tokens.includes("usa") ? "us" : "world";
         const vocab = mapVocab[which];
@@ -964,10 +1095,12 @@ ${indent}   - ${body.trim()}`;
       const deckFinishName = deckFinishRaw ? deckFinishRaw.trim().toLowerCase() : "";
       const deckFinishKnown = vocab.finishNames ? new Set([...vocab.finishNames].map((n) => String(n).toLowerCase())) : null;
       const deckHasFinish = !!deckFinishName && deckFinishName !== "none" && (!deckFinishKnown || deckFinishKnown.has(deckFinishName));
+      const classDirectives = slideClassDirectives2(source);
       slides.forEach((slide, idx) => {
-        const m = slide.match(CLASS_DIRECTIVE);
-        if (!m) return;
-        const tokens = m[1].split(/\s+/).filter(Boolean);
+        const dir = classDirectives[idx];
+        if (!dir?.payload) return;
+        const m = [dir.text, dir.payload];
+        const tokens = dir.payload.split(/\s+/).filter(Boolean);
         for (const t2 of tokens) {
           if (vocab.names.has(t2)) continue;
           if (isKnownModifier(t2, vocab)) continue;
@@ -1437,11 +1570,12 @@ ${indent}   - ${body.trim()}`;
     function findGanttIssues(source) {
       const findings = [];
       const slides = splitTopLevel(source);
+      const directives = slideClassDirectives2(source);
       const fm = fmChunks(source);
       slides.forEach((slide, idx) => {
-        const cm = slide.match(CLASS_DIRECTIVE);
-        if (!cm) return;
-        if (!cm[1].split(/\s+/).filter(Boolean).includes("gantt")) return;
+        const dir = directives[idx];
+        if (!(dir?.payload || "").split(/\s+/).filter(Boolean).includes("gantt")) return;
+        const cm = [dir.text];
         const slideNo = idx - fm + 1;
         const tasks = [];
         let lastTaskIndent = -1;
@@ -1661,7 +1795,7 @@ ${indent}   - ${body.trim()}`;
       }];
     }
     function findUnknownColorMode(source, colorModeNames) {
-      const fmBlock = source.match(/^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+      const fmBlock = source.match(/^﻿?---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
       if (!fmBlock) return [];
       const fm = fmBlock[1].match(/^color-mode:[ \t]*(.*)$/m);
       if (!fm) return [];
@@ -1703,7 +1837,7 @@ ${indent}   - ${body.trim()}`;
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
       const body = fmBlock[1];
-      const cm = body.match(/^class:[ \t]*["']?([^"'\n]*)["']?[ \t]*$/m);
+      const cm = body.match(/^class:.*$/m);
       if (!cm) return [];
       const mode = topLevelFrontMatterValue(body, "color-mode");
       return deckClassRefusalsFromFrontMatter(body).map(({ token, reason }) => ({
@@ -2100,7 +2234,6 @@ ${indent}   - ${body.trim()}`;
       findUnknownPace,
       PACE_NAMES,
       findUnknownMode,
-      CLASS_DIRECTIVE,
       findUnknownColorMode,
       findRefusedDeckClass,
       findDeprecatedClassColorMode,
@@ -2131,7 +2264,7 @@ ${indent}   - ${body.trim()}`;
 // lib/authoring/prose-budgets.js
 var require_prose_budgets = __commonJS({
   "lib/authoring/prose-budgets.js"(exports, module) {
-    var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
+    var CLASS_COMMENT_G = /<!--\s*_?class:\s*[^>]*?\s*-->/g;
     var UNIVERSAL_PROSE_BUDGETS = Object.freeze({
       title: { soft: 10, hard: 14, label: "slide title", note: "the takeaway lands in one tight line" },
       eyebrow: { soft: 5, hard: 8, label: "eyebrow", note: "a label, not a sentence" },
@@ -2153,7 +2286,7 @@ var require_prose_budgets = __commonJS({
     }
     function elementWordCounts(slide, axis) {
       if (!slide || !axis) return [];
-      const body = String(slide).replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, "").replace(CLASS_DIRECTIVE, "");
+      const body = String(slide).replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, "").replace(CLASS_COMMENT_G, "");
       if (axis === "item") {
         const lines = body.split("\n");
         const blocks = [];
@@ -2251,7 +2384,8 @@ var require_review_core = __commonJS({
       universalProseOverages
     } = require_prose_budgets();
     var { splitTopLevel } = require_slide_split();
-    var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
+    var { slideClassDirectives: slideClassDirectives2 } = (init_class_directive_scan(), __toCommonJS(class_directive_scan_exports));
+    var CLASS_COMMENT_G = /<!--\s*_?class:\s*[^>]*?\s*-->/g;
     var LABEL_WORDS = /* @__PURE__ */ new Set([
       "overview",
       "results",
@@ -2300,9 +2434,8 @@ var require_review_core = __commonJS({
     function firstSlideIndex(source) {
       return FRONT_MATTER.test(String(source || "")) ? 2 : 0;
     }
-    function classTokens(slide) {
-      const m = slide.match(CLASS_DIRECTIVE);
-      return m ? m[1].trim().split(/\s+/).filter(Boolean) : [];
+    function classTokens(payload) {
+      return String(payload || "").trim().split(/\s+/).filter(Boolean);
     }
     function headingOf(slide) {
       const m = slide.match(/^##\s+(.+)$/m);
@@ -2317,7 +2450,7 @@ var require_review_core = __commonJS({
       return text.split(/\s+/).length === 1;
     }
     function proseWordCount(slide) {
-      return slide.replace(CLASS_DIRECTIVE, "").replace(/^##?\s.*$/gm, "").replace(/[#>*`_[\]()|-]/g, " ").split(/\s+/).filter(Boolean).length;
+      return slide.replace(CLASS_COMMENT_G, "").replace(/^##?\s.*$/gm, "").replace(/[#>*`_[\]()|-]/g, " ").split(/\s+/).filter(Boolean).length;
     }
     function topBulletCount(slide) {
       return slide.split("\n").filter((l) => /^([-*]|\d+\.)\s+\S/.test(l)).length;
@@ -2356,12 +2489,13 @@ var require_review_core = __commonJS({
       let hasAgenda = false;
       const headings = [];
       const openings = [];
+      const directives = slideClassDirectives2(source);
       slides.forEach((slide, idx) => {
         if (idx < start) return;
         if (!slide.trim()) return;
         const human = idx - start + 1;
         contentSlides++;
-        const tokens = classTokens(slide);
+        const tokens = classTokens(directives[idx]?.payload);
         const comp = tokens[0];
         const bucket = comp ? bucketOf(comp) : null;
         const h = headingOf(slide);
@@ -2611,7 +2745,7 @@ var require_review_core = __commonJS({
 var require_scorecard = __commonJS({
   "lib/authoring/scorecard.js"(exports, module) {
     var { splitTopLevel } = require_slide_split();
-    var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
+    var { slideClassDirectives: slideClassDirectives2 } = (init_class_directive_scan(), __toCommonJS(class_directive_scan_exports));
     var DATA_LAYOUTS = /* @__PURE__ */ new Set([
       "funnel",
       "gantt",
@@ -2633,10 +2767,8 @@ var require_scorecard = __commonJS({
     var plural = (n) => n > 1 ? "s" : "";
     function parseDeckShape(source) {
       const slides = splitTopLevel(source);
-      const tokensPer = slides.map((s) => {
-        const m = s.match(CLASS_DIRECTIVE);
-        return m ? m[1].trim().split(/\s+/).filter(Boolean) : [];
-      });
+      const directives = slideClassDirectives2(source);
+      const tokensPer = slides.map((_s, i) => (directives[i]?.payload || "").trim().split(/\s+/).filter(Boolean));
       const has = (name) => tokensPer.some((t) => t.includes(name));
       const start = /^\s*---\s*\r?\n/.test(source) ? 2 : 0;
       const contentSlides = slides.filter((s, i) => i >= start && s.trim()).length;

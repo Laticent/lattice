@@ -126,7 +126,7 @@ flowchart LR
 
 ## See also.
 
-- `engineering/decisions/2026-08-05-deck-class-register-boundary.md` — the decision, the four regressions it avoids, and the 672-row table
+- `engineering/decisions/2026-08-05-deck-class-register-boundary.md` — the decision, the four regressions it avoids, and the 980-row table
 - `lib/core/deck-class-register.js` — the kernel, and every boundary it is applied at
 - `test/unit/core/color-register-table.test.js` — `color-mode:` × `class:` × `_class:` × `--print`, both spellings
 - `lib/base/base.docs.md` § Composition syntax — the three spellings, for authors

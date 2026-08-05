@@ -94,6 +94,22 @@ describe('deck-class register — the export boundary', () => {
     assert.ok(!/kpi/.test(out));
   });
 
+  test('dropping the LAST key of a CRLF deck does not double its carriage return', () => {
+    // The closing fence supplies its own `\r\n`, and the body's last line has had
+    // its own eaten by that fence — so removing that line promoted a line still
+    // carrying one, and the exported bytes read `marp: true\r\r\n---`. YAML treats
+    // it as a blank line, which is precisely why it would have survived unnoticed.
+    const out = withSanitizedDeckClass('---\r\nmarp: true\r\nclass: kpi\r\n---\r\n\r\n# Hi\r\n');
+    assert.ok(!/\r\r/.test(out), `doubled CR in exported bytes: ${JSON.stringify(out)}`);
+    assert.equal(out, '---\r\nmarp: true\r\n---\r\n\r\n# Hi\r\n');
+    // The same deck with the register NOT last, and with a surviving value, must be
+    // untouched by the fix — otherwise it is stripping a `\r` someone still needs.
+    assert.equal(
+      withSanitizedDeckClass('---\r\nmarp: true\r\nclass: kpi safe\r\n---\r\n\r\n# Hi\r\n'),
+      '---\r\nmarp: true\r\nclass: safe\r\n---\r\n\r\n# Hi\r\n',
+    );
+  });
+
   test('a deck with nothing to change comes back byte-identical', () => {
     for (const src of [
       deck(['marp: true', 'class: no-note']),
@@ -150,10 +166,42 @@ describe('deck-class register — the export boundary', () => {
     assert.equal(withSanitizedDeckClass(src), src);
   });
 
-  test('a `class:` inside a block scalar is not the register on the READ side either', () => {
-    assert.deepEqual(deckClassTokensFromFrontMatter('style: |\n  class: kpi\nclass: dark'), ['dark']);
-    assert.equal(deckPrintBand('---\nfoo:\n  class: print\n---\n'), false, 'a nested `class: print` is not a print deck');
-    assert.equal(deckPrintBand('---\nclass: print\n---\n'), true);
+  test('an INDENTED `class:` IS the register to every reader, because it is to the engine', () => {
+    // The opposite of the `color-mode:` rule above, and not a preference:
+    // `parseFrontMatter` (lib/engine/directives.js) calls `line.trim()` before
+    // matching, so it STAMPS an indented `class:` onto every section. A reader that
+    // is stricter than the stamper does not "ignore a non-register" — it answers for
+    // a canvas the engine is not painting. This shipped once, in exactly the
+    // direction the change exists to prevent: ` class: print` rendered a
+    // `section.print` canvas while `deckPrintBand` said light, so the diagram baked
+    // LIGHT ink onto a print page.
+    //
+    // The engine is asserted alongside each case, so if `parseFrontMatter` ever
+    // tightens, this fails and names the divergence instead of silently drifting.
+    const { parseFrontMatter } = require('../../../lib/engine/directives');
+    for (const fm of [' class: print', 'class: print', 'foo:\n  class: print']) {
+      const src = `---\nmarp: true\n${fm}\n---\n\n## A\n`;
+      assert.equal(parseFrontMatter(src).directives.class, 'print', `engine reads ${JSON.stringify(fm)}`);
+      assert.equal(deckPrintBand(src), true, `the band must agree for ${JSON.stringify(fm)}`);
+    }
+    // …and `color-mode:` still supersedes it, wherever the alias sits.
+    assert.equal(deckPrintBand('---\ncolor-mode: light\n class: print\n---\n\n## A\n'), false);
+    // A deck naming no color axis at all is not a print deck.
+    assert.equal(deckPrintBand('---\nclass: dark\n---\n\n## A\n'), false);
+  });
+
+  test('KNOWN RESIDUAL: a duplicated `class:` resolves to the FIRST here and the LAST in the engine', () => {
+    // `frontMatterValue` returns the first match; `parseFrontMatter` overwrites, so
+    // the engine keeps the last. Pre-existing (`main`'s `deckPrintBand` read the
+    // same way) and NOT introduced here, but it is the remaining reader/stamper gap
+    // on this axis, so it is pinned rather than left to be rediscovered. Closing it
+    // means teaching the shared front-matter reader last-wins semantics, which
+    // changes every register at once — see the residual note in
+    // engineering/decisions/2026-08-05-deck-class-register-boundary.md.
+    const { parseFrontMatter } = require('../../../lib/engine/directives');
+    const fm = 'style: |\n  class: kpi\nclass: dark';
+    assert.equal(parseFrontMatter(`---\n${fm}\n---\n`).directives.class, 'dark', 'the engine takes the LAST');
+    assert.deepEqual(deckClassTokensFromFrontMatter(fm), [], 'this reader took the FIRST (`kpi`) and refused it as a component');
   });
 
   test('a body line that merely reads `class:` is not front matter and is untouched', () => {
@@ -250,10 +298,16 @@ describe('color-mode-parse-parity — the linter and the resolver read the regis
 
   for (const [line, expected] of CASES) {
     test(JSON.stringify(line), () => {
+      // A LEADING BOM is tolerated (ingest strips it, and the export path reads the
+      // deck unnormalized), so it must not change any answer. A PADDED opening
+      // fence is NOT front matter — `parseFrontMatter` in the engine is `^---\r?\n`
+      // — and is covered by its own case below rather than looped here: tolerating
+      // it made the band reader see a print deck where the engine saw no front
+      // matter at all.
       for (const bom of ['', '﻿']) {
-        for (const fence of ['---', '--- ']) {
-          const src = `${bom}${fence}\ntheme: cuoio\n${line}\n---\n\n# Slide\n`;
-          const label = `${JSON.stringify(line)}${bom ? ' (BOM)' : ''}${fence === '--- ' ? ' (padded fence)' : ''}`;
+        {
+          const src = `${bom}---\ntheme: cuoio\n${line}\n---\n\n# Slide\n`;
+          const label = `${JSON.stringify(line)}${bom ? ' (BOM)' : ''}`;
 
           const token = deckColorModeToken(frontMatterBody(src));
           const findings = findUnknownColorMode(src, COLOR_MODE_NAMES);
@@ -279,6 +333,25 @@ describe('color-mode-parse-parity — the linter and the resolver read the regis
       }
     });
   }
+
+  test('a PADDED opening fence is not front matter — to this reader OR the engine', () => {
+    // `--- ` (trailing space) is not a front-matter fence to `parseFrontMatter`
+    // (`lib/engine/directives.js`), nor to `boundary-parser.js`, nor to the export
+    // writer. This reader briefly tolerated it under a "belt-and-braces" label, and
+    // the result was not tolerance but a SPLIT: the diagram band read `print` off a
+    // deck the engine gave no color-mode class at all — print ink baked onto a
+    // light canvas, the #1326 shape arriving through the change that closes it.
+    const padded = '--- \ncolor-mode: print\n---\n\n# Hi\n';
+    assert.equal(frontMatterBody(padded), '', 'a padded fence opens no front matter');
+    assert.equal(deckColorModeToken(frontMatterBody(padded)), '');
+    assert.equal(deckPrintBand(padded), false, 'and the band must agree');
+    // The engine is the arbiter: it sees no directives here either.
+    const { parseFrontMatter } = require('../../../lib/engine/directives');
+    assert.deepEqual(parseFrontMatter(padded).directives, {},
+      'the engine sees no front matter, so no reader may see one');
+    // …and the ordinary spelling still works, so this is not vacuous.
+    assert.equal(deckPrintBand('---\ncolor-mode: print\n---\n\n# Hi\n'), true);
+  });
 
   test('an INDENTED key is not the register on either side', () => {
     // Parity is not just about the VALUE parse. The resolver reads column 0, so a

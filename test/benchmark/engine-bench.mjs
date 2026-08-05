@@ -28,8 +28,10 @@
 // not a vs-marp claim.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
 import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
@@ -53,6 +55,9 @@ const TOLERANCE_PCT = 12; // default variance band; effective band = max(this, b
 
 // Standalone engine for the HTML-only cost line.
 const rawEngine = latticeEngine.createEngine();
+// The calibration parser — stock markdown-it, no Lattice plugins, so nothing in
+// `lib/` can move it.
+const calibrationMd = new MarkdownIt();
 
 const registered = new Set();
 function registerTheme(palette) {
@@ -87,9 +92,60 @@ for (const d of datasets) {
 
 const mean = (task) => task.result.latency.mean; // ms
 
+// ── the CALIBRATION probe ────────────────────────────────────────────────────
+//
+// The committed baseline used to hold ABSOLUTE milliseconds from whatever machine
+// last blessed it, and `bench:check` compared against them directly. Run anywhere
+// slower — the cloud sandbox, a loaded laptop, a CI runner — and every dataset read
+// as a ~20% regression on a clean tree (#1382). A ratchet that is red by default is
+// a ratchet nobody can use: the next person either re-blesses on their own hardware
+// (moving the baseline to a number the NEXT person cannot match either) or learns to
+// ignore it.
+//
+// Every run therefore times a fixed probe, and each dataset is ALSO recorded as an
+// INDEX (dataset ms ÷ probe ms) — a figure that means roughly the same thing on any
+// machine, so the committed file's diff reads as a trend rather than as a record of
+// whose laptop ran it.
+//
+// THE PROBE IS NOT OUR CODE, and that is the design constraint. Normalizing against
+// one of our own renders would make an engine-wide optimization invisible — numerator
+// and denominator would both fall and the index would not move. It is UPSTREAM
+// markdown-it parsing a fixed synthetic document: the dominant cost class of what is
+// being measured (regex, string allocation, GC), so it tracks machine speed for this
+// workload, while nothing in `lib/` can shift it.
+//
+// WHAT THE INDEX DOES NOT DO, measured rather than assumed. It corrects for CLOCK
+// SPEED, not for CONTENTION. Re-running this check on the blessing machine under six
+// spinners on four cores moved the probe +38% and the indices +26/+48/+49% — the
+// correction is partial, because a 5ms parse and a 150ms render are not scheduled or
+// GC'd alike. And on a QUIET re-run the probe's own ±3% noise moved the indices more
+// than the milliseconds moved. So the index is the cross-machine READING; it is not
+// what the gate asserts on. `checkBaseline` gates on absolute ms and only when the
+// fingerprint says it is comparing like with like — see there.
+//
+// A markdown-it VERSION BUMP re-scales every index and will read as drift. That is
+// correct rather than a flaw, and the response is a re-bless justified in the PR.
+const CALIBRATION = 'calibration (markdown-it)';
+const CALIBRATION_DOC = Array.from({ length: 200 }, (_, i) => [
+  `## Heading ${i}`,
+  '',
+  `Some **bold** and _emphasised_ prose with \`inline code\` and a [link](https://example.test/${i}).`,
+  '',
+  `- item ${i} a`,
+  `- item ${i} b`,
+  '',
+  '| a | b |',
+  '|---|---|',
+  `| ${i} | ${i * 2} |`,
+  '',
+].join('\n')).join('\n');
+
 // ── render tier ───────────────────────────────────────────────────────────────
 async function renderTier() {
   const main = new Bench({ name: 'render', warmup: true, time: 1500, iterations: 8 });
+  // The machine-speed probe, timed by the SAME harness under the same warmup and
+  // sampling as the datasets — a probe measured differently is not a denominator.
+  main.add(CALIBRATION, () => calibrationMd.parse(CALIBRATION_DOC, {}));
   for (const d of datasets) {
     // Clear the per-(theme,size) CSS memo before each timed render so this tier
     // measures the TRUE COLD per-render cost — what a CLI/export one-shot pays, and
@@ -107,24 +163,29 @@ async function renderTier() {
   console.table(main.table());
 
   // Interpreted summary: ms + slide throughput.
+  const calibration = mean(main.getTask(CALIBRATION));
   console.log('\n=== SUMMARY ===');
-  console.log(`${'dataset'.padEnd(20)}${'slides'.padStart(7)}${'ms'.padStart(10)}${'slides/s'.padStart(11)}`);
+  console.log(`calibration probe: ${calibration.toFixed(2)}ms (markdown-it, ${CALIBRATION_DOC.split('\n').length} lines) — the index divisor`);
+  console.log(`${'dataset'.padEnd(20)}${'slides'.padStart(7)}${'ms'.padStart(10)}${'index'.padStart(9)}${'slides/s'.padStart(11)}`);
   const summary = [];
   for (const d of datasets) {
     const task = main.getTask(d.name);
     const l = mean(task);
     console.log(
-      `${d.name.padEnd(20)}${String(d.slides).padStart(7)}${l.toFixed(1).padStart(10)}${String(Math.round((d.slides / l) * 1000)).padStart(11)}`,
+      `${d.name.padEnd(20)}${String(d.slides).padStart(7)}${l.toFixed(1).padStart(10)}${(l / calibration).toFixed(2).padStart(9)}${String(Math.round((d.slides / l) * 1000)).padStart(11)}`,
     );
     summary.push({
       dataset: d.name,
       slides: d.slides,
       ms: l,
+      // The MACHINE-RELATIVE figure `--check` actually compares. `ms` rides along
+      // for the human reading the baseline diff.
+      index: l / calibration,
       slidesPerSec: Math.round((d.slides / l) * 1000),
       rmePct: task.result.latency.rme,
     });
   }
-  return { main: main.table(), summary };
+  return { main: main.table(), summary, calibration, calibrationRmePct: main.getTask(CALIBRATION).result.latency.rme };
 }
 
 // ── export / rasterize tier (lazy puppeteer) ──────────────────────────────────
@@ -290,7 +351,54 @@ async function printTier() {
 // out-of-noise slowdown fails. See engineering/workflow.md §Performance.
 const round2 = (n) => Math.round(n * 100) / 100;
 
-function blessBaseline(summary, printSummary) {
+/**
+ * WHICH MACHINE THIS IS, for deciding whether a wall-clock comparison means
+ * anything. Node MAJOR only: a patch bump should not invalidate a baseline, while a
+ * major one changes V8 and legitimately should.
+ */
+function machineFingerprint() {
+  return {
+    node: `v${process.versions.node.split('.')[0]}`,
+    platform: `${process.platform}/${process.arch}`,
+    cpus: os.cpus().length,
+    cpu: (os.cpus()[0]?.model || 'unknown').trim(),
+  };
+}
+/**
+ * Are these two runs comparable by WALL CLOCK?
+ *
+ * The fingerprint alone is not enough, and the reason is visible in this repo's
+ * own committed baseline: its CPU reads `Intel(R) Xeon(R) Processor @ 2.80GHz` —
+ * the MASKED model string a virtualized host reports. Two different cloud VMs of
+ * genuinely different speed compare EQUAL on it, which would hand wall-clock
+ * gating to a comparison that cannot support it: red-by-default, back again,
+ * now wearing a same-machine authority claim. (And in a CPU-limited container
+ * `os.cpus().length` reports the HOST's cores, so resizing the sandbox silently
+ * changes the answer in the other direction.)
+ *
+ * So the CALIBRATION PROBE carries the second half, and this is the job it is
+ * actually good at: not normalizing a comparison, but refusing one. If the probe
+ * reads more than PROBE_BAND away from what the baseline recorded, the two runs
+ * did not come off comparable silicon whatever the model strings say, and the
+ * timing drops to reported-not-gated.
+ */
+const PROBE_BAND = 15; // %
+
+const sameFingerprint = (a, b) => !!a && !!b
+  && a.node === b.node && a.platform === b.platform && a.cpus === b.cpus && a.cpu === b.cpu;
+
+function comparableMachine(base, here, probeNow) {
+  if (!sameFingerprint(base.blessedOn, here)) return { ok: false, why: 'a different machine' };
+  const probeBlessed = base.calibration?.ms;
+  if (!probeBlessed || !probeNow) return { ok: false, why: 'no calibration probe to compare' };
+  const delta = Math.abs((probeNow - probeBlessed) / probeBlessed) * 100;
+  if (delta > PROBE_BAND) {
+    return { ok: false, why: `the probe reads ${delta.toFixed(0)}% off the blessed value (band ±${PROBE_BAND}%) — same fingerprint, different speed` };
+  }
+  return { ok: true, why: '' };
+}
+
+function blessBaseline(summary, printSummary, render) {
   if (!summary.length) {
     console.error('\nRefusing to bless an empty baseline — the run produced no datasets.');
     process.exitCode = 1;
@@ -298,7 +406,19 @@ function blessBaseline(summary, printSummary) {
   }
   const out = {};
   for (const s of summary) {
-    out[s.dataset] = { slides: s.slides, ms: round2(s.ms), slidesPerSec: s.slidesPerSec, rmePct: round2(s.rmePct) };
+    out[s.dataset] = {
+      slides: s.slides,
+      // `index` is what `--check` compares — machine-relative, so this file means the
+      // same thing on the machine that wrote it and the one that reads it.
+      index: round2(s.index),
+      // `ms` is the absolute cost on the machine stamped below. It is what the
+      // check compares ON THAT MACHINE — the tightest signal available, since the
+      // index divides by a second measured quantity whose own noise would only
+      // blur the one comparison that gates. `slidesPerSec` is human-only.
+      ms: round2(s.ms),
+      slidesPerSec: s.slidesPerSec,
+      rmePct: round2(s.rmePct),
+    };
   }
   // The print re-place tier (puppeteer) only runs under --print, so a plain
   // `bench:bless` PRESERVES any existing printDatasets rather than dropping them.
@@ -310,9 +430,26 @@ function blessBaseline(summary, printSummary) {
     try { printOut = JSON.parse(readFileSync(BASELINE, 'utf8')).printDatasets; } catch { /* none */ }
   }
   const payload = {
-    version: 1,
-    note: 'Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; compare with `npm run bench:check`. Numbers are machine-relative — see engineering/workflow.md §Performance.',
+    version: 2,
+    note: 'Committed perf baseline for the owned render engine. Refresh with `npm run bench:bless`; '
+      + 'compare with `npm run bench:check`. TWO SIGNALS: a moved `slides` count fails on any machine; '
+      + 'TIMING gates only when the checking machine matches `blessedOn` AND reads the calibration probe '
+      + 'within band — there it compares `ms`, the tightest signal. Anywhere else the timing is REPORTED '
+      + 'as `index` (dataset ms ÷ probe ms, which divides clock speed out) and does not gate. '
+      + 'See engineering/workflow.md §Performance.',
     tolerancePct: TOLERANCE_PCT,
+    // What the indices are relative to. Recorded so a reader can convert an index
+    // back to this machine's milliseconds, and so a wildly different probe reading
+    // on the checking machine is visible rather than silently folded in.
+    calibration: {
+      probe: CALIBRATION,
+      ms: round2(render?.calibration ?? 0),
+      rmePct: round2(render?.calibrationRmePct ?? 0),
+    },
+    // WHO BLESSED IT — not decoration. `checkBaseline` asserts on wall-clock only
+    // when this matches the machine doing the checking, because that is the only
+    // case where a millisecond delta is a statement about the CODE.
+    blessedOn: machineFingerprint(),
     datasets: out,
     // Print drawer rasterize→assemble split: full-rebuild vs cached-image re-place, per
     // deck. The re-place row being a fraction of full IS the durable record of the paper-
@@ -323,25 +460,83 @@ function blessBaseline(summary, printSummary) {
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${summary.length} render${printSummary?.length ? ` + ${printSummary.length} print` : ''} datasets).`);
 }
 
-function checkBaseline(summary, printSummary) {
+/**
+ * @param opts.confirming  A Set of dataset names. When present this is the SECOND
+ *   pass of a two-pass timing check: only those datasets are compared, the
+ *   workload/drift sweeps are skipped (pass 1 already settled them), and nothing
+ *   sets an exit code — `main()` owns the verdict. See the two-pass note in main().
+ * @param opts.comparable  Force the same-machine verdict rather than re-deriving it.
+ *   Pass 2 inherits pass 1's, because re-deriving it on a loaded box could flip the
+ *   confirming run to NOT COMPARABLE and silently clear a real regression.
+ */
+function checkBaseline(summary, printSummary, render, opts = {}) {
+  const confirming = opts.confirming ?? null;
+  const empty = { regressedDatasets: [], drift: false, won: false };
   if (!existsSync(BASELINE)) {
     console.error('\nNo baseline.json — run `npm run bench:bless` first.');
     process.exitCode = 1;
-    return;
+    return empty;
   }
   if (!summary.length) {
     console.error('\nNo benchmark results — the run produced no datasets (engine broken?).');
     process.exitCode = 1;
-    return;
+    return empty;
   }
   const base = JSON.parse(readFileSync(BASELINE, 'utf8'));
   const tol = base.tolerancePct ?? TOLERANCE_PCT;
-  console.log('\n=== PERF CHECK · current vs committed baseline ===');
-  console.log(`${'dataset'.padEnd(20)}${'base ms'.padStart(10)}${'now ms'.padStart(10)}${'Δ%'.padStart(8)}${'band'.padStart(8)}  verdict`);
-  let regressed = false;
+  // A version-1 baseline holds only absolute ms. Comparing those across machines is
+  // the defect this replaced, so refuse rather than pretend: an unindexed baseline is
+  // re-blessed, not reinterpreted.
+  if (!(base.version >= 2)) {
+    console.error('\nThe committed baseline predates machine-relative indexing (version < 2). '
+      + 'Run `npm run bench:bless` and commit it — comparing its absolute milliseconds against '
+      + 'this machine is exactly what #1382 removed.');
+    process.exitCode = 1;
+    return empty;
+  }
+  // TWO SIGNALS, and the whole point of #1382 is that they are not the same signal.
+  //
+  //   WORKLOAD — a dataset's slide count moved, or a row is new/missing. Machine-
+  //   independent, always a real staleness, and the baseline row it invalidates has
+  //   recorded nothing since. FAILS on any machine.
+  //
+  //   TIMING — a wall-clock delta. Only a statement about the CODE when the two
+  //   numbers came off the same hardware. On a different machine it is a statement
+  //   about the hardware, which is what made this gate red by default on a clean
+  //   tree; there it is REPORTED and does not fail.
+  //
+  // That is the issue's "scope the gate to a pinned runner" without needing one: the
+  // baseline records its own runner and the check self-scopes. It also matches how
+  // the gate is actually used — bless, change, re-check — which happens on one
+  // machine, where it keeps full teeth.
+  const here = machineFingerprint();
+  const verdictOnMachine = comparableMachine(base, here, render?.calibration);
+  // `opts.comparable` is pass 2 inheriting pass 1's verdict — see the note at the
+  // call site. Only ever narrows to `true` for a confirming run; a first pass
+  // always derives its own.
+  const comparable = opts.comparable ?? verdictOnMachine.ok;
+  console.log(confirming ? '\n=== PERF CHECK · pass 2 (confirming) ===' : '\n=== PERF CHECK · current vs committed baseline ===');
+  if (base.calibration?.ms && render?.calibration) {
+    const ratio = render.calibration / base.calibration.ms;
+    console.log(`calibration probe: ${base.calibration.ms.toFixed(2)}ms blessed → ${render.calibration.toFixed(2)}ms here (${ratio.toFixed(2)}×)`);
+  }
+  if (comparable) {
+    console.log(`same machine as the baseline (${here.platform}, ${here.cpus}× ${here.cpu}, node ${here.node}) — wall clock GATES`);
+  } else {
+    console.log(`blessed on: ${base.blessedOn?.platform ?? '?'}, ${base.blessedOn?.cpus ?? '?'}× ${base.blessedOn?.cpu ?? '?'}, node ${base.blessedOn?.node ?? '?'}`);
+    console.log(`running on: ${here.platform}, ${here.cpus}× ${here.cpu}, node ${here.node}`);
+    console.log(`NOT COMPARABLE (${verdictOnMachine.why}) — timing is REPORTED, not gated. Bless here first if you want it to gate.`);
+  }
+  // The two columns must be the two numbers Δ% is computed FROM, or the table reads
+  // as arithmetic that does not add up: same-machine gates on wall clock, so
+  // printing the index beside a ms delta showed 11.08 → 11.70 labeled +21.0%.
+  const unit = comparable ? 'ms' : 'idx';
+  console.log(`${'dataset'.padEnd(20)}${`base ${unit}`.padStart(10)}${`now ${unit}`.padStart(10)}${'Δ%'.padStart(8)}${'band'.padStart(8)}  verdict`);
+  const regressedDatasets = [];
   let drift = false;
   let won = false;
   for (const s of summary) {
+    if (confirming && !confirming.has(s.dataset)) continue;
     const b = base.datasets?.[s.dataset];
     if (!b) {
       drift = true;
@@ -355,25 +550,36 @@ function checkBaseline(summary, printSummary) {
       console.log(`${s.dataset.padEnd(20)}${String(b.slides).padStart(10)}${String(s.slides).padStart(10)}${'—'.padStart(8)}${'slides'.padStart(8)}  WORKLOAD CHANGED (re-bless)`);
       continue;
     }
-    const deltaPct = ((s.ms - b.ms) / b.ms) * 100;
-    const band = Math.max(tol, (b.rmePct ?? 0) + (s.rmePct ?? 0));
+    // SAME machine → compare WALL CLOCK. It is the tightest signal available: the
+    // index divides by a second measured quantity, so on the one comparison that
+    // gates, the probe's own ±3% would only add noise.
+    // DIFFERENT machine → compare the INDEX, which at least divides the clock-speed
+    // difference out, and report rather than gate.
+    const deltaPct = comparable
+      ? ((s.ms - b.ms) / b.ms) * 100
+      : ((s.index - b.index) / b.index) * 100;
+    const band = Math.max(tol, (b.rmePct ?? 0) + (s.rmePct ?? 0)
+      + (comparable ? 0 : (base.calibration?.rmePct ?? 0) + (render?.calibrationRmePct ?? 0)));
     let verdict = 'ok';
     if (deltaPct > band) {
-      verdict = 'REGRESSION';
-      regressed = true;
+      verdict = comparable ? 'REGRESSION' : 'slower (not gated)';
+      if (comparable) regressedDatasets.push(s.dataset);
     } else if (deltaPct < -band) {
-      verdict = 'win';
-      won = true;
+      verdict = comparable ? 'win' : 'faster (not gated)';
+      if (comparable) won = true;
     }
     const sign = deltaPct >= 0 ? '+' : '';
+    const [was, now] = comparable ? [b.ms, s.ms] : [b.index, s.index];
     console.log(
-      `${s.dataset.padEnd(20)}${b.ms.toFixed(1).padStart(10)}${s.ms.toFixed(1).padStart(10)}${(sign + deltaPct.toFixed(1)).padStart(8)}${('±' + band.toFixed(1) + '%').padStart(8)}  ${verdict}`,
+      `${s.dataset.padEnd(20)}${was.toFixed(2).padStart(10)}${now.toFixed(2).padStart(10)}${(sign + deltaPct.toFixed(1)).padStart(8)}${('±' + band.toFixed(1) + '%').padStart(8)}  ${verdict}`,
     );
   }
-  for (const name of Object.keys(base.datasets ?? {})) {
-    if (!summary.some((s) => s.dataset === name)) {
-      drift = true;
-      console.log(`${name.padEnd(20)}${'—'.padStart(10)}${'absent'.padStart(10)}${'—'.padStart(8)}${'—'.padStart(8)}  MISSING`);
+  if (!confirming) {
+    for (const name of Object.keys(base.datasets ?? {})) {
+      if (!summary.some((s) => s.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(20)}${'—'.padStart(10)}${'absent'.padStart(10)}${'—'.padStart(8)}${'—'.padStart(8)}  MISSING`);
+      }
     }
   }
 
@@ -401,9 +607,18 @@ function checkBaseline(summary, printSummary) {
         console.log(`${s.dataset.padEnd(32)}${String(b.slides).padStart(10)}${String(s.slides).padStart(10)}   WORKLOAD CHANGED (re-bless)`);
         continue;
       }
+      // THE SAME MACHINE RULE AS THE RENDER TIER. This tier had no guard, so a
+      // 115-second puppeteer baseline — the row most exposed to hardware of
+      // anything here — still gated on absolute milliseconds wherever it ran,
+      // which made "different machine → reported, not gated" false exactly where
+      // it mattered most. These rows carry no calibration index (the probe is a
+      // parse, and this tier is I/O-bound raster work it says nothing about), so
+      // off-machine they are printed as raw seconds and simply do not gate.
       const d = ((s.ms - b.ms) / b.ms) * 100;
-      const verdict = d > EXPORT_BAND ? 'REGRESSION' : d < -EXPORT_BAND ? 'win' : 'ok';
-      if (verdict === 'REGRESSION') regressed = true;
+      const verdict = d > EXPORT_BAND
+        ? (comparable ? 'REGRESSION' : 'slower (not gated)')
+        : d < -EXPORT_BAND ? (comparable ? 'win' : 'faster (not gated)') : 'ok';
+      if (verdict === 'REGRESSION') regressedDatasets.push(s.dataset);
       console.log(
         `${s.dataset.padEnd(32)}${(b.ms / 1000).toFixed(1).padStart(9)}s${(s.ms / 1000).toFixed(1).padStart(9)}s${((d >= 0 ? '+' : '') + d.toFixed(1)).padStart(8)}${('±' + EXPORT_BAND + '%').padStart(8)}  ${verdict}`,
       );
@@ -420,27 +635,85 @@ function checkBaseline(summary, printSummary) {
       }
     }
   }
-  if (regressed) {
-    console.error('\nPerf regression beyond the variance band. Investigate, or re-bless if the change is intentional and justified in the PR.');
+  // DRIFT FAILS ON ANY MACHINE, and that is the second half of #1382. A slide count
+  // is machine-independent, so a moved one is unambiguous staleness — and the row it
+  // invalidates has recorded nothing since it moved. It used to exit 0 with a note,
+  // which is how `charts` sat blessed at 14 slides against a 15-slide deck for a
+  // month with `bench:check` printing the fix every time it ran.
+  if (drift) {
+    console.error('\nWorkload/dataset set drifted from baseline — the affected rows have been recording nothing. '
+      + 'Run `npm run bench:bless` and commit the updated baseline.');
     process.exitCode = 1;
-  } else if (drift) {
-    console.log('\nWorkload/dataset set drifted from baseline — run `npm run bench:bless` and commit the updated baseline.');
-  } else if (won) {
-    console.log('\nFaster than baseline (beyond the band) — run `npm run bench:bless` to ratchet the baseline so this win holds.');
-  } else {
-    console.log('\nWithin variance band — no regression.');
   }
+  // A TIMING regression is NOT failed here — `main()` confirms it with a second
+  // measurement first (see the two-pass note there). Drift is, because a slide
+  // count does not vary run to run.
+  if (!regressedDatasets.length && !drift) {
+    console.log(won
+      ? '\nFaster than baseline (beyond the band) — run `npm run bench:bless` to ratchet the baseline so this win holds.'
+      : '\nWithin variance band — no regression.');
+  }
+  return { regressedDatasets, drift, won };
 }
 
 async function main() {
   const render = await renderTier();
   const exp = wantExport ? await exportTier() : null;
   const print = wantPrint ? await printTier() : null;
-  if (wantBless) blessBaseline(render.summary, print?.summary);
+  if (wantBless) blessBaseline(render.summary, print?.summary, render);
   if (wantCheck && wantBless) {
     console.warn('\n--check skipped: ran with --bless, which would compare the just-written baseline against itself.');
   } else if (wantCheck) {
-    checkBaseline(render.summary, print?.summary);
+    // TWO-PASS TIMING. Pass 1 measures; a REGRESSION verdict then earns a second
+    // measurement before it is allowed to fail the run, and only a dataset that
+    // regresses in BOTH passes exits 1.
+    //
+    // Why: "same machine" is a hardware fingerprint, and on a shared or virtualized
+    // one it does not imply the same machine STATE. Measured on this repo's own
+    // cloud sandbox, two runs of an identical tree came in at 65.1ms and 56.3ms for
+    // `normal (jargon)` — 15% apart, against a ±12% band — because the first
+    // followed a test sweep and the box was still busy. The calibration probe sees
+    // some of that (4.59 → 5.10ms) but not all of it: contention hits a 58-slide
+    // render harder than a 2200-line parse, so no single divisor rescues one
+    // sample. A second sample does. That is the same failure #1382 was filed for —
+    // `bench:check` red on a tree nobody had changed — and shipping a gate that
+    // reproduces it under load would be the bug in a new costume.
+    //
+    // Cost is paid only when something already looks red, so a green run is
+    // unchanged. Noise is not correlated across passes; a real regression is.
+    const pass1 = checkBaseline(render.summary, print?.summary, render);
+    if (pass1.regressedDatasets.length) {
+      console.log(`\nRe-measuring ${pass1.regressedDatasets.length} regressed dataset(s) to separate a real slowdown from machine load…`);
+      const second = await renderTier();
+      // The EXPORT tier is not re-measured — an ~11-minute puppeteer arm cannot be
+      // run twice on a hunch — so an export-tier regression stands on pass 1 alone.
+      // Its ±50% band is already sized for that.
+      const exportRegressed = pass1.regressedDatasets.filter((n) => !render.summary.some((s) => s.dataset === n));
+      // PASS 2 INHERITS PASS 1's comparability verdict instead of re-deriving it.
+      // `comparableMachine` also fails when the calibration probe reads more than
+      // PROBE_BAND off the blessed value — and pass 2 runs precisely when the box
+      // looked slow, which is when the probe is most likely to drift. Re-deriving
+      // it there meant a loaded machine could flip pass 2 to NOT COMPARABLE, and
+      // `regressedDatasets` is only appended to `if (comparable)` — so every
+      // pass-1 regression came back "not reproduced" and the run exited 0. A real
+      // slowdown would have been reported as machine noise by the machine noise.
+      const again = checkBaseline(second.summary, null, second, {
+        confirming: new Set(pass1.regressedDatasets),
+        comparable: true,
+      });
+      const confirmed = [...exportRegressed, ...pass1.regressedDatasets.filter((n) => again.regressedDatasets.includes(n))];
+      const cleared = pass1.regressedDatasets.filter((n) => !confirmed.includes(n));
+      if (cleared.length) {
+        console.log(`\nNot reproduced on the second pass (machine load, not code): ${cleared.join(', ')}`);
+      }
+      if (confirmed.length) {
+        console.error(`\nPerf regression beyond the variance band, confirmed on two passes: ${confirmed.join(', ')}. `
+          + 'Investigate, or re-bless if the change is intentional and justified in the PR.');
+        process.exitCode = 1;
+      } else if (!pass1.drift) {
+        console.log('\nWithin variance band — no regression.');
+      }
+    }
   }
   if (asJson) console.log('\n' + JSON.stringify({ render, export: exp, print }, null, 2));
   const missing = [!wantExport && '--export (rasterize tier, ~2 min)', !wantPrint && '--print (print re-place tier, ~11 min)'].filter(Boolean);

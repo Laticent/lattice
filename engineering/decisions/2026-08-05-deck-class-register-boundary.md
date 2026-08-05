@@ -239,8 +239,26 @@ bytes kept it. One source, two decks — which is the failure this whole change
 exists to end, arriving through the fix for it, and self-inflicted rather than
 pre-existing (before the filter, a spurious `color-mode:` read superseded nothing).
 
-`topLevelFrontMatterValue` is the strict read, and the two registers with a
-writer — `class:` and `color-mode:` — use it. The looser reader stays the default
+`topLevelFrontMatterValue` is the strict read — and it turned out to be right for
+only ONE of the two keys, which is the correction worth recording. Applying it to
+`class:` as well produced the mirror-image bug in the more dangerous direction:
+`parseFrontMatter` (lib/engine/directives.js) calls `line.trim()` before matching
+its key/value, so the ENGINE stamps a `class:` at any indentation onto every
+section. A reader stricter than the stamper does not ignore a non-register, it
+answers for a canvas nobody is painting — ` class: print` rendered a
+`section.print` page while `deckPrintBand` said light, and the diagram baked light
+ink onto it. Caught by the independent checker, with rasterized proof.
+
+So the rule is not "both registers with a writer read strictly". It is **read the
+key the way the thing that ACTS on it reads it**:
+
+| key | acted on by | so it is read |
+|---|---|---|
+| `class:` | the ENGINE's `parseFrontMatter`, which stamps it | loosely — any indentation |
+| `color-mode:` | nothing in the engine; only Lattice writers, all at column 0 | strictly — column 0 |
+
+That asymmetry looks like an inconsistency and is the opposite: it is the only way
+both readers agree with what actually happens to their key. The looser reader stays the default
 for the ~20 read-only keys: being loose in a reader is survivable in a way that
 being loose in a writer is not, and a repo-wide sweep is not this change. The
 docs-site preview (`docs/src/lib/deck-theme.ts`, a fifth reader that cannot import
@@ -251,7 +269,7 @@ nested key the render ignores.
 ## Blast radius
 
 Zero committed decks change. No deck names a component in its deck-wide `class:`
-(651 with front matter, checked — including this branch's own two); none sets
+(654 with front matter, checked — including this branch's own two); none sets
 `color-mode:` alongside a `class:` color token (9 set `color-mode:`, none
 collides). All 260 decks lint clean with no new findings.
 

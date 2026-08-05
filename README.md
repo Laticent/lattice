@@ -82,7 +82,9 @@ cd lattice
 npm install
 ```
 
-Requires Node 22+. `npm install` pulls in the Mermaid CLI and Puppeteer
+Requires Node 22.12+ (`require()` of an ES module, which `lib/authoring` uses to
+share the class-directive scanner, is unflagged from that release).
+`npm install` pulls in the Mermaid CLI and Puppeteer
 (which downloads a matching Chromium). It does **not** pull Marp — the owned
 engine renders every first-party path.
 
