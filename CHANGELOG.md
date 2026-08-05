@@ -561,13 +561,24 @@ in patch versions.
   the canvas and starts closer to AA on a dark one. A theme declares nothing: re-hue the mark
   and the ink follows. Measured over 1296 pairs (27 hue palettes × 2 modes × 12 slots × 2
   surfaces): zero failures, worst 5.20:1 light and 5.15:1 dark. `checkCatContrast` now gates
-  layer ④ — `--cat-N-ink` vs `--bg` *and* `--bg-alt` ≥ 4.5:1 — fail-closed, on **all 32
-  palettes including the a11y family**, which the previous three layers skip as the sanctioned
-  hue exception. Legibility is not a hue question, and skipping the whole theme would have let
-  the a11y family ship a 2.26:1 ink under a per-slide `_class: dark`; those palettes pin
-  `--cat-N-ink: var(--text-heading)` instead, costing nothing on a ramp that carries zero
-  chroma. The gate reads the shipped declaration and evaluates it with the engine's own
-  `resolve-token-expr`, so it cannot drift off the recipe it is checking. (#1263)
+  layer ④ — `--cat-N-ink` vs `--bg` *and* `--bg-alt` ≥ 4.5:1 — fail-closed, across **three
+  canvases** (light, dark, and the B&W print band) and **all 32 palettes including the a11y
+  family**, which the previous three layers skip as the sanctioned hue exception. Legibility
+  is not a hue question, and skipping the whole theme would have let the a11y family ship a
+  2.26:1 ink under a per-slide `_class: dark`; those palettes pin the ink to `--text-heading`
+  instead, costing nothing on a ramp that carries zero chroma. The gate reads the shipped
+  declaration and evaluates it with the engine's own `resolve-token-expr`, so it cannot drift
+  off the recipe it is checking.
+
+  Two things a theme author needs to know. The derivation is declared on **`:root, section`**,
+  not `:root` — a custom property substitutes its `var()`s on the element the declaration
+  applies to, so a `:root`-only copy freezes the theme hue and `section.print`'s remap of the
+  mark tier can never reach it. And a palette that must pin the ink sets **`--cat-N-ink-set`**,
+  the named seam (chart-family's `var(--chart-catN, default)` idiom), *never* `--cat-N-ink`
+  itself: because the derivation lands on `section`, a `:root` redeclaration is shadowed on
+  every slide and silently does nothing. Both are gated — `checkCatInkDeclaredOnSection` checks
+  the declaration site, which a flat token map provably cannot see, and
+  `checkCatInkOverrideSeam` rejects a direct override. (#1263)
 
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
   pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`
@@ -901,9 +912,17 @@ in patch versions.
   with the twenty lines of justification moved to the token definition where the other
   consumers can find it; `premise`'s row term drops the `font-weight: 700` it was carrying
   **purely** to qualify for the 3:1 large-text exemption, and returns to the 600 that matches
-  every other `section strong` in the engine. `chart/matrix-grid` and `chart/quadrant` are
-  deliberately untouched — they mix the *chart* categorical tier, not the universal one.
-  (#1263)
+  the engine's base weight for `section strong`. A sweep for every `color:` in `lib/` that
+  resolves to a `--cat-N-mark` then found the consumer list was longer than the issue's: not
+  three but **eight sites across five files**, the others being `obligation-matrix` lane
+  labels, `roadmap` horizon eyebrows, `authority-chain` tier labels (×2) and `statute-stack`
+  jurisdiction labels (×3). All move to the ink tier — the raw mark as small text misses AA on
+  **372 of 1536** theme × mode × slot × surface pairs, worst **1.28:1**, and all 372 clear
+  through `--cat-N-ink`. In every case the stroke keeps the mark and only the text takes the
+  ink. Two deliberate exclusions, both now stated in the files themselves: `chart/matrix-grid`
+  and `chart/quadrant` mix the *chart* categorical tier rather than the universal one, and
+  `logo-wall`'s `--logo-ink` paints an SVG logo mark — a graphical object, so 3:1 is the bar it
+  answers to and the mark tier is already gated there. (#1263)
 
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose
