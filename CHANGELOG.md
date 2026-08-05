@@ -52,6 +52,16 @@ in patch versions.
 - **Fixed: the Coach reported "no content" for a one-slide deck with front matter.** Its content
   gate counted the YAML block as a slide and required more than one, so counting real slides made a
   legitimate single-slide deck read as empty.
+- **Fixed: the linter checked a slide against its neighbor's class contract.**
+  `lib/core/class-directive-scan.mjs` answers "which class governs this slide?" for the deck linter,
+  the reviewer, the scorecard, the fact-checker and the editor's autocomplete, and every one of them
+  pairs its output with `splitTopLevel`'s chunks POSITIONALLY. It counted boundaries with its own
+  `/^---$/`, so on a deck using any of the separator forms above the two arrays were different
+  lengths and every slide after the divergence was linted, scored and completed against the wrong
+  component's rules — while a `---` written inside a multi-line comment (commenting a run of slides
+  out) was counted as a break that the engine does not have. It now takes its boundaries from the
+  same derivation as the splitter, so the pairing is structural. `slide` numbers in lint findings on
+  such a deck change to the numbers the render actually has.
 - **Changed: round-tripping a deck through the Studio's Write surface canonicalizes a non-`---`
   separator to `---`.** Same render, different bytes. It follows from the Write surface modeling
   the split at all: `***` in prose was always two slides to the engine and one slide in the editor.

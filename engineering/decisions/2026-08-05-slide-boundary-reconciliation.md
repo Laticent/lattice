@@ -15,7 +15,9 @@ summary: >
   the failure was structural: six confirmed wrong answers behind a `certain: true` flag, a
   differential fuzz whose PRNG had collapsed to 3,736 distinct decks, and a cost table measuring the
   wrong function by 6x. Also records the O(n^2) in `math-block-rule.js` the redesign surfaced, and
-  four defects found in the author's own instruments.
+  four defects found in the author's own instruments. A FIFTH splitter surfaced on the way — the
+  shared class-directive reader, whose own pairing test caught the break — and it is reconciled
+  through the same derivation.
 ---
 
 # The two slide splitters, reconciled — by asking the parser
@@ -180,6 +182,34 @@ if none follows line L, none follows any later line either. The record lives on 
 `state`, so it cannot leak between documents. After: **24ms** for the boundary parse, 109ms for the
 full render. Output is unchanged by construction — the short-circuit only skips a scan that would
 have failed.
+
+## 6b. A fourth splitter, found by its own contract test
+
+`lib/core/class-directive-scan.mjs` (#1383) answers "which class governs this slide?" for the deck
+linter, the reviewer, the scorecard, the fact-checker and the editor's autocomplete. It was not on
+the list of caller-side splitters because it is not one — but it walks lines, and it had to know
+where a slide begins, so it carried a fifth `/^---$/`.
+
+Its contract is that it indexes **exactly** like `splitTopLevel`, because every consumer pairs the
+two arrays positionally (`slides.forEach((slide, i) => directives[i])`). Moving `splitTopLevel` onto
+the parser broke that pairing, and its own test caught it — the one place in this change where a
+committed test found a regression before a human did.
+
+The two readers had been agreeing on a shape neither the engine nor CommonMark has: a `---` written
+**inside a multi-line HTML comment**, which is what commenting a run of slides out looks like. The
+engine sees one `html_block` and does not split; both readers split, and the module's header said so
+in as many words, deferring the fix on the grounds that correcting the splitter would move every
+finding's `slide` number. This change is that correction, so the deferral expired with it.
+
+Fixed by giving the walk its boundaries rather than letting it derive them: `chunkBoundaryLines`
+(the full-source, front-matter-inclusive line-space spelling of `splitSlideChunks`) is now read by
+`splitTopLevel`'s line analog **and** by the class scan, so the pairing is structural. The scan also
+inherits the eight separator forms — on a deck using any of them, every slide after the first one
+was previously linted, scored and completed against the wrong component's rules.
+
+The module's stated reason for not calling the parser — that markdown-it roughly triples the browser
+authoring-core bundle — no longer holds: the cores reach markdown-it anyway through
+`slide-boundaries.mjs`, marked `external` there, and the bundle is 126KB against 133KB before.
 
 ## 7. Three test suites were pinning the defect
 
