@@ -362,7 +362,80 @@
    * transforms read them, and the legacy `--cN-light` / `--cN-dark` /
    * `--c-ink-*` names are RETIRED. The old→new map lives in lib/tokens/
    * crosswalk.js + the ADR §7 table for legacy-deck migration. */
-     
+
+}
+
+  /* ── --cat-N-ink · the category's hue AS TEXT, on the slide ───────────
+   * The categorical tier has THREE inks, told apart by WHAT THE INK SITS ON:
+   *
+   *   --cat-on-fill   text on a --cat-N-fill   (the pale SURFACE tier)
+   *   --cat-on-mark   text on a --cat-N-mark   (the saturated STROKE tier)
+   *   --cat-N-ink     text on --bg / --bg-alt  (the SLIDE — this tier)
+   *
+   * The first two are ON-CHIP: one shared ink each, because a chip supplies its
+   * own background. This one is ON-CANVAS, so it is per-slot: the hue has to
+   * survive into the letterforms, and the surface behind it is the deck's.
+   *
+   * WHY IT EXISTS. `--cat-N-mark` reads like the token for "this category's
+   * color, used visibly" — its own theme comments invite that reading — but it is
+   * a STROKE token, gated to 3:1 against the canvas, the WCAG 1.4.11 NON-TEXT bar
+   * its border/branch/edge role is scoped to. Normal-size text needs 4.5:1, and
+   * the raw mark misses it on 372 of 1536 theme x mode x slot x surface pairs
+   * (worst 1.28:1). Eight sites across five files were painting it anyway. (#1263)
+   *
+   * DECLARED PER THEME, NOT DERIVED HERE — and that is the point. The values are
+   * CURATED: `tools/derive-cat-ink.js` keeps each mark's HUE and CHROMA exactly and
+   * solves only LIGHTNESS until it clears AA on both slide surfaces, then writes
+   * concrete values into each palette beside the fill/mark cycle. Most slots come
+   * out IDENTICAL to their mark (it already cleared): 271 of the 360 committed arms,
+   * against 89 repaired, 0-12 per palette. Only the failing ones move, and they move
+   * the least distance that works. Measured over the shipped palettes: max hue shift
+   * 3.4 degrees (only `concrete`, whose marks are near-achromatic and whose hue angle
+   * is unstable at that chroma), 99% of chroma kept.
+   *
+   * The first cut of this tier derived the ink in CSS instead —
+   * `color-mix(in oklab, var(--cat-N-mark) 65%, var(--text-heading))` — and it was
+   * contrast-correct but off brand. The mix pole must track the canvas (a fixed
+   * black/white pole fails `carbone`, which is dark in both modes, at 1.57:1), and
+   * `--text-heading` is itself chromatic on several palettes, so it dragged the
+   * mark's hue up to 14.9 degrees and unevenly across slots — a shear, not a tint —
+   * while mixing away 28% of the chroma on average. A derived approximation of a
+   * hand-curated cycle is not the same thing as the cycle. Generated-and-committed
+   * is also how the fill/mark values themselves were produced
+   * (engineering/decisions/2026-07-15-categorical-token-contract.md, "Shipped").
+   *
+   * Being real per-theme tokens, they sit at `:root` like every other categorical
+   * slot and `section.print` remaps them to the band below, exactly as it remaps
+   * fill and mark. Re-run the generator after re-hueing a mark tier;
+   * `derive-cat-ink --check` fails the build if a palette drifts from the recipe,
+   * and checkCatContrast holds the result to AA on light, dark and print. */
+
+:root {
+  /* ── No :root default for --cat-N-ink, deliberately ──
+   * Each palette declares all twelve (tools/derive-cat-ink.js). A theme built
+   * OUTSIDE this repo — lib/theme/derive.js, the Studio's Fabricate path — declares
+   * the mark cycle and no ink cycle, and would otherwise render every categorical
+   * label in one color: measured 8 distinct row borders, 1 distinct row term.
+   *
+   * The fallback for that lives at the CONSUMERS, as `var(--cat-N-ink,
+   * var(--cat-N-mark))`, NOT as a default here. A `:root` default cannot be ordered
+   * safely: the emulator/export bundle concatenates the theme BEFORE this file, so a
+   * default declared here wins on equal specificity and silently reverts every
+   * curated ink to its mark — measured on a real render, premise dropped from 4.68:1
+   * back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no such
+   * ordering hazard: it applies only when the token is genuinely absent. */
+
+  /* ── Print band · categorical ink ──
+   * The print marks are already dark enough to carry text on paper (worst 4.96:1
+   * against --print-bg-alt), so the printed ink IS the printed mark — no separate
+   * curation, and no chance of the two drifting apart. */
+  --print-cat-1-ink:  var(--print-cat-1-mark);   --print-cat-2-ink:  var(--print-cat-2-mark);
+  --print-cat-3-ink:  var(--print-cat-3-mark);   --print-cat-4-ink:  var(--print-cat-4-mark);
+  --print-cat-5-ink:  var(--print-cat-5-mark);   --print-cat-6-ink:  var(--print-cat-6-mark);
+  --print-cat-7-ink:  var(--print-cat-7-mark);   --print-cat-8-ink:  var(--print-cat-8-mark);
+  --print-cat-9-ink:  var(--print-cat-9-mark);   --print-cat-10-ink: var(--print-cat-10-mark);
+  --print-cat-11-ink: var(--print-cat-11-mark);  --print-cat-12-ink: var(--print-cat-12-mark);
+
      
      
      

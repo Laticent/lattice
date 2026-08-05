@@ -1793,11 +1793,141 @@ describe('check-ownership', () => {
       const map = new Map([
         ['--x', 'light-dark(color-mix(in oklab, #aabbcc 50%, #ddeeff), #123456)'],
       ]);
-      // light arm is a color-mix() this static resolver can't evaluate → null (fail-closed),
-      // NOT a wrong hex silently harvested from inside the color-mix.
-      assert.equal(catResolve(map, '--x', 'light'), null);
+      // The light arm is a color-mix() whose own commas sit INSIDE the arm. It must
+      // resolve to the real 50/50 oklab blend of #aabbcc and #ddeeff — not to a hex
+      // silently harvested from inside the mix (#aabbcc, what the naive split gave),
+      // and no longer to null: since --cat-N-ink the resolver evaluates color-mix().
+      assert.equal(catResolve(map, '--x', 'light'), '#c3d4e5');
       // dark arm is a plain hex and must resolve correctly despite the commas in the light arm.
       assert.equal(catResolve(map, '--x', 'dark'), '#123456');
+    });
+
+    test('catResolve stays FAIL-CLOSED on a value that is not a color', () => {
+      // The evaluator it delegates to returns unresolvable input verbatim, which is
+      // right for a renderer and wrong for a gate: a non-color must read as "cannot
+      // verify" (null), so the caller raises it instead of silently skipping a slot.
+      const map = new Map([
+        ['--a', 'var(--never-declared)'],
+        ['--b', 'currentColor'],
+        ['--c', 'color-mix(in oklab, currentColor 65%, #123456)'],
+        ['--d', 'light-dark(#111111)'], // a one-armed light-dark() is malformed
+      ]);
+      for (const t of ['--a', '--b', '--c', '--d']) {
+        assert.equal(catResolve(map, t, 'light'), null, `${t} must fail closed`);
+      }
+    });
+
+    test('the ink gate bites: an undiluted mark used as on-canvas ink is below AA', () => {
+      // The #1263 defect, in miniature — `atelier` light, --cat-4-mark painted raw
+      // as `color:` on the `math.theorem` blockquote's --bg-alt. The whole point of
+      // --cat-N-ink is that this pair clears 4.5:1 instead.
+      assert.ok(catContrast('#478400', '#e5e0d2') < CAT_TEXT_FLOOR, 'the raw mark fails AA on --bg-alt');
+      const map = new Map([['--cat-4-ink', 'light-dark(#3C6A1A, #B6D98A)']]);
+      assert.ok(catContrast(catResolve(map, '--cat-4-ink', 'light'), '#e5e0d2') >= CAT_TEXT_FLOOR,
+        'the curated ink clears AA on the same surface');
+    });
+
+    test('the curated ink keeps the mark hue — that is what makes it on brand', () => {
+      // The recipe moves LIGHTNESS only. A mix toward --text-heading (the shipped
+      // first cut) dragged the hue up to 14.9 degrees on chromatic-heading palettes;
+      // holding hue is the whole reason the values are generated instead of mixed.
+      const { solveInk } = require('../../../tools/derive-cat-ink.js');
+      const { hexToOklch, contrastRatio } = require('../../../lib/theme/color.js');
+      const mark = '#478400'; // atelier cat-4, the worst measured slot
+      const ink = solveInk(mark, '#f2efe6', '#e5e0d2');
+      const hueOf = (h) => hexToOklch(h).h;
+      let drift = Math.abs(hueOf(mark) - hueOf(ink)) % 360;
+      if (drift > 180) drift = 360 - drift;
+      assert.ok(drift < 2, `curated ink drifted ${drift.toFixed(1)}deg off the mark hue`);
+      assert.ok(Math.min(contrastRatio(ink, '#f2efe6'), contrastRatio(ink, '#e5e0d2')) >= CAT_TEXT_FLOOR,
+        'and it still clears AA on both surfaces');
+    });
+
+    // THESE THREE ARE BITE-TESTS, NOT SMOKE TESTS. The first cut of this block
+    // asserted `deepEqual(errors, [])` after running each arm over the REAL shipped
+    // palettes, which passes whether the arm inspects anything, is dead, or is
+    // deleted outright — the ink collapse arm shipped with zero effective coverage
+    // that way. Each test below constructs the violation and asserts the arm names
+    // it, then asserts the clean case stays silent.
+
+    test('checkCatInkDeclared BITES: a palette owning a mark cycle but no ink cycle is named', () => {
+      const { checkCatInkDeclared } = require('../../../tools/check-ownership.js');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-ink-declared-'));
+      try {
+        const cycle = Array.from({ length: 12 }, (_, i) => `  --cat-${i + 1}-mark: #123456;`).join('\n');
+        fs.writeFileSync(path.join(dir, 'noink.css'), `:root{\n${cycle}\n}`);
+        const errors = [];
+        checkCatInkDeclared(errors, dir);
+        assert.equal(errors.length, 1, 'the arm should name the palette');
+        assert.match(errors[0], /"noink"/);
+        assert.match(errors[0], /missing 12 of its 12 on-canvas ink slots/);
+
+        // …and stays silent once the cycle is there.
+        const inks = Array.from({ length: 12 }, (_, i) => `  --cat-${i + 1}-ink: #123456;`).join('\n');
+        fs.writeFileSync(path.join(dir, 'noink.css'), `:root{\n${cycle}\n${inks}\n}`);
+        const clean = [];
+        checkCatInkDeclared(clean, dir);
+        assert.deepEqual(clean, []);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('the ink collapse arm BITES: inks that coincide where their marks do not', () => {
+      const { catInkCollapsePairs } = require('../../../tools/check-ownership.js');
+      // Twelve well-separated marks…
+      const marks = ['#B03030', '#30B030', '#3030B0', '#B0B030', '#B030B0', '#30B0B0',
+                     '#8A4520', '#20458A', '#458A20', '#8A2045', '#208A45', '#452080'];
+      // …whose solve left every slot on one value: the a11y-dark failure exactly.
+      assert.ok(catInkCollapsePairs(marks.map(() => '#848484'), marks).length >= 60,
+        'a fully collapsed arm should report a pair for (almost) every combination');
+      // A single collapsed PAIR is caught too, and named.
+      const oneBad = marks.map((m, i) => (i === 4 ? '#30B030' : m));
+      const pairs = catInkCollapsePairs(oneBad, marks);
+      assert.equal(pairs.length, 1);
+      assert.match(pairs[0], /--cat-2-ink\/--cat-5-ink/);
+      // Inks that simply ARE the marks are never a collapse.
+      assert.deepEqual(catInkCollapsePairs(marks, marks), []);
+      // And an inherited near-tie is exempt: concrete dark ships two marks ~2/255
+      // apart, so its inks being that close is a palette fact, not a solve failure.
+      const tied = ['#DFDDDD', '#DFDEDD', ...marks.slice(2)];
+      assert.deepEqual(catInkCollapsePairs(tied, tied), []);
+    });
+
+    test('checkCatInkFallback BITES: a bare read, and a mismatched slot number', () => {
+      const { checkCatInkFallback } = require('../../../tools/check-ownership.js');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-ink-fallback-'));
+      try {
+        const at = path.join(dir, 'x.styles.css');
+        fs.writeFileSync(at, 'a { color: var(--cat-3-ink); }');
+        const bare = [];
+        checkCatInkFallback(bare, dir);
+        assert.equal(bare.length, 1, 'a bare read must be flagged');
+        assert.match(bare[0], /x\.styles\.css:1/);
+
+        // The slot numbers have to agree — this typo would paint category 3 in 7's hue.
+        fs.writeFileSync(at, 'a { color: var(--cat-3-ink, var(--cat-7-mark)); }');
+        const mismatched = [];
+        checkCatInkFallback(mismatched, dir);
+        assert.equal(mismatched.length, 1, 'a mismatched slot number must be flagged');
+
+        // The correct spelling passes, including a deeper nested fallback.
+        fs.writeFileSync(at, 'a { color: var(--cat-3-ink, var(--cat-3-mark)); }\n' +
+                             'b { color: var(--cat-4-ink, var(--cat-4-mark, var(--accent))); }');
+        const clean = [];
+        checkCatInkFallback(clean, dir);
+        assert.deepEqual(clean, []);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    test('solveInk returns the mark UNCHANGED when it already clears', () => {
+      // Most slots need no repair at all; repainting them would move a curated
+      // value for nothing. Regression for the binary search whose inverted
+      // invariant collapsed every slot to the pole (#000001 for a teal mark).
+      const { solveInk } = require('../../../tools/derive-cat-ink.js');
+      assert.equal(solveInk('#2E608A', '#F2F5FA', '#FFFFFF'), '#2E608A');
     });
 
     test('catResolve honors a var() fallback that itself contains commas', () => {

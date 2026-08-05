@@ -548,6 +548,93 @@ in patch versions.
 
 ### Added
 
+- **`--cat-1-ink` … `--cat-12-ink` — the categorical tier finally has an ink for the slide
+  itself.** The cycle shipped two inks, both of them ON-CHIP: `--cat-on-fill` for text on a
+  `--cat-N-fill`, `--cat-on-mark` for text on a `--cat-N-mark`. Nothing covered the third
+  case — the category's hue used as *text on `--bg` / `--bg-alt`* — even though eight sites
+  across five files wanted exactly that. `--cat-N-mark` looks like the token for the job and
+  its own theme comments invite the reading, but it is a STROKE token, gated to the 3:1 WCAG
+  1.4.11 non-text bar its border role is scoped to; normal-size text needs 4.5:1, and the raw
+  mark misses it on **372 of 1536** theme × mode × slot × surface pairs, worst **1.28:1**.
+
+  **The values are CURATED, not derived at render time.** `tools/derive-cat-ink.js` takes each
+  palette's own `--cat-N-mark`, holds its **hue and chroma exactly**, and solves only
+  **lightness** until the result clears AA on both slide surfaces — then writes the block into
+  the palette beside the fill/mark cycle it belongs with. Most slots come out **identical to
+  their mark**, because the mark already cleared as text; only the failing ones move, and they
+  move the least distance that works. Measured across the shipped palettes: **max hue shift
+  3.4°, 99% of chroma kept** — 271 of the 360 committed arms come out byte-identical to their mark, 89 are repaired, 0–12 per palette (`onyx` needs none). This is the same method the
+  fill/mark values themselves were produced by — a deterministic recipe run per theme over that
+  theme's own curated hues — so the ink is inspectable, hand-tunable, and reachable by
+  `section.print`'s remap. `derive-cat-ink --check` runs inside `npm run build`, so a re-hued
+  mark or a hand-edit cannot leave the two out of step.
+
+  A first cut derived the ink in CSS instead (`color-mix(in oklab, var(--cat-N-mark) 65%,
+  var(--text-heading))`). It was contrast-correct and **off brand**: the mix pole has to track
+  the canvas (a fixed black/white pole fails `carbone`, dark in both modes, at 1.57:1), and
+  `--text-heading` is itself chromatic on several palettes — so it dragged the mark's hue by up
+  to **14.9°**, unevenly across slots (indaco light spread 25°, a shear rather than a tint),
+  while mixing away 28% of the chroma on average. A derived approximation of a hand-curated cycle is
+  not the same thing as the cycle.
+
+  `checkCatContrast` gates layer ④ — `--cat-N-ink` vs `--bg` *and* `--bg-alt` ≥ 4.5:1 —
+  fail-closed, across **three canvases** (light, dark, and the B&W print band) and **all 32
+  palettes including the a11y family**, which the previous three layers skip as the sanctioned
+  hue exception. Legibility is not a hue question, and an **anti-collapse arm** rides with it:
+  twelve slots that read as one color have stopped encoding a category, which a luminance ramp
+  can do (a11y dark solved to a single hex). That arm measures **perceptual distance (OKLab)**,
+  not hex identity — `new Set(hexes).size === 12` calls `concrete`'s dark arm, twelve values
+  spanning two units out of 255, a distinct cycle — and it judges a pair against **its own
+  marks**: the shipped palettes' curated ink separation runs continuously from 0.0013 to 0.055,
+  so any absolute floor would fail a palette for spacing it *inherited*. A collapse is the ink
+  solve destroying a distinction the palette carries, which is the only thing the generator is
+  answerable for. Verified in real Chromium: **2304 ink/surface pairs** across 32 palettes ×
+  light/dark/print × 12 slots × 2 surfaces — 0 AA failures, 0 non-neutral print inks, 0
+  collapsed arms.
+
+  A third arm, `checkCatInkFallback`, requires every read of `--cat-N-ink` in `lib/` to carry
+  its `var(--cat-N-mark)` fallback with a **matching slot number**. That is what actually closes
+  the class: the fallback is a per-site convention, and a bare read renders nothing on any theme
+  generated outside this repo — the `roadmap .horizons` bug's exact shape, where every phase
+  eyebrow collapsed onto one flat `--accent`, silently and only off-repo.
+
+  A theme built **outside** this repo — `lib/theme/derive.js`, the Studio's Fabricate path —
+  declares the mark cycle and no ink cycle. Consumers therefore read
+  `var(--cat-N-ink, var(--cat-N-mark))`, so such a theme degrades to exactly its previous
+  rendering instead of collapsing every categorical label onto `--accent`. The fallback lives at
+  the consumers and **not** as a `:root` default on purpose: the **emulator's** export bundle
+  concatenates the theme *before* `base.tokens.css` (`lattice-emulator.js`, `paletteCSS +
+  layoutCSS`), so a default there wins on equal specificity and silently reverts every curated
+  ink to its mark — measured in Chromium, `atelier`'s curated `#006D70` became the mark
+  `#008386`, and `premise` fell from 4.68:1 back to the 4.25:1 this change exists to fix. The
+  other three bundles (`composeCss`, `build-default-bundle.js`, the marp-kit) are base-first,
+  where a default would have been harmless; the consumer-side fallback is order-independent and
+  therefore correct on all four. `var()`'s own fallback has no ordering hazard. (#1263)
+
+### Fixed
+
+- **`journey weighted`'s volume badge was painting a 3:1 stroke token as small text, and the
+  first attempt to fix it was inert.** The badge read `var(--mood-ink, …)`, a token only the
+  `heatmap` rows ever set, so it kept falling through to the raw mark: **137 of 320** palette ×
+  mode × mood pairs below AA, worst **1.27:1**. Wiring the token would not have fixed it either
+  (110 of 320 still short, worst 3.04:1) — unlike the heatmap badge, which paints itself a
+  `var(--bg)` disc and so lands on a gated surface, the weighted badge sits directly on the
+  tinted chip `color-mix(--mood-bg 28%, --bg-alt)`, a **third** surface no categorical ink is
+  solved against. It now takes `--text-heading`, which clears every pair (worst 4.79:1) and is
+  the honest token for a number whose subject is *volume* — the mood is already carried twice
+  over, by the chip's border-top and its tint. Held by a new
+  `test/unit/palette/journey-chip-contrast.test.js`, which states each variant's surface
+  independently of the CSS so re-pointing an ink cannot also re-point what it is judged against.
+  (#1263)
+
+- **Mermaid quadrant labels took the mark tier, not an ink.** `quadrant1..4TextFill` painted the
+  quadrant **label text** with `--cat-N-mark` on `--cat-N-fill` — **54 of 256** pairs below AA,
+  worst **2.77:1** — while `quadrantPointTextFill` two lines below already used `--cat-on-fill`,
+  the ink curated for exactly that band. Now all five agree. This could not have been caught by
+  the coverage assertion in `diagram-ink-contrast.test.js`, which enumerates keys that already
+  name an *ink* token: a key painting text from the wrong tier is structurally invisible to it.
+  The four keys now carry `SITES` rows and are judged with the rest. (#1263)
+
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
   pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`
   pane, so a line past the right edge is cut mid-token: no ellipsis, no scrollbar, and no height
@@ -846,6 +933,51 @@ in patch versions.
   rendered rows** rather than `over` — an `over`-only assertion passes against the broken build —
   and confirmed non-vacuous (88px hidden with the fix reverted). See
   `engineering/decisions/2026-07-16-state-chart-self-scale.md` §Follow-up (2026-08-04). (#1360)
+- **Gitgraph branch labels bake at 1.2:1–3.0:1 in every palette, and now clear AA in all
+  32.** `gitBranchLabel0-7` is drawn on `git0-7`, which the map feeds from
+  `--cat-1..8-mark` — the saturated band — while the ink came from `--cat-on-fill`, which
+  is curated for the *pale* `--cat-N-fill` band. Ink meant for one tier, used on another,
+  in both schemes. The sanctioned fix in the issue was "a third ink tier, or move the chips
+  to the pale band"; the third tier turned out to **already exist** — `--cat-on-mark`, gated
+  ≥4.5:1 against every `--cat-N-mark` — with nothing pointing at it, so the eight keys now
+  do. That alone repaired 27 palettes. The a11y family still failed at 1.55:1 for a
+  different reason: it **pins** its categorical ramp mode-invariant while inheriting a
+  flipping `--cat-on-mark` from onyx, so a per-slide `_class: dark` sent the ink to
+  `#000000` while the chips stayed near-black — the same reach problem #1323 fixed one tier
+  over. `themes/a11y-base.css` now pins `--cat-on-mark: #FFFFFF`, which is exactly what it
+  already resolved to under that palette's forced light scheme, so existing a11y decks are
+  byte-identical and only the dark-slide case moves. The `gitBranchLabel*` entries are gone
+  from `KNOWN_BELOW_AA` and the gate holds them for real. **Scope, stated honestly:** this
+  repairs the *baked* SVG. On a Lattice slide `mermaid.css` repaints the branch chip with
+  `--cat-N-fill` and its text with `--cat-on-fill`, both `!important`, so the slide already
+  showed a matched pair and renders identically — verified on a rendered gitgraph in
+  `indaco` light and `a11y-deuteranopia` dark. The baked values are what matters wherever
+  our CSS does not ride along, which is the premise the gate is built on. #1348 stays open
+  for its `errorTextColor` half (palette curation on four a11y palettes + `carbone`). (#1348)
+
+- **`math.theorem`'s Definition and Theorem labels were below AA on 11 of 56 theme/mode
+  combinations, and are not any more.** They painted the raw `--cat-4-mark` / `--cat-7-mark`
+  as `color:` on the blockquote's `--bg-alt`, bottoming out at **3.49:1** (`atelier` light,
+  `#478400` on `#e5e0d2`; also `ardesia` 3.87, `brina` 3.93, `burgundy` 3.81, `concrete`
+  4.42/4.50, `atelier` cat-7 4.19). The label now takes the new `--cat-N-ink`, which keeps
+  the hue and clears 4.5:1 on every palette; the blockquote's `border-left` keeps the mark,
+  which is a stroke and correctly gated at 3:1. Two components that had already worked around
+  the same gap move onto the shared tier with it: `split-panel`'s `--panel-label-ink` was a
+  local `light-dark(color-mix(mark 65%, text-heading), …)` and is now `var(--cat-N-ink)`,
+  with the twenty lines of justification moved to the token definition where the other
+  consumers can find it; `premise`'s row term drops the `font-weight: 700` it was carrying
+  **purely** to qualify for the 3:1 large-text exemption, and returns to the 600 that matches
+  the engine's base weight for `section strong`. A sweep for every `color:` in `lib/` that
+  resolves to a `--cat-N-mark` then found the consumer list was longer than the issue's: not
+  three but **eight sites across five files**, the others being `obligation-matrix` lane
+  labels, `roadmap` horizon eyebrows, `authority-chain` tier labels (×2) and `statute-stack`
+  jurisdiction labels (×3). All move to the ink tier — the raw mark as small text misses AA on
+  **372 of 1536** theme × mode × slot × surface pairs, worst **1.28:1**, and all 372 clear
+  through `--cat-N-ink`. In every case the stroke keeps the mark and only the text takes the
+  ink. Two deliberate exclusions, both now stated in the files themselves: `chart/matrix-grid`
+  and `chart/quadrant` mix the *chart* categorical tier rather than the universal one, and
+  `logo-wall`'s `--logo-ink` paints an SVG logo mark — a graphical object, so 3:1 is the bar it
+  answers to and the mark tier is already gated there. (#1263)
 
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose

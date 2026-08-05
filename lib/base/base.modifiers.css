@@ -458,6 +458,15 @@ section.print {
   --cat-9-mark: var(--print-cat-9-mark);   --cat-10-mark: var(--print-cat-10-mark);
   --cat-11-mark: var(--print-cat-11-mark); --cat-12-mark: var(--print-cat-12-mark);
   --cat-on-mark: var(--print-cat-on-mark);
+  /* The on-canvas categorical ink follows the band too — it is a real per-theme
+   * token now, so it needs the same remap fill and mark get. Without it a printed
+   * slide showed a gray rule beside a full-hue theme label. */
+  --cat-1-ink: var(--print-cat-1-ink);     --cat-2-ink: var(--print-cat-2-ink);
+  --cat-3-ink: var(--print-cat-3-ink);     --cat-4-ink: var(--print-cat-4-ink);
+  --cat-5-ink: var(--print-cat-5-ink);     --cat-6-ink: var(--print-cat-6-ink);
+  --cat-7-ink: var(--print-cat-7-ink);     --cat-8-ink: var(--print-cat-8-ink);
+  --cat-9-ink: var(--print-cat-9-ink);     --cat-10-ink: var(--print-cat-10-ink);
+  --cat-11-ink: var(--print-cat-11-ink);   --cat-12-ink: var(--print-cat-12-ink);
   --diagram-stroke: var(--print-diagram-stroke);
   --diagram-line: var(--print-diagram-line);
   --diagram-active: var(--print-diagram-active);
@@ -1052,17 +1061,23 @@ section.obligation-matrix.pills td:not(:first-child) strong {
 section.obligation-matrix.pills tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 
 /* .lanes — categorical row stripes. */
-section.obligation-matrix.lanes tbody tr:nth-child(8n+1) > td:first-child { --lane-hue:var(--cat-1-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+2) > td:first-child { --lane-hue:var(--cat-2-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+3) > td:first-child { --lane-hue:var(--cat-3-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+4) > td:first-child { --lane-hue:var(--cat-4-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+5) > td:first-child { --lane-hue:var(--cat-5-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+6) > td:first-child { --lane-hue:var(--cat-6-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+7) > td:first-child { --lane-hue:var(--cat-7-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n)   > td:first-child { --lane-hue:var(--cat-8-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.obligation-matrix.lanes tbody tr:nth-child(8n+1) > td:first-child { --lane-hue:var(--cat-1-mark); --lane-ink:var(--cat-1-ink, var(--cat-1-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+2) > td:first-child { --lane-hue:var(--cat-2-mark); --lane-ink:var(--cat-2-ink, var(--cat-2-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+3) > td:first-child { --lane-hue:var(--cat-3-mark); --lane-ink:var(--cat-3-ink, var(--cat-3-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+4) > td:first-child { --lane-hue:var(--cat-4-mark); --lane-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+5) > td:first-child { --lane-hue:var(--cat-5-mark); --lane-ink:var(--cat-5-ink, var(--cat-5-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+6) > td:first-child { --lane-hue:var(--cat-6-mark); --lane-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+7) > td:first-child { --lane-hue:var(--cat-7-mark); --lane-ink:var(--cat-7-ink, var(--cat-7-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n)   > td:first-child { --lane-hue:var(--cat-8-mark); --lane-ink:var(--cat-8-ink, var(--cat-8-mark)); }
 section.obligation-matrix.lanes tbody tr > td:first-child {
   border-left:4px solid var(--lane-hue, var(--accent));
-  color:var(--lane-hue, var(--text-heading));
+  color:var(--lane-ink, var(--text-heading));
 }
 section.obligation-matrix.lanes tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 section.obligation-matrix.lanes td:not(:first-child) { font-family:var(--font-mono); font-size:var(--fs-meta); }

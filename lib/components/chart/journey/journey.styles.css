@@ -43,6 +43,18 @@
   --journey-mood-3: var(--cat-4-mark);
   --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
   --journey-mood-1: var(--cat-6-mark);
+  /* Paired INK for the mood scale (#1263). The --journey-mood-N above are the
+   * GRAPHICAL tier — heatmap tile fills, the 3px top rule, the face glyph's stroke —
+   * built from --cat-N-mark, which is gated at 3:1 (WCAG 1.4.11 non-text). The
+   * heatmap's mood badge paints the same scale as small TEXT on --bg, where the mark
+   * misses AA on 75 of 320 theme x mode x mood pairs, worst 1.66:1. These mirror the
+   * scale exactly, one tier over, so the badge keeps the mood's color and clears the
+   * floor; measured 0 of 320 below AA. Blends mirror the blends. */
+  --journey-mood-5-ink: var(--cat-2-ink, var(--cat-2-mark));
+  --journey-mood-4-ink: color-mix(in oklab, var(--cat-2-ink, var(--cat-2-mark)) 55%, var(--cat-4-ink, var(--cat-4-mark)));
+  --journey-mood-3-ink: var(--cat-4-ink, var(--cat-4-mark));
+  --journey-mood-2-ink: color-mix(in oklab, var(--cat-4-ink, var(--cat-4-mark)) 55%, var(--cat-6-ink, var(--cat-6-mark)));
+  --journey-mood-1-ink: var(--cat-6-ink, var(--cat-6-mark));
 
   /* Deep variants — used for filled chips that carry white text. */
   --journey-mood-5-deep: var(--cat-2-mark);
@@ -90,6 +102,18 @@ section.print.journey {
   --journey-mood-3: var(--cat-4-mark);
   --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
   --journey-mood-1: var(--cat-6-mark);
+  /* Paired INK for the mood scale (#1263). The --journey-mood-N above are the
+   * GRAPHICAL tier — heatmap tile fills, the 3px top rule, the face glyph's stroke —
+   * built from --cat-N-mark, which is gated at 3:1 (WCAG 1.4.11 non-text). The
+   * heatmap's mood badge paints the same scale as small TEXT on --bg, where the mark
+   * misses AA on 75 of 320 theme x mode x mood pairs, worst 1.66:1. These mirror the
+   * scale exactly, one tier over, so the badge keeps the mood's color and clears the
+   * floor; measured 0 of 320 below AA. Blends mirror the blends. */
+  --journey-mood-5-ink: var(--cat-2-ink, var(--cat-2-mark));
+  --journey-mood-4-ink: color-mix(in oklab, var(--cat-2-ink, var(--cat-2-mark)) 55%, var(--cat-4-ink, var(--cat-4-mark)));
+  --journey-mood-3-ink: var(--cat-4-ink, var(--cat-4-mark));
+  --journey-mood-2-ink: color-mix(in oklab, var(--cat-4-ink, var(--cat-4-mark)) 55%, var(--cat-6-ink, var(--cat-6-mark)));
+  --journey-mood-1-ink: var(--cat-6-ink, var(--cat-6-mark));
   --journey-mood-5-deep: var(--cat-2-mark);
   --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
   --journey-mood-3-deep: var(--cat-4-mark);
@@ -459,11 +483,11 @@ section.journey.heatmap .journey-task {
   border-top: 3px solid var(--mood-bg);
   position: relative;
 }
-section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); }
-section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); }
-section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); }
-section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); }
-section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
+section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-ink: var(--journey-mood-5-ink); }
+section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-ink: var(--journey-mood-4-ink); }
+section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-ink: var(--journey-mood-3-ink); }
+section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-ink: var(--journey-mood-2-ink); }
+section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-ink: var(--journey-mood-1-ink); }
 /* Mood score badge in the top-right of each chip — redundant
  * encoding so the heatmap remains legible to grayscale / colorblind
  * readers. */
@@ -475,7 +499,7 @@ section.journey.heatmap .journey-task::after {
   right: var(--sp-xs);
   font-size: var(--fs-meta);
   font-weight: 700;
-  color: var(--mood-bg);
+  color: var(--mood-ink, var(--mood-bg));
   background: var(--bg);
   width: 1.40625cqi;
   height: 1.40625cqi;
@@ -666,7 +690,19 @@ section.journey.weighted .journey-task[data-mood="2"] { --mood-bg: var(--journey
 section.journey.weighted .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
 /* Volume percentage badge — large, dropped to top-center so the
  * "this is the volume share" read is the dominant signal alongside
- * the task name. */
+ * the task name.
+ *
+ * The ink is --text-heading, NOT the mood color, and that is deliberate. This
+ * badge states VOLUME; the mood is already carried twice over by the chip's
+ * border-top and its tint, so painting the number in the mood hue conflated two
+ * channels and bought nothing. It also could not be made legible: unlike the
+ * heatmap badge (which sets `background: var(--bg)` and so lands on a gated
+ * surface), this one sits directly on the tinted chip
+ * `color-mix(--mood-bg 28%, --bg-alt)` — a THIRD surface no categorical ink is
+ * solved against. Measured over 32 palettes x 2 modes x 5 moods on that real
+ * chip: the raw mark fails 137/320 (worst 1.27:1), the mood INK still fails
+ * 110/320 (worst 3.04:1), and --text-heading clears every pair (worst 4.79:1).
+ * Held by test/unit/palette/journey-chip-contrast.test.js, not by luck. */
 section.journey.weighted .journey-task::after {
   content: counter(volume) "%";
   counter-reset: volume var(--volume-pct);
@@ -677,7 +713,7 @@ section.journey.weighted .journey-task::after {
   text-align: center;
   font-size: var(--fs-meta);
   font-weight: 700;
-  color: var(--mood-bg);
+  color: var(--text-heading);
   letter-spacing: 0.02em;
 }
 /* Pull the task label down so it sits below the % badge — gives the

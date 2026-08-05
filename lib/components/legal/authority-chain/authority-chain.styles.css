@@ -76,10 +76,16 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li:not(:last-child)::after
   background:var(--accent);
 }
 /* Tier hue rotation — Statute / Regulation / Guidance / Case. */
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+1) { --tier-hue:var(--cat-4-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+2) { --tier-hue:var(--cat-1-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+3) { --tier-hue:var(--cat-6-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+4) { --tier-hue:var(--cat-3-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+1) { --tier-hue:var(--cat-4-mark); --tier-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+2) { --tier-hue:var(--cat-1-mark); --tier-ink:var(--cat-1-ink, var(--cat-1-mark)); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+3) { --tier-hue:var(--cat-6-mark); --tier-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+4) { --tier-hue:var(--cat-3-mark); --tier-ink:var(--cat-3-ink, var(--cat-3-mark)); }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child {
   flex:0 0 14cqi;
   font-family:var(--font-mono);
@@ -87,7 +93,7 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child {
   font-weight:700;
   letter-spacing:0.14em;
   text-transform:uppercase;
-  color:var(--tier-hue, var(--accent));
+  color:var(--tier-ink, var(--accent));
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
   flex:1; min-width:0;
@@ -204,7 +210,7 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
   font-family:var(--font-mono);
   font-size:var(--fs-h2);
   font-weight:700;
-  color:var(--tier-hue, var(--accent));
+  color:var(--tier-ink, var(--accent));
   line-height:1;
   padding-bottom:var(--sp-xs);
 }

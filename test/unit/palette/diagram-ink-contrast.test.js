@@ -82,6 +82,11 @@ const SITES = {
   commitLabelColor: 'commitLabelBackground',
   tagLabelColor:    'tagLabelBackground',
   // Quadrant
+  // The four quadrant labels are drawn on their own quadrant's fill.
+  quadrant1TextFill:     'quadrant1Fill',
+  quadrant2TextFill:     'quadrant2Fill',
+  quadrant3TextFill:     'quadrant3Fill',
+  quadrant4TextFill:     'quadrant4Fill',
   quadrantPointTextFill: 'quadrant1Fill',
   quadrantXAxisTextFill: 'background',
   quadrantYAxisTextFill: 'background',
@@ -111,24 +116,28 @@ for (const k of ['titleColor', 'xAxisLabelColor', 'xAxisTitleColor', 'yAxisLabel
  * existed. Sanctioned so the gate can ship green over the pairs it was written
  * for, without pretending these are fine.
  *
- * Both are the same shape: `--cat-on-fill` is curated to sit on the PALE
- * `--cat-N-fill` band, and these two keys put it on something else.
+ * They share a shape: `--cat-on-fill` is curated to sit on the PALE `--cat-N-fill`
+ * band, and each of these keys puts it on something else.
  *
- *   gitBranchLabel0-7  on git0-7 = `--cat-N-MARK`, the saturated mid-tone. 1.2-3.0:1
- *                      in every shipped palette, both schemes. Pre-dates this
- *                      branch on the export path; the preview path fed it
- *                      `--text-heading`, which fails the same chips from the other
- *                      side. A real fix is a third ink tier ("on-mark") or moving
- *                      the branch chips to the pale band — a palette-contract
- *                      change, not a map edit.
  *   noteTextColor      on `--diagram-note`, 3.83:1 in five palettes. Marginal, and
  *                      the same "ink curated for one tier, used on another" story.
+ *
+ * RETIRED (#1348): `gitBranchLabel0-7` on `git0-7` = `--cat-N-MARK`, 1.2-3.0:1 in
+ * every palette, both schemes. The sanction called for "a third ink tier (an
+ * 'on-mark' token) or moving the branch chips to the pale band". The third tier
+ * turned out to already exist — `--cat-on-mark` — with nothing pointing at it, so the
+ * fix was to point these eight keys at it. (`checkCatContrast` holds that token
+ * >=4.5:1 against every `--cat-N-mark`, but only on the 27 HUE palettes; it skips
+ * a11y-*, which is why the a11y half needed its own fix and why THIS gate, which
+ * runs all 32, is what actually holds the pair.) That fixed 27 of the 32; the
+ * a11y family still failed at 1.55:1 because it PINS its categorical ramp
+ * mode-invariant while inheriting a flipping `--cat-on-mark` from onyx, so
+ * `themes/a11y-base.css` now pins that ink to the value it already resolved to.
  *
  * The list is exceed-only: an entry that starts PASSING everywhere is a stale
  * sanction and fails below, so it cannot rot. Adding a row means arguing for it.
  */
 const KNOWN_BELOW_AA = new Set([
-  ...Array.from({ length: 8 }, (_, i) => `gitBranchLabel${i}`),
   'noteTextColor',
   // errorTextColor (--bg) on errorBkgColor (--fail): 1.55-2.28:1 on the four
   // a11y palettes in dark and on carbone in light. Identical on origin/main —
@@ -138,8 +147,13 @@ const KNOWN_BELOW_AA = new Set([
   // evidently does not cover these five combos. Untouched here; the fix is a
   // palette-side --fail curation, not a map edit.
   'errorTextColor',
-  // sequenceNumberColor (--cat-on-fill) on the autonumber badge (--diagram-line).
-  // Same shape as gitBranchLabel: pale-band ink on a saturated mark-tier fill.
+  // sequenceNumberColor (--cat-on-fill) on the autonumber badge, which mermaid fills
+  // from --diagram-line. It RHYMES with gitBranchLabel — pale-band ink on a saturated
+  // surface — but it is not the same fix: the badge is not a --cat-N-mark, so the
+  // --cat-on-mark contract (gated against the mark tier, and only that) says nothing
+  // about this pair. Repointing it here would swap one ungated pairing for another.
+  // Needs its own answer, either an ink curated for --diagram-line or a badge fill
+  // moved onto a tier that already has one.
   'sequenceNumberColor',
 ]);
 
@@ -198,7 +212,11 @@ function tokenFor(key) {
 
 /** Every ink-bearing themeVariable, nested blocks included, as dotted keys. */
 function inkKeys() {
-  const INK_TOKENS = new Set(['cat-on-fill', 'text-heading']);
+  // All three ink tiers the map feeds. `cat-on-mark` joined when the gitgraph
+  // branch labels moved onto it (#1348) — without it those eight keys would drop
+  // out of the coverage assertion below, and a later mis-assignment could delete
+  // their SITES rows unnoticed.
+  const INK_TOKENS = new Set(['cat-on-fill', 'cat-on-mark', 'text-heading']);
   const out = [];
   for (const [key, entry] of Object.entries(MERMAID_VAR_MAP)) {
     if (entry.nested) {

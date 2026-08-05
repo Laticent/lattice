@@ -172,6 +172,12 @@ section.logo-wall.dense > .cell-stage {
  * token (saturated, AA on both grounds, `light-dark()`-adaptive), cycling 1..12
  * so adjacent marks differ. This is the palette-driven answer to "keep the hues"
  * — cohesive with every chart/diagram in the deck, and contrast-clean by token. */
+/* DELIBERATELY the mark tier, not --cat-N-ink (#1263). Every other categorical
+ * `color:` in the engine moved to the ink tier because it paints small TEXT; this
+ * one paints a LOGO — a mask-image swatch, and on the export path an inline <svg>
+ * authored `fill: currentColor`. That is a graphical object, so WCAG 1.4.11's 3:1
+ * is the bar it answers to, and 3:1 is exactly what --cat-N-mark is gated at.
+ * Moving it to the ink tier would only darken the brand marks, for no gain. */
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 1)  > .logo-mark { --logo-ink: var(--cat-1-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 2)  > .logo-mark { --logo-ink: var(--cat-2-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 3)  > .logo-mark { --logo-ink: var(--cat-3-mark); }

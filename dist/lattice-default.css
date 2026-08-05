@@ -445,7 +445,80 @@
    * transforms read them, and the legacy `--cN-light` / `--cN-dark` /
    * `--c-ink-*` names are RETIRED. The old→new map lives in lib/tokens/
    * crosswalk.js + the ADR §7 table for legacy-deck migration. */
-     
+
+}
+
+  /* ── --cat-N-ink · the category's hue AS TEXT, on the slide ───────────
+   * The categorical tier has THREE inks, told apart by WHAT THE INK SITS ON:
+   *
+   *   --cat-on-fill   text on a --cat-N-fill   (the pale SURFACE tier)
+   *   --cat-on-mark   text on a --cat-N-mark   (the saturated STROKE tier)
+   *   --cat-N-ink     text on --bg / --bg-alt  (the SLIDE — this tier)
+   *
+   * The first two are ON-CHIP: one shared ink each, because a chip supplies its
+   * own background. This one is ON-CANVAS, so it is per-slot: the hue has to
+   * survive into the letterforms, and the surface behind it is the deck's.
+   *
+   * WHY IT EXISTS. `--cat-N-mark` reads like the token for "this category's
+   * color, used visibly" — its own theme comments invite that reading — but it is
+   * a STROKE token, gated to 3:1 against the canvas, the WCAG 1.4.11 NON-TEXT bar
+   * its border/branch/edge role is scoped to. Normal-size text needs 4.5:1, and
+   * the raw mark misses it on 372 of 1536 theme x mode x slot x surface pairs
+   * (worst 1.28:1). Eight sites across five files were painting it anyway. (#1263)
+   *
+   * DECLARED PER THEME, NOT DERIVED HERE — and that is the point. The values are
+   * CURATED: `tools/derive-cat-ink.js` keeps each mark's HUE and CHROMA exactly and
+   * solves only LIGHTNESS until it clears AA on both slide surfaces, then writes
+   * concrete values into each palette beside the fill/mark cycle. Most slots come
+   * out IDENTICAL to their mark (it already cleared): 271 of the 360 committed arms,
+   * against 89 repaired, 0-12 per palette. Only the failing ones move, and they move
+   * the least distance that works. Measured over the shipped palettes: max hue shift
+   * 3.4 degrees (only `concrete`, whose marks are near-achromatic and whose hue angle
+   * is unstable at that chroma), 99% of chroma kept.
+   *
+   * The first cut of this tier derived the ink in CSS instead —
+   * `color-mix(in oklab, var(--cat-N-mark) 65%, var(--text-heading))` — and it was
+   * contrast-correct but off brand. The mix pole must track the canvas (a fixed
+   * black/white pole fails `carbone`, which is dark in both modes, at 1.57:1), and
+   * `--text-heading` is itself chromatic on several palettes, so it dragged the
+   * mark's hue up to 14.9 degrees and unevenly across slots — a shear, not a tint —
+   * while mixing away 28% of the chroma on average. A derived approximation of a
+   * hand-curated cycle is not the same thing as the cycle. Generated-and-committed
+   * is also how the fill/mark values themselves were produced
+   * (engineering/decisions/2026-07-15-categorical-token-contract.md, "Shipped").
+   *
+   * Being real per-theme tokens, they sit at `:root` like every other categorical
+   * slot and `section.print` remaps them to the band below, exactly as it remaps
+   * fill and mark. Re-run the generator after re-hueing a mark tier;
+   * `derive-cat-ink --check` fails the build if a palette drifts from the recipe,
+   * and checkCatContrast holds the result to AA on light, dark and print. */
+
+:root {
+  /* ── No :root default for --cat-N-ink, deliberately ──
+   * Each palette declares all twelve (tools/derive-cat-ink.js). A theme built
+   * OUTSIDE this repo — lib/theme/derive.js, the Studio's Fabricate path — declares
+   * the mark cycle and no ink cycle, and would otherwise render every categorical
+   * label in one color: measured 8 distinct row borders, 1 distinct row term.
+   *
+   * The fallback for that lives at the CONSUMERS, as `var(--cat-N-ink,
+   * var(--cat-N-mark))`, NOT as a default here. A `:root` default cannot be ordered
+   * safely: the emulator/export bundle concatenates the theme BEFORE this file, so a
+   * default declared here wins on equal specificity and silently reverts every
+   * curated ink to its mark — measured on a real render, premise dropped from 4.68:1
+   * back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no such
+   * ordering hazard: it applies only when the token is genuinely absent. */
+
+  /* ── Print band · categorical ink ──
+   * The print marks are already dark enough to carry text on paper (worst 4.96:1
+   * against --print-bg-alt), so the printed ink IS the printed mark — no separate
+   * curation, and no chance of the two drifting apart. */
+  --print-cat-1-ink:  var(--print-cat-1-mark);   --print-cat-2-ink:  var(--print-cat-2-mark);
+  --print-cat-3-ink:  var(--print-cat-3-mark);   --print-cat-4-ink:  var(--print-cat-4-mark);
+  --print-cat-5-ink:  var(--print-cat-5-mark);   --print-cat-6-ink:  var(--print-cat-6-mark);
+  --print-cat-7-ink:  var(--print-cat-7-mark);   --print-cat-8-ink:  var(--print-cat-8-mark);
+  --print-cat-9-ink:  var(--print-cat-9-mark);   --print-cat-10-ink: var(--print-cat-10-mark);
+  --print-cat-11-ink: var(--print-cat-11-mark);  --print-cat-12-ink: var(--print-cat-12-mark);
+
      
      
      
@@ -1904,10 +1977,16 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li:not(:last-child)::after
   background:var(--accent);
 }
 /* Tier hue rotation — Statute / Regulation / Guidance / Case. */
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+1) { --tier-hue:var(--cat-4-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+2) { --tier-hue:var(--cat-1-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+3) { --tier-hue:var(--cat-6-mark); }
-section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+4) { --tier-hue:var(--cat-3-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+1) { --tier-hue:var(--cat-4-mark); --tier-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+2) { --tier-hue:var(--cat-1-mark); --tier-ink:var(--cat-1-ink, var(--cat-1-mark)); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+3) { --tier-hue:var(--cat-6-mark); --tier-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.authority-chain > .cell-stage > :is(ol, ul) > li:nth-child(8n+4) { --tier-hue:var(--cat-3-mark); --tier-ink:var(--cat-3-ink, var(--cat-3-mark)); }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child {
   flex:0 0 14cqi;
   font-family:var(--font-mono);
@@ -1915,7 +1994,7 @@ section.authority-chain > .cell-stage > :is(ol, ul) > li > strong:first-child {
   font-weight:700;
   letter-spacing:0.14em;
   text-transform:uppercase;
-  color:var(--tier-hue, var(--accent));
+  color:var(--tier-ink, var(--accent));
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
   flex:1; min-width:0;
@@ -2032,7 +2111,7 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
   font-family:var(--font-mono);
   font-size:var(--fs-h2);
   font-weight:700;
-  color:var(--tier-hue, var(--accent));
+  color:var(--tier-ink, var(--accent));
   line-height:1;
   padding-bottom:var(--sp-xs);
 }
@@ -5758,6 +5837,18 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
   --journey-mood-3: var(--cat-4-mark);
   --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
   --journey-mood-1: var(--cat-6-mark);
+  /* Paired INK for the mood scale (#1263). The --journey-mood-N above are the
+   * GRAPHICAL tier — heatmap tile fills, the 3px top rule, the face glyph's stroke —
+   * built from --cat-N-mark, which is gated at 3:1 (WCAG 1.4.11 non-text). The
+   * heatmap's mood badge paints the same scale as small TEXT on --bg, where the mark
+   * misses AA on 75 of 320 theme x mode x mood pairs, worst 1.66:1. These mirror the
+   * scale exactly, one tier over, so the badge keeps the mood's color and clears the
+   * floor; measured 0 of 320 below AA. Blends mirror the blends. */
+  --journey-mood-5-ink: var(--cat-2-ink, var(--cat-2-mark));
+  --journey-mood-4-ink: color-mix(in oklab, var(--cat-2-ink, var(--cat-2-mark)) 55%, var(--cat-4-ink, var(--cat-4-mark)));
+  --journey-mood-3-ink: var(--cat-4-ink, var(--cat-4-mark));
+  --journey-mood-2-ink: color-mix(in oklab, var(--cat-4-ink, var(--cat-4-mark)) 55%, var(--cat-6-ink, var(--cat-6-mark)));
+  --journey-mood-1-ink: var(--cat-6-ink, var(--cat-6-mark));
 
   /* Deep variants — used for filled chips that carry white text. */
   --journey-mood-5-deep: var(--cat-2-mark);
@@ -5805,6 +5896,18 @@ section.print.journey {
   --journey-mood-3: var(--cat-4-mark);
   --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
   --journey-mood-1: var(--cat-6-mark);
+  /* Paired INK for the mood scale (#1263). The --journey-mood-N above are the
+   * GRAPHICAL tier — heatmap tile fills, the 3px top rule, the face glyph's stroke —
+   * built from --cat-N-mark, which is gated at 3:1 (WCAG 1.4.11 non-text). The
+   * heatmap's mood badge paints the same scale as small TEXT on --bg, where the mark
+   * misses AA on 75 of 320 theme x mode x mood pairs, worst 1.66:1. These mirror the
+   * scale exactly, one tier over, so the badge keeps the mood's color and clears the
+   * floor; measured 0 of 320 below AA. Blends mirror the blends. */
+  --journey-mood-5-ink: var(--cat-2-ink, var(--cat-2-mark));
+  --journey-mood-4-ink: color-mix(in oklab, var(--cat-2-ink, var(--cat-2-mark)) 55%, var(--cat-4-ink, var(--cat-4-mark)));
+  --journey-mood-3-ink: var(--cat-4-ink, var(--cat-4-mark));
+  --journey-mood-2-ink: color-mix(in oklab, var(--cat-4-ink, var(--cat-4-mark)) 55%, var(--cat-6-ink, var(--cat-6-mark)));
+  --journey-mood-1-ink: var(--cat-6-ink, var(--cat-6-mark));
   --journey-mood-5-deep: var(--cat-2-mark);
   --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
   --journey-mood-3-deep: var(--cat-4-mark);
@@ -6174,11 +6277,11 @@ section.journey.heatmap .journey-task {
   border-top: 3px solid var(--mood-bg);
   position: relative;
 }
-section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); }
-section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); }
-section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); }
-section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); }
-section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
+section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-ink: var(--journey-mood-5-ink); }
+section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-ink: var(--journey-mood-4-ink); }
+section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-ink: var(--journey-mood-3-ink); }
+section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-ink: var(--journey-mood-2-ink); }
+section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-ink: var(--journey-mood-1-ink); }
 /* Mood score badge in the top-right of each chip — redundant
  * encoding so the heatmap remains legible to grayscale / colorblind
  * readers. */
@@ -6190,7 +6293,7 @@ section.journey.heatmap .journey-task::after {
   right: var(--sp-xs);
   font-size: var(--fs-meta);
   font-weight: 700;
-  color: var(--mood-bg);
+  color: var(--mood-ink, var(--mood-bg));
   background: var(--bg);
   width: 1.40625cqi;
   height: 1.40625cqi;
@@ -6381,7 +6484,19 @@ section.journey.weighted .journey-task[data-mood="2"] { --mood-bg: var(--journey
 section.journey.weighted .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
 /* Volume percentage badge — large, dropped to top-center so the
  * "this is the volume share" read is the dominant signal alongside
- * the task name. */
+ * the task name.
+ *
+ * The ink is --text-heading, NOT the mood color, and that is deliberate. This
+ * badge states VOLUME; the mood is already carried twice over by the chip's
+ * border-top and its tint, so painting the number in the mood hue conflated two
+ * channels and bought nothing. It also could not be made legible: unlike the
+ * heatmap badge (which sets `background: var(--bg)` and so lands on a gated
+ * surface), this one sits directly on the tinted chip
+ * `color-mix(--mood-bg 28%, --bg-alt)` — a THIRD surface no categorical ink is
+ * solved against. Measured over 32 palettes x 2 modes x 5 moods on that real
+ * chip: the raw mark fails 137/320 (worst 1.27:1), the mood INK still fails
+ * 110/320 (worst 3.04:1), and --text-heading clears every pair (worst 4.79:1).
+ * Held by test/unit/palette/journey-chip-contrast.test.js, not by luck. */
 section.journey.weighted .journey-task::after {
   content: counter(volume) "%";
   counter-reset: volume var(--volume-pct);
@@ -6392,7 +6507,7 @@ section.journey.weighted .journey-task::after {
   text-align: center;
   font-size: var(--fs-meta);
   font-weight: 700;
-  color: var(--mood-bg);
+  color: var(--text-heading);
   letter-spacing: 0.02em;
 }
 /* Pull the task label down so it sits below the % badge — gives the
@@ -8751,6 +8866,12 @@ section.logo-wall.dense > .cell-stage {
  * token (saturated, AA on both grounds, `light-dark()`-adaptive), cycling 1..12
  * so adjacent marks differ. This is the palette-driven answer to "keep the hues"
  * — cohesive with every chart/diagram in the deck, and contrast-clean by token. */
+/* DELIBERATELY the mark tier, not --cat-N-ink (#1263). Every other categorical
+ * `color:` in the engine moved to the ink tier because it paints small TEXT; this
+ * one paints a LOGO — a mask-image swatch, and on the export path an inline <svg>
+ * authored `fill: currentColor`. That is a graphical object, so WCAG 1.4.11's 3:1
+ * is the bar it answers to, and 3:1 is exactly what --cat-N-mark is gated at.
+ * Moving it to the ink tier would only darken the brand marks, for no gain. */
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 1)  > .logo-mark { --logo-ink: var(--cat-1-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 2)  > .logo-mark { --logo-ink: var(--cat-2-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 3)  > .logo-mark { --logo-ink: var(--cat-3-mark); }
@@ -9213,20 +9334,34 @@ section.math.theorem blockquote strong:first-child {
   padding-right: 0.5em;
 }
 /* Position-based accent stripe — Definition (start) cooler, Theorem (middle)
- * warmer, Proof (end) neutral. Uses the palette's --cN-dark categorical
- * tokens that every Lattice theme defines; falls back to --accent if a
- * future palette ever drops them. */
+ * warmer, Proof (end) neutral. Two tiers of the same categorical slot, because
+ * the stripe and the label are different WCAG cases:
+ *
+ *   border-left-color → --cat-N-mark  the stroke tier, gated 3:1 vs the canvas
+ *                                     (WCAG 1.4.11 non-text) — exactly its role.
+ *   strong:first-child → --cat-N-ink  the label is TEXT on the blockquote's
+ *                                     --bg-alt, so it needs 4.5:1.
+ *
+ * These labels used to paint the raw mark as well, which is what put 11 of 56
+ * theme x mode x slot combinations below AA — worst 3.49:1, `atelier` light,
+ * --cat-4-mark #478400 on --bg-alt #e5e0d2. --cat-N-ink is the shared tier: the
+ * same hue and chroma as the stripe beside it, lightness solved per palette until
+ * it clears the floor. On a palette whose mark already cleared, the two are the
+ * same color. Gated on every palette, all three canvases, by checkCatContrast.
+ * (#1263)
+ *
+ * Both fall back to --accent if a future palette ever drops the cycle. */
 section.math.theorem blockquote:nth-of-type(3n+1) {
   border-left-color: var(--cat-4-mark, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n+1) strong:first-child {
-  color: var(--cat-4-mark, var(--accent));
+  color: var(--cat-4-ink, var(--cat-4-mark, var(--accent)));
 }
 section.math.theorem blockquote:nth-of-type(3n+2) {
   border-left-color: var(--cat-7-mark, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n+2) strong:first-child {
-  color: var(--cat-7-mark, var(--accent));
+  color: var(--cat-7-ink, var(--cat-7-mark, var(--accent)));
 }
 section.math.theorem blockquote:nth-of-type(3n) {
   border-left-color: var(--text-muted);
@@ -10666,15 +10801,19 @@ section.premise > ol > li::before {
 }
 section.premise > ol > li > strong {
   font-size: var(--fs-body);
-  color: var(--row-mark, var(--text-heading));
-  /* 700, not the inherited 600, and this is a contrast requirement rather than a
-   * taste call. `--cat-N-mark` is guaranteed 3:1 against the background — the
-   * WCAG NON-TEXT / large-text bar, which is what a stroke token is scoped to.
-   * Text only qualifies for that 3:1 bar at >=18.66px AND >=700 weight; at 600
-   * the verb names fell under the 4.5:1 normal-text rule and measured 4.16–4.25:1.
-   * Bumping the weight puts them inside the guarantee the token actually carries
-   * instead of borrowing a token that was never gated for small type. */
-  font-weight: 700;
+  /* `--row-ink`, not `--row-mark`. The mark tier is guaranteed 3:1 against the
+   * background — the WCAG NON-TEXT bar a stroke token is scoped to, right for the
+   * row's border-left and wrong for its verb name. Text qualifies for 3:1 only at
+   * >=18.66px AND >=700 weight, so this rule used to buy the exemption by forcing
+   * the weight to 700; at the inherited 600 the verb names measured 4.16-4.25:1,
+   * under the 4.5:1 normal-text floor. `--cat-N-ink` — the same hue as the row's
+   * own border, curated per palette — clears 4.5:1 on `--bg-alt` everywhere, gated by
+   * checkCatContrast, so the term can go back to the engine's BASE weight for
+   * `section strong` (600, lib/base/base.elements.css) — the weight here was a
+   * contrast workaround, and with the contrast bought properly there is nothing left
+   * for it to do. (Not a claim that 600 is universal: several components do set 700
+   * deliberately, for emphasis. This one never did.) (#1263) */
+  color: var(--row-ink, var(--text-heading));
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -10701,20 +10840,23 @@ section.premise > ol > li > ul > li:nth-child(2) {
   text-align: right;
 }
 
-/* ── Row color — the UNIVERSAL 8-slot categorical palette (--cat-N-mark),
- * NOT the chart family's own tokens: this is a structure-substance HTML
- * list, not an SVG/chart-frame member (design/theming.md's two-system
- * split). Precedent: math.theorem's blockquote border-left + strong color
- * pairing (lib/components/math/math/math.styles.css) uses the exact same
- * --cat-N-mark-as-text-on-a-neutral-background pattern. */
-section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); }
-section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); }
-section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); }
-section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); }
-section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
-section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
-section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
-section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
+/* ── Row color — the UNIVERSAL 8-slot categorical palette, NOT the chart
+ * family's own tokens: this is a structure-substance HTML list, not an
+ * SVG/chart-frame member (design/theming.md's two-system split).
+ *
+ * TWO tokens per row, because the row uses its hue for two different WCAG cases:
+ *   --row-mark → --cat-N-mark  the 4px border-left, a stroke, gated 3:1 vs canvas
+ *   --row-ink  → --cat-N-ink   the verb name, TEXT on --bg-alt, gated 4.5:1
+ * Same split as `math.theorem`'s blockquote border-left + label pairing, which
+ * moved onto the ink tier in the same change (#1263). */
+section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); --row-ink: var(--cat-1-ink, var(--cat-1-mark)); }
+section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); --row-ink: var(--cat-2-ink, var(--cat-2-mark)); }
+section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); --row-ink: var(--cat-3-ink, var(--cat-3-mark)); }
+section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); --row-ink: var(--cat-4-ink, var(--cat-4-mark)); }
+section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); --row-ink: var(--cat-5-ink, var(--cat-5-mark)); }
+section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); --row-ink: var(--cat-6-ink, var(--cat-6-mark)); }
+section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); --row-ink: var(--cat-7-ink, var(--cat-7-mark)); }
+section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); --row-ink: var(--cat-8-ink, var(--cat-8-mark)); }
 
 /* ── Family reflow (#1220). `premise` declared `adapt.mode: "reflow"` and shipped
  * NONE — its landscape row (a 34% claim rail beside the ledger) was the only
@@ -13246,14 +13388,20 @@ section.roadmap thead th:not(:first-child) > code, figure.roadmap thead th:not(:
    The workstream column reads `--phase-accent` for its lane stripe
    per row; phase columns read it for their leading column-accent
    stripe per column. */
-section.roadmap thead th:nth-child(8n+2), figure.roadmap thead th:nth-child(8n+2), section.roadmap tbody tr:nth-child(8n+1) > td:first-child, figure.roadmap tbody tr:nth-child(8n+1) > td:first-child{ --phase-accent:var(--cat-1-mark); }
-section.roadmap thead th:nth-child(8n+3), figure.roadmap thead th:nth-child(8n+3), section.roadmap tbody tr:nth-child(8n+2) > td:first-child, figure.roadmap tbody tr:nth-child(8n+2) > td:first-child{ --phase-accent:var(--cat-2-mark); }
-section.roadmap thead th:nth-child(8n+4), figure.roadmap thead th:nth-child(8n+4), section.roadmap tbody tr:nth-child(8n+3) > td:first-child, figure.roadmap tbody tr:nth-child(8n+3) > td:first-child{ --phase-accent:var(--cat-3-mark); }
-section.roadmap thead th:nth-child(8n+5), figure.roadmap thead th:nth-child(8n+5), section.roadmap tbody tr:nth-child(8n+4) > td:first-child, figure.roadmap tbody tr:nth-child(8n+4) > td:first-child{ --phase-accent:var(--cat-4-mark); }
-section.roadmap thead th:nth-child(8n+6), figure.roadmap thead th:nth-child(8n+6), section.roadmap tbody tr:nth-child(8n+5) > td:first-child, figure.roadmap tbody tr:nth-child(8n+5) > td:first-child{ --phase-accent:var(--cat-5-mark); }
-section.roadmap thead th:nth-child(8n+7), figure.roadmap thead th:nth-child(8n+7), section.roadmap tbody tr:nth-child(8n+6) > td:first-child, figure.roadmap tbody tr:nth-child(8n+6) > td:first-child{ --phase-accent:var(--cat-6-mark); }
-section.roadmap thead th:nth-child(8n), figure.roadmap thead th:nth-child(8n), section.roadmap tbody tr:nth-child(8n+7) > td:first-child, figure.roadmap tbody tr:nth-child(8n+7) > td:first-child{ --phase-accent:var(--cat-7-mark); }
-section.roadmap thead th:nth-child(8n+1), figure.roadmap thead th:nth-child(8n+1), section.roadmap tbody tr:nth-child(8n)   > td:first-child, figure.roadmap tbody tr:nth-child(8n)   > td:first-child{ --phase-accent:var(--cat-8-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.roadmap thead th:nth-child(8n+2), figure.roadmap thead th:nth-child(8n+2), section.roadmap tbody tr:nth-child(8n+1) > td:first-child, figure.roadmap tbody tr:nth-child(8n+1) > td:first-child{ --phase-accent:var(--cat-1-mark); --phase-ink:var(--cat-1-ink, var(--cat-1-mark)); }
+section.roadmap thead th:nth-child(8n+3), figure.roadmap thead th:nth-child(8n+3), section.roadmap tbody tr:nth-child(8n+2) > td:first-child, figure.roadmap tbody tr:nth-child(8n+2) > td:first-child{ --phase-accent:var(--cat-2-mark); --phase-ink:var(--cat-2-ink, var(--cat-2-mark)); }
+section.roadmap thead th:nth-child(8n+4), figure.roadmap thead th:nth-child(8n+4), section.roadmap tbody tr:nth-child(8n+3) > td:first-child, figure.roadmap tbody tr:nth-child(8n+3) > td:first-child{ --phase-accent:var(--cat-3-mark); --phase-ink:var(--cat-3-ink, var(--cat-3-mark)); }
+section.roadmap thead th:nth-child(8n+5), figure.roadmap thead th:nth-child(8n+5), section.roadmap tbody tr:nth-child(8n+4) > td:first-child, figure.roadmap tbody tr:nth-child(8n+4) > td:first-child{ --phase-accent:var(--cat-4-mark); --phase-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.roadmap thead th:nth-child(8n+6), figure.roadmap thead th:nth-child(8n+6), section.roadmap tbody tr:nth-child(8n+5) > td:first-child, figure.roadmap tbody tr:nth-child(8n+5) > td:first-child{ --phase-accent:var(--cat-5-mark); --phase-ink:var(--cat-5-ink, var(--cat-5-mark)); }
+section.roadmap thead th:nth-child(8n+7), figure.roadmap thead th:nth-child(8n+7), section.roadmap tbody tr:nth-child(8n+6) > td:first-child, figure.roadmap tbody tr:nth-child(8n+6) > td:first-child{ --phase-accent:var(--cat-6-mark); --phase-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.roadmap thead th:nth-child(8n), figure.roadmap thead th:nth-child(8n), section.roadmap tbody tr:nth-child(8n+7) > td:first-child, figure.roadmap tbody tr:nth-child(8n+7) > td:first-child{ --phase-accent:var(--cat-7-mark); --phase-ink:var(--cat-7-ink, var(--cat-7-mark)); }
+section.roadmap thead th:nth-child(8n+1), figure.roadmap thead th:nth-child(8n+1), section.roadmap tbody tr:nth-child(8n)   > td:first-child, figure.roadmap tbody tr:nth-child(8n)   > td:first-child{ --phase-accent:var(--cat-8-mark); --phase-ink:var(--cat-8-ink, var(--cat-8-mark)); }
 
 section.roadmap td, figure.roadmap td{
   padding:var(--sp-xs) var(--sp-md);
@@ -13539,7 +13687,7 @@ section.roadmap.horizons .horizon-eyebrow, figure.roadmap.horizons .horizon-eyeb
   font-weight:700;
   letter-spacing:0.14em;
   text-transform:uppercase;
-  color:var(--phase-accent, var(--accent));
+  color:var(--phase-ink, var(--accent));
 }
 section.roadmap.horizons .horizon-title, figure.roadmap.horizons .horizon-title{
   font-family:var(--font-display);
@@ -14658,86 +14806,42 @@ section.split-panel > .cell-stage {
  * cat-6 brown rule sat under a blue label on the same slide. The source deck
  * colors its checkpoint labels with the level's own hue (`.l1 h6, .l1 h3 { color:
  * var(--l1) }`), which is the behavior this reproduces. */
-section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); }
-section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); }
-section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); }
-section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); }
-section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); }
-section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); }
-section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); }
-section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); }
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
-  background: var(--panel-fill);
-}
 /* NOT the raw `--panel-mark`. The card labels sit on `--bg-alt` (`--bg` under
  * `capstone`), where `--cat-N-mark` carries only the 3:1 NON-TEXT guarantee its
- * stroke role is gated to — text qualifies for 3:1 only at >=18.66px AND >=700
- * weight, the exemption `statement/premise` earns by bumping its row term to 700.
- * These labels are `--fs-meta` mono at 600 and can't take that weight without
- * losing their caption voice, so they fall under the 4.5:1 normal-text rule, where
- * the raw mark measures as low as 3.27:1 (`concrete` light cat-4 on `--bg`; 87 of
- * 448 pairs fail). Mixing in `--text-heading` — the ink already gated AA on both of
- * these surfaces by test/unit/palette/theme-surface-aa.test.js — buys the missing
- * contrast without giving up the hue. Same space and same 65/35 ratio as
- * `chart/matrix-grid`'s row labels and `chart/quadrant`'s `.quadrant-label` for the
- * identical "a graphical hue now carries text" problem.
- *
- * The DARK arm dilutes only 20%, not 35%: the mark tier flips to a pale tint on a
- * dark canvas, so it starts far closer to AA there (only `carbone`, whose marks
- * stay vivid in both modes, fails raw), and every point of dilution is chroma
- * spent. 20% is what clears the floor on the worst slot; taking the light arm's
- * 35% into dark would wash the tint out for nothing.
- *
- * MEASURED POPULATION — 448 pairs = the 14 HUE themes × 2 modes × 8 slots × 2
- * surfaces. Not "all 32 theme files": the 13 `-dark` files are a `color-scheme`
- * flip over their base (so they ARE the dark arm measured here, not extra pairs),
- * and the 5 `a11y-*` files are excluded exactly as `checkCatContrast` excludes
- * them. Result: 0 failures, worst 5.20:1 light (`concrete` cat-6), 5.15:1 dark
- * (`carbone` cat-5).
- *
- * WHAT THIS DOES **NOT** BUY: visible hue on a dark canvas, for almost every
- * theme. The label ink's mean oklab chroma is 0.066–0.108 in light mode but
- * ≤0.035 in dark for 13 of the 14 — `carbone` (0.133) is the lone theme whose
- * dark marks carry hue, and `onyx` is 0.000 in both modes (a pure gray ramp). So
- * on a dark deck these labels read as barely-tinted white and the panel FILL is
- * what carries the category. That is a property of the dark mark tier, not of this
- * rule: re-tuning it is theme-wide (kanban stripes, gantt bars, `premise` rows all
- * draw from it). Tracked in #1263, which also measured the alternative — a
- * fill-derived dark arm at 45% fill clears AA (worst 4.70:1) and roughly triples
- * most themes' dark chroma, but costs `carbone` its hue (0.133 → 0.022), so it is
- * a per-theme call for the shared token tier rather than a swap here.
- *
- * (Min adjacent-slot ΔE is NOT the metric to judge this by: it sits under the
- * ~0.15 "just about distinct" mark of `oklabDistance` in lib/theme/color.js for
- * every theme in BOTH modes, including the light mode that demonstrably reads as
- * six distinct hues. It is a worst-pair statistic over 8 hues, so it cannot
- * separate the working case from the failing one. Chroma can, and does.)
+ * stroke role is gated to; these labels are `--fs-meta` mono at 600, so they fall
+ * under the 4.5:1 normal-text rule, where the raw mark measures as low as 3.27:1
+ * (`concrete` light cat-4 on `--bg`). `--cat-N-ink` is the shared tier that
+ * answers exactly this: curated per palette from that palette's own mark — hue and
+ * chroma held, lightness solved until it clears AA on both slide surfaces — and
+ * gated by checkCatContrast. This component used to carry a 65% mix toward
+ * `--text-heading` (and its justification) itself. That cleared the floor on every
+ * theme by moving every theme, including the ones whose mark was already fine; the
+ * token instead leaves a passing slot EXACTLY as the palette curated it and repairs
+ * only the slots that fail. On `indaco` that means these labels now read the
+ * categorical blue itself rather than a navy-shifted mix of it. Reasoning lives at
+ * the definition in lib/base/base.tokens.css. (#1263)
  *
  * ACCEPTED CONSEQUENCE — the panel and its labels carry DIFFERENT categorical hues
  * on most slots. A theme's fill and mark cycles are INDEPENDENT (themes/*.css: "two
  * independent cycles") and need not share a hue per slot: on `indaco` light they
- * diverge on 6 of 8 (cat-5 by 118°, cat-4 by 108°, cat-2 by 77°; only cat-1 and
- * cat-6 agree), and on `cuoio` by up to 155°. So a level slide reads as a cream
+ * diverge on 6 of 8 (cat-5 by 118 degrees, cat-4 by 108, cat-2 by 77; only cat-1
+ * and cat-6 agree), and on `cuoio` by up to 155. So a level slide reads as a cream
  * panel with dark-red labels, or a green panel with navy labels. This is deliberate
  * and it is the better of the two available readings: it makes the SUPPORTING ZONE
  * internally consistent — each label now matches the border and rules directly
  * around it, which all take `--panel-mark` (`.panel-left::before`, and `capstone`'s
  * quote border + pillar rules) — where before the labels clashed with those same
- * rules. Two hues used consistently beats one hue used half the time.
- *
- * Deriving the ink from `--panel-fill` to make the two agree was measured and
- * rejected for the LIGHT arm, which is what forces the choice: the fill tier is a
- * SURFACE tier, pale on a light canvas by construction, so it cannot carry small
- * text there at any ratio that leaves the hue visible (301 of 448 pairs fail with a
- * uniform 65% fill, still 11 at 40%, by which point the ink is mostly
- * `--text-heading`). A DARK-only fill arm is viable in isolation — see the #1263
- * note above — but splitting the derivation by mode would make the panel and labels
- * agree in dark and disagree in light, which is worse than a consistent rule. */
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) {
-  --panel-label-ink: light-dark(
-    color-mix(in oklab, var(--panel-mark) 65%, var(--text-heading)),
-    color-mix(in oklab, var(--panel-mark) 80%, var(--text-heading))
-  );
+ * rules. Two hues used consistently beats one hue used half the time. */
+section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); --panel-label-ink: var(--cat-1-ink, var(--cat-1-mark)); }
+section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); --panel-label-ink: var(--cat-2-ink, var(--cat-2-mark)); }
+section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); --panel-label-ink: var(--cat-3-ink, var(--cat-3-mark)); }
+section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); --panel-label-ink: var(--cat-4-ink, var(--cat-4-mark)); }
+section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); --panel-label-ink: var(--cat-5-ink, var(--cat-5-mark)); }
+section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); --panel-label-ink: var(--cat-6-ink, var(--cat-6-mark)); }
+section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); --panel-label-ink: var(--cat-7-ink, var(--cat-7-mark)); }
+section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); --panel-label-ink: var(--cat-8-ink, var(--cat-8-mark)); }
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
+  background: var(--panel-fill);
 }
 section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before {
   background: var(--panel-mark);
@@ -15660,9 +15764,15 @@ section.statute-stack > .cell-stage > ul > li::marker,
 section.statute-stack > .cell-stage > ol > li::marker { content:''; }
 /* Three-jurisdiction hue rotation. Federal = warm cobalt, State = warm
  * sienna, Local = warm slate. Cycles after three. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); --jur-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 /* Jurisdiction label — eyebrow chrome (auto-bolded by slotLabelLift). The lifted
  * <strong> is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
  * ride the same row. Placement is keyed to the card SHAPE (see below), because a wide row
@@ -15680,7 +15790,7 @@ section.statute-stack > .cell-stage > ol > li > strong:first-child {
   font-weight:700;
   letter-spacing:0.16em;
   text-transform:uppercase;
-  color:var(--jur-accent, var(--accent));
+  color:var(--jur-ink, var(--accent));
 }
 /* Header pill chrome (shared). Neutral outline by default — the citation reads identical
  * across cards (an identifier, not a signal). */
@@ -15714,8 +15824,14 @@ section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul
 }
 section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > code:last-child:not(:first-child) {
   position:absolute; right:0; top:50%; transform:translateY(-50%);
+  /* Border keeps the mark (a 1px stroke, 3:1); the pill's TEXT takes the ink, like
+   * every other categorical label here. Missed in the first pass because --pill-fg
+   * is a SECOND alias hop (--pill-fg <- --jur-accent <- --cat-N-mark) and the sweep
+   * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
+   * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
+   * exists to retire. (#1263) */
   --pill-border:var(--jur-accent, var(--accent));
-  --pill-fg:var(--jur-accent, var(--accent));
+  --pill-fg:var(--jur-ink, var(--accent));
 }
 /* Body list. */
 section.statute-stack > .cell-stage > ul > li > ul,
@@ -15770,7 +15886,7 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:last-child:has(
   border-radius:var(--pill-radius);
   border:1px solid var(--jur-accent, var(--accent));
   background:var(--pill-bg, var(--bg));
-  color:var(--jur-accent, var(--accent));
+  color:var(--jur-ink, var(--accent));
   align-self:flex-start;
   white-space:nowrap;
 }
@@ -15894,7 +16010,7 @@ section.statute-stack.lane td:first-child {
   font-weight:700;
   letter-spacing:0.10em;
   text-transform:uppercase;
-  color:var(--lane-jur, var(--accent));
+  color:var(--lane-ink, var(--accent));
   white-space:nowrap;
 }
 section.statute-stack.lane td:nth-child(2) {
@@ -15903,9 +16019,9 @@ section.statute-stack.lane td:nth-child(2) {
   color:var(--text-heading);
   white-space:nowrap;
 }
-section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); }
-section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); }
-section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); }
+section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); --lane-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); --lane-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); --lane-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 section.statute-stack.lane tbody tr > td:first-child {
   border-left:3px solid var(--lane-jur, var(--accent));
   padding-left:var(--sp-md);
@@ -17533,6 +17649,15 @@ section.print {
   --cat-9-mark: var(--print-cat-9-mark);   --cat-10-mark: var(--print-cat-10-mark);
   --cat-11-mark: var(--print-cat-11-mark); --cat-12-mark: var(--print-cat-12-mark);
   --cat-on-mark: var(--print-cat-on-mark);
+  /* The on-canvas categorical ink follows the band too — it is a real per-theme
+   * token now, so it needs the same remap fill and mark get. Without it a printed
+   * slide showed a gray rule beside a full-hue theme label. */
+  --cat-1-ink: var(--print-cat-1-ink);     --cat-2-ink: var(--print-cat-2-ink);
+  --cat-3-ink: var(--print-cat-3-ink);     --cat-4-ink: var(--print-cat-4-ink);
+  --cat-5-ink: var(--print-cat-5-ink);     --cat-6-ink: var(--print-cat-6-ink);
+  --cat-7-ink: var(--print-cat-7-ink);     --cat-8-ink: var(--print-cat-8-ink);
+  --cat-9-ink: var(--print-cat-9-ink);     --cat-10-ink: var(--print-cat-10-ink);
+  --cat-11-ink: var(--print-cat-11-ink);   --cat-12-ink: var(--print-cat-12-ink);
   --diagram-stroke: var(--print-diagram-stroke);
   --diagram-line: var(--print-diagram-line);
   --diagram-active: var(--print-diagram-active);
@@ -18127,17 +18252,23 @@ section.obligation-matrix.pills td:not(:first-child) strong {
 section.obligation-matrix.pills tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 
 /* .lanes — categorical row stripes. */
-section.obligation-matrix.lanes tbody tr:nth-child(8n+1) > td:first-child { --lane-hue:var(--cat-1-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+2) > td:first-child { --lane-hue:var(--cat-2-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+3) > td:first-child { --lane-hue:var(--cat-3-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+4) > td:first-child { --lane-hue:var(--cat-4-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+5) > td:first-child { --lane-hue:var(--cat-5-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+6) > td:first-child { --lane-hue:var(--cat-6-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n+7) > td:first-child { --lane-hue:var(--cat-7-mark); }
-section.obligation-matrix.lanes tbody tr:nth-child(8n)   > td:first-child { --lane-hue:var(--cat-8-mark); }
+/* Paired INK for the text uses (#1263). The hue token above stays on --cat-N-mark,
+ * which is gated at the 3:1 WCAG 1.4.11 NON-TEXT bar its border/stroke/fill role is
+ * scoped to. The label drawn in it is small text and needs 4.5:1, which the raw mark
+ * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
+ * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
+ * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
+section.obligation-matrix.lanes tbody tr:nth-child(8n+1) > td:first-child { --lane-hue:var(--cat-1-mark); --lane-ink:var(--cat-1-ink, var(--cat-1-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+2) > td:first-child { --lane-hue:var(--cat-2-mark); --lane-ink:var(--cat-2-ink, var(--cat-2-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+3) > td:first-child { --lane-hue:var(--cat-3-mark); --lane-ink:var(--cat-3-ink, var(--cat-3-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+4) > td:first-child { --lane-hue:var(--cat-4-mark); --lane-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+5) > td:first-child { --lane-hue:var(--cat-5-mark); --lane-ink:var(--cat-5-ink, var(--cat-5-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+6) > td:first-child { --lane-hue:var(--cat-6-mark); --lane-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n+7) > td:first-child { --lane-hue:var(--cat-7-mark); --lane-ink:var(--cat-7-ink, var(--cat-7-mark)); }
+section.obligation-matrix.lanes tbody tr:nth-child(8n)   > td:first-child { --lane-hue:var(--cat-8-mark); --lane-ink:var(--cat-8-ink, var(--cat-8-mark)); }
 section.obligation-matrix.lanes tbody tr > td:first-child {
   border-left:4px solid var(--lane-hue, var(--accent));
-  color:var(--lane-hue, var(--text-heading));
+  color:var(--lane-ink, var(--text-heading));
 }
 section.obligation-matrix.lanes tbody tr:nth-child(odd) td:not(:first-child) { background:none; }
 section.obligation-matrix.lanes td:not(:first-child) { font-family:var(--font-mono); font-size:var(--fs-meta); }
@@ -25200,6 +25331,25 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
   --cat-11-mark:  light-dark(#388040, #D7E5D8);
   --cat-12-fill: light-dark(#D5CCE1, #0060A5);
   --cat-12-mark:  light-dark(#803877, #E5D7E3);
+
+  /* ── CATEGORICAL ON-CANVAS INK — generated by tools/derive-cat-ink.js ──
+   * The categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue and
+   * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
+   * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
+   * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
+  --cat-1-ink:   light-dark(#86642A, #E7E0D5);
+  --cat-2-ink:   light-dark(#28737D, #D5E4E6);
+  --cat-3-ink:   light-dark(#3B3286, #D7D5E6);
+  --cat-4-ink:   light-dark(#676F20, #E4E6D5);
+  --cat-5-ink:   light-dark(#863B32, #E6D7D5);
+  --cat-6-ink:   light-dark(#325286, #D5DCE6);
+  --cat-7-ink:   light-dark(#49752D, #DCE5D7);
+  --cat-8-ink:   light-dark(#2E765B, #D7E5E0);
+  --cat-9-ink:   light-dark(#643880, #E0D7E5);
+  --cat-10-ink:  light-dark(#803853, #E5D7DC);
+  --cat-11-ink:  light-dark(#307839, #D7E5D8);
+  --cat-12-ink:  light-dark(#803877, #E5D7E3);
+  /* ── end categorical on-canvas ink ── */
 
   --cat-on-fill: var(--text-heading);
   --cat-on-mark:  light-dark(#FFFFFF, #1E1A15);

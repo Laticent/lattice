@@ -63,6 +63,8 @@ const { TRANSFORMERS } = require('../lib/transformers/registry');
 const { PAIRS: TOKEN_CROSSWALK } = require('../lib/tokens/crosswalk');
 const { findHexLiterals } = require('../lib/layout/gate'); // HARD RULE #3 hex matcher (reused, not reinvented)
 const { FINISH_REGISTER } = require('../lib/core/resolve-finish'); // skill-freshness: authoritative finish list
+const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-contrast: the engine's own custom-property evaluator (reused, not reinvented)
+const { oklabDistance } = require('../lib/theme/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -3383,12 +3385,31 @@ function skillFreshnessAssertions() {
 //   ③ label text (on-fill ink) vs leaf fill ≥ 4.5 (WCAG AA normal text)
 // plus an anti-collapse floor: fill and mark must differ (the original bug set
 // them equal → contrast 1.0). Runs over EVERY hue-based theme, both modes, so a
-// collapse or a sub-AA recolor can't silently reship. a11y-* themes are the
-// sanctioned exception (luminance + texture, not hue) and are skipped.
+// collapse or a sub-AA recolor can't silently reship.
+//
+// ④ ON-CANVAS INK — `--cat-N-ink` vs `--bg` AND `--bg-alt` ≥ 4.5 (#1263). Layers
+// ①–③ all judge the category against ITSELF (its own chip, its own border); this
+// one judges it against the SLIDE, which is where `math.theorem`, `split-panel`
+// and `premise` actually paint categorical text. Nothing bounded that pair, so
+// `math.theorem` shipped 11 of 56 combinations below AA on the raw mark.
+//
+// COVERAGE DIFFERS BY LAYER, ON PURPOSE. Layers ①–③ are the HUE contract, and
+// a11y-* palettes are its sanctioned exception (they separate by luminance +
+// texture, not hue) — so those palettes skip ①–③. Layer ④ is not about hue at
+// all, it is about whether small text is legible, which no palette is exempt
+// from; it runs over EVERY palette including a11y-*. Skipping the whole theme
+// (what this gate used to do) would have let the a11y family ship a 2.26:1 ink.
 // See engineering/decisions/2026-07-15-categorical-token-contract.md.
-const CAT_TEXT_FLOOR = 4.5;      // ③ AA normal text
+const CAT_TEXT_FLOOR = 4.5;      // ③ ④ AA normal text
 const CAT_EDGE_FLOOR = 3.0;      // ① WCAG 1.4.11 graphical
 const CAT_COLLAPSE_FLOOR = 1.25; // fill vs mark — catches fill==mark (1.0)
+// Perceptual floor (OKLab ΔE) below which two categorical INKS read as one color.
+// Set just under 0.0105 — the tightest pair `indaco`'s own CURATED dark cycle
+// ships — so the arm fires on a real collapse without second-guessing a spacing
+// the design already accepts. Only ever applied where the MARKS are further apart
+// than this, i.e. where the distinction existed before the solve.
+const CAT_INK_COLLAPSE_DIST = 0.010;
+const CAT_PRINT_CHROMA_MAX = 6;  // ④ print band: max sRGB max-min on a printed ink (B&W-safe)
 
 function catStripComments(s) { return s.replace(/\/\*[\s\S]*?\*\//g, ''); }
 // LAST declaration wins, mirroring the CSS cascade (an override later in the
@@ -3404,54 +3425,44 @@ function catParseTokens(css) {
   }
   return m;
 }
-// Split on TOP-LEVEL commas only — commas nested inside parens (color-mix(),
-// rgb(), a var() fallback) are NOT separators. A naive regex split here was the
-// gate's worst latent bug: `light-dark(color-mix(in oklab,#a,#b), #c)` split on
-// the first inner comma and resolved to the wrong color / null.
-function catSplitTopCommas(s) {
-  const parts = [];
-  let depth = 0, cur = '';
-  for (const ch of s) {
-    if (ch === '(') depth += 1;
-    else if (ch === ')') depth -= 1;
-    if (ch === ',' && depth === 0) { parts.push(cur.trim()); cur = ''; }
-    else cur += ch;
-  }
-  parts.push(cur.trim());
-  return parts;
-}
-// If `v` is exactly `name(<inner>)`, return `<inner>`; else null. Balanced.
-function catFnInner(v, name) {
-  if (!v.startsWith(`${name}(`) || !v.endsWith(')')) return null;
-  return v.slice(name.length + 1, -1).trim();
-}
-// Resolve a token (or literal) to a #rrggbb hex in the given mode, following
-// light-dark() arms and var() references (with fallback), paren-balanced. Returns
-// null ONLY when the value genuinely does not reduce to a hex (e.g. a color-mix()
-// this static resolver can't evaluate) — callers treat null on a REQUIRED token
-// as a loud error, never a silent skip (fail-closed).
-function catResolve(map, tokenOrVal, mode, depth = 0) {
-  if (depth > 12) return null;
+// Resolve a token (or literal) to a #rrggbb hex in the given mode.
+//
+// The EVALUATION is delegated to lib/core/resolve-token-expr — the engine's own
+// custom-property evaluator, the one the offline Mermaid bridge already uses
+// (var() with fallback, light-dark() arms, color-mix() in oklab/srgb, all
+// paren-balanced). This gate used to carry a hand-rolled second evaluator that
+// understood only var() and light-dark(); it was replaced rather than extended
+// when --cat-N-ink arrived. The ink is a plain light-dark() of two hexes today, so
+// the swap is no longer load-bearing for THAT token — it stands on HARD RULE #15
+// (reuse the engine's evaluator, don't keep a second one) and on the coverage it
+// adds: 96 values across the shipped palettes resolve now that did not before.
+//
+// What this wrapper adds on top is the FAIL-CLOSED contract the callers rely
+// on: resolveTokenExpr returns its input verbatim when it cannot reduce a value
+// (right for a renderer, wrong for a gate), so anything that is not a hex comes
+// back as null here. Callers treat null on a REQUIRED token as a loud error,
+// never a silent skip.
+function catResolve(map, tokenOrVal, mode) {
   const raw = tokenOrVal.startsWith('--') ? map.get(tokenOrVal) : tokenOrVal;
   if (!raw) return null;
-  const v = raw.trim();
-  const ld = catFnInner(v, 'light-dark');
-  if (ld != null) {
-    const arms = catSplitTopCommas(ld);
-    if (arms.length !== 2) return null;
-    return catResolve(map, mode === 'light' ? arms[0] : arms[1], mode, depth + 1);
-  }
-  const varInner = catFnInner(v, 'var');
-  if (varInner != null) {
-    const parts = catSplitTopCommas(varInner);
-    const r = catResolve(map, parts[0], mode, depth + 1);
-    if (r) return r;
-    return parts.length > 1 ? catResolve(map, parts.slice(1).join(',').trim(), mode, depth + 1) : null;
-  }
-  const hx = v.match(/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/);
+  // resolveTokenExpr keys its var table on the BARE name (`bg`), not `--bg`.
+  const vars = catBareVars(map);
+  const out = resolveTokenExpr(String(raw).trim(), vars, mode === 'dark');
+  const hx = String(out).trim().match(/^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/);
   if (!hx) return null;
   const h = hx[1].length === 3 ? hx[1].split('').map((c) => c + c).join('') : hx[1];
   return `#${h.toLowerCase()}`;
+}
+// `--name` → `name` view of a token map. Deliberately NOT memoized per map: a
+// WeakMap cache here returns a STALE value when a REFERENCED token is mutated
+// between calls on the same Map (`--a: var(--b)` keeps resolving to the old --b),
+// and catResolve is exported and driven with hand-built maps by the unit tests.
+// Rebuilding is O(tokens) and the whole gate runs a few thousand resolutions —
+// milliseconds. Correct-by-construction beats a micro-optimization in a gate.
+function catBareVars(map) {
+  const v = Object.create(null);
+  for (const [k, val] of map) v[k.replace(/^--/, '')] = val;
+  return v;
 }
 function catRelLum(hex) {
   const n = hex.replace('#', '');
@@ -3467,17 +3478,278 @@ function catContrast(a, b) {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
 
+// Every palette with its @import chain flattened — base first, then each import,
+// then the file itself, mirroring the cascade. `@import 'lattice'` resolves to
+// lib/base/base.tokens.css, the SOURCE (not dist/, which is regenerated by the
+// very build this gate runs inside). Two things need the flattening: the derived
+// --cat-N-ink tier is declared in base.tokens.css, not in any theme; and the
+// a11y-* palettes reach the cycle through `@import 'onyx'`, so read alone they
+// look like a theme with no categorical tokens at all.
+function catPaletteSource(name, seen = new Set()) {
+  if (seen.has(name)) return '';
+  seen.add(name);
+  if (name === 'lattice') return fs.readFileSync(path.join(LIB_DIR, 'base', 'base.tokens.css'), 'utf8');
+  const file = path.join(THEMES_DIR, `${name}.css`);
+  if (!fs.existsSync(file)) return '';
+  const css = fs.readFileSync(file, 'utf8');
+  let out = '';
+  // Comments FIRST: several themes discuss `@import 'lattice';` in prose, and a
+  // raw scan treats that sentence as a real import. Harmless where the named
+  // theme is imported anyway, silently wrong the moment a comment names one that
+  // is not — it would flatten a foreign palette's tokens into the gate's map.
+  for (const m of catStripComments(css).matchAll(/@import\s+['"]([^'"]+)['"]/g)) out += `${catPaletteSource(m[1], seen)}\n`;
+  return `${out}${css}`;
+}
+
+// The `section.print` remap block from base.modifiers.css, as a token map layered
+// OVER a palette. Print is a THIRD canvas that light-dark() cannot reach: it
+// re-points --bg / --bg-alt / --text-heading / --cat-N-mark / --cat-N-ink at the
+// B&W --print-* band. The ink has to be judged against the print surfaces too — and
+// judged here rather than assumed, because an earlier cut of this tier derived the
+// ink at :root, which froze the theme hue and put carbone's printed labels at 1.29:1
+// on white while the rules beside them printed gray.
+function catPrintOverlay(errors) {
+  const css = catStripComments(fs.readFileSync(path.join(LIB_DIR, 'base', 'base.modifiers.css'), 'utf8'));
+  const at = css.indexOf('section.print {');
+  if (at === -1) { errors.push('checkCatContrast could not find the `section.print` block in lib/base/base.modifiers.css — the print band is unverifiable.'); return null; }
+  const end = css.indexOf('\n}', at);
+  if (end === -1) { errors.push('checkCatContrast could not find the end of the `section.print` block — the print band is unverifiable.'); return null; }
+  const map = catParseTokens(css.slice(at, end));
+  // A TRUNCATED overlay is the dangerous failure, not a missing one: the scan ends
+  // at the first column-0 `}`, so a nested block added inside `section.print` would
+  // silently cut it short, the missing tokens would fall through to the palette's
+  // SCREEN values, and the print arm would cheerfully judge the wrong colors green.
+  // Demand every input the ink derivation and its surfaces actually need.
+  const required = ['--bg', '--bg-alt', '--text-heading', ...Array.from({ length: 12 }, (_, i) => `--cat-${i + 1}-mark`)];
+  const missing = required.filter((t) => !map.has(t));
+  if (missing.length) {
+    errors.push(`checkCatContrast read the section.print block but it is missing ${missing.length} token(s) the print arm needs: ${missing.join(', ')}. Either the print band stopped remapping them, or the block scan was truncated by a nested rule (it ends at the first column-0 "}").`);
+    return null;
+  }
+  return map;
+}
+
+// Every palette that owns a mark cycle must also own a CURATED ink cycle.
+//
+// --cat-N-ink used to be derived in CSS from --cat-N-mark. That was contrast-safe
+// and off brand: the mix pole has to track the canvas, the only token that does is
+// --text-heading, and on a palette whose heading ink is itself chromatic that drags
+// the mark's hue by up to 14.9 degrees while mixing away a third of the chroma. The
+// values are now generated per theme by tools/derive-cat-ink.js — hue and chroma
+// held, lightness solved — and committed beside the fill/mark cycle. So the check
+// is no longer "is the derivation declared in a reachable place" but the ordinary
+// one every other categorical token gets: is it THERE.
+//
+// (`derive-cat-ink --check` separately proves the committed values still match the
+// recipe. This gate proves they exist and clear AA; that one proves they were not
+// hand-edited off the curve. Neither subsumes the other.)
+function checkCatInkDeclared(errors, themesDir = THEMES_DIR) {
+  for (const file of fs.readdirSync(themesDir).sort()) {
+    if (!file.endsWith('.css')) continue;
+    const name = file.replace(/\.css$/, '');
+    const own = catStripComments(fs.readFileSync(path.join(themesDir, file), 'utf8'));
+    if (!/--cat-1-mark\s*:/.test(own)) continue; // inherits its cycle, and its ink with it
+    const missing = [];
+    for (let n = 1; n <= 12; n += 1) if (!new RegExp(`--cat-${n}-ink\\s*:`).test(own)) missing.push(`--cat-${n}-ink`);
+    if (missing.length) {
+      errors.push(
+        `theme "${name}" declares a categorical mark cycle but is missing ${missing.length} of its 12 on-canvas ink slots (${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ', …' : ''}). ` +
+        'Run `node tools/derive-cat-ink.js` to generate them — the ink is curated per theme, not derived at render time.',
+      );
+    }
+  }
+}
+
+/**
+ * Every READ of `--cat-N-ink` in lib/ must carry its `var(--cat-N-mark)` fallback.
+ *
+ * This is the arm that actually closes the class. The tier has no `:root` default
+ * — deliberately, because the emulator's export bundle concatenates the theme
+ * BEFORE lib/base/base.tokens.css, so a default there wins on equal specificity
+ * and reverts every curated ink to its mark on the PDF path (measured in Chromium:
+ * atelier's curated #006D70 became the mark #008386). The fallback therefore lives
+ * at each consumer, which is order-independent and correct — but a per-site
+ * convention with nothing enforcing it survives exactly as long as the next
+ * author's memory. A theme built outside this repo (the Studio's Fabricate path,
+ * lib/theme/derive.js) declares marks and no inks, so a bare `var(--cat-N-ink)`
+ * there resolves to NOTHING and the property falls back to its inherited value:
+ * that is the `.horizons` bug's exact shape, where every phase eyebrow collapsed
+ * onto one flat --accent, silently, and only off-repo.
+ *
+ * The slot numbers must MATCH: `var(--cat-3-ink, var(--cat-7-mark))` is a typo the
+ * eye slides over, and it would paint category 3 in category 7's hue.
+ */
+function checkCatInkFallback(errors, libDir = LIB_DIR) {
+  const offenders = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!/\.(css|js|mjs)$/.test(e.name)) continue;
+      const src = catStripComments(fs.readFileSync(p, 'utf8'));
+      for (const m of src.matchAll(/var\(\s*--cat-(\d+)-ink\s*(,?)([^)]*)/g)) {
+        const n = m[1];
+        const rest = `${m[2]}${m[3]}`;
+        if (!new RegExp(`^,\\s*var\\(\\s*--cat-${n}-mark\\b`).test(rest.trim())) {
+          const line = src.slice(0, m.index).split('\n').length;
+          offenders.push(`${path.relative(ROOT, p)}:${line} — var(--cat-${n}-ink${rest.trim() ? `${rest.trim()}` : ''}…`);
+        }
+      }
+    }
+  };
+  walk(libDir);
+  if (offenders.length) {
+    errors.push(
+      `${offenders.length} read(s) of --cat-N-ink omit the required \`, var(--cat-N-mark)\` fallback: ` +
+      `${offenders.slice(0, 5).join('; ')}${offenders.length > 5 ? `, +${offenders.length - 5} more` : ''}. ` +
+      'The tier has no :root default on purpose (the export bundle loads the theme before the base, so a ' +
+      'default would override every curated ink), so the fallback belongs at each consumer — and the slot ' +
+      'numbers must match. A bare read renders nothing on any theme generated outside this repo.',
+    );
+  }
+}
+
+/**
+ * The --cat-N-ink pairs in one arm that read as a single color WHERE THE MARKS DO
+ * NOT — i.e. separation the ink solve destroyed, rather than separation the
+ * palette never had. Pure, so it can be tested against synthetic arms instead of
+ * only asserted empty over the shipped ones.
+ */
+function catInkCollapsePairs(inks, marks) {
+  const out = [];
+  for (let i = 0; i < inks.length; i += 1) {
+    for (let j = i + 1; j < inks.length; j += 1) {
+      const inkGap = oklabDistance(inks[i], inks[j]);
+      if (inkGap >= CAT_INK_COLLAPSE_DIST) continue;
+      // Inherited from the marks → a palette fact, not a generator failure.
+      if (oklabDistance(marks[i], marks[j]) < CAT_INK_COLLAPSE_DIST) continue;
+      out.push(`--cat-${i + 1}-ink/--cat-${j + 1}-ink ${inkGap.toFixed(4)} (${inks[i]} vs ${inks[j]})`);
+    }
+  }
+  return out;
+}
+
 function checkCatContrast(errors) {
+  checkCatInkDeclared(errors);
+  checkCatInkFallback(errors);
+  const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
-  let evaluated = 0; // slot×mode pairs actually contrast-checked — the real coverage metric
+  let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
+  let inkScanned = 0;
+  const inkScannedNames = new Set();
+  let inkEvaluated = 0; // ④ slot×mode×surface pairs — its own metric, since its scope is wider
   for (const file of fs.readdirSync(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    if (/^a11y-/.test(name)) continue; // sanctioned luminance+texture exception
-    const css = fs.readFileSync(path.join(THEMES_DIR, file), 'utf8');
-    if (!/@import\s+['"]lattice['"]/.test(css)) continue;
-    const map = catParseTokens(css);
-    if (!map.has('--cat-1-fill')) continue; // theme without the hue-based cycle
+    const map = catParseTokens(catPaletteSource(name));
+    if (!map.has('--cat-1-fill')) continue; // not a palette / no categorical cycle
+
+    // ④ ON-CANVAS INK — every palette, a11y-* included. See the header note: this
+    // layer asks whether small text is legible, which no palette is exempt from.
+    // THREE canvases, not two: light, dark, and the PRINT band (`section.print`
+    // remaps the ink's own inputs, so it lands somewhere neither mode covers).
+    inkScanned += 1;
+    inkScannedNames.add(name);
+    for (const mode of ['light', 'dark', 'print']) {
+      // Print is a light-scheme band by construction (`section.print` pins
+      // color-scheme: light), layered over the palette exactly as the cascade does.
+      const scheme = mode === 'print' ? 'light' : mode;
+      const m = mode === 'print' ? new Map([...map, ...(printOverlay ?? [])]) : map;
+      if (mode === 'print' && !printOverlay) {
+        errors.push('checkCatContrast could not read the section.print block in lib/base/base.modifiers.css — the print band is unverifiable.');
+        continue;
+      }
+      const bg = catResolve(m, '--bg', scheme);
+      const bgAlt = catResolve(m, '--bg-alt', scheme);
+      if (!bg || !bgAlt) {
+        errors.push(`theme "${name}" ${mode}: --${!bg ? 'bg' : 'bg-alt'} did not resolve to a color — the contrast gate cannot verify on-canvas ink legibility.`);
+        continue;
+      }
+      for (let n = 1; n <= 12; n += 1) {
+        const catInk = catResolve(m, `--cat-${n}-ink`, scheme);
+        if (!catInk) {
+          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is generated per palette by tools/derive-cat-ink.js; run that to write the block. There is deliberately NO :root default in lib/base/base.tokens.css (the export bundle loads the theme before the base, so a default there would override every curated ink) — consumers carry the fallback instead, as var(--cat-${n}-ink, var(--cat-${n}-mark)).`);
+          continue;
+        }
+        for (const [surface, hex] of [['--bg', bg], ['--bg-alt', bgAlt]]) {
+          inkEvaluated += 1;
+          const r = catContrast(catInk, hex);
+          if (r < CAT_TEXT_FLOOR) {
+            errors.push(
+              `theme "${name}" ${mode}: --cat-${n}-ink vs ${surface} is ${r.toFixed(2)}:1, ` +
+              `below the ${CAT_TEXT_FLOOR}:1 AA floor. Categorical text on the slide (math.theorem labels, ` +
+              `split-panel card labels, premise row terms) must be legible on the canvas it sits on.`,
+            );
+          }
+        }
+        // The print band's whole promise is B&W-safety: a printed label must be
+        // ink, not a theme hue. A chromatic print ink means `section.print`'s remap
+        // is not reaching this slot — the exact regression that once shipped a gray
+        // rule beside a carbone-blue label.
+        if (mode === 'print') {
+          const [pr, pg, pb] = [1, 3, 5].map((i) => Number.parseInt(catInk.slice(i, i + 2), 16));
+          const chroma = Math.max(pr, pg, pb) - Math.min(pr, pg, pb);
+          if (chroma > CAT_PRINT_CHROMA_MAX) {
+            errors.push(
+              `theme "${name}" print: --cat-${n}-ink resolves to ${catInk}, which carries chroma ${chroma} ` +
+              `(max ${CAT_PRINT_CHROMA_MAX}). The print band must be B&W-safe. The printed ink aliases the ` +
+              `printed mark, a gray ramp, so this means either that ramp was re-tuned off the band or ` +
+              `section.print stopped remapping --cat-${n}-ink.`,
+            );
+          }
+        }
+      }
+    }
+
+    // ④b ANTI-COLLAPSE ON THE INK CYCLE. Legibility is not the only thing a
+    // categorical tier owes: twelve slots that all render the same color have
+    // stopped being categorical. Solving each slot for the least move that clears
+    // AA can converge — on a ramp that differs only in lightness, every slot fails
+    // in the same direction and lands on one value (a11y dark did exactly this,
+    // 12 slots to one hex, and layer ④ certified it green because it was legible).
+    // The generator now spends the whole budget on legibility once an arm has
+    // collapsed; this arm is what notices if that ever stops happening.
+    //
+    // EVERY palette, a11y included — no exemption. The a11y family is exempt from
+    // the HUE contract because it separates by luminance and texture, but a
+    // luminance ramp is exactly a thing that can collapse, and it did: a11y dark
+    // solved to one hex on all twelve slots. The generator's uniform-shift keeps the
+    // ramp's spacing, so a11y passes this arm honestly rather than by exemption.
+    // MEASURED PERCEPTUALLY (OKLab ΔE), not by hex identity. `new Set(hexes).size
+    // === 12` calls concrete's dark arm — twelve values spanning two units out of
+    // 255 — a distinct cycle, which is true only to a string comparator.
+    //
+    // And judged against the MARKS, because the floor is not the same question as
+    // the collapse. The shipped palettes' own curated ink separation runs
+    // continuously from 0.0013 (concrete dark) through 0.0065 (cuoio dark) to 0.055
+    // (carbone) — there is no gap to put an absolute floor in that does not fail a
+    // palette for a property it INHERITED from its own marks. So a pair is a
+    // collapse only when the inks are closer than COLLAPSE_DIST *and* the marks
+    // were not: that is the generator having destroyed a distinction the palette
+    // carried, which is this arm's actual subject.
+    for (const mode of ['light', 'dark']) {
+      const inks = [];
+      const marks = [];
+      for (let n = 1; n <= 12; n += 1) {
+        inks.push(catResolve(map, `--cat-${n}-ink`, mode));
+        marks.push(catResolve(map, `--cat-${n}-mark`, mode));
+      }
+      if (inks.some((v) => !v) || marks.some((v) => !v)) continue;
+      const worst = catInkCollapsePairs(inks, marks);
+      if (worst.length) {
+        errors.push(
+          `theme "${name}" ${mode}: ${worst.length} --cat-N-ink pair(s) sit closer than ${CAT_INK_COLLAPSE_DIST} ` +
+          `OKLab apart while their MARKS are distinguishable — the ink solve collapsed a distinction the ` +
+          `palette carries: ${worst.slice(0, 4).join('; ')}. A categorical cycle whose ink collapses has ` +
+          'stopped encoding the category. Re-run `node tools/derive-cat-ink.js` (its anti-collapse pass ' +
+          'restores the marks\' own separation), or re-hue the marks.',
+        );
+      }
+    }
+
+    // ①–③ THE HUE CONTRACT — a11y-* separate by luminance + texture, not hue, and
+    // are the sanctioned exception to these three layers only.
+    if (/^a11y-/.test(name)) continue;
     scanned += 1;
     // The rendered mindmap label uses var(--cat-on-fill) unconditionally (mermaid.css),
     // with no base default — so that IS the ink, and its absence is a real defect.
@@ -3542,6 +3814,21 @@ function checkCatContrast(errors) {
   // a silent-skip regression where themes match the filters but no slot is contrast-checked.
   else if (evaluated < scanned * 24) {
     errors.push(`checkCatContrast evaluated only ${evaluated} of the expected ${scanned * 24} slot×mode pairs — some slots did not resolve; coverage is incomplete.`);
+  }
+  // The ink layer's backstop is BY NAME, not by ratio. A ratio cannot catch the
+  // regression it exists to catch: drop a whole palette family from the scan and
+  // inkScanned and inkEvaluated shrink together, so `inkEvaluated < inkScanned * K`
+  // stays satisfied and the gate reports nothing. Name every palette file that
+  // failed to get scanned instead — that is unfixable by proportional shrinkage.
+  const inkExpected = fs.readdirSync(THEMES_DIR)
+    .filter((f) => f.endsWith('.css') && !f.includes('audit'))
+    .map((f) => f.replace(/\.css$/, ''));
+  const inkMissed = inkExpected.filter((t) => !inkScannedNames.has(t));
+  if (inkMissed.length) {
+    errors.push(`checkCatContrast never verified --cat-N-ink on ${inkMissed.length} palette(s): ${inkMissed.join(', ')}. Every shipped palette must be judged on the ink layer — no exemptions.`);
+  }
+  if (inkEvaluated !== inkScanned * 72) {
+    errors.push(`checkCatContrast evaluated ${inkEvaluated} --cat-N-ink slot×mode×surface pairs, expected exactly ${inkScanned * 72} (12 slots × 3 canvases × 2 surfaces) — some slot did not resolve; coverage is incomplete.`);
   }
 }
 
@@ -4663,9 +4950,13 @@ module.exports = {
   checkCatContrast,
   catResolve,
   catContrast,
+  checkCatInkDeclared,
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,
   CAT_COLLAPSE_FLOOR,
+  CAT_INK_COLLAPSE_DIST,
+  catInkCollapsePairs,
+  checkCatInkFallback,
   VETRINA_DIR,
   VETRINA_ADAPTER,
   VETRINA_IMPORT,
