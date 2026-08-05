@@ -353,6 +353,28 @@ test('the embedded HTML block-tag list still matches markdown-it own', async () 
 	assert.deepEqual(embedded[1].split('|').sort(), [...blocks].sort(), 'the embedded CommonMark block-tag list has drifted from markdown-it own');
 });
 
+test('an HTML comment ends where markdown-it says it ends — at `-->`, and not at `--!>`', () => {
+	// CodeQL's `js/bad-tag-filter` flags a comment terminator that accepts `-->` and not `--!>`,
+	// and it is RIGHT about HTML: a sanitizer keying on `-->` alone can be walked past. It is
+	// wrong about this module, which is not a sanitizer — it models markdown-it's block grammar,
+	// whose terminator is `/-->/` and nothing else.
+	//
+	// So the alert is answered by MEASURING the thing it would have us change. Teaching this
+	// `--!>` would make the scanner disagree with the engine, which is the whole defect class
+	// #1271 exists to end. `agrees` asserts against the real parser, so if markdown-it ever does
+	// start honoring `--!>`, this test fails and the scanner follows it rather than a comment.
+	const notAnEnd = '<!-- note --!>\n---\n\n# Two\n';
+	assert.deepEqual(agrees(notAnEnd, '`--!>` does not close a comment block').lines, [], 'the block is still open, so the `---` is inside it');
+	const isAnEnd = '<!-- note -->\n\n---\n\n# Two\n';
+	assert.deepEqual(agrees(isAnEnd, '`-->` closes a comment block').lines, [2]);
+	// The other three literal terminators, for the same reason — each is a substring search
+	// spelled as one rather than as a regex.
+	assert.deepEqual(agrees('<?php echo 1; ?>\n\n---\n\n# Two\n', 'processing instruction').lines, [2]);
+	assert.deepEqual(agrees('<![CDATA[ x ]]>\n\n---\n\n# Two\n', 'CDATA').lines, [2]);
+	assert.deepEqual(agrees('<!DOCTYPE html>\n\n---\n\n# Two\n', 'declaration').lines, [2]);
+	assert.deepEqual(agrees('<script>\nvar a = 1;\n</script>\n\n---\n\n# Two\n', 'raw text').lines, [4]);
+});
+
 test('the transcribed open/close-tag pattern is markdown-it own, character for character', async () => {
 	// Type 7 is the html-block kind that decides whether a `<`-led line opens a block that runs
 	// to the next blank line or is just inline HTML in a paragraph — and the difference decides

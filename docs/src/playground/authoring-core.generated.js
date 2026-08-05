@@ -100,11 +100,11 @@ function isTableDelimiterRow(rest) {
 }
 function htmlBlockOpener(rest) {
   if (rest[0] !== "<") return null;
-  if (rest.startsWith("<!--")) return { end: /-->/, blankCloses: false, interrupts: true };
-  if (rest.startsWith("<?")) return { end: /\?>/, blankCloses: false, interrupts: true };
-  if (rest.startsWith("<![CDATA[")) return { end: /\]\]>/, blankCloses: false, interrupts: true };
-  if (/^<![A-Za-z]/.test(rest)) return { end: />/, blankCloses: false, interrupts: true };
-  if (HTML_RAW_TEXT_RE.test(rest)) return { end: /<\/(?:script|pre|style|textarea)>/i, blankCloses: false, interrupts: true };
+  if (rest.startsWith("<!--")) return { end: (l) => l.includes("-->"), blankCloses: false, interrupts: true };
+  if (rest.startsWith("<?")) return { end: (l) => l.includes("?>"), blankCloses: false, interrupts: true };
+  if (rest.startsWith("<![CDATA[")) return { end: (l) => l.includes("]]>"), blankCloses: false, interrupts: true };
+  if (/^<![A-Za-z]/.test(rest)) return { end: (l) => l.includes(">"), blankCloses: false, interrupts: true };
+  if (HTML_RAW_TEXT_RE.test(rest)) return { end: (l) => HTML_RAW_TEXT_END_RE.test(l), blankCloses: false, interrupts: true };
   if (HTML_BLOCK_NAME_RE.test(rest)) return { end: null, blankCloses: true, interrupts: true };
   const tail = rest.trimEnd();
   if (tail.charCodeAt(tail.length - 1) !== 62) return null;
@@ -153,7 +153,7 @@ function slideBoundaries(body) {
       continue;
     }
     if (html) {
-      if (html.blankCloses ? blank : html.end.test(line)) html = null;
+      if (html.blankCloses ? blank : html.end(line)) html = null;
       paraOpen = false;
       prevBlank = blank;
       continue;
@@ -267,7 +267,7 @@ function slideBoundaries(body) {
       leaveContainers();
       paraOpen = false;
       if (htmlOpen.blankCloses) html = { end: null, blankCloses: true };
-      else if (!htmlOpen.end.test(line)) html = { end: htmlOpen.end, blankCloses: false };
+      else if (!htmlOpen.end(line)) html = { end: htmlOpen.end, blankCloses: false };
       continue;
     }
     if (!paraOpen && !inTable && rest[0] === "[") {
@@ -336,12 +336,13 @@ function separatorRanges(text, offset = 0) {
   }
   return { ranges, certain, reason };
 }
-var HTML_BLOCK_NAMES, HTML_BLOCK_NAME_RE, HTML_RAW_TEXT_RE, HTML_OPEN_CLOSE_TAG_SOURCE, HTML_ANY_TAG_RE, MARKDOWN_IT_TAG_SOURCE;
+var HTML_BLOCK_NAMES, HTML_BLOCK_NAME_RE, HTML_RAW_TEXT_RE, HTML_RAW_TEXT_END_RE, HTML_OPEN_CLOSE_TAG_SOURCE, HTML_ANY_TAG_RE, MARKDOWN_IT_TAG_SOURCE;
 var init_slide_boundaries = __esm({
   "lib/core/slide-boundaries.mjs"() {
     HTML_BLOCK_NAMES = "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul";
     HTML_BLOCK_NAME_RE = new RegExp(`^</?(?:${HTML_BLOCK_NAMES})(?=[\\s/>]|$)`, "i");
     HTML_RAW_TEXT_RE = /^<(?:script|pre|style|textarea)(?=[\s>]|$)/i;
+    HTML_RAW_TEXT_END_RE = /<\/(?:script|pre|style|textarea)>/i;
     HTML_OPEN_CLOSE_TAG_SOURCE = `^(?:<[A-Za-z][A-Za-z0-9\\-]*(?:\\s+[a-zA-Z_:][a-zA-Z0-9:._-]*(?:\\s*=\\s*(?:[^"'=<>\`\\x00-\\x20]+|'[^']*'|"[^"]*"))?)*\\s*\\/?>|<\\/[A-Za-z][A-Za-z0-9\\-]*\\s*>)`;
     HTML_ANY_TAG_RE = new RegExp(`${HTML_OPEN_CLOSE_TAG_SOURCE}\\s*$`);
     MARKDOWN_IT_TAG_SOURCE = HTML_OPEN_CLOSE_TAG_SOURCE;
