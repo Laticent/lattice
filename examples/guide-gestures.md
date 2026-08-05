@@ -32,18 +32,18 @@ Guide used to move on every sentence, so the eye was dragged on every full stop.
 
 `The vocabulary`
 
-## Five gestures, chosen by the shape of the thing being named.
+## Five gestures, chosen by what the thing is before how big it is.
 
 1. Underline
    - One wide, short line of prose. The workhorse, and it lives in the descender gap.
 2. Ring
-   - Compact and roughly square: a stat, a chip, a table cell.
+   - A substantial handle: a rail disc, an index, a compact stat.
 3. Wash
    - A phrase inside a longer block, named without naming the block.
 4. Bracket
-   - A whole card or a block read several lines at a time.
+   - A block with no boundary of its own, read several lines at a time.
 5. Tap
-   - Something small and discrete, where a ring would be a dot.
+   - Something small and discrete, where a ring would be mostly empty space.
 
 ---
 
@@ -57,22 +57,36 @@ Watch the stroke: it sits below the baseline, in the descender gap, and the poin
 
 ---
 
+<!-- _class: content -->
+
+`The bullet, not the line`
+
+## A list item is named by its bullet.
+
+Attention spreads across a whole object once any part of it is cued, so the marker delivers the line — and a bullet is a place the eye can land, which a full-width box is not.
+
+- Renewal-risk signals clustered at the segment ceiling.
+- Legal review surfaced as the pipeline chokepoint.
+- Displacement pressure concentrated in one tier.
+
+---
+
 <!-- _class: stats -->
 
-`Ring and tap`
+`The value, not the card`
 
-## Compact numbers get a shape drawn around them.
+## A figure is named by the number, not by the panel around it.
 
-`Small, roughly square targets — the case the ring was kept for.`
+`Each card has a border already. A second outline would be a duplicate boundary.`
 
-1. 83.5%
-   - cues resolve
-2. 5,551
+1. 92.1%
+   - cues resolve to a target
+2. 5,879
    - cues measured
-3. 124
+3. 126
    - decks swept
-4. 0
-   - wrong targets
+4. 14.1%
+   - of gestures draw a box
 
 ---
 
@@ -88,18 +102,52 @@ Growth held across every region. Spend stayed disciplined through the second hal
 
 <!-- _class: cards-grid -->
 
-`Bracket`
+`The header, not the card`
 
-## A card is outlined from just outside it.
+## A card with a title is named by its title.
 
 - Rests, then moves
   - The gesture fires on a new block, never on a full stop.
-- Fits the shape
-  - Five verbs, picked by geometry rather than at random.
-- Clears the text
+- Names a handle
+  - The smallest visual token that stands for the whole thing.
+- Clears the words
   - The pointer rides the stroke, so it stops outside what it named.
-- Follows the deck
-  - Where a slide declares focus, that is what gets named.
+
+---
+
+<!-- _class: list-steps timeline -->
+
+`The rail disc`
+
+## A stage on a rail is named by its node.
+
+1. Pilot
+   - One region, two teams, one connector.
+2. Expand
+   - Legal review folds into intake.
+3. General
+   - The support rota stands up.
+4. Calibrate
+   - The weights get their first audit.
+
+---
+
+<!-- _class: split-compare -->
+
+`Two blocks, one sentence`
+
+## The first bullet of an option used to get nothing at all.
+
+Its narration joins the option's label to its first fact, and no single element contains both.
+
+- Build everything
+  - Owns the plumbing and the scoring alike
+  - Two engineer-quarters before anyone scores a signal
+- Buy the plumbing
+  - Connectors ship in six weeks
+  - Engineering stays on the part that thinks
+
+> Buy the plumbing. Build the framework. Revisit at the calibration review.
 
 ---
 
@@ -123,4 +171,4 @@ Growth held across every region. Spend stayed disciplined through the second hal
 
 ## The hand should fit what it is naming.
 
-Nothing here is authored for Guide. Every gesture on these slides is chosen from the geometry the deck already has.
+Nothing here is authored for Guide. Every gesture on these slides is chosen from the structure the deck already has.

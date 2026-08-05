@@ -52,6 +52,49 @@ in patch versions.
   unfixed component: they report 11px of chevron spill at the 700px tablet floor in exactly the
   state where every pre-existing guard reads green. (#1417)
 
+- **Guide names a handle, not the box around it.** The gesture picker judged the target's own
+  geometry, so it drew an outline around a card that already had a border, an outline around a
+  timeline stage that was already a node on a rail, and an underline under a whole bullet whose
+  bullet was sitting right there. It now asks what the thing IS before asking how big it is, and
+  puts the ink on the smallest visual token that stands for it: an ordered or unordered list is
+  named by its **bullet**, a card by its **header**, a timeline stage by its **rail disc**, a
+  `stats` figure by its **value**. Cueing a part delivers the whole — attention spreads across a
+  perceptual object once any part of it is cued — so the outline was buying nothing the bullet did
+  not already buy, and it was costing: a 368x438 box gives the eye no place to land. A `bracket`
+  is now refused outright on anything that draws its own border, fill or shadow, because a second
+  boundary around a card makes the eye choose between two nested regions. Measured over the 126
+  committed decks (5,879 real cues): boxes fell from **34.2% of gestures to 14.1%**, and the two
+  gestures that name a small handle rose from 5.4% to 20.5%.
+
+- **Fixed: a slide whose narration joins a label to its body no longer goes dark.** The speech
+  projection speaks `"<label>: <body>"` as one sentence, and no single element contains it — so
+  `split-compare` lost the first bullet of each option while the others were cued (the reported
+  symptom), and **every `stats` slide lost every figure**, silently. A cue no block contains is now
+  matched piecewise and resolved to the smallest element that holds all of it, bounded so it can
+  never climb to the slide. 503 cues corpus-wide, 9.3% of everything that resolves; the match rate
+  goes from 83.7% to **92.1%** and the number of cues where the cursor simply hides halves.
+
+- **The Guide cursor keeps clear of the WORDS, not of the boxes around them.** Its
+  do-not-cover check measured each block's bounding box, so the margin beside a bullet — the one
+  place a presenter's hand actually goes — read as occupied. It now checks against the line boxes
+  the text really occupies, which is what the check always meant. Rests that fall back to the
+  whitespace search: 30.0% → 25.6%.
+
+- **The Vetrina cursor moves like a hand.** It traveled a straight line at a symmetric ease,
+  which is the one trajectory an arm cannot take without correcting for it. Cursor travel now
+  carries an arc, a ballistic overshoot with a corrective settle, and a band-limited tremor at
+  hand frequencies — a sum of sinusoids with a seeded per-movement phase, not a random offset per
+  frame, so it is reproducible and testable. The endpoints stay exact and the cursor's logical
+  position never wobbles, so every gesture's ink and every `gestureRest` answer is unaffected.
+  Scaled by the new `theme.hand` (0..2, default 1); `hand: 0` reproduces the old glide sample for
+  sample, and the `legible` / `still` motion tiers force it to 0 without the host asking.
+
+- **Fixed in Vetrina:** a host-supplied `rest` was applied as a withdrawal AFTER the stroke, so the
+  cursor traveled to the gesture's own ending — precisely the position the host had rejected as
+  occupied — and then corrected. A visible stutter, and a moment of the pointer sitting on the
+  words it was placed to avoid, on 25-30% of Lattice's gestures. The four deictic strokes now end
+  on the given rest directly; `circle` keeps the withdrawal, having no ending to redirect.
+
 - **Guide gestures instead of following.** Present's Guide rung moved on every SENTENCE and had
   one verb — go somewhere — so a dense slide got six or eight trips, several of them between two
   sentences of the same paragraph. It now moves on the BLOCK: a cue that resolves to the same

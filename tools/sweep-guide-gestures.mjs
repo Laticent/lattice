@@ -144,7 +144,7 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	try {
 		for (const md of decks().slice(0, limit)) {
@@ -190,6 +190,30 @@ async function main() {
 			const rows = await page.evaluate(
 				(cueEntries, halfParent, presentWidth) => {
 					const G = window.LatticeGuide;
+					// Did this cue need the piecewise (label + body) matcher? Asked by checking
+					// whether any single BLOCK contains it, which is the condition that fallback
+					// exists for — not by re-implementing the matcher.
+					const hasBlock = (root, text) => {
+						const n = text
+							.toLowerCase()
+							.replace(/\s+/g, ' ')
+							.trim()
+							.replace(/[\u2018\u2019\u201c\u201d]/g, "'")
+							.replace(/[\u2013\u2014]/g, '-')
+							.replace(/[^\p{L}\p{N}' -]+/gu, '');
+						if (n.length < 3) return true;
+						for (const el of root.querySelectorAll('p, li, dd, dt, blockquote, figcaption, h1, h2, h3, h4, th, td, code')) {
+							const hay = (el.textContent ?? '')
+								.toLowerCase()
+								.replace(/\s+/g, ' ')
+								.trim()
+								.replace(/[\u2018\u2019\u201c\u201d]/g, "'")
+								.replace(/[\u2013\u2014]/g, '-')
+								.replace(/[^\p{L}\p{N}' -]+/gu, '');
+							if (hay.includes(n)) return true;
+						}
+						return false;
+					};
 					const sections = [...document.querySelectorAll('section[data-lattice-slide]')];
 					const out = [];
 					for (const [n, cues] of cueEntries) {
@@ -208,7 +232,7 @@ async function main() {
 							if (d) any = true;
 							const rest = !!d && d.el === prev;
 							prev = d ? d.el : null;
-							out.push(d ? { kind: d.kind, notable: d.strength === 'notable', fellBack: d.fellBack, rest } : null);
+							out.push(d ? { kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: !hasBlock(sec, text) } : null);
 						}
 						out.push({ slideDone: true, any });
 					}
@@ -236,6 +260,8 @@ async function main() {
 				tally.resolved += 1;
 				deckRow.resolved += 1;
 				tally.byKind[row.kind] = (tally.byKind[row.kind] ?? 0) + 1;
+				tally.byRole[row.role] = (tally.byRole[row.role] ?? 0) + 1;
+				if (row.spanned) tally.spanned += 1;
 				deckRow.byKind[row.kind] = (deckRow.byKind[row.kind] ?? 0) + 1;
 				if (row.notable) tally.notable += 1;
 				if (row.fellBack) tally.fellBack += 1;
@@ -261,6 +287,8 @@ async function main() {
 	console.log(`  slides with narration  ${tally.slidesWithNarration}, of which ${tally.slidesNoCue} resolve nothing at all`);
 	console.log(`  notable (a \`_focus:\` element) ${tally.notable} (${pct(tally.notable, tally.resolved)})`);
 	console.log(`  rest fell back to the search  ${tally.fellBack} (${pct(tally.fellBack, tally.resolved)})`);
+	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
+	console.log(`  handle:  ${Object.entries(tally.byRole).map(([k, v]) => `${k} ${v} (${pct(v, tally.resolved)})`).join(' · ')}`);
 	console.log(`\n  THE CADENCE — what a viewer actually sees:`);
 	console.log(`    gestures ${tally.gestures} · rests ${tally.rests} (${pct(tally.rests, tally.resolved)} of resolved cues) · hides ${tally.hides}`);
 	console.log(`    rest fell back, per GESTURE   ${tally.gFellBack} (${pct(tally.gFellBack, tally.gestures)})`);
