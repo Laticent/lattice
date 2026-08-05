@@ -452,11 +452,11 @@ Three structural answers, in the order they close the gap:
 
 The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
 several at render time. It is safe for the BAND because every expanded copy carries the
-class of the slide it was copied from — but not for the COUNT in one case: `focusSteps`
-groups on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a focus
-slide containing a nested `---` (inside a blockquote or a list) renders one section more
-than it should. Pre-existing engine bug, tracked at #1387. The gate detects it off the token
-stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
+class of the slide it was copied from, and it is safe for the COUNT now too: `focusSteps`
+used to group on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a
+focus slide containing a nested `---` (inside a blockquote or a list) rendered one section
+more than it should. Both grouping sites take the predicate from `lib/core/slide-rule.js`
+(#1387). The gate detects the divergence off the token stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
 prose must not be excused from the slide-count check.
 
 **What the gate structurally cannot see**, and is worth knowing before trusting it: it

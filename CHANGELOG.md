@@ -182,6 +182,7 @@ in patch versions.
   divergences), where the regex it replaces gets six slides wrong across three decks.
   `engineering/decisions/2026-08-05-one-class-directive-reader.md`, #1383.
 
+
 - **Fixed: a `---` inside a blockquote or a list added a phantom slide to a `_focusSteps` walk.**
   The progressive-expansion pass grouped the token stream on any `hr` token, while the rule that
   actually decides slides guards the same test with `level === 0` — so a nested horizontal rule,

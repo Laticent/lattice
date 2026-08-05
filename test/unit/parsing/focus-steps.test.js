@@ -41,6 +41,29 @@ describe('_focusSteps expansion', () => {
     assert.deepEqual(pages, ['1', '2', '3']);
   });
 
+  // #1387: `focusSteps` grouped on `t.type === 'hr'` with no `level === 0` guard,
+  // unlike `splitOnHr` — so a `---` nested inside a blockquote or a list item, which
+  // markdown-it emits as a NESTED `hr` token, counted as a slide boundary. The walk
+  // then expanded a phantom slide and every section-indexing consumer downstream
+  // (pagination, the PPTX one-image-per-slide path, the source-side band
+  // reconstruction) inherited the off-by-one. Both grouping sites share
+  // lib/core/slide-rule.js now.
+  const NESTED = (block) => ['---', 'theme: indaco', 'split: rule', '---', '',
+    '<!-- _class: content -->', '<!-- _focusSteps: item 1 | item 2 -->', '', '# A', '',
+    block, '', '---', '', '# B', ''].join('\n');
+
+  test('a `---` nested in a blockquote is a rule INSIDE the slide, not a boundary', () => {
+    assert.equal(sections(html(NESTED('> q\n>\n> ---\n>\n> more'))).length, 3);
+  });
+
+  test('…and a `---` nested in a list item likewise', () => {
+    assert.equal(sections(html(NESTED('- one\n\n  ---\n\n- two'))).length, 3);
+  });
+
+  test('the nested rule still RENDERS — the guard skips the split, not the token', () => {
+    assert.match(html(NESTED('> q\n>\n> ---\n>\n> more')), /<hr\s*\/?>/);
+  });
+
   test('a deck without _focusSteps is untouched', () => {
     const plain = '---\ntheme: indaco\n---\n\n## One\n\n- a\n\n---\n\n## Two\n\n- b\n';
     assert.equal(sections(html(plain)).length, 2);
