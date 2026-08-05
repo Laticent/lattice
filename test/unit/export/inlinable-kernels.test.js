@@ -89,3 +89,31 @@ test('the present-transport kernels the player already inlines are still self-co
 		assert.throws(() => keyAction('ArrowRight'), ReferenceError, 'the no-map form is NOT inlinable — the player must pass the keymap');
 	});
 });
+
+// ── the backtick trap ────────────────────────────────────────────────────────
+// The player's script and CSS bodies are TEMPLATE LITERALS containing JavaScript and CSS. A
+// raw backtick anywhere inside one — including in ordinary prose in a comment, where it is the
+// natural way to write an identifier — terminates the literal early and turns the rest of the
+// file into garbage.
+//
+// The failure MODE is what earns this a gate rather than care. The module stops PARSING, so
+// every test that imports it fails at once, with a message naming a token from the middle of a
+// comment and pointing nowhere near the cause. It cost three separate debugging rounds while
+// the narration work was built.
+//
+// This checks the outcome rather than the source: a syntax check on the real file. It cannot
+// false-positive on a legitimately nested or escaped backtick the way a regex over the text
+// does, and when it fails the syntax error IS the report.
+test('player-core.mjs parses — no template literal is terminated early', () => {
+	const { execFileSync } = require('node:child_process');
+	const file = require('node:path').join(__dirname, '../../../lib/export/player-core.mjs');
+	try {
+		execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+	} catch (err) {
+		assert.fail(
+			`lib/export/player-core.mjs does not parse. The usual cause is a raw backtick inside one of its template ` +
+				`literal bodies (playerCss / playerJs / narrationJs) — write identifiers unquoted in that prose.\n\n` +
+				String(err.stderr || err.message),
+		);
+	}
+});
