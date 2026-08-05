@@ -158,7 +158,11 @@ export function ModelPicker({ status, notify }: { status: ArchitectStatus; notif
 					</div>
 				)}
 			</div>
-			<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Defaults to Claude Sonnet 4. Switch any time — the architect uses the selected model for every edit and chat.</p>
+			{/* Version-NEUTRAL on purpose: the default is the `~anthropic/claude-sonnet-latest`
+			    alias, which OpenRouter resolves to whatever the current Sonnet is. Naming a
+			    version here ("Sonnet 4") goes stale the moment that alias moves — and this line
+			    is the only place an author is ever told what they're spending on. */}
+			<p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">Defaults to the latest Claude Sonnet. Switch any time — the architect uses the selected model for every edit and chat.</p>
 		</div>
 	);
 }

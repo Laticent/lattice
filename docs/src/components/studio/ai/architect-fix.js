@@ -77,9 +77,13 @@ export async function requestSlideFix({ model, gate, source, finding, catalog, s
 	const cache = gate?.cache ? !!gate.cache() : false;
 	const messages = buildFixMessages({ source, finding, catalog, cache });
 	const reply = await model.complete({ messages, onUsage: gate?.onUsage, signal });
-	const { edits } = parseEdits(reply || '');
+	// `problems` are blocks the parser recognized as edits but couldn't trust (cut off, or a
+	// backtick wrapper closed by its own payload). Returning a bare `null` for those says
+	// "the model had nothing to offer", which is the same silent-refusal shape the chat path
+	// was just fixed for — one file over (trio). Surface the reason instead.
+	const { edits, problems } = parseEdits(reply || '');
 	const edit = pickEdit(edits, finding.slide);
-	if (!edit) return null;
+	if (!edit) return problems?.length ? { problem: problems[0].message } : null;
 	const before = sliceSlide(source, finding.slide);
 	const after = (edit.body || '').trim();
 	if (!after || after === before.trim()) return null; // empty or no-op — nothing to review

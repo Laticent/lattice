@@ -62,6 +62,7 @@ import { Library } from './Library';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { PresentOverlay } from './PresentOverlay';
@@ -1717,6 +1718,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// toy lint.ts scoreDeck. `hasContent` false → a blank deck shows a placeholder, never
 	// a fabricated grade (K1). Populated by the debounced effect below.
 	const [scorecard, setScorecard] = React.useState<DeckScorecard | null>(null);
+	// Diagrams Mermaid's own parser rejects. `null` until the check has run for this deck
+	// (or when it can't run) — DISTINCT from `[]`, which is the positive statement "every
+	// diagram parses". The chat grounds on that difference: an empty list lets it say the
+	// diagrams are fine, `null` leaves it silent rather than guessing. See mermaid-check.ts.
+	const [diagramErrors, setDiagramErrors] = React.useState<DiagramError[] | null>(null);
 	const [deckHasContent, setDeckHasContent] = React.useState(false);
 	const [assessing, setAssessing] = React.useState(true);
 	// The active deterministic Coach chip result card (one open at a time). No model.
@@ -1833,6 +1839,33 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			clearTimeout(id);
 		};
 	}, [source, lintVocab, components, localNames, savedFinishLintNames]);
+	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
+	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
+	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
+	// no diagrams never loads the (~1MB) library at all. Debounced past the assessment so
+	// a burst of typing settles first. A failure to load reports `[]` rather than a guess.
+	const diagramSignature = React.useMemo(() => extractDiagrams(source).map((d) => d.code).join(' '), [source]);
+	React.useEffect(() => {
+		let live = true;
+		// UNKNOWN until this round answers. Without the reset, the previous deck's verdict —
+		// or the pre-edit one, across the 900ms debounce — kept grounding the prompt as
+		// current fact. A deck with no diagrams is also `null`: there is nothing to report,
+		// and "every diagram parses cleanly" over a deck with none is a vacuous claim that
+		// invites the model to discuss diagrams that don't exist.
+		setDiagramErrors(null);
+		if (!diagramSignature) return;
+		// Read the deck through the ref, so the DIAGRAM TEXT is the only trigger — depending
+		// on `source` would re-parse on every prose keystroke for no change in the answer.
+		const id = setTimeout(() => {
+			checkDiagrams(sourceRef.current, options?.mermaidUrl ?? '').then((errs) => {
+				if (live) setDiagramErrors(errs);
+			});
+		}, 900);
+		return () => {
+			live = false;
+			clearTimeout(id);
+		};
+	}, [diagramSignature, options?.mermaidUrl]);
 	// Disambiguated, STABLE per-finding keys (finding object → key). Content-based so a
 	// fix survives a re-lint; an occurrence ordinal keeps two IDENTICAL findings (e.g. a
 	// repeated `_class` token → two same unknown-class findings) from colliding onto one
@@ -2596,12 +2629,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const coachBody = <div className="flex min-h-0 flex-1 flex-col overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>;
 	// The chat grounds on the SAME deterministic facts the Coach panel shows — the engine
 	// scorecard and findings — so the two can never argue from different truths, plus the
-	// component catalog the Lattice primer is built from.
+	// component catalog the Lattice primer is built from, plus Mermaid's own verdict on
+	// this deck's diagrams (diagramErrors, below).
 	const chatGrounding = React.useMemo(
-		() => ({ scorecard, findings, catalog: components }),
-		[scorecard, findings, components],
+		() => ({ scorecard, findings, catalog: components, ...(diagramErrors ? { diagrams: diagramErrors } : {}) }),
+		[scorecard, findings, components, diagramErrors],
 	);
-	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
+	// The mobile sheet header's actions node, held as STATE (not a ref): a portal needs the
+	// element to exist on a render pass, and a ref mutation alone wouldn't trigger one.
+	const [chatCostSlot, setChatCostSlot] = React.useState<HTMLElement | null>(null);
+	// A FACTORY, not one element: the docked column wants the chat to render its own header
+	// row (title left, cost right — see ChatCost), while the mobile sheet already has
+	// PanelHeader and only wants the cost.
+	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
@@ -3761,12 +3801,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 											{coachBody}
 										</>
 									)}
-									{chatOpen && (
-										<>
-											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Chat</div>
-											{chatBody}
-										</>
-									)}
+									{chatOpen && chatBodyWith('Chat')}
 									{lensesOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
@@ -3853,8 +3888,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							icon={<ChatIcon />}
 							title="Chat"
 							srDescription="A conversation with the AI Architect about this deck, with reviewable edits."
+							// The chat portals its cost readout in here, rather than spending a row of its
+							// own on it directly under this header — see ArchitectChat's header note.
+							actions={<span ref={setChatCostSlot} className="flex items-center" />}
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
 					</PanelSheet>
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel

@@ -12,10 +12,13 @@
 // the prose HTML through DOMPurify as defense-in-depth.
 //
 // Two fence markers are supported: ``` and ~~~ . A block opened with one marker closes
-// only on a line of the SAME marker, at least as long — so ``` can appear literally
-// inside a ~~~ block (the `~~~` convention the author asked for) and vice-versa. The
-// four-backtick `lattice-edit` protocol blocks (architect-edits.js) are DROPPED from
-// the rendered stream — they surface as reviewable diff cards, never as visible code.
+// only on a line of the SAME marker, at least as long, carrying no info-string — the
+// CommonMark rule, so ``` can appear literally inside a ~~~ block and vice-versa.
+// `lattice-edit` protocol blocks (architect-edits.js) are DROPPED from the rendered
+// stream whatever marker wraps them — they surface as reviewable diff cards, never as
+// visible code. (This scanner had the fence semantics right all along; the EDIT parser
+// next door did not, which is what let a ```mermaid payload close its own wrapper. The
+// protocol now specifies ~~~ for the wrapper — see architect-edits.js EDIT_PROTOCOL.)
 //
 // Pure + fs-free, so it is fully unit-tested.
 
@@ -176,7 +179,7 @@ export function clampStreaming(md: string): string {
 	// 1. An unclosed fence: scan tracking the open marker; if one is still open at the
 	//    end, hold everything from its opener onward (marker-aware — a ~~~ block is only
 	//    closed by ~~~, so a ``` line inside it does not prematurely balance it). This
-	//    also holds the four-backtick lattice-edit block until it closes.
+	//    also holds a `lattice-edit` block (tilde- or backtick-wrapped) until it closes.
 	let openAt = -1;
 	let open: { marker: string; len: number } | null = null;
 	for (let i = 0; i < lines.length; i++) {

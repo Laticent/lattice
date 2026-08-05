@@ -421,6 +421,82 @@ in patch versions.
 
 ### Fixed
 
+- **The Studio chat no longer says "Applied" over a deck it never touched.** Four defects
+  stacked into one bad transcript: `applyEdit` signaled a refusal exactly as it signaled
+  success (so a fully-refused run painted a green ✓ Applied and burned a History
+  checkpoint over an untouched deck); the four-backtick edit fence could backtrack into a
+  three-backtick match that the slide's own ```mermaid block closed, applying a heading
+  with its diagram amputated; the chat's 4096-token output ceiling — sized for "tighten
+  this slide", not "build me a deck" — was hit silently because nothing read
+  `finish_reason`; and the model was never told it has no tools, so asked to verify with
+  `mmdc` it fabricated a test run. Now: the edit-block wrapper is `~~~lattice-edit`
+  (a marker models never emit spontaneously — length was the fragile axis, since
+  CommonMark lets a payload's own bare fence legally close a same-marker wrapper), the
+  parser is line-anchored and reports `unterminated` / `fence-collision` instead of
+  salvaging a partial slide, refusals carry an author-facing reason ("Slide 9 doesn't
+  exist — the deck has 3 slides"), a partial run reads "Applied 2 of 3", the ceiling is
+  16384 with truncation stated in the reply, and an `after=` body may carry several slides
+  so "add these slides" stops being a silent no-op.
+  `engineering/decisions/2026-08-04-chat-edit-protocol.md`
+
+- **The chat composer grows with your prompt, and the money moves to the header.** The cost
+  readout owned a full-width strip between the transcript and the composer — a whole row of
+  the narrowest panel in the app, spent on two short numbers, while the panel header sat
+  half empty. It now rides that header, right-aligned opposite the title (and on mobile it
+  is portalled into the sheet header rather than reappearing one row lower). The input is an
+  auto-sizing textarea that grows to **four rows**, so a typical instruction is visible while
+  you write it instead of scrolling inside a single line; the attach / preserve-facts / send
+  buttons stay pinned to its bottom edge as it grows. Autosize lives on the shared
+  `ui/textarea` primitive: shadcn's own mechanism is `field-sizing-content`, which is
+  Chromium-only, so on an iPad the box never grew — the primitive now measures in JS when
+  asked, and re-measures on width changes (a resized panel, a rotation), which CSS-only
+  growth also never handled. Two defects found by driving the real Studio rather than the
+  tests: the shadcn base sets `display:flex` on the field, which wrecks a textarea's own text
+  layout (800 characters measured as 67 wrapped lines), and the field drew a second focus
+  ring inside the row's — it now uses the documented `data-focus-ring="container"` opt-out,
+  which a utility class cannot beat. The composer's own padding is uniform (8px on every
+  side, matched by an 8px gap, clearing the 12px corner radius) and the field's box now
+  matches the buttons' height, so a single line sits level with them: it used to be pinned
+  to the bottom of a taller row and sat 6px low — measured 13px above the text, 7px below.
+
+- **The diagram check says nothing when it could not check.** `checkDiagrams` returned an
+  empty list both for "every diagram parses" and for "Mermaid could not be loaded", and the
+  prompt turned that into *"Every Mermaid diagram in this deck parses cleanly"* — an
+  assertion the app had not earned, in the surface this release exists to make honest. It
+  now returns `null` for "no answer" and reserves `[]` for a run that happened. Found by the
+  adversarial trio, along with a U+2028 escape that broke the JSON-quoted bullet in the
+  system turn, an opener token with no boundary (`~~~lattice-edit-example` parsed as a live
+  edit), an empty edit body that blanked a slide and reported success, a delete that ate the
+  front matter of a one-slide deck, and a partial-run badge that mixed two counting units.
+  Details and the full table: `engineering/decisions/2026-08-04-chat-edit-protocol.md`.
+
+- **The Architect can finally tell you which diagram is broken, because it checked.** Asked
+  to verify a deck's Mermaid diagrams it had no way to find out — no shell, no renderer, no
+  parser — so it guessed and called the guess a test result. The prompt now forbids that
+  claim, but forbidding a fabrication only turns it into "I don't know", so the answer is
+  supplied instead: `mermaid-check.ts` runs Mermaid's own `parse()` over every ```mermaid
+  fence in the deck and the errors reach the prompt on a new `ChatGrounding.diagrams`
+  channel, attributed to the parser. Three states are distinguished on purpose — not
+  checked (says nothing), checked and clean (says so, which stops it inventing a problem to
+  be helpful), and these exact failures. Mermaid loads lazily and only for a deck that has a
+  diagram, from the same vendored copy the preview already uses.
+
+- **The per-turn cost estimate prices the prompt it actually sends.** The budget gate was
+  taught to count the ~16.5K-token primer ("would under-count a chat turn several-fold");
+  the `≈ $/turn` readout the author reads never was, and priced the deck source alone. It
+  looked plausible only because its output assumption erred the other way — two errors
+  canceling, which stopped working the moment the output ceiling moved. It now prices the
+  real system turn, weighting a cached prefix at roughly a tenth rather than charging a
+  burst as N first turns.
+
+- **The Studio chat runs the model the Workspace panel says it does.** The picker has always
+  told authors "Defaults to Claude Sonnet", while the Studio overrode the module default to
+  the cheap Haiku alias — so anyone who never opened the picker was authoring on a model the
+  UI denied they were using, which is its own contribution to a churning chat. There is now
+  ONE default (`DEFAULT_OR_MODEL`, the `~anthropic/claude-sonnet-latest` alias) instead of two
+  in two files, pinned by a test. The picker's copy is version-neutral too — it named
+  "Sonnet 4" against a `~*-latest` alias that moves.
+
 - **The `content` stress slide demonstrates the ceiling it claims again.** Its heading says "as
   much text as one slide should ever carry" and its footer says "the ceiling", but after body prose
   moved from `--fs-message` to `--fs-body` the same content filled about 60% of the stage with a
@@ -9691,7 +9767,7 @@ in patch versions.
   by a synthetic fixture rather than a real one.* Two smaller readers fixed with it: a
   `<tbody>`-less table counted its `<thead>` row as a member, and a member's label was read from a
   `<strong>` anywhere in its body rather than a leading one (so "Sign off — the chair signs the
-  **policy hash**" signalled "next: policy hash").
+  **policy hash**" signaled "next: policy hash").
 - **`capabilities:check` — and therefore `build:check` — was red on `main`.** Seven npm scripts added
   by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
   `test:forms`, `test:transform-dsl`) were never described in `SCRIPT_META`, so the freshness gate

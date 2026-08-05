@@ -597,8 +597,14 @@ export type ChatMessage = {
 	content: string;
 	/** Assistant turn only: the edits it proposes (reviewable per-slide diffs). */
 	proposed?: ChatProposal[];
-	/** Whether that proposal has been applied. */
+	/** Whether that proposal has been applied. Only ever set when at least one edit
+	 *  actually changed the deck — a fully-refused run leaves it unset, so the log can't
+	 *  show a green tick over a deck that never moved. */
 	applied?: boolean;
+	/** How many edits landed, and how many the splice refused — set only on a PARTIAL
+	 *  run, so the badge can say "Applied 2 of 3" instead of a flat "Applied". */
+	appliedCount?: number;
+	refused?: number;
 };
 
 export function loadChat(deckId: string): ChatMessage[] {
