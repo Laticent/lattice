@@ -245,12 +245,14 @@ and re-hue it (the `new:theme` scaffold does this for you).
 **On-canvas ink** (derived, not authored):
 
 - `--cat-N-ink` — the category's hue **as text on the slide**, one per slot.
-  Themes do **not** declare it: `lib/base/base.tokens.css` derives all twelve
-  from `--cat-N-mark`, diluted toward `--text-heading` (65% mark in light, 80%
-  in dark, because the mark tier flips deep↔pale and starts closer to AA on a
-  dark canvas). Reach for this — never the raw `--cat-N-mark` — whenever a
-  categorical hue has to carry **small text** on `--bg` / `--bg-alt`; the mark
-  carries only the 3:1 non-text guarantee its stroke role is scoped to. A
+  Reach for this — never the raw `--cat-N-mark` — whenever a categorical hue has
+  to carry **small text** on `--bg` / `--bg-alt`; the mark carries only the 3:1
+  non-text guarantee its stroke role is scoped to. `lib/base/base.tokens.css`
+  defaults each slot to `var(--cat-N-mark)`, which is what the recipe computes
+  wherever the mark already clears AA as text, so the tier reads *the ink is the
+  mark, unless the mark fails* — and a theme built outside this repo (the Studio's
+  `deriveTheme`, a third-party palette) still gets twelve distinct categorical
+  inks rather than collapsing to one accent. A
   palette declares all twelve at `:root`, like every other categorical slot — but
   does not hand-pick them: `node tools/derive-cat-ink.js` generates the block from
   that palette's own mark cycle, holding hue and chroma and solving only lightness

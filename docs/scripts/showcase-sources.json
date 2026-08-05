@@ -132,7 +132,7 @@
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "84851700bcd8ee4f560b54feb544dd00adf7aa7cc682bbad789034119b83c6ca"
+		"srcSha256": "1c1fa1de1d5e11124d14e0889b7f0c0779d9f164773edd6f85483fe5de2e7b99"
 	},
 	"roadmap.dark": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",

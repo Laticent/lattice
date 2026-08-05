@@ -70,9 +70,9 @@ section.statute-stack > .cell-stage > ol > li::marker { content:''; }
  * misses on 372 of 1536 theme x mode x slot x surface pairs (worst 1.28:1).
  * --cat-N-ink is the shared on-canvas tier that clears the floor while keeping the
  * hue; see lib/base/base.tokens.css. Stroke keeps the mark, text takes the ink. */
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); --jur-ink:var(--cat-4-ink); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink); }
-section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+1) { --jur-accent:var(--cat-4-mark); --jur-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n+2) { --jur-accent:var(--cat-6-mark); --jur-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.statute-stack > .cell-stage > :is(ul, ol) > li:nth-child(3n)   { --jur-accent:var(--cat-1-mark); --jur-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 /* Jurisdiction label — eyebrow chrome (auto-bolded by slotLabelLift). The lifted
  * <strong> is the card's HEADER ROW: the label sits left, and trailing inline `code` pills
  * ride the same row. Placement is keyed to the card SHAPE (see below), because a wide row
@@ -124,8 +124,14 @@ section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul
 }
 section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li > strong:first-child > code:last-child:not(:first-child) {
   position:absolute; right:0; top:50%; transform:translateY(-50%);
+  /* Border keeps the mark (a 1px stroke, 3:1); the pill's TEXT takes the ink, like
+   * every other categorical label here. Missed in the first pass because --pill-fg
+   * is a SECOND alias hop (--pill-fg <- --jur-accent <- --cat-N-mark) and the sweep
+   * that found the other sites only followed one. Measured at 3.27:1 on `concrete`
+   * light and 1.28:1 on a11y under `_class: dark` — the same numbers this change
+   * exists to retire. (#1263) */
   --pill-border:var(--jur-accent, var(--accent));
-  --pill-fg:var(--jur-accent, var(--accent));
+  --pill-fg:var(--jur-ink, var(--accent));
 }
 /* Body list. */
 section.statute-stack > .cell-stage > ul > li > ul,
@@ -313,9 +319,9 @@ section.statute-stack.lane td:nth-child(2) {
   color:var(--text-heading);
   white-space:nowrap;
 }
-section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); --lane-ink:var(--cat-4-ink); }
-section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); --lane-ink:var(--cat-6-ink); }
-section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); --lane-ink:var(--cat-1-ink); }
+section.statute-stack.lane tbody tr:nth-child(3n+1) { --lane-jur:var(--cat-4-mark); --lane-ink:var(--cat-4-ink, var(--cat-4-mark)); }
+section.statute-stack.lane tbody tr:nth-child(3n+2) { --lane-jur:var(--cat-6-mark); --lane-ink:var(--cat-6-ink, var(--cat-6-mark)); }
+section.statute-stack.lane tbody tr:nth-child(3n)   { --lane-jur:var(--cat-1-mark); --lane-ink:var(--cat-1-ink, var(--cat-1-mark)); }
 section.statute-stack.lane tbody tr > td:first-child {
   border-left:3px solid var(--lane-jur, var(--accent));
   padding-left:var(--sp-md);

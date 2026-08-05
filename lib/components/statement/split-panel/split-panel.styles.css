@@ -372,14 +372,14 @@ section.split-panel > .cell-stage {
  * around it, which all take `--panel-mark` (`.panel-left::before`, and `capstone`'s
  * quote border + pillar rules) — where before the labels clashed with those same
  * rules. Two hues used consistently beats one hue used half the time. */
-section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); --panel-label-ink: var(--cat-1-ink); }
-section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); --panel-label-ink: var(--cat-2-ink); }
-section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); --panel-label-ink: var(--cat-3-ink); }
-section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); --panel-label-ink: var(--cat-4-ink); }
-section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); --panel-label-ink: var(--cat-5-ink); }
-section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); --panel-label-ink: var(--cat-6-ink); }
-section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); --panel-label-ink: var(--cat-7-ink); }
-section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); --panel-label-ink: var(--cat-8-ink); }
+section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); --panel-label-ink: var(--cat-1-ink, var(--cat-1-mark)); }
+section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); --panel-label-ink: var(--cat-2-ink, var(--cat-2-mark)); }
+section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); --panel-label-ink: var(--cat-3-ink, var(--cat-3-mark)); }
+section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); --panel-label-ink: var(--cat-4-ink, var(--cat-4-mark)); }
+section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); --panel-label-ink: var(--cat-5-ink, var(--cat-5-mark)); }
+section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); --panel-label-ink: var(--cat-6-ink, var(--cat-6-mark)); }
+section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); --panel-label-ink: var(--cat-7-ink, var(--cat-7-mark)); }
+section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); --panel-label-ink: var(--cat-8-ink, var(--cat-8-mark)); }
 section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
   background: var(--panel-fill);
 }

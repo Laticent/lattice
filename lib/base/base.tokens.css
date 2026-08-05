@@ -387,9 +387,11 @@
    * CURATED: `tools/derive-cat-ink.js` keeps each mark's HUE and CHROMA exactly and
    * solves only LIGHTNESS until it clears AA on both slide surfaces, then writes
    * concrete values into each palette beside the fill/mark cycle. Most slots come
-   * out IDENTICAL to their mark (it already cleared); only the ones that fail move,
-   * and they move the least distance that works. Measured over the shipped
-   * palettes: max hue shift 3.4 degrees, 99% of chroma kept.
+   * out IDENTICAL to their mark (it already cleared): 271 of the 360 committed arms,
+   * against 89 repaired, 0-12 per palette. Only the failing ones move, and they move
+   * the least distance that works. Measured over the shipped palettes: max hue shift
+   * 3.4 degrees (only `concrete`, whose marks are near-achromatic and whose hue angle
+   * is unstable at that chroma), 99% of chroma kept.
    *
    * The first cut of this tier derived the ink in CSS instead —
    * `color-mix(in oklab, var(--cat-N-mark) 65%, var(--text-heading))` — and it was
@@ -397,7 +399,7 @@
    * black/white pole fails `carbone`, which is dark in both modes, at 1.57:1), and
    * `--text-heading` is itself chromatic on several palettes, so it dragged the
    * mark's hue up to 14.9 degrees and unevenly across slots — a shear, not a tint —
-   * while mixing away a third of the chroma. A derived approximation of a
+   * while mixing away 28% of the chroma on average. A derived approximation of a
    * hand-curated cycle is not the same thing as the cycle. Generated-and-committed
    * is also how the fill/mark values themselves were produced
    * (engineering/decisions/2026-07-15-categorical-token-contract.md, "Shipped").
@@ -409,6 +411,20 @@
    * and checkCatContrast holds the result to AA on light, dark and print. */
 
 :root {
+  /* ── No :root default for --cat-N-ink, deliberately ──
+   * Each palette declares all twelve (tools/derive-cat-ink.js). A theme built
+   * OUTSIDE this repo — lib/theme/derive.js, the Studio's Fabricate path — declares
+   * the mark cycle and no ink cycle, and would otherwise render every categorical
+   * label in one color: measured 8 distinct row borders, 1 distinct row term.
+   *
+   * The fallback for that lives at the CONSUMERS, as `var(--cat-N-ink,
+   * var(--cat-N-mark))`, NOT as a default here. A `:root` default cannot be ordered
+   * safely: the emulator/export bundle concatenates the theme BEFORE this file, so a
+   * default declared here wins on equal specificity and silently reverts every
+   * curated ink to its mark — measured on a real render, premise dropped from 4.68:1
+   * back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no such
+   * ordering hazard: it applies only when the token is genuinely absent. */
+
   /* ── Print band · categorical ink ──
    * The print marks are already dark enough to carry text on paper (worst 4.96:1
    * against --print-bg-alt), so the printed ink IS the printed mark — no separate

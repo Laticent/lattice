@@ -355,7 +355,7 @@ section.math.theorem blockquote strong:first-child {
  * --cat-4-mark #478400 on --bg-alt #e5e0d2. --cat-N-ink is the shared tier: the
  * same hue and chroma as the stripe beside it, lightness solved per palette until
  * it clears the floor. On a palette whose mark already cleared, the two are the
- * same colour. Gated on every palette, all three canvases, by checkCatContrast.
+ * same color. Gated on every palette, all three canvases, by checkCatContrast.
  * (#1263)
  *
  * Both fall back to --accent if a future palette ever drops the cycle. */
@@ -363,13 +363,13 @@ section.math.theorem blockquote:nth-of-type(3n+1) {
   border-left-color: var(--cat-4-mark, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n+1) strong:first-child {
-  color: var(--cat-4-ink, var(--accent));
+  color: var(--cat-4-ink, var(--cat-4-mark, var(--accent)));
 }
 section.math.theorem blockquote:nth-of-type(3n+2) {
   border-left-color: var(--cat-7-mark, var(--accent));
 }
 section.math.theorem blockquote:nth-of-type(3n+2) strong:first-child {
-  color: var(--cat-7-ink, var(--accent));
+  color: var(--cat-7-ink, var(--cat-7-mark, var(--accent)));
 }
 section.math.theorem blockquote:nth-of-type(3n) {
   border-left-color: var(--text-muted);

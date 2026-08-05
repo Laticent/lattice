@@ -177,7 +177,7 @@ section.logo-wall.dense > .cell-stage {
  * one paints a LOGO — a mask-image swatch, and on the export path an inline <svg>
  * authored `fill: currentColor`. That is a graphical object, so WCAG 1.4.11's 3:1
  * is the bar it answers to, and 3:1 is exactly what --cat-N-mark is gated at.
- * Diluting it toward --text-heading would only mute the brand marks. */
+ * Moving it to the ink tier would only darken the brand marks, for no gain. */
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 1)  > .logo-mark { --logo-ink: var(--cat-1-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 2)  > .logo-mark { --logo-ink: var(--cat-2-mark); }
 section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 3)  > .logo-mark { --logo-ink: var(--cat-3-mark); }

@@ -563,7 +563,7 @@ in patch versions.
   the palette beside the fill/mark cycle it belongs with. Most slots come out **identical to
   their mark**, because the mark already cleared as text; only the failing ones move, and they
   move the least distance that works. Measured across the shipped palettes: **max hue shift
-  3.4°, 99% of chroma kept** (4–12 of 24 slots repaired per theme). This is the same method the
+  3.4°, 99% of chroma kept** — 271 of the 360 committed arms come out byte-identical to their mark, 89 are repaired, 0–12 per palette (`onyx` needs none). This is the same method the
   fill/mark values themselves were produced by — a deterministic recipe run per theme over that
   theme's own curated hues — so the ink is inspectable, hand-tunable, and reachable by
   `section.print`'s remap. `derive-cat-ink --check` runs inside `npm run build`, so a re-hued
@@ -574,14 +574,28 @@ in patch versions.
   the canvas (a fixed black/white pole fails `carbone`, dark in both modes, at 1.57:1), and
   `--text-heading` is itself chromatic on several palettes — so it dragged the mark's hue by up
   to **14.9°**, unevenly across slots (indaco light spread 25°, a shear rather than a tint),
-  while mixing away a third of the chroma. A derived approximation of a hand-curated cycle is
+  while mixing away 28% of the chroma on average. A derived approximation of a hand-curated cycle is
   not the same thing as the cycle.
 
   `checkCatContrast` gates layer ④ — `--cat-N-ink` vs `--bg` *and* `--bg-alt` ≥ 4.5:1 —
   fail-closed, across **three canvases** (light, dark, and the B&W print band) and **all 32
   palettes including the a11y family**, which the previous three layers skip as the sanctioned
-  hue exception. Legibility is not a hue question. Verified in real Chromium: 1152 ink/surface
-  pairs across 32 palettes × 3 canvases, 0 failures, 0 non-neutral print inks. (#1263)
+  hue exception. Legibility is not a hue question, and an **anti-collapse arm** rides with it:
+  twelve slots that resolve to one color have stopped encoding a category, which a luminance
+  ramp can do (a11y dark solved to a single hex before the generator learned to shift the whole
+  arm instead of each slot). Verified in real Chromium: **2304 ink/surface pairs** across 32
+  palettes × light/dark/print × 12 slots × 2 surfaces — 0 AA failures, 0 non-neutral print
+  inks, 0 collapsed arms.
+
+  A theme built **outside** this repo — `lib/theme/derive.js`, the Studio's Fabricate path —
+  declares the mark cycle and no ink cycle. Consumers therefore read
+  `var(--cat-N-ink, var(--cat-N-mark))`, so such a theme degrades to exactly its previous
+  rendering instead of collapsing every categorical label onto `--accent`. The fallback lives at
+  the consumers and **not** as a `:root` default on purpose: the export bundle concatenates the
+  theme *before* `base.tokens.css`, so a default there wins on equal specificity and silently
+  reverts every curated ink to its mark — measured on a real render, `premise` fell from 4.68:1
+  back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no ordering hazard.
+  (#1263)
 
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
   pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`

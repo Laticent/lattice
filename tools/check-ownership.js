@@ -3425,10 +3425,10 @@ function catParseTokens(css) {
 // (var() with fallback, light-dark() arms, color-mix() in oklab/srgb, all
 // paren-balanced). This gate used to carry a hand-rolled second evaluator that
 // understood only var() and light-dark(); it was replaced rather than extended
-// when --cat-N-ink arrived, because that token is a color-mix() and a gate that
-// mirrors a recipe in its own arithmetic is a gate that can drift off the
-// recipe. Now the gate reads the SHIPPED declaration and evaluates it with the
-// SHIPPED evaluator (HARD RULE #15 — reuse, don't reinvent).
+// when --cat-N-ink arrived. The ink is a plain light-dark() of two hexes today, so
+// the swap is no longer load-bearing for THAT token — it stands on HARD RULE #15
+// (reuse the engine's evaluator, don't keep a second one) and on the coverage it
+// adds: 96 values across the shipped palettes resolve now that did not before.
 //
 // What this wrapper adds on top is the FAIL-CLOSED contract the callers rely
 // on: resolveTokenExpr returns its input verbatim when it cannot reduce a value
@@ -3496,11 +3496,11 @@ function catPaletteSource(name, seen = new Set()) {
 
 // The `section.print` remap block from base.modifiers.css, as a token map layered
 // OVER a palette. Print is a THIRD canvas that light-dark() cannot reach: it
-// re-points --bg / --bg-alt / --text-heading / --cat-N-mark at the B&W --print-*
-// band. --cat-N-ink is DERIVED from two of those, so it has to be judged against
-// the print surfaces too — and it is judged here rather than assumed, because a
-// `:root`-only declaration of the derivation silently froze the theme hue and put
-// carbone's printed labels at 1.29:1 on white while their rules printed gray.
+// re-points --bg / --bg-alt / --text-heading / --cat-N-mark / --cat-N-ink at the
+// B&W --print-* band. The ink has to be judged against the print surfaces too — and
+// judged here rather than assumed, because an earlier cut of this tier derived the
+// ink at :root, which froze the theme hue and put carbone's printed labels at 1.29:1
+// on white while the rules beside them printed gray.
 function catPrintOverlay(errors) {
   const css = catStripComments(fs.readFileSync(path.join(LIB_DIR, 'base', 'base.modifiers.css'), 'utf8'));
   const at = css.indexOf('section.print {');
@@ -3591,7 +3591,7 @@ function checkCatContrast(errors) {
       for (let n = 1; n <= 12; n += 1) {
         const catInk = catResolve(m, `--cat-${n}-ink`, scheme);
         if (!catInk) {
-          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is DERIVED in lib/base/base.tokens.css; a palette that pins it must set --cat-${n}-ink-set to something that reduces to a color.`);
+          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is generated per palette by tools/derive-cat-ink.js (and defaults to var(--cat-${n}-mark) in lib/base/base.tokens.css); re-run the generator.`);
           continue;
         }
         for (const [surface, hex] of [['--bg', bg], ['--bg-alt', bgAlt]]) {
@@ -3621,6 +3621,36 @@ function checkCatContrast(errors) {
             );
           }
         }
+      }
+    }
+
+    // ④b ANTI-COLLAPSE ON THE INK CYCLE. Legibility is not the only thing a
+    // categorical tier owes: twelve slots that all render the same color have
+    // stopped being categorical. Solving each slot for the least move that clears
+    // AA can converge — on a ramp that differs only in lightness, every slot fails
+    // in the same direction and lands on one value (a11y dark did exactly this,
+    // 12 slots to one hex, and layer ④ certified it green because it was legible).
+    // The generator now spends the whole budget on legibility once an arm has
+    // collapsed; this arm is what notices if that ever stops happening.
+    //
+    // EVERY palette, a11y included — no exemption. The a11y family is exempt from
+    // the HUE contract because it separates by luminance and texture, but a
+    // luminance ramp is exactly a thing that can collapse, and it did: a11y dark
+    // solved to one hex on all twelve slots. The generator's uniform-shift keeps the
+    // ramp's spacing, so a11y passes this arm honestly rather than by exemption.
+    for (const mode of ['light', 'dark']) {
+      const inks = [];
+      for (let n = 1; n <= 12; n += 1) {
+        const v = catResolve(map, `--cat-${n}-ink`, mode);
+        if (v) inks.push(v);
+      }
+      const distinct = new Set(inks).size;
+      if (inks.length === 12 && distinct < 12) {
+        errors.push(
+          `theme "${name}" ${mode}: the 12 --cat-N-ink slots resolve to only ${distinct} distinct colors. ` +
+          'A categorical cycle whose ink collapses has stopped encoding the category. Re-run ' +
+          '`node tools/derive-cat-ink.js` (its anti-collapse rule handles a converging ramp), or re-hue the marks.',
+        );
       }
     }
 

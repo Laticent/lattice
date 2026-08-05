@@ -168,14 +168,14 @@ section.premise > ol > li > ul > li:nth-child(2) {
  *   --row-ink  → --cat-N-ink   the verb name, TEXT on --bg-alt, gated 4.5:1
  * Same split as `math.theorem`'s blockquote border-left + label pairing, which
  * moved onto the ink tier in the same change (#1263). */
-section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); --row-ink: var(--cat-1-ink); }
-section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); --row-ink: var(--cat-2-ink); }
-section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); --row-ink: var(--cat-3-ink); }
-section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); --row-ink: var(--cat-4-ink); }
-section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); --row-ink: var(--cat-5-ink); }
-section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); --row-ink: var(--cat-6-ink); }
-section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); --row-ink: var(--cat-7-ink); }
-section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); --row-ink: var(--cat-8-ink); }
+section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); --row-ink: var(--cat-1-ink, var(--cat-1-mark)); }
+section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); --row-ink: var(--cat-2-ink, var(--cat-2-mark)); }
+section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); --row-ink: var(--cat-3-ink, var(--cat-3-mark)); }
+section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); --row-ink: var(--cat-4-ink, var(--cat-4-mark)); }
+section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); --row-ink: var(--cat-5-ink, var(--cat-5-mark)); }
+section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); --row-ink: var(--cat-6-ink, var(--cat-6-mark)); }
+section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); --row-ink: var(--cat-7-ink, var(--cat-7-mark)); }
+section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); --row-ink: var(--cat-8-ink, var(--cat-8-mark)); }
 
 /* ── Family reflow (#1220). `premise` declared `adapt.mode: "reflow"` and shipped
  * NONE — its landscape row (a 34% claim rail beside the ledger) was the only

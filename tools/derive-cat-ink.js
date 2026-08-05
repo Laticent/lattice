@@ -10,7 +10,7 @@
  * chromatic on several palettes — indaco navy, mustard brown, burgundy plum. So
  * the mark's hue got dragged toward the heading ink by up to 14.9 degrees, unevenly
  * across slots (indaco light spread 25 degrees, a shear rather than a tint), while
- * a third of the chroma was mixed away. The categorical cycle it derives from is
+ * 28% of the chroma was mixed away on average. The cycle it derives from is
  * hand-curated per theme; its ink was not, and it showed.
  *
  * THE RECIPE. Keep the mark's HUE and CHROMA exactly; move only LIGHTNESS, by
@@ -19,7 +19,7 @@
  * canvas itself, not assumed: darken on a light canvas, lighten on a dark one —
  * which is what makes `carbone` (dark canvas in BOTH modes) come out right where
  * a fixed pole could not. Chroma gives way only where the solved lightness puts
- * the colour outside sRGB, which is `oklchToHex`'s standard gamut clip.
+ * the color outside sRGB, which is `oklchToHex`'s standard gamut clip.
  *
  * The output is CONCRETE per-theme values, committed into each palette next to
  * the fill/mark cycle they belong with — the same shape, and the same method, the
@@ -29,7 +29,12 @@
  * keeps them inspectable, hand-tunable, and reachable by `section.print`'s remap —
  * none of which a `:root`-scoped color-mix was.
  *
- * Re-run this after re-hueing a mark tier. `checkCatContrast` gates the result.
+ * Re-run this after re-hueing a mark tier. `checkCatContrast` gates the result
+ * (AA on three canvases, plus an anti-collapse arm on the hue palettes).
+ *
+ * NOTE ON HAND-TUNING: `npm run build` runs this in WRITE mode (tools/build.js), so
+ * a hand-edited value is not merely flagged — it is regenerated over. Change the
+ * mark, or change the recipe; editing the output does not stick.
  *
  * Usage:
  *   node tools/derive-cat-ink.js            # rewrite the ink block in every palette
@@ -83,23 +88,27 @@ function solveInk(mark, bg, bgAlt) {
   // Which way is safety? Whichever pole the canvases are further from. Decided
   // from the resolved surfaces, never assumed from the mode name — that is what
   // makes a dark-canvas "light mode" palette (carbone) solve correctly.
-  const surfaceL = (hexToOklch(bg).L + hexToOklch(bgAlt).L) / 2;
-  const target = surfaceL > L ? 0 : 1; // darken against a light canvas, lighten against a dark one
-  // INVARIANT: `near` is a lightness known NOT to clear, `far` one known to. Keep
-  // them on their own sides and converge — the answer is the SMALLEST move off the
-  // mark's own lightness, so the ink stays as close to the curated tier as AA
-  // allows. Walking the window the other way collapses to the pole, which is where
-  // the sRGB gamut clip eats the chroma and the hue angle stops meaning anything
-  // (that bug produced #000001 for a teal mark, reported as a 57-degree "shift").
-  let near = L;
-  let far = target;
-  if (!clears(withLightness(mark, far))) return withLightness(mark, target);
-  for (let i = 0; i < 40 && Math.abs(far - near) > 1e-4; i += 1) {
-    const mid = (near + far) / 2;
-    if (clears(withLightness(mark, mid))) far = mid;
-    else near = mid;
-  }
-  return withLightness(mark, far);
+  // TRY BOTH POLES. Guessing the direction from the surfaces' average lightness is
+  // wrong whenever the mark sits between --bg and --bg-alt, or above a mid-tone
+  // canvas: `concrete`'s light surfaces average L=0.827, so any mark lighter than
+  // that was sent toward WHITE and returned a 1.47:1 value the generator then wrote
+  // into tracked source (the black pole would have given 10.56:1). Solve toward each
+  // pole, keep whichever clears with the smaller move.
+  const solveToward = (target) => {
+    if (!clears(withLightness(mark, target))) return null;
+    let near = L;      // known NOT to clear
+    let far = target;  // known to clear
+    for (let i = 0; i < 40 && Math.abs(far - near) > 1e-4; i += 1) {
+      const mid = (near + far) / 2;
+      if (clears(withLightness(mark, mid))) far = mid;
+      else near = mid;
+    }
+    return { L: far, hex: withLightness(mark, far) };
+  };
+  const candidates = [solveToward(0), solveToward(1)].filter(Boolean);
+  if (!candidates.length) return null; // neither pole works — the caller must say so
+  candidates.sort((a, b) => Math.abs(a.L - L) - Math.abs(b.L - L));
+  return candidates[0].hex;
 }
 
 /** The 12 `light-dark(...)` ink values for one palette, plus fidelity stats. */
@@ -109,7 +118,8 @@ function inkFor(theme) {
   // bundle it helps produce.
   const raw = declaredVars(paletteSource(theme));
   const arms = {};
-  const stats = { shift: 0, chroma: [], repaired: 0, total: 0 };
+  const marks = {};
+  const stats = { shift: 0, chroma: [], repaired: 0, total: 0, collapsed: [], chromaLost: [] };
   for (const dark of [false, true]) {
     const R = (t) => resolveTokenExpr(raw[t], raw, dark);
     const bg = R('bg');
@@ -120,14 +130,52 @@ function inkFor(theme) {
       if (!isHex(mark)) throw new Error(`${theme}: --cat-${n}-mark did not resolve`);
       const ink = solveInk(mark, bg, bgAlt);
       (arms[n] ??= {})[dark ? 'dark' : 'light'] = ink;
-      const M = hexToOklch(mark);
-      const I = hexToOklch(ink);
+      marks[n] = mark;
+    }
+    // ANTI-COLLAPSE, BY UNIFORM SHIFT — not by dumping the arm at a pole.
+    //
+    // Solving each slot for the least move that clears AA is right while the slots
+    // stay tellable apart. On a ramp that differs only in lightness — the a11y
+    // grayscale cycle — every slot fails in the same direction and converges on the
+    // same solved lightness: 12 slots, 1 color.
+    //
+    // The fix is to move the WHOLE arm by the largest shift any single slot needed,
+    // which preserves the ramp's ordering AND its spacing, so all twelve stay
+    // distinct and all twelve clear. (An earlier cut of this guard set every slot to
+    // the lightness pole instead. That kept the collapse, and on a palette where
+    // merely TWO slots happened to collide it destroyed the hue of all twelve — the
+    // gamut clip at the pole turns a teal into #000001. Never dump an arm.)
+    const key = dark ? 'dark' : 'light';
+    const distinct = new Set(Object.values(arms).map((a) => a[key]?.toLowerCase()));
+    if (distinct.size < SLOTS) {
+      // Signed: the largest move in whichever direction the solves went.
+      const deltas = Array.from({ length: SLOTS }, (_, i) => hexToOklch(arms[i + 1][key]).L - hexToOklch(marks[i + 1]).L);
+      const up = Math.max(...deltas);
+      const down = Math.min(...deltas);
+      const shift = Math.abs(up) >= Math.abs(down) ? up : down;
+      for (let n = 1; n <= SLOTS; n += 1) {
+        const { L } = hexToOklch(marks[n]);
+        arms[n][key] = withLightness(marks[n], Math.min(1, Math.max(0, L + shift)));
+      }
+      stats.collapsed.push(key);
+    }
+
+    // Fidelity is measured AFTER any anti-collapse pass, over the values actually
+    // written. Measuring inside the per-slot loop described colors the guard had
+    // already replaced — the report claimed "chroma kept 100%" for an arm written as
+    // pure black. A statistic that cannot see the failure mode is worse than none.
+    for (let n = 1; n <= SLOTS; n += 1) {
+      const M = hexToOklch(marks[n]);
+      const I = hexToOklch(arms[n][key]);
       stats.total += 1;
-      if (ink.toLowerCase() !== mark.toLowerCase()) stats.repaired += 1;
-      if (M.C > 0.02 && I.C > 0.02) {
+      if (arms[n][key].toLowerCase() !== marks[n].toLowerCase()) stats.repaired += 1;
+      if (M.C > 0.02) {
+        // Include the clipped case: if the write killed the chroma, that IS the
+        // finding, so fall back to comparing against the mark's own hue.
         let d = Math.abs(M.h - I.h) % 360;
         if (d > 180) d = 360 - d;
-        stats.shift = Math.max(stats.shift, d);
+        if (I.C > 0.02) stats.shift = Math.max(stats.shift, d);
+        else stats.chromaLost.push(`cat-${n}-${key}`);
       }
       if (M.C > 0.001) stats.chroma.push(I.C / M.C);
     }
@@ -199,7 +247,7 @@ function main() {
     else if (mode === 'check' && !has) stale.push(theme);
     if (mode === 'report') {
       const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 1);
-      console.log(`${theme.padEnd(20)} repaired ${String(stats.repaired).padStart(2)}/${stats.total}  max hue shift ${stats.shift.toFixed(2)}deg  chroma kept ${(100 * mean(stats.chroma)).toFixed(0)}%`);
+      console.log(`${theme.padEnd(20)} repaired ${String(stats.repaired).padStart(2)}/${stats.total}  max hue shift ${stats.shift.toFixed(2)}deg  chroma kept ${(100 * mean(stats.chroma)).toFixed(0)}%${stats.collapsed.length ? `  [anti-collapse: ${stats.collapsed.join(',')}]` : ''}`);
     }
   }
   const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 1);

@@ -122,17 +122,17 @@
    * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
    * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
   --cat-1-ink:   light-dark(#2E2E2E, #848484);
-  --cat-2-ink:   light-dark(#333333, #848484);
-  --cat-3-ink:   light-dark(#383838, #848484);
-  --cat-4-ink:   light-dark(#3D3D3D, #848484);
-  --cat-5-ink:   light-dark(#424242, #848484);
-  --cat-6-ink:   light-dark(#484848, #848484);
-  --cat-7-ink:   light-dark(#4D4D4D, #848484);
-  --cat-8-ink:   light-dark(#525252, #848484);
-  --cat-9-ink:   light-dark(#585858, #848484);
-  --cat-10-ink:  light-dark(#5D5D5D, #848484);
-  --cat-11-ink:  light-dark(#636363, #848484);
-  --cat-12-ink:  light-dark(#696969, #848484);
+  --cat-2-ink:   light-dark(#333333, #8A8A8A);
+  --cat-3-ink:   light-dark(#383838, #909090);
+  --cat-4-ink:   light-dark(#3D3D3D, #969696);
+  --cat-5-ink:   light-dark(#424242, #9C9C9C);
+  --cat-6-ink:   light-dark(#484848, #A2A2A2);
+  --cat-7-ink:   light-dark(#4D4D4D, #A8A8A8);
+  --cat-8-ink:   light-dark(#525252, #AEAEAE);
+  --cat-9-ink:   light-dark(#585858, #B5B5B5);
+  --cat-10-ink:  light-dark(#5D5D5D, #BBBBBB);
+  --cat-11-ink:  light-dark(#636363, #C1C1C1);
+  --cat-12-ink:  light-dark(#696969, #C8C8C8);
   /* ── end categorical on-canvas ink ── */
 
 

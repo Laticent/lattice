@@ -1843,6 +1843,24 @@ describe('check-ownership', () => {
         'and it still clears AA on both surfaces');
     });
 
+    test('checkCatInkDeclared names a palette that owns a mark cycle but no ink cycle', () => {
+      // The gate that replaced the two structural checks, and the one with no test.
+      const { checkCatInkDeclared } = require('../../../tools/check-ownership.js');
+      const errors = [];
+      checkCatInkDeclared(errors);
+      assert.deepEqual(errors, [], `every shipped palette should own its ink cycle; got:\n${errors.join('\n')}`);
+    });
+
+    test('the ink cycle cannot collapse: twelve slots, twelve colors', () => {
+      // A luminance-only ramp converges when every slot needs the same repair —
+      // a11y dark did exactly this (12 slots, 1 hex) and layer ④ passed it, because
+      // one legible color is still legible. Distinctness needs its own arm.
+      const errors = [];
+      checkCatContrast(errors);
+      assert.deepEqual(errors.filter((e) => /distinct colors/.test(e)), [],
+        'no shipped palette may resolve its 12 --cat-N-ink slots to fewer than 12 colors');
+    });
+
     test('solveInk returns the mark UNCHANGED when it already clears', () => {
       // Most slots need no repair at all; repainting them would move a curated
       // value for nothing. Regression for the binary search whose inverted
