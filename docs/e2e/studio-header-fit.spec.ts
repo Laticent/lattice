@@ -20,17 +20,20 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 // in 2026-06-28-experience-gating-playwright.md §3) — but it turns "someone should
 // re-measure" into a run that reports on every PR touching the docs.
 //
-// It asserts three things at once, because they are one contract:
+// It asserts four things at once, because they are one contract:
 //   1. the header fits inside itself (`scrollWidth <= clientWidth`);
 //   2. the ⋯ Menu — the control the overflow eats first — is fully on-screen;
 //   3. Read / Write / Build render as WORDS at every width the dial appears at
 //      (#1401: below 1100 the words were not merely hidden but unreachable on a
-//      touch tablet, where the tooltip carrying them never fires).
+//      touch tablet, where the tooltip carrying them never fires);
+//   4. the deck pill's own content fits inside the deck pill (#1417) — the one
+//      failure the first three are all structurally blind to, see `readPill`.
 // Plus the invariant #1371 shipped: the tail controls hold their x across the three
 // dial stops, so stepping the dial never slides the row under your finger.
 
 const WIDTHS = [700, 720, 760, 820, 1024, 1099, 1100, 1440];
 const DESKTOP = 1100; // the app's own boundary (use-breakpoint.ts), not Tailwind's `lg`
+const XL = 1280; // Tailwind's `xl` — where the deck pill grows its slide-count meta
 const TOLERANCE = 2; // sub-pixel rounding, same as check:overflow
 const X_DRIFT = 1; // sub-pixel only: #1371's defect was a 70px jump, not a rounded pixel
 // Every geometry read waits for the row to STOP MOVING first. Stepping the dial at
@@ -54,16 +57,32 @@ const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bou
 // `scrollWidth` and a scroll container includes it. The row did not change; the ruler did.
 // A number compared against the wrong basis is worse than no number.
 //
-// Measured today: **25px**, stable across five cold runs (700px, Build stop, fonts loaded).
-// The floor sits at 16 — under it by 9px, which is tolerance for font-metric differences
-// between this machine and a CI runner, and tight enough that any real erosion trips it
-// long before the row breaks. One `icon-sm` control plus its gap is 38px, so a whole new
-// control does not merely trip this, it overflows the row outright.
+// **RE-BASED A SECOND TIME (#1417), and this one was not a change of ruler — it was the
+// discovery that the ruler had been reading a number that did not exist.** The old
+// measurement was 25px. Roughly 20 of those 25 were the deck pill shrinking past the
+// intrinsic width of its own `shrink-0` children: capacity the row could only "spend" by
+// rendering its own chevron outside the pill's box. Floor the pill honestly and the SAME
+// pre-fix row measures **-11px** — it did not fit at 700px at all, and never had. So the
+// old 25 was not headroom that this change consumed; it was headroom that was never there.
+//
+// Measured today, on the floored row: **19px** (700px, Build stop, fonts loaded), agreeing
+// to the pixel between `spareAt` here and an independent puppeteer rig. The floor stays at
+// **16** — unchanged, and now met HONESTLY for the first time. Note the tolerance is
+// thinner than it was (3px, not 9): the fonts are self-hosted woff2 and this spec waits on
+// `document.fonts.ready`, so cross-runner metric drift should be sub-pixel rather than the
+// several px the original 9 was guarding against. If CI ever does flake here, the answer is
+// to free width in the row, NOT to lower this number.
+//
+// One `icon-sm` control plus its gap is 38px, so a whole new control does not merely trip
+// this, it overflows the row outright.
 //
 // What it is NOT: a guarantee about the FALLBACK font. With the webfont blocked the dial
 // grows 219px → 240px and spare falls to ~4px — the row still fits (`over` is 0), but no
 // floor in this range would hold there. That state is excluded by design: the spec waits
-// for `document.fonts.ready`, so this number always describes the same font state.
+// for `document.fonts.ready`, so this number always describes the same font state. What
+// USED to happen in that state — the pill silently absorbing the extra 21px by clipping
+// itself — is now caught by `readPill` regardless of font state, since that assertion is
+// about the pill against its own content, not against a width budget.
 //
 // It is a FLOOR, not a target. If a change frees width, raise it to match — the same
 // ratchet discipline every budget in `tools/check-ownership.js` carries, so the margin
@@ -122,6 +141,78 @@ async function readHeader(page: import('@playwright/test').Page, tail: string[],
 	}, [tail, menuName] as const);
 }
 
+
+type PillShape = { width: number; floor: number; needs: number; spill: number; title: number };
+
+/**
+ * The deck pill, measured against ITSELF (#1417).
+ *
+ * Everything else in this file is downstream of `header.scrollWidth`, and the deck pill is
+ * the single element that can never be caught that way: it is the row's designated shock
+ * absorber (`min-w-0` + a truncating title, every sibling `shrink-0`), so its whole job is
+ * to keep `header.scrollWidth` quiet while it takes the pressure. Left unfloored it shrank
+ * BELOW the intrinsic width of its own `shrink-0` children, which then painted outside its
+ * border box — a visibly sliced chevron, 20.5px out at 700px in the fallback-font state,
+ * with `header.scrollWidth - clientWidth === 0` the whole time.
+ *
+ * `pill.scrollWidth` does not catch it either, which is why this is a geometric read: an
+ * `overflow: visible` box omits its end padding from `scrollWidth`, so 11px of real spill
+ * reported as 1px — inside this file's own 2px tolerance. Measured, not assumed.
+ *
+ * Returns, all in px:
+ *   `needs`  the width the pill's non-shrinking content genuinely occupies (paddings +
+ *            gaps + every `shrink-0` child), derived LIVE from the rendered box — so it
+ *            re-derives itself when the padding, the gap, or the child set changes;
+ *   `floor`  the `min-width` the component declares. Asserting `floor >= needs` is what
+ *            stops that declared number from rotting the moment someone re-tunes the
+ *            padding — the alternative is a magic constant nothing checks;
+ *   `spill`  how far the outermost child reaches past the pill's PADDING box. The padding
+ *            box, not the border box, so this trips while there is still padding to lose
+ *            rather than only once ink is already outside the control;
+ *   `title`  the rendered width of the truncating deck title. Not asserted as a floor —
+ *            at the 700px tablet stop the row genuinely cannot afford many characters —
+ *            but reported, because "the title rendered at 0px" is what this defect looked
+ *            like to a human long before anything was measurably outside the box.
+ *
+ * Returns `null` when the pill is not in the header at all, which is a REAL state and not
+ * an error: at desktop the Read stop renders the calm slim header, where the deck is a
+ * label rather than a switcher. The caller decides which states may legitimately be null
+ * (see `pillExpected`), so an accidentally-vanished pill still fails rather than passing
+ * as "nothing to measure".
+ */
+async function readPill(page: import('@playwright/test').Page): Promise<PillShape | null> {
+	return page.evaluate(() => {
+		const h = document.querySelector('[data-studio-root] header');
+		if (!h) throw new Error('no [data-studio-root] header — the selector or the route moved');
+		h.scrollLeft = 0;
+		const pill = h.querySelector('[data-demo="deck-switcher"]');
+		if (!pill) return null;
+		const cs = getComputedStyle(pill);
+		const r = pill.getBoundingClientRect();
+		const px = (v: string) => Number.parseFloat(v) || 0;
+		// `display: none` children are not flex items — no box, no gap, nothing to spill.
+		const kids = [...pill.children].filter((el) => getComputedStyle(el).display !== 'none');
+		const gap = px(cs.columnGap === 'normal' ? '0' : cs.columnGap);
+		const rigid = kids.filter((el) => getComputedStyle(el).flexShrink === '0');
+		const needs =
+			px(cs.paddingLeft) +
+			px(cs.paddingRight) +
+			gap * Math.max(0, kids.length - 1) +
+			rigid.reduce((a, el) => a + el.getBoundingClientRect().width, 0);
+		const padLeft = r.left + px(cs.borderLeftWidth) + px(cs.paddingLeft);
+		const padRight = r.right - px(cs.borderRightWidth) - px(cs.paddingRight);
+		const spill = Math.max(0, ...kids.map((el) => Math.max(padLeft - el.getBoundingClientRect().left, el.getBoundingClientRect().right - padRight)));
+		const titleEl = pill.querySelector('.truncate');
+		return {
+			// clientWidth = the padding box, which is exactly what `needs` is expressed in.
+			width: pill.clientWidth,
+			floor: px(cs.minWidth),
+			needs: Math.round(needs * 10) / 10,
+			spill: Math.round(spill * 10) / 10,
+			title: titleEl ? Math.round(titleEl.getBoundingClientRect().width) : -1,
+		};
+	});
+}
 
 /** `readHeader`, but only once two consecutive reads agree — see SETTLE_STEP_MS above. */
 async function readHeaderSettled(page: import('@playwright/test').Page, tail: string[], menuName: string): Promise<HeaderShape> {
@@ -264,6 +355,38 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 
 			const shape = await readHeaderSettled(page, TAIL, CHROME.moreControls);
 			expect(shape.over, `header self-overflow at ${width}px on ${stop.word}`).toBeLessThanOrEqual(TOLERANCE);
+
+			// #1417 — the pill vs. itself. Read AFTER the row has settled, for the same
+			// reason every other geometry read here is: the pill is what reflows on a
+			// dial step, so a read taken as React commits is a read of a box mid-flight.
+			//
+			// The pill is in the header at every stop EXCEPT desktop Read, which renders the
+			// calm slim header where the deck is a label, not a switcher. Asserting that
+			// exception both ways keeps a vanished pill from passing as "nothing to measure"
+			// — the disguised-coverage failure this file already closed twice elsewhere.
+			const pill = await readPill(page);
+			const pillExpected = compact || stop.word !== 'Read';
+			if (!pillExpected) {
+				expect(pill, `desktop Read renders the deck as a calm label; a switcher at ${width}px means the slim header changed`).toBeNull();
+			} else {
+				expect(pill, `the deck switcher should be in the header at ${width}px on ${stop.word}`).not.toBeNull();
+				const p = pill as PillShape;
+				expect(p.spill, `the deck pill paints ${p.spill}px of its own content outside its padding box at ${width}px on ${stop.word} (title rendered ${p.title}px)`).toBeLessThanOrEqual(TOLERANCE);
+				expect(p.width, `the deck pill is ${p.width}px but its own non-shrinking content needs ${p.needs}px at ${width}px on ${stop.word}`).toBeGreaterThanOrEqual(p.needs - TOLERANCE);
+				// The declared floor must still cover what the pill actually carries. This is the
+				// assertion that catches a padding/gap/child-set change made without re-deriving
+				// `min-w-*` in StudioShell — i.e. it keeps the constant from rotting silently.
+				//
+				// Below `xl` only. At ≥1280 the pill grows a fourth child — the slide-count meta,
+				// which the design shows precisely BECAUSE the bar has room (the pill sits ~230px
+				// wide against ~300px of spare there), so its floor is structurally unreachable
+				// and pinning a `min-width` to it would encode a number that moves with the deck's
+				// slide count. What the floor is FOR is the widths where the row is genuinely
+				// tight, and those are the ones checked here.
+				if (width < XL) {
+					expect(p.floor, `the deck pill's declared min-width (${p.floor}px) no longer covers its non-shrinking content (${p.needs}px) at ${width}px — re-derive it in StudioShell's deckSwitcher`).toBeGreaterThanOrEqual(p.needs - TOLERANCE);
+				}
+			}
 			if (compact) {
 				expect(shape.menu, `the ⋯ Menu should exist at ${width}px`).not.toBeNull();
 				expect(shape.menu?.right ?? Number.POSITIVE_INFINITY, `⋯ Menu right edge at ${width}px on ${stop.word}`).toBeLessThanOrEqual(width);

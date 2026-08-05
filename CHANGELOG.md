@@ -25,6 +25,33 @@ in patch versions.
 
 ## Unreleased
 
+- **Studio — the deck pill can no longer render its own chevron outside itself, and the tablet
+  floor stopped lying about how much room it has.** The deck switcher is the top bar's designated
+  shock absorber (`min-w-0` + a truncating title, every sibling `shrink-0`), which meant it could
+  shrink *below the intrinsic width of its own non-shrinking children* — the chevron then painted
+  up to 20.5px outside the pill's border box, visibly sliced. Every overflow oracle in the repo is
+  downstream of `scrollWidth` on the *header*, and the pill's whole job is to keep that number
+  quiet while it absorbs pressure, so this failure was invisible to all of them (`scrollWidth`
+  could not see it on the pill either: an `overflow: visible` box omits its end padding, so 11px of
+  real spill reported as 1px). The pill now carries a `min-width` floor at the width its own
+  children still fit, so the ROW overflows honestly where the guards can see it. Measuring that
+  floor also showed the header did not actually fit at its 700px tablet floor and never had — the
+  `over === 0` there was bought by clipping the pill, and the row's recorded 25px of spare capacity
+  was ~20px of pill-clipping. Two pieces of pure decoration pay for the honest fit: the pill's
+  active-deck dot and the two vertical dividers are now desktop-only, matching the wordmark beside
+  them and finishing the #1408 density move (below 1100 this row reads as a wider phone header, not
+  a squeezed desktop one). Net at 700px: the deck title renders at 23px instead of **0px**, the
+  chevron sits 9px inside its box instead of on the border, and the row has 19px of *real* spare.
+  At 820px the title gains 34px. Desktop is unchanged. (#1417)
+
+- **Two new oracles for the failure class no `scrollWidth` can see.** `check:overflow` gains
+  `noChildSpill`, a geometric measurement of whether a named box's own children fit inside its
+  padding box, and `studio-header-fit.spec.ts` gains a pill guard that additionally re-derives the
+  declared `min-width` from the rendered box, so a padding/gap/child-set change made without
+  re-deriving the constant fails loudly instead of rotting. Both were mutation-tested against the
+  unfixed component: they report 11px of chevron spill at the 700px tablet floor in exactly the
+  state where every pre-existing guard reads green. (#1417)
+
 - **Designed, not built: giving a shared deck a voice.** `engineering/decisions/2026-08-04-shared-deck-narration-audio.md`
   answers the five open questions on #1393 — format (inline data URIs), size (opt-in, with the
   megabytes named before the write), staleness (ship what is cached, report coverage, never
