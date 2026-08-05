@@ -311,8 +311,11 @@ frontMatter, slideClass, flagPrint })` returns `light` | `dark` | `print`, in th
 precedence:
 
 1. **Print wins.** Paper is ink-on-white — not a color scheme, so nothing about
-   light/dark outranks it. `color-mode: print`, the legacy `class: print`, the
-   engine `--print` flag, or a per-slide `_class: print`.
+   light/dark outranks it. `color-mode: print`, the engine `--print` /
+   `--image-mode print` flag (which writes that key), or a per-slide `_class: print`.
+   The legacy `class: print` also sets it — but only on a deck with no `color-mode:`
+   key at all, because the key supersedes the whole legacy color axis
+   (`lib/core/deck-class-register.js`).
 2. **A slide that names a color-mode token owns its scheme.** `_class: light` on
    a dark deck renders light. "Names a color-mode token" is whole-token
    membership in `COLOR_MODE_TOKENS` (`lib/core/color-mode.js`) — the same test
@@ -449,11 +452,11 @@ Three structural answers, in the order they close the gap:
 
 The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
 several at render time. It is safe for the BAND because every expanded copy carries the
-class of the slide it was copied from — but not for the COUNT in one case: `focusSteps`
-groups on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a focus
-slide containing a nested `---` (inside a blockquote or a list) renders one section more
-than it should. Pre-existing engine bug, tracked at #1387. The gate detects it off the token
-stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
+class of the slide it was copied from, and it is safe for the COUNT now too: `focusSteps`
+used to group on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a
+focus slide containing a nested `---` (inside a blockquote or a list) rendered one section
+more than it should. Both grouping sites take the predicate from `lib/core/slide-rule.js`
+(#1387). The gate detects the divergence off the token stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
 prose must not be excused from the slide-count check.
 
 **What the gate structurally cannot see**, and is worth knowing before trusting it: it
@@ -462,6 +465,21 @@ verifies `spans(md) ≡ render(md)`, while production needs
 and a blank line followed by `---` inside that SVG really does produce a section the
 reconstruction has no span for. That gap is not closable from this side — it is a
 consequence of baking before rendering at all, which is the question #1385 asks.
+
+**#1385 is answered: this module is on a RETIREMENT path, not a growth path.**
+Nothing between the bake and the render needs the baked SVG — measured, not argued:
+of the nine real `rawMd` reads in the emulator, one is the render itself, one (the
+player envelope's "verbatim source") is actively harmed by it, one already
+re-derives a fence-intact source to work around it, and six read front matter and
+do not care. `engine.render` is called exactly once, so the early bake amortizes
+nothing either. The ordering is an accident of module-evaluation position.
+Inverting it — render first, bake per `<section>`, which is what the runtime path
+already does — deletes this module, its corpus gate, and the SVG-through-markdown-it
+hazard above. Scheduled, with the plan and the one piece that can go silently wrong
+(the image-set re-bake's index alignment), in
+`engineering/decisions/2026-08-05-bake-before-render-ordering.md`. **A new defect
+here is a reason to bring that forward, not a reason to add a fourth layer.**
+
 
 ---
 

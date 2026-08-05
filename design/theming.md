@@ -68,7 +68,7 @@ to spot during palette development.
 ### Accent containers
 
 Accent comes in two **containers**, and the rule is the same as everywhere
-else: a fill never carries text in a fixed colour — it carries text in its
+else: a fill never carries text in a fixed color — it carries text in its
 *paired* ink, so both adapt when a palette flips its accent light or dark.
 
 | Container | Fill | Ink / border | Use |
@@ -81,7 +81,7 @@ for AAA contrast against *its* `--accent` in both modes, and the three muted
 tiers derive from it by opacity (so overriding `--on-accent` alone re-tunes the
 whole rail). The **soft** ink `--on-accent-soft` is `--accent` itself — it reads
 AAA on the pale tint and is exactly what soft cards already used; naming it gives
-consumers a first-class pair and one override seam, with no new curated colour.
+consumers a first-class pair and one override seam, with no new curated color.
 
 > **Never paint text on `var(--accent)` with `--on-dark*` or a bare `#fff`.**
 > That assumes the accent is always dark; it collapses to light-on-light on
@@ -140,9 +140,12 @@ There are four ways to get a dark canvas:
 | Whole deck dark, simplest theme swap | `theme: cuoio-dark` (or `indaco-dark`) — a 3-line wrapper pinning `:root{color-scheme:dark}`. |
 | Single slide on an otherwise-light deck | `<!-- _class: dark -->` on that slide — flips just that section. |
 
-The legacy deck-wide `class: dark`/`class: light` (and a raw
-`style: ":root{color-scheme:dark}"`) still work, but `color-mode:` is the
-documented, typo-checked way — and the only one offering `system` / `inherited`.
+The legacy deck-wide `class: dark`/`class: light`/`class: print` (and a raw
+`style: ":root{color-scheme:dark}"`) still work on a deck that sets nothing else, but
+`color-mode:` is the documented, typo-checked way — and the only one offering `system` /
+`inherited`. **Where a deck carries both, the key wins and the alias is dropped** rather
+than merged, so a half-finished migration cannot render one canvas and bake its diagrams
+for another. The deck linter flags the leftover (`deck-wide-component`).
 
 Default is light. With no directive, `:where(:root) { color-scheme: light }`
 applies at zero specificity, so any author override wins the cascade
@@ -263,7 +266,7 @@ the engine-wide `--cN` accents:
 - **Categorical** — `--catN-*` (N = 1–8), the well-spaced hue set pie
   wedges / radar curves / kanban lanes cycle through.
 - **Semantic** — `--state-{pass,warn,fail,info,mute}-*`, the status
-  colours gantt bars / progress fills / status pills use to encode meaning.
+  colors gantt bars / progress fills / status pills use to encode meaning.
 
 Both ship a canvas-aware Apple-hue **default**, so an untuned theme gets a
 working chart palette for free. A theme **curates** charts to its own
@@ -291,14 +294,14 @@ values *before* committing to them — resolve the full token chain (incl. each
 chart's gradient deep stop) and check, on **both** canvases: text-on-fill WCAG
 (AA on labels), marks vs canvas (≥3:1, WCAG 1.4.11), and adjacent-slot OKLab
 distinctness (≥0.15). It catches what the eye misses — a light-gray category
-that vanishes on white, or five status colours that collapse to one value at
+that vanishes on white, or five status colors that collapse to one value at
 the bar's deep stop. The audit's score is text-contrast only; it does not
 prove categories are distinguishable, so a passing audit score is a starting
 point, not the answer.
 
 ### Universal semantic palette (`--diagram-active*`, `--diagram-done*`, `--diagram-critical*`, `--diagram-today`, `--diagram-note`)
 
-Status-signaling colours shared across every theme. **Defined in
+Status-signaling colors shared across every theme. **Defined in
 `lattice.css` as universal defaults; themes override only if curated
 values differ.**
 
@@ -319,7 +322,7 @@ notes use note + mark. Mermaid's parse-error box resolves to the gated
 `--diagram-critical` (decoupled in #1181; the old coupling made the error
 ink track the categorical-mark tier, which failed on the achromatic diagram
 ramps where `--diagram-critical` is a mid-gray). `--diagram-critical` now
-serves only the gantt critical bar + the diagram severity ramp — one colour
+serves only the gantt critical bar + the diagram severity ramp — one color
 that consolidates the legacy diagram *severity* tokens (pre-consolidation those
 were spelled `--diagram-state-critical` AND `--diagram-error-bg`, both saturated
 red; `--diagram-critical` replaces both **names**). The mermaid parse-error box
@@ -329,10 +332,10 @@ cuoio is the one shipped theme that overrides the universal palette —
 its leather aesthetic wants a warm pale gold-wash + saddle leather
 pair instead of the indaco-derived peach + brown defaults.
 
-## Colour-vision-deficiency (a11y) palettes
+## Color-vision-deficiency (a11y) palettes
 
 Four shipped palettes re-tune the **categorical** hues (`--c-*` / `--cat-*`) so
-adjacent series stay distinguishable under the common colour-vision deficiencies,
+adjacent series stay distinguishable under the common color-vision deficiencies,
 selectable the same way as any theme (`theme: a11y-deuteranopia`) and offered in the
 docs-site palette picker:
 
@@ -341,10 +344,10 @@ docs-site palette picker:
 | `a11y-deuteranopia` | red-green (most common; weak/absent M-cones) |
 | `a11y-protanopia` | red-green (weak/absent L-cones) |
 | `a11y-tritanopia` | blue-yellow (weak/absent S-cones) |
-| `a11y-achromatopsia` | full colour-blindness — separates series by **luminance** |
+| `a11y-achromatopsia` | full color-blindness — separates series by **luminance** |
 
 They only re-map the categorical ramp; the surface/ink/semantic contract (and its WCAG
-AA guarantee) is unchanged, so any deck renders in an a11y palette without edits. Colour
+AA guarantee) is unchanged, so any deck renders in an a11y palette without edits. Color
 is never the *sole* channel regardless — charts/diagrams pair hue with shape/label
 (redundant encoding). Derivation and the audit method live in
 `engineering/decisions/2026-06-16-colour-blindness-accessibility.md` and
@@ -412,7 +415,7 @@ Colors that ignore the tier split:
   `--cat-N-fill` tint including white.
 - **Lines** (`--diagram-line`): near-black on light canvas, light on dark.
 - **Universal semantic palette** (`--diagram-active*` / `--diagram-done*` /
-  `--diagram-critical*` / `--diagram-today` / `--diagram-note`): status-signaling colours
+  `--diagram-critical*` / `--diagram-today` / `--diagram-note`): status-signaling colors
   outside the tier system. Alarm is saturated red, mark is saturated
   yellow, note is pale yellow — pinned values, not theme-cycle members.
 
@@ -519,7 +522,7 @@ Then, in order of impact:
    `var(--scheme-dark-text-secondary)`) so the dark variant resolves
    automatically. Run `node tools/contrast-audit.js` to verify.
 4. **Accent** (`--accent`, `--accent-soft`, `--on-accent`). Most-seen
-   colour after ink. Must clear contrast against `--bg` *and* against
+   color after ink. Must clear contrast against `--bg` *and* against
    `--accent-soft`.
 5. **Categorical cycle** (`--cat-1-fill` / `--cat-1-mark` through
    `--cat-12-fill` / `--cat-12-mark`, plus the flipping `--cat-on-fill` /
@@ -540,7 +543,7 @@ Then, in order of impact:
 
 You don't write per-diagram CSS overrides. They live in `lattice.css`'s
 DIAGRAM OVERRIDES section and reference tokens by `var(--c-*)`, so your
-new colour values flow through unchanged.
+new color values flow through unchanged.
 
 When the values look right:
 

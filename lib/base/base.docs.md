@@ -532,10 +532,12 @@ The mirror of `dark`: forces this slide to a **light** canvas
 surface tokens resolve to the light side no matter what — inside a dark deck
 (`color-mode: dark`, a `-dark` theme, or a dark website mode) or not. Use it for a
 bright slide amid dark ones. Deck-wide color mode is the first-class `color-mode:`
-key (`light` · `dark` · `system` · `inherited` — the legacy `class: dark`/`light`
-is a deprecated alias); a per-slide `_class: light` wins over the deck-wide color
-mode, so light and dark slides can coexist. Light is already the default canvas, so
-`light` is only meaningful as an *override* of a darker context.
+key (`light` · `dark` · `system` · `inherited` · `print` — the legacy
+`class: dark`/`light`/`print` is a deprecated alias, and **the key wins over it**:
+where a deck carries both, the alias is dropped, not merged). A per-slide
+`_class: light` wins over the deck-wide color mode, so light and dark slides can
+coexist. Light is already the default canvas, so `light` is only meaningful as an
+*override* of a darker context.
 
 ```markdown
 <!-- _class: content light -->
@@ -1414,6 +1416,37 @@ Modifiers compose space-separated after the layout name.
 `compact loose`), the last one in source wins. When modifiers tune
 disjoint properties (e.g. `compact dark`), they compose without
 conflict.
+
+### The three spellings of `class:`
+
+They look interchangeable and are not. Which one you reach for decides whether a
+slide can override it, and whether it may name a component at all.
+
+| Spelling | Scope | A slide's own `_class:` | May name a component |
+|---|---|---|---|
+| `class:` in **front matter** | the whole deck | **composes** — the deck's tokens are appended to the slide's | **no** |
+| `<!-- class: … -->` **mid-deck** | from that slide to the end, or the next one | **replaces** it for that slide | yes |
+| `<!-- _class: … -->` | that slide | — | yes |
+
+The front-matter register is appended to **every** slide, including one that
+names its own layout — that is what makes `class: no-note` or `class: safe`
+useful. It is also why it may not name a component: `class: kpi` plus a slide's
+own `_class: cards-grid` would leave two layouts on one section, with CSS source
+order picking the winner. A component name there is **ignored**, and the deck
+linter says so (`deck-wide-component`). Name the layout per slide, or once for a
+run of them:
+
+```markdown
+<!-- class: diagram -->        ← every slide from here is a diagram slide…
+<!-- _class: closing -->       ← …until one says otherwise
+```
+
+**Color is the deck's `color-mode:` key, and it wins.** `class: dark` /
+`light` / `print` in front matter is the legacy alias for the same axis; when
+`color-mode:` is present, the alias is dropped rather than merged, so a
+half-migrated deck cannot render one canvas and bake its diagrams for another.
+A per-slide `_class: dark` still wins for that slide, and a mid-deck
+`<!-- class: dark -->` still switches the canvas from there on.
 
 ---
 

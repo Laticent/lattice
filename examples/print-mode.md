@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-class: print
+color-mode: print
 header: "Lattice · Print mode"
 acronyms:
   CDN: content delivery network
@@ -14,9 +14,9 @@ acronyms:
 
 # The boardroom deck that survives the printer.
 
-Print mode renders the whole deck ink-on-white — grayscale plus textures, so nothing depends on hue. Set `class: print`, or export with `--print`.
+Print mode renders the whole deck ink-on-white — grayscale plus textures, so nothing depends on hue. Set `color-mode: print`, or export with `--print`.
 
-<!-- Speaker: this same deck renders in full colour without the print class; the print band is a render-time choice, not a rewrite. -->
+<!-- Speaker: this same deck renders in full color without the print key; the print band is a render-time choice, not a rewrite. -->
 
 ---
 
@@ -87,4 +87,4 @@ The wedges differ by pattern, so the split survives a gray printer.
 
 # One deck. Screen in color, paper in ink.
 
-Author once; choose the surface at export. Use `class: print` for the paper handout, the default palette for the projector.
+Author once; choose the surface at export. Use `color-mode: print` for the paper handout, the default palette for the projector.

@@ -144,6 +144,207 @@ in patch versions.
   a phrase that wraps is highlighted per line instead of as one lying rectangle. Every addition is
   defaulted: with no options passed, `circle` and every existing tour are byte-identical.
 
+- **Decided, not built: the export should render before it bakes Mermaid.** The source-side slide
+  reconstruction (`lib/core/slide-class-spans.js`) exists only because the export bakes diagrams at
+  module-evaluation time, before a single `<section>` exists — an ordering nobody wrote down.
+  Measured: of the nine real reads of the baked source, one is the render itself, one (the shared
+  player's "verbatim" envelope, which ships frozen SVG instead of diagram source) is actively
+  harmed, and seven are indifferent — plus the chart narrator, which already pays to re-derive a
+  fence-intact source to route around it. Inverting it deletes the reconstruction, its 654-deck gate, and the
+  fence-intact source to route around it. Inverting it deletes the reconstruction, its 651-deck gate, and the
+
+  harmed, one already re-derives a fence-intact source to work around it, and six read front matter
+  and do not care. Inverting it deletes the reconstruction, its 643-deck gate, and the
+  SVG-through-markdown-it hazard that already shipped a sankey label bug. Scheduled with a plan;
+  fence-intact source to route around it. Inverting it deletes the reconstruction, its 654-deck gate,
+  and the SVG-through-markdown-it hazard that already shipped a sankey label bug. Scheduled with a plan;
+  until then that module is on a retirement path, not a growth path.
+  `engineering/decisions/2026-08-05-bake-before-render-ordering.md`, #1385.
+
+- **Fixed: `npm run bench:check` was red on a clean tree, and its one honest signal exited 0.**
+  The committed baseline held absolute milliseconds from whatever machine last blessed it, so
+  anywhere slower read every dataset as a ~20% regression before any change was made — while the
+  `charts` row, blessed at 14 slides against a 15-slide deck, printed `WORKLOAD CHANGED` on every
+  run and exited 0 from 29 July until now — a week of a gate reporting its own staleness and passing. The two signals are separated now: a moved slide count is
+  machine-independent and **fails on any machine**, and a wall-clock delta gates **only on the
+  machine that blessed the baseline** (which the file records). Cross-machine the timings still
+  print, as an index against a fixed upstream-markdown-it probe, so the baseline's diff stays a
+  readable trend. `charts` re-blessed at its true count.
+  `engineering/decisions/2026-08-05-bench-ratchet-two-signals.md`, #1382.
+
+- **Fixed: the deck linter and five other authoring surfaces read the class directive with a regex
+  that could not see half of it.** Marp has two class directives — the spot `<!-- _class: … -->`
+  and the bare `<!-- class: … -->`, a running global in force to the end of the deck — and seven
+  modules re-spelled a `_class:`-only pattern that matched the first form. On a deck using the
+  global form, that made the real directive invisible; and because the pattern is non-global and
+  used with `.match()`, whatever `_class:` the PROSE happened to quote took its place. A slide read
+  as the wrong component is checked against the wrong contract in both directions. All six
+  resolvers — the linter, the deck reviewer, the scorecard, the fact-checker, the prose-budget
+  strip, and the editor's autocomplete — now share `lib/core/class-directive-scan.mjs`, which reads
+  both forms — including the multi-line `<!--\n_class: kpi\n-->` spelling — and counts a comment
+  as a directive only when it opens its own line, outside a fence. Gated by comparing every
+  committed deck against the engine-derived reader: of 276 decks with a class directive, 274
+  compared (2,785 slides) with 0 disagreements and 2 skipped (both `split: headings` boundary
+  divergences), where the regex it replaces gets six slides wrong across three decks. The scan
+  returns one entry per slide and every caller pairs it against `splitTopLevel` BY POSITION, so a
+  second gate holds the two to the same length across all 846 committed markdown files — a `---`
+  written inside a multi-line comment (what commenting out a run of slides looks like) split one
+  array and not the other, which checked every slide after it against its neighbour's contract. The
+  multi-line consumption also re-scanned its whole accumulated buffer for the closing `-->` on
+  every line, which is quadratic on input an author controls: one unterminated `<!--` cost 8s on a
+  32k-line deck against 5ms clean, on a scan the Studio runs per keystroke over shared and
+  AI-generated markdown. It tests the newly-appended line now (a `-->` cannot straddle the join),
+  and the cost guard times the adversarial shape rather than only a well-formed deck.
+  `engineering/decisions/2026-08-05-one-class-directive-reader.md`, #1383.
+
+- **Fixed: a `---` inside a blockquote or a list added a phantom slide to a `_focusSteps` walk.**
+  The progressive-expansion pass grouped the token stream on any `hr` token, while the rule that
+  actually decides slides guards the same test with `level === 0` — so a nested horizontal rule,
+  which markdown-it emits as a nested `hr`, read as a slide boundary. A focus slide containing one
+  rendered 4 sections where 3 is correct, and every consumer that indexes sections (pagination,
+  the PPTX one-image-per-slide path, the source-side band reconstruction) inherited the off-by-one.
+  Six places asked "where does a slide end?" and one asked it without the guard; they now share
+  `lib/core/slide-rule.js`. #1387.
+
+- **Breaking: the deck-wide `class:` register refuses two kinds of token, and refuses them where
+  it is read.** `color-mode:` now always wins over the legacy `class: dark`/`light`/`print`
+  color alias — the alias is dropped, not merged — and a **component name** in the front-matter
+  `class:` is a no-op with a new `deck-wide-component` lint warning. Both were already broken
+  rather than working: a deck carrying `color-mode:` and a `class:` color token got 40 of 168
+  combinations wrong (#1402), including a slide whose own `_class: dark` was silently deleted;
+  and `class: kpi` was appended *over* a slide's own `_class:`, leaving two layouts on one section
+  for CSS source order to pick between. The refusal happens at every boundary the register is READ
+  — the engine door, both propagation kernels, and the bytes an Export-to-Marp bundle emits (Marp
+  stamps the front matter before our append-only runtime loads) — so no kernel removes anything
+  and no provenance is needed. Two spellings are deliberately untouched: a per-slide
+  `<!-- _class: … -->` and a mid-deck `<!-- class: … -->`, which is bounded, cannot collide, and
+  still overrides `color-mode:` from its own slide on. Zero committed decks change.
+  `engineering/decisions/2026-08-05-deck-class-register-boundary.md`, #1416, #1402.
+
+- **Fixed: `--print` and `--image-mode print` reached the ink but not the canvas.** The flags
+  merged `print` into the deck-wide `class:` — the register `color-mode:` supersedes — so on any
+  deck that set `color-mode:` at all, a print export rendered a light or dark canvas while the
+  Mermaid ink and `manifest.json` both said print. Measured at print ink `#1A1A1A` on a dark chip
+  `rgb(46,46,46)`: **1.28:1**. They write `color-mode: print` now, and the band resolution is
+  handed the flag that both of them set rather than the narrower `--print` boolean.
+
+- **Documented: the `CodeQL` check reports a verdict before its `Analyze` jobs finish.** It is an
+  aggregate check run, posted within seconds of a push, summarizing the alerts known at that
+  moment — which on a fresh head are the PREVIOUS commit's. Measured here: the check concluded
+  `failure` at 11:18:30 while the two JavaScript analyses ran until 11:19:34 and 11:19:45, and it
+  was never refreshed. Reading it as current cost four force-push rounds, three of them chasing an
+  alert already fixed, with the annotation pointing at test data that contains no regex at all.
+  `engineering/gotchas.md` § CI now carries the tell (compare `completed_at` on the check against
+  the `Analyze` jobs; a three-second `CodeQL` check is stale) and the rule it belongs to — the same
+  one the two-pass bench gate encodes: a check-run conclusion is not evidence until its inputs have
+  completed.
+
+- **Added: a `CHANGELOG` integrity gate, because this file ships.** `package.json` `files`
+  includes it, and it is the file every branch touches and therefore the one that conflicts on
+  every rebase. The mechanical "keep both sides" resolution is exactly how a stale earlier draft of
+  your own entry survives beside the current one — which happened three times on this branch, each
+  time invisible to lint, the unit suite, `build:check`, the integration tier and the 150-render
+  gate, because none of them read prose. `test/unit/release/changelog-integrity.test.js` checks the
+  two things a machine can see: no conflict markers, and no paragraph in `## Unreleased` starting at
+  column 0 without a list marker (the signature a concatenated resolution leaves). A
+  duplicate-entry check was tried and dropped — `main` already carries 18 verbatim repeats, and a
+  gate that is red on `main` is not a gate.
+
+- **Fixed: the legacy `class:` color alias is read as loosely as the ENGINE stamps it.** The
+  column-0 rule that `color-mode:` needs is wrong for `class:`, and in the dangerous direction:
+  `parseFrontMatter` trims each line before matching, so the engine stamps a `class:` at ANY
+  indentation onto every section. Reading it at column 0 meant ` class: print` rendered a
+  `section.print` canvas while the band resolver said light — a print handout with full-color
+  Mermaid chips baked onto it. The two keys are now read differently on purpose: `class:` matches
+  the engine (which stamps it), `color-mode:` stays column 0 (nothing stamps it; every writer of
+  it writes there). Both directions of this split shipped on the way here, so the rule is stated
+  in the kernel rather than left to be re-derived.
+
+- **Fixed: the front-matter fence no longer accepts a padded opening `--- `.** Tolerating it was
+  added here as "belt-and-braces" and was the opposite: nothing else in the repo accepts it —
+  `parseFrontMatter`, `boundary-parser.js`, the export writer and the register kernel are all
+  `^---\r?\n` — so `--- \ncolor-mode: print\n---` read as a print deck to the band resolver and as
+  no front matter at all to the engine. Print ink baked onto a canvas that never got the class:
+  the #1326 ink/chip shape, arriving through the change that closes it. A leading BOM stays
+  tolerated, because ingest strips it and the export path reads the deck unnormalized, so it can
+  only ever add agreement.
+
+- **Fixed: `color-mode:` had five readers that disagreed.** An anchored key/value regex decided
+  the class, an unanchored one decided the print band, a third decided the diagram band, a fourth
+  answered "did the author write this key at all" for `readFrontMatterColorMode`, and the docs
+  site's `deck-theme.ts` a fifth — so `color-mode: light  # migrated` plus `class: print` set the
+  band from one reader and the canvas from another. One reader now (`deckColorModeToken`), routed
+  through the shared front-matter reader; `deck-theme.ts` cannot import it (Rollup will not read
+  named exports off a CJS file outside the docs root) and mirrors its rule with a note.
+  `deckPrintBand`'s class test is whole-token membership rather than `\bprint\b`, which also
+  matched inside `print-safe`.
+
+- **Fixed: the two registers with a WRITER are read at column 0, like they are written.** The
+  shared `frontMatterValue` matches an indented key, and every writer in the repo anchors at
+  column 0 (an indented `class:` may be a key nested under another one, or a line inside a
+  `style: |` block scalar, and rewriting either corrupts the deck). For a read-only register that
+  gap is invisible; for `class:` and `color-mode:` it made the render path and the exported bytes
+  disagree about which line was the register — a deck whose nested `color-mode:` "superseded" a
+  real top-level `class: dark` rendered without it while an Export-to-Marp of the same source kept
+  it. `topLevelFrontMatterValue` is the strict read; the looser one stays the default everywhere
+  else. The docs-site preview (`deck-theme.ts`) applies the same rule, so it can no longer pin a
+  mode off a nested key.
+
+- **Fixed: `unknown-color-mode` was silent on the one input it was written for.** The rule
+  captured `[A-Za-z0-9_-]+` to end of line, so `color-mode: light  # migrated 2026-08` — which the
+  resolver rejects, falling the deck through to the theme default — produced no finding at all. It
+  now parses character-for-character as the resolver does, the way `unknown-pace` already did, and
+  `color-mode-parse-parity` pins the two together: the resolver returns a token ⇔ the linter is
+  quiet.
+
+- **Fixed: `npm run bench:check` could go red on an unchanged tree because the box was busy.**
+  "Same machine" is a hardware fingerprint, and on a shared or virtualized one it does not imply
+  the same machine STATE: two runs of an identical tree measured 65.1ms and 56.3ms for
+  `normal (jargon)`, 15% apart against a ±12% band. A timing REGRESSION is now re-measured once
+  before it can fail the run, and only a dataset that regresses on both passes exits 1 — noise is
+  not correlated across passes, a real slowdown is. The cost is paid only when something already
+  looks red. The check table also prints the two numbers Δ% is actually computed from (it showed
+  index values beside a wall-clock delta).
+
+- **Breaking: `engines` is `>=22.12.0`.** `require()` of an ES module is unflagged from that
+  release, and `lib/authoring/{lint,review,scorecard,fact-check}-core.js` now `require()` the ESM
+  `lib/core/class-directive-scan.mjs` so the six authoring resolvers share one reader.
+  `tools/export-marp.js` had been doing the same with `glossary-auto.mjs` under the looser
+  `>=22.0.0` claim; CI pins `node-version: 22`, which resolves to the newest 22.x and so could
+  never have caught it. The `<!-- key: value -->` grammar moved to
+  `lib/core/comment-directive.mjs` for the same reason, with `comment-directive.js` left as a CJS
+  re-export so no `require()` call site changes: the scanner is ESM precisely so the docs editor
+  can import it as source, and Vite/Rollup cannot transform a CommonJS file outside the docs root
+  — so CJS may wrap ESM here, never the reverse.
+
+- **Fixed: two quadratic-backtracking regexes on author-controlled deck source.** The
+  `<!-- key: value -->` grammar paired a lazy `([\s\S]*?)` with a greedy `\s*` before an anchored
+  `-->$`, so whenever that anchor could not match, the two quantifiers split the tail every
+  possible way — 21s of engine render for a 4 KB deck, previously mitigated by an O(1) `endsWith`
+  guard that no static analyzer can see. It now slices the delimiters off and matches the INSIDE,
+  which removes the anchor the backtracking was searching for; verified byte-identical to the old
+  parse across 6,147 committed comments and 400,000 fuzz cases. The deck linter's
+  `deck-wide-component` line-quoting regex had the same shape (`[^"'\n]*` and `[ \t]*$` both match
+  whitespace) and is now a non-capturing `.*` to end of line.
+
+- **Changed: the class scanner finds a comment's end with `indexOf`, not a regex.** Same answer,
+  and deliberately still `-->` only. The HTML spec also ends a comment at `--!>`; markdown-it does
+  not, so a directive closed that way is swallowed and the slide renders as the default component
+  — matching the spec here would put the linter and the renderer back into disagreement, which is
+  the whole defect #1383 removes. The agreement is now pinned by a test that drives the real engine
+  rather than asserted in a comment. The regex spelling is what CodeQL's `js/bad-tag-filter` reads
+  as a sanitizer missing a bypass (nothing here sanitizes; that is DOMPurify at the preview
+  boundary, HARD RULE #22), and a suppression comment would not have survived esbuild into
+  `authoring-core.generated.js`, where the same code is scanned again. The same query then flagged
+  two spots in the test file: the helper that reads what an author wrote became an `indexOf` slice
+  (kept independent of the scanner, so the alignment tests still compare against something the scan
+  did not produce), and and the HISTORICAL pattern the test deliberately keeps broken to
+  measure against is now a faithful re-implementation without a regex — an inline `codeql[…]`
+  suppression was tried first and is not honored by this repo's setup. Faithful is measured, not
+  asserted: it matches the original regex exactly across all 5,717 chunks of every committed
+  markdown file, including the edge where a whitespace-only value makes the lazy capture return a
+  single space.
+
 - **Designed, not built: giving a shared deck a voice.** `engineering/decisions/2026-08-04-shared-deck-narration-audio.md`
   answers the five open questions on #1393 — format (inline data URIs), size (opt-in, with the
   megabytes named before the write), staleness (ship what is cached, report coverage, never

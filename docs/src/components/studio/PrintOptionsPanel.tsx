@@ -35,7 +35,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // + single-slide srcdoc + rendered-HTML splitter all live in the playground engine.
 import { notesCore } from '@/playground/authoring-core.generated.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
-import { mergeClassTokens } from './front-matter';
+import { withPrintCanvas } from './front-matter';
 import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
 
 type Paper = 'auto' | 'letter' | 'legal' | 'a4';
@@ -169,7 +169,7 @@ export function PrintOptionsPanel({
 		// A re-render invalidates any cached slide images (new pixels): drop them so the
 		// next build rasterizes the fresh render rather than re-placing stale images.
 		setImgCache(null);
-		const src = opts.color === 'bw' ? mergeClassTokens(source, 'print') : source;
+		const src = opts.color === 'bw' ? withPrintCanvas(source) : source;
 		buildDeckRender(options, src, palette, mode, extraTheme, extraCss)
 			.then((r) => {
 				if (!alive) return;

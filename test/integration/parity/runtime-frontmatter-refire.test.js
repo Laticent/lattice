@@ -220,11 +220,12 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     window.close();
   });
 
-  // The ordering guard. The rule reads the RESOLVED class list, so the deck-wide
-  // `class:` must already be on the section when it runs; stamped first, this slide
-  // would come out `content kpi` — two components, and the wrong one winning on CSS
-  // source order rather than on the author's instruction.
-  test('a deck-wide class: kpi yields kpi alone, not content kpi — before AND after a wipe', async () => {
+  // A deck-wide `class:` naming a COMPONENT used to claim every slide. It is refused
+  // now (lib/core/deck-class-register.js): the register is appended over a slide's
+  // own `_class:`, so a component there collides rather than composes. This pins the
+  // refusal on the RUNTIME path — the one that renders an exported bundle in a
+  // browser, and the one where a wrong answer is a shipped artifact.
+  test('a deck-wide class: kpi is a no-op, and the slide falls back to the default', async () => {
     const dom = new JSDOM(
       `<!DOCTYPE html><html><head></head><body>${RAW_UNCLASSED_SECTION}${frontMatterBlock(frontMatterWithClass('kpi'))}</body></html>`,
       { url: 'file:///tmp/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
@@ -238,12 +239,66 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     document.body.appendChild(scriptEl);
     await new Promise((r) => setTimeout(r, 250));
 
-    assert.deepEqual(componentsOn(document), ['kpi'], 'the deck-wide component claims the slide; no default appended');
+    assert.deepEqual(componentsOn(document), ['content'], 'the deck-wide component is refused; the default applies');
 
     document.body.innerHTML = RAW_UNCLASSED_SECTION;
     await new Promise((r) => setTimeout(r, 400));
-    assert.deepEqual(componentsOn(document), ['kpi'],
-      'still kpi alone after the wipe — the re-stamp must run AFTER applyCachedDeckClass, not before it');
+    assert.deepEqual(componentsOn(document), ['content'], 'and still after a live-edit wipe');
+
+    window.close();
+  });
+
+  // R1 FROM #1416, on the surface it was reachable from. The reverted attempt made
+  // this mirror STRIP the deck-wide register's tokens from every section by value —
+  // and by the time the runtime sees a document there is no provenance left, so a
+  // deck `class: kpi` deleted the `kpi` a SLIDE had named for itself. The mirror is
+  // append-only now, and the deck token never exists to be stripped.
+  //
+  // The section here NAMES ITS OWN COMPONENT, which is the whole point: the earlier
+  // coverage only ever fed an un-classed section, which is why this was invisible.
+  test('the runtime never removes a class a section already carries', async () => {
+    const OWN = '<section class="kpi"><h2>Title</h2><ol><li>One<ul><li>a</li></ul></li></ol></section>';
+    const dom = new JSDOM(
+      `<!DOCTYPE html><html><head></head><body>${OWN}${frontMatterBlock(frontMatterWithClass('kpi no-note'))}</body></html>`,
+      { url: 'file:///tmp/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
+    );
+    const { window } = dom;
+    const { document } = window;
+    window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+
+    const scriptEl = document.createElement('script');
+    scriptEl.textContent = RUNTIME_SRC;
+    document.body.appendChild(scriptEl);
+    await new Promise((r) => setTimeout(r, 250));
+
+    const cls = [...document.querySelector('section').classList];
+    assert.ok(cls.includes('kpi'), `the section keeps the component it named, got "${cls.join(' ')}"`);
+    assert.deepEqual(componentsOn(document), ['kpi'], 'and gains no second one');
+    assert.ok(cls.includes('no-note'), 'while an admitted deck token still propagates');
+  });
+
+  // The same shape on the COLOR axis, which is where the strip was introduced: a
+  // deck-wide `class: dark` superseded by `color-mode: light`, on a section whose
+  // own `_class: dark` Marp already stamped. Removing by value would take both.
+  test('a slide keeps its own color pin when the deck names the same token', async () => {
+    const OWN = '<section class="content dark"><h2>Title</h2><p>Body.</p></section>';
+    const fm = ['---', 'theme: indaco', 'color-mode: light', 'class: dark', '---', '', '## Title', ''].join('\n');
+    const dom = new JSDOM(
+      `<!DOCTYPE html><html><head></head><body>${OWN}${frontMatterBlock(fm)}</body></html>`,
+      { url: 'file:///tmp/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
+    );
+    const { window } = dom;
+    const { document } = window;
+    window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+
+    const scriptEl = document.createElement('script');
+    scriptEl.textContent = RUNTIME_SRC;
+    document.body.appendChild(scriptEl);
+    await new Promise((r) => setTimeout(r, 250));
+
+    const cls = [...document.querySelector('section').classList];
+    assert.ok(cls.includes('dark'), `the slide's own pin survives, got "${cls.join(' ')}"`);
+    assert.ok(!cls.includes('color-light'), 'and the deck color mode does not stack on top of it');
 
     window.close();
   });

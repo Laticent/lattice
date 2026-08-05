@@ -24,9 +24,11 @@ This whole deck carries `color-mode: dark` in its front matter. Open it under a 
 
 ---
 
-## One key, four intents.
+## One key, five intents.
 
-`color-mode:` takes four values. `light` and `dark` **pin** a canvas — the deck opens that way on every device. `system` **defers to the viewer's OS** light/dark setting. `inherited` **adopts the host** — the website toggle here, the reader's OS in a shared file. In the Studio the **Color mode** control writes it for you; the top-bar toggle stays the website's own.
+`color-mode:` takes five values. `light` and `dark` **pin** a canvas — the deck opens that way on every device. `system` **defers to the viewer's OS** light/dark setting. `inherited` **adopts the host** — the website toggle here, the reader's OS in a shared file. `print` renders the whole deck **ink-on-white** for paper. In the Studio the **Color mode** control writes it for you; the top-bar toggle stays the website's own.
+
+The key also **wins**. A deck that still carries the legacy `class: dark` alias beside it renders the key's canvas, and the alias is dropped rather than merged — so ink and canvas can never come from two different answers.
 
 ---
 

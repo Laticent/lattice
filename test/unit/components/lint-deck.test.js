@@ -2,7 +2,7 @@
  * Unit: lib/authoring/lint.js — the deck authoring linter.
  *
  * Covers the three rules (unknown-class, card-style-inline-title,
- * statement-ol-bold), modifier recognition, and clean-deck behaviour.
+ * statement-ol-bold), modifier recognition, and clean-deck behavior.
  */
 
 const { describe, test } = require('node:test');
@@ -191,17 +191,53 @@ describe('deck linter', () => {
     }
   });
 
-  test('nudges a deck-wide `class: dark`/`light` toward `color-mode:` (info); flags it as redundant when the key is also present', () => {
+  test('nudges a deck-wide `class: dark`/`light` toward `color-mode:` (info) while the alias still works', () => {
     const nudge = lintText('---\ntheme: indaco\nclass: dark\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'deprecated-class-color-mode');
     assert.ok(nudge, 'the legacy color alias should nudge');
     assert.equal(nudge.severity, 'info');
     assert.match(nudge.fix, /color-mode: dark/);
-    // Half-migrated (both present): still flagged, now as a redundant leftover to remove.
-    const halfMigrated = lintText('---\ntheme: indaco\nclass: dark\ncolor-mode: light\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'deprecated-class-color-mode');
-    assert.ok(halfMigrated, 'a leftover class: alias beside the key should still be flagged');
-    assert.match(halfMigrated.message, /superseded|redundant/);
+    // Once the key is present the alias is REFUSED, not merely deprecated — that is a
+    // behavior change, so it is a warning from `deck-wide-component`, not an info nudge.
+    const half = lintText('---\ntheme: indaco\nclass: dark\ncolor-mode: light\n---\n\n## H.\n', { vocab });
+    assert.equal(half.filter((x) => x.rule === 'deprecated-class-color-mode').length, 0,
+      'the info nudge steps aside for the warning');
+    const refused = half.find((x) => x.rule === 'deck-wide-component');
+    assert.ok(refused, 'a superseded alias is flagged');
+    assert.equal(refused.severity, 'warning');
+    assert.match(refused.message, /superseded by `color-mode: light`/);
     // A non-color class token is never nudged.
     assert.equal(lintText('---\ntheme: indaco\nclass: numbered\n---\n\n## H.\n', { vocab }).filter((x) => x.rule === 'deprecated-class-color-mode').length, 0);
+  });
+
+  test('warns when the deck-wide `class:` names a COMPONENT — every slide would be that layout', () => {
+    const found = lintText('---\ntheme: indaco\nclass: kpi no-note\n---\n\n## H.\n', { vocab })
+      .filter((x) => x.rule === 'deck-wide-component');
+    assert.equal(found.length, 1, 'only the component token is flagged, not the modifier');
+    assert.equal(found[0].severity, 'warning');
+    assert.equal(found[0].classToken, 'kpi');
+    assert.match(found[0].message, /every slide would be a kpi slide/);
+    assert.match(found[0].fix, /<!-- _class: kpi -->/);
+    // The per-slide and the mid-deck-global spellings are both legitimate and silent.
+    for (const src of [
+      '---\ntheme: indaco\n---\n\n<!-- _class: kpi -->\n\n## H.\n',
+      '---\ntheme: indaco\n---\n\n<!-- class: kpi -->\n\n## H.\n',
+    ]) {
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'deck-wide-component').length, 0, src);
+    }
+    // And a deck with neither problem says nothing at all.
+    assert.equal(lintText('---\ntheme: indaco\nclass: no-note\n---\n\n## H.\n', { vocab })
+      .filter((x) => x.rule === 'deck-wide-component').length, 0);
+  });
+
+  test('warns on `class: print` under a `color-mode:` key — the paper canvas is dropped, not merged', () => {
+    const found = lintText('---\ntheme: indaco\ncolor-mode: dark\nclass: print\n---\n\n## H.\n', { vocab })
+      .find((x) => x.rule === 'deck-wide-component');
+    assert.ok(found, 'the superseded print token is flagged');
+    assert.equal(found.classToken, 'print');
+    assert.match(found.message, /dropped, not merged/);
+    // Without the key, `class: print` is the supported legacy spelling — silent.
+    assert.equal(lintText('---\ntheme: indaco\nclass: print\n---\n\n## H.\n', { vocab })
+      .filter((x) => x.rule === 'deck-wide-component').length, 0);
   });
 
   test('warns on an unrecognized `stamp:` (state-marker shape) value; accepts the shapes', () => {

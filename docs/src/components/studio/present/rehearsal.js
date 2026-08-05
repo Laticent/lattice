@@ -22,6 +22,15 @@
 
 export const SPEAK_WPM = 135; // boardroom delivery pace, pauses folded in
 
+// KNOWN NARROW, deliberately. `lib/core/class-directive-scan.mjs` is the shared
+// reader for "what class governs this slide?", and it sees the running global
+// `<!-- class: … -->` this pattern is blind to (#1383). It is not wired in here
+// because it indexes slides the way `splitTopLevel` does and `chunks()` below
+// splits differently (front matter stripped, empties dropped), so the two index
+// spaces do not line up — aligning them is a behavior change to the planner, not
+// a swap. The cost of the gap is bounded: a mid-deck global makes a slide's ROLE
+// fall back to the density heuristic, which shifts a dwell weight, never
+// correctness. Wire it in if `chunks()` ever moves onto the shared splitter.
 const CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
 const TABLE_COMPS = new Set(['matrix-2x2', 'compare-table', 'list-tabular', 'obligation-matrix', 'verdict-grid', 'glossary']);
 const BEAT_KINDS = new Set(['pause', 'eye', 'breathe', 'transition', 'emphasis']);

@@ -1052,12 +1052,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		settingsWrite(name ? `Deck theme → ${name}` : 'Deck theme → Automatic', (s) => {
 			let out = s;
 			// Preserve dark encoded in an OUTGOING `-dark` theme name (import edge) as a
-			// `class: dark` pin before we replace the theme, unless the deck already pins a
-			// canvas via `class:` — so swapping the palette never silently drops the deck's
-			// darkness. The menu only offers base names, so `name` itself is never `-dark`.
+			// `color-mode: dark` pin before we replace the theme, unless the deck already pins
+			// a canvas — so swapping the palette never silently drops the deck's darkness.
+			// The menu only offers base names, so `name` itself is never `-dark`.
+			//
+			// It writes the KEY, not the legacy `class: dark`: that alias is refused whenever
+			// `color-mode:` is set (lib/core/deck-class-register.js), so stamping it would be a
+			// no-op on exactly the decks most likely to be re-themed — and `color-mode:` is
+			// already "the single home for deck color mode" per setDeckColorMode above.
 			const cur = (getFrontMatter(s, 'theme') || '').trim();
-			const hasClassMode = deckClassList.includes('dark') || deckClassList.includes('light');
-			if (/-dark$/.test(cur) && !hasClassMode) out = mergeClassTokens(out, 'dark');
+			const hasCanvasPin = !!(getFrontMatter(s, 'color-mode') || '').trim()
+				|| deckClassList.includes('dark') || deckClassList.includes('light');
+			if (/-dark$/.test(cur) && !hasCanvasPin) out = writeFrontMatterLine(out, 'color-mode', 'dark');
 			return writeFrontMatterLine(out, 'theme', name);
 		});
 	// …and WRITE to it (the editor + every export update in lock-step).

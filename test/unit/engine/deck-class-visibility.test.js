@@ -93,13 +93,39 @@ describe('deck-class visibility — the resolved class list, not the `_class:` p
     assert.ok(!suppressed.body.includes('class="below-note"'), 'deck-wide `no-note` suppresses it');
   });
 
-  test('image structure: a deck-wide `class: image` still builds the .image-text panel', () => {
+  test('image structure: a deck-wide modifier still reaches the image transforms', () => {
     // The second victim, and the one no `no-note` regression test would have found:
-    // `wrapImageText` read `data-class="dark"` and skipped the panel the DOM path
-    // (which reads `className`) builds — a silent cross-path divergence.
+    // the image transforms read `data-class` — the RAW `_class:` payload — and so
+    // could not see a deck-wide token at all, while the DOM path (`className`)
+    // could: a silent cross-path divergence.
+    //
+    // The original repro drove it with a deck-wide `class: image`. That spelling is
+    // no longer reachable — a component name in the deck-wide register is refused
+    // (lib/core/deck-class-register.js) — so the shadowing SHAPE is reproduced with
+    // the halves swapped: the component is the slide's, the deck contributes the
+    // `statement` variant, and only the resolved list carries both. `data-class`
+    // still holds `image` alone, so a transform reading it builds no scrim.
     const body = '![bg](x.png)\n\n## Head\n\nProse here.\n';
-    const [modifierSlide] = sections(deck(['class: image'], `<!-- _class: dark -->\n\n${body}`));
-    assert.ok(modifierSlide.cls.includes('image'), 'sanity: the deck token resolved onto the slide');
-    assert.ok(modifierSlide.body.includes('class="image-text"'), 'the image panel is built from the resolved list');
+    const [slide] = sections(deck(['class: statement'], `<!-- _class: image -->\n\n${body}`));
+    assert.match(slide.tag, /data-class="image"/, 'the raw payload is missing the deck token');
+    assert.ok(slide.cls.includes('statement'), 'sanity: the deck token resolved onto the slide');
+    assert.ok(slide.body.includes('class="image-text"'), 'the image panel is built from the resolved list');
+    assert.ok(slide.body.includes('class="image-scrim"'), 'the scrim needs image + the DECK-supplied statement');
+  });
+
+  test('a component name in the deck-wide `class:` is refused, and the slide keeps its own', () => {
+    // The register is deck-WIDE: it is appended to every section, including one that
+    // names its own `_class:`, so a component there collides rather than composes —
+    // `_class: cards-grid` + `class: kpi` puts two components on one section and lets
+    // CSS source order pick. Refused at the boundary, so it is never stamped.
+    const [own, none] = sections(deck(['class: kpi no-note'], [
+      '<!-- _class: cards-grid -->', '', '## Names its own.', '', '- one', '  - two', '',
+      '---', '', '## Names none.', '', 'Prose.', '',
+    ].join('\n')));
+    assert.ok(!own.cls.includes('kpi'), `the deck-wide component is a no-op, got ${own.cls.join(' ')}`);
+    assert.ok(own.cls.includes('cards-grid'), 'the slide keeps its own component');
+    assert.ok(own.cls.includes('no-note'), 'a non-component deck token still propagates');
+    assert.ok(!none.cls.includes('kpi'), 'and it is a no-op on an un-classed slide too');
+    assert.ok(none.cls.includes('content'), 'which then falls back to the default component');
   });
 });

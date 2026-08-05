@@ -51,10 +51,21 @@ export function deckThemeName(source: string): string | null {
  *  `class: dark` propagates a `.dark` (section-scoped `color-scheme:dark`) onto
  *  every slide — an explicit deck-dark pin. */
 export function deckClassTokens(source: string): string[] {
-	const m = /^\s*class:\s*(.*)$/m.exec(frontMatterBody(source));
+	const m = CLASS_LINE.exec(frontMatterBody(source));
 	if (!m) return [];
 	return stripQuotes(m[1]).trim().split(/\s+/).filter(Boolean);
 }
+
+/** `class:` and `color-mode:` at COLUMN 0 — the two registers the engine also WRITES
+ *  (`--print`, the Studio's front-matter writer, the Export-to-Marp boundary), and
+ *  every writer anchors there because an indented `class:` may be a key nested under
+ *  another one or a line inside a `style: |` block scalar. `^\s*` matched those too,
+ *  so this preview could pin a mode off a nested key the engine correctly ignores.
+ *  Mirrors `topLevelFrontMatterValue` in lib/core/front-matter-key.js — which this
+ *  module cannot import (Rollup will not read named exports off a CJS file outside
+ *  the docs root), hence the mirrored spelling and this note. */
+const CLASS_LINE = /^class:[ \t]*(.*)$/m;
+const COLOR_MODE_LINE = /^color-mode:[ \t]*(.*)$/m;
 
 /** The five first-class `color-mode:` values. `inherited` adopts the host (site) mode;
  *  `system` follows the OS; `print` renders the whole deck in the B&W-safe ink-on-white
@@ -65,7 +76,7 @@ export type ColorMode = 'light' | 'dark' | 'system' | 'inherited' | 'print';
 /** The deck's first-class `color-mode:` value (front matter), or null when it declares
  *  none. This SUPERSEDES the legacy `class: dark`/`class: light` color axis. */
 export function deckColorMode(source: string): ColorMode | null {
-	const m = /^\s*color-mode:\s*(.*)$/m.exec(frontMatterBody(source));
+	const m = COLOR_MODE_LINE.exec(frontMatterBody(source));
 	if (!m) return null;
 	const v = stripQuotes(m[1]).trim().toLowerCase();
 	return v === 'light' || v === 'dark' || v === 'system' || v === 'inherited' || v === 'print' ? v : null;

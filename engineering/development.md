@@ -31,7 +31,8 @@ scopes: `galleries`, `parity`, `mermaid`, `screenshot`. Run via
 Three numbers, one purpose each:
 
 - **`.nvmrc` = 22** — current active LTS, what `nvm use` puts devs on.
-- **`engines.node` = `>=22.0.0`** — declared supported minimum.
+- **`engines.node` = `>=22.12.0`** — declared supported minimum. The `.12` is
+  load-bearing; see the `require()`-of-ESM note below.
 - **CI matrix = `[22, 24]`** — verifies the engines claim. The FULL unit suite
   runs on 22; on 24 a representative smoke subset (core/engine/parsing/contracts/
   transformers/export) confirms cross-version compat without paying 2× the whole
@@ -41,6 +42,16 @@ Drop a version from the matrix iff you also bump `engines`. Bump `engines`
 iff you drop a version from the matrix. The original cause of the
 `node --test <dir>` outage that started this whole overhaul was
 matrix=Node-18 while devs ran Node 22 — keep the three numbers aligned.
+
+`engines` is **`>=22.12.0`**, not `>=22`, and the extra `.12` is load-bearing:
+`lib/authoring/{lint,review,scorecard,fact-check}-core.js` `require()` the ESM
+`lib/core/class-directive-scan.mjs` so the six authoring resolvers share one
+reader, and `require()` of an ES module is unflagged only from 22.12.0
+(`tools/export-marp.js` had been doing the same with `glossary-auto.mjs` under
+the looser claim). The matrix pins `22`, which resolves to the newest 22.x, so CI
+cannot catch a floor that is stated too low — the `engines` value is the only
+place that claim is made. If a `require()` of an `.mjs` is ever removed
+everywhere, the floor may drop back.
 
 **Node 18 + 20 are deliberately unsupported.** Node 18 has been EOL since
 April 2025; Node 20 entered maintenance in April 2026. `node:test` moved

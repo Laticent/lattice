@@ -118,6 +118,9 @@ own marp-cli to read:
 - **Engine plugins** that wrap Marp's `render` output:
   - `deckClassPropagate` — propagates front-matter `class:` to every
     section (Marp's native semantic discards it on per-slide `_class:`).
+    APPEND-ONLY: the register is filtered where it is read, so a component
+    name or a color token superseded by `color-mode:` is never stamped and
+    nothing has to be taken back (`lib/core/deck-class-register.js`).
     sections at build time (theme reads via `attr()`).
   - `applyChartFamilyToHtml` — the chart-family post-processor.
   - `applySplitPanelsToHtml` — the split-list post-processor.

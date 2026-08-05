@@ -309,10 +309,38 @@ it the same way every time and leave the numbers where they outlive the chat.
 
 The committed `test/benchmark/baseline.json` is the durable **"before"** — its diff
 in the PR *is* the permanent before→after record (no need to transcribe numbers by
-hand). Wall-clock timings are machine-relative, so the baseline is a **ratchet**,
-not an absolute, and `bench:check` is **variance-aware**: it flags a regression only
-when a dataset is slower beyond the band — `max(tolerancePct, baseline RME + current
-RME)` — never inside the noise.
+hand). It is a **ratchet**, not an absolute, and `bench:check` is **variance-aware**:
+it flags a regression only when a dataset is slower beyond the band —
+`max(tolerancePct, baseline RME + current RME)` — never inside the noise.
+
+**`bench:check` reports two independent signals, and only one of them fails
+everywhere** (#1382 — the gate used to be red on a clean `main` for anyone whose
+machine was slower than the last blesser's):
+
+| Signal | What moved | Fails on |
+|---|---|---|
+| **WORKLOAD** | a dataset's slide count, or a new/missing row | **any machine** — a slide count is machine-independent, and the row it invalidates has been recording nothing since |
+| **TIMING** | wall clock | **only the machine that blessed it** — the baseline records its own runner (`blessedOn`), and the check compares fingerprints |
+
+On a different machine the timing deltas still print, as an **index** (dataset ms ÷
+a fixed upstream-markdown-it calibration probe timed the same run) rather than raw
+milliseconds — that divides out clock speed and makes the committed file's diff
+read as a trend rather than as a record of whose laptop ran it. They are *reported,
+not gated*: the index corrects for clock speed, **not** for contention (measured:
+six spinners on four cores moved the probe +38% and the indices +26/+48/+49%), so
+it is a reading, not an assertion. Bless on your own machine first if you want the
+timing to gate.
+
+**A timing REGRESSION is confirmed on a second pass before it fails the run.** Same
+fingerprint is not the same machine *state*: on a shared or virtualized box, two
+runs of an identical tree measured 15% apart (65.1ms vs 56.3ms for
+`normal (jargon)`, against a ±12% band) because the first followed a test sweep.
+So `bench:check` re-measures the regressed datasets once and exits 1 only for a
+dataset that regresses on **both** passes — you'll see a `PERF CHECK · pass 2
+(confirming)` block, and a `Not reproduced on the second pass` line for anything
+that was just load. The extra ~1 min is paid only when something already looks red.
+The **export tier** stands on one pass (an ~11-minute puppeteer arm cannot be re-run
+on a hunch); its ±50% band is sized for that.
 
 The loop for any perf-intent change:
 

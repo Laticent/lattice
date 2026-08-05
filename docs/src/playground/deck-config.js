@@ -107,13 +107,14 @@ const MODE_LABELS = {
   'sketch-clean': 'Sketch · clean body',
 };
 
-// The color-mode options + labels (a fixed 4-value register + the theme-default baseline).
+// The color-mode options + labels (a fixed 5-value register + the theme-default baseline).
 const COLOR_MODE_OPTIONS = [
   ['', 'Theme default'],
   ['light', 'Light'],
   ['dark', 'Dark'],
   ['system', 'System — follow the OS'],
   ['inherited', 'Match site / host'],
+  ['print', 'Print — ink on white'],
 ];
 
 // Emit order for known keys; any unmanaged keys we preserved trail in their
@@ -584,7 +585,10 @@ export function createConfigPanel({ host, trigger, getSource, setSource, palette
     // profile includes at least one of them (a preview surface omits them all).
     if (show('class') || show('math') || show('lang')) {
       host.append(el('h3', 'db-settings-head db-settings-subhead', 'Advanced'));
-      if (show('class')) host.append(textField('class', 'Default slide class', 'A class applied to every slide (e.g. dark)', fm.class, 'e.g. dark'));
+      // Deliberately NOT `dark` as the example: the color axis belongs to `color-mode:`
+      // above, which supersedes it here, and a component name is refused outright — so the
+      // example names a modifier, which is what this register is actually for.
+      if (show('class')) host.append(textField('class', 'Default slide class', 'A modifier applied to every slide (e.g. no-note). Color lives in Color mode; a component name is ignored here.', fm.class, 'e.g. no-note'));
       if (show('math')) {
         host.append(selectRow('math', 'Math renderer', 'How $…$ math is typeset', [
           ['', 'KaTeX (default)'],

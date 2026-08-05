@@ -244,7 +244,11 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   its tokens to every section. The lattice-emulator front-matter parser
   mirrors this in [lattice-emulator.js](../lattice-emulator.js).
   This intentionally diverges from Marpit's spec.
-- **Triggered by:** Any `class: <value>` in deck front matter.
+- **Triggered by:** Any `class: <value>` in deck front matter — except a value the
+  register refuses: a COMPONENT name (it would claim every slide's layout, and collide
+  with the ones naming their own) or a color token superseded by `color-mode:`. Both are
+  filtered where the register is read and warned about by the deck linter
+  (`deck-wide-component`); see `lib/core/deck-class-register.js`.
 - **Removable when:** Never — Marpit's spec won't change. Could be
   retired if all decks moved to `theme: <name>-dark` or `style:` for
   whole-deck modifiers, but the directive is a real convenience.
@@ -261,7 +265,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ### Chromium PDF output of CSS `mask-image` renders inconsistently across viewers
 
-- **Symptom:** A `::before` with `mask: url("data:image/svg+xml,…") center / contain no-repeat` renders correctly in the browser AND in the owned engine's headless-Chromium PDF render, but the resulting PDF, when opened in Apple PDFKit (macOS Preview, iOS), Skia (Chrome's built-in PDF viewer), or PDFium (Edge / VS Code), sometimes drops the mask entirely — the `::before` rectangle appears as a solid tinted block the size of its bounding box, filled with the paint colour, with no shape clipping. Failure is viewer-specific and shape-specific: identical CSS, one mask drops on one viewer and renders fine on another, or the same mask drops only on certain `::before` sizes.
+- **Symptom:** A `::before` with `mask: url("data:image/svg+xml,…") center / contain no-repeat` renders correctly in the browser AND in the owned engine's headless-Chromium PDF render, but the resulting PDF, when opened in Apple PDFKit (macOS Preview, iOS), Skia (Chrome's built-in PDF viewer), or PDFium (Edge / VS Code), sometimes drops the mask entirely — the `::before` rectangle appears as a solid tinted block the size of its bounding box, filled with the paint color, with no shape clipping. Failure is viewer-specific and shape-specific: identical CSS, one mask drops on one viewer and renders fine on another, or the same mask drops only on certain `::before` sizes.
 - **Cause:** Chromium emits masks in the vector PDF stream using a combination of soft-mask groups and clip paths that the spec permits but that not every PDF reader implements identically. Apple PDFKit is the strictest — it ignores constructs that Skia/PDFium accept, falling back to the unmasked source rectangle. Has held across multiple Chromium versions; not a regression.
 - **Mitigation:**
   - **Cropped `::before` bbox.** Size the `::before` to the shapes' bounding box, not the full slide. When the mask drops, the failure surfaces as a small tinted patch (degradation) rather than a slide-spanning panel of paint (slide-breaking artifact). This is what the orbit-pattern refactor in the treatments library does for the 8 mask-based marks.
@@ -657,8 +661,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **Symptom:** a leveled deck's `split-panel proof` slides each show their own categorical tint in
   the Playground and the exported PDF, but in the Studio (Present, its overview grid, the editor
   preview) they all paint the SAME hue, always `cat-1`. Add `paginate: true` to the front matter and
-  the colours come right — which is the confusing part, because pagination has nothing to do with
-  colour.
+  the colors come right — which is the confusing part, because pagination has nothing to do with
+  color.
 
 - **Cause:** `cat-N` is **not authored** — the engine assigns it from the slide's ordinal among the
   deck's proof slides (`sequenceProofPanels`, `lib/core/split-panels.js`). The Studio's previews render
@@ -677,7 +681,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - **The trap to avoid repeating:** don't key the gate on a *visibility* switch. Pagination is the
   forgiving fact — a page number nobody displays can be wrong invisibly — so "is pagination on?"
   looked like a reasonable proxy for "does this deck need real context". Any fact that renders
-  regardless of a toggle (a colour, a rail, a glyph) breaks that proxy in plain sight.
+  regardless of a toggle (a color, a rail, a glyph) breaks that proxy in plain sight.
 
 - **Guard, and what it actually blocks:** `docs/e2e/proof-run-deck-context.spec.ts` drives the real
   Present overlay on an UN-paginated proof run and reads the painted fill. It fails if the registry
@@ -2212,7 +2216,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Cause:** `--fg` is **not defined anywhere in the repo** — not in
   `lattice.css`, not in any theme. It looks like a base ink token (and
   the journey CSS uses it heavily: `--journey-timeline`, `--journey-plumb`,
-  `--journey-axis`, `--journey-task-fg`, `.journey-actor-name` colour),
+  `--journey-axis`, `--journey-task-fg`, `.journey-actor-name` color),
   but nothing declares it. A `var(--fg)` with no fallback is a
   guaranteed-invalid substitution: `fill` then takes its *initial* value
   (`black`), and `stroke`, being inherited, takes the inherited value
@@ -2225,7 +2229,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
   block). **The journey `--fg` references are still live and unaudited** —
   its low-opacity gridlines/plumb-lines likely render wrong.
 - **Triggered by:** Any CSS — especially SVG `fill`/`stroke` — that
-  references `var(--fg)`. Grep before copying colour code out of the
+  references `var(--fg)`. Grep before copying color code out of the
   journey block.
 - **Removable when:** Either a theme defines `--fg`, or the journey CSS
   is migrated off it. Until then, treat `--fg` as a dead token.
@@ -2907,7 +2911,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
   `body[data-scroll-locked]` was `"1"` while the modal Deck-setup sheet was open.
 - **Fix:** Make the playground's preview-side sheets **non-modal** — `modal={false}`
   on the `<Sheet>` Root + `overlay={false}` on `<SheetContent>` (a new opt-out prop
-  on the shared `ui/sheet.tsx` primitive; default keeps the modal behaviour for
+  on the shared `ui/sheet.tsx` primitive; default keeps the modal behavior for
   every other sheet). A live-tool side panel shouldn't lock the page anyway, and
   non-modal lets you watch the preview update as you change front matter. Files:
   `docs/src/components/playground/{DeckSetupSheet,GalleriesSheet}.tsx`,
@@ -3083,7 +3087,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Fix / don't reintroduce:** for anything that must survive PDF, lift with
   **hard-edged** shapes only — a crisp border, or a **zero-blur** offset shadow
   (`box-shadow: Xcqi Ycqi 0 <color>`), which is a solid vector fill. Keep the
-  colour **opaque** (mix toward `--bg`, not `transparent`) to avoid alpha
+  color **opaque** (mix toward `--bg`, not `transparent`) to avoid alpha
   compositing too. This is why `--focus-lift` is an opaque hard offset, not a
   soft elevation shadow (`lib/base/base.focus.css`).
 
@@ -3092,7 +3096,7 @@ means "no gap logged for the runtime route", never "the preview is complete.
 - **Symptom:** After promoting G-files to canonical (merging cuoio-G.css
   into cuoio.css etc.), contrast tests for cuoio fail with `--cN-dark`
   resolving to pale fills against `--c-ink-dark` white (1.38:1 instead
-  of ≥4.5:1). Alarm colours also shift from deep crimson to medium red.
+  of ≥4.5:1). Alarm colors also shift from deep crimson to medium red.
 - **Cause:** cuoio.css and indaco.css already contained a correct,
   tested G-gen `:root` block (the `/* ── G-generation: categorical … */`
   section). The G-files (cuoio-G.css, indaco-G.css) had a *different*
@@ -3399,3 +3403,34 @@ own) is not a builder and needs no entry.
   child zeroes its intrinsic size in BOTH directions, so the parent never
   grows to show a title at all, at any width.
 - **Triggered by:** #1417.
+
+## CI (GitHub Actions / code scanning)
+
+### The `CodeQL` check reports a verdict BEFORE its `Analyze` jobs finish
+
+- **Symptom:** A push lands, the `CodeQL` check goes red within seconds naming a
+  security alert, and the alert points at code that does not exist — a line
+  number landing on test data, or on a construct you already removed. You "fix"
+  it, push, and the same red check reappears against the new head.
+- **Cause:** `CodeQL` is an aggregate check run, not a job. It is posted early
+  and summarizes the alerts *known at that moment*, which on a fresh push are the
+  ones uploaded by the PREVIOUS commit's analysis. The jobs that actually
+  recompute them — `Analyze (javascript-typescript)` and friends — are still
+  running, and finish a minute or two later. Observed on #1427: the `CodeQL`
+  check started 11:18:27 and concluded `failure` at 11:18:30, while the two
+  JavaScript analyses ran until 11:19:34 and 11:19:45. The check was never
+  refreshed afterwards.
+- **How to tell:** compare `completed_at` on the `CodeQL` check against
+  `completed_at` on the `Analyze (…)` jobs. If the check finished first, its
+  verdict predates the evidence. A three-second `CodeQL` check is always stale.
+- **Fix:** wait for every `Analyze` job to complete before reading the check, and
+  before changing anything read the annotation's file at the reported line. A
+  successful `Analyze` run with no matching code in the diff means the alert is
+  from the previous head. `rerun_workflow_run` will NOT help — a run whose jobs
+  all succeeded cannot be retried, so the only way to refresh the aggregate is a
+  new commit.
+- **Cost of not knowing this:** four force-push rounds on #1427, three of them
+  chasing an alert that had already been fixed. The general rule it belongs to is
+  the same one the two-pass bench gate encodes: **a check-run conclusion is not
+  evidence until its inputs have completed.**
+- **Triggered by:** #1427.
