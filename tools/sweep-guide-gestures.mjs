@@ -64,8 +64,35 @@ const decks = () => [
 		.map((f) => path.join(ROOT, 'test', 'integration', 'baseline-decks', f)),
 ];
 
-/** The cue TEXTS of one read-along VTT, in order — the sentences Present speaks.
- *  Word-level timestamps are stripped; the entities the writer escaped are put back. */
+/**
+ * One VTT cue payload reduced to the words Present speaks.
+ *
+ * A cue line carries word-level timestamps (`<00:00:01.234>`) and voice/class spans
+ * (`<v Name>`, `<c.loud>`), and the writer escapes the deck's own angle brackets. Both have to
+ * go before the text can be compared with the DOM's.
+ *
+ * TO A FIXPOINT, and that is the whole reason this is a function. A single pass that removes a
+ * tag-shaped span can CREATE one out of what surrounds it — `<<c>i>` leaves `<i>` — so a
+ * one-pass strip is an incomplete sanitizer even when, as here, the output is only ever compared
+ * as a string and never becomes HTML. Looping until nothing changes has no such hole, and the
+ * cost is one extra scan of a line. Entities are decoded LAST, so decoding cannot introduce a
+ * bracket the strip has already run past.
+ */
+function stripCueTags(line) {
+	let out = line;
+	for (let prev = ''; prev !== out; ) {
+		prev = out;
+		out = out.replace(/<[^<>]*>/g, '');
+	}
+	return out
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&amp;/g, '&')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+/** The cue TEXTS of one read-along VTT, in order — the sentences Present speaks. */
 function vttCues(file) {
 	const out = [];
 	let buf = [];
@@ -80,16 +107,7 @@ function vttCues(file) {
 			continue;
 		}
 		if (line.startsWith('WEBVTT') || /^\s*(NOTE|STYLE)\b/.test(line)) continue;
-		buf.push(
-			line
-				.replace(/<\d\d:\d\d:\d\d\.\d\d\d>/g, '')
-				.replace(/<\/?[cv][^>]*>/g, '')
-				.replace(/&lt;/g, '<')
-				.replace(/&gt;/g, '>')
-				.replace(/&amp;/g, '&')
-				.replace(/\s+/g, ' ')
-				.trim(),
-		);
+		buf.push(stripCueTags(line));
 	}
 	if (buf.length) out.push(buf.join(' '));
 	return out.filter(Boolean);
