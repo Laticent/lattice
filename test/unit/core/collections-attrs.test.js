@@ -110,6 +110,27 @@ describe('collections — class/attribute helpers', () => {
       assert.equal(setAttr('<section id="1">', 'style', val), `<section id="1" style="${val}">`);
     });
 
+    test('a raw double quote in the value cannot open a sibling attribute', () => {
+      // CodeQL `js/incomplete-html-attribute-sanitization`, raised on this PR. A `"` inside
+      // a `"`-quoted attribute ENDS it, so an unescaped value lets the remainder become
+      // sibling attributes — and `setAttr`'s callers include author-derived text
+      // (`data-build-axis`). Escaping is what the HTML grammar requires, not just defense.
+      const out = setAttr('<section id="1">', 'data-x', 'a" onload=alert(1) b');
+      assert.match(out, /data-x="a&quot; onload=alert\(1\) b"/);
+      // The injection shape is a RAW quote followed by what would parse as a new attribute.
+      assert.doesNotMatch(out, /"\s+onload=/, 'the payload must not break out into a sibling attribute');
+      assert.equal((out.match(/"/g) || []).length, 4, 'exactly two quoted attributes, no stray quote');
+    });
+
+    test('an ALREADY-escaped value is preserved, not double-encoded', () => {
+      // `prior` values are read back OUT of a tag, so an embedded quote is already `&quot;`.
+      // Escaping `&` too would turn that into `&amp;quot;` and corrupt a value this function
+      // exists to preserve — which is why only `"` is escaped.
+      const out = setAttr('<section style="--f:&quot;q&quot;;">', 'style', '--a:1;--f:&quot;q&quot;;');
+      assert.match(out, /style="--a:1;--f:&quot;q&quot;;"/);
+      assert.doesNotMatch(out, /&amp;quot;/);
+    });
+
     test('the replace branch still replaces rather than duplicating', () => {
       const out = setAttr(WITH_STYLE, 'style', '--b:2');
       assert.equal((out.match(/style="/g) || []).length, 1);

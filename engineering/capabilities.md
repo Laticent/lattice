@@ -143,11 +143,13 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `equiv:bless` | Write the committed slice/deck equivalence baseline (test/benchmark/slice-equivalence.json) from a fresh `equiv` run. |
 | `equiv:check` | Re-run `equiv` and compare vs the committed baseline: decks/slides/preludes/positions must match exactly, and the rate may drift 1.5 points. Verified able to fail by mutation, re-derived after each re-bless: stubbing `positionIsTrustworthy` to `return false` takes it 99.2% -> 10.5%, and stubbing `deckSectionFor` to `undefined` takes it to 73.3%. Note it can only fail in the FAIL-CLOSED direction: `positions` equals `slides` by construction, because every deck where the supply would be refused is already skipped for a section/chunk mismatch. |
 | `geometry:check` | Assert a slide measures identically on every surface — real emulator render, real Chromium at four window sizes, sections optionally transform-scaled the way a preview pane scales them. Catches a bare cq* on the section itself or a getBoundingClientRect() that ignores the host transform. |
+| `mutate:guide` | Break what each Guide-gesture test NAMES and confirm it goes red — a committed 42-mutation battery over the Vetrina gesture library and the Guide classifier, each mutation asserted to have applied before its spec runs. "Verified by a test" has been a false claim seven times in this feature area; this is the operational form of the lesson. On-demand. |
 | `oracle:bless` | Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component's derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11). |
 | `oracle:check` | Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift. |
 | `overflow:bless` | Re-record the overflow ratchet from the current tree. Lower the floor when you fix slides; raise it only with the PR that justifies the new number. |
 | `overflow:check` | Render every shipped deck (examples + component galleries + the baseline deck) and ratchet the per-deck CLIPPED pages against test/integration/overflow-baseline.json. Catches an engine change that quietly over-subscribes the corpus — nothing else measures fit corpus-wide. On-demand (185 real renders), not a blocking CI gate. |
 | `regress` | Visual regression gate (LOCAL spot-check): render every committed deck fresh and pixel-diff it against its golden PDF; fails on unblessed drift. Covers BOTH scopes — the 75 gallery goldens under lib/ (light+dark) and the 185 single-artifact deck goldens under examples/, exemplars/, design/, themes/ and the CI baseline deck (#1379). `--scope galleries|decks|all` (default all), `--only <gallery-stem|deck/path>`, `--bless`. |
+| `sweep:guide` | Measure what the Guide gesture vocabulary actually does to the committed corpus: render every deck, read its real read-along cues, and run the SHIPPING classifier (`guideCueIn`) over them. Reports the gesture distribution, the match rate, the `_focus:` escalation rate and how often the stroke's own resting place had to fall back to the whitespace search. The thresholds in `chooseGesture` were set from this output (HARD RULE #19 discipline applied to a design constant). On-demand — ~124 full deck renders. |
 | `test` | Full unit suite (node:test). The inner loop. |
 | `test:adaptive` | Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract. |
 | `test:all` | Unit + integration umbrella. |
@@ -290,8 +292,10 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/complexity-report.js` | Complexity report — cyclomatic complexity + lines-of-code per function, aggregated per file, across lib/ and tools/. |
 | `tools/contrast-audit.js` | Contrast audit for all Lattice themes. |
 | `tools/lint-deck.js` | Deck linter CLI — run the authoring footgun checks on a draft deck and |
+| `tools/mutate-guide-gestures.mjs` | mutate-guide-gestures — break what each test NAMES, and watch it go red. |
 | `tools/pixel-check.js` | pixel-check — snapshot/diff harness for the _legacy.css elimination work. |
 | `tools/quality-assessment.js` | Quality assessment — the single entry point for the seven codebase-health dimensions from CLAUDE.md's "complexity is the mother of all killers of productivity" list. |
+| `tools/sweep-guide-gestures.mjs` | sweep-guide-gestures — what does the Guide vocabulary ACTUALLY do to our decks? |
 | `tools/theme-scorecard.js` | Theme scorecard — token-parity + palette-quality scoring for every theme. |
 
 ### Render / visual

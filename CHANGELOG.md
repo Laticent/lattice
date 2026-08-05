@@ -546,6 +546,16 @@ in patch versions.
   after that sweep, taking the corpus to 263; it was checked separately and is clean, so the
   banked floor still describes the whole corpus. (#1361, #1367)
 
+- **`setAttr` escapes the attribute values it writes, closing an injection shape CodeQL flagged.**
+  A `"` inside a `"`-quoted attribute *ends* it, so an unescaped value lets the remainder of the
+  string parse as sibling attributes — and this helper's callers include author-derived text
+  (`data-build-axis`, and now the merged `--logo-*` payload). Escaping is what the HTML grammar
+  requires rather than mere defense: a quoted attribute value cannot contain a raw `"` at all. Only
+  `"` is escaped, deliberately — values read back **out** of a tag already carry `&quot;`, and
+  escaping `&` too would double-encode them into `&amp;quot;` and corrupt exactly the value the
+  merge path exists to preserve. Raised by CodeQL on the PR that introduced the merge caller; no
+  committed artifact moves, because no current value carries a raw quote.
+
 - **An author's front matter could break a slide's `<section>` tag open — a defect the corner fix
   above introduced and the adversarial trio caught.** `setAttr` merged the new `--logo-*` payload
   into the section's existing inline style with a **string** replacement, and `String.replace`
