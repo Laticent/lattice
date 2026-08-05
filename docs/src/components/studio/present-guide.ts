@@ -209,7 +209,13 @@ export function findSpanningTarget(root: Document | Element | null, text: string
 	}
 	const pieces = parts.map(loose).filter((p) => p.length > 0);
 	const budget = loose(text).length * SPAN_SLACK;
-	while (node && node !== root) {
+	// WHERE THE CLIMB STOPS, structurally as well as by size. `node !== root` looked like the stop
+	// and was inert: `root` is a Document on the shipping path and `node` is always an Element, so
+	// the comparison could never be true and the only bound left was the size budget — which a
+	// SPARSE slide passes. Measured in a real Chromium: a slide holding one heading and one
+	// paragraph resolved to the `<section>` itself, and the cue underlined 1152px of slide. The
+	// CHANGELOG's "can never climb to the slide" was false as written.
+	while (node && !STOP_CLIMB.has(node.tagName) && node !== root) {
 		const hay = loose(node.textContent ?? '');
 		// The bound is what stops "widen until something matches" from walking to the slide: a
 		// container holding several times the cue is the GROUP the thing is in, and pointing at the
@@ -218,12 +224,44 @@ export function findSpanningTarget(root: Document | Element | null, text: string
 		if (pieces.every((p) => hay.includes(p))) return node;
 		node = node.parentElement;
 	}
-	return longest;
+	// THE PARTIAL ANSWER — bounded, and counted rather than trusted.
+	//
+	// Round two measured that buying reach by relaxing the matcher produced 639 hits on an element
+	// holding less than half the spoken sentence, and refused the change on that ground. This branch
+	// relaxes the matcher, so it owes the same test. Restoring the measurement (the sweep reports
+	// both numbers below) said the climb finds a real container for only a small share of joined
+	// cues; the rest land on `longest`, which by construction does NOT hold the whole sentence.
+	//
+	// That is tolerable exactly as far as the part it DID match is most of what is being said. Below
+	// that the honest answer is the one this feature already gives when it cannot place a cue: hide.
+	// A cursor on a block carrying a fifth of the sentence is the failure #1403 set the bar against,
+	// and "it used to hide" is not a licence to point somewhere worse than hiding.
+	const share = hits.reduce((a, b) => (b.len > a.len ? b : a)).len / Math.max(1, loose(text).length);
+	spanPartial += 1;
+	return share >= LONGEST_SHARE ? longest : null;
 }
+
+/** How much of the spoken sentence the matched part has to carry before a partial answer beats no
+ *  answer. Set from the corpus sweep's own ratio distribution, not from taste. */
+const LONGEST_SHARE = 0.5;
+
+/** How many spanning matches fell back to the longest single part instead of finding a container
+ *  that holds the whole cue — the honesty counter for this branch's reach gain. Read and reset by
+ *  the corpus sweep; nothing in the product reads it. */
+export let spanPartial = 0;
+export const resetSpanPartial = (): number => {
+	const n = spanPartial;
+	spanPartial = 0;
+	return n;
+};
 
 /** How much more text than the cue a spanning container may hold before it stops being "the
  *  thing being said" and becomes the group it belongs to. Set from the corpus sweep. */
 const SPAN_SLACK = 3;
+
+/** Elements the climb will never return, and never climb past: the slide and the document that
+ *  holds it. Naming one of these is naming everything, which is naming nothing. */
+const STOP_CLIMB = new Set(['SECTION', 'BODY', 'HTML', 'MAIN', 'ARTICLE']);
 
 // ── The sentence's OWN rectangles, inside the block ────────────────────────────────────────
 //
@@ -530,13 +568,31 @@ export function hasOwnBoundary(el: Element): boolean {
 }
 
 /** `rgba(…, 0)` and anything that parses to alpha 0. Substring-safe: a shadow string carries its
- *  color inline, so this is asked of the whole declaration as well as of a bare color. */
+ *  color inline, so this is asked of the whole declaration as well as of a bare color.
+ *
+ *  THREE SYNTAXES, because Chromium serializes different ones in different places and the wrong
+ *  answer here is the expensive direction: an unparsed color reads as OPAQUE, which invents a
+ *  boundary and silently retires `bracket` on whatever carries it. Legacy `rgba(r, g, b, a)`,
+ *  modern slash `rgb(r g b / a)`, and `color(srgb r g b / a)` — for the last two the alpha is
+ *  whatever follows the slash, for the first it is the fourth comma-separated number. */
 function isTransparent(value: string): boolean {
 	if (!value || value === 'transparent' || value === 'none') return true;
-	const m = /rgba?\(([^)]*)\)/.exec(value);
-	if (!m) return false;
-	const parts = m[1].split(/[,/]/).map((s) => Number.parseFloat(s.trim()));
-	return parts.length >= 4 && Number.isFinite(parts[3]) && parts[3] <= 0.02;
+	// EVERY color in the declaration, not the first. A `box-shadow` is a LIST, and Lattice's finish
+	// tokens compose one out of a transparent placeholder plus a real layer — so reading only the
+	// first color reported a genuine drop shadow as no boundary at all, and `bracket` drew its
+	// second outline around a card that already had one. Transparent means ALL of them are.
+	const colors = value.match(/(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/g);
+	if (!colors) return false;
+	return colors.every((c) => {
+		const inner = c.slice(c.indexOf('(') + 1, -1);
+		const slash = inner.indexOf('/');
+		if (slash >= 0) {
+			const a = Number.parseFloat(inner.slice(slash + 1).trim());
+			return Number.isFinite(a) && a <= 0.02;
+		}
+		const parts = inner.split(',').map((x) => Number.parseFloat(x.trim()));
+		return parts.length >= 4 && Number.isFinite(parts[3]) && parts[3] <= 0.02;
+	});
 }
 
 /**
@@ -687,14 +743,15 @@ export type GuideShape = {
 	box: Box;
 	/** How many lines that text actually occupies. */
 	lines: number;
-	/** The spoken sentence's own line rects inside the block, when they could be resolved. */
-	rects: readonly Box[] | null;
 	/** The slide's own width, for the "is this a wide thing or a compact one" thresholds. */
 	slideW: number;
-	/** How much of the block's text the spoken sentence is, 0..1. */
-	coverage: number;
 	/** What kind of thing the ink is on (`anchorFor`). The SEMANTIC half of the choice — a marker
-	 *  is named the way a marker is named whatever its measurements say. */
+	 *  is named the way a marker is named whatever its measurements say.
+	 *
+	 *  This REPLACED the old `rects` + `coverage` fields rather than joining them: both existed only
+	 *  to answer "is this cue a phrase inside its block", which `anchorFor` now decides once, on its
+	 *  way to choosing a handle. Leaving them on the type would be a surface that looks like an
+	 *  input and is read by nothing. */
 	role: AnchorRole;
 	/** True when the thing being named already draws its own border / fill / shadow. */
 	enclosed: boolean;
@@ -950,9 +1007,7 @@ export function guideCueIn(root: Document | Element, text: string, frame: Box, h
 		// The fallback is a FLOOR, not a ratio: with real line boxes `lines` is a whole number, and
 		// a box carrying one line plus padding must not read as one-and-two-thirds of a block.
 		lines: geo?.lines ?? (anchor.role === 'marker' ? 1 : Math.max(1, Math.floor(t0.height / lineHeightOf(el)))),
-		rects: rects?.map(boxOf) ?? null,
 		slideW: frame.width || 1280,
-		coverage,
 		role: anchor.role,
 		// Asked of the ELEMENT, not of the handle: it is the card that already has the border, and
 		// it is the card a `bracket` would draw its second outline around.

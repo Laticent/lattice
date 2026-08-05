@@ -178,7 +178,7 @@ export declare function gestureRest(kind: Gesture, box: RectLike, rects: readonl
  *  does) and are capped, so a cross-screen glide does not swing wildly.
  *
  *  Exported for the test battery, which pins the endpoints and the band rather than the shape. */
-export declare function handOffset(t: number, dist: number, phase: number, amount: number): {
+export declare function handOffset(t: number, dist: number, phase: number, amount: number, elapsedMs?: number): {
     along: number;
     across: number;
 };

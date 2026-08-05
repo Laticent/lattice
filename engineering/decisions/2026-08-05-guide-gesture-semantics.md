@@ -203,30 +203,79 @@ withdrawal, because an orbit has no ending to redirect.
 
 ---
 
-## 7. Measured, not reasoned about
+## 7. Measured, not reasoned about — including the cross-check that nearly went missing
 
 `npm run sweep:guide` — 126 committed decks, 5,879 real cues, the shipping classifier bundled and
 injected into a real Chromium. Reported **per gesture**, because the cadence rests between cues.
 
 | | round two | round three |
 |---|---|---|
-| resolved to a target | 83.7% | **92.1%** |
-| cues that resolve nothing (hides) | 951 | **464** |
-| underline / wash / bracket / tap / ring | 38.4 / 22.0 / **34.2** / 4.8 / 0.6 % | 40.2 / 25.2 / **14.1** / 13.1 / 7.4 % |
-| rest fell back to the search | 30.0% | **25.6%** |
-| handle: body · phrase · header · marker | — | 51.8 · 29.8 · 9.6 · 8.9 % |
-| matched piecewise (a label joined to its body) | — | 9.3% of resolved cues |
+| resolved to a target | 83.6% | **87.2%** |
+| cues where the cursor hides | 967 | **755** |
+| underline / wash / **bracket** / tap / ring | 38.4 / 22.0 / **34.2** / 4.8 / 0.6 % | 39.7 / 26.1 / **14.7** / 12.4 / 7.1 % |
+| gestures · rests · hides | 4105 · 807 · 967 | 4315 · 809 · 755 |
+| rest fell back to the search | 30.0% | **24.5%** |
+| handle: body · phrase · header · marker | — | 50.7 · 31.4 · 9.2 · 8.7 % |
+| matched piecewise (a label joined to its body) | — | 212 (4.1% of resolved) |
 
 Read the vocabulary row as the answer to the report: **boxes more than halved**, and the two
-gestures that name a small handle went from 5.4% of the corpus to 20.5%. The reach gain is the
-piecewise matcher: 503 cues that used to hide now resolve, and they are the *first item of every
-group* on the shapes that join a label to its body.
+gestures that name a small handle went from 5.4% of the corpus to 19.5%. Most of that 20-point
+fall in `bracket` is the MARKER handle turning boxes into taps and rings (§4); the
+redundant-boundary rule (§5) accounts for roughly the three points that moved into `wash`. The
+record said otherwise in its first draft and the inversion lens caught it.
+
+### 7.1 The cross-check round two called the only honest one
+
+Round two's own record designates one number as load-bearing twice: *"the match rate is unchanged
+at 83.6% … that was the cross-check that mattered."* (Round two's PR quoted 83.7% and 951 hides from
+an earlier partial run over a 5,830-cue snapshot; **83.6% and 967 are the figures from its own §7
+table over the same 5,879 cues measured here**, and are what the comparison above uses.) It says so because it had already measured the
+alternative — relaxing the matcher raised reach from 83.5% to 90.7% **and produced 639 hits on an
+element holding less than half the spoken sentence.** It bought reach by pointing somewhere wrong,
+and was refused.
+
+Round three *does* move the matcher, so it owes that test. The first draft of this round did not
+pay it: it reported 92.1% resolved and left it there. Restoring the measurement said what round two
+would have predicted — 92% of piecewise matches were **partial answers** (the climb gave up and
+handed back the block holding the longest single part), and the median such element carried only
+0.77 of the cue.
+
+Two bounds followed, and the numbers above are the ones *after* them:
+
+- **The climb stops structurally, not only by size.** `node !== root` was inert — `root` is a
+  Document and `node` is always an Element — so a sparse slide (one heading, one paragraph) climbed
+  to the `<section>` and underlined 1,152px of slide. Found by the red team in a real Chromium.
+- **A partial answer must carry half the sentence** (`LONGEST_SHARE`). Below that the honest answer
+  is the one this feature already gives when it cannot place a cue: hide. "It used to hide anyway"
+  is not a license to point somewhere worse than hiding.
+
+The cost is reach — 92.1% down to 87.2% — and the gain is that the remaining 3.5 points over round
+two survive the test that killed the last reach gain: partial answers fall to 56.6% of a much
+smaller population, and the resolved element now carries a median **0.86** of the cue (p10 0.75).
+Both numbers are printed by `npm run sweep:guide` every run, so they cannot quietly rot.
+
+### 7.2 The battery, and what four passes over it cost
 
 `npm run mutate:guide` — a committed battery that injects the defect each test is named for,
-**asserts the mutation actually applied**, and reports every survivor. Extended to 68 mutations for
-this round.
+**asserts the mutation actually applied**, and reports every survivor. **74 mutations · 74 killed ·
+0 survived · 0 unapplied**, and it took four passes to get there: the first run over this round's
+own work left **eight** survivors, every one a mechanism the adversarial trio had just made me add
+and that nothing tested.
 
----
+Two of those are worth naming, because the FIXTURE was the problem rather than the assertion:
+`point()` waits ~480ms before it glides, and jsdom's `requestAnimationFrame` fires far faster than a
+display's, so a frame-counted budget after `point()` sampled a cursor that had **never moved** — and
+passed against the exact defect it was written for. Three further mutations turned out to be
+EQUIVALENT (belt-and-braces no fixture can reach) and were removed with the reason written down,
+because a survivor nobody can kill teaches you to ignore survivors.
+
+### 7.3 What the corpus is not
+
+126 committed decks = `examples/` + `test/integration/baseline-decks/`, which includes the six
+long-running galleries whose *purpose* is to exhibit every component once. It is a component
+census, not an audience. `marker` at 8.7% is partly gallery composition; a boardroom deck is
+titles, bullets and a stat, where this machinery mostly reduces to "name the bullet". Every cue is
+weighted equally, so a large gallery deck counts for more than a real one.
 
 ## 8. What is NOT verified
 
@@ -235,15 +284,23 @@ this round.
   around its stage. It needs a person, a deck and two minutes.
 - **The perception results are cited for their DIRECTION, not measured here.** Object-based
   attention predicts that cueing a marker delivers its item; nothing in this repo measures whether
-  it does so *for these viewers on these decks*. The claim being made is "the design follows a
-  known result", not "we replicated it".
+  it does so *for these viewers on these decks*. The claim is "the design follows a known result",
+  not "we replicated it". The strongest objection to the whole round is that the result is about
+  attentional *spread* after a cue is found, not about *finding* a small cue in the periphery —
+  the two-minute human watch is what settles it.
 - **`hand` changes every existing tour's motion.** It is defaulted on because it was asked for; it
   is themeable to 0 and suppressed under reduced motion, and a test pins that 0 is the old path.
-  No walkthrough has been watched end-to-end since.
-- **A phrase inside an enclosed element now washes rather than brackets.** That is the intended
-  rule, and it inherits round two's open question (`…-vocabulary.md` §4.2): wash and the block
-  cadence still pull against each other.
-- **`_focus:` escalation fires on 7 cues in the whole corpus.** Unit coverage is complete; nobody
+  Whether the default belongs at 1 in a shared library, or at 0 with Guide's own stage opting in,
+  is a maintainer call this round deliberately does not make on its own.
+- **An underline names EXTENT and a bullet does not.** A tap on bullet four says "item four,
+  somewhere down the left edge"; the underline it replaced said "these words, this long". On a
+  dense list that is information lost, and the corpus cannot say whether it is missed.
+- **`wash` now carries two meanings** — "these words, inside a longer block" and "all of this
+  multi-line block, which happens to have a fill". Identical ink, and a viewer cannot tell them
+  apart. Taken knowingly: the alternative that keeps them distinct is an *inset* bracket, which is
+  more Vetrina surface than this round should add. It also drags round two's open question (§4.2 of
+  that record) onto a larger population.
+- **`_focus:` escalation fires on 6 cues in the whole corpus.** Unit coverage is complete; nobody
   has watched it run.
 - **The unit tests for the handle stub geometry**, because jsdom has neither layout nor
   pseudo-elements. They pin the RULES. The real-surface evidence is the corpus sweep and the e2e
@@ -254,3 +311,58 @@ this round.
 - `list-criteria` renders through its `:not(:has(.crit-body))` **bare-renderer fallback** path in
   the emulator, though its own CSS says "our engine ALWAYS emits `.crit-body`". Off the path of this
   change; it changes which selectors style the row, not whether Guide can find its handle.
+- **`pointerAnchor` re-derives `const pad = half + 5` internally** and takes no `pad` parameter, so
+  `guideCueFor`'s carefully scaled `half + 5 / S` never reaches the fallback search. Present in
+  round two; found, not caused.
+- **`markerBox` reads `paddingLeft` unconditionally**, so an RTL list with *symmetric* padding
+  derives the marker in the wrong margin. A properly authored RTL list uses `padding-inline-start`,
+  which reports `paddingLeft: 0` and falls through to "no marker" — and Lattice ships no RTL deck.
+  Latent, with a proven mechanism.
+- **A gesture whose target rect is unresolvable no longer withdraws to the host's rest.** The four
+  deictic strokes return before `restOf` when `liveRect` is null; the withdrawal used to run
+  anyway. Narrow window, and `PresentOverlay` hides the cursor on an unresolved cue.
+
+## 8.2 What the adversarial trio changed (HARD RULE #25)
+
+Red team, Munger inversion and an independent checker, in parallel on the shipping diff. Five
+defects fixed, every one reproduced first:
+
+1. **The "ballistic overshoot" was arithmetically zero.** `sin(PI * min(1, u/0.78) ** 1.6)` is
+   `sin(PI)` for every `u` past the threshold and masked to zero before it, so the term evaluated to
+   1e-15 while the CHANGELOG, the README and §6 of this record all said it shipped. A citation-backed
+   mechanism that was not there, past a 68-mutation battery that had no mutation for it.
+2. **A host rest deleted the underline's sweep.** `sweepAlong` sent its LAST band straight to `rest`
+   instead of along its own line — correct when `rest` is the stroke's own ending, and destructive
+   when it is anywhere else. Measured in a real Chromium: with a rest to the left (what the
+   whitespace search returns most of the time) the hand approached the line's START and moved
+   backwards over the words while the ink drew itself. The gesture did not happen.
+3. **The climb's root guard was inert** (above, §7.1).
+4. **`isTransparent` read only the first color of a declaration**, so a `box-shadow` composed of a
+   transparent placeholder plus a real layer — which is exactly how Lattice's finish tokens compose
+   one — reported "no boundary" and got a second outline drawn around it. It also could not parse
+   modern slash-alpha or `color()` syntax, which reads as opaque and does the reverse.
+5. **An aborted glide snapped the cursor** by the hand's whole amplitude in one frame, on the
+   retarget path Present takes for every block change. It now adopts the pixels it was painted at
+   as its logical position, so nothing moves.
+
+The tremor was also re-expressed in **hertz against the clock** rather than against the movement's
+progress. Progress-driving made the frequency the band divided by the duration, so a 260ms retarget
+put the micro band above 30 Hz — below Nyquist at 60fps, i.e. an alias whose apparent rate depends
+on frame timing. That is the un-reproducible rattle this design is written against, arriving through
+the back door.
+
+And a sixth found by running the e2e specs against a production build rather than assuming them:
+
+6. **The e2e occlusion oracle was measuring BOXES.** `docs/e2e/present-guide.spec.ts` failed on the
+   real Present overlay — the cursor was "settling on slide text". It was not: it was standing in a
+   card's padding, which is the one place a presenter's hand actually goes, and the spec's own
+   invariant ("the pointer must never obscure the text it is reading") is about the WORDS. It now
+   checks the line boxes, the same thing the product's own do-not-cover check reads. **Verified able
+   to fail**: with `guideCueIn`'s occupied check removed, the spec goes red against a production
+   build (two settles on real slide text), so the tightening is not a weakening.
+
+**Judged and not taken.** The inversion's case that `theme.hand` should default to 0 with Guide's
+stage opting in is real and is left as the maintainer's call (§8). Its case that an *inset* bracket
+would keep `wash` single-meaning is right and is more Vetrina surface than this round should add.
+
+

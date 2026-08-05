@@ -63,16 +63,21 @@ in patch versions.
   not already buy, and it was costing: a 368x438 box gives the eye no place to land. A `bracket`
   is now refused outright on anything that draws its own border, fill or shadow, because a second
   boundary around a card makes the eye choose between two nested regions. Measured over the 126
-  committed decks (5,879 real cues): boxes fell from **34.2% of gestures to 14.1%**, and the two
-  gestures that name a small handle rose from 5.4% to 20.5%.
+  committed decks (5,879 real cues): boxes fell from **34.2% of gestures to 14.7%**, and the two
+  gestures that name a small handle rose from 5.4% to 19.5%.
 
 - **Fixed: a slide whose narration joins a label to its body no longer goes dark.** The speech
   projection speaks `"<label>: <body>"` as one sentence, and no single element contains it — so
   `split-compare` lost the first bullet of each option while the others were cued (the reported
   symptom), and **every `stats` slide lost every figure**, silently. A cue no block contains is now
-  matched piecewise and resolved to the smallest element that holds all of it, bounded so it can
-  never climb to the slide. 503 cues corpus-wide, 9.3% of everything that resolves; the match rate
-  goes from 83.7% to **92.1%** and the number of cues where the cursor simply hides halves.
+  matched piecewise and resolved to the smallest element that holds all of it — bounded twice, by
+  size and by structure, so it can never climb to the slide, and refused outright when the part it
+  did match carries less than half the sentence (below that, hiding is the honest answer and this
+  feature already gives it). 212 cues corpus-wide, 4.1% of everything that resolves; the match rate
+  goes from 83.6% to **87.2%** and the cues where the cursor simply hides fall from 967 to 755. The
+  sweep now reports how often a joined cue lands on a partial answer, and how much of the sentence
+  the resolved element actually carries (median 0.86) — the cross-check the previous round called
+  the only honest one, and which this round nearly shipped without.
 
 - **The Guide cursor keeps clear of the WORDS, not of the boxes around them.** Its
   do-not-cover check measured each block's bounding box, so the margin beside a bullet — the one
@@ -88,6 +93,13 @@ in patch versions.
   position never wobbles, so every gesture's ink and every `gestureRest` answer is unaffected.
   Scaled by the new `theme.hand` (0..2, default 1); `hand: 0` reproduces the old glide sample for
   sample, and the `legible` / `still` motion tiers force it to 0 without the host asking.
+
+- **Fixed in Vetrina:** a deictic stroke's LAST line ran straight to the cursor's resting place
+  instead of along the line itself. That is the sweep when the resting place is the stroke's own
+  ending, and it deletes the gesture when it is anywhere else: with a rest to the left — which is
+  what the host's whitespace search returns most of the time — the hand approached the line's start
+  and then moved backwards across the words while the ink drew itself. The line is now always
+  stroked, and the rest is a withdrawal from its end.
 
 - **Fixed in Vetrina:** a host-supplied `rest` was applied as a withdrawal AFTER the stroke, so the
   cursor traveled to the gesture's own ending — precisely the position the host had rejected as

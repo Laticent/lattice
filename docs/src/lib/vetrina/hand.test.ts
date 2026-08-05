@@ -82,10 +82,10 @@ describe('handOffset — the displacement itself', () => {
 		for (const dist of [4, 60, 900, 4000]) {
 			for (const amount of [0.2, 1, 2]) {
 				for (const phase of [0, 1.3, 5.9]) {
-					const start = handOffset(0, dist, phase, amount);
+					const start = handOffset(0, dist, phase, amount, 0);
 					expect(Math.abs(start.along)).toBeLessThan(1e-9);
 					expect(Math.abs(start.across)).toBeLessThan(1e-9);
-					const end = handOffset(1, dist, phase, amount);
+					const end = handOffset(1, dist, phase, amount, 700);
 					expect(Math.abs(end.along)).toBeLessThan(1e-9);
 					expect(Math.abs(end.across)).toBeLessThan(1e-9);
 				}
@@ -99,7 +99,7 @@ describe('handOffset — the displacement itself', () => {
 		for (const dist of [200, 1500, 6000]) {
 			let peak = 0;
 			for (let t = 0; t <= 1; t += 0.005) {
-				const { along, across } = handOffset(t, dist, 2.1, 1);
+				const { along, across } = handOffset(t, dist, 2.1, 1, t * 700);
 				peak = Math.max(peak, Math.abs(along), Math.abs(across));
 			}
 			expect(peak).toBeGreaterThan(1); // it does something
@@ -107,10 +107,44 @@ describe('handOffset — the displacement itself', () => {
 		}
 	});
 
+	it('actually overshoots — the ballistic phase goes PAST the mark and settles back', () => {
+		// The first version of this term was `sin(PI * min(1, u/0.78) ** 1.6)`, which is `sin(PI)`
+		// for every u past the threshold and masked to zero before it, so the whole thing evaluated
+		// to 1e-15 while three documents said it shipped. What makes this test able to fail is that
+		// it asks for a SIGNED along-axis bump in the corrective window, not merely "some motion".
+		const at = (u: number) => handOffset(u, 900, 0.4, 1, 0).along;
+		// A fixed elapsed time isolates the overshoot from the tremor: at t=0 both tremor terms
+		// carry only their constant phase, so what varies across the window is the bump.
+		const base = at(0.78);
+		const peak = Math.max(at(0.84), at(0.88), at(0.92));
+		expect(peak - base).toBeGreaterThan(3);
+		// …and it is gone by the time the cursor arrives.
+		expect(Math.abs(at(1))).toBeLessThan(1e-9);
+	});
+
+	it('tremors in HERTZ — the same band whatever the glide takes', () => {
+		// Driving the tremor off PROGRESS made its frequency the band divided by the duration: a
+		// 260ms retarget put the micro band above 30 Hz, under two samples per cycle at 60fps, so
+		// what painted was an alias whose rate depended on frame timing.
+		//
+		// The oracle is a wall-clock one: hold the CLOCK still and vary the PROGRESS. Against the
+		// clock the two tremor terms are then identical and only the envelope, the arc and the
+		// overshoot move, so the `across` difference is bounded by those. Progress-driven, the
+		// tremor moves too — 10.7 and 55 radians across the movement, several radians for this step
+		// — and the difference blows past any such bound.
+		const a = handOffset(0.42, 600, 1.1, 1, 200);
+		const b = handOffset(0.5, 600, 1.1, 1, 200);
+		// The arc's own change over this step, which is all that may legitimately differ.
+		const arcSpan = Math.abs(Math.sin(Math.PI * 0.5) - Math.sin(Math.PI * 0.42)) * Math.min(600 * 0.055, 22);
+		expect(Math.abs(b.across - a.across)).toBeLessThan(arcSpan + 1.2);
+		// And it MOVES with the clock at a fixed progress — the property progress-driving lost.
+		expect(handOffset(0.5, 600, 1.1, 1, 0).across).not.toBeCloseTo(handOffset(0.5, 600, 1.1, 1, 55).across, 3);
+	});
+
 	it('scales with `amount`, and vanishes at zero', () => {
-		const one = handOffset(0.5, 600, 1.1, 1);
-		const half = handOffset(0.5, 600, 1.1, 0.5);
-		const none = handOffset(0.5, 600, 1.1, 0);
+		const one = handOffset(0.5, 600, 1.1, 1, 40);
+		const half = handOffset(0.5, 600, 1.1, 0.5, 40);
+		const none = handOffset(0.5, 600, 1.1, 0, 40);
 		expect(none).toEqual({ along: 0, across: 0 });
 		expect(half.across).toBeCloseTo(one.across / 2, 9);
 		expect(Math.abs(one.across)).toBeGreaterThan(0.5);
@@ -119,17 +153,21 @@ describe('handOffset — the displacement itself', () => {
 	it('refuses a non-finite distance rather than emitting NaN', () => {
 		// A NaN here would be written straight into `style.left` and the cursor would never come
 		// back — the same failure mode a non-finite `clearance` had before it was guarded.
-		expect(handOffset(0.5, Number.NaN, 1, 1)).toEqual({ along: 0, across: 0 });
-		expect(handOffset(0.5, Number.POSITIVE_INFINITY, 1, 1)).toEqual({ along: 0, across: 0 });
+		expect(handOffset(0.5, Number.NaN, 1, 1, 40)).toEqual({ along: 0, across: 0 });
+		expect(handOffset(0.5, Number.POSITIVE_INFINITY, 1, 1, 40)).toEqual({ along: 0, across: 0 });
+		// A non-finite CLOCK is the same hazard from the other side — `performance.now()` is sane,
+		// but the value reaching here is a subtraction and this writes straight into `style.left`.
+		const t = handOffset(0.5, 600, 1, 1, Number.NaN);
+		expect(Number.isFinite(t.along) && Number.isFinite(t.across)).toBe(true);
 	});
 
 	it('is band-limited — the path turns a few times, it does not rattle', () => {
 		// White noise (a `Math.random()` per frame) would change sign on most samples. A sum of
 		// hand-frequency sinusoids changes sign a handful of times across a whole movement.
 		let flips = 0;
-		let prev = handOffset(0.001, 800, 0.7, 1).across;
+		let prev = handOffset(0.001, 800, 0.7, 1, 0.7).across;
 		for (let t = 0.002; t < 1; t += 0.002) {
-			const v = handOffset(t, 800, 0.7, 1).across;
+			const v = handOffset(t, 800, 0.7, 1, t * 700).across;
 			if (v * prev < 0) flips += 1;
 			prev = v;
 		}
@@ -172,10 +210,16 @@ describe('the hand, on a real glide', () => {
 		for (const p of path) expect(Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / L).toBeLessThan(1e-6);
 	});
 
-	it('is suppressed by the reduced-motion tiers, without the host asking', async () => {
-		// A wobble IS vestibular motion. `legible` teleports the cursor, so there is no path to
-		// bend — the assertion is that the stage resolves `hand` to nothing, not that the glide
-		// happens to be short.
+	it('paints no wobble under the reduced-motion tiers, at any `hand`', async () => {
+		// A wobble IS vestibular motion, and a viewer who asked for less of it did not ask for a
+		// more lifelike version. BE PRECISE ABOUT WHAT THIS SHOWS: the tiers suppress the hand
+		// TWICE over, and only the outer one is reachable. Every `tween` call site is already gated
+		// on `reduced` — a reduced glide teleports rather than tweening — so `const hand = reduced ?
+		// 0 : …` is defense in depth against a future call site that forgets, and no fixture can
+		// reach it today. (The mutation battery therefore carries no mutation for it; a mutation
+		// that cannot fail is not evidence, and reporting it as a survivor would teach us to ignore
+		// survivors.) What IS pinned here is the product claim: with `hand` at its maximum, the
+		// cursor still lands exactly on its target and nothing is painted off it.
 		const root = document.createElement('div');
 		document.body.appendChild(root);
 		active = createStage({ root, onExit: () => {}, theme: resolveTheme({ motion: 'legible', hand: 2 }) });
@@ -183,21 +227,111 @@ describe('the hand, on a real glide', () => {
 		expect(cursorAt()).toEqual({ x: 922, y: 658 });
 	});
 
-	it('lands clean when a glide is aborted mid-flight', async () => {
-		// An abandoned movement must not leave the displacement painted: the next beat may place
-		// the cursor without tweening, and it would sit that offset off the point it was given.
+	it('does not SNAP when a movement is aborted mid-flight', async () => {
+		// Present aborts on every block change, so mid-stroke abandonment is the designed path, not
+		// an edge. Zeroing the displacement and repainting was correct about the state and wrong
+		// about the picture: it moved the cursor by the hand's whole amplitude in one frame. The
+		// pixels are kept and adopted as the logical position instead.
+		//
+		// A GESTURE, not `point()`: `point()` waits ~480ms before it glides at all, and jsdom's rAF
+		// runs far faster than a display's, so a frame-counted budget after `point()` samples a
+		// cursor that has not started moving — which is how an earlier version of this test passed
+		// against the very defect it names. `bracket` approaches immediately.
 		const stage = mount(2);
 		const ctl = new AbortController();
-		const run = stage.point(at({ left: 1400, top: 900, width: 40, height: 40 }), ctl.signal);
-		await frames(6);
+		const run = stage.gesture('bracket', at({ left: 1200, top: 820, width: 300, height: 200 }), ctl.signal, { clearance: 19 });
+		const start = cursorAt();
+		let before = start;
+		for (let i = 0; i < 400; i++) {
+			await frames(1);
+			before = cursorAt();
+			if (Math.hypot(before.x - start.x, before.y - start.y) > 120) break;
+		}
+		expect(Math.hypot(before.x - start.x, before.y - start.y), 'the movement never got going — this test is measuring nothing').toBeGreaterThan(60);
 		ctl.abort();
 		await run.catch(() => {});
-		const afterAbort = cursorAt();
-		// Whatever the cursor's logical position was, the painted one equals it: place() with no
-		// tween must agree with the last painted point.
-		await stage.point(at({ left: afterAbort.x, top: afterAbort.y, width: 0, height: 0 })).catch(() => {});
-		expect(cursorAt().x).toBeCloseTo(afterAbort.x, 6);
-		expect(cursorAt().y).toBeCloseTo(afterAbort.y, 6);
+		const after = cursorAt();
+		expect(Math.hypot(after.x - before.x, after.y - before.y), 'the cursor jumped when the movement was abandoned').toBeLessThan(1.5);
+	});
+
+	it('adopts the pixels it stopped at, so the NEXT movement starts from where the hand is', async () => {
+		// The other half, and the one a single reading of `style.left` cannot see: clearing the
+		// displacement without adopting it leaves the LOGICAL position on the clean path while the
+		// painted one is elsewhere. Nothing moves at the abort — and then the next movement starts
+		// from the logical point and jumps by the whole displacement on its first frame.
+		const stage = mount(2);
+		const ctl = new AbortController();
+		const run = stage.gesture('bracket', at({ left: 1200, top: 820, width: 300, height: 200 }), ctl.signal, { clearance: 19 });
+		const start = cursorAt();
+		let stopped = start;
+		for (let i = 0; i < 400; i++) {
+			await frames(1);
+			stopped = cursorAt();
+			if (Math.hypot(stopped.x - start.x, stopped.y - start.y) > 120) break;
+		}
+		expect(Math.hypot(stopped.x - start.x, stopped.y - start.y)).toBeGreaterThan(60);
+		ctl.abort();
+		await run.catch(() => {});
+		const ctl2 = new AbortController();
+		const second = stage.gesture('bracket', at({ left: 60, top: 120, width: 300, height: 200 }), ctl2.signal, { clearance: 19 });
+		let firstMove = stopped;
+		for (let i = 0; i < 400; i++) {
+			await frames(1);
+			const p = cursorAt();
+			if (Math.hypot(p.x - stopped.x, p.y - stopped.y) > 0.001) {
+				firstMove = p;
+				break;
+			}
+		}
+		ctl2.abort();
+		await second.catch(() => {});
+		expect(firstMove, 'the resumed movement never started').not.toEqual(stopped);
+		expect(Math.hypot(firstMove.x - stopped.x, firstMove.y - stopped.y), 'the next movement started somewhere the hand was not').toBeLessThan(8);
+	});
+
+	it('leaves no stale displacement for a movement that PLACES without tweening', async () => {
+		// Adopting the pixels is only half the reset; the displacement itself has to be cleared, or
+		// it rides on every later `place()` that does not go through a tween — `circle`'s orbit is
+		// one, and the reduced tiers are others. A tween would hide it (it recomputes the offset on
+		// its first frame), which is why this test uses the orbit and the previous one does not.
+		const stage = mount(2);
+		const ctl = new AbortController();
+		const box = { left: 1200, top: 820, width: 300, height: 200 };
+		const run = stage.gesture('bracket', at(box), ctl.signal, { clearance: 19 });
+		const start = cursorAt();
+		for (let i = 0; i < 400; i++) {
+			await frames(1);
+			if (Math.hypot(cursorAt().x - start.x, cursorAt().y - start.y) > 120) break;
+		}
+		ctl.abort();
+		await run.catch(() => {});
+		// The orbit paints an ellipse around the target, straight from `place()`.
+		const ctl2 = new AbortController();
+		const ring = stage.gesture('circle', at(box), ctl2.signal);
+		let residual = Number.POSITIVE_INFINITY;
+		const mx = box.left + box.width / 2;
+		const my = box.top + box.height / 2;
+		const rx = Math.min(box.width * 0.42, 260);
+		const ry = Math.min(box.height * 0.42, 180);
+		for (let i = 0; i < 40; i++) {
+			await frames(1);
+			const p = cursorAt();
+			if (!Number.isFinite(p.x)) continue;
+			residual = Math.min(residual, Math.abs(Math.hypot((p.x - mx) / rx, (p.y - my) / ry) - 1));
+		}
+		ctl2.abort();
+		await ring.catch(() => {});
+		expect(residual, 'the orbit was painted off its own ring — a stale displacement rode along').toBeLessThan(0.05);
+	});
+
+	it('leaves nothing painted off its logical position once a glide ends', async () => {
+		// The other half: a completed glide must land EXACTLY on its destination, or the next beat
+		// that places the cursor without tweening would move it for no reason.
+		const stage = mount(2);
+		await pathOf(stage, { left: 900, top: 640, width: 200, height: 80 });
+		const landed = cursorAt();
+		expect(landed.x).toBeCloseTo(922, 6);
+		expect(landed.y).toBeCloseTo(658, 6);
 	});
 });
 

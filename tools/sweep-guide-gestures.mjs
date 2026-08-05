@@ -144,7 +144,7 @@ async function main() {
 	const puppeteer = require('puppeteer');
 	const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
 
-	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
+	const tally = { cues: 0, resolved: 0, notable: 0, fellBack: 0, byKind: {}, gestures: 0, rests: 0, hides: 0, byGesture: {}, byRole: {}, spanned: 0, spanPartial: 0, spanRatio: [], gFellBack: 0, decks: 0, slidesNoCue: 0, slidesWithNarration: 0 };
 	const perDeck = [];
 	try {
 		for (const md of decks().slice(0, limit)) {
@@ -232,7 +232,15 @@ async function main() {
 							if (d) any = true;
 							const rest = !!d && d.el === prev;
 							prev = d ? d.el : null;
-							out.push(d ? { kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned: !hasBlock(sec, text) } : null);
+							const spanned = !hasBlock(sec, text);
+							// ROUND TWO'S CROSS-CHECK, RESTORED. It measured that relaxing the matcher bought
+							// reach by landing on elements holding a fraction of the sentence, and refused the
+							// change. This branch relaxes the matcher, so it owes the same number: how much of
+							// the spoken sentence the resolved element actually holds, and how often the climb
+							// gave up and handed back a partial answer.
+							const partial = spanned ? G.resetSpanPartial() > 0 : false;
+							const ratio = spanned && d ? (d.el.textContent ?? '').replace(/\s+/g, ' ').trim().length / Math.max(1, text.length) : null;
+							out.push(d ? { kind: d.kind, role: d.role, notable: d.strength === 'notable', fellBack: d.fellBack, rest, spanned, partial, ratio } : null);
 						}
 						out.push({ slideDone: true, any });
 					}
@@ -261,7 +269,11 @@ async function main() {
 				deckRow.resolved += 1;
 				tally.byKind[row.kind] = (tally.byKind[row.kind] ?? 0) + 1;
 				tally.byRole[row.role] = (tally.byRole[row.role] ?? 0) + 1;
-				if (row.spanned) tally.spanned += 1;
+				if (row.spanned) {
+					tally.spanned += 1;
+					if (row.partial) tally.spanPartial += 1;
+					if (row.ratio != null) tally.spanRatio.push(row.ratio);
+				}
 				deckRow.byKind[row.kind] = (deckRow.byKind[row.kind] ?? 0) + 1;
 				if (row.notable) tally.notable += 1;
 				if (row.fellBack) tally.fellBack += 1;
@@ -287,7 +299,11 @@ async function main() {
 	console.log(`  slides with narration  ${tally.slidesWithNarration}, of which ${tally.slidesNoCue} resolve nothing at all`);
 	console.log(`  notable (a \`_focus:\` element) ${tally.notable} (${pct(tally.notable, tally.resolved)})`);
 	console.log(`  rest fell back to the search  ${tally.fellBack} (${pct(tally.fellBack, tally.resolved)})`);
+	const ratios = tally.spanRatio.slice().sort((a, b) => a - b);
+	const q = (f) => (ratios.length ? ratios[Math.min(ratios.length - 1, Math.floor(f * ratios.length))].toFixed(2) : 'n/a');
 	console.log(`  matched piecewise (a label joined to its body)  ${tally.spanned} (${pct(tally.spanned, tally.resolved)})`);
+	console.log(`    of those, a PARTIAL answer (the climb gave up)  ${tally.spanPartial} (${pct(tally.spanPartial, tally.spanned)})`);
+	console.log(`    resolved-element text / cue text — p10 ${q(0.1)} · median ${q(0.5)} · p90 ${q(0.9)}`);
 	console.log(`  handle:  ${Object.entries(tally.byRole).map(([k, v]) => `${k} ${v} (${pct(v, tally.resolved)})`).join(' · ')}`);
 	console.log(`\n  THE CADENCE — what a viewer actually sees:`);
 	console.log(`    gestures ${tally.gestures} · rests ${tally.rests} (${pct(tally.rests, tally.resolved)} of resolved cues) · hides ${tally.hides}`);

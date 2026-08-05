@@ -286,34 +286,86 @@ describe('tap — "this one"', () => {
 	});
 });
 
+describe('the stroke is always stroked, then withdrawn', () => {
+	// The regression this pins is the one the round-three red team found: `sweepAlong` sent its LAST
+	// band straight to `rest` instead of along its own line. With no rest that is the sweep (the
+	// stroke's own ending is past the line's right edge); with a host rest to the LEFT — which is
+	// what a whitespace search returns most of the time — the hand approached the line's START and
+	// then moved backwards over the words while the ink drew itself. The gesture did not happen.
+	it('underline still sweeps its line before withdrawing to a rest behind it', { timeout: 25_000 }, async () => {
+		const stage = mount('full');
+		const box = { left: 600, top: 200, width: 300, height: 24 };
+		const t = target(box, [box]);
+		let settled = false;
+		const rest = { getBoundingClientRect: () => rect({ left: box.left - 60, top: box.top, width: 2, height: 2 }) };
+		const run = stage.gesture('underline', t.src, undefined, { clearance: POINTER / 2 + 5, rest }).then(
+			() => {
+				settled = true;
+			},
+			() => {
+				settled = true;
+			},
+		);
+		let reached = Number.NEGATIVE_INFINITY;
+		for (let i = 0; i < 1200 && !settled; i++) {
+			const p = cursorAt();
+			if (Number.isFinite(p.x)) reached = Math.max(reached, p.x);
+			await frames(1);
+		}
+		await run;
+		// It got to the END of the line it was drawing under. Without the sweep the furthest right
+		// the cursor ever reaches is the line's START, 300px back.
+		expect(reached).toBeGreaterThan(box.left + box.width - 20);
+	});
+});
+
 describe('an explicit `rest` is where the stroke ENDS, not somewhere it withdraws to', () => {
 	// A host passes `rest` precisely because the gesture's own ending is occupied. Ending at the
 	// default and correcting afterwards is a double hop THROUGH the rejected position — a visible
 	// stutter, and a moment of the cursor sitting on the words it was placed to avoid.
 	//
-	// The oracle is DIRECTIONAL, which is what makes it able to fail: the natural ending of every
-	// one of these is to the RIGHT of the target, and the rest given is to the LEFT. If the stroke
-	// still visits its default first, the cursor's furthest-right sample is past the target.
-	const leftOf = (b: { left: number; top: number; height: number }) => ({
-		getBoundingClientRect: () => rect({ left: b.left - 60, top: b.top + b.height / 2 - 1, width: 2, height: 2 }),
-	});
+	// The oracle is DIRECTIONAL, and the direction is PER KIND, which is what makes it able to fail.
+	// Three of the four end to the RIGHT of the target; `bracket` ends to its LEFT (the flat hand
+	// held beside a card, `gestureRest`). Giving every kind a left-hand rest would have left the
+	// bracket case inert in both directions — it would have passed whether or not the fix was
+	// there. So each is given a rest on the side its default is NOT, and the assertion is that the
+	// cursor never reaches the default's side at all.
+	const point = (x: number, y: number) => ({ getBoundingClientRect: () => rect({ left: x - 1, top: y - 1, width: 2, height: 2 }) });
+	const BOX = { left: 600, top: 200, width: 300, height: 24 };
+	const CLEAR = POINTER / 2 + 5;
+	// The default endings, from `gestureRest` with this box and this clearance.
+	const DEFAULT_X = { underline: BOX.left + BOX.width + CLEAR, wash: BOX.left + BOX.width + CLEAR, tap: BOX.left + BOX.width + CLEAR, bracket: BOX.left - 6 - CLEAR } as const;
 
 	for (const kind of ['underline', 'wash', 'bracket', 'tap'] as const) {
-		it(`${kind} goes straight there`, async () => {
+		it(`${kind} goes straight there`, { timeout: 25_000 }, async () => {
 			const stage = mount('full');
-			const box = { left: 600, top: 200, width: 300, height: 24 };
-			const t = target(box, [box]);
-			let furthestRight = Number.NEGATIVE_INFINITY;
-			const run = stage.gesture(kind, t.src, undefined, { clearance: POINTER / 2 + 5, rest: leftOf(box) });
-			for (let i = 0; i < 260; i++) {
+			const t = target(BOX, [BOX]);
+			// PAST the default, on the same side, for `bracket`: its default is already to the left,
+			// and the cursor starts left of the slide, so "never went right of it" is the only bound
+			// that discriminates. A rest FURTHER left means the fixed stroke never reaches the
+			// default's x at all, while the old two-hop had to stop there first.
+			const restAt = kind === 'bracket' ? { x: DEFAULT_X.bracket - 160, y: BOX.top + BOX.height / 2 } : { x: BOX.left - 160, y: BOX.top + BOX.height / 2 };
+			let settled = false;
+			let far = Number.NEGATIVE_INFINITY;
+			const run = stage.gesture(kind, t.src, undefined, { clearance: CLEAR, rest: point(restAt.x, restAt.y) }).then(
+				() => {
+					settled = true;
+				},
+				() => {
+					settled = true;
+				},
+			);
+			for (let i = 0; i < 1200 && !settled; i++) {
 				const p = cursorAt();
-				if (Number.isFinite(p.x)) furthestRight = Math.max(furthestRight, p.x);
+				if (Number.isFinite(p.x)) far = Math.max(far, p.x);
 				await frames(1);
 			}
 			await run;
-			const end = cursorAt();
-			expect(end.x).toBeCloseTo(box.left - 59, 0);
-			expect(furthestRight).toBeLessThan(box.left + box.width + POINTER);
+			expect(cursorAt().x).toBeCloseTo(restAt.x, 0);
+			// It never went to the default. `underline`/`wash` legitimately sweep TO the line's right
+			// edge, so their bound is that edge plus a few pixels of hand — the default sits a whole
+			// clearance beyond it. `bracket`'s bound is its own default, which it now never touches.
+			expect(far).toBeLessThan(kind === 'bracket' ? DEFAULT_X.bracket - 8 : BOX.left + BOX.width + 12);
 		});
 	}
 });

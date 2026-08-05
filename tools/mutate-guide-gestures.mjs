@@ -59,10 +59,10 @@ const MUTS = [
 	['guide', "\tif (inner && inner !== block && loose(inner.textContent ?? '').includes(loose(text))) return { el: inner, notable: true };", '\tif (inner && inner !== block) return { el: inner, notable: true };', 'aims at a focused element that does not hold the words'],
 	['guide', '\twhile (end + 1 < raw.length && !/[\\s\\p{L}\\p{N}]/u.test(raw[end + 1])) end++;', '\twhile (false) end++;', 'range stops short of the full stop'],
 	['guide', '\treturn s === loose(raw) ? { s, map } : null;', '\treturn { s, map };', 'trusts an unverified reconstruction'],
-	['guide', "\tconst rest = occupied ? pointerAnchor(t0, frame, obstacles, half) : kind === 'circle' ? natural : null;", '\tconst rest = null;', 'never hands back a rest'],
+	['guide', "\tconst rest = occupied ? pointerAnchor(keepOut, frame, obstacles, half) : kind === 'circle' || anchor.role === 'marker' ? natural : null;", '\tconst rest = null;', 'never hands back a rest'],
 	['guide', '\tconst rects = rectsOf(range);', '\tconst rects = null;', 'drops the sentence rects'],
-	['guide', '\t\tlines: geo?.lines ?? Math.max(1, Math.floor(t0.height / lineHeightOf(el))),', '\t\tlines: 1,', 'never counts lines'],
-	['guide', '\tconst inkRange = range ?? contentRange(el);', '\tconst inkRange = range;', 'no ink when the sentence did not resolve'],
+	['guide', "\t\tlines: geo?.lines ?? (anchor.role === 'marker' ? 1 : Math.max(1, Math.floor(t0.height / lineHeightOf(el)))),", '\t\tlines: 1,', 'never counts lines'],
+	['guide', '\tconst range = sentence ?? own;', '\tconst range = sentence;', 'no ink when the sentence did not resolve'],
 	['guide', '\tfor (let i = 1; i < tops.length; i++) if (tops[i] - tops[i - 1] > h * 0.6) lines += 1;', '\tfor (let i = 1; i < tops.length; i++) if (tops[i] !== tops[i - 1]) lines += 1;', 'counts inline fragments as lines'],
 	['guide', '\t\tslideW: frame.width || 1280,', '\t\tslideW: 1280,', 'ignores the slide width'],
 	['guide', '\tif (!(t0.width > 0 && t0.height > 0)) return null;', '\tif (false) return null;', 'gestures at a zero-area element'],
@@ -89,18 +89,38 @@ const MUTS = [
 	['guide', '\t\tif (gapTop >= ph * 0.8) {', '\t\tif (true) {', 'a left-gutter index is placed above the text'],
 	['guide', '\t\tif (gapLeft >= pw * 0.8) return { left: box.left, top: box.top + Math.max(0, (box.height - ph) / 2), width: pw, height: Math.min(ph, box.height) };\n\t\treturn null;', '\t\treturn { left: box.left, top: box.top, width: pw, height: Math.min(ph, box.height) };', 'a decorative ::before is located as a marker'],
 	['guide', "\t\treturn /[\\p{L}\\p{N}]/u.test(r.toString()) ? r : null;", '\t\treturn r.toString().length >= 2 ? r : null;', 'a one-character stats value is not a header'],
-	['guide', '\tif (cut <= 0) return null;', '\tif (cut < 0) return null;', 'an element whose block comes first reports a header'],
+	// NOT `cut <= 0` -> `cut < 0`: that mutation is EQUIVALENT, because a zero-length range fails the
+	// content check one line later. A battery that reports an equivalent mutant as a survivor teaches
+	// you to ignore survivors, which is the one thing it must never do.
+	['guide', "\t\tif (n.nodeType === 1 && NESTED_BLOCK.has((n as Element).tagName)) {", '\t\tif (n.nodeType === 1) {', 'inline markup ends the header'],
 	['guide', '\tif (parts.length < 2) return null;', '\tif (parts.filter((s) => loose(s).length >= 3).length < 2) return null;', 'a joined cue with one short half is thrown away'],
 	['guide', '\t\tif (hay.length > budget) break;', '\t\tif (false) break;', 'the piecewise climb walks to the slide'],
 	['guide', '\t\tif (pieces.every((p) => hay.includes(p))) return node;', '\t\treturn node;', 'the climb stops before it holds the whole cue'],
 	['guide', "\t\tanchor.role === 'marker' ? { x: anchor.box.left - pad, y: anchor.box.top + anchor.box.height / 2 } : gestureRest(kind, keepOut, rects?.map(boxOf) ?? null, pad);", '\t\tgestureRest(kind, keepOut, rects?.map(boxOf) ?? null, pad);', 'a marker rests on the words it labels'],
 	['stage', "\t\tconst rest = restOf('underline', opts, r0, [l0], pad);", "\t\tconst rest = gestureRest('underline', r0, [l0], pad) as { x: number; y: number };", 'the stroke ignores the rest the host gave it'],
 	['stage', "\t\tconst rest = restOf('tap', opts, r0, null, pad);", "\t\tconst rest = gestureRest('tap', r0, null, pad) as { x: number; y: number };", 'a tap ignores the rest the host gave it'],
-	['stage', '\t\tconst env = Math.sin(Math.PI * u) ** 0.65;', '\t\tconst env = 1;', 'the hand does not settle at the endpoints'],
-	['stage', '\tif (!(amount > 0) || !Number.isFinite(dist)) return { along: 0, across: 0 };', '\tif (!(amount > 0)) return { along: 0, across: 0 };', 'a non-finite distance emits NaN'],
-	['stage', '\tconst hand = reduced ? 0 : (opts.theme?.hand ?? 1);', '\tconst hand = opts.theme?.hand ?? 1;', 'the hand survives reduced motion'],
-	['stage', '\t\t\t\t\thx = 0;\n\t\t\t\t\thy = 0;\n\t\t\t\t\tpaintCursorAt();\n\t\t\t\t\tsignal?.removeEventListener', '\t\t\t\t\tsignal?.removeEventListener', 'a finished glide leaves the wobble painted'],
-	['stage', '\t\t\tconst settleHand = () => {\n\t\t\t\thx = 0;\n\t\t\t\thy = 0;\n\t\t\t\tpaintCursorAt();\n\t\t\t};', '\t\t\tconst settleHand = () => {};', 'an aborted glide leaves the wobble painted'],
+	['stage', '\tconst env = Math.sin(Math.PI * u) ** 0.65;', '\tconst env = 1;', 'the hand does not settle at the endpoints'],
+	['stage', '\tconst over = u < OVERSHOOT_AT ? 0 : Math.sin((Math.PI * (u - OVERSHOOT_AT)) / (1 - OVERSHOOT_AT)) * Math.min(dist * 0.02, 9);', '\tconst over = 0;', 'the overshoot does not exist'],
+	['stage', '\tconst drift = Math.sin(2 * Math.PI * 1.7 * secs + phase) * span;\n\tconst micro = Math.sin(2 * Math.PI * 9 * secs + phase * 2.3) * span * 0.28;', '\tconst drift = Math.sin(u * 10.7 + phase) * span;\n\tconst micro = Math.sin(u * 55.0 + phase * 2.3) * span * 0.28;', 'the tremor is driven by progress, not the clock'],
+	['stage', '\tconst secs = (Number.isFinite(elapsedMs) ? elapsedMs : 0) / 1000;', '\tconst secs = elapsedMs / 1000;', 'a non-finite clock emits NaN'],
+	['guide', '\t\tconst slash = inner.indexOf(\'/\');', '\t\tconst slash = -1;', 'modern slash-alpha color syntax reads as opaque'],
+	['guide', '\treturn colors.every((c) => {', '\treturn [colors[0]].every((c) => {', 'only the first color of a shadow list is read'],
+	['guide', '\twhile (node && !STOP_CLIMB.has(node.tagName) && node !== root) {', '\twhile (node && node !== root) {', 'the climb can reach the slide itself'],
+	['guide', '\treturn share >= LONGEST_SHARE ? longest : null;', '\treturn longest;', 'a partial answer is taken however little it holds'],
+	['stage', '\t\t\tawait tweenTo(b.left + b.width, y, Math.max(300, Math.min(900, Math.abs(b.width) * 1.15)) * pace, signal);', '\t\t\tif (i < bands.length - 1) await tweenTo(b.left + b.width, y, 300 * pace, signal);', 'the last band is never swept'],
+	['stage', '\t\t\tconst settleHand = () => {\n\t\t\t\tcx += hx;\n\t\t\t\tcy += hy;', '\t\t\tconst settleHand = () => {\n\t\t\t\tcx += 0;\n\t\t\t\tcy += 0;', 'an aborted glide snaps the cursor back'],
+	['stage', '\tif (!(amount > 0) || !Number.isFinite(dist) || !Number.isFinite(t) || !Number.isFinite(phase)) return { along: 0, across: 0 };', '\tif (!(amount > 0)) return { along: 0, across: 0 };', 'a non-finite input emits NaN'],
+	// NOT a mutation on `const hand = reduced ? 0 : …`: every `tween` call site is already gated on
+	// `reduced`, so that guard is unreachable defense in depth and no fixture can kill a mutation of
+	// it. A mutation that cannot fail is not evidence; listing it would teach us to ignore survivors.
+	// NOT a mutation on the land-clean reset at t=1: `handOffset`'s envelope is already zero there,
+	// so removing it is an EQUIVALENT mutation and would be reported as a survivor forever. The reset
+	// stays as belt-and-braces against a future envelope that does not reach zero; it is not evidence.
+	// NOT a mutation on `settleHand`'s `hx = 0; hy = 0;`: leaving them set is EQUIVALENT under the
+	// current call graph, because every `place()` outside a tween is preceded by one in the same
+	// gesture (which recomputes the offset from zero), and the reduced tiers that place without
+	// tweening run with `hand` already at 0. The lines stay as defense against a future path that
+	// places cold; a mutation nothing can kill is not evidence.
 	['theme', '\t\thand: Number.isFinite(theme.hand) ? Math.min(2, Math.max(0, theme.hand as number)) : 1,', '\t\thand: theme.hand ?? 1,', 'a hostile hand value is not clamped'],
 ];
 

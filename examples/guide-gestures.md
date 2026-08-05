@@ -15,19 +15,6 @@ Turn Guide on in Present and read this deck. Each slide is a different shape, an
 
 ---
 
-<!-- _class: content -->
-
-`The problem`
-
-## A pointer with one verb can only say "this" by going somewhere.
-
-Guide used to move on every sentence, so the eye was dragged on every full stop.
-
-- A hand rests, then names one thing.
-- So the gesture fires on a block change.
-
----
-
 <!-- _class: list-criteria -->
 
 `The vocabulary`
@@ -44,16 +31,6 @@ Guide used to move on every sentence, so the eye was dragged on every full stop.
    - A block with no boundary of its own, read several lines at a time.
 5. Tap
    - Something small and discrete, where a ring would be mostly empty space.
-
----
-
-<!-- _class: content -->
-
-`Underline`
-
-## This heading is one wide, short line, so the hand sweeps along it.
-
-Watch the stroke: it sits below the baseline, in the descender gap, and the pointer rides it out past the right-hand edge of the column. It never comes to rest on the words it is asking you to read.
 
 ---
 

@@ -81,20 +81,22 @@ function gestureRest(kind, box, rects, clearance = 0) {
 function easeInOut(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
-function handOffset(t, dist, phase, amount) {
-  if (!(amount > 0) || !Number.isFinite(dist)) return { along: 0, across: 0 };
+function handOffset(t, dist, phase, amount, elapsedMs = 0) {
+  if (!(amount > 0) || !Number.isFinite(dist) || !Number.isFinite(t) || !Number.isFinite(phase)) return { along: 0, across: 0 };
   const u = Math.min(1, Math.max(0, t));
   const env = Math.sin(Math.PI * u) ** 0.65;
   const arc = Math.sin(Math.PI * u) * Math.min(dist * 0.055, 22) * (Math.cos(phase) >= 0 ? 1 : -1);
+  const secs = (Number.isFinite(elapsedMs) ? elapsedMs : 0) / 1e3;
   const span = Math.min(1 + dist * 0.012, 4.2);
-  const drift = Math.sin(u * 10.7 + phase) * span;
-  const micro = Math.sin(u * 55 + phase * 2.3) * span * 0.28;
-  const over = Math.sin(Math.PI * Math.min(1, u / 0.78) ** 1.6) * Math.min(dist * 0.02, 9) * (u < 0.78 ? 0 : 1);
+  const drift = Math.sin(2 * Math.PI * 1.7 * secs + phase) * span;
+  const micro = Math.sin(2 * Math.PI * 9 * secs + phase * 2.3) * span * 0.28;
+  const over = u < OVERSHOOT_AT ? 0 : Math.sin(Math.PI * (u - OVERSHOOT_AT) / (1 - OVERSHOOT_AT)) * Math.min(dist * 0.02, 9);
   return {
     along: (drift * 0.35 + micro + over) * env * amount,
     across: (arc + drift * 0.65 + micro) * env * amount
   };
 }
+var OVERSHOOT_AT = 0.78;
 function handPhase(n) {
   let h = n * 2654435761 >>> 0;
   h ^= h >>> 15;
@@ -326,9 +328,10 @@ function createStage(opts) {
     const phase = handPhase(++moveSeq);
     return new Promise((resolve2, reject) => {
       const settleHand = () => {
+        cx += hx;
+        cy += hy;
         hx = 0;
         hy = 0;
-        paintCursorAt();
       };
       const onAbort = () => {
         settleHand();
@@ -352,7 +355,7 @@ function createStage(opts) {
         if (hand > 0 && dist > 1) {
           const ux = dx / dist;
           const uy = dy / dist;
-          const { along, across } = handOffset(t, dist, phase, hand);
+          const { along, across } = handOffset(t, dist, phase, hand, now - start);
           hx = ux * along - uy * across;
           hy = uy * along + ux * across;
         } else {
@@ -702,10 +705,9 @@ function createStage(opts) {
       const y = b.top + b.height + INK_GAP + pad;
       if (i === 0) await approach(b.left, y, signal);
       else await tweenTo(b.left, y, 180 * pace, signal);
-      const last = i === bands.length - 1;
-      const to = last ? rest : { x: b.left + b.width, y };
-      await tweenTo(to.x, to.y, Math.max(300, Math.min(900, Math.abs(to.x - cx) * 1.15)) * pace, signal);
+      await tweenTo(b.left + b.width, y, Math.max(300, Math.min(900, Math.abs(b.width) * 1.15)) * pace, signal);
     }
+    if (Math.hypot(rest.x - cx, rest.y - cy) > 1) await tweenTo(rest.x, rest.y, Math.max(240, Math.min(760, Math.hypot(rest.x - cx, rest.y - cy) * 1.15)) * pace, signal);
   }
   async function underlineGesture(src, opts2, signal) {
     const r0 = liveRect(src);

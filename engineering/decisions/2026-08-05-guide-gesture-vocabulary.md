@@ -10,6 +10,22 @@ companion:
 
 # The Guide rung learns a gesture vocabulary
 
+> **SUPERSEDED IN PART by `2026-08-05-guide-gesture-semantics.md` (round three).** Four claims below
+> no longer describe what ships, and are left in place rather than edited so the reasoning stays
+> readable:
+>
+> - **§5.4's "two motions" confession** — a host-supplied rest was applied as a withdrawal *after*
+>   the stroke, so ~30% of gestures rode out and then corrected. Fixed (`restOf`).
+> - **§5.3, "the cursor's position is a consequence of the stroke"** — still true of the stroke's
+>   own ending, and no longer true wherever the host hands back an explicit rest: the fallback
+>   cases, plus every marker gesture. There the ink sweeps its line and the hand then withdraws
+>   somewhere the geometry alone could not have chosen.
+> - **§4's vocabulary table** — "a whole card / multi-line block → bracket" now holds only for
+>   blocks that do not draw their own boundary; the rest sweep their words (round three §5).
+> - **§7 / §8.1's "the matcher does not move" cross-check** — round three DOES move the matcher, and
+>   pays the same test back: it reports how often a joined cue lands on a partial answer, and
+>   refuses one carrying less than half the sentence.
+
 **Status:** ACCEPTED + IMPLEMENTED (2026-08-05).
 **Touches `docs/src/lib/vetrina/**` — maintainer review required before merge (R1).**
 The library surface delta is sized in §3 so it can be reviewed on its own.

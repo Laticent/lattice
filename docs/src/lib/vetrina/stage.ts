@@ -352,8 +352,12 @@ function easeInOut(t: number): number {
  *  does) and are capped, so a cross-screen glide does not swing wildly.
  *
  *  Exported for the test battery, which pins the endpoints and the band rather than the shape. */
-export function handOffset(t: number, dist: number, phase: number, amount: number): { along: number; across: number } {
-	if (!(amount > 0) || !Number.isFinite(dist)) return { along: 0, across: 0 };
+export function handOffset(t: number, dist: number, phase: number, amount: number, elapsedMs = 0): { along: number; across: number } {
+	// EVERY input is guarded, not just the one a caller happened to get wrong. This writes straight
+	// into the cursor's painted coordinates, and a NaN there is permanent — the pointer never comes
+	// back. `t` and `phase` are sane at today's only call site; that is a property of the call site,
+	// not of an exported function.
+	if (!(amount > 0) || !Number.isFinite(dist) || !Number.isFinite(t) || !Number.isFinite(phase)) return { along: 0, across: 0 };
 	const u = Math.min(1, Math.max(0, t));
 	// Zero at both ends. `sin(pi u)` alone peaks flat and wide; the 0.65 power widens the
 	// plateau so the wander lives through the middle of the reach and vanishes at the target.
@@ -361,21 +365,33 @@ export function handOffset(t: number, dist: number, phase: number, amount: numbe
 	// 1 — the arc. One-sided (the sign is the seeded phase's), ~5.5% of the distance, capped so
 	// a full-screen traverse bows by a hand's width rather than a fist's.
 	const arc = Math.sin(Math.PI * u) * Math.min(dist * 0.055, 22) * (Math.cos(phase) >= 0 ? 1 : -1);
-	// 2 — the two tremor bands. ~1.7 Hz postural drift over a ~9 Hz micro-tremor, expressed
-	// against the movement's own progress rather than wall-clock so it does not alias with the
-	// frame rate. Amplitude grows with distance and floors at a pixel, because even a short
-	// correction is not perfectly still.
+	// 2 — the two tremor bands, in HERTZ, driven by elapsed time.
+	//
+	// They were driven by the movement's own PROGRESS, which sounds frame-rate-independent and is
+	// the opposite: the phase advanced a fixed number of radians per movement, so the frequency
+	// that actually painted was the band divided by the glide's duration. A 260ms retarget put the
+	// micro band at ~34 Hz — under two samples per cycle at 60fps, i.e. below Nyquist, so what
+	// reached the screen was an alias whose apparent rate depended on frame timing. That is the
+	// un-reproducible rattle this design is written against, arriving through the back door.
+	// Against the clock, 1.7 Hz and 9 Hz are 1.7 Hz and 9 Hz at every duration.
+	const secs = (Number.isFinite(elapsedMs) ? elapsedMs : 0) / 1000;
 	const span = Math.min(1 + dist * 0.012, 4.2);
-	const drift = Math.sin(u * 10.7 + phase) * span;
-	const micro = Math.sin(u * 55.0 + phase * 2.3) * span * 0.28;
-	// 3 — the overshoot. The ballistic phase lands past the mark around 78% of the way in and
-	// the corrective phase pulls back; along-axis only, which is what an aimed reach does.
-	const over = Math.sin(Math.PI * Math.min(1, u / 0.78) ** 1.6) * Math.min(dist * 0.02, 9) * (u < 0.78 ? 0 : 1);
+	const drift = Math.sin(2 * Math.PI * 1.7 * secs + phase) * span;
+	const micro = Math.sin(2 * Math.PI * 9 * secs + phase * 2.3) * span * 0.28;
+	// 3 — the overshoot. The ballistic phase lands past the mark around 78% of the way in and the
+	// corrective phase pulls back; along-axis only, which is what an aimed reach does. A bump that
+	// rises from zero at 78% and returns to zero at the target — the first version wrote it as
+	// `sin(PI * min(1, u/0.78) ** 1.6)`, which is `sin(PI)` for every u past the threshold and
+	// masked to zero before it, so the whole term evaluated to 1e-15 and the mechanism three
+	// documents claimed did not exist.
+	const over = u < OVERSHOOT_AT ? 0 : Math.sin((Math.PI * (u - OVERSHOOT_AT)) / (1 - OVERSHOOT_AT)) * Math.min(dist * 0.02, 9);
 	return {
 		along: (drift * 0.35 + micro + over) * env * amount,
 		across: (arc + drift * 0.65 + micro) * env * amount,
 	};
 }
+/** Where the ballistic phase hands over to the corrective one. */
+const OVERSHOOT_AT = 0.78;
 
 /** A stable, cheap phase for one movement. Not `Math.random()`: the same run of movements has to
  *  reproduce, or nothing about the hand is testable. */
@@ -820,10 +836,17 @@ export function createStage(opts: StageOptions): Stage {
 			// An abandoned glide must not leave the hand's displacement painted: the next beat may
 			// place the cursor without tweening, and it would sit `hx,hy` off the point it was
 			// given — a permanent, compounding offset from one interrupted move.
+			// An abandoned glide KEEPS the pixels it was last painted at and adopts them as the
+			// logical position. Zeroing the displacement and repainting was correct about the state
+			// and wrong about the picture: it snapped the cursor by up to the displacement's whole
+			// amplitude in one frame, on the retarget path Present takes for every block change.
+			// Adopting is exact in both — nothing moves, and the next glide starts from where the
+			// hand actually is.
 			const settleHand = () => {
+				cx += hx;
+				cy += hy;
 				hx = 0;
 				hy = 0;
-				paintCursorAt();
 			};
 			const onAbort = () => {
 				settleHand();
@@ -860,7 +883,7 @@ export function createStage(opts: StageOptions): Stage {
 				if (hand > 0 && dist > 1) {
 					const ux = dx / dist;
 					const uy = dy / dist;
-					const { along, across } = handOffset(t, dist, phase, hand);
+					const { along, across } = handOffset(t, dist, phase, hand, now - start);
 					hx = ux * along - uy * across;
 					hy = uy * along + ux * across;
 				} else {
@@ -1183,7 +1206,7 @@ export function createStage(opts: StageOptions): Stage {
 					resolve();
 					return;
 				}
-				if (signal?.aborted) return;
+				if (signal?.aborted) return; // the abort listener rejects; do not settle twice
 				const t = Math.min(1, (now - start) / dur);
 				const a = a0 + easeInOut(t) * Math.PI * 2 * 1.25;
 				const mx = box.left + box.width / 2;
@@ -1329,10 +1352,19 @@ export function createStage(opts: StageOptions): Stage {
 			// than being re-placed there.
 			if (i === 0) await approach(b.left, y, signal);
 			else await tweenTo(b.left, y, 180 * pace, signal);
-			const last = i === bands.length - 1;
-			const to = last ? rest : { x: b.left + b.width, y };
-			await tweenTo(to.x, to.y, Math.max(300, Math.min(900, Math.abs(to.x - cx) * 1.15)) * pace, signal);
+			// THE STROKE IS ALWAYS STROKED. The last band used to travel straight to `rest` instead
+			// of along its own line, which is fine when `rest` is the stroke's own ending (it is
+			// past the line's right edge, so the trip IS the sweep) and destroys the gesture when it
+			// is anywhere else: a host rest to the LEFT — which is what `pointerAnchor` returns in
+			// the overwhelming majority of cases — made the hand approach the line's start and then
+			// move backwards over the words while the ink drew itself. The sweep, which is the whole
+			// gesture, did not happen. So the line is swept first, and `rest` is a withdrawal from
+			// its end.
+			await tweenTo(b.left + b.width, y, Math.max(300, Math.min(900, Math.abs(b.width) * 1.15)) * pace, signal);
 		}
+		// …then out to where the hand belongs. Skipped when the stroke already ended there, so the
+		// common case stays one continuous motion rather than a sweep plus a nudge.
+		if (Math.hypot(rest.x - cx, rest.y - cy) > 1) await tweenTo(rest.x, rest.y, Math.max(240, Math.min(760, Math.hypot(rest.x - cx, rest.y - cy) * 1.15)) * pace, signal);
 	}
 
 	/** UNDERLINE — "this line". A stroke swept along the baseline of a single line of text.

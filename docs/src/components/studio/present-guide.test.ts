@@ -9,6 +9,7 @@ import {
 	type GuideShape,
 	guideAimFor,
 	guideCueFor,
+	guideCueIn,
 	hasOwnBoundary,
 	headerRange,
 	markerBox,
@@ -154,7 +155,7 @@ describe('cueDisplayText', () => {
 
 describe('chooseGesture', () => {
 	const W = 1280;
-	const shape = (box: Box, lines: number, extra: Partial<GuideShape> = {}): GuideShape => ({ box, lines, rects: null, slideW: W, coverage: 1, role: 'body', enclosed: false, ...extra });
+	const shape = (box: Box, lines: number, extra: Partial<GuideShape> = {}): GuideShape => ({ box, lines, slideW: W, role: 'body', enclosed: false, ...extra });
 
 	it('underlines one wide, short line of prose — the workhorse', () => {
 		expect(chooseGesture(shape({ left: 80, top: 300, width: 900, height: 30 }, 1))).toBe('underline');
@@ -174,17 +175,11 @@ describe('chooseGesture', () => {
 
 	it('washes a phrase INSIDE a longer block, whatever shape the block is', () => {
 		// A fact about the CUE, not about the box — which is why it is the first rule. The same
-		// paragraph read WHOLE is a bracket; read one clause at a time it is a wash.
+		// paragraph read WHOLE is a bracket; read one clause at a time it is a wash. Whether a cue
+		// IS a phrase is decided upstream, by `anchorFor`, and arrives here as the role.
 		const block = { left: 80, top: 120, width: 800, height: 300 };
-		const rects = [{ left: 80, top: 150, width: 400, height: 24 }];
-		expect(chooseGesture(shape(block, 8, { rects, coverage: 0.2, role: 'phrase' }))).toBe('wash');
-		expect(chooseGesture(shape(block, 8, { rects, coverage: 0.95 }))).toBe('bracket');
-	});
-
-	it('does not wash when the sentence could not be located inside the block', () => {
-		// No rects means no ink to follow, so a highlighter would have to be painted over the
-		// whole paragraph — naming everything, which is naming nothing.
-		expect(chooseGesture(shape({ left: 80, top: 120, width: 800, height: 300 }, 8, { rects: null, coverage: 0.2 }))).toBe('bracket');
+		expect(chooseGesture(shape(block, 8, { role: 'phrase' }))).toBe('wash');
+		expect(chooseGesture(shape(block, 8, { role: 'body' }))).toBe('bracket');
 	});
 
 	it('is not fooled by a padded box — a one-line table cell is not a card', () => {
@@ -196,7 +191,7 @@ describe('chooseGesture', () => {
 	it('reads the same at 1280 and at 1920, because every threshold is in slide units', () => {
 		// A deck rendered at a different size is the same deck. A pixel threshold would silently
 		// reclassify every target on it.
-		const at = (k: number) => chooseGesture({ box: { left: 0, top: 0, width: 180 * k, height: 64 * k }, lines: 1, rects: null, slideW: W * k, coverage: 1, role: 'body', enclosed: false });
+		const at = (k: number) => chooseGesture({ box: { left: 0, top: 0, width: 180 * k, height: 64 * k }, lines: 1, slideW: W * k, role: 'body', enclosed: false });
 		expect(at(1)).toBe(at(1.5));
 	});
 });
@@ -652,8 +647,8 @@ describe('the geometry the classifier is handed, and the units it is handed in',
 		// `guideCueIn` takes the slide's own width and every width threshold is a fraction of it.
 		// A 200px-wide target is "small" on a 3840 deck and "wide" on a 640 one.
 		const box = { left: 0, top: 0, width: 200, height: 30 };
-		const wide = chooseGesture({ box, lines: 1, rects: null, slideW: 3840, coverage: 1, role: 'body', enclosed: false });
-		const narrow = chooseGesture({ box, lines: 1, rects: null, slideW: 640, coverage: 1, role: 'body', enclosed: false });
+		const wide = chooseGesture({ box, lines: 1, slideW: 3840, role: 'body', enclosed: false });
+		const narrow = chooseGesture({ box, lines: 1, slideW: 640, role: 'body', enclosed: false });
 		expect(wide).toBe('tap');
 		expect(narrow).toBe('underline');
 	});
@@ -827,6 +822,25 @@ describe('hasOwnBoundary — the redundant-boundary rule', () => {
 	it('sees a real shadow', () => {
 		expect(hasOwnBoundary(styled({ boxShadow: 'rgba(10, 12, 20, 0.18) 0px 2px 8px 0px' } as Partial<CSSStyleDeclaration>))).toBe(true);
 	});
+
+	it('reads EVERY layer of a shadow list, not the first', () => {
+		// Lattice's finish tokens compose a shadow out of a transparent placeholder plus a real
+		// layer (`box-shadow: var(--tone-rail, 0 0 transparent), var(--fin-frame, …)`). Reading only
+		// the first color reported a genuine drop shadow as no boundary at all, and `bracket` drew
+		// its second outline around a card that already had one.
+		expect(hasOwnBoundary(styled({ boxShadow: 'rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(10, 12, 20, 0.35) 0px 2px 6px 0px' } as Partial<CSSStyleDeclaration>))).toBe(true);
+		expect(hasOwnBoundary(styled({ boxShadow: 'rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 2px 6px 0px' } as Partial<CSSStyleDeclaration>))).toBe(false);
+	});
+
+	it('understands the color syntaxes Chromium actually serializes', () => {
+		// `color-mix(… 0%, transparent)` computes to `color(srgb 0 0 0 / 0)` and an `oklch` fill to
+		// `oklch(… / 0)`. An unparsed color reads as OPAQUE, which invents a boundary and silently
+		// retires `bracket` on whatever carries it — and `dist/lattice.css` is full of `color-mix`.
+		expect(hasOwnBoundary(styled({ backgroundColor: 'color(srgb 0 0 0 / 0)' } as Partial<CSSStyleDeclaration>))).toBe(false);
+		expect(hasOwnBoundary(styled({ backgroundColor: 'oklch(0.6 0.2 250 / 0)' } as Partial<CSSStyleDeclaration>))).toBe(false);
+		expect(hasOwnBoundary(styled({ backgroundColor: 'oklab(0.6 0.1 -0.1 / 0.4)' } as Partial<CSSStyleDeclaration>))).toBe(true);
+		expect(hasOwnBoundary(styled({ backgroundColor: 'rgb(20 30 40 / 0)' } as Partial<CSSStyleDeclaration>))).toBe(false);
+	});
 });
 
 describe('chooseGesture — the semantic rules that come before the measurements', () => {
@@ -834,9 +848,7 @@ describe('chooseGesture — the semantic rules that come before the measurements
 	const shape = (extra: Partial<GuideShape>): GuideShape => ({
 		box: { left: 0, top: 0, width: 400, height: 200 },
 		lines: 6,
-		rects: null,
 		slideW: W,
-		coverage: 1,
 		role: 'body',
 		enclosed: false,
 		...extra,
@@ -864,7 +876,7 @@ describe('chooseGesture — the semantic rules that come before the measurements
 	});
 
 	it('still lets a phrase win over everything', () => {
-		expect(chooseGesture(shape({ role: 'phrase', coverage: 0.2, enclosed: true }))).toBe('wash');
+		expect(chooseGesture(shape({ role: 'phrase', enclosed: true }))).toBe('wash');
 	});
 });
 
@@ -1004,9 +1016,15 @@ describe('headerRange — a card’s own leading text', () => {
 	});
 
 	it('is null when the nested block comes FIRST — there is no leading text to take', () => {
-		const d = doc('<li><ul><li>a</li></ul>trailing</li>');
 		expect(headerRange(doc('<ul><li><ul><li>a</li></ul>trailing</li></ul>').querySelector('li') as Element)).toBeNull();
-		expect(d).toBeTruthy();
+	});
+
+	it('is ended by a BLOCK, not by any element — inline markup stays inside the header', () => {
+		// A card title is routinely `Ship the <strong>connectors</strong>`. Ending the header at the
+		// first element child would cut it at "Ship the", which is what the header is supposed to
+		// stop happening.
+		const d = doc('<ul><li>Ship the <strong>connectors</strong> now<ul><li>Six weeks.</li></ul></li></ul>');
+		expect(headerRange(d.querySelector('li') as Element)?.toString().trim()).toBe('Ship the connectors now');
 	});
 });
 
@@ -1045,6 +1063,47 @@ describe('findSpanningTarget — a cue the projection built out of two blocks', 
 		expect(el?.className).toBe('option'); // the option still fits; the wrapper never would
 	});
 
+	it('falls back to the longest matching block when the only container that holds it all is the slide', () => {
+		// The halves of this cue live in DIFFERENT cards, so the smallest element containing both is
+		// the wrapper holding everything on the slide. Without the bound the climb hands that back
+		// and the cursor names the whole slide; with it, the answer is the block that carries most
+		// of what is being said. The other test cannot reach this branch — there the option holds
+		// both halves and the climb returns before the bound is ever consulted.
+		const d = doc(
+			'<div class="wrap">' +
+				`<div class="card"><p>Connectors ship in six weeks</p><p>${'Filler prose that pads this card out. '.repeat(6)}</p></div>` +
+				`<div class="card"><p>Engineering stays on the scoring</p><p>${'More filler prose padding the second card. '.repeat(6)}</p></div>` +
+				'</div>',
+		);
+		const el = findCueTarget(d, 'Connectors ship in six weeks: Engineering stays on the scoring.');
+		expect(el?.tagName).toBe('P');
+		expect(el?.textContent).toContain('Engineering stays on the scoring');
+	});
+
+	it('never names the slide itself, however sparse it is', () => {
+		// The bound that was inert: `node !== root` compared an Element with a Document, so it could
+		// never be true, and a slide holding one heading and one paragraph climbed to the `<section>`
+		// and underlined 1,152px of itself. Found by the red team in a real Chromium.
+		const d = new DOMParser().parseFromString('<html><body><section><h1>Build everything</h1><p>Owns the plumbing</p></section></body></html>', 'text/html');
+		const el = findCueTarget(d, 'Build everything: Owns the plumbing');
+		expect(el?.tagName).not.toBe('SECTION');
+		expect(el?.tagName).not.toBe('BODY');
+	});
+
+	it('hides rather than name a block carrying a fraction of the sentence', () => {
+		// The reach guard. Round two measured that relaxing the matcher bought reach by landing on
+		// elements holding less than half the spoken sentence, and refused it. A partial answer that
+		// small is worse than the hide it replaced, so it IS the hide.
+		//
+		// The half that has to be true for this to reach the guard at all: the FIRST part is on the
+		// slide, so the piecewise matcher finds a real block and gets as far as weighing it. A cue
+		// whose halves are both absent would return null one branch earlier and prove nothing.
+		expect(findCueTarget(doc('<p>Legal review</p>'), 'Legal review: and then a great many further words that this slide does not contain anywhere at all')).toBeNull();
+		// …and the same SHAPE — one half on the slide, one half not — still resolves when the half
+		// that matched is most of what is being said.
+		expect(findCueTarget(doc('<p>Legal review surfaced as the pipeline chokepoint</p>'), 'Legal review surfaced as the pipeline chokepoint: yes')?.tagName).toBe('P');
+	});
+
 	it('leaves an ordinary sentence alone — no split, no fallback', () => {
 		const d = doc('<p>Expansion outran churn every month.</p>');
 		expect(findSpanningTarget(d, 'Expansion outran churn every month.')).toBeNull();
@@ -1052,5 +1111,71 @@ describe('findSpanningTarget — a cue the projection built out of two blocks', 
 
 	it('is null when neither half of a joined cue is on the slide', () => {
 		expect(findSpanningTarget(doc('<p>Something else entirely.</p>'), 'Build everything: Owns the plumbing.')).toBeNull();
+	});
+});
+
+describe('guideCueIn — the whole decision, on an item with a real marker', () => {
+	// The one test that drives the marker path end to end. It has to live in the REAL document
+	// (a parsed one has no `defaultView`, so `getComputedStyle` is unreachable and every marker
+	// rule degrades to "no handle") with both layout seams stubbed: `getComputedStyle` for the
+	// marker's own metrics, `Range.prototype.getClientRects` for where the words are.
+	const realStyle = window.getComputedStyle;
+	const realRects = Range.prototype.getClientRects;
+	const LAYOUT = new Map<string, { left: number; top: number; width: number; height: number }[]>();
+	const rect = (b: { left: number; top: number; width: number; height: number }) =>
+		({ x: b.left, y: b.top, left: b.left, top: b.top, width: b.width, height: b.height, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect;
+
+	afterEach(() => {
+		window.getComputedStyle = realStyle;
+		Range.prototype.getClientRects = realRects;
+		document.body.innerHTML = '';
+		LAYOUT.clear();
+	});
+
+	function slide() {
+		const host = document.createElement('div');
+		host.innerHTML = '<ul><li>Renewal risk clustered at the segment ceiling.</li></ul>';
+		document.body.appendChild(host);
+		const li = host.querySelector('li') as HTMLElement;
+		const ul = host.querySelector('ul') as HTMLElement;
+		li.getBoundingClientRect = () => rect({ left: 100, top: 200, width: 400, height: 30 });
+		LAYOUT.set('Renewal risk clustered at the segment ceiling.', [{ left: 100, top: 202, width: 380, height: 26 }]);
+		Range.prototype.getClientRects = function () {
+			return (LAYOUT.get(this.toString()) ?? []).map(rect) as unknown as DOMRectList;
+		};
+		window.getComputedStyle = ((el: Element, pseudo?: string | null) => {
+			if (pseudo === '::before') return { content: 'none', display: 'inline', width: 'auto', height: 'auto' } as unknown as CSSStyleDeclaration;
+			if (pseudo === '::marker') return { fontSize: '20px' } as unknown as CSSStyleDeclaration;
+			if (el === ul) return { paddingLeft: '24px' } as unknown as CSSStyleDeclaration;
+			return {
+				listStyleType: 'disc',
+				listStylePosition: 'outside',
+				listStyleImage: 'none',
+				fontSize: '20px',
+				lineHeight: '26px',
+				backgroundColor: 'rgba(0, 0, 0, 0)',
+				backgroundImage: 'none',
+				boxShadow: 'none',
+				paddingLeft: '0px',
+				getPropertyValue: (k: string) => (k.endsWith('-width') ? '0px' : k.endsWith('-style') ? 'none' : 'rgb(0, 0, 0)'),
+			} as unknown as CSSStyleDeclaration;
+		}) as typeof window.getComputedStyle;
+		return host;
+	}
+
+	it('names the bullet, and leaves the hand in the margin OUTSIDE it — not on the words', () => {
+		const host = slide();
+		const d = guideCueIn(host, 'Renewal risk clustered at the segment ceiling.', { left: 0, top: 0, width: 1280, height: 720 }, 14, 19);
+		expect(d?.role).toBe('marker');
+		expect(d?.kind).toBe('tap');
+		// The bullet: one glyph-width, flush against the item's leading edge, in the list's gutter.
+		expect(d?.box.width).toBeCloseTo(20 * 0.42, 3);
+		expect((d as NonNullable<typeof d>).box.left + (d as NonNullable<typeof d>).box.width).toBeCloseTo(100, 6);
+		// THE ENDING IS ON THE FAR SIDE. Every library ending is derived from a stroke over text,
+		// and a bullet's text is to its RIGHT — so `tap`'s own down-and-right ending lands on the
+		// words. `fellBack` is the sharp half of this oracle: the search is not merely unused, the
+		// geometric answer was never occupied in the first place.
+		expect(d?.rest?.x).toBeLessThan((d as NonNullable<typeof d>).box.left);
+		expect(d?.fellBack, 'the marker rest was occupied, so the search had to be asked').toBe(false);
 	});
 });

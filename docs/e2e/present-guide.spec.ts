@@ -96,10 +96,20 @@ test('Guide points the cursor INTO the slide, and stops when it is switched off'
 					const fr = frame.getBoundingClientRect();
 					const S = frame.offsetWidth ? fr.width / frame.offsetWidth : 1;
 					for (const el of doc.querySelectorAll('p, li, h1, h2, h3, h4, td, th, blockquote, code')) {
-						const t = el.getBoundingClientRect();
-						if (!t.width || !t.height || !(el.textContent ?? '').trim()) continue;
-						const b = { l: fr.left + t.left * S, t: fr.top + t.top * S, r: fr.left + (t.left + t.width) * S, b: fr.top + (t.top + t.height) * S };
-						if (c.left < b.r && c.right > b.l && c.top < b.b && c.bottom > b.t) hits.push(`${el.tagName} "${(el.textContent ?? '').trim().slice(0, 36)}"`);
+						if (!(el.textContent ?? '').trim()) continue;
+						// THE WORDS, NOT THE BOX AROUND THEM. A card is mostly padding and a timeline
+						// stage is mostly the gap above its label; the promise this spec exists to
+						// hold is that the pointer never covers the TEXT it is asking you to read,
+						// and the product's own do-not-cover check is against line boxes for exactly
+						// that reason. Checking element boxes flagged a cursor standing in a card's
+						// margin — the one place a presenter's hand actually goes.
+						const r = doc.createRange();
+						r.selectNodeContents(el);
+						for (const t of Array.from(r.getClientRects())) {
+							if (!t.width || !t.height) continue;
+							const b = { l: fr.left + t.left * S, t: fr.top + t.top * S, r: fr.left + (t.left + t.width) * S, b: fr.top + (t.top + t.height) * S };
+							if (c.left < b.r && c.right > b.l && c.top < b.b && c.bottom > b.t) hits.push(`${el.tagName} "${(el.textContent ?? '').trim().slice(0, 36)}"`);
+						}
 					}
 				}
 			} else {
