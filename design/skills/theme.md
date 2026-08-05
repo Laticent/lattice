@@ -172,10 +172,12 @@ A base palette's spine (from `themes/indaco.css`):
   --cat-1-mark: light-dark(#2E608A, #D4DFE8);  /* deep light ↔ pale dark — the border */
   --cat-on-fill: var(--text-heading);          /* label ink — FLIPS with the fill tier */
   --cat-on-mark: light-dark(#FFFFFF, #0A1628); /* ink on the mark — also flips */
-  /* NOT declared: --cat-1-ink … --cat-12-ink (the hue as TEXT on --bg/--bg-alt) are
-   * DERIVED from the mark tier in lib/base/base.tokens.css. Re-hue the mark; the ink
-   * follows and is gated ≥4.5:1 on --bg, --bg-alt and the print band by
-   * checkCatContrast. To pin one, set --cat-N-ink-set (never --cat-N-ink itself). */
+  /* GENERATED, not hand-typed: --cat-1-ink … --cat-12-ink (the hue as TEXT on
+   * --bg/--bg-alt). Run `node tools/derive-cat-ink.js` after re-hueing the marks —
+   * it holds each mark's hue and chroma and solves only lightness until the ink
+   * clears AA, then writes the block into this file. Most slots come out identical
+   * to their mark. Gated on --bg, --bg-alt and the print band by checkCatContrast. */
+  --cat-1-ink:  light-dark(#2E608A, #D4DFE8);  /* … 12 slots, generated … */
   /* Optional (monochrome/CVD themes): 12 --cat-N-texture: url(#latt-onyx-tex-1) … tokens */
 
   /* Structural — stroke MUST read on white */
@@ -265,14 +267,13 @@ The **dark variant in full** — this is the whole file:
 - [ ] Categorical three-layer contract holds in BOTH modes (mark-vs-`--bg` ≥ 3:1,
       `--cat-on-fill`-vs-fill ≥ 4.5:1, fill ≠ mark) — `checkCatContrast` green;
       `--diagram-stroke` reads on white.
-- [ ] The DERIVED `--cat-N-ink` clears 4.5:1 on `--bg` **and** `--bg-alt` in both
-      modes AND on the print band — same gate. A palette that pins its categorical
-      tier mode-invariant (the a11y family) must also pin `--cat-on-mark` and the
-      ink: an inherited `light-dark()` ink flips under a per-slide `_class: dark`
-      while the pinned chips stay put. **Pin the ink through `--cat-N-ink-set`, not
-      by declaring `--cat-N-ink`** — the derivation lives on `:root, section`, so a
-      `:root` redeclaration is shadowed on every slide and does nothing (gated by
-      `checkCatInkOverrideSeam`).
+- [ ] `node tools/derive-cat-ink.js` run, and its 12 `--cat-N-ink` values committed.
+      They clear 4.5:1 on `--bg` **and** `--bg-alt` in both modes AND on the print
+      band — same gate. Hand-tune a slot only if you must, and expect
+      `derive-cat-ink --check` to flag it: the recipe is the curve of record.
+- [ ] A palette that pins its categorical tier mode-invariant (the a11y family)
+      must also pin `--cat-on-mark`: an inherited `light-dark()` ink flips under a
+      per-slide `_class: dark` while the pinned chips stay put.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
 - [ ] Full 95-token contract defined directly (not just the 10 core) — all 12

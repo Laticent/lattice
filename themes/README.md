@@ -85,10 +85,10 @@ The engine reads the file once. Authors edit one file.
 │     --cat-1-mark ..--cat-12-mark  ─ marks: light-dark(deep, pale)                  │
 │     --cat-on-fill  ─ label ink on the fill, FLIPS with tier                        │
 │     --cat-on-mark  ─ ink on the mark, FLIPS with tier                              │
-│     --cat-1-ink ..--cat-12-ink ─ the hue AS TEXT on --bg/--bg-alt. DERIVED by      │
-│                                  lattice.css from the mark. Normally a theme sets  │
-│                                  nothing; to pin it, set --cat-N-ink-set (the      │
-│                                  named seam) — see a11y-base.css                   │
+│     --cat-1-ink ..--cat-12-ink ─ the hue AS TEXT on --bg/--bg-alt. GENERATED       │
+│                                  from your own marks by tools/derive-cat-ink.js    │
+│                                  (hue + chroma held, lightness solved) — run it,   │
+│                                  commit the block; don't hand-type it              │
 │                                                                                    │
 │   /* structural */                                                                 │
 │     --diagram-stroke              ─ universal saturated stroke                     │

@@ -351,11 +351,15 @@ section.split-panel > .cell-stage {
  * stroke role is gated to; these labels are `--fs-meta` mono at 600, so they fall
  * under the 4.5:1 normal-text rule, where the raw mark measures as low as 3.27:1
  * (`concrete` light cat-4 on `--bg`). `--cat-N-ink` is the shared tier that
- * answers exactly this — the mark diluted toward `--text-heading` until it clears
- * AA on both slide surfaces, gated on every palette by checkCatContrast. This
- * component used to carry the mix (and its justification) itself; it now reads the
- * token, and the reasoning lives at the definition in lib/base/base.tokens.css
- * where `math.theorem` and `premise` can find it too. (#1263)
+ * answers exactly this: curated per palette from that palette's own mark — hue and
+ * chroma held, lightness solved until it clears AA on both slide surfaces — and
+ * gated by checkCatContrast. This component used to carry a 65% mix toward
+ * `--text-heading` (and its justification) itself. That cleared the floor on every
+ * theme by moving every theme, including the ones whose mark was already fine; the
+ * token instead leaves a passing slot EXACTLY as the palette curated it and repairs
+ * only the slots that fail. On `indaco` that means these labels now read the
+ * categorical blue itself rather than a navy-shifted mix of it. Reasoning lives at
+ * the definition in lib/base/base.tokens.css. (#1263)
  *
  * ACCEPTED CONSEQUENCE — the panel and its labels carry DIFFERENT categorical hues
  * on most slots. A theme's fill and mark cycles are INDEPENDENT (themes/*.css: "two

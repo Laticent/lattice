@@ -453,98 +453,55 @@
    *
    *   --cat-on-fill   text on a --cat-N-fill   (the pale SURFACE tier)
    *   --cat-on-mark   text on a --cat-N-mark   (the saturated STROKE tier)
-   *   --cat-N-ink     text on --bg / --bg-alt  (the SLIDE — this block)
+   *   --cat-N-ink     text on --bg / --bg-alt  (the SLIDE — this tier)
    *
    * The first two are ON-CHIP: one shared ink each, because a chip supplies its
    * own background. This one is ON-CANVAS, so it is per-slot: the hue has to
    * survive into the letterforms, and the surface behind it is the deck's.
    *
    * WHY IT EXISTS. `--cat-N-mark` reads like the token for "this category's
-   * color, used visibly" — its own theme comments invite that reading — but it
-   * is a STROKE token, gated to 3:1 against the canvas, the WCAG 1.4.11
-   * NON-TEXT bar its border/branch/edge role is scoped to. Normal-size text
-   * needs 4.5:1. So every component that wanted a hued ink invented its own
-   * compensation, and we ended up with four answers to one question:
-   * `statement/premise` bumped its row term to 700 weight to buy the >=18.66px
-   * AND >=700 large-text exemption; `statement/split-panel` mixed its own
-   * 65/80 blend toward `--text-heading`; `chart/matrix-grid` + `chart/quadrant`
-   * mixed 65% of the CHART tier's tokens; and `math/math`'s `.theorem` labels
-   * painted the raw mark and shipped 11 of 56 theme x mode x slot combinations
-   * below AA, worst 3.49:1 (`atelier` light, `--cat-4-mark` #478400 on the
-   * blockquote's `--bg-alt` #e5e0d2). This block is that one answer. (#1263)
+   * color, used visibly" — its own theme comments invite that reading — but it is
+   * a STROKE token, gated to 3:1 against the canvas, the WCAG 1.4.11 NON-TEXT bar
+   * its border/branch/edge role is scoped to. Normal-size text needs 4.5:1, and
+   * the raw mark misses it on 372 of 1536 theme x mode x slot x surface pairs
+   * (worst 1.28:1). Eight sites across five files were painting it anyway. (#1263)
    *
-   * THE RECIPE, and why it is split per mode. Mix the mark toward
-   * `--text-heading` — the ink already gated AA on both `--bg` and `--bg-alt`
-   * by test/unit/palette/theme-surface-aa.test.js — so the shortfall is bought
-   * from a token that is guaranteed to cover it, without giving up the hue. The
-   * two arms take different dilutions because the mark tier FLIPS: it is the
-   * deep tier on a light canvas and a pale tint on a dark one, so it starts far
-   * closer to AA in dark. Every point of dilution is chroma spent, so dark
-   * spends only 20% where light needs 35%.
+   * DECLARED PER THEME, NOT DERIVED HERE — and that is the point. The values are
+   * CURATED: `tools/derive-cat-ink.js` keeps each mark's HUE and CHROMA exactly and
+   * solves only LIGHTNESS until it clears AA on both slide surfaces, then writes
+   * concrete values into each palette beside the fill/mark cycle. Most slots come
+   * out IDENTICAL to their mark (it already cleared); only the ones that fail move,
+   * and they move the least distance that works. Measured over the shipped
+   * palettes: max hue shift 3.4 degrees, 99% of chroma kept.
    *
-   * MEASURED POPULATION — 1296 pairs = the 27 hue palettes x 2 modes x 12 slots
-   * x 2 surfaces (`--bg` and `--bg-alt`), resolved through the shipped token
-   * values. Result: 0 failures, worst 5.20:1 light (`concrete` cat-6 on `--bg`)
-   * and 5.15:1 dark (`carbone` cat-5 on `--bg-alt`). Gated, fail-closed, by
-   * checkCatContrast in tools/check-ownership.js — which reads THIS declaration
-   * rather than a mirrored constant, so the gate cannot drift off the recipe.
+   * The first cut of this tier derived the ink in CSS instead —
+   * `color-mix(in oklab, var(--cat-N-mark) 65%, var(--text-heading))` — and it was
+   * contrast-correct but off brand. The mix pole must track the canvas (a fixed
+   * black/white pole fails `carbone`, which is dark in both modes, at 1.57:1), and
+   * `--text-heading` is itself chromatic on several palettes, so it dragged the
+   * mark's hue up to 14.9 degrees and unevenly across slots — a shear, not a tint —
+   * while mixing away a third of the chroma. A derived approximation of a
+   * hand-curated cycle is not the same thing as the cycle. Generated-and-committed
+   * is also how the fill/mark values themselves were produced
+   * (engineering/decisions/2026-07-15-categorical-token-contract.md, "Shipped").
    *
-   * THE a11y FAMILY PINS INSTEAD OF DERIVING. Its categorical ramp is fixed
-   * grayscale while `--bg` still flips, so no dilution ratio clears both ends
-   * (a dark-slide `_class: dark` puts the derived ink at 2.26:1 on `--bg-alt`).
-   * Those palettes pin `--cat-N-ink: var(--text-heading)` and lose nothing:
-   * their ramp carries zero chroma, so there is no hue for the ink to preserve
-   * — distinctness there rides on `--cat-N-texture`, not on ink color.
-   *
-   * WHAT THIS DOES *NOT* BUY: visible hue on a dark canvas, for most themes.
-   * The ink's mean oklab chroma is 0.066-0.108 in light but <=0.035 in dark for
-   * 13 of the 14 hue families — `carbone` (0.133) is the lone theme whose dark
-   * marks carry hue, and `onyx` is 0.000 in both. On a dark deck these labels
-   * read as barely-tinted heading ink and the FILL carries the category. That
-   * is a property of the dark mark tier, not of this recipe: re-tuning it is
-   * theme-wide (kanban stripes, gantt bars, premise rows all draw from it).
-   * A fill-derived dark arm was measured — 45% fill clears AA and roughly
-   * triples most themes' dark chroma — but it costs `carbone` its hue
-   * (0.133 -> 0.022) and would make the panel and its label agree in dark while
-   * disagreeing in light, which is worse than one consistent rule. Left as a
-   * per-theme palette question.
-   *
-   * DECLARED ON `:root, section`, AND THAT DUPLICATION IS LOAD-BEARING — the same
-   * rule the `--sp-*` block below spells out: `var()` is substituted on the element
-   * the declaration APPLIES to, so a `:root`-only copy bakes in the ROOT's
-   * `--cat-N-mark` and every remap further down becomes invisible. `section.print`
-   * (base.modifiers.css) remaps all 12 marks to the `--print-*` gray band; with the
-   * ink declared only at `:root` a print slide rendered a gray rule beside a
-   * full-hue theme label — measured in Chromium: `premise`'s verb name stayed
-   * indaco `#214466` while its border-left correctly went `#333333`. The `section`
-   * copy re-substitutes per slide, so the ink follows the mark wherever the mark is
-   * remapped. `light-dark()` is NOT the same case — it resolves where the value is
-   * USED as a color, which is why the dark arm worked from `:root` and hid this.
-   *
-   * OVERRIDE THROUGH THE `-set` SEAM, NOT BY REDECLARING. Because the derivation is
-   * declared on `section`, a theme that redeclared `--cat-N-ink` at `:root` would be
-   * SHADOWED on every slide — measured: the a11y pin silently reverted to the derived
-   * value and its dark rows went back to 2.26:1. So a theme sets `--cat-N-ink-set`
-   * instead: it is never declared here, so it simply inherits from `:root` and wins
-   * wherever the fallback would otherwise apply, regardless of source order or which
-   * element the derivation lands on. Same named-seam idiom as chart-family's
-   * `var(--chart-catN, default)` — set a token, it wins, with no color-mix to
-   * reverse-engineer. `themes/a11y-base.css` is the shipped example. */
-:root, section {
-  --cat-1-ink:  var(--cat-1-ink-set, light-dark(color-mix(in oklab, var(--cat-1-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-1-mark)  80%, var(--text-heading))));
-  --cat-2-ink:  var(--cat-2-ink-set, light-dark(color-mix(in oklab, var(--cat-2-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-2-mark)  80%, var(--text-heading))));
-  --cat-3-ink:  var(--cat-3-ink-set, light-dark(color-mix(in oklab, var(--cat-3-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-3-mark)  80%, var(--text-heading))));
-  --cat-4-ink:  var(--cat-4-ink-set, light-dark(color-mix(in oklab, var(--cat-4-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark)  80%, var(--text-heading))));
-  --cat-5-ink:  var(--cat-5-ink-set, light-dark(color-mix(in oklab, var(--cat-5-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-5-mark)  80%, var(--text-heading))));
-  --cat-6-ink:  var(--cat-6-ink-set, light-dark(color-mix(in oklab, var(--cat-6-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-6-mark)  80%, var(--text-heading))));
-  --cat-7-ink:  var(--cat-7-ink-set, light-dark(color-mix(in oklab, var(--cat-7-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-7-mark)  80%, var(--text-heading))));
-  --cat-8-ink:  var(--cat-8-ink-set, light-dark(color-mix(in oklab, var(--cat-8-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-8-mark)  80%, var(--text-heading))));
-  --cat-9-ink:  var(--cat-9-ink-set, light-dark(color-mix(in oklab, var(--cat-9-mark)  65%, var(--text-heading)), color-mix(in oklab, var(--cat-9-mark)  80%, var(--text-heading))));
-  --cat-10-ink: var(--cat-10-ink-set, light-dark(color-mix(in oklab, var(--cat-10-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-10-mark) 80%, var(--text-heading))));
-  --cat-11-ink: var(--cat-11-ink-set, light-dark(color-mix(in oklab, var(--cat-11-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-11-mark) 80%, var(--text-heading))));
-  --cat-12-ink: var(--cat-12-ink-set, light-dark(color-mix(in oklab, var(--cat-12-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-12-mark) 80%, var(--text-heading))));
-}
+   * Being real per-theme tokens, they sit at `:root` like every other categorical
+   * slot and `section.print` remaps them to the band below, exactly as it remaps
+   * fill and mark. Re-run the generator after re-hueing a mark tier;
+   * `derive-cat-ink --check` fails the build if a palette drifts from the recipe,
+   * and checkCatContrast holds the result to AA on light, dark and print. */
+
 :root {
+  /* ── Print band · categorical ink ──
+   * The print marks are already dark enough to carry text on paper (worst 4.96:1
+   * against --print-bg-alt), so the printed ink IS the printed mark — no separate
+   * curation, and no chance of the two drifting apart. */
+  --print-cat-1-ink:  var(--print-cat-1-mark);   --print-cat-2-ink:  var(--print-cat-2-mark);
+  --print-cat-3-ink:  var(--print-cat-3-mark);   --print-cat-4-ink:  var(--print-cat-4-mark);
+  --print-cat-5-ink:  var(--print-cat-5-mark);   --print-cat-6-ink:  var(--print-cat-6-mark);
+  --print-cat-7-ink:  var(--print-cat-7-mark);   --print-cat-8-ink:  var(--print-cat-8-mark);
+  --print-cat-9-ink:  var(--print-cat-9-mark);   --print-cat-10-ink: var(--print-cat-10-mark);
+  --print-cat-11-ink: var(--print-cat-11-mark);  --print-cat-12-ink: var(--print-cat-12-mark);
 
      
      
@@ -9335,9 +9292,11 @@ section.math.theorem blockquote strong:first-child {
  *
  * These labels used to paint the raw mark as well, which is what put 11 of 56
  * theme x mode x slot combinations below AA — worst 3.49:1, `atelier` light,
- * --cat-4-mark #478400 on --bg-alt #e5e0d2. --cat-N-ink is the shared tier
- * (lib/base/base.tokens.css) that keeps the hue and clears the floor; it is
- * gated on every palette, both modes, by checkCatContrast. (#1263)
+ * --cat-4-mark #478400 on --bg-alt #e5e0d2. --cat-N-ink is the shared tier: the
+ * same hue and chroma as the stripe beside it, lightness solved per palette until
+ * it clears the floor. On a palette whose mark already cleared, the two are the
+ * same colour. Gated on every palette, all three canvases, by checkCatContrast.
+ * (#1263)
  *
  * Both fall back to --accent if a future palette ever drops the cycle. */
 section.math.theorem blockquote:nth-of-type(3n+1) {
@@ -10795,8 +10754,8 @@ section.premise > ol > li > strong {
    * row's border-left and wrong for its verb name. Text qualifies for 3:1 only at
    * >=18.66px AND >=700 weight, so this rule used to buy the exemption by forcing
    * the weight to 700; at the inherited 600 the verb names measured 4.16-4.25:1,
-   * under the 4.5:1 normal-text floor. `--cat-N-ink` (lib/base/base.tokens.css)
-   * clears 4.5:1 on `--bg-alt` on every palette in both modes, gated by
+   * under the 4.5:1 normal-text floor. `--cat-N-ink` — the same hue as the row's
+   * own border, curated per palette — clears 4.5:1 on `--bg-alt` everywhere, gated by
    * checkCatContrast, so the term can go back to the engine's BASE weight for
    * `section strong` (600, lib/base/base.elements.css) — the weight here was a
    * contrast workaround, and with the contrast bought properly there is nothing left
@@ -14800,11 +14759,15 @@ section.split-panel > .cell-stage {
  * stroke role is gated to; these labels are `--fs-meta` mono at 600, so they fall
  * under the 4.5:1 normal-text rule, where the raw mark measures as low as 3.27:1
  * (`concrete` light cat-4 on `--bg`). `--cat-N-ink` is the shared tier that
- * answers exactly this — the mark diluted toward `--text-heading` until it clears
- * AA on both slide surfaces, gated on every palette by checkCatContrast. This
- * component used to carry the mix (and its justification) itself; it now reads the
- * token, and the reasoning lives at the definition in lib/base/base.tokens.css
- * where `math.theorem` and `premise` can find it too. (#1263)
+ * answers exactly this: curated per palette from that palette's own mark — hue and
+ * chroma held, lightness solved until it clears AA on both slide surfaces — and
+ * gated by checkCatContrast. This component used to carry a 65% mix toward
+ * `--text-heading` (and its justification) itself. That cleared the floor on every
+ * theme by moving every theme, including the ones whose mark was already fine; the
+ * token instead leaves a passing slot EXACTLY as the palette curated it and repairs
+ * only the slots that fail. On `indaco` that means these labels now read the
+ * categorical blue itself rather than a navy-shifted mix of it. Reasoning lives at
+ * the definition in lib/base/base.tokens.css. (#1263)
  *
  * ACCEPTED CONSEQUENCE — the panel and its labels carry DIFFERENT categorical hues
  * on most slots. A theme's fill and mark cycles are INDEPENDENT (themes/*.css: "two
@@ -17628,6 +17591,15 @@ section.print {
   --cat-9-mark: var(--print-cat-9-mark);   --cat-10-mark: var(--print-cat-10-mark);
   --cat-11-mark: var(--print-cat-11-mark); --cat-12-mark: var(--print-cat-12-mark);
   --cat-on-mark: var(--print-cat-on-mark);
+  /* The on-canvas categorical ink follows the band too — it is a real per-theme
+   * token now, so it needs the same remap fill and mark get. Without it a printed
+   * slide showed a gray rule beside a full-hue theme label. */
+  --cat-1-ink: var(--print-cat-1-ink);     --cat-2-ink: var(--print-cat-2-ink);
+  --cat-3-ink: var(--print-cat-3-ink);     --cat-4-ink: var(--print-cat-4-ink);
+  --cat-5-ink: var(--print-cat-5-ink);     --cat-6-ink: var(--print-cat-6-ink);
+  --cat-7-ink: var(--print-cat-7-ink);     --cat-8-ink: var(--print-cat-8-ink);
+  --cat-9-ink: var(--print-cat-9-ink);     --cat-10-ink: var(--print-cat-10-ink);
+  --cat-11-ink: var(--print-cat-11-ink);   --cat-12-ink: var(--print-cat-12-ink);
   --diagram-stroke: var(--print-diagram-stroke);
   --diagram-line: var(--print-diagram-line);
   --diagram-active: var(--print-diagram-active);
@@ -25301,6 +25273,25 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
   --cat-11-mark:  light-dark(#388040, #D7E5D8);
   --cat-12-fill: light-dark(#D5CCE1, #0060A5);
   --cat-12-mark:  light-dark(#803877, #E5D7E3);
+
+  /* ── CATEGORICAL ON-CANVAS INK — generated by tools/derive-cat-ink.js ──
+   * The categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue and
+   * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
+   * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
+   * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
+  --cat-1-ink:   light-dark(#86642A, #E7E0D5);
+  --cat-2-ink:   light-dark(#28737D, #D5E4E6);
+  --cat-3-ink:   light-dark(#3B3286, #D7D5E6);
+  --cat-4-ink:   light-dark(#676F20, #E4E6D5);
+  --cat-5-ink:   light-dark(#863B32, #E6D7D5);
+  --cat-6-ink:   light-dark(#325286, #D5DCE6);
+  --cat-7-ink:   light-dark(#49752D, #DCE5D7);
+  --cat-8-ink:   light-dark(#2E765B, #D7E5E0);
+  --cat-9-ink:   light-dark(#643880, #E0D7E5);
+  --cat-10-ink:  light-dark(#803853, #E5D7DC);
+  --cat-11-ink:  light-dark(#307839, #D7E5D8);
+  --cat-12-ink:  light-dark(#803877, #E5D7E3);
+  /* ── end categorical on-canvas ink ── */
 
   --cat-on-fill: var(--text-heading);
   --cat-on-mark:  light-dark(#FFFFFF, #1E1A15);

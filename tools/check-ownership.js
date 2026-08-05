@@ -3522,74 +3522,39 @@ function catPrintOverlay(errors) {
   return map;
 }
 
-// WHERE the ink is declared, not just what it resolves to.
+// Every palette that owns a mark cycle must also own a CURATED ink cycle.
 //
-// The contrast arms below run on a FLAT token map — catParseTokens ignores
-// selectors entirely, by design and by its own comment. That model is right for
-// "what colour does this reduce to" and blind to the one thing that actually
-// broke here: `var()` inside a custom property is substituted on the element the
-// declaration APPLIES to, so declaring the derivation at `:root` alone freezes
-// `:root`'s --cat-N-mark and every remap below it — `section.print`'s B&W band
-// above all — becomes invisible. The flat map resolves that regression to exactly
-// the same hex it resolves the correct code to, so no value check can see it.
-// This is the structural assertion that can: every --cat-N-ink declaration must
-// sit under a selector that includes `section`.
-function catInkDeclarationSites(css) {
-  const stripped = catStripComments(css);
-  const sites = [];
-  for (const m of stripped.matchAll(/--cat-(\d+)-ink\s*:/g)) {
-    const open = stripped.lastIndexOf('{', m.index);
-    if (open === -1) { sites.push({ slot: m[1], selector: '<none>' }); continue; }
-    const prevClose = stripped.lastIndexOf('}', open);
-    sites.push({ slot: m[1], selector: stripped.slice(prevClose + 1, open).trim().replace(/\s+/g, ' ') });
-  }
-  return sites;
-}
-
-// A theme pinning the ink MUST use the `-set` seam. Redeclaring `--cat-N-ink` at
-// `:root` looks right, resolves right in this gate's flat map, and is DEAD in the
-// browser: the derivation is declared on `:root, section`, so the section copy wins
-// on every slide and the pin never applies. That combination — plausible, gate-green,
-// silently inert — is the worst kind, and the docs recommended it until #1263. So the
-// shape is checked directly: no palette declares `--cat-N-ink`; it declares
-// `--cat-N-ink-set` or nothing.
-function checkCatInkOverrideSeam(errors) {
+// --cat-N-ink used to be derived in CSS from --cat-N-mark. That was contrast-safe
+// and off brand: the mix pole has to track the canvas, the only token that does is
+// --text-heading, and on a palette whose heading ink is itself chromatic that drags
+// the mark's hue by up to 14.9 degrees while mixing away a third of the chroma. The
+// values are now generated per theme by tools/derive-cat-ink.js — hue and chroma
+// held, lightness solved — and committed beside the fill/mark cycle. So the check
+// is no longer "is the derivation declared in a reachable place" but the ordinary
+// one every other categorical token gets: is it THERE.
+//
+// (`derive-cat-ink --check` separately proves the committed values still match the
+// recipe. This gate proves they exist and clear AA; that one proves they were not
+// hand-edited off the curve. Neither subsumes the other.)
+function checkCatInkDeclared(errors) {
   for (const file of fs.readdirSync(THEMES_DIR).sort()) {
     if (!file.endsWith('.css')) continue;
-    const css = catStripComments(fs.readFileSync(path.join(THEMES_DIR, file), 'utf8'));
-    for (const m of css.matchAll(/--cat-(\d+)-ink\s*:/g)) {
+    const name = file.replace(/\.css$/, '');
+    const own = catStripComments(fs.readFileSync(path.join(THEMES_DIR, file), 'utf8'));
+    if (!/--cat-1-mark\s*:/.test(own)) continue; // inherits its cycle, and its ink with it
+    const missing = [];
+    for (let n = 1; n <= 12; n += 1) if (!new RegExp(`--cat-${n}-ink\\s*:`).test(own)) missing.push(`--cat-${n}-ink`);
+    if (missing.length) {
       errors.push(
-        `theme "${file.replace(/\.css$/, '')}" declares --cat-${m[1]}-ink directly. That override is DEAD: ` +
-        'lattice.css declares the derivation on `:root, section`, so the section copy wins on every slide ' +
-        'and a :root pin never applies (measured: the a11y ink silently reverted to 2.26:1). ' +
-        `Set --cat-${m[1]}-ink-set instead — the named seam, which is declared nowhere else and inherits.`,
-      );
-    }
-  }
-}
-
-function checkCatInkDeclaredOnSection(errors) {
-  const file = path.join(LIB_DIR, 'base', 'base.tokens.css');
-  const sites = catInkDeclarationSites(fs.readFileSync(file, 'utf8'));
-  if (sites.length !== 12) {
-    errors.push(`checkCatInkDeclaredOnSection found ${sites.length} --cat-N-ink declarations in base.tokens.css, expected 12 — the ink tier is incomplete or the scan is broken.`);
-  }
-  for (const { slot, selector } of sites) {
-    if (!/\bsection\b/.test(selector)) {
-      errors.push(
-        `--cat-${slot}-ink is declared under "${selector}", which does not include \`section\`. ` +
-        'The derivation reads var(--cat-N-mark) / var(--text-heading), and a custom property substitutes ' +
-        'its var()s on the element the declaration APPLIES to — so a :root-only copy bakes in the ROOT hue ' +
-        "and `section.print`'s B&W remap can never reach it (measured: carbone printed labels at 1.29:1 on " +
-        'white beside correctly-gray rules). Declare it on `:root, section`, as the --sp-* block does.',
+        `theme "${name}" declares a categorical mark cycle but is missing ${missing.length} of its 12 on-canvas ink slots (${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ', …' : ''}). ` +
+        'Run `node tools/derive-cat-ink.js` to generate them — the ink is curated per theme, not derived at render time.',
       );
     }
   }
 }
 
 function checkCatContrast(errors) {
-  checkCatInkDeclaredOnSection(errors);
-  checkCatInkOverrideSeam(errors);
+  checkCatInkDeclared(errors);
   const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
@@ -3641,19 +3606,18 @@ function checkCatContrast(errors) {
           }
         }
         // The print band's whole promise is B&W-safety: a printed label must be
-        // ink, not a theme hue. A chromatic print ink means the derivation stopped
-        // following `section.print`'s remap — the exact regression that shipped a
-        // gray rule beside a carbone-blue label.
+        // ink, not a theme hue. A chromatic print ink means `section.print`'s remap
+        // is not reaching this slot — the exact regression that once shipped a gray
+        // rule beside a carbone-blue label.
         if (mode === 'print') {
           const [pr, pg, pb] = [1, 3, 5].map((i) => Number.parseInt(catInk.slice(i, i + 2), 16));
           const chroma = Math.max(pr, pg, pb) - Math.min(pr, pg, pb);
           if (chroma > CAT_PRINT_CHROMA_MAX) {
             errors.push(
               `theme "${name}" print: --cat-${n}-ink resolves to ${catInk}, which carries chroma ${chroma} ` +
-              `(max ${CAT_PRINT_CHROMA_MAX}). The print band must be B&W-safe: the --print-* marks and ink ` +
-              `it derives from are a gray ramp, so a chromatic result means one of those inputs was re-tuned ` +
-              `off the band. (Whether the derivation is DECLARED where the remap can reach it is a separate ` +
-              `question, checked structurally by checkCatInkDeclaredOnSection — a flat token map cannot see it.)`,
+              `(max ${CAT_PRINT_CHROMA_MAX}). The print band must be B&W-safe. The printed ink aliases the ` +
+              `printed mark, a gray ramp, so this means either that ramp was re-tuned off the band or ` +
+              `section.print stopped remapping --cat-${n}-ink.`,
             );
           }
         }
@@ -4863,9 +4827,7 @@ module.exports = {
   checkCatContrast,
   catResolve,
   catContrast,
-  checkCatInkDeclaredOnSection,
-  checkCatInkOverrideSeam,
-  catInkDeclarationSites,
+  checkCatInkDeclared,
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,
   CAT_COLLAPSE_FLOOR,

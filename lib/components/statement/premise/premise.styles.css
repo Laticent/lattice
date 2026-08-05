@@ -125,8 +125,8 @@ section.premise > ol > li > strong {
    * row's border-left and wrong for its verb name. Text qualifies for 3:1 only at
    * >=18.66px AND >=700 weight, so this rule used to buy the exemption by forcing
    * the weight to 700; at the inherited 600 the verb names measured 4.16-4.25:1,
-   * under the 4.5:1 normal-text floor. `--cat-N-ink` (lib/base/base.tokens.css)
-   * clears 4.5:1 on `--bg-alt` on every palette in both modes, gated by
+   * under the 4.5:1 normal-text floor. `--cat-N-ink` — the same hue as the row's
+   * own border, curated per palette — clears 4.5:1 on `--bg-alt` everywhere, gated by
    * checkCatContrast, so the term can go back to the engine's BASE weight for
    * `section strong` (600, lib/base/base.elements.css) — the weight here was a
    * contrast workaround, and with the contrast bought properly there is nothing left

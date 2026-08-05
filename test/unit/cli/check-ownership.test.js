@@ -1822,13 +1822,33 @@ describe('check-ownership', () => {
       // as `color:` on the `math.theorem` blockquote's --bg-alt. The whole point of
       // --cat-N-ink is that this pair clears 4.5:1 instead.
       assert.ok(catContrast('#478400', '#e5e0d2') < CAT_TEXT_FLOOR, 'the raw mark fails AA on --bg-alt');
-      const map = new Map([
-        ['--cat-4-mark', '#478400'],
-        ['--text-heading', '#1a1a1a'],
-        ['--cat-4-ink', 'light-dark(color-mix(in oklab, var(--cat-4-mark) 65%, var(--text-heading)), color-mix(in oklab, var(--cat-4-mark) 80%, var(--text-heading)))'],
-      ]);
+      const map = new Map([['--cat-4-ink', 'light-dark(#3C6A1A, #B6D98A)']]);
       assert.ok(catContrast(catResolve(map, '--cat-4-ink', 'light'), '#e5e0d2') >= CAT_TEXT_FLOOR,
-        'the derived ink clears AA on the same surface');
+        'the curated ink clears AA on the same surface');
+    });
+
+    test('the curated ink keeps the mark hue — that is what makes it on brand', () => {
+      // The recipe moves LIGHTNESS only. A mix toward --text-heading (the shipped
+      // first cut) dragged the hue up to 14.9 degrees on chromatic-heading palettes;
+      // holding hue is the whole reason the values are generated instead of mixed.
+      const { solveInk } = require('../../../tools/derive-cat-ink.js');
+      const { hexToOklch, contrastRatio } = require('../../../lib/theme/color.js');
+      const mark = '#478400'; // atelier cat-4, the worst measured slot
+      const ink = solveInk(mark, '#f2efe6', '#e5e0d2');
+      const hueOf = (h) => hexToOklch(h).h;
+      let drift = Math.abs(hueOf(mark) - hueOf(ink)) % 360;
+      if (drift > 180) drift = 360 - drift;
+      assert.ok(drift < 2, `curated ink drifted ${drift.toFixed(1)}deg off the mark hue`);
+      assert.ok(Math.min(contrastRatio(ink, '#f2efe6'), contrastRatio(ink, '#e5e0d2')) >= CAT_TEXT_FLOOR,
+        'and it still clears AA on both surfaces');
+    });
+
+    test('solveInk returns the mark UNCHANGED when it already clears', () => {
+      // Most slots need no repair at all; repainting them would move a curated
+      // value for nothing. Regression for the binary search whose inverted
+      // invariant collapsed every slot to the pole (#000001 for a teal mark).
+      const { solveInk } = require('../../../tools/derive-cat-ink.js');
+      assert.equal(solveInk('#2E608A', '#F2F5FA', '#FFFFFF'), '#2E608A');
     });
 
     test('catResolve honors a var() fallback that itself contains commas', () => {

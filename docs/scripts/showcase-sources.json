@@ -132,12 +132,12 @@
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "9e3f7d46295db84c6155802baf6f745f644b9ba008d357b14f49ae8418789a0a"
+		"srcSha256": "84851700bcd8ee4f560b54feb544dd00adf7aa7cc682bbad789034119b83c6ca"
 	},
 	"roadmap.dark": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "e746f16f898fc9368ba961959d542e3c2649eb7aed5b1d4d639cf7a04410c2f0"
+		"srcSha256": "8a96aa3b29c80f03b7322fd056a4c3b5cd2cf32f34f64bdce8dd0b6998a59a68"
 	},
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",

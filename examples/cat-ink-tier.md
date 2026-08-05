@@ -14,7 +14,7 @@ acronyms:
 
 # The category's hue, as text
 
-The categorical cycle shipped two inks and both of them sit on a chip. Nothing covered the hue used as *text on the slide* — so eight sites across five files painted the raw stroke token instead, and 372 of 1536 theme × mode × slot × surface pairs missed AA, worst 1.28:1. The twelve `--cat-N-ink` slots are the one answer, derived once in the shared layer.
+The categorical cycle shipped two inks and both of them sit on a chip. Nothing covered the hue used as *text on the slide* — so eight sites across five files painted the raw stroke token instead, and 372 of 1536 theme × mode × slot × surface pairs missed AA, worst 1.28:1. The twelve `--cat-N-ink` slots are the one answer, and they are curated per palette rather than mixed at render time.
 
 Rendered in atelier rather than indaco, deliberately: indaco is one of the palettes this change barely moves, and atelier is where `math.theorem` measured 3.49:1.
 
@@ -32,7 +32,7 @@ Rendered in atelier rather than indaco, deliberately: indaco is one of the palet
 
 > **Proof.** Set $S = \{x \in [a,b] : f(x) < y\}$. $S$ is non-empty and bounded; let $c = \sup S$. Continuity at $c$ forces $f(c) = y$. $\square$
 
-The labels took the raw `--cat-4-mark` / `--cat-7-mark` as `color:` on the card's `--bg-alt`. They now take `--cat-N-ink`; the border stripe keeps the mark, which is a stroke and correctly gated at 3:1.
+The labels took the raw `--cat-4-mark` / `--cat-7-mark` as `color:` on the card's `--bg-alt`. They now take `--cat-N-ink` — the same hue and chroma as the stripe beside them, lightness solved until it clears AA. The stripe keeps the mark, which is a stroke and correctly gated at 3:1.
 
 ---
 
@@ -69,12 +69,12 @@ Each row's term is colored by its own categorical slot. The term used to be forc
 
 ## This slide is byte-identical to the one before the change.
 
-*Where did the logic go?* The panel's label ink was a local color-mix of its own mark toward the heading ink, at the same 65/80 ratio, carrying twenty lines of justification. It now reads the shared token, so the value is unchanged and the reasoning lives where the other consumers can find it.
+*Where did the logic go?* The panel's label ink was a local color-mix of its own mark toward the heading ink, carrying twenty lines of justification. It now reads the shared token, and the reasoning lives where the other consumers can find it.
 
-- What the collapse proves
-  - All 24 gallery pages pixel-diff to zero across the retrofit.
-- Where the reasoning went
-  - To the token, where `math` and `premise` can find it too.
+- Why curated, not mixed
+  - A mix toward the heading ink turned the hue by up to 15 degrees.
+- What the recipe holds
+  - Hue and chroma exactly. Only lightness moves, and only if it must.
 
 ---
 
@@ -114,7 +114,7 @@ gitGraph
 
 ## Four contrast layers now, not three.
 
-*What is held?* The categorical contrast gate gains a fourth layer — the ink against both slide surfaces at 4.5:1, fail-closed, on light, dark and the print band. It reads the shipped declaration and evaluates it with the engine's own resolver, so it cannot drift off the recipe it checks.
+*What is held?* The categorical contrast gate gains a fourth layer — the ink against both slide surfaces at 4.5:1, fail-closed, on light, dark and the print band. A second gate re-runs the generator and fails the build if any palette has drifted off the curve.
 
 - Layers ①–③ hold the hue
   - Every hue palette. `a11y-*` is exempt; it separates by texture.

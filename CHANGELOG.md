@@ -551,34 +551,37 @@ in patch versions.
 - **`--cat-1-ink` … `--cat-12-ink` — the categorical tier finally has an ink for the slide
   itself.** The cycle shipped two inks, both of them ON-CHIP: `--cat-on-fill` for text on a
   `--cat-N-fill`, `--cat-on-mark` for text on a `--cat-N-mark`. Nothing covered the third
-  case — the category's hue used as *text on `--bg` / `--bg-alt`* — even though four
-  components wanted exactly that. `--cat-N-mark` looks like the token for the job and its own
-  theme comments invite the reading, but it is a STROKE token, gated to the 3:1 WCAG 1.4.11
-  non-text bar its border role is scoped to; normal-size text needs 4.5:1. So each consumer
-  invented its own compensation and one of them was simply wrong (see **Fixed**). The new tier
-  is derived once, centrally, in `lib/base/base.tokens.css` — the mark diluted toward
-  `--text-heading`, 65% in light and 80% in dark, because the mark tier flips deep↔pale with
-  the canvas and starts closer to AA on a dark one. A theme declares nothing: re-hue the mark
-  and the ink follows. Measured over 1296 pairs (27 hue palettes × 2 modes × 12 slots × 2
-  surfaces): zero failures, worst 5.20:1 light and 5.15:1 dark. `checkCatContrast` now gates
-  layer ④ — `--cat-N-ink` vs `--bg` *and* `--bg-alt` ≥ 4.5:1 — fail-closed, across **three
-  canvases** (light, dark, and the B&W print band) and **all 32 palettes including the a11y
-  family**, which the previous three layers skip as the sanctioned hue exception. Legibility
-  is not a hue question, and skipping the whole theme would have let the a11y family ship a
-  2.26:1 ink under a per-slide `_class: dark`; those palettes pin the ink to `--text-heading`
-  instead, costing nothing on a ramp that carries zero chroma. The gate reads the shipped
-  declaration and evaluates it with the engine's own `resolve-token-expr`, so it cannot drift
-  off the recipe it is checking.
+  case — the category's hue used as *text on `--bg` / `--bg-alt`* — even though eight sites
+  across five files wanted exactly that. `--cat-N-mark` looks like the token for the job and
+  its own theme comments invite the reading, but it is a STROKE token, gated to the 3:1 WCAG
+  1.4.11 non-text bar its border role is scoped to; normal-size text needs 4.5:1, and the raw
+  mark misses it on **372 of 1536** theme × mode × slot × surface pairs, worst **1.28:1**.
 
-  Two things a theme author needs to know. The derivation is declared on **`:root, section`**,
-  not `:root` — a custom property substitutes its `var()`s on the element the declaration
-  applies to, so a `:root`-only copy freezes the theme hue and `section.print`'s remap of the
-  mark tier can never reach it. And a palette that must pin the ink sets **`--cat-N-ink-set`**,
-  the named seam (chart-family's `var(--chart-catN, default)` idiom), *never* `--cat-N-ink`
-  itself: because the derivation lands on `section`, a `:root` redeclaration is shadowed on
-  every slide and silently does nothing. Both are gated — `checkCatInkDeclaredOnSection` checks
-  the declaration site, which a flat token map provably cannot see, and
-  `checkCatInkOverrideSeam` rejects a direct override. (#1263)
+  **The values are CURATED, not derived at render time.** `tools/derive-cat-ink.js` takes each
+  palette's own `--cat-N-mark`, holds its **hue and chroma exactly**, and solves only
+  **lightness** until the result clears AA on both slide surfaces — then writes the block into
+  the palette beside the fill/mark cycle it belongs with. Most slots come out **identical to
+  their mark**, because the mark already cleared as text; only the failing ones move, and they
+  move the least distance that works. Measured across the shipped palettes: **max hue shift
+  3.4°, 99% of chroma kept** (4–12 of 24 slots repaired per theme). This is the same method the
+  fill/mark values themselves were produced by — a deterministic recipe run per theme over that
+  theme's own curated hues — so the ink is inspectable, hand-tunable, and reachable by
+  `section.print`'s remap. `derive-cat-ink --check` runs inside `npm run build`, so a re-hued
+  mark or a hand-edit cannot leave the two out of step.
+
+  A first cut derived the ink in CSS instead (`color-mix(in oklab, var(--cat-N-mark) 65%,
+  var(--text-heading))`). It was contrast-correct and **off brand**: the mix pole has to track
+  the canvas (a fixed black/white pole fails `carbone`, dark in both modes, at 1.57:1), and
+  `--text-heading` is itself chromatic on several palettes — so it dragged the mark's hue by up
+  to **14.9°**, unevenly across slots (indaco light spread 25°, a shear rather than a tint),
+  while mixing away a third of the chroma. A derived approximation of a hand-curated cycle is
+  not the same thing as the cycle.
+
+  `checkCatContrast` gates layer ④ — `--cat-N-ink` vs `--bg` *and* `--bg-alt` ≥ 4.5:1 —
+  fail-closed, across **three canvases** (light, dark, and the B&W print band) and **all 32
+  palettes including the a11y family**, which the previous three layers skip as the sanctioned
+  hue exception. Legibility is not a hue question. Verified in real Chromium: 1152 ink/surface
+  pairs across 32 palettes × 3 canvases, 0 failures, 0 non-neutral print inks. (#1263)
 
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
   pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`

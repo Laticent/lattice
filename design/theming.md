@@ -251,13 +251,13 @@ and re-hue it (the `new:theme` scaffold does this for you).
   dark canvas). Reach for this — never the raw `--cat-N-mark` — whenever a
   categorical hue has to carry **small text** on `--bg` / `--bg-alt`; the mark
   carries only the 3:1 non-text guarantee its stroke role is scoped to. A
-  palette that must override it sets **`--cat-N-ink-set`** at `:root` — the named
-  seam, not a redeclaration of `--cat-N-ink`. The derivation is declared on
-  `:root, section`, and it has to be: a custom property substitutes its `var()`s on
-  the element the declaration applies to, so a `:root`-only copy freezes the theme
-  hue and `section.print`'s B&W remap can never reach it. A plain `:root` override
-  would be shadowed on every slide for the same reason.
-  `themes/a11y-base.css` is the shipped example.
+  palette declares all twelve at `:root`, like every other categorical slot — but
+  does not hand-pick them: `node tools/derive-cat-ink.js` generates the block from
+  that palette's own mark cycle, holding hue and chroma and solving only lightness
+  until the ink clears AA on both surfaces. Most slots come out **identical to their
+  mark**, because the mark already cleared; only the ones that fail move, by the
+  least distance that works. `derive-cat-ink --check` runs in the build, so a
+  hand-edit or a re-hued mark cannot leave the two out of step.
 
 **Texture adoption (optional).** A monochrome (onyx) or CVD-safe theme that
 can't separate categories by hue declares 12 `--cat-N-texture:
@@ -435,11 +435,10 @@ The tiers **swap** when the canvas flips, so the paired inks flip too:
 by `checkCatContrast`. Copy a shipped block (indaco / cuoio) and re-hue it rather
 than hand-deriving the tiers.
 
-A **fourth** layer rides on top and needs nothing from the palette author:
-`--cat-N-ink`, the hue as small text on the slide, derived from the mark tier in
-`lib/base/base.tokens.css` and gated against both `--bg` and `--bg-alt` on every
-palette, on light, dark and print. Re-hue the mark and the ink follows; to pin it,
-set `--cat-N-ink-set`.
+A **fourth** layer rides on top: `--cat-N-ink`, the hue as small text on the slide.
+It is generated per palette by `tools/derive-cat-ink.js` from that palette's own
+marks — hue and chroma held, lightness solved — and gated against `--bg`, `--bg-alt`
+and the print band. Re-hue a mark, re-run the generator, commit the block.
 
 Colors that ignore the tier split:
 
