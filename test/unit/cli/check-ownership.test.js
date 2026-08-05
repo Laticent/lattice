@@ -1843,22 +1843,83 @@ describe('check-ownership', () => {
         'and it still clears AA on both surfaces');
     });
 
-    test('checkCatInkDeclared names a palette that owns a mark cycle but no ink cycle', () => {
-      // The gate that replaced the two structural checks, and the one with no test.
+    // THESE THREE ARE BITE-TESTS, NOT SMOKE TESTS. The first cut of this block
+    // asserted `deepEqual(errors, [])` after running each arm over the REAL shipped
+    // palettes, which passes whether the arm inspects anything, is dead, or is
+    // deleted outright — the ink collapse arm shipped with zero effective coverage
+    // that way. Each test below constructs the violation and asserts the arm names
+    // it, then asserts the clean case stays silent.
+
+    test('checkCatInkDeclared BITES: a palette owning a mark cycle but no ink cycle is named', () => {
       const { checkCatInkDeclared } = require('../../../tools/check-ownership.js');
-      const errors = [];
-      checkCatInkDeclared(errors);
-      assert.deepEqual(errors, [], `every shipped palette should own its ink cycle; got:\n${errors.join('\n')}`);
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-ink-declared-'));
+      try {
+        const cycle = Array.from({ length: 12 }, (_, i) => `  --cat-${i + 1}-mark: #123456;`).join('\n');
+        fs.writeFileSync(path.join(dir, 'noink.css'), `:root{\n${cycle}\n}`);
+        const errors = [];
+        checkCatInkDeclared(errors, dir);
+        assert.equal(errors.length, 1, 'the arm should name the palette');
+        assert.match(errors[0], /"noink"/);
+        assert.match(errors[0], /missing 12 of its 12 on-canvas ink slots/);
+
+        // …and stays silent once the cycle is there.
+        const inks = Array.from({ length: 12 }, (_, i) => `  --cat-${i + 1}-ink: #123456;`).join('\n');
+        fs.writeFileSync(path.join(dir, 'noink.css'), `:root{\n${cycle}\n${inks}\n}`);
+        const clean = [];
+        checkCatInkDeclared(clean, dir);
+        assert.deepEqual(clean, []);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
 
-    test('the ink cycle cannot collapse: twelve slots, twelve colors', () => {
-      // A luminance-only ramp converges when every slot needs the same repair —
-      // a11y dark did exactly this (12 slots, 1 hex) and layer ④ passed it, because
-      // one legible color is still legible. Distinctness needs its own arm.
-      const errors = [];
-      checkCatContrast(errors);
-      assert.deepEqual(errors.filter((e) => /distinct colors/.test(e)), [],
-        'no shipped palette may resolve its 12 --cat-N-ink slots to fewer than 12 colors');
+    test('the ink collapse arm BITES: inks that coincide where their marks do not', () => {
+      const { catInkCollapsePairs } = require('../../../tools/check-ownership.js');
+      // Twelve well-separated marks…
+      const marks = ['#B03030', '#30B030', '#3030B0', '#B0B030', '#B030B0', '#30B0B0',
+                     '#8A4520', '#20458A', '#458A20', '#8A2045', '#208A45', '#452080'];
+      // …whose solve left every slot on one value: the a11y-dark failure exactly.
+      assert.ok(catInkCollapsePairs(marks.map(() => '#848484'), marks).length >= 60,
+        'a fully collapsed arm should report a pair for (almost) every combination');
+      // A single collapsed PAIR is caught too, and named.
+      const oneBad = marks.map((m, i) => (i === 4 ? '#30B030' : m));
+      const pairs = catInkCollapsePairs(oneBad, marks);
+      assert.equal(pairs.length, 1);
+      assert.match(pairs[0], /--cat-2-ink\/--cat-5-ink/);
+      // Inks that simply ARE the marks are never a collapse.
+      assert.deepEqual(catInkCollapsePairs(marks, marks), []);
+      // And an inherited near-tie is exempt: concrete dark ships two marks ~2/255
+      // apart, so its inks being that close is a palette fact, not a solve failure.
+      const tied = ['#DFDDDD', '#DFDEDD', ...marks.slice(2)];
+      assert.deepEqual(catInkCollapsePairs(tied, tied), []);
+    });
+
+    test('checkCatInkFallback BITES: a bare read, and a mismatched slot number', () => {
+      const { checkCatInkFallback } = require('../../../tools/check-ownership.js');
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cat-ink-fallback-'));
+      try {
+        const at = path.join(dir, 'x.styles.css');
+        fs.writeFileSync(at, 'a { color: var(--cat-3-ink); }');
+        const bare = [];
+        checkCatInkFallback(bare, dir);
+        assert.equal(bare.length, 1, 'a bare read must be flagged');
+        assert.match(bare[0], /x\.styles\.css:1/);
+
+        // The slot numbers have to agree — this typo would paint category 3 in 7's hue.
+        fs.writeFileSync(at, 'a { color: var(--cat-3-ink, var(--cat-7-mark)); }');
+        const mismatched = [];
+        checkCatInkFallback(mismatched, dir);
+        assert.equal(mismatched.length, 1, 'a mismatched slot number must be flagged');
+
+        // The correct spelling passes, including a deeper nested fallback.
+        fs.writeFileSync(at, 'a { color: var(--cat-3-ink, var(--cat-3-mark)); }\n' +
+                             'b { color: var(--cat-4-ink, var(--cat-4-mark, var(--accent))); }');
+        const clean = [];
+        checkCatInkFallback(clean, dir);
+        assert.deepEqual(clean, []);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     });
 
     test('solveInk returns the mark UNCHANGED when it already clears', () => {

@@ -6484,7 +6484,19 @@ section.journey.weighted .journey-task[data-mood="2"] { --mood-bg: var(--journey
 section.journey.weighted .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); }
 /* Volume percentage badge — large, dropped to top-center so the
  * "this is the volume share" read is the dominant signal alongside
- * the task name. */
+ * the task name.
+ *
+ * The ink is --text-heading, NOT the mood color, and that is deliberate. This
+ * badge states VOLUME; the mood is already carried twice over by the chip's
+ * border-top and its tint, so painting the number in the mood hue conflated two
+ * channels and bought nothing. It also could not be made legible: unlike the
+ * heatmap badge (which sets `background: var(--bg)` and so lands on a gated
+ * surface), this one sits directly on the tinted chip
+ * `color-mix(--mood-bg 28%, --bg-alt)` — a THIRD surface no categorical ink is
+ * solved against. Measured over 32 palettes x 2 modes x 5 moods on that real
+ * chip: the raw mark fails 137/320 (worst 1.27:1), the mood INK still fails
+ * 110/320 (worst 3.04:1), and --text-heading clears every pair (worst 4.79:1).
+ * Held by test/unit/palette/journey-chip-contrast.test.js, not by luck. */
 section.journey.weighted .journey-task::after {
   content: counter(volume) "%";
   counter-reset: volume var(--volume-pct);
@@ -6495,7 +6507,7 @@ section.journey.weighted .journey-task::after {
   text-align: center;
   font-size: var(--fs-meta);
   font-weight: 700;
-  color: var(--mood-ink, var(--mood-bg));
+  color: var(--text-heading);
   letter-spacing: 0.02em;
 }
 /* Pull the task label down so it sits below the % badge — gives the

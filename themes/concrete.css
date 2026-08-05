@@ -190,18 +190,18 @@ section pre.hljs {
    * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
    * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
    * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
-  --cat-1-ink:   light-dark(#5C4041, #DFDDDD);
-  --cat-2-ink:   light-dark(#364C42, #DDDFDE);
-  --cat-3-ink:   light-dark(#3C4854, #DDDEDF);
-  --cat-4-ink:   light-dark(#514539, #DFDEDD);
-  --cat-5-ink:   light-dark(#59404D, #DFDDDE);
-  --cat-6-ink:   light-dark(#354B4C, #DDDFDF);
-  --cat-7-ink:   light-dark(#494835, #DFDFDD);
-  --cat-8-ink:   light-dark(#384C38, #DDDFDD);
-  --cat-9-ink:   light-dark(#46455B, #DDDDDF);
+  --cat-1-ink:   light-dark(#593E3E, #DFDDDD);
+  --cat-2-ink:   light-dark(#2F453A, #DDDFDE);
+  --cat-3-ink:   light-dark(#35414D, #DDDEDF);
+  --cat-4-ink:   light-dark(#4B4034, #DFDEDD);
+  --cat-5-ink:   light-dark(#58404C, #DFDDDE);
+  --cat-6-ink:   light-dark(#2E4444, #DDDFDF);
+  --cat-7-ink:   light-dark(#41412E, #DFDFDD);
+  --cat-8-ink:   light-dark(#2F432F, #DDDFDD);
+  --cat-9-ink:   light-dark(#404055, #DDDDDF);
   --cat-10-ink:  light-dark(#564056, #DFDDDF);
-  --cat-11-ink:  light-dark(#414A37, #DEDFDD);
-  --cat-12-ink:  light-dark(#4E4359, #DEDDDF);
+  --cat-11-ink:  light-dark(#3A4330, #DEDFDD);
+  --cat-12-ink:  light-dark(#4B4156, #DEDDDF);
   /* ── end categorical on-canvas ink ── */
 
   --cat-on-fill: var(--text-heading);

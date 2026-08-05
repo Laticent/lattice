@@ -194,7 +194,7 @@ section pre.hljs {
    * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
   --cat-1-ink:   light-dark(#7C5F00, #E4DCC3);
   --cat-2-ink:   light-dark(#1C3992, #C3CBE4);
-  --cat-3-ink:   light-dark(#007326, #C3E4CB);
+  --cat-3-ink:   light-dark(#007024, #C3E4CB);
   --cat-4-ink:   light-dark(#921C74, #E4C3DC);
   --cat-5-ink:   light-dark(#526B00, #DBE4C3);
   --cat-6-ink:   light-dark(#741C92, #DCC3E4);

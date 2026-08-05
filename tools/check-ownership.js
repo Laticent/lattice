@@ -64,6 +64,7 @@ const { PAIRS: TOKEN_CROSSWALK } = require('../lib/tokens/crosswalk');
 const { findHexLiterals } = require('../lib/layout/gate'); // HARD RULE #3 hex matcher (reused, not reinvented)
 const { FINISH_REGISTER } = require('../lib/core/resolve-finish'); // skill-freshness: authoritative finish list
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr'); // cat-contrast: the engine's own custom-property evaluator (reused, not reinvented)
+const { oklabDistance } = require('../lib/theme/color.js'); // cat-contrast: perceptual distance for the ink collapse arm
 
 const ROOT = path.join(__dirname, '..');
 const COMPONENTS_DIR = path.join(ROOT, 'lib', 'components');
@@ -3402,6 +3403,12 @@ function skillFreshnessAssertions() {
 const CAT_TEXT_FLOOR = 4.5;      // ③ ④ AA normal text
 const CAT_EDGE_FLOOR = 3.0;      // ① WCAG 1.4.11 graphical
 const CAT_COLLAPSE_FLOOR = 1.25; // fill vs mark — catches fill==mark (1.0)
+// Perceptual floor (OKLab ΔE) below which two categorical INKS read as one color.
+// Set just under 0.0105 — the tightest pair `indaco`'s own CURATED dark cycle
+// ships — so the arm fires on a real collapse without second-guessing a spacing
+// the design already accepts. Only ever applied where the MARKS are further apart
+// than this, i.e. where the distinction existed before the solve.
+const CAT_INK_COLLAPSE_DIST = 0.010;
 const CAT_PRINT_CHROMA_MAX = 6;  // ④ print band: max sRGB max-min on a printed ink (B&W-safe)
 
 function catStripComments(s) { return s.replace(/\/\*[\s\S]*?\*\//g, ''); }
@@ -3536,11 +3543,11 @@ function catPrintOverlay(errors) {
 // (`derive-cat-ink --check` separately proves the committed values still match the
 // recipe. This gate proves they exist and clear AA; that one proves they were not
 // hand-edited off the curve. Neither subsumes the other.)
-function checkCatInkDeclared(errors) {
-  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+function checkCatInkDeclared(errors, themesDir = THEMES_DIR) {
+  for (const file of fs.readdirSync(themesDir).sort()) {
     if (!file.endsWith('.css')) continue;
     const name = file.replace(/\.css$/, '');
-    const own = catStripComments(fs.readFileSync(path.join(THEMES_DIR, file), 'utf8'));
+    const own = catStripComments(fs.readFileSync(path.join(themesDir, file), 'utf8'));
     if (!/--cat-1-mark\s*:/.test(own)) continue; // inherits its cycle, and its ink with it
     const missing = [];
     for (let n = 1; n <= 12; n += 1) if (!new RegExp(`--cat-${n}-ink\\s*:`).test(own)) missing.push(`--cat-${n}-ink`);
@@ -3553,8 +3560,78 @@ function checkCatInkDeclared(errors) {
   }
 }
 
+/**
+ * Every READ of `--cat-N-ink` in lib/ must carry its `var(--cat-N-mark)` fallback.
+ *
+ * This is the arm that actually closes the class. The tier has no `:root` default
+ * — deliberately, because the emulator's export bundle concatenates the theme
+ * BEFORE lib/base/base.tokens.css, so a default there wins on equal specificity
+ * and reverts every curated ink to its mark on the PDF path (measured in Chromium:
+ * atelier's curated #006D70 became the mark #008386). The fallback therefore lives
+ * at each consumer, which is order-independent and correct — but a per-site
+ * convention with nothing enforcing it survives exactly as long as the next
+ * author's memory. A theme built outside this repo (the Studio's Fabricate path,
+ * lib/theme/derive.js) declares marks and no inks, so a bare `var(--cat-N-ink)`
+ * there resolves to NOTHING and the property falls back to its inherited value:
+ * that is the `.horizons` bug's exact shape, where every phase eyebrow collapsed
+ * onto one flat --accent, silently, and only off-repo.
+ *
+ * The slot numbers must MATCH: `var(--cat-3-ink, var(--cat-7-mark))` is a typo the
+ * eye slides over, and it would paint category 3 in category 7's hue.
+ */
+function checkCatInkFallback(errors, libDir = LIB_DIR) {
+  const offenders = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!/\.(css|js|mjs)$/.test(e.name)) continue;
+      const src = catStripComments(fs.readFileSync(p, 'utf8'));
+      for (const m of src.matchAll(/var\(\s*--cat-(\d+)-ink\s*(,?)([^)]*)/g)) {
+        const n = m[1];
+        const rest = `${m[2]}${m[3]}`;
+        if (!new RegExp(`^,\\s*var\\(\\s*--cat-${n}-mark\\b`).test(rest.trim())) {
+          const line = src.slice(0, m.index).split('\n').length;
+          offenders.push(`${path.relative(ROOT, p)}:${line} — var(--cat-${n}-ink${rest.trim() ? `${rest.trim()}` : ''}…`);
+        }
+      }
+    }
+  };
+  walk(libDir);
+  if (offenders.length) {
+    errors.push(
+      `${offenders.length} read(s) of --cat-N-ink omit the required \`, var(--cat-N-mark)\` fallback: ` +
+      `${offenders.slice(0, 5).join('; ')}${offenders.length > 5 ? `, +${offenders.length - 5} more` : ''}. ` +
+      'The tier has no :root default on purpose (the export bundle loads the theme before the base, so a ' +
+      'default would override every curated ink), so the fallback belongs at each consumer — and the slot ' +
+      'numbers must match. A bare read renders nothing on any theme generated outside this repo.',
+    );
+  }
+}
+
+/**
+ * The --cat-N-ink pairs in one arm that read as a single color WHERE THE MARKS DO
+ * NOT — i.e. separation the ink solve destroyed, rather than separation the
+ * palette never had. Pure, so it can be tested against synthetic arms instead of
+ * only asserted empty over the shipped ones.
+ */
+function catInkCollapsePairs(inks, marks) {
+  const out = [];
+  for (let i = 0; i < inks.length; i += 1) {
+    for (let j = i + 1; j < inks.length; j += 1) {
+      const inkGap = oklabDistance(inks[i], inks[j]);
+      if (inkGap >= CAT_INK_COLLAPSE_DIST) continue;
+      // Inherited from the marks → a palette fact, not a generator failure.
+      if (oklabDistance(marks[i], marks[j]) < CAT_INK_COLLAPSE_DIST) continue;
+      out.push(`--cat-${i + 1}-ink/--cat-${j + 1}-ink ${inkGap.toFixed(4)} (${inks[i]} vs ${inks[j]})`);
+    }
+  }
+  return out;
+}
+
 function checkCatContrast(errors) {
   checkCatInkDeclared(errors);
+  checkCatInkFallback(errors);
   const printOverlay = catPrintOverlay(errors);
   let scanned = 0;
   let evaluated = 0;    // ①–③ slot×mode pairs actually contrast-checked — the real coverage metric
@@ -3591,7 +3668,7 @@ function checkCatContrast(errors) {
       for (let n = 1; n <= 12; n += 1) {
         const catInk = catResolve(m, `--cat-${n}-ink`, scheme);
         if (!catInk) {
-          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is generated per palette by tools/derive-cat-ink.js (and defaults to var(--cat-${n}-mark) in lib/base/base.tokens.css); re-run the generator.`);
+          errors.push(`theme "${name}" ${mode}: --cat-${n}-ink did not resolve to a color — the on-canvas categorical ink is unverifiable. It is generated per palette by tools/derive-cat-ink.js; run that to write the block. There is deliberately NO :root default in lib/base/base.tokens.css (the export bundle loads the theme before the base, so a default there would override every curated ink) — consumers carry the fallback instead, as var(--cat-${n}-ink, var(--cat-${n}-mark)).`);
           continue;
         }
         for (const [surface, hex] of [['--bg', bg], ['--bg-alt', bgAlt]]) {
@@ -3638,18 +3715,34 @@ function checkCatContrast(errors) {
     // luminance ramp is exactly a thing that can collapse, and it did: a11y dark
     // solved to one hex on all twelve slots. The generator's uniform-shift keeps the
     // ramp's spacing, so a11y passes this arm honestly rather than by exemption.
+    // MEASURED PERCEPTUALLY (OKLab ΔE), not by hex identity. `new Set(hexes).size
+    // === 12` calls concrete's dark arm — twelve values spanning two units out of
+    // 255 — a distinct cycle, which is true only to a string comparator.
+    //
+    // And judged against the MARKS, because the floor is not the same question as
+    // the collapse. The shipped palettes' own curated ink separation runs
+    // continuously from 0.0013 (concrete dark) through 0.0065 (cuoio dark) to 0.055
+    // (carbone) — there is no gap to put an absolute floor in that does not fail a
+    // palette for a property it INHERITED from its own marks. So a pair is a
+    // collapse only when the inks are closer than COLLAPSE_DIST *and* the marks
+    // were not: that is the generator having destroyed a distinction the palette
+    // carried, which is this arm's actual subject.
     for (const mode of ['light', 'dark']) {
       const inks = [];
+      const marks = [];
       for (let n = 1; n <= 12; n += 1) {
-        const v = catResolve(map, `--cat-${n}-ink`, mode);
-        if (v) inks.push(v);
+        inks.push(catResolve(map, `--cat-${n}-ink`, mode));
+        marks.push(catResolve(map, `--cat-${n}-mark`, mode));
       }
-      const distinct = new Set(inks).size;
-      if (inks.length === 12 && distinct < 12) {
+      if (inks.some((v) => !v) || marks.some((v) => !v)) continue;
+      const worst = catInkCollapsePairs(inks, marks);
+      if (worst.length) {
         errors.push(
-          `theme "${name}" ${mode}: the 12 --cat-N-ink slots resolve to only ${distinct} distinct colors. ` +
-          'A categorical cycle whose ink collapses has stopped encoding the category. Re-run ' +
-          '`node tools/derive-cat-ink.js` (its anti-collapse rule handles a converging ramp), or re-hue the marks.',
+          `theme "${name}" ${mode}: ${worst.length} --cat-N-ink pair(s) sit closer than ${CAT_INK_COLLAPSE_DIST} ` +
+          `OKLab apart while their MARKS are distinguishable — the ink solve collapsed a distinction the ` +
+          `palette carries: ${worst.slice(0, 4).join('; ')}. A categorical cycle whose ink collapses has ` +
+          'stopped encoding the category. Re-run `node tools/derive-cat-ink.js` (its anti-collapse pass ' +
+          'restores the marks\' own separation), or re-hue the marks.',
         );
       }
     }
@@ -4861,6 +4954,9 @@ module.exports = {
   CAT_TEXT_FLOOR,
   CAT_EDGE_FLOOR,
   CAT_COLLAPSE_FLOOR,
+  CAT_INK_COLLAPSE_DIST,
+  catInkCollapsePairs,
+  checkCatInkFallback,
   VETRINA_DIR,
   VETRINA_ADAPTER,
   VETRINA_IMPORT,

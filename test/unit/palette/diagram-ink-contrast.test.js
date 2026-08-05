@@ -82,6 +82,11 @@ const SITES = {
   commitLabelColor: 'commitLabelBackground',
   tagLabelColor:    'tagLabelBackground',
   // Quadrant
+  // The four quadrant labels are drawn on their own quadrant's fill.
+  quadrant1TextFill:     'quadrant1Fill',
+  quadrant2TextFill:     'quadrant2Fill',
+  quadrant3TextFill:     'quadrant3Fill',
+  quadrant4TextFill:     'quadrant4Fill',
   quadrantPointTextFill: 'quadrant1Fill',
   quadrantXAxisTextFill: 'background',
   quadrantYAxisTextFill: 'background',

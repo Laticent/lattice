@@ -581,21 +581,59 @@ in patch versions.
   fail-closed, across **three canvases** (light, dark, and the B&W print band) and **all 32
   palettes including the a11y family**, which the previous three layers skip as the sanctioned
   hue exception. Legibility is not a hue question, and an **anti-collapse arm** rides with it:
-  twelve slots that resolve to one color have stopped encoding a category, which a luminance
-  ramp can do (a11y dark solved to a single hex before the generator learned to shift the whole
-  arm instead of each slot). Verified in real Chromium: **2304 ink/surface pairs** across 32
-  palettes × light/dark/print × 12 slots × 2 surfaces — 0 AA failures, 0 non-neutral print
-  inks, 0 collapsed arms.
+  twelve slots that read as one color have stopped encoding a category, which a luminance ramp
+  can do (a11y dark solved to a single hex). That arm measures **perceptual distance (OKLab)**,
+  not hex identity — `new Set(hexes).size === 12` calls `concrete`'s dark arm, twelve values
+  spanning two units out of 255, a distinct cycle — and it judges a pair against **its own
+  marks**: the shipped palettes' curated ink separation runs continuously from 0.0013 to 0.055,
+  so any absolute floor would fail a palette for spacing it *inherited*. A collapse is the ink
+  solve destroying a distinction the palette carries, which is the only thing the generator is
+  answerable for. Verified in real Chromium: **2304 ink/surface pairs** across 32 palettes ×
+  light/dark/print × 12 slots × 2 surfaces — 0 AA failures, 0 non-neutral print inks, 0
+  collapsed arms.
+
+  A third arm, `checkCatInkFallback`, requires every read of `--cat-N-ink` in `lib/` to carry
+  its `var(--cat-N-mark)` fallback with a **matching slot number**. That is what actually closes
+  the class: the fallback is a per-site convention, and a bare read renders nothing on any theme
+  generated outside this repo — the `roadmap .horizons` bug's exact shape, where every phase
+  eyebrow collapsed onto one flat `--accent`, silently and only off-repo.
 
   A theme built **outside** this repo — `lib/theme/derive.js`, the Studio's Fabricate path —
   declares the mark cycle and no ink cycle. Consumers therefore read
   `var(--cat-N-ink, var(--cat-N-mark))`, so such a theme degrades to exactly its previous
   rendering instead of collapsing every categorical label onto `--accent`. The fallback lives at
-  the consumers and **not** as a `:root` default on purpose: the export bundle concatenates the
-  theme *before* `base.tokens.css`, so a default there wins on equal specificity and silently
-  reverts every curated ink to its mark — measured on a real render, `premise` fell from 4.68:1
-  back to the 4.25:1 this change exists to fix. `var()`'s own fallback has no ordering hazard.
+  the consumers and **not** as a `:root` default on purpose: the **emulator's** export bundle
+  concatenates the theme *before* `base.tokens.css` (`lattice-emulator.js`, `paletteCSS +
+  layoutCSS`), so a default there wins on equal specificity and silently reverts every curated
+  ink to its mark — measured in Chromium, `atelier`'s curated `#006D70` became the mark
+  `#008386`, and `premise` fell from 4.68:1 back to the 4.25:1 this change exists to fix. The
+  other three bundles (`composeCss`, `build-default-bundle.js`, the marp-kit) are base-first,
+  where a default would have been harmless; the consumer-side fallback is order-independent and
+  therefore correct on all four. `var()`'s own fallback has no ordering hazard. (#1263)
+
+### Fixed
+
+- **`journey weighted`'s volume badge was painting a 3:1 stroke token as small text, and the
+  first attempt to fix it was inert.** The badge read `var(--mood-ink, …)`, a token only the
+  `heatmap` rows ever set, so it kept falling through to the raw mark: **137 of 320** palette ×
+  mode × mood pairs below AA, worst **1.27:1**. Wiring the token would not have fixed it either
+  (110 of 320 still short, worst 3.04:1) — unlike the heatmap badge, which paints itself a
+  `var(--bg)` disc and so lands on a gated surface, the weighted badge sits directly on the
+  tinted chip `color-mix(--mood-bg 28%, --bg-alt)`, a **third** surface no categorical ink is
+  solved against. It now takes `--text-heading`, which clears every pair (worst 4.79:1) and is
+  the honest token for a number whose subject is *volume* — the mood is already carried twice
+  over, by the chip's border-top and its tint. Held by a new
+  `test/unit/palette/journey-chip-contrast.test.js`, which states each variant's surface
+  independently of the CSS so re-pointing an ink cannot also re-point what it is judged against.
   (#1263)
+
+- **Mermaid quadrant labels took the mark tier, not an ink.** `quadrant1..4TextFill` painted the
+  quadrant **label text** with `--cat-N-mark` on `--cat-N-fill` — **54 of 256** pairs below AA,
+  worst **2.77:1** — while `quadrantPointTextFill` two lines below already used `--cat-on-fill`,
+  the ink curated for exactly that band. Now all five agree. This could not have been caught by
+  the coverage assertion in `diagram-ink-contrast.test.js`, which enumerates keys that already
+  name an *ink* token: a key painting text from the wrong tier is structurally invisible to it.
+  The four keys now carry `SITES` rows and are judged with the rest. (#1263)
 
 - **`code-line-clipped` — the deck lint now flags a fenced code line that will not fit its
   pane.** `code` and `compare-code` render code as `white-space: pre` inside an `overflow: hidden`
