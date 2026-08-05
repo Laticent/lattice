@@ -656,6 +656,46 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   export. `matrix-grid` and `compare-prose axis` were fixed that way; the others
   above remain.
 
+### The Studio counts fewer slides than the deck renders — or an edit destroys a slide
+
+- **Symptom:** the rail shows one slide where the exported PDF has two; the page number skips; a
+  caret jump lands on the wrong slide; or — the worst of it — the chat rewrites "slide 1" and the
+  deck's SECOND slide vanishes under a green "Applied" tick. All of it on a deck that looks
+  perfectly ordinary. The tell is the separator: it is not a bare `---`.
+
+- **Cause:** the engine breaks a slide on **every top-level markdown-it `hr`**
+  (`splitOnHr`, `lib/engine/slides.js`). Every caller-side splitter used to derive that set from
+  its own regex over `---`, and `/^---$/m` (or `/\r?\n-{3,}\r?\n/`) matches only a bare run of
+  exactly three hyphens with nothing after it. Six forms therefore split for the renderer and were
+  invisible to the rail, the editor sync, the Coach, the rehearsal planner and the chat edit path:
+
+  | written as | engine | the old caller-side splitters |
+  |---|---|---|
+  | `***` · `___` · `- - -` | 2 slides | 1 |
+  | `--- ` (a trailing space) · `---` + tab | 2 slides | 1 |
+  | `----` (four or more) | 2 slides | 1 |
+  | `  ---` (indented 1–3 spaces) | 2 slides | 1 |
+
+  And once, in the other direction: `Interlude` on a line with `---` directly beneath it (no blank
+  line between) is a **setext heading** to the engine, and the old splitters cut there — so the rail
+  offered a slide the deck does not render.
+
+- **Fix (shipped, #1271):** `lib/core/slide-boundaries.mjs` is the ONE text-level derivation, and it
+  reproduces the engine's `hr` set from source without a parse. Every caller reads it. If you are
+  writing anything that asks "which slide is this?", **call that module** — do not add a regex.
+  `test/unit/core/slide-boundaries.test.js` pins it against the real parser over every committed
+  deck, a generated corpus and a seeded fuzz; a new splitter has nothing pinning it to anything.
+
+- **When it declines to answer:** `slideBoundaries` returns `certain: false` on a deck it cannot
+  settle by scanning — today an unclosed fence or HTML block, which is what a deck looks like
+  mid-keystroke. A caller that merely displays a count can ignore it. A caller that **rewrites
+  bytes** must not: `applyEditChecked` refuses the edit and says why, because a splice keyed to an
+  index into a slide list nobody can vouch for lands somewhere the author did not ask for.
+
+- **Authoring note:** write separators as a bare `---` with a blank line on each side. Every other
+  `hr` form works, but the blank lines are what keep a `---` from being read as the heading
+  underline for the line above it — which is a different slide count, not a style preference.
+
 ### A `split-panel proof` run is one hue in the Studio, but only when the deck doesn't paginate
 
 - **Symptom:** a leveled deck's `split-panel proof` slides each show their own categorical tint in
