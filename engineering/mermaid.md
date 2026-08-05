@@ -401,6 +401,68 @@ directive (`lib/core/slide-class-spans.js`, boundaries from markdown-it's `hr` t
 plus the `split: headings` points, not a line regex). Measured on the same three-slide
 deck: `origin/main` logged `light, dark, dark`; this logs `light, dark, light`.
 
+### 5.3.1 The source-side reconstruction, and why it keeps drifting
+
+`slideClassSpans` answers a question the renderer already answers — "which slide is
+this byte on, and what class does that slide carry?" — and it has to, because the PDF
+path bakes a diagram's palette before a single `<section>` exists. **A second answer to
+a question the renderer already answers will drift; the only question is whether the
+drift is caught.** It was not, three times, each with the same signature: baked ink
+against a live chip that does not match it.
+
+| It disagreed when… | Because | Divergence live in the corpus at |
+|---|---|---|
+| the deck used a GLOBAL `<!-- class: X -->` | only the spot `_class` form was read; the bare form carries forward to the end of the deck | — (no committed deck uses the form) |
+| a directive was QUOTED as prose | a raw text scan can't tell `` `<!-- _class: kpi -->` `` in a bullet from a real one, and the last on a slide wins | `kit/Sample-Deck.md` (slide 3) |
+| a slide held a `$$…$$` equation | its LaTeX was parsed as Markdown, and a lone `=` line is a setext H1 — a boundary under `split: headings` | `lib/components/math/math/math.gallery.md` (16 sections, 17 spans) |
+
+**Read that third column precisely.** It names where the RECONSTRUCTION diverged, not
+where a diagram came out wrong. Both live instances land on slides that carry no
+Mermaid fence, and all 119 fences in the tree resolve the same band before and after
+the fix — so nothing in the corpus was rendering wrong, and the fix repairs no
+committed artifact. That is the honest claim, and it is the one worth defending: the
+value here is that three reachable shapes are closed and gated, on a question whose
+last five defects (#1326 ×4, #1329) each shipped green.
+
+Three structural answers, in the order they close the gap:
+
+1. **One parser.** `lib/core/boundary-parser.js` is the single markdown-it instance for
+   every off-render boundary caller (`bake-splits.js`, `section-source-split.js`,
+   `slide-class-spans.js`). Each used to build its own beside a comment claiming it
+   "mirrors the lib/engine parser"; a comment cannot make that true. It carries the
+   `math_block` rule (`lib/core/math-block-rule.js`, split out of the KaTeX plugin so
+   the grammar has one definition and no render dependency).
+2. **One directive grammar on the RENDER + BAND path.** `lib/core/comment-directive.js`
+   owns the `<!-- key: value -->` parse; `lib/engine/slides.js` binds the engine's
+   vocabulary to it, `slide-class-spans.js` binds `class` alone. Directives are read off
+   the TOKEN STREAM, so a `fence` or `code_inline` token is prose — as the renderer
+   already treats it. Two source-side readers of the same syntax survive OUTSIDE that
+   path and are tracked rather than claimed fixed: the deck linter
+   (`lib/authoring/lint-core.js`) and the editor's autocomplete
+   (`docs/src/playground/slide-context.js`) each still carry a `_class:`-only line regex
+   with all three defect shapes intact. Neither decides a palette, which is why they are
+   #1383 and not this change.
+3. **One gate.** `test/unit/core/slide-class-span-parity.test.js` renders the WHOLE
+   committed corpus through the real engine and asserts the reconstruction matches its
+   sections — count and class, ~6,600 slides. None of the three defects was reachable
+   by a test that only covers cases someone thought to write down; all three fail this.
+
+The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
+several at render time. It is safe for the BAND because every expanded copy carries the
+class of the slide it was copied from — but not for the COUNT in one case: `focusSteps`
+groups on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a focus
+slide containing a nested `---` (inside a blockquote or a list) renders one section more
+than it should. Pre-existing engine bug, tracked at #1387. The gate detects it off the token
+stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
+prose must not be excused from the slide-count check.
+
+**What the gate structurally cannot see**, and is worth knowing before trusting it: it
+verifies `spans(md) ≡ render(md)`, while production needs
+`spans(md) ≡ render(preprocessMermaid(md))`. The bake splices SVG back into Markdown,
+and a blank line followed by `---` inside that SVG really does produce a section the
+reconstruction has no span for. That gap is not closable from this side — it is a
+consequence of baking before rendering at all, which is the question #1385 asks.
+
 ---
 
 ## 5.4 Diagram Titles

@@ -352,6 +352,51 @@ in patch versions.
   ordered numerically, so `linux-131` no longer sorts below `linux-99`, and macOS and Windows cache
   layouts resolve instead of falling through to whatever puppeteer guessed. A guard fails if a tenth
   copy appears under `tools/`; the 15 remaining copies under `test/` are tracked separately.
+- **The export now reads a slide's class the way the engine does, closing three deck shapes
+  that would have baked Mermaid ink for a band their section is not in.** The PDF path resolves
+  a diagram's palette from the source, before any `<section>` exists, by reconstructing the slide
+  split and each slide's class (`lib/core/slide-class-spans.js`). That reconstruction is a second
+  answer to a question the renderer already answers, and it disagreed in three ways — each the
+  #1326 shape of baked ink against a live chip that does not match it.
+  **No committed deck's Mermaid bake changes**, and the number is measured rather than assumed:
+  every ` ```mermaid ` fence in the tree (119 of them) resolves the same band before and after.
+  Two of the three divergences are live in the corpus but land on slides that carry no diagram,
+  and the third has no committed instance at all — the fix deck and the integration fixture are
+  where the wrong bands are reproduced.
+  **One committed artifact does change, and it was wrong**: the Export-to-Marp bake of
+  `lib/components/math/math/math.gallery.md` emitted 18 separators for a deck Lattice renders as
+  16 slides, so the exported Marp deck carried a phantom slide. The shared parser removes it —
+  17 separators, and the baked deck now re-renders to the same 16 sections as the original. That
+  is an export-pipeline byte change and is called out for sign-off rather than folded in quietly:
+  - **A global `<!-- class: X -->` directive was invisible.** Marp has two class forms: spot
+    `_class` (this slide) and a bare `class` that carries forward from its slide to the end of
+    the deck. Only the spot form was read, so a deck that switches to a dark canvas mid-way
+    rendered dark sections with light-baked diagrams. Both forms now resolve through the
+    engine's own rule — spot replaces the running global on its own slide, exactly as
+    `lib/engine/slides.js` overlays them.
+  - **A directive quoted as prose counted as a directive.** `` `<!-- _class: kpi -->` `` inside
+    inline code, or inside a fenced block, was matched by a raw text scan; the last directive on
+    a slide wins, so a deck documenting its own syntax overrode its own layout.
+    `kit/Sample-Deck.md` is the live instance — its `split-panel` slide names `kpi` while
+    explaining the API, and reported itself as `kpi`; the deck's one diagram is elsewhere, so the
+    export was unharmed. Directives now come from the token stream, so a `fence` or `code_inline`
+    token is prose, as the renderer already treats it.
+  - **A `$$…$$` equation could invent a slide.** Its LaTeX was parsed as Markdown, and a lone
+    `=` line is a setext H1 — a slide boundary under `split: headings`. Every byte after the
+    equation was attributed to a slide that does not render.
+    `lib/components/math/math/math.gallery.md` is the live instance — 16 sections, 17 spans —
+    and it carries no diagram, so nothing there rendered wrong either.
+- **One markdown-it instance now answers "where does a slide begin?" for every off-render
+  caller.** `bake-splits.js`, `section-source-split.js` and `slide-class-spans.js` each built
+  their own parser beside a comment promising it "mirrors the lib/engine parser"; none of the
+  three did, and a comment cannot make it so. They share `lib/core/boundary-parser.js`,
+  configured from the engine's own options — including the `math_block` rule, now split into
+  `lib/core/math-block-rule.js` so the grammar has one definition and no KaTeX dependency. The
+  `<!-- key: value -->` grammar moved the same way, into `lib/core/comment-directive.js`.
+  A corpus gate (`test/unit/core/slide-class-span-parity.test.js`) renders every committed deck
+  through the real engine and asserts the reconstruction matches its 6,600-odd sections, so the
+  next divergence fails a test instead of miscoloring a diagram. Fix deck:
+  `examples/slide-class-forms.md` — one control that must stay light, four that must go dark.
 
 - **Preview and export now send Mermaid the same non-palette config, and flowchart labels
   wrap the same way in both.** `engineInitConfig` claimed to be "shared so the PDF path and
@@ -643,6 +688,8 @@ in patch versions.
   `auto` on `math` and `title` — so the backdrop escapes behind the section's own opaque background
   and the finish vanished on a shipped slide. See
   `engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md`.
+
+
 - **Present's narration no longer hangs silently while the captions run on without it.** A sentence
   whose synthesis stalled left the caption highlight — which rides the WebAudio clock, and that
   clock advances whether or not a clip is sounding — crawling straight through the silence, then

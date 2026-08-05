@@ -16,10 +16,40 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const latticeEngine = require('../../../lib/engine');
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('../../../lib/core/slide-class-spans');
 
 const FM = '---\nmarp: true\ntheme: onyx\n---\n';
 const deck = (body) => FM + body;
+
+const engine = latticeEngine.createEngine();
+
+/**
+ * What the REAL render puts on each `<section>`.
+ *
+ * The cases below are cross-checked against this rather than against a
+ * hand-written expectation, because a hand-written one is the same act that
+ * produced the defect: someone deciding, without rendering, what the engine
+ * would have done.
+ */
+function sectionClasses(src) {
+  return [...engine.render(src).html.matchAll(/<section\b[^>]*\bclass="([^"]*)"/g)]
+    .map((m) => m[1].split(/\s+/).filter(Boolean));
+}
+
+/** Assert every reconstructed class token really lands on the section that renders. */
+function assertMatchesRender(src, expected) {
+  const { spans } = slideClassSpans(src);
+  assert.deepEqual(spans.map((s) => s.slideClass), expected);
+  const classes = sectionClasses(src);
+  assert.equal(classes.length, spans.length, 'slide count must match the render');
+  spans.forEach((span, i) => {
+    for (const token of span.slideClass.split(/\s+/).filter(Boolean)) {
+      assert.ok(classes[i].includes(token),
+        `slide ${i}: source says \`${token}\`, section is \`${classes[i].join(' ')}\``);
+    }
+  });
+}
 
 /** The `_class:` in force at each `@` marker, in order. */
 function classesAtMarkers(src) {
@@ -170,5 +200,189 @@ describe('slideClassSpans — a directive belongs to its own slide', () => {
       assert.doesNotThrow(() => slideClassSpans(src));
     }
     assert.equal(slideClassAt(slideClassSpans('').spans, 0), '');
+  });
+});
+
+/**
+ * The three ways this reconstruction has disagreed with the render since #1329.
+ *
+ * Each is a case the corpus gate (slide-class-span-parity.test.js) either does or
+ * does not reach: it catches the math block and the quoted directive because real
+ * decks contain them, and it cannot catch the global directive because no
+ * committed deck happens to use that form. This is where the shapes are pinned
+ * regardless of what the corpus happens to contain.
+ */
+describe('slideClassSpans — the class in force, not the class written nearest', () => {
+  test('a GLOBAL `<!-- class: X -->` carries forward to the end of the deck', () => {
+    // Marp's two forms, and the one that was missing. `_class` is this slide only;
+    // a bare `class` is a running global (lib/engine/slides.js:
+    // `{ ...runningGlobal, ...slideLocal }`). Reading only the spot form left every
+    // slide after a mid-deck canvas switch resolving to the DECK default — dark
+    // sections carrying light-baked Mermaid ink, the #1326 disagreement class.
+    const src = deck([
+      '## One', '', 'a', '',
+      '---', '',
+      '<!-- class: dark -->', '', '## Two', '', 'b', '',
+      '---', '',
+      '## Three', '', 'c', '',
+    ].join('\n'));
+    assertMatchesRender(src, ['', 'dark', 'dark']);
+  });
+
+  test('a spot `_class:` REPLACES the running global on its own slide only', () => {
+    // Whole-key overlay, not a token merge: the engine's `{ ...runningGlobal,
+    // ...slideLocal }` means `_class: math` on a `class: dark` run renders `math`
+    // with no `dark` — and the slide after it goes back to `dark`.
+    const src = deck([
+      '<!-- class: dark -->', '', '## One', '', 'a', '',
+      '---', '',
+      '<!-- _class: math -->', '', '## Two', '', 'b', '',
+      '---', '',
+      '## Three', '', 'c', '',
+    ].join('\n'));
+    assertMatchesRender(src, ['dark', 'math', 'dark']);
+  });
+
+  test('a later global replaces an earlier one from its own slide onward', () => {
+    const src = deck([
+      '<!-- class: dark -->', '', '## One', '', 'a', '',
+      '---', '',
+      '<!-- class: light -->', '', '## Two', '', 'b', '',
+      '---', '',
+      '## Three', '', 'c', '',
+    ].join('\n'));
+    assertMatchesRender(src, ['dark', 'light', 'light']);
+  });
+
+  test('a directive QUOTED as prose is prose — inline code and fenced blocks', () => {
+    // `kit/Sample-Deck.md` is the live case: slide 2 is a `split-panel` that
+    // explains the API by naming `<!-- _class: kpi -->` in a bullet. A raw text
+    // scan reads that as a real directive, and since the last one on a slide wins,
+    // the deck's own tutorial slide reported the wrong layout.
+    const src = deck([
+      '<!-- _class: split-panel -->', '', '## One', '',
+      '- `<!-- _class: kpi -->` and the next slide is a KPI row.', '',
+      '```md', '<!-- _class: quote -->', '```', '',
+      '---', '',
+      '<!-- _class: diagram -->', '', '## Two', '', 'b', '',
+    ].join('\n'));
+    assertMatchesRender(src, ['split-panel', 'diagram']);
+  });
+
+  test('a `$$…$$` equation is opaque — its LaTeX is not Markdown structure', () => {
+    // The `=` line is a setext H1 underline to a parser without the `math_block`
+    // rule, and in a `split: headings` deck a heading is a slide boundary. The
+    // source side saw a slide the engine does not have, so every byte after the
+    // equation — including the next `_class:` lookup — shifted one slide over.
+    // Live in the corpus at `lib/components/math/math/math.gallery.md`.
+    const src = [
+      '---', 'marp: true', 'theme: onyx', 'split: headings', '---', '',
+      '<!-- _class: math dark -->', '', '## Factorize.', '',
+      '$$', 'A', '=', 'LU', '$$', '',
+      '@MARK', '',
+    ].join('\n');
+    assertMatchesRender(src, ['math dark']);
+    assert.deepEqual(classesAtMarkers(src), ['math dark'],
+      'the marker sits AFTER the equation — a spurious boundary there is what strands it');
+  });
+
+  test('an unrelated global directive does not touch the class', () => {
+    // `<!-- header: … -->` is a global directive too. Only `class` participates.
+    const src = deck([
+      '<!-- header: Q3 -->', '<!-- _class: dark -->', '', '## One', '', 'a', '',
+      '---', '', '## Two', '', 'b', '',
+    ].join('\n'));
+    assertMatchesRender(src, ['dark', '']);
+  });
+});
+
+/**
+ * Boundary shapes the ENGINE resolves one way and a naive reconstruction another.
+ *
+ * These are not directive questions — they are "how many slides are there", which
+ * is the other half of the same answer. A count that is off by one offsets the
+ * whole mapping, so every diagram after the extra boundary reads its band from a
+ * slide it does not render on.
+ */
+describe('slideClassSpans — the slide COUNT the engine actually renders', () => {
+  test('a body that opens with `---` makes no leading slide', () => {
+    // `splitOnHr` drops its first group when that group is empty, and a body
+    // opening with a thematic break is an ordinary Marp idiom — so a deck written
+    // this way would otherwise fail its own parity gate while rendering correctly.
+    const src = deck([
+      '---', '',
+      '<!-- _class: dark -->', '', '## First real slide', '', '@MARK', '',
+      '---', '',
+      '## Second', '', '@MARK', '',
+    ].join('\n'));
+    assertMatchesRender(src, ['dark', '']);
+    assert.deepEqual(classesAtMarkers(src), ['dark', '']);
+  });
+
+  test('the merged leading span still covers every byte from the front matter', () => {
+    // Merged forward rather than deleted: deleting it would leave a hole that
+    // `slideClassAt` answers `''` for — the silent-wrong-band shape again.
+    const src = deck(['---', '', '<!-- _class: dark -->', '', '## Only', '', 'body', ''].join('\n'));
+    const { spans } = slideClassSpans(src);
+    assert.equal(spans.length, 1);
+    assert.equal(spans[0].start, FM.length);
+    for (let i = FM.length; i < src.length; i++) {
+      assert.notEqual(slideIndexAt(spans, i), -1, `offset ${i} belongs to no slide`);
+    }
+  });
+
+  test('a deck that is nothing but a rule is one slide, not two', () => {
+    assertMatchesRender(deck(['---', ''].join('\n')), ['']);
+  });
+
+  test('front matter with no body at all is not a slide of raw YAML', () => {
+    // The front-matter regex has to make its trailing newline optional, as
+    // `parseFrontMatter` does — requiring it leaves the closing `---` in the body.
+    for (const src of ['---\nmarp: true\ntheme: onyx\n---', '---\nmarp: true\ntheme: onyx\n---\n']) {
+      assert.equal(sectionClasses(src).length, slideClassSpans(src).spans.length,
+        `slide count must match the render for ${JSON.stringify(src.slice(-8))}`);
+    }
+  });
+});
+
+/**
+ * Line endings and a BOM — the input the boundary path forgot to reconcile.
+ *
+ * The engine normalizes at its door (lib/engine/index.js): it strips a leading BOM
+ * and folds `\r\n` / lone `\r` to `\n`, because a lone CR changed 118 of 119
+ * committed decks and a BOM defeats the `^---` anchor so front matter reads as
+ * body (#1357). The boundary modules reconciled their markdown-it OPTIONS with the
+ * engine's and left the INPUT unreconciled — the same divergence one level up.
+ *
+ * This module cannot normalize by rewriting: it returns offsets into the string
+ * the CALLER holds. So it reads a normalized copy and counts lines over the real
+ * terminators, and these pin that it lands in the same place either way.
+ */
+describe('slideClassSpans — CRLF, lone CR, and a BOM resolve like the engine', () => {
+  const body = ['<!-- _class: dark -->', '', '## A', '', '@MARK', '', '---', '', '## B', '', '@MARK', ''].join('\n');
+  const LF = deck(body);
+
+  for (const [name, src] of [
+    ['LF', LF],
+    ['CRLF', LF.replace(/\n/g, '\r\n')],
+    ['lone CR', LF.replace(/\n/g, '\r')],
+    ['BOM + LF', `\uFEFF${LF}`],
+    ['BOM + CRLF', `\uFEFF${LF.replace(/\n/g, '\r\n')}`],
+  ]) {
+    test(`${name} reconstructs the same slides the engine renders`, () => {
+      assert.equal(slideClassSpans(src).spans.length, sectionClasses(src).length,
+        'markdown-it folds `\\r` internally, so its token.map counts NORMALIZED lines — '
+        + 'a raw `split(\'\\n\')` over CR-delimited text sees one enormous line and every '
+        + 'boundary lands in the wrong place');
+      assert.deepEqual(classesAtMarkers(src), ['dark', ''],
+        'and the offsets must still index the CALLER\'s bytes, not a normalized copy');
+    });
+  }
+
+  test('a BOM does not turn front matter into a slide of raw YAML', () => {
+    // `^---` does not match `\uFEFF---`, so the front matter reads as body — and
+    // `split: rule` silently becomes the default `headings` at the same time.
+    const src = `\uFEFF${deck(['## Only', '', 'text', ''].join('\n'))}`;
+    assert.equal(slideClassSpans(src).spans.length, sectionClasses(src).length);
   });
 });
