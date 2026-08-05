@@ -19,8 +19,11 @@
  *
  * There is exactly one source (lib/authoring/*) — the Node tooling, the
  * manifest `validate()` gate, and the browser all run it; this is only a
- * packaging step. Each core is dependency-free, so the bundle is its four
- * modules and nothing else. (notes-core is HARD RULE #1's single note/non-note
+ * packaging step. The bundle is its own modules and nothing else: the cores
+ * carry no dependencies of their own, and the ONE library they reach
+ * transitively — markdown-it, via lib/core/slide-boundaries.mjs, which asks the
+ * engine's parser where a slide begins (#1271) — is marked external below so it
+ * resolves to the copy the site already loads rather than being inlined here. (notes-core is HARD RULE #1's single note/non-note
  * boundary — the Practice read-aloud surfaces notes through this same bundle.)
  *
  * Flags:
@@ -59,6 +62,15 @@ const BUILD_OPTIONS = {
   bundle: true,
   format: 'esm',
   platform: 'browser',
+  // MARKDOWN-IT STAYS EXTERNAL. The authoring cores reach slide boundaries through
+  // lib/core/slide-boundaries.mjs, which calls the engine's own parser (#1271) — so without
+  // this, esbuild inlines markdown-it and its dependencies into this committed file and the
+  // bundle goes 133KB -> 393KB. The site ALREADY imports markdown-it eagerly
+  // (docs/src/lib/compose/deck-markdown.ts), so inlining also ships a second copy to the
+  // browser. Left external, this file emits a bare `import` and Vite resolves it to the one
+  // copy the site already has. The bundle stays "its own modules and nothing else", which is
+  // what the header above promises.
+  external: ['markdown-it'],
   target: ['chrome109'],
   minify: false, // readable: this is committed source the docs build serves
   legalComments: 'none',
