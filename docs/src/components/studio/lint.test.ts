@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { slideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';
+import { boundaryParser as md } from '../../../../lib/core/boundary-parser.js';
 import { stripFrontMatter } from './front-matter';
 import { presentationIndices, presentationSet, slideClass, slideIndexAt, slideStartOffset, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 
@@ -9,14 +9,20 @@ const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'stats'];
 const nameArb = fc.stringMatching(/^[a-z][a-z0-9-]{0,11}$/);
 // A slide body that carries no slide boundary of its own.
 //
-// The character class alone does not guarantee that, and asserting it in a comment is how
-// this stopped being true: `*` is in the class, so the generator produces `***` — which is a
-// thematic break, so a deck built from it has more slides than bodies. The old splitter did
-// not recognize `***`, so the claim held by accident and the tests passed.
+// The character class alone does not guarantee that: `*` is in it, so the generator produces
+// `***` — a thematic break — and a deck built from it has more slides than bodies. The old
+// splitter did not recognize `***`, so the claim held by accident.
 //
-// The filter now ASKS the boundary kernel instead of trusting the class, which also means it
-// cannot rot the next time the class or the separator vocabulary changes.
-const bodyArb = fc.stringMatching(/^[\p{L}\p{N} .,!?#*]{0,40}$/u).filter((b) => b.trim().length > 0 && slideBoundaries(b).lines.length === 0);
+// FILTERED BY THE PARSER, NOT BY THE CODE UNDER TEST. An interim cut filtered on
+// `slideBoundaries(b)` — the very kernel `splitSlides` is built on — which made the property
+// circular: a false negative in the kernel would silently EXCLUDE the input that exposes it
+// (found by the independent checker). The filter asks markdown-it directly, so it stays an
+// independent statement about the generated deck.
+const boundaryFree = (b: string) =>
+	md
+		.parse(b, {})
+		.filter((t: { type: string; level: number }) => t.type === 'hr' && t.level === 0).length === 0;
+const bodyArb = fc.stringMatching(/^[\p{L}\p{N} .,!?#*]{0,40}$/u).filter((b) => b.trim().length > 0 && boundaryFree(b));
 // HOW A DECK JOINS ITS SLIDES, and it is not `\n---\n`.
 //
 // These fuzz decks used to be built with the separator hard against the text above it. To the

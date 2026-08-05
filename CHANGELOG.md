@@ -25,26 +25,33 @@ in patch versions.
 
 ## Unreleased
 
-- **Breaking: slide boundaries are derived once, from the engine's own `hr` rule — six separator
+- **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator
   forms that were invisible to the Studio now split a slide, and a setext underline no longer
   does.** The engine breaks a slide on every top-level markdown-it `hr`; every caller-side splitter
   derived that set from its own regex over `---`, and each derived it differently. Measured against
-  the real parser, `***`, `___`, `- - -`, `--- ` (with a trailing space), `----` and a `---`
-  indented one to three spaces were all slide breaks in the render and invisible to the rail, the
-  editor sync, the Coach, the rehearsal planner and the chat edit path — while `Interlude` over
-  `---` (no blank line) is a HEADING to the engine and was counted as a separator by all of them.
-  The worst consequence was silent data loss: `slideCount` read 1 where the engine renders 2, so a
-  chat edit addressed to slide 1 overwrote the whole deck and the app reported success over it.
-  `lib/core/slide-boundaries.mjs` is now the one derivation, pinned to the real parser by a
-  differential test over every committed deck, a generated marker-by-context corpus and a seeded
-  fuzz (720,000 decks across 12 seeds, zero disagreements). It reports when it cannot settle a deck
-  (an unclosed fence or HTML block — what a deck looks like mid-keystroke), and the two callers that
-  cannot afford a wrong boundary refuse rather than guess. **Marked breaking because a deck written
-  with one of those forms now counts, numbers and edits as more slides than it did** — which is how
-  many slides it always rendered as. Three refusals in `positionIsTrustworthy` retired with the
-  divergence they guarded, so a `***`-separated deck earns a true page number on the fast path
-  instead of paying for a whole-deck render. Details:
+  the real parser, `***`, `___`, `- - -`, `--- ` (trailing space), `---` + tab, `----`, `  ---`
+  (indented) and `--- -` were all slide breaks in the render and invisible to the rail, the editor
+  sync, the Coach, the rehearsal planner and the chat edit path — while `Interlude` over `---`, and
+  a `---` inside `$$` math, an HTML block, a comment or a fence, were counted as separators the
+  engine does not have. The worst consequence was silent data loss: `slideCount` read 1 where the
+  engine renders 2, so a chat edit addressed to slide 1 overwrote the whole deck and the app
+  reported success over it. `lib/core/slide-boundaries.mjs` is now the one derivation and it calls
+  `md.block.parse` on the engine's own configured markdown-it, memoized per source — exact by
+  construction rather than by a rule set kept in sync. Cost: +0.016ms on a median deck, +0.54ms on
+  the largest deck in the tree, against an ~8ms typing budget. **Marked breaking because a deck
+  written with one of those forms now counts, numbers and edits as more slides than it did** —
+  which is how many slides it always rendered as. Details:
   `engineering/decisions/2026-08-05-slide-boundary-reconciliation.md`.
+- **Fixed: a display-math document could freeze the editor for seconds.**
+  `lib/core/math-block-rule.js` scanned to end-of-input for a `$$` closer on every opener, so a
+  document of unclosed `$$` lines was quadratic — 100KB took 12.3 seconds to parse and 11.6 seconds
+  to render, against 13ms for markdown-it without the rule. It now records the first line from
+  which no closer exists and stops rescanning the same tail: 24ms. Output is unchanged by
+  construction. The defect predates this release on every path that parses a deck, including
+  export; the boundary work above is what surfaced it.
+- **Fixed: the Coach reported "no content" for a one-slide deck with front matter.** Its content
+  gate counted the YAML block as a slide and required more than one, so counting real slides made a
+  legitimate single-slide deck read as empty.
 - **Changed: round-tripping a deck through the Studio's Write surface canonicalizes a non-`---`
   separator to `---`.** Same render, different bytes. It follows from the Write surface modeling
   the split at all: `***` in prose was always two slides to the engine and one slide in the editor.

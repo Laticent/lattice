@@ -667,7 +667,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   (`splitOnHr`, `lib/engine/slides.js`). Every caller-side splitter used to derive that set from
   its own regex over `---`, and `/^---$/m` (or `/\r?\n-{3,}\r?\n/`) matches only a bare run of
   exactly three hyphens with nothing after it. Six forms therefore split for the renderer and were
-  invisible to the rail, the editor sync, the Coach, the rehearsal planner and the chat edit path:
+  invisible to the rail, the editor sync, the Coach, the rehearsal planner and the chat edit path
+  (measuring found eight, not the four the issue named):
 
   | written as | engine | the old caller-side splitters |
   |---|---|---|
@@ -676,21 +677,30 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   | `----` (four or more) | 2 slides | 1 |
   | `  ---` (indented 1–3 spaces) | 2 slides | 1 |
 
-  And once, in the other direction: `Interlude` on a line with `---` directly beneath it (no blank
-  line between) is a **setext heading** to the engine, and the old splitters cut there — so the rail
-  offered a slide the deck does not render.
+  And in the other direction — where the old splitters cut and the engine does not — a `---`
+  directly beneath a line of text is a **setext heading**, and a `---` inside `$$` math, an HTML
+  block, an HTML comment or a code fence is masked. Each made the rail offer a slide the deck does
+  not render.
 
-- **Fix (shipped, #1271):** `lib/core/slide-boundaries.mjs` is the ONE text-level derivation, and it
-  reproduces the engine's `hr` set from source without a parse. Every caller reads it. If you are
-  writing anything that asks "which slide is this?", **call that module** — do not add a regex.
-  `test/unit/core/slide-boundaries.test.js` pins it against the real parser over every committed
-  deck, a generated corpus and a seeded fuzz; a new splitter has nothing pinning it to anything.
+- **Fix (shipped, #1271):** `lib/core/slide-boundaries.mjs` is the ONE derivation, and it CALLS THE
+  ENGINE'S PARSER — `md.block.parse` on `lib/core/boundary-parser.js`, memoized per source. Every
+  caller reads it. If you are writing anything that asks "which slide is this?", **call that
+  module** — do not add a regex, and do not write a scanner that imitates markdown-it. The first cut
+  of this fix did exactly that and shipped six confirmed wrong answers behind a confidence flag; the
+  decision record has the bill.
 
-- **When it declines to answer:** `slideBoundaries` returns `certain: false` on a deck it cannot
-  settle by scanning — today an unclosed fence or HTML block, which is what a deck looks like
-  mid-keystroke. A caller that merely displays a count can ignore it. A caller that **rewrites
-  bytes** must not: `applyEditChecked` refuses the edit and says why, because a splice keyed to an
-  index into a slide list nobody can vouch for lands somewhere the author did not ask for.
+- **The one rule callers still share:** `splitOnHr` drops its first token group when that group is
+  empty, so a body opening with a separator renders N sections from N+1 chunks. `dropLeadingEmpty`
+  is that rule, exported once. It keys on the TOKEN stream rather than the text, because "produces
+  no tokens" and "is blank" differ — a link reference definition is real source that produces
+  neither.
+
+- **There is no "unsure" any more, and that is deliberate.** An interim cut of this fix returned a
+  `certain` flag for shapes a hand-written scanner could not settle, and two callers refused when it
+  went false. A parse has no undecided answer: an unclosed fence, a half-typed HTML block, a deck
+  caught mid-keystroke — each parses exactly as the engine parses it, so the boundaries are right
+  rather than admitted-to-be-doubtful. The flag also gave false comfort, reading `true` on all six
+  shapes the scanner got wrong.
 
 - **Authoring note:** write separators as a bare `---` with a blank line on each side. Every other
   `hr` form works, but the blank lines are what keep a `---` from being read as the heading

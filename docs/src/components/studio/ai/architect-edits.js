@@ -40,22 +40,29 @@ function fmChunks(source) {
 // spaces. The shared module is still pure and still headless-verifiable; it just is not
 // a second opinion about what a slide is.
 
-/** Does `text` carry a code fence that never closes? */
-export function fenceOpen(text) {
-  return /code fence that never closes/.test(slideBoundaries(String(text ?? '')).reason ?? '');
-}
-
 /**
- * Why this source's slide boundaries cannot be trusted — or null when they can.
+ * Does `text` carry a code fence that never closes?
  *
- * The splice below rewrites a byte range identified by a slide index. If the boundary set
- * that index refers to is itself in doubt, the splice does not land where the author
- * thinks it does, and this module's whole contract is to refuse rather than corrupt.
+ * Read from the TEXT, not inferred from a boundary scan's "reason" slot. The scanner this
+ * module used to call reported one reason per scan, first-write-wins, so a body that first
+ * tripped some other note MASKED its own unclosed fence and this returned false —
+ * defeating the guard that stops a spliced fence from swallowing the deck's next separator
+ * and trapping the following slide inside a code block. Reproduced by the red team:
+ * `ok: true`, two sections in and one out.
  */
-function boundaryDoubt(source) {
-  const src = String(source || '');
-  const fm = FRONT_MATTER.exec(src);
-  return slideBoundaries(fm ? src.slice(fm[0].length) : src).reason;
+export function fenceOpen(text) {
+  let marker = null;
+  let len = 0;
+  for (const line of String(text ?? '').split('\n')) {
+    const m = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
+    if (!marker) {
+      if (m) { marker = m[1][0]; len = m[1].length; }
+    } else if (m && m[1][0] === marker && m[1].length >= len && /^[ \t]{0,3}[`~]+[ \t]*$/.test(line)) {
+      marker = null;
+      len = 0;
+    }
+  }
+  return marker !== null;
 }
 
 /**
@@ -108,8 +115,16 @@ export function separatorLines(lines) {
     set.add(0);
     set.add(skip - 1);
   }
+  // The SAME leading-empty rule `splitSlideChunks` applies, so a line walk and a chunk split
+  // cannot land on different slide numbers. They diverged here once: the chunk side dropped a
+  // body-leading empty chunk and this side kept it, so a replace on a deck whose body opens
+  // with a separator INSERTED instead of replacing and duplicated slide one — a regression
+  // against `main`, found by the red team.
   const body = fm ? src.slice(fm[0].length) : src;
-  for (const ln of slideBoundaries(body).lines) set.add(ln + skip);
+  const bodyLines = body.split('\n');
+  let seps = slideBoundaries(body).lines;
+  if (seps.length && bodyLines.slice(0, seps[0]).join('\n').trim() === '') seps = seps.slice(1);
+  for (const ln of seps) set.add(ln + skip);
   return set;
 }
 
@@ -347,14 +362,13 @@ export function applyEdit(source, edit) {
 export function applyEditChecked(source, edit) {
   const refuse = (reason) => ({ source, ok: false, reason });
   if (!edit) return refuse('No edit to apply.');
-  // THE DECK'S OWN BOUNDARIES FIRST. Every branch below identifies bytes by a slide index,
-  // so an index into a slide list nobody can vouch for splices into the wrong place — the
-  // failure mode this module exists to prevent, and the one that reached a human as a
-  // destroyed slide under a green "Applied" tick. `slideBoundaries` says when it cannot
-  // settle a deck (an unclosed fence or HTML block — what a deck looks like mid-edit), and
-  // the honest answer there is to decline and say why.
-  const doubt = boundaryDoubt(source);
-  if (doubt) return refuse(`This deck has ${doubt}, so it isn't clear where its slides begin — nothing was applied. Close it and try again.`);
+  // NO BOUNDARY-DOUBT GUARD, and removing it is deliberate. This used to refuse when the
+  // boundary SCANNER reported it could not settle a deck. Boundaries now come from the
+  // engine's own parser, which has no undecided answer: a deck caught mid-keystroke parses
+  // exactly as the engine parses it, so the splice lands where the render says it should.
+  // The guards that remain are about the EDIT's own content — an empty body, a multi-slide
+  // body on a single-slide replace, an unclosed fence — which are properties of what the
+  // model sent rather than of what a scanner could work out.
   const fm = fmChunks(source);
   const lines = String(source || '').split('\n');
   const ranges = slideRanges(lines);

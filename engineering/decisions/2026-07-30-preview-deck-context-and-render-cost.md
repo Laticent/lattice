@@ -757,17 +757,22 @@ about a painted number. In the pure core they are directly testable, and
 
 ### The two slide splitters, reconciled — and the part that must stay two
 
-> **SUPERSEDED (2026-08-05) on its central claim.** This section concludes that the two
-> splitters "stay two" because the engine decides after a full parse and the editor needs an
-> answer on every keystroke. The first half holds; the second was a cost conclusion nobody
-> measured, and it smuggled in a second claim — that the only way to get the engine's answer
-> is to run the engine's parser. Measured: a block-only parse of a 40-slide deck is 0.40ms
-> and a line scan reproducing markdown-it's `hr` rule is 0.037ms, against a ~8ms typing
-> budget. `lib/core/slide-boundaries.mjs` is now the single derivation and every caller-side
-> splitter reads it; the six separator forms this section lists as permanent divergence are
-> divergences no longer, and `positionIsTrustworthy` no longer refuses on them. What stayed
-> true is the SHAPE of the answer below — one definition, one arbiter, one invariant, one
-> walker. See `2026-08-05-slide-boundary-reconciliation.md`.
+> **SUPERSEDED (2026-08-05).** This section concludes that the two splitters "stay two"
+> because the engine decides after a full parse and the editor needs an answer on every
+> keystroke — and therefore that the most that can be shared is the separator's DEFINITION
+> and an arbiter that fails closed. The cost premise was never measured. Measured: a
+> block-only parse costs **+0.016ms on the median committed deck and +0.54ms on the largest
+> deck in the tree**, against an ~8ms typing budget, memoized to one parse per source.
+> `lib/core/slide-boundaries.mjs` now calls that parser and is the single derivation; every
+> caller-side splitter reads it, the separator forms this section lists as permanent
+> divergence are divergences no longer, and `positionIsTrustworthy` no longer refuses on them.
+>
+> A first attempt at the replacement kept the "stay two" premise and hand-wrote a scanner
+> reproducing markdown-it's `hr` rule. It shipped six confirmed wrong answers behind a
+> confidence flag, and the adversarial trio found them. That is the strongest argument
+> against this section's reasoning: the residual it treats as unavoidable is only unavoidable
+> if you insist on imitating the parser. See
+> `2026-08-05-slide-boundary-reconciliation.md`.
 
 
 §2 named "two independent slide splitters" as the defect generator and ranked reconciling them above

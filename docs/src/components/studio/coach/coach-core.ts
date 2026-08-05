@@ -35,7 +35,12 @@ async function core(): Promise<any> {
  *  Studio doesn't inherit the empty-deck-scores-A trap of the raw engine scoreDeck. */
 export function hasContent(src: string): boolean {
 	const s = String(src ?? '');
-	return /<!--\s*_class:/.test(s) && splitSlides(s).length > 1;
+	// `> 0`, not `> 1`. The old threshold counted the FRONT-MATTER chunk as a slide — its
+	// splitter cut the raw source on `/^---$/m`, so `['', yaml, slide]` made a one-slide deck
+	// read as two. Counting real slides and keeping `> 1` made a one-slide deck with front
+	// matter report NO CONTENT, and the Coach shows a placeholder instead of assessing a real
+	// deck (found by the independent checker). One classed slide is content.
+	return /<!--\s*_class:/.test(s) && splitSlides(s).length > 0;
 }
 
 /** The real deck assessment: the engine scorecard + the union of lint + review

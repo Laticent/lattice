@@ -377,16 +377,34 @@ describe('fence-aware slide boundaries', () => {
     }
   });
 
-  test('a deck whose boundaries cannot be settled is refused, not spliced', async () => {
-    // An unclosed fence is what a deck looks like mid-keystroke. The splice identifies bytes
-    // by a slide index, so an index into a slide list nobody can vouch for lands somewhere the
-    // author did not ask for — refuse and say why, which is this module's whole contract.
-    const { applyEditChecked } = await load();
+  test('a deck caught mid-keystroke splices correctly rather than being refused', async () => {
+    // THIS ASSERTION FLIPPED, and the flip is the point. It used to require a REFUSAL on a deck
+    // with an unclosed fence, because boundaries came from a hand-written scanner that reported
+    // it could not settle such a deck. Boundaries now come from the engine's own parser, which
+    // has no undecided answer: the fence swallows the rest of the deck here exactly as it does
+    // in the render, so there is ONE slide and an edit to it lands correctly. Refusing would
+    // now be a false alarm on a deck the author is halfway through typing.
+    const { applyEditChecked, slideCount } = await load();
     const midEdit = '# One\n\n```\n---\n\n# Two\n';
+    assert.equal(slideCount(midEdit), 1, 'the unclosed fence swallows the separator, as it does in the render');
     const r = applyEditChecked(midEdit, { action: 'replace', slide: 1, body: '# Rewritten' });
-    assert.equal(r.ok, false);
-    assert.match(r.reason, /code fence that never closes/);
-    assert.equal(r.source, midEdit, 'a refused edit changes nothing');
+    assert.equal(r.ok, true);
+    assert.match(r.source, /# Rewritten/);
+  });
+
+  test('an unclosed fence in the EDIT BODY is still refused', async () => {
+    // The guard that survives, and it is about the model's output rather than the deck's state:
+    // a spliced fence that never closes swallows the deck's next separator and traps the
+    // following slide inside a code block. It was DEFEATED once — `fenceOpen` read a boundary
+    // scanner's single-slot "reason", so any earlier note masked the fence and the edit applied
+    // (`ok: true`, two sections in and one out, red team). It reads the text now.
+    const { applyEditChecked } = await load();
+    const deck = '---\ntheme: indaco\n---\n\n# One\n\nBody one.\n\n---\n\n# Two\n\nBody two.\n';
+    for (const body of ['# T\n\n```mermaid\ngraph TD\n', '# T\n\n- ```js\n\n```mermaid\ngraph TD\n']) {
+      const r = applyEditChecked(deck, { action: 'replace', slide: 1, body });
+      assert.equal(r.ok, false, `should refuse: ${JSON.stringify(body)}`);
+      assert.equal(r.source, deck, 'a refused edit changes nothing');
+    }
   });
 });
 
