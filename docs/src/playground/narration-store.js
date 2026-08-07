@@ -262,6 +262,33 @@ export async function readyKeys(keys) {
 }
 
 
+/**
+ * The stored byte size of each of `keys` that is on this device — a Map, in ONE request.
+ *
+ * The webpage export has to quote what a bake will cost BEFORE it starts one ("212 already
+ * prepared · 88 to synthesize · 6.2 MB"), and a number that arrives only after the download
+ * is not a choice the author got to make. `meta` already carries every clip's `size` and no
+ * audio at all, so the exact total is one `getAll()` of a few KB — no reason to estimate
+ * from an average, and no reason to load megabytes of audio to count them.
+ *
+ * A key that is absent is simply missing from the Map (never a 0 entry), so the caller can
+ * tell "no clip" from "an empty clip". Returns an empty Map when the store is unavailable —
+ * the same under-promising direction `readyKeys` takes.
+ */
+export async function clipSizes(keys) {
+  const want = new Set(Array.isArray(keys) ? keys : []);
+  const out = new Map();
+  if (!want.size || typeof indexedDB === 'undefined') return out;
+  try {
+    const db = await openDB();
+    const rows = (await read(db, META, (meta) => meta.getAll())) || [];
+    for (const m of rows) if (want.has(m.key)) out.set(m.key, m.size || 0);
+    return out;
+  } catch {
+    return out;
+  }
+}
+
 /** Drop every stored clip (the Data tab's "clear" action). */
 export async function clearClips() {
   if (typeof indexedDB === 'undefined') return;
