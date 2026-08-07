@@ -177,6 +177,12 @@ type VoiceModel = {
 	 *  and return its BYTES — the caller plays them on the Suono stage (voice-model owns no playback).
 	 *  Never rejects; `{ ok:false, error }` on an unready rung / synth failure. */
 	synthSample: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number; signal?: AbortSignal }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
+	/** `synthSample`'s general form — ARBITRARY text in an EXPLICIT rung/voice/model, one attempt, no
+	 *  playback and no write-back to the prefs. What the webpage export bakes through. */
+	synthFor: (o: { rung: 'openrouter' | 'kokoro'; text: string; voice?: string; model?: string; speed?: number; signal?: AbortSignal; timeoutMs?: number }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
+	/** `clipKey`'s explicit-identity twin: the key a sentence WOULD live under for a named
+	 *  rung/model/voice/speed, from the same builder. */
+	clipKeyFor: (o: { rung: 'openrouter' | 'kokoro'; text: string; voice?: string; model?: string; speed?: number }) => string;
 };
 
 export type VoiceAvailability = {
@@ -1185,6 +1191,66 @@ export async function listTtsModels(): Promise<OrVoiceModel[]> {
 		return await m.listOpenRouterVoiceModels();
 	} catch {
 		return [];
+	}
+}
+
+/**
+ * The voice a webpage export BAKES with — an identity chosen at export time, not read off
+ * the workspace prefs at synthesis time.
+ *
+ * Why it is its own type rather than "whatever the ladder picks". The baked voice stops
+ * being a property of the listener's settings and becomes a property of the ARTIFACT (the
+ * design doc's question 4): the recipient has no key, so the deck can only speak in the
+ * voice it left with. That makes the choice worth surfacing — and it must not write back to
+ * the workspace, because picking a different narrator for one board deck is not a decision
+ * to re-record every future rehearsal in that voice.
+ *
+ * OPENROUTER ONLY, and this is the one real constraint. The on-device Kokoro rung needs an
+ * ~80 MB model, is desktop-only, and returns WAV — several times the bytes of the same
+ * sentence as mp3, in a file the author is being asked to consent to the size of. The cloud
+ * rung serves the SAME Kokoro model (`hexgrad/kokoro-82m`, the default here and by a wide
+ * margin the cheapest speech model OpenRouter lists), so choosing it costs an author who
+ * rehearsed on-device their voice's continuity, not the voice itself.
+ */
+export type BakeVoice = { model: string; voice: string; speed: number };
+
+/** The export's DEFAULT narrator: the workspace's own cloud voice, so a deck ships sounding
+ *  like the rehearsal unless the author says otherwise. */
+export async function defaultBakeVoice(): Promise<BakeVoice> {
+	const v = await getVoice();
+	return { model: v?.orModel() ?? '', voice: v?.orVoice() ?? '', speed: v?.speedPref() ?? 1 };
+}
+
+/**
+ * The clip-store keys a deck's sentences live under FOR A CHOSEN VOICE — from the voice
+ * model's own builder, never assembled here.
+ *
+ * The key is a content-complete JSON array (voice-model.js › clipKey), so a key rebuilt by
+ * hand matches nothing and reads as "nothing cached" forever — which on this path would not
+ * merely under-report, it would re-synthesize and re-bill a deck that was already prepared.
+ * Same builder, or no lookup.
+ *
+ * Index-aligned to the input. Returns empty rows when no voice model is reachable.
+ */
+export async function bakeClipKeys(perSlide: string[][], voice: BakeVoice): Promise<string[][]> {
+	const v = await getVoice();
+	if (!v?.clipKeyFor) return perSlide.map(() => []);
+	try {
+		return perSlide.map((sentences) => sentences.map((text) => v.clipKeyFor({ rung: 'openrouter', model: voice.model, voice: voice.voice, speed: voice.speed, text })));
+	} catch {
+		return perSlide.map(() => []);
+	}
+}
+
+/** Synthesize ONE sentence in the chosen bake voice. One attempt — the caller owns the
+ *  retry policy (see narration-bake.ts). Never throws. */
+export async function synthBakeClip(text: string, voice: BakeVoice, signal?: AbortSignal, timeoutMs?: number): Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }> {
+	const v = await getVoice();
+	if (!v?.synthFor) return { ok: false, bytes: null, key: '', error: 'voice unavailable' };
+	try {
+		return await v.synthFor({ rung: 'openrouter', model: voice.model, voice: voice.voice, speed: voice.speed, text, signal, timeoutMs });
+	} catch (e) {
+		return { ok: false, bytes: null, key: '', error: (e as Error)?.message || 'synth failed' };
 	}
 }
 

@@ -333,6 +333,107 @@ describe('synthSample — the "play sample" byte source (explicit rung/voice/mod
   });
 });
 
+describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpage export bakes with)', () => {
+  const okFetch = (sink?: Array<{ model?: string; input?: string; voice?: string }>) => async (_url: string, opts: { body: string }) => {
+    sink?.push(JSON.parse(opts.body));
+    return { ok: true, status: 200, blob: async () => ({ size: 8, arrayBuffer: async () => new ArrayBuffer(8) }) };
+  };
+
+  it('synthesizes ARBITRARY text in an explicitly named model + voice', async () => {
+    const requests: Array<{ model?: string; input?: string; voice?: string }> = [];
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: okFetch(requests) });
+    model.setOrModel('the-workspace-model');
+    model.setOrVoice('the-workspace-voice');
+    const res = await model.synthFor({ rung: 'openrouter', text: 'A sentence from the deck.', model: 'the-export-model', voice: 'the-export-voice' });
+    expect(res.ok).toBe(true);
+    expect(requests[0]).toMatchObject({ model: 'the-export-model', voice: 'the-export-voice', input: 'A sentence from the deck.' });
+  });
+
+  it('does NOT write the chosen voice back to the workspace prefs', async () => {
+    // Picking a different narrator for one board deck is not a decision to re-record every
+    // future rehearsal in that voice. The export panel's choice is per-export, full stop.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: okFetch() });
+    model.setOrModel('the-workspace-model');
+    model.setOrVoice('the-workspace-voice');
+    await model.synthFor({ rung: 'openrouter', text: 'Anything.', model: 'other-model', voice: 'other-voice' });
+    expect(model.orModel()).toBe('the-workspace-model');
+    expect(model.orVoice()).toBe('the-workspace-voice');
+  });
+
+  it('clipKeyFor predicts EXACTLY the key synthFor stores under', async () => {
+    // The whole cache-first bake rests on this. A key the export rebuilt by hand would match
+    // nothing, read as "nothing prepared", and re-bill a deck that was already paid for — so
+    // the predicted key and the produced key must be the same string, not merely similar.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: okFetch() });
+    const id = { rung: 'openrouter' as const, text: 'A sentence from the deck.', model: 'm', voice: 'v', speed: 1.25 };
+    const predicted = model.clipKeyFor(id);
+    const produced = await model.synthFor(id);
+    expect(produced.key).toBe(predicted);
+    expect(predicted).toContain('A sentence from the deck.');
+  });
+
+  it("clipKeyFor agrees with the ACTIVE-rung clipKey when the identity it names IS the active one", async () => {
+    // The bake looks up clips the LIVE reader synthesized. If these two builders disagreed,
+    // a fully rehearsed deck would report nothing cached and re-synthesize every sentence.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: okFetch() });
+    model.setOrModel('active-model');
+    model.setOrVoice('active-voice');
+    model.setSpeed(1.1);
+    expect(model.clipKeyFor({ rung: 'openrouter', text: 'Same sentence.', model: 'active-model', voice: 'active-voice', speed: 1.1 })).toBe(model.clipKey('Same sentence.'));
+  });
+
+  it('each part of the identity changes the key — none of them can be dropped', () => {
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+    const base = { rung: 'openrouter' as const, text: 't', model: 'm', voice: 'v', speed: 1 };
+    const k = model.clipKeyFor(base);
+    for (const change of [{ text: 'u' }, { model: 'n' }, { voice: 'w' }, { speed: 1.25 }]) {
+      expect(model.clipKeyFor({ ...base, ...change }), JSON.stringify(change)).not.toBe(k);
+    }
+    expect(model.clipKeyFor({ ...base, rung: 'kokoro' })).not.toBe(k);
+  });
+
+  it('returns an empty key rather than a plausible one for an unknown tier', () => {
+    // '' is the honest answer — there is no key — and it can never collide with a real entry.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test' });
+    expect(model.clipKeyFor({ rung: 'nope' as unknown as 'openrouter', text: 't' })).toBe('');
+  });
+
+  it('reports an unready rung instead of throwing, so the bake can name the reason', async () => {
+    const model = createVoiceModel({ getOpenRouterKey: () => null });
+    const res = await model.synthFor({ rung: 'openrouter', text: 'Anything.' });
+    expect(res).toMatchObject({ ok: false, bytes: null });
+    expect(res.error).toContain('not connected');
+  });
+
+  it('makes ONE attempt — the retry policy belongs to the caller', async () => {
+    // A bake backs off and retries; an audition should fail at once. Two opposite policies, so
+    // this layer reports the outcome and neither one is baked in here.
+    let fetchCalls = 0;
+    const model = createVoiceModel({
+      getOpenRouterKey: () => 'sk-test',
+      fetchImpl: async () => {
+        fetchCalls++;
+        return { ok: false, status: 429, text: async () => 'rate limited' };
+      },
+    });
+    expect((await model.synthFor({ rung: 'openrouter', text: 'Anything.' })).ok).toBe(false);
+    expect(fetchCalls).toBe(1);
+  });
+
+  it('honors a caller-set timeout rather than the sample path\'s fixed 20s', async () => {
+    vi.useFakeTimers();
+    try {
+      const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: () => new Promise(() => {}) });
+      const p = model.synthFor({ rung: 'openrouter', text: 'Anything.', timeoutMs: 45000 });
+      await vi.advanceTimersByTimeAsync(20000);
+      await vi.advanceTimersByTimeAsync(25000);
+      await expect(p).resolves.toMatchObject({ ok: false, error: expect.stringContaining('45s') });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 // Abort-aware mock: rejects the moment its signal aborts, exactly like the real
 // openRouterRung (fetch) / kokoroRung (worker) do — a mock that ignores abort would
 // make a stop-mid-synth test hang for the real 20s internal timeout.
