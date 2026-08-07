@@ -32,11 +32,22 @@
  * The baseline is not "zero" — several gallery slides already overflow at square
  * on `main`. The oracle's job is to freeze that set, not to assert it is empty.
  *
+ * A THIRD half, added for #1234 group E: the CONFORMANCE pass. The probe above reads
+ * three hand-picked components, and the oracle covers all 33 but records only whether
+ * they CLIP — so for 30 of 33 components nothing checked that their `[data-family]`
+ * rules do anything at all. That is the same shape of hole as the one in the first
+ * paragraph. `--conformance` derives, per (component × @size), whether the tier MATCHED
+ * and whether it CHANGED a computed value against the `wide` baseline, and freezes the
+ * result in `test/oracle/family-conformance.json`.
+ *
  * Usage: node tools/check-family-tiers.js [--bless]
  *        node tools/check-family-tiers.js --ladder    # reconcile the two blessed
  *          oracles per @size (reads committed JSON only — no browser, no render)
  *        node tools/check-family-tiers.js --presets   # what differs per @size:
  *          family, orientation, --canvas-scale, measured body/h2 px (report only)
+ *        node tools/check-family-tiers.js --conformance [--bless]
+ *          does every component's family tier actually fire? 165 derived cells from the
+ *          same five sweep renders the clip oracle needs (npm run check:family-conformance)
  * Exit 1 on any disagreement; skips loudly with no Chromium.
  */
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -140,56 +151,97 @@ function familyReflowingComponents() {
   return [...out].filter((c) => real.has(c)).sort();
 }
 
+// ── The gallery roster ─────────────────────────────────────────────────────
 /**
- * One gallery slide per component, in a deck at `size`. The gallery is the
- * repo's own canonical authoring — if a component clips THERE, it clips for a
- * user who followed the docs.
+ * Read the `_class:` directive's TOKENS out of a slide body.
+ *
+ * By value, not by substring. An earlier cut built a RegExp per component from its name
+ * with only `-` hand-escaped, which CodeQL flagged (incomplete escaping) and which would
+ * misfire on any name carrying a regex metacharacter. Comparing tokens has no escaping
+ * problem to get wrong, and it is also more accurate: a substring match would let `list`
+ * claim a `list-tabular` slide.
  */
-function sweepDeck(size, comps) {
-  const gallery = fs.readFileSync(path.join(ROOT, 'test', 'integration', 'baseline-decks', 'gallery.md'), 'utf8');
-  const slides = gallery.split(/^---\s*$/m);
-  const picked = [];
-  // Read the `_class:` directive's TOKENS and compare by value. An earlier cut
-  // built a RegExp per component from its name with only `-` hand-escaped, which
-  // CodeQL flagged (incomplete escaping) and which would misfire on any name
-  // carrying a regex metacharacter. Comparing tokens has no escaping problem to
-  // get wrong, and it is also more accurate: a substring match would let
-  // `list` claim a `list-tabular` slide.
-  const classTokens = (slide) => {
-    const out = new Set();
-    for (const m of slide.matchAll(/<!--\s*_?class:([^-]*(?:-(?!->)[^-]*)*)-->/g)) {
-      for (const t of m[1].trim().split(/\s+/)) if (t) out.add(t);
+function classTokens(slide) {
+  const out = new Set();
+  for (const m of slide.matchAll(/<!--\s*_?class:([^-]*(?:-(?!->)[^-]*)*)-->/g)) {
+    for (const t of m[1].trim().split(/\s+/)) if (t) out.add(t);
+  }
+  return out;
+}
+
+let CANDIDATE_CACHE = null;
+/**
+ * Every gallery slide that names component `c`, in preference order: the shared baseline
+ * deck first, then the component's own `<c>.gallery.md`.
+ *
+ * The baseline deck leads because HARD RULE #8 keeps feature work out of the six
+ * long-running galleries, so a slide there is the stable choice — and it is the slide an
+ * author following the docs writes first.
+ *
+ * The component's own gallery is a FALL BACK rather than a reason to add slides to the
+ * baseline deck (again #8), and a component with neither is a hard error. Silently
+ * skipping is how the record came to claim 34 components while rendering 31: `premise`
+ * and `video` have no baseline slide, so the two components a change gave new reflows
+ * were the two it never measured — which is exactly why a regression that put premise's
+ * own `<h2>` off the top of the frame passed every gate.
+ */
+function galleryCandidates(c) {
+  if (!CANDIDATE_CACHE) {
+    CANDIDATE_CACHE = new Map();
+    const { loadAll, manifestBucket } = require('../lib/components');
+    const gallery = fs.readFileSync(path.join(ROOT, 'test', 'integration', 'baseline-decks', 'gallery.md'), 'utf8');
+    const baseline = gallery.split(/^---\s*$/m).map((s) => ({ s, tokens: classTokens(s) }));
+    for (const m of loadAll()) {
+      const own = [];
+      const p = path.join(ROOT, 'lib', 'components', manifestBucket(m), m.name, `${m.name}.gallery.md`);
+      if (fs.existsSync(p)) {
+        for (const s of fs.readFileSync(p, 'utf8').split(/^---\s*$/m)) {
+          const tokens = classTokens(s);
+          // `title` slides are the gallery's own chapter headings, not the component.
+          if (tokens.has(m.name) && !tokens.has('title')) own.push({ s, tokens });
+        }
+      }
+      CANDIDATE_CACHE.set(m.name, [...baseline.filter((x) => x.tokens.has(m.name)), ...own]
+        .map((x) => ({ body: x.s.trim(), tokens: x.tokens })));
     }
-    return out;
-  };
-  const tokenised = slides.map((s) => ({ s, tokens: classTokens(s) }));
-  // FALL BACK to the component's OWN gallery deck when the shared baseline has no
-  // slide for it, and hard-fail if neither does. Silently skipping is how the
-  // record came to claim 34 components while rendering 31: `premise` and `video`
-  // have no baseline slide, so the two components this change gave new reflows
-  // were the two it never measured — which is exactly why a regression that put
-  // premise's own `<h2>` off the top of the frame passed every gate.
-  // Falling back rather than adding slides to the baseline deck is deliberate:
-  // HARD RULE #8 keeps feature work out of the six long-running galleries.
-  const { loadAll, manifestBucket } = require('../lib/components');
-  const byName = new Map(loadAll().map((m) => [m.name, m]));
-  const ownGallerySlide = (c) => {
-    const m = byName.get(c);
-    if (!m) return null;
-    const p = path.join(ROOT, 'lib', 'components', manifestBucket(m), c, `${c}.gallery.md`);
-    if (!fs.existsSync(p)) return null;
-    const own = fs.readFileSync(p, 'utf8').split(/^---\s*$/m);
-    const hit = own.map((s) => ({ s, tokens: classTokens(s) }))
-      .find((x) => x.tokens.has(c) && !x.tokens.has('title'));
-    return hit ? hit.s.trim() : null;
-  };
-  const unrenderable = [];
+  }
+  return CANDIDATE_CACHE.get(c) || [];
+}
+
+/** Wrap slide bodies in a deck at `size`. */
+function deckSource(size, bodies) {
+  // The deck carries NO split directive — there is none to carry. These sweeps measure
+  // the UN-SPLIT terminal of the Fit Ladder on purpose ("what clips when nothing
+  // paginates"), which is INSTRUMENTATION, so it is bought with the emulator's
+  // `--no-split` flag at the call site below rather than with a line in the deck. Without
+  // it the sweep would paginate, the 1:1 page↔slide mapping would break, and the record
+  // would quietly start measuring something else entirely.
+  return `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
+    + bodies.join('\n\n---\n\n') + '\n';
+}
+
+/**
+ * THE CLIP ROSTER — one gallery slide per component, the FIRST candidate.
+ *
+ * The question this deck answers is "does this component's canonical slide overflow at
+ * this @size", so it wants the slide an author is most likely to write, held STABLE
+ * across unrelated edits. `galleryCandidates` already orders baseline-first for exactly
+ * that reason, so first-wins is the answer — not a score.
+ *
+ * A previous cut had this roster follow the CONFORMANCE score below, on the theory that
+ * both passes want "the slide that exercises the reflow". They do not, and the cost was
+ * concrete: it moved seven components off the #8-protected baseline deck onto their own
+ * galleries (which ordinary feature work edits freely), dropped four verified true
+ * positives from the record, and blessed four new ones — including `math`, whose hero
+ * equation runs 1884px off a portrait canvas with `enrolled: false`, i.e. no split
+ * recourse. A clip record is a merge gate; it is the wrong place to be clever.
+ */
+function clipDeck(size, comps) {
+  const picked = [], unrenderable = [];
   for (const c of comps) {
-    const hit = tokenised.find((x) => x.tokens.has(c));
-    if (hit) { picked.push({ comp: c, body: hit.s.trim() }); continue; }
-    const own = ownGallerySlide(c);
-    if (own) { picked.push({ comp: c, body: own }); continue; }
-    unrenderable.push(c);
+    const cands = galleryCandidates(c);
+    if (!cands.length) { unrenderable.push(c); continue; }
+    picked.push({ comps: [c], body: cands[0].body });
   }
   if (unrenderable.length) {
     throw new Error(
@@ -198,23 +250,60 @@ function sweepDeck(size, comps) {
       + 'coverage it does not have; give the component a gallery slide or remove it from the roster.',
     );
   }
-  // The deck carries NO split directive — there is none to carry. This record measures
-  // the UN-SPLIT terminal of the Fit Ladder on purpose ("what clips when nothing
-  // paginates"), which is INSTRUMENTATION, so it is bought with the emulator's
-  // `--no-split` flag at the call site below rather than with a line in the deck. Without
-  // it the sweep would paginate, the 1:1 page↔component mapping would break, and the
-  // record would quietly start measuring something else entirely.
-  const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
-    + picked.map((p) => p.body).join('\n\n---\n\n') + '\n';
-  return { src, comps: picked.map((p) => p.comp) };
+  return { src: deckSource(size, picked.map((p) => p.body)), slides: picked };
 }
 
-/** Render one sweep and return the component names whose slide overflowed. */
-function clippedAt(size, comps) {
-  const { src, comps: order } = sweepDeck(size, comps);
-  const file = path.join(ROOT, '.scratch', `family-sweep-${size}.md`);
+/**
+ * THE CONFORMANCE ROSTER — EVERY gallery slide a family rule could reach.
+ *
+ * The conformance question is different from the clip question: "does every rule this
+ * component ships for this family actually do something", which one slide cannot answer.
+ * A component whose reflow is scoped to a variant (`q-and-a`'s rules are scoped `.grid`)
+ * or scoped AGAINST one (`list-steps`' are `:not(.timeline)`) has rules that the first
+ * candidate cannot match — so a one-slide roster reported `unexercised` for a live tier,
+ * or worse, let a matched sibling rule vote green for it.
+ *
+ * The fix is to stop choosing. Rendering every candidate costs about ten seconds a size
+ * (321 slides, measured) against roughly one for 33, which is nothing on a nightly — so
+ * the roster is not a judgement call any more, and `unexercised` recovers its real
+ * meaning: NO gallery slide anywhere carries what this rule targets.
+ *
+ * Deduped by slide BODY, because one baseline slide can name two components (the
+ * `compare-prose decision` slide is one page serving both) and rendering it twice would
+ * measure the same pixels twice.
+ */
+function conformanceDeck(size, comps) {
+  const byBody = new Map();
+  for (const c of comps) {
+    for (const cand of galleryCandidates(c)) {
+      let e = byBody.get(cand.body);
+      if (!e) { e = { body: cand.body, comps: [] }; byBody.set(cand.body, e); }
+      if (!e.comps.includes(c)) e.comps.push(c);
+    }
+  }
+  const slides = [...byBody.values()];
+  if (!slides.length) throw new Error('family-conformance: no gallery slides for any rostered component.');
+  return { src: deckSource(size, slides.map((s) => s.body)), slides };
+}
+
+/**
+ * Render one sweep deck and return `{ log, html, slides }` — the emulator's combined
+ * output, the path to the `.html` sidecar it wrote, and the page↔slide roster.
+ *
+ * ONE renderer for both halves of this file. The clip oracle greps `log`; the
+ * conformance pass (below) opens `html` in a browser and reads computed style. They ask
+ * different questions and now render different DECKS (`clipDeck` vs `conformanceDeck`),
+ * but the render, the sentinel and the artifact handling are identical and belong in one
+ * place.
+ */
+function renderSweep(size, deck, tag) {
+  const { src, slides } = deck;
+  const file = path.join(ROOT, '.scratch', `family-sweep-${tag}-${size}.md`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, src);
+  // Keep the artifact where the conformance pass can find it. The emulator writes its
+  // `.html` sidecar beside the PDF it is given, so naming the PDF names the HTML.
+  const pdf = path.join(os.tmpdir(), `fs-${tag}-${size}-${process.pid}.pdf`);
   let log = '';
   try {
     // BOTH streams. The overflow warning goes to STDERR, and an stdout-only read
@@ -225,7 +314,7 @@ function clippedAt(size, comps) {
     // "no overflow" become the same string and the sentinel below has nothing to
     // check. The `HTML: N slides` tally is the proof the read worked.
     const r = spawnSync(process.execPath,
-      [path.join(ROOT, 'lattice-emulator.js'), file, path.join(os.tmpdir(), `fs-${size}-${process.pid}.pdf`), 'indaco', '--no-split'],
+      [path.join(ROOT, 'lattice-emulator.js'), file, pdf, 'indaco', '--no-split'],
       { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
     if (r.error) throw r.error;
     if (r.status !== 0) throw new Error(`emulator exited ${r.status} for ${size}:\n${r.stderr || r.stdout}`);
@@ -241,6 +330,12 @@ function clippedAt(size, comps) {
   if (!/HTML:\s*\d+\s*slides?/i.test(log)) {
     throw new Error(`family-overflow oracle: unrecognizable emulator output for ${size} — cannot tell "clean" from "not read". Output was:\n${log.slice(0, 400)}`);
   }
+  return { log, html: pdf.replace(/\.pdf$/, '.html'), slides };
+}
+
+/** The component names whose slide overflowed in one sweep. */
+function clippedAt(size, comps) {
+  const { log, slides } = renderSweep(size, clipDeck(size, comps), 'clip');
   // The emitted line wraps, so match across it: "⚠ OVERFLOW … pages 3, 7, 11."
   const m = log.match(/OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/);
   if (!m) return [];
@@ -248,9 +343,9 @@ function clippedAt(size, comps) {
   // `autosplit`, so the 1:1 page↔component mapping holds. A component that split
   // would break it, which is why a page number past the roster is a hard error.
   return m[1].split(',').map((n) => parseInt(n.trim(), 10)).filter(Boolean).map((n) => {
-    const c = order[n - 1];
-    if (!c) throw new Error(`family-overflow oracle: page ${n} has no component (a slide split?) — the page↔component mapping is broken; fix the sweep before trusting this record.`);
-    return c;
+    const s = slides[n - 1];
+    if (!s) throw new Error(`family-overflow oracle: page ${n} has no component (a slide split?) — the page↔component mapping is broken; fix the sweep before trusting this record.`);
+    return s.comps[0];
   }).sort();
 }
 
@@ -375,7 +470,463 @@ function ladderReport() {
   return 0;
 }
 
-if (process.argv.includes('--ladder')) process.exit(ladderReport());
+// ── The CONFORMANCE pass — does every component's family tier actually FIRE? ──
+/**
+ * The hole this closes is the one this file's own header confesses: the probe half
+ * asserts a tier fires for THREE hand-picked components, and the overflow oracle covers
+ * all 33 but records only whether they CLIP. So for 30 of 33 components, nothing checks
+ * that their `[data-family]` rules do anything at all — which is exactly the failure that
+ * killed the gate this one replaced, where the square tier was inert for its entire life
+ * while every check stayed green.
+ *
+ * #1234 group E asked for this as "~97 of 265 conformance cells are UNVERIFIED — re-run
+ * with a render budget". That table was hand-marked, lived only in `.scratch/`, and is
+ * gone. Re-marking it by hand would rebuild the very thing the issue is about: an
+ * assertion written down once and never re-derived. So the cells are DERIVED here instead,
+ * and the budget turned out to be small: one deck per @size carrying every gallery slide of
+ * every rostered component renders in about ten seconds, so the pass reads the DOM of five
+ * renders rather than adding 165.
+ *
+ * A cell is an aggregate of PER-RULE facts, and every rule the component ships for that
+ * family is in the denominator. `fires` means all of them had an effect — matched on at
+ * least one of the component's own gallery slides, and moved a property they declare when
+ * the family stamp came off THAT render. Anything less prints as `n/m` plus tags that name
+ * the shortfall: `inert` (element present, predicate did not match — the #1218 bug this
+ * pass exists to catch), `unexercised` (no gallery slide anywhere carries what the rule
+ * targets — a gap in the galleries, not a defect), `no-effect` (matched, nothing moved),
+ * `no-baseline` (matched, but cannot be switched off without losing the element, so the
+ * pass is blind). `n/a` means nothing was promised for that family.
+ *
+ * The `wide` column is `n/a` by construction: `wide` is the ABSENCE of the stamp
+ * (`familySelector('wide')` is `:where(section:not([data-family]))`), so no
+ * `[data-family=…]` rule can match there. That is what makes it the baseline.
+ */
+const CONFORMANCE_ORACLE = path.join(ROOT, 'test', 'oracle', 'family-conformance.json');
+
+/**
+ * Markers only the SPLITTER puts on a page (`lib/core/auto-split.js`, `lib/core/carousel.js`).
+ * These sweeps render `--no-split` deliberately — they measure the un-split terminal of the
+ * Fit Ladder — so a family rule scoped to one of them cannot be exercised here no matter
+ * which slides are in the deck. Four of `kanban`'s seven tall rules are in this class. That
+ * is a REACH limit of this instrument, not a gap in the galleries, and the two must not be
+ * reported with the same words.
+ */
+const SPLIT_ONLY_MARKER = /\blat-split-native\b|\[data-split-role/;
+
+/**
+ * The same selector with its family predicate removed, so the SAME element can be found
+ * in the `wide` render for comparison.
+ *
+ * Without this the effect test is vacuous: at `wide` the section carries no `data-family`
+ * attribute, so a family-scoped selector matches nothing, every property reads as
+ * "different from a baseline that does not exist", and every cell says `fires` — a green
+ * that means nothing. Caught by prototyping the pass before trusting it.
+ */
+function descopeFamily(sel) {
+  const bare = sel
+    // `:where([data-family="tall"], [data-family="strip"])` — the house idiom, zero
+    // specificity so removing it cannot change which rule wins in the baseline.
+    .replace(/:where\(\s*\[data-family[^()]*\)/g, '')
+    // …and a bare `[data-family="tall"]` written inline.
+    .replace(/\[data-family(?:\s*[~^$*|]?=\s*(?:"[^"]*"|'[^']*'|[\w-]+))?\]/g, '')
+    .replace(/\s{2,}/g, ' ').trim();
+  // A selector that was ONLY the family predicate de-scopes to nothing; there is no
+  // element to compare against, so the caller must skip the effect test rather than
+  // guess.
+  return bare && !/^[>+~,]/.test(bare) ? bare : null;
+}
+
+/**
+ * Read the family-scoped rules out of a rendered page's own stylesheets.
+ *
+ * From the PAGE rather than from `dist/lattice.css`, deliberately: what matters is the
+ * rule set the browser actually resolved, after the bundle, the theme and any `@media`
+ * nesting. Reading the source file would be measuring a different artifact from the one
+ * the components are laid out by.
+ */
+async function readFamilyRules(browser, html) {
+  const page = await browser.newPage();
+  try {
+    await page.goto(`file://${path.resolve(html)}`, { waitUntil: 'networkidle0', timeout: 120000 });
+    return await page.evaluate(() => {
+      const rules = [];
+      const walk = (list) => {
+        for (const r of list) {
+          // A CSSStyleRule ALSO exposes `.cssRules` (CSS nesting), and an EMPTY
+          // CSSRuleList is TRUTHY — so a naive `if (r.cssRules) recurse; else record`
+          // records nothing at all. Recurse on LENGTH; record on selectorText.
+          if (r.selectorText && /data-family/.test(r.selectorText)) {
+            const props = [];
+            for (let i = 0; i < r.style.length; i++) props.push(r.style[i]);
+            if (props.length) rules.push({ sel: r.selectorText, props });
+          }
+          // `?.length` keeps the trap closed: undefined -> falsy, and an EMPTY (but truthy)
+          // CSSRuleList -> 0 -> falsy. Recursing on truthiness alone is what found 0 rules.
+          if (r.cssRules?.length) walk(r.cssRules);
+        }
+      };
+      for (const sheet of document.styleSheets) {
+        let list; try { list = sheet.cssRules; } catch { continue; }
+        walk(list);
+      }
+      return rules;
+    });
+  } finally { await page.close(); }
+}
+
+/**
+ * For one rendered sweep, per slide: which of `rules` match, what they compute, and what
+ * the same element computes through the DE-SCOPED selector (the `wide` baseline read).
+ */
+async function measureSweep(browser, html, rules) {
+  const page = await browser.newPage();
+  try {
+    await page.goto(`file://${path.resolve(html)}`, { waitUntil: 'networkidle0', timeout: 120000 });
+    return await page.evaluate((rs) => {
+      const per = [];
+      document.querySelectorAll('section[data-lattice-slide]').forEach((sec) => {
+        const fam = sec.getAttribute('data-family') || 'wide';
+        const scoped = {}, reachable = {}, withoutStamp = {};
+
+        // A rule may target a PSEUDO-element, and `querySelectorAll` can never match one.
+        // Ten of the catalog's 142 family rules are pseudo-only — three of them are the whole
+        // visible substance of `cycle`'s tall reflow (the chevron, the return arc, the glyph)
+        // — so a pass that skips them reports green while they are dead. Split the pseudo off
+        // the selector, match the real element, and read the pseudo's own computed style.
+        const split = (sel) => {
+          const m = String(sel || '').match(/^(.*?)(::?(?:before|after|marker|placeholder))\s*$/);
+          return m ? { base: m[1].trim(), pseudo: m[2].replace(/^:?:/, '::') } : { base: sel, pseudo: null };
+        };
+        const pick = (sel) => {
+          const { base, pseudo } = split(sel);
+          if (!base) return null;
+          let els = [];
+          try { els = [...sec.querySelectorAll(base)]; } catch { return null; }
+          let self = false; try { self = sec.matches(base); } catch { /* not valid on a section */ }
+          if (self) els = [sec, ...els];
+          return els.length ? { el: els[0], pseudo } : null;
+        };
+        const read = (hit, props) => {
+          const cs = getComputedStyle(hit.el, hit.pseudo || undefined);
+          return props.map((k) => cs.getPropertyValue(k));
+        };
+
+        // PASS 1 — the rule as it ships. `reachable` records whether the rule's target element
+        // exists at all (via the de-scoped selector), which is what separates a DEAD tier from
+        // one this slide simply never exercises.
+        for (const r of rs) {
+          const hit = pick(r.sel);
+          if (hit) scoped[r.sel] = read(hit, r.props);
+          if (pick(r.descoped)) reachable[r.sel] = true;
+        }
+
+        // PASS 2 — THE A/B. Remove the family stamp from this section and read the same
+        // element again, in the SAME render, at the SAME viewport.
+        //
+        // This replaces a baseline taken from the `hd` render, which was confounded and is the
+        // reason this pass shipped unable to fail. Every `--sp-*` rides `--canvas-scale` and
+        // every `--fs-*` rides `cqi`, so ANY rule declaring a scale-derived length reads a
+        // different px at portrait than at hd whether or not the family predicate did anything.
+        // Measured on the catalog: 87 of 101 `fires` verdicts rested on at least one such
+        // length. Proven by three independent mutations that the gate did not catch —
+        // `verdict-grid`'s tier reverted outright (column -> row), `compare-prose`'s rule made a
+        // byte-for-byte no-op, and all three of `cycle`'s pseudo rules killed.
+        //
+        // Dropping the attribute makes exactly one thing false — the family predicate — and
+        // holds the box, the tokens, the DOM and the cascade fixed. So a difference here IS the
+        // rule's effect, and nothing else can produce one.
+        if (fam !== 'wide') {
+          sec.removeAttribute('data-family');
+          void sec.offsetHeight; // force a style recalculation before reading back
+          for (const r of rs) {
+            if (!scoped[r.sel]) continue;
+            // With the stamp gone the scoped selector cannot match, so the same element has to
+            // be re-found through the de-scoped one. A rule whose selector de-scopes to nothing
+            // has no readable "off" state; it is left absent and reported as `no-baseline`.
+            const off = pick(r.descoped);
+            if (off) withoutStamp[r.sel] = read(off, r.props);
+          }
+          sec.setAttribute('data-family', fam);
+        }
+        per.push({ family: fam, scoped, reachable, withoutStamp });
+      });
+      return per;
+    }, rules);
+  } finally { await page.close(); }
+}
+
+/**
+ * The conformance pass. Renders one sweep per @size (the same five the clip oracle
+ * needs), and returns `{ [size]: { [component]: verdict } }`.
+ */
+async function conformanceSweep(browser, comps) {
+  // `hd` is rendered like any other size, not treated as a baseline. It USED to be the
+  // baseline, and that was the defect: comparing an element at hd against itself at portrait
+  // measures the viewport, not the family predicate. The A/B now happens inside each render
+  // (measureSweep), so hd is here only to DERIVE its own row rather than assert it — a
+  // hardcoded `n/a` column would be 20% of the advertised cells taken on faith.
+  const wide = renderSweep('hd', conformanceDeck('hd', comps), 'conf');
+  const rules = (await readFamilyRules(browser, wide.html))
+    .map((r) => ({ ...r, descoped: descopeFamily(r.sel) }));
+
+  // FLOOR SENTINEL. The rule reader has already failed once by returning nothing (an empty
+  // CSSRuleList is truthy, so every rule recursed into its own empty children). If it fails
+  // that way again, every cell becomes `n/a` and `--bless` would freeze a record that asserts
+  // nothing and is green forever. The clip oracle guards its read with a sentinel for exactly
+  // this reason; this one has to as well.
+  if (rules.length < 100) {
+    throw new Error(
+      `family-conformance: read only ${rules.length} family-scoped rules from the rendered bundle — `
+      + 'the catalog has ~142 and this pass has failed by reading ZERO before. Refusing to derive '
+      + 'a table (or bless one) from a read that is probably broken.',
+    );
+  }
+
+  // Only the rules that NAME a component are its promise. A rule matching inside its slide
+  // but belonging to shared chrome (the masthead carries family rules too) is not that
+  // component's tier, and counting it would let a component inherit a green it never earned.
+  // Negations are stripped first: `:not(.stats)` inside a `math` selector is not `stats`
+  // promising anything — it is `math` promising to exclude it.
+  const positive = (sel) => sel.replace(/:not\([^()]*\)/g, ' ');
+  const rulesFor = new Map(comps.map((c) => [c,
+    rules.filter((x) => new RegExp(`(^|[^\\w-])${c}([^\\w-]|$)`).test(positive(x.sel)))]));
+
+  // Every rule that fell short of `effect`, with its selector. The cell strings carry the
+  // COUNTS (they are the record, and a record has to diff cleanly); this carries the NAMES,
+  // printed but never blessed, so "kanban: 3/7 unexercised:4" is something a human can act
+  // on instead of a number to shrug at.
+  const shortfall = [];
+  const table = {};
+  for (const s of SIZES) {
+    const r = s.size === 'hd' ? wide : renderSweep(s.size, conformanceDeck(s.size, comps), 'conf');
+    const per = await measureSweep(browser, r.html, rules);
+    fs.rmSync(r.html, { force: true });
+    if (per.length !== r.slides.length) {
+      throw new Error(
+        `family-conformance: rendered ${r.slides.length} slides at ${s.size} but measured ${per.length} `
+        + '— the page↔slide mapping is broken and every verdict below it would be attributed to the '
+        + 'wrong component. Fix the sweep before trusting this record.',
+      );
+    }
+    // Which probe slides serve which component. A component is judged ONLY on its own
+    // slides — a rule naming `list` is not tested against a `kpi` page.
+    const probesOf = new Map(comps.map((c) => [c, []]));
+    r.slides.forEach((sl, i) => { for (const c of sl.comps) probesOf.get(c)?.push(per[i]); });
+
+    table[s.size] = {};
+    for (const comp of comps) {
+      const probes = probesOf.get(comp) || [];
+      if (!probes.length) { table[s.size][comp] = 'unrendered'; continue; }
+      // Every probe of a component sits in the same deck at the same @size, so they all carry
+      // the same family stamp; read it off the first.
+      const family = probes[0].family;
+      const forFamily = (rulesFor.get(comp) || []).filter((x) => x.sel.includes(`"${family}"`));
+      if (!forFamily.length) { table[s.size][comp] = 'n/a'; continue; }
+
+      // PER RULE, ACROSS EVERY PROBE. This is what the full roster buys. Before it, the sweep
+      // rendered ONE slide per component and a rule scoped to a variant that slide did not
+      // carry read as `unexercised` — a coverage gap in the instrument reported as a fact
+      // about the component. Now a rule is `unexercised` only when NO gallery slide anywhere
+      // carries what it targets, which is a real finding worth a human.
+      const tally = { effect: 0, 'no-effect': 0, 'no-baseline': 0, inert: 0, unexercised: 0 };
+      const note = (k, sel) => { tally[k] += 1; if (k !== 'effect') shortfall.push({ size: s.size, comp, kind: k, sel }); };
+      for (const x of forFamily) {
+        const hits = probes.filter((p) => p.scoped[x.sel]);
+        if (!hits.length) {
+          // NOTHING matched on any probe — two very different reasons, and calling both
+          // `inert` would cry wolf. If the rule's non-family part finds no element either,
+          // no slide carries what the rule targets (a variant it is scoped to, or one it
+          // excludes) and the tier was never exercised. If the de-scoped selector DOES find
+          // the element, the family predicate is the only thing that failed — #1218 exactly.
+          note(probes.some((p) => p.reachable[x.sel]) ? 'inert' : 'unexercised', x.sel);
+          continue;
+        }
+        // THE EFFECT TEST — same element, same render, same viewport, stamp on vs stamp off.
+        // A rule counts as having an effect only if ITS OWN declared properties move; a
+        // sibling rule moving is not evidence about this one. (An early cut took `.some()`
+        // across all matched rules against a different-SIZED render, so one sibling reading a
+        // different px voted `fires` for a tier that had been reverted outright.)
+        // Across probes it IS `some`, and that is the right quantifier here: the claim under
+        // test is "this rule does something", so one slide demonstrating it settles the rule.
+        if (hits.some((p) => {
+          const on = p.scoped[x.sel], off = p.withoutStamp[x.sel];
+          return off && on.some((v, k) => v !== off[k]);
+        })) { note('effect', x.sel); continue; }
+        // No probe moved. Distinguish "measured, nothing changed" from "could not measure":
+        // a selector that de-scopes to nothing cannot be switched off without also losing the
+        // element, and that is the instrument admitting it is blind, not a verdict about the
+        // component. An earlier pass called this `no-effect` and published a diagnosis
+        // ("redundant, or losing a cascade fight") that was false for all three instances.
+        note(hits.some((p) => p.withoutStamp[x.sel]) ? 'no-effect' : 'no-baseline', x.sel);
+      }
+
+      // EVERY rule the component ships for this family must earn its own green — and the
+      // denominator is `forFamily`, not "the ones that happened to match". Excusing the
+      // unmatched ones is how a cell read `fires` while 4 of 7 rules were never tested.
+      const m = forFamily.length;
+      if (tally.effect === m) { table[s.size][comp] = 'fires'; continue; }
+      // Most-alarming first, and always both the count and the reasons, so the record can
+      // never say "green-ish" without saying what is wrong and how much of it.
+      const tags = ['inert', 'unexercised', 'no-effect', 'no-baseline']
+        .filter((k) => tally[k]).map((k) => `${k}:${tally[k]}`);
+      table[s.size][comp] = `${tally.effect}/${m} ${tags.join(' ')}`;
+    }
+  }
+  return {
+    table, shortfall, ruleCount: rules.length, probeCount: conformanceDeck('hd', comps).slides.length,
+  };
+}
+
+/**
+ * `--conformance` — run the pass, print the table, and check it against the committed
+ * record (or rewrite that record with `--bless`).
+ *
+ * Exceed-only would be the wrong shape here. A cell going `fires` → `inert` is the
+ * regression this exists to catch, but `inert` → `fires` is someone FIXING a dead tier
+ * and the record has to move with it; and `fires` → `n/a` means a component quietly
+ * dropped a family rule it used to ship. So the check is EXACT, and any drift asks for a
+ * re-bless with the diff in front of you.
+ */
+async function conformanceReport(browser) {
+  const comps = familyReflowingComponents();
+  const { table, shortfall, ruleCount, probeCount } = await conformanceSweep(browser, comps);
+  const sizes = Object.keys(table);
+  const tally = {};
+  for (const s of sizes) for (const v of Object.values(table[s])) tally[v] = (tally[v] || 0) + 1;
+
+  const w = Math.max(...comps.map((c) => c.length), 9);
+  const cw = Math.max(...Object.values(table).flatMap((r) => Object.values(r)).map((v) => v.length), 8) + 2;
+  console.log(`\nfamily-tier CONFORMANCE — ${comps.length} components x ${sizes.length} @sizes `
+    + `= ${comps.length * sizes.length} cells, from ${ruleCount} family-scoped rules `
+    + `measured across ${probeCount} gallery slides per @size\n`);
+  console.log(`${'component'.padEnd(w)}  ${sizes.map((s) => s.padEnd(cw)).join('')}`);
+  for (const c of comps) {
+    console.log(`${c.padEnd(w)}  ${sizes.map((s) => String(table[s][c] || '—').padEnd(cw)).join('')}`);
+  }
+  console.log(`\n  ${Object.entries(tally).sort().map(([k, v]) => `${k}: ${v}`).join(' · ')}`);
+  console.log('  fires     = EVERY rule the component ships for this family had an effect: it matched on');
+  console.log('              at least one of its gallery slides, and removing the stamp IN THAT RENDER');
+  console.log('              moved a property that rule declares — same element, same box, rule on vs off');
+  console.log('  n/m tags  = only n of the m rules the component ships for this family had an effect, and');
+  console.log('              the tags say what the other m-n are. The denominator is EVERY rule it ships,');
+  console.log('              not just the ones that matched — excusing an unmatched rule is how a cell');
+  console.log('              read green while 4 of 7 rules had never been tested at all:');
+  console.log('    inert:k       ships the rule, the target element IS present, the family predicate did');
+  console.log('                  not match — the #1218 bug, and the state this pass exists to catch');
+  console.log('    unexercised:k no slide in this sweep carries what the rule targets, so it could not be');
+  console.log('                  tested — a COVERAGE gap, not a defect in the component. Usually that means');
+  console.log('                  no gallery slide exercises the variant. But these decks render --no-split,');
+  console.log('                  so a rule scoped to a marker the SPLITTER emits is out of this instrument\'s');
+  console.log('                  reach altogether; the listing below flags which ones those are');
+  console.log('    no-effect:k   matched, off-state readable, nothing it declares moved: redundant with');
+  console.log('                  the base rule, or losing a cascade fight');
+  console.log('    no-baseline:k matched but cannot be switched off without losing the element too, so');
+  console.log('                  this pass is BLIND here — not a verdict about the component');
+  console.log('  n/a       = nothing promised for this family (every cell at hd, which IS the baseline)');
+
+  // WHICH rules fell short, by name. A cell reading `3/7 unexercised:4` is only actionable if
+  // you can see the four selectors, and a count alone is the kind of number a reader learns to
+  // scroll past. Collapsed across @sizes: a rule scoped `tall` shows up identically at portrait
+  // and story (same family), and printing it twice would treble the list for no information.
+  if (shortfall.length) {
+    const byRule = new Map();
+    for (const f of shortfall) {
+      const k = `${f.comp} ${f.kind} ${f.sel}`;
+      if (!byRule.has(k)) byRule.set(k, { ...f, sizes: [] });
+      byRule.get(k).sizes.push(f.size);
+    }
+    console.log(`\n  rules that did not fire (${byRule.size} distinct, across ${shortfall.length} cells):`);
+    for (const f of [...byRule.values()].sort((a, b) => a.comp.localeCompare(b.comp) || a.kind.localeCompare(b.kind))) {
+      // A rule scoped to a marker the SPLITTER emits can never be exercised by this sweep,
+      // which renders `--no-split` on purpose. Reporting that as a gallery coverage gap would
+      // point the reader at the wrong thing entirely — there is no slide to add.
+      const why = SPLIT_ONLY_MARKER.test(f.sel) ? '  [unreachable here: needs split output, this sweep is --no-split]' : '';
+      console.log(`    ${f.comp} · ${f.kind} @ ${f.sizes.join(',')}${why}\n      ${f.sel}`);
+    }
+  }
+
+  const fresh = { note: CONFORMANCE_NOTE, components: comps, cells: table };
+  if (BLESS) {
+    fs.mkdirSync(path.dirname(CONFORMANCE_ORACLE), { recursive: true });
+    fs.writeFileSync(CONFORMANCE_ORACLE, `${JSON.stringify(fresh, null, 2)}\n`);
+    console.log(`\nblessed ${path.relative(ROOT, CONFORMANCE_ORACLE)}`);
+    return 0;
+  }
+  if (!fs.existsSync(CONFORMANCE_ORACLE)) {
+    console.error(`\nno record at ${path.relative(ROOT, CONFORMANCE_ORACLE)} — run with --bless once you have read the table above.`);
+    return 1;
+  }
+  const prev = JSON.parse(fs.readFileSync(CONFORMANCE_ORACLE, 'utf8'));
+  const drift = [];
+  for (const s of sizes) {
+    for (const c of comps) {
+      const was = prev.cells?.[s]?.[c] ?? '(absent)';
+      const now = table[s][c];
+      if (was !== now) drift.push(`  ${c} @ ${s}: ${was} -> ${now}`);
+    }
+  }
+  for (const c of Object.keys(prev.cells?.hd || {})) {
+    if (!comps.includes(c)) drift.push(`  ${c}: in the record, no longer a family-reflowing component`);
+  }
+  // The NOTE is part of the record and rots the same way the cells do. It explains what every
+  // verdict means, so a note describing an older pass is worse than no note — and without this
+  // check, editing `CONFORMANCE_NOTE` and forgetting to re-bless leaves exactly that, silently.
+  // This whole issue is about assertions written down once and never re-derived.
+  if (prev.note !== CONFORMANCE_NOTE) {
+    drift.push('  note: the record\'s explanation of its own verdicts is stale — re-bless to update it');
+  }
+  if (!drift.length) { console.log('\nconformance OK — every cell matches the record.'); return 0; }
+  console.error(`\n${drift.length} difference(s) from ${path.relative(ROOT, CONFORMANCE_ORACLE)}:`);
+  console.error(drift.join('\n'));
+  console.error('\nRead the diff before re-blessing: `fires -> inert` is a tier that stopped firing.');
+  return 1;
+}
+
+const CONFORMANCE_NOTE = [
+  'Does each family-reflowing component\'s [data-family] tier actually FIRE at each @size?',
+  'DERIVED, never hand-marked: `node tools/check-family-tiers.js --conformance` renders EVERY gallery',
+  'slide of every rostered component, at each @size, and reads the rendered DOM. `fires` = every rule',
+  'naming this component for this family matched on at least one of its slides, and removing the',
+  'data-family stamp FROM THAT SAME RENDER changed one of the properties THAT RULE declares — same',
+  'element, same viewport, rule on vs rule off. An earlier cut compared against the `hd` render',
+  'instead, which was confounded: every --sp-* rides --canvas-scale and every --fs-* rides cqi, so any',
+  'scale-derived length differs between boxes whatever the family predicate does — three deliberately',
+  'reverted tiers passed it. Anything short of every rule is reported as `n/m` plus tags naming the',
+  'shortfall, and the DENOMINATOR is every rule the component ships for that family, not just the ones',
+  'that matched: `inert:k` = the element IS present but the family predicate did not match, the #1218',
+  'defect this pass exists to catch; `unexercised:k` = no slide in the sweep carries what the rule',
+  'targets, a coverage gap rather than a defect — usually no gallery slide exercises the variant, but',
+  'these decks render --no-split, so a rule scoped to a marker the SPLITTER emits (four of kanban\'s',
+  'seven tall rules) is out of this instrument\'s reach altogether and the run\'s listing flags it;',
+  '`no-effect:k` = matched, off-state',
+  'readable, nothing it declares moved (redundant, or losing a cascade fight); `no-baseline:k` = matched',
+  'but not switchable off without losing the element too, so the pass is blind there rather than making',
+  'a claim. Sweeping every slide rather than one picked per component is deliberate — with one slide,',
+  'a rule scoped to a variant that slide did not carry read as a fact about the component when it was',
+  'really a gap in the instrument, and a matched sibling rule could vote green for it. `n/a` = nothing',
+  'promised. Every hd cell is n/a by construction: `wide` is the ABSENCE of the stamp, so no',
+  '[data-family=] rule can match there — that is what makes it the baseline. The check is EXACT in both',
+  'directions, because a tier being fixed must move the record just as loudly as one going dead.',
+].join(' ');
+
+// Same short-circuit shape as `--presets`: a REPORT/gate that must not also run the tier
+// probe and the clip oracle. Checked inside the main IIFE below, which already launches
+// the browser this needs — a top-level `return` would be legal under the CommonJS module
+// wrapper but is an error to the linter, and duplicating the launch would be worse.
+const CONFORMANCE_ONLY = process.argv.includes('--conformance');
+
+// REQUIRABLE WITHOUT RUNNING. The roster builders decide which slides every verdict in both
+// records is derived from, so they need unit tests — and a test that has to lift them out of
+// the source with `new Function` (which is what the first cut of
+// `test/unit/tools/family-conformance.test.js` did) silently tests nothing the day one is
+// renamed. Both entry points below are guarded instead, so `require()` costs a parse.
+const IS_CLI = require.main === module;
+
+module.exports = {
+  classTokens, galleryCandidates, clipDeck, conformanceDeck, descopeFamily, SPLIT_ONLY_MARKER,
+};
+
+if (IS_CLI && process.argv.includes('--ladder')) process.exit(ladderReport());
 
 // ── The preset report ──────────────────────────────────────────────────────
 /**
@@ -450,9 +1001,14 @@ async function presetReport() {
 const PRESETS_ONLY = process.argv.includes('--presets');
 
 (async () => {
+  if (!IS_CLI) return; // required as a module for its roster builders — run nothing
   if (PRESETS_ONLY) { process.exitCode = await presetReport(); return; }
   const puppeteer = require('puppeteer');
   const browser = await puppeteer.launch({ executablePath: resolveChrome(), args: ['--no-sandbox'] });
+  if (CONFORMANCE_ONLY) {
+    try { process.exitCode = await conformanceReport(browser); } finally { await browser.close(); }
+    return;
+  }
   const rows = [];
   for (const s of SIZES) {
     const src = path.join(ROOT, '.scratch', `vf-${s.size}.md`);
