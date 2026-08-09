@@ -31,8 +31,16 @@ concurrency:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 60, not 30. This ceiling is OURS, not GitHub's (a hosted job may run 360
+    # minutes), and 30 was set when the suite fit it: the last run that actually
+    # executed before the blackout took 20m02s of test time (2026-08-03). The
+    # suite has grown a week of specs since, and the first restored run came back
+    # up against the old ceiling with little room left — a suite killed mid-flight
+    # reports as an ordinary red and tells you nothing, which is the exact failure
+    # mode #1498 was about. Headroom is cheap on a nightly; a truncated signal is
+    # not. Note the webServer also builds the site inside this budget (up to the
+    # 300s webServer.timeout in playwright.config.ts) before a single test runs.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
