@@ -136,10 +136,6 @@
   --diagram-line:                  var(--text-heading);
 }
 
-section pre.hljs {
-  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
-}
-
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
 :root {
   --hljs-comment:    #3A5468;  /* dark steel — muted cool                    */

@@ -25,6 +25,22 @@ in patch versions.
 
 ## Unreleased
 
+- **Removed 12 dead code-block rules that had never rendered.** `section pre.hljs` was
+  styled once in the engine and overridden in **11 of the 14 palettes** — and the selector
+  matches nothing on any surface. `lib/engine/index.js` highlights with
+  `hljs.highlight(str, …).value`, which returns only the inner `hljs-*` token spans and adds
+  no class to the container; Marp Core 4.4.0 does the same independently, emitting
+  `<pre is="marp-pre" data-auto-scaling="downscale-only">`. Verified on the engine render, the
+  Export-to-Marp target, the Studio preview and the `code` component's own gallery: zero
+  `<pre>` carries an `hljs` class anywhere. Code blocks are styled by the *live*
+  `section.code pre` rule via `--code-bg`, which is untouched. **198 of 198 rendered slides
+  are byte-identical** across three palettes and two decks — and the harness was proved able
+  to see this class of change first (repointing the live `--code-bg` moves 5 of 8 code-gallery
+  slides). No deck renders differently; 11 palettes lose their only non-token rule. The
+  unrealized per-palette preference those overrides encoded, and the fenced-code-outside-a-
+  `.code`-slide gap they would have covered, are recorded in the follow-up issue rather than
+  left in dead CSS.
+
 - **Slide search understands what you want to say, not just what a component is called.**
   Typing "who owns what on the team" or "where do users drop off" into the add-slide gallery,
   the Playground picker or the `/components` index now returns a ranked shortlist with a match
