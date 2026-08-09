@@ -223,12 +223,44 @@ const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => 
 // near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
 // Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
 // `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
-const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;}
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;--sk:color-mix(in srgb,currentColor 11%,transparent);--sk-band:color-mix(in srgb,currentColor 3%,transparent);}
 :root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:var(--text-body,#e8e8e8);--mark-bond:#4fa8da;--mark-halo:#15110d;}
-#studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border,rgba(127,127,127,.16));background:color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
-#studio-ssr-shell .ssr-logo{width:26px;height:26px;flex:0 0 auto;}
-#studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading,inherit);}
-#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);container-type:size;}
+/* TOPBAR — mirrors the app header's OWN box model (StudioShell's header: h-[54px], px-2.5 /
+   sm:px-3.5, gap-1.5 / sm:gap-3) at the app's own breakpoints (700 / 1100), NOT Tailwind's.
+   It used to be a free-hand 16px/10px/26px approximation, which put every item in this row a
+   few px off the app's and made the whole topbar shift at hand-off — the logo by 2px, the deck
+   title by ~32px (it sat as bare text where the app draws a bordered pill). Re-measured from
+   the built app 2026-08-09 at 360/393/430/820/1100/1440; each number below is the arithmetic
+   of the classes on the matching tag in StudioShell, so a change there wants a change here. */
+#studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:var(--sh-topbar,54px);display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--border,rgba(127,127,127,.16));background:color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
+#studio-ssr-shell .ssr-launch{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:0 4px;}
+#studio-ssr-shell .ssr-logo{width:28px;height:28px;flex:0 0 auto;}
+/* The deck pill. Sized by its CONTENT exactly as the app's is (min-w-0 plus a truncating
+   title + a flex-1 spacer to its right), so it shows the full title where there is room and
+   fills the row on a phone — no width constant to drift. */
+#studio-ssr-shell .ssr-deck-pill{flex:0 1 auto;min-width:42px;display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border,rgba(127,127,127,.16));border-radius:6px;background:var(--bg,#e9eef5);}
+#studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:14px;line-height:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading,inherit);}
+#studio-ssr-shell .ssr-caret{flex:0 0 auto;width:16px;height:16px;border-radius:4px;background:var(--sk);}
+#studio-ssr-shell .ssr-dot{display:none;flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:var(--sk);}
+#studio-ssr-shell .ssr-spacer{flex:1 1 auto;width:0;}
+/* Right-hand utility run — PHONE ONLY, where it is exactly three 32px icon buttons at every
+   width (mode · workspace settings · menu). Tablet and desktop swap that run for a
+   width-dependent mix of pills, a bordered segment and the posture dial; those are sketched
+   as fixed-width chips would drift with the row, so this shell leaves them to hydration and
+   reserves only the band. */
+#studio-ssr-shell .ssr-util{flex:0 0 auto;width:32px;height:32px;border-radius:8px;background:var(--sk);}
+@media (min-width:700px){
+	#studio-ssr-shell .ssr-launch{gap:8px;padding:0 6px;}
+	#studio-ssr-shell .ssr-util{display:none;}
+}
+@media (min-width:1100px){
+	#studio-ssr-shell .ssr-topbar{gap:12px;padding:0 14px;}
+	#studio-ssr-shell .ssr-launch{gap:0;padding:0;}
+	#studio-ssr-shell .ssr-launch .ssr-caret{display:none;}
+	#studio-ssr-shell .ssr-deck-pill{min-width:62px;padding:6px 10px;}
+	#studio-ssr-shell .ssr-dot{display:block;}
+}
+#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);padding-top:calc(clamp(12px,3vw,20px) + var(--sh-bar,0px) + var(--sh-hdr,0px));padding-bottom:calc(clamp(12px,3vw,20px) + var(--sh-ftr,0px));container-type:size;}
 /* FALLBACK box (a visitor with no persisted rect): ONE full-bleed box at the deck's
    AUTHOR-CHOSEN aspect (--sb-ratio / numeric --sb-ar, seeded below; the engine's own 16:9
    only when a deck names no size), fit into the stage the SAME way the app fits its preview:
@@ -245,6 +277,56 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
    geometry reimplementation here, so it can't drift from the app's split/stop/ratio layout. */
 :root[data-ssr-rect] #studio-ssr-shell .ssr-stage{display:block;padding:0;container-type:normal;}
 :root[data-ssr-rect] #studio-ssr-shell .ssr-slidebox{position:absolute;left:var(--sb-l);top:var(--sb-t);width:var(--sb-w);height:var(--sb-h);max-width:none;max-height:none;aspect-ratio:auto;}`;
+
+// STRUCTURAL CHROME BANDS (#1438). Before this, the shell drew exactly two things — the topbar
+// and the slide box — so a reload showed a topbar and a shimmering slide floating in an
+// otherwise EMPTY page, and hydration then dropped four more bands into place at once (the
+// phone's eight-cell action bar, the preview sub-bar, the slide navigator, the status strip)
+// while the desktop's whole editor column appeared from nothing. Reported as "the icons and
+// the action bar are missing on reload"; the honest description is that the shell was
+// STRUCTURALLY INCOMPLETE, so the hand-off was a re-layout rather than a cross-fade.
+//
+// THE RULE THIS FOLLOWS: the shell draws GEOMETRY, never GLYPHS. Every band's height is a
+// PREVIEW_CHROME constant — the same numbers the seed already uses to place the slide box, so
+// a band cannot disagree with the box, and a drifted constant now shows up as a visible seam
+// instead of hiding as a few px of box offset. What goes INSIDE a band is a muted skeleton
+// (chips and cells), never a copy of the app's icons or labels: a copied glyph can silently
+// become a LIE about what a control does, and a control that looks live in a shell whose
+// container is `pointer-events:none` invites a tap that does nothing. The one glyph here is
+// the brand mark, which is brand, not a control — and it predates this.
+const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:none;box-sizing:border-box;background:var(--sk-band);}
+:root[data-ssr-chrome] #studio-ssr-shell .ssr-band{display:flex;}
+#studio-ssr-shell .ssr-chip{flex:0 0 auto;height:26px;border-radius:6px;background:var(--sk);}
+/* Phone: the eight-cell deck-actions bar (Source · Compose · Preview | Coach · Chat ·
+   Settings | Present · Share) — edge-to-edge cells with two 1px group dividers, exactly the
+   app's structure. Each cell reserves a glyph slot over a caption slot; neither is drawn. */
+#studio-ssr-shell .ssr-actionbar{left:0;right:0;top:var(--sh-topbar,54px);height:var(--sh-bar,0px);align-items:stretch;border-bottom:1px solid var(--border,rgba(127,127,127,.16));}
+:root[data-ssr-bp="wide"] #studio-ssr-shell .ssr-actionbar{display:none;}
+#studio-ssr-shell .ssr-cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+#studio-ssr-shell .ssr-cell::before{content:"";width:17px;height:17px;border-radius:4px;background:var(--sk);}
+#studio-ssr-shell .ssr-cell::after{content:"";width:60%;max-width:34px;height:7px;border-radius:3px;background:var(--sk);}
+#studio-ssr-shell .ssr-rule{flex:0 0 1px;width:1px;background:var(--border,rgba(127,127,127,.16));}
+/* Tablet + desktop: the editor column left of the split, with its own sub-bar. Hidden on the
+   phone (one swappable pane) and at the Read stop (the editor track collapses to 0). */
+#studio-ssr-shell .ssr-editpane{left:0;top:var(--sh-pane-t,54px);width:var(--sh-pane-l,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));background:none;}
+:root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
+#studio-ssr-shell .ssr-editbar{position:absolute;left:0;top:0;right:0;height:var(--sh-hdr,0px);display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--border,rgba(127,127,127,.16));background:var(--sk-band);}
+/* The preview pane's own sub-bar (deck/slide scope + the slide stepper). Absent at Read,
+   where the app renders the preview chromeless — so --sh-hdr is 0 and the band is dropped. */
+#studio-ssr-shell .ssr-panehdr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);top:var(--sh-pane-t,54px);height:var(--sh-hdr,0px);align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--border,rgba(127,127,127,.16));}
+:root[data-ssr-read] #studio-ssr-shell .ssr-panehdr{display:none;}
+/* The footer is two stacked bands: the slide navigator, then the deck status strip. At Read
+   it is one undivided affordance band (footerRead), so the inner rows are dropped. */
+#studio-ssr-shell .ssr-paneftr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);bottom:0;height:var(--sh-ftr,0px);flex-direction:column;align-items:stretch;border-top:1px solid var(--border,rgba(127,127,127,.16));}
+#studio-ssr-shell .ssr-rail{flex:1 1 auto;min-height:0;display:flex;align-items:center;gap:8px;padding:0 10px;overflow:hidden;}
+#studio-ssr-shell .ssr-status{flex:0 0 auto;height:var(--sh-status,0px);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;border-top:1px solid var(--border,rgba(127,127,127,.16));}
+#studio-ssr-shell .ssr-status .ssr-chip{height:9px;border-radius:3px;}
+:root[data-ssr-read] #studio-ssr-shell .ssr-rail,:root[data-ssr-read] #studio-ssr-shell .ssr-status{display:none;}
+/* CINEMA (a landscape phone): the app suppresses the header, the action bar and the navigator
+   and runs the slide full-bleed, so the shell drops its topbar too rather than flashing a
+   54px band the app is about to delete. No chrome vars are published in this mode, so the
+   bands are already absent — this only has to take the topbar with them. */
+:root[data-ssr-cinema] #studio-ssr-shell .ssr-topbar{display:none;}`;
 
 // The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
 // island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
@@ -307,7 +389,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			   2026-07-19 splitter migration. */
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
-		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
+		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
 		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY }}>
 			(function () {
 				var r = document.documentElement;
@@ -387,6 +469,65 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							r.style.setProperty('--sb-ar', String(rr[0] / rr[1]));
 						}
 					} catch (e3) {}
+					// CHROME SEED (#1438) — resolve the app's structural bands (the phone action
+					// bar, the editor column, the preview sub-bar, the footer) and publish them as
+					// CSS vars so the shell can DRAW them, not just leave their space blank. This
+					// runs for EVERY visitor and BEFORE the two box seeds below, because the box
+					// seeds now reuse its result: one derivation of the layout, two consumers, so a
+					// band can never disagree with the box it frames.
+					// Cinema (a landscape phone) is the one surface with NO chrome at all — the app
+					// suppresses the header, the bar and the navigator and runs the slide full-bleed
+					// — so it is detected here from the SAME media query the app's `useLandscapePhone`
+					// uses, and it turns the whole shell chrome off rather than painting bands the
+					// app is about to delete.
+					var G = null;
+					try {
+						var C = PREVIEW_CHROME;
+						var vw2 = window.innerWidth, vh2 = window.innerHeight;
+						var cinema = !!(window.matchMedia && matchMedia('(orientation: landscape) and (max-height: 500px) and (pointer: coarse)').matches);
+						var bpMobile = vw2 <= 699;
+						// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
+						// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
+						// store's own constant, handed in through define:vars rather than restated
+						// here (#1286). This mirror is load-bearing: deriving a stop the app won't
+						// render makes the first load compute a full-bleed box against a split (or
+						// the reverse), and the hand-off shows as a jump — which is exactly what
+						// shipped when this line carried its own private copy of the answer.
+						var posture = null;
+						try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e7) {}
+						if (!posture) posture = BOOT_POSTURE;
+						// Read and cinema are both "chromeless" for the PREVIEW pane; cinema drops the
+						// surrounding app chrome too (handled by `cinema` below).
+						var chromeless = posture === 'read' || cinema;
+						var pad = cinema ? 0 : (vw2 < 640 ? C.padMobile : C.padDesktop);
+						var paneTop = cinema ? 0 : C.topbarH + (bpMobile ? C.mobileBarH : 0);
+						var headerH = chromeless ? C.headerRead : C.headerWrite;
+						var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite);
+						// No width cap — the app stopped capping the preview box (#1283), so a cap
+						// here would paint a narrower skeleton than the box the hydrated app
+						// measures, and the hand-off would show as a jump.
+						var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
+						var paneX, paneW;
+						if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
+						G = { vw: vw2, vh: vh2, cinema: cinema, bpMobile: bpMobile, chromeless: chromeless, pad: pad, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
+						// Publishing is a function because the REPLAY seed below can widen the pane to
+						// contain a replayed box (see there) and must re-publish the corrected values.
+						G.publish = function () {
+							if (G.cinema) { r.setAttribute('data-ssr-cinema', '1'); return; } // no chrome to draw
+							r.style.setProperty('--sh-topbar', C.topbarH + 'px');
+							r.style.setProperty('--sh-bar', (G.bpMobile ? C.mobileBarH : 0) + 'px');
+							r.style.setProperty('--sh-pane-t', G.paneTop + 'px');
+							r.style.setProperty('--sh-pane-l', G.paneX + 'px');
+							r.style.setProperty('--sh-pane-w', G.paneW + 'px');
+							r.style.setProperty('--sh-hdr', G.headerH + 'px');
+							r.style.setProperty('--sh-ftr', G.footerH + 'px');
+							r.style.setProperty('--sh-status', C.statusH + 'px');
+							r.setAttribute('data-ssr-bp', G.bpMobile ? 'mobile' : 'wide');
+							if (G.chromeless) r.setAttribute('data-ssr-read', '1');
+							r.setAttribute('data-ssr-chrome', '1');
+						};
+						G.publish();
+					} catch (e6) { G = null; } // no chrome vars published → the shell falls back to topbar + box, exactly as before
 					// GEOMETRY SEED — place the Nacre box at the EXACT rect the app last had its
 					// preview box (persisted by StudioShell on unload as viewport fractions). On a
 					// same-device reload the shell box then lands pixel-identical to where the
@@ -409,52 +550,42 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 								r.style.setProperty('--sb-w', bw + 'px');
 								r.style.setProperty('--sb-h', bh + 'px');
 								r.setAttribute('data-ssr-rect', '1');
+								// The replayed box is the app's OWN measurement, so it already reflects a
+								// splitter the user dragged; the chrome bands above were derived from the
+								// DEFAULT split share. Widen the pane to CONTAIN the replayed box whenever
+								// the two disagree, so a dragged splitter can never leave the slide sitting
+								// on top of the editor band. Widening only — the default case already
+								// contains the box, so it comes through untouched.
+								if (G && !G.cinema && !G.bpMobile) {
+									if (bl - G.pad < G.paneX) { G.paneW += G.paneX - (bl - G.pad); G.paneX = bl - G.pad; }
+									if (bl + bw + G.pad > G.paneX + G.paneW) G.paneW = bl + bw + G.pad - G.paneX;
+									G.paneX = Math.max(0, G.paneX);
+									G.paneW = Math.min(G.paneW, G.vw - G.paneX);
+									G.publish();
+								}
 							}
 						}
 					} catch (e2) {}
 					// COMPUTE SEED (prototype, option B) — when there is NO persisted rect (a
 					// brand-new visitor, a cross-device first load), don't fall back to an
 					// approximate centered box: COMPUTE the exact rect from known inputs, the same
-					// pure function the validation proved matches the app to 0.1px. Inputs: the
-					// posture (chromeless = the full-bleed Read stop), the breakpoint (from vw), the
-					// deck ratio (rr, above), and the editor|preview split share, using the shared
-					// PREVIEW_CHROME constants. Not modeled: the Build stop's side panels +
-					// landscape-phone cinema (rect-replay still covers a returning visitor there);
-					// this only runs on a FIRST load, where replay has nothing to give.
+					// pure function the validation proved matches the app to 0.1px. Every input
+					// (posture, breakpoint, pane rect, per-stop chrome) now comes from the CHROME
+					// SEED's `G` above rather than being re-derived here — the second copy of that
+					// derivation is exactly the kind of drift the shell keeps paying for — so this
+					// block is only the letterbox fit of the deck ratio (`rr`) into `G`'s pane.
+					// Since #1438, `G` also models landscape-phone CINEMA (chrome-free, full-bleed),
+					// which this compute previously could not express. Still not modeled: the Build
+					// stop's side panels (rect-replay covers a returning visitor there).
 					try {
-						if (!r.hasAttribute('data-ssr-rect')) {
-							var C = PREVIEW_CHROME;
-							var vw2 = window.innerWidth, vh2 = window.innerHeight;
-							var bpMobile = vw2 <= 699;
-							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
-							// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
-							// store's own constant, handed in through define:vars rather than restated
-							// here (#1286). This mirror is load-bearing: deriving a stop the app won't
-							// render makes the first load compute a full-bleed box against a split (or
-							// the reverse), and the hand-off shows as a jump — which is exactly what
-							// shipped when this line carried its own private copy of the answer.
-							var posture = null;
-							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
-							if (!posture) posture = BOOT_POSTURE;
-							var chromeless = posture === 'read';
-							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
-							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);
-							var headerH = chromeless ? C.headerRead : C.headerWrite;
-							var footerH = chromeless ? C.footerRead : C.footerWrite;
-							// No width cap — the app stopped capping the preview box (#1283), so a cap
-							// here would paint a narrower skeleton than the box the hydrated app
-							// measures, and the hand-off would show as a jump.
-							var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
-							var paneX, paneW;
-							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
-							var paneH = vh2 - paneTop;
+						if (G && !r.hasAttribute('data-ssr-rect')) {
 							var ar2 = rr[0] / rr[1];
-							var cw = paneW - 2 * pad, ch = paneH - headerH - footerH - 2 * pad;
+							var cw = G.paneW - 2 * G.pad, ch = G.paneH - G.headerH - G.footerH - 2 * G.pad;
 							var bw2 = Math.max(0, Math.min(cw, ch * ar2));
 							var bh2 = bw2 / ar2;
 							if (bw2 > 1 && bh2 > 1) {
-								r.style.setProperty('--sb-l', (paneX + pad + (cw - bw2) / 2) + 'px');
-								r.style.setProperty('--sb-t', (paneTop + headerH + pad + (ch - bh2) / 2) + 'px');
+								r.style.setProperty('--sb-l', (G.paneX + G.pad + (cw - bw2) / 2) + 'px');
+								r.style.setProperty('--sb-t', (G.paneTop + G.headerH + G.pad + (ch - bh2) / 2) + 'px');
 								r.style.setProperty('--sb-w', bw2 + 'px');
 								r.style.setProperty('--sb-h', bh2 + 'px');
 								r.setAttribute('data-ssr-rect', '1');
@@ -480,9 +611,37 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    No baked slide, no snapshot replay — one surface, no seam. */}
 		<div id="studio-ssr-shell" aria-hidden="true">
 			<div class="ssr-topbar">
+				<span class="ssr-launch">
 				<svg class="ssr-logo" viewBox="0 0 128 128" fill="none" aria-hidden="true"><g transform="rotate(45 64 64)" stroke="var(--mark-bond)" stroke-width="6.4" stroke-linecap="round"><line x1="31" y1="31" x2="97" y2="31"></line><line x1="97" y1="31" x2="97" y2="97"></line><line x1="97" y1="97" x2="31" y2="97"></line><line x1="31" y1="97" x2="31" y2="31"></line></g><circle cx="64" cy="17.3" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="17.3" r="11" fill="#5b86b8"></circle><circle cx="110.7" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="110.7" cy="64" r="11" fill="#a8628a"></circle><circle cx="64" cy="110.7" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="110.7" r="11" fill="#d08c42"></circle><circle cx="17.3" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="17.3" cy="64" r="11" fill="#7b72c0"></circle><circle cx="64" cy="64" r="16.2" fill="var(--mark-halo)"></circle><circle cx="64" cy="64" r="14" fill="#c8a040"></circle><circle cx="64" cy="64" r="10.4" fill="none" stroke="#7a5a10" stroke-width="1.5" opacity="0.55"></circle></svg>
-				<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
+				<i class="ssr-caret"></i>
+				</span>
+				<span class="ssr-deck-pill">
+					<i class="ssr-dot"></i>
+					<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
+					<i class="ssr-caret"></i>
+				</span>
 				<script is:inline>(function(){var t=document.getElementById("ssr-deck-title"),v=document.documentElement.getAttribute("data-ssr-title");if(t&&v)t.textContent=v;})();</script>
+				<i class="ssr-spacer"></i>
+				<i class="ssr-util"></i><i class="ssr-util"></i><i class="ssr-util"></i>
+			</div>
+			{/* Structural chrome bands (#1438) — geometry only, drawn from the CHROME SEED's
+			    CSS vars and dropped entirely if that seed didn't run. See SHELL_BANDS_CSS. */}
+			<div class="ssr-band ssr-actionbar">
+				<i class="ssr-cell"></i><i class="ssr-cell"></i><i class="ssr-cell"></i>
+				<i class="ssr-rule"></i>
+				<i class="ssr-cell"></i><i class="ssr-cell"></i><i class="ssr-cell"></i>
+				<i class="ssr-rule"></i>
+				<i class="ssr-cell"></i><i class="ssr-cell"></i>
+			</div>
+			<div class="ssr-band ssr-editpane">
+				<span class="ssr-editbar"><i class="ssr-chip" style="width:34px"></i><i class="ssr-chip" style="width:62px"></i><i class="ssr-chip" style="width:76px"></i><i class="ssr-spacer"></i><i class="ssr-chip" style="width:26px"></i></span>
+			</div>
+			<div class="ssr-band ssr-panehdr">
+				<i class="ssr-chip" style="width:104px"></i><i class="ssr-spacer"></i><i class="ssr-chip" style="width:78px"></i>
+			</div>
+			<div class="ssr-band ssr-paneftr">
+				<span class="ssr-rail"><i class="ssr-chip" style="width:118px;height:32px"></i><i class="ssr-chip" style="width:82px;height:32px"></i><i class="ssr-chip" style="width:96px;height:32px"></i><i class="ssr-chip" style="width:88px;height:32px"></i></span>
+				<span class="ssr-status"><i class="ssr-chip" style="width:104px"></i><i class="ssr-chip" style="width:88px"></i></span>
 			</div>
 			<div class="ssr-stage">
 				<div class="ssr-slidebox" id="ssr-slidebox">

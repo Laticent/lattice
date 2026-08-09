@@ -42,6 +42,18 @@ const REQUIRED = [
 	// pass even if the seed that actually flips the attribute were removed (shell stays hidden →
 	// blank-on-reload returns). This substring only exists in the inline seed.
 	['shell-on seed', /setAttribute\(\s*['"]data-ssr-shell['"]\s*,\s*['"]on['"]/],
+	// ── Structural chrome bands (#1438) ──────────────────────────────────────────
+	// The shell drew a topbar and a slide box and nothing else, so hydration dropped four
+	// more bands in at once and the hand-off read as a re-layout. These markers keep the
+	// bands in the shipped HTML: the phone action bar, the editor column, the preview
+	// sub-bar, the footer — plus the seed that publishes the geometry they are drawn from.
+	// Without that last one every band collapses to its 0px fallback and silently vanishes,
+	// which is exactly the regression this gate exists to make loud.
+	['action-bar band', /class="ssr-band ssr-actionbar"/],
+	['editor-column band', /class="ssr-band ssr-editpane"/],
+	['preview sub-bar band', /class="ssr-band ssr-panehdr"/],
+	['preview footer band', /class="ssr-band ssr-paneftr"/],
+	['chrome geometry seed', /setAttribute\(\s*['"]data-ssr-chrome['"]/],
 ];
 
 function main() {
@@ -57,13 +69,15 @@ function main() {
 		console.error(
 			[
 				'',
-				'✗ check:studio-shell — the Studio shipped WITHOUT its pre-paint Nacre skeleton.',
+				'✗ check:studio-shell — the Studio shipped WITHOUT part of its pre-paint shell.',
 				`  Missing from dist/studio/index.html: ${missing.join(', ')}`,
 				'',
 				'  Without the instant shell, a reload paints a BLANK preview until the island',
-				'  hydrates. The shell is static markup in docs/src/pages/studio.astro — check that',
-				'  the #studio-ssr-shell container, #ssr-slidebox, the .nacre-loader skeleton, and',
-				'  the data-ssr-shell="on" seed are all still emitted.',
+				'  hydrates; without its chrome bands, hydration drops four more bands in at once and',
+				'  the hand-off reads as a re-layout (#1438). The shell is static markup in',
+				'  docs/src/pages/studio.astro — check that the #studio-ssr-shell container,',
+				'  #ssr-slidebox, the .nacre-loader skeleton, the data-ssr-shell="on" seed, the four',
+				'  .ssr-band elements and the data-ssr-chrome geometry seed are all still emitted.',
 				'',
 			].join('\n'),
 		);

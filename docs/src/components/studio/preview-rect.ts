@@ -32,7 +32,13 @@ export const PREVIEW_RECT_KEY = 'lattice-studio-preview-rect-v2';
 
 export const PREVIEW_CHROME = {
 	topbarH: 54, // the studio topbar (StudioShell `header` h-[54px])
-	mobileBarH: 53, // mobile only: the pane-toggle bar below the topbar (pane starts at 107)
+	// Mobile only: the eight-cell deck-actions bar below the topbar (pane starts at 103).
+	// Was 53 — the number the PANE-TOGGLE bar measured before the eight-cell redesign
+	// (2026-07-26-studio-mobile-eight-cell-bar.md) reshaped that row and never re-measured
+	// here. Re-measured 2026-08-09 on the built site at 320/360/390/393/430/600/699: 49px,
+	// flat across every mobile width. The 4px was invisible while the shell only PLACED a
+	// box with it; it is not invisible now that the shell DRAWS the band.
+	mobileBarH: 49,
 	padDesktop: 20, // holder `sm:p-5` (viewport >= 640px)
 	padMobile: 16, // holder `p-4` (viewport < 640px)
 	// Chrome ABOVE/BELOW the holder inside the preview pane, per stop (CSS-fixed):
@@ -42,6 +48,12 @@ export const PREVIEW_CHROME = {
 	headerWrite: 47,
 	footerRead: 49,
 	footerWrite: 81.6,
+	// The write/build footer is TWO stacked bands — the slide navigator on top, the deck
+	// status strip below it. Only the total (`footerWrite`) bounds the preview box, so the
+	// split lived nowhere until the shell started DRAWING the footer; the navigator's height
+	// is derived (`footerWrite - statusH`) so the total stays the one source of truth.
+	// Measured 2026-08-09 at 393x651: navigator 51, status 31.
+	statusH: 31,
 	// (`cap: 760` — the old comfort width cap — is RETIRED. The app no longer caps the
 	//  preview box at all: the splitter grows and shrinks the slide continuously and the
 	//  letterbox math bounds it (#1283). Keeping the constant here would have re-created

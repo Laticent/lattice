@@ -71,6 +71,27 @@ in patch versions.
   always specified. A commented *typo* is still caught. Found by rendering the real CLI — every
   unit suite passed while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
 
+- **Fixed: the Studio's pre-paint shell now draws the whole app frame, not just a topbar and a
+  slide box.** Reported (#1438) as "the icons and the middle action bar are missing on a hard
+  reload". The Studio is `client:only`, so nothing about it is server-rendered — there is no
+  hydration guard, no cookie-vs-`localStorage` theme question and no IndexedDB coupling; the
+  missing controls simply belong to an app that has not mounted yet, and the shell never drew
+  their space. Hydration then dropped four bands in at once (the phone's eight-cell action bar,
+  the preview sub-bar, the slide navigator, the status strip) plus, above tablet, the whole
+  editor column, so the hand-off read as a re-layout. The shell now paints every band from the
+  same `PREVIEW_CHROME` constants the seed already used to *place* the slide box — one
+  derivation, two consumers — under one rule: **geometry, never glyphs** (band heights are
+  exact and gated; what sits inside a band is a muted skeleton, never a copy of an app icon or
+  label). The topbar was also re-measured against the app's own box model, so the mark, the deck
+  pill and the title stop shifting at hand-off. Three fixes came with it: `mobileBarH` was 4px
+  stale (53 → 49, left behind by the eight-cell redesign); the landscape-phone cinema morph is
+  modeled, so the shell no longer flashes a topbar the app is about to delete; and a replayed
+  box from a dragged splitter now widens the shell's pane rather than landing on the editor
+  band. Every band is verified within 1px of the app's at 393 / 820 / 1440, in light and dark,
+  at the Read stop and in cinema, by a new e2e oracle that measures both surfaces in one page
+  load. Real iOS remains UNVERIFIED (HARD RULE #23).
+  See `engineering/decisions/2026-08-09-studio-shell-structural-completeness.md`.
+
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator
   forms that were invisible to the Studio now split a slide, and a setext underline no longer
   does.** The engine breaks a slide on every top-level markdown-it `hr`; every caller-side splitter
