@@ -128,4 +128,45 @@ describe('palette-resolution', () => {
     const r = resolvePalette({ env: {} });
     assert.equal(r.source, 'default');
   });
+
+  // ── The trailing-comment defect, and the guard it used to hide ────────────────
+  //
+  // This reader used to capture the value with `([A-Za-z0-9_-]+)` anchored to `$`,
+  // which did two jobs at once and got one of them wrong. `theme: cuoio  # brand`
+  // matched NOTHING, so a deck that annotated its own front matter silently fell
+  // back to indaco on the CLI/export path — while the engine's own `parseFrontMatter`
+  // read the palette fine. Two readers, one question, opposite answers (#1416's class).
+  //
+  // Caught by rendering the real CLI, not by a unit test: every unit suite passed
+  // while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
+
+  test('resolve: a trailing YAML comment does not lose the deck its palette', () => {
+    const r = resolvePalette({ md: '---\ntheme: cuoio  # our brand palette\n---\n\n# T\n', env: {} });
+    assert.equal(r.name, 'cuoio');
+    assert.equal(r.source, 'front-matter');
+  });
+
+  test('resolve: a quoted value with a trailing comment', () => {
+    const r = resolvePalette({ md: "---\ntheme: 'cuoio' # draft\n---\n\n# T\n", env: {} });
+    assert.equal(r.name, 'cuoio');
+    assert.equal(r.source, 'front-matter');
+  });
+
+  test('resolve: the path-traversal guard survives the shared reader', () => {
+    // The name becomes `themes/<name>.css`, so this constraint is load-bearing. It used
+    // to be implicit in the capture group; it is now an explicit predicate, and this is
+    // what proves the explicit one still holds.
+    for (const bad of ['../../etc/passwd', 'a b', 'foo/bar', '..']) {
+      const r = resolvePalette({ md: `---\ntheme: ${bad}\n---\n\n# T\n`, env: {} });
+      assert.equal(r.source, 'default', `${bad} must not resolve as a palette`);
+      assert.equal(r.name, 'indaco');
+    }
+  });
+
+  test('resolve: a hyphenated a11y palette still resolves', () => {
+    const r = resolvePalette({ md: '---\ntheme: a11y-deuteranopia\n---\n\n# T\n', env: {} });
+    assert.equal(r.name, 'a11y-deuteranopia');
+    assert.equal(r.source, 'front-matter');
+  });
+
 });

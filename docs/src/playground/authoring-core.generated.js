@@ -344,17 +344,46 @@ var require_front_matter_key = __commonJS({
     function escapeKey(key) {
       return String(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
+    function frontMatterScalar(raw) {
+      const t = String(raw ?? "").trim();
+      if (!t) return "";
+      const quote = t[0];
+      if (quote === '"' || quote === "'") {
+        let end = -1;
+        for (let i = 1; i < t.length; i++) {
+          if (quote === '"' && t[i] === "\\") {
+            i++;
+            continue;
+          }
+          if (t[i] === quote) {
+            end = i;
+            break;
+          }
+        }
+        if (end !== -1) return t.slice(1, end);
+        return t.slice(1);
+      }
+      const cut = t.search(/[ \t]#/);
+      const body = (cut === -1 ? t : t.slice(0, cut)).trim();
+      return body.replace(/^['"]/, "").replace(/['"]$/, "");
+    }
     function frontMatterValue(fm, key) {
       const m = String(fm ?? "").match(new RegExp(`^[ \\t]*${escapeKey(key)}:[ \\t]*(.*)$`, "m"));
       if (!m) return null;
-      return m[1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
+      return frontMatterScalar(m[1]);
     }
     function topLevelFrontMatterValue(fm, key) {
       const m = String(fm ?? "").match(new RegExp(`^${escapeKey(key)}:[ \\t]*(.*)$`, "m"));
       if (!m) return null;
-      return m[1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
+      return frontMatterScalar(m[1]);
     }
-    module.exports = { frontMatterValue, topLevelFrontMatterValue };
+    function frontMatterName(fm, key) {
+      const value = frontMatterValue(fm, key);
+      if (value === null) return null;
+      return BARE_NAME.test(value) ? value : null;
+    }
+    var BARE_NAME = /^[A-Za-z0-9_-]+$/;
+    module.exports = { frontMatterValue, topLevelFrontMatterValue, frontMatterScalar, frontMatterName };
   }
 });
 
@@ -762,7 +791,7 @@ var require_lint_core = __commonJS({
     var { OVERFLOW_MARKER_LEVELS } = require_resolve_overflow_marker();
     var { EXPORT_SETTINGS_TYPE } = require_export_settings();
     var { deckClassRefusalsFromFrontMatter } = require_deck_class_register();
-    var { topLevelFrontMatterValue } = require_front_matter_key();
+    var { topLevelFrontMatterValue, frontMatterScalar } = require_front_matter_key();
     var { slideClassDirectives: slideClassDirectives2 } = (init_class_directive_scan(), __toCommonJS(class_directive_scan_exports));
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
@@ -1894,7 +1923,7 @@ ${indent}   - ${body.trim()}`;
       if (!fmBlock) return [];
       const fmPace = fmBlock[1].match(/^[ \t]*pace:[ \t]*(.*)$/m);
       if (!fmPace) return [];
-      const value = fmPace[1].replace(/(^|\s)#.*$/, "").trim().replace(/^['"]/, "").replace(/['"]$/, "");
+      const value = frontMatterScalar(fmPace[1]);
       if (!value) return [];
       const known = new Set([...paceNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];
@@ -1913,7 +1942,7 @@ ${indent}   - ${body.trim()}`;
       if (!fmBlock) return [];
       const fm = fmBlock[1].match(/^color-mode:[ \t]*(.*)$/m);
       if (!fm) return [];
-      const value = fm[1].trim().replace(/^['"]/, "").replace(/['"]$/, "");
+      const value = frontMatterScalar(fm[1]);
       if (!value) return [];
       const known = new Set([...colorModeNames].map((n) => String(n).toLowerCase()));
       if (known.has(value.toLowerCase())) return [];

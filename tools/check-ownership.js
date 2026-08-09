@@ -2396,6 +2396,112 @@ const CLASS_ATTR_GUARD = new RegExp(`(?:${[
 // the gate fails on a STALE entry so it cannot rot into a blanket exemption.
 const SANCTIONED_CLASS_ATTR_READS = [];
 
+// ── Front-matter scalar readers ───────────────────────────────────────────────
+//
+// A front-matter VALUE is cleaned in exactly one place: `frontMatterScalar`
+// (lib/core/front-matter-key.js). The idiom below — strip a leading quote, strip a
+// trailing quote — is what a hand-rolled reader looks like, and every copy of it was a
+// reader that answered differently from the engine. The one that shipped:
+// `theme: cuoio  # brand` kept the comment as part of the palette name, so the deck
+// silently fell back to the default while Export-to-Marp (real YAML) rendered cuoio.
+// Two decks from one source, which is #1416's whole failure class.
+//
+// Deliberately keyed on the CLEANING idiom, not on "a regex mentioning a key name":
+// the latter cannot be told apart from the dozens of legitimate `^key:` matchers that
+// only need to LOCATE a line (`paceLine`, `deckClassRefusals*`, the linter's finders).
+// Locating a line is fine. Deciding what its value MEANS is what must be shared.
+const FM_SCALAR_IDIOM = /\.replace\(\s*\/\^\['"\]\/\s*,\s*''\s*\)/g;
+// The SECOND shape, and the one that actually shipped the defect: a front-matter key/value
+// pattern that captures the value and anchors to `$`. Eleven `resolve-*` kernels carried it
+// (`/^[ \t]*finish:[ \t]*["']?([A-Za-z0-9_-]+)["']?[ \t]*$/m`). The anchor is the bug — a
+// trailing YAML comment makes the WHOLE pattern fail, so the register silently resolves to
+// nothing while the engine's own parse reads the value fine. Gated separately from the
+// cleaning idiom because a kernel can carry this one without carrying that one, which is
+// exactly how eleven of them passed a gate written only for the first shape.
+const FM_ANCHORED_VALUE = /\/\^\[ \\t\]\*[A-Za-z-]+:\[ \\t\]\*\[["'\\]*\]\?\(\[[^\]]+\]\+\)/g;
+// The reader that OWNS the rule, plus mirrors that cannot import it, each with a reason.
+// The gate fails on a STALE entry too, so a mirror that gets routed through the shared
+// rule cannot leave its exemption behind to cover the next hand-rolled one.
+const SANCTIONED_FM_SCALAR_READERS = [
+  {
+    file: 'lib/core/front-matter-key.js',
+    why: 'defines frontMatterScalar — this IS the shared rule',
+  },
+  {
+    file: 'lib/core/resolve-pace.mjs',
+    why:
+      'ESM the docs site imports directly; Rollup will not resolve named exports off a CJS '
+      + 'file outside its root, so requiring front-matter-key.js fails `astro build` while '
+      + 'passing vitest and tsc. Sync-gated instead by `front-matter-scalar-parity` in '
+      + 'test/unit/core/pace-names.test.js, which drives both over the same shapes.',
+  },
+  {
+    file: 'lib/core/glossary-auto.mjs',
+    why:
+      'Same ESM/Rollup constraint as resolve-pace.mjs — the docs site imports it directly '
+      + 'in render-engine.ts. Mirrors the rule inline and is covered by the same '
+      + '`front-matter-scalar-parity` test.',
+  },
+];
+
+function checkFrontMatterReaders(errors) {
+  const sanctioned = new Map(SANCTIONED_FM_SCALAR_READERS.map((s) => [s.file, s]));
+  const seen = new Set();
+  const roots = [
+    path.join(ROOT, 'lib'),
+    path.join(ROOT, 'docs', 'src'),
+    path.join(ROOT, 'docs', 'scripts'),
+    path.join(ROOT, 'tools'),
+  ];
+  const files = [
+    ...roots.flatMap((d) => listClassAttrFiles(d)),
+    ...[path.join(ROOT, 'lattice-emulator.js')].filter((f) => fs.existsSync(f)),
+  ];
+  for (const file of files) {
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    // Tests assert the rule's OUTPUT (and one deliberately writes the idiom down to prove
+    // the mirror matches), so they are not readers in the sense this gate polices.
+    if (/\.test\.(?:[tj]sx?|mjs|cjs)$/.test(rel)) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    const spans = commentSpans(src);
+    const inProse = (i) => spans.some(([a, b]) => i >= a && i < b); // prose may name the pattern
+    let flagged = false;
+    for (const [re, what, fix] of [
+      [FM_SCALAR_IDIOM, 'hand-rolls a front-matter scalar (strip-leading-quote / strip-trailing-quote)',
+        '`frontMatterScalar`'],
+      [FM_ANCHORED_VALUE, 'reads a front-matter value with a `$`-anchored pattern, so a trailing YAML comment makes the whole match fail',
+        '`frontMatterValue` / `frontMatterName`'],
+    ]) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(src))) {
+        if (inProse(m.index)) continue;
+        seen.add(rel);
+        if (sanctioned.has(rel)) { flagged = true; break; }
+        errors.push(
+          `${rel}:${src.slice(0, m.index).split('\n').length} ${what}. That is how a reader ends `
+          + `up disagreeing with the engine — \`theme: cuoio  # brand\` resolved to no known `
+          + `palette on the CLI/export path while the engine's own parse read \`cuoio\`. Read it `
+          + `with ${fix} (lib/core/front-matter-key.js), or add this file to `
+          + `SANCTIONED_FM_SCALAR_READERS in tools/check-ownership.js with the reason it cannot.`,
+        );
+        flagged = true;
+        break;
+      }
+      if (flagged) break;
+    }
+  }
+  for (const s of SANCTIONED_FM_SCALAR_READERS) {
+    if (!seen.has(s.file)) {
+      errors.push(
+        `stale front-matter-reader sanction in tools/check-ownership.js — ${s.file} no longer `
+        + `hand-rolls a front-matter scalar. Remove the SANCTIONED_FM_SCALAR_READERS entry so `
+        + `the allowlist cannot rot into a blanket exemption.`,
+      );
+    }
+  }
+}
+
 // Comment SPANS, not comment LINES. The line-based first cut skipped any line whose leading
 // text began `*`, which a continuation line of a multi-line expression also does — so a live
 // matcher could be parked past the gate by putting it after `  * factor;`. Spans are anchored
@@ -4796,6 +4902,7 @@ function run() {
   checkDensityCoverage(manifests, errors);
   checkDiagramScopeSelectors(errors);
   checkClassAttrReads(errors);
+  checkFrontMatterReaders(errors);
   checkPreviewHtmlSinks(errors);
   checkSnapshotHtmlSinks(errors);
   checkOpenRouterBudget(errors);

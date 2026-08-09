@@ -138,3 +138,48 @@ test('the word-rate axis is NOT the same vocabulary, and stays separate', () => 
 		assert.ok(!wordRate.includes(n), `'${n}' appears in BOTH the between-slide and word-rate vocabularies`);
 	}
 });
+
+test('front-matter-scalar-parity: resolve-pace.mjs mirrors the shared scalar rule', () => {
+	// `paceLine` cannot IMPORT `frontMatterScalar` — this module is ESM the docs site
+	// imports directly, and Rollup will not resolve named exports off a CJS file outside
+	// its root (the same constraint documented in resolve-pace.mjs's own header). So the
+	// rule is duplicated, and duplication without a gate is exactly the drift the shared
+	// rule exists to end. This is that gate: drive both over the shapes where a naive
+	// comment strip goes wrong, and pin them equal.
+	const { frontMatterScalar } = require('../../../lib/core/front-matter-key');
+	const SHAPES = [
+		'brisk',
+		'brisk  # weighty deck',
+		'brisk\t# tabbed',
+		"'brisk'",
+		'"brisk"',
+		'brisk.',
+		'#ffffff', // a # that OPENS the value is data, not a comment
+		'a#b', // a # after a non-space is data
+		'/brand/mark.svg#icon',
+		'', // an unfinished key
+		'   ',
+	];
+	for (const shape of SHAPES) {
+		const viaShared = frontMatterScalar(shape).toLowerCase();
+		const viaPace = paceLine(`---\npace: ${shape}\n---\n\n# S\n`)?.value ?? '';
+		assert.equal(viaPace, viaShared, `pace: ${JSON.stringify(shape)} — the mirror drifted from lib/core/front-matter-key.js`);
+	}
+});
+
+test('front-matter-scalar-parity: glossary-auto.mjs mirrors the shared name rule', async () => {
+	// The second ESM mirror, under the identical Rollup constraint. `readFrontMatterGlossary`
+	// applies the bare-name constraint too, so it is pinned against `frontMatterName` rather
+	// than the raw scalar — an out-of-shape value must be null on BOTH sides, or a deck gets
+	// a glossary here and none there.
+	const { frontMatterName } = require('../../../lib/core/front-matter-key');
+	const { resolveGlossaryMode } = await import('../../../lib/core/glossary-auto.mjs');
+	const SHAPES = ['auto', 'auto  # for the appendix', "'auto'", '"auto" # q', 'off', 'a b', '#ffffff', '', 'AUTO'];
+	for (const shape of SHAPES) {
+		const src = `---\nglossary: ${shape}\n---\n\n# S\n`;
+		const expected = (frontMatterName(`glossary: ${shape}`, 'glossary') || '').toLowerCase();
+		// resolveGlossaryMode maps the raw name → 'auto' | 'off'; only 'auto' opts in.
+		assert.equal(resolveGlossaryMode(src), expected === 'auto' ? 'auto' : 'off',
+			`glossary: ${JSON.stringify(shape)} — the mirror drifted from lib/core/front-matter-key.js`);
+	}
+});

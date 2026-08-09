@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   The owner asked for one engine-owned JSON object with a schema that every surface could
   perform CRUD against, to end front-matter/slide-directive reader drift. The first design —
@@ -26,7 +26,11 @@ summary: >
   recommendation, and proven buildable — a 12-line scan derives 20 registers with their
   kernels); `writeFrontMatterLine` moved to `lib/core/`. Stable slide ids and a future
   authored/resolved provenance display are preserved as separate, smaller future decisions,
-  not built speculatively. Nothing has shipped; this is still a proposal.
+  not built speculatively. The §4 fix IS BUILT: ~40 private readers across 20 files routed onto
+  one rule, a mutation-tested check-ownership gate on both reader shapes, two sync-gated ESM
+  mirrors, 5634 unit + 449 integration green, and the CLI verified emitting the right palette
+  on a deck that only differs by a trailing comment — the check that caught the fix being
+  incomplete while every unit suite was green. The two-object design remains rejected.
 companion:
   - ./2026-08-03-authoring-vocabulary-audit.md
   - ./2026-07-29-front-matter-lossless-writers.md
@@ -39,7 +43,7 @@ companion:
 
 # Front-matter reader drift — the two-object design was rejected; here is what closes it instead
 
-**Date:** 2026-08-05 · **Status:** proposed · **Decision owner:** Sharmarke
+**Date:** 2026-08-05 · **Status:** shipped (§4 built; the two-object design rejected) · **Decision owner:** Sharmarke
 **Area:** engine / authoring vocabulary / docs-site Studio + playground / export
 
 This note keeps the record of a rejected design, the way
@@ -174,10 +178,19 @@ The census was also undercounted. Of 18 `lib/core/resolve-*` kernels, exactly **
 `lib/core/`, the exact directory this investigation's earlier revision already identified as
 where drift actually lives.
 
-## 4 — What ships instead
+## 4 — What ships instead — **SHIPPED in this change**
 
 No new object, no new format, no HARD RULE #1 amendment. One shared reader, taught correctly,
 enforced by a gate — the same shape that already closed #1358, #1374, #1402/#1416, and #1383.
+
+> **Built and verified.** The scope grew once, on evidence: driving the real CLI (per HARD
+> RULE #23) showed the fix had not reached it, and the gate — once widened to the second
+> pattern shape — found readers the manual sweep had missed. Final count: **~40 private
+> readers across 20 files**, including the same registers re-read privately by BOTH render
+> paths, which is why no unit test could see the defect. `finish: atrium  # for review` now
+> renders `finish finish-atrium content form`, identical to the uncommented deck; before,
+> it produced no finish class at all. Two ESM modules stay sync-gated mirrors under the
+> documented Rollup constraint. See §7 for what was and was not verified.
 
 1. **Fix `lib/core/front-matter-key.js`'s two readers** to strip an unquoted trailing `#`
    comment before trimming (careful: a comment marker inside a quoted value —
@@ -247,9 +260,47 @@ of every rival it would flag are the same change.
 Everything in §2–§3 is drawn from the `red-team` and `inversion` agent reports run against
 this doc on `origin/main` at `fa2fa69`, both of which independently re-verified their own
 citations with `Bash`/`grep`/live `node -e` reproduction — not re-derived from memory here.
-The proposed fix in §4, by contrast, has **not** yet been through its own adversarial or
-fact-check pass; per HARD RULE #23, that is a caveat this note states rather than a
-verification it claims. Before §4 ships, it should get the same treatment §1–§3's rejected
-predecessor got — at minimum a `fact-checker` pass on the comment-stripping regex's edge
-cases, which is exactly the kind of "looks obviously right" claim that has been wrong twice
-already in this investigation.
+**What §4's implementation carries, stated at its real strength:**
+
+- **Verified on the real surface.** `node dist/lattice-emulator.js` rendering two decks that
+  differ only by a trailing comment now emits the same `--accent` (`#C8A040`, cuoio); before,
+  the commented one emitted `#82C8E5` (the indaco default). That check is what caught the fix
+  being incomplete — every unit suite was green at the time.
+- **Gates:** `npm test` 5634/5634 · `npm run test:integration:pr` 449/449 · `npm run lint`
+  clean · `npm run check:ownership` clean · `npm run build:check` up to date.
+- **The gate is mutation-tested**, both halves: injecting a private reader fails the build with
+  the intended message, and a stale sanction fails it too. A gate that cannot fail is worse
+  than none, so this is asserted rather than assumed.
+- **The corpus was scanned before choosing the semantics**, not after: exactly one committed
+  deck carries a `#` inside a quoted front-matter value (`meta: "Default layout · #1292"`), and
+  zero carry unbalanced quotes or an unquoted leading `#`. The quote-awareness is there because
+  that one deck proves it is needed, and the unterminated-quote behaviour is unobservable today.
+- **`color-mode:` behaviour changed deliberately**, reversing a decision from #1427 one day
+  prior. That decision's own stated reason was the cost of forking a parse for one key; this
+  change removes the cost by making the strip shared, which is the sweep `resolve-pace.mjs`
+  named in its header. The parity invariant #1427 protects (resolver accepts ⟺ linter quiet) is
+  preserved and re-verified — a commented *typo* is still caught.
+
+**Not verified:** no `fact-checker` / `red-team` pass has run against the implementation
+itself, only against the design. The riskiest surface is the comment-stripping edge cases, now
+covered by 21 unit assertions but not by an adversarial reader. The docs-site Studio and
+Playground were not exercised; `authoring-core.generated.js` and the playground bundle were
+rebuilt and their tests pass, but no browser surface was driven by hand.
+
+**A defect this change created and fixed, worth recording because of how it was caught.** The
+mechanical rewrite of the two render paths left **eleven** orphaned references
+(`stampClass(fmStamp[1])` where `fmStamp` had just been deleted) in `lib/runtime/index.js`.
+They are latent crashes — they throw only when a deck actually declares that register — and
+**the full unit suite, the integration tier, lint and `build:check` were all green with them
+in place.** They were found by reading the diff, not by any gate. Two gaps behind that:
+
+1. **`biome` does not catch undefined variables** — `noUndeclaredVariables` is not enabled
+   (verified: a file containing `const a = undefinedThing[1]` passes `npm run lint` clean).
+   Enabling it repo-wide is off-path for this change (HARD RULE #18) and is logged here rather
+   than swept in, but it would have caught all eleven instantly.
+2. **No test exercises the runtime's deck-register mirror** with a `stamp:` / `tone:` /
+   `spectrum:` deck. Pre-existing — the code path had this shape before this change too. That
+   absence is precisely why a crash-on-every-stamped-deck survived every gate.
+
+Neither is claimed as fixed. Both are the honest reason this change's diff review mattered more
+than its test run.

@@ -89,9 +89,13 @@ describe('resolveDiagramBand', () => {
       // while the deck half was only consulted for a slide naming no `_class:`;
       // #1340's fix routes every slide through it, so they had to close here.
       const cases = [
-        // An unanchored `color-mode:` read takes `dark` off a line the anchored
-        // one in deckClassPropagate rejects outright.
-        ['color-mode: dark # deck-wide pin', 'light'],
+        // A trailing YAML comment. This used to resolve `light` — the anchored read
+        // rejected the whole line, so the deck lost its pin. The shared scalar rule
+        // (frontMatterScalar, lib/core/front-matter-key.js) strips the comment on
+        // BOTH halves now, so the author's `dark` survives and the section the deck
+        // actually renders is `.dark` too. The contract this test exists for is that
+        // the two halves agree; they do, at the value the author wrote.
+        ['color-mode: dark # deck-wide pin', 'dark'],
         // `\bdark\b` matches inside a hyphenated token that is not `dark`.
         ['class: dark-mode', 'light'],
         // A raw `color-scheme` sniff fires on CSS scoped to one component.
