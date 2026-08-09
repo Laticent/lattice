@@ -95,7 +95,9 @@ Hence: re-paste regardless.
 | **Cloudflare Pages** | `wrangler pages deploy docs/dist --project-name=lattice-docs`, account `6e1dd8d852d61410a91dd1c909404e63` | **Deploy path: no.** But `lattice-docs` began as a Git-integrated project whose builds were merely *switched off* (`2026-07-01-docs-pr-preview.md:70,100`), so a dormant Git binding and the Cloudflare Pages GitHub App on the org may persist. **Check the dashboard before transferring.** |
 | **GitHub Pages** | `actions/deploy-pages@v4`, custom domain `lattice.style` | Custom domain must be re-entered; **verify the domain on the destination org in Phase 0** |
 | **npm** | nothing published | Unaffected **today**. Once OIDC trusted publishers exist they bind `owner/repo` — so set them up *after* the move (see #1455) |
-| **Claude GitHub App** | org-level install | must be installed on the destination org |
+| **Claude GitHub App** | org-level install | must be installed on the destination org. **Also carries the CI-green beacon** (`ci.yml:554-585`) that wakes subscribed agent sessions — it is `continue-on-error`, so if the App isn't reinstalled the beacon stops **silently** and sessions fall back to polling |
+| **`lattice.style` registrar** | wherever the domain is registered — **not inventoried anywhere in this repo** | Unaffected by the transfer, but if this move is part of a handover, the registrar account is the one asset whose loss is unrecoverable. Confirm who holds it. |
+| **The Tauri desktop app** (`README.md:373`) | a **separate repository** that wraps this engine | Not affected by the transfer itself, but it plausibly pins `github.com/slidewright/lattice`. Check and update it — it is the only external consumer this repo has, and it is not covered by the Phase 2 sweep because it lives elsewhere. |
 
 ### Third-party actions — four, across five workflows
 
