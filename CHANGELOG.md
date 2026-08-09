@@ -54,6 +54,14 @@ in patch versions.
   bitrate (48/64/96/128 kbps, default 64) and applies to every export, including decks rehearsed
   before you changed it; nothing is re-synthesized and nothing is re-billed.
 
+  **The silence the encoder adds is skipped, not shipped.** mp3 encoders put a fixed slug of
+  silence at the head of every stream, and this one writes no header telling a decoder to trim
+  it — so a compressed clip would start ~46 ms after its own caption, on every sentence, in the
+  copy your recipient opens. The exported player is told how much to skip, seeks past it, and
+  re-anchors the word crawl to the real speech rather than the padded length. Without it,
+  compressing for export would have moved the gaps you hear while reading onto the deck you
+  send someone, where nobody can fix them.
+
   **Compression happens at export, never while you read.** An earlier build of this compressed
   as each sentence was recorded, to shrink the on-device cache too. It also put a codec on the
   live reading path, and that cost more than it saved: the encoder writes no gapless header, so

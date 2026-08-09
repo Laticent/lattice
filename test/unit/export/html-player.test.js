@@ -1141,6 +1141,23 @@ test('the transport chrome is unforgeable too, not just the caption band and pla
 	}
 });
 
+test('narration: an encoded clip carries its lead, and the player seeks past it', async () => {
+	// lamejs writes no gapless header, so ~46 ms of encoder silence sits at the head of every
+	// clip WE compress and no decoder trims it. Left in, audio starts after its own caption on
+	// every sentence and the tuned breath grows ~28% — the defect that drove compression off the
+	// live reading path, delivered instead to the recipient's copy. So the bake ships the figure
+	// and the player skips it.
+	const withLead = NARRATION.map((cues) => cues.map((c) => ({ ...c, leadMs: 46 })));
+	const { html } = await narratedPlayer({ narration: withLead });
+	assert.match(html, /"l":46/, 'the lead travels in the cue block');
+	assert.match(html, /a\.currentTime=lead\/1000/, 'and the player seeks past it before playing');
+	assert.match(html, /a\.duration\*1000-lead/, 'and re-anchors the crawl to the real speech duration, not the padded one');
+
+	// A clip that arrived already compressed carries none, and must not pay for a key.
+	const noLead = (await narratedPlayer()).html;
+	assert.doesNotMatch(noLead, /"l":/, 'no lead key when there is no encoder silence');
+});
+
 test('narration: the deck’s own pace is baked, because the player cannot read front matter', async () => {
 	// The assembler strips every non-envelope <script>, so the baked
 	// `application/lattice-front-matter` block never reaches the player — and a shared file

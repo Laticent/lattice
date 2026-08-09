@@ -61,6 +61,25 @@ const MPEG_RATES = new Set([8000, 11025, 12000, 16000, 22050, 24000, 32000, 4410
 /** LAME's frame size — the sample count `encodeBuffer` consumes per call, per channel. */
 const FRAME = 1152;
 
+/**
+ * Samples of SILENCE every LAME stream carries at its head, before the first real audio.
+ *
+ * `ENCDELAY` (576) + `DECDELAY` (528) — both constants of the encoder, visible in the bundled
+ * source. It is a fixed count, not a per-clip property, which is the whole reason this is
+ * correctable: a decoder normally trims it using the Xing/Info/LAME header, and lamejs writes
+ * no such header, so nothing downstream can. At 24 kHz that is 46 ms of leading silence on
+ * EVERY clip — audio starting after its own caption, on every sentence.
+ *
+ * Exported so the consumer that plays these clips can seek past it. Anything that ships an
+ * encoded clip must carry this figure alongside it or reproduce the defect.
+ */
+export const ENCODER_LEAD_SAMPLES = 576 + 528;
+
+/** The encoder's leading silence in MILLISECONDS at a given sample rate. */
+export function encoderLeadMs(sampleRate) {
+	return sampleRate > 0 ? (ENCODER_LEAD_SAMPLES / sampleRate) * 1000 : 0;
+}
+
 /** In-flight/loaded module promise, or null when nothing has been attempted since the last
  *  failure. Never holds a rejected outcome — see `lame`. */
 let encoderModule = null;
@@ -263,5 +282,7 @@ export async function compressClip(bytes, kbps = DEFAULT_BITRATE_KBPS) {
 	if (!wav) return null;
 	const mp3 = await encodeMp3(wav.pcm, wav.sampleRate, wav.channels, kbps);
 	if (!mp3 || mp3.byteLength >= buf.byteLength) return null;
-	return mp3Clip(mp3);
+	// `leadMs` rides WITH the bytes. A consumer that plays this clip without seeking past it
+	// puts 46 ms of silence in front of every sentence — see ENCODER_LEAD_SAMPLES.
+	return Object.assign(mp3Clip(mp3), { leadMs: encoderLeadMs(wav.sampleRate) });
 }

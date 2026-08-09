@@ -55,6 +55,12 @@ export type BakedCue = {
 	gapMs: number;
 	/** The word timeline the exported player's caption crawl highlights against. */
 	words: { display: string; startMs: number; endMs: number }[];
+	/** Milliseconds of encoder-inserted SILENCE at the head of `audio`, or 0 when the clip was
+	 *  not encoded here. lamejs writes no gapless header, so no decoder can trim its ~46 ms of
+	 *  leading delay on its own — the player seeks past this instead. Without it, audio starts
+	 *  after its own caption on every sentence and the tuned sentence breath grows by ~28%.
+	 *  See ENCODER_LEAD_SAMPLES. */
+	leadMs?: number;
 	/** A complete `data:` URI. Never null on a bake that RESOLVED — an incomplete set throws
 	 *  rather than returning one (see `BakeIncompleteError`). Null only when the caller asked
 	 *  for captions with no audio. */
@@ -208,11 +214,13 @@ export function shippedBytes(rawBytes: number, mime = 'audio/mpeg'): number {
  * in a little under this rate. Over-quoting means the file arrives smaller than promised,
  * which is the safe direction for a number someone is consenting to.
  *
- * THE ROSTER IS NOW ONE CODEC CLASS, and that is a recent and load-bearing change. Two engines
- * used to return uncompressed audio — Gemini (PCM over the wire) and on-device Kokoro (Float32
- * off the worker) — and both shipped as WAV, at roughly 7.7x the rest of this table. They are
- * compressed at the rung now (docs/src/playground/narration-encode.js), so the spread below is
+ * THE ROSTER IS NOW ONE CODEC CLASS AS IT SHIPS, and that is a recent and load-bearing change. Two
+ * engines return uncompressed audio — Gemini (PCM over the wire) and on-device Kokoro (Float32
+ * off the worker) — and both used to ship as WAV, at roughly 7.7x the rest of this table. They
+ * are compressed on the way into the exported file now (`attach`), so the spread below is
  * 279–1246 B/char rather than 279–3799, and every number in it is the same kind of number.
+ * NOTE the rows are measured from committed SAMPLES, which are compressed; the clips on an
+ * author's device are not, which is why `estimateSynthBytes` prices those two from the bitrate.
  */
 export const ENGINE_BYTES_PER_CHAR: Record<string, number> = {
 	kokoro: 477,
@@ -639,15 +647,12 @@ export async function bakeNarration(
 	/** Attach a clip's bytes to its cue — and to every repeat of the same sentence — as a
 	 *  `data:` URI, counting what each occurrence costs the file. */
 	const attach = async (job: { i: number; j: number; key?: string; twins: { i: number; j: number }[] }, blob: ClipBytes) => {
-		// LAST LINE OF DEFENSE on size. Both of today's uncompressed engines now compress at the
-		// rung, before their bytes are ever stored, so on the common path this is a MIME check
-		// that finds nothing to do. It earns its place on the two paths that bypass that: a clip
-		// cached BEFORE this shipped (still WAV on the author's device, and re-synthesizing it to
-		// save bytes would re-bill audio they already own), and any future engine returning a
-		// format nobody has compressed yet — the gap `DEFAULT_BYTES_PER_CHAR` names, where an
-		// unknown uncompressed engine is under-quoted ~7x. Compressing HERE bounds the shipped
-		// file by the codec regardless of what the rung handed back, so that gap can no longer
-		// reach the artifact.
+		// THIS IS WHERE COMPRESSION HAPPENS — the only place, since §9 took the codec off the
+		// reading path. Anything the two uncompressed engines produced arrives here as WAV and
+		// leaves as mp3; anything already compressed passes through untouched. Bounding the
+		// shipped file HERE also closes the gap `DEFAULT_BYTES_PER_CHAR` names, where an unknown
+		// uncompressed engine would otherwise be under-quoted ~7x: whatever the rung hands back,
+		// the artifact is bounded by the codec.
 		const compressed = await compressClip(blob, narrationBitrate());
 		// A clip that SHOULD have compressed and did not is either one awkward clip or a dead
 		// encoder, and the two could not be told apart — `compressClip` returns null for both.
@@ -669,8 +674,11 @@ export async function bakeNarration(
 		// what the voice produced; the file holds what the author chose to ship. Cost: a deck
 		// recorded on an uncompressed voice re-encodes each export (~107 ms per sentence).
 		const uri = `data:${safeMime(shipped.type)};base64,${toBase64(new Uint8Array(await shipped.arrayBuffer()))}`;
+		// The encoder's leading silence travels with the clip, so the player can seek past it.
+		const leadMs = compressed ? ((compressed as { leadMs?: number }).leadMs ?? 0) : 0;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;
+			slides[at.i][at.j].leadMs = leadMs;
 			bytes += uri.length;
 		}
 		// Checked AS THE PAYLOAD GROWS, not at the end. The failure this guards is running the

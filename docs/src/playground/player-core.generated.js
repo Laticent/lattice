@@ -1547,6 +1547,10 @@ function narrationBlocks(slides) {
         d: Number.isFinite(c?.estimateMs) ? Math.max(0, Math.round(c.estimateMs)) : 0,
         g: Number.isFinite(c?.gapMs) ? Math.max(0, Math.round(c.gapMs)) : 0,
         a: typeof c?.audio === "string" && c.audio.startsWith("data:") ? c.audio : null,
+        // Encoder-inserted leading silence, ms. Omitted when zero — most clips arrive
+        // already compressed and carry none, and an absent key is smaller than a zero
+        // repeated across every cue in the deck.
+        ...Number.isFinite(c?.leadMs) && c.leadMs > 0 ? { l: Math.round(c.leadMs * 10) / 10 } : {},
         w: words.map((w) => [String(w?.display ?? ""), Math.max(0, Math.round((w?.startMs ?? 0) - base)), Math.max(0, Math.round((w?.endMs ?? 0) - base))])
       };
     });
@@ -2101,7 +2105,18 @@ function nextCue(k){
  // RE-ANCHOR to the clip's REAL decoded duration \u2014 the same call Present makes from Suono's
  // measured onset. This is why nothing has to be measured at bake time: the estimate ships,
  // and the truth arrives with the audio.
- a.onloadedmetadata=function(){if(cursor&&isFinite(a.duration)&&a.duration>0){cursor.align(k,cueOnset,a.duration*1000);}};
+ // SEEK PAST THE ENCODER'S LEADING SILENCE. A clip we encoded carries ~46 ms of it (LAME's
+ // ENCDELAY+DECDELAY), and lamejs writes no gapless header, so no decoder trims it by itself.
+ // Left in, audio starts after its own caption on every sentence and the tuned breath between
+ // sentences grows ~28% \u2014 the same defect, on the recipient's copy, that made compression move
+ // off the live reading path. The value is 0 for a clip that arrived already compressed.
+ var lead=c.l||0;
+ a.onloadedmetadata=function(){
+  if(lead>0){try{a.currentTime=lead/1000;}catch(e){}}
+  // Re-anchor to the clip's REAL SPEECH duration \u2014 the decoded length MINUS the silence we
+  // just skipped, or the crawl is stretched across time the voice never occupies.
+  if(cursor&&isFinite(a.duration)&&a.duration>0){cursor.align(k,cueOnset,Math.max(1,a.duration*1000-lead));}
+ };
  a.onplaying=function(){startCrawlLoop();};
  // A clip that will not decode is not a reason to strand the deck \u2014 take its estimated
  // time and move on, exactly as a missing clip does.

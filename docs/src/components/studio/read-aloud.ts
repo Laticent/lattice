@@ -1347,10 +1347,11 @@ export async function bakeClipKeys(perSlide: string[][], voice: BakeVoice): Prom
  * for two stated reasons, and only one of them survived:
  *
  *  · "It returns WAV — several times the bytes of the same sentence as mp3, in a file whose
- *    size the author is being asked to consent to." No longer true. The on-device rung
- *    compresses to mp3 before its bytes are cached or baked, at the same bitrate class as the
- *    cloud roster (docs/src/playground/narration-encode.js, #1462). The size objection that
- *    justified read-only is gone, and with it the reason to lock a free narrator out of the
+ *    size the author is being asked to consent to." No longer true of what SHIPS. That audio
+ *    is compressed on its way into the exported file (narration-bake.ts's `attach`), at the
+ *    same bitrate class as the cloud roster. The clip on the device is still uncompressed —
+ *    deliberately, since the store feeds playback — but the size objection was always about the
+ *    artifact, and there it is gone, and with it the reason to lock a free narrator out of the
  *    one surface where a free narrator matters most.
  *
  *  · "It needs an ~80 MB model resident, and is desktop-only." Still true — and it is a
