@@ -403,11 +403,33 @@ alongside.
 
 **UNVERIFIED**, and not claimed:
 
-- **A real end-to-end bake against a live OpenRouter key.** The synthesis path is exercised
-  against a scripted stand-in that returns the real shapes, not against the live API — this
-  sandbox has no key it may spend (HARD RULE #24). The cost quote's *arithmetic* is pinned;
-  its agreement with an actual invoice is not.
-- **Real iOS Safari.** Not reachable from here. The player's media path is a plain `<audio>`
+- ~~**A real end-to-end bake against a live OpenRouter key.**~~ **NOW VERIFIED** (2026-08-09).
+  A key was made available, so the live path was driven on-demand at the scale HARD RULE #24
+  sanctions — four real sentences, the default narrator (`hexgrad/kokoro-82m` / `af_heart`),
+  cost printed. Three separate claims closed at once:
+
+  | | result |
+  |---|---|
+  | real mp3 returned, `audio/mpeg` | 4/4 sentences, 13–53 KB each |
+  | `ENGINE_BYTES_PER_CHAR.kokoro = 477` vs reality | **473 B/char aggregate — 1% high** |
+  | per-sentence spread (28 → 112 chars) | 467 / 473 / 476 / 471 B/char — 0–2% high |
+  | exported player, real speech, network OFF | plays, advances, **no request attempted** |
+  | re-anchoring on real audio | shipped estimate 2000 ms → decoded 1925 ms, cursor re-anchored |
+
+  The table's one known weakness — that it was derived from a single 35-character sample and
+  should therefore over-quote longer sentences — is now **measured** rather than argued: it
+  over-quotes by 0–2% across a 4× length range, always in the safe direction. The trio's
+  finding that a flat 16 B/char was ~30× wrong is settled; the replacement holds.
+
+- **The cost quote against a NON-ZERO invoice.** Still open, and a smaller gap than it was.
+  309 characters were predicted at `$0.000192` and billed at **`$0.00`** — the account's usage
+  counter did not move at all. So the quote demonstrably does not UNDER-state, which is the
+  direction that matters next to a spend button; what remains unconfirmed is the published
+  per-character rate itself, because a sample this cheap cannot exercise it. A deck large
+  enough to move the counter would confirm it, and was not worth the spend to prove arithmetic
+  that is one multiplication.
+- **Real iOS Safari.** Not reachable from here — this sandbox has a Chromium build only, and
+  no WebKit. The player's media path is a plain `<audio>`
   element with `playsinline`, which is the conservative shape, but that is an argument rather
   than evidence.
 - **The per-engine bytes-per-character table** is derived from committed samples of ONE
