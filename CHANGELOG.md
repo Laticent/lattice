@@ -60,6 +60,28 @@ in patch versions.
   the repository**, and `ENGINE_BYTES_PER_CHAR` was re-measured from them (gemini 3799 → 645
   B/char) so the quote and the file still come from one reading.
 
+- **Fixed: a slide could disable the exported player's own buttons just by naming an element.**
+  The document body of a shared webpage export *is* deck content, `id` survives sanitization,
+  and the player's chrome is emitted after the slides — so a deck containing an element with
+  `id="lp-next"` won tree order and the shipped **Next** button ended up with no click handler
+  at all. Keyboard navigation still worked, which is why it went unnoticed: nothing looked
+  wrong until a viewer clicked the control. Every chrome lookup is now resolved through one
+  scoped helper rather than a bare `getElementById`, along a direct-child chain from the
+  player's own header and shell — a boundary authored content structurally cannot reach across,
+  since a slide is always nested inside the stage. The caption band and play control were
+  already protected this way; the other fifteen controls now are too. Verified by clicking the
+  real buttons in a real browser on a deck that forges all fifteen ids
+  (`tools/verify-narrated-player.mjs`).
+
+- **Fixed: narration the bake had already paid for was thrown away on a slow connection.**
+  A speech request is billed when it is issued, so a sentence that overran the export's 45-second
+  ceiling was already paid for — but the export aborted it, discarding both the money and the
+  audio, then issued a fresh request. On a link where sentences genuinely run long that billed
+  three times per sentence, banked nothing, and refused the export. The timeout now stops
+  *waiting* without stopping the request: the response lands, the clip is banked, and the retry
+  is a cache hit rather than a second charge. Canceling an export still stops spending
+  immediately — what is dropped is the exporter's patience, never the author's cancellation.
+
 - **Slide search understands what you want to say, not just what a component is called.**
   Typing "who owns what on the team" or "where do users drop off" into the add-slide gallery,
   the Playground picker or the `/components` index now returns a ranked shortlist with a match
@@ -771,7 +793,7 @@ in patch versions.
   - **Narration audio** ships the voice itself as inline `data:` URIs. The device answers
     first — every sentence rehearsed in Present is already stored and costs nothing — and
     whatever is missing is synthesized at export in the chosen voice, banked in the store as
-    it lands, so a cancelled or failed run is never wasted money.
+    it lands, so a canceled or failed run is never wasted money.
   - **An incomplete set is refused.** If any sentence cannot be prepared, the export names the
     sentences and writes nothing. A live delivery that stumbles is a gap the author can hear
     and re-run; a baked file is opened once, by someone else, with no way to fix it — so the
@@ -3738,7 +3760,7 @@ in patch versions.
   the front-matter-STRIPPED body (`splitSlides(stripFrontMatter(source))`). A front-matter block's closing
   `---` is newline-flanked, so it matched the separator regex and was counted as separator #0: selecting
   rail slide *k* scrolled the editor to slide *k−1*, and a caret in slide 0 reported slide 1 to the rail.
-  Both directions were wrong the same way, so they compounded rather than cancelled. `slideStartOffset(src, 0)`
+  Both directions were wrong the same way, so they compounded rather than canceled. `slideStartOffset(src, 0)`
   framed the YAML block itself. A second, rarer shift stacked on top: `splitSlides` DROPS empty chunks and a
   raw separator count does not, so a stray double separator moved every later slide by one more.
   Both now derive from one `slideRanges` helper that indexes exactly what `splitSlides` returns, so the
@@ -11684,7 +11706,7 @@ in patch versions.
   rendered parsed lens labels via `innerHTML` — safe for the static demo but a copy-paste XSS footgun on a
   security-shaped reference page; labels now use `textContent`. (4) `/lente`'s storyboard beats scheduled
   deferred `setTimeout` steps that were never cleared, so a Stop / Reset / beat-switch let them fire out
-  of order after the user moved on; every beat timer is now tracked and cancelled on interruption (the same
+  of order after the user moved on; every beat timer is now tracked and canceled on interruption (the same
   discipline already applied to `/cadenza` and `/vetrina`). Also dropped an inaccurate "a scoping lens can
   be a redaction" line from the `/lente` demo (client-side filtering hides, it does not withhold bytes).
   (`docs/src/pages/cadenza.astro`, `docs/src/pages/lente.astro`.)

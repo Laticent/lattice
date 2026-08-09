@@ -396,7 +396,7 @@ test('the player inlines the transport kernel and fits the FRAME to the measured
 	// frame overflowed a short phone stage; grid top-aligned it and pushed the slide down.)
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function fitScale\(/, 'the transport kernel is inlined into the player script');
-	assert.match(html, /var st=document\.getElementById\('lp-stage'\);if\(!st\)return/, 'fit measures the stage element directly');
+	assert.match(html, /var st=lpEl\('lp-stage'\);if\(!st\)return/, 'fit measures the stage element directly');
 	assert.match(html, /setProperty\('--lp-fit-present',fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight,slideW:1280,slideH:720,insetX:40,insetY:40\}\)\)/, 'the scale is published as a CSS var the frame sizes to');
 	// The active frame + its section size to that var — the frame is the scaled footprint.
 	assert.match(html, /\[data-lp-view=present\] \.lp-frame\.lp-active\{display:block;\s*width:calc\(1280px \* var\(--lp-fit-present,\.5\)\);height:calc\(720px \* var\(--lp-fit-present,\.5\)\)/, 'the active frame sizes to the scaled footprint, so it fits+centers at any stage height');
@@ -537,7 +537,7 @@ test('Read·Slides is unified onto Present\'s frame, with a floating Home/End ov
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	// fitRead now uses the SAME fitScale as Present (over ~86% of the stage height) so the
 	// first slide matches Present and the next peeks — NOT the old fill-the-width math.
-	assert.match(html, /function fitRead\(\)\{var st=document\.getElementById\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:1280,slideH:720,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
+	assert.match(html, /function fitRead\(\)\{var st=lpEl\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:1280,slideH:720,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
 	assert.doesNotMatch(html, /avail\/1280/, 'the old fill-the-width read-slides fit is gone');
 	// The floating Home/End overlay: markup, view-scoped CSS, and the smooth-scroll handlers.
 	assert.match(html, /<div id="lp-read-nav">/, 'the floating read-slides nav is in the markup');
@@ -545,7 +545,7 @@ test('Read·Slides is unified onto Present\'s frame, with a floating Home/End ov
 	assert.match(html, /<button id="lp-bottom"[^>]*aria-label="Jump to last slide"/, 'an End (bottom) button');
 	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*position:absolute;right:calc\(16px \+ env\(safe-area-inset-right,0px\)\);bottom:calc\(16px \+ env\(safe-area-inset-bottom,0px\)\)/, 'the overlay is absolute bottom-right with SAFE-AREA insets, only in read-slides — the scroll flow is unobstructed');
 	assert.match(html, /if\(topBtn\)topBtn\.onclick=function\(\)\{scrollStage\(0\);\}/, 'Home scrolls the stage to the top');
-	assert.match(html, /if\(bottomBtn\)bottomBtn\.onclick=function\(\)\{var st=document\.getElementById\('lp-stage'\);if\(st\)scrollStage\(st\.scrollHeight\);\}/, 'End scrolls the stage to the bottom');
+	assert.match(html, /if\(bottomBtn\)bottomBtn\.onclick=function\(\)\{var st=lpEl\('lp-stage'\);if\(st\)scrollStage\(st\.scrollHeight\);\}/, 'End scrolls the stage to the bottom');
 	// AUTO-HIDE: starts hidden (opacity:0), reveals on scroll (.lp-show), idle-hides after
 	// 1.5s, and each button hides via the `hidden` attr when its direction isn't actionable.
 	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*opacity:0;transform:translateY\(6px\);pointer-events:none/, 'the overlay starts hidden (fades in on reveal)');
@@ -648,7 +648,19 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// A pure-attribute + tag change plus that one hidden-utility rule: no layout, no
 	// script behaviour. Deliberate.
 	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
-	assert.equal(sha, '7c05ca6413808f210cdbdc6e4ba13cecec5c50b663f62dcb8e157096392e9cc3', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for #1462 item 3 — the player now resolves ALL of its chrome through one
+	// scoped `lpEl(id)` helper instead of bare `getElementById`. The document body IS deck
+	// content and `id` survives sanitization, so a slide carrying `id="lp-next"` won tree
+	// order and left the shipped Next button with no handler at all (observed on a real
+	// exported artifact; keyboard nav still worked, so nothing looked wrong until someone
+	// clicked it). Every real chrome node sits on a direct-child chain from `#lp-bar` or
+	// `#lp-app`, while authored content is always a descendant of `#lp-stage` — so a child
+	// combinator is a boundary a deck structurally cannot cross. Script-only: adds the
+	// CHROME map plus the helper, rewrites 21 lookups and roots the `#lp-toc a` /
+	// `#lp-article [id^=lp-sec-]` collection queries at the resolved element. No markup, no
+	// CSS, no layout. (`#lp-caption`/`#lp-play` were already scoped this way — this
+	// generalizes their fix to the other fifteen.)
+	assert.equal(sha, '41f50709fc32d36440a599bf15796ab633e60e99b602fd22c7e1ef5e7e78c3b3', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -1060,6 +1072,38 @@ test('narration: the player binds to its OWN chrome, not to a deck element weari
 	const doc = new JSDOM(html).window.document;
 	assert.equal(doc.querySelectorAll('#lp-app > #lp-caption').length, 0, 'an audio-only export has no band of its own');
 	assert.ok(doc.querySelector('section[data-lattice-slide] #lp-caption'), "the author's element is still in their slide");
+});
+
+test('the transport chrome is unforgeable too, not just the caption band and play control', async () => {
+	// #1462 item 3. #lp-caption and #lp-play were scoped; EVERY other lookup was a bare
+	// getElementById, and all of that chrome is emitted AFTER the slides — so a deck element
+	// won tree order. Observed on a real exported artifact: a slide carrying id="lp-next" left
+	// the shipped Next button with no handler at all. Keyboard nav still worked, so the deck
+	// looked healthy right up until someone clicked the control.
+	//
+	// The fix is structural, not a denylist: every real chrome node sits on a direct-child
+	// chain from #lp-bar or #lp-app, and authored content is always a descendant of #lp-stage,
+	// so a deck can never occupy one of those positions.
+	const forged = ['lp-next', 'lp-prev', 'lp-top', 'lp-bottom', 'lp-notes', 'lp-notes-body', 'lp-doc', 'lp-toc', 'lp-article', 'lp-stage', 'lp-count', 'lp-mode', 'lp-full', 'lp-notes-btn', 'lp-read-nav'];
+	const hostile = docHtml.replace('<p>Intro paragraph.</p>', `<p>Intro paragraph.</p>${forged.map((id) => `<div id="${id}"></div>`).join('')}`);
+	const { html } = await buildPlayerHtml({ docHtml: hostile, source, now: 0 });
+
+	for (const id of forged) {
+		assert.doesNotMatch(html, new RegExp(`getElementById\\('${id}'\\)`), `${id} is no longer resolved by a bare id lookup`);
+	}
+
+	const { JSDOM } = require('jsdom');
+	const doc = new JSDOM(html).window.document;
+	// The forged elements still SHIP — they are the author's markup, sanitized. What must not
+	// happen is the player resolving to them.
+	assert.ok(doc.querySelector('section[data-lattice-slide] #lp-next'), "the author's element is still in their slide");
+	for (const id of forged) {
+		const resolved = doc.querySelectorAll(`#lp-bar > #${id}, #lp-app > #${id}, #lp-app > #lp-nav > #${id}, #lp-app > #lp-read-nav > #${id}, #lp-app > #lp-notes > #${id}, #lp-app > #lp-doc > #${id}`);
+		assert.equal(resolved.length, 1, `exactly one ${id} sits at a chrome position, and it is the player's own`);
+		// `parentElement.closest`, not `closest`: #lp-stage is itself a chrome node, and
+		// `closest` matches the element it starts from.
+		assert.ok(!resolved[0].parentElement.closest('#lp-stage'), `the resolved ${id} is not inside the deck content`);
+	}
 });
 
 test('narration: the deck’s own pace is baked, because the player cannot read front matter', async () => {

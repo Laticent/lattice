@@ -349,6 +349,21 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
     expect(requests[0]).toMatchObject({ model: 'the-export-model', voice: 'the-export-voice', input: 'A sentence from the deck.' });
   });
 
+  it('sends the SAME resolved voice it keys on, when the caller names no voice', async () => {
+    // A clip must never be banked under a key naming a voice it was not spoken in. The
+    // fallback to the stored pref used to be resolved twice — once for the key here, once
+    // inside the rung's own `voice || getVoice()` — and two expressions that agree by
+    // coincidence are how the latency key silently missed every lookup forever (#1352).
+    const requests: Array<{ model?: string; voice?: string }> = [];
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: okFetch(requests) });
+    model.setOrModel('the-workspace-model');
+    model.setOrVoice('the-workspace-voice');
+    const res = await model.synthFor({ rung: 'openrouter', text: 'No voice named.' });
+    expect(requests[0].voice, 'the voice that was actually spoken').toBe('the-workspace-voice');
+    expect(res.key, 'the voice the bytes are banked under').toContain('the-workspace-voice');
+    expect(res.key).toBe(model.clipKeyFor({ rung: 'openrouter', text: 'No voice named.' }));
+  });
+
   it('does NOT write the chosen voice back to the workspace prefs', async () => {
     // Picking a different narrator for one board deck is not a decision to re-record every
     // future rehearsal in that voice. The export panel's choice is per-export, full stop.
@@ -428,6 +443,68 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
       await vi.advanceTimersByTimeAsync(20000);
       await vi.advanceTimersByTimeAsync(25000);
       await expect(p).resolves.toMatchObject({ ok: false, error: expect.stringContaining('45s') });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('BANKS a clip that lands after the timeout — it was already paid for', async () => {
+    // A TTS request is billed when it is issued. Canceling the read does not refund it, so a
+    // sentence this call gave up on is already paid for and letting it finish costs nothing.
+    // Aborting instead threw away the money AND the audio: on a slow link the bake paid three
+    // times per sentence (once per attempt), banked nothing, and then refused the export.
+    vi.useFakeTimers();
+    try {
+      let land: (b: unknown) => void = () => {};
+      let fetches = 0;
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        // ABORT-AWARE, like the real fetch: it rejects the moment its signal aborts. A mock that
+        // ignored abort would let this test pass against the very code it exists to reject.
+        fetchImpl: (_u: string, opts: { signal?: AbortSignal }) => {
+          fetches++;
+          return new Promise((res, rej) => {
+            land = res;
+            opts.signal?.addEventListener('abort', () => rej(new Error('aborted')), { once: true });
+          });
+        },
+      });
+      const p = model.synthFor({ rung: 'openrouter', text: 'A slow sentence.', timeoutMs: 45000 });
+      await vi.advanceTimersByTimeAsync(45000);
+      await expect(p).resolves.toMatchObject({ ok: false, error: expect.stringContaining('45s') });
+      expect(fetches).toBe(1);
+
+      // The response arrives late — during what would have been the retry's backoff.
+      land({ ok: true, status: 200, blob: async () => ({ size: 8, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(8) }) });
+      await vi.advanceTimersByTimeAsync(0);
+
+      // The retry is now a CACHE HIT, not a second charge. This is also why letting the request
+      // run cannot re-open the "three billed requests for one sentence" defect: the second
+      // request is never ISSUED.
+      const retry = await model.synthFor({ rung: 'openrouter', text: 'A slow sentence.', timeoutMs: 45000 });
+      expect(retry.ok, 'the late clip was banked and served').toBe(true);
+      expect(fetches, 'the retry must not re-bill a sentence already paid for').toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('still aborts for real when the CALLER cancels — patience is dropped, cancellation is not', async () => {
+    vi.useFakeTimers();
+    try {
+      let aborted = false;
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        fetchImpl: (_u: string, opts: { signal?: AbortSignal }) =>
+          new Promise((_res, rej) => {
+            opts.signal?.addEventListener('abort', () => { aborted = true; rej(new Error('aborted')); }, { once: true });
+          }),
+      });
+      const ctl = new AbortController();
+      const p = model.synthFor({ rung: 'openrouter', text: 'Anything.', signal: ctl.signal });
+      ctl.abort();
+      await p;
+      expect(aborted, 'a canceled export must stop spending immediately').toBe(true);
     } finally {
       vi.useRealTimers();
     }

@@ -328,5 +328,53 @@ await variant(
   },
 );
 
+// ── a deck that FORGES the player's own ids (#1462 item 3) ────────────────────────────────
+//
+// The document body IS deck content, `id` survives sanitization, and every chrome node is
+// emitted AFTER the slides — so a slide carrying `id="lp-next"` used to win tree order and the
+// shipped Next button ended up with NO HANDLER AT ALL. Keyboard nav still worked, which is
+// exactly why it went unnoticed: the deck looked healthy until someone clicked the control.
+//
+// This is the check that has to run on a real surface. A string assertion proves the selector
+// changed; only a real click proves the transport is bound to the player's own button.
+{
+  const hostileDoc = docHtml.replace(
+    '<h1>Slide one</h1>',
+    `<h1>Slide one</h1>${['lp-next', 'lp-prev', 'lp-count', 'lp-stage', 'lp-notes', 'lp-notes-body', 'lp-top', 'lp-bottom', 'lp-read-nav', 'lp-doc', 'lp-toc', 'lp-article', 'lp-mode', 'lp-full', 'lp-notes-btn'].map((id) => `<div id="${id}"></div>`).join('')}`,
+  );
+  const out = path.resolve('.scratch/out/narrated-player-forged-ids.html');
+  writeFileSync(out, (await buildPlayerHtml({ docHtml: hostileDoc, source, title: 'Forged', now: 0, narration })).html);
+  const p = await ctx.newPage();
+  const seen = [];
+  p.on('pageerror', (e) => seen.push(`pageerror: ${e.message}`));
+  p.on('console', (m) => {
+    if (m.type() === 'error' || /Content Security Policy|Refused to/i.test(m.text())) seen.push(`console: ${m.text()}`);
+  });
+  await p.goto(`file://${out}`);
+  await p.waitForSelector('#lp-play');
+  check("forged ids: the author's elements really are in the shipped file", (await p.locator('section[data-lattice-slide] #lp-next').count()) === 1);
+
+  // THE ACTUAL REGRESSION: click the on-screen Next button.
+  const startedAt = await p.evaluate(() => document.querySelector('#lp-bar > #lp-count').textContent.trim());
+  await p.click('#lp-app > #lp-nav > #lp-next');
+  await p.waitForTimeout(150);
+  const afterClick = await p.evaluate(() => document.querySelector('#lp-bar > #lp-count').textContent.trim());
+  check('forged ids: the on-screen Next button still advances the deck', afterClick !== startedAt, `${startedAt} -> ${afterClick}`);
+
+  await p.click('#lp-app > #lp-nav > #lp-prev');
+  await p.waitForTimeout(150);
+  check('forged ids: and Previous comes back', (await p.evaluate(() => document.querySelector('#lp-bar > #lp-count').textContent.trim())) === startedAt);
+
+  // The counter must be the player's own, not the deck's empty div.
+  check('forged ids: the slide counter reads the player\'s own element', /\d/.test(afterClick), afterClick);
+
+  // And narration still binds — the path that failed loudest when a forged #lp-caption won.
+  await p.click('#lp-bar > #lp-play');
+  await p.waitForTimeout(300);
+  check('forged ids: narration still starts', (await p.getAttribute('#lp-bar > #lp-play', 'aria-pressed')) === 'true');
+  check('forged ids: no page error from a hijacked lookup', seen.length === 0, seen.join(' | ') || 'clean');
+  await p.close();
+}
+
 await browser.close();
 console.log(process.exitCode ? '\nFAILED' : '\nALL CHECKS PASSED');
