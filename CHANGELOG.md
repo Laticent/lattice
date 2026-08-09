@@ -658,15 +658,20 @@ in patch versions.
   rejected by the merge ruleset.** The `Main Merge Queue` ruleset requires a PR, the queue and a
   green `ci`, and grants **no bypass to anyone** — so `sync-backlog` had failed 100% of its runs
   (73 of the last ~100 red runs repo-wide), leaving `BACKLOG.md` a week stale, and the release
-  workflow carried the same break, latent only because no release had ever been cut. Automation
-  now splits by what it writes: the **generated backlog mirror** pushes `main` under a one-time
-  ruleset bypass for GitHub Actions (a full CI run per issue event would be absurd for a file no
-  human edits), while the **release goes through the queue like any other change**, so its tag
-  names a tree `ci` actually passed on. `release.yml` is now two phases across a merge — *prepare*
-  cuts the commit on a branch and opens a PR; the new `release-publish.yml` tags the squashed
-  commit, builds the zip, and ships the Release. `sync-backlog` now recognizes a GH013 rule
-  violation as a settings gap and fails immediately with the fix, instead of rebasing three times
-  against a verdict no rebase can change. (#1439)
+  workflow carried the same break, latent only because no release had ever been cut. Rather than
+  punch a hole in the rule (a bypass is granted to the *integration*, so it would let **any**
+  `GITHUB_TOKEN` workflow push `main`), both workflows now reach `main` the way everything else
+  does — branch, PR, merge queue — and simply switch **auto-merge** on, so they land unattended
+  through the same gate as human work. `release.yml` is now two phases across a merge: *prepare*
+  cuts the commit on a branch, opens the PR and enables auto-merge; the new `release-publish.yml`
+  tags the squashed commit, builds the zip and ships the Release. `sync-backlog` force-pushes one
+  fixed branch, so a burst of issue activity updates the open PR in flight instead of opening a
+  second one. This hinges on a constraint that makes the naive version fail silently: **GitHub
+  suppresses workflow runs for events raised by `GITHUB_TOKEN`**, so a bot-opened PR never starts
+  `ci` and sits unmergeable forever — every event-raising step therefore runs as a new
+  `AUTOMATION_PAT` secret, and both workflows fail loudly without it. Auto-merging the release
+  narrows `CLAUDE.md` rule 7 in writing: **dispatching the workflow is the authorization**, and
+  the scope of "a human authorizes every merge" is now stated as *authored* work. (#1439)
 - **The first real release would have died twice, both times after the point of no return.**
   Exercising the flow end-to-end surfaced two pre-existing killers: the US-English ratchet walked
   the gitignored `release/` dir, so the notes file the release writes pushed the count 1307 → 1360

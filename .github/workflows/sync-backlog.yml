@@ -2,24 +2,27 @@ name: Sync backlog mirror
 
 # Regenerate the committed BACKLOG.md mirror whenever the open issue queue
 # changes (and daily, as a safety net). One-way: issues → BACKLOG.md, never
-# back. The render is pure (no timestamps), so this only commits on a real
-# queue change.
+# back. The render is pure (no timestamps), so this only acts on a real queue
+# change.
 #
-# NOTE: this pushes BACKLOG.md straight to main, which the "Main Merge Queue"
-# ruleset otherwise forbids (PR + merge queue + the `ci` check). That is
-# deliberate: routing a generated mirror through the queue would spend a full
-# CI run per issue event. It works ONLY because GitHub Actions is a bypass
-# actor on that ruleset — a one-time repo setting, not something this file can
-# grant itself. Without it every run dies on GH013 (issue #1439). The exact
-# setting, and why the release does the opposite, are in
+# It reaches `main` the same way everything else does: a pull request through
+# the merge queue. Nothing here pushes `main`, and the "Main Merge Queue"
+# ruleset needs no bypass for it (issue #1439). The only thing that makes it
+# feel automatic is that the workflow ALSO turns auto-merge on, so the queue
+# lands it with no human in the loop — the PR is a generated view of issues a
+# human already curated, not a proposal anyone needs to read.
+#
+# ONE branch, ONE open PR, ever: the branch below is force-pushed to
+# `main` + 1 commit each time, so a burst of issue activity updates the PR in
+# flight instead of opening a second one. See
 # engineering/workflow.md § Automation vs. the main ruleset.
 on:
   issues:
     # State-change events only. Label/assignee churn is deliberately EXCLUDED:
     # the triage/apply-label workflows add labels themselves, so a single new
-    # issue used to fan out several near-no-op backlog syncs all contending to
-    # push main. BACKLOG.md mirrors title/state/labels/assignees, so the daily
-    # cron picks up any label/assignee drift within 24h. See
+    # issue used to fan out several near-no-op backlog syncs. BACKLOG.md
+    # mirrors title/state/labels/assignees, so the daily cron picks up any
+    # label/assignee drift within 24h. See
     # engineering/decisions/2026-06-17-workflow-efficiency-review.md §D.
     types: [opened, edited, deleted, closed, reopened, transferred]
   schedule:
@@ -27,12 +30,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # commit BACKLOG.md
+  contents: write # push the sync branch
   issues: read
+  pull-requests: write # open the sync PR + enable auto-merge
 
+# Serialize against itself, and never cancel: a run killed between "PR opened"
+# and "auto-merge enabled" would leave a PR parked forever with nothing to
+# land it.
 concurrency:
   group: sync-backlog
   cancel-in-progress: false
+
+env:
+  SYNC_BRANCH: chore/backlog-sync
 
 jobs:
   mirror:
@@ -50,37 +60,50 @@ jobs:
             --json number,title,labels,assignees,url,state > .scratch-issues.json
       - name: Regenerate BACKLOG.md
         run: node tools/sync-backlog.js --input .scratch-issues.json && rm -f .scratch-issues.json
-      - name: Commit if changed
+
+      - name: Open (or update) the sync PR, and let the queue land it
+        env:
+          # NOT secrets.GITHUB_TOKEN, and this is the whole reason the secret
+          # exists: GitHub suppresses workflow runs for events raised by the
+          # repo token, so a PR opened — or a branch pushed — with it would
+          # never start `ci`. The required check would never appear and the PR
+          # would sit unmergeable forever.
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+
           if git diff --quiet -- BACKLOG.md; then
-            echo "BACKLOG.md unchanged — nothing to commit."
+            echo "BACKLOG.md unchanged — nothing to sync."
             exit 0
           fi
+
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::sync-backlog: the AUTOMATION_PAT secret is not set. The mirror reaches main by PR, and a PR opened with the built-in GITHUB_TOKEN never starts CI — so it could never merge. See engineering/workflow.md § Automation vs. the main ruleset."
+            exit 1
+          fi
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add BACKLOG.md
           git commit -m 'chore(backlog): sync BACKLOG.md to open issues'
-          # A rejected push has two causes that need OPPOSITE responses:
-          #
-          #   * a RACE — a human or another workflow pushed to main between
-          #     checkout and push (the concurrency group only serializes this
-          #     workflow against itself). Rebase the single backlog commit and
-          #     retry, like the golden-diff job in ci.yml.
-          #   * a RULE VIOLATION (GH013) — the ruleset refused the push. No
-          #     amount of rebasing changes that verdict, so retrying just burns
-          #     30s and buries the real cause under three identical rejections
-          #     (issue #1439). Fail fast, and name the fix.
-          log="$(mktemp)"
-          for i in 1 2 3; do
-            if git push 2>&1 | tee "$log"; then exit 0; fi
-            if grep -q 'GH013\|repository rule violations' "$log"; then
-              echo "::error::sync-backlog: main's ruleset rejected the push (GH013). This is a settings gap, not a race — retrying cannot fix it. Grant GitHub Actions (integration id 15368) bypass on the 'Main Merge Queue' ruleset; see engineering/workflow.md § Automation vs. the main ruleset."
-              exit 1
-            fi
-            echo "push rejected — rebasing on origin/main and retrying ($i)"
-            git fetch -q origin main && git rebase origin/main || { git rebase --abort || true; }
-            sleep $((i * 3))
-          done
-          echo "::error::sync-backlog: push to main failed after 3 rebase-and-retry rounds — main is moving faster than the sync can land."
-          exit 1
+
+          # Push as the PAT, not the repo token — a `synchronize` raised by
+          # GITHUB_TOKEN is suppressed too, so an UPDATE to an already-open PR
+          # would silently skip CI and strand it.
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${SYNC_BRANCH}"
+
+          # Force-pushing an open PR's head updates it in place, so this only
+          # creates one when none is open.
+          if [ -z "$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --base main --head "$SYNC_BRANCH" \
+              --title 'chore(backlog): sync BACKLOG.md to open issues' \
+              --body 'Generated by the **Sync backlog mirror** workflow — the one-way mirror of the open issue queue (`tools/sync-backlog.js`). Issues are the source of truth; this file is the committed snapshot. Auto-merges through the queue; no review needed. See `engineering/workflow.md` § Work queue.'
+          else
+            echo "sync PR already open — the force-push updated it in place."
+          fi
+
+          # With a merge queue, --auto queues the PR the moment `ci` is green.
+          # Idempotent: re-enabling on an already-auto-merging PR is a no-op.
+          gh pr merge "$SYNC_BRANCH" --auto --squash

@@ -3,8 +3,8 @@
 > **Status: automated, manually triggered, cut in two phases across a merge.**
 > **Release (prepare)** (`.github/workflows/release.yml`, `workflow_dispatch`)
 > reads the bump from the changelog, bumps the version, rolls `## Unreleased`,
-> rebuilds `dist/`, and offers the result as a **pull request**. You approve it
-> and enable auto-merge; the merge queue lands it. **Release (publish)**
+> rebuilds `dist/`, and puts the result up as a **pull request with auto-merge
+> already on** — so the merge queue lands it unattended. **Release (publish)**
 > (`release-publish.yml`) then fires on `main`, tags the merged commit, and
 > publishes a GitHub Release with notes + the showcase zip. **npm publish is
 > opt-in** (skipped until an `NPM_TOKEN` is configured).
@@ -14,6 +14,13 @@
 > (#1439). A release is exactly the change that should go that route: the tag
 > ends up naming a tree the required check actually passed on. The same two
 > phases run locally — `npm run release:prepare` / `npm run release:publish`.
+>
+> **Where the human is:** dispatching **Release (prepare)** *is* the
+> authorization to ship — from there nothing waits on a click. That is a
+> deliberate narrowing of "a human authorizes every merge" (`CLAUDE.md` rule 7),
+> and it is the only merge in the repo besides the backlog mirror that a human
+> doesn't approve. To stop a release mid-flight, disable auto-merge on the PR or
+> close it before the queue takes it.
 
 ## What a release is
 
@@ -82,12 +89,12 @@ is nothing to release.
    (lint + unit + `build:check`), then runs `tools/release.js --prepare`:
    computes the bump, `npm version`s, rolls `## Unreleased` →
    `## <version> - <date>`, rebuilds `dist/`, and commits `release: v<version>`
-   — **no tag, no push to `main`**. It pushes `release/v<version>` and opens the
-   PR. (Without a `RELEASE_PAT` secret it stops after the branch push and prints
-   a compare link — open the PR from there; see Prerequisites.)
-2. **Review the PR, approve it, enable auto-merge (squash).** Check the version,
-   the rolled changelog section, and the `dist/` rebuild. The merge queue
-   rebases, re-runs `ci`, and merges.
+   — **no tag, no push to `main`**. It pushes `release/v<version>`, opens the
+   PR, and turns on auto-merge.
+2. **Nothing to do — the queue lands it.** `ci` runs on the PR, the merge queue
+   rebases and re-runs it on the combined state, and the PR squash-merges. Worth
+   a look while it runs (the version, the rolled changelog section, the `dist/`
+   rebuild); to abort, disable auto-merge or close the PR.
 3. **Release (publish) fires by itself** on the resulting push to `main`. It
    no-ops unless `package.json`'s version is untagged, then runs
    `tools/release.js --publish --push`: tags **the merged commit**, rederives
@@ -180,8 +187,9 @@ uploaded to the Release, never committed.
 4. `node tools/release.js --prepare --bump=<input> --skip-checks` — the bump,
    changelog roll, dist rebuild, and the commit. The version comes back via
    `$GITHUB_OUTPUT`, so the workflow never re-derives it.
-5. `git switch -c release/v<version>` + push the branch.
-6. Open the PR (`RELEASE_PAT`), or print the compare link.
+5. Push `release/v<version>` and `gh pr create` — both as `AUTOMATION_PAT`, not
+   the repo token (see Prerequisites).
+6. `gh pr merge --auto --squash`, so the queue lands it once `ci` is green.
 
 **`.github/workflows/release-publish.yml` — Release (publish)** (`push` to
 `main` touching `package.json`, plus `workflow_dispatch` for recovery):
@@ -202,11 +210,13 @@ Prerequisites:
 - **Nothing needs a ruleset bypass.** Phase 1 pushes a branch, phase 2 pushes a
   tag, and the ruleset targets `refs/heads/main` only. See
   `engineering/workflow.md` § Automation vs. the main ruleset.
-- **`RELEASE_PAT` (optional).** A PR opened with `GITHUB_TOKEN` never receives
-  the required `ci` check — GitHub suppresses workflow runs for events raised by
-  the repo token — so it could never merge. With a PAT (repo scope, PR write)
-  the release PR opens itself; without one, phase 1 pushes the branch and prints
-  a compare link for you to open it in one click, which starts CI normally.
+- **`AUTOMATION_PAT` (required).** A branch pushed or a PR opened with
+  `GITHUB_TOKEN` never starts `ci` — GitHub suppresses workflow runs for events
+  raised by the repo token — so the required check never appears and the PR
+  could never merge. Phase 1 uses a PAT (or App token) with `contents: write` +
+  `pull_requests: write`, and **fails loudly** if the secret is missing rather
+  than opening a PR that can never land. The same secret drives
+  `sync-backlog.yml`.
 - The jobs declare the permissions they need: `contents: write` +
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).

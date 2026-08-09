@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The "Main Merge Queue" ruleset has no bypass actors, so every workflow that pushed straight to main was rejected with GH013 — sync-backlog had failed 100% of its runs (73 of the last ~100 red runs repo-wide) and the never-yet-exercised release workflow carried the same latent break. Splits repo automation into two classes with two different answers: HIGH-FREQUENCY GENERATED MIRRORS (BACKLOG.md) get a ruleset bypass for the GitHub Actions integration, because routing a generated file through the queue would spend a full CI run per issue event; ANYTHING THAT CHANGES WHAT SHIPS (the release) goes through the queue like every other change, so the tag names a tree `ci` actually passed on. release.yml split into prepare (cut the commit on a branch → PR) and release-publish.yml (tag the squashed commit, zip, GitHub Release, npm). Two latent release-killers found by exercising the real flow and fixed: the US-English ratchet counted the gitignored release/ notes file and aborted the build mid-release, and the 1.4 MB notes body exceeded GitHub's 125,000-character Release-body cap.
+summary: The "Main Merge Queue" ruleset has no bypass actors, so every workflow that pushed straight to main was rejected with GH013 — sync-backlog had failed 100% of its runs (73 of the last ~100 red runs repo-wide) and the never-yet-exercised release workflow carried the same latent break. Rejects the tempting bypass (granted to the INTEGRATION, it would let any GITHUB_TOKEN workflow push main) and instead routes BOTH workflows through the normal path — branch, PR, merge queue — with auto-merge switched on, so they land unattended through the same gate as human work. Hinges on one non-obvious constraint: GitHub suppresses workflow runs for events raised by GITHUB_TOKEN, so a bot-opened PR never starts ci and sits unmergeable forever; every event-raising step therefore runs as an AUTOMATION_PAT secret, and both workflows fail loudly without it. sync-backlog force-pushes ONE fixed branch so bursts update the open PR in flight; release.yml splits into prepare (commit → PR → auto-merge) and release-publish.yml (tag the squashed commit, zip, Release, npm). Auto-merging the release narrows CLAUDE.md rule 7 in writing: the dispatch is the authorization. Two latent release-killers found by exercising the real flow and fixed: the US-English ratchet counted the gitignored release/ notes file and aborted the build mid-release, and the 1.4 MB notes body exceeded GitHub's 125,000-character Release-body cap.
 ---
 
 # Automation under the merge ruleset
@@ -48,54 +48,75 @@ loop treated every rejection as a race and rebased three times before giving
 up, so each run buried the real verdict under three identical GH013 blocks and
 a message that guessed at two causes at once.
 
-## Two classes of automation, two answers
+## One rule, no exceptions — the answer for both
 
-The tempting fix — "grant the bot a bypass and move on" — is right for one
-class of write and wrong for the other. What separates them is **frequency**
-and **whether the write changes what ships**.
+The tempting fix is "grant the bot a bypass and move on." It was considered and
+**rejected**: a bypass is granted to the *integration*, so once set, any
+workflow holding `GITHUB_TOKEN` can push `main` — a standing hole in the one
+guarantee the ruleset exists to give, opened to fix one generated file.
+
+Both workflows instead do what a human does: push a branch, open a PR, let the
+queue land it. What makes them *automatic* is not a shortcut around the gate but
+**auto-merge**: `gh pr merge --auto --squash` queues the PR the instant `ci` is
+green, so it merges with nobody watching. Same gate, same tests, no human, no
+exception. `required_approving_review_count` is `0`, so nothing in the ruleset
+demands a reviewer — the merge queue is a *testing* gate here, not a review one.
+
+### The catch that makes this non-obvious
+
+**GitHub suppresses workflow runs for events raised by `GITHUB_TOKEN`.** It is a
+loop-breaker and it is absolute: a PR opened with the repo token never starts
+`ci`, and a push that updates such a PR never re-starts it. The required check
+never appears, so the PR does not fail — it *sits*, unmergeable, forever.
+
+This is the whole reason a naive "just open a PR" rewrite fails, and the reason
+this design needs a secret at all. Every step that raises an event another
+workflow must observe — the branch push, the `gh pr create` — runs as
+**`AUTOMATION_PAT`**. Both workflows fail loudly when it is missing rather than
+opening a PR that can never land.
+
+### What it costs
 
 | | Backlog mirror | Release |
 |---|---|---|
-| Trigger | issue opened/closed/edited + daily | manual, a few times a year |
-| Frequency | ~14 pushes/day at recent rates | ~0.02/day |
-| Content | generated from issues; the file is a *view* | the version, the changelog, `dist/` — the artifact itself |
-| Cost of a queue trip | a full `ci` run **per issue event** | one `ci` run per release |
-| Cost of a bypass | a drift event for every open PR | — |
+| Trigger | issue state change + daily | manual dispatch |
+| Frequency | a few per day, when the render actually changes | a few times a year |
+| CI on the PR | `lint` only — `BACKLOG.md` matches neither `code` nor `docs` | full |
+| CI in the queue | **full** — `changes` forces everything true on `merge_group` | full |
+| Human | none | the dispatch |
 
-**The mirror takes the bypass.** A generated read-only view is not worth a CI
-run per issue event, and a release-grade review of a file no human edits is
-theater. Adding GitHub Actions (integration id `15368`) to the ruleset's bypass
-list is a one-time repo setting.
+The merge-queue run is the real cost, and it is deliberate on their side: the
+`changes` job forces `code` and `docs` true for `merge_group` because that is
+the final pre-merge gate and "path-skipping is the wrong economy" there. So a
+backlog sync costs roughly one full CI run plus one merge-train entry every open
+PR must rebase past.
 
-**The release takes the queue.** A release is exactly the write that *should*
-be reviewed and tested on the tree that merges. Under a bypass, the release
-commit would reach `main` having been tested only on the pre-merge state; under
-the queue, the required `ci` check runs on the combined post-rebase state, and
-the tag then names a commit that check actually passed on. It is rare enough
-that the CI cost is irrelevant.
+That is the accepted price of having no exceptions. Two levers exist if it ever
+bites, and **both are frequency, not mechanism**: drop the `issues:` trigger and
+let the daily cron carry the mirror (its own design already tolerates 24h drift
+for labels/assignees), or retire the mirror from `main` entirely onto an orphan
+artifact branch — the `ci-drift-images` idiom — which costs nothing at all.
+Neither needs a ruleset change, which is exactly the property worth keeping.
 
-Note what the bypass does **not** buy: it applies to the whole GitHub Actions
-integration, so *any* workflow using `GITHUB_TOKEN` may push `main` once it is
-granted. That is the accepted cost, and it is the reason the release does not
-lean on it — the narrow, auditable path is preferred wherever the cost of using
-it is affordable.
+### Where the human went, for the release
 
-### Rejected: the mirror opens a PR and auto-merges
+Auto-merging a release narrows `CLAUDE.md` rule 7 ("a human authorizes every
+merge"), so the narrowing is written down rather than left as a contradiction
+between the docs and the machine: **dispatching Release (prepare) IS the
+authorization.** The human decision moved from approving a PR to running the
+workflow, which is the more honest place for it — by the time the PR exists,
+every input (the changelog, the bump) was already decided. The backlog mirror
+has no human at all, and needs none: it is a rendering of issues a human already
+curated.
 
-`required_approving_review_count` is `0`, so a bot PR *could* auto-merge with no
-human in the loop. Rejected on cost and on churn: ~14 full CI runs a day for a
-generated doc, each one a merge-train entry that every open PR must rebase past
-— the exact thrash `2026-06-14-drift-watch-rebase-thrash.md` and
-`2026-06-17-workflow-efficiency-review.md` §D were written to prevent.
+### One branch, one open PR
 
-### Rejected: move the mirror off `main` to an orphan branch
-
-The `ci-drift-images` idiom (a pure artifact branch, never merged) would work
-and would cost nothing. Rejected as the *default* because it takes `BACKLOG.md`
-off the repo root, where its lock-in-insurance job
-(`2026-06-14-github-project-management.md`) depends on it being the first thing
-a clone shows. Kept in reserve: if the bypass ever proves to churn the merge
-queue in practice, this is the fallback, and it needs no ruleset change.
+`sync-backlog.yml` force-pushes a fixed branch (`chore/backlog-sync`) at
+`main` + 1 commit, so a burst of issue activity updates the PR **in flight**
+rather than opening a second one. Force-pushing drops a queued PR from the
+queue, which is correct — the newer snapshot supersedes it. The workflow also
+must never `cancel-in-progress`: a run killed between "PR opened" and
+"auto-merge enabled" would park a PR forever with nothing to land it.
 
 ## The release, restructured
 
@@ -107,9 +128,8 @@ It is now two phases across a merge:
 
 1. **`release.yml` — Release (prepare).** Gates, then
    `tools/release.js --prepare`: bump, roll `## Unreleased`, rebuild `dist/`,
-   commit. No tag, no zip, no push to `main`. It pushes `release/v<x.y.z>` and
-   opens the PR. A human approves and enables auto-merge; the queue does the
-   rest.
+   commit. No tag, no zip, no push to `main`. It pushes `release/v<x.y.z>`,
+   opens the PR, and switches auto-merge on; the queue does the rest.
 2. **`release-publish.yml` — Release (publish).** Fires on the resulting push
    to `main`, and no-ops unless `package.json`'s version is untagged.
    `tools/release.js --publish` tags **that** commit, rederives the notes,
@@ -125,17 +145,8 @@ Three consequences worth stating plainly:
   gitignored, so phase 2 cannot inherit phase 1's notes file — it reads back
   the dated `## <version>` section the release PR committed
   (`changelog.extractVersion`).
-- **Tags need no bypass.** The ruleset targets `refs/heads/main`; there is no
-  tag ruleset, so phase 2's `git push origin v<x.y.z>` is unaffected.
-
-### The PR cannot be opened by `GITHUB_TOKEN`
-
-GitHub suppresses workflow runs for events raised by the repo token, so a PR
-opened with `GITHUB_TOKEN` would never receive the required `ci` check and could
-never merge. Phase 1 therefore opens the PR only when a `RELEASE_PAT` secret is
-present; without it the branch is pushed and the run prints the compare link for
-a human to open in one click — which is an ordinary user event, so CI runs. Both
-paths work; the PAT only removes a click.
+- **Tags are outside the ruleset.** It targets `refs/heads/main`; there is no
+  tag ruleset, so phase 2's `git push origin v<x.y.z>` needs nothing special.
 
 ## Two release-killers found by running it
 
@@ -164,11 +175,16 @@ dirty tree. `--prepare` now fails immediately and names the stray files.
 
 ## What a future agent needs to know
 
-- **Do not add a `git push` to `main` in a workflow.** It works only under the
-  bypass, and the bypass exists for one file. Push a branch and open a PR.
-- **`sync-backlog` failing with GH013 is a settings gap, not a race.** The
-  workflow now says so and exits immediately instead of rebasing three times.
-  If it reappears, check the ruleset's bypass list first — that is the whole
-  diagnosis.
-- The one-time setting, and the `gh api` call that applies it, are in
-  `engineering/workflow.md` § Automation vs. the main ruleset.
+- **Do not add a `git push` to `main` in a workflow.** It cannot work — there is
+  no bypass and there is deliberately not going to be one. Push a branch, open a
+  PR as `AUTOMATION_PAT`, and `gh pr merge --auto`.
+- **Never raise an event with `GITHUB_TOKEN` that another workflow must see.**
+  Opening a PR, or pushing to an open PR's head, with the repo token produces a
+  PR that can never merge — silently. Use `AUTOMATION_PAT`.
+- **`sync-backlog` failing with GH013 would mean someone reintroduced a direct
+  push.** The workflow no longer pushes `main` at all.
+- Both automated merges are narrow and written down: `CLAUDE.md` rule 7 and
+  `workflow.md` § Merging scope "a human authorizes every merge" to *authored*
+  work. Don't read them as licence to auto-merge your own PRs.
+- The full mechanism, the cost, and the two frequency levers if it ever bites
+  are in `engineering/workflow.md` § Automation vs. the main ruleset.
