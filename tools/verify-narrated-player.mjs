@@ -53,8 +53,13 @@ const docHtml = `<!DOCTYPE html>
 <section data-lattice-slide="3" id="3" class="content"><h2>Slide three</h2></section>
 </body></html>`;
 
-// Slide 1: two real clips. Slide 2: one clip. Slide 3: a SILENT cue (no clip on the
-// author's device) — the partial-coverage floor the design promises.
+// Slide 1: two real clips. Slide 2: one clip. Slide 3: a cue with NO clip.
+//
+// A shipped file never contains that third case any more — the bake refuses rather than
+// exporting a deck that goes quiet partway through (narration-bake.ts). It is still driven
+// here because the PLAYER's floor has to hold anyway: a clip that will not decode on the
+// recipient's browser lands in exactly this state at runtime, and the deck must keep its
+// caption, hold its beat and move on rather than strand the delivery.
 /** A cue with per-word estimate timings, exactly as `buildTrack` produces them. */
 function cue(text, ms, audio) {
   const parts = text.split(' ');
@@ -161,7 +166,7 @@ check('the deeper SECTION beat was held before it spoke', held >= 1400 && held <
 
 // A silent cue still takes its time rather than flashing past.
 await page.waitForFunction(() => { const e = document.querySelector('#lp-caption .lp-cap-line.lp-now'); return e?.textContent.trim().startsWith('This sentence was never prepared'); }, null, { timeout: 10000 });
-check('a sentence with no clip still shows its caption', true);
+check('a cue whose clip is missing still shows its caption and holds its beat', true);
 
 // Leaving Present stops the voice — no disembodied narrator over the article view.
 await page.click('[data-lp-btn="read-article"]');
@@ -238,6 +243,72 @@ for (const mode of ['light', 'dark']) {
   await page.waitForTimeout(150);
 }
 console.log('wrote .scratch/out/narrated-player-{light,dark}.png');
+
+// ── the other two states the export panel's switches produce ──────────────────────────────
+//
+// Captions and audio are independent options, so there are four files an author can produce.
+// The one driven above is "both". These two are the ones a unit test can only inspect as a
+// string: whether the file actually WORKS is a claim about a real browser (HARD RULE #23).
+
+/** Build a variant, open it offline, and hand the page to `drive`. */
+async function variant(label, cues, drive) {
+  const out = path.resolve(`.scratch/out/narrated-player-${label}.html`);
+  writeFileSync(out, (await buildPlayerHtml({ docHtml, source, title: 'Narrated', now: 0, narration: cues })).html);
+  const p = await ctx.newPage();
+  const seen = [];
+  p.on('pageerror', (e) => seen.push(`pageerror: ${e.message}`));
+  p.on('console', (m) => {
+    if (m.type() === 'error' || /Content Security Policy|Refused to/i.test(m.text())) seen.push(`console: ${m.text()}`);
+  });
+  p.on('requestfailed', (r) => seen.push(`request attempted: ${r.url().slice(0, 80)}`));
+  await p.goto(`file://${out}`);
+  await p.waitForSelector('#lp-play');
+  await drive(p);
+  check(`${label}: no CSP refusal, page error, or network attempt`, seen.length === 0, seen.join(' | ') || 'clean');
+  await p.close();
+}
+
+// AUDIO ONLY — the deck speaks and advances itself with no band on screen at all.
+await variant(
+  'audio-only',
+  narration.map((cues) => cues.map((c) => ({ ...c, words: [] }))),
+  async (p) => {
+    check('audio-only: no caption band is in the document', (await p.locator('#lp-caption').count()) === 0);
+    await p.click('#lp-play');
+    const playing = await p.evaluate(async () => {
+      const a = document.querySelector('audio');
+      if (!a) return { found: false };
+      const t0 = a.currentTime;
+      await new Promise((r) => setTimeout(r, 250));
+      return { found: true, advanced: a.currentTime > t0 || a.ended, paused: a.paused };
+    });
+    check('audio-only: the voice still plays', playing.found && (playing.advanced || !playing.paused), JSON.stringify(playing));
+    // The point of the variant: it must still DRIVE the deck, with no crawl to drive it.
+    await p.waitForFunction(() => document.getElementById('lp-count').textContent.trim().startsWith('2'), null, { timeout: 10000 });
+    check('audio-only: the deck still advances itself', true);
+  },
+);
+
+// CAPTIONS ONLY — a teleprompter read-along on the player's own wall clock, no audio at all.
+await variant(
+  'captions-only',
+  narration.map((cues) => cues.map((c) => ({ ...c, audio: null }))),
+  async (p) => {
+    check('captions-only: the band is there', (await p.locator('#lp-caption').count()) === 1);
+    await p.click('#lp-play');
+    await p.waitForFunction(() => document.querySelector('#lp-caption .lp-cap-line.lp-now'), null, { timeout: 4000 });
+    check('captions-only: the first line lights up', (await p.textContent('#lp-caption .lp-cap-line.lp-now')).trim() === 'The first thing we need to talk about.');
+    // The wall clock is the whole mechanism here — with no media element to read, the crawl
+    // times off `silentFrom`. If that path were broken the highlight would sit on word one.
+    const before = await p.locator('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').count();
+    await p.waitForTimeout(400);
+    const after = await p.locator('#lp-caption .lp-cap-line.lp-now .lp-cap-w.lp-said').count();
+    check('captions-only: the highlight advances on the wall clock', after > before, `${before} -> ${after} words lit`);
+    check('captions-only: no audio element is ever created', (await p.locator('audio').count()) === 0);
+    await p.waitForFunction(() => document.getElementById('lp-count').textContent.trim().startsWith('2'), null, { timeout: 12000 });
+    check('captions-only: the deck still advances itself', true);
+  },
+);
 
 await browser.close();
 console.log(process.exitCode ? '\nFAILED' : '\nALL CHECKS PASSED');

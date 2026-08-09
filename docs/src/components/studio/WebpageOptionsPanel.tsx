@@ -7,17 +7,31 @@
 // the CLI `--strip-notes`. Accessible slide descriptions are kept (they're the slide's
 // text alternative, not private speaker copy). See share-export.ts › shareHtmlPlayer.
 
-import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Sun, X } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
+
+/** Everything this panel decides, handed to the exporter in one object rather than a
+ *  growing positional list. */
+export type WebpageExportChoice = {
+	stripNotes: boolean;
+	scheme: Scheme;
+	narration: NarrationChoice;
+	/** Aborts a bake in progress — the author can stop a long synthesis run. */
+	signal: AbortSignal;
+};
 
 export function WebpageOptionsPanel({
 	busy,
 	status,
 	defaultScheme,
+	source,
+	project,
+	narrationFailures,
 	onBack,
 	onExport,
 }: {
@@ -27,11 +41,31 @@ export function WebpageOptionsPanel({
 	// one, else the current preview mode. So the panel reflects a system/inherited deck, and
 	// a plain deck is WYSIWYG. The author can still override for this one export.
 	defaultScheme: Scheme;
+	/** The deck source, so the narration row can measure what it would cost. */
+	source: string;
+	/** Render + project the deck to narration — called only once a narration switch is on. */
+	project: ProjectDeck;
+	/** The sentences the last attempt could not prepare, so the refusal names them. */
+	narrationFailures?: { slide: number; text: string; reason: string }[] | null;
 	onBack: () => void;
-	onExport: (stripNotes: boolean, scheme: Scheme) => void;
+	onExport: (choice: WebpageExportChoice) => void;
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
+	// Narration is opt-in too, and for a different reason: it is the only option here that
+	// can spend money and add megabytes. See NarrationExportOptions for the bill.
+	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, voice: { model: '', voice: '', speed: 1 } });
+	const abortRef = React.useRef<AbortController | null>(null);
+
+	// The two options are mutually exclusive, and the veto runs in this direction on purpose:
+	// for most decks the narration the author rehearsed IS their speaker notes, so shipping
+	// the audio — or the captions, which are the same words on screen — of a deck they asked
+	// to strip would hand the recipient the private text back, in the presenter's own voice.
+	// Stripping notes therefore turns narration OFF and locks it.
+	const narrationBlocked = stripNotes;
+	React.useEffect(() => {
+		if (narrationBlocked) setNarration((n) => (n.captions || n.audio ? { ...n, captions: false, audio: false } : n));
+	}, [narrationBlocked]);
 	// The exported player's default color mode. The panel remounts each time the export step
 	// is opened (ShareSheet renders it conditionally), so this mount-time default already
 	// re-syncs — no effect needed, so an explicit user pick is never silently clobbered.
@@ -102,17 +136,45 @@ export function WebpageOptionsPanel({
 						<Switch className="mt-0.5" aria-label="Strip speaker notes" checked={stripNotes} disabled={busy} onCheckedChange={setStripNotes} />
 					</div>
 				</div>
+
+				<NarrationExportOptions
+					source={source}
+					project={project}
+					value={narration}
+					onChange={setNarration}
+					disabled={busy}
+					blockedReason={narrationBlocked ? 'Unavailable while speaker notes are stripped — for most decks the narration you rehearsed IS your notes, so this would hand them back as words on screen and in your own voice.' : null}
+					failures={narrationFailures}
+				/>
 			</section>
 
-			<button
-				type="button"
-				disabled={busy}
-				onClick={() => onExport(stripNotes, scheme)}
-				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
-			>
-				{busy ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />}
-				{busy ? status || 'Exporting…' : 'Download webpage'}
-			</button>
+			<div className="flex gap-2">
+				<button
+					type="button"
+					disabled={busy}
+					onClick={() => {
+						abortRef.current = new AbortController();
+						onExport({ stripNotes, scheme, narration, signal: abortRef.current.signal });
+					}}
+					className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
+				>
+					{busy ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />}
+					{busy ? status || 'Exporting…' : 'Download webpage'}
+				</button>
+				{/* Cancel exists because a bake can run for minutes on an unrehearsed deck, and the
+				    only thing worse than a long wait is one you cannot stop. Everything already
+				    synthesized stays banked, so cancelling costs nothing that was paid for. */}
+				{busy && (
+					<button
+						type="button"
+						aria-label="Cancel export"
+						onClick={() => abortRef.current?.abort()}
+						className="inline-flex shrink-0 items-center justify-center rounded-xl border border-border px-3.5 text-[13.5px] font-semibold text-muted-foreground hover:text-[var(--text-heading)]"
+					>
+						<X className="size-4" />
+					</button>
+				)}
+			</div>
 		</div>
 	);
 }

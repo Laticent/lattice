@@ -14,7 +14,7 @@ import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { loadSettings, type OverflowMarker } from './studio-store';
-import { WebpageOptionsPanel } from './WebpageOptionsPanel';
+import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
 // the rendered ARTIFACT vs hand off the SOURCE. Every row is REAL now: the source
@@ -54,6 +54,20 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const [busy, setBusy] = React.useState<string | null>(null);
 	// Live per-slide status for the heavy exports (PDF/PPTX), shown in the busy row.
 	const [progress, setProgress] = React.useState<string | null>(null);
+	// The sentences a refused narration bake could not prepare — held here so the webpage
+	// panel can name them, since a toast can only carry one line.
+	const [narrationFailures, setNarrationFailures] = React.useState<{ slide: number; text: string; reason: string }[] | null>(null);
+
+	// Render the deck once and project every slide to narration text — what the webpage
+	// panel measures a bake against. Passed as a THUNK, not a result: it is a full deck
+	// render, and an author who never turns narration on should never pay for it.
+	const projectDeck = React.useCallback(async () => {
+		const [{ projectDeckSpeech }, { trimAppendedSlides }] = await Promise.all([import('./narration-projection'), import('./narration-bake')]);
+		const projected = await projectDeckSpeech(options, artifactSource, palette, extraTheme, extraCss, mode);
+		// `glossary: auto` appends a slide the SOURCE does not contain, so the projection runs
+		// one entry long; trimming it keeps the rest index-aligned to the authored slides.
+		return trimAppendedSlides(artifactSource, projected);
+	}, [options, artifactSource, palette, extraTheme, extraCss, mode]);
 
 	// Run an async export with a busy spinner + honest success / failure toast. The
 	// heavy artifact exports (PDF/PPTX) can take seconds, so `fn` is handed an
@@ -97,8 +111,26 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
-	const exportHtml = (stripNotes: boolean, scheme: 'light' | 'dark' | 'system' | 'inherited') => {
-		run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, stripNotes, scheme));
+	const exportHtml = (choice: WebpageExportChoice) => {
+		setNarrationFailures(null);
+		run('html', 'Webpage', async (onStatus) => {
+			try {
+				await shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, choice.stripNotes, choice.scheme, {
+					captions: choice.narration.captions,
+					audio: choice.narration.audio,
+					voice: choice.narration.voice,
+					signal: choice.signal,
+				});
+			} catch (e) {
+				// A refused bake names the sentences it could not prepare. The toast can only carry
+				// a line, so the LIST goes back to the panel, where the author can read it against
+				// the deck. Duck-typed rather than `instanceof` so this file does not pull the bake
+				// module (and Cadenza behind it) into the sheet's own bundle.
+				const failures = (e as { name?: string; failures?: { slide: number; text: string; reason: string }[] })?.failures;
+				if ((e as Error)?.name === 'BakeIncompleteError' && failures) setNarrationFailures(failures);
+				throw e;
+			}
+		});
 	};
 	// Image set (.zip) export from its options step: format / resolution / thumbnails /
 	// SVG extraction — the shared kernel fills perfect-fidelity defaults.
@@ -131,7 +163,16 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'html' ? (
-						<WebpageOptionsPanel busy={busy === 'html'} status={progress} defaultScheme={deckDefaultScheme} onBack={() => setView('menu')} onExport={exportHtml} />
+						<WebpageOptionsPanel
+							busy={busy === 'html'}
+							status={progress}
+							defaultScheme={deckDefaultScheme}
+							source={artifactSource}
+							project={projectDeck}
+							narrationFailures={narrationFailures}
+							onBack={() => setView('menu')}
+							onExport={exportHtml}
+						/>
 					) : view === 'print' ? (
 						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} notify={notify} />
 					) : view === 'imageset' ? (

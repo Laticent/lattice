@@ -1616,7 +1616,7 @@ function themeDualMode(css) {
   const darkBlock = `${sel(":root[data-lp-scheme=dark]")}{${body}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}}`;
   return { base, darkBlock };
 }
-function playerCss(narration2 = false) {
+function playerCss(narration2 = false, captions = narration2) {
   return `
 :root{color-scheme:light dark}
 html,body{margin:0;padding:0;background:var(--bg,#fff)}
@@ -1728,7 +1728,7 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 #lp-nav{display:none}
 .lp-js [data-lp-view=present] #lp-nav{display:flex;flex:none;align-items:center;justify-content:center;
  gap:32px;padding:10px 0 16px}
-${narration2 ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that speaks, and the one signal
+${captions ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that speaks, and the one signal
    that tells a viewer the file is working rather than stuck. It sits BELOW the slide, in the
    column, so it never covers the author's layout.
    The band holds its height whether or not a line is showing (min-height; only the TEXT
@@ -1759,7 +1759,9 @@ ${narration2 ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that
 .lp-cap-w.lp-said{color:var(--accent,#4338ca)}
 .lp-cap-w.lp-soon{color:var(--text-muted,#888)}
 @media(max-width:560px){.lp-js [data-lp-view=present] #lp-caption{height:64px;padding:0 10px}.lp-cap-line{font-size:15px}}
-@media(prefers-reduced-motion:reduce){.lp-cap-track{transition:none}.lp-cap-w,.lp-cap-line{transition:none}}
+@media(prefers-reduced-motion:reduce){.lp-cap-track{transition:none}.lp-cap-w,.lp-cap-line{transition:none}}` : ""}${narration2 ? `
+/* The narration transport's own control. Shipped whenever the deck has a delivery to play,
+   captions or not \u2014 an audio-only export still needs its Play button. */
 #lp-play{border:1px solid var(--border,#ccc)!important;border-radius:8px}
 #lp-play[aria-pressed=true]{background:var(--accent,#4338ca);color:var(--on-accent,#fff);border-color:var(--accent,#4338ca)!important}` : ""}
 #lp-prev,#lp-next{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:999px;
@@ -2032,7 +2034,7 @@ function crawlLoop(){
  if(!narPlaying||(!silentFrom&&(!au||au.paused))){rafId=0;return;}
  tickCrawl(crawlClock());
  rafId=requestAnimationFrame(crawlLoop);}
-function startCrawlLoop(){if(!rafId)rafId=requestAnimationFrame(crawlLoop);}
+function startCrawlLoop(){if(capBand&&!rafId)rafId=requestAnimationFrame(crawlLoop);}
 function stopCrawlLoop(){if(rafId){cancelAnimationFrame(rafId);rafId=0;}silentFrom=0;}
 function setPlaying(on){narPlaying=on;
  if(playBtn){playBtn.setAttribute('aria-pressed',on?'true':'false');playBtn.innerHTML=on?PAUSE_ICON:PLAY_ICON;
@@ -2046,8 +2048,11 @@ function loadCues(i){if(cueSlide===i&&cues)return cues;cueSlide=i;cues=[];
 function speakSlide(i){
  stopAudio();spokeSlide=i;loadCues(i);
  // One cursor per slide, over the slide's own timeline. Re-anchored per clip below.
- capTrack=expandTrack(cues||[]);cursor=makeCursor(capTrack);held={cueIndex:0,wordIndex:0};
- renderCrawl(capTrack);paintCrawl();
+ // Guarded on the band: an AUDIO-ONLY export ships no #lp-caption and no word timings, so
+ // there is nothing to crawl \u2014 and makeCursor is then not inlined at all (see playerJs), so
+ // this must never be the line that references it.
+ held={cueIndex:0,wordIndex:0};
+ if(capBand){capTrack=expandTrack(cues||[]);cursor=makeCursor(capTrack);renderCrawl(capTrack);paintCrawl();}
  nextCue(0);}
 function nextCue(k){
  if(!narPlaying)return;
@@ -2114,9 +2119,9 @@ onViewChanged=function(v){if(playBtn)playBtn.style.display=v==='present'?'':'non
  if(v!=='present'&&narPlaying){setPlaying(false);stopAudio();clearCaption();}};
 `;
 }
-async function playerJs(animaJs = "", beats = null) {
+async function playerJs(animaJs = "", beats = null, captions = !!beats) {
   const { fitScale: fitScale2, createTransport: createTransport2, keyAction: keyAction2, swipeAction: swipeAction2, PRESENT_KEYMAP: PRESENT_KEYMAP2 } = await Promise.resolve().then(() => (init_present_transport(), present_transport_exports));
-  const capKernel = beats ? `var makeCursor=${(await Promise.resolve().then(() => (init_dist(), dist_exports))).makeCursor.toString()};
+  const capKernel = captions ? `var makeCursor=${(await Promise.resolve().then(() => (init_dist(), dist_exports))).makeCursor.toString()};
 ` : "";
   const kernel = capKernel + `var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP2)};
 var keyAction=${keyAction2.toString()};
@@ -2419,11 +2424,13 @@ async function assemblePlayer(data, caps) {
   const hasScene = /<section\b[^>]*\sdata-scene-spec=/.test(docHtml);
   const narration2 = narrationBlocks(data.narration);
   const hasNarration = narration2.length > 0;
+  const hasCaptions = hasNarration && (data.narration || []).some((cues) => (cues || []).some((c) => Array.isArray(c?.words) && c.words.length));
+  const hasAudio = hasNarration && (data.narration || []).some((cues) => (cues || []).some((c) => typeof c?.audio === "string" && c.audio.startsWith("data:")));
   const paceName = frontMatterPace(source);
   const beats = { slide: paceBeatMs("slide", paceName), section: paceBeatMs("section", paceName) };
-  const js = await playerJs(hasScene ? ANIMA_PLAYER_JS : "", hasNarration ? beats : null);
+  const js = await playerJs(hasScene ? ANIMA_PLAYER_JS : "", hasNarration ? beats : null, hasCaptions);
   const jsHash = await caps.sha256(js);
-  const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; ${hasNarration ? "media-src data:; " : ""}base-uri 'none'; form-action 'none'`;
+  const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; ${hasAudio ? "media-src data:; " : ""}base-uri 'none'; form-action 'none'`;
   const envelope = (0, import_lattice_doc.buildEnvelope)(
     { source, title, theme: data.theme, config: data.config, notes: data.notes, glossary: data.glossary, readAlong: data.readAlong },
     { now: data.now, build: data.build, playerVersion: data.playerVersion }
@@ -2434,7 +2441,7 @@ async function assemblePlayer(data, caps) {
 <meta http-equiv="Content-Security-Policy" content="${escapeAttr(csp)}">
 <title>${escapeText(title)}</title>
 ${styles}
-<style>${minifyCss(playerCss(hasNarration))}</style>
+<style>${minifyCss(playerCss(hasNarration, hasCaptions))}</style>
 ${darkStyle}
 </head><body>
 <header id="lp-bar">
@@ -2455,7 +2462,7 @@ ${darkStyle}
 ${a11yDefs}
 ${slidesHtml}
  </div>
-${hasNarration ? ' <div id="lp-caption" aria-hidden="true"></div>\n' : ""} <div id="lp-nav">
+${hasCaptions ? ' <div id="lp-caption" aria-hidden="true"></div>\n' : ""} <div id="lp-nav">
   <button id="lp-prev" type="button" aria-label="Previous slide" title="Previous slide (\u2190)"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
   <button id="lp-next" type="button" aria-label="Next slide" title="Next slide (\u2192)"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
  </div>

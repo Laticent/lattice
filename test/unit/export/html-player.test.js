@@ -908,12 +908,20 @@ const NARRATION_DOC = `<!DOCTYPE html>
 <section data-lattice-slide="2" id="2" class="divider"><h2>Two</h2></section>
 </body></html>`;
 
-/** Two slides of cues, the second silent, for the carrier tests. */
-const cue = (text, audio) => ({ text, estimateMs: 900, gapMs: 120, audio });
+/** The word timeline the caption crawl highlights against — the presence of one is what
+ *  tells the assembler this export ships captions (see `hasCaptions`). */
+const wordsOf = (text) => text.split(' ').map((display, i) => ({ display, startMs: i * 300, endMs: i * 300 + 280 }));
+
+/** Two slides of cues, the second silent, for the carrier tests. Captioned by default,
+ *  because the common export ships both halves; `cue(text, audio, [])` is the audio-only
+ *  shape the panel produces when the captions switch is off. */
+const cue = (text, audio, words) => ({ text, estimateMs: 900, gapMs: 120, audio, words: words ?? wordsOf(text) });
 const NARRATION = [
 	[cue('First line.', 'data:audio/mpeg;base64,AAAA'), cue('Second line.', null)],
 	[cue('On the divider.', 'data:audio/mpeg;base64,BBBB')],
 ];
+/** The same delivery with no word timings — an export whose captions switch was off. */
+const NARRATION_NO_CAPTIONS = NARRATION.map((cues) => cues.map((c) => ({ ...c, words: [] })));
 
 async function narratedPlayer(extra = {}) {
 	return buildPlayerHtml({ docHtml: NARRATION_DOC, source: '---\ntheme: indaco\n---\n\n# One\n', title: 'Spoken', now: 0, narration: NARRATION, ...extra });
@@ -993,6 +1001,45 @@ test('narration: the chrome exists only for a deck that speaks', async () => {
 	const silent = (await buildPlayerHtml({ docHtml: NARRATION_DOC, source: '# x', now: 0 })).html;
 	assert.doesNotMatch(silent, /lp-play/, 'no dead affordance on a silent deck');
 	assert.doesNotMatch(silent, /lp-caption/, 'and no rule for chrome it does not have');
+});
+
+// ── the four states the export panel's two switches produce ───────────────────────────────
+//
+// Captions and audio are separate options because they cost wildly different amounts and are
+// separately useful. All four combinations have to be REAL in the file, not merely accepted
+// by the panel — and the assembler derives which one it is from the PAYLOAD (does any cue
+// carry words?) rather than from a second input, so the band, its stylesheet, the inlined
+// cursor and the shipped words can never disagree.
+test('narration: audio with captions OFF ships the voice and no band at all', async () => {
+	const { html } = await narratedPlayer({ narration: NARRATION_NO_CAPTIONS });
+	assert.match(html, /id="lp-play"/, 'the delivery still has a transport');
+	assert.match(html, /media-src data:/, 'and may still play its audio');
+	// The player script still LOOKS for a band (`getElementById('lp-caption')`) — that one
+	// runtime reference is exactly what makes the crawl no-op here. What must be absent is the
+	// element and its stylesheet.
+	assert.doesNotMatch(html, /id="lp-caption"/, 'but no band element');
+	assert.doesNotMatch(html, /#lp-caption\{/, 'and no stylesheet for one');
+	assert.doesNotMatch(html, /\.lp-cap-track\{/, 'nor any of the crawl’s own rules');
+	// The crawl's own FUNCTIONS stay in the script — they are a few hundred bytes and they
+	// no-op without a band, and one shape is worth more than a second conditional-emission
+	// seam that can rot. The KERNEL is the part worth gating: several KB of inlined Cadenza
+	// source that a deck with nothing to highlight has no use for.
+	assert.doesNotMatch(html, /var makeCursor=/, 'and not one byte of the caption cursor');
+	const { JSDOM } = require('jsdom');
+	const parsed = JSON.parse(new JSDOM(html).window.document.querySelector('script[type="application/lattice+audio"]').textContent);
+	assert.deepEqual(parsed.map((c) => c.w), [[], []], 'the words are not shipped either');
+	assert.equal(parsed[0].t, 'First line.', 'the cue text still rides — it is what carries the beat');
+});
+
+test('narration: captions with audio OFF ship a read-along that costs kilobytes', async () => {
+	// A captions-only export is a working teleprompter, not a degraded narration: the player
+	// crawls it on its own wall clock (narrationJs › crawlClock's `silentFrom` path).
+	const silentCues = NARRATION.map((cues) => cues.map((c) => ({ ...c, audio: null })));
+	const { html } = await narratedPlayer({ narration: silentCues });
+	assert.match(html, /id="lp-caption"/, 'the band ships');
+	assert.match(html, /var makeCursor=/, 'and the cursor that drives it');
+	assert.doesNotMatch(html, /media-src/, 'but nothing is granted for audio the file does not have');
+	assert.doesNotMatch(html, /data:audio\//, 'and not one clip rides along');
 });
 
 test('narration: the deck’s own pace is baked, because the player cannot read front matter', async () => {
