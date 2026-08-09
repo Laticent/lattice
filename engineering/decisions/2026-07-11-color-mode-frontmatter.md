@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   A first-class deck-wide `color-mode:` front-matter key — light | dark | system | inherited —
   that EVERY surface respects (the engine render, the CLI emulator, the runtime, the Playground
@@ -15,10 +15,18 @@ summary: >
 version: 1
 supersedes: none
 extends: 2026-07-07-html-lattice-player.md
-last-status-update: 2026-07-11
+last-status-update: 2026-08-09
 ---
 
 # A first-class `color-mode:` front-matter key — light / dark / system / inherited
+
+> **Shipped.** This landed in **#899** (merged 2026-07-11) — `lib/core/resolve-color-mode.js`
+> is the register, and the engine, runtime, emulator, linter, Studio and Playground all
+> read it. **#1427** then hardened precedence: `color-mode:` beats the legacy `class:`
+> color axis by *filtering the register where it is read*, so an illegal token is never
+> stamped — see `2026-08-05-deck-class-register-boundary.md`. The design below is the
+> record of what was built, not a proposal; the header said `proposed` until 2026-08-09.
+> Ownership context: `2026-08-09-color-theme-ownership.md`.
 
 **Date:** 2026-07-11 · **Status:** design-decision (proposed) · **Owner:** Sharmarke
 

@@ -3,6 +3,10 @@
 How to author a new palette for Lattice. Covers the CSS variable contract
 and the categorical-token taxonomy.
 
+> **Who owns what?** This file is the *how*. For the boundary — what the engine
+> owns versus a theme, a deck, and a consumer like the docs site or the Studio —
+> see `engineering/decisions/2026-08-09-color-theme-ownership.md`.
+
 > **First time here?** Start with `themes/README.md` — it's the
 > one-screen mental model and a five-minute scaffolded path. This file
 > is the deep reference you graduate to when the README points you here.
