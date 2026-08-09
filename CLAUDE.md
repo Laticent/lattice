@@ -462,6 +462,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Adding an INGEST for markdown (a file read, an import, a model reply, a zip) — line endings + BOM | `engineering/decisions/2026-08-04-line-endings-lf-boundaries.md` + `SANCTIONED_EOL_BOUNDARIES` |
 | Categorical **texture** (a11y/onyx/concrete/print patterns, the `--cat-N-texture` channel) | `engineering/textures.md` |
 | Palette tokens, Mermaid contract | `design/theming.md` |
+| **Who owns color** — engine vs theme vs deck vs consumer, and which record settled each piece | `engineering/decisions/2026-08-09-color-theme-ownership.md` |
 | Core visual design principles (hierarchy, restraint) | `design/design-principles.md` |
 | How a slide is composed — the Form vocabulary | `design/forms.md` |
 | Prose rules for galleries/decks | `design/editorial.md` |

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: Consolidates and CLOSES the entire "make chart/diagram color survive old browsers" effort (four abandoned attempts — #908 the @supports fork, #945 widen-the-fork, #943 static-palette-compilation, #953 layered runtime-shim) and REVERTS all of it: this PR removes the #908 machinery from main, restoring themes + build to their pre-#908 state, and the three open branches/PRs (#945/#943/#953) are closed with tip SHAs recorded here for archaeology. Lattice deliberately does NOT chase old-browser (Safari < 16.2 / frozen smart-TV Chromium) color parity — themes stay pure-modern; the exported player's own independent dark-mode flattening is the ONE old-engine concession kept (a reproduced white-deck fix that shares no code with the reverted generator). This doc then ANALYZES the "true visualization unification" the churn kept pointing at — and, guided by an adversarial trio, SPLITS it into two very different questions with opposite answers. (1) A shared `.viz-frame` (one skeleton for the chart + diagram groups, which are the same presentation object) is a real, coherent maintainability win worth doing — it is a LAYOUT unification that leaves color untouched, with known caveats (Mermaid width is a calc() that relocates not deletes; the layout hoist may need export sign-off). (2) A unified color PALETTE / token migration is NOT recommended: the trio proved the premise false — charts, diagrams and Mermaid already share ONE design-system palette contract (chart categoricals are PORTED from each theme's brand `--cat-*` on purpose so they speak the same color language, ratified in 2026-06-18-chart-mermaid-style-separation.md), there are actually THREE token families not two (`--chart-cat-*` 8-slot, `--cat-*`/`--diagram-*` 12-slot, `--state-*` semantic), much viz paint is injected from transform JS (not a clean CSS alias), a collapse would strand logo-wall's 12 slots and flatten deliberately-curated per-theme brand identity to re-solve a CVD problem the a11y palettes already own, and the maintenance pain that motivated it (keeping two systems' OLD-BROWSER FALLBACKS in sync) was just deleted by this very revert. Net: ship the revert + this doc now; recommend the FRAME merge as the next step (pending one owner go-ahead); do NOT migrate the palette. No unification code lands in this PR.
 ---
 
@@ -8,6 +8,14 @@ summary: Consolidates and CLOSES the entire "make chart/diagram color survive ol
 **Date:** 2026-07-13
 **Area:** theming / charts / diagrams / build / architecture
 **Supersedes:** `2026-07-11-old-browser-chart-fallback.md` (removed from main by this PR)
+
+> **Decided, not proposed.** All three outcomes are settled: the revert **shipped**
+> with this record; the unified color-palette migration is **rejected** (§2.3 — reopen
+> only on an explicit owner decision that accepts the costs); and the `.viz-frame`
+> merge was **approved** (§2.2 go-ahead satisfied 2026-07-15) and moved to its own
+> record, `2026-07-15-viz-frame-merge.md`. The header said `proposed` until 2026-08-09,
+> which read as though the palette question were still open. It is not.
+> Ownership context: `2026-08-09-color-theme-ownership.md`.
 
 > **Read this first.** Two things happened. (1) We spent three days trying to make
 > chart/diagram color survive old browsers, built four designs, merged none, and are
