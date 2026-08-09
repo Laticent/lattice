@@ -71,6 +71,71 @@ in patch versions.
   always specified. A commented *typo* is still caught. Found by rendering the real CLI — every
   unit suite passed while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
 
+- **Fixed: the Studio's pre-paint shell now renders the app's OWN chrome, at build time.**
+  Reported (#1438) as "the icons and the middle action bar are missing on a hard reload". The
+  Studio is `client:only`, so nothing about it is server-rendered — there is no hydration
+  guard, no cookie-vs-`localStorage` theme question and no IndexedDB coupling; the missing
+  controls simply belong to an app that has not mounted yet, and the shell never drew their
+  space. Hydration then dropped four bands in at once (the phone's eight-cell action bar, the
+  preview sub-bar, the slide navigator, the status strip) plus, above tablet, the whole editor
+  column, so the hand-off read as a re-layout. The shell now renders `StudioChromeSkeleton` —
+  the app's **own** `Button`, `Separator`, `LatticeMark`, `icons.ts` glyphs, and `BarIcon` /
+  `PostureDial` / `EditorSkeleton` (lifted out of `StudioShell` into a shared `chrome-parts`)
+  — to static HTML at build time, with no client directive, so it ships as markup and **zero
+  JS**. No copied SVG path remains in the shell; the eight bar cells are
+  byte-identical to the app's, including the bordered Present cell. Per-deck content (slide
+  names, counts, palette) is deliberately *not* drawn — that would re-create the
+  second-content-surface failure the one-skeleton decision retired — so it gets a neutral bar
+  inside the real control's shape. Also: `lx-ui` on the shell root is load-bearing (shadcn's
+  baseline reset is scoped to it); the landscape-phone cinema morph is modeled, so the shell
+  no longer flashes a topbar the app is about to delete; the Build stop drops the slim tail
+  rather than paint a header the app will replace; `mobileBarH` was 4px stale (53 → 49, left
+  behind by the eight-cell redesign); and a new e2e oracle measures **both** surfaces in one
+  page load — every band and every control — and fails on either drift. **Confirmed on a real
+  iPhone and iPad by the reporter.** One residual they caught on device: the shell forced
+  `font-family: system-ui` while the app renders in `--font-body`, so the content-sized deck
+  pill painted 164.5px and re-measured at 185px on hydration — a visible shift from tablet
+  up. The shell now inherits the app's font, and the pill is asserted by the oracle (the
+  bands and bar cells are all width-constrained, so none of them could see that class of
+  drift). An adversarial pass then found **eight** more divergences that the hand-listed
+  oracle passed green over, every one of them in a state or a control nobody had listed: the
+  Build stop's activity rail and its full-header left run (the deck pill sat 27px off), a
+  persisted splitter (the split line up to 288px off) and a collapsed pane, the cinema morph's
+  one-axis padding (the slide 43px too wide), the preview sub-bar's three heights (47 / 45 /
+  41px, on a *container* query over the pane), a rotation during load, and two mis-copied
+  breakpoints. All fixed — and the hand-listed oracle is replaced by two ENUMERATING matrices
+  that compare the two surfaces as sets across 13 width × stop cases each, so a control added
+  to the app's chrome and not the shell fails on the first run. Four of those cases are
+  `@smoke`, so the per-PR job catches band and control drift the same day. Filling the
+  matrices out to one case per **tier x stop** then found three more, each of them a
+  tier-asymmetric behavior the default case could never reach: the Build stop's 52px activity
+  rail is DESKTOP-only, and deriving it from "not mobile" put one into every tablet Build
+  layout (every band right of it 28px off); the desktop slim header drops the deck switcher at
+  Read for a plain title, and flattening the pill's border instead left the title 27px off
+  while drawing a live-dot the app has none of (the same rule also flattened the switcher on a
+  phone, where the app draws it in full); and the persisted preview rect was captured with
+  whatever side panels happened to be docked, while panel docking is *not* persisted — the app
+  always boots with them closed — so a reload after working with the Coach open replayed a
+  601px slide box that the app immediately re-drew at 708px. A third adversarial round then
+  found **nine** more, and they sort into one sentence: the shell predicts what the app renders
+  from what is knowable before paint, and each round finds one more input that is not. Rotating
+  a phone into the landscape cinema morph left two chrome bands painted over the full-bleed
+  slide (the re-seed made a stale publish reachable); the desktop slim header at Read showed the
+  **wrong deck name**, because the title-correction script found only one of the two title
+  elements; the tours button — gated on a persisted preference, not a width or a stop — was
+  drawn unconditionally, giving anyone who had turned tours off a phantom control and a 44px
+  slide; a transient stop (⌘. quiet) and a landscape orientation each stored a preview rect the
+  next boot could not be in; a restored split below the collapse midpoint *collapses* rather
+  than clamping, so the shell painted a 300px pane where the app handed off to a 46px rail; a
+  storage-blocked visitor lost the bands, the dial and the box placement to one swallowed
+  `localStorage` throw; a legacy `onboarded: true` derived Build in the app and Write in the
+  shell; and the re-seed listener never retired. All fixed. The rule that kills the class is
+  now recorded where the next person will meet it: **draw a control only where its presence is
+  a function of viewport width or the seeded stop — anything else is published as a
+  `data-ssr-*` flag or not drawn**, because omitting a control leaves a hole while drawing a
+  phantom shifts every sibling after it.
+  See `engineering/decisions/2026-08-09-studio-shell-structural-completeness.md`.
+
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator
   forms that were invisible to the Studio now split a slide, and a setext underline no longer
   does.** The engine breaks a slide on every top-level markdown-it `hr`; every caller-side splitter
