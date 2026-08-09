@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { type CatalogItem, makeSearchIndex, rankedHitsFor, searchHits } from './component-search';
-import { buildIntentIndex, confidenceFor, scoreIntent } from './intent-search';
+import { buildIntentIndex, confidenceFor, contentWords, scoreIntent } from './intent-search';
 
 // The REAL catalog, not a three-row fixture: this module's whole job is ranking
 // 61 near-neighbors against each other, and a toy catalog cannot show a
@@ -95,12 +95,29 @@ describe('intent search — the exact passes still win', () => {
 		expect(missed.length / total).toBeLessThan(0.1);
 	});
 
-	it('a long space-free paste cannot lock the thread', () => {
-		// `stem()` is quadratic in token length; uncapped, 20k chars blocked a real browser
-		// for 15s. Nothing in the index is longer than a word, so tokens are truncated.
-		const t0 = performance.now();
-		searchHits(catalog, index, 'a'.repeat(20000));
-		expect(performance.now() - t0).toBeLessThan(4000);
+	// `stem()` is quadratic in token length; uncapped, a 20k-char space-free paste blocked a
+	// real browser for 15s. The guard is a token cap, and it is asserted DIRECTLY rather than
+	// through a stopwatch: the first cut of this test asserted `< 4000ms` and failed CI at
+	// 4145ms on a slower runner. A wall-clock threshold on shared hardware measures the
+	// runner, not the code, and raising the number would only move the flake.
+	it('caps absurdly long tokens so stemming cannot blow up', () => {
+		const tokens = contentWords(`${'a'.repeat(20000)} ${'b'.repeat(500)} normal`);
+		expect(Math.max(...tokens.map((t) => t.length))).toBeLessThanOrEqual(40);
+		expect(tokens).toContain('normal'); // the cap must not eat ordinary words
+	});
+
+	it('scales sub-quadratically in query length', () => {
+		// Machine-independent: 4× the input should cost ~4× (linear), not ~16× (quadratic).
+		// 8× is the midpoint — comfortably above linear noise, far below the blow-up.
+		const time = (n: number) => {
+			const t0 = performance.now();
+			searchHits(catalog, index, 'a'.repeat(n));
+			return Math.max(performance.now() - t0, 1);
+		};
+		time(5000); // warm, so JIT cost is not charged to the first measurement
+		const small = time(5000);
+		const large = time(20000);
+		expect(large / small).toBeLessThan(8);
 	});
 
 	it('routes a lone token to the fuzzy pass and a phrase to the intent pass', () => {
