@@ -11,7 +11,11 @@ name: Studio E2E nightly (playwright)
 # Browser provisioning: `@playwright/test`'s pinned version IS the browser pin
 # (1.56.1 ↔ Chromium build 1194). `playwright install` fetches exactly that, so
 # `toHaveScreenshot`-style comparisons would be reproducible. The Studio reads the
-# committed `dist/docs/components.json` at build time, so no root build is needed.
+# committed `dist/docs/components.json` at build time, so no root BUILD is needed —
+# but the root DEPENDENCIES are, because the site imports engine modules from lib/
+# that resolve their own imports out of <root>/node_modules (#1498). Those are two
+# different things, and reading the first as covering the second is what left this
+# suite running zero tests for four nights.
 
 on:
   schedule:
@@ -27,15 +31,38 @@ concurrency:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 60, not 30. This ceiling is OURS, not GitHub's (a hosted job may run 360
+    # minutes), and 30 was set when the suite fit it: the last run that actually
+    # executed before the blackout took 20m02s of test time (2026-08-03). The
+    # suite has grown a week of specs since, and the first restored run came back
+    # up against the old ceiling with little room left — a suite killed mid-flight
+    # reports as an ordinary red and tells you nothing, which is the exact failure
+    # mode #1498 was about. Headroom is cheap on a nightly; a truncated signal is
+    # not. Note the webServer also builds the site inside this budget (up to the
+    # 300s webServer.timeout in playwright.config.ts) before a single test runs.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+
+      # Install ROOT deps too, not just docs/. playwright.config.ts's webServer
+      # builds the real site, and the site imports engine code from lib/ — today
+      # lib/core/boundary-parser.mjs, which imports `markdown-it`. Node resolves
+      # that from the IMPORTER's directory upward (lib/core/ → lib/node_modules →
+      # <root>/node_modules) and never looks in docs/node_modules, so having
+      # markdown-it in docs/package.json does not satisfy it. Without this step the
+      # webServer exits 1 with ERR_MODULE_NOT_FOUND and the suite runs ZERO tests
+      # while still reporting as a normal red — see #1498. Mirrors docs.yml.
+      - name: Install root deps (engine deps the docs build imports)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
 
       - name: Install docs deps
         run: npm ci
@@ -97,7 +124,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+
+      # Same reason as the e2e job above — the webServer needs the root deps (#1498).
+      - name: Install root deps (engine deps the docs build imports)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
 
       - name: Install docs deps
         run: npm ci
