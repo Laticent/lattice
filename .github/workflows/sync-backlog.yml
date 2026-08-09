@@ -1,9 +1,8 @@
 name: Sync backlog mirror
 
-# Regenerate the committed BACKLOG.md mirror whenever the open issue queue
-# changes (and daily, as a safety net). One-way: issues → BACKLOG.md, never
-# back. The render is pure (no timestamps), so this only acts on a real queue
-# change.
+# Regenerate the committed BACKLOG.md mirror once a night. One-way:
+# issues → BACKLOG.md, never back. The render is pure (no timestamps), so a
+# night with no queue movement does nothing at all.
 #
 # It reaches `main` the same way everything else does: a pull request through
 # the merge queue. Nothing here pushes `main`, and the "Main Merge Queue"
@@ -12,21 +11,25 @@ name: Sync backlog mirror
 # lands it with no human in the loop — the PR is a generated view of issues a
 # human already curated, not a proposal anyone needs to read.
 #
-# ONE branch, ONE open PR, ever: the branch below is force-pushed to
-# `main` + 1 commit each time, so a burst of issue activity updates the PR in
-# flight instead of opening a second one. See
-# engineering/workflow.md § Automation vs. the main ruleset.
+# ONE branch, ONE open PR, ever: the branch below is force-pushed to `main` + 1
+# commit each time, so a manual dispatch while last night's PR is still in
+# flight updates that PR instead of opening a second one.
+#
+# NIGHTLY, not per-issue-event. Going through the queue means each sync costs a
+# full merge-queue CI run and one merge-train entry every open PR must rebase
+# past, so the trigger is priced accordingly: once, off-hours, instead of up to
+# ~14 times a day during working hours. The `issues:` triggers were dropped
+# together with the direct push that made them cheap (#1439) — the mirror
+# already tolerated a 24h lag for label/assignee drift, and this extends that
+# tolerance to title/state. Issues stay the source of truth; this file is the
+# lock-in snapshot, not the board. Supersedes the trigger-list tuning in
+# engineering/decisions/2026-06-17-workflow-efficiency-review.md §D.
+#
+# Need it fresh right now? Dispatch it — that is what the manual trigger is for.
+# See engineering/workflow.md § Automation vs. the main ruleset.
 on:
-  issues:
-    # State-change events only. Label/assignee churn is deliberately EXCLUDED:
-    # the triage/apply-label workflows add labels themselves, so a single new
-    # issue used to fan out several near-no-op backlog syncs. BACKLOG.md
-    # mirrors title/state/labels/assignees, so the daily cron picks up any
-    # label/assignee drift within 24h. See
-    # engineering/decisions/2026-06-17-workflow-efficiency-review.md §D.
-    types: [opened, edited, deleted, closed, reopened, transferred]
   schedule:
-    - cron: '17 6 * * *' # daily 06:17 UTC safety net — also reconciles label/assignee drift
+    - cron: '17 6 * * *' # 06:17 UTC — overnight for the Americas, and a quiet queue
   workflow_dispatch:
 
 permissions:

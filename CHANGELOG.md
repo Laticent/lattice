@@ -665,8 +665,13 @@ in patch versions.
   through the same gate as human work. `release.yml` is now two phases across a merge: *prepare*
   cuts the commit on a branch, opens the PR and enables auto-merge; the new `release-publish.yml`
   tags the squashed commit, builds the zip and ships the Release. `sync-backlog` force-pushes one
-  fixed branch, so a burst of issue activity updates the open PR in flight instead of opening a
-  second one. This hinges on a constraint that makes the naive version fail silently: **GitHub
+  fixed branch, so a dispatch fired while the open PR is still in flight updates it instead of
+  opening a second one — and it now runs **nightly** rather than on every issue event: a queue
+  trip is no longer free, so the mirror costs one CI run and one merge-train entry a night,
+  off-hours, instead of ~14 during working hours. **`BACKLOG.md` may now trail the issue queue by
+  up to a day**; it was always the lock-in snapshot rather than the board, and dispatching the
+  workflow refreshes it on demand. This hinges on a constraint that makes the naive version fail
+  silently: **GitHub
   suppresses workflow runs for events raised by `GITHUB_TOKEN`**, so a bot-opened PR never starts
   `ci` and sits unmergeable forever — every event-raising step therefore runs as a new
   `AUTOMATION_PAT` secret, and both workflows fail loudly without it. Auto-merging the release

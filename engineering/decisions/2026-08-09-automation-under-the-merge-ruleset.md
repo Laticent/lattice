@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The "Main Merge Queue" ruleset has no bypass actors, so every workflow that pushed straight to main was rejected with GH013 — sync-backlog had failed 100% of its runs (73 of the last ~100 red runs repo-wide) and the never-yet-exercised release workflow carried the same latent break. Rejects the tempting bypass (granted to the INTEGRATION, it would let any GITHUB_TOKEN workflow push main) and instead routes BOTH workflows through the normal path — branch, PR, merge queue — with auto-merge switched on, so they land unattended through the same gate as human work. Hinges on one non-obvious constraint: GitHub suppresses workflow runs for events raised by GITHUB_TOKEN, so a bot-opened PR never starts ci and sits unmergeable forever; every event-raising step therefore runs as an AUTOMATION_PAT secret, and both workflows fail loudly without it. sync-backlog force-pushes ONE fixed branch so bursts update the open PR in flight; release.yml splits into prepare (commit → PR → auto-merge) and release-publish.yml (tag the squashed commit, zip, Release, npm). Auto-merging the release narrows CLAUDE.md rule 7 in writing: the dispatch is the authorization. Two latent release-killers found by exercising the real flow and fixed: the US-English ratchet counted the gitignored release/ notes file and aborted the build mid-release, and the 1.4 MB notes body exceeded GitHub's 125,000-character Release-body cap.
+summary: The "Main Merge Queue" ruleset has no bypass actors, so every workflow that pushed straight to main was rejected with GH013 — sync-backlog had failed 100% of its runs (73 of the last ~100 red runs repo-wide) and the never-yet-exercised release workflow carried the same latent break. Rejects the tempting bypass (granted to the INTEGRATION, it would let any GITHUB_TOKEN workflow push main) and instead routes BOTH workflows through the normal path — branch, PR, merge queue — with auto-merge switched on, so they land unattended through the same gate as human work. Hinges on one non-obvious constraint: GitHub suppresses workflow runs for events raised by GITHUB_TOKEN, so a bot-opened PR never starts ci and sits unmergeable forever; every event-raising step therefore runs as an AUTOMATION_PAT secret, and both workflows fail loudly without it. The mirror also drops to a NIGHTLY cron (+ dispatch) from per-issue-event, since a queue trip is no longer free — one CI run and one merge-train entry a night, off-hours, against ~14 during working hours; it force-pushes ONE fixed branch so a dispatch updates the open PR in flight; release.yml splits into prepare (commit → PR → auto-merge) and release-publish.yml (tag the squashed commit, zip, Release, npm). Auto-merging the release narrows CLAUDE.md rule 7 in writing: the dispatch is the authorization. Two latent release-killers found by exercising the real flow and fixed: the US-English ratchet counted the gitignored release/ notes file and aborted the build mid-release, and the 1.4 MB notes body exceeded GitHub's 125,000-character Release-body cap.
 ---
 
 # Automation under the merge ruleset
@@ -79,8 +79,8 @@ opening a PR that can never land.
 
 | | Backlog mirror | Release |
 |---|---|---|
-| Trigger | issue state change + daily | manual dispatch |
-| Frequency | a few per day, when the render actually changes | a few times a year |
+| Trigger | nightly cron (+ dispatch) | manual dispatch |
+| Frequency | once a night, and only when the render changed | a few times a year |
 | CI on the PR | `lint` only — `BACKLOG.md` matches neither `code` nor `docs` | full |
 | CI in the queue | **full** — `changes` forces everything true on `merge_group` | full |
 | Human | none | the dispatch |
@@ -91,12 +91,22 @@ the final pre-merge gate and "path-skipping is the wrong economy" there. So a
 backlog sync costs roughly one full CI run plus one merge-train entry every open
 PR must rebase past.
 
-That is the accepted price of having no exceptions. Two levers exist if it ever
-bites, and **both are frequency, not mechanism**: drop the `issues:` trigger and
-let the daily cron carry the mirror (its own design already tolerates 24h drift
-for labels/assignees), or retire the mirror from `main` entirely onto an orphan
-artifact branch — the `ci-drift-images` idiom — which costs nothing at all.
-Neither needs a ruleset change, which is exactly the property worth keeping.
+**That price is what set the mirror's cadence.** The direct push was free, so
+the mirror fired on every issue state change — up to ~14 a day. Through the
+queue that is ~14 full CI runs and ~14 rebase nudges arriving during working
+hours, to keep a generated file current to the minute. So the `issues:` triggers
+were dropped with the push that made them cheap: **the mirror is nightly**, at
+06:17 UTC, plus manual dispatch when someone wants it now. One CI run, one
+merge-train entry, off-hours, and only on a night when the render actually
+changed. The 24h lag is not a regression in kind — the mirror already
+reconciled label/assignee drift on exactly that cron; this extends it to
+title/state. Issues remain the source of truth, and the mirror was never the
+board.
+
+If even that ever bites, the remaining lever is to retire the mirror from `main`
+entirely onto an orphan artifact branch — the `ci-drift-images` idiom — which
+costs nothing at all. It needs no ruleset change either, which is exactly the
+property worth keeping.
 
 ### Where the human went, for the release
 
@@ -112,9 +122,9 @@ curated.
 ### One branch, one open PR
 
 `sync-backlog.yml` force-pushes a fixed branch (`chore/backlog-sync`) at
-`main` + 1 commit, so a burst of issue activity updates the PR **in flight**
-rather than opening a second one. Force-pushing drops a queued PR from the
-queue, which is correct — the newer snapshot supersedes it. The workflow also
+`main` + 1 commit, so a dispatch fired while last night's PR is still in flight
+updates that PR rather than opening a second one. Force-pushing drops a queued
+PR from the queue, which is correct — the newer snapshot supersedes it. The workflow also
 must never `cancel-in-progress`: a run killed between "PR opened" and
 "auto-merge enabled" would park a PR forever with nothing to land it.
 
