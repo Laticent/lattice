@@ -89,16 +89,23 @@ spot `_class: dark` does — which the outcome deliberately preserves.
 
 ## The shape: filter at the boundary
 
-The reverted attempt (`colormode-attempt-1`) let the token be stamped and
-subtracted it afterwards. Subtraction needs to know whether a token came from the
-deck or the slide, and only one of the three code paths could carry that. Four
-regressions followed from that one choice:
+The reverted attempt (#1416) let the token be stamped and subtracted it
+afterwards. Subtraction needs to know whether a token came from the deck or the
+slide, and only one of the three code paths could carry that. Four regressions
+followed from that one choice:
 
 - **R1** — the runtime deleted a slide's own component (it subtracted the deck's
   token from a resolved list where the two are one string).
 - **R2** — a loose/strict regex split re-created the #1326 shape.
 - **R3** — `--image-mode print` became a no-op while `manifest.json` said otherwise.
 - **R4** — a mid-deck global was silently deleted.
+
+> **That attempt's code is gone — R1–R4 above are the only surviving record of
+> it.** #1416 described it as preserved at a tag `colormode-attempt-1` (commits
+> `57f0bd86`, `cc879fdc`). It is not: `v1.0.0` is the only tag on `origin`, and
+> neither commit resolves from a fresh clone, so those objects only ever existed
+> in the sandbox container that wrote them. Anyone revisiting the boundary filter
+> has this note to reason from and nothing to diff against. (#1451)
 
 `lib/core/deck-class-register.js` refuses the token where the register is **read**:
 
