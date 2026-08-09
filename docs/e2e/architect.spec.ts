@@ -36,7 +36,8 @@ test('offline chat degrades honestly and points to Workspace', async ({ page }) 
 	await page.getByRole('button', { name: CHROME.chat }).click();
 	const input = page.getByRole('textbox', { name: 'Message the Architect' });
 	await input.fill('Tighten slide two.');
-	await page.getByRole('button', { name: 'Send' }).click();
+	// Exact — "Send feedback" in the shared header also matches a loose "Send" (#1504).
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
 
 	// The message was actually submitted (a user bubble rendered)…
 	await expect(page.getByText('Tighten slide two.')).toBeVisible();
