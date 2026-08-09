@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
-import { previewTtsVoice, slideToSpeech, useReadAloud } from './read-aloud';
+import { bakeClipKeys, previewTtsVoice, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
 
 // The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
 //   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
@@ -78,8 +78,20 @@ vi.mock('@/playground/voice-model.js', () => ({
 		kokoroVoice: () => '',
 		speedPref: () => 1,
 		synthSample: synthSampleSpy,
+		// The two explicit-identity entry points the webpage export bakes through. Recorded
+		// rather than stubbed flat, so a test can see EXACTLY what the wrapper passed down.
+		clipKeyFor: (o: Record<string, unknown>) => {
+			clipKeyForCalls.push(o);
+			return JSON.stringify([o.rung, o.model, o.voice, o.speed, o.text]);
+		},
+		synthFor: async (o: Record<string, unknown>) => {
+			synthForCalls.push(o);
+			return { ok: true, bytes: { size: 8 }, key: 'k' };
+		},
 	}),
 }));
+const clipKeyForCalls: Record<string, unknown>[] = [];
+const synthForCalls: Record<string, unknown>[] = [];
 
 // slideToSpeech is the narration extractor — it turns a slide's Markdown into the
 // readable prose the teleprompter highlights and the voice ladder speaks. Pure;
@@ -427,5 +439,52 @@ describe('previewTtsVoice — clamps a stale cross-model speed for a model that 
 	it('defaults an omitted speed to 1 regardless of speed support', async () => {
 		await previewTtsVoice({ rung: 'openrouter', model: 'mistralai/voxtral-mini-tts-2603', voice: 'gb_oliver_neutral' });
 		expect(synthSampleSpy.mock.calls[0][0]).toMatchObject({ speed: 1 });
+	});
+});
+
+
+// ── the bake seam ────────────────────────────────────────────────────────────────────────
+//
+// `bakeClipKeys` and `synthBakeClip` are three lines each, which is exactly why they get
+// edited casually — and they are the ONLY path between the webpage export and the voice
+// model's key builder. A checker demonstrated the hole: swapping `model` and `voice` in
+// `bakeClipKeys` — a 100% cache miss and a full re-bill on every export, in a browser — left
+// every existing test green, because the bake's own suite replaces this wrapper with a
+// stand-in. These assert the real wrapper, field by field.
+describe('the bake seam hands the voice model exactly the identity it was given', () => {
+	beforeEach(() => {
+		clipKeyForCalls.length = 0;
+		synthForCalls.length = 0;
+	});
+
+	it('bakeClipKeys passes rung/model/voice/speed/text through unswapped', async () => {
+		const keys = await bakeClipKeys([['One sentence.'], ['Two.', 'Three.']], { rung: 'openrouter', model: 'the-model', voice: 'the-voice', speed: 1.25 });
+		expect(clipKeyForCalls).toHaveLength(3);
+		expect(clipKeyForCalls[0]).toEqual({ rung: 'openrouter', model: 'the-model', voice: 'the-voice', speed: 1.25, text: 'One sentence.' });
+		// Index-aligned to the input, so a key can never bind to the wrong slide.
+		expect(keys.map((row) => row.length)).toEqual([1, 2]);
+		expect(keys[1][1]).toContain('Three.');
+	});
+
+	it('bakeClipKeys carries the ON-DEVICE rung when that is the identity', async () => {
+		await bakeClipKeys([['One.']], { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 });
+		expect(clipKeyForCalls[0].rung).toBe('kokoro');
+	});
+
+	it('synthBakeClip synthesizes on the cloud rung, unswapped', async () => {
+		const res = await synthBakeClip('Say this.', { rung: 'openrouter', model: 'the-model', voice: 'the-voice', speed: 0.9 });
+		expect(res.ok).toBe(true);
+		expect(synthForCalls[0]).toMatchObject({ rung: 'openrouter', model: 'the-model', voice: 'the-voice', speed: 0.9, text: 'Say this.' });
+	});
+
+	it('synthBakeClip REFUSES to synthesize for the on-device rung — it can only ship what is stored', async () => {
+		// An on-device bake is a cache read by construction: the Kokoro rung needs an ~80 MB
+		// model resident, is desktop-only, and returns WAV. Quietly synthesizing one sentence
+		// there would put a different codec — several times the bytes — into a file whose size
+		// the author already consented to.
+		const res = await synthBakeClip('Say this.', { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 });
+		expect(res.ok).toBe(false);
+		expect(synthForCalls).toHaveLength(0);
+		expect(res.error).toMatch(/on-device/);
 	});
 });

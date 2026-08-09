@@ -177,6 +177,12 @@ type VoiceModel = {
 	 *  and return its BYTES — the caller plays them on the Suono stage (voice-model owns no playback).
 	 *  Never rejects; `{ ok:false, error }` on an unready rung / synth failure. */
 	synthSample: (o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number; signal?: AbortSignal }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
+	/** `synthSample`'s general form — ARBITRARY text in an EXPLICIT rung/voice/model, one attempt, no
+	 *  playback and no write-back to the prefs. What the webpage export bakes through. */
+	synthFor: (o: { rung: 'openrouter' | 'kokoro'; text: string; voice?: string; model?: string; speed?: number; signal?: AbortSignal; timeoutMs?: number }) => Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }>;
+	/** `clipKey`'s explicit-identity twin: the key a sentence WOULD live under for a named
+	 *  rung/model/voice/speed, from the same builder. */
+	clipKeyFor: (o: { rung: 'openrouter' | 'kokoro'; text: string; voice?: string; model?: string; speed?: number }) => string;
 };
 
 export type VoiceAvailability = {
@@ -1176,15 +1182,176 @@ export async function voiceAvailability(): Promise<VoiceAvailability> {
 	);
 }
 
-/** The OpenRouter TTS-capable model catalog — id/name/pricing/live-published
- *  `voices` roster per model — or [] when unavailable. `voices` is the single
- *  source of truth every voice dropdown derives from (tts-voice-catalog.ts). */
+/** The catalog, plus WHY it is the size it is. `reachable: false` means we never heard back —
+ *  the roster is unknown, not known-empty. Callers that render an explanation need the
+ *  difference; callers that just want a list can read `models`. */
+export type TtsCatalog = { models: OrVoiceModel[]; reachable: boolean };
+
+/**
+ * The OpenRouter TTS-capable model catalog — id/name/pricing/live-published `voices` roster per
+ * model. `voices` is the single source of truth every voice dropdown derives from
+ * (tts-voice-catalog.ts).
+ *
+ * BOUNDED. `listOpenRouterVoiceModels` already degrades a FAILED fetch to `[]`, but a fetch
+ * that never settles — a blackholed request behind a captive portal or a corporate proxy,
+ * rather than a refused one — leaves that promise pending forever, and every caller
+ * distinguishes "still loading" from "nothing there" by exactly that. The export panel then sat
+ * on `models === null` indefinitely and rendered its empty-roster copy ("this model hasn't
+ * published a voice list"), blaming the model for the network.
+ *
+ * REACHABILITY IS RETURNED SEPARATELY rather than encoded as an empty array, and that is the
+ * point of this shape. Racing a timeout that resolves `[]` makes "we gave up" and "OpenRouter
+ * published no speech models" the same value, so a caller explaining the emptiness has to guess
+ * — and would confidently say "couldn't reach the catalog" about a catalog it reached. That is
+ * the same class of lie this bound was added to remove, one layer down. An empty roster from a
+ * live answer is `{models: [], reachable: true}`; a timeout is `{models: [], reachable: false}`.
+ */
+export async function listTtsCatalog(): Promise<TtsCatalog> {
+	try {
+		const m = await import('@/playground/voice-model.js');
+		const TIMED_OUT = Symbol('tts-catalog-timeout');
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const raced = await Promise.race([
+			m.listOpenRouterVoiceCatalog(),
+			// Cleared below rather than left to fire into a settled race — a pending timer per
+			// call is harmless but pointless, and on a surface that remounts it is noise.
+			new Promise<typeof TIMED_OUT>((res) => {
+				timer = setTimeout(() => res(TIMED_OUT), CATALOG_TIMEOUT_MS);
+			}),
+		]);
+		clearTimeout(timer);
+		// A hang is silence too — the upstream promise is memoized and keeps running, so a later
+		// caller can still get the real answer once it lands.
+		return raced === TIMED_OUT ? { models: [], reachable: false } : (raced as TtsCatalog);
+	} catch {
+		return { models: [], reachable: false };
+	}
+}
+
+/**
+ * The roster alone, UNBOUNDED — and the missing bound is the point.
+ *
+ * The Workspace's TTS settings panel fetches once and guards with `if (models) return`, and
+ * `[]` is truthy, so whatever it is handed first is final for the life of the mount. Feeding it
+ * the bounded answer turned a slow-but-working catalog into a permanently empty, disabled voice
+ * roster at the 6s mark — the panel then blames the model for a list that had arrived two
+ * seconds later and was sitting memoized. That is strictly worse than waiting, because it is
+ * wrong rather than pending, and it is a surface this change had no business touching.
+ *
+ * So the timeout stays where it earns its keep: on the export panel, which has an explanation
+ * to render and a spend button underneath it. A caller with nothing to explain waits.
+ * (A blackholed fetch can still hang this one forever. That is the behavior it has always had,
+ * not something introduced here, and fixing it means giving that panel a retry — its own
+ * change.)
+ */
 export async function listTtsModels(): Promise<OrVoiceModel[]> {
 	try {
 		const m = await import('@/playground/voice-model.js');
 		return await m.listOpenRouterVoiceModels();
 	} catch {
 		return [];
+	}
+}
+
+/** How long to wait for the TTS catalog before calling it unreachable. Generous enough that a
+ *  slow-but-working link still populates the picker, short enough that a hung one does not sit
+ *  behind a misleading message. */
+const CATALOG_TIMEOUT_MS = 6000;
+
+/**
+ * The voice a webpage export BAKES with — an identity chosen at export time, not read off
+ * the workspace prefs at synthesis time.
+ *
+ * Why it is its own type rather than "whatever the ladder picks". The baked voice stops
+ * being a property of the listener's settings and becomes a property of the ARTIFACT (the
+ * design doc's question 4): the recipient has no key, so the deck can only speak in the
+ * voice it left with. That makes the choice worth surfacing — and it must not write back to
+ * the workspace, because picking a different narrator for one board deck is not a decision
+ * to re-record every future rehearsal in that voice.
+ *
+ * OPENROUTER ONLY, and this is the one real constraint. The on-device Kokoro rung needs an
+ * ~80 MB model, is desktop-only, and returns WAV — several times the bytes of the same
+ * sentence as mp3, in a file the author is being asked to consent to the size of. The cloud
+ * rung serves the SAME Kokoro model (`hexgrad/kokoro-82m`, the default here and by a wide
+ * margin the cheapest speech model OpenRouter lists), so choosing it costs an author who
+ * rehearsed on-device their voice's continuity, not the voice itself.
+ */
+export type BakeVoice = {
+	/** Which tier the clips live under. `'openrouter'` is the default and the only one that can
+	 *  SYNTHESIZE at export time; `'kokoro'` is admitted read-only, for the author who rehearsed
+	 *  the whole deck on-device and has every clip already — see `onDeviceBakeVoice`. */
+	rung?: 'openrouter' | 'kokoro';
+	model: string;
+	voice: string;
+	speed: number;
+};
+
+/** The export's DEFAULT narrator: the workspace's own cloud voice, so a deck ships sounding
+ *  like the rehearsal unless the author says otherwise. */
+export async function defaultBakeVoice(): Promise<BakeVoice> {
+	const v = await getVoice();
+	return { rung: 'openrouter', model: v?.orModel() ?? '', voice: v?.orVoice() ?? '', speed: v?.speedPref() ?? 1 };
+}
+
+/**
+ * The identity the ON-DEVICE rung's clips live under — the author's Kokoro voice, as
+ * rehearsed. Admitted as a bake source for one specific person: the author who prepared the
+ * whole deck on-device and has no cloud key at all.
+ *
+ * The design's answer to "whose voice" assumed a key, and the first build hard-coded the
+ * cloud rung, which locked that author out of a deck they had ALREADY fully synthesized —
+ * 100% of the bytes on their own disk, 0% of the feature, on the rung that exists precisely
+ * so no key is needed. This is READ-ONLY by construction: `synthBakeClip` refuses to
+ * synthesize for it, so an on-device bake either finds every clip in the store or refuses.
+ * It cannot spend, and it cannot half-succeed.
+ */
+export async function onDeviceBakeVoice(): Promise<BakeVoice> {
+	const v = await getVoice();
+	return { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: v?.kokoroVoice() ?? '', speed: v?.speedPref() ?? 1 };
+}
+
+/**
+ * The clip-store keys a deck's sentences live under FOR A CHOSEN VOICE — from the voice
+ * model's own builder, never assembled here.
+ *
+ * The key is a content-complete JSON array (voice-model.js › clipKey), so a key rebuilt by
+ * hand matches nothing and reads as "nothing cached" forever — which on this path would not
+ * merely under-report, it would re-synthesize and re-bill a deck that was already prepared.
+ * Same builder, or no lookup.
+ *
+ * Index-aligned to the input. Returns empty rows when no voice model is reachable.
+ */
+export async function bakeClipKeys(perSlide: string[][], voice: BakeVoice): Promise<string[][]> {
+	const v = await getVoice();
+	if (!v?.clipKeyFor) return perSlide.map(() => []);
+	try {
+		const rung = voice.rung ?? 'openrouter';
+		return perSlide.map((sentences) => sentences.map((text) => v.clipKeyFor({ rung, model: voice.model, voice: voice.voice, speed: voice.speed, text })));
+	} catch {
+		return perSlide.map(() => []);
+	}
+}
+
+/**
+ * Synthesize ONE sentence in the chosen bake voice. One attempt — the caller owns the retry
+ * policy (see narration-bake.ts). Never throws.
+ *
+ * CLOUD ONLY, deliberately. An on-device bake is a cache read: the Kokoro rung needs an ~80 MB
+ * model resident, is desktop-only, and returns WAV — several times the bytes of the same
+ * sentence as mp3, in a file whose size the author is being asked to consent to. So a
+ * `rung: 'kokoro'` bake that is missing a sentence REFUSES rather than quietly synthesizing
+ * one, and this returns the reason instead.
+ */
+export async function synthBakeClip(text: string, voice: BakeVoice, signal?: AbortSignal, timeoutMs?: number): Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }> {
+	const v = await getVoice();
+	if (!v?.synthFor) return { ok: false, bytes: null, key: '', error: 'voice unavailable' };
+	if ((voice.rung ?? 'openrouter') !== 'openrouter') {
+		return { ok: false, bytes: null, key: '', error: 'not rehearsed on this device in this voice — the on-device voice can only ship what it already prepared' };
+	}
+	try {
+		return await v.synthFor({ rung: 'openrouter', model: voice.model, voice: voice.voice, speed: voice.speed, text, signal, timeoutMs });
+	} catch (e) {
+		return { ok: false, bytes: null, key: '', error: (e as Error)?.message || 'synth failed' };
 	}
 }
 

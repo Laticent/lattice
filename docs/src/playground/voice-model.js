@@ -83,26 +83,54 @@ function orPricePerM(raw) {
 // catalog fetch in this codebase.
 const OR_TTS_CATALOG_URL = 'https://openrouter.ai/api/v1/models?output_modalities=speech';
 let ttsCatalogPromise = null;
-export function listOpenRouterVoiceModels() {
+
+// REACHABILITY IS DECIDED HERE, because here is the only place that knows.
+//
+// Every failure below — a rejected fetch (offline, DNS, a blocked CORS preflight), a non-OK
+// status (503, rate limit), a malformed body — used to collapse into a bare `[]`, which is
+// also exactly what a live catalog listing no speech models returns. Downstream cannot undo
+// that: a caller holding `[]` cannot tell "we never got an answer" from "the answer was
+// nothing", and one that guesses will confidently explain the wrong one. The export panel did
+// precisely that, telling authors their model had published no voices and no price when the
+// truth was that their laptop had no network.
+//
+// So the catch records WHY, and the array-only export below stays exactly as it was for
+// callers with nothing to explain.
+function fetchTtsCatalog() {
   if (!ttsCatalogPromise) {
     ttsCatalogPromise = (async () => {
       try {
         const res = await fetch(OR_TTS_CATALOG_URL);
-        if (!res.ok) return [];
+        if (!res.ok) return { models: [], reachable: false };
         const j = await res.json();
-        return (j.data || []).map((m) => ({
-          id: m.id,
-          name: m.name || m.id,
-          promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
-          completionPerM: m.pricing ? orPricePerM(m.pricing.completion) : null,
-          voices: Array.isArray(m.supported_voices) ? m.supported_voices : [],
-        }));
+        return {
+          models: (j.data || []).map((m) => ({
+            id: m.id,
+            name: m.name || m.id,
+            promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
+            completionPerM: m.pricing ? orPricePerM(m.pricing.completion) : null,
+            voices: Array.isArray(m.supported_voices) ? m.supported_voices : [],
+          })),
+          // We heard back. An empty roster now means OpenRouter genuinely lists nothing.
+          reachable: true,
+        };
       } catch {
-        return [];
+        return { models: [], reachable: false };
       }
     })();
   }
   return ttsCatalogPromise;
+}
+
+/** The catalog plus whether we actually heard back. `{models: [], reachable: false}` is
+ *  silence; `{models: [], reachable: true}` is a real answer that listed nothing. */
+export function listOpenRouterVoiceCatalog() {
+  return fetchTtsCatalog();
+}
+
+/** The roster alone — unchanged contract: never throws, `[]` on any failure. */
+export async function listOpenRouterVoiceModels() {
+  return (await fetchTtsCatalog()).models;
 }
 
 // localStorage prefs — namespaced by `keyPrefix` (default 'db', the Drawing
@@ -1181,32 +1209,100 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     try { if (typeof speechSynthesis !== 'undefined') speechSynthesis.resume(); } catch {}
   }
 
-  // Synthesize the fixed PREVIEW_TEXT sample for an EXPLICIT rung/voice/model (bypassing the auto
-  // ladder) and return its BYTES — the caller plays them (Suono). Never rejects; never plays audio.
-  // Returns { ok, bytes, key, error }. `rung` is the tier NAME 'openrouter' | 'kokoro' (as previewVoice took).
-  // Preserves previewVoice's exact cache-key derivation (rung's real `.name`, effModel, effVoice,
-  // effSpeed, PREVIEW_TEXT) so a preview and a real sentence can still share a cache entry.
-  async function synthSample({ rung, voice: v, speed, model, signal } = {}) {
+  /**
+   * The EXPLICIT-IDENTITY half of the module: resolve a rung/model/voice/speed the caller
+   * NAMES, rather than the one the ladder and the stored prefs happen to pick.
+   *
+   * Playback and prefetch both want the active voice — that's `pickRung()` plus the prefs,
+   * and it's right for them. Two callers do not. The Voice tab's "play sample" auditions a
+   * model-picker row that is not selected yet, and the webpage export bakes the voice the
+   * author chose IN THE EXPORT PANEL, which may not be their workspace default and must not
+   * become it. Both need the same thing: an identity handed in, honored exactly, and never
+   * written back to localStorage.
+   *
+   * `rung` is the TIER name ('openrouter' | 'kokoro'), matching what previewVoice took;
+   * the CACHE key is built from the rung's real `.name` ('openrouter-tts' | 'kokoro') so a
+   * sample, a rehearsed sentence and a baked one all share one entry when their identity
+   * matches.
+   */
+  function resolveIdentity({ rung, voice: v, speed, model } = {}) {
     const r = rung === 'openrouter' ? openrouter : rung === 'kokoro' ? kokoro : null;
-    if (!r) return { ok: false, bytes: null, key: '', error: 'unknown voice' };
-    if (!r.ready()) return { ok: false, bytes: null, key: '', error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
+    if (!r) return null;
     const effSpeed = speed ?? speedPref();
     const effVoice = v || (rung === 'openrouter' ? orVoice() : kokoroVoice());
     const effModel = (rung === 'openrouter' && model) || modelIdFor(r.name);
-    const key = cacheKeyFor(r.name, effModel, effVoice, effSpeed, PREVIEW_TEXT);
+    return { r, effSpeed, effVoice, effModel };
+  }
+
+  /**
+   * The cache key a sentence WOULD be stored under for an identity the caller names —
+   * `clipKey`'s explicit twin, and the reason it exists rather than the caller assembling
+   * one: the key is a content-complete JSON array (see `clipKey`), so anything rebuilt by
+   * hand never matches and reads as "nothing cached" forever. Same builder, or no lookup.
+   *
+   * Returns '' for an unknown tier, which is the honest answer — there is no key.
+   */
+  function clipKeyFor({ rung, voice: v, speed, model, text } = {}) {
+    const id = resolveIdentity({ rung, voice: v, speed, model });
+    return id ? cacheKeyFor(id.r.name, id.effModel, id.effVoice, id.effSpeed, text) : '';
+  }
+
+  /**
+   * Synthesize ONE sentence for an EXPLICIT rung/voice/model, bypassing the auto ladder, and
+   * return its BYTES — the caller plays or stores them. Never rejects; never plays audio.
+   * Returns `{ ok, bytes, key, error }`.
+   *
+   * ONE ATTEMPT, deliberately. A retry policy belongs to the caller, because the two callers
+   * want opposite ones: an audition that fails should say so at once, while a 300-sentence
+   * bake should back off and try again rather than fail the whole export on one 429. So this
+   * reports the outcome and the caller decides — see `bakeNarration`'s backoff.
+   */
+  async function synthFor({ rung, voice: v, speed, model, text, signal, timeoutMs } = {}) {
+    // Defaulted in the BODY, not in the destructuring pattern: a default there makes
+    // TypeScript infer this whole parameter from the `= {}` initializer widened by that one
+    // key, so every OTHER property vanishes from the inferred type and each call site fails
+    // to typecheck. (A .d.ts would also fix it; this file has none by design — it must stay
+    // plain-Node-loadable.)
+    const wait = Number.isFinite(timeoutMs) ? timeoutMs : 20000;
+    const id = resolveIdentity({ rung, voice: v, speed, model });
+    if (!id) return { ok: false, bytes: null, key: '', error: 'unknown voice' };
+    const { r, effSpeed, effVoice, effModel } = id;
+    if (!r.ready()) return { ok: false, bytes: null, key: '', error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
+    const key = cacheKeyFor(r.name, effModel, effVoice, effSpeed, text);
     const cached = audioCache.get(key);
     if (cached) return { ok: true, bytes: cached, key };
     let timer;
+    // ONE controller, and the caller's signal is CHAINED into it rather than replacing it.
+    //
+    // The first version did `const sig = signal ?? ctl.signal` — so whenever a caller passed a
+    // signal (which the bake always does), the timeout fired `ctl.abort()` on a controller
+    // nothing was listening to. The request was never canceled: it ran to completion and was
+    // BILLED, while the bake had already given up and fired a second, independent billed
+    // request for the same sentence. Three attempts could mean three charges for one clip.
     const ctl = new AbortController();
-    const sig = signal ?? ctl.signal;
+    const relay = () => ctl.abort();
+    if (signal) {
+      if (signal.aborted) ctl.abort();
+      else signal.addEventListener('abort', relay, { once: true });
+    }
+    const sig = ctl.signal;
+    const done = () => { clearTimeout(timer); if (signal) signal.removeEventListener('abort', relay); };
     try {
       const blob = await Promise.race([
-        r.synth({ text: PREVIEW_TEXT, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig }).then((b) => { if (b) cacheSet(key, b); return b; }).finally(() => clearTimeout(timer)),
-        new Promise((res) => { timer = setTimeout(() => { ctl.abort(); res(null); }, 20000); }),
+        r.synth({ text, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig }).then((b) => { if (b) cacheSet(key, b); return b; }).finally(done),
+        new Promise((res) => { timer = setTimeout(() => { ctl.abort(); res(null); }, wait); }),
       ]);
-      if (!blob?.size) return { ok: false, bytes: null, key, error: blob === null ? 'timed out waiting for audio (20s) — check your connection' : 'no audio returned (empty response)' };
+      if (!blob?.size) return { ok: false, bytes: null, key, error: ctl.signal.aborted && !signal?.aborted ? `timed out waiting for audio (${Math.round(wait / 1000)}s) — check your connection` : 'no audio returned (empty response)' };
       return { ok: true, bytes: blob, key };
     } catch (e) { return { ok: false, bytes: null, key, error: (e?.message) || String(e || 'synth failed') }; }
+  }
+
+  // The fixed-sample audition, in terms of the general form above — so the Voice tab's
+  // preview and the export's bake resolve their identity and their cache key through ONE
+  // function. They used to differ only in the text, and a divergence there is invisible
+  // until a preview and the sentence it previews stop sharing a cache entry.
+  function synthSample({ rung, voice: v, speed, model, signal } = {}) {
+    return synthFor({ rung, voice: v, speed, model, signal, text: PREVIEW_TEXT });
   }
 
   return {
@@ -1215,6 +1311,11 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // synthSample — the byte SOURCE for the Voice-tab "play sample" audition (explicit rung/voice/model,
     // bypassing the ladder); the caller (Suono) plays the returned bytes. See its definition.
     synthSample,
+    // synthFor / clipKeyFor — the same explicit-identity pair for ARBITRARY text: what the webpage
+    // export bakes with, so the voice chosen in the export panel is honored without becoming the
+    // workspace default. See their definitions.
+    synthFor,
+    clipKeyFor,
     // Speak ONE sentence via the browser speechSynthesis rung (which plays itself, no bytes) — the
     // parallel path a bytes-only external player uses when pickRung() lands on 'speechSynthesis'.
     speakThis: speakViaSpeech,

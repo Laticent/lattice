@@ -50,6 +50,19 @@ export { projectDeckToProse, projectDeckToSpeech } from '../transformers/prose-p
 const BUILD_OPTIONS = {
   stdin: { contents: ENTRY_CONTENTS, resolveDir: SRC_DIR, loader: 'js', sourcefile: 'player-core.entry.js' },
   bundle: true,
+  // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json — the SAME
+  // hazard tools/build-read-along-core.js and tools/build-cadenza-lib.js already guard, reached
+  // here through a third path: player-core.mjs now imports @slidewright/cadenza (for the caption
+  // cursor the exported player inlines), so esbuild's tsconfig walk-up from the resolved
+  // docs/src/lib/cadenza/dist/index.mjs can reach docs/tsconfig.json, whose
+  // `extends: astro/tsconfigs/strict` resolves only where the DOCS workspace is installed.
+  //
+  // Left unpinned the emitted bytes are environment-dependent, and the failure is remote: CI's
+  // lint job runs `npm ci` at the root only, so it emits one `"use strict"` fewer than every
+  // developer machine and calls the committed artifact STALE — eighteen bytes, green locally,
+  // red on CI, pointing at the wrong file. Nothing in this graph is TypeScript, so there is no
+  // tsconfig setting this bundle legitimately needs.
+  tsconfigRaw: '{}',
   format: 'esm',
   platform: 'browser',
   target: ['chrome109'],

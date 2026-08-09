@@ -17,14 +17,6 @@ interface FlatWord {
   endMs: number;
 }
 
-/** Deep-clone a track so the cursor can re-anchor without mutating the caller's. */
-function cloneTrack(track: CaptionTrack): CaptionTrack {
-  return {
-    durationMs: track.durationMs,
-    cues: track.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) })),
-  };
-}
-
 export interface Cursor {
   /** The active `{ cueIndex, wordIndex }` at `timeMs`, or null in a gap / out of range. */
   at(timeMs: number): Active | null;
@@ -39,7 +31,20 @@ export interface Cursor {
 }
 
 export function makeCursor(input: CaptionTrack): Cursor {
-  const track = cloneTrack(input);
+  // Deep-clone, so the cursor can re-anchor without mutating the caller's track.
+  //
+  // INLINED HERE ON PURPOSE rather than kept as a module-scope `cloneTrack` helper. This
+  // function's SOURCE is embedded verbatim into the exported `.html` player's CSP-hashed
+  // script via `.toString()` — the same idiom `lib/core/present-transport.mjs` uses, whose
+  // header states the constraint: an inlined export may not reference a module-scope binding,
+  // because the closure does not travel with the source. A `cloneTrack(...)` call would be
+  // `cloneTrack is not defined` in the shipped file, at runtime, inside the player's
+  // try/catch — so a shared deck would silently lose its caption highlight rather than fail
+  // loudly. Keep every reference in here local.
+  const track: CaptionTrack = {
+    durationMs: input.durationMs,
+    cues: input.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) })),
+  };
   let flat: FlatWord[] = [];
 
   const reindex = () => {

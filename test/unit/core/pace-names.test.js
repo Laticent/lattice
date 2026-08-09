@@ -8,8 +8,10 @@ const { findUnknownPace } = require('../../../lib/authoring/lint-core');
 let PACE_NAMES;
 let paceLine;
 let frontMatterPace;
+let PACE_BEATS;
+let paceBeatMs;
 test.before(async () => {
-	({ PACE_NAMES, paceLine, frontMatterPace } = await import('../../../lib/core/resolve-pace.mjs'));
+	({ PACE_NAMES, paceLine, frontMatterPace, PACE_BEATS, paceBeatMs } = await import('../../../lib/core/resolve-pace.mjs'));
 });
 
 // The pace vocabulary is stated in THREE places, and it has to be, because the boundaries
@@ -56,6 +58,55 @@ test('every registered pace has millisecond presets in the kernel', () => {
 	for (const name of PACE_NAMES) {
 		assert.match(block[1], new RegExp(`\\b${name}\\s*:`), `PACE_PRESETS is missing \`${name}\` — a deck could declare a pace with no numbers behind it`);
 	}
+	for (const name of PACE_NAMES) {
+		assert.ok(PACE_BEATS[name], `resolve-pace.mjs PACE_BEATS is missing \`${name}\``);
+	}
+});
+
+// The MILLISECONDS are stated twice for the same reason the NAMES are (see the header): the
+// cadence kernel is a TypeScript workspace package the engine cannot import, and the engine's
+// `lib/core` cannot be imported from inside that package without a relative path escaping its
+// own boundary. So the two copies are pinned here instead.
+//
+// This is not academic. `paceBeatMs` is what the self-contained `.html` player holds between
+// slides, and `slideBeatMs` is what the live Studio holds. If they drift, the deck the author
+// REHEARSED and the deck their board RECEIVES play at different rhythms — the exact failure the
+// `pace:` register exists to prevent, reintroduced one layer down.
+test('the millisecond beats agree between the engine register and the cadence kernel', () => {
+	const src = read('docs/src/lib/cadenza/cadence.ts');
+	// `natural` is authored as the SLIDE_PAUSE_MS / SECTION_PAUSE_MS constants rather than
+	// literals, so resolve each name through its own declaration rather than reading the
+	// PACE_PRESETS block's text.
+	const constant = (name) => {
+		const m = src.match(new RegExp(`export const ${name}\\s*=\\s*(\\d+)`));
+		assert.ok(m, `could not find ${name} in cadence.ts`);
+		return Number(m[1]);
+	};
+	const block = src.match(/PACE_PRESETS[^=]*=\s*\{([\s\S]*?)\n\};/)[1];
+	const preset = (name) => {
+		const m = block.match(new RegExp(`\\b${name}\\s*:\\s*\\{\\s*slide:\\s*([A-Z_0-9]+)\\s*,\\s*section:\\s*([A-Z_0-9]+)\\s*\\}`));
+		assert.ok(m, `could not read the \`${name}\` preset out of PACE_PRESETS`);
+		const num = (tok) => (/^\d+$/.test(tok) ? Number(tok) : constant(tok));
+		return { slide: num(m[1]), section: num(m[2]) };
+	};
+	for (const name of PACE_NAMES) {
+		assert.deepEqual(PACE_BEATS[name], preset(name), `\`${name}\`: resolve-pace.mjs PACE_BEATS vs cadence.ts PACE_PRESETS`);
+	}
+});
+
+test('paceBeatMs resolves override → deck pace → default, and honors a zero beat', () => {
+	assert.equal(paceBeatMs('slide', 'deliberate'), PACE_BEATS.deliberate.slide);
+	assert.equal(paceBeatMs('section', 'deliberate'), PACE_BEATS.deliberate.section);
+	// Unknown / absent falls back to the default rather than throwing — a typo'd pace is
+	// indistinguishable from an absent one at render time, by design (see resolve-pace.mjs).
+	assert.equal(paceBeatMs('slide', 'delibrate'), PACE_BEATS.natural.slide);
+	assert.equal(paceBeatMs('slide', null), PACE_BEATS.natural.slide);
+	// An explicit override wins outright, and `0` is a legitimate "no beat" — checked for
+	// finiteness, not truthiness, so it must not fall through to the preset.
+	assert.equal(paceBeatMs('slide', 'deliberate', 250), 250);
+	assert.equal(paceBeatMs('slide', 'deliberate', 0), 0);
+	assert.equal(paceBeatMs('slide', 'deliberate', Number.NaN), PACE_BEATS.deliberate.slide);
+	assert.equal(paceBeatMs('slide', 'deliberate', -5), PACE_BEATS.deliberate.slide);
 });
 
 // ── pace-parse-parity ────────────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import { MarpOptionsPanel } from './MarpOptionsPanel';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
 import { type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { loadSettings, type OverflowMarker } from './studio-store';
-import { WebpageOptionsPanel } from './WebpageOptionsPanel';
+import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
 // the rendered ARTIFACT vs hand off the SOURCE. Every row is REAL now: the source
@@ -54,6 +54,42 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const [busy, setBusy] = React.useState<string | null>(null);
 	// Live per-slide status for the heavy exports (PDF/PPTX), shown in the busy row.
 	const [progress, setProgress] = React.useState<string | null>(null);
+	// The sentences a refused narration bake could not prepare — held here so the webpage
+	// panel can name them, since a toast can only carry one line.
+	// A refusal, TAGGED WITH THE VOICE IT WAS EARNED UNDER. The override it unlocks is scoped to
+	// that identity: this state used to be cleared only at the start of the NEXT export, so an
+	// author refused for one moderation-blocked sentence in af_heart could switch to af_alloy —
+	// re-measuring to "this export bills the whole deck" — and the "Export anyway" button from
+	// the old refusal was still on screen, authorizing an unbounded partial set in a voice
+	// nothing had ever been refused in.
+	const [narrationFailures, setNarrationFailures] = React.useState<{ failures: { slide: number; text: string; reason: string }[]; voice: { model: string; voice: string; speed: number; rung?: string } } | null>(null);
+	// The run's abort controller lives HERE, not in the options panel, because this component
+	// outlives it: the panel unmounts when the sheet closes or the author steps back to the
+	// format menu, and a controller that went with it left a bake synthesizing and billing with
+	// nothing able to stop it — and re-mounted a Cancel button pointing at a null ref.
+	const bakeRef = React.useRef<AbortController | null>(null);
+	// Closing the sheet mid-export stops the spend. An export the author walked away from is one
+	// they are no longer paying attention to; it must not keep charging them in the background.
+	React.useEffect(() => {
+		if (!open) bakeRef.current?.abort();
+	}, [open]);
+
+	// Render the deck once and project every slide to narration text — what the webpage
+	// panel measures a bake against. Passed as a THUNK, not a result: it is a full deck
+	// render, and an author who never turns narration on should never pay for it.
+	// Handed back RAW, and NOT trimmed — which is the opposite of what an earlier version of
+	// this comment said. `glossary: auto` makes the render append a slide the source does not
+	// contain, so the projection runs one entry long. Trimming it here (or anywhere) would be
+	// wrong: Present applies the same length-equality guard and, when it fails, narrates the
+	// markdown flatten instead — so every clip on the device is keyed on THAT text. A trimmed
+	// projection would line up with neither and re-bill a fully prepared deck. The bake
+	// deliberately lets the mismatch stand the projection down, exactly as Present does
+	// (narration-bake.ts › resolveDeck). There is no `alignProjection`; the function this
+	// comment used to name was deleted for these reasons.
+	const projectDeck = React.useCallback(async () => {
+		const { projectDeckSpeech } = await import('./narration-projection');
+		return projectDeckSpeech(options, artifactSource, palette, extraTheme, extraCss, mode);
+	}, [options, artifactSource, palette, extraTheme, extraCss, mode]);
 
 	// Run an async export with a busy spinner + honest success / failure toast. The
 	// heavy artifact exports (PDF/PPTX) can take seconds, so `fn` is handed an
@@ -72,7 +108,9 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing
 				// the engine's raw text ("Failed to fetch dynamically imported module: /_astro/…")
 				// blames the deck and leaks a hashed asset URL into boardroom-facing copy (#1242).
-				notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
+				// A cancel the author asked for is not a failure, and must not be reported as one.
+				if ((e as Error)?.name === 'AbortError') notify(`${label} canceled.`);
+				else notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
 			} finally {
 				setBusy(null);
 				setProgress(null);
@@ -97,8 +135,32 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 
 	// Webpage (.html) export from its options step: notes ride by default; `stripNotes`
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
-	const exportHtml = (stripNotes: boolean, scheme: 'light' | 'dark' | 'system' | 'inherited') => {
-		run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, stripNotes, scheme));
+	const exportHtml = (choice: WebpageExportChoice) => {
+		setNarrationFailures(null);
+		bakeRef.current = new AbortController();
+		const signal = bakeRef.current.signal;
+		run('html', 'Webpage', async (onStatus) => {
+			try {
+				await shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, choice.stripNotes, choice.scheme, {
+					captions: choice.narration.captions,
+					audio: choice.narration.audio,
+					allowPartial: choice.narration.allowPartial,
+					voice: choice.narration.voice,
+					signal,
+				});
+			} catch (e) {
+				// A refused bake names the sentences it could not prepare. The toast can only carry
+				// a line, so the LIST goes back to the panel, where the author can read it against
+				// the deck. Duck-typed rather than `instanceof` so this file does not pull the bake
+				// module (and Cadenza behind it) into the sheet's own bundle.
+				const failures = (e as { name?: string; failures?: { slide: number; text: string; reason: string }[] })?.failures;
+				// A TERMINAL refusal (revoked key, no credit, dead host) carries no override, so it
+				// is not stored as one — the toast says what to fix and the panel offers nothing.
+				const err = e as { name?: string; failures?: { slide: number; text: string; reason: string }[]; terminal?: string; voice?: { model: string; voice: string; speed: number; rung?: string } };
+				if (err?.name === 'BakeIncompleteError' && failures && !err.terminal) setNarrationFailures({ failures, voice: err.voice ?? choice.narration.voice });
+				throw e;
+			}
+		});
 	};
 	// Image set (.zip) export from its options step: format / resolution / thumbnails /
 	// SVG extraction — the shared kernel fills perfect-fidelity defaults.
@@ -131,7 +193,17 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'html' ? (
-						<WebpageOptionsPanel busy={busy === 'html'} status={progress} defaultScheme={deckDefaultScheme} onBack={() => setView('menu')} onExport={exportHtml} />
+						<WebpageOptionsPanel
+							busy={busy === 'html'}
+							status={progress}
+							defaultScheme={deckDefaultScheme}
+							source={artifactSource}
+							project={projectDeck}
+							narrationFailures={narrationFailures}
+							onBack={() => setView('menu')}
+							onExport={exportHtml}
+							onCancel={() => bakeRef.current?.abort()}
+						/>
 					) : view === 'print' ? (
 						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} notify={notify} />
 					) : view === 'imageset' ? (

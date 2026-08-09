@@ -7,7 +7,7 @@
 
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { __evictionsSettled, __resetForTests, clearClips, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
+import { __evictionsSettled, __resetForTests, clearClips, clipSizes, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
 
 /** A blob-like in the same duck-typed shape voice-model.js's rungs return. */
 function fakeBlob(bytes: number, type = 'audio/mpeg') {
@@ -199,5 +199,38 @@ describe('readyKeys — the rail\'s readiness question', () => {
 		// the safe answer is "not ready" — a false "ready" would present as a stall.
 		await clearClips();
 		expect((await readyKeys(['a'])).size).toBe(0);
+	});
+});
+
+describe('clipSizes — what a bake would cost, before it starts', () => {
+	it('reports each present key\'s stored byte size, in one read', async () => {
+		await putClip('a', fakeBlob(30_000));
+		await putClip('b', fakeBlob(20_000));
+		const got = await clipSizes(['a', 'b', 'missing']);
+		expect(got.get('a')).toBe(30_000);
+		expect(got.get('b')).toBe(20_000);
+	});
+
+	it('OMITS an absent key rather than reporting it as zero', async () => {
+		// The caller has to tell "no clip on this device" (a sentence that will be billed) from
+		// "a clip with no bytes". Conflating them quotes a bill the bake then exceeds.
+		await putClip('a', fakeBlob(10));
+		const got = await clipSizes(['a', 'nope']);
+		expect(got.has('nope')).toBe(false);
+		expect(got.size).toBe(1);
+	});
+
+	it('reads no audio at all — a few KB of index, not megabytes of mp3', async () => {
+		for (let i = 0; i < 40; i++) await putClip(`k${i}`, fakeBlob(50_000));
+		const got = await clipSizes(Array.from({ length: 40 }, (_, i) => `k${i}`));
+		expect(got.size).toBe(40);
+		expect([...got.values()].every((v) => v === 50_000)).toBe(true);
+	});
+
+	it('an empty ask is an empty answer, and an unusable store under-promises', async () => {
+		expect((await clipSizes([])).size).toBe(0);
+		expect((await clipSizes(undefined as unknown as string[])).size).toBe(0);
+		await clearClips();
+		expect((await clipSizes(['a'])).size).toBe(0);
 	});
 });

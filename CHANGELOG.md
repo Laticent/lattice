@@ -635,6 +635,42 @@ in patch versions.
 
 ### Added
 
+- **A shared deck can speak: the Webpage (`.html`) export now bakes the deck's narration into
+  the file, and it plays with no key, no account and no network.** Everything built for "the
+  deck presents itself" — the persistent clip store, adaptive prefetch, the presentation beat,
+  the readiness rail — stopped at the Studio boundary, so the one audience it was all for
+  received a silent file. Two independent switches in the export panel, both off by default:
+  - **Captions** ship a teleprompter read-along — the line being read stays centered and its
+    words light as they are spoken, driven by the SAME `makeCursor` the Studio's Present runs
+    (inlined verbatim; the player's script is CSP-hashed and cannot import). Kilobytes.
+  - **Narration audio** ships the voice itself as inline `data:` URIs. The device answers
+    first — every sentence rehearsed in Present is already stored and costs nothing — and
+    whatever is missing is synthesized at export in the chosen voice, banked in the store as
+    it lands, so a cancelled or failed run is never wasted money.
+  - **An incomplete set is refused.** If any sentence cannot be prepared, the export names the
+    sentences and writes nothing. A live delivery that stumbles is a gap the author can hear
+    and re-run; a baked file is opened once, by someone else, with no way to fix it — so the
+    failure stays on the machine where it is still repairable. This REVERSES the design note's
+    own §3; the reasoning is in its amendment.
+  - **The bill is stated before the button**: how many sentences are already prepared, how many
+    will be billed, roughly what that costs at the model's published per-character rate, how
+    long, and what the file will gain. A model with no published price quotes *nothing* rather
+    than zero. Clips are keyed per voice, so choosing a narrator other than the rehearsed one
+    bills the whole deck — the panel says so and prices it rather than blocking it.
+  - **The voice is chosen at export**, defaulted to the workspace's own cloud voice, through
+    the Workspace's own model/voice pickers; the pick never writes back to the prefs.
+  - The deck's front-matter `pace:` is resolved at assembly and baked in as a number, so the
+    exported file holds the rhythm the author declared. The player cannot read it for itself —
+    the assembler strips every non-envelope `<script>`, so the front-matter block never reaches
+    the file.
+  - **Stripping speaker notes vetoes both switches.** For most decks the narration an author
+    rehearsed *is* their notes, so shipping either the audio or the caption band of a deck they
+    asked to strip hands the private text back.
+  - A deck that opts into neither is **byte-identical** to a player built before this existed:
+    no audio blocks, no caption band, no `media-src` grant, no cursor kernel, and not one byte
+    of the narration transport. `examples/shared-deck-voice.md`,
+    `engineering/decisions/2026-08-04-shared-deck-narration-audio.md`. Closes #1393.
+
 - **`--cat-1-ink` … `--cat-12-ink` — the categorical tier finally has an ink for the slide
   itself.** The cycle shipped two inks, both of them ON-CHIP: `--cat-on-fill` for text on a
   `--cat-N-fill`, `--cat-on-mark` for text on a `--cat-N-mark`. Nothing covered the third

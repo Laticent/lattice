@@ -14,7 +14,8 @@ import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
-import { getFrontMatter, mergeClassTokens, withPrintCanvas, writeFrontMatterLine } from './front-matter';
+import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
+import type { BakeVoice } from './read-aloud';
 import type { OverflowMarker } from './studio-store';
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
@@ -211,6 +212,8 @@ type PlayerCore = {
 			config?: unknown;
 			notes?: boolean;
 			glossary?: { term: string; definition: string }[];
+			narration?: unknown;
+			readAlong?: unknown;
 			now?: number;
 			build?: string;
 			playerVersion?: string;
@@ -262,6 +265,14 @@ export async function shareHtmlPlayer(
 	// Independent of `mode` (which selects the render theme); the in-player toggle still
 	// overrides per viewer. Defaults to the current preview mode so the export is WYSIWYG.
 	scheme: 'light' | 'dark' | 'system' | 'inherited' = mode,
+	// Narration, when the author asked for it in the export panel. Absent (or both switches
+	// off) leaves the file byte-identical to a player built before narration existed.
+	//
+	// The two switches are independent because they cost wildly different amounts and are
+	// separately useful — see NarrationExportOptions for the four states. `audio` is the one
+	// that synthesizes: the bake reads this device's clip store first and bills only the
+	// sentences it does not have, in `voice`, and REFUSES if any of them cannot be prepared.
+	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; allowPartial?: boolean; signal?: AbortSignal },
 ): Promise<void> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
@@ -314,6 +325,40 @@ export async function shareHtmlPlayer(
 		}
 	}
 
+	// Narration. Projected from THESE sections rather than from a second render, so
+	// `projected[i] ≡ tagged[i]` by construction and a cue can never bind to the wrong slide
+	// (the property `projectSectionsToSpeech` exists to give). The panel measured against its
+	// own projection of the same deck; if the two ever disagreed the bill would differ from
+	// the quote, so the bake re-resolves here and the store makes the difference free.
+	let narrationCues: unknown;
+	let readAlongVoice: BakeVoice | null = null;
+	if (narration && (narration.captions || narration.audio)) {
+		onStatus?.('Projecting narration…');
+		const [{ projectSectionsToSpeech }, bake] = await Promise.all([import('./narration-projection'), import('./narration-bake')]);
+		let projected: string[] = [];
+		try {
+			projected = await projectSectionsToSpeech(tagged);
+		} catch {
+			projected = []; // the chain still resolves captions, notes and chart facts
+		}
+		const result = await bake.bakeNarration(source, projected, {
+			voice: narration.voice,
+			audio: narration.audio,
+			// The author's explicit override, only ever set after a refusal named the sentences.
+			allowPartial: narration.allowPartial,
+			signal: narration.signal,
+			onProgress: (p) => {
+				if (p.phase === 'assembling') return onStatus?.('Assembling the player…');
+				onStatus?.(p.synthesized ? `Recording narration — ${p.done} of ${p.total} sentences…` : `Reading prepared narration — ${p.done} of ${p.total}…`);
+			},
+		});
+		// Captions OFF means no band and no word timeline in the file — the cues still carry
+		// the text (an audio-only deck still needs its per-sentence spans and breaths), but the
+		// words that would drive a crawl nobody can see are simply not shipped.
+		narrationCues = narration.captions ? result.slides : result.slides.map((cues) => cues.map((c) => ({ ...c, words: [] })));
+		readAlongVoice = result.voice;
+	}
+
 	onStatus?.('Assembling the player…');
 	const w = out.width || 1280;
 	const h = out.height || 720;
@@ -364,6 +409,11 @@ export async function shareHtmlPlayer(
 			// The auto-glossary term→definition projection, gated on the `glossary: auto` opt-in —
 			// parity with the CLI export's manifest field (#920); omitted otherwise.
 			glossary: resolveGlossaryMode(source) === 'auto' ? glossaryEntries(source) : [],
+			// The baked delivery, per slide. The AUDIO rides in its own inert blocks rather than
+			// in the manifest envelope (see player-core's `narrationBlocks` for why); the manifest
+			// records only the voice, so the artifact can say what narrated it.
+			narration: narrationCues,
+			readAlong: readAlongVoice ? { voice: readAlongVoice } : undefined,
 			now: Date.now(),
 			build: 'studio',
 			playerVersion: 'studio',
@@ -642,13 +692,16 @@ export async function shareCaptions(
 	const out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Reading notes + projecting slides…');
-	const [deckMod, authoringMod, readAlongCore, projectionMod, resolveCaptionsMod] = await Promise.all([
+	const [deckMod, authoringMod, readAlongCore, projectionMod, resolveCaptionsMod, narrationResolve, lintMod] = await Promise.all([
 		import('@/playground/deck-preview.js'),
 		import('@/playground/authoring-core.generated.js'),
 		import('@/playground/read-along-core.generated.js') as unknown as Promise<ReadAlongCore>,
 		import('./narration-projection'),
 		import('@/lib/resolve-captions'),
+		import('./narration-resolve'),
+		import('./lint'),
 	]);
+	const { splitSlides } = lintMod;
 	const deck = deckMod as unknown as { splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const sections = deck.splitSections(out.html);
@@ -679,6 +732,13 @@ export async function shareCaptions(
 	} catch {
 		projected = []; // projection unavailable → note/caption text still narrates
 	}
+	// Chart-narration parity. A recognized chart slide narrates COMPUTED facts — a funnel's
+	// conversion rate, the auto-fit scale an unlabeled axis is plotted against — that exist
+	// only in the render, never in the figure projection's heading-only caption. The CLI
+	// export has substituted them at projection precedence since #902 Gap 1; this browser
+	// export never did, so the same deck's captions disagreed with what Present spoke. Same
+	// substitution, shared rather than copied (narration-resolve.ts).
+	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
 	const slideTexts = readAlongCore.mergeNarration(notes, projected, { captions, fmCaptions });
 
 	onStatus?.('Building captions…');

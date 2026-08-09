@@ -3144,6 +3144,51 @@ means "no gap logged for the runtime route", never "the preview is complete.
   compositing too. This is why `--focus-lift` is an opaque hard offset, not a
   soft elevation shadow (`lib/base/base.focus.css`).
 
+### A JSON data block inside a `<script>` comes back with `&amp;` in every string
+
+- **Symptom:** An inline data block (the manifest envelope, the baked-narration
+  blocks) parses, but every caption containing `&` reads `&amp;` — and a `<` in
+  deck text either survives or breaks the block in two.
+- **Cause:** the content of a `<script>` element is **raw text**. The HTML parser
+  does not decode character references there, so HTML-escaping the payload
+  (`escapeText`, `&amp;`/`&lt;`/`&gt;`) puts the *literal* entity into the JSON
+  string — `JSON.parse` returns `&amp;` because that is genuinely what is there.
+- **Fix:** escape in the JSON layer, not the HTML layer:
+  `JSON.stringify(payload).replace(/</g, '\\u003c')` (a literal backslash-u escape).
+  The parser then never sees a
+  `<` (so neither `</script` nor the `<!--` that flips it into script-data-escaped
+  state can appear), and `JSON.parse` decodes it back to the real character.
+  `lib/export/player-core.mjs` › `narrationBlocks`.
+
+### The exported player has no front matter to read
+
+- **Symptom:** A player-side feature written as "read the deck's `pace:` / `lang:`
+  / any front-matter key at runtime" silently gets nothing.
+- **Cause:** `assemblePlayer` strips every `<script>` that is not the manifest
+  envelope, so the `application/lattice-front-matter` block the render emits never
+  reaches the shipped file. A standalone artifact also has no workspace preset to
+  fall back on.
+- **Fix:** resolve it at ASSEMBLY and bake the value in
+  (`lib/export/player-core.mjs`, `const paceName = frontMatterPace(source)`), or
+  put it in the envelope, which does survive.
+
+### A destructuring default in a plain-JS export erases the rest of its parameter type
+
+- **Symptom:** A `.js` module a TypeScript file imports suddenly fails to
+  typecheck at every call site — "Object literal may only specify known
+  properties, and 'x' does not exist in type `{ y?: number }`" — after adding one
+  default value to a destructured options object.
+- **Cause:** with `function f({ a, b, c = 1 } = {})`, TypeScript infers the whole
+  parameter from the `= {}` initializer widened by the defaulted key — the type
+  becomes `{ c?: number }`, so passing `a` or `b` is an excess-property error.
+  Without the default the inferred type is `{}`, which accepts anything (so the
+  call sites compile, but nothing about them is actually checked either way — the
+  fix restores compilation, not type safety; a `.d.ts` is what buys that).
+- **Fix:** default it in the BODY instead
+  (`const eff = Number.isFinite(c) ? c : 1`), or give the module a `.d.ts`. The
+  playground modules deliberately have none — they must stay plain-Node-loadable.
+  `docs/src/playground/voice-model.js` › `synthFor`.
+
 ## G-gen merge must use non-G file's G-gen block, not the G-file's block
 
 - **Symptom:** After promoting G-files to canonical (merging cuoio-G.css

@@ -226,6 +226,889 @@ var init_present_transport = __esm({
   }
 });
 
+// docs/src/lib/cadenza/dist/index.mjs
+var dist_exports = {};
+__export(dist_exports, {
+  CALIBRATION_MAX_K: () => CALIBRATION_MAX_K,
+  CALIBRATION_MIN_K: () => CALIBRATION_MIN_K,
+  CALIBRATION_MIN_N: () => CALIBRATION_MIN_N,
+  CALIBRATION_WINDOW: () => CALIBRATION_WINDOW,
+  CLIP_TRAILING_FRACTION: () => CLIP_TRAILING_FRACTION,
+  FINAL_LENGTHEN_MS: () => FINAL_LENGTHEN_MS,
+  LEX_DOMAINS: () => LEX_DOMAINS,
+  PACE_PRESETS: () => PACE_PRESETS,
+  PACE_WPM: () => PACE_WPM,
+  PARAGRAPH_PAUSE_MS: () => PARAGRAPH_PAUSE_MS,
+  SECTION_PAUSE_MS: () => SECTION_PAUSE_MS,
+  SEPARATOR_GLYPHS: () => SEPARATOR_GLYPHS,
+  SLIDE_PAUSE_MS: () => SLIDE_PAUSE_MS,
+  SYLLABLE_MS: () => SYLLABLE_MS,
+  SYMBOL_SPEAK: () => SYMBOL_SPEAK,
+  buildTrack: () => buildTrack,
+  clipTrailingMs: () => clipTrailingMs,
+  deserializeCalibration: () => deserializeCalibration,
+  emptyCalibration: () => emptyCalibration,
+  estimateWordMs: () => estimateWordMs,
+  formatTimestamp: () => formatTimestamp,
+  integerToWords: () => integerToWords,
+  interCueGapMs: () => interCueGapMs,
+  isEnglishLang: () => isEnglishLang,
+  lookupLexicon: () => lookupLexicon,
+  makeCursor: () => makeCursor,
+  makeReader: () => makeReader,
+  narration: () => narration,
+  numberToWords: () => numberToWords,
+  observe: () => observe,
+  pauseAfter: () => pauseAfter,
+  rateScale: () => rateScale,
+  readMs: () => readMs,
+  resolveSymbols: () => resolveSymbols,
+  serializeCalibration: () => serializeCalibration,
+  slideBeatMs: () => slideBeatMs,
+  splitParagraphs: () => splitParagraphs,
+  splitSentences: () => splitSentences,
+  splitWords: () => splitWords,
+  spokenWordCount: () => spokenWordCount,
+  syllableCount: () => syllableCount,
+  toSpoken: () => toSpoken,
+  toSpokenText: () => toSpokenText,
+  toSrt: () => toSrt,
+  toVtt: () => toVtt,
+  unmatchedAcronyms: () => unmatchedAcronyms
+});
+function emptyCalibration() {
+  return { samples: [], n: 0, updatedAt: 0 };
+}
+function observe(state, estDurMs, measuredDurMs, atMs) {
+  if (!Number.isFinite(estDurMs) || !Number.isFinite(measuredDurMs) || estDurMs <= 0 || measuredDurMs <= 0) {
+    return state;
+  }
+  const ratio = measuredDurMs / estDurMs;
+  if (ratio < SAMPLE_MIN_RATIO || ratio > SAMPLE_MAX_RATIO) return state;
+  const samples = state.samples.concat(ratio);
+  if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+  return {
+    samples,
+    n: state.n + 1,
+    updatedAt: atMs ?? state.updatedAt
+  };
+}
+function median(xs) {
+  if (!xs.length) return 1;
+  const s = xs.slice().sort((a, b) => a - b);
+  const mid = s.length >> 1;
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+function rateScale(state) {
+  if (!state || state.n < CALIBRATION_MIN_N || !state.samples.length) return 1;
+  const k = median(state.samples);
+  return Math.min(CALIBRATION_MAX_K, Math.max(CALIBRATION_MIN_K, k));
+}
+function serializeCalibration(state) {
+  return { samples: state.samples.slice(), n: state.n, updatedAt: state.updatedAt };
+}
+function deserializeCalibration(raw) {
+  if (!raw || typeof raw !== "object") return emptyCalibration();
+  const r = raw;
+  const samples = Array.isArray(r.samples) ? r.samples.filter((x) => typeof x === "number" && Number.isFinite(x)) : [];
+  if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+  const n = typeof r.n === "number" && Number.isFinite(r.n) ? Math.max(0, Math.floor(r.n)) : samples.length;
+  const updatedAt = typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) ? r.updatedAt : 0;
+  return { samples, n, updatedAt };
+}
+function makeCursor(input) {
+  const track = {
+    durationMs: input.durationMs,
+    cues: input.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) }))
+  };
+  let flat = [];
+  const reindex = () => {
+    flat = [];
+    track.cues.forEach((cue, cueIndex) => {
+      cue.words.forEach((w, wordIndex) => {
+        flat.push({ cueIndex, wordIndex, startMs: w.startMs, endMs: w.endMs });
+      });
+    });
+  };
+  reindex();
+  const cursor = {
+    at(timeMs) {
+      if (!flat.length || timeMs < flat[0].startMs) return null;
+      let lo = 0;
+      let hi = flat.length - 1;
+      let idx = -1;
+      while (lo <= hi) {
+        const mid = lo + hi >> 1;
+        if (flat[mid].startMs <= timeMs) {
+          idx = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      if (idx < 0) return null;
+      const w = flat[idx];
+      if (idx === flat.length - 1 && timeMs >= w.endMs) return null;
+      return { cueIndex: w.cueIndex, wordIndex: w.wordIndex };
+    },
+    align(cueIndex, onsetMs, durationMs) {
+      const cue = track.cues[cueIndex];
+      if (!cue?.words.length) return cursor;
+      const dur = Math.max(0, durationMs);
+      const estStart = cue.startMs;
+      const estDur = Math.max(1, cue.endMs - cue.startMs);
+      const oldEnd = cue.endMs;
+      const scale = dur / estDur;
+      for (const w of cue.words) {
+        w.startMs = onsetMs + (w.startMs - estStart) * scale;
+        w.endMs = onsetMs + (w.endMs - estStart) * scale;
+      }
+      cue.startMs = onsetMs;
+      cue.endMs = onsetMs + dur;
+      const delta = cue.endMs - oldEnd;
+      if (delta !== 0) {
+        for (let i = cueIndex + 1; i < track.cues.length; i++) {
+          const c = track.cues[i];
+          c.startMs += delta;
+          c.endMs += delta;
+          for (const w of c.words) {
+            w.startMs += delta;
+            w.endMs += delta;
+          }
+        }
+      }
+      track.durationMs = track.cues.length ? track.cues[track.cues.length - 1].endMs : 0;
+      reindex();
+      return cursor;
+    },
+    track() {
+      return track;
+    }
+  };
+  return cursor;
+}
+function sameActive(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.cueIndex === b.cueIndex && a.wordIndex === b.wordIndex;
+}
+function makeReader(opts) {
+  const cursor = makeCursor(opts.track);
+  let last = null;
+  let ended = false;
+  const reader = {
+    sync(nowMs) {
+      const active = cursor.at(nowMs);
+      if (!sameActive(active, last)) {
+        last = active;
+        opts.onWord?.(active);
+      }
+      const total = cursor.track().durationMs;
+      if (!ended && total > 0 && nowMs >= total) {
+        ended = true;
+        opts.onEnd?.();
+      }
+      return active;
+    },
+    align(cueIndex, onsetMs, durationMs) {
+      cursor.align(cueIndex, onsetMs, durationMs);
+    },
+    current() {
+      return last;
+    },
+    durationMs() {
+      return cursor.track().durationMs;
+    },
+    trackNow() {
+      return cursor.track();
+    },
+    reset() {
+      last = null;
+      ended = false;
+    }
+  };
+  return reader;
+}
+function lookupLexicon(token, domains = []) {
+  const raw = String(token ?? "").trim();
+  if (!raw) return null;
+  if (Object.hasOwn(BASE_CASED, raw)) return BASE_CASED[raw];
+  const key = raw.toLowerCase();
+  if (Object.hasOwn(BASE, key)) return BASE[key];
+  for (const d of domains) {
+    const pack = DOMAINS[d];
+    if (pack && Object.hasOwn(pack, key)) return pack[key];
+  }
+  return null;
+}
+function splitSentences(text) {
+  const s = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (!s) return [];
+  return s.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
+}
+function splitParagraphs(text) {
+  const chunks = String(text ?? "").split(/\r?\n[ \t]*(?:\r?\n[ \t]*)+/);
+  const sentences = [];
+  const paragraphEnd = /* @__PURE__ */ new Set();
+  let carry = "";
+  for (let i = 0; i < chunks.length; i++) {
+    const merged = carry ? `${carry} ${chunks[i]}` : chunks[i];
+    carry = "";
+    const sents = splitSentences(merged);
+    if (!sents.length) continue;
+    const isLast = i === chunks.length - 1;
+    const endsClean = /[.!?…]$/.test(merged.trimEnd());
+    if (!isLast && !endsClean) {
+      for (let k = 0; k < sents.length - 1; k++) sentences.push(sents[k]);
+      carry = sents[sents.length - 1];
+    } else {
+      for (const s of sents) sentences.push(s);
+      if (!isLast) paragraphEnd.add(sentences.length - 1);
+    }
+  }
+  if (carry) sentences.push(carry);
+  paragraphEnd.delete(sentences.length - 1);
+  return { sentences, paragraphEnd };
+}
+function splitWords(sentence) {
+  return String(sentence ?? "").trim().split(/\s+/).filter(Boolean);
+}
+function resolveSymbols(token, opts = {}) {
+  const overrides = opts.overrides;
+  const english = opts.english !== false;
+  const src = String(token ?? "").replace(VARIATION_SELECTOR, "");
+  if (!src) return null;
+  let changed = false;
+  let out = "";
+  for (const ch of src) {
+    if (overrides?.has(ch)) {
+      out += ` ${overrides.get(ch)} `;
+      changed = true;
+    } else if (english && Object.hasOwn(SYMBOL_SPEAK, ch)) {
+      out += ` ${SYMBOL_SPEAK[ch]} `;
+      changed = true;
+    } else if (SYMBOL_DROP.has(ch) || PICTOGRAPHIC.test(ch)) {
+      out += " ";
+      changed = true;
+    } else {
+      out += ch;
+    }
+  }
+  return changed ? out : null;
+}
+function tripletToWords(n) {
+  let out = "";
+  if (n >= 100) {
+    out += `${ONES[Math.floor(n / 100)]} hundred`;
+    n %= 100;
+    if (n) out += " ";
+  }
+  if (n >= 20) {
+    out += TENS[Math.floor(n / 10)];
+    if (n % 10) out += `-${ONES[n % 10]}`;
+  } else if (n > 0) {
+    out += ONES[n];
+  }
+  return out;
+}
+function integerToWords(n) {
+  if (!Number.isFinite(n) || n < 0) return String(n);
+  if (n === 0) return "zero";
+  const groups = [];
+  let x = Math.floor(n);
+  while (x > 0) {
+    groups.push(x % 1e3);
+    x = Math.floor(x / 1e3);
+  }
+  const parts = [];
+  for (let i = groups.length - 1; i >= 0; i--) {
+    if (groups[i] === 0) continue;
+    parts.push(tripletToWords(groups[i]) + SCALES[i]);
+  }
+  return parts.join(" ");
+}
+function numberToWords(value) {
+  if (!Number.isFinite(value)) return String(value);
+  const neg = value < 0;
+  const abs = Math.abs(value);
+  const [intPart, decPart] = String(abs).split(".");
+  let out = integerToWords(Number(intPart));
+  if (decPart) {
+    out += " point " + decPart.split("").map((d) => ONES[Number(d)]).join(" ");
+  }
+  return (neg ? "negative " : "") + out;
+}
+function citationNumber(str) {
+  const [intPart, decPart] = String(str).split(".");
+  let out = integerToWords(Number(intPart.replace(/,/g, "")));
+  if (decPart !== void 0) {
+    out += " point " + decPart.split("").map((d) => ONES[Number(d)] ?? d).join(" ");
+  }
+  return out;
+}
+function unitWords(numStr, singular) {
+  const n = Number(numStr.replace(/,/g, ""));
+  return `${numberToWords(n)} ${singular}${n === 1 ? "" : "s"}`;
+}
+function yearWords(digits) {
+  if (digits.length === 2 && digits[0] === "0") {
+    return digits === "00" ? "two thousand" : `oh ${ONES[Number(digits[1])]}`;
+  }
+  return numberToWords(Number(digits));
+}
+function isEnglishLang(lang) {
+  const t = String(lang ?? "").trim().toLowerCase();
+  return t === "" || t === "en" || t.startsWith("en-");
+}
+function spokenLexiconValue(value, opts) {
+  if (!value) return "";
+  return toSpokenText(value, { ...opts, lexicon: void 0 });
+}
+function toSpoken(display, opts = {}) {
+  const tok = String(display ?? "").trim();
+  if (!tok) return "";
+  if (tok.length > MAX_SPOKEN_TOKEN) return tok;
+  const domains = opts.domains ?? [];
+  const acronyms = opts.acronyms;
+  const english = isEnglishLang(opts.lang);
+  if (acronyms?.has(tok)) return acronyms.get(tok);
+  const lexicon = opts.lexicon;
+  if (lexicon?.has(tok)) return spokenLexiconValue(lexicon.get(tok), opts);
+  if (SEPARATOR_ONLY.test(tok)) return ",";
+  if (english) {
+    const whole = lookupLexicon(tok, domains);
+    if (whole !== null) return whole;
+  }
+  const punct = tok.match(/[.,!?;:…]+$/)?.[0] ?? "";
+  const core = punct ? tok.slice(0, -punct.length) : tok;
+  const spokenPunct = punct.replace(/[:;]/g, ",");
+  if (lexicon?.has(core)) {
+    const spoken = spokenLexiconValue(lexicon.get(core), opts);
+    return spoken ? spoken + spokenPunct : "";
+  }
+  const symbolic = resolveSymbols(tok, { overrides: opts.lexicon, english });
+  if (symbolic !== null) {
+    const rest = { ...opts, lexicon: void 0 };
+    return splitWords(symbolic).map((w) => toSpoken(w, rest)).filter(Boolean).join(" ");
+  }
+  return spokenCore(core, domains, acronyms, english) + spokenPunct;
+}
+function spokenCore(core, domains, acronyms, english = true) {
+  if (!core) return core;
+  if (acronyms?.has(core)) return acronyms.get(core);
+  if (!english) return core;
+  const lex = lookupLexicon(core, domains);
+  if (lex !== null) return lex;
+  const fyear = core.match(/^(FY|CY)['’]?(\d{2}|\d{4})$/);
+  if (fyear) return `${fyear[1] === "FY" ? "fiscal" : "calendar"} year ${yearWords(fyear[2])}`;
+  const nQ = core.match(/^([1-4])Q['’]?(\d{2}|\d{4})?$/);
+  if (nQ) return `${ORDINALS[Number(nQ[1])]} quarter${nQ[2] ? ` fiscal ${yearWords(nQ[2])}` : ""}`;
+  const qY = core.match(/^Q([1-4])['’](\d{2}|\d{4})$/);
+  if (qY) return `${ORDINALS[Number(qY[1])]} quarter fiscal ${yearWords(qY[2])}`;
+  const nH = core.match(/^([12])H['’]?(\d{2}|\d{4})?$/);
+  if (nH) return `${ORDINALS[Number(nH[1])]} half${nH[2] ? ` fiscal ${yearWords(nH[2])}` : ""}`;
+  const hN = core.match(/^H([12])$/);
+  if (hN) return `${ORDINALS[Number(hN[1])]} half`;
+  const sign = core.match(/^([+−-])(.+)$/);
+  if (sign) {
+    const rest = sign[2];
+    if (/^[\d,]+(?:\.\d+)?$/.test(rest)) {
+      const n = numberToWords(Number(rest.replace(/,/g, "")));
+      return sign[1] === "+" ? n : `negative ${n}`;
+    }
+    const restSpoken = spokenCore(rest, domains, acronyms);
+    if (restSpoken !== rest) return `${sign[1] === "+" ? "up" : "down"} ${restSpoken}`;
+  }
+  const section = core.match(/^(§+)\s*(.*)$/);
+  if (section) {
+    const word = section[1].length > 1 ? "sections" : "section";
+    const subs = [...section[2].matchAll(/\(([a-z0-9]+)\)/gi)].map((m) => m[1]);
+    const base = section[2].replace(/\([a-z0-9]+\)/gi, "").trim();
+    const baseSpoken = /^[\d,]+(?:\.\d+)?$/.test(base) ? citationNumber(base) : spokenCore(base, domains, acronyms);
+    let out = base ? `${word} ${baseSpoken}` : word;
+    for (const s of subs) out += `, subsection ${spokenCore(s, domains, acronyms)}`;
+    return out;
+  }
+  const money = core.match(/^([$£€])([\d,]+(?:\.\d+)?)([kmbt])?$/i);
+  if (money) {
+    const unit = money[1] === "$" ? "dollars" : money[1] === "\xA3" ? "pounds" : "euros";
+    const num2 = numberToWords(Number(money[2].replace(/,/g, "")));
+    const mag = money[3] ? ` ${MAGNITUDE[money[3].toLowerCase()]}` : "";
+    return `${num2}${mag} ${unit}`;
+  }
+  const pct = core.match(/^([\d,]+(?:\.\d+)?)%$/);
+  if (pct) return `${numberToWords(Number(pct[1].replace(/,/g, "")))} percent`;
+  const pp = core.match(/^([\d,]+(?:\.\d+)?)pp$/i);
+  if (pp) return unitWords(pp[1], "percentage point");
+  const bps = core.match(/^([\d,]+(?:\.\d+)?)bps$/i);
+  if (bps) return unitWords(bps[1], "basis point");
+  const mult = core.match(/^([\d,]+(?:\.\d+)?)\s*[×x]$/);
+  if (mult) return unitWords(mult[1], "time");
+  const dur = core.match(/^([\d,]+(?:\.\d+)?)d$/);
+  if (dur) return unitWords(dur[1], "day");
+  const magNum = core.match(/^([\d,]+(?:\.\d+)?)([kmbt])$/i);
+  if (magNum) {
+    return `${numberToWords(Number(magNum[1].replace(/,/g, "")))} ${MAGNITUDE[magNum[2].toLowerCase()]}`;
+  }
+  const num = core.match(/^-?[\d,]+(?:\.\d+)?$/);
+  if (num) return numberToWords(Number(core.replace(/,/g, "")));
+  return core;
+}
+function toSpokenText(text, opts = {}) {
+  return splitWords(text).map((w) => toSpoken(w, opts)).filter(Boolean).join(" ");
+}
+function spokenWordCount(spoken) {
+  return String(spoken ?? "").trim().split(/[\s-]+/).filter(Boolean).length;
+}
+function edgeTrim(raw) {
+  let a = 0;
+  let b = raw.length;
+  while (a < b && !isAlphaNum(raw[a])) a++;
+  while (b > a && !isAlphaNum(raw[b - 1])) b--;
+  return raw.slice(a, b);
+}
+function unmatchedAcronyms(text, opts = {}) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const raw of splitWords(text)) {
+    const tok = edgeTrim(raw);
+    if (!/^[A-Z]{2,}$/.test(tok) || seen.has(tok)) continue;
+    seen.add(tok);
+    if (toSpoken(tok, opts) === tok) out.push(tok);
+  }
+  return out;
+}
+function slideBeatMs(kind, pace = "natural", override) {
+  if (typeof override === "number" && Number.isFinite(override) && override >= 0) return Math.round(override);
+  const preset = PACE_PRESETS[pace] ?? PACE_PRESETS.natural;
+  return kind === "section" ? preset.section : preset.slide;
+}
+function pauseAfter(display) {
+  const s = String(display ?? "");
+  let max = 0;
+  for (let i = s.length - 1; i >= 0; i--) {
+    const p = PAUSE_MS[s[i]];
+    if (p === void 0) break;
+    if (p > max) max = p;
+  }
+  return max;
+}
+function clipTrailingMs(display) {
+  return Math.round(pauseAfter(display) * CLIP_TRAILING_FRACTION);
+}
+function interCueGapMs(display, endsParagraph = false) {
+  const boundary = endsParagraph ? PARAGRAPH_PAUSE_MS : pauseAfter(display);
+  return boundary - clipTrailingMs(display);
+}
+function syllableCount(spoken) {
+  const raw = String(spoken ?? "").replace(/['’]/g, "");
+  const tokens = raw.split(/[^A-Za-z0-9]+/).filter(Boolean);
+  let total = 0;
+  for (const tok of tokens) {
+    if (/^\d+$/.test(tok)) {
+      total += tok.length;
+      continue;
+    }
+    const w = tok.toLowerCase();
+    const override = SYLLABLE_OVERRIDES[w];
+    if (override !== void 0) {
+      total += override;
+      continue;
+    }
+    const groups = w.match(/[aeiouy]+/g);
+    let n = groups ? groups.length : 0;
+    if (n === 0) {
+      total += tok.length > 1 && tok === tok.toUpperCase() ? tok.length : 1;
+      continue;
+    }
+    if (n > 1 && /[^aeiouy]e$/.test(w) && !/[^aeiouy]le$/.test(w)) n -= 1;
+    total += Math.max(1, n);
+  }
+  return Math.max(1, total);
+}
+function estimateWordMs(spoken, pace = "moderate", rateScale2 = 1) {
+  const s = String(spoken ?? "").trim();
+  if (!s) return 0;
+  const k = Number.isFinite(rateScale2) && rateScale2 > 0 ? rateScale2 : 1;
+  return Math.round(SYLLABLE_MS[pace] * syllableCount(s) * k);
+}
+function readMs(spoken, pace = "moderate") {
+  const words = spokenWordCount(spoken);
+  const raw = 300 + 6e4 / PACE_WPM[pace] * words;
+  return Math.round(Math.min(6e3, Math.max(1e3, raw)));
+}
+function buildTrack(text, opts = {}) {
+  const pace = opts.pace ?? "moderate";
+  const rateScale2 = opts.rateScale ?? 1;
+  const source = String(text ?? "");
+  const { sentences, paragraphEnd } = splitParagraphs(source);
+  const cues = [];
+  let clock = 0;
+  let scan = 0;
+  for (let si = 0; si < sentences.length; si++) {
+    const sentence = sentences[si];
+    const displays = splitWords(sentence);
+    if (!displays.length) continue;
+    const endsParagraph = paragraphEnd.has(si);
+    const words = [];
+    const cueStart = clock;
+    let cueCharOffset = -1;
+    for (let i = 0; i < displays.length; i++) {
+      const display = displays[i];
+      const found = source.indexOf(display, scan);
+      const charOffset = found >= 0 ? found : scan;
+      if (found >= 0) scan = found + display.length;
+      if (cueCharOffset < 0) cueCharOffset = charOffset;
+      const spoken = toSpoken(display, { acronyms: opts.acronyms, lang: opts.lang, lexicon: opts.lexicon });
+      const pause = pauseAfter(display);
+      const dur = estimateWordMs(spoken, pace, rateScale2) + (pause > 0 ? FINAL_LENGTHEN_MS : 0);
+      const startMs = clock;
+      const endMs = startMs + dur;
+      words.push({ display, spoken, startMs, endMs, charOffset });
+      clock = endMs + pause;
+    }
+    const lastWord = words[words.length - 1];
+    const cueEnd = lastWord.endMs + clipTrailingMs(lastWord.display);
+    clock = cueEnd + interCueGapMs(lastWord.display, endsParagraph);
+    cues.push({
+      display: displays.join(" "),
+      words,
+      startMs: cueStart,
+      endMs: cueEnd,
+      charOffset: cueCharOffset < 0 ? 0 : cueCharOffset,
+      ...endsParagraph ? { endsParagraph: true } : {}
+    });
+  }
+  return { cues, durationMs: cues.length ? cues[cues.length - 1].endMs : 0 };
+}
+function pad(n, width = 2) {
+  return String(n).padStart(width, "0");
+}
+function escapeCueText(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function formatTimestamp(ms, comma = false) {
+  const clamped = Math.max(0, Math.round(ms));
+  const h = Math.floor(clamped / 36e5);
+  const m = Math.floor(clamped % 36e5 / 6e4);
+  const s = Math.floor(clamped % 6e4 / 1e3);
+  const millis = clamped % 1e3;
+  return `${pad(h)}:${pad(m)}:${pad(s)}${comma ? "," : "."}${pad(millis, 3)}`;
+}
+function toVtt(track) {
+  const out = ["WEBVTT", ""];
+  for (const cue of track.cues) {
+    if (!cue.words.length) continue;
+    out.push(`${formatTimestamp(cue.startMs)} --> ${formatTimestamp(cue.endMs)}`);
+    let line = escapeCueText(cue.words[0].display);
+    for (let i = 1; i < cue.words.length; i++) {
+      line += ` <${formatTimestamp(cue.words[i].startMs)}>${escapeCueText(cue.words[i].display)}`;
+    }
+    out.push(line, "");
+  }
+  return out.join("\n");
+}
+function toSrt(track) {
+  const blocks = [];
+  track.cues.forEach((cue, i) => {
+    if (!cue.words.length) return;
+    blocks.push(
+      `${i + 1}
+${formatTimestamp(cue.startMs, true)} --> ${formatTimestamp(cue.endMs, true)}
+${escapeCueText(cue.display)}
+`
+    );
+  });
+  return blocks.join("\n");
+}
+function narration(text) {
+  const opts = {};
+  const b = {
+    pace(p) {
+      opts.pace = p;
+      return b;
+    },
+    acronyms(reg) {
+      opts.acronyms = reg;
+      return b;
+    },
+    lang(tag) {
+      opts.lang = tag;
+      return b;
+    },
+    rate(scale) {
+      opts.rateScale = scale;
+      return b;
+    },
+    calibration(state) {
+      opts.rateScale = rateScale(state);
+      return b;
+    },
+    lexicon(map) {
+      opts.lexicon = map;
+      return b;
+    },
+    toTrack() {
+      return buildTrack(text, opts);
+    },
+    toReader(handlers) {
+      return makeReader({ track: buildTrack(text, opts), ...handlers });
+    },
+    toVtt() {
+      return toVtt(buildTrack(text, opts));
+    },
+    toSrt() {
+      return toSrt(buildTrack(text, opts));
+    }
+  };
+  return b;
+}
+var CALIBRATION_WINDOW, CALIBRATION_MIN_N, CALIBRATION_MIN_K, CALIBRATION_MAX_K, SAMPLE_MIN_RATIO, SAMPLE_MAX_RATIO, BASE, BASE_CASED, DOMAINS, LEX_DOMAINS, SYMBOL_SPEAK, SYMBOL_DROP, SEPARATOR_GLYPHS, PICTOGRAPHIC, VARIATION_SELECTOR, SEPARATOR_ONLY, MAX_SPOKEN_TOKEN, ONES, TENS, SCALES, MAGNITUDE, ORDINALS, isAlphaNum, PACE_WPM, SYLLABLE_MS, FINAL_LENGTHEN_MS, PAUSE_MS, PARAGRAPH_PAUSE_MS, SLIDE_PAUSE_MS, SECTION_PAUSE_MS, PACE_PRESETS, CLIP_TRAILING_FRACTION, SYLLABLE_OVERRIDES;
+var init_dist = __esm({
+  "docs/src/lib/cadenza/dist/index.mjs"() {
+    CALIBRATION_WINDOW = 15;
+    CALIBRATION_MIN_N = 5;
+    CALIBRATION_MIN_K = 0.6;
+    CALIBRATION_MAX_K = 1.6;
+    SAMPLE_MIN_RATIO = 0.2;
+    SAMPLE_MAX_RATIO = 5;
+    BASE = {
+      // Fiscal periods, no attached year (FY26 / 4Q24 / 1H26 carry a year and are parsed
+      // in normalize.ts). Quarters read as ordinals ("third quarter"), the natural form.
+      // `h1`/`h2` are NOT here — a bare half reads via a CASE-SENSITIVE `H1`/`H2` pattern
+      // (normalize.ts), so lowercase prose and `H2O` never become "second half".
+      fy: "fiscal year",
+      // `cy` is NOT here — the name "Cy" / ISO "CY" collide; it lives in BASE_CASED
+      q1: "first quarter",
+      q2: "second quarter",
+      q3: "third quarter",
+      q4: "fourth quarter",
+      // Period-over-period + period-to-date.
+      yoy: "year over year",
+      qoq: "quarter over quarter",
+      ytd: "year to date",
+      qtd: "quarter to date",
+      mtd: "month to date",
+      eod: "end of day",
+      eoq: "end of quarter",
+      eoy: "end of year",
+      // Roles (expanded). Real-word / proper-noun collisions (`coo`, `cmo`, `cro`) live in
+      // BASE_CASED so the lowercase words never fire.
+      ceo: "chief executive officer",
+      cfo: "chief financial officer",
+      cto: "chief technology officer",
+      // Metrics (expanded).
+      kpi: "key performance indicator",
+      okr: "objectives and key results",
+      arr: "annual recurring revenue",
+      mrr: "monthly recurring revenue",
+      roi: "return on investment",
+      nps: "net promoter score",
+      // house-domain reading; residual: ROI=Republic of Ireland, NPS=Nat'l Park Service (§15)
+      clv: "customer lifetime value",
+      // `ltv`/`cac`/`eps` DEMOTED (§15) — bimodal by industry (loan-to-value · Common Access Card · Encapsulated PostScript)
+      arpu: "average revenue per user",
+      gmv: "gross merchandise value",
+      dau: "daily active users",
+      sku: "skew",
+      nda: "non-disclosure agreement",
+      capex: "capital expenditure",
+      opex: "operating expense",
+      "p&l": "profit and loss",
+      "r&d": "research and development",
+      // Metrics said as WORDS (expansion would be absurd to speak).
+      ebitda: "ee bit dah",
+      cagr: "cagger",
+      gaap: "gap",
+      // Product / go-to-market (expanded).
+      gtm: "go to market",
+      b2b: "business to business",
+      b2c: "business to consumer",
+      // gtm kept; residual: Google Tag Manager (§15)
+      faq: "frequently asked questions",
+      // `smb` DEMOTED (§15) — Server Message Block in an infra deck
+      // Engineering / security (expanded).
+      api: "application programming interface",
+      sdk: "software development kit",
+      // api residual: Active Pharmaceutical Ingredient (pharma) / API gravity (energy)
+      sla: "service level agreement",
+      slo: "service level objective",
+      sso: "single sign-on",
+      "2fa": "two-factor authentication",
+      // `mfa` DEMOTED (§15) — Master of Fine Arts in an arts/edu deck
+      // Established single-word pronunciations.
+      saas: "sass",
+      // No natural expansion or word — spelled.
+      ui: "U I",
+      ux: "U X",
+      // Only the PLURAL section mark stays here — "§§" is two glyphs the per-glyph commons would read
+      // "section section", so it needs a whole-token entry. The single-glyph symbols (`§ ¶ © ® ™ & @`
+      // and the arrows) now live in the Speech Symbol Commons (symbols.ts), which also handles them
+      // EMBEDDED ("§5" → "section five") — one source of truth. Decorative separators (·|•) are the
+      // whole-token PAUSE rule in normalize.ts. Keeping single-glyph copies here would be a dead,
+      // contradicting duplicate.
+      "\xA7\xA7": "sections"
+    };
+    BASE_CASED = {
+      CY: "calendar year",
+      // lower-case "cy" / name "Cy" must NOT fire → cased, not BASE
+      COO: "chief operating officer",
+      // monosemic (lower-case "coo" is the verb → cased)
+      COGS: "cost of goods sold",
+      // lower-case "cogs" is the machine part
+      TAM: "total addressable market",
+      MAU: "monthly active users",
+      // MAU cased so the name "Mau" in prose never fires
+      MoM: "month over month",
+      WoW: "week over week",
+      // canonical mixed case; "mom"/"wow" the words stay safe
+      // Duration abbreviation: "11 mo" / "18 mos" → "months" (metrics shorthand read as the word
+      // "mo" otherwise). Exact-LOWERCASE so the name "Mo", the state "MO", and all-caps titles never
+      // fire. Plural default (metrics cite spans > 1); a rare "1 mo" reads "one months" — accepted.
+      mo: "months",
+      mos: "months"
+      // `CRO`/`CMO`/`SAM`/`SOM` are NOT here — each is genuinely BIMODAL even in all-caps
+      // within a real customer industry (revenue-officer vs conversion-rate-opt; SAM.gov /
+      // surface-to-air missile; System-on-Module). A deck-blind global guess is a boardroom
+      // faceplant, so they are demoted to the opt-in `finance` pack (vocabulary preserved)
+      // and the author declares the meaning via `acronyms:` (§15). Only tokens UNAMBIGUOUS
+      // in a SaaS/tech-growth boardroom (the house domain) stay always-on.
+    };
+    DOMAINS = {
+      legal: {
+        "v.": "versus",
+        "u.s.c.": "U S C",
+        "c.f.r.": "C F R",
+        "cal.": "California",
+        "art.": "Article",
+        "para.": "paragraph",
+        ccpa: "C C P A",
+        cpra: "C P R A",
+        gdpr: "G D P R"
+      },
+      finance: {
+        // WoW/MoM live in BASE_CASED (canonical case). These stay for the opt-in path.
+        wow: "week over week",
+        mom: "month over month",
+        // Demoted from always-on (§15) — the SaaS/tech-growth-boardroom reading, preserved
+        // here for the opt-in path; per-deck, the author declares the meaning via `acronyms:`.
+        cro: "chief revenue officer",
+        cmo: "chief marketing officer",
+        cac: "customer acquisition cost",
+        eps: "earnings per share",
+        smb: "small and medium business",
+        mfa: "multi-factor authentication",
+        sam: "serviceable addressable market",
+        som: "serviceable obtainable market"
+        // `ltv` is deliberately NOT packed: bimodal even WITHIN finance (loan-to-value vs
+        // lifetime value), so no single expansion is safe — the author must declare it.
+      }
+    };
+    LEX_DOMAINS = ["legal", "finance"];
+    SYMBOL_SPEAK = {
+      // Arrows — a transition, not the noun "arrow". Rightward/implication → "to"; bidirectional →
+      // "and"; vertical → up/down (metrics register). Leftward is DROP (below) — no clean reading.
+      "\u2192": "to",
+      "\u21D2": "to",
+      "\u27F6": "to",
+      "\u279C": "to",
+      "\u27A1": "to",
+      "\u21A6": "to",
+      "\u27F9": "to",
+      "\u27FC": "to",
+      "\u2194": "and",
+      "\u21D4": "and",
+      "\u27F7": "and",
+      "\u2191": "up",
+      "\u2B06": "up",
+      "\u2193": "down",
+      "\u2B07": "down",
+      // Math operators with a single unambiguous reading.
+      "\xD7": "times",
+      "\xF7": "divided by",
+      "\xB1": "plus or minus",
+      "\u2248": "approximately",
+      "\u2260": "not equal to",
+      "\u2264": "less than or equal to",
+      "\u2265": "greater than or equal to",
+      "\u221A": "square root of",
+      "\xB0": "degrees",
+      "\u221E": "infinity",
+      "\u2211": "sum of",
+      "\xB5": "micro",
+      // Typographic marks. NOTE: "§" is deliberately NOT here — it begins a structured legal citation
+      // ("§1798.140(o)" → "section … subsection o") that normalize.ts's spokenCore parses specially and
+      // must own; that parser already reads a bare/leading "§" as "section". The commons is a fallback
+      // for glyphs no structured parser claims.
+      "\xB6": "paragraph",
+      "\xA9": "copyright",
+      "\xAE": "registered trademark",
+      "\u2122": "trademark",
+      "&": "and",
+      "@": "at"
+    };
+    SYMBOL_DROP = /* @__PURE__ */ new Set(["\u2190", "\u27F5", "\u21D0", "\u2B05", "\u21A9", "\u21A4"]);
+    SEPARATOR_GLYPHS = "\xB7\u2022\u2219\u2016\xA6\u2043\u30FB|";
+    PICTOGRAPHIC = new RegExp("\\p{Extended_Pictographic}", "u");
+    VARIATION_SELECTOR = /[\uFE00-\uFE0F]/g;
+    SEPARATOR_ONLY = new RegExp(`^[${SEPARATOR_GLYPHS.replace(/[\\\]]/g, "\\$&")}]+$`);
+    MAX_SPOKEN_TOKEN = 512;
+    ONES = [
+      "zero",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight",
+      "nine",
+      "ten",
+      "eleven",
+      "twelve",
+      "thirteen",
+      "fourteen",
+      "fifteen",
+      "sixteen",
+      "seventeen",
+      "eighteen",
+      "nineteen"
+    ];
+    TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+    SCALES = ["", " thousand", " million", " billion", " trillion"];
+    MAGNITUDE = { k: "thousand", m: "million", b: "billion", t: "trillion" };
+    ORDINALS = ["", "first", "second", "third", "fourth"];
+    isAlphaNum = (c) => c >= "0" && c <= "9" || c >= "A" && c <= "Z" || c >= "a" && c <= "z";
+    PACE_WPM = { slow: 120, moderate: 150, fast: 175 };
+    SYLLABLE_MS = { slow: 250, moderate: 205, fast: 165 };
+    FINAL_LENGTHEN_MS = 30;
+    PAUSE_MS = {
+      ",": 200,
+      ";": 350,
+      ":": 350,
+      ".": 550,
+      "!": 550,
+      "?": 550,
+      "\u2026": 650
+    };
+    PARAGRAPH_PAUSE_MS = 750;
+    SLIDE_PAUSE_MS = 1400;
+    SECTION_PAUSE_MS = 2600;
+    PACE_PRESETS = {
+      brisk: { slide: 800, section: 1600 },
+      natural: { slide: SLIDE_PAUSE_MS, section: SECTION_PAUSE_MS },
+      deliberate: { slide: 2200, section: 4e3 }
+    };
+    CLIP_TRAILING_FRACTION = 0.7;
+    SYLLABLE_OVERRIDES = {
+      nineteen: 2,
+      ninety: 2,
+      times: 1
+    };
+  }
+});
+
 // lib/transformers/prose-projection.mjs
 var prose_projection_exports = {};
 __export(prose_projection_exports, {
@@ -596,10 +1479,63 @@ var init_prose_projection = __esm({
 // lib/export/player-core.mjs
 var import_lattice_doc = __toESM(require_lattice_doc(), 1);
 
+// lib/core/resolve-pace.mjs
+var PACE_NAMES = ["brisk", "natural", "deliberate"];
+var DEFAULT_PACE = "natural";
+function isKnownPace(value) {
+  return typeof value === "string" && PACE_NAMES.includes(value.trim().toLowerCase());
+}
+function frontMatterPace(md) {
+  const value = paceLine(md)?.value ?? null;
+  return value !== null && PACE_NAMES.includes(value) ? value : null;
+}
+function paceLine(md) {
+  const block = String(md ?? "").match(/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (!block) return null;
+  const line = block[1].match(/^[ \t]*pace:[ \t]*(.*)$/m);
+  if (!line) return null;
+  const cut = line[1].search(/[ \t]#/);
+  const value = (cut === -1 ? line[1] : line[1].slice(0, cut)).trim().replace(/^['"]/, "").replace(/['"]$/, "").toLowerCase();
+  return { line: line[0].trim(), value };
+}
+var PACE_BEATS = {
+  brisk: { slide: 800, section: 1600 },
+  natural: { slide: 1400, section: 2600 },
+  deliberate: { slide: 2200, section: 4e3 }
+};
+function paceBeatMs(kind, pace, override) {
+  if (typeof override === "number" && Number.isFinite(override) && override >= 0) return Math.round(override);
+  const preset = PACE_BEATS[isKnownPace(pace) ? String(pace).trim().toLowerCase() : DEFAULT_PACE];
+  return kind === "section" ? preset.section : preset.slide;
+}
+
 // lib/export/anima-player-bundle.generated.mjs
 var ANIMA_PLAYER_JS = '(()=>{var Dt=Object.create;var Be=Object.defineProperty;var jt=Object.getOwnPropertyDescriptor;var _t=Object.getOwnPropertyNames;var Ut=Object.getPrototypeOf,Ht=Object.prototype.hasOwnProperty;var S=(a,t)=>()=>(t||a((t={exports:{}}).exports,t),t.exports);var Xt=(a,t,r,s)=>{if(t&&typeof t=="object"||typeof t=="function")for(let u of _t(t))!Ht.call(a,u)&&u!==r&&Be(a,u,{get:()=>t[u],enumerable:!(s=jt(t,u))||s.enumerable});return a};var De=(a,t,r)=>(r=a!=null?Dt(Ut(a)):{},Xt(t||!a||!a.__esModule?Be(r,"default",{value:a,enumerable:!0}):r,a));var Ue=S((je,_e)=>{(function(){"use strict";function a(e){if(typeof e>"u")throw new Error(\'Pathformer [constructor]: "element" parameter is required\');if(e.constructor===String&&(e=document.getElementById(e),!e))throw new Error(\'Pathformer [constructor]: "element" parameter is not related to an existing ID\');if(e instanceof window.SVGElement||e instanceof window.SVGGElement||/^svg$/i.test(e.nodeName))this.el=e;else throw new Error(\'Pathformer [constructor]: "element" parameter must be a string or a SVGelement\');this.scan(e)}a.prototype.TYPES=["line","ellipse","circle","polygon","polyline","rect"],a.prototype.ATTR_WATCH=["cx","cy","points","r","rx","ry","x","x1","x2","y","y1","y2"],a.prototype.scan=function(e){for(var n,i,o,l,c=e.querySelectorAll(this.TYPES.join(",")),d=0;d<c.length;d++)i=c[d],n=this[i.tagName.toLowerCase()+"ToPath"],o=n(this.parseAttr(i.attributes)),l=this.pathMaker(i,o),i.parentNode.replaceChild(l,i)},a.prototype.lineToPath=function(e){var n={},i=e.x1||0,o=e.y1||0,l=e.x2||0,c=e.y2||0;return n.d="M"+i+","+o+"L"+l+","+c,n},a.prototype.rectToPath=function(e){var n={},i=parseFloat(e.x)||0,o=parseFloat(e.y)||0,l=parseFloat(e.width)||0,c=parseFloat(e.height)||0;if(e.rx||e.ry){var d=parseInt(e.rx,10)||-1,f=parseInt(e.ry,10)||-1;d=Math.min(Math.max(d<0?f:d,0),l/2),f=Math.min(Math.max(f<0?d:f,0),c/2),n.d="M "+(i+d)+","+o+" L "+(i+l-d)+","+o+" A "+d+","+f+",0,0,1,"+(i+l)+","+(o+f)+" L "+(i+l)+","+(o+c-f)+" A "+d+","+f+",0,0,1,"+(i+l-d)+","+(o+c)+" L "+(i+d)+","+(o+c)+" A "+d+","+f+",0,0,1,"+i+","+(o+c-f)+" L "+i+","+(o+f)+" A "+d+","+f+",0,0,1,"+(i+d)+","+o}else n.d="M"+i+" "+o+" L"+(i+l)+" "+o+" L"+(i+l)+" "+(o+c)+" L"+i+" "+(o+c)+" Z";return n},a.prototype.polylineToPath=function(e){var n={},i=e.points.trim().split(" "),o,l;if(e.points.indexOf(",")===-1){var c=[];for(o=0;o<i.length;o+=2)c.push(i[o]+","+i[o+1]);i=c}for(l="M"+i[0],o=1;o<i.length;o++)i[o].indexOf(",")!==-1&&(l+="L"+i[o]);return n.d=l,n},a.prototype.polygonToPath=function(e){var n=a.prototype.polylineToPath(e);return n.d+="Z",n},a.prototype.ellipseToPath=function(e){var n={},i=parseFloat(e.rx)||0,o=parseFloat(e.ry)||0,l=parseFloat(e.cx)||0,c=parseFloat(e.cy)||0,d=l-i,f=c,p=parseFloat(l)+parseFloat(i),m=c;return n.d="M"+d+","+f+"A"+i+","+o+" 0,1,1 "+p+","+m+"A"+i+","+o+" 0,1,1 "+d+","+m,n},a.prototype.circleToPath=function(e){var n={},i=parseFloat(e.r)||0,o=parseFloat(e.cx)||0,l=parseFloat(e.cy)||0,c=o-i,d=l,f=parseFloat(o)+parseFloat(i),p=l;return n.d="M"+c+","+d+"A"+i+","+i+" 0,1,1 "+f+","+p+"A"+i+","+i+" 0,1,1 "+c+","+p,n},a.prototype.pathMaker=function(e,n){var i,o,l=document.createElementNS("http://www.w3.org/2000/svg","path");for(i=0;i<e.attributes.length;i++)o=e.attributes[i],this.ATTR_WATCH.indexOf(o.name)===-1&&l.setAttribute(o.name,o.value);for(i in n)l.setAttribute(i,n[i]);return l},a.prototype.parseAttr=function(e){for(var n,i={},o=0;o<e.length;o++){if(n=e[o],this.ATTR_WATCH.indexOf(n.name)!==-1&&n.value.indexOf("%")!==-1)throw new Error("Pathformer [parseAttr]: a SVG shape got values in percentage. This cannot be transformed into \'path\' tags. Please use \'viewBox\'.");i[n.name]=n.value}return i};var t,r,s,u;function h(e,n,i){t(),this.isReady=!1,this.setElement(e,n),this.setOptions(n),this.setCallback(i),this.isReady&&this.init()}h.LINEAR=function(e){return e},h.EASE=function(e){return-Math.cos(e*Math.PI)/2+.5},h.EASE_OUT=function(e){return 1-Math.pow(1-e,3)},h.EASE_IN=function(e){return Math.pow(e,3)},h.EASE_OUT_BOUNCE=function(e){var n=-Math.cos(e*(.5*Math.PI))+1,i=Math.pow(n,1.5),o=Math.pow(1-e,2),l=-Math.abs(Math.cos(i*(2.5*Math.PI)))+1;return 1-o+l*o},h.prototype.setElement=function(e,n){var i,o;if(typeof e>"u")throw new Error(\'Vivus [constructor]: "element" parameter is required\');if(e.constructor===String&&(e=document.getElementById(e),!e))throw new Error(\'Vivus [constructor]: "element" parameter is not related to an existing ID\');if(this.parentEl=e,n&&n.file){o=this,i=function(){var c=document.createElement("div");c.innerHTML=this.responseText;var d=c.querySelector("svg");if(!d)throw new Error("Vivus [load]: Cannot find the SVG in the loaded file : "+n.file);o.el=d,o.el.setAttribute("width","100%"),o.el.setAttribute("height","100%"),o.parentEl.appendChild(o.el),o.isReady=!0,o.init(),o=null};var l=new window.XMLHttpRequest;l.addEventListener("load",i),l.open("GET",n.file),l.send();return}switch(e.constructor){case window.SVGSVGElement:case window.SVGElement:case window.SVGGElement:this.el=e,this.isReady=!0;break;case window.HTMLObjectElement:o=this,i=function(c){if(!o.isReady){if(o.el=e.contentDocument&&e.contentDocument.querySelector("svg"),!o.el&&c)throw new Error("Vivus [constructor]: object loaded does not contain any SVG");o.el&&(e.getAttribute("built-by-vivus")&&(o.parentEl.insertBefore(o.el,e),o.parentEl.removeChild(e),o.el.setAttribute("width","100%"),o.el.setAttribute("height","100%")),o.isReady=!0,o.init(),o=null)}},i()||e.addEventListener("load",i);break;default:throw new Error(\'Vivus [constructor]: "element" parameter is not valid (or miss the "file" attribute)\')}},h.prototype.setOptions=function(e){var n=["delayed","sync","async","nsync","oneByOne","scenario","scenario-sync"],i=["inViewport","manual","autostart"];if(e!==void 0&&e.constructor!==Object)throw new Error(\'Vivus [constructor]: "options" parameter must be an object\');if(e=e||{},e.type&&n.indexOf(e.type)===-1)throw new Error("Vivus [constructor]: "+e.type+" is not an existing animation `type`");if(this.type=e.type||n[0],e.start&&i.indexOf(e.start)===-1)throw new Error("Vivus [constructor]: "+e.start+" is not an existing `start` option");if(this.start=e.start||i[0],this.isIE=window.navigator.userAgent.indexOf("MSIE")!==-1||window.navigator.userAgent.indexOf("Trident/")!==-1||window.navigator.userAgent.indexOf("Edge/")!==-1,this.duration=u(e.duration,120),this.delay=u(e.delay,null),this.dashGap=u(e.dashGap,1),this.forceRender=e.hasOwnProperty("forceRender")?!!e.forceRender:this.isIE,this.reverseStack=!!e.reverseStack,this.selfDestroy=!!e.selfDestroy,this.onReady=e.onReady,this.map=[],this.frameLength=this.currentFrame=this.delayUnit=this.speed=this.handle=null,this.ignoreInvisible=e.hasOwnProperty("ignoreInvisible")?!!e.ignoreInvisible:!1,this.animTimingFunction=e.animTimingFunction||h.LINEAR,this.pathTimingFunction=e.pathTimingFunction||h.LINEAR,this.delay>=this.duration)throw new Error("Vivus [constructor]: delay must be shorter than duration")},h.prototype.setCallback=function(e){if(e&&e.constructor!==Function)throw new Error(\'Vivus [constructor]: "callback" parameter must be a function\');this.callback=e||function(){}},h.prototype.mapping=function(){var e,n,i,o,l,c,d,f,p,m;for(f=c=d=0,n=this.el.querySelectorAll("path"),m=!1,e=0;e<n.length;e++)if(i=n[e],!this.isInvisible(i)){if(l={el:i,length:0,startAt:0,duration:0,isResizeSensitive:!1},i.getAttribute("vector-effect")==="non-scaling-stroke"){var y=i.getBoundingClientRect(),v=i.getBBox();p=Math.max(y.width/v.width,y.height/v.height),l.isResizeSensitive=!0,m=!0}else p=1;if(l.length=Math.ceil(i.getTotalLength()*p),isNaN(l.length)){window.console&&console.warn&&console.warn("Vivus [mapping]: cannot retrieve a path element length",i);continue}this.map.push(l),i.style.strokeDasharray=l.length+" "+(l.length+this.dashGap*2),i.style.strokeDashoffset=l.length+this.dashGap,l.length+=this.dashGap,c+=l.length,this.renderPath(e)}for(m&&console.warn("Vivus: this SVG contains non-scaling-strokes. You should call instance.recalc() when the SVG is resized or you will encounter unwanted behaviour. See https://github.com/maxwellito/vivus#non-scaling for more info."),c=c===0?1:c,this.delay=this.delay===null?this.duration/3:this.delay,this.delayUnit=this.delay/(n.length>1?n.length-1:1),this.reverseStack&&this.map.reverse(),e=0;e<this.map.length;e++){switch(l=this.map[e],this.type){case"delayed":l.startAt=this.delayUnit*e,l.duration=this.duration-this.delay;break;case"oneByOne":l.startAt=d/c*this.duration,l.duration=l.length/c*this.duration;break;case"sync":case"async":case"nsync":l.startAt=0,l.duration=this.duration;break;case"scenario-sync":i=l.el,o=this.parseAttr(i),l.startAt=f+(u(o["data-delay"],this.delayUnit)||0),l.duration=u(o["data-duration"],this.duration),f=o["data-async"]!==void 0?l.startAt:l.startAt+l.duration,this.frameLength=Math.max(this.frameLength,l.startAt+l.duration);break;case"scenario":i=l.el,o=this.parseAttr(i),l.startAt=u(o["data-start"],this.delayUnit)||0,l.duration=u(o["data-duration"],this.duration),this.frameLength=Math.max(this.frameLength,l.startAt+l.duration);break}d+=l.length,this.frameLength=this.frameLength||this.duration}},h.prototype.recalc=function(){this.mustRecalcScale||(this.mustRecalcScale=r(function(){this.performLineRecalc()}.bind(this)))},h.prototype.performLineRecalc=function(){for(var e,n,i,o,l,c=0;c<this.map.length;c++)e=this.map[c],e.isResizeSensitive&&(n=e.el,i=n.getBoundingClientRect(),o=n.getBBox(),l=Math.max(i.width/o.width,i.height/o.height),e.length=Math.ceil(n.getTotalLength()*l),n.style.strokeDasharray=e.length+" "+(e.length+this.dashGap*2));this.trace(),this.mustRecalcScale=null},h.prototype.draw=function(){var e=this;if(this.currentFrame+=this.speed,this.currentFrame<=0)this.stop(),this.reset();else if(this.currentFrame>=this.frameLength)this.stop(),this.currentFrame=this.frameLength,this.trace(),this.selfDestroy&&this.destroy();else{this.trace(),this.handle=r(function(){e.draw()});return}this.callback(this),this.instanceCallback&&(this.instanceCallback(this),this.instanceCallback=null)},h.prototype.trace=function(){var e,n,i,o;for(o=this.animTimingFunction(this.currentFrame/this.frameLength)*this.frameLength,e=0;e<this.map.length;e++)i=this.map[e],n=(o-i.startAt)/i.duration,n=this.pathTimingFunction(Math.max(0,Math.min(1,n))),i.progress!==n&&(i.progress=n,i.el.style.strokeDashoffset=Math.floor(i.length*(1-n)),this.renderPath(e))},h.prototype.renderPath=function(e){if(this.forceRender&&this.map&&this.map[e]){var n=this.map[e],i=n.el.cloneNode(!0);n.el.parentNode.replaceChild(i,n.el),n.el=i}},h.prototype.init=function(){this.frameLength=0,this.currentFrame=0,this.map=[],new a(this.el),this.mapping(),this.starter(),this.onReady&&this.onReady(this)},h.prototype.starter=function(){switch(this.start){case"manual":return;case"autostart":this.play();break;case"inViewport":var e=this,n=function(){e.isInViewport(e.parentEl,1)&&(e.play(),window.removeEventListener("scroll",n))};window.addEventListener("scroll",n),n();break}},h.prototype.getStatus=function(){return this.currentFrame===0?"start":this.currentFrame===this.frameLength?"end":"progress"},h.prototype.reset=function(){return this.setFrameProgress(0)},h.prototype.finish=function(){return this.setFrameProgress(1)},h.prototype.setFrameProgress=function(e){return e=Math.min(1,Math.max(0,e)),this.currentFrame=Math.round(this.frameLength*e),this.trace(),this},h.prototype.play=function(e,n){if(this.instanceCallback=null,e&&typeof e=="function")this.instanceCallback=e,e=null;else if(e&&typeof e!="number")throw new Error("Vivus [play]: invalid speed");return n&&typeof n=="function"&&!this.instanceCallback&&(this.instanceCallback=n),this.speed=e||1,this.handle||this.draw(),this},h.prototype.stop=function(){return this.handle&&(s(this.handle),this.handle=null),this},h.prototype.destroy=function(){this.stop();var e,n;for(e=0;e<this.map.length;e++)n=this.map[e],n.el.style.strokeDashoffset=null,n.el.style.strokeDasharray=null,this.renderPath(e)},h.prototype.isInvisible=function(e){var n,i=e.getAttribute("data-ignore");return i!==null?i!=="false":this.ignoreInvisible?(n=e.getBoundingClientRect(),!n.width&&!n.height):!1},h.prototype.parseAttr=function(e){var n,i={};if(e&&e.attributes)for(var o=0;o<e.attributes.length;o++)n=e.attributes[o],i[n.name]=n.value;return i},h.prototype.isInViewport=function(e,n){var i=this.scrollY(),o=i+this.getViewportH(),l=e.getBoundingClientRect(),c=l.height,d=i+l.top,f=d+c;return n=n||0,d+c*n<=o&&f>=i},h.prototype.getViewportH=function(){var e=this.docElem.clientHeight,n=window.innerHeight;return e<n?n:e},h.prototype.scrollY=function(){return window.pageYOffset||this.docElem.scrollTop},t=function(){h.prototype.docElem||(h.prototype.docElem=window.document.documentElement,r=(function(){return window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame||window.oRequestAnimationFrame||window.msRequestAnimationFrame||function(e){return window.setTimeout(e,1e3/60)}})(),s=(function(){return window.cancelAnimationFrame||window.webkitCancelAnimationFrame||window.mozCancelAnimationFrame||window.oCancelAnimationFrame||window.msCancelAnimationFrame||function(e){return window.clearTimeout(e)}})())},u=function(e,n){var i=parseInt(e,10);return i>=0?i:n},typeof define=="function"&&define.amd?define([],function(){return h}):typeof je=="object"?_e.exports=h:window.Vivus=h})()});var k=S((Ye,K)=>{(function(a,t){typeof K=="object"&&K.exports?K.exports=t():a.Zdog=t()})(Ye,function(){var t={};t.TAU=Math.PI*2,t.extend=function(s,u){for(var h in u)s[h]=u[h];return s},t.lerp=function(s,u,h){return(u-s)*h+s},t.modulo=function(s,u){return(s%u+u)%u};var r={2:function(s){return s*s},3:function(s){return s*s*s},4:function(s){return s*s*s*s},5:function(s){return s*s*s*s*s}};return t.easeInOut=function(s,u){if(u==1)return s;s=Math.max(0,Math.min(1,s));var h=s<.5,e=h?s:1-s;e/=.5;var n=r[u]||r[2],i=n(e);return i/=2,h?i:1-i},t})});var ke=S((Ke,Q)=>{(function(a,t){typeof Q=="object"&&Q.exports?Q.exports=t():a.Zdog.CanvasRenderer=t()})(Ke,function(){var t={isCanvas:!0};return t.begin=function(r){r.beginPath()},t.move=function(r,s,u){r.moveTo(u.x,u.y)},t.line=function(r,s,u){r.lineTo(u.x,u.y)},t.bezier=function(r,s,u,h,e){r.bezierCurveTo(u.x,u.y,h.x,h.y,e.x,e.y)},t.closePath=function(r){r.closePath()},t.setPath=function(){},t.renderPath=function(r,s,u,h){this.begin(r,s),u.forEach(function(e){e.render(r,s,t)}),h&&this.closePath(r,s)},t.stroke=function(r,s,u,h,e){u&&(r.strokeStyle=h,r.lineWidth=e,r.stroke())},t.fill=function(r,s,u,h){u&&(r.fillStyle=h,r.fill())},t.end=function(){},t})});var Te=S((Qe,J)=>{(function(a,t){typeof J=="object"&&J.exports?J.exports=t():a.Zdog.SvgRenderer=t()})(Qe,function(){var t={isSvg:!0},r=t.round=function(u){return Math.round(u*1e3)/1e3};function s(u){return r(u.x)+","+r(u.y)+" "}return t.begin=function(){},t.move=function(u,h,e){return"M"+s(e)},t.line=function(u,h,e){return"L"+s(e)},t.bezier=function(u,h,e,n,i){return"C"+s(e)+s(n)+s(i)},t.closePath=function(){return"Z"},t.setPath=function(u,h,e){h.setAttribute("d",e)},t.renderPath=function(u,h,e,n){var i="";e.forEach(function(o){i+=o.render(u,h,t)}),n&&(i+=this.closePath(u,h)),this.setPath(u,h,i)},t.stroke=function(u,h,e,n,i){e&&(h.setAttribute("stroke",n),h.setAttribute("stroke-width",i))},t.fill=function(u,h,e,n){var i=e?n:"none";h.setAttribute("fill",i)},t.end=function(u,h){u.appendChild(h)},t})});var L=S((Je,Z)=>{(function(a,t){if(typeof Z=="object"&&Z.exports)Z.exports=t(k());else{var r=a.Zdog;r.Vector=t(r)}})(Je,function(t){function r(e){this.set(e)}var s=t.TAU;r.prototype.set=function(e){return this.x=e&&e.x||0,this.y=e&&e.y||0,this.z=e&&e.z||0,this},r.prototype.write=function(e){return e?(this.x=e.x!=null?e.x:this.x,this.y=e.y!=null?e.y:this.y,this.z=e.z!=null?e.z:this.z,this):this},r.prototype.rotate=function(e){if(e)return this.rotateZ(e.z),this.rotateY(e.y),this.rotateX(e.x),this},r.prototype.rotateZ=function(e){u(this,e,"x","y")},r.prototype.rotateX=function(e){u(this,e,"y","z")},r.prototype.rotateY=function(e){u(this,e,"x","z")};function u(e,n,i,o){if(!(!n||n%s===0)){var l=Math.cos(n),c=Math.sin(n),d=e[i],f=e[o];e[i]=d*l-f*c,e[o]=f*l+d*c}}r.prototype.isSame=function(e){return e?this.x===e.x&&this.y===e.y&&this.z===e.z:!1},r.prototype.add=function(e){return e?(this.x+=e.x||0,this.y+=e.y||0,this.z+=e.z||0,this):this},r.prototype.subtract=function(e){return e?(this.x-=e.x||0,this.y-=e.y||0,this.z-=e.z||0,this):this},r.prototype.multiply=function(e){return e==null?this:(typeof e=="number"?(this.x*=e,this.y*=e,this.z*=e):(this.x*=e.x!=null?e.x:1,this.y*=e.y!=null?e.y:1,this.z*=e.z!=null?e.z:1),this)},r.prototype.transform=function(e,n,i){return this.multiply(i),this.rotate(n),this.add(e),this},r.prototype.lerp=function(e,n){return this.x=t.lerp(this.x,e.x||0,n),this.y=t.lerp(this.y,e.y||0,n),this.z=t.lerp(this.z,e.z||0,n),this},r.prototype.magnitude=function(){var e=this.x*this.x+this.y*this.y+this.z*this.z;return h(e)};function h(e){return Math.abs(e-1)<1e-8?1:Math.sqrt(e)}return r.prototype.magnitude2d=function(){var e=this.x*this.x+this.y*this.y;return h(e)},r.prototype.copy=function(){return new r(this)},r})});var F=S((Ze,ee)=>{(function(a,t){if(typeof ee=="object"&&ee.exports)ee.exports=t(k(),L(),ke(),Te());else{var r=a.Zdog;r.Anchor=t(r,r.Vector,r.CanvasRenderer,r.SvgRenderer)}})(Ze,function(t,r,s,u){var h=t.TAU,e={x:1,y:1,z:1};function n(o){this.create(o||{})}n.prototype.create=function(o){this.children=[],t.extend(this,this.constructor.defaults),this.setOptions(o),this.translate=new r(o.translate),this.rotate=new r(o.rotate),this.scale=new r(e).multiply(this.scale),this.origin=new r,this.renderOrigin=new r,this.addTo&&this.addTo.addChild(this)},n.defaults={},n.optionKeys=Object.keys(n.defaults).concat(["rotate","translate","scale","addTo"]),n.prototype.setOptions=function(o){var l=this.constructor.optionKeys;for(var c in o)l.indexOf(c)!=-1&&(this[c]=o[c])},n.prototype.addChild=function(o){this.children.indexOf(o)==-1&&(o.remove(),o.addTo=this,this.children.push(o))},n.prototype.removeChild=function(o){var l=this.children.indexOf(o);l!=-1&&this.children.splice(l,1)},n.prototype.remove=function(){this.addTo&&this.addTo.removeChild(this)},n.prototype.update=function(){this.reset(),this.children.forEach(function(o){o.update()}),this.transform(this.translate,this.rotate,this.scale)},n.prototype.reset=function(){this.renderOrigin.set(this.origin)},n.prototype.transform=function(o,l,c){this.renderOrigin.transform(o,l,c),this.children.forEach(function(d){d.transform(o,l,c)})},n.prototype.updateGraph=function(){this.update(),this.updateFlatGraph(),this.flatGraph.forEach(function(o){o.updateSortValue()}),this.flatGraph.sort(n.shapeSorter)},n.shapeSorter=function(o,l){return o.sortValue-l.sortValue},Object.defineProperty(n.prototype,"flatGraph",{get:function(){return this._flatGraph||this.updateFlatGraph(),this._flatGraph},set:function(o){this._flatGraph=o}}),n.prototype.updateFlatGraph=function(){this.flatGraph=this.getFlatGraph()},n.prototype.getFlatGraph=function(){var o=[this];return this.addChildFlatGraph(o)},n.prototype.addChildFlatGraph=function(o){return this.children.forEach(function(l){var c=l.getFlatGraph();Array.prototype.push.apply(o,c)}),o},n.prototype.updateSortValue=function(){this.sortValue=this.renderOrigin.z},n.prototype.render=function(){},n.prototype.renderGraphCanvas=function(o){if(!o)throw new Error("ctx is "+o+". Canvas context required for render. Check .renderGraphCanvas( ctx ).");this.flatGraph.forEach(function(l){l.render(o,s)})},n.prototype.renderGraphSvg=function(o){if(!o)throw new Error("svg is "+o+". SVG required for render. Check .renderGraphSvg( svg ).");this.flatGraph.forEach(function(l){l.render(o,u)})},n.prototype.copy=function(o){var l={},c=this.constructor.optionKeys;c.forEach(function(f){l[f]=this[f]},this),t.extend(l,o);var d=this.constructor;return new d(l)},n.prototype.copyGraph=function(o){var l=this.copy(o);return this.children.forEach(function(c){c.copyGraph({addTo:l})}),l},n.prototype.normalizeRotate=function(){this.rotate.x=t.modulo(this.rotate.x,h),this.rotate.y=t.modulo(this.rotate.y,h),this.rotate.z=t.modulo(this.rotate.z,h)};function i(o){return function(l){function c(d){this.create(d||{})}return c.prototype=Object.create(o.prototype),c.prototype.constructor=c,c.defaults=t.extend({},o.defaults),t.extend(c.defaults,l),c.optionKeys=o.optionKeys.slice(0),Object.keys(c.defaults).forEach(function(d){!c.optionKeys.indexOf(d)!=1&&c.optionKeys.push(d)}),c.subclass=i(c),c}}return n.subclass=i(n),n})});var ze=S((et,te)=>{(function(a,t){typeof te=="object"&&te.exports?te.exports=t():a.Zdog.Dragger=t()})(et,function(){var t=typeof window<"u",r="mousedown",s="mousemove",u="mouseup";t&&(window.PointerEvent?(r="pointerdown",s="pointermove",u="pointerup"):"ontouchstart"in window&&(r="touchstart",s="touchmove",u="touchend"));function h(){}function e(n){this.create(n||{})}return e.prototype.create=function(n){this.onDragStart=n.onDragStart||h,this.onDragMove=n.onDragMove||h,this.onDragEnd=n.onDragEnd||h,this.bindDrag(n.startElement)},e.prototype.bindDrag=function(n){n=this.getQueryElement(n),n&&(n.style.touchAction="none",n.addEventListener(r,this))},e.prototype.getQueryElement=function(n){return typeof n=="string"&&(n=document.querySelector(n)),n},e.prototype.handleEvent=function(n){var i=this["on"+n.type];i&&i.call(this,n)},e.prototype.onmousedown=e.prototype.onpointerdown=function(n){this.dragStart(n,n)},e.prototype.ontouchstart=function(n){this.dragStart(n,n.changedTouches[0])},e.prototype.dragStart=function(n,i){n.preventDefault(),this.dragStartX=i.pageX,this.dragStartY=i.pageY,t&&(window.addEventListener(s,this),window.addEventListener(u,this)),this.onDragStart(i)},e.prototype.ontouchmove=function(n){this.dragMove(n,n.changedTouches[0])},e.prototype.onmousemove=e.prototype.onpointermove=function(n){this.dragMove(n,n)},e.prototype.dragMove=function(n,i){n.preventDefault();var o=i.pageX-this.dragStartX,l=i.pageY-this.dragStartY;this.onDragMove(i,o,l)},e.prototype.onmouseup=e.prototype.onpointerup=e.prototype.ontouchend=e.prototype.dragEnd=function(){window.removeEventListener(s,this),window.removeEventListener(u,this),this.onDragEnd()},e})});var rt=S((tt,re)=>{(function(a,t){if(typeof re=="object"&&re.exports)re.exports=t(k(),F(),ze());else{var r=a.Zdog;r.Illustration=t(r,r.Anchor,r.Dragger)}})(tt,function(t,r,s){function u(){}var h=t.TAU,e=r.subclass({element:void 0,centered:!0,zoom:1,dragRotate:!1,resize:!1,onPrerender:u,onDragStart:u,onDragMove:u,onDragEnd:u,onResize:u});t.extend(e.prototype,s.prototype),e.prototype.create=function(i){r.prototype.create.call(this,i),s.prototype.create.call(this,i),this.setElement(this.element),this.setDragRotate(this.dragRotate),this.setResize(this.resize)},e.prototype.setElement=function(i){if(i=this.getQueryElement(i),!i)throw new Error("Zdog.Illustration element required. Set to "+i);var o=i.nodeName.toLowerCase();o=="canvas"?this.setCanvas(i):o=="svg"&&this.setSvg(i)},e.prototype.setSize=function(i,o){i=Math.round(i),o=Math.round(o),this.isCanvas?this.setSizeCanvas(i,o):this.isSvg&&this.setSizeSvg(i,o)},e.prototype.setResize=function(i){this.resize=i,this.resizeListener||(this.resizeListener=this.onWindowResize.bind(this)),i?(window.addEventListener("resize",this.resizeListener),this.onWindowResize()):window.removeEventListener("resize",this.resizeListener)},e.prototype.onWindowResize=function(){this.setMeasuredSize(),this.onResize(this.width,this.height)},e.prototype.setMeasuredSize=function(){var i,o,l=this.resize=="fullscreen";if(l)i=window.innerWidth,o=window.innerHeight;else{var c=this.element.getBoundingClientRect();i=c.width,o=c.height}this.setSize(i,o)},e.prototype.renderGraph=function(i){this.isCanvas?this.renderGraphCanvas(i):this.isSvg&&this.renderGraphSvg(i)},e.prototype.updateRenderGraph=function(i){this.updateGraph(),this.renderGraph(i)},e.prototype.setCanvas=function(i){this.element=i,this.isCanvas=!0,this.ctx=this.element.getContext("2d"),this.setSizeCanvas(i.width,i.height)},e.prototype.setSizeCanvas=function(i,o){this.width=i,this.height=o;var l=this.pixelRatio=window.devicePixelRatio||1;this.element.width=this.canvasWidth=i*l,this.element.height=this.canvasHeight=o*l;var c=l>1&&!this.resize;c&&(this.element.style.width=i+"px",this.element.style.height=o+"px")},e.prototype.renderGraphCanvas=function(i){i=i||this,this.prerenderCanvas(),r.prototype.renderGraphCanvas.call(i,this.ctx),this.postrenderCanvas()},e.prototype.prerenderCanvas=function(){var i=this.ctx;if(i.lineCap="round",i.lineJoin="round",i.clearRect(0,0,this.canvasWidth,this.canvasHeight),i.save(),this.centered){var o=this.width/2*this.pixelRatio,l=this.height/2*this.pixelRatio;i.translate(o,l)}var c=this.pixelRatio*this.zoom;i.scale(c,c),this.onPrerender(i)},e.prototype.postrenderCanvas=function(){this.ctx.restore()},e.prototype.setSvg=function(i){this.element=i,this.isSvg=!0,this.pixelRatio=1;var o=i.getAttribute("width"),l=i.getAttribute("height");this.setSizeSvg(o,l)},e.prototype.setSizeSvg=function(i,o){this.width=i,this.height=o;var l=i/this.zoom,c=o/this.zoom,d=this.centered?-l/2:0,f=this.centered?-c/2:0;this.element.setAttribute("viewBox",d+" "+f+" "+l+" "+c),this.resize?(this.element.removeAttribute("width"),this.element.removeAttribute("height")):(this.element.setAttribute("width",i),this.element.setAttribute("height",o))},e.prototype.renderGraphSvg=function(i){i=i||this,n(this.element),this.onPrerender(this.element),r.prototype.renderGraphSvg.call(i,this.element)};function n(i){for(;i.firstChild;)i.removeChild(i.firstChild)}return e.prototype.setDragRotate=function(i){if(i)i===!0&&(i=this);else return;this.dragRotate=i,this.bindDrag(this.element)},e.prototype.dragStart=function(){this.dragStartRX=this.dragRotate.rotate.x,this.dragStartRY=this.dragRotate.rotate.y,s.prototype.dragStart.apply(this,arguments)},e.prototype.dragMove=function(i,o){var l=o.pageX-this.dragStartX,c=o.pageY-this.dragStartY,d=Math.min(this.width,this.height),f=l/d*h,p=c/d*h;this.dragRotate.rotate.x=this.dragStartRX-p,this.dragRotate.rotate.y=this.dragStartRY-f,s.prototype.dragMove.apply(this,arguments)},e})});var B=S((nt,ne)=>{(function(a,t){if(typeof ne=="object"&&ne.exports)ne.exports=t(L());else{var r=a.Zdog;r.PathCommand=t(r.Vector)}})(nt,function(t){function r(e,n,i){this.method=e,this.points=n.map(s),this.renderPoints=n.map(u),this.previousPoint=i,this.endRenderPoint=this.renderPoints[this.renderPoints.length-1],e=="arc"&&(this.controlPoints=[new t,new t])}function s(e){return e instanceof t?e:new t(e)}function u(e){return new t(e)}r.prototype.reset=function(){var e=this.points;this.renderPoints.forEach(function(n,i){var o=e[i];n.set(o)})},r.prototype.transform=function(e,n,i){this.renderPoints.forEach(function(o){o.transform(e,n,i)})},r.prototype.render=function(e,n,i){return this[this.method](e,n,i)},r.prototype.move=function(e,n,i){return i.move(e,n,this.renderPoints[0])},r.prototype.line=function(e,n,i){return i.line(e,n,this.renderPoints[0])},r.prototype.bezier=function(e,n,i){var o=this.renderPoints[0],l=this.renderPoints[1],c=this.renderPoints[2];return i.bezier(e,n,o,l,c)};var h=9/16;return r.prototype.arc=function(e,n,i){var o=this.previousPoint,l=this.renderPoints[0],c=this.renderPoints[1],d=this.controlPoints[0],f=this.controlPoints[1];return d.set(o).lerp(l,h),f.set(c).lerp(l,h),i.bezier(e,n,d,f,c)},r})});var q=S((it,ie)=>{(function(a,t){if(typeof ie=="object"&&ie.exports)ie.exports=t(k(),L(),B(),F());else{var r=a.Zdog;r.Shape=t(r,r.Vector,r.PathCommand,r.Anchor)}})(it,function(t,r,s,u){var h=u.subclass({stroke:1,fill:!1,color:"#333",closed:!0,visible:!0,path:[{}],front:{z:1},backface:!0});h.prototype.create=function(o){u.prototype.create.call(this,o),this.updatePath(),this.front=new r(o.front||this.front),this.renderFront=new r(this.front),this.renderNormal=new r};var e=["move","line","bezier","arc"];h.prototype.updatePath=function(){this.setPath(),this.updatePathCommands()},h.prototype.setPath=function(){},h.prototype.updatePathCommands=function(){var o;this.pathCommands=this.path.map(function(l,c){var d=Object.keys(l),f=d[0],p=l[f],m=d.length==1&&e.indexOf(f)!=-1;m||(f="line",p=l);var y=f=="line"||f=="move",v=Array.isArray(p);y&&!v&&(p=[p]),f=c===0?"move":f;var b=new s(f,p,o);return o=b.endRenderPoint,b})},h.prototype.reset=function(){this.renderOrigin.set(this.origin),this.renderFront.set(this.front),this.pathCommands.forEach(function(o){o.reset()})},h.prototype.transform=function(o,l,c){this.renderOrigin.transform(o,l,c),this.renderFront.transform(o,l,c),this.renderNormal.set(this.renderOrigin).subtract(this.renderFront),this.pathCommands.forEach(function(d){d.transform(o,l,c)}),this.children.forEach(function(d){d.transform(o,l,c)})},h.prototype.updateSortValue=function(){var o=this.pathCommands.length,l=this.pathCommands[0].endRenderPoint,c=this.pathCommands[o-1].endRenderPoint,d=o>2&&l.isSame(c);d&&(o-=1);for(var f=0,p=0;p<o;p++)f+=this.pathCommands[p].endRenderPoint.z;this.sortValue=f/o},h.prototype.render=function(o,l){var c=this.pathCommands.length;if(!(!this.visible||!c)&&(this.isFacingBack=this.renderNormal.z>0,!(!this.backface&&this.isFacingBack))){if(!l)throw new Error("Zdog renderer required. Set to "+l);var d=c==1;l.isCanvas&&d?this.renderCanvasDot(o,l):this.renderPath(o,l)}};var n=t.TAU;h.prototype.renderCanvasDot=function(o){var l=this.getLineWidth();if(l){o.fillStyle=this.getRenderColor();var c=this.pathCommands[0].endRenderPoint;o.beginPath();var d=l/2;o.arc(c.x,c.y,d,0,n),o.fill()}},h.prototype.getLineWidth=function(){return this.stroke?this.stroke==!0?1:this.stroke:0},h.prototype.getRenderColor=function(){var o=typeof this.backface=="string"&&this.isFacingBack,l=o?this.backface:this.color;return l},h.prototype.renderPath=function(o,l){var c=this.getRenderElement(o,l),d=this.pathCommands.length==2&&this.pathCommands[1].method=="line",f=!d&&this.closed,p=this.getRenderColor();l.renderPath(o,c,this.pathCommands,f),l.stroke(o,c,this.stroke,p,this.getLineWidth()),l.fill(o,c,this.fill,p),l.end(o,c)};var i="http://www.w3.org/2000/svg";return h.prototype.getRenderElement=function(o,l){if(l.isSvg)return this.svgElement||(this.svgElement=document.createElementNS(i,"path"),this.svgElement.setAttribute("stroke-linecap","round"),this.svgElement.setAttribute("stroke-linejoin","round")),this.svgElement},h})});var Ve=S((ot,oe)=>{(function(a,t){if(typeof oe=="object"&&oe.exports)oe.exports=t(F());else{var r=a.Zdog;r.Group=t(r.Anchor)}})(ot,function(t){var r=t.subclass({updateSort:!1,visible:!0});return r.prototype.updateSortValue=function(){var s=0;this.flatGraph.forEach(function(u){u.updateSortValue(),s+=u.sortValue}),this.sortValue=s/this.flatGraph.length,this.updateSort&&this.flatGraph.sort(t.shapeSorter)},r.prototype.render=function(s,u){this.visible&&this.flatGraph.forEach(function(h){h.render(s,u)})},r.prototype.updateFlatGraph=function(){var s=[];this.flatGraph=this.addChildFlatGraph(s)},r.prototype.getFlatGraph=function(){return[this]},r})});var Oe=S((st,se)=>{(function(a,t){if(typeof se=="object"&&se.exports)se.exports=t(q());else{var r=a.Zdog;r.Rect=t(r.Shape)}})(st,function(t){var r=t.subclass({width:1,height:1});return r.prototype.setPath=function(){var s=this.width/2,u=this.height/2;this.path=[{x:-s,y:-u},{x:s,y:-u},{x:s,y:u},{x:-s,y:u}]},r})});var ut=S((at,ae)=>{(function(a,t){if(typeof ae=="object"&&ae.exports)ae.exports=t(q());else{var r=a.Zdog;r.RoundedRect=t(r.Shape)}})(at,function(t){var r=t.subclass({width:1,height:1,cornerRadius:.25,closed:!1});return r.prototype.setPath=function(){var s=this.width/2,u=this.height/2,h=Math.min(s,u),e=Math.min(this.cornerRadius,h),n=s-e,i=u-e,o=[{x:n,y:-u},{arc:[{x:s,y:-u},{x:s,y:-i}]}];i&&o.push({x:s,y:i}),o.push({arc:[{x:s,y:u},{x:n,y:u}]}),n&&o.push({x:-n,y:u}),o.push({arc:[{x:-s,y:u},{x:-s,y:i}]}),i&&o.push({x:-s,y:-i}),o.push({arc:[{x:-s,y:-u},{x:-n,y:-u}]}),n&&o.push({x:n,y:-u}),this.path=o},r})});var D=S((ht,ue)=>{(function(a,t){if(typeof ue=="object"&&ue.exports)ue.exports=t(q());else{var r=a.Zdog;r.Ellipse=t(r.Shape)}})(ht,function(t){var r=t.subclass({diameter:1,width:void 0,height:void 0,quarters:4,closed:!1});return r.prototype.setPath=function(){var s=this.width!=null?this.width:this.diameter,u=this.height!=null?this.height:this.diameter,h=s/2,e=u/2;this.path=[{x:0,y:-e},{arc:[{x:h,y:-e},{x:h,y:0}]}],this.quarters>1&&this.path.push({arc:[{x:h,y:e},{x:0,y:e}]}),this.quarters>2&&this.path.push({arc:[{x:-h,y:e},{x:-h,y:0}]}),this.quarters>3&&this.path.push({arc:[{x:-h,y:-e},{x:0,y:-e}]})},r})});var ct=S((lt,he)=>{(function(a,t){if(typeof he=="object"&&he.exports)he.exports=t(k(),q());else{var r=a.Zdog;r.Polygon=t(r,r.Shape)}})(lt,function(t,r){var s=r.subclass({sides:3,radius:.5}),u=t.TAU;return s.prototype.setPath=function(){this.path=[];for(var h=0;h<this.sides;h++){var e=h/this.sides*u-u/4,n=Math.cos(e)*this.radius,i=Math.sin(e)*this.radius;this.path.push({x:n,y:i})}},s})});var dt=S((ft,le)=>{(function(a,t){if(typeof le=="object"&&le.exports)le.exports=t(k(),L(),F(),D());else{var r=a.Zdog;r.Hemisphere=t(r,r.Vector,r.Anchor,r.Ellipse)}})(ft,function(t,r,s,u){var h=u.subclass({fill:!0}),e=t.TAU;h.prototype.create=function(){u.prototype.create.apply(this,arguments),this.apex=new s({addTo:this,translate:{z:this.diameter/2}}),this.renderCentroid=new r},h.prototype.updateSortValue=function(){this.renderCentroid.set(this.renderOrigin).lerp(this.apex.renderOrigin,3/8),this.sortValue=this.renderCentroid.z},h.prototype.render=function(i,o){this.renderDome(i,o),u.prototype.render.apply(this,arguments)},h.prototype.renderDome=function(i,o){if(this.visible){var l=this.getDomeRenderElement(i,o),c=Math.atan2(this.renderNormal.y,this.renderNormal.x),d=this.diameter/2*this.renderNormal.magnitude(),f=this.renderOrigin.x,p=this.renderOrigin.y;if(o.isCanvas){var m=c+e/4,y=c-e/4;i.beginPath(),i.arc(f,p,d,m,y)}else o.isSvg&&(c=(c-e/4)/e*360,this.domeSvgElement.setAttribute("d","M "+-d+",0 A "+d+","+d+" 0 0 1 "+d+",0"),this.domeSvgElement.setAttribute("transform","translate("+f+","+p+" ) rotate("+c+")"));o.stroke(i,l,this.stroke,this.color,this.getLineWidth()),o.fill(i,l,this.fill,this.color),o.end(i,l)}};var n="http://www.w3.org/2000/svg";return h.prototype.getDomeRenderElement=function(i,o){if(o.isSvg)return this.domeSvgElement||(this.domeSvgElement=document.createElementNS(n,"path"),this.domeSvgElement.setAttribute("stroke-linecap","round"),this.domeSvgElement.setAttribute("stroke-linejoin","round")),this.domeSvgElement},h})});var mt=S((pt,ce)=>{(function(a,t){if(typeof ce=="object"&&ce.exports)ce.exports=t(k(),B(),q(),Ve(),D());else{var r=a.Zdog;r.Cylinder=t(r,r.PathCommand,r.Shape,r.Group,r.Ellipse)}})(pt,function(t,r,s,u,h){function e(){}var n=u.subclass({color:"#333",updateSort:!0});n.prototype.create=function(){u.prototype.create.apply(this,arguments),this.pathCommands=[new r("move",[{}]),new r("line",[{}])]},n.prototype.render=function(f,p){this.renderCylinderSurface(f,p),u.prototype.render.apply(this,arguments)},n.prototype.renderCylinderSurface=function(f,p){if(this.visible){var m=this.getRenderElement(f,p),y=this.frontBase,v=this.rearBase,b=y.renderNormal.magnitude(),g=y.diameter*b+y.getLineWidth();this.pathCommands[0].renderPoints[0].set(y.renderOrigin),this.pathCommands[1].renderPoints[0].set(v.renderOrigin),p.isCanvas&&(f.lineCap="butt"),p.renderPath(f,m,this.pathCommands),p.stroke(f,m,!0,this.color,g),p.end(f,m),p.isCanvas&&(f.lineCap="round")}};var i="http://www.w3.org/2000/svg";n.prototype.getRenderElement=function(f,p){if(p.isSvg)return this.svgElement||(this.svgElement=document.createElementNS(i,"path")),this.svgElement},n.prototype.copyGraph=e;var o=h.subclass();o.prototype.copyGraph=e;var l=s.subclass({diameter:1,length:1,frontFace:void 0,fill:!0}),c=t.TAU;l.prototype.create=function(){s.prototype.create.apply(this,arguments),this.group=new n({addTo:this,color:this.color,visible:this.visible});var f=this.length/2,p=this.backface||!0;this.frontBase=this.group.frontBase=new h({addTo:this.group,diameter:this.diameter,translate:{z:f},rotate:{y:c/2},color:this.color,stroke:this.stroke,fill:this.fill,backface:this.frontFace||p,visible:this.visible}),this.rearBase=this.group.rearBase=this.frontBase.copy({translate:{z:-f},rotate:{y:0},backface:p})},l.prototype.render=function(){};var d=["stroke","fill","color","visible"];return d.forEach(function(f){var p="_"+f;Object.defineProperty(l.prototype,f,{get:function(){return this[p]},set:function(m){this[p]=m,this.frontBase&&(this.frontBase[f]=m,this.rearBase[f]=m,this.group[f]=m)}})}),l})});var vt=S((yt,fe)=>{(function(a,t){if(typeof fe=="object"&&fe.exports)fe.exports=t(k(),L(),B(),F(),D());else{var r=a.Zdog;r.Cone=t(r,r.Vector,r.PathCommand,r.Anchor,r.Ellipse)}})(yt,function(t,r,s,u,h){var e=h.subclass({length:1,fill:!0}),n=t.TAU;e.prototype.create=function(){h.prototype.create.apply(this,arguments),this.apex=new u({addTo:this,translate:{z:this.length}}),this.renderApex=new r,this.renderCentroid=new r,this.tangentA=new r,this.tangentB=new r,this.surfacePathCommands=[new s("move",[{}]),new s("line",[{}]),new s("line",[{}])]},e.prototype.updateSortValue=function(){this.renderCentroid.set(this.renderOrigin).lerp(this.apex.renderOrigin,1/3),this.sortValue=this.renderCentroid.z},e.prototype.render=function(o,l){this.renderConeSurface(o,l),h.prototype.render.apply(this,arguments)},e.prototype.renderConeSurface=function(o,l){if(this.visible){this.renderApex.set(this.apex.renderOrigin).subtract(this.renderOrigin);var c=this.renderNormal.magnitude(),d=this.renderApex.magnitude2d(),f=this.renderNormal.magnitude2d(),p=Math.acos(f/c),m=Math.sin(p),y=this.diameter/2*c,v=y*m<d;if(v){var b=Math.atan2(this.renderNormal.y,this.renderNormal.x)+n/2,g=d/m,E=Math.acos(y/g),R=this.tangentA,x=this.tangentB;R.x=Math.cos(E)*y*m,R.y=Math.sin(E)*y,x.set(this.tangentA),x.y*=-1,R.rotateZ(b),x.rotateZ(b),R.add(this.renderOrigin),x.add(this.renderOrigin),this.setSurfaceRenderPoint(0,R),this.setSurfaceRenderPoint(1,this.apex.renderOrigin),this.setSurfaceRenderPoint(2,x);var C=this.getSurfaceRenderElement(o,l);l.renderPath(o,C,this.surfacePathCommands),l.stroke(o,C,this.stroke,this.color,this.getLineWidth()),l.fill(o,C,this.fill,this.color),l.end(o,C)}}};var i="http://www.w3.org/2000/svg";return e.prototype.getSurfaceRenderElement=function(o,l){if(l.isSvg)return this.surfaceSvgElement||(this.surfaceSvgElement=document.createElementNS(i,"path"),this.surfaceSvgElement.setAttribute("stroke-linecap","round"),this.surfaceSvgElement.setAttribute("stroke-linejoin","round")),this.surfaceSvgElement},e.prototype.setSurfaceRenderPoint=function(o,l){var c=this.surfacePathCommands[o].renderPoints[0];c.set(l)},e})});var bt=S((gt,de)=>{(function(a,t){if(typeof de=="object"&&de.exports)de.exports=t(k(),F(),q(),Oe());else{var r=a.Zdog;r.Box=t(r,r.Anchor,r.Shape,r.Rect)}})(gt,function(t,r,s,u){var h=u.subclass();h.prototype.copyGraph=function(){};var e=t.TAU,n=["frontFace","rearFace","leftFace","rightFace","topFace","bottomFace"],i=t.extend({},s.defaults);delete i.path,n.forEach(function(c){i[c]=!0}),t.extend(i,{width:1,height:1,depth:1,fill:!0});var o=r.subclass(i);o.prototype.create=function(c){r.prototype.create.call(this,c),this.updatePath(),this.fill=this.fill},o.prototype.updatePath=function(){n.forEach(function(c){this[c]=this[c]},this)},n.forEach(function(c){var d="_"+c;Object.defineProperty(o.prototype,c,{get:function(){return this[d]},set:function(f){this[d]=f,this.setFace(c,f)}})}),o.prototype.setFace=function(c,d){var f=c+"Rect",p=this[f];if(!d){this.removeChild(p);return}var m=this.getFaceOptions(c);m.color=typeof d=="string"?d:this.color,p?p.setOptions(m):p=this[f]=new h(m),p.updatePath(),this.addChild(p)},o.prototype.getFaceOptions=function(c){return{frontFace:{width:this.width,height:this.height,translate:{z:this.depth/2}},rearFace:{width:this.width,height:this.height,translate:{z:-this.depth/2},rotate:{y:e/2}},leftFace:{width:this.depth,height:this.height,translate:{x:-this.width/2},rotate:{y:-e/4}},rightFace:{width:this.depth,height:this.height,translate:{x:this.width/2},rotate:{y:e/4}},topFace:{width:this.width,height:this.depth,translate:{y:-this.height/2},rotate:{x:-e/4}},bottomFace:{width:this.width,height:this.depth,translate:{y:this.height/2},rotate:{x:e/4}}}[c]};var l=["color","stroke","fill","backface","front","visible"];return l.forEach(function(c){var d="_"+c;Object.defineProperty(o.prototype,c,{get:function(){return this[d]},set:function(f){this[d]=f,n.forEach(function(p){var m=this[p+"Rect"],y=typeof this[p]=="string",v=c=="color"&&y;m&&!v&&(m[c]=f)},this)}})}),o})});var St=S((wt,pe)=>{(function(a,t){typeof pe=="object"&&pe.exports?pe.exports=t(k(),ke(),Te(),L(),F(),ze(),rt(),B(),q(),Ve(),Oe(),ut(),D(),ct(),dt(),mt(),vt(),bt()):typeof define=="function"&&define.amd&&define("zdog",[],a.Zdog)})(wt,function(t,r,s,u,h,e,n,i,o,l,c,d,f,p,m,y,v,b){return t.CanvasRenderer=r,t.SvgRenderer=s,t.Vector=u,t.Anchor=h,t.Dragger=e,t.Illustration=n,t.PathCommand=i,t.Shape=o,t.Group=l,t.Rect=c,t.RoundedRect=d,t.Ellipse=f,t.Polygon=p,t.Hemisphere=m,t.Cylinder=y,t.Cone=v,t.Box=b,t})});var Xe=De(Ue(),1);var W=["linear","ease-in","ease-out","ease-in-out"];function V(a){return a<0?0:a>1?1:a}function Pe(a,t){let r=V(t);switch(a){case"linear":return r;case"ease-in":return r*r*r;case"ease-out":return 1-(1-r)**3;case"ease-in-out":return r<.5?4*r*r*r:1-(-2*r+2)**3/2;default:return r}}function Y(a,t,r="#888888"){if(!a)return r;let s=t.ownerDocument,u=s?.defaultView;if(!s||!u)return r;let h=s.createElement("span");h.style.color=a,h.style.position="absolute",h.style.width="0",h.style.height="0",h.style.overflow="hidden",t.appendChild(h);try{let e=u.getComputedStyle(h).color;return e&&e!==""?e:r}finally{h.remove()}}function He(a,t){let r=t<0?0:t>1?1:t;if(r>=1)return a;let s=a.trim(),u=s.match(/^rgba?\\(\\s*([\\d.]+)[\\s,]+([\\d.]+)[\\s,]+([\\d.]+)/i);if(u)return`rgba(${u[1]}, ${u[2]}, ${u[3]}, ${r})`;let h=s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);if(h){let e=h[1],n=e.length===3?e.split("").map(c=>c+c).join(""):e,i=parseInt(n.slice(0,2),16),o=parseInt(n.slice(2,4),16),l=parseInt(n.slice(4,6),16);return`rgba(${i}, ${o}, ${l}, ${r})`}return a}var Wt={vector:!0,poster:!0,draw:!0,true3d:!1,gltf:!1,live:!0,source:["svg"]},Yt=new Set(["draw","trace","sequence"]),Kt=.9;function Qt(a){let t=new Set(a.map(r=>r.verb));return t.has("reveal")&&!t.has("draw")&&!t.has("trace")}function Jt(a,t){let r=0,s=!1;for(let u of t)a.has(u.id)&&(s=!0,u.reveal>r&&(r=u.reveal));return s?V(r):1}var Zt=new Set(["script","foreignobject","style","image","use","animate","animatetransform","animatemotion","set"]);function er(a,t){let s=new DOMParser().parseFromString(a,"text/html").querySelector("svg");if(!s)return null;for(let u of Array.from(s.querySelectorAll("*"))){if(Zt.has(u.tagName.toLowerCase())){u.remove();continue}for(let h of Array.from(u.attributes)){let e=h.name.toLowerCase();(e.startsWith("on")||(e==="href"||e==="xlink:href")&&/^\\s*javascript:/i.test(h.value))&&u.removeAttribute(h.name)}}return t.importNode(s,!0)}function tr(a){let t=a.getAttribute("viewBox");if(t){let r=t.trim().split(/[\\s,]+/).map(Number);if(r.length===4&&r.every(Number.isFinite))return{width:r[2],height:r[3]}}return{width:Number(a.getAttribute("width"))||300,height:Number(a.getAttribute("height"))||150}}function O(a){return Number(a.toFixed(3))}function We(a={}){let t=null,r=null,s=!1,u=new Set,h=[];function e(){r&&typeof r.destroy=="function"&&r.destroy(),t?.parentNode&&t.parentNode.removeChild(t),r=null,t=null,s=!1,u=new Set,h=[]}function n(c,d){let[f,p]=c.transform.at,m=c.transform.scale,y=c.transform.rotate[2]*180/Math.PI,v=`translate(${O(f)} ${O(p)})`;return(Math.abs(y)>1e-4||Math.abs(m-1)>1e-4)&&(v+=` translate(${O(d.cx)} ${O(d.cy)}) rotate(${O(y)}) scale(${O(m)}) translate(${O(-d.cx)} ${O(-d.cy)})`),d.origTransform?`${d.origTransform} ${v}`:v}function i(c){if(!h.length)return;let d=new Map(c.elements.map(f=>[f.id,f]));for(let f of h){let p=d.get(f.id);p&&(f.hasTransform&&f.node.setAttribute("transform",n(p,f)),f.isFade&&f.node.setAttribute("opacity",String(V(p.reveal))),f.hasHighlight&&(f.node.style.strokeWidth=String(O(f.baseStrokeWidth*(1+V(p.emphasis)*Kt)))))}}let o=c=>Jt(u,c.elements);return{caps:Wt,mount(c,d,f){if(e(),d.source!=="svg")return;let p=d,m=f?.[p.asset],y=c.ownerDocument;if(!y||!m)return;let v=er(m,y);if(!v)return;t=v,c.appendChild(t),u=new Set(p.elements.filter(g=>(g.motion??[]).some(E=>Yt.has(E.verb))).map(g=>g.id));try{r=new Xe.default(t,{type:a.type??"oneByOne",start:"manual",duration:a.duration??200}),s=!0}catch{s=!1}let b=new Map;for(let g of Array.from(t.querySelectorAll("[id]")))b.has(g.id)||b.set(g.id,g);h=[];for(let g of p.elements){let E=b.get(g.pathRef);if(!E)continue;g.color&&E.setAttribute("stroke",Y(g.color,c));let R=g.motion??[],x=Number(E.getAttribute("stroke-width"));if(!(Number.isFinite(x)&&x>0)&&y.defaultView){let w=Number.parseFloat(y.defaultView.getComputedStyle(E).strokeWidth);Number.isFinite(w)&&w>0&&(x=w)}let C=0,M=0;try{let w=E.getBBox();C=w.x+w.width/2,M=w.y+w.height/2}catch{}h.push({id:g.id,node:E,isFade:Qt(R),hasHighlight:R.some(w=>w.verb==="highlight"),hasTransform:g.transform!=null||R.some(w=>w.verb==="slide"),baseStrokeWidth:Number.isFinite(x)&&x>0?x:2,origTransform:E.getAttribute("transform")??"",cx:C,cy:M})}},draw(c){r&&s&&r.setFrameProgress(o(c)),i(c)},poster(c){r&&s&&r.setFrameProgress(o(c)),i(c);let d=t?tr(t):{width:0,height:0};return{svg:t?t.outerHTML:"",width:d.width,height:d.height}},dispose(){e()}}}var P=De(St(),1);var rr={vector:!0,poster:!0,draw:!1,true3d:!1,gltf:!1,live:!0,source:["built"]},nr="http://www.w3.org/2000/svg",ir=240,A=60;function or(a,t,r){let s=a.props??{},u=s.stroke??void 0,h={addTo:t,color:r};switch(a.shape){case"group":return new P.default.Anchor({addTo:t});case"shape":return new P.default.Shape({...h,stroke:s.stroke??12});case"rect":return new P.default.Rect({...h,width:s.width??A,height:s.height??A,stroke:u??4,fill:s.fill??!1});case"rounded-rect":return new P.default.RoundedRect({...h,width:s.width??A,height:s.height??A,cornerRadius:s.size??12,stroke:u??4,fill:s.fill??!1});case"ellipse":return new P.default.Ellipse({...h,diameter:s.diameter??s.size??A,stroke:u??4,fill:s.fill??!1});case"polygon":return new P.default.Polygon({...h,radius:s.size??A/2,sides:s.sides??6,stroke:u??4,fill:s.fill??!1});case"cone":return new P.default.Cone({...h,diameter:s.diameter??A,length:s.length??A,stroke:u??1,fill:s.fill??!0});case"box":return new P.default.Box({...h,width:s.width??A,height:s.height??A,depth:s.depth??A,stroke:u??1,fill:s.fill??!0});case"cylinder":return new P.default.Cylinder({...h,diameter:s.diameter??A,length:s.length??A,stroke:u??1,fill:s.fill??!0});case"hemisphere":return new P.default.Hemisphere({...h,diameter:s.diameter??A,stroke:u??1,fill:s.fill??!0});default:return new P.default.Anchor({addTo:t})}}function Et(a={}){let t=a.size??ir,r=null,s=null,u=null,h=new Map,e=new Map;function n(){s?.parentNode&&s.parentNode.removeChild(s),h.clear(),e.clear(),u=null,s=null}function i(c,d){n();let f=d.ownerDocument;if(!f)throw new Error("zdogRenderer.mount: host has no ownerDocument");if(s=f.createElementNS(nr,"svg"),s.setAttribute("width",String(t)),s.setAttribute("height",String(t)),s.setAttribute("viewBox",`0 0 ${t} ${t}`),d.appendChild(s),u=new P.default.Illustration({element:s,zoom:a.zoom??1}),typeof u.setSize=="function"&&u.setSize(t,t),c.source!=="built")return;let p=(m,y)=>{for(let v of m){let b=Y(v.color,d),g=or(v,y,b);h.set(v.id,g),e.set(v.id,b),v.children?.length&&p(v.children,g)}};p(c.elements,u)}function o(c){if(!u||!r)return;u.rotate&&(u.rotate.x=c.camera.rotate[0],u.rotate.y=c.camera.rotate[1],u.rotate.z=c.camera.rotate[2]);let d=f=>{for(let p of f){let m=h.get(p.id);if(m){if(m.translate&&(m.translate.x=p.transform.at[0],m.translate.y=p.transform.at[1],m.translate.z=p.transform.at[2]),m.rotate&&(m.rotate.x=p.transform.rotate[0],m.rotate.y=p.transform.rotate[1],m.rotate.z=p.transform.rotate[2]),m.scale){let y=p.transform.scale;m.scale.x=y,m.scale.y=y,m.scale.z=y}m.visible=p.visible,"color"in m&&(m.color=He(e.get(p.id)??"#888888",p.reveal))}p.children.length&&d(p.children)}};d(c.elements),u.updateRenderGraph()}return{caps:rr,mount(c,d){r=c,i(d,c)},draw(c){o(c)},poster(c){return o(c),{svg:s?s.outerHTML:"",width:t,height:t}},dispose(){n(),r=null}}}var me=["group","shape","rect","rounded-rect","ellipse","polygon","cone","box","cylinder","hemisphere"],ye=["spin","orbit","explode","reveal","sequence","fill","draw","trace","slide","highlight"],ve=["x","y","z"];var Fe={spin:null,orbit:null,explode:null,reveal:null,sequence:null,fill:null,draw:"draw",trace:"draw",slide:null,highlight:null},qe={spin:"built",orbit:"built",explode:"built",reveal:"both",sequence:"both",fill:"both",draw:"svg",trace:"svg",slide:"svg",highlight:"svg"};function xt(a){let t=!1;for(let r of a.elements)for(let s of r.motion??[])Fe[s.verb]==="draw"&&(t=!0);return{source:a.source,draw:t}}function Ge(a,t){let r=xt(a),s=[];return t.source.includes(r.source)||s.push(`scene source \'${r.source}\' is not in the backend\'s source models [${t.source.join(", ")||"none"}]`),r.draw&&!t.draw&&s.push("scene uses a draw/trace verb but the backend lacks the \'draw\' capability"),r.source==="svg"&&!t.vector&&s.push("an svg (line-art) scene needs a vector backend to draw its strokes"),s}var Rt=Math.PI*2,At=1e-6,sr={x:0,y:1,z:2};function Ct(){return{at:[0,0,0],rotate:[0,0,0],scale:1}}function $(a,t=0,r=1,s="linear"){let u=r<=0?At:r;return Pe(s,V((a-t)/u))}function ar(a,t,r){let s=Math.cos(r),u=Math.sin(r),[h,e,n]=a;return t==="x"?[h,e*s-n*u,e*u+n*s]:t==="y"?[h*s+n*u,e,-h*u+n*s]:[h*s-e*u,h*u+e*s,n]}function Mt(a,t,r,s,u,h){let e=Ct();if("transform"in a&&a.transform){let f=a.transform;f.at&&(e.at=[...f.at]),f.rotate&&(e.rotate=[...f.rotate]),typeof f.scale=="number"&&(e.scale=f.scale)}let n=1,i=1,o=0,l=!1;for(let f of a.motion??[])switch(f.verb){case"spin":e.rotate[sr[f.axis]]+=s/f.period*Rt;break;case"orbit":e.at=ar(e.at,f.axis,s/f.period*Rt);break;case"explode":{let p=1+f.distance*$(u,f.at,f.span,f.easing);e.at=[e.at[0]*p,e.at[1]*p,e.at[2]*p];break}case"reveal":case"draw":case"trace":l=!0,n*=$(u,f.at,f.span,f.easing);break;case"sequence":{l=!0;let m=(f.span??1)/r,y=(f.at??0)+(t.get(a.id)??0)*m;n*=$(u,y,m,f.easing);break}case"fill":i=f.to*$(u,f.at,f.span,f.easing);break;case"slide":{let p=$(u,f.at,f.span,f.easing);e.at[0]+=f.from[0]*(1-p),e.at[1]+=f.from[1]*(1-p);break}case"highlight":o=Math.max(o,$(u,f.at,f.span,f.easing));break}l||(n=1);let c=n*h,d="children"in a&&a.children?a.children.map(f=>Mt(f,t,r,s,u,c)):[];return{id:a.id,transform:e,...a.color?{color:a.color}:{},reveal:c,level:i,emphasis:o,visible:c>At,children:d}}function Pt(a,t){for(let r of a)(r.motion??[]).some(s=>s.verb==="sequence")&&t.push(r.id),"children"in r&&r.children&&Pt(r.children,t)}function Le(a){let t=a.duration,r=[];Pt(a.elements,r);let s=new Map(r.map((e,n)=>[e,n])),u=Math.max(1,r.length),h=e=>{let n=Number.isNaN(e)||e<0?0:e>t?t:e,i=t>0?n/t:0,o=Ct();a.source==="built"&&a.camera?.rotate&&(o.rotate=[...a.camera.rotate]);let l=a.elements.map(c=>Mt(c,s,u,n,i,1));return{source:a.source,tMs:n,progress:i,camera:o,elements:l}};return{durationMs:t,at:h,poster:()=>h(V(a.hero)*t)}}var ur=/^var\\(--[a-z0-9_-]+(?:\\s*,\\s*var\\(--[a-z0-9_-]+\\))?\\)$/i,hr=/(url\\(|image\\(|expression\\(|javascript:|[;{}<>])/i;function zt(a){return typeof a!="string"?"colour must be a string var(--token) reference":hr.test(a)?`colour \'${a}\' contains a forbidden construct (url/expression/markup)`:ur.test(a.trim())?null:`colour \'${a}\' must be a var(--token) reference (palette-blind, HARD RULE #3)`}function T(a){return typeof a=="number"&&Number.isFinite(a)}function _(a){return Array.isArray(a)&&a.length===3&&a.every(T)}function be(a){return T(a)&&a>=0&&a<=1}var j=1e6;function Vt(a,t,r){if(!a||typeof a!="object"){r.push(`${t}.transform must be an object`);return}let s=a;s.at!=null&&!_(s.at)&&r.push(`${t}.transform.at must be a [x,y,z] of finite numbers`),s.rotate!=null&&!_(s.rotate)&&r.push(`${t}.transform.rotate must be a [x,y,z] of finite numbers (radians)`),s.scale!=null&&!T(s.scale)&&r.push(`${t}.transform.scale must be a finite number`)}function lr(a,t,r){if(Vt(a,t,r),!a||typeof a!="object")return;let s=a;_(s.at)&&(s.at[2]!==0&&r.push(`${t}.transform.at[2] (z) is ignored for an svg part \\u2014 2-D only; use a built scene for depth`),(Math.abs(s.at[0])>j||Math.abs(s.at[1])>j)&&r.push(`${t}.transform.at exceeds the \\xB1${j} scene-unit bound`)),_(s.rotate)&&(s.rotate[0]!==0||s.rotate[1]!==0)&&r.push(`${t}.transform.rotate x/y are ignored for an svg part \\u2014 only rotate.z (in-plane) applies`),T(s.scale)&&(s.scale<0||s.scale>1e3)&&r.push(`${t}.transform.scale must be in [0, 1000]`)}var cr=["stroke","size","width","height","depth","diameter","length"];function fr(a,t,r){if(!a||typeof a!="object"){r.push(`${t}.props must be an object`);return}let s=a;for(let u of cr)s[u]!=null&&(!T(s[u])||s[u]<0)&&r.push(`${t}.props.${u} must be a non-negative, finite number`);s.sides!=null&&(!T(s.sides)||!Number.isInteger(s.sides)||s.sides<3||s.sides>1024)&&r.push(`${t}.props.sides must be an integer in [3, 1024]`),s.fill!=null&&typeof s.fill!="boolean"&&r.push(`${t}.props.fill must be a boolean`)}function ge(a,t,r){a.at!=null&&!be(a.at)&&r.push(`${t}.at must be in [0,1] (fraction of the timeline)`),a.span!=null&&!be(a.span)&&r.push(`${t}.span must be in [0,1]`),a.easing!=null&&!W.includes(a.easing)&&r.push(`${t}.easing \'${String(a.easing)}\' is not one of [${W.join(", ")}]`)}function dr(a,t,r,s){if(!a||typeof a!="object"){s.push(`${r} must be an object`);return}let u=a,h=u.verb;if(!ye.includes(h)){s.push(`${r}.verb \'${String(u.verb)}\' is not a motion verb [${ye.join(", ")}]`);return}let e=qe[h];switch(e!=="both"&&e!==t&&s.push(`${r}.verb \'${h}\' is only valid in a \'${e}\' scene, not \'${t}\'`),h){case"spin":case"orbit":ve.includes(u.axis)||s.push(`${r}.axis must be one of [${ve.join(", ")}]`),(!T(u.period)||u.period<1)&&s.push(`${r}.period must be a number >= 1 (ms/revolution)`);break;case"fill":be(u.to)||s.push(`${r}.to must be a level in [0,1]`),ge(u,r,s);break;case"explode":(!T(u.distance)||u.distance<0)&&s.push(`${r}.distance must be a non-negative, finite number`),ge(u,r,s);break;case"slide":!Array.isArray(u.from)||u.from.length!==2||!u.from.every(T)?s.push(`${r}.from must be a [dx, dy] of two finite numbers (the move-in offset)`):u.from.some(n=>Math.abs(n)>j)&&s.push(`${r}.from exceeds the \\xB1${j} scene-unit bound`),ge(u,r,s);break;case"reveal":case"sequence":case"draw":case"trace":case"highlight":ge(u,r,s);break}}var kt=32,Tt=2e3;function Ot(a,t,r,s,u,h,e){if(h>kt){u.push(`${t}: element tree exceeds the max nesting depth (${kt})`);return}if(++e.n>Tt){u.push(`scene exceeds the max element count (${Tt})`);return}if(!a||typeof a!="object"){u.push(`${t} must be an object`);return}let n=a;if(typeof n.id!="string"||!n.id?u.push(`${t}.id must be a non-empty string`):s.has(n.id)?u.push(`${t}.id \'${n.id}\' is duplicated`):s.add(n.id),n.color!=null){let i=zt(n.color);i&&u.push(`${t}: ${i}`)}if(r==="built"?(me.includes(n.shape)||u.push(`${t}.shape \'${String(n.shape)}\' is not a primitive [${me.join(", ")}]`),n.transform!=null&&Vt(n.transform,t,u),n.props!=null&&fr(n.props,t,u),n.pathRef!=null&&u.push(`${t}.pathRef is an svg-only field, but this is a built element`),n.children!=null&&(Array.isArray(n.children)?n.children.forEach((i,o)=>{Ot(i,`${t}.children[${o}]`,r,s,u,h+1,e)}):u.push(`${t}.children must be an array`))):((typeof n.pathRef!="string"||!n.pathRef)&&u.push(`${t}.pathRef must be a non-empty string (a path/group id in the SVG asset)`),n.shape!=null&&u.push(`${t}.shape is a built-only field, but this is an svg element`),n.transform!=null&&lr(n.transform,t,u),n.children!=null&&u.push(`${t}.children is a built-only field (an svg scene is flat), but this is an svg element`)),n.motion!=null)if(!Array.isArray(n.motion))u.push(`${t}.motion must be an array`);else{n.motion.forEach((o,l)=>{dr(o,r,`${t}.motion[${l}]`,u)});let i=new Set(n.motion.map(o=>o?.verb));i.has("reveal")&&(i.has("draw")||i.has("trace"))&&u.push(`${t}: \'reveal\' can\'t be combined with \'draw\'/\'trace\' on one part \\u2014 both paint presence; pick a fade OR a stroke, not both`)}}function $e(a){let t=[];if(!a||typeof a!="object")return{ok:!1,errors:["scene must be an object"]};let r=a,s=r.source;if(s!=="built"&&s!=="svg"&&t.push("scene.source must be \'built\' or \'svg\'"),(!T(r.duration)||r.duration<=0)&&t.push("scene.duration must be a positive, finite number (ms)"),be(r.hero)||t.push("scene.hero must be a number in [0,1]"),s==="svg"&&(typeof r.asset!="string"||!r.asset)&&t.push("an svg scene needs a non-empty \'asset\' reference"),s==="built"){if(r.camera!=null){let h=r.camera;typeof h!="object"?t.push("scene.camera must be an object"):h.rotate!=null&&!_(h.rotate)&&t.push("scene.camera.rotate must be a [x,y,z] of finite numbers (radians)")}r.asset!=null&&t.push("scene.asset is an svg-only field, but this is a built scene")}if(s==="svg"&&r.camera!=null&&t.push("scene.camera is a built-only field, but this is an svg scene"),!Array.isArray(r.elements)||r.elements.length===0)return t.push("scene.elements must be a non-empty array"),{ok:!1,errors:t};let u=s==="built"||s==="svg"?s:null;if(u){let h=new Set,e={n:0};if(r.elements.forEach((n,i)=>{Ot(n,`elements[${i}]`,u,h,t,0,e)}),u==="svg"){let n=new Set;r.elements.forEach((i,o)=>{let l=i?.pathRef;typeof l=="string"&&l&&(n.has(l)?t.push(`elements[${o}].pathRef \'${l}\' is duplicated \\u2014 two elements can\'t choreograph the same part`):n.add(l))})}}return t.length?{ok:!1,errors:t}:{ok:!0,scene:a}}function U(a){let t=new Set,r=s=>{for(let u of s){for(let h of u.motion??[])t.add(h.verb);Array.isArray(u.children)&&r(u.children)}};return r(a.elements),[...t]}var Ft=new Set(["spin","orbit"]);function pr(a){return U(a).every(t=>Ft.has(t))}function mr(a){return U(a).some(t=>t==="spin"||t==="orbit")}function yr(a,t,r){return a==="still"?"still":t?pr(r)?"still":"legible":a==="system"?"full":a}function vr(a){let t=s=>!Ft.has(s.verb);if(a.source==="svg")return{...a,elements:a.elements.map(s=>({...s,motion:(s.motion??[]).filter(t)}))};let r=s=>({...s,motion:(s.motion??[]).filter(t),...s.children?{children:s.children.map(r)}:{}});return{...a,elements:a.elements.map(r)}}var gr=256*1024;function br(a){if(typeof a!="string"||a.length>gr)return null;try{let t=typeof atob=="function"?atob(a):Buffer.from(a,"base64").toString("utf8"),r=$e(JSON.parse(t));return r.ok?r.scene:null}catch{return null}}function wr(a){let t=a.source==="svg"?We():Et({zoom:1.1});return Ge(a,t.caps).length===0?t:null}var Sr="(prefers-reduced-motion: reduce)";function Er(a){return typeof a.reducedMotion=="boolean"?a.reducedMotion:typeof matchMedia=="function"?matchMedia(Sr).matches:!1}function xr(a){let t=a.getAttribute("data-scene-motion");return t==="full"||t==="legible"||t==="still"||t==="system"?t:"system"}function Rr(a,t){let r=a.getAttribute("data-scene-spec");if(!r)return null;let s=br(r);if(!s)return null;let u=a.querySelector(".scene-figure");if(!u)return null;let h=u.querySelector("svg"),e=s.source==="svg"&&h?t(h.outerHTML):null;return{scene:s,declared:xr(a),figure:u,poster:h,assetMarkup:e}}function Ar(a,t){if(!(a.source!=="svg"||t==null))return{[a.asset]:t}}var Cr={pause:"Pause the animation",play:"Play the animation",replay:"Replay the animation",optin:"Play the motion"};function Mr(a,t){let r=a.createElement("button");r.type="button",r.className="scene-control";let s=a.createElement("span");return s.className="scene-control-label",r.appendChild(s),r.addEventListener("click",t),{el:r,set(u){r.dataset.mode=u,r.setAttribute("aria-label",Cr[u]),s.textContent=u==="optin"?"Play the motion":""}}}function Pr(a,t,r){let s=a.ownerDocument;if(!s)return null;let{scene:u,declared:h,figure:e}=t,n=Er(r),i=yr(h,n,u),o=i==="still"&&h!=="still"&&n&&U(u).length>0;if(i==="still"&&!o)return null;let l=o?u:i==="legible"?vr(u):u,c=wr(l);if(!c)return null;let d=c,f=Le(l),p=mr(l),m=Ar(l,t.assetMarkup),y=t.poster,v=Mr(s,Nt),b=null,g=0,E=0,R=0,x=0,C=!1,M=!1,w=!1,we=!1,Se=!1,G=o,Ee=!1;function I(){G?v.set("optin"):M?v.set("pause"):w?v.set("replay"):v.set("play"),e.setAttribute("data-anima-state",G?"optin":M?"playing":w?"settled":"idle")}function Ie(X){E||(E=X);let z=R+(X-E);p?z=f.durationMs>0?z%f.durationMs:0:z>f.durationMs&&(z=f.durationMs),x=z,d.draw(f.at(z)),M&&(p||z<f.durationMs)?g=requestAnimationFrame(Ie):(M=!1,p||(w=!0),I())}function Gt(){g&&cancelAnimationFrame(g),g=0}function xe(){M||Ee||(M=!0,w=!1,we=!1,Se=!1,E=0,g=requestAnimationFrame(Ie),I())}function Re(){M&&(M=!1,Gt(),R=x,E=0)}function Lt(){Re(),we=!0,I()}function $t(){R=0,x=0,w=!1,xe()}function Ne(){C||Ee||(C=!0,b=s.createElement("div"),b.className="scene-live",e.appendChild(b),y&&(y.style.display="none"),d.mount(b,l,m),e.classList?.remove("anima-prehide"),Ce())}function H(){Ne(),xe()}function It(){Ne(),R=f.durationMs,x=f.durationMs,w=!0,d.draw(f.at(f.durationMs)),I()}function Nt(){if(G){G=!1,H();return}if(w){$t();return}if(M){Lt();return}H()}function Bt(){Re(),C&&(C=!1,d.dispose(),b?.remove(),b=null,y&&(y.style.display=""))}e.classList.add("anima-live");let Ae=r.chrome!==!1;Ae&&e.appendChild(v.el),I();let N;function Ce(){!Ae||G||(e.classList.add("scene-controls-shown"),N&&clearTimeout(N),N=setTimeout(()=>e.classList.remove("scene-controls-shown"),2500))}Ae&&e.addEventListener("pointerdown",Ce);let Me=null;return!r.eager&&typeof IntersectionObserver=="function"?(Me=new IntersectionObserver(X=>{for(let z of X)if(z.isIntersecting){if(G)continue;C?Se&&!we&&!w&&xe():H()}else M&&(Re(),Se=!0)},{threshold:.25}),Me.observe(a)):G||(r.startSettled?It():H()),{dispose(){Ee=!0,Me?.disconnect(),e.removeEventListener("pointerdown",Ce),N&&clearTimeout(N),Bt(),v.el.remove(),e.classList.remove("anima-live"),e.removeAttribute("data-anima-state")}}}function kr(a,t,r={}){if(a.getAttribute("data-scene-live")==="1")return null;let s=Pr(a,t,r);return s?(a.setAttribute("data-scene-live","1"),{dispose(){s.dispose(),a.removeAttribute("data-scene-live")}}):null}function Tr(a,t={}){let r=Rr(a,t.sanitize??(s=>s));return r?kr(a,r,t):null}function qt(a,t={}){let r=[];for(let s of Array.from(a.querySelectorAll("section.scene[data-scene-spec]")))try{let u=Tr(s,t);u&&r.push(u)}catch{}return{dispose(){for(let s of r)s.dispose()}}}window.__latticeAnima={hydrateScenes:(a,t)=>qt(a||document,t)};})();\n';
 
 // lib/export/player-core.mjs
+var AUDIO_BLOCK_MIME = "application/lattice+audio";
+function narrationBlocks(slides) {
+  if (!Array.isArray(slides)) return "";
+  const out = [];
+  for (let i = 0; i < slides.length; i++) {
+    const cues = Array.isArray(slides[i]) ? slides[i] : [];
+    if (!cues.length) continue;
+    const payload = cues.map((c) => {
+      const words = Array.isArray(c?.words) ? c.words : [];
+      const base = Number.isFinite(words[0]?.startMs) ? words[0].startMs : 0;
+      return {
+        t: String(c?.text ?? ""),
+        d: Number.isFinite(c?.estimateMs) ? Math.max(0, Math.round(c.estimateMs)) : 0,
+        g: Number.isFinite(c?.gapMs) ? Math.max(0, Math.round(c.gapMs)) : 0,
+        a: typeof c?.audio === "string" && c.audio.startsWith("data:") ? c.audio : null,
+        w: words.map((w) => [String(w?.display ?? ""), Math.max(0, Math.round((w?.startMs ?? 0) - base)), Math.max(0, Math.round((w?.endMs ?? 0) - base))])
+      };
+    });
+    const json = JSON.stringify(payload).replace(/</g, "\\u003c");
+    out.push(`<script type="${AUDIO_BLOCK_MIME}" data-lp-audio="${i}">${json}<\/script>`);
+  }
+  return out.join("\n");
+}
 function escapeText(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -680,7 +1616,7 @@ function themeDualMode(css) {
   const darkBlock = `${sel(":root[data-lp-scheme=dark]")}{${body}}@media (prefers-color-scheme:dark){${sel(":root[data-lp-scheme=system]")}{${body}}}`;
   return { base, darkBlock };
 }
-function playerCss() {
+function playerCss(narration2 = false, captions = narration2) {
   return `
 :root{color-scheme:light dark}
 html,body{margin:0;padding:0;background:var(--bg,#fff)}
@@ -792,6 +1728,42 @@ html:not(.lp-js) #lp-stage{padding-top:48px}
 #lp-nav{display:none}
 .lp-js [data-lp-view=present] #lp-nav{display:flex;flex:none;align-items:center;justify-content:center;
  gap:32px;padding:10px 0 16px}
+${captions ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that speaks, and the one signal
+   that tells a viewer the file is working rather than stuck. It sits BELOW the slide, in the
+   column, so it never covers the author's layout.
+   The band holds its height whether or not a line is showing (min-height; only the TEXT
+   changes): a band that collapsed between sentences would resize the stage mid-delivery and
+   re-fit the slide under the viewer \u2014 the one thing a presentation must not do. Present
+   only, and emitted only for a deck that actually ships audio, so a silent export carries no
+   rule for chrome it does not have. */
+/* The teleprompter crawl. Film-subtitle, NOT a pill: transparent, no card or border, docked
+   between the slide and the transport. The vertical mask alone fades read and upcoming lines,
+   so only the line being spoken reads clean. Its height is RESERVED whether or not anything is
+   showing \u2014 a band that collapsed between slides would resize the stage mid-delivery and
+   re-fit the slide under the viewer, the one thing a presentation must not do. */
+#lp-caption{display:none}
+.lp-js [data-lp-view=present] #lp-caption{display:block;flex:none;position:relative;overflow:hidden;
+ height:76px;width:100%;max-width:720px;margin-inline:auto;padding:0 16px;
+ font-family:'Outfit',system-ui,sans-serif;
+ -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 22%,#000 78%,transparent 100%);
+ mask-image:linear-gradient(180deg,transparent 0%,#000 22%,#000 78%,transparent 100%)}
+.lp-cap-track{position:absolute;left:0;right:0;will-change:transform;transition:transform .5s cubic-bezier(.22,.61,.36,1)}
+.lp-cap-line{padding:2px 8px;text-align:center;font-size:18px;font-weight:600;line-height:1.35;
+ transition:color .3s;color:var(--text-muted,#888)}
+.lp-cap-line.lp-read{opacity:.45}
+.lp-cap-line.lp-up{opacity:.55}
+.lp-cap-line.lp-now{color:var(--text-heading,#111);opacity:1}
+/* Only COLOR changes as a word is spoken \u2014 never weight or size, which would reflow the
+   line mid-sentence and make the crawl jitter under the reader. */
+.lp-cap-w{transition:color .18s}
+.lp-cap-w.lp-said{color:var(--accent,#4338ca)}
+.lp-cap-w.lp-soon{color:var(--text-muted,#888)}
+@media(max-width:560px){.lp-js [data-lp-view=present] #lp-caption{height:64px;padding:0 10px}.lp-cap-line{font-size:15px}}
+@media(prefers-reduced-motion:reduce){.lp-cap-track{transition:none}.lp-cap-w,.lp-cap-line{transition:none}}` : ""}${narration2 ? `
+/* The narration transport's own control. Shipped whenever the deck has a delivery to play,
+   captions or not \u2014 an audio-only export still needs its Play button. */
+#lp-play{border:1px solid var(--border,#ccc)!important;border-radius:8px}
+#lp-play[aria-pressed=true]{background:var(--accent,#4338ca);color:var(--on-accent,#fff);border-color:var(--accent,#4338ca)!important}` : ""}
 #lp-prev,#lp-next{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:999px;
  border:1px solid var(--border,#ddd);background:var(--bg-alt,#f5f5f5);color:var(--text-secondary,#333);cursor:pointer}
 #lp-prev:hover,#lp-next:hover{color:var(--accent,#4338ca);border-color:var(--accent,#4338ca)}
@@ -955,16 +1927,222 @@ html:not(.lp-js) section[data-lattice-slide]{width:1280px!important;height:720px
 html:not(.lp-js) #lp-notes,html:not(.lp-js) #lp-count,html:not(.lp-js) #lp-notes-btn,html:not(.lp-js) #lp-full{display:none}
 `.trim();
 }
-async function playerJs(animaJs = "") {
+function narrationJs(beats) {
+  return `
+// ---- baked narration -------------------------------------------------------
+var NAR_BEAT=${JSON.stringify({ slide: Math.round(beats.slide), section: Math.round(beats.section) })};
+var PLAY_ICON='<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+var PAUSE_ICON='<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+// Scoped to the player's OWN chrome, never a bare id lookup. The document body IS deck
+// content, and the engine renders authored HTML, so a slide can contain an element with any
+// id it likes \u2014 including these. A bare getElementById then binds the transport to a deck
+// element: with captions switched OFF the cursor kernel is not even inlined, so the crawl's
+// one guarded call site would throw a makeCursor-is-not-defined ReferenceError inside a click handler that
+// sits outside the init try/catch \u2014 the button flips to "Pause" and the deck never speaks.
+// (Even with captions on, the author's element wins document order and the teleprompter
+// renders into the middle of a slide.) The real chrome is a direct child of the bar and of
+// #lp-app respectively, and a slide never is: it is nested inside #lp-stage.
+var playBtn=document.querySelector('#lp-bar > #lp-play'),capBand=document.querySelector('#lp-app > #lp-caption');
+var au=null,cues=null,cueSlide=-1,narPlaying=false,beatT=null,autoNav=false;
+// The slide narration is CURRENTLY anchored on, and a generation counter for in-flight
+// play() promises. Both exist to tell a real event from a stale one \u2014 see onSlideShown
+// (a clamped no-op nav must not restart the slide) and nextCue (a play() that rejects
+// after its cue was replaced must not tear down the cue that replaced it).
+var spokeSlide=-1,gen=0;
+// The audio element is created on the first user gesture and then REUSED \u2014 see the header.
+// It is ATTACHED to the document (hidden, no controls) rather than left detached: older
+// WebKit is unreliable about playing a media element that was never in the tree, and an
+// element in the document is one a maintainer can actually inspect when a deck arrives
+// silent. It adds nothing to the layout.
+function audioEl(){if(!au){au=document.createElement('audio');au.setAttribute('playsinline','');au.setAttribute('hidden','');au.preload='auto';document.body.appendChild(au);}return au;}
+function clearBeat(){if(beatT){clearTimeout(beatT);beatT=null;}}
+function stopAudio(){clearBeat();stopCrawlLoop();gen++;if(au){try{au.pause();}catch(e){}au.onended=null;au.onerror=null;au.onloadedmetadata=null;au.onplaying=null;try{au.removeAttribute('src');au.load();}catch(e){}}}
+// ---- the caption crawl -------------------------------------------------------------
+// The Studio's treatment (PresentCaption.tsx), reproduced: a teleprompter where the line
+// being read sits CENTERED, read lines lift up and out, upcoming lines rise from below, and
+// words light as they are spoken. Only a masked ~3-line band is visible, so it can never bury
+// the slide. React + Tailwind cannot cross into a CSP-hashed vanilla script, so the PRESENTATION
+// is rebuilt here \u2014 but the TIMING is not reimplemented: makeCursor above is the same kernel,
+// inlined verbatim, so there is exactly one answer to "which word is being spoken now".
+var capTrack=null,cursor=null,held={cueIndex:0,wordIndex:0},cueOnset=0;
+// Expand the compact per-slide payload into the CaptionTrack shape makeCursor takes. Word
+// times ship RELATIVE to their cue (small integers); absolutize them against the running
+// estimate so the whole slide is one monotonic timeline, exactly as buildTrack produces.
+function expandTrack(cues){
+ var at=0,out=[];
+ for(var i=0;i<cues.length;i++){
+  var c=cues[i],ws=c.w||[],dur=Math.max(1,c.d||0),words=[];
+  for(var j=0;j<ws.length;j++)words.push({display:ws[j][0],startMs:at+ws[j][1],endMs:at+ws[j][2]});
+  // A cue with no word timings still needs a span, or the crawl has nothing to center on.
+  if(!words.length)words.push({display:c.t||'',startMs:at,endMs:at+dur});
+  out.push({display:c.t||'',words:words,startMs:at,endMs:at+dur});
+  at+=dur+Math.max(0,c.g||0);
+ }
+ return {cues:out,durationMs:at};}
+// Build the crawl's DOM once per slide. textContent per word \u2014 never innerHTML, because every
+// one of these strings is deck-authored.
+function renderCrawl(track){
+ if(!capBand)return;
+ capBand.textContent='';
+ var inner=document.createElement('div');
+ inner.className='lp-cap-track';
+ for(var i=0;i<track.cues.length;i++){
+  var line=document.createElement('div');
+  line.className='lp-cap-line';
+  line.setAttribute('data-cue',String(i));
+  for(var j=0;j<track.cues[i].words.length;j++){
+   var sp=document.createElement('span');
+   sp.className='lp-cap-w';
+   sp.setAttribute('data-cw',i+'-'+j);
+   sp.textContent=track.cues[i].words[j].display;
+   line.appendChild(sp);
+   if(j<track.cues[i].words.length-1)line.appendChild(document.createTextNode(' '));
+  }
+  inner.appendChild(line);
+ }
+ capBand.appendChild(inner);}
+// Center the ACTIVE WORD's line in the band and paint the read/spoken state. Following the
+// WORD rather than the line's midpoint matters on a sentence that wraps: the word being
+// spoken stays in the opaque band instead of scrolling into the fade.
+function paintCrawl(){
+ if(!capBand||!capTrack)return;
+ var inner=capBand.firstChild;if(!inner)return;
+ var ci=Math.min(capTrack.cues.length-1,Math.max(0,held.cueIndex)),wi=held.wordIndex;
+ var lines=inner.childNodes;
+ for(var i=0;i<lines.length;i++){
+  lines[i].className='lp-cap-line'+(i<ci?' lp-read':i>ci?' lp-up':' lp-now');
+  var ws=lines[i].childNodes;
+  for(var j=0;j<ws.length;j++){
+   if(ws[j].nodeType!==1)continue;
+   var spoken=i<ci||(i===ci&&j/2<=wi);
+   ws[j].className='lp-cap-w'+(i===ci?(spoken?' lp-said':' lp-soon'):'');
+  }
+ }
+ var target=inner.querySelector('[data-cw="'+ci+'-'+wi+'"]')||inner.querySelector('[data-cue="'+ci+'"]');
+ if(target)inner.style.transform='translateY('+(capBand.clientHeight/2-(target.offsetTop+target.offsetHeight/2))+'px)';}
+// The cursor reports null in every punctuation and sentence gap. HOLD the last real position
+// across those, or the crawl lurches back to line one at each full stop.
+function tickCrawl(ms){
+ if(!cursor)return;
+ var a=cursor.at(ms);
+ if(a)held={cueIndex:a.cueIndex,wordIndex:a.wordIndex};
+ paintCrawl();}
+function clearCaption(){stopCrawlLoop();if(capBand)capBand.textContent='';capTrack=null;cursor=null;held={cueIndex:0,wordIndex:0};}
+// THE CLOCK the cursor reads. Two sources, which is exactly the split cursor.ts documents
+// ("WebAudio currentTime during TTS, a plain timer for a silent read-along"): a spoken cue
+// reads the media element, a cue with no clip reads the wall clock from when it started. So
+// the crawl advances through a sentence the author never prepared, and through a
+// captions-only export, instead of sitting frozen on word one.
+var rafId=0,silentFrom=0;
+function crawlClock(){return silentFrom?cueOnset+(Date.now()-silentFrom):cueOnset+(au?au.currentTime*1000:0);}
+// Driven by rAF, not the timeupdate event. That fires roughly four times a second, which is
+// a visible stutter on a teleprompter: a word would light two or three at a time. rAF costs
+// nothing here (one binary search + a transform per frame) and only runs while something is
+// actually being spoken.
+function crawlLoop(){
+ if(!narPlaying||(!silentFrom&&(!au||au.paused))){rafId=0;return;}
+ tickCrawl(crawlClock());
+ rafId=requestAnimationFrame(crawlLoop);}
+function startCrawlLoop(){if(capBand&&!rafId)rafId=requestAnimationFrame(crawlLoop);}
+function stopCrawlLoop(){if(rafId){cancelAnimationFrame(rafId);rafId=0;}silentFrom=0;}
+function setPlaying(on){narPlaying=on;
+ if(playBtn){playBtn.setAttribute('aria-pressed',on?'true':'false');playBtn.innerHTML=on?PAUSE_ICON:PLAY_ICON;
+  playBtn.setAttribute('aria-label',on?'Pause narration':'Play narration');playBtn.setAttribute('title',on?'Pause narration':'Play narration');}}
+// A divider slide opens a new section, so its boundary earns the deeper chapter beat.
+function isSection(i){var s=slides[i];return !!(s&&s.className&&/(^|\\s)divider(\\s|$)/.test(s.className));}
+function loadCues(i){if(cueSlide===i&&cues)return cues;cueSlide=i;cues=[];
+ var n=document.querySelector('script[data-lp-audio="'+i+'"]');
+ if(n){try{var p=JSON.parse(n.textContent||'[]');if(p&&p.length)cues=p;}catch(e){cues=[];}}
+ return cues;}
+function speakSlide(i){
+ stopAudio();spokeSlide=i;loadCues(i);
+ // One cursor per slide, over the slide's own timeline. Re-anchored per clip below.
+ // Guarded on the band: an AUDIO-ONLY export ships no #lp-caption and no word timings, so
+ // there is nothing to crawl \u2014 and makeCursor is then not inlined at all (see playerJs), so
+ // this must never be the line that references it.
+ held={cueIndex:0,wordIndex:0};
+ if(capBand){capTrack=expandTrack(cues||[]);cursor=makeCursor(capTrack);renderCrawl(capTrack);paintCrawl();}
+ nextCue(0);}
+function nextCue(k){
+ if(!narPlaying)return;
+ if(!cues||k>=cues.length){endSlide();return;}
+ var c=cues[k];
+ // The cue's onset on the (possibly already re-anchored) timeline. Reading it from the cursor
+ // rather than accumulating our own is what makes the clock self-correcting: align() shifts
+ // every later cue, so cue k+1's onset is already right by the time we get here.
+ cueOnset=cursor?cursor.track().cues[k].startMs:0;
+ held={cueIndex:k,wordIndex:0};paintCrawl();
+ // The BREATH after this sentence, then the next one. Held even for the last cue, so the
+ // slide boundary does not land on the final syllable.
+ var after=function(){clearBeat();beatT=setTimeout(function(){nextCue(k+1);},Math.max(0,c.g||0));};
+ if(!c.a){silentFrom=Date.now();startCrawlLoop();clearBeat();beatT=setTimeout(after,Math.max(300,c.d||900));return;}
+ silentFrom=0;
+ var a=audioEl();a.onended=after;
+ // RE-ANCHOR to the clip's REAL decoded duration \u2014 the same call Present makes from Suono's
+ // measured onset. This is why nothing has to be measured at bake time: the estimate ships,
+ // and the truth arrives with the audio.
+ a.onloadedmetadata=function(){if(cursor&&isFinite(a.duration)&&a.duration>0){cursor.align(k,cueOnset,a.duration*1000);}};
+ a.onplaying=function(){startCrawlLoop();};
+ // A clip that will not decode is not a reason to strand the deck \u2014 take its estimated
+ // time and move on, exactly as a missing clip does.
+ a.onerror=function(){clearBeat();beatT=setTimeout(after,Math.max(300,c.d||900));};
+ a.src=c.a;
+ // play() settles ASYNCHRONOUSLY. Re-src'ing before the previous promise settles rejects it
+ // with AbortError, and an identity-less handler would then tear down the state of the cue
+ // that REPLACED it \u2014 leaving the button reading "Play" and the caption blank while the audio
+ // kept running (a double-click on Play was enough). Stamp the generation and ignore a
+ // rejection that belongs to a cue we have already moved past. A rejection that IS current
+ // means autoplay was refused, so stop the audio too rather than only the bookkeeping.
+ var g=++gen;
+ var pr=a.play();
+ if(pr&&pr.catch)pr.catch(function(){if(g!==gen)return;setPlaying(false);stopAudio();clearCaption();});
+}
+function endSlide(){
+ clearCaption();
+ if(t.index>=slides.length-1){setPlaying(false);return;}
+ // Advance FIRST, then hold on the slide that arrived, then speak.
+ autoNav=true;t.next();autoNav=false;
+ var hold=isSection(t.index)?NAR_BEAT.section:NAR_BEAT.slide;
+ clearBeat();beatT=setTimeout(function(){if(narPlaying)speakSlide(t.index);},hold);}
+// Narration belongs to Present, and the guard has to run on the way IN as well as out: the
+// play control lives in the bar, which is a SIBLING of the view container rather than a
+// descendant, so no view-scoped CSS rule can reach it. Starting narration from Read-Article
+// otherwise read the deck aloud with the caption band hidden while the invisible transport
+// advanced the slides underneath.
+function toggleNarration(){if(view!=='present')return;
+ if(narPlaying){setPlaying(false);stopAudio();clearCaption();}
+ else{setPlaying(true);speakSlide(t.index);}}
+if(playBtn)playBtn.onclick=toggleNarration;
+// Manual navigation mid-delivery re-anchors on the slide the viewer chose \u2014 they moved the
+// deck, so the narration follows them. Two things must NOT re-anchor:
+//   \xB7 our OWN advance (the autoNav guard), or the slide would start twice; and
+//   \xB7 a navigation that did not actually move. createTransport fires onShow even for a
+//     clamped edge no-op, deliberately, so chrome stays in sync \u2014 but pressing Right on the
+//     last slide is the most natural "is it over?" gesture there is, and it restarted that
+//     slide's narration from the top. Comparing against the slide we are anchored on tells a
+//     real move from a no-op; nothing else can.
+onSlideShown=function(i){if(narPlaying&&!autoNav){if(i!==spokeSlide)speakSlide(i);}else if(!narPlaying)clearCaption();};
+// Leaving Present stops the audio rather than letting a disembodied voice read over the
+// article view, and takes the play control with it so it cannot be started from there.
+onViewChanged=function(v){if(playBtn)playBtn.style.display=v==='present'?'':'none';
+ if(v!=='present'&&narPlaying){setPlaying(false);stopAudio();clearCaption();}};
+`;
+}
+async function playerJs(animaJs = "", beats = null, captions = !!beats) {
   const { fitScale: fitScale2, createTransport: createTransport2, keyAction: keyAction2, swipeAction: swipeAction2, PRESENT_KEYMAP: PRESENT_KEYMAP2 } = await Promise.resolve().then(() => (init_present_transport(), present_transport_exports));
-  const kernel = `var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP2)};
+  const capKernel = captions ? `var makeCursor=${(await Promise.resolve().then(() => (init_dist(), dist_exports))).makeCursor.toString()};
+` : "";
+  const kernel = capKernel + `var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP2)};
 var keyAction=${keyAction2.toString()};
 var fitScale=${fitScale2.toString()};
 var createTransport=${createTransport2.toString()};
 var swipeAction=${swipeAction2.toString()};`;
+  const narDecl = beats ? "var onSlideShown=null,onViewChanged=null;\n" : "";
+  const narShown = beats ? "\n if(onSlideShown)onSlideShown(i);" : "";
+  const narView = beats ? "\n if(onViewChanged)onViewChanged(v);" : "";
   let js = `(function(){
 ${kernel}
-var root=document.documentElement,app=document.getElementById('lp-app');
+${narDecl}var root=document.documentElement,app=document.getElementById('lp-app');
 if(!app)return;
 // Progressive enhancement: mark JS active so the present/read CSS (which hides every
 // slide until one is .lp-active) only engages when this script actually runs. If it is
@@ -1020,14 +2198,14 @@ function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle(
  if(countSr)countSr.textContent='Slide '+(i+1)+' of '+slides.length;
  if(prevBtn)prevBtn.disabled=i===0;
  if(nextBtn)nextBtn.disabled=i===slides.length-1;
- fit();syncNotes();}
+ fit();syncNotes();${narShown}}
 function setView(v){view=v;app.setAttribute('data-lp-view',v);
  [].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lp-btn')===v);});
  // Both present and read-slides scale the section via a view-scoped CSS transform
  // (var(--lp-fit-present) / var(--lp-fit)), so switching views just re-applies the
  // right rule \u2014 no inline transform to clear.
  if(v==='read-slides'){fitRead();revealReadNav();}else hideReadNav();
- if(count)count.style.visibility=v==='present'?'visible':'hidden';if(v==='present')render();}
+ if(count)count.style.visibility=v==='present'?'visible':'hidden';if(v==='present')render();${narView}}
 addEventListener('keydown',function(e){if(view!=='present')return;
  var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;t[a]();e.preventDefault();});
 // Present now sizes its stage purely in CSS (position:fixed;top:48px;bottom:0), so a
@@ -1179,7 +2357,8 @@ if(links.length&&window.IntersectionObserver){
  var lpdoc=document.getElementById('lp-doc');
  if(lpdoc&&window.ResizeObserver){var ro=new ResizeObserver(function(){keepActiveTocVisible();});ro.observe(lpdoc);}
 }
-setView('present');
+${beats ? `${narrationJs(beats)}
+` : ""}setView('present');
 }catch(e){if(root){root.className=root.className.replace(/(^|\\s)lp-js\\b/,'');}}
 })();`;
   if (animaJs) {
@@ -1252,11 +2431,17 @@ async function assemblePlayer(data, caps) {
   const rawScheme = data.theme?.mode || data.mode;
   const exportedScheme = rawScheme === "dark" ? "dark" : rawScheme === "system" || rawScheme === "inherited" ? "system" : "light";
   const hasScene = /<section\b[^>]*\sdata-scene-spec=/.test(docHtml);
-  const js = await playerJs(hasScene ? ANIMA_PLAYER_JS : "");
+  const narration2 = narrationBlocks(data.narration);
+  const hasNarration = narration2.length > 0;
+  const hasCaptions = hasNarration && (data.narration || []).some((cues) => (cues || []).some((c) => Array.isArray(c?.words) && c.words.length));
+  const hasAudio = hasNarration && (data.narration || []).some((cues) => (cues || []).some((c) => typeof c?.audio === "string" && c.audio.startsWith("data:")));
+  const paceName = frontMatterPace(source);
+  const beats = { slide: paceBeatMs("slide", paceName), section: paceBeatMs("section", paceName) };
+  const js = await playerJs(hasScene ? ANIMA_PLAYER_JS : "", hasNarration ? beats : null, hasCaptions);
   const jsHash = await caps.sha256(js);
-  const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'`;
+  const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; ${hasAudio ? "media-src data:; " : ""}base-uri 'none'; form-action 'none'`;
   const envelope = (0, import_lattice_doc.buildEnvelope)(
-    { source, title, theme: data.theme, config: data.config, notes: data.notes, glossary: data.glossary },
+    { source, title, theme: data.theme, config: data.config, notes: data.notes, glossary: data.glossary, readAlong: data.readAlong },
     { now: data.now, build: data.build, playerVersion: data.playerVersion }
   );
   const out = `<!DOCTYPE html>
@@ -1265,7 +2450,7 @@ async function assemblePlayer(data, caps) {
 <meta http-equiv="Content-Security-Policy" content="${escapeAttr(csp)}">
 <title>${escapeText(title)}</title>
 ${styles}
-<style>${minifyCss(playerCss())}</style>
+<style>${minifyCss(playerCss(hasNarration, hasCaptions))}</style>
 ${darkStyle}
 </head><body>
 <header id="lp-bar">
@@ -1276,7 +2461,7 @@ ${darkStyle}
   <button data-lp-btn="read-article" aria-pressed="false" aria-label="Read \xB7 Article"><svg aria-hidden="true" focusable="false" class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lp-tab-text">Read \xB7 Article</span></button>
  </div>
  <span id="lp-count" aria-hidden="true"></span>
- <span id="lp-count-sr" class="lp-sr" aria-live="polite"></span>
+ <span id="lp-count-sr" class="lp-sr" aria-live="polite"></span>${hasNarration ? '\n <button id="lp-play" type="button" title="Play narration" aria-pressed="false" aria-label="Play narration"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>' : ""}
  <button id="lp-notes-btn" title="Speaker notes (n)" aria-pressed="false" aria-label="Speaker notes"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="17" y2="12"/><line x1="3" y1="18" x2="13" y2="18"/></svg></button>
  <button id="lp-full" title="Toggle fullscreen" aria-pressed="false" aria-label="Toggle fullscreen"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
  <button id="lp-mode" title="Toggle dark / light" aria-label="Toggle dark / light theme"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
@@ -1286,7 +2471,7 @@ ${darkStyle}
 ${a11yDefs}
 ${slidesHtml}
  </div>
- <div id="lp-nav">
+${hasCaptions ? ' <div id="lp-caption" aria-hidden="true"></div>\n' : ""} <div id="lp-nav">
   <button id="lp-prev" type="button" aria-label="Previous slide" title="Previous slide (\u2190)"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
   <button id="lp-next" type="button" aria-label="Next slide" title="Next slide (\u2192)"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
  </div>
@@ -1305,7 +2490,8 @@ ${article}
  </div>
 </main>
 <script>${js}<\/script>
-${envelope}
+${narration2 ? `${narration2}
+` : ""}${envelope}
 </body></html>`;
   const subset = caps.subsetFonts ? await caps.subsetFonts(out) : { html: out, applied: false, saved: 0 };
   return { html: subset.html, report: { ...report, fontBytesSaved: subset.saved, subsetApplied: subset.applied } };

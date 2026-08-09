@@ -26,6 +26,7 @@ import { swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { SLIDE_SEP } from './deck-ops';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
+import { resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideCueFor, POINTER_BOX } from './present-guide';
@@ -200,26 +201,34 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 		return () => { cancelled = true; };
 	}, [open, set, frontMatter, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
 
-	// Resolve a slide's narration by its index in the presented set: note → chart
-	// facts → DOM projection. Index-based (not text-based) because the projection is
-	// index-aligned to `set`. The projection wins ONLY when it was computed for the
-	// current set (reference tag) — even an empty string then (a genuinely contentless
-	// slide reads silent, matching the export); until it lands (or after a lens switch
-	// invalidates the tag) the markdown flatten is the fallback, so Present never opens
-	// to dead air and never speaks a stale lens's narration.
+	// Resolve a slide's narration by its index in the presented set, through the ONE shared
+	// precedence ladder (`narration-resolve.ts`): inline caption → front-matter caption →
+	// note → chart facts → DOM projection. Index-based (not text-based) because the
+	// projection is index-aligned to `set`.
+	//
+	// The ladder is shared with the exports because a mismatch there does not degrade, it
+	// MISSES: the webpage export looks each spoken sentence up in the clip store by a
+	// content-complete key, so narration resolved even slightly differently is audio the
+	// author prepared and can never bake. See narration-resolve.ts.
+	//
+	// The projection wins ONLY when it was computed for the current set (reference tag) —
+	// even as an EMPTY string then, which is why `fallback` is supplied only when the tag
+	// does NOT match: a genuinely contentless slide must read silent (matching the export)
+	// rather than fall through to the flatten. Until the projection lands (or after a lens
+	// switch invalidates the tag) the markdown flatten keeps Present off dead air and off a
+	// stale lens's narration.
 	const narrationAt = React.useCallback(
 		(i: number) => {
 			const md = set[i] ?? '';
-			const caption = getCaption(md); // 1. inline <!-- caption: --> — highest precedence
-			if (caption) return caption;
-			const fm = fmCaptions.get((setIndices[i] ?? i) + 1); // 2. front-matter captions[author slide number]
-			if (String(fm ?? '').trim()) return fm as string; // trim-guard parity with the export's mergeNarration
-			const note = getNote(md); // 3. speaker note
-			if (note) return note;
-			const chart = narrateChart(md);
-			if (chart) return chart;
-			if (projected.set === set) return projected.texts[i] ?? ''; // 4. DOM projection
-			return slideToSpeech(md);
+			const aligned = projected.set === set;
+			return resolveNarration({
+				caption: getCaption(md),
+				fmCaption: fmCaptions.get((setIndices[i] ?? i) + 1), // front-matter captions[author slide number]
+				note: getNote(md),
+				chart: narrateChart(md),
+				projected: aligned ? (projected.texts[i] ?? '') : null,
+				fallback: aligned ? null : slideToSpeech(md),
+			});
 		},
 		[set, setIndices, fmCaptions, projected],
 	);
