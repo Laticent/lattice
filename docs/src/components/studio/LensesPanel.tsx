@@ -27,7 +27,7 @@ import { slideClass } from './lint';
 // ACTUAL deck, and only THEN can APPROVE it — at which point the view becomes readable.
 // Nothing a machine proposes reaches a reader unvetted, and nothing is approved unseen
 // (§9.4: Approve unlocks only after the author has previewed that view's current slides).
-// Every write funnels back to the shell (undo-funneled); the library (@slidewright/lente)
+// Every write funnels back to the shell (undo-funneled); the library (@workwel/lente)
 // owns all projection, suggestion, hashing, and serialization — this is presentation over it.
 
 // One tag write: put slide `index` in/out of `lensId` (the shell applies it via the library's applyTag).

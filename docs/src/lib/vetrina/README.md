@@ -12,7 +12,7 @@ modal to dismiss.
 It is **framework-free** (the core imports nothing but the DOM), **zero-config**
 (pass nothing, get the house look), and **buildless-friendly**: it ships a real ESM
 build (`dist/index.mjs`), so a plain `<script type="module">` that imports it needs
-no bundler. (A TS/bundler consumer imports the package by name — `@slidewright/vetrina`
+no bundler. (A TS/bundler consumer imports the package by name — `@workwel/vetrina`
 resolves to the ESM build for `import` and the CJS build for `require`.)
 
 > Vetrina is the walkthrough engine behind SlideWright's Studio demo. The full

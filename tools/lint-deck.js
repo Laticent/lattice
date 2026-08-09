@@ -136,7 +136,7 @@ async function main(argv) {
   let unmatchedAcronyms = null;
   if (doDiscover) {
     ({ acronymSpokenMap } = await import('../lib/core/resolve-captions.mjs'));
-    ({ unmatchedAcronyms } = require('@slidewright/cadenza'));
+    ({ unmatchedAcronyms } = require('@workwel/cadenza'));
   }
 
   const report = [];

@@ -15,7 +15,7 @@ files. See the repo `README.md` for the full entry-point table.
 
 | File | Purpose | Consume via |
 |---|---|---|
-| `docs/components.json` | Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component. | load as JSON / `@slidewright/lattice/dist/docs/components.json` |
+| `docs/components.json` | Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component. | load as JSON / `@workwel/lattice/dist/docs/components.json` |
 | `docs/components.md` | Canonical single-file component reference (plain Markdown): every component's slots, variants, when/why, anti-patterns. The browsable edition — live previews + an in-browser editor — is the docs-site component pages. | read directly / link from docs |
 | `docs/concepts.json` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `docs/forms.json` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
@@ -57,15 +57,15 @@ files. See the repo `README.md` for the full entry-point table.
 | `fonts/shantell-400.woff2` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `fonts/shantell-500.woff2` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `fonts/shantell-700.woff2` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
-| `lattice-default.css` | Zero-config drop-in: the engine flattened together with the default palette (cuoio), `@import` resolved at build time. Browser-droppable. | `@slidewright/lattice/default` |
-| `lattice-default.min.css` | Minified `lattice-default.css` — the zero-config themed drop-in, compressed. The leanest single-file `<link>` for browser use. | `@slidewright/lattice/default/min` |
-| `lattice-emoji.css` | Opt-in full-offline colour emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font. | `@slidewright/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`) |
-| `lattice-emulator.js` | Lattice's own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`. | `lattice` bin / `@slidewright/lattice` |
-| `lattice-emulator.min.js` | Minified `lattice-emulator.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin/main stays the unminified file. | `@slidewright/lattice/min` |
-| `lattice-runtime.js` | Browser runtime transforms (chart-family, structure post-processing) — powers the web export, the marp-vscode preview, and (bundled) the Export-to-Marp zip's full-fidelity HTML route. esbuild IIFE. | `@slidewright/lattice/runtime` |
-| `lattice-runtime.min.js` | Minified `lattice-runtime.js` — no inline source map. Production / CDN runtime drop-in. | `@slidewright/lattice/runtime/min` |
-| `lattice.css` | Engine bundle — the palette-blind layout system (layouts + modifiers, no colour tokens). | `@slidewright/lattice/css` |
-| `lattice.min.css` | Minified `lattice.css` — same engine, comments/whitespace stripped (Marp `@theme`/`@size` directives preserved). Production / CDN drop-in. | `@slidewright/lattice/css/min` |
+| `lattice-default.css` | Zero-config drop-in: the engine flattened together with the default palette (cuoio), `@import` resolved at build time. Browser-droppable. | `@workwel/lattice/default` |
+| `lattice-default.min.css` | Minified `lattice-default.css` — the zero-config themed drop-in, compressed. The leanest single-file `<link>` for browser use. | `@workwel/lattice/default/min` |
+| `lattice-emoji.css` | Opt-in full-offline colour emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font. | `@workwel/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`) |
+| `lattice-emulator.js` | Lattice's own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`. | `lattice` bin / `@workwel/lattice` |
+| `lattice-emulator.min.js` | Minified `lattice-emulator.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin/main stays the unminified file. | `@workwel/lattice/min` |
+| `lattice-runtime.js` | Browser runtime transforms (chart-family, structure post-processing) — powers the web export, the marp-vscode preview, and (bundled) the Export-to-Marp zip's full-fidelity HTML route. esbuild IIFE. | `@workwel/lattice/runtime` |
+| `lattice-runtime.min.js` | Minified `lattice-runtime.js` — no inline source map. Production / CDN runtime drop-in. | `@workwel/lattice/runtime/min` |
+| `lattice.css` | Engine bundle — the palette-blind layout system (layouts + modifiers, no colour tokens). | `@workwel/lattice/css` |
+| `lattice.min.css` | Minified `lattice.css` — same engine, comments/whitespace stripped (Marp `@theme`/`@size` directives preserved). Production / CDN drop-in. | `@workwel/lattice/css/min` |
 | `marp-kit/` | The copy-and-go Marp kit — engine, default palette, runtime, Mermaid, fonts, a marp-cli config, VS Code settings, LICENSE/NOTICE, and a self-documenting `Sample-Deck.md`. Copy the folder, open it in VS Code, start editing. | Copy `dist/marp-kit/` wholesale; see its own `README.md`. |
 | `themes/a11y-achromatopsia.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `themes/a11y-base.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |

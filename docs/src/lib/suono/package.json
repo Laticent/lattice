@@ -1,5 +1,5 @@
 {
-  "name": "@slidewright/suono",
+  "name": "@workwel/suono",
   "version": "0.1.0",
   "description": "Framework-free audio playback + an owned WebAudio clock + a bounded, pause-gated sequence scheduler — bytes in, reliable clocked playback out. Zero-dependency, no network, no key, no model, no DOM ownership.",
   "license": "AGPL-3.0-only",

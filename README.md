@@ -90,12 +90,12 @@ engine renders every first-party path.
 
 ## Use as a package
 
-Distributed as `@slidewright/lattice` (npm publishing is pending — see
+Distributed as `@workwel/lattice` (npm publishing is pending — see
 [RELEASE.md](RELEASE.md)). The bundled `lattice` bin renders through the owned
 engine — there is no Marp dependency or Marp render path:
 
 ```sh
-npm install @slidewright/lattice
+npm install @workwel/lattice
 
 # The emulator, exposed as a bin (the owned engine). Resolves the engine +
 # every theme relative to the installed package, so it works from any dir.
@@ -111,16 +111,16 @@ The package also exposes these named entry points:
 
 | Subpath | Resolves to | For |
 |---|---|---|
-| `@slidewright/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one drop-in stylesheet |
-| `@slidewright/lattice/default/min` | `dist/lattice-default.min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
-| `@slidewright/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
-| `@slidewright/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
-| `@slidewright/lattice/runtime/min` | `dist/lattice-runtime.min.js` | minified runtime — production / CDN drop-in (no inline source map) |
-| `@slidewright/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
-| `@slidewright/lattice/css/min` | `dist/lattice.min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
-| `@slidewright/lattice/themes/<name>.css` | `themes/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
-| `lattice` bin · `@slidewright/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
-| `@slidewright/lattice/min` | `dist/lattice-emulator.min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
+| `@workwel/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one drop-in stylesheet |
+| `@workwel/lattice/default/min` | `dist/lattice-default.min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
+| `@workwel/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
+| `@workwel/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
+| `@workwel/lattice/runtime/min` | `dist/lattice-runtime.min.js` | minified runtime — production / CDN drop-in (no inline source map) |
+| `@workwel/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
+| `@workwel/lattice/css/min` | `dist/lattice.min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
+| `@workwel/lattice/themes/<name>.css` | `themes/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
+| `lattice` bin · `@workwel/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
+| `@workwel/lattice/min` | `dist/lattice-emulator.min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
 
 The `.min` variants are byte-for-byte render-faithful to their unminified
 siblings — the CSS minifier preserves Marp's directive comments, so a
@@ -134,7 +134,7 @@ engine's neutral built-in tokens. For a non-Marp / browser context, drop
 in the flattened default — a single self-contained stylesheet:
 
 ```html
-<link rel="stylesheet" href="…/@slidewright/lattice/default">  <!-- engine + cuoio -->
+<link rel="stylesheet" href="…/@workwel/lattice/default">  <!-- engine + cuoio -->
 ```
 
 > **Per-theme files are Marp theme files, not drop-in CSS.** Each declares

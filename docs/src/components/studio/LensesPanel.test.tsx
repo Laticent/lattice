@@ -7,7 +7,7 @@ import { LensesPanel } from './LensesPanel';
 // The human-in-the-loop control center. These assert the loop the whole feature exists to enforce: a
 // machine SUGGESTS, the author sees each proposal + reason, edits by hand, PREVIEWS, and only then can
 // APPROVE — and only an approved view is readable. Writes are asserted at the callback boundary (the
-// shell funnels them to the library + undo); the panel is pure presentation over @slidewright/lente.
+// shell funnels them to the library + undo); the panel is pure presentation over @workwel/lente.
 
 const catalog = catalogFromComponents([
 	{ name: 'title', bucket: 'anchor', function: 'anchor', form: 'bookend' },

@@ -52,7 +52,7 @@ const BUILD_OPTIONS = {
   bundle: true,
   // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json — the SAME
   // hazard tools/build-read-along-core.js and tools/build-cadenza-lib.js already guard, reached
-  // here through a third path: player-core.mjs now imports @slidewright/cadenza (for the caption
+  // here through a third path: player-core.mjs now imports @workwel/cadenza (for the caption
   // cursor the exported player inlines), so esbuild's tsconfig walk-up from the resolved
   // docs/src/lib/cadenza/dist/index.mjs can reach docs/tsconfig.json, whose
   // `extends: astro/tsconfigs/strict` resolves only where the DOCS workspace is installed.

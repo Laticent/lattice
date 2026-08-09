@@ -107,7 +107,7 @@ const STEPS = [
   { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js' },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
-  // build like its siblings or `require('@slidewright/lente')` / publish break.
+  // build like its siblings or `require('@workwel/lente')` / publish break.
   { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js' },
   { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js' },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js' },

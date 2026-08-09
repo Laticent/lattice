@@ -7,7 +7,7 @@ import { PresentOverlay } from './PresentOverlay';
 // reader path: a scoping lens can be a REDACTION, so a lens the author hasn't approved (or that drifted
 // since approval, or that has no members) must NEVER silently fall open to the full deck — Present has
 // to render an explicit "unavailable" state instead. These assert the fail-CLOSED contract at the
-// PresentOverlay ↔ @slidewright/lente seam (design §6.3), not just at the pure-projection layer.
+// PresentOverlay ↔ @workwel/lente seam (design §6.3), not just at the pure-projection layer.
 
 vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp" /> }));
 vi.mock('@/playground/voice-model.js', () => ({

@@ -13,7 +13,7 @@
 ## TL;DR
 
 Marp is gone as a **dependency** and as our **render path** — `lib/engine/`
-natively re-implements the Marpit core, `npm install @slidewright/lattice`
+natively re-implements the Marpit core, `npm install @workwel/lattice`
 pulls **zero** `@marp-team` packages, and the BYO marp-cli config (`marp.config.js`)
 is **retired** (no marp-cli render path ships, and nothing of ours uses
 marp-core for parity/verification). Lattice is a *superset* of Marp; the

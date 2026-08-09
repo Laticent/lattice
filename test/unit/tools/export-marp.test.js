@@ -217,9 +217,9 @@ describe('export-marp bundle (end-to-end)', () => {
   test('package.json pins marp-cli only', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(dest, 'package.json'), 'utf8'));
     assert.ok(pkg.dependencies['@marp-team/marp-cli']);
-    // No @slidewright/lattice dep — it is unpublished, so it would 404 `npm
+    // No @workwel/lattice dep — it is unpublished, so it would 404 `npm
     // install`; the bundle is rendered with Marp, not a bundled engine.
-    assert.strictEqual(pkg.dependencies['@slidewright/lattice'], undefined);
+    assert.strictEqual(pkg.dependencies['@workwel/lattice'], undefined);
   });
 
   test('ships the agent kit by default (AGENTS.md + the catalog under agent/)', () => {

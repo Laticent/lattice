@@ -872,6 +872,17 @@ in patch versions.
 
 ### Changed
 
+- **All five packages move to the `@workwel` npm scope.** `@slidewright/lattice`, `cadenza`,
+  `lente`, `suono` and `vetrina` become `@workwel/*` ahead of the first publish. **Not a breaking
+  change, and only because of timing** — none of the five has ever been published, so no consumer
+  is pinned to the old names and nothing needs a deprecation path. Renaming after the first
+  publish would have permanently squatted five names on a scope being abandoned; npm only allows
+  unpublishing within 72 hours. 82 references across 37 files, including real `require()` call
+  sites (`tools/lint-deck.js`, the read-along bundler graph) rather than prose alone, so the
+  workspace links and lockfile were rebuilt with it. The product, the copyright holder and the
+  SPDX headers are untouched — SlideWright remains both. The GitHub repository move is a separate
+  change and is not part of this one.
+
 - **185 committed PDFs now have the watcher the ownership table already credited them with.**
   `#1279` closed *ownership* — every PDF in `git ls-files` is claimed by a rule naming a producer
   and a watcher — deliberately without closing *freshness*. The trouble was what went in the

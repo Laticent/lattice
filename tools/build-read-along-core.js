@@ -4,12 +4,12 @@
  *
  *   lib/core/read-along-build.js + read-along-vtt.js  (the .vtt producer)
  *   lib/core/slide-speech.js + chart-narration.js     (WHAT to say — narration)
- *     (chart-narration require('@slidewright/cadenza') — the built workspace package)
+ *     (chart-narration require('@workwel/cadenza') — the built workspace package)
  *     →  docs/src/playground/read-along-core.generated.js   (ESM, named exports)
  *
  * WHY a bundle: all four source modules are CJS (`require`/`module.exports`), and
  * Vite's dev server doesn't transform CJS `require` in arbitrary source. esbuild
- * resolves the whole graph (including the `require('@slidewright/cadenza')` →
+ * resolves the whole graph (including the `require('@workwel/cadenza')` →
  * its built `dist/index.cjs`) into one browser ESM module. Same packaging step as
  * tools/build-player-core.js — each kernel has exactly one source (shared
  * byte-identically with the CLI `--captions` flag AND the export's chart-narration
@@ -41,7 +41,7 @@ const check = argv.includes('--check');
 const silent = argv.includes('--silent') || check;
 
 // Both source modules are CJS — re-export their named exports as ESM. esbuild's
-// bundler resolves `require('@slidewright/cadenza')` through the workspace
+// bundler resolves `require('@workwel/cadenza')` through the workspace
 // package's `require` condition (its built dist/index.cjs), inlining the whole
 // (zero-dep) engine into this one file.
 const ENTRY_CONTENTS = `

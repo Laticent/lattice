@@ -1,4 +1,4 @@
-# Releasing `@slidewright/lattice`
+# Releasing `@workwel/lattice`
 
 > **Status: automated, manually triggered, cut in two phases across a merge.**
 > **Release (prepare)** (`.github/workflows/release.yml`, `workflow_dispatch`)
