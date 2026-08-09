@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: A shared deck cannot speak. Everything built for "the deck presents itself" — the persistent clip store, adaptive prefetch, the presentation beat, the readiness rail — stops at the Studio boundary, so the rail's stated audience cannot exist on any shipped surface. This answers the five open questions (format, size, staleness, whose voice, pace) and specifies the build. It is NOT built: it changes the bytes of an exported artifact, which is a maintainer sign-off gate, and it is an export-format fork that bears on #757.
+status: shipped
+summary: SHIPPED (see the amendment). A shared deck cannot speak. Everything built for "the deck presents itself" — the persistent clip store, adaptive prefetch, the presentation beat, the readiness rail — stops at the Studio boundary, so the rail's stated audience cannot exist on any shipped surface. This answers the five open questions (format, size, staleness, whose voice, pace) and specifies the build. Built on top of this, with §3 reversed (an incomplete set is refused and the export synthesizes to complete it), §2's one checkbox split into separate caption/audio switches, and the voice chosen at export.
 companion:
   - ./2026-08-03-present-instant-audio-pacing-guide.md
   - ./2026-07-08-read-along-export-manifest.md
@@ -8,8 +8,10 @@ companion:
 
 # Giving a shared deck a voice
 
-**Status:** PROPOSED — design only. Issue #1393.
-**NOT IMPLEMENTED, deliberately.** Two reasons, both gates rather than preferences:
+**Status:** SHIPPED. Issue #1393. See the amendment at the end for the four places the
+build changed what is proposed below — including a straight REVERSAL of §3 — and why.
+
+**Originally NOT IMPLEMENTED, deliberately.** Two reasons, both gates rather than preferences:
 
 1. It changes the **bytes of an exported artifact** (the HTML player's CSP and its inline
    script). CLAUDE.md makes that a hard stop: render a representative deck in both modes and
@@ -158,3 +160,197 @@ Stated in advance, so review has something to aim at:
 Not test suites. A real exported file, opened from disk, in a real browser, with the network
 off — because "no network in the loop" is the entire claim. Both light and dark. Plus the
 export sign-off artifacts CLAUDE.md requires for any change to exported bytes.
+
+---
+
+## Amendment — what the build changed (2026-08-09)
+
+Built on `claude/prioritize-stack-issues-qw8mjr`. Two of the five answers shipped as
+recommended (format's *shape*, and whose voice). Three changed, and one of them is a
+straight reversal of the recommendation above.
+
+The body of this note is left as it was WRITTEN — a proposal, in the present tense, with its
+recommendations intact — so this section reads as a record of what review and use changed,
+rather than as a design that was always right.
+
+### 1. §3 is REVERSED: an incomplete set is refused, and the export synthesizes to complete it
+
+§3 rejected both alternatives and recommended *"ship what is there, and say what is
+missing,"* on the reasoning that partial audio is the same graceful floor the live reader has
+when a synth times out, and that refusing would make the feature unreachable for the decks
+people actually edit.
+
+The first half of that reasoning does not hold. **It is not the same floor.** The live
+reader's gap is a second inside a delivery the author is watching, on a deck they can re-run.
+A baked artifact is opened once, by someone else, with no way to fix it and no idea anything
+is wrong — the failure mode is a presenter who stops mid-argument in front of a board.
+"42 of 47 sentences have audio" is a number the author reads and dismisses; the missing five
+are what the audience gets. Partial coverage is not a graceful floor here, it is a defect
+that only shows up where nobody can do anything about it.
+
+The second half — that refusing makes the feature unreachable — was true of a bake that could
+only read a cache. It stops being true once the export can also **write** to it. So the two
+rejected options are combined rather than chosen between:
+
+- The device answers first. Every sentence rehearsed in Present is already stored under a
+  content-complete key and costs nothing.
+- Whatever is missing is **synthesized at export**, in the chosen voice, three at a time with
+  three attempts and exponential backoff — and **banked in the persistent store as it lands**,
+  so a cancelled or refused run is never wasted money, and the next rehearsal finds it too.
+- If any sentence is still missing when that finishes, the export **refuses** and names the
+  sentences and the reason. Nothing is written.
+
+§3's objection to re-synthesizing — *"turns a download into a billed, minutes-long job"* — is
+answered by §2's own mechanism rather than by accepting a worse artifact: the cost is
+**quoted before the run**, not discovered during it. The panel states how many sentences are
+already prepared, how many will be billed, roughly what that costs at the model's published
+per-character rate, roughly how long, and what the file will gain. A model the catalog has no
+price for quotes *nothing* rather than zero.
+
+**The known sharp edge, stated plainly.** Clips are keyed on rung, model, voice, speed and
+text, so an author who rehearsed on the on-device Kokoro rung — or in any voice other than the
+one they pick at export — has **zero** cache hits and is billed for the whole deck. That is a
+real and legitimate thing to want (a board deck may deserve a different reader than an
+author's working voice), so the panel prices it instead of blocking it, says explicitly why
+nothing is cached, and points at the two cheaper routes: rehearse first, or pick the voice you
+rehearsed in. The default narrator is the workspace's own cloud voice, so the common path
+costs nothing.
+
+### 2. §2's single checkbox is two switches — captions and audio are separate options
+
+§2 specified one opt-in ("Include narration"). In use that conflates two things with wildly
+different costs. The caption TRACK is the timing spine either way — each sentence, its
+estimated span, its breath, and the word timeline — so there are four honest states, and the
+player supports all four:
+
+| | ships | costs |
+|---|---|---|
+| neither | the player as it was, byte-for-byte | nothing |
+| captions | a teleprompter read-along on the player's own wall clock | kilobytes |
+| audio | the deck speaks and turns its own pages, no band | megabytes + synthesis |
+| both | the rehearsed delivery | megabytes + synthesis |
+
+The assembler **derives** which state a file is in from the payload — captions ship iff a cue
+carries words, audio iff a cue carries a clip — rather than taking a second input. So the
+band, its stylesheet, the inlined cursor kernel, the CSP's `media-src` grant and the shipped
+bytes cannot disagree with each other. A captions-only export is no longer granted permission
+to load media it does not contain; an audio-only export carries neither the band nor the
+~2 KB Cadenza cursor.
+
+### 3. §4 stands, but the voice is now CHOSEN at export rather than read off the workspace
+
+§4's answer — the author's own voice, baked, recorded in `readAlong.voice` — is what shipped.
+What it did not anticipate is that "the author's voice" is a *workspace* setting, and the
+narrator of one board deck is not a decision to re-record every future rehearsal. So the
+export panel picks a model and a voice, defaulted to the workspace's own, through the
+Workspace's OWN pickers (`VoicePicker` moved out of `TtsSettings.tsx` into its own module
+rather than being copied — HARD RULE #15). The pick never writes back to the prefs.
+
+That required an explicit-identity seam in the voice model: `synthFor` and `clipKeyFor`, the
+general form of the "play sample" audition that already took an identity rather than reading
+the ladder. `clipKeyFor` is load-bearing rather than convenient — the clip key is a
+content-complete JSON array, so a key rebuilt by hand matches nothing, reads as "nothing
+prepared", and would re-bill a deck that was already paid for.
+
+### 4. The audio does not ride inside the manifest — §1 was right about the shape, wrong about the container
+
+The recommendation was inline `data:` URIs on `readAlong.slides[].audio[]`. Inline data URIs
+are correct and shipped. The manifest is not the right place to put them, for two reasons the
+proposal did not weigh:
+
+- **Double encoding.** `lattice-doc.js` base64s the WHOLE manifest, deliberately, so no deck
+  content can terminate the script element (§Security). Audio nested inside it is therefore
+  base64'd twice: 1.33× on the clip, then 1.33× again on the manifest — **1.78× over raw
+  instead of 1.33×**. On the ~10 MB deck §2 uses as its example that is ~4.5 MB of pure
+  encoding overhead, on the one number the author is being asked to consent to.
+- **Eager parse.** Audio in the envelope can only be reached by decoding and `JSON.parse`ing
+  the entire manifest — megabytes of main-thread work to play one sentence, on a viewer's
+  phone, at the moment they press Play.
+
+So the audio rides in **one inert `<script type="application/lattice+audio">` block per
+narrated slide**, a sibling of the envelope. Every property §1 actually argued for is
+preserved: one file, inline `data:` URIs, `default-src 'none'`, no network origin, nothing to
+keep next to the deck. What changes is that the player parses one slide at a time, and a
+viewer who never presses Play parses nothing. The manifest keeps `readAlong` — the voice
+identity — because that is what makes the artifact self-describing.
+
+**The breakout guard had to be bought a different way.** The envelope's whole-payload base64
+is what makes a deck titled `</script><script>…` harmless. This payload carries caption TEXT,
+so it is not all base64. Every `<` is emitted as the JSON escape `<`: the HTML parser
+never sees one (so neither `</script` nor the `<!--` that flips it into script-data-escaped
+state can appear), and `JSON.parse` returns the original character. **HTML-entity escaping
+would be the wrong tool and is deliberately not used** — a `<script>` element's content is raw
+text, so `&amp;` would survive into the parsed JSON and corrupt every caption containing an
+ampersand. Pinned by a test that goes red when the escape is removed.
+
+### 5. §5's "pace already travels" was half the story, and the missing half was not where it said
+
+§5 correctly separated carrier from consumer, and correctly said the consumer was missing. But
+it prescribed the wrong fix: *"read the baked front matter the player already parses."* The
+player does not parse it and cannot. `assemblePlayer` strips every `<script>` that is not the
+manifest envelope, so the `application/lattice-front-matter` block **does not survive into the
+player at all**. There was nothing to read.
+
+The beat is therefore resolved by the ASSEMBLER, off the verbatim source, and baked in as a
+number. That forced a second change the proposal did not anticipate: the millisecond presets
+live in `docs/src/lib/cadenza/cadence.ts`, TypeScript inside the `@slidewright/cadenza`
+workspace package, which `lib/core` cannot import — and which cannot import `lib/core` back
+without a relative path escaping its own package boundary. So `lib/core/resolve-pace.mjs`
+gains `PACE_BEATS` + `paceBeatMs`, and `pace-names.test.js` pins the two copies against each
+other exactly as it already pins the names. Drift there would mean the deck the author
+rehearsed and the deck their board receives play at different rhythms — the failure `pace:`
+exists to prevent.
+
+Resolution collapses the documented four rungs to three in an artifact: override → the deck's
+own `pace:` → `natural`. The workspace preset is a property of a Studio the recipient is not
+running.
+
+### 6. One thing the design did not raise at all: the privacy interaction
+
+`--strip-notes` and narration cannot both be on — and the veto covers CAPTIONS too, not only
+audio. For most decks the narration the author rehearsed **is** their speaker notes, so
+shipping either the audio or the caption band of a deck they asked to strip hands the
+recipient the private text back. The panel locks both switches off while notes are stripped.
+
+### Checked against §"What would make this wrong"
+
+- *"If #757's envelope lands first, inline data URIs are the wrong shape."* It has not landed.
+  The per-slide block is a smaller, better-contained thing to migrate into a real container
+  than a field buried in a doubly-encoded manifest would have been.
+- *"If a typical real deck bakes to 30 MB rather than 10."* Still unmeasured against a real
+  prepared deck (see UNVERIFIED below), so §2's ~10 MB remains an estimate. The mitigation §2
+  asked for is in place regardless, and is now stronger than §2 specified: the cached bytes
+  are read exactly from the clip store's index and the synthesized bytes are estimated from
+  characters, both shown before the run.
+- *"If the player's audio path cannot hold sync with the caption highlight as well as Suono
+  does."* This is the one the earlier build sidestepped by showing one caption per sentence.
+  It is now solved rather than avoided: the player runs the SAME `makeCursor` the Studio's
+  teleprompter runs, inlined verbatim, and re-anchors each cue to its clip's real decoded
+  duration on `loadedmetadata` — so the estimate ships and the truth arrives with the audio.
+  A cue with no clip crawls on the wall clock instead, which is also what makes the
+  captions-only export a working read-along rather than a frozen one.
+
+### Verified, and UNVERIFIED (HARD RULE #23)
+
+**Verified** on the real surface: `tools/verify-narrated-player.mjs` builds real exported
+files, opens them from disk over `file://` in a real offline Chromium, and drives all three
+narrated states — 29 checks. It asserts that the CSP hash is accepted, that an `<audio>`
+element actually advances on an inline `data:` URI, that the word highlight advances through a
+sentence, that the deck advances itself and holds the *deeper section beat* the deck's
+`pace: brisk` declares, that an audio-only file still drives itself with no crawl, that a
+captions-only file's highlight advances on the wall clock with no audio element ever created,
+and that no request is attempted at any point. Sign-off PNGs in both modes are written
+alongside.
+
+**UNVERIFIED**, and not claimed:
+
+- **A real end-to-end bake against a live OpenRouter key.** The synthesis path is exercised
+  against a scripted stand-in that returns the real shapes, not against the live API — this
+  sandbox has no key it may spend (HARD RULE #24). The cost quote's *arithmetic* is pinned;
+  its agreement with an actual invoice is not.
+- **Real iOS Safari.** Not reachable from here. The player's media path is a plain `<audio>`
+  element with `playsinline`, which is the conservative shape, but that is an argument rather
+  than evidence.
+- **The ~16 bytes-per-character estimate** for not-yet-synthesized audio is measured across
+  this repository's own narrated examples at the default voice. Cached bytes are exact; that
+  one line of the quote is an estimate and is worded as one.
