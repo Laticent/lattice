@@ -171,7 +171,7 @@ export function WebpageOptionsPanel({
 				</button>
 				{/* Cancel exists because a bake can run for minutes on an unrehearsed deck, and the
 				    only thing worse than a long wait is one you cannot stop. Everything already
-				    synthesized stays banked, so cancelling costs nothing that was paid for. */}
+				    synthesized stays banked, so canceling costs nothing that was paid for. */}
 				{busy && (
 					<button
 						type="button"

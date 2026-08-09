@@ -1276,7 +1276,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     //
     // The first version did `const sig = signal ?? ctl.signal` — so whenever a caller passed a
     // signal (which the bake always does), the timeout fired `ctl.abort()` on a controller
-    // nothing was listening to. The request was never cancelled: it ran to completion and was
+    // nothing was listening to. The request was never canceled: it ran to completion and was
     // BILLED, while the bake had already given up and fired a second, independent billed
     // request for the same sentence. Three attempts could mean three charges for one clip.
     const ctl = new AbortController();

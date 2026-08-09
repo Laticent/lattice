@@ -25,7 +25,7 @@
 // EVERY SYNTHESIZED CLIP IS BANKED as it lands, in the persistent store, under the key THAT
 // IDENTITY plays under — which is the workspace's own voice on the common path, and a
 // different key when the author picked a different narrator for this one export. A bake that
-// is cancelled or that fails on sentence 280 is not wasted work either way: the next attempt
+// is canceled or that fails on sentence 280 is not wasted work either way: the next attempt
 // in the same voice starts from what the first one paid for.
 
 import { buildTrack, interCueGapMs } from '@/lib/cadenza';
@@ -583,8 +583,8 @@ export async function bakeNarration(
 
 	// The CALLER's signal, not the run's. `stop()` also aborts the run controller — for a
 	// worker that threw, or a terminal voice error — and reporting either of those as
-	// "cancelled" would tell the author they pressed a button they never pressed.
-	if (signal?.aborted) throw new DOMException('Bake cancelled', 'AbortError');
+	// "canceled" would tell the author they pressed a button they never pressed.
+	if (signal?.aborted) throw new DOMException('Bake canceled', 'AbortError');
 	// The refusal — the DEFAULT, not a wall. Everything synthesized above is already banked, so
 	// a second attempt after fixing the cause (reconnect, top up credit) pays only for what is
 	// still missing.

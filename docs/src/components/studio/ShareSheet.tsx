@@ -97,7 +97,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// the engine's raw text ("Failed to fetch dynamically imported module: /_astro/…")
 				// blames the deck and leaks a hashed asset URL into boardroom-facing copy (#1242).
 				// A cancel the author asked for is not a failure, and must not be reported as one.
-				if ((e as Error)?.name === 'AbortError') notify(`${label} cancelled.`);
+				if ((e as Error)?.name === 'AbortError') notify(`${label} canceled.`);
 				else notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
 			} finally {
 				setBusy(null);
