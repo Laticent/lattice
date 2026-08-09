@@ -25,6 +25,30 @@ in patch versions.
 
 ## Unreleased
 
+- **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
+  where `# …` after whitespace is a comment — but every register read it with a pattern anchored
+  to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back
+  to the default palette, while the engine's own `parseFrontMatter` and an Export-to-Marp of the
+  same bytes both read `cuoio`. Two different decks from one source, on a line any author might
+  plausibly write. **~40 readers across 20 files** carried the defect: `theme:` on the CLI/export
+  path (`resolve-palette.js`), eleven `resolve-*` kernels (`finish`, `mode`, `split`, `stamp`,
+  `claim`, `rule`, `eyebrow`, `headline`, `lift`, `tone`, all four `spectrum*`), and — the reason
+  a unit suite could not see it — the same keys re-read *privately* by both render paths
+  (`markdown-it/plugins.js`, `lib/runtime/index.js`), so a commented `finish: atrium` produced no
+  finish class in the render while its own kernel read it fine. One rule now
+  (`frontMatterScalar` / `frontMatterName`, `lib/core/front-matter-key.js`) is shared by all of
+  them and by the engine's parse, and a `check-ownership` gate fails the build on a new private
+  reader (both the hand-rolled quote-strip and the `$`-anchored capture) as well as on a stale
+  sanction. Two ESM modules the docs site imports directly (`resolve-pace.mjs`,
+  `glossary-auto.mjs`) cannot require the CJS kernel under Rollup and stay sync-gated mirrors,
+  pinned by `front-matter-scalar-parity`. A quoted `#` is data, not a comment
+  (`meta: "Default layout · #1292"` — a real deck — is unchanged), an unquoted hex survives
+  (`backgroundColor: #ffffff`), and a URL fragment survives. **`color-mode:` changes behaviour
+  here:** a commented value used to be refused and reported as unknown; it is now honoured, so
+  `color-mode: light  # migrated` renders light and supersedes a legacy `class:` as the register
+  always specified. A commented *typo* is still caught. Found by rendering the real CLI — every
+  unit suite passed while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
+
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator
   forms that were invisible to the Studio now split a slide, and a setext underline no longer
   does.** The engine breaks a slide on every top-level markdown-it `hr`; every caller-side splitter

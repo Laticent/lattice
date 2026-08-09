@@ -54,16 +54,19 @@ const engine = require('../../../lib/engine');
 const { resolveDiagramBand } = require('../../../lib/core/diagram-band');
 const { withPrintColorMode, colorModeClass } = require('../../../lib/core/resolve-color-mode');
 const { COLOR_MODE_TOKENS } = require('../../../lib/core/color-mode');
+const { frontMatterScalar } = require('../../../lib/core/front-matter-key');
 const { slideClassSpans, slideClassAt } = require('../../../lib/core/slide-class-spans');
 const { isComponentToken, DEFAULT_COMPONENT } = require('../../../lib/core/resolve-component');
 
 const AXIS = new Set(COLOR_MODE_TOKENS);
 
 // `light  # migrated 2026-08` is R2's exact input: a value with a trailing YAML
-// comment, which no reader in this repo understands — the point being that they
-// must all fail to understand it the SAME way. An earlier table generated only
-// bare names, so the loose/strict split that shipped a print canvas with
-// light-baked ink could not have appeared in it.
+// comment. It used to be a value NO reader understood — the point being that they
+// must all fail to understand it the SAME way. Since `frontMatterScalar`
+// (lib/core/front-matter-key.js) became the one scalar rule, every reader now
+// UNDERSTANDS it the same way instead, as plain `light`. Either way the row earns
+// its place: an earlier table generated only bare names, so the loose/strict split
+// that shipped a print canvas with light-baked ink could not have appeared in it.
 const COLOR_MODES = [null, 'light', 'dark', 'system', 'inherited', 'print', 'light  # migrated 2026-08'];
 // `kpi` is R1's input. Without a COMPONENT in the deck-wide register, the row
 // where the deck and the slide name the SAME component — the one that made a
@@ -102,7 +105,13 @@ function expectedTokens({ cm, deck, slide, spelling, flagPrint }) {
   // may carry a non-colour token beside it (`kpi`, `no-note`), and only the colour
   // one belongs on this axis.
   const axisIn = (v) => (v || '').split(/\s+/).find((t) => AXIS.has(t)) || '';
-  const deckColor = flagPrint ? 'print' : (colorModeClass(cm || '')
+  // Through `frontMatterScalar` — the deck writes `color-mode: <cm>` as a literal
+  // line, and the engine cleans that scalar (trailing YAML comment stripped) before
+  // `colorModeClass` ever sees it. Modelling the read here rather than assuming a
+  // bare name is what lets the commented row carry a real expectation instead of a
+  // refusal. Not a tautology: the row still independently pins the section CLASS,
+  // the COMPONENT and the baked BAND against each other.
+  const deckColor = flagPrint ? 'print' : (colorModeClass(frontMatterScalar(cm || ''))
     || (spelling === 'frontmatter' ? axisIn(deck) : ''));
   let slideOwn = '';
   if (spelling === 'global') slideOwn = axisIn(deck);
@@ -206,16 +215,22 @@ describe('the color register table — color-mode: × class: × _class: × --pri
     });
 
     test('R2 · one reader for `color-mode:`, so a trailing comment cannot split the answer', () => {
-      // `color-mode: light  # …` is not a value this repo's front-matter reader
-      // understands. What matters is that EVERY consumer agrees it is not — an
-      // unanchored read that still sees `light` here is what put light-baked ink
-      // on a print canvas.
+      // The invariant R2 guards is UNCHANGED: the canvas and the ink are one
+      // decision, and a trailing YAML comment must not make two readers answer
+      // differently. What changed is the ANSWER they agree on. `frontMatterScalar`
+      // strips the comment, so `color-mode: light` is a real declaration and — per
+      // this register's own rule — it supersedes the legacy `class: print` alias.
+      // Before, the value was unreadable, `class: print` won by default, and the
+      // regression was a print canvas with light-baked ink. Now light wins on BOTH
+      // halves. Either way the two must not split, which is what this asserts.
       const src = ['---', 'marp: true', 'theme: indaco', 'color-mode: light  # migrated 2026-08',
         'class: print', '---', '', '## S', '', 'text', ''].join('\n');
       const cls = classOf(src).split(/\s+/);
       const fence = (src.match(/^---[\s\S]*?\n---/) || [''])[0];
-      assert.ok(cls.includes('print'), `the alias resolves, got "${cls.join(' ')}"`);
-      assert.equal(resolveDiagramBand({ frontMatter: fence, slideClass: '' }), 'print',
+      assert.ok(cls.includes('color-light'),
+        `the comment is stripped and color-mode: supersedes the alias, got "${cls.join(' ')}"`);
+      assert.ok(!cls.includes('print'), 'the superseded alias does not also land');
+      assert.equal(resolveDiagramBand({ frontMatter: fence, slideClass: '' }), 'light',
         'and the bake agrees — the canvas and the ink are one decision');
     });
 

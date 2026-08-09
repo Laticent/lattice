@@ -21,6 +21,7 @@ const {
 const {
   withPrintColorMode, deckPrintBand, deckColorModeToken, frontMatterBody,
 } = require('../../../lib/core/resolve-color-mode');
+const { frontMatterScalar } = require('../../../lib/core/front-matter-key');
 
 describe('deck-class register — refusals', () => {
   test('a component name is refused whether or not `color-mode:` is set', () => {
@@ -264,11 +265,21 @@ describe('the print flag writes the register that wins', () => {
 // The contract, for every shape below: the resolver returns a class token
 // <=> the linter is quiet.
 //
-// Note the deliberate asymmetry with `pace:`. `resolve-pace.mjs` strips a trailing
-// comment; the shared `frontMatterValue` that every other register reads through
-// does not. Rather than fork a second front-matter parse for one key, `color-mode:`
-// REFUSES a commented value and says so loudly. See
-// engineering/decisions/2026-08-05-deck-class-register-boundary.md.
+// The asymmetry with `pace:` is GONE. It used to be: `resolve-pace.mjs` strips a
+// trailing comment, the shared `frontMatterValue` does not, so rather than fork a
+// second front-matter parse for one key, `color-mode:` REFUSED a commented value and
+// said so loudly (2026-08-05-deck-class-register-boundary.md).
+//
+// That reasoning turned on the COST — forking a parse. `frontMatterScalar`
+// (lib/core/front-matter-key.js) removes the cost by making the strip the shared
+// rule, which is the sweep `resolve-pace.mjs` named in its own header ("the sibling
+// registers do not do this yet; aligning them is its own sweep"). So a commented
+// value is now ACCEPTED rather than refused-and-warned: the author wrote
+// `color-mode: light`, and they get light.
+//
+// The parity contract below is unchanged and is what matters — the resolver returns
+// a token <=> the linter is quiet. A commented TYPO (`color-mode: darrk # note`) is
+// still caught, because the comment is stripped and `darrk` is still unknown.
 describe('color-mode-parse-parity — the linter and the resolver read the register identically', () => {
   const { findUnknownColorMode } = require('../../../lib/authoring/lint-core');
   const { COLOR_MODE_NAMES, colorModeClass } = require('../../../lib/core/resolve-color-mode');
@@ -285,10 +296,13 @@ describe('color-mode-parse-parity — the linter and the resolver read the regis
     ['color-mode: print', 'print'],
     ['color-mode: darrk', null],
     ['color-mode: lite', null],
-    // The #1416 input. Not a YAML comment to this reader — part of the value, so
-    // the deck renders the theme default and MUST be told.
-    ['color-mode: light  # migrated 2026-08', null],
-    ['color-mode: dark # night', null],
+    // The #1416 input. A trailing YAML comment is now STRIPPED by the shared scalar
+    // rule, so the author's `light` is honoured instead of the whole line being
+    // refused — and the linter stays quiet, because there is nothing wrong.
+    ['color-mode: light  # migrated 2026-08', 'color-light'],
+    ['color-mode: dark # night', 'dark'],
+    // A commented TYPO is still caught: the comment goes, `darrk` remains unknown.
+    ['color-mode: darrk # note to self', null],
     // Trailing punctuation is likewise unknown, and likewise reported.
     ['color-mode: dark.', null],
     // `color-mode:` with nothing after it is an unfinished key, not a typo.
@@ -322,7 +336,11 @@ describe('color-mode-parse-parity — the linter and the resolver read the regis
             assert.equal(findings.length, 1,
               `${label}: the resolver DISCARDED this value and the linter said nothing — the deck would silently render the theme default`);
             assert.equal(findings[0].rule, 'unknown-color-mode');
-            assert.equal(findings[0].classToken, line.replace(/^color-mode:\s*/, '').trim().replace(/^['"]/, '').replace(/['"]$/, ''),
+            // Through the shared scalar rule, not a fifth hand-rolled copy of it —
+            // the assertion was itself one of the duplicated readers this change
+            // exists to remove. On `darrk # note to self` the resolver sees `darrk`,
+            // so that is the value the author must be shown.
+            assert.equal(findings[0].classToken, frontMatterScalar(line.replace(/^color-mode:\s*/, '')),
               `${label}: the finding must name the value the resolver actually saw`);
             continue;
           }
