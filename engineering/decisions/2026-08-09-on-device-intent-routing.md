@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: #1440 asked for on-device intent routing for component selection, and specified wink-nlp + wink-eng-lite-web-model (self-hosted, lazily downloaded) with a wink-naive-bayes-text-classifier scoring confidence via computeOdds(). A bake-off across three corpora rejected the library and kept the requirement: wink's 1.03 MB (gzipped) English model won one cell of four by two queries and lost the rest — worst of all on the adversarial set a lemmatizer should own — while the naive Bayes variant the issue specified came last of every NLP option tried, because one training document per class is a degenerate classifier. What shipped is docs/src/lib/intent-search.ts — field-weighted Okapi BM25 over the component manifest, plus edit-distance typo repair and a 17-entry synonym lexicon, ~4 KB gzipped, no download, no network, offline on first paint. It lands in the SHARED search core as a third pass (substring → intent → fuzzy), so the Studio add-slide gallery, the Playground picker and the /components index all gain it without forking. Measured lift over the shipped ranker on natural language: 16.0% → 86.0% top-1 on intent phrasings, 12.0% → 84.0% on adversarial ones (typos, British spellings, synonyms), 0.4% → 31.2% on real slide prose. The honest ceiling (~30% top-1 / ~45% top-5 on prose) is why the UI shows a ranked shortlist with a RELATIVE match meter and never a single confident answer. Rejecting wink deleted requirement 2 of the issue entirely: nothing to self-host, nothing to background-download, no TTI risk. Requirement 4's LLM investigation is §6.
+summary: #1440 asked for on-device intent routing for component selection, and specified wink-nlp + wink-eng-lite-web-model (self-hosted, lazily downloaded) with a wink-naive-bayes-text-classifier scoring confidence via computeOdds(). A bake-off across three corpora rejected the library and kept the requirement: wink's 1.03 MB (gzipped) English model won one cell of four by two queries and lost the rest — worst of all on the adversarial set a lemmatizer should own — while the naive Bayes variant the issue specified came last of every NLP option tried, because one training document per class is a degenerate classifier. What shipped is docs/src/lib/intent-search.ts — field-weighted Okapi BM25 over the component manifest, plus edit-distance typo repair and a 17-entry synonym lexicon, ~4 KB gzipped, no download, no network, offline on first paint. It lands in the SHARED search core as a third pass (substring → intent → fuzzy), so the Studio add-slide gallery, the Playground picker and the /components index all gain it without forking. Measured lift over the shipped ranker on natural language: 16.0% → 86.0% top-1 on intent phrasings, 12.0% → 84.0% on adversarial ones (typos, British spellings, synonyms), 0.4% → 31.2% on real slide prose. The honest ceiling (~30% top-1 / ~45% top-5 on prose) is why the UI shows a ranked shortlist with a RELATIVE match meter and never a single confident answer. Rejecting wink deleted requirement 2 of the issue entirely: nothing to self-host, nothing to background-download, no TTI risk. Requirement 4's LLM investigation is §6 — which also records the RECOMMENDER attempt and its refutation: a deterministic facet scorer over whenToUse/antiPatterns/function/capacity was built, benchmarked against 128 held-out cases derived from the manifest's own authored notes, and a weight tuner independently zeroed every facet signal in favor of plain BM25. It is committed but wired into nothing. The corrected division of labor is retrieve-then-judge: retrieval is local and good (74.1% top-1), fit judgment is semantic and unsolved locally (27% redirect precision), and the model tier that would fix it is MEASURED BUT INCOMPLETE — the key ran dry mid-run.
 ---
 
 # On-device intent routing for component selection
@@ -197,50 +197,130 @@ nothing to leave on.
   the synonym lexicon starts growing past the point where it can be read at a
   glance.
 
-## 6 · The LLM's role in the component workflow (issue requirement 4)
+## 6 · The recommender, and the deterministic dead end
 
-The issue asks where an LLM best complements this. The answer the measurements
-support is a clean split by *what the task actually is*:
+#1440 asks for **fit judgment**, not findability: describe the task, get ranked
+components with confidence. §1–§5 deliver retrieval. This section records the
+attempt at the judgment half, because it failed and the failure is the useful
+part.
 
-**Local NLP owns SELECTION.** Picking a component from a fixed, known,
-61-item set is a ranking problem over a catalog that ships with the app. It
-needs no world knowledge, and the qualities that matter are the ones an LLM is
-worst at here: zero latency (it runs per keystroke), zero cost (it runs on every
-keystroke of every user), determinism (the same query must give the same list),
-offline availability, and never leaking the author's draft. A round trip to a
-model would cost 300–2000 ms and real money to answer *worse* than a 4 KB
-function, because the model does not know this catalog and would have to be
-handed it in the prompt anyway.
+### 6.1 · The fit benchmark
 
-**The LLM owns CONTENT.** Once a component is chosen, the remaining work is
-generative and open-ended — writing the actual claim, drafting the rows, fitting
-prose to a capacity budget, rewriting for a board audience. There is no catalog
-to rank; the answer is not in the manifest. That is already where the Studio
-points it (`architect.ts`, the Fabricate and Coach paths).
+The deck-harvested corpora cannot measure fit — they have no notion of a
+component being the *wrong* answer. The manifest can. Every component ships
+`whenToUse` (190 authored fit rules) and `antiPatterns` (190 anti-fit rules),
+and 121 anti-patterns name a better alternative in backticks. That yields two
+kinds of held-out case (`tools/intent-bakeoff/fit-corpus.mjs`):
 
-Two consequences worth writing down:
+- **positive** — a `whenToUse` body is a described task; its own component
+  should rank first.
+- **redirect** — an `antiPattern` body must surface the component it points to
+  and keep the warned-against one *behind* it. The first precision test in this
+  project; everything before it measured recall only.
 
-1. **They compose, in that order.** The strongest flow is intent → shortlist
-   → author picks → LLM fills. Local ranking narrows 61 candidates to five for
-   free and instantly; the model is then invoked once, on a decided structure,
-   which is also the cheapest possible prompt. Inverting it — asking the model
-   to choose the component — pays cloud latency and tokens for the one step that
-   did not need them.
-2. **The confidence number is the handoff signal.** A flat distribution (every
-   candidate near the top hit) means the query did not discriminate — that is
-   the moment where offering "describe it to the assistant instead" is worth
-   more than another lexical guess. The meter already computes exactly this
-   ratio; wiring it to that offer is the obvious follow-up, and is deliberately
-   *not* in this change (it needs its own design pass on when a suggestion is
-   help rather than nagging).
+Three ground-truth bugs had to be fixed before any number from it meant
+anything, and each would have quietly corrupted the result:
 
-On cost and keys, nothing here changes the existing posture: the local ranker
-spends nothing and sends nothing, and the generative tiers keep running on the
-user's own OpenRouter key or fully on-device (HARD RULE #24).
+1. **Detection.** Bare-word matching found 66 "alternatives", most of them
+   wrong — `\blist\b` matches inside `list-criteria` (a hyphen is a word
+   boundary) and "Unnumbered list" means a bulleted list, not the `list`
+   component. Detection is now backtick-only, the convention the authors
+   actually use.
+2. **Leakage.** The queries named their own answers ("…use `list-steps`"), so
+   any name-matching scorer solved them without reading a word. Expected names
+   are neutralized out of the query text — expected names only, since blanking
+   every name turned "Flat list of citations" into nonsense.
+3. **Answerability.** `whenToUse` mixes *selection* notes with *authoring*
+   notes ("always include the language after the opening fence"). Nobody types
+   the second kind into a picker. The two are split mechanically and **both are
+   reported**; dropping the inconvenient half silently is the same sin as
+   tuning on the test split.
+
+### 6.2 · What was tried, and what it measured
+
+`docs/src/lib/fit-search.ts` scores the structured facets: `whenToUse` as
+positive evidence, `antiPatterns` as negative, task-verb cues against the
+`function` axis, and stated quantities against `capacity`. The argument for it
+was strong — a bag-of-words ranker cannot represent negative evidence at all,
+so a lexical scorer reading `actors`' anti-pattern ("if the rows describe
+stages in order, use list-steps") *boosts* `actors` for "stages in order",
+exactly backwards.
+
+It does not work. Swept one signal at a time against the tuned remainder, on
+the dev split:
+
+| signal | top-1 | avoided-the-wrong-one |
+|---|---|---|
+| none (BM25 + IDF-scaled name + capacity) | **63.2%** | 16.7% |
+| `anti` −5 / −20 / −80 | 57.9% / 52.6% / 28.4% | 16.7% / 20.0% / 23.3% |
+| `when` 5 / 20 / 80 | 61.1% / 55.8% / 20.0% | 16.7% / 16.7% / 20.0% |
+| `function` 4 / 16 | 61.1% / 47.4% | 16.7% / 23.3% |
+| `capacity` 4 / 8 | 61.1% / 60.0% | 23.3% / **26.7%** |
+
+A coordinate-descent tuner over all nine weights
+(`tools/intent-bakeoff/tune-fit.mjs`, dev only) independently drove `when`,
+`anti` and `fn` to **zero** and pushed lexical BM25 to its ceiling. On the test
+split the tuned scorer is a wash against plain retrieval — 75.9% vs 74.1%
+top-1, about one case — and *worse* on precision (22.7% vs 27.3% avoided) and
+on authoring notes (75.0% vs 80.6%). **It is therefore not wired into any
+surface.** Shipping it would trade a measured precision regression for a gain
+inside noise.
+
+**Why it fails.** The authored notes hold real judgment, but extracting it is
+semantic work. Deciding whether "the audience scans top-to-bottom" describes a
+sequence is not a vocabulary question, and two ~25-word texts do not overlap
+enough for term counting to recover it: the whenToUse-minus-antiPattern margin
+has a median of 0.030 and a p90 of 0.084 across 2,400 observations — noise.
+This is the same wall the wink-nlp lemmatizer hit in §2, reached from the
+opposite direction, and it should be read as one finding about this corpus:
+**61 short documents do not carry enough lexical signal for semantics, by any
+term-based method.**
+
+### 6.3 · The corrected division of labor (issue requirement 4)
+
+The first draft of this section claimed a clean split — local NLP owns
+SELECTION because it is "a ranking problem needing no world knowledge", the LLM
+owns CONTENT. §6.2 refutes the first half. Selection splits further:
+
+- **Retrieval is local.** Narrowing 61 components to ~10 is genuinely a ranking
+  problem, and BM25 does it well: **74.1% top-1, 84.5% top-3** on held-out
+  authored task descriptions, in 0.2 ms, free, offline, deterministic. Nothing
+  about that argues for a model.
+- **Judgment is not.** Ordering that shortlist by fit — and especially ruling a
+  candidate *out* — is semantic, and 27% redirect precision is what the local
+  tier achieves. No deterministic method tried moved it.
+- **Content generation is the LLM's**, unchanged and uncontested.
+
+So the authored notes are the right **input** and the wrong **features**: 25
+words of reasoning is excellent prompt context and useless as term frequency.
+The shape that follows is retrieve-then-judge — BM25 shortlists ~10, a model
+ranks only those with their `whenToUse`/`antiPatterns` in the prompt, which
+keeps the prompt small enough to afford per query. `tools/intent-bakeoff/judge-eval.mjs`
+measures exactly that against this same benchmark.
+
+**That measurement has not been completed** — the key ran out of credit partway
+through the run. A 5-case validation had the judge fixing 1 of 5 and taking
+avoided-the-wrong-one from 0% to 100%, which is a signal and not a result, and
+nothing here should be read as evidence the judge works until the full run
+lands. Two harness bugs found on the way are worth remembering: a fenced-JSON
+parse failure silently returned the BM25 order and reported "0 changed
+verdicts" across 80 cases (indistinguishable from the model agreeing), and the
+prompt initially leaked the answer because leave-one-out was applied to the
+index but not to the candidate blocks. The harness now counts fallbacks and
+declares its own verdict invalid past a 10% fallback rate.
+
+On cost and keys nothing changes: the local tier spends nothing and sends
+nothing, and any model tier runs on the user's own OpenRouter key or fully
+on-device (HARD RULE #24).
 
 ## 7 · Follow-ups (not in this change)
 
-- Offer the assistant when the match distribution is flat (see §6.2).
+- Finish the judge measurement (`npm run intent:judge`, ~$1 of credit) before
+  any recommender UI is built. The mean confidence margin is 0.428 when the
+  local tier is right and 0.309 when it is wrong, so escalating on the
+  least-confident ~36% of queries catches about half the errors and wastes
+  ~40% of the calls it makes — usable, coarse, and worth re-deriving against
+  the judge's actual error profile rather than BM25's.
 - Revisit embeddings only if the synonym lexicon outgrows a glance (§5).
 - The harvested corpus is a reusable asset: it is the first thing in this repo
   that can measure a search change instead of arguing about one. If the ranker

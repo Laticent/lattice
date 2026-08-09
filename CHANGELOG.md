@@ -37,6 +37,13 @@ in patch versions.
   against this and rejected — it cost 250× the payload to rank no better. Numbers, method, and a
   reproducible harness (`npm run intent:bakeoff`):
   `engineering/decisions/2026-08-09-on-device-intent-routing.md`. (#1440)
+- **Component *recommendation* — as opposed to search — is measured, not shipped.** A held-out
+  benchmark built from the manifest's own `whenToUse`/`antiPatterns` notes (`npm run intent:fit`)
+  shows a deterministic facet scorer cannot judge fit: a weight tuner zeroed every facet signal in
+  favor of plain BM25, and the scorer is committed but wired into nothing. Retrieval is local and
+  good (74.1% top-1); ruling the *wrong* component out is not (27%), and stays unsolved pending a
+  model tier whose evaluation is written (`npm run intent:judge`) but not yet run to completion.
+  No user-visible behavior change from this half. (#1440)
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator
   forms that were invisible to the Studio now split a slide, and a setext underline no longer
   does.** The engine breaks a slide on every top-level markdown-it `hr`; every caller-side splitter
