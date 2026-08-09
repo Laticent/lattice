@@ -61,12 +61,19 @@ Node resolves that from the importing file's own directory upward —
 this reads as impossible at a glance, and why it is worth writing down: the
 package is installed, just not anywhere the importer can see it.
 
-**Consequence for this priority pass.** Six open cards describe specs failing
-in the *first* era — #1493, #1424, #1208, #1315, #1426, and #1471. None of
-them can be confirmed, fixed, or closed until the suite runs again, and one of
-them (#1493, filed 2026-08-09) describes a run that could not have happened
-that night. They are not independently workable items right now; they are one
-blocked cluster behind one workflow fix.
+**Consequence for this priority pass.** Five open cards describe specs failing
+in the *first* era — #1493, #1424, #1208, #1315 and #1426. None of them can be
+confirmed, fixed, or closed until the suite runs again, and one of them (#1493,
+filed 2026-08-09) describes a run that could not have happened that night. They
+are not independently workable items right now; they are one blocked cluster
+behind one workflow fix.
+
+> **Correction (same day).** An earlier draft of this note counted **#1471** as
+> a sixth member of that cluster. It is not: #1471 is a **vitest** ordering
+> flake in the docs *unit* suite, which the nightly's state never affected. The
+> mistake was grouping by the words "Studio suites fail" rather than by which
+> runner executes them — the exact substitution of issue text for ground truth
+> this pass exists to catch. #1471 stands on its own, unblocked.
 
 This is the single highest-leverage item in the queue and it had **no issue**.
 Per HARD RULE #18 a defect found off-path gets logged rather than carried in a
@@ -111,8 +118,15 @@ only suite watching the Studio is dark.
 1. **#1498** — add a root `npm ci` to `studio-e2e-nightly.yml`. Small,
    mechanical, and it is what makes items 2–3 knowable.
 2. **Re-run, then re-triage the spec cluster** — #1493, #1424, #1208, #1315,
-   #1426, #1471. Expect this to collapse: six cards, one dark suite, and at
-   least #1493 duplicates #1424 + #1208 by construction.
+   #1426. Expect this to collapse: five cards, one dark suite, and at least
+   #1493 duplicates #1424 + #1208 by construction.
+
+   *Outcome (done):* the restored run reported **16 failed · 3 skipped · 226
+   passed** in 24.1 min. All five cards confirmed still failing; #1493 closed as
+   a duplicate of #1208. The bigger result is what the blackout had been hiding:
+   **ten failing specs with no card at all**, including three PDF-export
+   journeys. Inventory and mapping in **#1507**; the run also surfaced #1504
+   (fixed in #1505) and confirmed #1506 in CI.
 3. **#1324** (docs suite flaky on main, ejecting unrelated PRs) and **#1328**
    (`studio.theme-depth` flakes and masks real failures) — the same family as
    1–2 and worth one window.
