@@ -189,10 +189,6 @@
   --diagram-line:                  var(--text-heading);
 }
 
-section pre.hljs {
-  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
-}
-
 :root {
   --cat-on-fill: var(--text-heading);
   --cat-on-mark:  #0A0A0A;
