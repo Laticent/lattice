@@ -82,7 +82,7 @@ in patch versions.
   the app's **own** `Button`, `Separator`, `LatticeMark`, `icons.ts` glyphs, and `BarIcon` /
   `PostureDial` / `EditorSkeleton` (lifted out of `StudioShell` into a shared `chrome-parts`)
   — to static HTML at build time, with no client directive, so it ships as markup and **zero
-  JS**. No px constant and no copied SVG remain in the shell; the eight bar cells are
+  JS**. No copied SVG path remains in the shell; the eight bar cells are
   byte-identical to the app's, including the bordered Present cell. Per-deck content (slide
   names, counts, palette) is deliberately *not* drawn — that would re-create the
   second-content-surface failure the one-skeleton decision retired — so it gets a neutral bar
@@ -91,14 +91,22 @@ in patch versions.
   no longer flashes a topbar the app is about to delete; the Build stop drops the slim tail
   rather than paint a header the app will replace; `mobileBarH` was 4px stale (53 → 49, left
   behind by the eight-cell redesign); and a new e2e oracle measures **both** surfaces in one
-  page load — every band and every control — and fails on either drift. Verified at 393 / 820
-  / 1440, light and dark, at Read, at Build and in cinema, and **confirmed on a real iPhone
-  and iPad by the reporter**. One residual they caught on device: the shell forced
+  page load — every band and every control — and fails on either drift. **Confirmed on a real
+  iPhone and iPad by the reporter.** One residual they caught on device: the shell forced
   `font-family: system-ui` while the app renders in `--font-body`, so the content-sized deck
   pill painted 164.5px and re-measured at 185px on hydration — a visible shift from tablet
   up. The shell now inherits the app's font, and the pill is asserted by the oracle (the
   bands and bar cells are all width-constrained, so none of them could see that class of
-  drift).
+  drift). An adversarial pass then found **eight** more divergences that the hand-listed
+  oracle passed green over, every one of them in a state or a control nobody had listed: the
+  Build stop's activity rail and its full-header left run (the deck pill sat 27px off), a
+  persisted splitter (the split line up to 288px off) and a collapsed pane, the cinema morph's
+  one-axis padding (the slide 43px too wide), the preview sub-bar's three heights (47 / 45 /
+  41px, on a *container* query over the pane), a rotation during load, and two mis-copied
+  breakpoints. All fixed — and the hand-listed oracle is replaced by two ENUMERATING matrices
+  that compare the two surfaces as sets across 13 width × stop cases each, so a control added
+  to the app's chrome and not the shell fails on the first run. Four of those cases are
+  `@smoke`, so the per-PR job catches band and control drift the same day.
   See `engineering/decisions/2026-08-09-studio-shell-structural-completeness.md`.
 
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator

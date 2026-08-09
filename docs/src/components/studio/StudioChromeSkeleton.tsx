@@ -115,7 +115,11 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 			    Below 1100 the app renders its FULL header; at 1100+ (Read/Write) a SLIM one.
 			    Both are rendered and CSS-gated, since the breakpoint hook can't run here. */}
 			<div className="ssr-topbar flex h-[54px] shrink-0 items-center gap-1.5 overflow-hidden border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 min-[1100px]:gap-3 min-[1100px]:px-3.5">
-				{/* FULL-header left: the launcher (mark + chevron). Phone + tablet. */}
+				{/* FULL-header left: the launcher (mark + chevron). Phone + tablet — and desktop at
+				    BUILD, where the app swaps the slim header for this one. That last case is not
+				    expressible in a Tailwind width class (it depends on the STOP), so the shell CSS
+				    re-gates these three spans under `:root[data-ssr-stop="build"]`; drawing the slim
+				    header's bare mark there instead pushed the deck pill 27px right. */}
 				<span className="ssr-launcher-wrap contents min-[1100px]:hidden">
 					<button type="button" aria-label="Workspace launcher" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 sm:gap-2 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
@@ -125,9 +129,14 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 							<ChevronDown className="size-4 text-muted-foreground" />
 					</button>
 				</span>
-				{/* SLIM-header left: a bare mark. Desktop at Read/Write. */}
-				<span className="hidden min-[1100px]:contents">
+				{/* SLIM-header left: a bare mark. Desktop at Read/Write only. */}
+				<span className="ssr-slim-mark hidden min-[1100px]:contents">
 					<LatticeMark mode="light" className="size-7 shrink-0 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 shrink-0 ssr-mark-dark" />
+				</span>
+				{/* The rule between the launcher and the deck pill — `!compact` in the app, so it
+				    exists ONLY in the desktop full header, which is the Build stop. */}
+				<span className="ssr-build-lead hidden">
+					<Separator orientation="vertical" className="h-5" />
 				</span>
 
 				<DeckPill title={deckTitle} />

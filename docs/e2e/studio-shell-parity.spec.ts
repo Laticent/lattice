@@ -39,9 +39,12 @@ const PILL_TOL = 6;
 const ENGINE_HOLD_MS = 2500;
 
 /** Widths chosen at tier boundaries — that is where hand-copied gating breaks. */
-const CASES: { w: number; h: number; stop: 'read' | 'write' | 'build'; why: string }[] = [
+// Two cases carry `@smoke` so the SET comparison — the part that catches "someone added an
+// icon" — runs on the per-PR job as well as the nightly. One phone, one desktop: between them
+// they render every control the shell mirrors. The boundary widths stay nightly.
+const CASES: { w: number; h: number; stop: 'read' | 'write' | 'build'; why: string; smoke?: boolean }[] = [
 	{ w: 320, h: 844, stop: 'write', why: 'narrow phone — the preview sub-bar shrinks here' },
-	{ w: 390, h: 844, stop: 'write', why: 'phone, the reported surface' },
+	{ w: 390, h: 844, stop: 'write', smoke: true, why: 'phone, the reported surface' },
 	{ w: 390, h: 844, stop: 'read', why: 'phone at Read — chromeless preview' },
 	{ w: 639, h: 844, stop: 'write', why: 'just below Tailwind sm' },
 	{ w: 660, h: 844, stop: 'write', why: 'inside sm..app-tablet, where the launcher drifted' },
@@ -50,7 +53,7 @@ const CASES: { w: number; h: number; stop: 'read' | 'write' | 'build'; why: stri
 	{ w: 1024, h: 900, stop: 'write', why: 'Tailwind lg — Present/Share gain labels' },
 	{ w: 1099, h: 900, stop: 'write', why: 'top of the app tablet tier' },
 	{ w: 1100, h: 900, stop: 'write', why: 'bottom of the app desktop tier' },
-	{ w: 1440, h: 900, stop: 'write', why: 'desktop' },
+	{ w: 1440, h: 900, stop: 'write', smoke: true, why: 'desktop' },
 	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, plain title' },
 	{ w: 1440, h: 900, stop: 'build', why: 'desktop at Build — activity rail + full header' },
 ];
@@ -87,7 +90,7 @@ function index(list: Control[]) {
 }
 
 for (const c of CASES) {
-	test(`@crosswidth shell and app agree on every control — ${c.w}px @ ${c.stop} (${c.why})`, async ({ page }) => {
+	test(`@crosswidth${c.smoke ? ' @smoke' : ''} shell and app agree on every control — ${c.w}px @ ${c.stop} (${c.why})`, async ({ page }) => {
 		await page.addInitScript((stop) => {
 			try {
 				const k = 'lattice-studio-settings';

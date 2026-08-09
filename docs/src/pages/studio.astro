@@ -25,7 +25,7 @@ import { assetBase } from '../playground/asset-version.mjs';
 import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
-import { PREVIEW_CHROME, PREVIEW_RECT_KEY } from '../components/studio/preview-rect';
+import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_KEY } from '../components/studio/preview-rect';
 import { BOOT_POSTURE } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
@@ -248,6 +248,11 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
 :root[data-mode="dark"] #studio-ssr-shell .ssr-mark-dark{display:block;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-mode-to-dark{display:none;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-mode-to-light{display:inline-flex;}
+/* The stage is the LAST-RESORT layout: a centered box with no seeded rect. It applies only
+   when the geometry seed could not place the box (storage threw, or a viewport so small the
+   letterbox fit degenerates) — every other path sets data-ssr-rect and the rule below takes
+   over with padding:0. The --sh-ftr term keeps the box off the footer band in the one case
+   where the chrome DID publish and the box did not; it resolves to 0 when it didn't. */
 #studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);padding-bottom:calc(clamp(12px,3vw,20px) + var(--sh-ftr,0px));container-type:size;}
 /* FALLBACK box (a visitor with no persisted rect): ONE full-bleed box at the deck's
    AUTHOR-CHOSEN aspect (--sb-ratio / numeric --sb-ar, seeded below; the engine's own 16:9
@@ -305,10 +310,6 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    54px band the app is about to delete. No chrome vars are published in this mode, so the
    bands are already absent — this only has to take the topbar with them. */
 :root[data-ssr-cinema] #studio-ssr-shell .ssr-chrome{display:none;}
-/* BUILD on a wide viewport is the one stop where the app swaps the SLIM header this shell
-   draws for the FULL one (deck switcher, theme segment, tours, panel toggles). Rather than
-   model a third header, drop the slim tail there and keep only what both headers share (the
-   mark and the deck pill) — the shell never paints a run the app is about to replace. */
 /* The activity rail — desktop at Build only. */
 #studio-ssr-shell .ssr-activityrail{left:0;top:var(--sh-pane-t,54px);width:var(--sh-rail,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
 :root:not([data-ssr-stop="build"]) #studio-ssr-shell .ssr-activityrail,:root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-activityrail,:root[data-ssr-read] #studio-ssr-shell .ssr-activityrail{display:none;}
@@ -320,7 +321,11 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    Write meant a Read visitor watched the highlight chip jump at hand-off. */
 #studio-ssr-shell .ssr-dial{display:none;}
 :root[data-ssr-stop="read"] #studio-ssr-shell .ssr-dial-read,:root[data-ssr-stop="write"] #studio-ssr-shell .ssr-dial-write,:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-dial-build{display:contents;}
-@media (min-width:1100px){:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}}
+/* …and the header's LEFT run swaps with it: the full header leads with the launcher and a
+   rule, the slim one with a bare mark. Not expressible in a width class — it turns on the
+   STOP — so the three spans are re-gated here. Drawing the slim mark at Build put the deck
+   pill 27px right of where the app puts it, which is a visible slide at hand-off. */
+@media (min-width:1100px){:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-slim-mark{display:none;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-build-lead{display:contents;}}
 /* READ on a wide viewport shows the deck title as plain text, not the bordered switcher. */
 :root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill{border-color:transparent;background:none;}
 :root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill > svg{display:none;}`;
@@ -387,7 +392,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -466,135 +471,208 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							r.style.setProperty('--sb-ar', String(rr[0] / rr[1]));
 						}
 					} catch (e3) {}
-					// CHROME SEED (#1438) — resolve the app's structural bands (the phone action
-					// bar, the editor column, the preview sub-bar, the footer) and publish them as
-					// CSS vars so the shell can DRAW them, not just leave their space blank. This
-					// runs for EVERY visitor and BEFORE the two box seeds below, because the box
-					// seeds now reuse its result: one derivation of the layout, two consumers, so a
+					// GEOMETRY SEED (#1438) — resolve the app's structural bands (the phone action
+					// bar, the editor column, the preview sub-bar, the footer) AND the Nacre slide
+					// box from ONE derivation, and publish them as CSS vars so the shell can DRAW
+					// them rather than leave their space blank. One derivation, two consumers, so a
 					// band can never disagree with the box it frames.
+					//
+					// It is a FUNCTION because the viewport is not a constant during a load: a phone
+					// rotated while the ~505KB engine is still fetching would otherwise keep the
+					// portrait geometry until hydration and then snap. Re-run on resize /
+					// orientationchange until the app dismisses the shell (see the tail below).
+					//
 					// Cinema (a landscape phone) is the one surface with NO chrome at all — the app
 					// suppresses the header, the bar and the navigator and runs the slide full-bleed
 					// — so it is detected here from the SAME media query the app's `useLandscapePhone`
 					// uses, and it turns the whole shell chrome off rather than painting bands the
 					// app is about to delete.
-					var G = null;
-					try {
-						var C = PREVIEW_CHROME;
-						var vw2 = window.innerWidth, vh2 = window.innerHeight;
-						var cinema = !!(window.matchMedia && matchMedia('(orientation: landscape) and (max-height: 500px) and (pointer: coarse)').matches);
-						var bpMobile = vw2 <= 699;
-						// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
-						// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
-						// store's own constant, handed in through define:vars rather than restated
-						// here (#1286). This mirror is load-bearing: deriving a stop the app won't
-						// render makes the first load compute a full-bleed box against a split (or
-						// the reverse), and the hand-off shows as a jump — which is exactly what
-						// shipped when this line carried its own private copy of the answer.
-						var posture = null;
-						try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e7) {}
-						if (!posture) posture = BOOT_POSTURE;
-						// Read and cinema are both "chromeless" for the PREVIEW pane; cinema drops the
-						// surrounding app chrome too (handled by `cinema` below).
-						var chromeless = posture === 'read' || cinema;
-						var pad = cinema ? 0 : (vw2 < 640 ? C.padMobile : C.padDesktop);
-						var paneTop = cinema ? 0 : C.topbarH + (bpMobile ? C.mobileBarH : 0);
-						var headerH = chromeless ? C.headerRead : C.headerWrite;
-						var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite);
-						// No width cap — the app stopped capping the preview box (#1283), so a cap
-						// here would paint a narrower skeleton than the box the hydrated app
-						// measures, and the hand-off would show as a jump.
-						var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
-						// The Build stop on a wide viewport puts a fixed activity rail down the left,
-						// OUTSIDE the split — so the editor|preview ratio divides what is left of the
-						// viewport, not the viewport.
-						var railW = (!bpMobile && !chromeless && posture === 'build') ? C.railBuildDesktop : 0;
-						var paneX, paneW;
-						if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = (vw2 - railW) * frac; paneX = vw2 - paneW; }
-						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, railW: railW, bpMobile: bpMobile, chromeless: chromeless, pad: pad, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
-						// Publishing is a function because the REPLAY seed below can widen the pane to
-						// contain a replayed box (see there) and must re-publish the corrected values.
-						G.publish = function () {
-							if (G.cinema) { r.setAttribute('data-ssr-cinema', '1'); return; } // no chrome to draw
-							r.style.setProperty('--sh-topbar', C.topbarH + 'px');
-							r.style.setProperty('--sh-bar', (G.bpMobile ? C.mobileBarH : 0) + 'px');
-							r.style.setProperty('--sh-pane-t', G.paneTop + 'px');
-							r.style.setProperty('--sh-pane-l', G.paneX + 'px');
-							r.style.setProperty('--sh-pane-w', G.paneW + 'px');
-							r.style.setProperty('--sh-hdr', G.headerH + 'px');
-							r.style.setProperty('--sh-ftr', G.footerH + 'px');
-							r.style.setProperty('--sh-status', C.statusH + 'px');
-							r.style.setProperty('--sh-rail', G.railW + 'px');
-							r.setAttribute('data-ssr-bp', G.bpMobile ? 'mobile' : 'wide');
-							if (G.chromeless) r.setAttribute('data-ssr-read', '1');
-							r.setAttribute('data-ssr-stop', G.posture);
-							r.setAttribute('data-ssr-chrome', '1');
-						};
-						G.publish();
-					} catch (e6) { G = null; } // no chrome vars published → the shell falls back to topbar + box, exactly as before
-					// GEOMETRY SEED — place the Nacre box at the EXACT rect the app last had its
-					// preview box (persisted by StudioShell on unload as viewport fractions). On a
-					// same-device reload the shell box then lands pixel-identical to where the
-					// hydrated app re-measures it → no jump at hand-off. Computed to px from the
-					// CURRENT viewport (not vw/vh units) so it matches whatever the app measures
-					// now, and clamped on-screen in case the viewport changed since (rotation).
-					// No saved rect (newcomer) → the CSS falls back to a centered full-bleed box.
-					try {
-						var rectRaw = localStorage.getItem(PREVIEW_RECT_KEY);
-						if (rectRaw) {
-							var q = JSON.parse(rectRaw);
-							if (q && q.w > 0.1 && q.h > 0.05 && q.l >= 0 && q.t >= 0 && q.l < 1 && q.t < 1) {
-								var vw = window.innerWidth, vh = window.innerHeight;
-								var bw = Math.min(q.w * vw, vw);
-								var bh = Math.min(q.h * vh, vh);
-								var bl = Math.max(0, Math.min(q.l * vw, vw - bw));
-								var bt = Math.max(0, Math.min(q.t * vh, vh - bh));
-								r.style.setProperty('--sb-l', bl + 'px');
-								r.style.setProperty('--sb-t', bt + 'px');
-								r.style.setProperty('--sb-w', bw + 'px');
-								r.style.setProperty('--sb-h', bh + 'px');
-								r.setAttribute('data-ssr-rect', '1');
-								// The replayed box is the app's OWN measurement, so it already reflects a
-								// splitter the user dragged; the chrome bands above were derived from the
-								// DEFAULT split share. Widen the pane to CONTAIN the replayed box whenever
-								// the two disagree, so a dragged splitter can never leave the slide sitting
-								// on top of the editor band. Widening only — the default case already
-								// contains the box, so it comes through untouched.
-								if (G && !G.cinema && !G.bpMobile) {
-									if (bl - G.pad < G.paneX) { G.paneW += G.paneX - (bl - G.pad); G.paneX = bl - G.pad; }
-									if (bl + bw + G.pad > G.paneX + G.paneW) G.paneW = bl + bw + G.pad - G.paneX;
-									G.paneX = Math.max(0, G.paneX);
-									G.paneW = Math.min(G.paneW, G.vw - G.paneX);
-									G.publish();
+					var seedGeometry = function () {
+						var G = null;
+						try {
+							var C = PREVIEW_CHROME;
+							var vw2 = window.innerWidth, vh2 = window.innerHeight;
+							var cinema = !!(window.matchMedia && matchMedia('(orientation: landscape) and (max-height: 500px) and (pointer: coarse)').matches);
+							var bpMobile = vw2 <= 699;
+							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
+							// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
+							// store's own constant, handed in through define:vars rather than restated
+							// here (#1286). This mirror is load-bearing: deriving a stop the app won't
+							// render makes the first load compute a full-bleed box against a split (or
+							// the reverse), and the hand-off shows as a jump — which is exactly what
+							// shipped when this line carried its own private copy of the answer.
+							var posture = null;
+							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e7) {}
+							if (!posture) posture = BOOT_POSTURE;
+							// Read and cinema are both "chromeless" for the PREVIEW pane; cinema drops the
+							// surrounding app chrome too (handled by `cinema` below).
+							var chromeless = posture === 'read' || cinema;
+							// The holder pads BOTH axes everywhere except the cinema morph, which is
+							// `px-0 py-3` — one axis, and the axis that bounds a 16:9 box on a landscape
+							// phone. Modeling cinema as unpadded made the shell's slide 43px wider and
+							// 24px taller than the one the app was about to draw.
+							var padX = cinema ? 0 : (vw2 < 640 ? C.padMobile : C.padDesktop);
+							var padY = cinema ? C.padCinemaY : padX;
+							var paneTop = cinema ? 0 : C.topbarH + (bpMobile ? C.mobileBarH : 0);
+							var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite);
+							// No width cap — the app stopped capping the preview box (#1283), so a cap
+							// here would paint a narrower skeleton than the box the hydrated app
+							// measures, and the hand-off would show as a jump.
+							//
+							// THE SPLIT. react-resizable-panels distributes percentages over the group
+							// width minus its separators, and the app persists that percentage per panel
+							// set. Read the saved one rather than assuming the default: a visitor who
+							// dragged the divider gets it back on the next load, and a shell still drawing
+							// the 54% default put the split line up to 288px off — the largest divergence
+							// the adversarial trio found. A collapsed pane is a THIRD state, persisted
+							// separately (sessionStorage, so it survives reload), and it pins the collapsed
+							// side to its 46px rail rather than any percentage.
+							var frac = C.defaultPreviewFrac;
+							var collapsed = null;
+							try { collapsed = sessionStorage.getItem(STUDIO_SPLIT_KEY + '-collapsed'); } catch (e8) {}
+							try {
+								var store = JSON.parse(localStorage.getItem(STUDIO_SPLIT_KEY) || 'null');
+								var saved = store && store[STUDIO_SPLIT_BUCKET];
+								if (saved && typeof saved['studio-editor'] === 'number' && typeof saved['studio-preview'] === 'number') {
+									var tot = saved['studio-editor'] + saved['studio-preview'];
+									if (tot > 0) frac = saved['studio-preview'] / tot;
+								}
+							} catch (e9) {}
+							// The Build stop on a wide viewport puts a fixed activity rail down the left,
+							// OUTSIDE the split — so the editor|preview ratio divides what is left of the
+							// viewport, not the viewport.
+							var railW = (!bpMobile && !chromeless && posture === 'build') ? C.railBuildDesktop : 0;
+							var paneX, paneW;
+							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else {
+								var avail = vw2 - railW - C.splitSeparatorW;
+								if (collapsed === 'a') paneW = avail - C.splitRailW;
+								else if (collapsed === 'b') paneW = C.splitRailW;
+								else {
+									// The library clamps a restored percentage to the panels' px minimums, so
+									// clamp identically — a layout saved on a monitor is replayed on a laptop.
+									paneW = Math.max(C.splitPreviewMin, Math.min(avail * frac, avail - C.splitEditorMin));
+									paneW = Math.min(paneW, avail); // a viewport too narrow for BOTH minimums
+								}
+								paneX = vw2 - paneW;
+							}
+							// The preview sub-bar's height is a CONTAINER query on the PANE, not the
+							// viewport — so it has to be resolved after the split, and it is why a
+							// dragged divider can shorten a band on a 1440px desktop.
+							var headerH = chromeless ? C.headerRead : (paneW >= C.headerNarrowPaneW ? C.headerWrite : (bpMobile ? C.headerWriteNarrowMobile : C.headerWriteNarrowSplit));
+							G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
+							// Publishing is a function because the REPLAY seed below can widen the pane to
+							// contain a replayed box (see there) and must re-publish the corrected values.
+							// Every attribute is set OR cleared, never only set: a re-seed after a rotation
+							// crosses in and out of cinema, and a stale `data-ssr-cinema` would hide the
+							// chrome of the portrait layout it just switched to.
+							G.publish = function () {
+								if (G.cinema) { r.setAttribute('data-ssr-cinema', '1'); return; } // no chrome to draw
+								r.removeAttribute('data-ssr-cinema');
+								r.style.setProperty('--sh-pane-t', G.paneTop + 'px');
+								r.style.setProperty('--sh-pane-l', G.paneX + 'px');
+								r.style.setProperty('--sh-pane-w', G.paneW + 'px');
+								r.style.setProperty('--sh-hdr', G.headerH + 'px');
+								r.style.setProperty('--sh-ftr', G.footerH + 'px');
+								r.style.setProperty('--sh-status', C.statusH + 'px');
+								r.style.setProperty('--sh-rail', G.railW + 'px');
+								r.setAttribute('data-ssr-bp', G.bpMobile ? 'mobile' : 'wide');
+								if (G.chromeless) r.setAttribute('data-ssr-read', '1'); else r.removeAttribute('data-ssr-read');
+								r.setAttribute('data-ssr-stop', G.posture);
+								r.setAttribute('data-ssr-chrome', '1');
+							};
+							G.publish();
+						} catch (e6) { G = null; } // no chrome vars published → the shell falls back to topbar + box, exactly as before
+						// BOX SEED — place the Nacre box at the EXACT rect the app last had its
+						// preview box (persisted by StudioShell on unload as viewport fractions). On a
+						// same-device reload the shell box then lands pixel-identical to where the
+						// hydrated app re-measures it → no jump at hand-off. Computed to px from the
+						// CURRENT viewport (not vw/vh units) so it matches whatever the app measures
+						// now, and clamped on-screen in case the viewport changed since (rotation).
+						// No saved rect (newcomer) → the compute fallback below.
+						var hasRect = false;
+						try {
+							var rectRaw = localStorage.getItem(PREVIEW_RECT_KEY);
+							if (rectRaw) {
+								var q = JSON.parse(rectRaw);
+								if (q && q.w > 0.1 && q.h > 0.05 && q.l >= 0 && q.t >= 0 && q.l < 1 && q.t < 1) {
+									var vw = window.innerWidth, vh = window.innerHeight;
+									var bw = Math.min(q.w * vw, vw);
+									var bh = Math.min(q.h * vh, vh);
+									var bl = Math.max(0, Math.min(q.l * vw, vw - bw));
+									var bt = Math.max(0, Math.min(q.t * vh, vh - bh));
+									r.style.setProperty('--sb-l', bl + 'px');
+									r.style.setProperty('--sb-t', bt + 'px');
+									r.style.setProperty('--sb-w', bw + 'px');
+									r.style.setProperty('--sb-h', bh + 'px');
+									hasRect = true;
+									// The replayed box is the app's OWN measurement, so it already reflects a
+									// splitter the user dragged; the chrome bands above were derived from the
+									// PERSISTED split share, which is the same answer in every case we can
+									// check — but a rect saved under an older rule set (a different stop, a
+									// pre-migration key) can still disagree. Widen the pane to CONTAIN the
+									// replayed box when it does, so the slide can never sit on the editor
+									// band. Widening only — an agreeing rect comes through untouched.
+									if (G && !G.cinema && !G.bpMobile) {
+										if (bl - G.padX < G.paneX) { G.paneW += G.paneX - (bl - G.padX); G.paneX = bl - G.padX; }
+										if (bl + bw + G.padX > G.paneX + G.paneW) G.paneW = bl + bw + G.padX - G.paneX;
+										G.paneX = Math.max(0, G.paneX);
+										G.paneW = Math.min(G.paneW, G.vw - G.paneX);
+										G.publish();
+									}
 								}
 							}
-						}
-					} catch (e2) {}
-					// COMPUTE SEED (prototype, option B) — when there is NO persisted rect (a
-					// brand-new visitor, a cross-device first load), don't fall back to an
-					// approximate centered box: COMPUTE the exact rect from known inputs, the same
-					// pure function the validation proved matches the app to 0.1px. Every input
-					// (posture, breakpoint, pane rect, per-stop chrome) now comes from the CHROME
-					// SEED's `G` above rather than being re-derived here — the second copy of that
-					// derivation is exactly the kind of drift the shell keeps paying for — so this
-					// block is only the letterbox fit of the deck ratio (`rr`) into `G`'s pane.
-					// Since #1438, `G` also models landscape-phone CINEMA (chrome-free, full-bleed),
-					// which this compute previously could not express. Still not modeled: the Build
-					// stop's side panels (rect-replay covers a returning visitor there).
-					try {
-						if (G && !r.hasAttribute('data-ssr-rect')) {
-							var ar2 = rr[0] / rr[1];
-							var cw = G.paneW - 2 * G.pad, ch = G.paneH - G.headerH - G.footerH - 2 * G.pad;
-							var bw2 = Math.max(0, Math.min(cw, ch * ar2));
-							var bh2 = bw2 / ar2;
-							if (bw2 > 1 && bh2 > 1) {
-								r.style.setProperty('--sb-l', (G.paneX + G.pad + (cw - bw2) / 2) + 'px');
-								r.style.setProperty('--sb-t', (G.paneTop + G.headerH + G.pad + (ch - bh2) / 2) + 'px');
-								r.style.setProperty('--sb-w', bw2 + 'px');
-								r.style.setProperty('--sb-h', bh2 + 'px');
-								r.setAttribute('data-ssr-rect', '1');
+						} catch (e2) {}
+						// COMPUTE FALLBACK — when there is NO persisted rect (a brand-new visitor, a
+						// cross-device first load), don't fall back to an approximate centered box:
+						// COMPUTE the exact rect from known inputs, the same pure function the
+						// validation proved matches the app to 0.1px. Every input (posture, breakpoint,
+						// pane rect, per-stop chrome) comes from `G` above rather than being re-derived
+						// — the second copy of that derivation is exactly the kind of drift the shell
+						// keeps paying for — so this is only the letterbox fit of the deck ratio (`rr`)
+						// into `G`'s pane. Still not modeled: the Build stop's docked side panels
+						// (rect-replay covers a returning visitor there).
+						try {
+							if (G && !hasRect) {
+								var ar2 = rr[0] / rr[1];
+								var cw = G.paneW - 2 * G.padX, ch = G.paneH - G.headerH - G.footerH - 2 * G.padY;
+								// FLOOR, because the app does: the slide card's width is
+								// `Math.floor(min(paneW, paneH * ratio))px` and its height follows from
+								// `aspect-ratio`. Rounding the other way put the shell's box up to 1px wide
+								// of the app's and, through the aspect ratio, ~0.6px tall of it.
+								var bw2 = Math.floor(Math.max(0, Math.min(cw, ch * ar2)));
+								var bh2 = bw2 / ar2;
+								if (bw2 > 1 && bh2 > 1) {
+									r.style.setProperty('--sb-l', (G.paneX + G.padX + (cw - bw2) / 2) + 'px');
+									r.style.setProperty('--sb-t', (G.paneTop + G.headerH + G.padY + (ch - bh2) / 2) + 'px');
+									r.style.setProperty('--sb-w', bw2 + 'px');
+									r.style.setProperty('--sb-h', bh2 + 'px');
+									hasRect = true;
+								}
 							}
+						} catch (e4) {}
+						// A re-seed that can no longer place the box must UNSET the flag, or the CSS
+						// keeps absolutely positioning the box at the previous viewport's rect.
+						if (hasRect) r.setAttribute('data-ssr-rect', '1'); else r.removeAttribute('data-ssr-rect');
+					};
+					seedGeometry();
+					// Re-seed while the shell is up. A phone rotated during the engine fetch is the
+					// case that matters: the geometry was derived once, at parse time, and the shell
+					// would hold the portrait layout until hydration corrected it in one jump. The
+					// listener retires itself the moment the app removes the shell node — latched on
+					// having SEEN it, because at parse time the node has not been created yet and a
+					// bare absence check would unhook immediately.
+					var sawShell = false;
+					var reseed = function () {
+						if (document.getElementById('studio-ssr-shell')) sawShell = true;
+						else if (sawShell) {
+							window.removeEventListener('resize', reseed);
+							window.removeEventListener('orientationchange', reseed);
+							return;
 						}
-					} catch (e4) {}
+						seedGeometry();
+					};
+					window.addEventListener('resize', reseed);
+					window.addEventListener('orientationchange', reseed);
 					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
 					// with the react-resizable-panels migration: the hook restores the saved
 					// ratio post-mount via the panel imperative API. Studio is client:only,

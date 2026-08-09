@@ -67,7 +67,7 @@ import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-che
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { PresentOverlay } from './PresentOverlay';
-import { PREVIEW_RECT_KEY } from './preview-rect';
+import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
@@ -195,8 +195,11 @@ const LIB_DEFAULT = 380; // Library docked default — wider than the coach; ass
 // for the editor's conditional Refine/issue controls. Kept ≤ so the 1100px both-panels
 // desktop config still fits (bar-fold + side-panel mins; verified). Below this the panes
 // collapse to the 46px rail.
-const EDITOR_MIN = 300;
-const PREVIEW_MIN = 300;
+// Declared in preview-rect.ts beside the rest of the geometry contract: the pre-paint
+// shell has to clamp a restored split by the SAME minimums the library enforces here,
+// and two copies of the number is exactly the drift the shell keeps paying for.
+const EDITOR_MIN = PREVIEW_CHROME.splitEditorMin;
+const PREVIEW_MIN = PREVIEW_CHROME.splitPreviewMin;
 
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
 // theme, incl. the AA color-blind-safe set). BUILTIN_PALETTES = anything we can
@@ -1661,7 +1664,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		'EP' +
 		(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? 'T' : '');
 	const split = useResizableSplit({
-		storageKey: 'lattice-docs-split-studio',
+		storageKey: STUDIO_SPLIT_KEY,
 		active: splitUsable,
 		defaultRatio: 46,
 		configKey: splitConfigKey,
@@ -3802,7 +3805,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Editor pane — collapsible to its rail (46px). Hidden at the Read stop so
 						    the preview fills the surface (the pane stays MOUNTED → no remount on the
 						    Read→Write step). */}
-						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={EDITOR_MIN} defaultSize="46" collapsible={split.ready} collapsedSize={46} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
+						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={EDITOR_MIN} defaultSize="46" collapsible={split.ready} collapsedSize={PREVIEW_CHROME.splitRailW} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
 							{editorPane}
 							{splitRailA}
 						</ResizablePanel>
@@ -3810,7 +3813,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Preview pane — collapsible to its rail (46px); fills the surface at Read
 						    (the editor Panel's OUTER div is hidden by id in studio.astro's is:global
 						    block; a Tailwind class lands on the inner div and can't shrink the outer). */}
-						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={PREVIEW_MIN} defaultSize="54" collapsible={split.ready} collapsedSize={46} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
+						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={PREVIEW_MIN} defaultSize="54" collapsible={split.ready} collapsedSize={PREVIEW_CHROME.splitRailW} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
 							{previewPane}
 							{splitRailB}
 						</ResizablePanel>
