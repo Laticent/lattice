@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: A priority pass over the 156 open issues, run against the actual CI record rather than the issue text. Three corrections change the order. (1) The Studio E2E nightly has been red for 30 consecutive nights and, since 2026-08-05, has not run a single test — its Playwright webServer dies at startup because the workflow installs only `docs/` dependencies while `lib/core/boundary-parser.mjs` resolves `markdown-it` from the repo root. Nothing tracks this; the six filed spec-level cards describe the earlier era and cannot be confirmed or closed while the suite is dark. (2) Three `priority:high` cards — #683, #793, #732 — are rolling nightly markers whose gates have been green for 6–8 straight nights; they are the #441 pattern the 2026-06-26 triage already closed once, and they inflate the high band by 15%. (3) 65 of 156 cards (42%) carry no priority axis at all, so "work the queue by priority" currently addresses under 60% of it. Recommended order: restore the signal, close the false highs, then security (#1246, #1458, #617), then the one critical card (#1437), then the crashes, then the silent-wrong-output cluster. Recommendation only — no tracker changes applied.
+summary: A priority pass over the 156 open issues, run against the actual CI record rather than the issue text. Three corrections change the order. (1) The Studio E2E nightly has been red for 30 consecutive nights and, since 2026-08-05, has not run a single test — its Playwright webServer dies at startup because the workflow installs only `docs/` dependencies while `lib/core/boundary-parser.mjs` resolves `markdown-it` from the repo root. Nothing tracks this; the five filed spec-level cards describe the earlier era and cannot be confirmed or closed while the suite is dark. Restoring it showed the suite fails 16 specs — but the 2026-08-03 baseline failed 15 of the same ones, so the blackout cost four days of signal rather than hiding new breakage, and the uncarded failures are a triage gap that predates it. (2) Three `priority:high` cards — #683, #793, #732 — are rolling nightly markers whose gates have been green for 6–8 straight nights; they are the #441 pattern the 2026-06-26 triage already closed once, and they inflate the high band by 15%. (3) 65 of 156 cards (42%) carry no priority axis at all, so "work the queue by priority" currently addresses under 60% of it. Recommended order: restore the signal, close the false highs, then security (#1246, #1458, #617), then the one critical card (#1437), then the crashes, then the silent-wrong-output cluster. Recommendation only — no tracker changes applied.
 ---
 
 # Issue queue: a priority pass against the CI record (2026-08-09)
@@ -123,10 +123,22 @@ only suite watching the Studio is dark.
 
    *Outcome (done):* the restored run reported **16 failed · 3 skipped · 226
    passed** in 24.1 min. All five cards confirmed still failing; #1493 closed as
-   a duplicate of #1208. The bigger result is what the blackout had been hiding:
-   **ten failing specs with no card at all**, including three PDF-export
-   journeys. Inventory and mapping in **#1507**; the run also surfaced #1504
-   (fixed in #1505) and confirmed #1506 in CI.
+   a duplicate of #1208. Ten of the sixteen have **no card at all**, including
+   three PDF-export journeys. Inventory and mapping in **#1507**.
+
+   *And the baseline that reframes it:* the 2026-08-03 run — the last before the
+   blackout — failed **15** of the same specs (`173 passed`, 20.0 min). The only
+   new failure is `[tablet] visual.spec.ts:21`, consistent with #1426. So the
+   suite was red and largely uncarded *before* it went dark; the blackout cost
+   four days of signal, not ten hidden defects. That is worse than it sounds:
+   nothing was acting on the suite even while it was still reporting.
+
+   *A caution on weighting these:* two of the sixteen are already confirmed to be
+   **ambiguous locators**, not product defects — #1504 (`'Send'` also matching
+   "Send feedback") and #1506 (`getByText('Structure')` matching three elements).
+   The uncarded ten should be diagnosed before any of them earns priority; on the
+   evidence so far the locator class is over-represented, and a spec-side fix is
+   cheap while a misfiled product bug is not.
 3. **#1324** (docs suite flaky on main, ejecting unrelated PRs) and **#1328**
    (`studio.theme-depth` flakes and masks real failures) — the same family as
    1–2 and worth one window.
