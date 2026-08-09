@@ -26,11 +26,28 @@ const DB_VERSION = 1;
 const CLIPS = 'clips';
 const META = 'meta';
 
-/** Default on-device budget for synthesized narration. ~100 MB holds several fully
- *  prepared decks (a spoken sentence is typically 10–40 KB of mp3) while staying well
- *  inside a normal origin quota. Exported so the Workspace surface and the tests read
- *  the same number. */
-export const DEFAULT_BUDGET_BYTES = 100 * 1024 * 1024;
+/**
+ * Default on-device budget for synthesized narration.
+ *
+ * SIZED FOR THE BIGGEST CLIPS, not the smallest. The previous 100 MB was reasoned from "a
+ * spoken sentence is typically 10–40 KB of mp3" — true for the seven engines that return
+ * compressed audio, and wrong for the two that do not. On-device Kokoro and Gemini hand back
+ * raw 24 kHz 16-bit mono, which is 48 KB per SECOND: a four-second sentence is ~190 KB, five
+ * to twenty times the figure the old budget assumed.
+ *
+ * So the cache held ~4,000 sentences for most voices and barely 550 — under two full decks —
+ * for those two. Past that the LRU evicts, and eviction means re-synthesis: free but slow
+ * on-device, and BILLED for Gemini. The whole point of persisting a clip is not paying for it
+ * twice, and that promise did not hold for exactly the voices whose audio is largest.
+ *
+ * 400 MB puts them at ~2,200 sentences (roughly seven decks), in the same range the compressed
+ * engines already enjoyed. It remains well inside a normal origin quota — browsers typically
+ * allow an origin a large fraction of free disk — and the LRU still bounds it. The Workspace's
+ * Data tab shows what is actually used, so a large ceiling is not a large footprint.
+ *
+ * Exported so the Workspace surface and the tests read the same number.
+ */
+export const DEFAULT_BUDGET_BYTES = 400 * 1024 * 1024;
 
 let budgetBytes = DEFAULT_BUDGET_BYTES;
 /** Override the LRU budget (Workspace control / tests). Values ≤ 0 are ignored. */

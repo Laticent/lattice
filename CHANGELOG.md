@@ -81,6 +81,18 @@ in patch versions.
   what made reasonable. It still refuses rather than silently pulling an 80 MB model: if the
   on-device voice is not loaded, the export says so and tells you where to summon it.
 
+- **Narration kept on this device no longer evicts itself after a deck and a half.** The
+  on-device cache budget was reasoned from "a spoken sentence is typically 10–40 KB of mp3" —
+  true for the seven voices that return compressed audio, and wrong for the two that hand back
+  raw samples, where a four-second sentence is nearer 190 KB. Those two therefore filled the
+  cache after roughly 550 sentences, under two full decks, and then started dropping clips. An
+  evicted clip has to be made again: slow but free on-device, and **billed** for Gemini — so the
+  one promise a cache exists to make, that you never pay twice for the same sentence, did not
+  hold for exactly the voices whose audio is largest. The ceiling is now sized for the biggest
+  clips rather than the smallest (~2,200 sentences for those voices, in the same range the
+  others already had). It is a ceiling, not a footprint: the LRU still bounds it, and Workspace
+  → Data shows what is actually stored.
+
 - **The narrator you pick is the narrator you are billed for.** The new **This device / Cloud
   voice** choice originally moved only the *estimate*: an author who turned audio on and then
   chose the on-device voice was shown "nothing is billed" and then charged for the whole deck in

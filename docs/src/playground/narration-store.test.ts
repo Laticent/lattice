@@ -148,7 +148,11 @@ describe('narration-store', () => {
 	// the sibling `readyKeys` change was 7x SLOWER on a fresh store.
 
 	describe('budget', () => {
-		it('defaults to 100 MB and ignores nonsense overrides', async () => {
+		it('defaults to a budget sized for UNCOMPRESSED clips, and ignores nonsense overrides', async () => {
+			// Sized for the two engines that return raw audio (~190 KB a sentence), not for the
+			// seven that return mp3 (~25 KB). At the old 100 MB those two cached under two decks
+			// before evicting, and an eviction re-bills a Gemini deck the author already paid for.
+			expect(DEFAULT_BUDGET_BYTES).toBeGreaterThanOrEqual(300 * 1024 * 1024);
 			expect(getBudgetBytes()).toBe(DEFAULT_BUDGET_BYTES);
 			setBudgetBytes(0);
 			setBudgetBytes(-5);
