@@ -1182,27 +1182,56 @@ export async function voiceAvailability(): Promise<VoiceAvailability> {
 	);
 }
 
-/** The OpenRouter TTS-capable model catalog — id/name/pricing/live-published
- *  `voices` roster per model — or [] when unavailable. `voices` is the single
- *  source of truth every voice dropdown derives from (tts-voice-catalog.ts). */
-export async function listTtsModels(): Promise<OrVoiceModel[]> {
+/** The catalog, plus WHY it is the size it is. `reachable: false` means we never heard back —
+ *  the roster is unknown, not known-empty. Callers that render an explanation need the
+ *  difference; callers that just want a list can read `models`. */
+export type TtsCatalog = { models: OrVoiceModel[]; reachable: boolean };
+
+/**
+ * The OpenRouter TTS-capable model catalog — id/name/pricing/live-published `voices` roster per
+ * model. `voices` is the single source of truth every voice dropdown derives from
+ * (tts-voice-catalog.ts).
+ *
+ * BOUNDED. `listOpenRouterVoiceModels` already degrades a FAILED fetch to `[]`, but a fetch
+ * that never settles — a blackholed request behind a captive portal or a corporate proxy,
+ * rather than a refused one — leaves that promise pending forever, and every caller
+ * distinguishes "still loading" from "nothing there" by exactly that. The export panel then sat
+ * on `models === null` indefinitely and rendered its empty-roster copy ("this model hasn't
+ * published a voice list"), blaming the model for the network.
+ *
+ * REACHABILITY IS RETURNED SEPARATELY rather than encoded as an empty array, and that is the
+ * point of this shape. Racing a timeout that resolves `[]` makes "we gave up" and "OpenRouter
+ * published no speech models" the same value, so a caller explaining the emptiness has to guess
+ * — and would confidently say "couldn't reach the catalog" about a catalog it reached. That is
+ * the same class of lie this bound was added to remove, one layer down. An empty roster from a
+ * live answer is `{models: [], reachable: true}`; a timeout is `{models: [], reachable: false}`.
+ */
+export async function listTtsCatalog(): Promise<TtsCatalog> {
 	try {
 		const m = await import('@/playground/voice-model.js');
-		// BOUNDED. `listOpenRouterVoiceModels` already degrades a FAILED fetch to `[]`, but a
-		// fetch that never settles — a blackholed request behind a captive portal or a
-		// corporate proxy, rather than a refused one — leaves this promise pending forever, and
-		// every caller distinguishes "still loading" from "nothing there" by exactly that. The
-		// export panel then sits on `models === null` indefinitely and renders its empty-roster
-		// copy ("this model hasn't published a voice list"), blaming the model for the network.
-		// Observed in a browser that could not reach the catalog; the resolved-empty path was
-		// already handled and this one was not.
-		return await Promise.race([
+		const TIMED_OUT = Symbol('tts-catalog-timeout');
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const raced = await Promise.race([
 			m.listOpenRouterVoiceModels(),
-			new Promise<OrVoiceModel[]>((res) => setTimeout(() => res([]), CATALOG_TIMEOUT_MS)),
+			// Cleared below rather than left to fire into a settled race — a pending timer per
+			// call is harmless but pointless, and on a surface that remounts it is noise.
+			new Promise<typeof TIMED_OUT>((res) => {
+				timer = setTimeout(() => res(TIMED_OUT), CATALOG_TIMEOUT_MS);
+			}),
 		]);
+		clearTimeout(timer);
+		return raced === TIMED_OUT ? { models: [], reachable: false } : { models: raced as OrVoiceModel[], reachable: true };
 	} catch {
-		return [];
+		// A throw is a real answer — the import or the fetch failed outright, which is a
+		// different thing from silence, but from the caller's side both mean "no roster and it
+		// is not the model's fault".
+		return { models: [], reachable: false };
 	}
+}
+
+/** The list alone, for callers with nothing to explain. */
+export async function listTtsModels(): Promise<OrVoiceModel[]> {
+	return (await listTtsCatalog()).models;
 }
 
 /** How long to wait for the TTS catalog before calling it unreachable. Generous enough that a

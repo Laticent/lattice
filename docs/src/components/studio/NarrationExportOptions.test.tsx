@@ -19,13 +19,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 //
 // So these tests assert on what the author can READ, not on what is mounted.
 
-const listTtsModels = vi.fn();
+const listTtsCatalog = vi.fn();
 const defaultBakeVoice = vi.fn();
 const voiceAvailability = vi.fn();
 
 vi.mock('./read-aloud', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./read-aloud')>()),
-	listTtsModels: () => listTtsModels(),
+	listTtsCatalog: () => listTtsCatalog(),
+	listTtsModels: async () => (await listTtsCatalog()).models,
 	defaultBakeVoice: () => defaultBakeVoice(),
 	voiceAvailability: () => voiceAvailability(),
 	onDeviceBakeVoice: async () => null,
@@ -66,7 +67,7 @@ const panel = () =>
 
 describe('when the voice catalog cannot be reached', () => {
 	it('says the CATALOG is unreachable — never that the model has no voices', async () => {
-		listTtsModels.mockResolvedValue([]); // exactly what listTtsModels() degrades to
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
 		panel();
 		await waitFor(() => expect(screen.getByText(/Couldn't reach the voice catalog/i)).toBeTruthy());
 		// The old copy blamed the model. It must not come back.
@@ -77,7 +78,7 @@ describe('when the voice catalog cannot be reached', () => {
 		// The load-bearing half: the bake reads the saved prefs, not the catalog, so this state
 		// is a degraded PICKER, not a broken export. Saying otherwise would send an author off
 		// to fix a connection they do not need.
-		listTtsModels.mockResolvedValue([]);
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
 		panel();
 		// Scoped to the fallback line: the model id also appears in the model picker's own
 		// summary, so an unscoped query matches twice and proves nothing about THIS copy.
@@ -91,21 +92,35 @@ describe('when the voice catalog cannot be reached', () => {
 	it('does NOT show the unreachable copy while the catalog is still in flight', async () => {
 		// `null` (in flight) and `[]` (resolved empty) are different answers, and flashing
 		// "couldn't reach the catalog" during a slow fetch would be its own small lie.
-		let release: (v: unknown[]) => void = () => {};
-		listTtsModels.mockReturnValue(new Promise((r) => { release = r; }));
+		let release: (v: unknown) => void = () => {};
+		listTtsCatalog.mockReturnValue(new Promise((r) => { release = r; }));
 		panel();
 		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
 		expect(screen.queryByText(/Couldn't reach the voice catalog/i)).toBeNull();
-		release([]);
+		release({ models: [], reachable: false });
 		await waitFor(() => expect(screen.getByText(/Couldn't reach the voice catalog/i)).toBeTruthy());
 	});
 });
 
 describe('when the catalog IS reachable', () => {
 	it('offers the real picker rather than the fallback line', async () => {
-		listTtsModels.mockResolvedValue([{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', promptPerM: 0.62, completionPerM: null, voices: ['af_heart', 'am_michael'] }]);
+		listTtsCatalog.mockResolvedValue({ models: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', promptPerM: 0.62, completionPerM: null, voices: ['af_heart', 'am_michael'] }], reachable: true });
 		panel();
 		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByText(/Couldn't reach the voice catalog/i)).toBeNull();
+	});
+});
+
+// The defect this shape exists to prevent, pinned so it cannot come back by someone
+// "simplifying" reachability into an emptiness check.
+describe('when the catalog is REACHABLE but genuinely lists nothing', () => {
+	it('does NOT claim the catalog was unreachable', async () => {
+		// A live answer with no speech models is empty for a real reason. Saying "couldn't reach
+		// the voice catalog" about a catalog we reached is the same lie, one layer down — and an
+		// `Array.isArray(models) && !models.length` guard cannot tell the two apart.
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: true });
+		panel();
+		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
 		expect(screen.queryByText(/Couldn't reach the voice catalog/i)).toBeNull();
 	});
 });

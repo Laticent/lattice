@@ -28,7 +28,7 @@ import { AudioLines, Captions, Loader2, PlugZap } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure } from './narration-bake';
-import { type BakeVoice, defaultBakeVoice, listTtsModels, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
+import { type BakeVoice, defaultBakeVoice, listTtsCatalog, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
 import { resolveVoice, voicesForModel } from './tts-voice-catalog';
 import { VoicePicker } from './VoicePicker';
@@ -73,6 +73,8 @@ export function NarrationExportOptions({
 }) {
 	const on = value.captions || value.audio;
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
+	// null = the catalog answer has not arrived yet; false = it never will.
+	const [catalogReachable, setCatalogReachable] = React.useState<boolean | null>(null);
 	const [cloudReady, setCloudReady] = React.useState<boolean | null>(null);
 	// The on-device fallback identity, resolved once. Offered only when the cloud rung is
 	// unavailable AND this device turns out to hold the whole deck already — see `onDeviceOnly`.
@@ -113,8 +115,10 @@ export function NarrationExportOptions({
 			const { value: current, onChange: emit } = seedRef.current;
 			if (!current.voice.model && !current.voice.voice) emit({ ...current, voice: v });
 		});
-		listTtsModels().then((m) => {
-			if (live) setModels(m);
+		listTtsCatalog().then((c) => {
+			if (!live) return;
+			setModels(c.models);
+			setCatalogReachable(c.reachable);
 		});
 		return () => {
 			live = false;
@@ -125,11 +129,12 @@ export function NarrationExportOptions({
 	// TTS models bill per input CHARACTER, published per million (voice-model.js's
 	// orPricePerM). A model the catalog has no price for quotes nothing at all.
 	const pricePerM = React.useMemo(() => models?.find((m) => m.id === value.voice.model)?.promptPerM ?? null, [models, value.voice.model]);
-	/** The catalog fetch resolved to NOTHING — offline, firewalled, or OpenRouter down.
-	 *  `listTtsModels()` degrades to `[]` rather than throwing, so this is the only signal that
-	 *  the roster and the price are absent for an environmental reason rather than a real one.
-	 *  `null` still means "in flight" and must not trigger the copy. */
-	const catalogUnreachable = Array.isArray(models) && models.length === 0;
+	/** We never heard back — offline, firewalled, blackholed, or OpenRouter down. Taken from
+	 *  `listTtsCatalog`'s own answer rather than inferred from an empty array: a live catalog
+	 *  that genuinely lists no speech models is ALSO empty, and telling that author "couldn't
+	 *  reach the voice catalog" would be false in exactly the way this whole fix exists to
+	 *  prevent. `null` still means "in flight" and must not trigger the copy. */
+	const catalogUnreachable = catalogReachable === false;
 
 	// The one case where a bake is possible with no cloud key at all: this deck was rehearsed
 	// on-device and every sentence is already stored. A cache read needs no key and cannot
@@ -289,7 +294,7 @@ export function NarrationExportOptions({
 								{/* CATALOG UNREACHABLE is a different thing from "this model has no voices", and
 								    the picker cannot tell them apart — it is handed a roster and an empty one
 								    looks the same either way. Offline, behind a firewall, or with OpenRouter
-								    down, `listTtsModels()` degrades to `[]` by design, and the picker then
+								    down, the catalog answer never arrives, and the picker then
 								    said "This model hasn't published a voice list on OpenRouter yet", which
 								    blames the model for what the network did. Worse, it is false in the one
 								    way that matters here: the bake identity comes from the SAVED PREFS, not
