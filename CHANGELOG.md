@@ -676,6 +676,22 @@ in patch versions.
   where a default would have been harmless; the consumer-side fallback is order-independent and
   therefore correct on all four. `var()`'s own fallback has no ordering hazard. (#1263)
 
+### Added
+
+- **Dependency bumps now land themselves — patch and minor, never majors.** Sixteen Dependabot PRs
+  had piled up unmerged, the oldest five weeks old, because nothing ever merged them. A new
+  `dependabot-auto-merge.yml` flips auto-merge on when the update is patch or minor, so the queue
+  lands it once `ci` is green; majors stay open for a human, since that is where breaking changes
+  and the nastiest supply-chain surprises live. The gate is an **allow-list of the two accepted
+  types**, so a grouped PR whose type can't be determined waits rather than merging unclassified.
+  A first `.github/dependabot.yml` shapes the input side: patch and minor arrive **grouped into one
+  weekly PR per ecosystem**, majors arrive individually. Grouping is not cosmetic here — every merge
+  is a merge-queue entry that re-runs the full suite and that every open PR must rebase past, so
+  sixteen ungrouped bumps cost sixteen of those and one grouped PR costs one. Unlike the other two
+  auto-merging workflows this one uses `GITHUB_TOKEN` and no environment, and must: a
+  Dependabot-triggered run reads from a separate secret store, so `AUTOMATION_PAT` would come back
+  empty — which costs nothing, because Dependabot's own PR already started `ci`.
+
 ### Fixed
 
 - **Repo automation could not write to the repo at all: every workflow that pushed `main` was

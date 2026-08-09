@@ -1,0 +1,56 @@
+name: Dependabot auto-merge
+
+# Patch and minor dependency bumps merge themselves once `ci` is green; majors
+# wait for a human. A dependency update is the classic supply-chain vector, and
+# unattended merge means nobody reads the diff — so the line is drawn where the
+# risk actually changes. Majors carry breaking changes and the nastiest
+# surprises, and they are rare enough that reading them costs little.
+#
+# This does NOT use AUTOMATION_PAT, and cannot: a workflow run triggered by
+# Dependabot gets a separate secret store (Dependabot secrets), so repository
+# and environment secrets read back EMPTY here. That is fine, because nothing
+# in this workflow needs to raise an event another workflow must see —
+# Dependabot's own PR already started `ci`. All we do is flip auto-merge on,
+# which the built-in token can do with `pull-requests: write`.
+#
+# See engineering/workflow.md § Automation vs. the main ruleset. The merge
+# itself still goes through the queue like everything else; nothing here
+# bypasses a gate, it only removes the human click.
+on: pull_request
+
+permissions:
+  contents: write # enable auto-merge
+  pull-requests: write # read metadata, enable auto-merge
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    # `user.login` rather than github.actor: actor is whoever caused THIS event,
+    # which is not necessarily the PR's author on a re-run or a manual retrigger.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the update metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+
+      # Fail-safe by construction: this is an ALLOW-list of the two update
+      # types we accept, not a deny-list for majors. A grouped PR whose type
+      # comes back empty or unrecognized therefore does NOT auto-merge — it
+      # waits for a human, which is the correct way to be wrong.
+      - name: Enable auto-merge for patch + minor
+        if: contains(fromJSON('["version-update:semver-patch","version-update:semver-minor"]'), steps.meta.outputs.update-type)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
+
+      - name: Explain why a PR was left alone
+        if: ${{ !contains(fromJSON('["version-update:semver-patch","version-update:semver-minor"]'), steps.meta.outputs.update-type) }}
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          echo "::notice::Left for review — update-type '${UPDATE_TYPE:-unknown}' is not patch or minor. Majors (and any group whose type can't be determined) need a human."
