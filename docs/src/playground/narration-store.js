@@ -211,7 +211,9 @@ export async function putClip(key, blob) {
     const at = nextStamp();
     await write(db, (clips, meta) => {
       clips.put({ key, bytes, type: blob.type || 'audio/mpeg' });
-      meta.put({ key, size: bytes.byteLength, at });
+      // `type` rides in meta so the export's PRE-FLIGHT can tell a compressed clip from an
+      // uncompressed one without materializing a byte of audio — see `clipSizes`.
+      meta.put({ key, size: bytes.byteLength, at, type: blob.type || 'audio/mpeg' });
     });
     await evictToBudget();
     return true;
@@ -282,7 +284,7 @@ export async function clipSizes(keys) {
   try {
     const db = await openDB();
     const rows = (await read(db, META, (meta) => meta.getAll())) || [];
-    for (const m of rows) if (want.has(m.key)) out.set(m.key, m.size || 0);
+    for (const m of rows) if (want.has(m.key)) out.set(m.key, { size: m.size || 0, type: m.type || '' });
     return out;
   } catch {
     return out;
@@ -322,7 +324,7 @@ export async function touchClips(keys) {
     await write(db, (_clips, meta) => {
       // One stamp per row, monotonic within the tab — same reason `putClip` uses nextStamp()
       // rather than Date.now(): same-millisecond ties make the LRU walk evict in key order.
-      for (const m of present) meta.put({ key: m.key, size: m.size, at: nextStamp() });
+      for (const m of present) meta.put({ key: m.key, size: m.size, at: nextStamp(), type: m.type });
     });
     return present.length;
   } catch {

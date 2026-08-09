@@ -54,8 +54,9 @@ in patch versions.
   ship wrong. Workspace → Voice → **Audio quality** sets the bitrate (48/64/96/128 kbps, default
   64); audio already recorded on the device keeps the quality it was recorded at, and is never
   re-synthesized to change it, so raising the setting never re-bills a deck you already own.
-  The bake also compresses anything uncompressed on its way into the file, so a future engine
-  returning raw audio cannot land uncompressed in an artifact even before anyone measures it.
+  The bake also compresses anything uncompressed on its way into the file, which covers clips
+  recorded before this landed; if the compressor itself cannot be loaded the export stops rather
+  than silently shipping several times the size it quoted.
   The 30 committed Gemini voice samples were re-encoded the same way, taking **3.15 MB out of
   the repository**, and `ENGINE_BYTES_PER_CHAR` was re-measured from them (gemini 3799 → 645
   B/char) so the quote and the file still come from one reading.
@@ -106,7 +107,7 @@ in patch versions.
   advice changes nothing, and offering it would be another instruction the panel cannot honor.
 
 - **On-device narration stops immediately when it times out.** A synthesis that overran its
-  deadline was left running for a grace window so its bytes could still be banked — right for a
+  deadline is left running for a grace window so its bytes can still be banked — right for a
   cloud request, which is billed the moment it is issued, and wrong on-device, where nothing is
   paid for and the thing being held is the only inference slot there is. A stuck sentence blocked
   the retry that was waiting for that slot. Cloud requests keep the grace window; the on-device

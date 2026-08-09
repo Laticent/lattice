@@ -30,7 +30,7 @@
 
 import { buildTrack, interCueGapMs } from '@/lib/cadenza';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
-import { compressClip, DEFAULT_BITRATE_KBPS } from '@/playground/narration-encode.js';
+import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
@@ -126,6 +126,10 @@ export type NarrationMeasure = {
  * near 22 MB), so it catches the pathological case and nothing else. It is a backstop against
  * a tab dying mid-export with no artifact and no explanation, not an opinion about size.
  */
+/** Byte rate of the uncompressed audio both producers emit: 24 kHz, 16-bit, mono = 384 kbps.
+ *  Scaling a stored WAV's size by `bitrate / this` gives what it will SHIP as, without decoding. */
+const WAV_KBPS_24K_MONO = 384;
+
 export const PAYLOAD_WARN_BYTES = 25 * 1024 * 1024;
 export const PAYLOAD_MAX_BYTES = 150 * 1024 * 1024;
 
@@ -260,17 +264,16 @@ export const ENGINE_BYTES_PER_CHAR: Record<string, number> = {
 export const DEFAULT_BYTES_PER_CHAR = 645;
 
 /**
- * How many SECONDS of speech a character becomes — the one term a bitrate cannot supply.
+ * The bitrate the measured `ENGINE_BYTES_PER_CHAR` rows were taken at. Audio this codebase
+ * encodes itself is priced by scaling that engine's own row from here — mp3 size is exactly
+ * linear in bitrate, so one multiplication is the whole conversion.
  *
- * Measured from the committed Gemini sample: 2.760 s of audio for the 35-character sentence
- * `tools/generate-voice-samples.mjs` uses, i.e. 0.0789 s/char. Rounded up slightly, because
- * over-quoting is the safe direction for a number an author consents to before emailing a file.
- *
- * Used ONLY for audio this codebase encodes itself, where the bytes are `duration x bitrate` and
- * the bitrate is a setting rather than a property of the engine. Cross-check: 0.0806 x 8000 B/s
- * = 645 B/char at 64 kbps, which is what the Gemini row measures on disk.
+ * Derived from the table rather than from a separate speaking-rate constant, and that is the
+ * point: a single global seconds-per-character figure was taken from ONE engine's sample and
+ * applied to both, which quoted the on-device narrator 35% high against a number this file's
+ * own table contradicted. Each engine's row already encodes its own speaking rate.
  */
-const SECONDS_PER_CHAR = 0.0806;
+const TABLE_BITRATE_KBPS = 64;
 
 /**
  * What `chars` of not-yet-synthesized text will add to the shipped file, in `modelId`'s voice
@@ -290,12 +293,12 @@ export function estimateSynthBytes(chars: number, modelId?: string | null, opts?
 	// rate under-quotes every other rate by that ratio. An author on 128 kbps was being quoted
 	// HALF the real size, and the payload warnings gated on the same halved number: the
 	// under-quote failure class this table exists to prevent, reintroduced by the pref itself.
-	if (opts?.transcoded) {
-		const kbps = opts.kbps && opts.kbps > 0 ? opts.kbps : DEFAULT_BITRATE_KBPS;
-		return shippedBytes(Math.round(chars * SECONDS_PER_CHAR * kbps * 125)); // kbps * 1000 / 8 = bytes per second
-	}
 	const engine = engineForModel(modelId || '');
 	const rate = (engine && ENGINE_BYTES_PER_CHAR[engine]) || DEFAULT_BYTES_PER_CHAR;
+	if (opts?.transcoded) {
+		const kbps = opts.kbps && opts.kbps > 0 ? opts.kbps : DEFAULT_BITRATE_KBPS;
+		return shippedBytes(Math.round((chars * rate * kbps) / TABLE_BITRATE_KBPS));
+	}
 	// Through `shippedBytes`, not a second copy of its 4/3 arithmetic: the size named before
 	// the write and the size the file gains must come from ONE function, or they drift.
 	return shippedBytes(chars * rate);
@@ -450,7 +453,7 @@ const BAKE_BACKOFF_MS = [600, 2400];
  * …`), and matched loosely on purpose: a false positive costs one retry, a false negative
  * costs the whole deck's worth of them.
  */
-const TERMINAL_SYNTH_ERROR = /\b(401|402|403|404)\b|unauthor|invalid api key|insufficient|quota|credit|not connected|billing|not loaded/i;
+const TERMINAL_SYNTH_ERROR = /\b(401|402|403|404)\b|unauthor|invalid api key|insufficient|quota|credit|not connected|billing|on-device voice is not loaded/i;
 /** The per-request ceiling. Longer than playback's 20 s: nobody is waiting on this sentence
  *  to be spoken in a room, and a timeout here costs a whole retry. */
 const BAKE_TIMEOUT_MS = 45000;
@@ -495,7 +498,10 @@ export async function measureNarration(source: string, projected: readonly strin
 	if (!total) return base;
 
 	const keys = await bakeClipKeys(perSlide, voice);
-	const sizes = narrationCacheEnabled() ? await clipSizes(keys.flat()) : new Map<string, number>();
+	const sizes = narrationCacheEnabled() ? await clipSizes(keys.flat()) : new Map<string, { size: number; type: string }>();
+	// Resolved once: whether audio for THIS voice is something the bake encodes itself.
+	const transcoded = voice.rung === 'kokoro' || returnsUncompressed(voice.model);
+	const bitrate = narrationBitrate();
 
 	let cached = 0;
 	let cachedBytes = 0;
@@ -506,12 +512,22 @@ export async function measureNarration(source: string, projected: readonly strin
 			// A ZERO-size row is a clip that exists in the index and has no audio. The bake gates
 			// on `blob?.size` and would re-synthesize it, so counting it as cached here would
 			// quote a bill the bake then exceeds.
-			const size = keys[i]?.[j] ? sizes.get(keys[i][j]) : 0;
+			const rec = keys[i]?.[j] ? sizes.get(keys[i][j]) : undefined;
+			const size = rec?.size ?? 0;
 			if (size) {
 				cached++;
-				// Assumes `audio/mpeg`, the type every OpenRouter speech model but one returns. A
-				// different type moves the total by a handful of characters against megabytes.
-				cachedBytes += shippedBytes(size);
+				// WHAT IT WILL WEIGH IN THE FILE, not what it weighs in the store. The bake
+				// compresses anything uncompressed on its way in, so a clip cached before that
+				// shipped sits ~6x larger than it will ship. Quoting the stored size told an author
+				// with a pre-compression cache that their deck was too large to assemble — about an
+				// export that would in fact have produced a fifth of that and succeeded — while
+				// withholding the one remedy that applies, on the false premise that a cached clip
+				// is never re-encoded.
+				//
+				// An index row with NO type predates that field, which is exactly the signal wanted:
+				// it was written before compression, so for an engine we transcode it is WAV.
+				const willCompress = transcoded && !isCompressedAudio(rec?.type || 'audio/wav');
+				cachedBytes += shippedBytes(willCompress ? Math.round((size * bitrate) / WAV_KBPS_24K_MONO) : size);
 			} else {
 				missing++;
 				missingChars += perSlide[i][j].length;
@@ -525,8 +541,7 @@ export async function measureNarration(source: string, projected: readonly strin
 	const estSeconds = Math.ceil((missing * SECONDS_PER_SENTENCE) / BAKE_CONCURRENCY);
 	// The size of what is NOT yet recorded depends on how WE will encode it, when we are the one
 	// encoding it — the on-device rung and any PCM-only cloud model.
-	const transcoded = voice.rung === 'kokoro' || returnsUncompressed(voice.model);
-	const missingBytes = estimateSynthBytes(missingChars, voice.model, { transcoded, kbps: narrationBitrate() });
+	const missingBytes = estimateSynthBytes(missingChars, voice.model, { transcoded, kbps: bitrate });
 	return { ...base, cached, cachedBytes, missing, missingChars, missingBytes, estCostUsd, estSeconds };
 }
 
@@ -616,6 +631,8 @@ export async function bakeNarration(
 	let terminal = '';
 	/** Set when the accumulated payload crosses PAYLOAD_MAX_BYTES — see `attach`. */
 	let tooLarge = false;
+	/** Set when a clip needed compressing and the encoder could not be loaded at all. */
+	let encoderDown = false;
 	let done = 0;
 	let synthesized = 0;
 	let bytes = 0;
@@ -624,7 +641,7 @@ export async function bakeNarration(
 
 	/** Attach a clip's bytes to its cue — and to every repeat of the same sentence — as a
 	 *  `data:` URI, counting what each occurrence costs the file. */
-	const attach = async (job: { i: number; j: number; twins: { i: number; j: number }[] }, blob: ClipBytes) => {
+	const attach = async (job: { i: number; j: number; key?: string; twins: { i: number; j: number }[] }, blob: ClipBytes) => {
 		// LAST LINE OF DEFENSE on size. Both of today's uncompressed engines now compress at the
 		// rung, before their bytes are ever stored, so on the common path this is a MIME check
 		// that finds nothing to do. It earns its place on the two paths that bypass that: a clip
@@ -634,7 +651,32 @@ export async function bakeNarration(
 		// unknown uncompressed engine is under-quoted ~7x. Compressing HERE bounds the shipped
 		// file by the codec regardless of what the rung handed back, so that gap can no longer
 		// reach the artifact.
-		const shipped = (await compressClip(blob, narrationBitrate())) ?? blob;
+		const compressed = await compressClip(blob, narrationBitrate());
+		// A clip that SHOULD have compressed and did not is either one awkward clip or a dead
+		// encoder, and the two could not be told apart — `compressClip` returns null for both.
+		// The difference matters enormously: one clip at an exotic sample rate shipping large is a
+		// rounding error, while a dead encoder means EVERY clip ships uncompressed, ~6x the size
+		// the author was quoted, with neither payload threshold firing because both gate on the
+		// ESTIMATE. That is precisely the promise this module exists to keep, so it refuses
+		// instead — and asks the encoder directly rather than inferring it from one failure.
+		if (!compressed && !isCompressedAudio(blob.type) && !(await encoderAvailable())) {
+			encoderDown = true;
+			stop();
+			return;
+		}
+		const shipped = compressed ?? blob;
+		// BANK THE COMPRESSED BYTES. Without this a cache full of clips recorded before
+		// compression shipped re-encodes on EVERY export, forever — ~107 ms of main-thread work
+		// per sentence, ~32 s for a 300-sentence deck, paid again each time. Writing it back is
+		// free of the one thing that would make it wrong: nothing is re-synthesized and nothing
+		// is re-billed, so the author's own recording is simply stored smaller than it was.
+		if (compressed && narrationCacheEnabled() && job.key) {
+			try {
+				await putClip(job.key, compressed as unknown as Blob);
+			} catch {
+				// A full store costs the next export the same re-encode; it must not cost this one.
+			}
+		}
 		const uri = `data:${safeMime(shipped.type)};base64,${toBase64(new Uint8Array(await shipped.arrayBuffer()))}`;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;
@@ -750,6 +792,13 @@ export async function bakeNarration(
 	// Before the incomplete-set refusal: a run stopped for size DID prepare its sentences, so
 	// the failure list is short and misleading. The size is the reason and the only reason.
 	if (tooLarge) throw new BakeTooLargeError(bytes, maxBytes);
+	// Before the incomplete-set refusal, for the same reason: the sentences were prepared fine.
+	// Shipping them would mean shipping several times the size the author consented to.
+	if (encoderDown) {
+		throw new Error(
+			'The audio compressor could not be loaded, so this deck would ship several times the size it was quoted at. Reload the page and try the export again — nothing recorded has been lost.',
+		);
+	}
 	// The refusal — the DEFAULT, not a wall. Everything synthesized above is already banked, so
 	// a second attempt after fixing the cause (reconnect, top up credit) pays only for what is
 	// still missing.

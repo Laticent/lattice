@@ -108,7 +108,13 @@ export function NarrationExportOptions({
 		Promise.all([voiceAvailability(), onDeviceBakeVoice()]).then(([a, od]) => {
 			if (!live) return;
 			setCloudReady(a.openRouterReady);
-			if (a.kokoroReady || a.kokoroCached) setOnDevice(od);
+			// `kokoroReady`, NOT `kokoroReady || kokoroCached`. "Cached" means the model is on disk
+			// but not loaded, and `synthBakeClip` refuses in that state — so offering the narrator
+			// there advertises "Free — no key, no request" and then terminally refuses the export.
+			// That is the same shape as the defect this picker was built to fix: an option the
+			// panel cannot honor. A deck that is FULLY recorded would still bake, but the panel
+			// cannot know that before measuring, and a dead end is worse than a missing option.
+			if (a.kokoroReady) setOnDevice(od);
 		});
 		defaultBakeVoice().then((v) => {
 			if (!live) return;
@@ -128,7 +134,14 @@ export function NarrationExportOptions({
 	const voices = React.useMemo(() => voicesForModel(value.voice.model, models?.find((m) => m.id === value.voice.model)?.voices ?? []), [models, value.voice.model]);
 	// TTS models bill per input CHARACTER, published per million (voice-model.js's
 	// orPricePerM). A model the catalog has no price for quotes nothing at all.
-	const pricePerM = React.useMemo(() => models?.find((m) => m.id === value.voice.model)?.promptPerM ?? null, [models, value.voice.model]);
+	// NULL for the on-device narrator, whatever the catalog says. The on-device identity
+	// deliberately shares hosted Kokoro's model id, so a price lookup by model alone found the
+	// CLOUD price and the bill printed "about $0.12" two lines under "nothing is billed".
+	// Nothing on-device is billed, so the honest price is no price at all.
+	const pricePerM = React.useMemo(
+		() => (value.voice?.rung === 'kokoro' ? null : (models?.find((m) => m.id === value.voice.model)?.promptPerM ?? null)),
+		[models, value.voice.model, value.voice?.rung],
+	);
 	/** We never heard back — offline, firewalled, blackholed, or OpenRouter down. Taken from
 	 *  `listTtsCatalog`'s own answer rather than inferred from an empty array: a live catalog
 	 *  that genuinely lists no speech models is ALSO empty, and telling that author "couldn't
@@ -220,7 +233,15 @@ export function NarrationExportOptions({
 	// Can this export actually produce audio? The on-device rung can now SYNTHESIZE what is
 	// missing (free, no key) whenever its model is loaded, so the only dead end left is having
 	// neither a cloud key nor a usable on-device narrator.
-	const audioUnavailable = blocked || (cloudReady === false && !canPickDevice);
+	// `cloudReady === null` means the local availability check has not answered yet, and turning
+	// audio on now WRITES a narrator identity (see setAudio). A keyless author who clicks in that
+	// window gets the cloud voice written, is quoted dollars against a rung they cannot use, and
+	// the free on-device narrator is not offered — because the picker hides itself when
+	// cloudReady is false, which it becomes a moment later. The old derived form self-corrected
+	// when availability landed; a written identity does not, and nothing tells the author to
+	// toggle off and on again. So the switch waits for the answer. It is a local check, never a
+	// network one, so the wait is milliseconds.
+	const audioUnavailable = blocked || cloudReady === null || (cloudReady === false && !canPickDevice);
 
 	const set = (patch: Partial<NarrationChoice>) => onChange({ ...value, ...patch });
 

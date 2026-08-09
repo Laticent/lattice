@@ -1113,28 +1113,31 @@ test('the transport chrome is unforgeable too, not just the caption band and pla
 	// The forged elements still SHIP — they are the author's markup, sanitized. What must not
 	// happen is the player resolving to them.
 	assert.ok(doc.querySelector('section[data-lattice-slide] #lp-next'), "the author's element is still in their slide");
-	// Resolve exactly as the player does — ANCHORED at a root a slide cannot occupy, because
-	// `body > #lp-app` / `body > #lp-bar` require being a direct child of <body> and every slide
-	// is a descendant of #lp-stage. An UNROOTED query here would pick the forged node and this
-	// assertion would be testing the deck's markup instead of the player's.
-	const app = doc.querySelector('body > #lp-app');
-	const bar = doc.querySelector('body > #lp-bar');
-	assert.ok(app && bar, 'both roots resolve to the real shell');
-	const CHAINS = {
-		'lp-next': [app, ':scope > #lp-nav > #lp-next'], 'lp-prev': [app, ':scope > #lp-nav > #lp-prev'],
-		'lp-top': [app, ':scope > #lp-read-nav > #lp-top'], 'lp-bottom': [app, ':scope > #lp-read-nav > #lp-bottom'],
-		'lp-notes': [app, ':scope > #lp-notes'], 'lp-notes-body': [app, ':scope > #lp-notes > #lp-notes-body'],
-		'lp-doc': [app, ':scope > #lp-doc'], 'lp-toc': [app, ':scope > #lp-doc > #lp-toc'],
-		'lp-article': [app, ':scope > #lp-doc > #lp-article'], 'lp-stage': [app, ':scope > #lp-stage'],
-		'lp-read-nav': [app, ':scope > #lp-read-nav'],
-		'lp-count': [bar, ':scope > #lp-count'], 'lp-mode': [bar, ':scope > #lp-mode'],
-		'lp-full': [bar, ':scope > #lp-full'], 'lp-notes-btn': [bar, ':scope > #lp-notes-btn'],
-	};
-	for (const id of forged) {
-		const [root, sel] = CHAINS[id];
-		const resolved = root.querySelector(sel);
-		assert.ok(resolved, `${id} resolves from its anchored root`);
-		assert.ok(!resolved.closest('section[data-lattice-slide]'), `the resolved ${id} is the player's own node, not the deck's`);
+	// EXECUTE THE PLAYER, do not re-implement it. The previous version of this test built its own
+	// map of the anchored selectors and asserted that ITS OWN copy resolved correctly — so
+	// reverting `lpEl` to the broken unrooted form left this green, and only the byte-golden hash
+	// noticed. A test that duplicates the fix cannot fail for the bug, which is the exact defect
+	// class #1462 item 7 is about. So: run the real script and click the real button.
+	const dom = new JSDOM(html, { runScripts: 'dangerously' });
+	const d = dom.window.document;
+	assert.ok(d.documentElement.classList.contains('lp-js'), 'the player script actually ran');
+
+	// Root the test's OWN selectors at `body >` too — an unrooted query here would hand us the
+	// forged node and we would be driving the deck's markup instead of the player's.
+	const realNext = d.querySelector('body > #lp-app > #lp-nav > #lp-next');
+	const counter = d.querySelector('body > #lp-bar > #lp-count');
+	assert.ok(realNext && counter, "the player's own controls exist");
+	assert.ok(d.querySelector('section[data-lattice-slide] #lp-next'), "the author's forged element also shipped");
+
+	const before = counter.textContent.trim();
+	realNext.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+	assert.notEqual(counter.textContent.trim(), before, 'the REAL Next button advances the deck');
+	assert.match(counter.textContent, /\d/, "and the counter read is the player's own element");
+
+	// The forged nodes still ship — they are the author's markup — they just cannot be found.
+	for (const id of ['lp-next', 'lp-notes-body', 'lp-toc']) {
+		const forgedNode = d.querySelector(`section[data-lattice-slide] #${id}`);
+		if (forgedNode) assert.ok(forgedNode.closest('#lp-stage'), `the forged ${id} stays inside the deck content`);
 	}
 });
 

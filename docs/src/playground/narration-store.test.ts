@@ -207,8 +207,10 @@ describe('clipSizes — what a bake would cost, before it starts', () => {
 		await putClip('a', fakeBlob(30_000));
 		await putClip('b', fakeBlob(20_000));
 		const got = await clipSizes(['a', 'b', 'missing']);
-		expect(got.get('a')).toBe(30_000);
-		expect(got.get('b')).toBe(20_000);
+		// `{size, type}` — the type is what lets the export's pre-flight tell a compressed clip
+		// from an uncompressed one, which decides what it will weigh in the shipped file.
+		expect(got.get('a')).toEqual({ size: 30_000, type: 'audio/mpeg' });
+		expect(got.get('b')).toEqual({ size: 20_000, type: 'audio/mpeg' });
 	});
 
 	it('OMITS an absent key rather than reporting it as zero', async () => {
@@ -224,7 +226,15 @@ describe('clipSizes — what a bake would cost, before it starts', () => {
 		for (let i = 0; i < 40; i++) await putClip(`k${i}`, fakeBlob(50_000));
 		const got = await clipSizes(Array.from({ length: 40 }, (_, i) => `k${i}`));
 		expect(got.size).toBe(40);
-		expect([...got.values()].every((v) => v === 50_000)).toBe(true);
+		expect([...got.values()].every((v) => v.size === 50_000)).toBe(true);
+	});
+
+	it('carries the stored MIME, so a pre-compression WAV clip is not quoted as an mp3', async () => {
+		// A clip written before compression shipped is WAV and will be ~6x smaller in the file
+		// than it is in the store. Without the type the pre-flight quoted the stored size and told
+		// authors their deck was too large to assemble.
+		await putClip('w', fakeBlob(480_000, 'audio/wav'));
+		expect((await clipSizes(['w'])).get('w')).toEqual({ size: 480_000, type: 'audio/wav' });
 	});
 
 	it('an empty ask is an empty answer, and an unusable store under-promises', async () => {

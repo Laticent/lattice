@@ -22,24 +22,34 @@ const touched: string[] = [];
 let defaultError = 'no audio returned';
 /** The "keep narration on this device" workspace switch, as the bake sees it. */
 let narrationCacheOn = true;
+/** The workspace Audio quality setting, as the bake sees it. */
+let mockBitrate = 64;
+/** Lets a test hand the bake a REAL clip (e.g. a legacy WAV) instead of a size-only stand-in. */
+let getClipOverride: ((key: string) => unknown) | null = null;
+/** Per-key stored MIME. Absent = 'audio/mpeg'; set 'audio/wav' for a pre-compression clip. */
+const storedType = new Map<string, string>();
 
 const clipOf = (size: number, type = 'audio/mpeg') => ({ size, type, arrayBuffer: async () => new ArrayBuffer(size) });
 
 vi.mock('@/playground/narration-prefs.js', () => ({
 	narrationCacheEnabled: () => narrationCacheOn,
-	narrationBitrate: () => 64,
+	narrationBitrate: () => mockBitrate,
 }));
 
 vi.mock('@/playground/narration-store.js', () => ({
 	getClip: async (key: string) => {
+		if (getClipOverride) return getClipOverride(key);
 		const size = stored.get(key);
 		return size ? clipOf(size) : null;
 	},
 	putClip: async (key: string, blob: { size: number }) => {
 		banked.push(key);
 		stored.set(key, blob.size);
+		getClipOverride = null; // a re-banked clip supersedes the override, like the real store
 	},
-	clipSizes: async (keys: string[]) => new Map(keys.filter((k) => stored.has(k)).map((k) => [k, stored.get(k) as number])),
+	// `{size, type}` — the shape the real index returns, so a test can express a clip cached
+	// BEFORE compression shipped (WAV) as distinct from one cached after (mp3).
+	clipSizes: async (keys: string[]) => new Map(keys.filter((k) => stored.has(k)).map((k) => [k, { size: stored.get(k) as number, type: storedType.get(k) ?? 'audio/mpeg' }])),
 	touchClips: async (keys: string[]) => {
 		const hit = keys.filter((k) => stored.has(k));
 		touched.push(...hit);
@@ -84,6 +94,9 @@ beforeEach(() => {
 	touched.length = 0;
 	defaultError = 'no audio returned';
 	narrationCacheOn = true;
+	mockBitrate = 64;
+	getClipOverride = null;
+	storedType.clear();
 });
 
 // The retry backoff is 600 ms + 2400 ms of REAL sleep per failing sentence, and several tests
@@ -776,6 +789,10 @@ describe('the size quote follows the bitrate for audio WE encode', () => {
 	const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
 
 	it('doubles the quote when the bitrate doubles', () => {
+		// Each engine is scaled from ITS OWN measured row, so a shared speaking-rate constant
+		// cannot quietly price one engine with another's number.
+		expect(estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 64 }))
+			.not.toBe(estimateSynthBytes(10_000, 'google/gemini-3.1-flash-tts-preview', { transcoded: true, kbps: 64 }));
 		const at64 = estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 64 });
 		const at128 = estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 128 });
 		expect(at128 / at64).toBeGreaterThan(1.95);
@@ -799,8 +816,105 @@ describe('the size quote follows the bitrate for audio WE encode', () => {
 		expect(Math.abs(fromBitrate - fromTable) / fromTable).toBeLessThan(0.05);
 	});
 
+	it('prices GEMINI from the bitrate too — not just the on-device rung', async () => {
+		// The on-device half was pinned; the cloud PCM half was not, so `returnsUncompressed`
+		// could be neutered to `false` with the whole suite still green — which is exactly the
+		// under-quote this fix exists to close, for the one engine that is also billed.
+		// AT A NON-DEFAULT BITRATE, deliberately. The transcoded path scales each engine's own
+		// measured row, and the rows were measured at 64 — so at 64 the two branches agree exactly
+		// and a mutation removing `returnsUncompressed` is invisible. Only a changed setting
+		// separates "this engine's audio is ours to encode" from "its size is fixed by the engine".
+		const GEMINI: BakeVoice = { model: 'google/gemini-3.1-flash-tts-preview', voice: 'Puck', speed: 1 };
+		mockBitrate = 128;
+		const m = await measureNarration(DECK, PROJECTED, GEMINI, 0.62);
+		expect(m.missingBytes).toBe(estimateSynthBytes(m.missingChars, GEMINI.model, { transcoded: true, kbps: 128 }));
+		expect(m.missingBytes, 'the setting moved the quote, so the PCM engine was recognized').toBeGreaterThan(
+			estimateSynthBytes(m.missingChars, GEMINI.model) * 1.9,
+		);
+	});
+
+	it('reads the WORKSPACE bitrate, not a hardcoded default', async () => {
+		// `{transcoded, kbps: narrationBitrate()}` -> `{transcoded, kbps: 64}` left every suite
+		// green, so nothing pinned that the setting reaches the quote at all — which is the whole
+		// headline of the change.
+		const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+		const at64 = await measureNarration(DECK, PROJECTED, DEVICE, null);
+		mockBitrate = 128;
+		const at128 = await measureNarration(DECK, PROJECTED, DEVICE, null);
+		expect(at128.missingBytes / at64.missingBytes).toBeGreaterThan(1.9);
+	});
+
 	it('measureNarration prices the on-device narrator as audio it will encode itself', async () => {
 		const m = await measureNarration(DECK, PROJECTED, DEVICE, 0.62);
 		expect(m.missingBytes).toBe(estimateSynthBytes(m.missingChars, DEVICE.model, { transcoded: true, kbps: 64 }));
+	});
+});
+
+describe('the quote counts a cached clip at what it will SHIP as', () => {
+	// The bake compresses anything uncompressed on its way into the file, but the pre-flight
+	// counted the STORED size — so an author whose cache predates compression was quoted ~6x the
+	// real figure, told their deck was too large to assemble, and denied the one remedy that
+	// applies. Over-quoting is the safe direction for money; it is not safe for a refusal.
+	it('scales a WAV cache entry to its compressed size, not its stored size', async () => {
+		stored.set(keyFor(S1, { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 }), 480_000);
+		storedType.set(keyFor(S1, { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 }), 'audio/wav');
+		const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+		const m = await measureNarration(DECK, PROJECTED, DEVICE, null);
+		// 480 kB of 24 kHz mono WAV is 10 s; at 64 kbps that ships as ~80 kB, not 480 kB.
+		expect(m.cachedBytes).toBeLessThan(shippedBytes(480_000) / 4);
+		expect(m.cachedBytes).toBeGreaterThan(shippedBytes(60_000));
+	});
+
+	it('leaves an mp3 cache entry at its stored size — nothing re-encodes it', async () => {
+		stored.set(keyFor(S1), 20_000);
+		storedType.set(keyFor(S1), 'audio/mpeg');
+		const m = await measureNarration(DECK, PROJECTED, VOICE, null);
+		expect(m.cachedBytes).toBe(shippedBytes(20_000));
+	});
+});
+
+describe('the bake-time compressor is wired in, not merely present', () => {
+	// Every fixture above hands back `audio/mpeg`, so the "LAST LINE OF DEFENSE" in `attach` was
+	// never exercised: deleting it left the whole file green. That is the same defect class
+	// #1462 item 7 is about — a guard nothing would notice the loss of. These drive a WAV clip,
+	// which is what a cache recorded before compression shipped actually holds.
+	/** A real, decodable 16-bit PCM WAV of `seconds` at 24 kHz mono — what a legacy clip is. */
+	function wavClip(seconds: number) {
+		const rate = 24000;
+		const n = Math.floor(rate * seconds);
+		const buf = new ArrayBuffer(44 + n * 2);
+		const dv = new DataView(buf);
+		const ascii = (off: number, t: string) => { for (let i = 0; i < t.length; i++) dv.setUint8(off + i, t.charCodeAt(i)); };
+		ascii(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); ascii(8, 'WAVE');
+		ascii(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+		dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+		ascii(36, 'data'); dv.setUint32(40, n * 2, true);
+		const pcm = new Int16Array(buf, 44);
+		for (let i = 0; i < n; i++) pcm[i] = Math.round(Math.sin((2 * Math.PI * 220 * i) / rate) * 12000);
+		return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
+	}
+
+	it('compresses a legacy WAV clip on its way into the file', async () => {
+		const wav = wavClip(2);
+		stored.set(keyFor(S1), wav.size);
+		getClipOverride = () => wav;
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		const uri = bake.slides.flat().find((c) => c.audio)?.audio as string;
+		expect(uri.startsWith('data:audio/mpeg;base64,'), 'it ships as mp3, not as the WAV it was').toBe(true);
+		// The data URI must be a fraction of what the WAV would have cost.
+		expect(uri.length).toBeLessThan(shippedBytes(wav.size, 'audio/wav') / 2);
+	});
+
+	it('BANKS the compressed bytes, so the next export does not re-encode the same clip', async () => {
+		// ~107 ms of main-thread work per sentence, ~32 s for a 300-sentence deck — paid on every
+		// export, forever, for a cache recorded before compression shipped.
+		const wav = wavClip(2);
+		stored.set(keyFor(S1), wav.size);
+		getClipOverride = () => wav;
+		script.set(S2, [4000]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(banked, 'the smaller clip replaced the WAV under the same key').toContain(keyFor(S1));
+		expect(stored.get(keyFor(S1))!, 'and it really is smaller').toBeLessThan(wav.size / 2);
 	});
 });

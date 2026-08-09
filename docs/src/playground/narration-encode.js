@@ -61,23 +61,51 @@ const MPEG_RATES = new Set([8000, 11025, 12000, 16000, 22050, 24000, 32000, 4410
 /** LAME's frame size — the sample count `encodeBuffer` consumes per call, per channel. */
 const FRAME = 1152;
 
-/** Memoized module promise. Resolves to the lamejs namespace, or null if it cannot be loaded. */
-let encoderModule;
+/** In-flight/loaded module promise, or null when nothing has been attempted since the last
+ *  failure. Never holds a rejected outcome — see `lame`. */
+let encoderModule = null;
+/** Consecutive load failures. Bounds the retry so a genuinely absent encoder is cheap. */
+let encoderFailures = 0;
+/** How many times a failed load is retried before the module gives up for this session. */
+const MAX_LOAD_ATTEMPTS = 3;
 
 /**
- * Load the encoder once, and remember a FAILURE as well as a success.
+ * Load the encoder, memoizing SUCCESS but only briefly memoizing failure.
  *
- * Without the memo a build with no encoder available would pay a rejected dynamic import per
- * sentence — 300 of them on a bake — each one a caught exception on a path whose whole job is
- * to be cheap when it is not wanted.
+ * The first version cached the failure forever, on the reasoning that a build with no encoder
+ * should not pay a rejected dynamic import per sentence — 300 of them on a bake. That reasoning
+ * is right about cost and wrong about consequence: in the browser this is a lazily-fetched
+ * chunk, so ONE flaky fetch (a rotated build hash on a long-open Studio tab is the realistic
+ * case) disabled compression for the entire session. Silently — every subsequent clip shipped
+ * uncompressed while the size quote still priced them as mp3, roughly 6x under, with no warning
+ * because both payload thresholds gate on the estimate rather than the bytes.
+ *
+ * So: retry a bounded number of times, then stop. A transient failure recovers; a real absence
+ * still costs three attempts rather than three hundred.
  */
 async function lame() {
-	if (encoderModule === undefined) {
+	if (!encoderModule) {
+		if (encoderFailures >= MAX_LOAD_ATTEMPTS) return null;
 		encoderModule = import('@breezystack/lamejs')
 			.then((m) => m?.default ?? m)
 			.catch(() => null);
 	}
-	return encoderModule;
+	const mod = await encoderModule;
+	if (!mod) {
+		encoderFailures++;
+		encoderModule = null; // let the next call try again, up to the cap
+	}
+	return mod;
+}
+
+/**
+ * Can this session compress at all? Distinguishes "the encoder is missing" from "this
+ * particular clip could not be encoded" — `compressClip` returns null for both, and the two
+ * deserve very different responses: one clip at an exotic sample rate shipping large is a
+ * rounding error, while a dead encoder means EVERY clip ships ~6x its quoted size.
+ */
+export async function encoderAvailable() {
+	return !!(await lame())?.Mp3Encoder;
 }
 
 /**
