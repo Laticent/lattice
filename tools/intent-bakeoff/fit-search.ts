@@ -1,8 +1,11 @@
 // Does this component FIT the described task? — measured, and mostly REFUTED.
 //
 // STATUS: an experiment with a negative result, kept because the result is worth
-// keeping. Nothing in the app imports this module. It is exercised by
-// `npm run intent:fit`, and it is the evidence behind the recommender section of
+// keeping. It lives under tools/ rather than docs/src/lib/ precisely BECAUSE nothing
+// should import it: 368 lines of unreferenced module sitting in the shipped source tree
+// is one stray import away from shipping, and the dead-code gate cannot see docs/**
+// (`knip.json` ignores it). Here, its only consumers are its own harnesses. Exercised by
+// `npm run intent:fit`; it is the evidence behind the recommender section of
 // engineering/decisions/2026-08-09-on-device-intent-routing.md.
 //
 // THE IDEA. #1440 asks for a recommender, not a search box: describe the task, get
@@ -48,8 +51,8 @@
 // material. That is the corrected division of labor — BM25 retrieves and scores its
 // own confidence, a model judges the shortlist.
 //
-import type { CatalogItem } from './component-search';
-import { buildIntentIndex, contentWords, type IntentIndex, scoreIntent, stemsOf } from './intent-search';
+import type { CatalogItem } from '../../docs/src/lib/component-search';
+import { buildIntentIndex, contentWords, type IntentIndex, scoreIntent, stemsOf } from '../../docs/src/lib/intent-search';
 
 export type ManifestNote = { title?: string; body?: string };
 export type Capacity = { axis?: string; min?: number; sweet?: number; soft?: number; hard?: number; escalateTo?: string[]; note?: string };

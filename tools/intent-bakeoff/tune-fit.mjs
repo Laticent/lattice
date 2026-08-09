@@ -22,7 +22,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const tmp = mkdtempSync(join(tmpdir(), 'tune-fit-'));
 const out = join(tmp, 'fit.mjs');
-execFileSync('npx', ['esbuild', join(ROOT, 'docs/src/lib/fit-search.ts'), '--bundle', '--format=esm', `--outfile=${out}`, '--log-level=error'], {
+execFileSync('npx', ['esbuild', join(ROOT, 'tools/intent-bakeoff/fit-search.ts'), '--bundle', '--format=esm', `--outfile=${out}`, '--log-level=error'], {
 	cwd: join(ROOT, 'docs'),
 	stdio: ['ignore', 'ignore', 'inherit'],
 });

@@ -292,7 +292,7 @@ weights the notes carry weight zero, so it changes none of the numbers reported
 below. It protected the **tuner**, which sweeps nonzero weights, and that is
 what makes the negative result sound. It is not a guard on the reported columns.
 
-`docs/src/lib/fit-search.ts` scores the structured facets: `whenToUse` as
+`tools/intent-bakeoff/fit-search.ts` scores the structured facets: `whenToUse` as
 positive evidence, `antiPatterns` as negative, task-verb cues against the
 `function` axis, and stated quantities against `capacity`. The argument for it
 was strong — a bag-of-words ranker cannot represent negative evidence at all,

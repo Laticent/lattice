@@ -7,7 +7,7 @@
  *
  * WHY THIS EXISTS. The deterministic facet scorer was supposed to turn the manifest's authored
  * `whenToUse` / `antiPatterns` into fit judgment, and the held-out benchmark refuted it
- * (docs/src/lib/fit-search.ts documents the numbers). The remaining hypothesis is that those
+ * (tools/intent-bakeoff/fit-search.ts documents the numbers). The remaining hypothesis is that those
  * notes are the right INPUT but the wrong FEATURES — 25 words of authored reasoning is excellent
  * prompt context and useless as a term-frequency signal. This tests exactly that, on the same
  * 128 held-out cases, so the answer is comparable to everything already measured.

@@ -51,7 +51,7 @@ async function load(rel) {
 const intent = await load('docs/src/lib/intent-search.ts');
 let fit = null;
 try {
-	fit = await load('docs/src/lib/fit-search.ts');
+	fit = await load('tools/intent-bakeoff/fit-search.ts');
 } catch {
 	/* not built yet — baseline-only run */
 }

@@ -147,8 +147,16 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	// the FACET-FILTERED pool (not the whole catalog) so the fuzzy-typo fallback can't
 	// leak in results from other functions while a filter chip is active.
 	const pool = React.useMemo(() => (facet ? catalogItems.filter((c) => c.function === facet) : catalogItems), [catalogItems, facet]);
-	const index = React.useMemo(() => makeSearchIndex(pool), [pool]);
-	const hits = React.useMemo(() => rankedHitsFor(pool, index, query, { intent: intentSearch }), [pool, index, query, intentSearch]);
+	// The index is built over the WHOLE catalog and the facet filter is applied to the
+	// RESULTS, not the corpus. Indexing the filtered pool made `match` relative to whatever
+	// survived the chip, so a narrow pool manufactured a near-top runner-up for anything:
+	// with the Evidence chip active, "compare two options and recommend one" showed `code` at
+	// 99% — not a comparison layout, and nothing else on screen said so. Scoring against the
+	// full catalog keeps the scale stable, and post-filtering preserves the property the
+	// pre-filter was there for (a fuzzy hit from another function still cannot appear).
+	const index = React.useMemo(() => makeSearchIndex(catalogItems), [catalogItems]);
+	const allHits = React.useMemo(() => rankedHitsFor(catalogItems, index, query, { intent: intentSearch }), [catalogItems, index, query, intentSearch]);
+	const hits = React.useMemo(() => (facet ? (allHits?.filter((h) => h.item.function === facet) ?? null) : allHits), [allHits, facet]);
 	const ranked = React.useMemo(() => hits?.map((h) => h.item) ?? null, [hits]);
 	// Match strength by component name — rendered on the tile only when the natural-language
 	// pass produced the ordering (the exact and fuzzy passes have no comparable score).
@@ -161,6 +169,11 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	// the author actually needs is how far the runners-up trail, which is exactly what the
 	// remaining badges say: a 94% second place means a toss-up worth reading, a 34% second place
 	// means the leader is clear.
+	// Whether the natural-language pass produced this ordering. Keyed on the PASS, not on
+	// whether any badge rendered — with a single result `.slice(1)` leaves no badges, and
+	// gating the explainer on badge count silently dropped the one line telling the author
+	// the result came from a semantic guess.
+	const intentRanked = React.useMemo(() => (hits ?? []).some((h) => h.via === 'intent'), [hits]);
 	const matchByName = React.useMemo(() => {
 		const m = new Map<string, number>();
 		for (const h of (hits ?? []).slice(1)) if (h.via === 'intent' && h.match != null) m.set(h.item.name, h.match);
@@ -291,7 +304,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			{/* Say what the numbers on the tiles mean, exactly once, and only when they are
 			    on screen. The ranker is a lexical match over the component manifest — it puts
 			    likely candidates in front of the author, it does not decide for them. */}
-			{searching && matchByName.size > 0 && (
+			{searching && intentRanked && (
 				<p className="px-4 pb-1.5 text-[11px] text-muted-foreground sm:px-5">
 					Ranked by how well each slide's description matches what you typed — on this device. The best match leads; percentages
 					show how closely the others trail it.
