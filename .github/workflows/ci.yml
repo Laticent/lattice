@@ -418,11 +418,11 @@ jobs:
         with:
           chrome-version: stable
       # The docs Vitest suite exercises root CJS (lib/core/read-along-vtt.js) that
-      # `require('@slidewright/cadenza')` — the npm-workspace package whose symlink
+      # `require('@workwel/cadenza')` — the npm-workspace package whose symlink
       # lives in ROOT node_modules. Install root deps so npm creates that link; the
       # docs `npm ci` below only populates docs/node_modules, which isn't on the
       # resolution path of a require() from lib/core.
-      - name: Install root deps (for the @slidewright/cadenza workspace link)
+      - name: Install root deps (for the @workwel/cadenza workspace link)
         run: npm ci
       - name: Install docs deps
         run: npm ci

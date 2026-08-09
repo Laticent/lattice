@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type
- * declarations that let ROOT CJS `require('@slidewright/cadenza')` AND a plain
- * Node-ESM / bundler consumer `import '@slidewright/cadenza'`.
+ * declarations that let ROOT CJS `require('@workwel/cadenza')` AND a plain
+ * Node-ESM / bundler consumer `import '@workwel/cadenza'`.
  *
  *   docs/src/lib/cadenza/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/cadenza/dist/index.mjs   (bundled ESM, esbuild)
@@ -61,7 +61,7 @@ function sourceFiles() {
 
 // Both module formats: CJS (`require` condition -> dist/index.cjs) + ESM
 // (`import`/`module` condition -> dist/index.mjs). Emitting a real .mjs is what makes
-// `import '@slidewright/cadenza'` resolve for a plain Node-ESM / non-TS-bundler consumer —
+// `import '@workwel/cadenza'` resolve for a plain Node-ESM / non-TS-bundler consumer —
 // the `import` condition used to point at raw ./index.ts and crashed with a TS extension.
 const FORMATS = [
   { format: 'cjs', ext: 'cjs' },

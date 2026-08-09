@@ -65,7 +65,7 @@ function sourceFiles() {
 }
 
 // Both module formats per entry: CJS (`require` condition) + ESM (`import`/`module`
-// condition). Emitting a real dist/*.mjs is what makes `import '@slidewright/vetrina'`
+// condition). Emitting a real dist/*.mjs is what makes `import '@workwel/vetrina'`
 // resolve for a plain Node-ESM / non-TS-bundler consumer — the `import` condition used to
 // point at raw ./index.ts and crashed with ERR_UNKNOWN_FILE_EXTENSION.
 const FORMATS = [

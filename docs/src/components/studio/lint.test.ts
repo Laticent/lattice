@@ -284,7 +284,7 @@ describe('presentationSet (reader lenses)', () => {
 	});
 
 	// The tag-driven read path: when the deck defines a `lenses:` registry, projection flows through the
-	// @slidewright/lente library, and the author-index contract (what keeps number-keyed front-matter
+	// @workwel/lente library, and the author-index contract (what keeps number-keyed front-matter
 	// `captions:` resolving under a FILTERED lens) is preserved — a dropped slide shifts the ORIGINAL
 	// index, not the set position.
 	it('projects a registry (tag-driven) lens via the library, preserving author indices', () => {

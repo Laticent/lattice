@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Build the Lente library's consumable dist/ — the ESM + CJS entries + type
- * declarations that let ROOT CJS `require('@slidewright/lente')` AND a plain
- * Node-ESM / bundler consumer `import '@slidewright/lente'`.
+ * declarations that let ROOT CJS `require('@workwel/lente')` AND a plain
+ * Node-ESM / bundler consumer `import '@workwel/lente'`.
  *
  *   docs/src/lib/lente/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/lente/dist/index.mjs   (bundled ESM, esbuild)
@@ -11,7 +11,7 @@
  *
  * WHY: Lente's package.json already declares `main`/`require` → ./dist/index.cjs
  * and it is an npm-workspace member, but no build ever produced that dist/ — so
- * `require('@slidewright/lente')` (and any npm publish) resolves a missing file.
+ * `require('@workwel/lente')` (and any npm publish) resolves a missing file.
  * This completes the library-shape recipe the Lente ADR always called for
  * (2026-07-13-lente-reader-lenses.md, following 2026-07-08-library-shape-cadenza-vetrina.md):
  * the `exports` map sends `require` → dist/index.cjs and `import` → dist/index.mjs, while
@@ -63,7 +63,7 @@ function sourceFiles() {
 
 // Both module formats: CJS (`require` condition -> dist/index.cjs) + ESM
 // (`import`/`module` condition -> dist/index.mjs). Emitting a real .mjs is what makes
-// `import '@slidewright/lente'` resolve for a plain Node-ESM / non-TS-bundler consumer —
+// `import '@workwel/lente'` resolve for a plain Node-ESM / non-TS-bundler consumer —
 // the `import` condition used to point at raw ./index.ts and crashed with a TS extension.
 const FORMATS = [
   { format: 'cjs', ext: 'cjs' },

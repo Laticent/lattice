@@ -3,7 +3,7 @@ import type { LensBase } from '@/lib/lente';
 // The reader-view ARCHETYPES — the single source of truth for the built-in reader types, shared by the
 // Lenses panel (the "Add a reader view" menu) AND the workspace default reader views (workspace-lenses).
 // Each is grounded in a reader TYPE, not a layout: the bottom-line reader, the narrative reader, the
-// proof-first reader, the decision-maker. `@slidewright/lente`'s deterministic suggester (suggest.ts)
+// proof-first reader, the decision-maker. `@workwel/lente`'s deterministic suggester (suggest.ts)
 // keys on these ids, so an id here must match a SUGGESTERS entry there. The blurb is the author-facing
 // "who is this for," in plain words. One definition so the panel and the workspace defaults can't drift.
 export type Archetype = { id: string; label: string; base: LensBase; single?: boolean; blurb: string };

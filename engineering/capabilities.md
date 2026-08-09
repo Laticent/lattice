@@ -47,7 +47,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `axis-dom-catalog:check` | Freshness gate for the generated axis-DOM catalog. |
 | `build` | Regenerate every generated artifact in dependency order, behind the ownership gate. |
 | `build:check` | Freshness gate: regenerate in memory and byte-diff every artifact; fail on drift (CI/pre-push). |
-| `cadenza-lib:build` | Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@slidewright/cadenza') resolves — the workspace package that retires the caption hand-mirrors. |
+| `cadenza-lib:build` | Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/cadenza') resolves — the workspace package that retires the caption hand-mirrors. |
 | `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
@@ -84,7 +84,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `katex-provider:watch` | Rebuild the katex-provider bundle on change. |
 | `layout-core:build` | Bundle the pure Layout Studio core for the browser (docs site). |
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
-| `lente-lib:build` | Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@slidewright/lente') and npm publish resolve — the fourth spin-off sibling's consumable artifact. |
+| `lente-lib:build` | Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/lente') and npm publish resolve — the fourth spin-off sibling's consumable artifact. |
 | `lente-lib:check` | Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts). |
 | `marp-kit:build` | Build dist/marp-kit — the copy-and-go Marp folder (CSS, runtime, fonts, Mermaid, configs, Sample-Deck.md). No export needed. |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
@@ -107,7 +107,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
-| `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@slidewright/suono') and npm publish resolve — the audio engine's consumable artifact. |
+| `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/suono') and npm publish resolve — the audio engine's consumable artifact. |
 | `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |

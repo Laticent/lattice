@@ -1,5 +1,5 @@
 {
-  "name": "@slidewright/lente",
+  "name": "@workwel/lente",
   "version": "0.1.0",
   "description": "Deterministic, human-approved reader lenses — project one deck at several honest altitudes (full / brief / ask / story / evidence) without editing the source. Framework-free, zero-dependency, no DOM.",
   "license": "AGPL-3.0-only",

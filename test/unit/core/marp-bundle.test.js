@@ -126,9 +126,9 @@ describe('marp-bundle spec', () => {
     const pkg = packageJson('My Deck');
     assert.ok(pkg.dependencies['@marp-team/marp-cli']);
     // The engine ships pre-bundled (dist/lattice-emulator.js), so it is NOT an
-    // npm dependency — listing the unpublished @slidewright/lattice would 404
+    // npm dependency — listing the unpublished @workwel/lattice would 404
     // `npm install` and the recipient would never get marp-cli either.
-    assert.strictEqual(pkg.dependencies['@slidewright/lattice'], undefined);
+    assert.strictEqual(pkg.dependencies['@workwel/lattice'], undefined);
     assert.match(pkg.name, /^My-Deck-marp-export$/);
     // The scripts name the SANITIZED file — the same string the producers write
     // the deck under. They used to interpolate the raw title, so this bundle's

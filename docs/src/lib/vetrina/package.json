@@ -1,5 +1,5 @@
 {
-  "name": "@slidewright/vetrina",
+  "name": "@workwel/vetrina",
   "version": "0.1.0",
   "description": "A self-driving UI walkthrough engine — theater over real state, seamlessly interruptible. Framework-free core; an optional React adapter at ./react.",
   "license": "AGPL-3.0-only",

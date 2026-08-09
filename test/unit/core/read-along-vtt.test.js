@@ -8,7 +8,7 @@ const {
 
 // The CJS .vtt derivation the export pipeline uses (2026-07-08 read-along export
 // manifest). The single-track serializer is Cadenza's `toVtt`, required from the
-// built @slidewright/cadenza — this module owns only the deck-level offset/split
+// built @workwel/cadenza — this module owns only the deck-level offset/split
 // exercised below. (toVtt itself is covered by cadenza/vtt.test.ts.)
 
 // A two-word cue: "Revenue grew." spanning [start, end], the second word karaoke-timed.

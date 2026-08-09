@@ -205,7 +205,7 @@ export function slideEditableOffset(src: string, index: number): number {
 	return start;
 }
 
-/** A reader-lens id. Any string so a deck-defined `lenses:` registry (projected by @slidewright/lente)
+/** A reader-lens id. Any string so a deck-defined `lenses:` registry (projected by @workwel/lente)
  *  can name its own lenses. `full` is always the identity; every other id is a registry (tag-driven,
  *  author-approved) lens. The old author-blind `exec`/`onepager` heuristics are RETIRED. */
 export type PresentLens = string;
@@ -215,7 +215,7 @@ export type PresentLens = string;
  *  the author wrote, which the front-matter `captions:` map is keyed on. Pure; always non-empty for a
  *  non-empty deck under `full` (falls back to the full deck for an unknown lens rather than nothing).
  *
- *  Projection source: when `registry` defines `lens`, the deterministic, tag-driven @slidewright/lente
+ *  Projection source: when `registry` defines `lens`, the deterministic, tag-driven @workwel/lente
  *  read path (`lensPairs`) owns it. `full` (or an unknown lens with no registry entry) is the whole deck. */
 export function presentationPairs(slides: string[], lens: PresentLens, registry?: LensRegistry): Array<{ slide: string; index: number }> {
 	const all = (Array.isArray(slides) ? slides : [])
