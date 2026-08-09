@@ -1,0 +1,62 @@
+version: 2
+
+# Dependency updates, shaped to match the auto-merge policy in
+# .github/workflows/dependabot-auto-merge.yml: patch + minor land unattended,
+# majors wait for a human. So they are deliberately split into DIFFERENT PRs —
+# grouping a major in with the routine churn would either strand the whole
+# group behind a review or sneak a major through on the group's coattails.
+#
+# Grouping matters more here than in most repos: every merge is a merge-queue
+# entry that re-runs the FULL ci suite and that every open PR must rebase past.
+# Sixteen ungrouped bumps is sixteen of those. One grouped PR is one.
+updates:
+  - package-ecosystem: npm
+    # Covers the root manifest AND the four npm workspaces it declares
+    # (docs/src/lib/{cadenza,lente,suono,vetrina}) — one resolution, one PR.
+    directory: /
+    schedule:
+      interval: weekly
+      day: saturday # land the churn off-hours, like the backlog mirror
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for all the routine churn. Auto-merges when ci is green.
+      routine:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      # Security fixes travel as their own group so they are never held up
+      # behind a routine bump that happens to be red.
+      security:
+        applies-to: security-updates
+        update-types: [minor, patch]
+    # Majors stay ungrouped and arrive one at a time — each is a judgment call.
+    commit-message:
+      prefix: build(deps)
+      prefix-development: build(deps-dev)
+
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+      day: saturday
+    open-pull-requests-limit: 5
+    groups:
+      routine:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      security:
+        applies-to: security-updates
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+      prefix-development: build(deps-dev)
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        applies-to: version-updates
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci(actions)

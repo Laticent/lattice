@@ -62,11 +62,12 @@ Reserve questions for genuine forks.
    authorization** — a human approves every merge, and prior authorization does
    **not** carry forward. On my go-ahead, **squash-merge** by default. Full
    procedure: `workflow.md` §Merging.
-   *Scope: work you or I authored.* Two workflow-generated PRs auto-merge
-   themselves through the queue — the backlog mirror (`sync-backlog.yml`, a
-   generated view of issues) and the release (`release.yml`, where **the
-   dispatch is the authorization**). Both are machine renderings of a source a
-   human already decided; neither is licence to auto-merge anything you wrote.
+   *Scope: work you or I authored.* Three machine-generated PR classes
+   auto-merge themselves through the queue — the backlog mirror
+   (`sync-backlog.yml`, a generated view of issues), the release (`release.yml`,
+   where **the dispatch is the authorization**), and **patch/minor dependency
+   bumps** (`dependabot-auto-merge.yml`; majors always wait for a human). None
+   is licence to auto-merge anything you wrote.
 
 Rules 6–7 deliberately override the harness defaults (which hold off on PR
 creation and ask before watching). `doneMeansMerged` in `.claude/settings.json`

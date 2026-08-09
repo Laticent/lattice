@@ -604,10 +604,11 @@ The contract, and its limits — be precise about what it does and doesn't cover
 - **Merging requires explicit human authorization.** An agent drives the PR to
   green and *asks* to merge — it never merges on its own, and prior approval of
   one PR is not license to merge the next. A human reviews and authorizes every
-  merge. **Scope: authored work.** Two workflow-generated PRs auto-merge
-  themselves through the queue — the backlog mirror (`sync-backlog.yml`) and the
+  merge. **Scope: authored work.** Three machine-generated PR classes auto-merge
+  themselves through the queue — the backlog mirror (`sync-backlog.yml`), the
   release (`release.yml`, where dispatching the workflow *is* the
-  authorization). Both render a source a human already decided; see
+  authorization), and patch/minor dependency bumps
+  (`dependabot-auto-merge.yml`; majors wait). See
   § Automation vs. the main ruleset.
 - PRs merge into `main` via **squash-and-merge by default** — across many
   parallel AI sessions a single PR can carry 20+ noisy commits, and squashing
@@ -690,10 +691,11 @@ it. This broke every `sync-backlog` run for weeks (#1439). Full reasoning:
 
 **The rule has no exceptions, and that is the point.** A workflow that needs to
 change the repo does exactly what you do: pushes a branch, opens a PR, and lets
-the queue land it. Two workflows do this today — `sync-backlog.yml` and
-`release.yml` — and what makes them feel automatic is not a shortcut past the
-queue, it is that they also switch **auto-merge** on, so the queue merges the PR
-the moment `ci` is green. Same gate, no human.
+the queue land it. Three workflows do this today — `sync-backlog.yml`,
+`release.yml` and `dependabot-auto-merge.yml` — and what makes them feel
+automatic is not a shortcut past the queue, it is that they also switch
+**auto-merge** on, so the queue merges the PR the moment `ci` is green. Same
+gate, no human.
 
 ### The one thing that makes it possible: `AUTOMATION_PAT`
 
@@ -758,6 +760,37 @@ always reconciled). Need it current before then: dispatch the workflow.
 If even that ever bites, the remaining lever is to retire the mirror from `main`
 entirely — an orphan artifact branch, the `ci-drift-images` idiom — which costs
 nothing at all and needs no ruleset change either.
+
+### Dependency updates — where the line is drawn
+
+`dependabot-auto-merge.yml` flips auto-merge on for a Dependabot PR when the
+update is **patch or minor**. **Majors always wait for a human.** A dependency
+update is the classic supply-chain vector and unattended merge means nobody
+reads the diff, so the line sits where the risk actually changes: majors carry
+the breaking changes and the nastiest surprises, and they are rare enough that
+reading them is cheap.
+
+The gate is an **allow-list of the two accepted types, not a deny-list for
+majors** — so a grouped PR whose update type comes back empty or unrecognized
+does *not* auto-merge. Being wrong in that direction leaves a PR open; being
+wrong in the other direction merges something nobody classified.
+
+Two things about this workflow are deliberately unlike the other two:
+
+- **It uses `GITHUB_TOKEN`, not `AUTOMATION_PAT` — and it must.** A run
+  triggered by Dependabot reads from a separate secret store (Dependabot
+  secrets), so repository and environment secrets come back **empty**. That
+  costs nothing here: enabling auto-merge raises no event another workflow needs
+  to see, because Dependabot's own PR already started `ci`.
+- **It needs no environment**, for the same reason.
+
+`.github/dependabot.yml` shapes the input side. Patch and minor arrive
+**grouped into one PR per ecosystem per week**; majors arrive individually and
+ungrouped, because a grouped major would either strand the whole group behind a
+review or ride through on the group's coattails. Grouping matters more here than
+in most repos: every merge is a queue entry that re-runs the full `ci` suite and
+that every open PR must rebase past, so sixteen ungrouped bumps is sixteen of
+those and one grouped PR is one.
 
 ### Mechanics worth knowing before you automate against this
 
