@@ -71,6 +71,7 @@ in patch versions.
   always specified. A commented *typo* is still caught. Found by rendering the real CLI — every
   unit suite passed while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
 
+<<<<<<< HEAD
 - **Fixed: the Studio's pre-paint shell now draws the whole app frame, not just a topbar and a
   slide box.** Reported (#1438) as "the icons and the middle action bar are missing on a hard
   reload". The Studio is `client:only`, so nothing about it is server-rendered — there is no
@@ -90,6 +91,8 @@ in patch versions.
   band. Every band is verified within 1px of the app's at 393 / 820 / 1440, in light and dark,
   at the Read stop and in cinema, by a new e2e oracle that measures both surfaces in one page
   load. Real iOS remains UNVERIFIED (HARD RULE #23).
+=======
+>>>>>>> 51240b9 (docs(changelog): restore the #1421 entry my rebase deleted)
 - **Fixed: the Studio's pre-paint shell now renders the app's OWN chrome, at build time.**
   Reported (#1438) as "the icons and the middle action bar are missing on a hard reload". The
   Studio is `client:only`, so nothing about it is server-rendered — there is no hydration
