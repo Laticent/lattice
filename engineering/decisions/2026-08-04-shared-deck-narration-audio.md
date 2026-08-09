@@ -276,7 +276,8 @@ identity — because that is what makes the artifact self-describing.
 
 **The breakout guard had to be bought a different way.** The envelope's whole-payload base64
 is what makes a deck titled `</script><script>…` harmless. This payload carries caption TEXT,
-so it is not all base64. Every `<` is emitted as the JSON escape `<`: the HTML parser
+so it is not all base64. Every `<` is emitted as the JSON escape `\u003c` (a literal
+backslash-u sequence): the HTML parser
 never sees one (so neither `</script` nor the `<!--` that flips it into script-data-escaped
 state can appear), and `JSON.parse` returns the original character. **HTML-entity escaping
 would be the wrong tool and is deliberately not used** — a `<script>` element's content is raw
@@ -330,6 +331,64 @@ recipient the private text back. The panel locks both switches off while notes a
   A cue with no clip crawls on the wall clock instead, which is also what makes the
   captions-only export a working read-along rather than a frozen one.
 
+### 7. What the adversarial trio changed after the build (2026-08-09)
+
+The trio (HARD RULE #25) found defects the diff did not show, and two of them were load-bearing.
+
+- **The pre-flight's size line was wrong by ~30×.** It used a flat 16 bytes of mp3 per input
+  character — not the rate of any codec that exists — and called itself "measured". This
+  repository's own committed samples (`docs/public/voice-samples/`, generated against the live
+  API from one fixed 35-character sentence) put the real rate at 279–1246 B/char depending on
+  the engine, so a single constant was wrong for the whole roster regardless. The estimate now
+  reads from a per-engine table derived from those files, goes through `shippedBytes` like the
+  exact half does, and a test recomputes the table from the samples on disk so it cannot rot
+  back into a guess. This mattered because the §3 reversal is defended by the quote: an
+  author told "about 0.8 MB" who receives 23 MB has not consented to anything.
+- **The quote and the bake resolved DIFFERENT sentences on any `glossary: auto` deck.** The
+  panel trimmed the render-appended glossary slide out of the projection; the exporter did
+  not. A length mismatch stands the whole projection down, so the two halves of one export
+  narrated through different rungs, keyed different clips, and quoted a bill that had nothing
+  to do with the charge. The fix is *not* to trim in both places: **Present applies the same
+  equality guard**, so such a deck is rehearsed through the markdown flatten and every clip on
+  the device is keyed on it. Trimming would have matched none of them and re-billed a fully
+  prepared deck. The bake now resolves exactly as Present does, including where Present gives
+  something up, and `trimAppendedSlides` was deleted so nobody re-introduces the divergence.
+- **A worker that threw took the export down while its siblings kept spending.** `Promise.all`
+  rejected on the first failure and left two workers synthesizing a deck nobody would receive.
+  Now `allSettled` with a shared controller: one worker's death stops the run.
+- **A timeout aborted a controller nobody was listening to.** `synthFor` used the caller's
+  signal *instead of* its own, so its 45 s timeout never cancelled the request — the abandoned
+  call ran to completion and was billed while the retry fired a second one. Three attempts
+  could mean three charges for one clip. The two signals are chained now.
+- **A terminal error retried the whole deck.** A revoked key failed every sentence three times
+  with full backoff — five minutes of spinning on a 300-sentence deck to learn what the first
+  sentence knew. Non-retryable classes now stop the run and say so once.
+- **The export ignored "keep narration on this device."** Every other consumer gates on that
+  pref; the bake wrote to IndexedDB anyway.
+- **A deck could forge the player's own chrome.** The body of an exported player IS deck
+  content, and the engine renders authored HTML, so a slide containing `id="lp-caption"` was
+  found by the transport's bare `getElementById`. On an audio-only export — where the cursor
+  kernel is deliberately not inlined — that threw inside a click handler outside the init
+  try/catch: the button read "Pause" and the deck never spoke. Both chrome lookups are now
+  scoped to a direct child of the player's own shell, which a slide can never be.
+- **Two smaller ones**: a repeated sentence was billed once per occurrence rather than once,
+  and a cancel the author asked for was reported as "Webpage failed: Bake cancelled".
+
+Three findings were argued rather than fixed, and are recorded here as decisions:
+
+- **"Complete or nothing" now has an override.** The inversion lens made the strongest case
+  against the reversal: a sentence a model deterministically refuses would make narration
+  permanently unreachable for that deck, and the graceful floor the refusal avoids is a state
+  the player is already verified in. So the refusal stays the default and gains one escape —
+  offered only *after* it has named the sentences, never before. The author is standing there,
+  informed, and chooses.
+- **The on-device rung is now a bake source.** The first build hard-coded the cloud rung, which
+  locked out the author who rehearsed the whole deck on-device and has no key — 100% of the
+  bytes on their own disk, 0% of the feature, on the rung that exists so no key is needed. It
+  is admitted READ-ONLY: `synthBakeClip` refuses to synthesize for it, so such a bake either
+  finds every clip or refuses. It cannot spend.
+- **The panel still has no rendering test.** Flagged and not closed — see UNVERIFIED below.
+
 ### Verified, and UNVERIFIED (HARD RULE #23)
 
 **Verified** on the real surface: `tools/verify-narrated-player.mjs` builds real exported
@@ -351,6 +410,17 @@ alongside.
 - **Real iOS Safari.** Not reachable from here. The player's media path is a plain `<audio>`
   element with `playsinline`, which is the conservative shape, but that is an argument rather
   than evidence.
-- **The ~16 bytes-per-character estimate** for not-yet-synthesized audio is measured across
-  this repository's own narrated examples at the default voice. Cached bytes are exact; that
-  one line of the quote is an estimate and is worded as one.
+- **The per-engine bytes-per-character table** is derived from committed samples of ONE
+  35-character sentence, so it carries that clip's fixed container overhead and slightly
+  over-quotes a long sentence. Over-quoting is the safe direction — the file arrives smaller
+  than promised — but the figure is an estimate and is worded as one. Cached bytes are exact.
+- **The export panel has never been opened in a browser.** Every check above is of the PLAYER,
+  which the earlier commits built; the four commits that add the panel, the two switches, the
+  pickers, the pre-flight, the refusal display and the cancel button are covered by unit tests
+  with the store and the synth both mocked — which HARD RULE #23 names explicitly as not
+  verification. There is also no `tools/screenshot.js` evidence at 1440 / 820 / 390, which the
+  QUALITY BAR requires for a website change. Both are open.
+- **A large bake's memory profile.** A 300-sentence deck holds every clip as a base64 string
+  in the cue tree, then again in the per-slide JSON, then again in the assembled document —
+  plausibly 120–180 MB of live strings before the Blob. Measured at ~46 MB for the URIs alone
+  in Node; never measured in a real mobile tab, and there is no cap and no warning.

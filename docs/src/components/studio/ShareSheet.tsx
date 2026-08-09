@@ -57,16 +57,26 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// The sentences a refused narration bake could not prepare — held here so the webpage
 	// panel can name them, since a toast can only carry one line.
 	const [narrationFailures, setNarrationFailures] = React.useState<{ slide: number; text: string; reason: string }[] | null>(null);
+	// The run's abort controller lives HERE, not in the options panel, because this component
+	// outlives it: the panel unmounts when the sheet closes or the author steps back to the
+	// format menu, and a controller that went with it left a bake synthesizing and billing with
+	// nothing able to stop it — and re-mounted a Cancel button pointing at a null ref.
+	const bakeRef = React.useRef<AbortController | null>(null);
+	// Closing the sheet mid-export stops the spend. An export the author walked away from is one
+	// they are no longer paying attention to; it must not keep charging them in the background.
+	React.useEffect(() => {
+		if (!open) bakeRef.current?.abort();
+	}, [open]);
 
 	// Render the deck once and project every slide to narration text — what the webpage
 	// panel measures a bake against. Passed as a THUNK, not a result: it is a full deck
 	// render, and an author who never turns narration on should never pay for it.
+	// Handed back RAW. Reconciling the render-appended `glossary: auto` slide is the bake's
+	// job (narration-bake.ts › alignProjection) precisely so this caller and the exporter
+	// cannot do it differently — trimming here as well would trim twice.
 	const projectDeck = React.useCallback(async () => {
-		const [{ projectDeckSpeech }, { trimAppendedSlides }] = await Promise.all([import('./narration-projection'), import('./narration-bake')]);
-		const projected = await projectDeckSpeech(options, artifactSource, palette, extraTheme, extraCss, mode);
-		// `glossary: auto` appends a slide the SOURCE does not contain, so the projection runs
-		// one entry long; trimming it keeps the rest index-aligned to the authored slides.
-		return trimAppendedSlides(artifactSource, projected);
+		const { projectDeckSpeech } = await import('./narration-projection');
+		return projectDeckSpeech(options, artifactSource, palette, extraTheme, extraCss, mode);
 	}, [options, artifactSource, palette, extraTheme, extraCss, mode]);
 
 	// Run an async export with a busy spinner + honest success / failure toast. The
@@ -86,7 +96,9 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing
 				// the engine's raw text ("Failed to fetch dynamically imported module: /_astro/…")
 				// blames the deck and leaks a hashed asset URL into boardroom-facing copy (#1242).
-				notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
+				// A cancel the author asked for is not a failure, and must not be reported as one.
+				if ((e as Error)?.name === 'AbortError') notify(`${label} cancelled.`);
+				else notify(isChunkLoadError(e) ? chunkLoadMessage() : `${label} failed: ${(e as Error)?.message || 'unexpected error'}`);
 			} finally {
 				setBusy(null);
 				setProgress(null);
@@ -113,13 +125,16 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// scrubs them from every copy in the shared file (see WebpageOptionsPanel).
 	const exportHtml = (choice: WebpageExportChoice) => {
 		setNarrationFailures(null);
+		bakeRef.current = new AbortController();
+		const signal = bakeRef.current.signal;
 		run('html', 'Webpage', async (onStatus) => {
 			try {
 				await shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, choice.stripNotes, choice.scheme, {
 					captions: choice.narration.captions,
 					audio: choice.narration.audio,
+					allowPartial: choice.narration.allowPartial,
 					voice: choice.narration.voice,
-					signal: choice.signal,
+					signal,
 				});
 			} catch (e) {
 				// A refused bake names the sentences it could not prepare. The toast can only carry
@@ -172,6 +187,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 							narrationFailures={narrationFailures}
 							onBack={() => setView('menu')}
 							onExport={exportHtml}
+							onCancel={() => bakeRef.current?.abort()}
 						/>
 					) : view === 'print' ? (
 						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} notify={notify} />

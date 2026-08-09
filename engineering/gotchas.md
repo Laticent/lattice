@@ -3179,8 +3179,11 @@ means "no gap logged for the runtime route", never "the preview is complete.
   properties, and 'x' does not exist in type `{ y?: number }`" — after adding one
   default value to a destructured options object.
 - **Cause:** with `function f({ a, b, c = 1 } = {})`, TypeScript infers the whole
-  parameter from the `= {}` initializer widened by the defaulted key, so `a` and
-  `b` vanish from the inferred type. Without the default, all three are inferred.
+  parameter from the `= {}` initializer widened by the defaulted key — the type
+  becomes `{ c?: number }`, so passing `a` or `b` is an excess-property error.
+  Without the default the inferred type is `{}`, which accepts anything (so the
+  call sites compile, but nothing about them is actually checked either way — the
+  fix restores compilation, not type safety; a `.d.ts` is what buys that).
 - **Fix:** default it in the BODY instead
   (`const eff = Number.isFinite(c) ? c : 1`), or give the module a `.d.ts`. The
   playground modules deliberately have none — they must stay plain-Node-loadable.

@@ -1042,6 +1042,26 @@ test('narration: captions with audio OFF ship a read-along that costs kilobytes'
 	assert.doesNotMatch(html, /data:audio\//, 'and not one clip rides along');
 });
 
+test('narration: the player binds to its OWN chrome, not to a deck element wearing the same id', async () => {
+	// The document body IS deck content, and the engine renders authored HTML, so a slide can
+	// contain `<div id="lp-caption">`. A bare getElementById bound the transport to it — and
+	// with captions OFF the cursor kernel is not inlined, so the crawl's one guarded call site
+	// threw a ReferenceError inside a click handler that sits outside the init try/catch: the
+	// button flipped to "Pause" and the deck never spoke a word. The lookups are scoped to a
+	// direct child of the player's own chrome, which a slide (nested in #lp-stage) never is.
+	const hostile = NARRATION_DOC.replace('<h1>One</h1>', '<h1>One</h1><div id="lp-caption"></div><button id="lp-play"></button>');
+	const { html } = await narratedPlayer({ docHtml: hostile, narration: NARRATION_NO_CAPTIONS });
+	assert.match(html, /querySelector\('#lp-app > #lp-caption'\)/, 'the band is resolved inside the player, not the document');
+	assert.match(html, /querySelector\('#lp-bar > #lp-play'\)/, 'and so is the play control');
+	assert.doesNotMatch(html, /getElementById\('lp-caption'\)/, 'no bare id lookup survives for deck content to hijack');
+	// The forged element still ships (it is the author's markup, sanitized) — what must not
+	// happen is the transport binding to it.
+	const { JSDOM } = require('jsdom');
+	const doc = new JSDOM(html).window.document;
+	assert.equal(doc.querySelectorAll('#lp-app > #lp-caption').length, 0, 'an audio-only export has no band of its own');
+	assert.ok(doc.querySelector('section[data-lattice-slide] #lp-caption'), "the author's element is still in their slide");
+});
+
 test('narration: the deck’s own pace is baked, because the player cannot read front matter', async () => {
 	// The assembler strips every non-envelope <script>, so the baked
 	// `application/lattice-front-matter` block never reaches the player — and a shared file

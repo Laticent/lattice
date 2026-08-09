@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BakeVoice } from './read-aloud';
 
 // The store and the voice are the two things a bake talks to that a test cannot have: one is
@@ -15,6 +15,9 @@ const banked: string[] = [];
 const script = new Map<string, (number | string)[]>();
 /** Every text a synthesis was attempted for, in order. */
 const attempts: string[] = [];
+/** The error returned for any text with no script entry — so a test can make EVERY sentence
+ *  fail the same way, which is what a revoked key or an exhausted balance actually looks like. */
+let defaultError = 'no audio returned';
 
 const clipOf = (size: number, type = 'audio/mpeg') => ({ size, type, arrayBuffer: async () => new ArrayBuffer(size) });
 
@@ -40,11 +43,11 @@ vi.mock('./read-aloud', async (importOriginal) => ({
 		const key = JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]);
 		const next = script.get(text)?.shift();
 		if (typeof next === 'number') return { ok: true, bytes: clipOf(next), key };
-		return { ok: false, bytes: null, key, error: typeof next === 'string' ? next : 'no audio returned' };
+		return { ok: false, bytes: null, key, error: typeof next === 'string' ? next : defaultError };
 	},
 }));
 
-const { BakeIncompleteError, appendedSlideCount, bakeNarration, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes, trimAppendedSlides } = await import('./narration-bake');
+const { BakeIncompleteError, ENGINE_BYTES_PER_CHAR, bakeNarration, estimateSynthBytes, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes } = await import('./narration-bake');
 
 const VOICE: BakeVoice = { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 };
 const keyFor = (text: string, voice: BakeVoice = VOICE) => JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]);
@@ -54,6 +57,40 @@ beforeEach(() => {
 	banked.length = 0;
 	script.clear();
 	attempts.length = 0;
+	defaultError = 'no audio returned';
+});
+
+// The retry backoff is 600 ms + 2400 ms of REAL sleep per failing sentence, and several tests
+// below drive a sentence to exhaustion. Left on real timers this one file burned nine seconds
+// of wall clock proving arithmetic. `runAllTimersAsync` drains the pending sleeps as the
+// workers reach them, so the backoff is still exercised — it just does not have to be waited
+// out. (Only the retry-driving tests opt in; the rest are already instant.)
+async function withFastBackoff<T>(run: () => Promise<T>): Promise<T> {
+	vi.useFakeTimers();
+	try {
+		const p = run();
+		// Let each awaited sleep register before draining it, until the run settles.
+		let settled = false;
+		p.then(
+			() => {
+				settled = true;
+			},
+			() => {
+				settled = true;
+			},
+		);
+		for (let i = 0; i < 200 && !settled; i++) {
+			await vi.runAllTimersAsync();
+			await Promise.resolve();
+		}
+		return await p;
+	} finally {
+		vi.useRealTimers();
+	}
+}
+
+afterEach(() => {
+	vi.useRealTimers();
 });
 
 // Two slides, one sentence each — the projection is supplied so the counts are a figure
@@ -101,6 +138,56 @@ describe('safeMime', () => {
 		for (const hostile of ['audio/mpeg"</script><script>alert(1)</script>', '<img src=x>', 'audio/<mpeg>', "audio/mpeg';x", 'audio mpeg', '', null, undefined, 'notatype']) {
 			expect(safeMime(hostile as string)).toBe('audio/mpeg');
 		}
+	});
+});
+
+describe('estimateSynthBytes — the one figure that cannot be exact', () => {
+	// The size line is what an author consents to before emailing a file to a board. The first
+	// version used a flat 16 bytes/char — not the rate of any codec that exists (it implies
+	// 1.6 kbps audio) — and understated a real deck by roughly THIRTY times, while its comment
+	// claimed to be "measured". These pin the table against the bytes actually on disk, so it
+	// cannot drift back into a guess.
+	const SAMPLE_TEXT_LEN = 35; // 'This is how your slides will sound.' — tools/generate-voice-samples.mjs
+
+	it('matches the committed voice samples this repository generated against the live API', async () => {
+		const { readdirSync, statSync } = await import('node:fs');
+		const { join } = await import('node:path');
+		const root = join(process.cwd(), 'public/voice-samples');
+		for (const [engine, rate] of Object.entries(ENGINE_BYTES_PER_CHAR)) {
+			const dir = join(root, engine);
+			const mp3s = readdirSync(dir).filter((f) => f.endsWith('.mp3'));
+			expect(mp3s.length, `${engine} has committed samples`).toBeGreaterThan(0);
+			const mean = mp3s.reduce((n, f) => n + statSync(join(dir, f)).size, 0) / mp3s.length;
+			const measured = mean / SAMPLE_TEXT_LEN;
+			// 5% is drift, not disagreement — a re-generated sample set moves a little.
+			expect(Math.abs(rate - measured) / measured, `${engine}: table says ${rate} B/char, samples say ${Math.round(measured)}`).toBeLessThan(0.05);
+		}
+	});
+
+	it('is nowhere near the flat 16 B/char the first version quoted', () => {
+		// The specific regression. A 12,000-character deck is ~5.7 MB of mp3 at the default
+		// voice, not the ~256 KB the old arithmetic promised.
+		const chars = 12_000;
+		const now = estimateSynthBytes(chars, 'hexgrad/kokoro-82m');
+		expect(now).toBeGreaterThan(6_000_000);
+		expect(now).toBeGreaterThan(Math.ceil((chars * 16 * 4) / 3) * 20);
+	});
+
+	it('is per ENGINE — the roster spans a 4.5x range, so one constant cannot serve it', () => {
+		const orpheus = estimateSynthBytes(1000, 'canopylabs/orpheus-3b-0.1-ft');
+		const mai = estimateSynthBytes(1000, 'microsoft/mai-voice-2');
+		expect(mai / orpheus).toBeGreaterThan(4);
+	});
+
+	it('falls back to the median rate for a model the catalog has no samples for, and never to zero', () => {
+		expect(estimateSynthBytes(1000, 'some/unlisted-model')).toBeGreaterThan(500_000);
+		expect(estimateSynthBytes(1000, undefined)).toBeGreaterThan(500_000);
+		expect(estimateSynthBytes(0, 'hexgrad/kokoro-82m')).toBe(0);
+		expect(estimateSynthBytes(-5, 'hexgrad/kokoro-82m')).toBe(0);
+	});
+
+	it('goes through shippedBytes, so the quote and the file use one arithmetic', () => {
+		expect(estimateSynthBytes(1000, 'hexgrad/kokoro-82m')).toBe(shippedBytes(1000 * ENGINE_BYTES_PER_CHAR.kokoro));
 	});
 });
 
@@ -218,7 +305,7 @@ describe('bakeNarration — complete, or nothing', () => {
 	it('retries a failing sentence with backoff before giving up on it', async () => {
 		stored.set(keyFor(S1), 30_000);
 		script.set(S2, ['429 rate limited', '429 rate limited', 20_000]);
-		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		const bake = await withFastBackoff(() => bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true }));
 		expect(attempts).toEqual([S2, S2, S2]);
 		expect(bake.covered).toBe(2);
 	});
@@ -228,11 +315,11 @@ describe('bakeNarration — complete, or nothing', () => {
 		// someone else, with no way to fix it and no idea anything is wrong: a presenter stops
 		// mid-argument. So the export fails loudly on the author's machine instead.
 		stored.set(keyFor(S1), 30_000);
-		script.set(S2, ['insufficient credit', 'insufficient credit', 'insufficient credit']);
-		const err = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true }).catch((e) => e);
+		script.set(S2, ['the model would not read this line', 'the model would not read this line', 'the model would not read this line']);
+		const err = await withFastBackoff(() => bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true })).catch((e) => e);
 		expect(err).toBeInstanceOf(BakeIncompleteError);
 		expect(err.failures).toHaveLength(1);
-		expect(err.failures[0]).toMatchObject({ slide: 2, text: S2, reason: 'insufficient credit' });
+		expect(err.failures[0]).toMatchObject({ slide: 2, text: S2, reason: 'the model would not read this line' });
 		// It names the sentence, and it says nothing was exported — a message the author can act on.
 		expect(err.message).toMatch(/Nothing was exported/);
 	});
@@ -241,10 +328,60 @@ describe('bakeNarration — complete, or nothing', () => {
 		// The refusal must not also be a bill for nothing. Everything synthesized before the
 		// failure is in the store, so a second attempt after topping up pays only for the rest.
 		script.set(S1, [30_000]);
-		script.set(S2, ['insufficient credit', 'insufficient credit', 'insufficient credit']);
-		await expect(bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true })).rejects.toBeInstanceOf(BakeIncompleteError);
+		script.set(S2, ['the model would not read this line', 'the model would not read this line', 'the model would not read this line']);
+		await expect(withFastBackoff(() => bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true }))).rejects.toBeInstanceOf(BakeIncompleteError);
 		expect(banked).toEqual([keyFor(S1)]);
 		expect(stored.get(keyFor(S1))).toBe(30_000);
+	});
+
+	it('stops the whole run on a failure that retrying cannot fix, instead of grinding the deck', async () => {
+		// A revoked key or an exhausted balance fails every sentence for the same reason. Backing
+		// off three times each turns a two-second answer into five minutes of spinning on a
+		// 300-sentence deck — and bills two extra attempts per sentence to learn nothing.
+		// A deck with more sentences than the three concurrent workers can claim — which is what
+		// makes "the run stopped" observable at all. Every sentence fails the same way, which is
+		// what a revoked key or an exhausted balance actually looks like.
+		const projected = Array.from({ length: 8 }, (_, i) => `Sentence number ${i + 1} here.`);
+		const deck = ['---', 'theme: indaco', '---', '', projected.map((l, i) => `# S${i}\n\n${l}`).join('\n\n---\n\n'), ''].join('\n');
+		defaultError = 'OpenRouter TTS error 402: insufficient credit';
+		const err = await bakeNarration(deck, projected, { voice: VOICE, audio: true }).catch((e) => e);
+		expect(err).toBeInstanceOf(BakeIncompleteError);
+		// ONE attempt each on the sentences that hit it — not three — and no worker moves on.
+		expect(attempts.length).toBeLessThanOrEqual(3);
+		expect(err.failures.some((f: { reason: string }) => /insufficient credit/.test(f.reason))).toBe(true);
+		// And the sentences nobody reached are accounted for once, plainly, rather than as a
+		// short list that makes a dead key look like a few unlucky lines.
+		expect(err.failures.some((f: { text: string }) => /were not attempted/.test(f.text))).toBe(true);
+	});
+
+	it('an override ships the refused sentences captioned and silent', async () => {
+		// "Complete or nothing" is the right default and the wrong ONLY option: a sentence a
+		// model deterministically refuses would otherwise make narration permanently unreachable
+		// for this deck. The player is verified in exactly this state.
+		stored.set(keyFor(S1), 30_000);
+		script.set(S2, ['the model would not read this line', 'the model would not read this line', 'the model would not read this line']);
+		const bake = await withFastBackoff(() => bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, allowPartial: true }));
+		expect(bake.failures).toHaveLength(1);
+		expect(bake.covered).toBe(1);
+		expect(bake.total).toBe(2);
+		const cues = bake.slides.flat();
+		expect(cues[0].audio).toMatch(/^data:/);
+		expect(cues[1].audio).toBeNull();
+		// The silent one keeps its caption and its beat, so the deck still reads and still paces.
+		expect(cues[1].text).toBe(S2);
+		expect(cues[1].estimateMs).toBeGreaterThan(0);
+	});
+
+	it('bills a repeated sentence once, and ships it everywhere it appears', async () => {
+		// Three workers claiming three identical keys all missed the in-memory cache at the same
+		// instant and all fired — `synthFor` has no in-flight dedup, unlike the live reader.
+		const REPEAT = 'The same line again.';
+		const deck = ['---', 'theme: indaco', '---', '', '# A', '', REPEAT, '', '---', '', '# B', '', REPEAT, '', '---', '', '# C', '', REPEAT, ''].join('\n');
+		script.set(REPEAT, [12_000]);
+		const bake = await bakeNarration(deck, [REPEAT, REPEAT, REPEAT], { voice: VOICE, audio: true });
+		expect(attempts).toEqual([REPEAT]); // billed once
+		expect(bake.covered).toBe(3); // shipped three times
+		expect(bake.slides.flat().every((c) => c.audio?.startsWith('data:'))).toBe(true);
 	});
 
 	it('bakes the caption track alone when audio is off — no synthesis, no clips, no bill', async () => {
@@ -298,29 +435,38 @@ describe('bakeNarration — complete, or nothing', () => {
 	});
 });
 
-describe('render-appended slides', () => {
-	// `glossary: auto` makes the docs renderer append a slide the SOURCE does not contain, so
-	// the projection runs one entry longer than the deck. Unreconciled, that one-slide skew
-	// stood the WHOLE projection down: every `glossary: auto` deck was locked out of narration
-	// with a message blaming the deck, and the chart-parity substitution went inert on the same
-	// decks. The append is deterministic and TRAILING, which is what makes trimming it safe.
+describe('a render-appended slide stands the projection down — exactly as Present does', () => {
+	// `glossary: auto` makes the renderer append a slide the SOURCE does not contain, so a
+	// projection taken from the render runs one entry long. Trimming it and keeping the richer
+	// component-aware text is the tempting move and the wrong one: Present applies the same
+	// length guard and therefore narrates such a deck through the markdown FLATTEN, so every
+	// clip on the device is keyed on the flatten. A bake that resolved the projection instead
+	// would match none of them and re-bill a fully rehearsed deck.
+	//
+	// This is a regression test for a live defect: the panel trimmed and the exporter did not,
+	// so the quote read "fully prepared — nothing is billed" and the bake billed the whole deck.
 	const glossaryDeck = ['---', 'theme: indaco', 'glossary: auto', 'acronyms:', '  ARR: { expansion: annual recurring revenue, definition: "Revenue that recurs." }', '---', '', '# ARR grew', '', 'It grew.', ''].join('\n');
-	const plainDeck = ['---', 'theme: indaco', '---', '', '# One', '', 'Body.', ''].join('\n');
 
-	it('counts the slide `glossary: auto` appends, and only that', () => {
-		expect(appendedSlideCount(glossaryDeck)).toBe(1);
-		expect(appendedSlideCount(plainDeck)).toBe(0);
-		expect(appendedSlideCount('')).toBe(0);
+	it('resolves the FLATTEN, not the projection, when the render appended a slide', async () => {
+		// One authored slide, two rendered sections — the shape `glossary: auto` produces.
+		const overlong = ['A projection of the authored slide.', 'A projection of the appended glossary.'];
+		const m = await measureNarration(glossaryDeck, overlong, VOICE);
+		// The projection is stood down, so the sentences come from the markdown flatten — which
+		// is what Present spoke and therefore what the clip store is keyed on.
+		expect(m.total).toBeGreaterThan(0);
+		const keys = [...stored.keys()];
+		expect(keys).toEqual([]); // nothing cached yet; the point is WHICH text was resolved
+		const bake = await bakeNarration(glossaryDeck, overlong, { voice: VOICE, audio: false });
+		const spoken = bake.slides.flat().map((c) => c.text);
+		expect(spoken.some((t) => t.includes('projection'))).toBe(false);
 	});
 
-	it('trims the trailing projection entry so the rest stays index-aligned', () => {
-		expect(trimAppendedSlides(glossaryDeck, ['authored', 'the glossary'])).toEqual(['authored']);
-		expect(trimAppendedSlides(plainDeck, ['authored'])).toEqual(['authored']);
-	});
-
-	it('never trims away the whole projection', () => {
-		// A one-entry projection on a glossary deck is already degenerate; trimming it to nothing
-		// would turn a recoverable skew into a silent no-narration export.
-		expect(trimAppendedSlides(glossaryDeck, ['only'])).toEqual(['only']);
+	it('the quote and the bake resolve the SAME sentences for such a deck', async () => {
+		// The defect was that these two disagreed. Both now go through one `resolveDeck`, so a
+		// future divergence has to break this.
+		const overlong = ['A projection of the authored slide.', 'A projection of the appended glossary.'];
+		const m = await measureNarration(glossaryDeck, overlong, VOICE);
+		const bake = await bakeNarration(glossaryDeck, overlong, { voice: VOICE, audio: false });
+		expect(bake.total).toBe(m.total);
 	});
 });

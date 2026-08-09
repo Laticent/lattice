@@ -22,21 +22,24 @@
 // the bill BEFORE the author commits to it. `bakeNarration` then does the real work. They
 // resolve narration through the SAME chain, so the number shown is the number charged.
 //
-// EVERY SYNTHESIZED CLIP IS BANKED as it lands, in the persistent store, under the key
-// playback uses. A bake that is cancelled or that fails on sentence 280 is not wasted work:
-// the next attempt starts from what the first one paid for, and so does Present.
+// EVERY SYNTHESIZED CLIP IS BANKED as it lands, in the persistent store, under the key THAT
+// IDENTITY plays under — which is the workspace's own voice on the common path, and a
+// different key when the author picked a different narrator for this one export. A bake that
+// is cancelled or that fails on sentence 280 is not wasted work either way: the next attempt
+// in the same voice starts from what the first one paid for.
 
 import { buildTrack, interCueGapMs } from '@/lib/cadenza';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
+import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
-import { glossaryEntries, resolveGlossaryMode } from '../../../../lib/core/glossary-auto.mjs';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { applyChartNarration, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
+import { engineForModel } from './tts-voice-catalog';
 
 /** One spoken sentence, as it ships. */
 export type BakedCue = {
@@ -69,6 +72,9 @@ export type NarrationBake = {
 	bytes: number;
 	/** How many sentences had to be synthesized (the rest came from the device). */
 	synthesized: number;
+	/** Empty on a complete bake. Non-empty ONLY when the author explicitly overrode the
+	 *  refusal — those sentences ship as captions with no sound. */
+	failures: { slide: number; text: string; reason: string }[];
 };
 
 /** The pre-flight: what a bake would cost, with no audio read and nothing synthesized. */
@@ -82,6 +88,9 @@ export type NarrationMeasure = {
 	/** Sentences that would be SYNTHESIZED, and the characters they bill for. */
 	missing: number;
 	missingChars: number;
+	/** What those sentences will ADD to the file, at the chosen engine's measured rate. The
+	 *  one figure here that is an estimate rather than a reading — see `estimateSynthBytes`. */
+	missingBytes: number;
 	/** Estimated USD for those characters at the model's published rate, or null when the
 	 *  catalog has no price for it. Never a guess — an unpriced model quotes nothing. */
 	estCostUsd: number | null;
@@ -115,6 +124,63 @@ export class BakeIncompleteError extends Error {
  */
 export function shippedBytes(rawBytes: number, mime = 'audio/mpeg'): number {
 	return 5 + mime.length + 8 + Math.ceil(Math.max(0, rawBytes) / 3) * 4;
+}
+
+/**
+ * Bytes of audio per CHARACTER of input, per speech engine — measured from this repository's
+ * own committed voice samples, which were generated against the live API by
+ * `tools/generate-voice-samples.mjs` from one fixed 35-character sentence.
+ *
+ * WHY THIS IS A TABLE AND NOT A CONSTANT. The rate is a property of the ENGINE, and the
+ * engines this catalog lists span 279 B/char (Orpheus) to 1246 B/char (MAI) — a 4.5× spread.
+ * Any single number is wrong for most of the roster, and wrong in the direction that matters:
+ * the pre-flight's size line is the one figure an author is asked to consent to before a file
+ * they will email to a board.
+ *
+ * The first version of this quote used a flat 16 B/char, which is not the rate of any codec
+ * that exists — it implies 1.6 kbps audio. It understated a real deck by roughly thirty times
+ * and was labeled "measured" without anything having been measured. The numbers below are
+ * regenerated from the sample files by `narration-bake.test.ts`, which fails if the table
+ * drifts from what is on disk, so this cannot silently rot again.
+ *
+ * DELIBERATELY SLIGHTLY HIGH. The samples are 35 characters, so each carries the container's
+ * fixed overhead across a short clip; a 100-character deck sentence amortizes that and comes
+ * in a little under this rate. Over-quoting means the file arrives smaller than promised,
+ * which is the safe direction for a number someone is consenting to.
+ */
+export const ENGINE_BYTES_PER_CHAR: Record<string, number> = {
+	kokoro: 477,
+	grok: 878,
+	orpheus: 279,
+	'mai-voice-2': 1246,
+	voxtral: 496,
+	csm: 422,
+	'zonos-hybrid': 656,
+	'zonos-transformer': 674,
+};
+
+/** The rate used for a model this catalog has no samples for. The MEDIAN of the measured
+ *  engines rather than the mean — one 1246 B/char outlier should not move the answer for an
+ *  unknown model, and the median of a roster this small is the least-wrong single guess. */
+export const DEFAULT_BYTES_PER_CHAR = 496;
+
+/**
+ * What `chars` of not-yet-synthesized text will add to the shipped file, in `modelId`'s voice
+ * — audio bytes at that engine's measured rate, then base64's 4/3 inflation, since a data URI
+ * is what actually ships.
+ *
+ * This is the ONE figure in the pre-flight that cannot be exact, because nothing has been
+ * synthesized yet. It lives here, beside `shippedBytes`, rather than in the panel that
+ * displays it: the promise is that the size named before the write is the size the file
+ * gains, and the only way to keep those honest is to compute both from one module.
+ */
+export function estimateSynthBytes(chars: number, modelId?: string | null): number {
+	if (!(chars > 0)) return 0;
+	const engine = engineForModel(modelId || '');
+	const rate = (engine && ENGINE_BYTES_PER_CHAR[engine]) || DEFAULT_BYTES_PER_CHAR;
+	// Through `shippedBytes`, not a second copy of its 4/3 arithmetic: the size named before
+	// the write and the size the file gains must come from ONE function, or they drift.
+	return shippedBytes(chars * rate);
 }
 
 /**
@@ -175,6 +241,25 @@ function resolveDeck(source: string, projected?: readonly string[]) {
 	const acronyms = acronymSpokenMap(source);
 	const lexicon = lexiconMap(source);
 	const lang = frontMatterLang(source) ?? undefined;
+	// STRICT LENGTH EQUALITY, and it is deliberately NOT reconciled — because Present isn't.
+	//
+	// `glossary: auto` makes the renderer append a slide the SOURCE does not contain, so a
+	// projection taken from the render runs one entry long, and this guard stands the whole
+	// projection down. It is tempting to trim that trailing entry and keep the richer
+	// component-aware text. Doing it here would be actively harmful: Present applies the SAME
+	// equality guard (`PresentOverlay.tsx`, `texts.length === target.length`) and therefore
+	// narrates such a deck through the markdown flatten — which means every clip on the
+	// author's device is keyed on the FLATTEN. A bake that resolved the projection instead
+	// would match none of them, re-synthesize a fully rehearsed deck end to end, and ship
+	// narration the author never heard.
+	//
+	// So the rule is: the bake resolves narration EXACTLY as Present does, including where
+	// Present gives something up. Teaching both to trim is a coherent improvement and a
+	// separate change — it moves Present, and it invalidates every clip already stored.
+	//
+	// This cost a real defect. An earlier build had the panel trim and the exporter not, so the
+	// two halves of the same export resolved different sentences: the quote read "fully
+	// prepared, nothing is billed" and the bake then billed the whole deck.
 	const aligned = projected && projected.length === slides.length ? applyChartNarration(slides, projected) : null;
 	const texts = slides.map((md, i) =>
 		resolveNarration({
@@ -227,34 +312,6 @@ function narrateChartSafe(md: string): string | null {
 	}
 }
 
-/**
- * How many slides the RENDER appends that the SOURCE does not contain.
- *
- * `glossary: auto` makes the docs renderer append one slide (`appendAutoGlossary`), so the
- * rendered section list runs one longer than `splitSlides` of the same source. Left
- * unreconciled that one-slide skew stood the whole projection down — which, before the
- * fallback rung existed, locked every `glossary: auto` deck out of narration with a message
- * blaming the deck, and left the chart-parity substitution inert on the same decks.
- *
- * The append is deterministic and TRAILING, which is what makes reconciling it safe: authored
- * slide `i` is still rendered section `i` for every `i` the author wrote, so audio keyed by
- * authored index still binds correctly and the appended slide simply carries none.
- */
-export function appendedSlideCount(source: string): number {
-	try {
-		return resolveGlossaryMode(source) === 'auto' && glossaryEntries(source).length ? 1 : 0;
-	} catch {
-		return 0;
-	}
-}
-
-/** Drop the trailing projection entries for render-appended slides, so what is left is
- *  index-aligned to the slides the author actually wrote. */
-export function trimAppendedSlides(source: string, projected: readonly string[]): string[] {
-	const extra = appendedSlideCount(source);
-	return extra && projected.length > extra ? projected.slice(0, projected.length - extra) : [...projected];
-}
-
 /** How many synthesis requests are in flight at once. Three, matching the prefetch cap the
  *  live reader already runs OpenRouter at (`WARM_CONCURRENCY`) — a bake is the same traffic
  *  against the same rate limits, and going wider trades a modest wall-clock win for 429s
@@ -265,6 +322,17 @@ const BAKE_CONCURRENCY = 3;
  *  rather than minutes. */
 const BAKE_ATTEMPTS = 3;
 const BAKE_BACKOFF_MS = [600, 2400];
+/**
+ * Failures that will not get better by asking again — a revoked key, an exhausted balance, a
+ * model that rejects this text. Retrying one of these costs 3 s of backoff and two more
+ * billed attempts to arrive at the same answer, and on a 300-sentence deck that is five
+ * minutes of spinning before a refusal the first sentence already knew about.
+ *
+ * Matched on the message because that is what the rung returns (`OpenRouter TTS error 401:
+ * …`), and matched loosely on purpose: a false positive costs one retry, a false negative
+ * costs the whole deck's worth of them.
+ */
+const TERMINAL_SYNTH_ERROR = /\b(401|402|403|404)\b|unauthor|invalid api key|insufficient|quota|credit|not connected|billing/i;
 /** The per-request ceiling. Longer than playback's 20 s: nobody is waiting on this sentence
  *  to be spoken in a room, and a timeout here costs a whole retry. */
 const BAKE_TIMEOUT_MS = 45000;
@@ -291,11 +359,11 @@ const SECONDS_PER_SENTENCE = 1.6;
 export async function measureNarration(source: string, projected: readonly string[] | undefined, voice: BakeVoice, priceMPerChar?: number | null): Promise<NarrationMeasure> {
 	const { perSlide, projectionUsed: complete } = resolveDeck(source, projected);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
-	const base: NarrationMeasure = { total, cached: 0, cachedBytes: 0, missing: 0, missingChars: 0, estCostUsd: null, estSeconds: 0, voice, complete };
+	const base: NarrationMeasure = { total, cached: 0, cachedBytes: 0, missing: 0, missingChars: 0, missingBytes: 0, estCostUsd: null, estSeconds: 0, voice, complete };
 	if (!total) return base;
 
 	const keys = await bakeClipKeys(perSlide, voice);
-	const sizes = await clipSizes(keys.flat());
+	const sizes = narrationCacheEnabled() ? await clipSizes(keys.flat()) : new Map<string, number>();
 
 	let cached = 0;
 	let cachedBytes = 0;
@@ -323,7 +391,7 @@ export async function measureNarration(source: string, projected: readonly strin
 	// know" are different answers and only one of them is safe to show next to a Bake button.
 	const estCostUsd = typeof priceMPerChar === 'number' && Number.isFinite(priceMPerChar) ? (missingChars / 1e6) * priceMPerChar : null;
 	const estSeconds = Math.ceil((missing * SECONDS_PER_SENTENCE) / BAKE_CONCURRENCY);
-	return { ...base, cached, cachedBytes, missing, missingChars, estCostUsd, estSeconds };
+	return { ...base, cached, cachedBytes, missing, missingChars, missingBytes: estimateSynthBytes(missingChars, voice.model), estCostUsd, estSeconds };
 }
 
 /** Progress, as the panel shows it: cached hits are instant, synthesis is what takes time. */
@@ -341,9 +409,9 @@ export type BakeProgress = { done: number; total: number; synthesized: number; p
 export async function bakeNarration(
 	source: string,
 	projected: readonly string[] | undefined,
-	opts: { voice: BakeVoice; audio: boolean; signal?: AbortSignal; onProgress?: (p: BakeProgress) => void },
+	opts: { voice: BakeVoice; audio: boolean; allowPartial?: boolean; signal?: AbortSignal; onProgress?: (p: BakeProgress) => void },
 ): Promise<NarrationBake> {
-	const { voice, audio, signal, onProgress } = opts;
+	const { voice, audio, allowPartial, signal, onProgress } = opts;
 	const { tracks, perSlide } = resolveDeck(source, projected);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
 
@@ -370,33 +438,67 @@ export async function bakeNarration(
 
 	if (!audio || !total) {
 		onProgress?.({ done: total, total, synthesized: 0, phase: 'assembling' });
-		return { slides, voice: audio ? voice : null, covered: 0, total, bytes: 0, synthesized: 0 };
+		return { slides, voice: audio ? voice : null, covered: 0, total, bytes: 0, synthesized: 0, failures: [] };
 	}
 
 	const keys = await bakeClipKeys(perSlide, voice);
 	// Flatten to one work list. A deck's sentences are wildly uneven per slide, so scheduling
 	// per slide would leave workers idle behind a one-sentence title while a ten-sentence
 	// argument waits its turn.
-	const jobs: { i: number; j: number; text: string; key: string }[] = [];
+	const jobs: { i: number; j: number; text: string; key: string; twins: { i: number; j: number }[] }[] = [];
+	// One job per DISTINCT sentence. A deck that repeats a line — the same one-sentence caption
+	// on three adjacent slides, a refrain — used to hand three workers three identical keys,
+	// all of which missed the in-memory cache simultaneously and all of which were billed.
+	// (`synthFor` has no in-flight dedup, unlike the live reader's `synthOne`.) The repeats
+	// ride along as `twins` and are filled from the one clip that is actually fetched.
+	const byKey = new Map<string, number>();
 	for (let i = 0; i < perSlide.length; i++) {
-		for (let j = 0; j < perSlide[i].length; j++) jobs.push({ i, j, text: perSlide[i][j], key: keys[i]?.[j] ?? '' });
+		for (let j = 0; j < perSlide[i].length; j++) {
+			const key = keys[i]?.[j] ?? '';
+			const at = key ? byKey.get(key) : undefined;
+			if (at !== undefined) {
+				jobs[at].twins.push({ i, j });
+				continue;
+			}
+			if (key) byKey.set(key, jobs.length);
+			jobs.push({ i, j, text: perSlide[i][j], key, twins: [] });
+		}
 	}
 
 	const failures: { slide: number; text: string; reason: string }[] = [];
+	/** Set by the first worker to hit an error that retrying cannot fix; stops the whole run. */
+	let terminal = '';
 	let done = 0;
 	let synthesized = 0;
 	let bytes = 0;
 	const report = (phase: BakeProgress['phase']) => onProgress?.({ done, total, synthesized, phase });
 	report('reading');
 
-	/** Attach a clip's bytes to its cue as a `data:` URI, and count what it costs. */
-	const attach = async (job: { i: number; j: number }, blob: ClipBytes) => {
+	/** Attach a clip's bytes to its cue — and to every repeat of the same sentence — as a
+	 *  `data:` URI, counting what each occurrence costs the file. */
+	const attach = async (job: { i: number; j: number; twins: { i: number; j: number }[] }, blob: ClipBytes) => {
 		const uri = `data:${safeMime(blob.type)};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
-		slides[job.i][job.j].audio = uri;
-		bytes += uri.length;
+		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
+			slides[at.i][at.j].audio = uri;
+			bytes += uri.length;
+		}
 	};
+	/** How many CUES a job covers — the unit `done` and the refusal count in, since the author
+	 *  thinks in sentences on slides, not in distinct strings. */
+	const cues = (job: { twins: unknown[] }) => 1 + job.twins.length;
 
-	const aborted = () => !!signal?.aborted;
+	// One controller for the whole run, chained to the caller's. A worker that dies must stop
+	// its SIBLINGS, not merely itself: the first version let an exception in one worker reject
+	// `Promise.all` while the other two kept synthesizing — the export failed at sentence 3 and
+	// then billed the author for all 300, with no artifact, no progress and no cancel button
+	// (the busy state had already cleared).
+	const run = new AbortController();
+	const stop = () => run.abort();
+	if (signal) {
+		if (signal.aborted) run.abort();
+		else signal.addEventListener('abort', stop, { once: true });
+	}
+	const aborted = () => run.signal.aborted;
 	let cursor = 0;
 	const worker = async () => {
 		for (;;) {
@@ -405,16 +507,20 @@ export async function bakeNarration(
 			if (idx >= jobs.length) return;
 			const job = jobs[idx];
 			// 1. The device first. A hit is free, instant, and the common case for a rehearsed deck.
+			let hit: ClipBytes | null = null;
 			try {
-				const hit = job.key ? asClipBytes(await getClip(job.key)) : null;
-				if (hit) {
-					await attach(job, hit);
-					done++;
-					report('reading');
-					continue;
-				}
+				hit = job.key && narrationCacheEnabled() ? asClipBytes(await getClip(job.key)) : null;
 			} catch {
 				// An unreadable store is a cache miss, not a failure — synthesis below covers it.
+				// The read is the ONLY thing this catch covers: an `attach` failure used to fall
+				// inside it too, so a clip the device genuinely held was silently re-synthesized
+				// and re-billed. That is now a failure with a reason, not a hidden second charge.
+			}
+			if (hit) {
+				await attach(job, hit);
+				done += cues(job);
+				report('reading');
+				continue;
 			}
 			// 2. Synthesize, with backoff. The clip is BANKED on success before anything else, so
 			//    a later cancellation or failure never throws away audio that was already paid for.
@@ -425,34 +531,74 @@ export async function bakeNarration(
 				const res = await synthBakeClip(job.text, voice, signal, BAKE_TIMEOUT_MS);
 				const got = res.ok ? asClipBytes(res.bytes) : null;
 				if (got) {
+					// Bank it — unless the author turned "keep narration on this device" off. That
+					// switch is a promise ("narration is no longer kept between sessions"), and the
+					// live reader honors it on every write (voice-model.js). An export that wrote
+					// anyway would be the one path that quietly broke it.
 					try {
-						await putClip(res.key || job.key, got as unknown as Blob);
+						if (narrationCacheEnabled()) await putClip(res.key || job.key, got as unknown as Blob);
 					} catch {
 						// A full or unavailable store costs the NEXT export a re-synth; it must not
 						// cost THIS one the clip we are holding.
 					}
 					await attach(job, got);
-					synthesized++;
-					done++;
+					synthesized += cues(job);
+					done += cues(job);
 					report('synthesizing');
 					reason = '';
 					break;
 				}
 				reason = res.error || 'no audio returned';
+				// Nothing is coming. Stop this sentence AND the run — every other sentence is
+				// about to fail the same way, for the same reason, at the same cost.
+				if (TERMINAL_SYNTH_ERROR.test(reason)) {
+					terminal = reason;
+					stop();
+					break;
+				}
 			}
-			if (reason) failures.push({ slide: job.i + 1, text: job.text, reason });
+			if (reason) for (const at of [{ i: job.i, j: job.j }, ...job.twins]) failures.push({ slide: at.i + 1, text: job.text, reason });
 		}
 	};
 
-	await Promise.all(Array.from({ length: Math.min(BAKE_CONCURRENCY, jobs.length) }, worker));
+	// `allSettled`, not `all`: a worker that throws must not leave its siblings running while the
+	// caller has already given up. Each one's rejection becomes a failure with a reason, so the
+	// refusal names it like any other, and `stop()` takes the rest down with it.
+	const outcomes = await Promise.allSettled(Array.from({ length: Math.min(BAKE_CONCURRENCY, jobs.length) }, () => worker().catch((e) => { stop(); throw e; })));
+	signal?.removeEventListener('abort', stop);
+	for (const o of outcomes) {
+		if (o.status === 'rejected' && !signal?.aborted) failures.push({ slide: 0, text: '', reason: (o.reason as Error)?.message || 'the bake failed partway through' });
+	}
+	// A terminal error stops the run early, so the sentences nobody reached have no failure of
+	// their own. Say so once, plainly, rather than listing 300 identical rows or — worse —
+	// reporting a short list that makes a dead key look like three unlucky sentences.
+	if (terminal) {
+		const unreached = total - done - failures.length;
+		if (unreached > 0) failures.push({ slide: 0, text: `${unreached} more sentence${unreached === 1 ? '' : 's'} were not attempted`, reason: terminal });
+	}
 
-	if (aborted()) throw new DOMException('Bake cancelled', 'AbortError');
-	// The refusal. Everything synthesized above is already banked, so a second attempt after
-	// fixing the cause (reconnect, top up credit) pays only for what is still missing.
-	if (failures.length) throw new BakeIncompleteError(failures);
+	// The CALLER's signal, not the run's. `stop()` also aborts the run controller — for a
+	// worker that threw, or a terminal voice error — and reporting either of those as
+	// "cancelled" would tell the author they pressed a button they never pressed.
+	if (signal?.aborted) throw new DOMException('Bake cancelled', 'AbortError');
+	// The refusal — the DEFAULT, not a wall. Everything synthesized above is already banked, so
+	// a second attempt after fixing the cause (reconnect, top up credit) pays only for what is
+	// still missing.
+	//
+	// `allowPartial` is the author's override, offered by the panel only AFTER a refusal has
+	// named the sentences. It exists because "complete or nothing" is the right default and the
+	// wrong only option: a sentence a model deterministically refuses (a moderation block, a
+	// spoken form it 400s on) would otherwise make narration permanently unreachable for that
+	// deck, with no way past it. The floor it falls back to is real and verified — the exported
+	// player shows the caption, holds the beat and moves on (tools/verify-narrated-player.mjs
+	// drives exactly this state) — and it is the same state a clip that fails to DECODE on the
+	// recipient's browser lands in, which no producer-side refusal can prevent anyway. What
+	// makes it acceptable here and not as a default is that the author is standing right there,
+	// has been shown which sentences and why, and chose.
+	if (failures.length && !allowPartial) throw new BakeIncompleteError(failures);
 
 	report('assembling');
-	return { slides, voice, covered: total, total, bytes, synthesized };
+	return { slides, voice, covered: total - failures.length, total, bytes, synthesized, failures };
 }
 
 /** An abortable pause. Resolves early on abort so the worker's own guard decides what to do,

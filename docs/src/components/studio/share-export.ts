@@ -272,7 +272,7 @@ export async function shareHtmlPlayer(
 	// separately useful — see NarrationExportOptions for the four states. `audio` is the one
 	// that synthesizes: the bake reads this device's clip store first and bills only the
 	// sentences it does not have, in `voice`, and REFUSES if any of them cannot be prepared.
-	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; signal?: AbortSignal },
+	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; allowPartial?: boolean; signal?: AbortSignal },
 ): Promise<void> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
@@ -344,6 +344,8 @@ export async function shareHtmlPlayer(
 		const result = await bake.bakeNarration(source, projected, {
 			voice: narration.voice,
 			audio: narration.audio,
+			// The author's explicit override, only ever set after a refusal named the sentences.
+			allowPartial: narration.allowPartial,
 			signal: narration.signal,
 			onProgress: (p) => {
 				if (p.phase === 'assembling') return onStatus?.('Assembling the player…');

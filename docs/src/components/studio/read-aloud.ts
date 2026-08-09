@@ -1212,13 +1212,38 @@ export async function listTtsModels(): Promise<OrVoiceModel[]> {
  * margin the cheapest speech model OpenRouter lists), so choosing it costs an author who
  * rehearsed on-device their voice's continuity, not the voice itself.
  */
-export type BakeVoice = { model: string; voice: string; speed: number };
+export type BakeVoice = {
+	/** Which tier the clips live under. `'openrouter'` is the default and the only one that can
+	 *  SYNTHESIZE at export time; `'kokoro'` is admitted read-only, for the author who rehearsed
+	 *  the whole deck on-device and has every clip already — see `onDeviceBakeVoice`. */
+	rung?: 'openrouter' | 'kokoro';
+	model: string;
+	voice: string;
+	speed: number;
+};
 
 /** The export's DEFAULT narrator: the workspace's own cloud voice, so a deck ships sounding
  *  like the rehearsal unless the author says otherwise. */
 export async function defaultBakeVoice(): Promise<BakeVoice> {
 	const v = await getVoice();
-	return { model: v?.orModel() ?? '', voice: v?.orVoice() ?? '', speed: v?.speedPref() ?? 1 };
+	return { rung: 'openrouter', model: v?.orModel() ?? '', voice: v?.orVoice() ?? '', speed: v?.speedPref() ?? 1 };
+}
+
+/**
+ * The identity the ON-DEVICE rung's clips live under — the author's Kokoro voice, as
+ * rehearsed. Admitted as a bake source for one specific person: the author who prepared the
+ * whole deck on-device and has no cloud key at all.
+ *
+ * The design's answer to "whose voice" assumed a key, and the first build hard-coded the
+ * cloud rung, which locked that author out of a deck they had ALREADY fully synthesized —
+ * 100% of the bytes on their own disk, 0% of the feature, on the rung that exists precisely
+ * so no key is needed. This is READ-ONLY by construction: `synthBakeClip` refuses to
+ * synthesize for it, so an on-device bake either finds every clip in the store or refuses.
+ * It cannot spend, and it cannot half-succeed.
+ */
+export async function onDeviceBakeVoice(): Promise<BakeVoice> {
+	const v = await getVoice();
+	return { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: v?.kokoroVoice() ?? '', speed: v?.speedPref() ?? 1 };
 }
 
 /**
@@ -1236,17 +1261,29 @@ export async function bakeClipKeys(perSlide: string[][], voice: BakeVoice): Prom
 	const v = await getVoice();
 	if (!v?.clipKeyFor) return perSlide.map(() => []);
 	try {
-		return perSlide.map((sentences) => sentences.map((text) => v.clipKeyFor({ rung: 'openrouter', model: voice.model, voice: voice.voice, speed: voice.speed, text })));
+		const rung = voice.rung ?? 'openrouter';
+		return perSlide.map((sentences) => sentences.map((text) => v.clipKeyFor({ rung, model: voice.model, voice: voice.voice, speed: voice.speed, text })));
 	} catch {
 		return perSlide.map(() => []);
 	}
 }
 
-/** Synthesize ONE sentence in the chosen bake voice. One attempt — the caller owns the
- *  retry policy (see narration-bake.ts). Never throws. */
+/**
+ * Synthesize ONE sentence in the chosen bake voice. One attempt — the caller owns the retry
+ * policy (see narration-bake.ts). Never throws.
+ *
+ * CLOUD ONLY, deliberately. An on-device bake is a cache read: the Kokoro rung needs an ~80 MB
+ * model resident, is desktop-only, and returns WAV — several times the bytes of the same
+ * sentence as mp3, in a file whose size the author is being asked to consent to. So a
+ * `rung: 'kokoro'` bake that is missing a sentence REFUSES rather than quietly synthesizing
+ * one, and this returns the reason instead.
+ */
 export async function synthBakeClip(text: string, voice: BakeVoice, signal?: AbortSignal, timeoutMs?: number): Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }> {
 	const v = await getVoice();
 	if (!v?.synthFor) return { ok: false, bytes: null, key: '', error: 'voice unavailable' };
+	if ((voice.rung ?? 'openrouter') !== 'openrouter') {
+		return { ok: false, bytes: null, key: '', error: 'not rehearsed on this device in this voice — the on-device voice can only ship what it already prepared' };
+	}
 	try {
 		return await v.synthFor({ rung: 'openrouter', model: voice.model, voice: voice.voice, speed: voice.speed, text, signal, timeoutMs });
 	} catch (e) {

@@ -21,8 +21,6 @@ export type WebpageExportChoice = {
 	stripNotes: boolean;
 	scheme: Scheme;
 	narration: NarrationChoice;
-	/** Aborts a bake in progress — the author can stop a long synthesis run. */
-	signal: AbortSignal;
 };
 
 export function WebpageOptionsPanel({
@@ -34,6 +32,7 @@ export function WebpageOptionsPanel({
 	narrationFailures,
 	onBack,
 	onExport,
+	onCancel,
 }: {
 	busy?: boolean;
 	status?: string | null;
@@ -49,13 +48,14 @@ export function WebpageOptionsPanel({
 	narrationFailures?: { slide: number; text: string; reason: string }[] | null;
 	onBack: () => void;
 	onExport: (choice: WebpageExportChoice) => void;
+	/** Stop a bake in progress. Owned by the sheet, not this panel — see `launch`. */
+	onCancel: () => void;
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
 	// Narration is opt-in too, and for a different reason: it is the only option here that
 	// can spend money and add megabytes. See NarrationExportOptions for the bill.
-	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, voice: { model: '', voice: '', speed: 1 } });
-	const abortRef = React.useRef<AbortController | null>(null);
+	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, allowPartial: false, voice: { model: '', voice: '', speed: 1 } });
 
 	// The two options are mutually exclusive, and the veto runs in this direction on purpose:
 	// for most decks the narration the author rehearsed IS their speaker notes, so shipping
@@ -66,6 +66,16 @@ export function WebpageOptionsPanel({
 	React.useEffect(() => {
 		if (narrationBlocked) setNarration((n) => (n.captions || n.audio ? { ...n, captions: false, audio: false } : n));
 	}, [narrationBlocked]);
+
+	// One launcher for both buttons, so `allowPartial` can never leak from an override into the
+	// NEXT ordinary export — it is passed for this call only and never written into state.
+	//
+	// The abort controller deliberately does NOT live here. This panel unmounts whenever the
+	// sheet is closed or the author steps back to the format menu, and a controller held in a
+	// ref went with it: closing the sheet mid-bake left three workers synthesizing and billing
+	// with nothing left to stop them, and reopening it re-mounted a Cancel button whose ref was
+	// null — the only stop control in the feature, dead. It belongs to the owner of the run.
+	const launch = (choice: NarrationChoice) => onExport({ stripNotes, scheme, narration: choice });
 	// The exported player's default color mode. The panel remounts each time the export step
 	// is opened (ShareSheet renders it conditionally), so this mount-time default already
 	// re-syncs — no effect needed, so an explicit user pick is never silently clobbered.
@@ -145,6 +155,7 @@ export function WebpageOptionsPanel({
 					disabled={busy}
 					blockedReason={narrationBlocked ? 'Unavailable while speaker notes are stripped — for most decks the narration you rehearsed IS your notes, so this would hand them back as words on screen and in your own voice.' : null}
 					failures={narrationFailures}
+					onExportAnyway={() => launch({ ...narration, allowPartial: true })}
 				/>
 			</section>
 
@@ -152,10 +163,7 @@ export function WebpageOptionsPanel({
 				<button
 					type="button"
 					disabled={busy}
-					onClick={() => {
-						abortRef.current = new AbortController();
-						onExport({ stripNotes, scheme, narration, signal: abortRef.current.signal });
-					}}
+					onClick={() => launch(narration)}
 					className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 				>
 					{busy ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />}
@@ -168,7 +176,7 @@ export function WebpageOptionsPanel({
 					<button
 						type="button"
 						aria-label="Cancel export"
-						onClick={() => abortRef.current?.abort()}
+						onClick={onCancel}
 						className="inline-flex shrink-0 items-center justify-center rounded-xl border border-border px-3.5 text-[13.5px] font-semibold text-muted-foreground hover:text-[var(--text-heading)]"
 					>
 						<X className="size-4" />

@@ -1244,14 +1244,27 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     const cached = audioCache.get(key);
     if (cached) return { ok: true, bytes: cached, key };
     let timer;
+    // ONE controller, and the caller's signal is CHAINED into it rather than replacing it.
+    //
+    // The first version did `const sig = signal ?? ctl.signal` — so whenever a caller passed a
+    // signal (which the bake always does), the timeout fired `ctl.abort()` on a controller
+    // nothing was listening to. The request was never cancelled: it ran to completion and was
+    // BILLED, while the bake had already given up and fired a second, independent billed
+    // request for the same sentence. Three attempts could mean three charges for one clip.
     const ctl = new AbortController();
-    const sig = signal ?? ctl.signal;
+    const relay = () => ctl.abort();
+    if (signal) {
+      if (signal.aborted) ctl.abort();
+      else signal.addEventListener('abort', relay, { once: true });
+    }
+    const sig = ctl.signal;
+    const done = () => { clearTimeout(timer); if (signal) signal.removeEventListener('abort', relay); };
     try {
       const blob = await Promise.race([
-        r.synth({ text, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig }).then((b) => { if (b) cacheSet(key, b); return b; }).finally(() => clearTimeout(timer)),
+        r.synth({ text, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig }).then((b) => { if (b) cacheSet(key, b); return b; }).finally(done),
         new Promise((res) => { timer = setTimeout(() => { ctl.abort(); res(null); }, wait); }),
       ]);
-      if (!blob?.size) return { ok: false, bytes: null, key, error: blob === null ? `timed out waiting for audio (${Math.round(wait / 1000)}s) — check your connection` : 'no audio returned (empty response)' };
+      if (!blob?.size) return { ok: false, bytes: null, key, error: ctl.signal.aborted && !signal?.aborted ? `timed out waiting for audio (${Math.round(wait / 1000)}s) — check your connection` : 'no audio returned (empty response)' };
       return { ok: true, bytes: blob, key };
     } catch (e) { return { ok: false, bytes: null, key, error: (e?.message) || String(e || 'synth failed') }; }
   }

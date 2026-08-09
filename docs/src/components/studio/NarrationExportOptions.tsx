@@ -28,12 +28,19 @@ import { AudioLines, Captions, Loader2, PlugZap } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure } from './narration-bake';
-import { type BakeVoice, defaultBakeVoice, listTtsModels, type OrVoiceModel, voiceAvailability } from './read-aloud';
+import { type BakeVoice, defaultBakeVoice, listTtsModels, type OrVoiceModel, onDeviceBakeVoice, voiceAvailability } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
 import { resolveVoice, voicesForModel } from './tts-voice-catalog';
 import { VoicePicker } from './VoicePicker';
 
-export type NarrationChoice = { captions: boolean; audio: boolean; voice: BakeVoice };
+export type NarrationChoice = {
+	captions: boolean;
+	audio: boolean;
+	voice: BakeVoice;
+	/** Set ONLY by the author, and only after a refusal has named the sentences it could not
+	 *  prepare. Ships those as captions with no sound. Never a default, never sticky. */
+	allowPartial: boolean;
+};
 
 /** What the panel needs to render the deck once and project its narration — the same
  *  arguments `projectDeckSpeech` takes. */
@@ -47,6 +54,7 @@ export function NarrationExportOptions({
 	disabled,
 	blockedReason,
 	failures,
+	onExportAnyway,
 }: {
 	source: string;
 	/** Render + project the deck to per-slide narration. Called ONLY once a switch is on —
@@ -59,10 +67,16 @@ export function NarrationExportOptions({
 	blockedReason?: string | null;
 	/** The sentences a previous attempt could not prepare, so the refusal names them. */
 	failures?: { slide: number; text: string; reason: string }[] | null;
+	/** Re-run the export accepting those sentences as silent. Rendered only alongside a
+	 *  refusal that already named them. */
+	onExportAnyway?: () => void;
 }) {
 	const on = value.captions || value.audio;
 	const [models, setModels] = React.useState<OrVoiceModel[] | null>(null);
 	const [cloudReady, setCloudReady] = React.useState<boolean | null>(null);
+	// The on-device fallback identity, resolved once. Offered only when the cloud rung is
+	// unavailable AND this device turns out to hold the whole deck already — see `onDeviceOnly`.
+	const [onDevice, setOnDevice] = React.useState<BakeVoice | null>(null);
 	const [measure, setMeasure] = React.useState<NarrationMeasure | null>(null);
 	const [measuring, setMeasuring] = React.useState(false);
 	const [measureError, setMeasureError] = React.useState<string | null>(null);
@@ -82,10 +96,11 @@ export function NarrationExportOptions({
 	seedRef.current = { value, onChange };
 	React.useEffect(() => {
 		let live = true;
-		Promise.all([defaultBakeVoice(), listTtsModels(), voiceAvailability()]).then(([v, m, a]) => {
+		Promise.all([defaultBakeVoice(), listTtsModels(), voiceAvailability(), onDeviceBakeVoice()]).then(([v, m, a, od]) => {
 			if (!live) return;
 			setModels(m);
 			setCloudReady(a.openRouterReady);
+			if (a.kokoroReady || a.kokoroCached) setOnDevice(od);
 			const { value: current, onChange: emit } = seedRef.current;
 			if (!current.voice.model && !current.voice.voice) emit({ ...current, voice: v });
 		});
@@ -98,6 +113,12 @@ export function NarrationExportOptions({
 	// TTS models bill per input CHARACTER, published per million (voice-model.js's
 	// orPricePerM). A model the catalog has no price for quotes nothing at all.
 	const pricePerM = React.useMemo(() => models?.find((m) => m.id === value.voice.model)?.promptPerM ?? null, [models, value.voice.model]);
+
+	// The one case where a bake is possible with no cloud key at all: this deck was rehearsed
+	// on-device and every sentence is already stored. A cache read needs no key and cannot
+	// spend, so withholding the switch here would deny an author a deck they have ALREADY
+	// synthesized in full — 100% of the bytes on their own disk, 0% of the feature.
+	const onDeviceOnly = cloudReady === false && !!onDevice;
 
 	// Measure whenever the answer could have changed: a switch, the voice, or the deck.
 	React.useEffect(() => {
@@ -113,7 +134,10 @@ export function NarrationExportOptions({
 			if (projectionRef.current?.source !== source) projectionRef.current = { source, value: project() };
 			const projected = await projectionRef.current.value;
 			const { measureNarration } = await import('./narration-bake');
-			return measureNarration(source, projected, value.voice, pricePerM);
+			// With no cloud key, the only identity worth measuring is the on-device one — quoting
+			// the cloud voice's coverage would report "nothing prepared" for a deck that is in
+			// fact complete, which is exactly backwards.
+			return measureNarration(source, projected, onDeviceOnly && onDevice ? onDevice : value.voice, pricePerM);
 		})()
 			.then((m) => {
 				if (!live) return;
@@ -132,18 +156,34 @@ export function NarrationExportOptions({
 		return () => {
 			live = false;
 		};
-	}, [on, blockedReason, source, project, value.voice, pricePerM]);
+	}, [on, blockedReason, source, project, value.voice, pricePerM, onDeviceOnly, onDevice]);
+
+	const blocked = !!blockedReason;
+	const nothingToSay = !!measure && measure.total === 0;
+	const fullyOnDevice = onDeviceOnly && !!measure?.total && measure.missing === 0;
+	const audioUnavailable = blocked || (cloudReady === false && !fullyOnDevice);
 
 	const set = (patch: Partial<NarrationChoice>) => onChange({ ...value, ...patch });
 
 	// Turning audio on turns the captions on with it, because that is what the author almost
 	// always means by "include narration" and it costs nothing extra — the track is already
-	// baked. They can turn the band back off on the next line.
-	const setAudio = (next: boolean) => set(next ? { audio: true, captions: true } : { audio: false });
+	// baked. Turning it back OFF restores whatever captions were before, rather than leaving
+	// them on: an author who flips audio on, reads the bill, and flips it back off must not be
+	// silently opted into shipping the caption band — which for most decks is their speaker
+	// notes rendered as words on screen. That is the same leak the strip-notes veto exists to
+	// prevent, arriving through a door the veto cannot see (they never touched strip-notes).
+	const captionsBeforeAudio = React.useRef(value.captions);
+	const setAudio = (next: boolean) => {
+		if (next) {
+			captionsBeforeAudio.current = value.captions;
+			// Adopt the identity the pre-flight was actually measured against, so the bill the
+			// author read and the bake that runs can never be for different voices.
+			set(onDeviceOnly && onDevice ? { audio: true, captions: true, voice: onDevice } : { audio: true, captions: true });
+		} else {
+			set({ audio: false, captions: captionsBeforeAudio.current });
+		}
+	};
 
-	const blocked = !!blockedReason;
-	const nothingToSay = !!measure && measure.total === 0;
-	const audioUnavailable = blocked || cloudReady === false;
 
 	return (
 		<div className="rounded-xl border border-border bg-background p-3.5">
@@ -170,9 +210,13 @@ export function NarrationExportOptions({
 						<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
 							{blocked
 								? blockedReason
-								: cloudReady === false
-									? 'Connect a cloud voice in the Workspace to narrate a shared deck — the recipient has no key, so the audio has to ship with the file.'
-									: 'The deck speaks for itself — the voice ships inside the file, so it plays with no key and no network, on a machine with no Lattice.'}
+								: fullyOnDevice
+									? 'This deck is fully rehearsed on this device, so it can ship its voice with no cloud connection at all — nothing is synthesized and nothing is billed.'
+									: cloudReady === false
+										? onDeviceOnly
+											? 'No cloud voice is connected, so only what this device already prepared can ship — and part of this deck has not been rehearsed yet. Rehearse it in Present, or connect OpenRouter in the Workspace.'
+											: 'Connect a cloud voice in the Workspace, or rehearse the deck with the on-device voice — either way the audio has to ship inside the file, because the recipient has no key of their own.'
+										: 'The deck speaks for itself — the voice ships inside the file, so it plays with no key and no network, on a machine with no Lattice.'}
 						</span>
 					</span>
 				</span>
@@ -240,7 +284,7 @@ export function NarrationExportOptions({
 								) : (
 									<Line term="To synthesize" detail="nothing — this deck is fully prepared in this voice" />
 								)}
-								<Line term="Adds to the file" detail={`about ${formatBytes(measure.cachedBytes + estimateMissingBytes(measure))}`} />
+								<Line term="Adds to the file" detail={`about ${formatBytes(measure.cachedBytes + measure.missingBytes)}`} />
 							</dl>
 
 							<p className="text-[11px] leading-snug text-muted-foreground">
@@ -264,6 +308,21 @@ export function NarrationExportOptions({
 								))}
 								{failures.length > 5 && <li>…and {failures.length - 5} more.</li>}
 							</ul>
+							{/* The override. Offered only HERE — after a refusal has named the sentences —
+							    because "complete or nothing" is the right default and the wrong only option:
+							    a sentence a model deterministically refuses would otherwise make narration
+							    permanently unreachable for this deck. Those sentences ship captioned and
+							    silent; the player holds their beat and moves on. */}
+							{onExportAnyway && (
+								<button
+									type="button"
+									disabled={disabled}
+									onClick={onExportAnyway}
+									className="mt-2.5 rounded-lg border border-border px-2.5 py-1.5 text-[11.5px] font-semibold text-[var(--text-heading)] hover:bg-[var(--accent-soft)] disabled:opacity-50"
+								>
+									Export anyway — ship {failures.length === 1 ? 'it' : 'them'} captioned and silent
+								</button>
+							)}
 						</div>
 					)}
 
@@ -286,19 +345,6 @@ function Line({ term, detail }: { term: string; detail: string }) {
 			<dd className="text-right text-muted-foreground">{detail}</dd>
 		</div>
 	);
-}
-
-/**
- * What the sentences that still have to be synthesized will add to the file.
- *
- * Nothing has been synthesized yet, so this is the one figure in the row that CANNOT be
- * exact — and it is deliberately derived from the characters rather than from a per-sentence
- * average, because sentence lengths in a deck vary by an order of magnitude. ~16 bytes of
- * mp3 per character is the rate measured across this repository's own narrated examples at
- * the default voice; base64 then inflates it, which `shippedBytes` accounts for.
- */
-function estimateMissingBytes(m: NarrationMeasure): number {
-	return m.missing ? Math.ceil((m.missingChars * 16 * 4) / 3) : 0;
 }
 
 function truncate(s: string, n = 60): string {
