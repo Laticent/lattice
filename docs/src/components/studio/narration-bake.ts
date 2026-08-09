@@ -141,10 +141,7 @@ export class BakeTooLargeError extends Error {
 	readonly limit: number;
 	constructor(bytes: number, limit: number) {
 		super(
-			// The remedy names only what actually helps HERE. "Lower Audio quality" is deliberately
-			// absent: it governs audio not yet recorded, and a deck large enough to hit this
-			// ceiling is usually one that is already fully recorded, where it changes nothing.
-			`This deck's narration would add about ${formatBytes(bytes)} to the file, past the ${formatBytes(limit)} ceiling — assembling it would likely run the browser out of memory before it finished. Ship it with captions only, or split the deck.`,
+			`This deck's narration would add about ${formatBytes(bytes)} to the file, past the ${formatBytes(limit)} ceiling — assembling it would likely run the browser out of memory before it finished. Ship it with captions only, lower Audio quality in the Workspace, or split the deck.`,
 		);
 		this.name = 'BakeTooLargeError';
 		this.bytes = bytes;
@@ -665,18 +662,12 @@ export async function bakeNarration(
 			return;
 		}
 		const shipped = compressed ?? blob;
-		// BANK THE COMPRESSED BYTES. Without this a cache full of clips recorded before
-		// compression shipped re-encodes on EVERY export, forever — ~107 ms of main-thread work
-		// per sentence, ~32 s for a 300-sentence deck, paid again each time. Writing it back is
-		// free of the one thing that would make it wrong: nothing is re-synthesized and nothing
-		// is re-billed, so the author's own recording is simply stored smaller than it was.
-		if (compressed && narrationCacheEnabled() && job.key) {
-			try {
-				await putClip(job.key, compressed as unknown as Blob);
-			} catch {
-				// A full store costs the next export the same re-encode; it must not cost this one.
-			}
-		}
+		// THE COMPRESSED BYTES ARE NOT BANKED, and that is deliberate rather than an omission.
+		// Writing them back would make the next export cheap — but the store is what PLAYBACK
+		// reads, so it would also feed a codec-delayed clip to the live reader, which is the
+		// whole thing this design moved compression out of the rung to avoid. The cache holds
+		// what the voice produced; the file holds what the author chose to ship. Cost: a deck
+		// recorded on an uncompressed voice re-encodes each export (~107 ms per sentence).
 		const uri = `data:${safeMime(shipped.type)};base64,${toBase64(new Uint8Array(await shipped.arrayBuffer()))}`;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;

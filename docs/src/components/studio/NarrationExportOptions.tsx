@@ -472,19 +472,18 @@ export function NarrationExportOptions({
 							    they were probably about to. Past the hard ceiling it is not a warning:
 							    the browser holds the payload five or six times over while assembling, so
 							    the honest answer is that it will not finish. */}
-							{/* THE REMEDY HAS TO BE ONE THAT WORKS. "Lower Audio quality" only shrinks
-							    sentences that have not been recorded yet — an already-cached clip keeps the
-							    bitrate it was recorded at and is never re-encoded, so on a fully rehearsed
-							    deck (the case that actually reaches 25 MB) the advice does nothing. Offering
-							    it there would repeat the defect this panel was just fixed for: advice the
-							    panel makes impossible to take. */}
+							{/* The remedy applies to ANY deck now. Compression happens when the file is
+							    built, from whatever the device holds, so lowering Audio quality shrinks a
+							    fully rehearsed deck exactly as much as an unrecorded one. (It was
+							    conditional while compression happened at record time, where it could not
+							    touch a clip already on disk.) */}
 							{measure.complete && projectedBytes > PAYLOAD_MAX_BYTES ? (
 								<p className="rounded-lg border border-[var(--fail,#b3261e)] px-3 py-2 text-[11.5px] leading-snug text-[var(--fail,#b3261e)]">
-									At about {formatBytes(projectedBytes)} this is past the {formatBytes(PAYLOAD_MAX_BYTES)} ceiling, and assembling it would most likely run this tab out of memory before producing anything. Ship it with captions only, or split the deck{measure.missing > 0 ? <>, or lower <strong>Audio quality</strong> in the Workspace before recording the rest</> : null}.
+									At about {formatBytes(projectedBytes)} this is past the {formatBytes(PAYLOAD_MAX_BYTES)} ceiling, and assembling it would most likely run this tab out of memory before producing anything. Ship it with captions only, lower <strong>Audio quality</strong> in the Workspace, or split the deck.
 								</p>
 							) : measure.complete && projectedBytes > PAYLOAD_WARN_BYTES ? (
 								<p className="rounded-lg border border-border px-3 py-2 text-[11.5px] leading-snug text-muted-foreground">
-									At about {formatBytes(projectedBytes)} this is larger than most mail servers accept as an attachment (~25 MB). It still exports — share it as a link or a file transfer{measure.missing > 0 ? <>, or lower <strong>Audio quality</strong> in the Workspace to shrink what is still to be recorded</> : null}.
+									At about {formatBytes(projectedBytes)} this is larger than most mail servers accept as an attachment (~25 MB). It still exports — share it as a link or a file transfer, or lower <strong>Audio quality</strong> in the Workspace to shrink it.
 								</p>
 							) : null}
 

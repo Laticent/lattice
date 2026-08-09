@@ -529,3 +529,44 @@ starts writing, so the budget is met from other decks' audio.
 detected from a client — the response carries no voice identity — so it is named in the code
 rather than guarded against. Real iOS Safari remains unreachable from this sandbox. And the
 export-panel screenshot harness described above is still uncommitted.
+
+### 9. Compression moved off the reading path (2026-08-09)
+
+§8 described compression happening at the RUNG — as each sentence was recorded, in the Kokoro
+worker and inline on the Gemini response. That is reversed. It now happens once, in
+`bakeNarration`'s `attach`, on the way into the exported file.
+
+**What went wrong.** The reason was never in doubt — encoding at record time shrinks the device
+cache as well as the artifact, and makes the export nearly free. What it also did was put a
+codec on the path a human listens to. lamejs writes no Xing/Info/LAME gapless header, so no
+decoder can trim the encoder delay and padding, and **every clip came back 56–70 ms longer than
+the audio that went into it, with the extra silence at the front.** Measured across every clip
+length from 0.02 s to 4 s; consistent throughout.
+
+Per sentence that is: audio starting after its caption has already highlighted, and a
+sentence-boundary breath tuned to ~165 ms stretched to ~225 ms. Across a 300-sentence deck it
+adds ~17 seconds of silence nobody asked for. Reported from real use as "gaps and pauses" before
+any of this was traced.
+
+**Why the reversal is the right shape rather than a retreat.** Compression exists to make the
+file someone else opens smaller. The device cache is an implementation detail; the reading
+experience is not. Encoding at export gets the entire size win — the artifact is the only place
+the bytes are counted — and costs the reading path nothing at all.
+
+**What it costs, stated plainly.** The on-device cache holds WAV again, so it fills ~6x faster
+against the same budget and evicts sooner. And a deck recorded on an uncompressed voice
+re-encodes on every export: ~107 ms of main-thread work per sentence, ~32 s for 300 sentences.
+The compressed bytes are deliberately NOT written back to the store, because the store is what
+playback reads — banking them would feed a codec-delayed clip to the live reader through the
+back door, which is the whole thing this change undoes.
+
+**The design critique this vindicates.** The Munger inversion in the first adversarial pass
+argued exactly this: that bake-time compression alone gets most of the value, and that the
+rung-level encode bought the smaller cache at a cost not worth paying. It was argued down at the
+time — on the grounds that rung-level encoding is what makes the export cheap, which is true and
+was not the whole picture. The evidence that settled it came from use, not from review.
+
+**Still open:** the ~56–70 ms of untrimmed codec delay now lands only on exported clips, where
+the player re-anchors each cue to the clip's real decoded duration on `loadedmetadata`, so it
+does not accumulate — but it is still 56 ms of leading silence per sentence in a shared deck.
+Tracked in #1503 alongside the missing gapless header.

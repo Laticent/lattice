@@ -576,8 +576,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								</div>
 								<div className="mt-2 rounded-xl border border-border bg-background px-3 py-2.5">
 									<label htmlFor="ws-narration-bitrate" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Audio quality</label>
-									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How much detail to keep when narration is recorded. This is the single biggest lever on the size of a deck you share with audio in it — a 300-sentence deck is about 22 MB at 64 kbps and 44 MB at 128. It only affects the two voices that produce uncompressed audio (<strong>on-device</strong> and <strong>Gemini</strong>); every other voice arrives already compressed and is passed through untouched. Speech carries almost nothing above 8 kHz, so the higher settings mostly buy bytes rather than clarity.</p>
-									<Select value={String(narrationBitrateState)} onValueChange={(v) => { setNarrationBitrateState(Number(v)); setNarrationBitrate(Number(v)); notify(`Audio quality: ${v} kbps. Narration already recorded keeps the quality it was recorded at.`); }}>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How much detail to keep in the audio of a deck you <strong>share</strong>. This is the single biggest lever on its size — a 300-sentence deck is about 22 MB at 64 kbps and 44 MB at 128. It applies when the file is built, so it never affects how narration sounds while you are reading here, and it only reaches the two voices that produce uncompressed audio (<strong>on-device</strong> and <strong>Gemini</strong>); every other voice arrives already compressed and is passed through untouched. Speech carries almost nothing above 8 kHz, so the higher settings mostly buy bytes rather than clarity.</p>
+									<Select value={String(narrationBitrateState)} onValueChange={(v) => { setNarrationBitrateState(Number(v)); setNarrationBitrate(Number(v)); notify(`Audio quality: ${v} kbps for shared decks. Reading here is unaffected.`); }}>
 										<SelectTrigger id="ws-narration-bitrate" className="w-full"><SelectValue /></SelectTrigger>
 										<SelectContent>
 											<SelectItem value="48">48 kbps — smallest file</SelectItem>
@@ -586,7 +586,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<SelectItem value="128">128 kbps — largest file</SelectItem>
 										</SelectContent>
 									</Select>
-									<p className="mt-1.5 text-[11px] text-muted-foreground">Applies to narration recorded from now on. Lines already on this device keep the quality they were recorded at — they are never re-synthesized to change it, so raising this never re-bills a deck you have already rehearsed.</p>
+									<p className="mt-1.5 text-[11px] text-muted-foreground">Applies to every export, including decks you rehearsed before changing it — nothing is re-synthesized and nothing is re-billed. Narration kept on this device is always stored exactly as the voice made it.</p>
 								</div>
 								<label htmlFor="ws-narration-cache" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
 									<Switch id="ws-narration-cache" aria-label="Keep narration on this device" checked={narrationCache} onCheckedChange={(next) => { setNarrationCacheState(next); setNarrationCacheEnabled(next); notify(next ? 'Narration is kept on this device — a rehearsed deck presents instantly.' : 'Narration is no longer kept between sessions.'); }} />

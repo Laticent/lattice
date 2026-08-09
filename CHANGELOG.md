@@ -42,18 +42,26 @@ in patch versions.
   left in dead CSS.
 
 - **A narrated deck is now several times smaller, because its audio is finally compressed.**
-  Two of the nine speech engines handed back raw, uncompressed audio — on-device Kokoro and
+  Two of the nine speech engines hand back raw, uncompressed audio — on-device Kokoro and
   Gemini — and both shipped that way: a 300-sentence deck narrated on-device came to roughly
-  145 MB where the same deck in a cloud voice came to 19 MB. Both are encoded to mp3 now, at the
-  rung, before the audio is cached or baked, so the saving reaches the shipped webpage, the
-  device cache and the export panel's size quote alike. Measured on this repo's own committed
-  Gemini sample: **132 KB → 22 KB, 5.9× smaller**, which puts those two engines inside the range
-  the seven mp3 engines already ship at rather than 7.7× above it. Audio that is already
-  compressed is never re-encoded (that would be generation loss paid for nothing), and a clip
-  that cannot be encoded — an exotic sample rate — still ships uncompressed rather than
-  ship wrong. Workspace → Voice → **Audio quality** sets the bitrate (48/64/96/128 kbps, default
-  64); audio already recorded on the device keeps the quality it was recorded at, and is never
-  re-synthesized to change it, so raising the setting never re-bills a deck you already own.
+  145 MB where the same deck in a cloud voice came to 19 MB. Both are encoded to mp3 when the
+  file is built, so the saving reaches the shipped webpage without touching how narration sounds
+  while you read. Measured on this repo's own committed Gemini sample: **132 KB → 22 KB, 5.9×
+  smaller**, which puts those two engines inside the range the seven mp3 engines already ship at
+  rather than 7.7× above it. Audio that is already compressed is never re-encoded (that would be
+  generation loss paid for nothing), and a clip that cannot be encoded — an exotic sample rate —
+  still ships uncompressed rather than ship wrong. Workspace → Voice → **Audio quality** sets the
+  bitrate (48/64/96/128 kbps, default 64) and applies to every export, including decks rehearsed
+  before you changed it; nothing is re-synthesized and nothing is re-billed.
+
+  **Compression happens at export, never while you read.** An earlier build of this compressed
+  as each sentence was recorded, to shrink the on-device cache too. It also put a codec on the
+  live reading path, and that cost more than it saved: the encoder writes no gapless header, so
+  every clip came back **56–70 ms longer than the audio that went into it**, with the extra
+  silence at the front. On every sentence — audio starting after its caption, the tuned breath
+  between sentences a third longer, ~17 seconds added across a 300-sentence deck. Narration kept
+  on this device is now stored exactly as the voice made it, and the encoder runs once, on the
+  way into the file you share.
   The bake also compresses anything uncompressed on its way into the file, which covers clips
   recorded before this landed; if the compressor itself cannot be loaded the export stops rather
   than silently shipping several times the size it quoted.

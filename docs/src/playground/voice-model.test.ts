@@ -821,32 +821,18 @@ describe('openrouter synth: PCM-only model quirk (Gemini 400s on mp3, only retur
     },
   });
 
-  it('COMPRESSES the PCM response to mp3 before it leaves the rung', async () => {
-    // This is the one cloud model that answers in raw PCM. It used to be wrapped in a WAV
-    // header and handed on uncompressed, at 3799 B/char — 7.7x the rest of the roster, in the
-    // device cache and again in the base64 payload of every deck baked in this voice.
-    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: pcmResponse(24000) });
-    model.setOrModel('google/gemini-3.1-flash-tts-preview');
-
-    const res = await model.synthOne({ text: 'Gemini line.' });
-    expect(res.bytes?.type).toBe('audio/mpeg');
-    // 1 s of 24 kHz 16-bit mono is 48 000 B of PCM; compressed it must be a fraction of that.
-    expect(res.bytes?.size).toBeLessThan(48_000 / 3);
-    expect(res.bytes?.size).toBeGreaterThan(0);
-    const bytes = new Uint8Array(await res.bytes!.arrayBuffer());
-    expect(bytes[0], 'MPEG frame sync').toBe(0xff);
-  });
-
-  it('falls back to the 44-byte-header WAV when the PCM cannot be encoded', async () => {
-    // 23 kHz is not a rate MPEG defines. The encoder declines rather than encoding against the
-    // nearest table (which would play back at the wrong speed), and the rung keeps its original
-    // bytes — the ORIGINAL contract, preserved as the floor. Shipping large beats shipping wrong.
-    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: pcmResponse(2, 23000) });
+  it('wraps the PCM response in a WAV blob and does NOT compress it on the live path', async () => {
+    // Gemini is the one cloud model that answers in raw PCM. An earlier version encoded it to
+    // mp3 right here — on the main thread, on the path a live read uses — which is exactly the
+    // jank the Kokoro worker exists to avoid, and lamejs's missing gapless header added 56–70 ms
+    // of silence to the front of every sentence. Compression is an EXPORT concern now; playback
+    // gets exactly what the voice produced.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: pcmResponse(2) });
     model.setOrModel('google/gemini-3.1-flash-tts-preview');
 
     const res = await model.synthOne({ text: 'Gemini line.' });
     expect(res.bytes?.type).toBe('audio/wav');
-    expect(res.bytes?.size).toBe(44 + 4);
+    expect(res.bytes?.size).toBe(44 + 4); // 44-byte header + 2 samples
     expect((await res.bytes!.arrayBuffer()).byteLength).toBe(44 + 4);
   });
 });

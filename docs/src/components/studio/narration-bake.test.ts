@@ -906,15 +906,17 @@ describe('the bake-time compressor is wired in, not merely present', () => {
 		expect(uri.length).toBeLessThan(shippedBytes(wav.size, 'audio/wav') / 2);
 	});
 
-	it('BANKS the compressed bytes, so the next export does not re-encode the same clip', async () => {
-		// ~107 ms of main-thread work per sentence, ~32 s for a 300-sentence deck — paid on every
-		// export, forever, for a cache recorded before compression shipped.
+	it('does NOT bank the compressed bytes — the store feeds PLAYBACK, which must stay uncompressed', async () => {
+		// Writing them back would make the next export cheap, and would also hand the live reader
+		// a codec-delayed clip: lamejs adds 56-70 ms of silence to the front of every clip, which
+		// is precisely why compression was moved off the recording path. The cache holds what the
+		// voice produced; the file holds what the author chose to ship.
 		const wav = wavClip(2);
 		stored.set(keyFor(S1), wav.size);
 		getClipOverride = () => wav;
 		script.set(S2, [4000]);
 		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
-		expect(banked, 'the smaller clip replaced the WAV under the same key').toContain(keyFor(S1));
-		expect(stored.get(keyFor(S1))!, 'and it really is smaller').toBeLessThan(wav.size / 2);
+		expect(banked, 'the cached clip is left exactly as the voice made it').not.toContain(keyFor(S1));
+		expect(stored.get(keyFor(S1))).toBe(wav.size);
 	});
 });

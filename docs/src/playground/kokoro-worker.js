@@ -14,20 +14,18 @@
 // keeps Vite from trying to bundle the CDN URL; it's a runtime dynamic import,
 // exactly like architect-model's main-thread fallback.
 //
-// It COMPRESSES here and posts mp3 bytes back (transferable). Encoding on this side
-// rather than the main thread is the whole reason it happens here at all: the PCM is
-// already in this worker, so compressing costs no transfer, shrinks the postMessage
-// payload ~6x (566 KB → 95 KB for 12 s of speech), and — the point — keeps LAME's
-// ~130 ms per sentence off the thread that is animating the caption crawl. Encoding
-// the same clip on the main thread dropped frames on every sentence boundary.
+// It posts raw Float32 PCM back (transferable) so the main thread encodes the WAV
+// — no dependency on a particular RawAudio.toBlob() shape. Mirrors voice-model's
+// rung contract; docs-only (the Drawing Board), touches no engine render path.
 //
-// If the encoder is unavailable or the encode fails it posts raw Float32 PCM back
-// exactly as before, and the main thread wraps it in a WAV header — the original
-// contract, kept as the floor. No dependency on a particular RawAudio.toBlob() shape.
-// Mirrors voice-model's rung contract; docs-only (the Drawing Board), touches no
-// engine render path.
-
-import { encodeMp3, toInt16 } from './narration-encode.js';
+// IT DELIBERATELY DOES NOT COMPRESS. An earlier version encoded to mp3 here, to shrink
+// the device cache and make the export nearly free. It also put a codec on the LIVE
+// READING PATH, and that cost more than it saved: lamejs writes no gapless header, so
+// every clip came back 56–70 ms longer than the audio that went into it, with the extra
+// silence at the front. On every sentence. Audio started after its caption, the tuned
+// breath between sentences grew by a third, and a deck gained ~17 s over 300 sentences.
+// Compression is for the file you SHIP, so it happens once, at export
+// (narration-bake.ts's `attach`), and playback plays exactly what the voice produced.
 
 let tts = null;
 
@@ -47,11 +45,7 @@ self.onmessage = async (e) => {
       const audio = await tts.generate(d.text, { voice: d.voice, ...(d.speed && d.speed !== 1 ? { speed: d.speed } : {}) });
       const samples = audio.audio;
       const rate = audio.sampling_rate;
-      // Kokoro is mono. `d.kbps` comes from the workspace pref; an absent one lets
-      // encodeMp3 apply its own default rather than this worker inventing a second.
-      const mp3 = await encodeMp3(toInt16(samples), rate, 1, d.kbps);
-      if (mp3) self.postMessage({ type: 'audio', id: d.id, mp3, rate }, [mp3.buffer]);
-      else self.postMessage({ type: 'audio', id: d.id, samples, rate }, [samples.buffer]);
+      self.postMessage({ type: 'audio', id: d.id, samples, rate }, [samples.buffer]);
     }
   } catch (err) {
     self.postMessage({ type: d.type === 'load' ? 'load-error' : 'gen-error', id: d.id, error: String((err?.message) || err) });
