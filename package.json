@@ -141,6 +141,8 @@
     "capabilities:check": "node tools/build-capabilities.js --check",
     "release": "node tools/release.js",
     "release:dry": "node tools/release.js --dry-run",
+    "release:prepare": "node tools/release.js --prepare",
+    "release:publish": "node tools/release.js --publish --push",
     "release:zip": "node tools/build-release-zip.js",
     "changelog:bump": "node tools/changelog.js --bump",
     "docs:components": "node tools/build-component-docs.js",

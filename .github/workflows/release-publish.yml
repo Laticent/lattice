@@ -1,0 +1,106 @@
+name: Release (publish)
+
+# Phase 2 of 2. The release PR from release.yml has merged, so main now
+# carries the version bump — this tags THAT commit and ships the artifacts.
+#
+# Why the tag is cut here and not in phase 1: the merge queue squashes the PR
+# into a new commit, so a tag created on the branch would point at a sha that
+# never reaches main. Tagging after the merge is also what makes the tag
+# honest — it names a tree the required `ci` check passed on.
+#
+# Tags are not covered by the "Main Merge Queue" ruleset (it targets
+# refs/heads/main), so pushing the tag needs no bypass. See RELEASE.md.
+on:
+  push:
+    branches: [main]
+    # package.json's version only moves on a release commit, so this is a
+    # tight filter — and the tag-existence guard below makes it idempotent
+    # for every other reason package.json changes (a dependency bump).
+    paths: ['package.json']
+  workflow_dispatch: # recovery: re-run against main after a partial failure
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write # push the tag, create the GitHub Release
+  id-token: write # npm provenance, when publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags for archive + the tag guard
+          fetch-tags: true
+
+      # Nothing below runs unless main is sitting on an untagged version. A
+      # dependency bump touches package.json too, and workflow_dispatch can be
+      # fired at any time — both must be quiet no-ops, not failures.
+      - name: Is this an unreleased version?
+        id: gate
+        run: |
+          set -euo pipefail
+          V="$(node -p "require('./package.json').version")"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            echo "v$V is already tagged — nothing to publish."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.release == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        if: steps.gate.outputs.release == 'true'
+        run: npm ci
+
+      - name: Configure git identity
+        if: steps.gate.outputs.release == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Tags HEAD, rederives release/notes-v<version>.md from the changelog
+      # section the release PR committed, builds the showcase zip from the
+      # tagged tree, and pushes the tag. build:check runs (not --skip-checks):
+      # `ci` already passed on this state, and a second look costs a minute on
+      # a flow that runs a handful of times a year.
+      - name: Tag, package, push the tag
+        if: steps.gate.outputs.release == 'true'
+        run: node tools/release.js --publish --push
+
+      - name: Create GitHub Release
+        if: steps.gate.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.gate.outputs.version }}
+        run: |
+          gh release create "v$V" \
+            "release/lattice-v$V.zip" \
+            --title "v$V" \
+            --notes-file "release/notes-v$V.md" \
+            --verify-tag
+
+      # Opt-in by configuration, not by checkbox: the phase that publishes is
+      # no longer the phase a human dispatches, so there is no run to tick a
+      # box on. Setting NPM_TOKEN IS the opt-in; unset, this step is skipped
+      # and the GitHub Release + zip still ship.
+      - name: Publish to npm
+        if: steps.gate.outputs.release == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::notice::NPM_TOKEN is not set — skipping npm publish (the GitHub Release still shipped)."
+            exit 0
+          fi
+          npm publish --access public --provenance

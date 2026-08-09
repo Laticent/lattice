@@ -1,12 +1,19 @@
 # Releasing `@slidewright/lattice`
 
-> **Status: automated, manually triggered.** The **Release** GitHub Action
-> (`.github/workflows/release.yml`, `workflow_dispatch`) cuts a release
-> end-to-end: it reads the bump from the changelog, bumps the version, rolls
-> `## Unreleased`, tags, and publishes a GitHub Release with notes + the
-> showcase zip. **npm publish is opt-in** (off by default until an
-> `NPM_TOKEN` is configured). You can also run the same flow locally with
-> `npm run release`.
+> **Status: automated, manually triggered, cut in two phases across a merge.**
+> **Release (prepare)** (`.github/workflows/release.yml`, `workflow_dispatch`)
+> reads the bump from the changelog, bumps the version, rolls `## Unreleased`,
+> rebuilds `dist/`, and offers the result as a **pull request**. You approve it
+> and enable auto-merge; the merge queue lands it. **Release (publish)**
+> (`release-publish.yml`) then fires on `main`, tags the merged commit, and
+> publishes a GitHub Release with notes + the showcase zip. **npm publish is
+> opt-in** (skipped until an `NPM_TOKEN` is configured).
+>
+> **Why two phases:** `main` takes no direct pushes — the `Main Merge Queue`
+> ruleset requires a PR, the queue, and a green `ci`, for bots and humans alike
+> (#1439). A release is exactly the change that should go that route: the tag
+> ends up naming a tree the required check actually passed on. The same two
+> phases run locally — `npm run release:prepare` / `npm run release:publish`.
 
 ## What a release is
 
@@ -68,28 +75,44 @@ is nothing to release.
 
 ## How to cut a release
 
-**Primary path — the Release workflow** (Actions → **Release** → *Run
-workflow*):
+**Primary path — the Release workflows.**
 
-- `bump`: leave as **`auto`** to use the changelog-derived level, or force
-  `patch`/`minor`/`major`.
-- `publish_npm`: leave **off** unless npm publishing is enabled.
+1. **Actions → Release (prepare) → *Run workflow***. Set `bump` to **`auto`**
+   for the changelog-derived level, or force `patch`/`minor`/`major`. It gates
+   (lint + unit + `build:check`), then runs `tools/release.js --prepare`:
+   computes the bump, `npm version`s, rolls `## Unreleased` →
+   `## <version> - <date>`, rebuilds `dist/`, and commits `release: v<version>`
+   — **no tag, no push to `main`**. It pushes `release/v<version>` and opens the
+   PR. (Without a `RELEASE_PAT` secret it stops after the branch push and prints
+   a compare link — open the PR from there; see Prerequisites.)
+2. **Review the PR, approve it, enable auto-merge (squash).** Check the version,
+   the rolled changelog section, and the `dist/` rebuild. The merge queue
+   rebases, re-runs `ci`, and merges.
+3. **Release (publish) fires by itself** on the resulting push to `main`. It
+   no-ops unless `package.json`'s version is untagged, then runs
+   `tools/release.js --publish --push`: tags **the merged commit**, rederives
+   the notes from the changelog section, builds the zip from the tagged tree,
+   pushes the tag, creates the GitHub Release, and publishes to npm if
+   `NPM_TOKEN` is set. Re-runnable by hand (`workflow_dispatch`) if a step
+   failed partway.
 
-The workflow gates (lint + unit + `build:check`), then runs
-`tools/release.js`, which: computes the bump, `npm version`s, rolls
-`## Unreleased` → `## <version> - <date>`, rebuilds `dist/`, commits
-`release: v<version>`, tags it, **pushes to `main`**, and creates the
-GitHub Release with the `## Unreleased` notes + the showcase zip.
+The tag is deliberately cut in phase 2: the queue squashes the PR into a new
+commit, so a tag made on the release branch would name a sha `main` never gets.
 
-**Local fallback** — identical flow on a clean `main`:
+**Local fallback** — the same two phases, same tools:
 
 ```sh
-npm run release:dry          # preview: bump level, version, notes — changes nothing
-npm run release -- --push    # cut it for real and push the commit + tag
-# then attach the zip + notes to the Release (the workflow does this for you):
-# gh release create v<version> release/lattice-v<version>.zip \
-#   --notes-file release/notes-v<version>.md
+npm run release:dry              # preview: bump level, version, notes — changes nothing
+git switch -c release/vX.Y.Z     # cut the release commit on a branch, never on main
+npm run release:prepare          # bump, roll, rebuild dist, commit (no tag, no push)
+git push -u origin release/vX.Y.Z
+# open the PR, get it merged through the queue, then on a synced main:
+npm run release:publish          # tag the merged commit, zip, notes, push the tag
+gh release create v<version> release/lattice-v<version>.zip \
+  --notes-file release/notes-v<version>.md --verify-tag
 ```
+
+`npm run release` with no phase flag prints this menu rather than guessing.
 
 `prepublishOnly` re-runs `npm test` as a backstop before any registry
 upload.
@@ -145,32 +168,59 @@ uploaded to the Release, never committed.
 
 ## How the workflow works
 
-`.github/workflows/release.yml` (`workflow_dispatch`) runs on
+**`.github/workflows/release.yml` — Release (prepare)** (`workflow_dispatch`),
 `ubuntu-latest`, node 22:
 
-1. `checkout` (`fetch-depth: 0`, `fetch-tags: true`) + `setup-node` +
-   `npm ci`.
-2. Gate: `npm run lint`, `npm test`, `npm run build:check`. (The
-   integration tier already ran on the commit via `ci.yml`; the release
-   only adds a version bump + changelog roll + dist rebuild.)
+1. `checkout` (`fetch-depth: 0`, `fetch-tags: true`) + `setup-node` + `npm ci`.
+2. Gate: `npm run lint`, `npm test`, `npm run build:check`. (The integration
+   tier already ran on the commit via `ci.yml`, and the full tier runs again on
+   the PR and in the queue; this only stops an obviously broken release from
+   becoming a PR.)
 3. Set the `github-actions[bot]` git identity.
-4. `node tools/release.js --bump=<input> --push --skip-checks` — the bump,
-   changelog roll, dist rebuild, commit, tag, zip, and push to `main`.
-5. `gh release create v<version>` with `--notes-file release/notes-v<version>.md`
-   and the `release/lattice-v<version>.zip` asset (`--verify-tag`).
-6. **If `publish_npm`** — `npm publish --access public --provenance`.
+4. `node tools/release.js --prepare --bump=<input> --skip-checks` — the bump,
+   changelog roll, dist rebuild, and the commit. The version comes back via
+   `$GITHUB_OUTPUT`, so the workflow never re-derives it.
+5. `git switch -c release/v<version>` + push the branch.
+6. Open the PR (`RELEASE_PAT`), or print the compare link.
+
+**`.github/workflows/release-publish.yml` — Release (publish)** (`push` to
+`main` touching `package.json`, plus `workflow_dispatch` for recovery):
+
+1. `checkout` with full history + tags.
+2. **Gate:** read `package.json`'s version; if `v<version>` is already tagged,
+   every remaining step is skipped. A dependency bump touches `package.json`
+   too, so this must be a quiet no-op rather than a failure.
+3. `node tools/release.js --publish --push` — `build:check`, rederive
+   `release/notes-v<version>.md` from the changelog's `## <version>` section,
+   tag `HEAD`, build the zip, push the tag.
+4. `gh release create v<version>` with `--notes-file` and the
+   `release/lattice-v<version>.zip` asset (`--verify-tag`).
+5. `npm publish --access public --provenance`, if `NPM_TOKEN` is set.
 
 Prerequisites:
 
-- **Branch protection on `main` must allow the `github-actions` bot to
-  push.** The release commit + tag go straight to `main` (the chosen
-  direct-push flow); a protected branch without a bypass rule will reject
-  the push. Add an allowance for the Actions bot, or switch the workflow
-  to open a PR instead.
-- The job already declares `permissions: { contents: write, id-token: write }`
-  (write to push + create the Release; id-token for npm `--provenance`).
-- **To enable npm publish:** add an **`NPM_TOKEN`** repo secret (publish
-  rights, exposed as `NODE_AUTH_TOKEN`), confirm the `@slidewright` scope
-  exists and the token can publish to it, then run the workflow with
-  `publish_npm` checked. Until then leave it off — the GitHub Release +
-  zip still ship.
+- **Nothing needs a ruleset bypass.** Phase 1 pushes a branch, phase 2 pushes a
+  tag, and the ruleset targets `refs/heads/main` only. See
+  `engineering/workflow.md` § Automation vs. the main ruleset.
+- **`RELEASE_PAT` (optional).** A PR opened with `GITHUB_TOKEN` never receives
+  the required `ci` check — GitHub suppresses workflow runs for events raised by
+  the repo token — so it could never merge. With a PAT (repo scope, PR write)
+  the release PR opens itself; without one, phase 1 pushes the branch and prints
+  a compare link for you to open it in one click, which starts CI normally.
+- The jobs declare the permissions they need: `contents: write` +
+  `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
+  phase 2 (`id-token` for npm `--provenance`).
+- **To enable npm publish:** add an **`NPM_TOKEN`** repo secret (publish rights,
+  exposed as `NODE_AUTH_TOKEN`) and confirm the `@slidewright` scope exists and
+  the token can publish to it. **Setting the secret *is* the opt-in** — the
+  phase that publishes is no longer the phase you dispatch, so there is no run
+  to tick a checkbox on. Until it is set the step is skipped with a notice, and
+  the GitHub Release + zip still ship.
+
+### One caveat on the release notes
+
+The GitHub Release body is capped at **125,000 characters**, and this repo's
+`## Unreleased` is currently the entire changelog (~1.4 MB). `tools/release.js`
+trims the notes on a line boundary and appends a pointer to `CHANGELOG.md`,
+warning when it does — without that, `gh release create` fails *after* the tag
+is pushed. The changelog remains the complete record.

@@ -231,8 +231,10 @@ const SCRIPT_META = {
   'new:component':            ['Scaffold', 'Scaffold a new component (layout) with its manifest + CSS + transform stubs.'],
 
   // Release
-  'release':                  ['Release', 'Deterministic, changelog-driven release orchestrator (manually triggered).'],
+  'release':                  ['Release', 'Deterministic, changelog-driven release orchestrator (manually triggered). Prints the phase menu — pass --prepare or --publish.'],
   'release:dry':              ['Release', 'Release dry-run — derive the bump and preview without publishing.'],
+  'release:prepare':          ['Release', 'Release phase 1 — cut the release commit (bump, changelog roll, dist rebuild) on a branch, for a PR through the merge queue. No tag, no push.'],
+  'release:publish':          ['Release', 'Release phase 2 — on the merged main commit: tag it, rebuild the zip, rederive the notes, push the tag.'],
   'release:zip':              ['Release', 'Assemble the curated GitHub release zip.'],
   'changelog:bump':           ['Release', 'Roll CHANGELOG.md ## Unreleased → a versioned section (semver from the entries).'],
 

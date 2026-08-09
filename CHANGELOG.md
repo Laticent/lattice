@@ -654,6 +654,30 @@ in patch versions.
 
 ### Fixed
 
+- **Repo automation could not write to the repo at all: every workflow that pushed `main` was
+  rejected by the merge ruleset.** The `Main Merge Queue` ruleset requires a PR, the queue and a
+  green `ci`, and grants **no bypass to anyone** — so `sync-backlog` had failed 100% of its runs
+  (73 of the last ~100 red runs repo-wide), leaving `BACKLOG.md` a week stale, and the release
+  workflow carried the same break, latent only because no release had ever been cut. Automation
+  now splits by what it writes: the **generated backlog mirror** pushes `main` under a one-time
+  ruleset bypass for GitHub Actions (a full CI run per issue event would be absurd for a file no
+  human edits), while the **release goes through the queue like any other change**, so its tag
+  names a tree `ci` actually passed on. `release.yml` is now two phases across a merge — *prepare*
+  cuts the commit on a branch and opens a PR; the new `release-publish.yml` tags the squashed
+  commit, builds the zip, and ships the Release. `sync-backlog` now recognizes a GH013 rule
+  violation as a settings gap and fails immediately with the fix, instead of rebasing three times
+  against a verdict no rebase can change. (#1439)
+- **The first real release would have died twice, both times after the point of no return.**
+  Exercising the flow end-to-end surfaced two pre-existing killers: the US-English ratchet walked
+  the gitignored `release/` dir, so the notes file the release writes pushed the count 1307 → 1360
+  and aborted the build **mid-release**, after the version bump; and the Release body — 1.4 MB,
+  because everything still sits under `## Unreleased` — exceeded GitHub's 125,000-character cap,
+  which would have failed `gh release create` *after* the tag was pushed. `release/` now joins the
+  gitignored-artifact class the US walk skips (by path, so `test/unit/release/` stays in scope),
+  and `changelog.fitReleaseBody` trims the notes on a line boundary with a pointer to the
+  changelog. `--prepare` also now fails loudly if the build touches anything outside the four
+  release paths, instead of leaving an incomplete commit for the next phase to trip over. (#1439)
+
 - **`journey weighted`'s volume badge was painting a 3:1 stroke token as small text, and the
   first attempt to fix it was inert.** The badge read `var(--mood-ink, …)`, a token only the
   `heatmap` rows ever set, so it kept falling through to the raw mark: **137 of 320** palette ×

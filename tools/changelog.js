@@ -54,6 +54,34 @@ function extractUnreleased(md) {
   return { start: startLine, end: endLine, body };
 }
 
+/**
+ * Slice out the body of a RELEASED section — `## <version>`, with or without
+ * the ` - <date>` suffix `rollUnreleased` writes and with or without the
+ * `[1.2.3]` link form. Same shape as extractUnreleased, or null if absent.
+ *
+ * This is what lets the release notes be REDERIVED on main after the release
+ * PR merges: the notes file lives in the gitignored release/ dir, so the
+ * publish phase cannot inherit it from the prepare phase — it reads the
+ * dated section the prepare phase committed instead.
+ */
+function extractVersion(md, version) {
+  const v = String(version).trim().replace(/^v/, '');
+  // Only ever called with package.json's version. Refuse anything that isn't
+  // one, so a garbage input can't match `## Unreleased` and ship in-progress
+  // notes as a release body.
+  if (!/^\d+(?:\.\d+)*(?:[-+][\w.-]+)?$/.test(v)) return null;
+  const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const heading = new RegExp(`^##\\s+\\[?v?${escaped}\\]?\\s*(?:[-–—]\\s*\\S.*)?$`, 'i');
+  const lines = md.split('\n');
+  const startLine = lines.findIndex((l) => heading.test(l));
+  if (startLine === -1) return null;
+  let endLine = lines.length;
+  for (let i = startLine + 1; i < lines.length; i++) {
+    if (/^##\s+(?!#)/.test(lines[i])) { endLine = i; break; }
+  }
+  return { start: startLine, end: endLine, body: lines.slice(startLine + 1, endLine).join('\n') };
+}
+
 /** A category heading has content if a `- `/`* ` bullet follows before the next heading. */
 function categoriesWithContent(body) {
   const lines = body.split('\n');
@@ -124,6 +152,30 @@ function releaseNotes(body) {
 }
 
 /**
+ * GitHub rejects a Release body over 125,000 characters. Lattice's
+ * `## Unreleased` is currently the whole changelog (~1.4 MB of notes), so an
+ * untrimmed body fails the release at its very last step — after the tag is
+ * already pushed and unrepeatable. Trim on a line boundary and say so in the
+ * body; the changelog remains the complete record either way.
+ */
+const RELEASE_BODY_MAX = 125000;
+
+function fitReleaseBody(notes, version, max = RELEASE_BODY_MAX) {
+  if (notes.length <= max) return { body: notes, truncated: false };
+  const tail =
+    '\n\n---\n\n' +
+    `_Notes truncated to fit GitHub's ${max.toLocaleString('en-US')}-character limit. ` +
+    `The complete entry is [\`CHANGELOG.md\` § ${version}](CHANGELOG.md)._\n`;
+  const lines = notes.split('\n');
+  let body = '';
+  for (const line of lines) {
+    if (body.length + line.length + 1 > max - tail.length) break;
+    body += line + '\n';
+  }
+  return { body: body.trimEnd() + tail, truncated: true, keptLines: body.split('\n').length - 1 };
+}
+
+/**
  * Roll the changelog for a release: rename `## Unreleased` to
  * `## <version> - <date>` and seed a fresh empty `## Unreleased` above it.
  */
@@ -172,12 +224,15 @@ function main(argv) {
 
 module.exports = {
   extractUnreleased,
+  extractVersion,
   categoriesWithContent,
   hasBreakingMarker,
   levelForCategory,
   computeBump,
   nextVersion,
   releaseNotes,
+  fitReleaseBody,
+  RELEASE_BODY_MAX,
   rollUnreleased,
 };
 

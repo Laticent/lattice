@@ -5,10 +5,14 @@ name: Sync backlog mirror
 # back. The render is pure (no timestamps), so this only commits on a real
 # queue change.
 #
-# NOTE: this pushes BACKLOG.md to main. If main is protected against direct
-# pushes, allow github-actions[bot] to bypass for this path (one-time branch-
-# protection setting) — otherwise the push step fails visibly. See
-# engineering/workflow.md § Work queue.
+# NOTE: this pushes BACKLOG.md straight to main, which the "Main Merge Queue"
+# ruleset otherwise forbids (PR + merge queue + the `ci` check). That is
+# deliberate: routing a generated mirror through the queue would spend a full
+# CI run per issue event. It works ONLY because GitHub Actions is a bypass
+# actor on that ruleset — a one-time repo setting, not something this file can
+# grant itself. Without it every run dies on GH013 (issue #1439). The exact
+# setting, and why the release does the opposite, are in
+# engineering/workflow.md § Automation vs. the main ruleset.
 on:
   issues:
     # State-change events only. Label/assignee churn is deliberately EXCLUDED:
@@ -57,15 +61,26 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add BACKLOG.md
           git commit -m 'chore(backlog): sync BACKLOG.md to open issues'
-          # Rebase-and-retry: a human or another workflow can push to main
-          # between checkout and push (the concurrency group only serializes
-          # this workflow against itself). Re-fetch + rebase the single backlog
-          # commit and retry, like the golden-diff job in ci.yml.
+          # A rejected push has two causes that need OPPOSITE responses:
+          #
+          #   * a RACE — a human or another workflow pushed to main between
+          #     checkout and push (the concurrency group only serializes this
+          #     workflow against itself). Rebase the single backlog commit and
+          #     retry, like the golden-diff job in ci.yml.
+          #   * a RULE VIOLATION (GH013) — the ruleset refused the push. No
+          #     amount of rebasing changes that verdict, so retrying just burns
+          #     30s and buries the real cause under three identical rejections
+          #     (issue #1439). Fail fast, and name the fix.
+          log="$(mktemp)"
           for i in 1 2 3; do
-            if git push; then exit 0; fi
+            if git push 2>&1 | tee "$log"; then exit 0; fi
+            if grep -q 'GH013\|repository rule violations' "$log"; then
+              echo "::error::sync-backlog: main's ruleset rejected the push (GH013). This is a settings gap, not a race — retrying cannot fix it. Grant GitHub Actions (integration id 15368) bypass on the 'Main Merge Queue' ruleset; see engineering/workflow.md § Automation vs. the main ruleset."
+              exit 1
+            fi
             echo "push rejected — rebasing on origin/main and retrying ($i)"
             git fetch -q origin main && git rebase origin/main || { git rebase --abort || true; }
             sleep $((i * 3))
           done
-          echo "::error::sync-backlog: push to main failed after retries (main moving fast, or github-actions[bot] lacks push/bypass on protected main)"
+          echo "::error::sync-backlog: push to main failed after 3 rebase-and-retry rounds — main is moving faster than the sync can land."
           exit 1

@@ -669,6 +669,65 @@ The contract, and its limits — be precise about what it does and doesn't cover
   (`noreply@github.com`) and show **Verified** there regardless of the local
   `%G?` check.
 
+## Automation vs. the main ruleset
+
+The `Main Merge Queue` ruleset (`refs/heads/main`) requires a pull request, the
+merge queue, and a green `ci`, and it grants **no bypass to anyone** by default.
+So **nothing pushes `main` directly** — not you, not an agent, not a workflow. A
+workflow that tries gets:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+```
+
+That is a *settings* verdict, not a race: rebasing and retrying cannot change
+it. This broke every `sync-backlog` run for weeks (#1439). Full reasoning:
+`decisions/2026-08-09-automation-under-the-merge-ruleset.md`.
+
+**Writing a workflow that needs to change the repo? Push a branch and open a
+PR.** The two exceptions below are the whole list, and both are deliberate.
+
+**1. The backlog mirror pushes `main` under a bypass.** `sync-backlog.yml`
+regenerates a *generated* file on every issue event; sending it through the
+queue would spend a full CI run per event and put ~14 merge-train entries a day
+in front of every open PR. It works only because GitHub Actions is a bypass
+actor on the ruleset — a **one-time repo setting**, which a workflow cannot
+grant itself:
+
+> **Settings → Rules → Main Merge Queue → Bypass list → add *GitHub Actions*
+> (integration id `15368`).** Use the UI — the API path is
+> `PUT /repos/SlideWright/lattice/rulesets/18317422`, which takes the ruleset
+> as a whole, so a hand-rolled call that omits `rules` risks editing away the
+> queue itself. If you do use it, re-read the ruleset afterwards and confirm
+> **both** halves survived:
+>
+> ```sh
+> gh api repos/SlideWright/lattice/rulesets/18317422 \
+>   --jq '{rules: [.rules[].type], bypass: .bypass_actors}'
+> ```
+>
+> Expect `merge_queue`, `pull_request` and `required_status_checks` still in
+> `rules`, and the Actions integration in `bypass`. Without the bypass the
+> mirror's push step fails with GH013 and names this section in the error.
+
+Note the blast radius: the bypass is granted to the *integration*, so once set,
+**any** workflow using `GITHUB_TOKEN` can push `main`. Don't take that as
+licence — it exists for one file.
+
+**2. The release goes through the queue, on purpose.** It is rare (a few times a
+year) and it changes what ships, so it takes the reviewed path even though the
+bypass would let it skip: the queue runs `ci` on the exact post-rebase tree, and
+the tag then names a commit that check passed on. See `RELEASE.md`.
+
+Two mechanics that trip people up when automating against this ruleset:
+
+- **A PR opened with `GITHUB_TOKEN` never gets CI.** GitHub suppresses workflow
+  runs for events raised by the repo token, so the required `ci` check never
+  appears and the PR can never merge. Open it with a PAT, or push the branch and
+  let a human click *Create pull request* (an ordinary user event, so CI runs).
+- **Tags are not covered.** The ruleset targets `refs/heads/main`; there is no
+  tag ruleset, so pushing `v<x.y.z>` needs no bypass.
+
 ## Post-merge standup — orient me, every merge
 
 I run many of your sibling sessions in parallel and lose the thread between them.
@@ -789,9 +848,11 @@ it on issue events + daily). The render is pure, so it only commits on a real
 queue change. Issues own *status*; decision docs own *design*; the mirror never
 feeds back. If we ever leave GitHub, the repo still carries the queue.
 
-> The mirror workflow pushes `BACKLOG.md` to `main`. If `main` is protected
-> against direct pushes, allow `github-actions[bot]` to bypass for that path
-> (one-time setting) — otherwise the push step fails visibly.
+> The mirror workflow pushes `BACKLOG.md` straight to `main`, which the
+> `Main Merge Queue` ruleset otherwise forbids. It works **only** because
+> GitHub Actions is a bypass actor on that ruleset — a one-time repo setting.
+> Without it every run dies on GH013 (#1439). The setting, and why the release
+> deliberately does the opposite, are in § Automation vs. the main ruleset.
 
 ### Board setup (one-time, manual — needs your GitHub UI)
 
@@ -805,9 +866,9 @@ the UI, once:
    *PR merged → Done*; auto-add issues/PRs from this repo. These cover the board
    *column* automation the ADR describes — no token or Action required.
 4. Optionally group/swim-lane by `area:` (the swimlane view).
-5. **Allow `github-actions[bot]` to push `BACKLOG.md` to `main`** — add it to the
-   branch-protection bypass list (or exempt the path). Without this, the
-   sync-backlog workflow's first push fails.
+5. **Add GitHub Actions to the `Main Merge Queue` ruleset's bypass list** —
+   without it every sync-backlog push fails with GH013. Exact setting (and the
+   `gh api` one-liner): § Automation vs. the main ruleset.
 
 **Deliberate boundary — the `status:review` *label* has no automated writer.**
 The Project's built-in *PR → Done* workflow moves the board **column** when a PR

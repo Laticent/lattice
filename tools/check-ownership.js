@@ -1831,6 +1831,14 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // the artifacts present). Same reason components.md is exempted below.
       // See engineering/decisions/2026-07-02-website-copy-positioning.md §8.5.
       if (rel === path.join('docs', 'public', 'playground', 'v')) continue;
+      // Same class, different producer: `release/` is the gitignored output of
+      // a release run (tools/release.js). `notes-v<x.y.z>.md` is a verbatim
+      // copy of a CHANGELOG section — and CHANGELOG.md is itself exempt below
+      // — so counting it double-charges an already-exempt source at ~70 hits
+      // and blows the budget. That fired for real: the release aborted on its
+      // own notes file, mid-run, after the version was already bumped.
+      // Matched by path, not by name — `test/unit/release/` stays in scope.
+      if (rel === 'release') continue;
       // Playwright's gitignored run outputs (docs/.gitignore): the HTML report
       // vendors Playwright's own viewer JS (which carries British spellings we
       // don't author) and test-results holds failure snapshots of app copy.
