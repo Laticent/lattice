@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Reported (#1438) as "on a hard reload the utility icons and the middle action bar are missing while the deck dropdown and the slide rail render immediately". Reproduced on the built site at the reporter's 393x651 and root-caused, and the reporter's premise turned out to be inverted: nothing in the Studio is server-rendered or hydrated, so there is no defensive `useMounted`, no cookie-vs-localStorage question, and no IndexedDB coupling to decouple — the whole app is one Astro `client:only` island, and what a reload shows before it mounts is a hand-written static shell in `studio.astro`. That shell drew exactly TWO things, a topbar and the Nacre slide box, so it was STRUCTURALLY INCOMPLETE: hydration dropped four more bands in at once (the phone's eight-cell action bar, the preview sub-bar, the slide navigator, the status strip) and, on tablet/desktop, the entire editor column, and the hand-off read as a re-layout rather than a cross-fade. The reporter's "missing icons" is the shell's topbar, which drew a bare logo and title where the app draws a bordered pill and three 32px icon buttons. Fix: the shell now DRAWS every structural band, from the same `PREVIEW_CHROME` constants the seed already used to PLACE the box — one derivation, two consumers — under a stated rule, GEOMETRY NEVER GLYPHS: band heights are exact and gated, what sits inside a band is a muted skeleton, and no app icon or label is ever copied into the shell. Also: modeled the landscape-phone cinema morph (the shell no longer flashes a 54px topbar the app is about to delete), fixed a 4px `mobileBarH` drift the eight-cell redesign left behind, and added the missing measured oracle — an e2e spec that reads the shell's bands and the app's bands in the SAME page load and requires them to agree. Verified at 393/820/1440 in light and dark, at the Read stop, and in cinema; every band lands within 1px of the app's. The tablet/desktop topbar right-hand cluster is deliberately NOT sketched — it is a width-dependent mix of pills, a bordered segment and the posture dial, so fixed-width chips would drift.
+summary: Reported (#1438) as "on a hard reload the utility icons and the middle action bar are missing while the deck dropdown and the slide rail render immediately". Reproduced on the built site at the reporter's 393x651, and the report's premise turned out to be inverted: nothing in the Studio is server-rendered, so there is no defensive `useMounted`, no cookie-vs-localStorage question and no IndexedDB coupling — the whole app is one Astro `client:only` island, and what a reload shows before it mounts is a static shell in `studio.astro`. That shell drew exactly TWO things, a topbar and the Nacre slide box, so it was STRUCTURALLY INCOMPLETE: hydration dropped four more bands in at once (the phone eight-cell action bar, the preview sub-bar, the slide navigator, the status strip) plus, above tablet, the entire editor column, and the hand-off read as a re-layout. FIX: the shell now renders the APP'S OWN chrome components to static HTML at BUILD time (Astro renders React with no client directive, so it ships markup and zero JS) — Button/Separator/LatticeMark/icons.ts plus BarIcon, PostureDial and EditorSkeleton, extracted from StudioShell into chrome-parts.tsx and now shared by both surfaces. No px constant and no copied SVG survive in the shell. A FIRST PASS hand-drew skeleton blocks at hand-measured sizes and left tablet+desktop with an empty topbar tail, justified by the belief that the app stylesheet does not exist pre-hydration; that belief is FALSE (one render-blocking stylesheet already carries every utility, arbitrary values included), and the section recording it is kept as the correction. Rule that replaced it: render the real control where its identity is fixed, never render per-deck content (slide names, counts, palette) — content gets a neutral bar inside the real control shape, so the retired second-content-surface failure cannot return. Also: `lx-ui` on the shell root is load-bearing (shadcn's baseline reset is scoped to it; without it the bar's fractional cells drift 3px by the sixth), landscape-phone cinema is modeled, the Build stop drops the slim tail rather than paint a header the app replaces, a 4px `mobileBarH` drift left by the eight-cell redesign is fixed, and a committed e2e oracle measures BOTH surfaces in one page load — bands AND every individual control — and fails on either drift. Verified at 393/820/1440, light and dark, at Read, at Build and in cinema. Real iOS remains UNVERIFIED (HARD RULE #23).
 ---
 
 # Studio instant shell — structural completeness on reload (#1438)
@@ -125,7 +125,7 @@ buy back what this pass deliberately declined — the real glyphs, and the table
 right-hand cluster. It is a larger change than this bug warranted; it is the right target if
 the duplicate-shell cost is judged too high.
 
-## Decision — the shell draws every band, and draws GEOMETRY, never GLYPHS
+## Decision — the shell renders the APP'S OWN chrome, at build time
 
 The shell now paints the full structural frame:
 
@@ -137,7 +137,7 @@ The shell now paints the full structural frame:
 ├──────────────────┬───────────────────┤
 │ editor sub-bar 47│ preview sub-bar 47│  wide only │ dropped at Read
 │                  ├───────────────────┤
-│  editor column   │   Nacre slide box │
+│  editor skeleton │   Nacre slide box │
 │                  ├───────────────────┤
 │                  │ navigator ~51     │  dropped at Read
 │                  ├───────────────────┤
@@ -145,26 +145,54 @@ The shell now paints the full structural frame:
 └──────────────────┴───────────────────┘
 ```
 
-Two rules make this safe rather than a second surface to keep in sync:
+**The content of those bands is the app's own components, rendered to static HTML at build
+time.** `docs/src/pages/studio.astro` renders `<StudioChromeSkeleton>` with **no client
+directive** — Astro renders React to HTML at build, so it ships as markup and zero JS. What it
+renders is not a lookalike: `Button` and `Separator` (the shadcn primitives), `LatticeMark`,
+the `icons.ts` semantic registry, and `BarIcon` / `PostureDial` / `EditorSkeleton`, which were
+private functions inside `StudioShell` and are now shared from `chrome-parts.tsx`. **There is
+no px constant and no copied SVG path in the shell.**
 
-**Every band height is a `PREVIEW_CHROME` constant — the same numbers the seed already used
-to place the slide box.** The chrome derivation was hoisted to run once, before both box
-seeds, and both now consume it (`G` in the seed). One derivation, two consumers: a band
-cannot disagree with the box it frames, and the compute seed lost its duplicate copy of the
-posture/breakpoint/pane logic.
+### The first pass got this wrong, and the reason is worth recording
 
-**The shell draws geometry, never glyphs.** What sits inside a band is a muted skeleton —
-chips and cells — never a copy of the app's icons or labels. A copied glyph can silently
-become a *lie* about what a control does, and a control that looks live inside a
-`pointer-events:none` layer invites a tap that does nothing. The one glyph in the shell is
-the brand mark, which is brand, not a control, and predates this.
+It hand-drew muted skeleton blocks at hand-measured sizes, and justified that with a rule —
+*"the shell draws geometry, never glyphs"* — resting on the claim in this page's own comments
+that **the island's stylesheet does not exist pre-hydration.** That claim is false for the
+app's utilities: `/studio/` ships ONE render-blocking stylesheet that already contains every
+class the chrome uses, arbitrary values included (`h-[54px]`, `size-[18px]`, `min-w-[42px]`).
+So the copied geometry bought nothing, and the same false premise was then used to justify
+leaving tablet and desktop with an EMPTY topbar right-hand side — a visible pop-in on two
+first-class widths, shipped as a "deliberate non-goal". It was not a trade-off; it was a
+mistake resting on an unchecked belief.
 
-The **phone's** three utility buttons are drawn as three 32px slots because that run is
-exactly three 32px buttons at every mobile width. **Tablet and desktop deliberately get no
-right-hand cluster sketch**: there the row is a width-dependent mix of a ⌘K pill, a bordered
-appearance segment, Present/Share, the posture dial and per-tier icon runs, so fixed-width
-chips would drift with the row and move at hand-off — the exact failure the bands avoid.
-Revisit if the desktop pop-in is judged worth those constants.
+The rule that replaced it: **render the real control wherever its identity is fixed; never
+render per-deck content.** The topbar run, the eight-cell bar and the navigator's slide ops
+are chrome — identical for every visitor and every deck, so drawing them is a promise the app
+always keeps. Slide names, the slide count and the active palette are content the shell cannot
+know, and painting them would re-create the second-content-surface failure that
+`2026-07-21-studio-preview-one-skeleton.md` retired the cached-slide replay for. Content gets
+a neutral bar inside the real control's shape.
+
+### Two things the tier gating has to respect
+
+**Breakpoints are CSS, not JS.** The app picks its header with `useBreakpoint()`, which cannot
+run at build time. So the skeleton renders every tier and lets media queries choose, at the
+app's own 700 / 1100 boundaries — the ticket's "CSS-only responsive nav" option, applied where
+it actually bites.
+
+**Where the app's chrome is genuinely unknowable, draw nothing rather than something wrong.**
+At the Build stop on a wide viewport the app swaps the slim header for the full one; rather
+than model a third header, the seed stamps `data-ssr-stop` and the CSS drops the slim tail
+there, keeping only what both headers share.
+
+### `lx-ui` is load-bearing
+
+Tailwind Preflight is OFF site-wide; shadcn's baseline reset is **scoped to `.lx-ui`**, which
+every island root carries. The shell's chrome is shadcn components, so it needs the same
+scope — without it the buttons render on a different box model and the eight-cell bar
+distributes its fractional cell widths differently, measured as a **3px drift by the sixth
+cell**. With it, every cell is byte-identical to the app's, including the `outline` and
+`solid` tones whose borders are what expose the difference.
 
 ## Three things found on the way
 
@@ -201,27 +229,69 @@ Shell bands vs the app's own bands, same page load, in px `[l, t, w, h]`:
 | 1440×900 preview sub-bar | `662,54,778,47` | `663,54,777,47` |
 | 1440×900 footer | `662,818,778,82` | `663,818,777,82` |
 
-Every band within 1px (the 1px is the split handle's border rounding). Also checked as pure
-pre-hydration paints, with the island's scripts blocked: light and dark at 393 and 1440, the
-Read stop at both (no sub-bar, one 49px footer band — matching the app's measured 602/49 and
-851/49), and cinema at 844×390 (no chrome at all, full-bleed box).
+And the CONTROLS, not just the bands — the phone's eight bar cells, unrounded, at 390px:
 
-**The measured oracle is now committed**, not a scratch run: `docs/e2e/studio-instant-shell.spec.ts`
-holds the engine bundle briefly so the shell stays up, measures both surfaces in one load, and
-requires them to agree. Reverting `mobileBarH` to 53 fails it with
-`preview sub-bar top: shell 107 vs app 103` — the drift that had been invisible to every guard
-in the repo. `check:studio-shell` additionally keeps the four bands and the geometry seed in
-the shipped HTML.
+```
+shell  0 · 48.25 · 96.5 · [1] · 145.75 · 194 · 242.25 · [1] · 291.5(50.25) · 341.75
+app    0 · 48.25 · 96.5 · [1] · 145.75 · 194 · 242.25 · [1] · 291.5(50.25) · 341.75
+```
+
+Byte-identical, including the wider `outline` (Present) cell whose border is exactly what
+exposed the `lx-ui` scoping bug. Also checked as pure pre-hydration paints with the island's
+scripts blocked: light and dark at 393 / 820 / 1440, the Read stop (no sub-bar, one 49px
+footer band, matching the app's measured 602/49 and 851/49), the Build stop on desktop (slim
+tail correctly dropped), and cinema at 844×390 (no chrome at all, full-bleed box).
+
+**The oracle is committed**, not a scratch run: `docs/e2e/studio-instant-shell.spec.ts` holds
+the engine bundle briefly so the shell stays up, measures both surfaces in one load, and
+requires them to agree on every band AND on each of the eight bar cells and the header's
+utility buttons. Reverting `mobileBarH` to 53 fails it with
+`preview sub-bar top: shell 107 vs app 103`; dropping `lx-ui` fails it with
+`bar cell 5 left: shell 245 vs app 242`. `check:studio-shell` additionally keeps the bands,
+the geometry seed, and a real lucide glyph in the shipped HTML — that last marker is what
+catches `<StudioChromeSkeleton>` silently not rendering, which would otherwise leave the bands
+present and empty.
+
+Gates: `npm run lint`, `npm test` (5606), docs vitest (2658), docs `typecheck`,
+`npm run build:check`, `check:overflow`, plus the Studio e2e specs nearest this change
+(`studio-instant-shell`, `studio-header-fit`, `responsive`, `split`, `touch-chrome`) — green.
 
 **UNVERIFIED (HARD RULE #23):** real iOS Safari / Firefox iOS — the reporter's actual surface.
 This sandbox is headless Chromium, which cannot reproduce iOS's URL-bar reflow or its visual-
-vs-layout viewport split. The geometry here is pure CSS and constant arithmetic with no
-engine-specific behavior, but the on-device confirmation is owed.
+vs-layout viewport split.
+
+**Pre-existing failure found, not caused here:** `demo-mobile.spec.ts` ("the phone demo types
+the 4-slide deck across pane-swaps and completes") fails on a toast assertion — it expects the
+first deck's name and finds "Demo complete — the deck is yours to edit." Confirmed by stashing
+this entire change, rebuilding and re-running: it fails identically on the base branch. Off the
+path of this change, so logged here rather than pulled into the diff (HARD RULE #18).
+
+## The prerender experiment — measured, not speculated
+
+Since the shell duplicating the app's chrome was the standing objection, the alternative was
+actually tried: `client:only="react"` → `client:load`, so Astro prerenders the island at build.
+**It builds and emits real chrome** (`<header>`, `Slide navigator`, `lucide-share` all land in
+`dist/studio/index.html`). It is not a drop-in for two measured reasons:
+
+1. **The server has no viewport.** `useBreakpoint()` returns `'desktop'`, so the prerendered
+   markup is the desktop SLIM header — `Workspace launcher` and `Deck actions` are absent from
+   the output. A phone would parse desktop chrome and then re-layout.
+2. **Duplicate accessible names.** Making it correct means converting the chrome's JS
+   breakpoints to CSS ones, which puts two copies of every control in the DOM. Playwright's
+   `getByRole(name)` then goes strict-mode ambiguous across dozens of specs.
+
+So full prerendering is a real project with suite-wide blast radius, not a bolt-on — and the
+shipped approach already takes most of its value (the app's own components, one source for
+glyphs and sizes) without it. What survives as genuine debt is the chrome's STRUCTURE, which
+is still expressed twice; collapsing that is the same CSS-breakpoint conversion above.
 
 ## Files
 
-- `docs/src/pages/studio.astro` — chrome seed (`G`), band CSS, band markup, topbar re-measured
-  against the app's own box model, cinema handling
+- `docs/src/components/studio/StudioChromeSkeleton.tsx` — the build-time chrome (new)
+- `docs/src/components/studio/chrome-parts.tsx` — `BarIcon` · `PostureDial` · `EditorSkeleton`,
+  extracted from `StudioShell` so both surfaces render the same source (new)
+- `docs/src/pages/studio.astro` — chrome seed (`G`), band positioning, `lx-ui` + `inert` on the
+  shell root, cinema and Build-stop gating
 - `docs/src/components/studio/preview-rect.ts` — `mobileBarH` 53 → 49, new `statusH`
-- `docs/e2e/studio-instant-shell.spec.ts` — the shell-vs-app oracle
-- `docs/scripts/check-studio-shell.mjs` — band + geometry-seed markers
+- `docs/e2e/studio-instant-shell.spec.ts` — the shell-vs-app oracle (new)
+- `docs/scripts/check-studio-shell.mjs` — band, seed and real-glyph markers

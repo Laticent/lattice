@@ -90,6 +90,29 @@ in patch versions.
   band. Every band is verified within 1px of the app's at 393 / 820 / 1440, in light and dark,
   at the Read stop and in cinema, by a new e2e oracle that measures both surfaces in one page
   load. Real iOS remains UNVERIFIED (HARD RULE #23).
+- **Fixed: the Studio's pre-paint shell now renders the app's OWN chrome, at build time.**
+  Reported (#1438) as "the icons and the middle action bar are missing on a hard reload". The
+  Studio is `client:only`, so nothing about it is server-rendered — there is no hydration
+  guard, no cookie-vs-`localStorage` theme question and no IndexedDB coupling; the missing
+  controls simply belong to an app that has not mounted yet, and the shell never drew their
+  space. Hydration then dropped four bands in at once (the phone's eight-cell action bar, the
+  preview sub-bar, the slide navigator, the status strip) plus, above tablet, the whole editor
+  column, so the hand-off read as a re-layout. The shell now renders `StudioChromeSkeleton` —
+  the app's **own** `Button`, `Separator`, `LatticeMark`, `icons.ts` glyphs, and `BarIcon` /
+  `PostureDial` / `EditorSkeleton` (lifted out of `StudioShell` into a shared `chrome-parts`)
+  — to static HTML at build time, with no client directive, so it ships as markup and **zero
+  JS**. No px constant and no copied SVG remain in the shell; the eight bar cells are
+  byte-identical to the app's, including the bordered Present cell. Per-deck content (slide
+  names, counts, palette) is deliberately *not* drawn — that would re-create the
+  second-content-surface failure the one-skeleton decision retired — so it gets a neutral bar
+  inside the real control's shape. Also: `lx-ui` on the shell root is load-bearing (shadcn's
+  baseline reset is scoped to it); the landscape-phone cinema morph is modeled, so the shell
+  no longer flashes a topbar the app is about to delete; the Build stop drops the slim tail
+  rather than paint a header the app will replace; `mobileBarH` was 4px stale (53 → 49, left
+  behind by the eight-cell redesign); and a new e2e oracle measures **both** surfaces in one
+  page load — every band and every control — and fails on either drift. Verified at 393 / 820
+  / 1440, light and dark, at Read, at Build and in cinema. Real iOS remains UNVERIFIED
+  (HARD RULE #23).
   See `engineering/decisions/2026-08-09-studio-shell-structural-completeness.md`.
 
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator

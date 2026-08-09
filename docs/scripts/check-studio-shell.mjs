@@ -49,11 +49,19 @@ const REQUIRED = [
 	// sub-bar, the footer — plus the seed that publishes the geometry they are drawn from.
 	// Without that last one every band collapses to its 0px fallback and silently vanishes,
 	// which is exactly the regression this gate exists to make loud.
-	['action-bar band', /class="ssr-band ssr-actionbar"/],
+	['chrome (real controls, build-rendered)', /class="ssr-chrome"/],
+	['topbar row', /class="ssr-topbar/],
+	['phone action bar', /class="ssr-actionbar/],
 	['editor-column band', /class="ssr-band ssr-editpane"/],
 	['preview sub-bar band', /class="ssr-band ssr-panehdr"/],
 	['preview footer band', /class="ssr-band ssr-paneftr"/],
 	['chrome geometry seed', /setAttribute\(\s*['"]data-ssr-chrome['"]/],
+	// The chrome is the APP'S OWN components rendered to static HTML at build time, so a real
+	// glyph in the shipped HTML is the proof that path still runs. If <StudioChromeSkeleton>
+	// silently stopped rendering (a bad import, a client directive added by mistake), the bands
+	// above would still be present and empty — this is what catches that.
+	['real lucide glyphs', /lucide-moon/],
+	['real shadcn buttons', /data-slot="button"/],
 ];
 
 function main() {
