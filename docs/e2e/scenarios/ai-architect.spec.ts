@@ -83,7 +83,9 @@ test('Chat: an instructed edit arrives as a diff and Apply lands it in the sourc
 
 	const input = page.getByRole('textbox', { name: 'Message the Architect' });
 	await input.fill('Replace the h1/h2 heading of slide 2 with exactly "ATLAS ROADMAP". Change nothing else in the deck.');
-	await page.getByRole('button', { name: 'Send' }).click();
+	// `exact` matters: the shared header carries "Send feedback" (CHROME.feedback), and a
+	// non-exact accessible-name match resolves to both buttons — strict-mode violation (#1504).
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
 
 	// The model proposes; nothing lands until the author applies the diff card.
 	const apply = page.getByRole('button', { name: 'Apply', exact: true });
