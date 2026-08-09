@@ -3,13 +3,14 @@ import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
-import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
+import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedHitsFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
 import { SlideThumbFace, useInView } from './slide-thumb';
 import { componentLooks, variantSample } from './slide-variants';
+import { loadSettings, SETTINGS_EVENT } from './studio-store';
 
 // The add-slide GALLERY — the canonical "insert a slide" surface, replacing the
 // old cmdk text list (InsertComponent.tsx). Every tile is the REAL engine render
@@ -80,6 +81,7 @@ function toCatalogItem(it: PickerItem): CatalogItem {
 		family: '',
 		familyLabel: '',
 		description: it.description || '',
+		purpose: it.purpose || '',
 		tags: it.tags ?? [],
 		variants: it.variants ?? [],
 	};
@@ -113,6 +115,14 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const [detail, setDetail] = React.useState<PickerItem | null>(null);
 	const [expanded, setExpanded] = React.useState<string | null>(null); // component name whose looks are open
 	const searchRef = React.useRef<HTMLInputElement>(null);
+	// The On-Device switch, held live rather than read once: flipping it in the Workspace
+	// sheet must re-rank an already-open gallery, not wait for a remount.
+	const [intentSearch, setIntentSearch] = React.useState(() => loadSettings().intentSearch);
+	React.useEffect(() => {
+		const sync = () => setIntentSearch(loadSettings().intentSearch);
+		window.addEventListener(SETTINGS_EVENT, sync);
+		return () => window.removeEventListener(SETTINGS_EVENT, sync);
+	}, []);
 
 	// Reset transient state each open; focus search on pointer/desktop only (touch
 	// opens to a keyboard-free wall of pictures — the mobile occlusion fix).
@@ -137,8 +147,38 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	// the FACET-FILTERED pool (not the whole catalog) so the fuzzy-typo fallback can't
 	// leak in results from other functions while a filter chip is active.
 	const pool = React.useMemo(() => (facet ? catalogItems.filter((c) => c.function === facet) : catalogItems), [catalogItems, facet]);
-	const fuse = React.useMemo(() => makeFuse(pool), [pool]);
-	const ranked = React.useMemo(() => rankedFor(pool, fuse, query), [pool, fuse, query]);
+	// The index is built over the WHOLE catalog and the facet filter is applied to the
+	// RESULTS, not the corpus. Indexing the filtered pool made `match` relative to whatever
+	// survived the chip, so a narrow pool manufactured a near-top runner-up for anything:
+	// with the Evidence chip active, "compare two options and recommend one" showed `code` at
+	// 99% — not a comparison layout, and nothing else on screen said so. Scoring against the
+	// full catalog keeps the scale stable, and post-filtering preserves the property the
+	// pre-filter was there for (a fuzzy hit from another function still cannot appear).
+	const index = React.useMemo(() => makeSearchIndex(catalogItems), [catalogItems]);
+	const allHits = React.useMemo(() => rankedHitsFor(catalogItems, index, query, { intent: intentSearch }), [catalogItems, index, query, intentSearch]);
+	const hits = React.useMemo(() => (facet ? (allHits?.filter((h) => h.item.function === facet) ?? null) : allHits), [allHits, facet]);
+	const ranked = React.useMemo(() => hits?.map((h) => h.item) ?? null, [hits]);
+	// Match strength by component name — rendered on the tile only when the natural-language
+	// pass produced the ordering (the exact and fuzzy passes have no comparable score).
+	// NOTE the `.slice(1)` — the LEADER GETS NO BADGE, deliberately.
+	//
+	// `match` is relative to the best hit, so the top result is 1.0 by construction and always
+	// rendered "100%". That number carries no information and reads as certainty, on a surface
+	// that previously showed no confidence at all — and the top hit is wrong most of the time on
+	// real prose ("timline of milstones" → quote 100%, with timeline-list second at 80%). What
+	// the author actually needs is how far the runners-up trail, which is exactly what the
+	// remaining badges say: a 94% second place means a toss-up worth reading, a 34% second place
+	// means the leader is clear.
+	// Whether the natural-language pass produced this ordering. Keyed on the PASS, not on
+	// whether any badge rendered — with a single result `.slice(1)` leaves no badges, and
+	// gating the explainer on badge count silently dropped the one line telling the author
+	// the result came from a semantic guess.
+	const intentRanked = React.useMemo(() => (hits ?? []).some((h) => h.via === 'intent'), [hits]);
+	const matchByName = React.useMemo(() => {
+		const m = new Map<string, number>();
+		for (const h of (hits ?? []).slice(1)) if (h.via === 'intent' && h.match != null) m.set(h.item.name, h.match);
+		return m;
+	}, [hits]);
 
 	// Browse-mode bands (no query): Blank · Recent · Your components · function bands.
 	const bands = React.useMemo(() => {
@@ -205,7 +245,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const renderTile = (item: PickerItem, key: string, looksFilter?: string[]) => {
 		const variantCount = item.variants?.length ?? 0;
 		const nodes: React.ReactNode[] = [
-			<Tile key={key} item={item} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} isOpen={expanded === key} onToggleLooks={variantCount ? () => setExpanded((e) => (e === key ? null : key)) : undefined} {...tileProps} />,
+			<Tile key={key} item={item} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} match={matchByName.get(item.name) ?? null} isOpen={expanded === key} onToggleLooks={variantCount ? () => setExpanded((e) => (e === key ? null : key)) : undefined} {...tileProps} />,
 		];
 		if (expanded === key && variantCount) {
 			nodes.push(<LooksPanel key={`looks:${key}`} item={item} looksFilter={looksFilter} onInsertLook={insertLook} {...previewProps} />);
@@ -222,7 +262,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			value={query}
 			onChange={setQuery}
 			onClear={() => setQuery('')}
-			placeholder={compact ? 'Search slides…' : `Search ${items.length} slides — name, bucket, or what it's for…`}
+			placeholder={compact ? 'Search slides…' : intentSearch ? `Search ${items.length} slides — a name, or what you want to say…` : `Search ${items.length} slides — name, bucket, or what it's for…`}
 			label="Search slides"
 			className="flex-1"
 		/>
@@ -261,6 +301,16 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			    grid container spans browse AND search — band headers are full-width grid
 			    items — so crossing the search boundary reuses each tile's live-preview iframe
 			    instead of tearing down the whole subtree and re-rendering cold. */}
+			{/* Say what the numbers on the tiles mean, exactly once, and only when they are
+			    on screen. The ranker is a lexical match over the component manifest — it puts
+			    likely candidates in front of the author, it does not decide for them. */}
+			{searching && intentRanked && (
+				<p className="px-4 pb-1.5 text-[11px] text-muted-foreground sm:px-5">
+					Ranked by how well each slide's description matches what you typed — on this device. The best match leads; percentages
+					show how closely the others trail it.
+				</p>
+			)}
+
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
 				{searching && flat.length === 0 ? (
 					<Empty query={query} />
@@ -331,7 +381,35 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	);
 }
 
-function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, looksCount = 0, matchCount = 0, isOpen = false, onToggleLooks }: { item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; looksCount?: number; matchCount?: number; isOpen?: boolean; onToggleLooks?: () => void }) {
+// Relative match strength for an intent-ranked tile: a filled bar plus the number.
+// The scale is RELATIVE to the best hit in this result set (see intent-search.ts
+// `confidenceFor`) — it answers "is the top one a clear winner or a toss-up?", which
+// is the question a picker actually poses. It is not a probability and must never be
+// presented as one.
+//
+// It sits OVER the preview's top-left corner rather than in the name row. In the row it
+// cost ~50px of a ~135px line, which truncated even a short name ("actors" → "act…") and
+// collided with the absolutely-positioned looks button on any tile that has variants. The
+// corner is free space on every tile at every breakpoint. `pointer-events-none` so it can
+// never intercept the click that inserts the slide, and it is aria-hidden because the
+// tile's own label already states the match.
+function MatchMeter({ value }: { value: number }) {
+	const pct = Math.round(value * 100);
+	return (
+		<span
+			aria-hidden
+			title={`${pct}% as strong a match as the top result`}
+			className="pointer-events-none absolute left-1.5 top-1.5 z-10 flex items-center gap-1 rounded-md border border-border bg-[color-mix(in_srgb,var(--card)_88%,transparent)] px-1.5 py-0.5 backdrop-blur-[2px]"
+		>
+			<span className="block h-[3px] w-5 overflow-hidden rounded-full bg-border">
+				<span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(8, pct)}%` }} />
+			</span>
+			<span className="font-mono text-[10px] font-semibold tabular-nums text-[var(--text-heading)]">{pct}%</span>
+		</span>
+	);
+}
+
+function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOverride, onInsert, onDetail, looksCount = 0, matchCount = 0, match = null, isOpen = false, onToggleLooks }: { item: PickerItem; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; onInsert: (it: PickerItem) => void; onDetail: (it: PickerItem | null) => void; looksCount?: number; matchCount?: number; match?: number | null; isOpen?: boolean; onToggleLooks?: () => void }) {
 	const [ref, visible] = useInView<HTMLDivElement>();
 	const sample = frontMatter ? frontMatter + item.skeleton : item.skeleton;
 	const isBlank = item.name === 'Blank';
@@ -339,12 +417,14 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 	// a button may not nest another button. The insert affordance fills the tile.
 	return (
 		<div ref={ref} className={cn('group relative overflow-hidden rounded-xl border-2 bg-card transition-colors', isOpen ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]')}>
+			{/* Match strength, present only when the natural-language pass ordered these results. */}
+			{match != null && <MatchMeter value={match} />}
 			<button
 				type="button"
 				onClick={() => onInsert(item)}
 				onMouseEnter={() => onDetail(item)}
 				onFocus={() => onDetail(item)}
-				aria-label={`Insert ${item.name}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`}
+				aria-label={`Insert ${item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`}
 				className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
 			>
 				{isBlank ? (

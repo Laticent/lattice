@@ -266,6 +266,8 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [overflowMarker, setOverflowMarker] = React.useState<StandingOverflowMarker>(() => loadSettings().overflowMarker);
 	// Whether decks inherit the workspace default reader views (the curated two — Bottom line + The evidence).
 	const [lensDefaults, setLensDefaults] = React.useState(() => loadSettings().lensDefaults);
+	// Whether the add-slide gallery answers a described intent, not just a remembered name.
+	const [intentSearch, setIntentSearch] = React.useState(() => loadSettings().intentSearch);
 	const [storeInCloud, setStoreInCloud] = React.useState(false);
 	const [connecting, setConnecting] = React.useState(false);
 	const [spend, setSpend] = React.useState(() => architectSpend());
@@ -911,6 +913,32 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							<AiSection>
 								<GroupLabel icon={<Volume2 className="size-3.5" />}>Read-aloud voice{genView === 'ondevice' ? ' · on-device' : ' · cloud'}</GroupLabel>
 								<TtsSettings tier={genView} notify={notify} />
+							</AiSection>
+
+							{/* ── ON-DEVICE — what runs locally that is NOT the generation tier. The Model
+							    switch above chooses where GENERATION happens; this section is for the
+							    local work that happens regardless, with no model and no download. ── */}
+							<AiSection>
+								<GroupLabel icon={<Cpu className="size-3.5" />}>On-device</GroupLabel>
+								<label htmlFor="ws-intent-search" className="mt-2 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+									<Switch
+										id="ws-intent-search"
+										aria-label="Search slides by what you want to say"
+										checked={intentSearch}
+										onCheckedChange={(next) => {
+											setIntentSearch(next);
+											saveSettings({ intentSearch: next });
+											notify(next ? 'Slide search now understands plain English — describe the slide, not its name.' : 'Slide search is back to matching names and tags literally.');
+										}}
+										className="mt-0.5"
+									/>
+									<span className="min-w-0">
+										<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Search slides by what you want to say</span>
+										<span className="block text-[11px] leading-snug text-muted-foreground">
+											Type <em>“who owns what”</em> or <em>“where do users drop off”</em> in the add-slide gallery and get a ranked shortlist with a match score, instead of nothing. It reads the component descriptions already in this page — no model, no download, no request leaves this device — so it costs nothing and works offline. Turn it off to match names and tags literally.
+										</span>
+									</span>
+								</label>
 							</AiSection>
 
 							<AiSection>

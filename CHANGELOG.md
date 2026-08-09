@@ -25,6 +25,28 @@ in patch versions.
 
 ## Unreleased
 
+- **Slide search understands what you want to say, not just what a component is called.**
+  Typing "who owns what on the team" or "where do users drop off" into the add-slide gallery,
+  the Playground picker or the `/components` index now returns a ranked shortlist with a match
+  score, where it previously returned nothing. It is a third pass in the shared search core —
+  exact-name and tag lookups are untouched and still answered first — running entirely on the
+  device: no model, no download, no request, works offline and on first paint (~4 KB). Workspace
+  → AI → **On-device** turns it off for literal matching. The best match carries no badge; the
+  runners-up show how closely they trail it, so the number answers "clear winner or toss-up?"
+  rather than asserting a confidence the ranker does not have. Name and tag lookups are
+  untouched — a one-word query still goes to the misspelling-tolerant pass first, so `tabel`
+  still finds `compare-table`. The library
+  #1440 proposed (`wink-nlp` + a 1.03 MB English model, naive Bayes for confidence) was measured
+  against this and rejected — it cost 250× the payload to rank no better. Numbers, method, and a
+  reproducible harness (`npm run intent:bakeoff`):
+  `engineering/decisions/2026-08-09-on-device-intent-routing.md`. (#1440)
+- **Component *recommendation* — as opposed to search — is measured, not shipped.** A held-out
+  benchmark built from the manifest's own `whenToUse`/`antiPatterns` notes (`npm run intent:fit`)
+  shows a deterministic facet scorer cannot judge fit: a weight tuner zeroed every facet signal in
+  favor of plain BM25, and the scorer is committed but wired into nothing. Retrieval is local and
+  good (74.1% top-1); ruling the *wrong* component out is not (27%), and stays unsolved pending a
+  model tier whose evaluation is written (`npm run intent:judge`) but not yet run to completion.
+  No user-visible behavior change from this half. (#1440)
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back
