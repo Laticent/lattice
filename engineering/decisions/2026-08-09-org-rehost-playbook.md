@@ -1,214 +1,250 @@
 ---
 status: proposed
-summary: Operational run sheet for moving SlideWright/lattice to another GitHub org, built from the repo's actual wiring rather than a generic checklist. Inventories all five secrets and which workflow needs each, the Cloudflare Pages preview (direct wrangler upload to account 6e1dd8d852…, project lattice-docs — NOT the Git integration, so it is independent of the GitHub org), the GitHub Pages production deploy with the lattice.style custom domain, the Main Merge Queue ruleset (id 18317422, no bypass actors), the automation environment, CodeQL default setup, four third-party actions an org policy could block, and the ci-drift-images orphan branch. Bottom line: exactly TWO things genuinely break — AUTOMATION_PAT (a fine-grained PAT is bound to its resource owner) and the Pages custom-domain verification (org-scoped) — plus the Claude GitHub App, which is an org-level install that must be redone. Everything else either transfers with the repository or is unaffected because it never depended on the org. Includes destination-org prep that must happen BEFORE the transfer, an ordered run sheet, post-move smoke tests in dependency order, and a rollback. Disposable: delete once the move is done.
+summary: Operational run sheet for moving lattice to another GitHub org, built from the repo's actual wiring and hardened by an adversarial trio (red team, Munger inversion, independent checker) that overturned three of the first draft's load-bearing claims. THE TRANSFER IS EFFECTIVELY ONE-WAY — GitHub permanently retires the OWNER/NAME combination when a repo had >100 clones or >100 Actions uses in the prior week, which this repo exceeds by an order of magnitude, so "transfer it back" is not a rollback and a git clone --mirror plus an issue/PR export is the only real safety net. "Every automation fails loudly" is FALSE — docs-preview.yml fails GREEN by explicit design, studio-e2e self-skips green, and golden-diff is continue-on-error, so the realistic outcome of a lost secret is silent degradation. The verification sequence itself was defeated: a blocked third-party action makes ci.yml's dependent tiers report `skipped`, which the `ci` aggregate accepts, so the required check goes GREEN with zero tests run. Also corrects: GitHub Pages URLs are explicitly NOT redirected (11 refs), the URL sweep is ~25-43 files with committed generator output and three failing tests rather than the four files first listed, org-level Project v2 board and a second artifact branch were missing from the inventory, issue types are DELETED on org-to-org transfer unless the destination has matching types, and Pages domain verification belongs in pre-transfer prep because it is repo-independent and doing it late opens a takeover window. Disposable: delete once the move is done.
 ---
 
 # Rehosting Lattice in another org — the run sheet
 
 **Date:** 2026-08-09
-**Status:** ready to run
+**Status:** ready to run — hardened by the adversarial trio (HARD RULE #25)
 **Scope:** moving the `lattice` repository to a different GitHub organization.
-Not a rebrand — the product, the copyright holder and the SPDX headers stay
-SlideWright.
+Not a rebrand — product, copyright holder and SPDX headers stay SlideWright.
 
-> **This note is disposable.** It exists to be followed once. Delete it after
-> the move, per `engineering/decisions/README.md`'s absorb-then-delete rule.
+> **This note is disposable.** Delete it after the move, per
+> `engineering/decisions/README.md`'s absorb-then-delete rule.
 
-## The 60-second version
+## Read this first — three things that are not what they look like
 
-**Two things genuinely break, and one has to be reinstalled:**
+**1. This is a one-way door.** GitHub's transfer documentation:
 
-1. **`AUTOMATION_PAT`** — a fine-grained PAT is bound to a *resource owner*. The
-   moment the repo belongs to a different org, the token stops matching. The
-   backlog mirror and the release both fail (loudly, by design).
-2. **The GitHub Pages custom domain** (`lattice.style`) — domain verification is
-   org-scoped, so it does not travel.
-3. **The Claude GitHub App** — installed at org level, so the destination org
-   needs its own install.
+> If the transferred repository contains an action listed on GitHub Marketplace,
+> **or had more than 100 clones or more than 100 uses of GitHub Actions in the
+> week prior to the transfer, GitHub permanently retires the owner name and
+> repository name combination**… "The repository REPOSITORY_NAME has been
+> retired and cannot be reused."
 
-**Everything else either transfers with the repository or never depended on the
-org in the first place.** The Cloudflare preview in particular is safe: it
-deploys by direct `wrangler` upload, not through Cloudflare's GitHub
-integration, so it has no GitHub-side coupling at all.
+This repo clears that bar by an order of magnitude — five nightly crons are 35
+runs a week before a single PR, and `ci.yml` alone contains 21
+`actions/checkout` steps, each one a clone. **So `SlideWright/lattice` is
+retired the moment you press Transfer, and "just transfer it back" is not a
+rollback.** Take the snapshot in Phase 0 instead; that is the actual safety net.
+
+**2. Losing a secret is silent, not loud.** Three automations fail *green*:
+
+- `docs-preview.yml:45-51` — explicit comment: *"Fail SAFE, not red: until
+  `CLOUDFLARE_API_TOKEN` is added, skip the build and deploy so the check stays
+  green."* Lose that token and previews just stop appearing.
+- `studio-e2e-nightly.yml` — the AI tier self-skips green without
+  `OPEN_ROUTER_KEY`, and it is the one nightly with no failure-issue reporter.
+- `ci.yml:287,336` — golden-diff publish and comment are `continue-on-error`.
+
+Only `AUTOMATION_PAT` fails loudly. **So re-paste every secret after the move
+whether or not it looks like it survived** — ten minutes, and it removes the
+doc's only unverifiable premise.
+
+**3. A green `ci` check does not mean CI ran.** `ci.yml:527-553` accepts
+`skipped` as a passing tier result, and `unit`, `integration` and `docs-build`
+all `needs: changes`. If an org Actions policy blocks `dorny/paths-filter@v3`,
+`changes` fails → dependents report **skipped** → `lint` passes alone → the
+required `ci` check goes **green with nothing tested**. The verification
+sequence below is written to defeat that.
 
 ## What this repo actually runs on
 
-Verified by reading the workflows and the live GitHub config, not assumed.
+### Secrets — five; storage location is INFERRED, not verified
 
-### Secrets — five, and only one is org-bound
+| Secret | Consumed by | Failure mode if lost |
+|---|---|---|
+| `AUTOMATION_PAT` | `release.yml:86`, `sync-backlog.yml:83` | **loud** — job reds |
+| `CLOUDFLARE_API_TOKEN` | `docs-preview.yml:51,90` | **silent — green** |
+| `OPEN_ROUTER_KEY` | `studio-e2e-nightly.yml:115` | **silent — green** |
+| `NPM_TOKEN` | `release-publish.yml:107` | not set yet |
+| `GITHUB_TOKEN` | ~14 workflows (7 explicit, plus `github-script` defaults) | automatic |
 
-| Secret | Needed by | Stored where | After the move |
-|---|---|---|---|
-| `AUTOMATION_PAT` | `release.yml`, `sync-backlog.yml` | **`automation` environment** | **BREAKS — re-mint** |
-| `CLOUDFLARE_API_TOKEN` | `docs-preview.yml` | repo secret | survives — it authenticates to *Cloudflare*, which never knew about the org |
-| `OPEN_ROUTER_KEY` | `studio-e2e-nightly.yml` | repo secret | survives — an opaque string |
-| `NPM_TOKEN` | `release-publish.yml` | not set yet | n/a — and the plan is OIDC, so it may never exist |
-| `GITHUB_TOKEN` | 6 workflows | built-in | automatic |
+GitHub's docs confirm secrets *"remain associated after the transfer"* — but
+that is about **repository** secrets. **Nothing available from this sandbox can
+distinguish a repo secret from an org-inherited one** (`/actions/secrets` → 403;
+`${{ secrets.X }}` is byte-identical either way). Org secrets do **not** travel.
+Hence: re-paste regardless.
 
-Secret **values** travel with the repository. `AUTOMATION_PAT` is the exception
-not because the value is lost but because the *credential itself* becomes
-invalid against the new owner.
+`AUTOMATION_PAT` breaks for a different reason — not value loss but
+**resource-owner binding**. It will arrive *present and stale*, so the
+`-z GH_TOKEN` guards in `sync-backlog.yml:93` and `release.yml:92` never fire.
 
 ### GitHub configuration
 
 | Thing | Detail | Transfers? |
 |---|---|---|
-| Ruleset **Main Merge Queue** (id `18317422`) | PR required · merge queue (squash) · required check `ci` · **zero bypass actors** · 0 required approvals | **yes** — repo-level |
-| Environment **`automation`** | deployment branch rule: `main` only; holds `AUTOMATION_PAT` | **yes** (the secret inside goes stale) |
-| Environment **`github-pages`** | created by the Pages deploy | yes |
-| Repo settings | auto-merge ON · delete-branch-on-merge ON · squash allowed | yes |
-| Labels | `.github/labels.json` applied by `labels.yml` on push to main | **self-healing** — re-runs itself |
-| Issue forms + templates, PR template | files in `.github/` | yes |
-| **CodeQL** | **default setup** — a repo *security setting*, not a workflow file | probably — **verify** |
-| Dependabot alerts + security updates | repo security settings | probably — **verify** |
-| `ci-drift-images` | orphan branch hosting golden-diff PNGs for PR comments | yes — it's a branch |
-| Open PRs, issues, releases, tags, history, all branches | | yes |
-| Old URLs | permanent redirects — **unless someone re-registers the old org name** | yes, conditionally |
+| Ruleset **Main Merge Queue** (`18317422`) | PR · merge queue (squash) · required `ci` · `deletion` · `non_fast_forward` · **zero bypass actors** · 0 approvals | yes — repo-scoped |
+| Ruleset **`19400032`** | "Code Quality Copilot review", **disabled** | yes |
+| Environment **`automation`** | `main`-only; declared by **three** jobs — `sync-backlog.yml:61`, `release.yml:48`, `release-publish.yml:39` | yes (secret inside goes stale) |
+| **Org Project (v2) board** | an **org resource** with auto-add scoped to repos *in that org* (`engineering/workflow.md:908-919`) | **NO — dies silently** |
+| **Issue types** | *"all other issue types are removed from issues"* unless the destination org has matching types | **DATA LOSS unless pre-mirrored** |
+| Labels | `labels.yml` triggers only on changes to `labels.json` / `sync-labels.js` / itself — **not** self-healing on arbitrary pushes | yes (labels travel anyway) |
+| CodeQL | **default setup** — a repo security setting, no workflow file | verify |
+| Dependabot alerts + security updates | repo security settings | verify |
+| Artifact branches | `ci-drift-images` (exists) **and** `ci/preview-e2e-screenshots` (`preview-e2e-nightly.yml:35`, not yet created) | yes |
+| Repo settings | auto-merge ON · delete-branch-on-merge ON · **public** | yes — but confirm visibility after |
+| `github.com/<org>/lattice/…` links | redirected — **unless a repo is created at the old location** | conditional |
+| **`slidewright.github.io/lattice/…`** | *"we don't redirect GitHub Pages"* — **11 references** | **NO — must be swept** |
 
 ### Outside GitHub
 
-| System | How it's wired | Affected? |
+| System | Wiring | Affected? |
 |---|---|---|
-| **Cloudflare Pages** (previews) | `cloudflare/wrangler-action@v3` → `pages deploy docs/dist --project-name=lattice-docs`, account `6e1dd8d852d61410a91dd1c909404e63` | **No.** Direct upload, not the Git integration. Nothing on the Cloudflare side references the GitHub org. |
-| **GitHub Pages** (production) | `actions/deploy-pages@v4`, custom domain `lattice.style` from `docs/public/CNAME` | **Domain verification is org-scoped — must be redone** |
-| **npm** | nothing published; scope becoming `@workwel` | unaffected by the GitHub move |
-| **OpenRouter** | key used only by the nightly Studio e2e (sanctioned under HARD RULE #24) | unaffected |
-| **Claude GitHub App** | org-level installation | **must install on the destination org** |
+| **Cloudflare Pages** | `wrangler pages deploy docs/dist --project-name=lattice-docs`, account `6e1dd8d852d61410a91dd1c909404e63` | **Deploy path: no.** But `lattice-docs` began as a Git-integrated project whose builds were merely *switched off* (`2026-07-01-docs-pr-preview.md:70,100`), so a dormant Git binding and the Cloudflare Pages GitHub App on the org may persist. **Check the dashboard before transferring.** |
+| **GitHub Pages** | `actions/deploy-pages@v4`, custom domain `lattice.style` | Custom domain must be re-entered; **verify the domain on the destination org in Phase 0** |
+| **npm** | nothing published | Unaffected **today**. Once OIDC trusted publishers exist they bind `owner/repo` — so set them up *after* the move (see #1455) |
+| **Claude GitHub App** | org-level install | must be installed on the destination org |
 
-### Third-party actions — the org policy that can silently block everything
+### Third-party actions — four, across five workflows
 
-Four workflows depend on actions **not** owned by GitHub:
+`browser-actions/setup-chrome@v1` · `cloudflare/wrangler-action@v3` ·
+`dorny/paths-filter@v3` · `withastro/action@v3` — plus
+`dependabot/fetch-metadata@v2` arriving with #1453 (maintained under GitHub's
+own `dependabot` org). **`dorny` and `browser-actions` are not verified
+creators**, so a "verified creators only" policy blocks those two. Both gate all
+of CI: `paths-filter` via `changes`, `setup-chrome` inside `docs-build`, and
+`ci` needs both.
 
-- `browser-actions/setup-chrome@v1`
-- `cloudflare/wrangler-action@v3`
-- `dorny/paths-filter@v3` — used by `ci.yml`'s `changes` job, so this one gates **all of CI**
-- `withastro/action@v3`
-- `dependabot/fetch-metadata@v2` *(arrives with #1453)*
+## Phase 0 — before you touch anything (~30 min, all repo-independent)
 
-**If the destination org restricts Actions to "allow GitHub-owned and verified
-creators only", CI breaks on the first run** — and the failure reads as a
-mysterious action-resolution error rather than a policy problem. Check this
-*before* transferring, not after.
+Every item here is doable **while the repo still lives in SlideWright**, and
+each one closes a window that would otherwise be open during the move.
 
-## Destination-org prep — do all of this BEFORE you transfer
+- [ ] **Snapshot — this is the rollback.** `git clone --mirror`, plus a `gh`
+      export of issues and PRs. The transfer is one-way; this is what makes the
+      word "recoverable" true.
+- [ ] **Verify `lattice.style` on the destination org** — publish the
+      `_github-pages-challenge-<ORG>` TXT record. Verification is repo-independent,
+      so doing it now means **zero window** in which the domain is verified by
+      nobody. Leave the old org's TXT record in place.
+- [ ] **Mirror the issue types** on the destination org, or accept that they are
+      deleted from all open issues.
+- [ ] **Actions policy: allow all actions** (or allowlist the four above).
+      Otherwise CI breaks *and reports green*.
+- [ ] **Allow fine-grained PATs**; decide the approval policy.
+- [ ] **Install the Claude GitHub App** on the destination org.
+- [ ] **No `lattice` repo — and no fork in the same network** — in the destination.
+- [ ] **Recreate the Project (v2) board** on the destination org (auto-add,
+      PR-merged → Done).
+- [ ] **Check the Cloudflare dashboard** — `lattice-docs` → Builds & deployments:
+      is the Git source still bound to `SlideWright/lattice`?
+- [ ] **Collect all four secret values** from their consoles, ready to re-paste.
+- [ ] **Standing prohibition, effective now: never delete or rename the
+      SlideWright org.** An *emptied* org keeps its name; only deletion or
+      renaming releases it. This is a rule, not a task — a task can be forgotten
+      at the end of a list.
+- [ ] **Freeze the crons** — six schedules fire between 03:11 and 06:17 UTC
+      (`integration`, `preview-e2e`, `studio-e2e`, `modulepreload`, `perf`,
+      `sync-backlog`) and will generate red noise against a half-migrated repo.
 
-Each of these leaves the repo broken on arrival if skipped.
+## Phase 1 — the move (one sitting, ~15 min)
 
-- [ ] **No repo named `lattice` already exists** in the destination org — the
-      transfer refuses a name collision.
-- [ ] You hold **repo-creation rights** in the destination org.
-- [ ] **Actions policy allows the four third-party actions** above
-      (Settings → Actions → General → *Allow all actions*, or add them to the
-      allowlist). This is the one that breaks CI outright.
-- [ ] **Fine-grained PATs are allowed** (Settings → Personal access tokens).
-      Orgs block them by default; without this you cannot re-mint
-      `AUTOMATION_PAT` and both automations stay dark.
-- [ ] Decide the **PAT approval policy** — leaving approval *on* is fine and
-      costs one click; just know you must go approve your own token.
-- [ ] **Claude GitHub App** installed on the destination org, with access to the
-      repo.
-- [ ] Check for **org-level rulesets** that could conflict with the repo's
-      `Main Merge Queue` ruleset (org rules are additive, not overriding).
-- [ ] Check **org Actions spending / runner** settings. Public repos get free
-      minutes, but an org-level restriction still applies.
+1. **Land or note the open PRs.** They survive, but golden-diff comments embed
+   `raw.githubusercontent.com/<owner>/<repo>/ci-drift-images/…` and whether
+   those follow the transfer redirect is untested.
+2. **Transfer** — Settings → General → Danger Zone.
+3. **Confirm the repo is still public.** Private would take Pages and the merge
+   queue with it, and start billing Actions.
+4. **Re-enter the Pages custom domain** (`lattice.style`). Verification is
+   already done from Phase 0, so this is just re-attaching it.
+5. **Re-mint `AUTOMATION_PAT`**: resource owner = destination org, repo =
+   `lattice` only, **Contents: write** + **Pull requests: write**. Approve it.
+   Update it **inside the `automation` environment**.
+6. **Re-paste `CLOUDFLARE_API_TOKEN` and `OPEN_ROUTER_KEY`** — they fail green,
+   so "it looks fine" proves nothing.
+7. **Unfreeze the crons.**
 
-## The run sheet
+## Phase 2 — the URL sweep (its own PR, ~the size of #1466)
 
-**1 — Land the open work first.** Merging what's already green means fewer
-moving parts and no open PRs straddling the move. Open PRs *do* survive a
-transfer, so this is preference, not necessity.
+**Not "one small PR."** 25–43 files depending on how you count, ~193 references,
+in four categories:
 
-**2 — Transfer the repository.**
-Settings → General → Danger Zone → *Transfer ownership*.
+- **Generators whose committed output is byte-diffed by `build:check`** —
+  `tools/build-spec-docs.js:44`, `tools/build-forms.js:163`,
+  `tools/build-docs-portal.js:119,703`, `lib/concepts/concepts.json:3`. Editing
+  these restales `docs/src/content/docs/spec/*.md` and `dist/docs/*.json`.
+- **`package.json`** `homepage` / `repository.url` / `bugs.url` — inlined into
+  `dist/lattice-emulator.js`, so this touches `dist/`. **HARD RULE #2: run
+  `npm run build`, don't hand-edit.**
+- **Three tests that hard-assert the old URL and will go red** —
+  `docs/src/lib/feedback-issue.test.ts:8`, `test/unit/tools/sync-backlog.test.js:20`,
+  and `test/unit/playground/preview-host.test.js:33`.
+- **User-facing site + prose** — `docs/src/lib/nav.mjs:29`,
+  `docs/astro.config.mjs:162`, `docs/src/pages/{index,features,comparison}.astro`,
+  ~30 links under `docs/src/content/docs/`, `README.md`, `RELEASE.md`,
+  `.github/ISSUE_TEMPLATE/config.yml`, `docs/src/lib/feedback-issue.ts:15`,
+  `tools/sync-backlog.js:126`.
 
-**3 — Re-mint `AUTOMATION_PAT`** (the first thing that will bite):
-- Create a fine-grained PAT: **resource owner = the destination org**,
-  repository access = `lattice` only, permissions **Contents: write** +
-  **Pull requests: write**, nothing else.
-- Approve it if the org requires approval.
-- Update the secret **inside the `automation` environment** — not repo secrets.
-  Confirm the environment still shows its `main`-only branch rule.
+**Include the 11 `slidewright.github.io` references** — GitHub does not redirect
+Pages URLs, so these break permanently and no placeholder org saves them.
 
-**4 — Re-establish the Pages custom domain.**
-Settings → Pages → set the custom domain to `lattice.style`, and complete the
-org-scoped domain verification. The `CNAME` file in `docs/public/` is already
-correct and needs no change; this is GitHub-side verification only.
+Still deliberately excluded: dated `engineering/decisions/` records and
+`CHANGELOG` history — records of what was true when written.
 
-**5 — Update the hardcoded references** (one small PR, after the transfer so the
-new URLs actually resolve):
-- `tools/sync-backlog.js` — the issues URL in the generated header
-- `docs/src/lib/feedback-issue.ts` — the feedback issue target
-- `.github/ISSUE_TEMPLATE/config.yml` — contact links
-- `package.json` — `homepage`, `repository.url`, `bugs.url`
+## Verification — written to defeat the false green
 
-Deliberately **not** updated: dated `engineering/decisions/` records and
-`CHANGELOG` history. They are records of what was true when written, and GitHub
-redirects keep their links working.
-
-**6 — Claim the old org name.** Once renamed away or emptied, `SlideWright`
-becomes available to anyone, and if someone registers it **every redirect
-dies**. Create a placeholder org holding the name.
-
-## Post-move verification, in dependency order
-
-Run these in sequence — each one depends on the last, so the first failure tells
-you exactly where the break is.
-
-1. **CI runs at all.** Open any trivial PR. If `changes` fails to resolve
-   `dorny/paths-filter`, it's the org Actions policy (prep step 3), not your
-   repo.
-2. **The full CI tier passes.** Unit, integration, golden-diff, docs-build,
-   studio-smoke.
-3. **`AUTOMATION_PAT` works.** Actions → *Sync backlog mirror* → Run workflow.
-   Success = a `chore(backlog)` PR opens, goes green, and merges itself. A
-   failure naming the missing secret means step 3 of the run sheet is incomplete;
-   a `403` from `gh` means the token exists but wasn't approved or lacks a
-   permission.
-4. **The environment gate still holds.** The mirror run proves the positive case
-   (a `main` job can read the secret). The negative case — that a PR branch
-   *cannot* — is only worth testing if you want the assurance.
-5. **Cloudflare previews.** Any open PR should get a docs-preview comment with a
-   `*.pages.dev` URL. If this is the *only* thing broken, it's the Cloudflare API
-   token, not the move.
-6. **Production docs.** Merge anything touching `docs/`, `dist/`, `themes/` or
-   `lib/` and confirm `lattice.style` serves the new build. A 404 or a
-   certificate warning means the custom domain needs re-verification.
-7. **Nightlies.** They run on cron, so the honest check is to look the next day:
-   integration, perf, studio-e2e, preview-e2e, modulepreload-coverage.
-8. **CodeQL and Dependabot** still appear in Security. Both are settings rather
-   than files, so they're the most plausible silent casualties.
+1. **Smoke PR must touch `lib/**` AND `docs/**`** (a one-line comment in each).
+   A README-only PR sets neither `code` nor `docs` in the `changes` filter, so
+   every real tier legitimately skips and proves nothing.
+2. **Open the run and confirm `unit`, `integration` and `docs-build` actually
+   RAN.** Do not trust the aggregate `ci` check — it accepts `skipped`. If they
+   are skipped, suspect the Actions policy blocking `paths-filter`.
+3. **`AUTOMATION_PAT`: force a real diff first.** Label any issue, *then*
+   dispatch *Sync backlog mirror*. Otherwise `sync-backlog.yml:88` exits 0 at
+   *"BACKLOG.md unchanged"* **before it ever authenticates** — a green run that
+   tested nothing. Success = a `chore(backlog)` PR opens, goes green, merges.
+   A **404** from `gh` means unapproved or under-scoped; a **403** on push means
+   the token lacks Contents: write.
+4. **Previews** — confirm a `*.pages.dev` comment appears. Its absence is the
+   silent failure; nothing will go red.
+5. **Production docs** — merge anything touching `docs/`, `dist/`, `themes/` or
+   `lib/` and confirm `lattice.style` serves it. If assets 404 while HTML loads,
+   the custom domain is detached and Astro is serving from
+   `<neworg>.github.io/lattice/` with `base: '/'`.
+6. **Project board** — file a test issue and confirm it lands on the board.
+   Nothing anywhere goes red if it doesn't.
+7. **Nightlies** — check the next morning. All but `studio-e2e` file a tracking
+   issue on failure; that one reports to nobody.
+8. **CodeQL, Dependabot, issue types** still present in the destination.
 
 ## If it goes wrong
 
-**A repository transfer is reversible** — you can transfer it back, and history,
-issues and PRs are untouched throughout. Nothing in this playbook destroys data.
+**There is no transfer-back.** `SlideWright/lattice` is retired by the transfer
+itself. Recovery means the Phase 0 mirror clone + issue export, restored into a
+**new** repository name.
 
-The realistic failure is not catastrophe but **quiet degradation**: the mirror
-stops running, or previews stop appearing, and nobody notices for a week. The
-mitigations are already in place — every automation fails *loudly* rather than
-silently, and the verification sequence above is ordered so the first red step
-names the cause.
+The realistic failure is not catastrophe but **quiet degradation** — the
+board stops collecting, previews stop appearing, the AI nightly dies unreported.
+Hence the verification list above tests for *silence*, not just for red.
 
-The one genuinely unrecoverable mistake is **letting the old org name lapse and
-be claimed**, which permanently breaks every redirect in every doc, issue and
-external link. That's run-sheet step 6, and it's the only step with no undo.
+**The escape hatch worth pre-agreeing:** if CI is broken by the Actions policy,
+the ruleset has **zero bypass actors**, so nothing can merge — including the
+Phase 2 PR that fixes it. Do **not** delete the ruleset. Temporarily add
+yourself as a bypass actor, land the fix, then remove yourself. Note that if the
+ruleset is ever deleted and recreated, id `18317422` no longer identifies it.
 
-## Appendix — exact values
+## Appendix — values, with provenance
 
-| | |
-|---|---|
-| Ruleset | `Main Merge Queue`, id `18317422`, target `refs/heads/main` |
-| Required check | `ci` |
-| Approvals required | **0** — this is what lets automation auto-merge |
-| Environment | `automation` — deployment branch rule `main`, no reviewers, admin bypass **off** |
-| Cloudflare account | `6e1dd8d852d61410a91dd1c909404e63` |
-| Cloudflare Pages project | `lattice-docs` |
-| Custom domain | `lattice.style` (`docs/public/CNAME`) |
-| Artifact branch | `ci-drift-images` (golden-diff PNGs for PR comments) |
-| Collaborators | one — `saden1` (admin) |
-| Published packages | **none** — all five are unpublished |
+**Verified from the repo or the live API:** ruleset `18317422` (rules, zero
+bypass actors, `ci` required, 0 approvals) · second ruleset `19400032`
+(disabled) · Cloudflare account `6e1dd8d852d61410a91dd1c909404e63`, project
+`lattice-docs` · custom domain `lattice.style` (`docs/public/CNAME`) ·
+`ci-drift-images` exists, `ci/preview-e2e-screenshots` does not yet · five
+packages, none published · every workflow uses `${{ github.repository }}`, no
+hardcoded org.
 
-**Unverified from the sandbox:** the Pages, environments, Actions-permissions
-and installations APIs are blocked by this environment's proxy, so the live
-state of CodeQL default setup, Actions permissions and app installs could not be
-read. They are listed as *verify* items above rather than asserted.
+**Verified from GitHub's transfer documentation:** name retirement above 100
+clones/Actions-uses · secrets, webhooks and deploy keys remain associated ·
+Pages URLs are not redirected · issue types removed without a matching type ·
+target must have no same-name repo *or fork in the same network* · creating a
+repo at the old location permanently deletes redirects.
+
+**NOT verified — proxy-blocked (403/401) from the sandbox:** `/environments`,
+`/pages`, `/collaborators`, `/actions/permissions`, `/actions/secrets`,
+`/code-scanning/default-setup`, `/installation`. So the live state of the
+`automation` environment's rules, CodeQL default setup, the Actions policy, the
+collaborator list, **whether each secret is repo- or org-scoped**, and the Claude
+App's installation level are all *assumed*, not read. Treat every one as a
+verify-by-hand item.
