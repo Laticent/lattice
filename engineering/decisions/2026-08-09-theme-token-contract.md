@@ -6,7 +6,7 @@ summary: >
   tokens (95 in token-parity.test.js + 12 in checkCatInkDeclared) and the Studio's
   generator on 83, and a generated theme FAILS the hand-theme contract on 27 tokens.
   But the instinct was right and the earlier "kill it" answers were wrong: the repo was
-  already maintaining a per-theme manifest, smeared across EIGHT enumerations in two
+  already maintaining a per-theme manifest, smeared across TEN enumerations in two
   languages with no schema and no completeness gate, and they disagreed — `carta` is a
   shipped base palette that three suites had never tested and `new:theme carta` would
   have scaffolded over. The fix is a manifest that copies the RIGHT half of the
@@ -17,9 +17,17 @@ summary: >
   and NO token values. The rule: THE MANIFEST OWNS SCOPE, THE CODE OWNS CONTRACT. Four
   gates prove every declaration against the CSS. Separately and still open: the
   generator's contract is short by ~27 tokens, three of those families have no safe
-  default, and a Studio-generated theme therefore ships sub-AA label text and SOLID
-  BLACK Mermaid subgraph boxes in the real exported artifact (#1457) — that is a
-  generator fix, not a manifest one.
+  default, and a Studio-generated theme therefore paints SOLID BLACK Mermaid subgraph
+  boxes in the real exported artifact (#1457) — that is a generator fix, not a manifest
+  one. (An earlier draft also claimed sub-AA label text; that reproduces for a HAND
+  palette stripped of its inks, not for generator output, whose marks clear AA because
+  `deriveTheme` repairs them. Corrected in §5.) The boundary is SETTLED: the manifest is
+  metadata, the CSS is the implementation and the source of truth for every token value,
+  and the CSS is NOT generated. Manifest-as-input was re-opened and refused a SECOND
+  time, on measurement rather than on prerequisites — `deriveTheme` fails an identity
+  test on 13 of 14 shipped palettes, the accent hue alone drives 56 of its 83 tokens,
+  and the LLM-authoring case it rested on already ships in `lib/theme/ai.js` with no
+  manifest involved (§4 Q1).
 ---
 
 # The theme manifest — scope is declared, contract stays computed
@@ -130,9 +138,14 @@ ships one), `:root{…}` is a **pin** (the `-dark` wrappers), `:root:root{…}` 
 **hard pin** (a11y-base, whose color-vision separation is tuned for one canvas). A pin
 narrows a palette to one face; a default does not.
 
-**Everything now reads scope from the manifests**: `listBasePalettes`,
+**Nine of the ten enumerations now read scope from the manifests**: `listBasePalettes`,
 `checkCatInkDeclared`, `derive-cat-ink.js`, `new-theme.js`, and the four palette
-suites via a shared `baseThemeNames()` helper. `tools/build-theme-catalog.js` bakes the
+suites via a shared `baseThemeNames()` helper. **The tenth is not rewired**:
+`docs/src/components/site/PaletteSelectItems.tsx` still decides family by string prefix
+(`p.startsWith('a11y-')`), and it is not a forgotten call site — its input is
+`palettes: string[]`, so it never receives `family` at all. Fixing it is a threading
+change through the site chrome, not a one-liner. Until it lands, the claim this note
+makes is nine-tenths true, and this sentence is the record of the missing tenth. `tools/build-theme-catalog.js` bakes the
 Studio picker's groups and swatches into `docs/src/components/studio/palettes.generated.ts`
 (the docs bundle cannot `fs`-load 32 manifests), gated by `theme-catalog:check`.
 
@@ -174,12 +187,56 @@ tree is clean.
 ## 4. The issue's three open questions
 
 **Q1 — manifest-as-input (CSS generated) or manifest-beside-CSS?** **Neither.** Themes
-stay hand-written CSS and the manifest carries no values, so there is nothing to
-generate and nothing to drift. Manifest-as-input is separately refused: `serializeTheme`
-interpolates names *and* values into CSS text with **no escaping** (demonstrated from
-both channels), and its output reaches the Studio's same-origin `srcdoc` preview frame —
-HARD RULE #22 territory. Today `deriveTheme`'s normalization is the only thing
-containing that; manifest-as-input would remove it. Logged as #1458.
+stay hand-written CSS. **The manifest is metadata; the CSS is the implementation and
+the source of truth for every token value.** That is the settled boundary.
+
+This answer was re-opened after the note first shipped — the argument being that drift
+should be concentrated in one place, and that LLM-authored themes need a validatable
+structured input. Both are reasonable and both were **refused on measurement**:
+
+- **`deriveTheme` cannot reproduce a shipped palette, and regenerating one moves it
+  further than a *different* palette already is.** Feeding each theme its own ten
+  essentials back through the generator and comparing in OKLab: **13 of 14 themes fail
+  an identity test** (`derived(X)` is closer to some *other* shipped palette than to
+  `X`), and for six of them the nearest shipped palette to `derived(X)` is not `X`.
+  Palettes collapse into each other — `magnolia`~`burgundy` goes ΔE 11.8 → **0.6**,
+  `cuoio`~`mustard` 10.3 → **0.8**. A sensitivity sweep says why: the accent hue alone
+  drives **56 of 83** derived tokens, and two themes sharing an accent hue but differing
+  in every other essential emit **18 tokens byte-identical**. "Ten essentials plus a
+  ramp name" is, for the categorical cycle, the chart spectrum, the hljs set and the
+  whole dark canvas, "one hue plus a ramp name."
+- **So the `overrides` tier is not a junk drawer to police — it is the design.** An
+  independent measurement puts it at **109–127 entries per theme**. That is
+  `indaco.css` transcribed into JSON, minus the comments, plus a build step.
+- **`serializeTheme` structurally cannot emit 18 of the 32 theme files** — it hardcodes
+  `:where(:root) { color-scheme: light; }`, so no `-dark` wrapper (which needs a `:root`
+  *pin*) and no `a11y-*` file (which needs `:root:root`) is expressible.
+- **The prose is 61% of the artifact.** `themes/*.css` is 5,050 lines, 3,069 of them
+  comments — measured contrast ratios, third-party attribution, why a hex is that hex,
+  the specificity warning in `a11y-base.css` that exists because the bug already
+  happened. JSON has nowhere to put that.
+- **The LLM argument does not need a manifest, because it already ships.**
+  `lib/theme/ai.js` already takes structured JSON from a model (ten essentials + a
+  ramp-strategy enum), validates and repairs it deterministically, derives the full
+  contract with AA repair, and serializes droppable CSS. Routing that through a
+  committed manifest adds a second artifact to keep in sync, not a capability.
+- **And validation only covers the easy half.** A schema-legal `rampStrategy:
+  "analogous"` collapses 11 of 12 categorical fills to one pale blue (adjacent
+  ΔE 0.55–0.71) while the contrast audit returns **ok**; `pass = warn = fail` passes
+  schema and audit with every RAG signal one color. Nothing checks slot-vs-slot
+  separation, semantic distinctness, or ramp appropriateness.
+
+**Correction to this note's original reasoning.** It said the escaping hole was
+contained because *"`deriveTheme`'s normalization is the only thing containing that."*
+That is wrong in the unsafe direction. Two channels bypass `deriveTheme` entirely: the
+`description`/`label` strings interpolated raw into the CSS comment header (and
+populated from model output at `Fabricate.tsx:331`), and — worse — theme CSS taken
+**verbatim** from an imported asset bundle (`asset-bundle.ts` `unpackBundle` →
+`saveStudioTheme` → `extraTheme` → the preview's un-sanitized `<style>`). So escaping
+`serializeTheme` is **not** a prerequisite for a future direction; the sink is
+unguarded today, `checkPreviewHtmlSinks` only inspects the HTML half, and the
+attacker-controlled channel is the zip import rather than the serializer. Re-scoped in
+#1458.
 
 **Q2 — require all 83, or declare which are deliberately inherited?** **Neither, as
 posed.** "Deliberately inherited" is not a per-token global fact: obligation is per
@@ -205,8 +262,20 @@ Measured on the real render CLI to PNG bytes:
   of `examples/containment-tier.md` (up to 23.9% of a slide) via the PDF path's
   documented black sentinel. indaco on the same slides: 0 black pixels.
 - Stripping only indaco's 12 curated inks moves label text from **4.65:1 to 4.16:1**
-  against `--bg-alt` — through the AA floor. Across all 14 palettes: **66 slots on 13
-  of them**.
+  against `--bg-alt` — through the AA floor. Across all 14 palettes: **66 slot/palette
+  pairs on 13 of them**, counting a slot once per palette where the light arm falls
+  below 4.5:1 on `--bg-alt`. An independent re-derivation counting any of
+  {light,dark} x {`--bg`,`--bg-alt`} gets **72**; both are right for their axis, and
+  the earlier draft failed to state which it used.
+
+  **This measures the wrong population, and the distinction matters for sizing #1457.**
+  It is a HAND-AUTHORED palette with its inks removed, whose marks were curated to the
+  graphical 3:1 floor and needed the solved ink tier to reach 4.5:1. Actual
+  `deriveTheme` output is different: it repairs its own marks (25 AA-threshold
+  `ensureContrast` calls), and across all four shipped starters — 12 slots x 2 modes x
+  2 surfaces — the worst measured ratio is **5.86:1**, with zero sub-AA slots. So the
+  ink gap is a real contract gap for generated themes, but it is **not** a shipping
+  contrast defect for them. The black Mermaid box is.
 
 That is **#1457**, and it is a generator fix: widen `REQUIRED_TOKENS` and port
 `solveInk`/`separateArm` from `tools/derive-cat-ink.js` into the browser-bundled
