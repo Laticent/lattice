@@ -114,6 +114,8 @@ const SCRIPT_META = {
   'axis-dom-catalog:check':   ['Build & bundle', 'Freshness gate for the generated axis-DOM catalog.'],
   'stage-catalog:build':      ['Build & bundle', 'Generate lib/forms/cell/masthead/stage-catalog.generated.js — the single stage-cell classification (component name → flow | canvas | sovereign), composed from each manifest\'s `stage` field + the sovereign frames\' exemptFromChrome, bundled into lattice-runtime.js so the masthead kernel derives its .cell-stage wrap decision without shipping the manifest catalog to the browser (stage-cell classification, step A).'],
   'stage-catalog:check':      ['Build & bundle', 'Freshness gate for the generated stage-cell catalog.'],
+  'theme-catalog:build':      ['Build & bundle', 'Generate docs/src/components/studio/palettes.generated.ts — the Studio palette picker\'s groups (tier/order) and swatches, baked from themes/*.manifest.json so the docs bundle gets the one scope declaration without fs-loading 32 manifests at runtime. Replaces two hand-kept lists a test had to reconcile.'],
+  'theme-catalog:check':      ['Build & bundle', 'Freshness gate for the generated Studio palette catalog.'],
   'player-core:build':        ['Build & bundle', 'Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export.'],
   'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
   'player-prune:build':       ['Build & bundle', 'Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces.'],

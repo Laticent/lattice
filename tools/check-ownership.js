@@ -493,16 +493,21 @@ function parseThemeTokens(css) {
 
 /** Every theme manifest, keyed by name. Throws on malformed JSON — a manifest that
  *  cannot be read is a build failure, not a silently skipped file. */
-function listThemeManifests() {
+function listThemeManifests(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+  for (const file of fs.readdirSync(themesDir).sort()) {
     if (!file.endsWith('.manifest.json')) continue;
-    const p = path.join(THEMES_DIR, file);
+    const p = path.join(themesDir, file);
     let m;
     try {
       m = JSON.parse(fs.readFileSync(p, 'utf8'));
     } catch (e) {
       throw new Error(`themes/${file} is not valid JSON: ${e.message}`);
+    }
+    // `null`, an array, or a scalar all parse fine and then blow up as a raw TypeError
+    // in whichever gate touches them first. Fail here, where the message names the file.
+    if (m === null || typeof m !== 'object' || Array.isArray(m)) {
+      throw new Error(`themes/${file} must be a JSON object (got ${Array.isArray(m) ? 'an array' : String(m === null ? 'null' : typeof m)}).`);
     }
     out.set(file.replace(/\.manifest\.json$/, ''), m);
   }
@@ -510,11 +515,11 @@ function listThemeManifests() {
 }
 
 /** Theme CSS files on disk, by name. */
-function listThemeFiles() {
+function listThemeFiles(themesDir = THEMES_DIR) {
   const out = new Map();
-  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+  for (const file of fs.readdirSync(themesDir).sort()) {
     if (!file.endsWith('.css')) continue;
-    out.set(file.replace(/\.css$/, ''), fs.readFileSync(path.join(THEMES_DIR, file), 'utf8'));
+    out.set(file.replace(/\.css$/, ''), fs.readFileSync(path.join(themesDir, file), 'utf8'));
   }
   return out;
 }
@@ -555,7 +560,9 @@ const FACE_TOKENS = ['bg', 'bg-alt', 'text-body', 'text-heading', 'border', 'acc
  *                                           separation is tuned for one canvas).
  *
  * A pin narrows the palette to one face. A default does not — carbone ships a `dark`
- * default and is dark-only for a different reason (its arms are degenerate).
+ * default and is dark-only for a different reason: it declares FLAT surface hexes and
+ * opts out of `light-dark()` switching entirely (`themes/carbone.css` says so in its
+ * own header), so there is no second face to resolve.
  */
 function themeRootScheme(cssText) {
   const css = stripComments(cssText);
@@ -566,14 +573,45 @@ function themeRootScheme(cssText) {
   return null;
 }
 
+/**
+ * Split `light-dark(A, B)` into its two arms, PAREN-AWARE.
+ *
+ * A naive `/light-dark\(\s*([^,]+),\s*([^)]+)\)/` gets both arms wrong the moment one
+ * contains a comma or a paren of its own — `light-dark(var(--x), var(--x))` truncates
+ * the second arm to `var(--x` and reads as two DIFFERENT arms, which is the exact
+ * false-negative this gate exists to prevent (a palette re-tuned to degenerate arms
+ * would keep its declared second face and the gate would stay green). Shipped palettes
+ * happen to use `light-dark(#hex, var(--scheme-dark-*))`, so the naive form was right
+ * only by luck of the arm ordering.
+ */
+function splitLightDark(value) {
+  const open = value.indexOf('light-dark(');
+  if (open === -1) return null;
+  let depth = 0;
+  let comma = -1;
+  const start = open + 'light-dark('.length;
+  for (let i = start; i < value.length; i += 1) {
+    const c = value[i];
+    if (c === '(') depth += 1;
+    else if (c === ')') {
+      if (depth === 0) {
+        return comma === -1 ? null : [value.slice(start, comma).trim(), value.slice(comma + 1, i).trim()];
+      }
+      depth -= 1;
+    } else if (c === ',' && depth === 0 && comma === -1) comma = i;
+  }
+  return null;
+}
+
 /** True when any surface token declares a genuinely different light vs dark arm. */
 function themeArmsDiffer(cssText) {
   const css = stripComments(cssText);
   for (const t of FACE_TOKENS) {
-    const m = new RegExp(`--${t}\\s*:\\s*([^;]+);`).exec(css);
+    // `(?:^|[;{\s])` so `--panel-bg:` can never be read as `--bg:`.
+    const m = new RegExp(`(?:^|[;{\\s])--${t}\\s*:\\s*([^;]+);`, 'm').exec(css);
     if (!m) continue;
-    const ld = /light-dark\(\s*([^,]+),\s*([^)]+)\)/.exec(m[1]);
-    if (ld && ld[1].trim() !== ld[2].trim()) return true;
+    const arms = splitLightDark(m[1]);
+    if (arms && arms[0] !== arms[1]) return true;
   }
   return false;
 }
@@ -601,9 +639,9 @@ function themeActualModes(name, files, manifests, seen = new Set()) {
  * omitted from their hardcoded arrays, so neither checked it — for months, silently,
  * because a hardcoded list cannot report what is missing from it. A declared scope can.
  */
-function checkThemeManifestCoverage(errors) {
-  const files = listThemeFiles();
-  const manifests = listThemeManifests();
+function checkThemeManifestCoverage(errors, themesDir = THEMES_DIR) {
+  const files = listThemeFiles(themesDir);
+  const manifests = listThemeManifests(themesDir);
   for (const name of files.keys()) {
     if (!manifests.has(name)) {
       errors.push(
@@ -628,6 +666,94 @@ function checkThemeManifestCoverage(errors) {
 }
 
 /**
+ * G1b — THE MANIFEST MATCHES ITS SCHEMA.
+ *
+ * `themes/theme.schema.json` is the field reference, and until this gate existed it was
+ * decoration: nothing in the repo runs a JSON-Schema validator, so a manifest could
+ * omit a required field, misspell an enum value, or carry an unknown key and every gate
+ * stayed green. That is not a wash against the hand-maintained lists this replaced — it
+ * is worse. Deleting `tier` from `themes/indaco.manifest.json` drops the DEFAULT palette
+ * out of `CURATED`, out of `BUILTIN_PALETTES`, out of the picker, and `StudioShell` then
+ * resets every visitor sitting on it — all from one absent JSON field, where the old
+ * breakage needed a visible name deleted from an array in a reviewed diff.
+ *
+ * Enforced FROM the schema file rather than a hand mirror of it, so the schema is the
+ * single declaration it claims to be. Deliberately a small subset — `required`,
+ * `additionalProperties`, `enum`, `type`, `pattern`, and the one `if/then/else` — which
+ * is everything this schema actually uses. If it ever needs more, reach for a real
+ * validator rather than growing this.
+ */
+function checkThemeManifestShape(errors, themesDir = THEMES_DIR) {
+  let schema;
+  try {
+    schema = JSON.parse(fs.readFileSync(path.join(THEMES_DIR, 'theme.schema.json'), 'utf8'));
+  } catch (e) {
+    errors.push(`themes/theme.schema.json could not be read: ${e.message}`);
+    return;
+  }
+  const props = schema.properties ?? {};
+  const typeOk = (v, t) => {
+    const types = Array.isArray(t) ? t : [t];
+    return types.some((x) => (
+      x === 'string' ? typeof v === 'string'
+        : x === 'integer' ? Number.isInteger(v)
+          : x === 'array' ? Array.isArray(v)
+            : x === 'null' ? v === null
+              : x === 'object' ? (v && typeof v === 'object' && !Array.isArray(v))
+                : false));
+  };
+
+  for (const [name, m] of listThemeManifests(themesDir)) {
+    const where = `themes/${name}.manifest.json`;
+
+    // Required — the base set, plus whichever arm of the conditional applies.
+    const required = new Set(schema.required ?? []);
+    for (const rule of schema.allOf ?? []) {
+      const cond = rule.if?.properties ?? {};
+      const matches = Object.entries(cond).every(([k, c]) => m[k] === c.const);
+      for (const r of (matches ? rule.then : rule.else)?.required ?? []) required.add(r);
+    }
+    for (const r of required) {
+      if (m[r] === undefined) errors.push(`${where} is missing required field \`${r}\` (see themes/theme.schema.json).`);
+    }
+
+    for (const [k, v] of Object.entries(m)) {
+      if (k === '$schema') continue;
+      const spec = props[k];
+      if (!spec) {
+        if (schema.additionalProperties === false) {
+          errors.push(`${where} carries unknown field \`${k}\`. Add it to themes/theme.schema.json with its meaning, or remove it — an undeclared field is one no gate can check.`);
+        }
+        continue;
+      }
+      if (spec.enum && !spec.enum.includes(v)) {
+        errors.push(`${where} has \`${k}: ${JSON.stringify(v)}\`, which is not one of ${spec.enum.map((x) => JSON.stringify(x)).join(' | ')}.`);
+        continue;
+      }
+      if (spec.type && !typeOk(v, spec.type)) {
+        errors.push(`${where} has \`${k}: ${JSON.stringify(v)}\` but the schema says ${JSON.stringify(spec.type)}.`);
+        continue;
+      }
+      if (spec.pattern && typeof v === 'string' && !new RegExp(spec.pattern).test(v)) {
+        errors.push(`${where} has \`${k}: ${JSON.stringify(v)}\`, which does not match ${spec.pattern}.`);
+      }
+      if (Number.isInteger(spec.minimum) && typeof v === 'number' && v < spec.minimum) {
+        errors.push(`${where} has \`${k}: ${v}\`, below the minimum of ${spec.minimum}.`);
+      }
+      if (spec.items?.enum && Array.isArray(v)) {
+        for (const item of v) {
+          if (!spec.items.enum.includes(item)) {
+            errors.push(`${where} has \`${k}\` containing ${JSON.stringify(item)}, which is not one of ${spec.items.enum.map((x) => JSON.stringify(x)).join(' | ')}.`);
+          }
+        }
+        if (spec.uniqueItems && new Set(v).size !== v.length) errors.push(`${where} has duplicate entries in \`${k}\`.`);
+        if (Number.isInteger(spec.minItems) && v.length < spec.minItems) errors.push(`${where} has \`${k}\` with fewer than ${spec.minItems} entr(y/ies).`);
+      }
+    }
+  }
+}
+
+/**
  * G2 — ROLE AGREES WITH THE FILE. A manifest may not lie about what kind of theme it is.
  *
  * Same shape as `checkAdaptDeclarations`: the manifest declares intent, the gate proves
@@ -635,28 +761,44 @@ function checkThemeManifestCoverage(errors) {
  * `variant-dark` imports a base and declares no tokens of its own; `derived-variant`
  * imports the theme it names in `extends`.
  */
-function checkThemeRoles(errors) {
-  const files = listThemeFiles();
-  const manifests = listThemeManifests();
+function checkThemeRoles(errors, themesDir = THEMES_DIR) {
+  const files = listThemeFiles(themesDir);
+  const manifests = listThemeManifests(themesDir);
   for (const [name, m] of manifests) {
     const cssText = files.get(name);
     if (cssText === undefined) continue; // G1 owns the orphan
     const css = stripComments(cssText);
-    const imp = /@import\s+['"]([^'"]+)['"]/.exec(css)?.[1] ?? null;
+    // EVERY import, not just the first. Reading only the first let a second
+    // `@import 'carbone';` sit under `@import 'lattice';` and pull in an entirely
+    // different palette with the gate green — the declaration would be true about the
+    // line it named and silent about the one that mattered.
+    const imports = [...css.matchAll(/@import\s+['"]([^'"]+)['"]/g)].map((x) => x[1]);
+    const imp = imports[0] ?? null;
+    const shown = imports.length ? imports.map((i) => `'${i}'`).join(' + ') : 'nothing';
     const tokens = parseThemeTokens(cssText).size;
+
+    if (imports.length > 1) {
+      errors.push(
+        `theme "${name}" @imports ${shown}. A theme extends exactly one thing — the engine, or one other theme — ` +
+        'because that single edge is what `role`/`extends` declares and what every scope decision reads.',
+      );
+    }
 
     if (m.role === 'base') {
       if (imp !== 'lattice') {
-        errors.push(`theme "${name}" declares role "base" but @imports ${imp ? `'${imp}'` : 'nothing'} — a base palette extends the engine ('lattice').`);
+        errors.push(`theme "${name}" declares role "base" but @imports ${shown} — a base palette extends the engine ('lattice').`);
       }
       if (m.extends !== undefined) {
         errors.push(`theme "${name}" declares role "base" and an \`extends\` — a base palette extends the engine, not another theme. Drop \`extends\`.`);
+      }
+      if (tokens === 0) {
+        errors.push(`theme "${name}" declares role "base" but declares no tokens of its own — a base palette carries the contract, so this is a variant, not a base.`);
       }
     } else {
       if (!m.extends) {
         errors.push(`theme "${name}" declares role "${m.role}" but no \`extends\` — say which theme it builds on.`);
       } else if (imp !== m.extends) {
-        errors.push(`theme "${name}" declares \`extends: "${m.extends}"\` but @imports ${imp ? `'${imp}'` : 'nothing'}. The declaration must match the file.`);
+        errors.push(`theme "${name}" declares \`extends: "${m.extends}"\` but @imports ${shown}. The declaration must match the file.`);
       }
       if (m.role === 'variant-dark' && tokens > 0) {
         errors.push(
@@ -709,9 +851,9 @@ function checkThemeRoles(errors) {
  * (#1302). If someone gives carbone a light face without updating the manifest — or
  * accidentally degenerates another palette's arms — the gate fires either way.
  */
-function checkThemeModes(errors) {
-  const files = listThemeFiles();
-  const manifests = listThemeManifests();
+function checkThemeModes(errors, themesDir = THEMES_DIR) {
+  const files = listThemeFiles(themesDir);
+  const manifests = listThemeManifests(themesDir);
   for (const [name, m] of manifests) {
     if (!files.has(name)) continue; // G1 owns the orphan
     const actual = themeActualModes(name, files, manifests).slice().sort();
@@ -2167,7 +2309,7 @@ function checkUsEnglish(errors) {
 function checkThemeTokenParity(errors) {
   const palettes = listBasePalettes();
   if (!palettes.length) {
-    errors.push('no base palettes found (no theme `@import \'lattice\'`) — cannot verify theme token contract.');
+    errors.push('no base palettes found (no manifest declares `role: "base"`) — cannot verify theme token contract.');
     return;
   }
   for (const p of palettes) {
@@ -3914,8 +4056,13 @@ function checkCatInkDeclared(errors, themesDir = THEMES_DIR) {
   // SCOPE COMES FROM THE MANIFESTS when scanning the real themes dir. This used to
   // `readdirSync` every `.css`, which meant any stray file in themes/ silently became
   // a gate subject — an untracked scratch palette dropped there during an
-  // investigation was duly reported as a broken theme. A declared scope cannot be
-  // joined by accident. (The `themesDir` override keeps this callable against a
+  // investigation was reported as a broken THEME rather than as what it was. Scope is
+  // declared now, so this gate speaks only about palettes the repo has declared, and a
+  // stray file gets one accurate message from `checkThemeManifestCoverage` ("no
+  // manifest") instead of a misleading one from here. It is still refused — dropping a
+  // probe palette into `themes/` fails the build, which is the correct answer for a
+  // directory every theme gate reads; use a scratch directory. (The `themesDir`
+  // override keeps this callable against a
   // synthetic fixture directory, which is how the gate is unit-tested; a fixture dir
   // has no manifests, so it falls back to scanning.)
   const declared = themesDir === THEMES_DIR ? listThemeManifests() : null;
@@ -5180,6 +5327,7 @@ function run() {
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
   checkThemeManifestCoverage(errors);
+  checkThemeManifestShape(errors);
   checkThemeRoles(errors);
   checkThemeModes(errors);
   checkCatContrast(errors);
@@ -5220,6 +5368,18 @@ if (require.main === module) process.exit(main(process.argv.slice(2)));
 
 module.exports = {
   run,
+  // Theme-manifest gates + their pure helpers, exported so the suite can drive them
+  // against synthetic fixtures rather than only asserting the shipped tree is clean —
+  // a gate only proves something if you can watch it fail.
+  checkThemeManifestCoverage,
+  checkThemeManifestShape,
+  checkThemeRoles,
+  checkThemeModes,
+  themeRootScheme,
+  themeArmsDiffer,
+  themeActualModes,
+  splitLightDark,
+  listThemeManifests,
   checkFinishChromeExclusions,
   parseFinishChromeExclusions,
   absolutelyPositionedSectionChildHooks,

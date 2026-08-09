@@ -15,12 +15,10 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { loadPalette } = require('../../helpers/palette');
+const { loadPalette, baseThemeNames } = require('../../helpers/palette');
 
-const BASE_THEMES = [
-  'ardesia', 'atelier', 'brina', 'burgundy', 'carbone', 'concrete',
-  'crepuscolo', 'cuoio', 'indaco', 'laguna', 'magnolia', 'mustard', 'onyx',
-];
+// Scope from the manifests — this array had 13 names and omitted `carta`.
+const BASE_THEMES = baseThemeNames();
 
 // Resolve a token to a concrete #hex for one color-scheme side.
 function resolveSide(vars, name, side, depth = 0) {

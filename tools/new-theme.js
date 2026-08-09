@@ -179,7 +179,12 @@ function main() {
   // starter is a two-face brand palette in the "more" group (the same shape it copies
   // from indaco); `swatch` is the one field a human must fill, so it is stamped with
   // the template's placeholder accent and listed in the next-steps below.
-  const listedCount = [...RESERVED].filter((n) => n !== 'lattice').length;
+  // `order` is position WITHIN the picker group, not across all themes — a new palette
+  // lands at the end of `more`, so it is the count of existing `more` entries.
+  const moreCount = fs.readdirSync(THEMES_DIR)
+    .filter((f) => f.endsWith('.manifest.json'))
+    .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
+    .filter((m) => m.role === 'base' && m.tier === 'more').length;
   fs.writeFileSync(path.join(THEMES_DIR, `${name}.manifest.json`), `${JSON.stringify({
     $schema: './theme.schema.json',
     name,
@@ -188,7 +193,7 @@ function main() {
     tier: 'more',
     modes: ['light', 'dark'],
     darkCounterpart: `${name}-dark`,
-    order: listedCount,
+    order: moreCount,
     swatch: PLACEHOLDER_SWATCH,
   }, null, 2)}\n`);
   fs.writeFileSync(path.join(THEMES_DIR, `${name}-dark.manifest.json`), `${JSON.stringify({

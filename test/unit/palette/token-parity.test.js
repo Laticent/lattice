@@ -21,6 +21,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { baseThemeNames } = require('../../helpers/palette');
 
 const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
 
@@ -30,12 +31,7 @@ const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
 // from it. `themes/<name>.manifest.json` declares `role: "base"`, and
 // `checkThemeRoles` (tools/check-ownership.js) proves that declaration against the
 // file's own imports. See engineering/decisions/2026-08-09-theme-token-contract.md.
-const THEMES = fs.readdirSync(THEMES_DIR)
-  .filter((f) => f.endsWith('.manifest.json'))
-  .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
-  .filter((m) => m.role === 'base')
-  .map((m) => m.name)
-  .sort();
+const THEMES = baseThemeNames();
 
 const CONTRACT = [
   'bg', 'bg-alt', 'surface-inverse', 'border', 'text-display', 'text-heading',

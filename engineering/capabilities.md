@@ -109,6 +109,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
 | `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/suono') and npm publish resolve — the audio engine's consumable artifact. |
 | `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
+| `theme-catalog:build` | Generate docs/src/components/studio/palettes.generated.ts — the Studio palette picker's groups (tier/order) and swatches, baked from themes/*.manifest.json so the docs bundle gets the one scope declaration without fs-loading 32 manifests at runtime. Replaces two hand-kept lists a test had to reconcile. |
+| `theme-catalog:check` | Freshness gate for the generated Studio palette catalog. |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
 | `vetrina-lib:build` | Build the Vetrina library dist/ (two ESM + two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
@@ -248,8 +250,6 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
-| `theme-catalog:build` | **TODO: describe `theme-catalog:build` in tools/build-capabilities.js (SCRIPT_META).** |
-| `theme-catalog:check` | **TODO: describe `theme-catalog:check` in tools/build-capabilities.js (SCRIPT_META).** |
 
 ## Tools — `tools/`
 

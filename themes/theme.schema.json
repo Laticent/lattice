@@ -38,7 +38,7 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": { "enum": ["light", "dark"] },
-      "description": "The canvases this palette declares a DISTINCT face for. A palette whose surface tokens are `light-dark(L, D)` with L !== D has both; one whose arms are degenerate has only the face its own `color-scheme` names. This is what makes carbone's dark-only-ness an asserted, checkable fact instead of a comment (#1302). Gated against the CSS (G3)."
+      "description": "The canvases this palette declares a DISTINCT face for. A palette whose surface tokens are `light-dark(L, D)` with L !== D has both. One that pins its own `color-scheme` at `:root` narrows to that face; one whose surface tokens are static — carbone opts out of `light-dark()` entirely — has only the face its zero-specificity default names. This is what makes carbone's dark-only-ness an asserted, checkable fact instead of a comment (#1302). Gated against the CSS (G3)."
     },
     "darkCounterpart": {
       "type": ["string", "null"],

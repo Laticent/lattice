@@ -10,5 +10,5 @@
   "darkCounterpart": null,
   "order": 6,
   "swatch": "#7DE38A",
-  "note": "The one palette with no light face — deliberate. Its light-dark() surface arms are degenerate on purpose, so it renders dark on any canvas and has no -dark counterpart (#1302)."
+  "note": "The one palette that does not use light-dark() switching at all: its surface tokens are static hexes and the default color-scheme is dark at zero specificity, so there is no second face to resolve. Deliberate — an author needing a light carbone should pick a different palette rather than override color-scheme. Hence no -dark counterpart (#1302)."
 }

@@ -2148,3 +2148,167 @@ describe('check-ownership: checkCommittedPdfs (#1279)', () => {
     assert.equal(byExamples, own);
   });
 });
+
+// ── Theme manifests: scope is DECLARED, and the declaration is proved ────────
+//
+// BITE-TESTS, not smoke tests. Asserting `deepEqual(errors, [])` over the shipped
+// themes would pass whether these gates inspect anything or are deleted outright —
+// which is exactly how the two holes below shipped in the first cut: nothing
+// validated a manifest against its own schema, and the light-dark() arm split broke
+// on any arm containing a paren. Each test constructs the violation and asserts the
+// gate names it, then asserts the clean case stays silent.
+describe('theme manifest gates', () => {
+  const fixture = (files) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'theme-manifest-'));
+    for (const [name, body] of Object.entries(files)) {
+      fs.writeFileSync(path.join(dir, name), typeof body === 'string' ? body : `${JSON.stringify(body, null, 2)}\n`);
+    }
+    return dir;
+  };
+  const BASE_CSS = ":root{\n  --bg: light-dark(#FFFFFF, #101010);\n}\n@import 'lattice';\n:where(:root) { color-scheme: light; }\n";
+  const baseManifest = (over = {}) => ({
+    name: 'probe', role: 'base', family: 'brand', tier: 'more',
+    modes: ['light', 'dark'], darkCounterpart: null, order: 0, swatch: '#123456', ...over,
+  });
+
+  test('checkThemeManifestCoverage BITES: a theme with no manifest, and a manifest with no theme', () => {
+    const { checkThemeManifestCoverage } = require('../../../tools/check-ownership.js');
+    const dir = fixture({ 'probe.css': BASE_CSS, 'ghost.manifest.json': baseManifest({ name: 'ghost' }) });
+    try {
+      const errors = [];
+      checkThemeManifestCoverage(errors, dir);
+      assert.equal(errors.length, 2);
+      assert.ok(errors.some((e) => /probe\.css has no manifest/.test(e)));
+      assert.ok(errors.some((e) => /ghost\.manifest\.json has no themes\/ghost\.css/.test(e)));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('checkThemeManifestCoverage BITES: a manifest whose name disagrees with its filename', () => {
+    const { checkThemeManifestCoverage } = require('../../../tools/check-ownership.js');
+    const dir = fixture({ 'probe.css': BASE_CSS, 'probe.manifest.json': baseManifest({ name: 'other' }) });
+    try {
+      const errors = [];
+      checkThemeManifestCoverage(errors, dir);
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /declares name "other" but its filename says "probe"/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  // The hole an independent checker found: `tier` is required by the schema and was
+  // enforced by nothing, so deleting it from indaco.manifest.json dropped the DEFAULT
+  // palette out of the Studio picker with every gate green.
+  test('checkThemeManifestShape BITES: a missing required field, a bad enum, and an unknown key', () => {
+    const { checkThemeManifestShape } = require('../../../tools/check-ownership.js');
+    const noTier = baseManifest(); delete noTier.tier;
+    for (const [label, manifest, pattern] of [
+      ['missing tier', noTier, /missing required field `tier`/],
+      ['bad enum', baseManifest({ tier: 'Curated' }), /is not one of "curated" \| "more"/],
+      ['unknown field', baseManifest({ nonsense: 1 }), /unknown field `nonsense`/],
+      ['bad swatch', baseManifest({ swatch: 'rebeccapurple' }), /does not match/],
+      ['bad mode', baseManifest({ modes: ['sepia'] }), /which is not one of "light" \| "dark"/],
+    ]) {
+      const dir = fixture({ 'probe.css': BASE_CSS, 'probe.manifest.json': manifest });
+      try {
+        const errors = [];
+        checkThemeManifestShape(errors, dir);
+        assert.ok(errors.some((e) => pattern.test(e)), `${label}: expected ${pattern}, got ${JSON.stringify(errors)}`);
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+    const clean = fixture({ 'probe.css': BASE_CSS, 'probe.manifest.json': baseManifest() });
+    try {
+      const errors = [];
+      checkThemeManifestShape(errors, clean);
+      assert.deepEqual(errors, []);
+    } finally { fs.rmSync(clean, { recursive: true, force: true }); }
+  });
+
+  test('checkThemeRoles BITES: a lying role, a second @import, and a base with no tokens', () => {
+    const { checkThemeRoles } = require('../../../tools/check-ownership.js');
+    const cases = [
+      ['variant-dark that declares tokens',
+        { 'probe.css': ":root{--bg:#fff;}\n@import 'other';\n", 'probe.manifest.json': baseManifest({ role: 'variant-dark', extends: 'other', tier: undefined, darkCounterpart: undefined, order: undefined, swatch: undefined }) },
+        /declares role "variant-dark" but declares 1 token\(s\) of its own/],
+      ['derived-variant that declares none',
+        { 'probe.css': "@import 'other';\n", 'probe.manifest.json': baseManifest({ role: 'derived-variant', extends: 'other', tier: undefined, darkCounterpart: undefined, order: undefined, swatch: undefined }) },
+        /declares role "derived-variant" but overrides no tokens/],
+      // The second hole: only the first @import was read, so a theme could inherit an
+      // entirely different palette on line two with the declaration still "true".
+      ['a smuggled second import',
+        { 'probe.css': ":root{--bg:#fff;}\n@import 'lattice';\n@import 'carbone';\n", 'probe.manifest.json': baseManifest() },
+        /@imports 'lattice' \+ 'carbone'\. A theme extends exactly one thing/],
+      ['extends that disagrees with the file',
+        { 'probe.css': "@import 'lattice';\n", 'probe.manifest.json': baseManifest({ role: 'variant-dark', extends: 'other', tier: undefined, darkCounterpart: undefined, order: undefined, swatch: undefined }) },
+        /declares `extends: "other"` but @imports 'lattice'/],
+      ['a listed palette with no swatch',
+        { 'probe.css': BASE_CSS, 'probe.manifest.json': baseManifest({ swatch: undefined }) },
+        /listed in the palette picker but declares no `swatch`/],
+    ];
+    for (const [label, files, pattern] of cases) {
+      const dir = fixture(files);
+      try {
+        const errors = [];
+        checkThemeRoles(errors, dir);
+        assert.ok(errors.some((e) => pattern.test(e)), `${label}: expected ${pattern}, got ${JSON.stringify(errors)}`);
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+
+  test('checkThemeModes BITES: a declared face the CSS does not provide, and a phantom counterpart', () => {
+    const { checkThemeModes } = require('../../../tools/check-ownership.js');
+    const flat = ":root{\n  --bg: #1A1A1C;\n}\n@import 'lattice';\n:where(:root) { color-scheme: dark; }\n";
+    const dir = fixture({ 'probe.css': flat, 'probe.manifest.json': baseManifest({ modes: ['light', 'dark'] }) });
+    try {
+      const errors = [];
+      checkThemeModes(errors, dir);
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /declares modes \[dark, light\] but its CSS provides \[dark\]/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+
+    const phantom = fixture({ 'probe.css': BASE_CSS, 'probe.manifest.json': baseManifest({ darkCounterpart: 'probe-dark' }) });
+    try {
+      const errors = [];
+      checkThemeModes(errors, phantom);
+      assert.ok(errors.some((e) => /themes\/probe-dark\.css does not exist/.test(e)));
+    } finally { fs.rmSync(phantom, { recursive: true, force: true }); }
+  });
+
+  // The arm split is the whole basis of the `modes` claim. A naive
+  // /light-dark\(([^,]+),([^)]+)\)/ truncates the second arm at the first `)`, so
+  // `light-dark(var(--x), var(--x))` reads as TWO DIFFERENT arms and a palette that
+  // lost its second face keeps its declared one with the gate green.
+  test('splitLightDark handles nested parens and commas — the degenerate-arm false negative', () => {
+    const { splitLightDark, themeArmsDiffer } = require('../../../tools/check-ownership.js');
+    assert.deepEqual(splitLightDark('light-dark(#FFF, #000)'), ['#FFF', '#000']);
+    assert.deepEqual(splitLightDark('light-dark(var(--x), var(--x))'), ['var(--x)', 'var(--x)']);
+    assert.deepEqual(
+      splitLightDark('light-dark(color-mix(in oklab, #fff 50%, #000), color-mix(in oklab, #fff 50%, #000))'),
+      ['color-mix(in oklab, #fff 50%, #000)', 'color-mix(in oklab, #fff 50%, #000)'],
+    );
+    assert.equal(splitLightDark('#FFFFFF'), null);
+
+    assert.equal(themeArmsDiffer(':root{--bg: light-dark(var(--x), var(--x));}'), false,
+      'identical var() arms are degenerate — the naive regex called this two faces');
+    assert.equal(themeArmsDiffer(':root{--bg: light-dark(#FFF, #000);}'), true);
+    // …and a longer token name must never be read as a shorter one.
+    assert.equal(themeArmsDiffer(':root{--panel-bg: light-dark(#FFF, #000);}'), false,
+      '--panel-bg is not --bg');
+  });
+
+  test('themeRootScheme distinguishes a zero-specificity default from a pin', () => {
+    const { themeRootScheme } = require('../../../tools/check-ownership.js');
+    assert.deepEqual(themeRootScheme(':where(:root) { color-scheme: light; }'), { mode: 'light', pinned: false });
+    assert.deepEqual(themeRootScheme(':root { color-scheme: dark; }'), { mode: 'dark', pinned: true });
+    assert.deepEqual(themeRootScheme(':root:root { color-scheme: light; }'), { mode: 'light', pinned: true });
+    assert.equal(themeRootScheme(':root { color: red; }'), null);
+  });
+
+  test('listThemeManifests refuses a non-object manifest by name, not by TypeError', () => {
+    const { listThemeManifests } = require('../../../tools/check-ownership.js');
+    for (const [body, shape] of [['null', 'null'], ['[]', 'an array'], ['42', 'number']]) {
+      const dir = fixture({ 'probe.manifest.json': body });
+      try {
+        assert.throws(() => listThemeManifests(dir), new RegExp(`probe\\.manifest\\.json must be a JSON object \\(got ${shape}`));
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+});

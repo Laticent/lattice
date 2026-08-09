@@ -26,13 +26,11 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs   = require('fs');
 const path = require('path');
+const { baseThemeNames } = require('../../helpers/palette');
 
 const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
-const CURATED = [
-  'cuoio', 'onyx', 'indaco',
-  'ardesia', 'atelier', 'brina', 'burgundy', 'carbone', 'concrete',
-  'crepuscolo', 'laguna', 'magnolia', 'mustard',
-];
+// Scope from the manifests — this array had 13 names and omitted `carta`.
+const CURATED = baseThemeNames();
 
 // Collect every `--name: value` custom-property declaration in the file,
 // regardless of selector — the palette tokens live in `:root` (theme) but the

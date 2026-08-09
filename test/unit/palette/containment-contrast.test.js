@@ -38,15 +38,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveTokenExpr } = require('../../../lib/core/resolve-token-expr');
+const { baseThemeNames } = require('../../helpers/palette');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 
 // The base themes — every other palette (`*-dark`, the a11y family) reaches
 // these through `@import`, so fixing a base fixes its dependants.
-const THEMES = [
-  'ardesia', 'atelier', 'brina', 'burgundy', 'carbone', 'carta', 'concrete',
-  'crepuscolo', 'cuoio', 'indaco', 'laguna', 'magnolia', 'mustard', 'onyx',
-];
+const THEMES = baseThemeNames();
 
 // ink-on-surface is body-size label text; edge-on-fill is a graphical object.
 const AA_TEXT = 4.5;

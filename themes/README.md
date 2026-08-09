@@ -226,10 +226,11 @@ about, so two gates silently skipped it. The manifest is the one declaration
 they all read now.
 
 **It cannot lie.** `npm run check:ownership` proves each declaration against the
-file itself: `role` against what the CSS `@import`s and how many tokens it
-declares, `modes` against the palette's own `color-scheme` and whether its
-`light-dark()` arms are actually distinct, `darkCounterpart` against the file on
-disk. Change the CSS without changing the manifest and the build tells you.
+file itself: the manifest's shape against `theme.schema.json`, `role` against what
+the CSS `@import`s (exactly one thing) and whether it declares tokens of its own,
+`modes` against the palette's own `color-scheme` specificity and whether its
+`light-dark()` surface arms are actually distinct, `darkCounterpart` against the
+file on disk. Change the CSS without changing the manifest and the build tells you.
 
 `new:theme` writes both manifests for you. Set `swatch` (it is stamped a
 deliberately-garish placeholder), pick `tier`/`order` if the palette belongs in
