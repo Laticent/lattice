@@ -1188,11 +1188,27 @@ export async function voiceAvailability(): Promise<VoiceAvailability> {
 export async function listTtsModels(): Promise<OrVoiceModel[]> {
 	try {
 		const m = await import('@/playground/voice-model.js');
-		return await m.listOpenRouterVoiceModels();
+		// BOUNDED. `listOpenRouterVoiceModels` already degrades a FAILED fetch to `[]`, but a
+		// fetch that never settles — a blackholed request behind a captive portal or a
+		// corporate proxy, rather than a refused one — leaves this promise pending forever, and
+		// every caller distinguishes "still loading" from "nothing there" by exactly that. The
+		// export panel then sits on `models === null` indefinitely and renders its empty-roster
+		// copy ("this model hasn't published a voice list"), blaming the model for the network.
+		// Observed in a browser that could not reach the catalog; the resolved-empty path was
+		// already handled and this one was not.
+		return await Promise.race([
+			m.listOpenRouterVoiceModels(),
+			new Promise<OrVoiceModel[]>((res) => setTimeout(() => res([]), CATALOG_TIMEOUT_MS)),
+		]);
 	} catch {
 		return [];
 	}
 }
+
+/** How long to wait for the TTS catalog before calling it unreachable. Generous enough that a
+ *  slow-but-working link still populates the picker, short enough that a hung one does not sit
+ *  behind a misleading message. */
+const CATALOG_TIMEOUT_MS = 6000;
 
 /**
  * The voice a webpage export BAKES with — an identity chosen at export time, not read off

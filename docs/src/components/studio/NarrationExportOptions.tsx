@@ -125,6 +125,11 @@ export function NarrationExportOptions({
 	// TTS models bill per input CHARACTER, published per million (voice-model.js's
 	// orPricePerM). A model the catalog has no price for quotes nothing at all.
 	const pricePerM = React.useMemo(() => models?.find((m) => m.id === value.voice.model)?.promptPerM ?? null, [models, value.voice.model]);
+	/** The catalog fetch resolved to NOTHING — offline, firewalled, or OpenRouter down.
+	 *  `listTtsModels()` degrades to `[]` rather than throwing, so this is the only signal that
+	 *  the roster and the price are absent for an environmental reason rather than a real one.
+	 *  `null` still means "in flight" and must not trigger the copy. */
+	const catalogUnreachable = Array.isArray(models) && models.length === 0;
 
 	// The one case where a bake is possible with no cloud key at all: this deck was rehearsed
 	// on-device and every sentence is already stored. A cache read needs no key and cannot
@@ -281,15 +286,35 @@ export function NarrationExportOptions({
 										previewTtsVoice({ rung: 'openrouter', model: m.id, voice: m.voices[0], speed: value.voice.speed }).finally(() => setAuditioning(null));
 									}}
 								/>
-								<VoicePicker
-									label=""
-									ariaLabel="Narration voice"
-									modelId={value.voice.model}
-									voices={voices}
-									value={value.voice.voice}
-									disabled={disabled}
-									onPick={(v) => set({ voice: { ...value.voice, voice: v } })}
-								/>
+								{/* CATALOG UNREACHABLE is a different thing from "this model has no voices", and
+								    the picker cannot tell them apart — it is handed a roster and an empty one
+								    looks the same either way. Offline, behind a firewall, or with OpenRouter
+								    down, `listTtsModels()` degrades to `[]` by design, and the picker then
+								    said "This model hasn't published a voice list on OpenRouter yet", which
+								    blames the model for what the network did. Worse, it is false in the one
+								    way that matters here: the bake identity comes from the SAVED PREFS, not
+								    from the catalog, so a bake in this state succeeds in the author's own
+								    voice while the panel tells them it has none. Say what is actually true.
+								    Caught by driving the panel in a browser that could not reach the
+								    catalog — every automated assertion passed, because they checked the
+								    picker EXISTED rather than that it had anything in it. */}
+								{catalogUnreachable ? (
+									<p className="rounded-lg border border-border px-3 py-2 text-[11.5px] leading-snug text-muted-foreground">
+										Couldn't reach the voice catalog, so there is no list to choose from. This export will use your saved voice —{' '}
+										<span className="font-mono text-[var(--text-heading)]">{value.voice.voice || 'the workspace default'}</span> on{' '}
+										<span className="font-mono text-[var(--text-heading)]">{value.voice.model || 'the default model'}</span> — which still works. Reconnect to pick a different one.
+									</p>
+								) : (
+									<VoicePicker
+										label=""
+										ariaLabel="Narration voice"
+										modelId={value.voice.model}
+										voices={voices}
+										value={value.voice.voice}
+										disabled={disabled}
+										onPick={(v) => set({ voice: { ...value.voice, voice: v } })}
+									/>
+								)}
 							</div>
 
 							{/* The bill. Stated before the button, always. */}
