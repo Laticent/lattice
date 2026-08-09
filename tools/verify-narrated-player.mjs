@@ -14,6 +14,7 @@
 //
 // Run: node tools/verify-narrated-player.mjs   (writes .scratch/out/)
 
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -228,21 +229,38 @@ await page.evaluate(() => {
 
 check('no CSP refusal, page error, or network attempt', problems.length === 0, problems.join(' | ') || 'clean');
 
-// Sign-off artifacts: Present, mid-sentence, with the caption band showing — in BOTH modes.
-// CLAUDE.md's export gate wants the bytes of an exported artifact looked at, not described.
+// ── SIGN-OFF ARTIFACTS ───────────────────────────────────────────────────────────────────────
+//
+// CLAUDE.md's export gate is a HUMAN gate: a change to the bytes of an exported artifact needs
+// a representative deck rendered in both modes and looked at. This used to screenshot the
+// SYNTHETIC fixture above, whose `<style>` is three hardcoded declarations with no theme — so
+// `themeDualMode` emitted no dark block, the file contained no dark rule at all, and the
+// "dark" PNG was byte-for-byte the light one. The run still printed ALL CHECKS PASSED, because
+// nothing asserted anything about the images. The gate's evidence was false while its label
+// said otherwise, which is worse than having no evidence.
+//
+// So the sign-off is taken from the REAL committed demo deck, exported through the REAL CLI
+// player path — a themed 16:9 board deck, not a stand-in — and the two modes are ASSERTED to
+// differ before either is offered as evidence.
+const deckOut = path.resolve('.scratch/out/signoff-deck');
+execFileSync(process.execPath, ['lattice-emulator.js', 'examples/shared-deck-voice.md', deckOut, '--player'], { stdio: 'pipe' });
+const signoff = `${deckOut}.html`;
+const shot = await ctx.newPage();
+await shot.goto(`file://${signoff}`);
+await shot.waitForSelector('#lp-stage');
+const ground = {};
 for (const mode of ['light', 'dark']) {
-  await page.click('[data-lp-btn="present"]');
-  await page.evaluate((m) => {
+  await shot.evaluate((m) => {
     document.documentElement.setAttribute('data-lp-scheme', m);
     document.documentElement.style.setProperty('color-scheme', m);
   }, mode);
-  await page.click('#lp-play');
-  await page.waitForFunction(() => document.querySelector('#lp-caption .lp-cap-w.lp-said'), null, { timeout: 4000 });
-  await page.screenshot({ path: `.scratch/out/narrated-player-${mode}.png` });
-  await page.click('#lp-play'); // pause before the next pass
-  await page.waitForTimeout(150);
+  await shot.waitForTimeout(250);
+  ground[mode] = await shot.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await shot.screenshot({ path: `.scratch/out/narrated-player-${mode}.png` });
 }
-console.log('wrote .scratch/out/narrated-player-{light,dark}.png');
+check('the sign-off artifacts are genuinely two different modes', ground.light !== ground.dark, `light ${ground.light} vs dark ${ground.dark}`);
+await shot.close();
+console.log(`wrote .scratch/out/narrated-player-{light,dark}.png from ${signoff}`);
 
 // ── the other two states the export panel's switches produce ──────────────────────────────
 //

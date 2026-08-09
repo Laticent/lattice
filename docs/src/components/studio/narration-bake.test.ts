@@ -47,7 +47,7 @@ vi.mock('./read-aloud', async (importOriginal) => ({
 	},
 }));
 
-const { BakeIncompleteError, ENGINE_BYTES_PER_CHAR, bakeNarration, estimateSynthBytes, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes } = await import('./narration-bake');
+const { BakeIncompleteError, DEFAULT_BYTES_PER_CHAR, ENGINE_BYTES_PER_CHAR, bakeNarration, estimateSynthBytes, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes } = await import('./narration-bake');
 
 const VOICE: BakeVoice = { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 };
 const keyFor = (text: string, voice: BakeVoice = VOICE) => JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]);
@@ -149,19 +149,42 @@ describe('estimateSynthBytes — the one figure that cannot be exact', () => {
 	// cannot drift back into a guess.
 	const SAMPLE_TEXT_LEN = 35; // 'This is how your slides will sound.' — tools/generate-voice-samples.mjs
 
-	it('matches the committed voice samples this repository generated against the live API', async () => {
+	// ITERATE DISK → TABLE, never table → disk. The first version walked the TABLE and looked
+	// each entry up on disk, so an engine that existed on disk and in the live catalog but NOT
+	// in the table was never visited — which is precisely how `gemini` went missing and got
+	// quoted at 7.7x under. A pinning test that can only see what it already knows about
+	// cannot catch an omission, which is the failure mode that matters here.
+	//
+	// It also filtered `.mp3`, so gemini would have failed "has committed samples" even if
+	// someone had added it. Every audio extension counts now.
+	it('matches the committed voice samples, and has an entry for EVERY engine with samples', async () => {
 		const { readdirSync, statSync } = await import('node:fs');
 		const { join } = await import('node:path');
 		const root = join(process.cwd(), 'public/voice-samples');
-		for (const [engine, rate] of Object.entries(ENGINE_BYTES_PER_CHAR)) {
+		const engines = readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+		expect(engines.length, 'the sample roster is not empty').toBeGreaterThan(0);
+		for (const engine of engines) {
 			const dir = join(root, engine);
-			const mp3s = readdirSync(dir).filter((f) => f.endsWith('.mp3'));
-			expect(mp3s.length, `${engine} has committed samples`).toBeGreaterThan(0);
-			const mean = mp3s.reduce((n, f) => n + statSync(join(dir, f)).size, 0) / mp3s.length;
+			const clips = readdirSync(dir).filter((f) => /\.(mp3|wav|ogg|m4a)$/i.test(f));
+			if (!clips.length) continue; // a directory with no audio pins nothing
+			const rate = ENGINE_BYTES_PER_CHAR[engine];
+			expect(rate, `\`${engine}\` has committed samples but NO entry in ENGINE_BYTES_PER_CHAR — the quote silently falls back to ${DEFAULT_BYTES_PER_CHAR} B/char for it`).toBeGreaterThan(0);
+			const mean = clips.reduce((n, f) => n + statSync(join(dir, f)).size, 0) / clips.length;
 			const measured = mean / SAMPLE_TEXT_LEN;
 			// 5% is drift, not disagreement — a re-generated sample set moves a little.
 			expect(Math.abs(rate - measured) / measured, `${engine}: table says ${rate} B/char, samples say ${Math.round(measured)}`).toBeLessThan(0.05);
 		}
+	});
+
+	it('quotes the WAV engine at its real rate, not the mp3 median', () => {
+		// The concrete regression: a 300-sentence deck (~30k chars) in Gemini was quoted ~19 MB
+		// and lands at ~145 MB. Uncompressed audio is a different codec class and the table has
+		// to say so.
+		const chars = 30_000;
+		const gemini = estimateSynthBytes(chars, 'google/gemini-3.1-flash-tts-preview');
+		const kokoro = estimateSynthBytes(chars, 'hexgrad/kokoro-82m');
+		expect(gemini).toBeGreaterThan(140_000_000);
+		expect(gemini / kokoro).toBeGreaterThan(7);
 	});
 
 	it('is nowhere near the flat 16 B/char the first version quoted', () => {
@@ -468,5 +491,45 @@ describe('a render-appended slide stands the projection down — exactly as Pres
 		const m = await measureNarration(glossaryDeck, overlong, VOICE);
 		const bake = await bakeNarration(glossaryDeck, overlong, { voice: VOICE, audio: false });
 		expect(bake.total).toBe(m.total);
+	});
+});
+
+// ── the refusal escapes the red team found ───────────────────────────────────────────────────
+//
+// All three passed the shipped tests, which is the point: the refusal is this feature's central
+// promise and its failure mode is a board deck that speaks twice and stops.
+describe('the refusal, under a terminal failure', () => {
+	it('is NOT overridable by allowPartial — a dead key is not a moderation block', async () => {
+		// Observed before the fix: a 402 on sentence 3 of 8 with allowPartial on returned
+		// normally and the caller WROTE THE FILE — six of eight sentences silent, behind a
+		// button captioned "ship them captioned and silent". The override is justified by one
+		// sentence a model deterministically refuses; it cannot stand in for "everything after
+		// sentence N", which is what a terminal error actually produces.
+		script.set(S1, [30_000]);
+		defaultError = 'OpenRouter TTS error 402: insufficient credit';
+		const err = await withFastBackoff(() => bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, allowPartial: true }).catch((e) => e));
+		expect(err).toBeInstanceOf(BakeIncompleteError);
+		expect(err.terminal).toMatch(/402/);
+		expect(err.message).toMatch(/fix that and re-run/i);
+	});
+
+	it('reports `covered` as sentences that actually HAVE audio, not total minus failure rows', async () => {
+		// A terminal error pushes ONE summary row standing for N unreached sentences, so
+		// `total - failures.length` counted the silent ones as covered — the field documented
+		// as "sentences shipped" reporting the inverse on the one path where it mattered.
+		script.set(S1, [30_000]);
+		defaultError = 'OpenRouter TTS error 402: insufficient credit';
+		const err = await withFastBackoff(() => bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, allowPartial: true }).catch((e) => e));
+		// The refusal carries the sentences; nothing claims coverage it does not have.
+		expect(err.failures.some((f: { text: string }) => /were not attempted|second says/.test(f.text))).toBe(true);
+	});
+
+	it('carries the voice it was refused under, so an override cannot travel to another one', async () => {
+		script.set(S1, [30_000]);
+		script.set(S2, ['moderation blocked', 'moderation blocked', 'moderation blocked']);
+		const err = await withFastBackoff(() => bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true }).catch((e) => e));
+		expect(err).toBeInstanceOf(BakeIncompleteError);
+		expect(err.terminal).toBeUndefined(); // a per-sentence refusal IS overridable
+		expect(err.voice).toEqual(VOICE);
 	});
 });

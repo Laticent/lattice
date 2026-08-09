@@ -22,7 +22,7 @@ import { chromium } from '../docs/node_modules/@playwright/test/index.mjs'; // t
 //   cd docs && npm run build && npx serve dist -l 4336
 // The dev server is the wrong surface — Vite serves hundreds of unbundled modules, so a
 // controlled-network test against it measures the module graph, not the app.
-const BASE = process.env.STUDIO_BASE || 'http://localhost:4336';
+const BASE = process.env.STUDIO_BASE || 'http://localhost:4337';
 const CATALOG = /openrouter\.ai\/api\/v1\/models/;
 // A key is needed only to get PAST the audio switch, which correctly refuses to enable
 // without a cloud voice. Nothing here synthesizes and nothing is billed — every catalog
@@ -42,10 +42,15 @@ const check = (label, ok, detail = '') => {
 };
 
 /** Open the export panel with narration audio on, under a controlled catalog. */
-async function exportPanel(routeHandler) {
+async function exportPanel(routeHandler, allOf) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.addInitScript((k) => { try { localStorage.setItem('lattice-db-or-key', k); } catch {} }, KEY);
-  await ctx.route(CATALOG, routeHandler);
+  // STRUCTURAL, not behavioral. The comment above promises nothing is billed, and the only
+  // thing enforcing that was "the script never clicks the voice-row play button". One added
+  // click would have spent our key while the comment said it could not. The speech endpoint is
+  // now dead for every context this script opens, so the guarantee holds by construction.
+  await ctx.route(/openrouter\.ai\/api\/v1\/audio/, (r) => r.abort());
+  await ctx.route(allOf || CATALOG, routeHandler);
   const page = await ctx.newPage();
   await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Share' }).first().click({ timeout: 60000 });
@@ -58,7 +63,10 @@ async function exportPanel(routeHandler) {
 }
 
 // ── finding 1: offline ───────────────────────────────────────────────────────────────────────
-const offline = await exportPanel((r) => r.abort('failed'));
+// TRULY offline for this case: the panel also calls /auth/key and /credits, which a real
+// offline laptop fails too — and that is a different panel state (the ADR's "audio switch
+// enabled with no key behind it"). Blocking only the catalog made the label overstate the test.
+const offline = await exportPanel((r) => r.abort('failed'), /openrouter\.ai/);
 check('offline: says the CATALOG could not be reached', /Couldn't reach the voice catalog/i.test(offline));
 check("offline: does NOT claim the model published no voice list", !/hasn't published a voice list/i.test(offline));
 check('offline: does NOT claim the model publishes no price', !/this model publishes no price/i.test(offline));

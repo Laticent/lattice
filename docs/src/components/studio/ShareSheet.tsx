@@ -56,7 +56,13 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const [progress, setProgress] = React.useState<string | null>(null);
 	// The sentences a refused narration bake could not prepare — held here so the webpage
 	// panel can name them, since a toast can only carry one line.
-	const [narrationFailures, setNarrationFailures] = React.useState<{ slide: number; text: string; reason: string }[] | null>(null);
+	// A refusal, TAGGED WITH THE VOICE IT WAS EARNED UNDER. The override it unlocks is scoped to
+	// that identity: this state used to be cleared only at the start of the NEXT export, so an
+	// author refused for one moderation-blocked sentence in af_heart could switch to af_alloy —
+	// re-measuring to "this export bills the whole deck" — and the "Export anyway" button from
+	// the old refusal was still on screen, authorizing an unbounded partial set in a voice
+	// nothing had ever been refused in.
+	const [narrationFailures, setNarrationFailures] = React.useState<{ failures: { slide: number; text: string; reason: string }[]; voice: { model: string; voice: string; speed: number; rung?: string } } | null>(null);
 	// The run's abort controller lives HERE, not in the options panel, because this component
 	// outlives it: the panel unmounts when the sheet closes or the author steps back to the
 	// format menu, and a controller that went with it left a bake synthesizing and billing with
@@ -71,9 +77,15 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// Render the deck once and project every slide to narration text — what the webpage
 	// panel measures a bake against. Passed as a THUNK, not a result: it is a full deck
 	// render, and an author who never turns narration on should never pay for it.
-	// Handed back RAW. Reconciling the render-appended `glossary: auto` slide is the bake's
-	// job (narration-bake.ts › alignProjection) precisely so this caller and the exporter
-	// cannot do it differently — trimming here as well would trim twice.
+	// Handed back RAW, and NOT trimmed — which is the opposite of what an earlier version of
+	// this comment said. `glossary: auto` makes the render append a slide the source does not
+	// contain, so the projection runs one entry long. Trimming it here (or anywhere) would be
+	// wrong: Present applies the same length-equality guard and, when it fails, narrates the
+	// markdown flatten instead — so every clip on the device is keyed on THAT text. A trimmed
+	// projection would line up with neither and re-bill a fully prepared deck. The bake
+	// deliberately lets the mismatch stand the projection down, exactly as Present does
+	// (narration-bake.ts › resolveDeck). There is no `alignProjection`; the function this
+	// comment used to name was deleted for these reasons.
 	const projectDeck = React.useCallback(async () => {
 		const { projectDeckSpeech } = await import('./narration-projection');
 		return projectDeckSpeech(options, artifactSource, palette, extraTheme, extraCss, mode);
@@ -142,7 +154,10 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 				// the deck. Duck-typed rather than `instanceof` so this file does not pull the bake
 				// module (and Cadenza behind it) into the sheet's own bundle.
 				const failures = (e as { name?: string; failures?: { slide: number; text: string; reason: string }[] })?.failures;
-				if ((e as Error)?.name === 'BakeIncompleteError' && failures) setNarrationFailures(failures);
+				// A TERMINAL refusal (revoked key, no credit, dead host) carries no override, so it
+				// is not stored as one — the toast says what to fix and the panel offers nothing.
+				const err = e as { name?: string; failures?: { slide: number; text: string; reason: string }[]; terminal?: string; voice?: { model: string; voice: string; speed: number; rung?: string } };
+				if (err?.name === 'BakeIncompleteError' && failures && !err.terminal) setNarrationFailures({ failures, voice: err.voice ?? choice.narration.voice });
 				throw e;
 			}
 		});

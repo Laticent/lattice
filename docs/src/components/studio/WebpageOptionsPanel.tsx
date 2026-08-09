@@ -45,7 +45,9 @@ export function WebpageOptionsPanel({
 	/** Render + project the deck to narration — called only once a narration switch is on. */
 	project: ProjectDeck;
 	/** The sentences the last attempt could not prepare, so the refusal names them. */
-	narrationFailures?: { slide: number; text: string; reason: string }[] | null;
+	/** The last refusal AND the voice it was earned under — the override is scoped to that
+	 *  identity, so changing the narrator withdraws it. */
+	narrationFailures?: { failures: { slide: number; text: string; reason: string }[]; voice: { model: string; voice: string; speed: number; rung?: string } } | null;
 	onBack: () => void;
 	onExport: (choice: WebpageExportChoice) => void;
 	/** Stop a bake in progress. Owned by the sheet, not this panel — see `launch`. */
@@ -154,7 +156,17 @@ export function WebpageOptionsPanel({
 					onChange={setNarration}
 					disabled={busy}
 					blockedReason={narrationBlocked ? 'Unavailable while speaker notes are stripped — for most decks the narration you rehearsed IS your notes, so either switch would hand them back.' : null}
-					failures={narrationFailures}
+					// Withdrawn the moment the narrator changes: the refusal named sentences in ONE
+					// voice, and a different voice is a different bake with a different failure set.
+					failures={
+						narrationFailures &&
+						narrationFailures.voice.model === narration.voice.model &&
+						narrationFailures.voice.voice === narration.voice.voice &&
+						narrationFailures.voice.speed === narration.voice.speed &&
+						(narrationFailures.voice.rung ?? 'openrouter') === (narration.voice.rung ?? 'openrouter')
+							? narrationFailures.failures
+							: null
+					}
 					onExportAnyway={() => launch({ ...narration, allowPartial: true })}
 				/>
 			</section>

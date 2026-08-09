@@ -1753,7 +1753,7 @@ ${captions ? `/* NARRATION CAPTION \u2014 the text alternative for a deck that s
 .lp-cap-line.lp-read{opacity:.45}
 .lp-cap-line.lp-up{opacity:.55}
 .lp-cap-line.lp-now{color:var(--text-heading,#111);opacity:1}
-/* Only COLOUR changes as a word is spoken \u2014 never weight or size, which would reflow the
+/* Only COLOR changes as a word is spoken \u2014 never weight or size, which would reflow the
    line mid-sentence and make the crawl jitter under the reader. */
 .lp-cap-w{transition:color .18s}
 .lp-cap-w.lp-said{color:var(--accent,#4338ca)}

@@ -110,11 +110,25 @@ export type NarrationMeasure = {
  *  ones rather than "something went wrong". */
 export class BakeIncompleteError extends Error {
 	readonly failures: { slide: number; text: string; reason: string }[];
-	constructor(failures: { slide: number; text: string; reason: string }[]) {
+	/** The voice/rung/model/speed this refusal was produced UNDER. The panel offers its
+	 *  override only while the current pick still matches: a refusal earned by one moderation
+	 *  block in one voice must not authorize an unbounded partial set in another. */
+	readonly voice?: BakeVoice;
+	/** Set when the run stopped for a systemic reason — a revoked key, no credit, a dead host.
+	 *  NOT overridable: the author cannot consent to "everything after sentence N" from a list
+	 *  that names one failure and a summary row. Fix the account and re-run. */
+	readonly terminal?: string;
+	constructor(failures: { slide: number; text: string; reason: string }[], terminal?: string, voice?: BakeVoice) {
 		const n = failures.length;
-		super(`${n} sentence${n === 1 ? '' : 's'} could not be prepared, so the deck would go silent partway through. Nothing was exported.`);
+		super(
+			terminal
+				? `Narration stopped: ${terminal}. Nothing was exported — fix that and re-run; everything already recorded is kept.`
+				: `${n} sentence${n === 1 ? '' : 's'} could not be prepared, so the deck would go silent partway through. Nothing was exported.`,
+		);
 		this.name = 'BakeIncompleteError';
 		this.failures = failures;
+		this.terminal = terminal;
+		this.voice = voice;
 	}
 }
 
@@ -160,11 +174,30 @@ export const ENGINE_BYTES_PER_CHAR: Record<string, number> = {
 	csm: 422,
 	'zonos-hybrid': 656,
 	'zonos-transformer': 674,
+	// UNCOMPRESSED. Gemini is the one engine that returns WAV, and it is 7.7x the median of
+	// the mp3 roster — which is exactly why omitting it was not a rounding error. It was
+	// missing from this table while being present in the catalog, so `estimateSynthBytes`
+	// fell through to DEFAULT_BYTES_PER_CHAR and quoted ~19 MB for a 300-sentence deck that
+	// lands at ~145 MB. That is the SAME failure as the flat-16 B/char version this table
+	// replaced, one engine narrower, and it beat the test written to prevent it.
+	gemini: 3799,
 };
 
-/** The rate used for a model this catalog has no samples for. The MEDIAN of the measured
- *  engines rather than the mean — one 1246 B/char outlier should not move the answer for an
- *  unknown model, and the median of a roster this small is the least-wrong single guess. */
+/**
+ * The rate for a model this catalog has no samples for.
+ *
+ * The MEDIAN of the measured mp3 engines, not the mean — one 1246 B/char outlier should not
+ * move the answer for an unknown model. Gemini is deliberately EXCLUDED from that median: at
+ * 3799 B/char it is a different codec class, and letting an uncompressed outlier drag the
+ * default would over-quote every unknown mp3 model by several times.
+ *
+ * The residual risk this leaves is honest and worth stating: a NEW uncompressed engine that
+ * OpenRouter adds and this repo has no samples for will be under-quoted by roughly 7x until
+ * someone generates samples for it. That is the gap `gemini` fell into. There is no way to
+ * close it from a table — it needs the response's real byte count, which the pre-flight by
+ * definition does not have — so the mitigation is the test below, which now fails when the
+ * catalog lists an engine this table does not.
+ */
 export const DEFAULT_BYTES_PER_CHAR = 496;
 
 /**
@@ -339,8 +372,21 @@ const TERMINAL_SYNTH_ERROR = /\b(401|402|403|404)\b|unauthor|invalid api key|ins
 /** The per-request ceiling. Longer than playback's 20 s: nobody is waiting on this sentence
  *  to be spoken in a room, and a timeout here costs a whole retry. */
 const BAKE_TIMEOUT_MS = 45000;
-/** Rough seconds per sentence, for the pre-flight's time estimate. Measured against the
- *  default hosted-Kokoro model on a typical sentence; a coarse figure the panel rounds. */
+/**
+ * Rough seconds per sentence for the pre-flight's time line — an ESTIMATE, not a measurement,
+ * and the word matters here.
+ *
+ * The byte table eight lines up exists because a single constant labeled "measured" was wrong
+ * across a roster that spans 4.5x. This number is one constant across the same roster, and it
+ * is NOT measured: it is a round figure from watching the default hosted-Kokoro model, with no
+ * term for retry backoff or a 429. A slower engine on a bad link will overrun it, so the panel
+ * rounds it and says "about".
+ *
+ * It is left as an estimate rather than promoted to a table because the two numbers are not
+ * equally load-bearing: the size line is what an author consents to before emailing a file to
+ * a board, while the time line only sets expectations for a run they can cancel. If that stops
+ * being true — if anything gates on the duration — this needs the same treatment the bytes got.
+ */
 const SECONDS_PER_SENTENCE = 1.6;
 
 /**
@@ -599,10 +645,25 @@ export async function bakeNarration(
 	// recipient's browser lands in, which no producer-side refusal can prevent anyway. What
 	// makes it acceptable here and not as a default is that the author is standing right there,
 	// has been shown which sentences and why, and chose.
-	if (failures.length && !allowPartial) throw new BakeIncompleteError(failures);
+	//
+	// A TERMINAL failure is NOT overridable, and that boundary is the whole point of the
+	// override. `allowPartial` is justified by a sentence a model deterministically refuses —
+	// one specific line, refused every time, blocking a deck forever. A revoked key, an
+	// exhausted balance or a dead host is a different animal: it stops the run wherever it
+	// happens to be, so the "partial" set it authorizes is not a handful of moderation blocks
+	// but everything after sentence N. Observed: a 402 on sentence 3 of 8 shipped SIX silent
+	// sentences behind a button captioned "ship them captioned and silent", and on a 300-slide
+	// deck it would ship a deck that speaks twice and then stops. The author cannot consent to
+	// that from the refusal list, because the list names one real failure and one summary row.
+	// The cure for a terminal error is to fix the account, and the refusal says so.
+	if (failures.length && (terminal || !allowPartial)) throw new BakeIncompleteError(failures, terminal || undefined, voice);
 
 	report('assembling');
-	return { slides, voice, covered: total - failures.length, total, bytes, synthesized, failures };
+	// `done` — the cues that actually HAVE audio — not `total - failures.length`. A terminal
+	// error pushes ONE summary row standing for N unreached sentences, so subtracting rows
+	// counted six silent sentences as covered: the field documented as "sentences shipped"
+	// reported the inverse of the truth on the one path where it mattered.
+	return { slides, voice, covered: done, total, bytes, synthesized, failures };
 }
 
 /** An abortable pause. Resolves early on abort so the worker's own guard decides what to do,
