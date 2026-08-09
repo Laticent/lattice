@@ -2142,8 +2142,30 @@ var swipeAction=${swipeAction2.toString()};`;
   const narView = beats ? "\n if(onViewChanged)onViewChanged(v);" : "";
   let js = `(function(){
 ${kernel}
-${narDecl}var root=document.documentElement,app=document.getElementById('lp-app');
+${narDecl}var root=document.documentElement,app=document.querySelector('body > #lp-app');
 if(!app)return;
+// ---- resolving the player's OWN chrome ---------------------------------------------
+// THE DOCUMENT BODY IS DECK CONTENT. The engine renders authored HTML and \`id\` survives
+// sanitization, so a slide can carry an element with any id it likes \u2014 including these. A
+// bare getElementById then hands the transport whichever one comes first in tree order, and
+// every chrome node below is emitted AFTER the slides, so the deck's element wins.
+//
+// Observed on a real exported artifact: a slide containing an element with id="lp-next" left
+// the shipped player's Next button with no handler at all. Keyboard nav still worked, so the
+// deck looked fine until someone clicked the control.
+//
+// Every real chrome node sits on a known DIRECT-CHILD chain from #lp-bar or #lp-app, while
+// authored content is always at least two levels down inside #lp-stage \u2014 a slide is a
+// descendant of #lp-stage, which is itself the direct child of #lp-app. So the child
+// combinator is a boundary a deck structurally cannot reach across, and the first match in
+// document order is always the real one. (The transport bar's two narration controls were
+// already scoped this way; every other lookup was not \u2014 #1462 item 3.)
+//
+// Article and TOC content is DERIVED from the deck, so it can carry forged ids too \u2014 which is
+// why #lp-article and #lp-toc are resolved through #lp-doc rather than by id, and why the
+// two collection queries below are rooted at the resolved element, never at \`document\`.
+var CHROME={'lp-stage':'#lp-app > #lp-stage','lp-nav':'#lp-app > #lp-nav','lp-prev':'#lp-app > #lp-nav > #lp-prev','lp-next':'#lp-app > #lp-nav > #lp-next','lp-read-nav':'#lp-app > #lp-read-nav','lp-top':'#lp-app > #lp-read-nav > #lp-top','lp-bottom':'#lp-app > #lp-read-nav > #lp-bottom','lp-notes':'#lp-app > #lp-notes','lp-notes-body':'#lp-app > #lp-notes > #lp-notes-body','lp-doc':'#lp-app > #lp-doc','lp-toc':'#lp-app > #lp-doc > #lp-toc','lp-article':'#lp-app > #lp-doc > #lp-article','lp-count':'#lp-bar > #lp-count','lp-count-sr':'#lp-bar > #lp-count-sr','lp-notes-btn':'#lp-bar > #lp-notes-btn','lp-full':'#lp-bar > #lp-full','lp-mode':'#lp-bar > #lp-mode'};
+function lpEl(id){return document.querySelector(CHROME[id]);}
 // Progressive enhancement: mark JS active so the present/read CSS (which hides every
 // slide until one is .lp-active) only engages when this script actually runs. If it is
 // blocked (a strict CSP on some browsers), disabled, or throws, .lp-js is never left
@@ -2156,8 +2178,8 @@ var slides=[].slice.call(document.querySelectorAll('section[data-lattice-slide]'
 // it's a transparent no-op box) while the SECTION itself keeps the transform-scale. This
 // keeps the fixed-canvas cqi/cqh layout intact in every view \u2014 see playerCss.
 var frames=[].slice.call(document.querySelectorAll('.lp-frame'));
-var count=document.getElementById('lp-count'),countSr=document.getElementById('lp-count-sr'),view='present';
-var prevBtn=document.getElementById('lp-prev'),nextBtn=document.getElementById('lp-next');
+var count=lpEl('lp-count'),countSr=lpEl('lp-count-sr'),view='present';
+var prevBtn=lpEl('lp-prev'),nextBtn=lpEl('lp-next');
 var t=createTransport({count:slides.length,onShow:render});
 if(prevBtn)prevBtn.onclick=function(){t.prev();};
 if(nextBtn)nextBtn.onclick=function(){t.next();};
@@ -2170,7 +2192,7 @@ if(nextBtn)nextBtn.onclick=function(){t.next();};
 // place-items:center can actually center); a fixed 720px frame overflowed a short
 // stage and grid top-aligned it, pushing the slide down.
 function fit(){if(view!=='present')return;
- var st=document.getElementById('lp-stage');if(!st)return;
+ var st=lpEl('lp-stage');if(!st)return;
  root.style.setProperty('--lp-fit-present',fitScale({stageW:st.clientWidth,stageH:st.clientHeight,slideW:1280,slideH:720,insetX:40,insetY:40}));}
 // READ\xB7SLIDES fit: size each slide to the SAME footprint Present uses \u2014 fitScale over the
 // visible stage box with the same 40px inset \u2014 so the first slide is IDENTICAL between the
@@ -2178,7 +2200,7 @@ function fit(){if(view!=='present')return;
 // PEEKING below (the scroll hint). Was: fill-the-width (clientWidth-32)/1280, which ran the
 // slide edge-to-edge and clipped its bottom on a wide/tall viewport. The CSS default (.28)
 // still covers the first paint + the no-JS floor.
-function fitRead(){var st=document.getElementById('lp-stage');if(!st)return;
+function fitRead(){var st=lpEl('lp-stage');if(!st)return;
  // Fit into ~86% of the visible stage HEIGHT (with a 40px side inset) \u2014 nearly Present-sized,
  // but the reserved ~14% guarantees the NEXT slide peeks below the fold on every viewport,
  // not just sits at the exact edge. Width stays the constraint on a narrow/portrait screen.
@@ -2200,7 +2222,7 @@ function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle(
  if(nextBtn)nextBtn.disabled=i===slides.length-1;
  fit();syncNotes();${narShown}}
 function setView(v){view=v;app.setAttribute('data-lp-view',v);
- [].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lp-btn')===v);});
+ [].forEach.call(document.querySelectorAll('#lp-bar > .lp-seg > [data-lp-btn]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-lp-btn')===v);});
  // Both present and read-slides scale the section via a view-scoped CSS transform
  // (var(--lp-fit-present) / var(--lp-fit)), so switching views just re-applies the
  // right rule \u2014 no inline transform to clear.
@@ -2218,23 +2240,23 @@ addEventListener('resize',onResize);addEventListener('orientationchange',onResiz
 if(window.visualViewport){try{visualViewport.addEventListener('resize',onResize)}catch(e){}}
 // Touch/swipe on the present stage \u2014 a decisive horizontal drag turns the slide
 // (the shared swipeAction; a vertical/short move is ignored so it never fights scroll).
-var stage=document.getElementById('lp-stage'),sx=0,sy=0,sw=false;
+var stage=lpEl('lp-stage'),sx=0,sy=0,sw=false;
 if(stage){stage.addEventListener('pointerdown',function(e){if(view!=='present')return;sx=e.clientX;sy=e.clientY;sw=true;},{passive:true});
  stage.addEventListener('pointerup',function(e){if(!sw||view!=='present')return;sw=false;
   var a=swipeAction({dx:e.clientX-sx,dy:e.clientY-sy});if(a)t[a]();},{passive:true});}
 // READ\xB7SLIDES Home/End \u2014 an AUTO-REVEALING scroll control. Smooth-scroll to the first /
 // last slide (instant under prefers-reduced-motion; older engines jump, still correct).
-var topBtn=document.getElementById('lp-top'),bottomBtn=document.getElementById('lp-bottom');
-var readNav=document.getElementById('lp-read-nav');
+var topBtn=lpEl('lp-top'),bottomBtn=lpEl('lp-bottom');
+var readNav=lpEl('lp-read-nav');
 var reduceMotion=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches);
-function scrollStage(to){var st=document.getElementById('lp-stage');if(!st)return;
+function scrollStage(to){var st=lpEl('lp-stage');if(!st)return;
  try{st.scrollTo({top:to,behavior:reduceMotion?'auto':'smooth'});}catch(e){st.scrollTop=to;}}
 if(topBtn)topBtn.onclick=function(){scrollStage(0);};
-if(bottomBtn)bottomBtn.onclick=function(){var st=document.getElementById('lp-stage');if(st)scrollStage(st.scrollHeight);};
+if(bottomBtn)bottomBtn.onclick=function(){var st=lpEl('lp-stage');if(st)scrollStage(st.scrollHeight);};
 // Directional: a button hides (the hidden attribute) when its edge is already reached.
 // Returns whether ANYTHING is scrollable \u2014 a short deck that fits never shows the control.
 var navIdle=null,navEngaged=false;
-function readNavDir(){var st=document.getElementById('lp-stage');if(!st)return false;
+function readNavDir(){var st=lpEl('lp-stage');if(!st)return false;
  var max=st.scrollHeight-st.clientHeight;var atTop=st.scrollTop<=4,atBottom=st.scrollTop>=max-4;
  if(topBtn){if(atTop)topBtn.setAttribute('hidden','');else topBtn.removeAttribute('hidden');}
  if(bottomBtn){if(atBottom)bottomBtn.setAttribute('hidden','');else bottomBtn.removeAttribute('hidden');}
@@ -2246,7 +2268,7 @@ function revealReadNav(){if(!readNav||view!=='read-slides')return;
  readNav.classList.add('lp-show');
  if(navIdle)clearTimeout(navIdle);if(!navEngaged)navIdle=setTimeout(hideReadNav,1500);}
 if(readNav){
- var rStage=document.getElementById('lp-stage');
+ var rStage=lpEl('lp-stage');
  if(rStage){
   rStage.addEventListener('scroll',revealReadNav,{passive:true});
   // iOS / in-app WebKit coalesces (and during momentum defers) the overflow container's
@@ -2277,7 +2299,7 @@ addEventListener('wheel',function(e){if(view!=='present')return;if(wheelBusy)ret
 // video), so a click there would silently no-op forever, reading as "broken."
 // Feature-detect up front and hide the button entirely when neither the
 // standard nor -webkit- entry point exists, rather than leaving a dead affordance.
-var full=document.getElementById('lp-full');
+var full=lpEl('lp-full');
 var fsEl=document.documentElement;
 var canFullscreen=!!(fsEl.requestFullscreen||fsEl.webkitRequestFullscreen);
 if(full&&!canFullscreen)full.style.display='none';
@@ -2289,7 +2311,7 @@ if(full&&canFullscreen){full.onclick=function(){var d=document,el=d.documentElem
 // aside.lattice-notes per slide (absent when the deck was exported --strip-notes);
 // this slides it up over the stage in present mode, toggled by 'n' or the button.
 // No note copy is created here \u2014 it reads the aside already in the DOM.
-var notesBtn=document.getElementById('lp-notes-btn'),notesPanel=document.getElementById('lp-notes'),notesBody=document.getElementById('lp-notes-body');
+var notesBtn=lpEl('lp-notes-btn'),notesPanel=lpEl('lp-notes'),notesBody=lpEl('lp-notes-body');
 var hasNotes=!!document.querySelector('aside.lattice-notes');
 if(!hasNotes&&notesBtn)notesBtn.style.display='none';
 function syncNotes(){if(!notesBody||!notesPanel||!notesPanel.classList.contains('lp-open'))return;
@@ -2299,7 +2321,7 @@ function toggleNotes(){if(!notesPanel)return;var open=notesPanel.classList.toggl
  if(notesBtn)notesBtn.setAttribute('aria-pressed',open);syncNotes();}
 if(notesBtn)notesBtn.onclick=toggleNotes;
 addEventListener('keydown',function(e){if(view!=='present')return;if(e.key==='n'||e.key==='N'){toggleNotes();e.preventDefault();}});
-[].forEach.call(document.querySelectorAll('[data-lp-btn]'),function(b){b.onclick=function(){setView(b.getAttribute('data-lp-btn'));};});
+[].forEach.call(document.querySelectorAll('#lp-bar > .lp-seg > [data-lp-btn]'),function(b){b.onclick=function(){setView(b.getAttribute('data-lp-btn'));};});
 // Dark/light toggle. Driven by a data-lp-scheme attribute the export's CSS keys on
 // (themeDualMode resolves the theme's light-dark() pairs into a light base + an
 // explicit dark override at export time), NOT by the CSS light-dark() function \u2014
@@ -2308,7 +2330,7 @@ addEventListener('keydown',function(e){if(view!=='present')return;if(e.key==='n'
 // both icons share the same fixed width/height.
 var MOON_ICON='<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 var SUN_ICON='<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
-var mode=document.getElementById('lp-mode');
+var mode=lpEl('lp-mode');
 // Dark/light is driven by the data-lp-scheme ATTRIBUTE on <html>, which the export BAKES
 // to the mode the deck was AUTHORED for (light / dark / system) and the CSS keys on with
 // plain attribute selectors + literal values (themeDualMode; all pre-2016 WebKit). The
@@ -2337,9 +2359,9 @@ applyScheme();
 if(following&&window.matchMedia){try{matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(e){if(following){isDark=e.matches;applyScheme();}});}catch(e){}}
 // A tap commits a concrete choice for this viewer and STOPS live-following.
 if(mode)mode.onclick=function(){following=false;isDark=!isDark;applyScheme();};
-var links=[].slice.call(document.querySelectorAll('#lp-toc a'));
+var tocEl=lpEl('lp-toc');var links=tocEl?[].slice.call(tocEl.querySelectorAll('a')):[];
 if(links.length&&window.IntersectionObserver){
- var toc=document.getElementById('lp-toc');
+ var toc=lpEl('lp-toc');
  // Keep the ACTIVE toc link visible inside the independently-scrolling rail \u2014 called on spy
  // changes AND on resize, so a reflow (window / breakout figure) never strands the highlight
  // off-screen in a long deck's TOC. block:'nearest' scrolls the rail minimally, not the page.
@@ -2349,12 +2371,12 @@ if(links.length&&window.IntersectionObserver){
  var spy=new IntersectionObserver(function(es){es.forEach(function(e){
   if(e.isIntersecting)links.forEach(function(l){l.classList.toggle('lp-on',l.getAttribute('href')==='#'+e.target.id);});});
   keepActiveTocVisible();},
-  {rootMargin:'-48px 0px -70% 0px'});[].forEach.call(document.querySelectorAll('#lp-article [id^=lp-sec-]'),function(h){spy.observe(h);});
+  {rootMargin:'-48px 0px -70% 0px'});var artEl=lpEl('lp-article');if(artEl)[].forEach.call(artEl.querySelectorAll('[id^=lp-sec-]'),function(h){spy.observe(h);});
  // RESIZE SITTER \u2014 a ResizeObserver on the article scroll box re-syncs the TOC as the window,
  // rail, or a breakout figure reflows the layout. (IntersectionObserver already re-fires the
  // active-section spy on reflow; this keeps the rail's highlight in view and is the hook for
  // any resize-driven re-fit.)
- var lpdoc=document.getElementById('lp-doc');
+ var lpdoc=lpEl('lp-doc');
  if(lpdoc&&window.ResizeObserver){var ro=new ResizeObserver(function(){keepActiveTocVisible();});ro.observe(lpdoc);}
 }
 ${beats ? `${narrationJs(beats)}
