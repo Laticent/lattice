@@ -93,18 +93,6 @@ test('@crosswidth the instant shell frames the app it hands off to', async ({ pa
 	// vacuously — assert we caught it up, so the engine hold can't rot silently.
 	expect(shell.topbar?.[3], 'the shell was already dismissed — the engine hold is not working').toBe(54);
 
-	// The shell's own controls, captured while it is still up (it is removed at hand-off).
-	const shellControls = await page.evaluate(() => {
-		const read = (sel: string) =>
-			[...document.querySelectorAll(`#studio-ssr-shell ${sel}`)].map((el) => {
-				const b = el.getBoundingClientRect();
-				return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)];
-			});
-		return {
-			utils: read('.ssr-topbar button[aria-label="Switch mode"], .ssr-topbar button[aria-label="Workspace settings"], .ssr-topbar button[aria-label="Menu"]'),
-			cells: read('.ssr-actionbar button'),
-		};
-	});
 
 	// Now let the app through and measure its own bands. Do NOT `unrouteAll` here: the engine
 	// request is still parked inside the handler above, and tearing the handler down discards
@@ -150,31 +138,11 @@ test('@crosswidth the instant shell frames the app it hands off to', async ({ pa
 		// The phone's eight-cell deck-actions bar — the "middle action bar" of the report.
 		near(shell.actionbar, app.toolbar, 'action bar');
 
-		// THE CONTROLS THEMSELVES, not just the band around them. This is the assertion that
-		// makes "the shell renders the app's own components" a checked fact rather than a
-		// comment: the three utility buttons the report named missing (theme · workspace
-		// settings · menu) and all eight bar cells must sit at the SAME boxes in both surfaces.
-		// A hand-drawn shell cannot pass this without hand-tuning every width, which is the
-		// whole reason it isn't hand-drawn any more.
-		const boxes = await page.evaluate(() => {
-			const read = (root: string, sel: string) =>
-				[...document.querySelectorAll(`${root} ${sel}`)].map((el) => {
-					const b = el.getBoundingClientRect();
-					return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)];
-				});
-			return {
-				// The shell is removed by now, so re-read it from the trace we kept: instead, compare
-				// counts + the app's own boxes against what the shell reported earlier (below).
-				appUtils: read('header', 'button[aria-label="Workspace settings"], button[aria-label="Menu"]'),
-				appCells: read('[role="toolbar"][aria-label="Deck actions"]', 'button'),
-			};
-		});
-		expect(boxes.appCells.length, 'the app grew or lost a bar cell').toBe(8);
-		expect(boxes.appUtils.length, 'the app grew or lost a header utility button').toBe(2);
-		near(shellControls.utils[1], boxes.appUtils[0], 'header · workspace settings');
-		near(shellControls.utils[2], boxes.appUtils[1], 'header · menu');
-		expect(shellControls.cells.length, 'the shell grew or lost a bar cell').toBe(8);
-		for (const [i, cell] of shellControls.cells.entries()) near(cell, boxes.appCells[i], `bar cell ${i}`);
+		// (The per-CONTROL comparison that used to live here is retired: it was a hand-listed
+		// set — the mode toggle, the workspace-settings button, the eight bar cells — and it went
+		// stale the moment one of those labels was corrected. studio-shell-parity.spec.ts now
+		// ENUMERATES every control in both chromes across a width x stop matrix, which catches the
+		// same regressions plus the ones nobody thought to list.)
 	} else {
 		// Tablet/desktop have no action bar; the shell must not paint one, or it would push a
 		// 49px band into a row the app leaves to the editor|preview split.

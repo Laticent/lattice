@@ -1,5 +1,5 @@
 import {
-	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileText, Gauge, Menu as MenuIcon, Moon, Play, Plus, Search, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, Trash2,
+	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileText, Gauge, Menu as MenuIcon, MonitorPlay, Moon, Palette, Play, Plus, Search, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -86,6 +86,26 @@ function DeckPill({ title }: { title: string }) {
 	);
 }
 
+/**
+ * The posture dial, lit at the stop the visitor will actually land on.
+ *
+ * `PostureDial` lights the segment matching its `posture` prop, and the shell used to hardcode
+ * `"write"` — so a visitor at Read saw Write lit and the highlight chip jumped at hand-off.
+ * The stop IS knowable pre-paint (the seed reads it and stamps `data-ssr-stop`), so render one
+ * dial per stop and let CSS pick. The parity spec skips zero-size controls, so the two hidden
+ * dials are invisible to it — and the lit segment is a fill, not a box, which is exactly why
+ * that spec could not have caught this.
+ */
+function StopDial() {
+	return (
+		<>
+			<span className="ssr-dial ssr-dial-read contents"><PostureDial posture="read" quietened={false} revealBuild={false} onChange={NOOP} /></span>
+			<span className="ssr-dial ssr-dial-write contents"><PostureDial posture="write" quietened={false} revealBuild={false} onChange={NOOP} /></span>
+			<span className="ssr-dial ssr-dial-build contents"><PostureDial posture="build" quietened={false} revealBuild={false} onChange={NOOP} /></span>
+		</>
+	);
+}
+
 export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 	return (
 		// The provider is required because BarIcon and PostureDial wrap their controls in
@@ -96,11 +116,14 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 			    Both are rendered and CSS-gated, since the breakpoint hook can't run here. */}
 			<div className="ssr-topbar flex h-[54px] shrink-0 items-center gap-1.5 overflow-hidden border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 min-[1100px]:gap-3 min-[1100px]:px-3.5">
 				{/* FULL-header left: the launcher (mark + chevron). Phone + tablet. */}
-				<span className="contents min-[1100px]:hidden">
-					<span className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 min-[700px]:gap-2 min-[700px]:px-1.5">
+				<span className="ssr-launcher-wrap contents min-[1100px]:hidden">
+					<button type="button" aria-label="Workspace launcher" className="flex shrink-0 items-center gap-1.5 rounded-md px-1 py-1 sm:gap-2 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
-						<ChevronDown className="size-4 text-muted-foreground" />
-					</span>
+						{/* The wordmark rides the launcher only at !compact — the desktop FULL header, which
+							    is what the app renders at Build. */}
+							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
+							<ChevronDown className="size-4 text-muted-foreground" />
+					</button>
 				</span>
 				{/* SLIM-header left: a bare mark. Desktop at Read/Write. */}
 				<span className="hidden min-[1100px]:contents">
@@ -112,37 +135,58 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 
 				{/* PHONE tail: mode · workspace settings · menu. */}
 				<span className="contents min-[700px]:hidden">
-					<Button variant="ghost" size="icon-sm" aria-label="Switch mode"><Moon className="size-[18px] ssr-mode-moon" /><Sun className="size-[18px] ssr-mode-sun" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Workspace settings"><SettingsCog className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
 				{/* TABLET tail: Present · Share · the dial · Coach · Chat · feedback · Settings · mode · Menu. */}
-				<span className="hidden min-[700px]:max-[1099px]:contents">
-					<Button variant="outline" size="sm" className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button>
-					<Button size="sm" className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button>
-					<PostureDial posture="write" quietened={false} revealBuild={false} onChange={NOOP} />
+				<span className="hidden min-[700px]:max-[1100px]:contents">
+					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
+					<StopDial />
 					<Button variant="ghost" size="icon-sm" aria-label="Toggle Coach"><Gauge className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Toggle Chat"><ChatIcon className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Settings"><SlidersHorizontal className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Switch mode"><Moon className="size-[18px] ssr-mode-moon" /><Sun className="size-[18px] ssr-mode-sun" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
 				{/* DESKTOP tail (slim header): ⌘K · Present · Share · rule · dial · feedback.
 				    The ⌘K pill grows its label at Tailwind's `xl`, exactly as the app's does. */}
 				<span className="ssr-desktop-tail hidden min-[1100px]:contents">
-					<span className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
+					<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
-					</span>
+					</button>
 					<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 					<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Separator orientation="vertical" className="h-5" />
-					<PostureDial posture="write" quietened={false} revealBuild={false} onChange={NOOP} />
+					<StopDial />
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
 				</span>
+					{/* DESKTOP at BUILD: the app swaps its slim header for the FULL one, which regains
+					    Theme, the mode toggle and the tours launcher (the panel toggles move into the
+					    52px activity rail instead). Mirrored control-for-control — the parity spec
+					    compares the two SETS, so an omission here fails rather than ships. */}
+					<span className="ssr-build-tail hidden min-[1100px]:contents">
+						<button type="button" aria-label="Search or run a command" className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground sm:flex xl:px-3">
+							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
+							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
+						</button>
+						<span className="flex items-center rounded-md border border-border bg-background p-0.5">
+							<Button variant="ghost" size="icon-sm" aria-label="Theme"><Palette className="size-[18px]" /></Button>
+							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
+						</span>
+						<Separator orientation="vertical" className="h-5" />
+						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="text-[var(--accent)]"><MonitorPlay className="size-[18px]" /></Button>
+						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
+						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
+						<Separator orientation="vertical" className="h-5" />
+						<StopDial />
+						<Button variant="ghost" size="icon-sm" aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button>
+					</span>
 			</div>
 
 			{/* The phone's action bar — below 700 only. */}

@@ -243,11 +243,11 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
    muting the whole layer so it never reads as live. */
 #studio-ssr-shell .ssr-chrome{flex:0 0 auto;opacity:.62;}
 #studio-ssr-shell .ssr-mark-dark{display:none;}
-#studio-ssr-shell .ssr-mode-sun{display:none;}
+#studio-ssr-shell .ssr-mode-to-light{display:none;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-mark-light{display:none;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-mark-dark{display:block;}
-:root[data-mode="dark"] #studio-ssr-shell .ssr-mode-moon{display:none;}
-:root[data-mode="dark"] #studio-ssr-shell .ssr-mode-sun{display:block;}
+:root[data-mode="dark"] #studio-ssr-shell .ssr-mode-to-dark{display:none;}
+:root[data-mode="dark"] #studio-ssr-shell .ssr-mode-to-light{display:inline-flex;}
 #studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);padding-bottom:calc(clamp(12px,3vw,20px) + var(--sh-ftr,0px));container-type:size;}
 /* FALLBACK box (a visitor with no persisted rect): ONE full-bleed box at the deck's
    AUTHOR-CHOSEN aspect (--sb-ratio / numeric --sb-ar, seeded below; the engine's own 16:9
@@ -284,7 +284,7 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 :root[data-ssr-chrome] #studio-ssr-shell .ssr-band{display:flex;}
 /* Tablet + desktop: the editor column left of the split. Hidden on the phone (one swappable
    pane) and at the Read stop (the editor track collapses to 0). */
-#studio-ssr-shell .ssr-editpane{left:0;top:var(--sh-pane-t,54px);width:var(--sh-pane-l,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
+#studio-ssr-shell .ssr-editpane{left:var(--sh-rail,0px);top:var(--sh-pane-t,54px);width:calc(var(--sh-pane-l,0px) - var(--sh-rail,0px));bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
 :root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
 /* The preview pane's own sub-bar. Absent at Read, where the app renders the preview
    chromeless — so --sh-hdr is 0 and the band is dropped. */
@@ -309,7 +309,18 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    draws for the FULL one (deck switcher, theme segment, tours, panel toggles). Rather than
    model a third header, drop the slim tail there and keep only what both headers share (the
    mark and the deck pill) — the shell never paints a run the app is about to replace. */
+/* The activity rail — desktop at Build only. */
+#studio-ssr-shell .ssr-activityrail{left:0;top:var(--sh-pane-t,54px);width:var(--sh-rail,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
+:root:not([data-ssr-stop="build"]) #studio-ssr-shell .ssr-activityrail,:root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-activityrail,:root[data-ssr-read] #studio-ssr-shell .ssr-activityrail{display:none;}
+/* At Build the app swaps the SLIM header for the FULL one: the launcher regains its wordmark
+   and the tail regains Theme, the mode toggle and the tours launcher. Two tails, one shown. */
 :root[data-ssr-stop="build"] #studio-ssr-shell .ssr-desktop-tail{display:none;}
+:root:not([data-ssr-stop="build"]) #studio-ssr-shell .ssr-build-tail{display:none;}
+/* The dial lights the stop the visitor lands on — one dial per stop, CSS picks. Hardcoding
+   Write meant a Read visitor watched the highlight chip jump at hand-off. */
+#studio-ssr-shell .ssr-dial{display:none;}
+:root[data-ssr-stop="read"] #studio-ssr-shell .ssr-dial-read,:root[data-ssr-stop="write"] #studio-ssr-shell .ssr-dial-write,:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-dial-build{display:contents;}
+@media (min-width:1100px){:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}}
 /* READ on a wide viewport shows the deck title as plain text, not the bordered switcher. */
 :root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill{border-color:transparent;background:none;}
 :root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill > svg{display:none;}`;
@@ -493,9 +504,13 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// here would paint a narrower skeleton than the box the hydrated app
 						// measures, and the hand-off would show as a jump.
 						var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
+						// The Build stop on a wide viewport puts a fixed activity rail down the left,
+						// OUTSIDE the split — so the editor|preview ratio divides what is left of the
+						// viewport, not the viewport.
+						var railW = (!bpMobile && !chromeless && posture === 'build') ? C.railBuildDesktop : 0;
 						var paneX, paneW;
-						if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
-						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, bpMobile: bpMobile, chromeless: chromeless, pad: pad, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
+						if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = (vw2 - railW) * frac; paneX = vw2 - paneW; }
+						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, railW: railW, bpMobile: bpMobile, chromeless: chromeless, pad: pad, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
 						// Publishing is a function because the REPLAY seed below can widen the pane to
 						// contain a replayed box (see there) and must re-publish the corrected values.
 						G.publish = function () {
@@ -508,6 +523,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							r.style.setProperty('--sh-hdr', G.headerH + 'px');
 							r.style.setProperty('--sh-ftr', G.footerH + 'px');
 							r.style.setProperty('--sh-status', C.statusH + 'px');
+							r.style.setProperty('--sh-rail', G.railW + 'px');
 							r.setAttribute('data-ssr-bp', G.bpMobile ? 'mobile' : 'wide');
 							if (G.chromeless) r.setAttribute('data-ssr-read', '1');
 							r.setAttribute('data-ssr-stop', G.posture);
@@ -614,6 +630,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			<script is:inline>(function(){var t=document.getElementById("ssr-deck-title"),v=document.documentElement.getAttribute("data-ssr-title");if(t&&v)t.textContent=v;})();</script>
 			{/* The pane bands — positioned at the rect the CHROME SEED resolved, and dropped
 			    entirely if that seed didn't run. See SHELL_BANDS_CSS. */}
+			<div class="ssr-band ssr-activityrail"></div>
 			<div class="ssr-band ssr-editpane"><StudioEditorPaneSkeleton /></div>
 			<div class="ssr-band ssr-panehdr"><StudioPreviewBarSkeleton /></div>
 			<div class="ssr-band ssr-paneftr"><StudioPreviewFooterSkeleton /></div>

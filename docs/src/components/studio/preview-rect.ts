@@ -54,6 +54,12 @@ export const PREVIEW_CHROME = {
 	// is derived (`footerWrite - statusH`) so the total stays the one source of truth.
 	// Measured 2026-08-09 at 393x651: navigator 51, status 31.
 	statusH: 31,
+	// Desktop at the BUILD stop only: the left activity rail (`w-[52px]`). It sits OUTSIDE the
+	// editor|preview split, so the split divides `vw - railW`, not `vw` — miss it and every band
+	// right of it lands ~29px off while the editor band lands 52px off. That was the shape of the
+	// worst divergence the adversarial trio found (#1444), and it existed because the shell
+	// modelled Build as "Write minus the slim header tail".
+	railBuildDesktop: 52,
 	// (`cap: 760` — the old comfort width cap — is RETIRED. The app no longer caps the
 	//  preview box at all: the splitter grows and shrinks the slide continuously and the
 	//  letterbox math bounds it (#1283). Keeping the constant here would have re-created
