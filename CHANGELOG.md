@@ -60,6 +60,41 @@ in patch versions.
   the repository**, and `ENGINE_BYTES_PER_CHAR` was re-measured from them (gemini 3799 → 645
   B/char) so the quote and the file still come from one reading.
 
+- **The voice you rehearsed with is now a narrator you can actually pick.** The on-device voice
+  was reachable in the webpage export only when no cloud voice was connected — so an author who
+  had a key *and* had rehearsed the whole deck on their own machine was measured against the
+  cloud voice, quoted for 100% of a deck already sitting on their disk, and told by the panel
+  that they could "pick the voice you rehearsed in, to pay nothing". They could not: the pickers
+  offered the cloud catalog only. Share → Webpage now offers **This device** and **Cloud voice**
+  as an explicit choice whenever both exist, defaulting to cloud so a deck still ships sounding
+  like the rehearsal. The on-device voice can also record what is missing now, not just ship
+  what it already had — free, with no key and no request — which the compression change above is
+  what made reasonable. It still refuses rather than silently pulling an 80 MB model: if the
+  on-device voice is not loaded, the export says so and tells you where to summon it.
+
+- **The export panel no longer states things it has not measured.** At rest it claimed part of
+  the deck "has not been rehearsed yet" — a statement about a count nobody had taken, and false
+  for the author reading it — and flipping the unrelated Captions switch started the measurement
+  and silently reversed it. A measurement taken without a full read of the deck is now shown as
+  a floor rather than a size, instead of being presented as a price.
+
+- **Narrated exports have a size ceiling, and the quote can no longer be exceeded by the bake.**
+  Nothing capped the payload anywhere, and the browser holds it five or six times over while
+  assembling (23.4 MB of clips measured at 260 MB of memory before the tab's own copies), so a
+  large deck did not fail politely — it took the tab with it. The bake now refuses past a
+  ceiling and says what to do about it, and the panel warns when a file passes the ~25 MB most
+  mail servers accept. Separately, a long bake could evict the very clips its own quote counted
+  as free — every synthesized clip triggers a cache trim — and then re-synthesize and re-bill
+  them, billing *more* than quoted. A bake now protects its own deck's audio from its own
+  writes.
+
+- **A shared deck's manifest says what narrated it, in terms that will still make sense later.**
+  The `readAlong` section carried neither a `version` (the field whose whole purpose is to let a
+  future player migrate an old file rather than treat "missing" as a legacy dialect forever) nor
+  an `audioMode` (so nothing could say whether a file speaks on its own or needs a key), while
+  carrying `rung` — the name of an internal Studio code path — in a document format that goes
+  out to boards. It now carries `version`, `audioMode`, and `engine: "on-device" | "cloud"`.
+
 - **Fixed: a slide could disable the exported player's own buttons just by naming an element.**
   The document body of a shared webpage export *is* deck content, `id` survives sanitization,
   and the player's chrome is emitted after the slides — so a deck containing an element with

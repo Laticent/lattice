@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // WHY THIS FILE EXISTS.
@@ -22,6 +22,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const listTtsCatalog = vi.fn();
 const defaultBakeVoice = vi.fn();
 const voiceAvailability = vi.fn();
+const onDeviceBakeVoice = vi.fn();
 
 vi.mock('./read-aloud', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./read-aloud')>()),
@@ -29,7 +30,7 @@ vi.mock('./read-aloud', async (importOriginal) => ({
 	listTtsModels: async () => (await listTtsCatalog()).models,
 	defaultBakeVoice: () => defaultBakeVoice(),
 	voiceAvailability: () => voiceAvailability(),
-	onDeviceBakeVoice: async () => null,
+	onDeviceBakeVoice: () => onDeviceBakeVoice(),
 	previewTtsVoice: async () => ({ ok: true }),
 }));
 
@@ -41,10 +42,16 @@ vi.mock('./narration-bake', async (importOriginal) => ({
 	// `missingBytes` and invented `onDeviceCached`, so the panel these tests render actually
 	// said "Adds to the file about NaN" — and nothing failed, because no assertion looked at the
 	// bill. A fixture that does not typecheck as the real thing is a test of a different panel.
-	measureNarration: async () => ({
+	// `missingBytes` is DERIVED, not typed in. The literal here was 95_400 — which is
+	// missingChars * the engine rate, i.e. the RAW audio bytes, skipping the base64 step that
+	// `shippedBytes` applies. The real figure is 127_223, so the fixture was 25% low on the one
+	// number this module's own comment calls load-bearing, and every assertion above it passed
+	// (#1462 item 7). Computing it through the real function means it cannot drift again.
+	measureNarration: async (_s: string, _p: unknown, voice: { model: string }) => ({
 		total: 4, cached: 0, cachedBytes: 0, missing: 4, missingChars: 200, totalChars: 200,
-		missingBytes: 95_400, estCostUsd: null, estSeconds: 3,
-		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, complete: true,
+		missingBytes: (await importOriginal<typeof import('./narration-bake')>()).estimateSynthBytes(200, voice?.model),
+		estCostUsd: null, estSeconds: 3,
+		voice: voice ?? { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, complete: true,
 	}),
 }));
 
@@ -57,6 +64,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	defaultBakeVoice.mockResolvedValue(VOICE);
 	voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
+	onDeviceBakeVoice.mockResolvedValue(null);
 });
 
 const panel = () =>
@@ -143,5 +151,77 @@ describe('the bill, which no assertion here used to look at', () => {
 		expect(bill).not.toMatch(/NaN/);
 		expect(bill).toMatch(/cost unknown until the catalog is reachable/i);
 		expect(bill).not.toMatch(/this model publishes no price/i);
+	});
+});
+
+// #1462 item 2. The on-device rung was reachable ONLY through `cloudReady === false`, so an
+// author who HAD a key and had rehearsed the whole deck on-device was measured against the
+// cloud voice, quoted for 100% of a deck already on their disk, and told by this panel that
+// they could "pick the voice you rehearsed in, to pay nothing". They could not: the pickers
+// were fed the OpenRouter catalog only. The panel gave advice the panel made impossible, and
+// the consequence was money.
+describe('choosing the narrator when BOTH a cloud key and an on-device voice exist', () => {
+	const DEVICE = { rung: 'kokoro' as const, model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+
+	beforeEach(() => {
+		listTtsCatalog.mockResolvedValue({ models: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', promptPerM: 0.62, completionPerM: null, voices: ['af_heart'] }], reachable: true });
+		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+	});
+
+	it('offers the on-device narrator even though a cloud voice IS connected', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		panel();
+		const pick = await screen.findByRole('button', { name: /This device/i });
+		expect(pick).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Cloud voice/i })).toBeTruthy();
+	});
+
+	it('defaults to the cloud voice, so a deck still ships sounding like the rehearsal', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		panel();
+		const cloud = await screen.findByRole('button', { name: /Cloud voice/i });
+		expect(cloud.getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('false');
+	});
+
+	it('picking it names the rehearsed voice and promises no bill', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		panel();
+		const btn = await screen.findByRole('button', { name: /This device/i });
+		await act(async () => { btn.click(); });
+		await waitFor(() => expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('true'));
+		const copy = (document.body.textContent ?? '').replace(/\s+/g, ' ');
+		expect(copy, 'the voice actually rehearsed in, not the cloud one').toMatch(/af_sky/);
+		expect(copy).toMatch(/nothing is billed/i);
+	});
+
+	it('does not offer the choice when there is no on-device voice at all', async () => {
+		onDeviceBakeVoice.mockResolvedValue(null);
+		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
+		panel();
+		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByRole('button', { name: /This device/i })).toBeNull();
+	});
+});
+
+describe('the copy at rest', () => {
+	it('never claims the deck is part-rehearsed before anything has been measured', async () => {
+		// `measure` only runs once a switch is on. The old copy asserted at rest that "part of
+		// this deck has not been rehearsed yet" — a statement about a count nobody had taken, and
+		// false for the author it was shown to. Flipping the UNRELATED Captions switch then
+		// started the measurement and silently reversed it.
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: true });
+		voiceAvailability.mockResolvedValue({ rung: 'kokoro', openRouterReady: false, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+		onDeviceBakeVoice.mockResolvedValue({ rung: 'kokoro' as const, model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 });
+		render(
+			<NarrationExportOptions
+				source={'---\ntheme: indaco\n---\n\n# One\n\nA sentence.\n'}
+				project={async () => ['A sentence.']}
+				value={{ captions: false, audio: false, voice: VOICE, allowPartial: false }}
+				onChange={() => {}}
+			/>,
+		);
+		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
+		expect(document.body.textContent ?? '').not.toMatch(/has not been rehearsed yet/i);
 	});
 });

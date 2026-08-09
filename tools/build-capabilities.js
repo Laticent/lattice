@@ -303,7 +303,14 @@ const TODO_TOOL   = (n) => `**TODO: add a one-line header description to tools/$
 function toolHeaderDescription(file) {
   const abs = path.join(TOOLS_DIR, file);
   const lines = fs.readFileSync(abs, 'utf8').split('\n').slice(0, 24);
-  for (let i = 1; i < lines.length; i++) {
+  // FROM LINE 0, not line 1. Starting at 1 skipped the first line of the header, which for a
+  // `//`-comment tool IS the description — so those tools got whatever line happened to be
+  // second, i.e. a mid-sentence continuation of a wrapped paragraph. Two rows shipped that way
+  // ("The claim here |", "Everything it demonstrated was jsdom + a stubbed fetch — code-path-exact,
+  // but by HARD |") and read as truncated garbage in a doc that is supposed to be the index of
+  // what exists (#1462 item 7). A shebang and a bare `/**` are already rejected below: the first
+  // strips to a path starting with `/`, the second to an empty string.
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
       .replace(/^\s*(\/\*\*?|\*\/?|#!?|\/\/)\s?/, '')
       .replace(/\s+$/, '')

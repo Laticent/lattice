@@ -150,11 +150,30 @@ var require_lattice_doc = __commonJS({
       m.title = clampTitle(m.title);
       return m;
     }
+    var READ_ALONG_VERSION = "1.1";
+    function buildReadAlong2(voice, opts = {}) {
+      if (!voice || typeof voice !== "object") return void 0;
+      const rung = String(voice.rung || "openrouter");
+      return {
+        version: READ_ALONG_VERSION,
+        // "embedded" = the clips ride in this file and it plays with no key and no network.
+        // "regenerate" = captions only; a player must synthesize to hear anything.
+        audioMode: opts.hasAudio ? "embedded" : "regenerate",
+        voice: {
+          engine: rung === "kokoro" ? "on-device" : "cloud",
+          model: String(voice.model || ""),
+          voice: String(voice.voice || ""),
+          speed: Number.isFinite(voice.speed) ? voice.speed : 1
+        }
+      };
+    }
     function buildEnvelope2(deck, opts) {
       return serializeEnvelope(buildManifest(deck, opts));
     }
     module.exports = {
       LATTICE_DOC_VERSION,
+      READ_ALONG_VERSION,
+      buildReadAlong: buildReadAlong2,
       ENVELOPE_ID,
       ENVELOPE_MIME,
       MAX_ENVELOPE_BYTES,
@@ -2463,7 +2482,7 @@ async function assemblePlayer(data, caps) {
   const jsHash = await caps.sha256(js);
   const csp = `default-src 'none'; script-src 'sha256-${jsHash}'; style-src 'unsafe-inline'; img-src data:; font-src data:; ${hasAudio ? "media-src data:; " : ""}base-uri 'none'; form-action 'none'`;
   const envelope = (0, import_lattice_doc.buildEnvelope)(
-    { source, title, theme: data.theme, config: data.config, notes: data.notes, glossary: data.glossary, readAlong: data.readAlong },
+    { source, title, theme: data.theme, config: data.config, notes: data.notes, glossary: data.glossary, readAlong: (0, import_lattice_doc.buildReadAlong)(data.readAlong?.voice, { hasAudio }) },
     { now: data.now, build: data.build, playerVersion: data.playerVersion }
   );
   const out = `<!DOCTYPE html>

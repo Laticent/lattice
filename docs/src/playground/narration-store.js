@@ -289,6 +289,44 @@ export async function clipSizes(keys) {
   }
 }
 
+/**
+ * Mark `keys` as just-used, so the LRU walk reaches them LAST.
+ *
+ * WHY A BAKE NEEDS THIS. The export's pre-flight counts a sentence as "already prepared — free
+ * and instant", and the bake then reads it back some minutes later. In between, every clip the
+ * bake SYNTHESIZES goes through `putClip`, which runs `evictToBudget()` on every write — so a
+ * long bake can evict the very clips its own quote counted as cached, and then re-synthesize
+ * and re-bill them. The panel's promise that "anything synthesized is kept, so a second attempt
+ * pays only for what is left" was true only modulo an eviction policy it never mentioned, and
+ * the bake could therefore bill MORE than quoted: the one direction a quote must never move
+ * (#1462 item 4).
+ *
+ * Touching the deck's own clips at the start of a bake makes them the most-recently-used
+ * entries in the store, so the budget is met by dropping OTHER decks' audio first. It is not a
+ * lock — a deck whose own narration exceeds the whole budget still cannot be held, and nothing
+ * here pretends otherwise — but it removes the case where a bake evicts its own quote.
+ *
+ * Touches `meta` only: no audio is read, written or moved.
+ */
+export async function touchClips(keys) {
+  const want = Array.isArray(keys) ? keys.filter(Boolean) : [];
+  if (!want.length || typeof indexedDB === 'undefined') return 0;
+  try {
+    const db = await openDB();
+    const rows = (await read(db, META, (meta) => meta.getAll())) || [];
+    const present = rows.filter((m) => want.includes(m.key));
+    if (!present.length) return 0;
+    await write(db, (_clips, meta) => {
+      // One stamp per row, monotonic within the tab — same reason `putClip` uses nextStamp()
+      // rather than Date.now(): same-millisecond ties make the LRU walk evict in key order.
+      for (const m of present) meta.put({ key: m.key, size: m.size, at: nextStamp() });
+    });
+    return present.length;
+  } catch {
+    return 0;
+  }
+}
+
 /** Drop every stored clip (the Data tab's "clear" action). */
 export async function clearClips() {
   if (typeof indexedDB === 'undefined') return;

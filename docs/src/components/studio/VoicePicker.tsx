@@ -17,8 +17,11 @@ import { countryName, flagSrc, groupVoices, NO_VOICES_HINT, type Voice } from '.
 /** A model-specific voice picker — ALWAYS a curated dropdown, never a field the
  *  user types a voice id into: every model OpenRouter publishes has a real,
  *  live-fetched roster, so there's nothing to type. Picking a voice fires `onPick`
- *  immediately — the caller auto-previews it, so browsing the dropdown is itself
- *  "a way to hear it". When `voices` is empty (a model with no published roster —
+ *  immediately, and WHETHER THAT PREVIEWS IS THE CALLER'S BUSINESS — the Workspace's
+ *  TTS panel auto-previews, so browsing its dropdown is itself "a way to hear it";
+ *  the webpage-export panel does not, which is worth knowing precisely because that
+ *  is the surface where the author is about to pay for the voice they are choosing
+ *  (this comment used to assert the preview unconditionally — #1462 item 7). When `voices` is empty (a model with no published roster —
  *  a theoretical case today, since every live TTS model has one), this renders a
  *  DISABLED, explained field instead of an editable one — guessing a voice id
  *  blind is worse than admitting we don't have one. */

@@ -15,11 +15,20 @@ const banked: string[] = [];
 const script = new Map<string, (number | string)[]>();
 /** Every text a synthesis was attempted for, in order. */
 const attempts: string[] = [];
+/** Every key the bake marked as recently-used, so its own quote cannot be evicted mid-run. */
+const touched: string[] = [];
 /** The error returned for any text with no script entry — so a test can make EVERY sentence
  *  fail the same way, which is what a revoked key or an exhausted balance actually looks like. */
 let defaultError = 'no audio returned';
+/** The "keep narration on this device" workspace switch, as the bake sees it. */
+let narrationCacheOn = true;
 
 const clipOf = (size: number, type = 'audio/mpeg') => ({ size, type, arrayBuffer: async () => new ArrayBuffer(size) });
+
+vi.mock('@/playground/narration-prefs.js', () => ({
+	narrationCacheEnabled: () => narrationCacheOn,
+	narrationBitrate: () => 64,
+}));
 
 vi.mock('@/playground/narration-store.js', () => ({
 	getClip: async (key: string) => {
@@ -31,33 +40,50 @@ vi.mock('@/playground/narration-store.js', () => ({
 		stored.set(key, blob.size);
 	},
 	clipSizes: async (keys: string[]) => new Map(keys.filter((k) => stored.has(k)).map((k) => [k, stored.get(k) as number])),
+	touchClips: async (keys: string[]) => {
+		const hit = keys.filter((k) => stored.has(k));
+		touched.push(...hit);
+		return hit.length;
+	},
 }));
+
+/** The cache-key shape voice-model actually produces, including the rung the caller chose.
+ *  `'kokoro'` is the on-device rung's own `.name`; everything else resolves to the cloud one. */
+const rungKey = (text: string, voice: BakeVoice) => JSON.stringify([voice.rung === 'kokoro' ? 'kokoro' : 'openrouter-tts', voice.model, voice.voice, voice.speed, text]);
 
 vi.mock('./read-aloud', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./read-aloud')>()),
 	// The key builder, standing in for voice-model's — same content-complete JSON shape, so a
 	// test that reconstructs a key by hand fails here exactly as it would in the browser.
-	bakeClipKeys: async (perSlide: string[][], voice: BakeVoice) => perSlide.map((row) => row.map((text) => JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]))),
+	//
+	// IT HONORS `voice.rung`, and it did not used to. The rung name was hardcoded to
+	// 'openrouter-tts' regardless, and no test passed a rung at all — so if the real builder
+	// ever diverged for the on-device tier, every bake test here would still pass while the
+	// browser missed 100% of its cache lookups and re-billed the whole deck (#1462 item 7). A
+	// mock that cannot express the second case cannot fail for it.
+	bakeClipKeys: async (perSlide: string[][], voice: BakeVoice) => perSlide.map((row) => row.map((text) => rungKey(text, voice))),
 	synthBakeClip: async (text: string, voice: BakeVoice) => {
 		attempts.push(text);
-		const key = JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]);
+		const key = rungKey(text, voice);
 		const next = script.get(text)?.shift();
 		if (typeof next === 'number') return { ok: true, bytes: clipOf(next), key };
 		return { ok: false, bytes: null, key, error: typeof next === 'string' ? next : defaultError };
 	},
 }));
 
-const { BakeIncompleteError, DEFAULT_BYTES_PER_CHAR, ENGINE_BYTES_PER_CHAR, bakeNarration, estimateSynthBytes, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes } = await import('./narration-bake');
+const { BakeIncompleteError, DEFAULT_BYTES_PER_CHAR, ENGINE_BYTES_PER_CHAR, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES, bakeNarration, estimateSynthBytes, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes } = await import('./narration-bake');
 
 const VOICE: BakeVoice = { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 };
-const keyFor = (text: string, voice: BakeVoice = VOICE) => JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]);
+const keyFor = (text: string, voice: BakeVoice = VOICE) => rungKey(text, voice);
 
 beforeEach(() => {
 	stored.clear();
 	banked.length = 0;
 	script.clear();
 	attempts.length = 0;
+	touched.length = 0;
 	defaultError = 'no audio returned';
+	narrationCacheOn = true;
 });
 
 // The retry backoff is 600 ms + 2400 ms of REAL sleep per failing sentence, and several tests
@@ -539,5 +565,204 @@ describe('the refusal, under a terminal failure', () => {
 		expect(err).toBeInstanceOf(BakeIncompleteError);
 		expect(err.terminal).toBeUndefined(); // a per-sentence refusal IS overridable
 		expect(err.voice).toEqual(VOICE);
+	});
+});
+
+describe('the on-device rung is a real bake identity, not an afterthought', () => {
+	// No test passed a `rung` at all before this, which is what let the key mock hardcode
+	// 'openrouter-tts' unnoticed (#1462 item 7). The rung is part of the cache key, so getting it
+	// wrong does not under-report — it misses every lookup and re-bills a deck already prepared.
+	const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+
+	it('keys on-device clips under a DIFFERENT identity than the cloud voice', () => {
+		expect(keyFor(S1, DEVICE)).not.toBe(keyFor(S1, VOICE));
+		expect(keyFor(S1, DEVICE)).toContain('kokoro');
+	});
+
+	it('reads a deck rehearsed on-device as fully prepared, and bills nothing for it', async () => {
+		stored.set(keyFor(S1, DEVICE), 4000);
+		stored.set(keyFor(S2, DEVICE), 4000);
+		const m = await measureNarration(DECK, PROJECTED, DEVICE, 0.62);
+		expect(m.total).toBe(2);
+		expect(m.cached, 'both sentences are already on this device').toBe(2);
+		expect(m.missing).toBe(0);
+		expect(m.missingChars).toBe(0);
+		expect(m.estCostUsd).toBe(0);
+	});
+
+	it('does NOT see those clips when the cloud voice is measured instead', async () => {
+		// The defect this whole area exists to prevent: measuring one identity and baking another
+		// quotes "nothing prepared" for a deck that is in fact complete.
+		stored.set(keyFor(S1, DEVICE), 4000);
+		stored.set(keyFor(S2, DEVICE), 4000);
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.cached).toBe(0);
+		expect(m.missing).toBe(2);
+	});
+
+	it('bakes end to end from the device store with no synthesis attempted', async () => {
+		stored.set(keyFor(S1, DEVICE), 4000);
+		stored.set(keyFor(S2, DEVICE), 4000);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: DEVICE, audio: true });
+		expect(bake.covered).toBe(2);
+		expect(bake.synthesized, 'nothing was synthesized — it was all already there').toBe(0);
+		expect(attempts, 'and nothing was even attempted').toEqual([]);
+		expect(bake.slides.flat().every((c) => c.audio?.startsWith('data:audio/mpeg;base64,'))).toBe(true);
+	});
+});
+
+describe('the payload ceiling (#1462 item 4 — nothing capped this before)', () => {
+	it('refuses a bake whose payload would blow the ceiling, and names the size', async () => {
+		// The failure being guarded is not "a big file" — it is the tab dying. The browser path
+		// holds the payload five or six times over (srcdoc parse, font subset, Blob), so 150 MB
+		// of data URIs is several hundred MB of live memory with no artifact at the end of it.
+		const big = 4000;
+		script.set(S1, [big]);
+		script.set(S2, [big]);
+		await expect(bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, maxBytes: 4000 })).rejects.toMatchObject({ name: 'BakeTooLargeError' });
+	});
+
+	it('stops the run rather than finishing and refusing afterwards', async () => {
+		// Discovering it at the end is exactly too late: the whole payload is already in hand and
+		// every remaining sentence was billed for a file nobody will get.
+		const big = 4000;
+		script.set(S1, [big]);
+		script.set(S2, [big]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, maxBytes: 4000 }).catch(() => {});
+		expect(attempts.length, 'the second sentence should not have been synthesized after the first blew the cap').toBeLessThanOrEqual(2);
+	});
+
+	it('is not an incomplete-set refusal — there is no list of sentences to override', async () => {
+		const big = 4000;
+		script.set(S1, [big]);
+		script.set(S2, [big]);
+		const err = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, allowPartial: true, maxBytes: 4000 }).catch((e) => e);
+		// `allowPartial` must NOT get past this one: shipping half a deck does not make it fit.
+		expect(err.name).toBe('BakeTooLargeError');
+		expect(err.bytes).toBeGreaterThan(4000);
+	});
+
+	it('sets the two thresholds where they were reasoned to be, in the right order', () => {
+		// WARN is the mail-attachment ceiling an author actually collides with; MAX is a
+		// tab-survival backstop far above anything compression now produces (~22 MB for 300
+		// sentences). Pinned so a later edit cannot quietly turn the backstop into an opinion.
+		expect(PAYLOAD_WARN_BYTES).toBe(25 * 1024 * 1024);
+		expect(PAYLOAD_MAX_BYTES).toBeGreaterThan(PAYLOAD_WARN_BYTES * 4);
+	});
+
+	it('lets an ordinary deck through untouched', async () => {
+		script.set(S1, [4000]);
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(bake.covered).toBe(2);
+		expect(bake.bytes).toBeLessThan(PAYLOAD_WARN_BYTES);
+	});
+});
+
+describe('a bake cannot evict the clips its own quote counted', () => {
+	it('marks the deck\'s cached clips as recently-used before it starts writing', async () => {
+		// `putClip` runs evictToBudget() on EVERY write, so a long bake could drop the very clips
+		// the pre-flight counted as "free and instant" and then re-synthesize and re-bill them —
+		// billing MORE than quoted, the one direction a quote must never move.
+		stored.set(keyFor(S1), 4000);
+		script.set(S2, [4000]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(touched, 'the already-prepared sentence was protected from this run').toContain(keyFor(S1));
+	});
+});
+
+describe('a repeated sentence: quoted per occurrence, billed once', () => {
+	it('over-quotes rather than under-quotes when a deck repeats a line', async () => {
+		// `measureNarration` counts every OCCURRENCE; the bake dedupes by key and synthesizes each
+		// distinct sentence once (the `twins` list). So a deck with a refrain is quoted high and
+		// billed low. That is the safe direction — the bill never exceeds the quote — but it was
+		// unpinned, and a "fix" that made the quote match the bake by counting distinct sentences
+		// would silently move the error to the unsafe side if the dedup ever changed (#1462 item 7).
+		const REFRAIN = 'We hold the line.';
+		const deck = ['---', 'theme: indaco', '---', '', '# One', '', REFRAIN, '', '---', '', '# Two', '', REFRAIN, ''].join('\n');
+		const projected = [REFRAIN, REFRAIN];
+
+		const m = await measureNarration(deck, projected, VOICE, 0.62);
+		expect(m.total, 'both occurrences are counted').toBe(2);
+		expect(m.missingChars, 'and both are quoted for').toBe(REFRAIN.length * 2);
+
+		script.set(REFRAIN, [4000]);
+		const bake = await bakeNarration(deck, projected, { voice: VOICE, audio: true });
+		expect(attempts, 'but only ONE request is ever made').toEqual([REFRAIN]);
+		expect(bake.covered, 'while both cues still get audio').toBe(2);
+		expect(bake.slides.flat().every((c) => c.audio)).toBe(true);
+	});
+});
+
+describe('the measurement fields nothing used to assert (#1462 item 7)', () => {
+	// A checker's mutation run found these survive changes that should have gone red: swapping
+	// `missingChars`→`totalChars`, swapping model→voice, and zeroing `totalChars` all stayed
+	// green, because no test looked at the two fields the panel quotes SIZE from.
+	it('counts totalChars over the whole deck and missingChars over only what is unprepared', async () => {
+		const all = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(all.totalChars).toBe(S1.length + S2.length);
+		expect(all.missingChars, 'nothing cached yet, so every character is billable').toBe(all.totalChars);
+
+		stored.set(keyFor(S1), 4000);
+		const half = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(half.totalChars, 'the caption track still ships every character').toBe(S1.length + S2.length);
+		expect(half.missingChars, 'but only the unprepared sentence is billed').toBe(S2.length);
+		expect(half.totalChars).not.toBe(half.missingChars); // the swap the mutation exposed
+	});
+
+	it('derives missingBytes from missingChars AND the model, not from either alone', async () => {
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.missingBytes).toBe(estimateSynthBytes(m.missingChars, VOICE.model));
+		// Model-sensitive: the mutation that swapped model→voice survived because nothing checked
+		// that the ENGINE moved the number.
+		const pricey = await measureNarration(DECK, PROJECTED, { ...VOICE, model: 'microsoft/mai-voice-2' }, 0.62);
+		expect(pricey.missingBytes).toBeGreaterThan(m.missingBytes * 2);
+	});
+
+	it('reports zero billable bytes — not zero total characters — for a fully prepared deck', async () => {
+		stored.set(keyFor(S1), 4000);
+		stored.set(keyFor(S2), 4000);
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.missingBytes).toBe(0);
+		expect(m.missingChars).toBe(0);
+		expect(m.totalChars, 'the deck still has words in it').toBeGreaterThan(0);
+		expect(m.cachedBytes, 'and the file still gains what those clips weigh').toBeGreaterThan(0);
+	});
+
+	it('marks a measurement taken with NO projection as a floor, not a figure', async () => {
+		// `complete: false` is what tells the panel not to present the counts as a price.
+		const floor = await measureNarration(DECK, undefined, VOICE, 0.62);
+		expect(floor.complete).toBe(false);
+		expect((await measureNarration(DECK, PROJECTED, VOICE, 0.62)).complete).toBe(true);
+	});
+});
+
+describe('the "keep narration on this device" switch is honored by the export too', () => {
+	// Its comment says this path "would quietly break" the promise if the guard were dropped —
+	// and deleting the guard left the whole docs suite green (#1462 item 7). The switch is a
+	// promise ("narration is no longer kept between sessions"); an export that wrote anyway
+	// would be the one path that broke it silently.
+	it('does not BANK a synthesized clip when the author turned the cache off', async () => {
+		narrationCacheOn = false;
+		script.set(S1, [4000]);
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(bake.covered, 'the export still succeeds — it just keeps nothing').toBe(2);
+		expect(banked, 'nothing was written to the device store').toEqual([]);
+	});
+
+	it('does not READ from the store either, so the quote matches what it will actually do', async () => {
+		narrationCacheOn = false;
+		stored.set(keyFor(S1), 4000);
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.cached, 'a clip it will not read must not be quoted as free').toBe(0);
+		expect(m.missing).toBe(2);
+	});
+
+	it('banks normally when the switch is on', async () => {
+		script.set(S1, [4000]);
+		script.set(S2, [4000]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(banked.sort()).toEqual([keyFor(S1), keyFor(S2)].sort());
 	});
 });

@@ -32,7 +32,7 @@ import { buildTrack, interCueGapMs } from '@/lib/cadenza';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { compressClip } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
-import { clipSizes, getClip, putClip } from '@/playground/narration-store.js';
+import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
@@ -106,6 +106,44 @@ export type NarrationMeasure = {
 	 *  then a floor rather than a figure, and must not be shown as a size. See `resolveDeck`. */
 	complete: boolean;
 };
+
+/**
+ * The size a shipped deck should not quietly sail past, and the size it must not exceed at all.
+ *
+ * NOTHING CAPPED THIS BEFORE — not the panel, not the bake (#1462 item 4). That mattered more
+ * than the file size alone suggests, because the browser path holds the payload SEVERAL TIMES
+ * OVER: measured on the Node assembler alone, 300 sentences x 60 KB clips is a 23.4 MB payload
+ * and 260 MB of RSS, and in the tab `player-prune-browser.ts` then assigns the whole document
+ * to `iframe.srcdoc` and parses a second full DOM with every data URI in it, font-subsets, and
+ * makes a Blob for the download — five or six live copies. A deck large enough to be worth
+ * refusing does not fail politely; it takes the tab with it.
+ *
+ * WARN is 25 MB because that is the number an author actually collides with: it is the common
+ * mail-server attachment ceiling, so a file above it is one they cannot send the way they were
+ * probably about to. It is not a refusal — sharing a link is a perfectly good answer.
+ *
+ * MAX is deliberately far above any deck compression now produces (a 300-sentence deck lands
+ * near 22 MB), so it catches the pathological case and nothing else. It is a backstop against
+ * a tab dying mid-export with no artifact and no explanation, not an opinion about size.
+ */
+export const PAYLOAD_WARN_BYTES = 25 * 1024 * 1024;
+export const PAYLOAD_MAX_BYTES = 150 * 1024 * 1024;
+
+/** The refusal for a bake that would produce a file too large to assemble safely. Separate from
+ *  `BakeIncompleteError` because there is nothing to override: no list of sentences would make
+ *  this succeed, and the fix is fewer slides, a smaller quality setting, or captions only. */
+export class BakeTooLargeError extends Error {
+	readonly bytes: number;
+	readonly limit: number;
+	constructor(bytes: number, limit: number) {
+		super(
+			`This deck's narration would add about ${formatBytes(bytes)} to the file, past the ${formatBytes(limit)} ceiling — assembling it would likely run the browser out of memory before it finished. Ship it with captions only, lower Audio quality in the Workspace, or split the deck.`,
+		);
+		this.name = 'BakeTooLargeError';
+		this.bytes = bytes;
+		this.limit = limit;
+	}
+}
 
 /** The refusal. Carries the sentences that could not be prepared, so the panel can say which
  *  ones rather than "something went wrong". */
@@ -477,9 +515,12 @@ export type BakeProgress = { done: number; total: number; synthesized: number; p
 export async function bakeNarration(
 	source: string,
 	projected: readonly string[] | undefined,
-	opts: { voice: BakeVoice; audio: boolean; allowPartial?: boolean; signal?: AbortSignal; onProgress?: (p: BakeProgress) => void },
+	opts: { voice: BakeVoice; audio: boolean; allowPartial?: boolean; signal?: AbortSignal; onProgress?: (p: BakeProgress) => void; maxBytes?: number },
 ): Promise<NarrationBake> {
 	const { voice, audio, allowPartial, signal, onProgress } = opts;
+	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
+	// to reach it. Production never passes it.
+	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
 	const { tracks, perSlide } = resolveDeck(source, projected);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
 
@@ -510,6 +551,13 @@ export async function bakeNarration(
 	}
 
 	const keys = await bakeClipKeys(perSlide, voice);
+	// PROTECT THIS DECK'S OWN CLIPS FROM THIS BAKE. Every clip synthesized below is written
+	// through `putClip`, which runs `evictToBudget()` on every write — so a long bake could
+	// evict the very clips the quote counted as "already prepared", then re-synthesize and
+	// re-bill them. Touching them first makes them the most-recently-used entries, so the
+	// budget is met from other decks' audio instead. Best-effort: a failure here costs at worst
+	// the behavior we already had (#1462 item 4).
+	if (narrationCacheEnabled()) await Promise.resolve(touchClips(keys.flat())).catch(() => 0);
 	// Flatten to one work list. A deck's sentences are wildly uneven per slide, so scheduling
 	// per slide would leave workers idle behind a one-sentence title while a ten-sentence
 	// argument waits its turn.
@@ -536,6 +584,8 @@ export async function bakeNarration(
 	const failures: { slide: number; text: string; reason: string }[] = [];
 	/** Set by the first worker to hit an error that retrying cannot fix; stops the whole run. */
 	let terminal = '';
+	/** Set when the accumulated payload crosses PAYLOAD_MAX_BYTES — see `attach`. */
+	let tooLarge = false;
 	let done = 0;
 	let synthesized = 0;
 	let bytes = 0;
@@ -559,6 +609,14 @@ export async function bakeNarration(
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;
 			bytes += uri.length;
+		}
+		// Checked AS THE PAYLOAD GROWS, not at the end. The failure this guards is running the
+		// tab out of memory, so discovering it after everything is already in hand is exactly
+		// too late — the assembler is about to make five more copies of what we are holding.
+		// Stopping here also stops the workers, so a doomed export stops spending.
+		if (bytes > maxBytes) {
+			tooLarge = true;
+			stop();
 		}
 	};
 	/** How many CUES a job covers — the unit `done` and the refusal count in, since the author
@@ -659,6 +717,9 @@ export async function bakeNarration(
 	// worker that threw, or a terminal voice error — and reporting either of those as
 	// "canceled" would tell the author they pressed a button they never pressed.
 	if (signal?.aborted) throw new DOMException('Bake canceled', 'AbortError');
+	// Before the incomplete-set refusal: a run stopped for size DID prepare its sentences, so
+	// the failure list is short and misleading. The size is the reason and the only reason.
+	if (tooLarge) throw new BakeTooLargeError(bytes, maxBytes);
 	// The refusal — the DEFAULT, not a wall. Everything synthesized above is already banked, so
 	// a second attempt after fixing the cause (reconnect, top up credit) pays only for what is
 	// still missing.

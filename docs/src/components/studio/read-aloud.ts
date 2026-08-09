@@ -1277,9 +1277,9 @@ const CATALOG_TIMEOUT_MS = 6000;
  * rehearsed on-device their voice's continuity, not the voice itself.
  */
 export type BakeVoice = {
-	/** Which tier the clips live under. `'openrouter'` is the default and the only one that can
-	 *  SYNTHESIZE at export time; `'kokoro'` is admitted read-only, for the author who rehearsed
-	 *  the whole deck on-device and has every clip already — see `onDeviceBakeVoice`. */
+	/** Which tier the clips live under. `'openrouter'` is the default; `'kokoro'` is the
+	 *  on-device rung, and BOTH can synthesize at export time when their rung is ready — the
+	 *  on-device one for free. See `onDeviceBakeVoice` and `synthBakeClip`. */
 	rung?: 'openrouter' | 'kokoro';
 	model: string;
 	voice: string;
@@ -1295,15 +1295,22 @@ export async function defaultBakeVoice(): Promise<BakeVoice> {
 
 /**
  * The identity the ON-DEVICE rung's clips live under — the author's Kokoro voice, as
- * rehearsed. Admitted as a bake source for one specific person: the author who prepared the
- * whole deck on-device and has no cloud key at all.
+ * rehearsed. A first-class narrator for this export, offered whenever the rung is available.
  *
  * The design's answer to "whose voice" assumed a key, and the first build hard-coded the
- * cloud rung, which locked that author out of a deck they had ALREADY fully synthesized —
- * 100% of the bytes on their own disk, 0% of the feature, on the rung that exists precisely
- * so no key is needed. This is READ-ONLY by construction: `synthBakeClip` refuses to
- * synthesize for it, so an on-device bake either finds every clip in the store or refuses.
- * It cannot spend, and it cannot half-succeed.
+ * cloud rung, which locked out the author who had ALREADY fully synthesized a deck — 100% of
+ * the bytes on their own disk, 0% of the feature, on the rung that exists precisely so no key
+ * is needed. That was fixed by admitting this identity READ-ONLY, and only when no cloud key
+ * existed at all.
+ *
+ * Both halves of that narrowing are now gone (#1462 item 2). It is no longer read-only — the
+ * size objection behind the refusal was that this rung returns WAV, and it does not any more
+ * (see `synthBakeClip`). And it is no longer conditional on having NO key: gating it on
+ * `cloudReady === false` meant an author who had a key AND had rehearsed the whole deck
+ * on-device was measured against the cloud voice, quoted for 100% of a deck already sitting on
+ * their disk, and told they could "pick the voice you rehearsed in, to pay nothing" — advice
+ * the panel made impossible to take. Having a key is not a reason to be billed for audio you
+ * already own.
  */
 export async function onDeviceBakeVoice(): Promise<BakeVoice> {
 	const v = await getVoice();
@@ -1336,20 +1343,30 @@ export async function bakeClipKeys(perSlide: string[][], voice: BakeVoice): Prom
  * Synthesize ONE sentence in the chosen bake voice. One attempt — the caller owns the retry
  * policy (see narration-bake.ts). Never throws.
  *
- * CLOUD ONLY, deliberately. An on-device bake is a cache read: the Kokoro rung needs an ~80 MB
- * model resident, is desktop-only, and returns WAV — several times the bytes of the same
- * sentence as mp3, in a file whose size the author is being asked to consent to. So a
- * `rung: 'kokoro'` bake that is missing a sentence REFUSES rather than quietly synthesizing
- * one, and this returns the reason instead.
+ * BOTH RUNGS CAN SYNTHESIZE NOW, and the on-device one is free. This used to be cloud-only,
+ * for two stated reasons, and only one of them survived:
+ *
+ *  · "It returns WAV — several times the bytes of the same sentence as mp3, in a file whose
+ *    size the author is being asked to consent to." No longer true. The on-device rung
+ *    compresses to mp3 before its bytes are cached or baked, at the same bitrate class as the
+ *    cloud roster (docs/src/playground/narration-encode.js, #1462). The size objection that
+ *    justified read-only is gone, and with it the reason to lock a free narrator out of the
+ *    one surface where a free narrator matters most.
+ *
+ *  · "It needs an ~80 MB model resident, and is desktop-only." Still true — and it is a
+ *    PRECONDITION, not a reason to refuse. So the gate is `kokoroReady`: the model is loaded
+ *    right now. An export must never silently trigger an 80 MB download; if the rung is merely
+ *    CACHED rather than loaded, this still refuses and says how to fix it.
  */
 export async function synthBakeClip(text: string, voice: BakeVoice, signal?: AbortSignal, timeoutMs?: number): Promise<{ ok: boolean; bytes: Bytes | null; key: string; error?: string }> {
 	const v = await getVoice();
 	if (!v?.synthFor) return { ok: false, bytes: null, key: '', error: 'voice unavailable' };
-	if ((voice.rung ?? 'openrouter') !== 'openrouter') {
-		return { ok: false, bytes: null, key: '', error: 'not rehearsed on this device in this voice — the on-device voice can only ship what it already prepared' };
+	const rung = voice.rung ?? 'openrouter';
+	if (rung === 'kokoro' && !v.availability?.().kokoroReady) {
+		return { ok: false, bytes: null, key: '', error: 'the on-device voice is not loaded, so it can only ship what it already prepared — summon it in the Workspace, then re-run this export' };
 	}
 	try {
-		return await v.synthFor({ rung: 'openrouter', model: voice.model, voice: voice.voice, speed: voice.speed, text, signal, timeoutMs });
+		return await v.synthFor({ rung, model: voice.model, voice: voice.voice, speed: voice.speed, text, signal, timeoutMs });
 	} catch (e) {
 		return { ok: false, bytes: null, key: '', error: (e as Error)?.message || 'synth failed' };
 	}

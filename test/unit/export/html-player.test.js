@@ -14,7 +14,7 @@ const {
 	prunePlayerFontFaces,
 	normalizeFamily,
 } = require('../../../lib/export/html-player.js');
-const { parseEnvelope } = require('../../../lib/core/lattice-doc.js');
+const { READ_ALONG_VERSION, parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 
 // `minifyCss` moved to the pure player-core (ESM) when the assembler was extracted
 // (2026-07-08-studio-html-player-export.md, P1). Loaded via dynamic import before the
@@ -934,6 +934,8 @@ const NARRATION = [
 ];
 /** The same delivery with no word timings — an export whose captions switch was off. */
 const NARRATION_NO_CAPTIONS = NARRATION.map((cues) => cues.map((c) => ({ ...c, words: [] })));
+/** Captions with no clips — the read-along a player would have to synthesize to hear. */
+const NARRATION_NO_AUDIO = NARRATION.map((cues) => cues.map((c) => ({ ...c, audio: null })));
 
 async function narratedPlayer(extra = {}) {
 	return buildPlayerHtml({ docHtml: NARRATION_DOC, source: '---\ntheme: indaco\n---\n\n# One\n', title: 'Spoken', now: 0, narration: NARRATION, ...extra });
@@ -1123,9 +1125,35 @@ test('narration: the manifest carries the read-along track, and NOT the audio by
 	// could only be reached by parsing the entire manifest to play one sentence. The track
 	// and the voice identity DO belong there — that is what lets the artifact say what
 	// narrated it, and what a re-import would restore.
-	const readAlong = { version: '1', audioMode: 'embedded', voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, slides: [{ index: 0 }] };
-	const { html } = await narratedPlayer({ readAlong });
+	//
+	// The section is SHAPED by the manifest kernel (`buildReadAlong`), not passed through
+	// verbatim: the caller hands over a Studio-internal voice object, and a document format that
+	// goes out to boards must not carry the Studio's own voice-ladder names (#1462 item 1).
+	const { html } = await narratedPlayer({ readAlong: { voice: { rung: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 } } });
 	const manifest = parseEnvelope(html);
-	assert.deepEqual(manifest.readAlong, readAlong);
+	assert.deepEqual(manifest.readAlong, {
+		version: READ_ALONG_VERSION,
+		audioMode: 'embedded',
+		voice: { engine: 'cloud', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
+	});
 	assert.doesNotMatch(JSON.stringify(manifest), /base64/, 'no audio payload inside the envelope');
+});
+
+test('narration: the manifest says WHICH mode it is, and names the engine in its own vocabulary', async () => {
+	// Both fields were simply absent (#1462 item 1). `version` is the field whose entire purpose
+	// is to let a future player migrate an old artifact — without it every reader must treat
+	// "missing" as a legacy dialect forever, and that cost only grows once decks are in other
+	// people's inboxes. `audioMode` is how a reader knows whether the file can speak on its own
+	// or needs a key; it had to go looking for audio blocks to find out.
+	const withAudio = parseEnvelope((await narratedPlayer({ readAlong: { voice: { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 } } })).html);
+	assert.equal(withAudio.readAlong.audioMode, 'embedded', 'this file carries its own audio');
+	assert.equal(withAudio.readAlong.voice.engine, 'on-device', "the document's word, not the Studio's rung name");
+	assert.ok(withAudio.readAlong.version, 'a section version, always');
+	assert.doesNotMatch(JSON.stringify(withAudio.readAlong), /rung|openrouter|kokoro-82m'/, 'no internal ladder identity leaks into the document');
+
+	// Captions with no clips: the deck ships a read-along that a player must synthesize to hear.
+	const captionsOnly = parseEnvelope(
+		(await narratedPlayer({ narration: NARRATION_NO_AUDIO, readAlong: { voice: { rung: 'openrouter', model: 'm', voice: 'v', speed: 1 } } })).html,
+	);
+	assert.equal(captionsOnly.readAlong.audioMode, 'regenerate', 'no audio rode along, and the artifact says so');
 });
