@@ -28,7 +28,7 @@ import { AudioLines, Captions, Loader2, PlugZap } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { formatBytes, formatDuration, formatUsd, type NarrationMeasure } from './narration-bake';
-import { type BakeVoice, defaultBakeVoice, listTtsModels, type OrVoiceModel, onDeviceBakeVoice, voiceAvailability } from './read-aloud';
+import { type BakeVoice, defaultBakeVoice, listTtsModels, type OrVoiceModel, onDeviceBakeVoice, previewTtsVoice, voiceAvailability } from './read-aloud';
 import { TtsModelPicker } from './TtsModelPicker';
 import { resolveVoice, voicesForModel } from './tts-voice-catalog';
 import { VoicePicker } from './VoicePicker';
@@ -77,6 +77,8 @@ export function NarrationExportOptions({
 	// The on-device fallback identity, resolved once. Offered only when the cloud rung is
 	// unavailable AND this device turns out to hold the whole deck already — see `onDeviceOnly`.
 	const [onDevice, setOnDevice] = React.useState<BakeVoice | null>(null);
+	/** The model id currently auditioning, so its row shows a spinner rather than nothing. */
+	const [auditioning, setAuditioning] = React.useState<string | null>(null);
 	const [measure, setMeasure] = React.useState<NarrationMeasure | null>(null);
 	const [measuring, setMeasuring] = React.useState(false);
 	const [measureError, setMeasureError] = React.useState<string | null>(null);
@@ -96,13 +98,23 @@ export function NarrationExportOptions({
 	seedRef.current = { value, onChange };
 	React.useEffect(() => {
 		let live = true;
-		Promise.all([defaultBakeVoice(), listTtsModels(), voiceAvailability(), onDeviceBakeVoice()]).then(([v, m, a, od]) => {
+		// Resolved SEPARATELY, not as one Promise.all. `listTtsModels` is a network fetch to
+		// OpenRouter's public catalog; on a slow or blocked connection it can hang, and joined
+		// into one await it held `cloudReady` at null — which left the audio switch ENABLED with
+		// no key behind it, pointing at a bake that could only fail. Availability is local and
+		// must never wait on the network. Caught by driving the real panel, where it happened.
+		Promise.all([voiceAvailability(), onDeviceBakeVoice()]).then(([a, od]) => {
 			if (!live) return;
-			setModels(m);
 			setCloudReady(a.openRouterReady);
 			if (a.kokoroReady || a.kokoroCached) setOnDevice(od);
+		});
+		defaultBakeVoice().then((v) => {
+			if (!live) return;
 			const { value: current, onChange: emit } = seedRef.current;
 			if (!current.voice.model && !current.voice.voice) emit({ ...current, voice: v });
+		});
+		listTtsModels().then((m) => {
+			if (live) setModels(m);
 		});
 		return () => {
 			live = false;
@@ -209,7 +221,7 @@ export function NarrationExportOptions({
 						<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Narration audio</span>
 						<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
 							{blocked
-								? blockedReason
+								? 'Unavailable while speaker notes are stripped.'
 								: fullyOnDevice
 									? 'This deck is fully rehearsed on this device, so it can ship its voice with no cloud connection at all — nothing is synthesized and nothing is billed.'
 									: cloudReady === false
@@ -234,6 +246,15 @@ export function NarrationExportOptions({
 					{measureError && <p className="text-[11.5px] text-[var(--fail,#b3261e)]">Could not measure this deck: {measureError}. Narration is unavailable for this export.</p>}
 					{nothingToSay && !measuring && <p className="text-[11.5px] text-muted-foreground">This deck has nothing to narrate — add speaker notes or captions, or give its slides some prose.</p>}
 
+					{/* Captions alone still cost something and still have a count — saying so is what
+					    keeps the section from being an empty box under a divider. */}
+					{!value.audio && !!measure?.total && !measuring && (
+						<dl className="space-y-1 rounded-lg bg-[var(--accent-soft)] px-3 py-2.5 text-[11.5px]">
+							<Line term="Ships" detail={`${measure.total} sentence${measure.total === 1 ? '' : 's'}, word by word`} />
+							<Line term="Adds to the file" detail={`about ${formatBytes(captionBytes(measure))}`} />
+						</dl>
+					)}
+
 					{value.audio && !!measure?.total && (
 						<>
 							{/* The narrator. Two pickers rather than one because a voice belongs to a MODEL —
@@ -244,7 +265,7 @@ export function NarrationExportOptions({
 								<TtsModelPicker
 									models={models}
 									selectedId={value.voice.model}
-									playingId={null}
+									playingId={auditioning}
 									disabled={disabled}
 									onPick={(m) => {
 										// A voice from the old model is meaningless on the new one, so resolve it
@@ -252,7 +273,13 @@ export function NarrationExportOptions({
 										const next = voicesForModel(m.id, m.voices);
 										set({ voice: { ...value.voice, model: m.id, voice: resolveVoice(next, value.voice.voice) } });
 									}}
-									onPlay={() => {}}
+									// Wired, not a stub. The row's play button is offered on the surface where the
+									// author is about to spend real money on a voice; offering to play it and then
+									// doing nothing is the worst possible answer here.
+									onPlay={(m) => {
+										setAuditioning(m.id);
+										previewTtsVoice({ rung: 'openrouter', model: m.id, voice: m.voices[0], speed: value.voice.speed }).finally(() => setAuditioning(null));
+									}}
 								/>
 								<VoicePicker
 									label=""
@@ -345,6 +372,16 @@ function Line({ term, detail }: { term: string; detail: string }) {
 			<dd className="text-right text-muted-foreground">{detail}</dd>
 		</div>
 	);
+}
+
+/**
+ * What the caption track adds: the spoken text plus its word timeline. Each word ships as a
+ * compact `[display, startMs, endMs]` triple, so the overhead is roughly the text again in
+ * punctuation and integers — measured at ~2.2x the characters across this repository's own
+ * narrated examples. Kilobytes either way; the point of the line is that it is not megabytes.
+ */
+function captionBytes(m: NarrationMeasure): number {
+	return Math.round(m.totalChars * 2.2);
 }
 
 function truncate(s: string, n = 60): string {

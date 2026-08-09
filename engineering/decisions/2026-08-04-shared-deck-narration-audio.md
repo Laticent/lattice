@@ -414,12 +414,22 @@ alongside.
   35-character sentence, so it carries that clip's fixed container overhead and slightly
   over-quotes a long sentence. Over-quoting is the safe direction — the file arrives smaller
   than promised — but the figure is an estimate and is worded as one. Cached bytes are exact.
-- **The export panel has never been opened in a browser.** Every check above is of the PLAYER,
-  which the earlier commits built; the four commits that add the panel, the two switches, the
-  pickers, the pre-flight, the refusal display and the cancel button are covered by unit tests
-  with the store and the synth both mocked — which HARD RULE #23 names explicitly as not
-  verification. There is also no `tools/screenshot.js` evidence at 1440 / 820 / 390, which the
-  QUALITY BAR requires for a website change. Both are open.
+- **The export panel HAS now been driven** — the checker was right that it had not been, and
+  driving it found two more defects no test would have. A script starts the real docs dev
+  server, opens the real Studio, walks Share → Webpage, and photographs the panel at 1440 /
+  820 / 390 in three states (at rest, captions on, notes stripped), asserting each time that
+  the strip-notes veto actually locks both switches, that the sheet never scrolls sideways,
+  and that no page or console error fires. What it caught: `listTtsModels` — a network fetch
+  to OpenRouter's public catalog — was joined into the same `Promise.all` as the local
+  availability check, so on a blocked connection `cloudReady` stayed null and **the audio
+  switch rendered ENABLED with no key behind it**; and a captions-only export left an empty
+  box under a divider, because the whole pre-flight was gated on `audio`. Both fixed; the
+  screenshots are the record.
+- **What is still NOT verified on that surface: the paths that need a key.** The voice
+  pickers, the cost table, the progress line, the refusal list and its override, and Cancel
+  are all behind the audio switch, which correctly refuses to enable without a cloud voice.
+  Nobody has seen them in a browser. They are unit-tested with the store and the synth mocked
+  — which HARD RULE #23 names explicitly as not verification.
 - **A large bake's memory profile.** A 300-sentence deck holds every clip as a base64 string
   in the cue tree, then again in the per-slide JSON, then again in the assembled document —
   plausibly 120–180 MB of live strings before the Blob. Measured at ~46 MB for the URIs alone

@@ -88,6 +88,9 @@ export type NarrationMeasure = {
 	/** Sentences that would be SYNTHESIZED, and the characters they bill for. */
 	missing: number;
 	missingChars: number;
+	/** Every spoken character in the deck — what the CAPTION track costs, since a caption-only
+	 *  export ships the text and the word timings and no audio at all. */
+	totalChars: number;
 	/** What those sentences will ADD to the file, at the chosen engine's measured rate. The
 	 *  one figure here that is an estimate rather than a reading — see `estimateSynthBytes`. */
 	missingBytes: number;
@@ -359,7 +362,8 @@ const SECONDS_PER_SENTENCE = 1.6;
 export async function measureNarration(source: string, projected: readonly string[] | undefined, voice: BakeVoice, priceMPerChar?: number | null): Promise<NarrationMeasure> {
 	const { perSlide, projectionUsed: complete } = resolveDeck(source, projected);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
-	const base: NarrationMeasure = { total, cached: 0, cachedBytes: 0, missing: 0, missingChars: 0, missingBytes: 0, estCostUsd: null, estSeconds: 0, voice, complete };
+	const totalChars = perSlide.reduce((n, row) => n + row.reduce((m, t) => m + t.length, 0), 0);
+	const base: NarrationMeasure = { total, cached: 0, cachedBytes: 0, missing: 0, missingChars: 0, totalChars, missingBytes: 0, estCostUsd: null, estSeconds: 0, voice, complete };
 	if (!total) return base;
 
 	const keys = await bakeClipKeys(perSlide, voice);

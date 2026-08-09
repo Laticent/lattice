@@ -153,7 +153,7 @@ export function WebpageOptionsPanel({
 					value={narration}
 					onChange={setNarration}
 					disabled={busy}
-					blockedReason={narrationBlocked ? 'Unavailable while speaker notes are stripped — for most decks the narration you rehearsed IS your notes, so this would hand them back as words on screen and in your own voice.' : null}
+					blockedReason={narrationBlocked ? 'Unavailable while speaker notes are stripped — for most decks the narration you rehearsed IS your notes, so either switch would hand them back.' : null}
 					failures={narrationFailures}
 					onExportAnyway={() => launch({ ...narration, allowPartial: true })}
 				/>
