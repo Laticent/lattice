@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: A priority pass over the 156 open issues, run against the actual CI record rather than the issue text. Three corrections change the order. (1) The Studio E2E nightly has been red for 30 consecutive nights and, since 2026-08-05, has not run a single test — its Playwright webServer dies at startup because the workflow installs only `docs/` dependencies while `lib/core/boundary-parser.mjs` resolves `markdown-it` from the repo root. Nothing tracks this; the five filed spec-level cards describe the earlier era and cannot be confirmed or closed while the suite is dark. Restoring it showed the suite fails 16 specs — but the 2026-08-03 baseline failed 15 of the same ones, so the blackout cost four days of signal rather than hiding new breakage, and the uncarded failures are a triage gap that predates it. (2) Three `priority:high` cards — #683, #793, #732 — are rolling nightly markers whose gates have been green for 6–8 straight nights; they are the #441 pattern the 2026-06-26 triage already closed once, and they inflate the high band by 15%. (3) 65 of 156 cards (42%) carry no priority axis at all, so "work the queue by priority" currently addresses under 60% of it. Recommended order: restore the signal, close the false highs, then security (#1246, #1458, #617), then the one critical card (#1437), then the crashes, then the silent-wrong-output cluster. Recommendation only — no tracker changes applied.
+summary: A priority pass over the 156 open issues, run against the actual CI record rather than the issue text. Three corrections change the order. (1) The Studio E2E nightly has been red for 30 consecutive nights and, since 2026-08-06, has not run a single test — its Playwright webServer dies at startup because the workflow installs only `docs/` dependencies while `lib/core/boundary-parser.mjs` resolves `markdown-it` from the repo root. Nothing tracks this; the five filed spec-level cards describe the earlier era and cannot be confirmed or closed while the suite is dark. Restoring it showed the suite fails 16 specs — but the 2026-08-03 baseline failed 15 of the same ones, so the blackout cost four days of signal rather than hiding new breakage, and the uncarded failures are a triage gap that predates it. (2) Three `priority:high` cards — #683, #793, #732 — are rolling nightly markers whose gates have been green for 6–8 straight nights; they are the #441 pattern the 2026-06-26 triage already closed once, and they inflate the high band by 15%. (3) 65 of 156 cards (42%) carry no priority axis at all, so "work the queue by priority" currently addresses under 60% of it. Recommended order: restore the signal, close the false highs, then security (#1458, #617, then a re-scoped #1246), then the one critical card (#1437), then the crashes, then the silent-wrong-output cluster. Written as a recommendation, then authorized and applied: #1498 filed and fixed (#1500), the three false highs closed, all 65 untriaged cards labeled, and the cluster re-triaged (#1507). A later fact-checking pass corrected this note four more times — most importantly that #1246's javascript: vector was ALREADY closed by aa2ca691 on 2026-08-04, so ranking it first in the security band repeated the exact error (trusting a card's text over the code) that this pass exists to catch.
 ---
 
 # Issue queue: a priority pass against the CI record (2026-08-09)
@@ -26,8 +26,18 @@ history and job logs. Three of the checks came back different from the label.
 | **no priority axis** (`needs:triage`) | **65** |
 
 The last line is the headline for anyone planning to work by priority: **42% of
-the queue is invisible to that ordering.** `BACKLOG.md`'s last sync counted 58
-untriaged against 141 open; both numbers have grown since.
+the queue is invisible to that ordering.**
+
+**These five figures are the least-supported claims in this note.** They are my
+own count off the live issue list, not a generated artifact, and the only
+committed artifact disagrees: `BACKLOG.md` (synced `b9289ad`, 2026-08-09
+**14:59Z**) shows **141 open · 58 untriaged · 17 high · 1 critical · 68
+medium+low**. The gap is explained by *when* — I counted at ~21:50Z the same
+day, and nine cards this note cites (#1458, #1463, #1471, #1491, #1493, #1498,
+#1504, #1506, #1507) postdate that sync and appear nowhere in the mirror — but
+"explained" is not "verified". Anyone re-deriving these should query the tracker
+rather than trust the numbers here; the *shape* of the finding (a large
+untriaged fraction) survives either count, the precise percentages do not.
 
 ---
 
@@ -39,8 +49,13 @@ visible is that the failures split into two different eras:
 
 | Era | What happens | Evidence |
 |---|---|---|
-| → 2026-08-04 | Tests **run** and some fail | 2026-08-03 run uploads a **1.78 GB** trace/video artifact |
-| 2026-08-05 → now | Tests **never start** | 2026-08-09 run dies 2s into the step, uploads **199 KB** |
+| → 2026-08-05 | Tests **run** and some fail | 2026-08-03 run uploads a **1.78 GB** trace/video artifact |
+| 2026-08-06 → now | Tests **never start** | 2026-08-09 run dies 2s into the step, uploads **199 KB** |
+
+The boundary is fixed by the clock, not guessed: `fc75546` committed at
+**2026-08-05T15:47Z**, and the nightly fires at **04:41Z**, so that morning's run
+predates the breaking import and executed normally. The first dark run is
+**08-06**, which makes the blackout **four nights** (08-06 → 08-09).
 
 The current failure is not a spec failure at all:
 
@@ -126,8 +141,10 @@ only suite watching the Studio is dark.
    a duplicate of #1208. Ten of the sixteen have **no card at all**, including
    three PDF-export journeys. Inventory and mapping in **#1507**.
 
-   *And the baseline that reframes it:* the 2026-08-03 run — the last before the
-   blackout — failed **15** of the same specs (`173 passed`, 20.0 min). The only
+   *And the baseline that reframes it:* the 2026-08-03 run — a pre-blackout
+   baseline, and the most recent one whose full logs I pulled; the last run that
+   actually executed was 08-05 — failed **15** of the same specs (`173 passed`,
+   20.0 min). The only
    new failure is `[tablet] visual.spec.ts:21`, consistent with #1426. So the
    suite was red and largely uncarded *before* it went dark; the blackout cost
    four days of signal, not ten hidden defects. That is worse than it sounds:
@@ -153,12 +170,38 @@ only suite watching the Studio is dark.
 **P1 — security.** All three put untrusted input on a same-origin surface that
 holds a user's OpenRouter key.
 
-6. **#1246** — Mermaid renders *after* `sanitizeSlideHtml`, so a diagram can
-   put `javascript:` into the preview frame. This is a hole in HARD RULE #22's
-   own gate, which is what lifts it above the other two.
-7. **#1458** — untrusted theme CSS reaches the Studio preview.
-8. **#617** — zip-slip / path traversal on filesystem-backed (desktop, CLI)
+6. **#1458** — untrusted theme CSS reaches the Studio preview.
+7. **#617** — zip-slip / path traversal on filesystem-backed (desktop, CLI)
    `.lattice-*.zip` import.
+8. **#1246** — **demoted from first to last in this band, and re-scoped.**
+
+   > **Correction.** This note originally ranked #1246 above the other two on
+   > the grounds that "Mermaid renders *after* `sanitizeSlideHtml`, so a diagram
+   > can put `javascript:` into the preview frame." **That vector was already
+   > closed when this pass was written.** `lib/runtime/index.js:456` — the exact
+   > line #1246 cites as `securityLevel: "loose"` — has read
+   > `securityLevel: 'strict'` since `aa2ca691` (2026-08-04), which is fix
+   > direction (1) from #1246's own list. `securityLevel` is additionally on the
+   > locked-key list (`lib/integrations/mermaid/init-directive.js:386`), so a
+   > deck's `%%{init}%%` cannot opt back out.
+   >
+   > I reproduced #1246's title verbatim from the board — it matches
+   > `BACKLOG.md` exactly — without re-reading the code. **That is the precise
+   > failure this pass exists to catch, committed by the pass itself**, and it
+   > put a closed vector at the top of the security band.
+   >
+   > Two things do remain, so the card is re-scoped rather than closed: #1246's
+   > **second** vector (a zero-click `<img>` beacon in an `htmlLabels` node
+   > label — `htmlLabels: true` is still set at `init-directive.js:308`) is
+   > untested under `strict`, and the **gate** its acceptance criteria ask for
+   > does not exist. The gate is the durable half: `strict` closes today's
+   > vector, but the structural gap — the sanitizer running one step before the
+   > render that matters — is still invisible to `checkPreviewHtmlSinks`.
+   >
+   > Why it went stale unnoticed: the fix rode in on `aa2ca691`
+   > *"diagram(band): resolve the diagram band per slide on both render paths
+   > (#1373)"* — a diagram change, not a security one. Nothing connected it back
+   > to the card.
 
 **P1 — the one critical card.**
 
@@ -201,20 +244,44 @@ one theming window; they share the categorical-token contract.
    and at #441's precedent.
 3. **Label sweep** over the 65 untriaged cards so the priority axis covers the
    whole queue.
-4. **Re-triage** the six-card studio-e2e cluster once the suite runs, expecting
-   to close or merge most of it.
+4. ~~Re-triage the five-card studio-e2e cluster once the suite runs~~ —
+   **done**; see the outcome under P0 item 2 above.
 
 Steps 2–4 mutate the tracker and are the human's call. Step 1 is logging a
 defect found off-path, which HARD RULE #18 already dictates.
 
 ## What would make this pass unnecessary next time
 
-Both corrections have the same root: **a card's claim outlived the condition
-that produced it, and nothing re-checked it.** The rolling nightly markers
-never close on green, and a "failing on main" card stays authoritative-looking
-for a month. Two cheap options, neither adopted here:
+Every correction here has the same root: **a card's claim outlived the condition
+that produced it, and nothing re-checked it.** A "failing on main" card stays
+authoritative-looking for a month; a security card outlives its own fix
+(#1246); three `priority:high` markers outlive their gates going green.
 
-- have the nightly workflows **close** their rolling issue on a green run, the
-  way they open it on a red one; and
-- **date-stamp** the claim in `[…-nightly]` card titles, so a stale one reads
-  as stale on the board.
+Two options — and the first is **already half-built**, which I did not know
+when I first wrote this section:
+
+- **Close the rolling issue on a green run.** `perf-nightly.yml:349-367` is a
+  *Stand down the rolling issue when measured green* step that does exactly
+  this. My original text asserted the nightlies "never close on green" — false
+  as a generalization, and I should have read the file before generalizing from
+  three cards to a pattern.
+
+  It does not cover #683/#793/#732, so the closes those recommend still stand:
+  the step keys on `[perf-nightly-engine]`, a **different marker** from the
+  `[perf-nightly]` that #732 carries, and neither `integration-nightly.yml` nor
+  `preview-e2e-nightly.yml` has any close path (`grep -rn "issue close"` over
+  `.github/workflows/` returns exactly one hit).
+
+  It is also **deliberately narrower than what I proposed**, for a reason my
+  naive version missed. It closes *only* a harness-failure thread:
+
+  > `# Close ONLY a harness-failure thread. A real regression stays open:`
+  > `# head-vs-base-24h cannot distinguish "fixed" from "the base now carries it too".`
+
+  A green run does not prove a regression was fixed — the baseline may have
+  absorbed it. So "close on green" is unsafe in general, and the right extension
+  is to widen that existing step's marker coverage under the same constraint,
+  not to bolt a naive close onto each workflow.
+
+- **Date-stamp** the claim in `[…-nightly]` card titles, so a stale one reads as
+  stale on the board. Still unbuilt, and cheaper than the above.
