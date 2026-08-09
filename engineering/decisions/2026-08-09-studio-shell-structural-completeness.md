@@ -81,6 +81,50 @@ the React tree would not help, because the React tree is the thing that does not
 The correct form of this option is what shipped: **draw the action bar's geometry in the
 static shell**, so its space is reserved and its shape is on screen from the first paint.
 
+## The question under the options: why not SSR / server components?
+
+The three options above all presume a server render exists to fix. It does not, and the
+reasons are worth stating at this level rather than only as "there is no server".
+
+**The platform is a choice, not a blocker.** `docs/` builds `output: static` with no Astro
+adapter, and deploys as `wrangler pages deploy docs/dist` — a directory upload. Cloudflare
+Pages *can* run SSR on Workers, so adopting it is possible. It collides with a ratified
+direction rather than a technical wall: `2026-06-25-social-auth-byo-storage.md` chose
+bring-your-own-storage over hosted accounts specifically so the docs site stays static and
+backend-free, and HARD RULE #24 leans on the deployed docs being a static bundle.
+
+**But the decisive reason is that SSR cannot render this route's content.** Which deck you
+are editing, its title, your palette, your mode, your posture, your split share, your preview
+rect — every one is per-visitor state in `localStorage`. A stateless server emits the same
+generic frame for everybody. The pre-paint inline seed **reads that state before first paint,
+with no round trip**, which is why the shell already paints the returning visitor's deck
+title, their palette and mode, their deck's authored aspect ratio, and the exact rect the app
+is about to measure. On this route the static shell is *strictly more capable* than SSR, not
+a fallback from it. Cookies (option 1) would recover only mode and palette — the two things
+the seed already has — and would pay a request round trip to do it.
+
+**SSR would also not have fixed this bug.** The defect was six bands' worth of frame drawn as
+two. A server render produces the same six bands from a different source; the win is the
+bands. And the irony: server rendering is what *introduces* the hydration-mismatch class the
+report hypothesized. `useMounted` guards are the price of SSR, not the cure for it — the
+Studio has none precisely because it is `client:only`.
+
+**React Server Components have nothing to do here.** They solve "fetch server data without
+shipping the fetching code". There is no server data. The build-time data this page needs —
+the component catalog, the grammar heading register — is already inlined by the Astro
+frontmatter at build.
+
+**The real cost of the approach taken, and the thing that WOULD fix it.** The shell's markup
+is now a second source of truth for the app's chrome, alongside `StudioShell`'s JSX. The
+constants, the build gate and the e2e oracle bound that drift; they do not collapse it. The
+remedy is not a server — it is **build-time prerendering**: extract a pure, state-free
+`<StudioChrome>` (bands, deck pill, icon buttons; no handlers, no browser APIs), render it
+into the page at build via `client:load` instead of hand-writing the shell, and the two
+surfaces become one component. Static output preserved, no adapter, no worker. It would also
+buy back what this pass deliberately declined — the real glyphs, and the tablet/desktop
+right-hand cluster. It is a larger change than this bug warranted; it is the right target if
+the duplicate-shell cost is judged too high.
+
 ## Decision — the shell draws every band, and draws GEOMETRY, never GLYPHS
 
 The shell now paints the full structural frame:
