@@ -57,6 +57,20 @@ try {
 const shippedIndex = shipped.buildIntentIndex(CATALOG);
 const rankShipped = (q) => shipped.scoreIntent(shippedIndex, q).map((h) => h.name);
 
+// The COMPOSED ladder the pickers actually call. This harness used to score `scoreIntent`
+// in isolation and label it "the shipped ranker" — it is not; it is one pass of three, and
+// measuring a pass instead of the composition is how a regression in the pass ORDER went
+// unseen (lone-token name lookup fell 96.0% → 82.1% and no corpus could observe it).
+const ladderOut = join(tmp, 'component-search.mjs');
+execFileSync(
+	'npx',
+	['esbuild', join(ROOT, 'docs/src/lib/component-search.ts'), '--bundle', '--format=esm', `--outfile=${ladderOut}`, '--log-level=error'],
+	{ cwd: join(ROOT, 'docs'), stdio: ['ignore', 'ignore', 'inherit'] },
+);
+const search = await import(pathToFileURL(ladderOut).href);
+const searchIndex = search.makeSearchIndex(CATALOG);
+const rankLadder = (q) => (search.rankedHitsFor(CATALOG, searchIndex, q) ?? []).map((h) => h.item.name);
+
 // ── the baseline: today's substring + Fuse core ──────────────────────────────
 const { default: Fuse } = await import(pathToFileURL(join(ROOT, 'docs/node_modules/fuse.js/dist/fuse.mjs')).href);
 const hay = (c) => `${c.name} ${c.tags.join(' ')} ${c.bucket} ${c.function} ${c.substance} ${c.description}`.toLowerCase();
@@ -76,7 +90,11 @@ const rankBaseline = (q) => {
 	return sub.length ? sub.map((c) => c.name) : fuse.search(query).map((r) => r.item.name);
 };
 
-const RANKERS = { 'current (shipped core)': rankBaseline, 'intent-search.ts': rankShipped };
+const RANKERS = {
+	'before this change': rankBaseline,
+	'intent pass alone': rankShipped,
+	'SHIPPED ladder': rankLadder,
+};
 
 // ── the wink candidates #1440 proposed, if they are installed ────────────────
 const FIELDS = (c) => ({
@@ -140,9 +158,21 @@ const corpus = buildCorpus(ROOT, NAMES);
 const split = DEV ? 'dev' : 'test';
 const authored = (f) => JSON.parse(readFileSync(join(HERE, f), 'utf8'));
 const pick = (key) => corpus.filter((p) => p.split === split && p[key] && !p.file.includes('test/fixtures')).map((p) => [p[key], [p.component]]);
+// Every single-character deletion of every component name. This corpus exists because its
+// ABSENCE hid a real regression: all four original corpora phrase their typos inside
+// multi-word sentences, so none of them could see that putting the intent pass ahead of
+// Fuse took lone-token name lookup from 96.0% to 82.1%. A harness that cannot observe the
+// behavior a change displaces will certify the change.
+const misspellings = CATALOG.flatMap((c) =>
+	Array.from({ length: c.name.length }, (_, i) => c.name.slice(0, i) + c.name.slice(i + 1))
+		.filter((t) => t.length >= 3)
+		.map((t) => [t, [c.name]]),
+);
+
 const CORPORA = {
 	[`harvested-heading · ${split.toUpperCase()}`]: pick('heading'),
 	[`harvested-full · ${split.toUpperCase()}`]: pick('full'),
+	...(DEV ? {} : { 'misspelled-name': misspellings }),
 	...(DEV ? {} : { 'authored-intent': authored('queries-intent.json'), 'authored-adversarial': authored('queries-adversarial.json') }),
 };
 

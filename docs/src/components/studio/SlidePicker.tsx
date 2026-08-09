@@ -152,9 +152,18 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const ranked = React.useMemo(() => hits?.map((h) => h.item) ?? null, [hits]);
 	// Match strength by component name — rendered on the tile only when the natural-language
 	// pass produced the ordering (the exact and fuzzy passes have no comparable score).
+	// NOTE the `.slice(1)` — the LEADER GETS NO BADGE, deliberately.
+	//
+	// `match` is relative to the best hit, so the top result is 1.0 by construction and always
+	// rendered "100%". That number carries no information and reads as certainty, on a surface
+	// that previously showed no confidence at all — and the top hit is wrong most of the time on
+	// real prose ("timline of milstones" → quote 100%, with timeline-list second at 80%). What
+	// the author actually needs is how far the runners-up trail, which is exactly what the
+	// remaining badges say: a 94% second place means a toss-up worth reading, a 34% second place
+	// means the leader is clear.
 	const matchByName = React.useMemo(() => {
 		const m = new Map<string, number>();
-		for (const h of hits ?? []) if (h.via === 'intent' && h.match != null) m.set(h.item.name, h.match);
+		for (const h of (hits ?? []).slice(1)) if (h.via === 'intent' && h.match != null) m.set(h.item.name, h.match);
 		return m;
 	}, [hits]);
 
@@ -284,7 +293,8 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			    likely candidates in front of the author, it does not decide for them. */}
 			{searching && matchByName.size > 0 && (
 				<p className="px-4 pb-1.5 text-[11px] text-muted-foreground sm:px-5">
-					Ranked by how well each slide's description matches what you typed — on this device. Percentages are relative to the closest match.
+					Ranked by how well each slide's description matches what you typed — on this device. The best match leads; percentages
+					show how closely the others trail it.
 				</p>
 			)}
 
@@ -401,7 +411,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				onClick={() => onInsert(item)}
 				onMouseEnter={() => onDetail(item)}
 				onFocus={() => onDetail(item)}
-				aria-label={`Insert ${item.name}${match != null ? `, ${Math.round(match * 100)}% match` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`}
+				aria-label={`Insert ${item.name}${match != null ? `, ${Math.round(match * 100)}% as close a match as the top result` : ''}${item.purpose ? ` — ${item.purpose}` : item.description ? ` — ${item.description}` : ''}`}
 				className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
 			>
 				{isBlank ? (

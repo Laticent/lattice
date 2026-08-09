@@ -14,7 +14,7 @@
 //   3. FUZZY — Fuse, for the single-token misspelling the other two miss
 //      ("tabel", "radr").
 import Fuse from 'fuse.js';
-import { buildIntentIndex, confidenceFor, type IntentIndex, scoreIntent } from './intent-search';
+import { buildIntentIndex, confidenceFor, type IntentIndex, looksLikeIntent, scoreIntent } from './intent-search';
 
 export type CatalogItem = {
 	name: string;
@@ -76,6 +76,7 @@ export function makeFuse(items: CatalogItem[]): Fuse<CatalogItem> {
 		threshold: 0.3,
 		ignoreLocation: true,
 		minMatchCharLength: 3,
+		includeScore: true,
 	});
 }
 
@@ -97,7 +98,24 @@ export type SearchOptions = {
 	intent?: boolean;
 };
 
-/** Precise substring → natural-language intent → fuzzy, first pass that hits wins. */
+/**
+ * Precise substring → then intent and fuzzy, in the order the QUERY SHAPE calls for.
+ *
+ * The two follow-up passes are not a fixed ladder, because which one is the specialist
+ * depends on what was typed:
+ *
+ *   ≥2 content words → INTENT first. A described task ("who owns what on the team") is
+ *     what BM25 is for, and Fuse just fuzzy-matches a long string against short names.
+ *   1 content word   → FUZZY first. A lone token is almost always a half-remembered
+ *     name, and Levenshtein over the name list beats BM25 at that by a wide margin:
+ *     with intent first, every single-character deletion of every component name scored
+ *     82.1% top-1 (n=520, 73 names regressed — `tabel` → `compare-code`); with fuzzy
+ *     first it is 96.0%. Intent still runs behind it, so a single word Fuse cannot place
+ *     ("choropleth") still reaches the synonym lexicon.
+ *
+ * Whichever runs second is a genuine fallback — it only sees queries the first pass could
+ * not answer at all.
+ */
 export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, opts: SearchOptions = {}): RankedHit[] {
 	const sub = items.filter((it) => hay(it).includes(q));
 	if (sub.length) {
@@ -106,20 +124,53 @@ export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, 
 			.sort((a, b) => a.s - b.s || a.it.name.localeCompare(b.it.name))
 			.map((x) => ({ item: x.it, via: 'substring' as const, match: null }));
 	}
-	if (opts.intent !== false) {
+
+	// A CONFIDENT fuzzy match wins outright, whatever the query's shape — this is what
+	// catches a misspelled name, and word-count routing alone could not. `cards-gid` is one
+	// token and routed correctly; `compare tabel` is two, went down the intent path, and
+	// returned `compare-code`. Space-separated misspelled names measured 74.6% against the
+	// pre-change 90.9%, and people type hyphenated names with spaces.
+	//
+	// The bar is set where Fuse's own score separates the two populations, measured rather
+	// than guessed: a misspelled NAME scores 0.33–0.44 (`compare tabel` → compare-table
+	// 0.357, `cards gid` → cards-grid 0.437), while a described INTENT either returns
+	// nothing at all ("who owns what on the team") or scores past 0.9 ("a bulleted list" →
+	// list 0.972). 0.5 sits in the empty middle. One search, reused below — running Fuse
+	// twice per keystroke doubled the cost on the long-paste path.
+	// Only attempted for a query SHORT enough to be a name. No component name is longer than
+	// this, so a longer query cannot be a misspelling of one — and Fuse is the expensive pass
+	// on long input: running it unconditionally first put prose queries back to 43.8 ms from
+	// 4.0 ms, undoing the speedup the intent pass exists to provide.
+	const NAME_LENGTH_CEILING = 40;
+	const STRONG_FUZZY = 0.5;
+	const fuzzyHits = q.length <= NAME_LENGTH_CEILING ? index.fuse.search(q) : null;
+	const strong = (fuzzyHits ?? []).filter((r) => (r.score ?? 1) <= STRONG_FUZZY);
+	if (strong.length) return strong.map((r) => ({ item: r.item, via: 'fuzzy' as const, match: null }));
+
+	const intentPass = (): RankedHit[] => {
+		if (opts.intent === false) return [];
 		const hits = scoreIntent(index.intent, q);
-		if (hits.length) {
-			const byName = new Map(items.map((it) => [it.name, it]));
-			const best = hits[0].score;
-			const out: RankedHit[] = [];
-			for (const h of hits) {
-				const item = byName.get(h.name);
-				if (item) out.push({ item, via: 'intent', match: confidenceFor(h, best) });
-			}
-			if (out.length) return out;
+		if (!hits.length) return [];
+		// FIRST occurrence wins, not last. `new Map(items.map(…))` kept the LAST, and
+		// StudioShell orders locals first / catalog last — so an author's saved component
+		// sharing a built-in's name was silently replaced by the built-in: unreachable via
+		// intent search, two identical tiles, and a duplicate React key (search mode keys on
+		// the bare name). The substring pass never had this because it never maps by name.
+		const byName = new Map<string, CatalogItem>();
+		for (const it of items) if (!byName.has(it.name)) byName.set(it.name, it);
+		const best = hits[0].score;
+		const out: RankedHit[] = [];
+		for (const h of hits) {
+			const item = byName.get(h.name);
+			if (item) out.push({ item, via: 'intent', match: confidenceFor(h, best) });
 		}
-	}
-	return index.fuse.search(q).map((r) => ({ item: r.item, via: 'fuzzy' as const, match: null }));
+		return out;
+	};
+	const fuzzyPass = (): RankedHit[] => (fuzzyHits ?? index.fuse.search(q)).map((r) => ({ item: r.item, via: 'fuzzy' as const, match: null }));
+
+	const [first, second] = looksLikeIntent(q) ? [intentPass, fuzzyPass] : [fuzzyPass, intentPass];
+	const hit = first();
+	return hit.length ? hit : second();
 }
 
 /** Precise substring first; fall back to fuzzy for misspellings. */

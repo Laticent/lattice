@@ -741,7 +741,11 @@ export function loadSettings(): StudioSettings {
 	// written by a later build then rolled back) must fall back to the derived stop,
 	// never flow through to leave the dial lighting no segment.
 	const posture = isPosture(saved.posture) ? saved.posture : derivePosture(legacyOnboarded);
-	return { ...DEFAULT_SETTINGS, ...saved, language, posture };
+	// Same "validate rather than trust" as `posture`. The search core tests `intent !== false`,
+	// so any non-boolean falsy value (0, null, "", an explicit undefined from a hand-edited or
+	// third-party workspace backup) would render the Switch OFF while the feature kept running.
+	const intentSearch = typeof saved.intentSearch === 'boolean' ? saved.intentSearch : DEFAULT_SETTINGS.intentSearch;
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace

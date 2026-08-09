@@ -91,8 +91,18 @@ const americanize = (w: string) =>
  *  Exported as `contentWords` so fit-search.ts shares one tokenizer with this
  *  module — two tokenizers over the same manifest would drift, and the two
  *  scorers' terms have to be comparable for their scores to combine. */
+/** No real word is longer than this. Anything past it is a base64 blob, a JWT, a data URI
+ *  or a minified paste — and `stem()` is QUADRATIC in token length, so an uncapped one
+ *  blocks the main thread for seconds: a 20,000-char space-free token measured 15.2s in a
+ *  real browser, 40,000 measured 25.9s. Truncating costs nothing (nothing that long is in
+ *  the index) and turns the worst case into a constant. */
+const MAX_TOKEN = 40;
+
 function words(text: string): string[] {
-	return (text.toLowerCase().match(/[a-z][a-z0-9+#]*/g) ?? []).filter((w) => w.length > 1 && !STOP.has(w)).map(americanize);
+	return (text.toLowerCase().match(/[a-z][a-z0-9+#]*/g) ?? [])
+		.filter((w) => w.length > 1 && !STOP.has(w))
+		.map((w) => (w.length > MAX_TOKEN ? w.slice(0, MAX_TOKEN) : w))
+		.map(americanize);
 }
 
 export { words as contentWords };
@@ -197,6 +207,25 @@ function queryTerms(query: string, index: IntentIndex): QueryTerm[] {
 	return out;
 }
 
+/**
+ * True when a query reads like a DESCRIBED INTENT rather than a remembered name.
+ *
+ * Two content words is the threshold, and it decides pass ORDER in component-search.ts.
+ * A single token is overwhelmingly a name someone half-remembers, and the fuzzy pass is
+ * far better at that than this module is: measured over every single-character deletion
+ * of every component name (n=520), putting the intent pass first scored 82.1% top-1
+ * against the fuzzy pass's 96.0% — `tabel` returned `compare-code` instead of
+ * `compare-table`, 73 names regressed. BM25 happily matches one mangled token against
+ * some unrelated component's prose; Levenshtein over the name list does not.
+ */
+export function looksLikeIntent(query: string): boolean {
+	// Counted on WHITESPACE, not on the content tokenizer — `words()` splits hyphens, so
+	// `cards-rid` looked like two words and routed a misspelled hyphenated NAME down the
+	// intent path (that alone was 60 of the 73 regressions). What a person typed as one
+	// token is one token, however many pieces the indexer later cuts it into.
+	return query.trim().split(/\s+/).filter((w) => /[a-z]/i.test(w)).length >= 2;
+}
+
 export type IntentHit = { name: string; score: number };
 
 /** Rank the catalog against a natural-language query. Components that match
@@ -234,11 +263,4 @@ export function scoreIntent(index: IntentIndex, query: string): IntentHit[] {
 export function confidenceFor(hit: IntentHit, best: number): number {
 	if (!(best > 0)) return 0;
 	return Math.max(0, Math.min(1, hit.score / best));
-}
-
-/** True when a query reads like a described intent rather than a remembered name —
- *  the signal that the intent pass should run at all. Two content words is the
- *  threshold: one word is a term lookup the substring pass already answers well. */
-export function looksLikeIntent(query: string): boolean {
-	return words(query).length >= 2;
 }

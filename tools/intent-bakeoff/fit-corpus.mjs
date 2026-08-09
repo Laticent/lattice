@@ -7,7 +7,7 @@
 //
 //   POSITIVE   a whenToUse body IS a described task → its own component should
 //              rank first. This is the recommender's actual job.
-//   REDIRECT   121 antiPatterns name a better component in their body ("If the
+//   REDIRECT   74 antiPatterns name a better component in their body ("If the
 //              rows describe stages in order, use list-steps"). That is a
 //              two-sided case: the named alternative must OUTRANK the component
 //              whose anti-pattern it is. It is the first PRECISION test here —
@@ -82,7 +82,7 @@ export function buildFitCorpus(catalog) {
 			if (query.length < 20) continue;
 			// Which OTHER component does this anti-pattern point at? Read ONLY backticked
 			// mentions — `list-criteria` — because that is the convention the manifest
-			// authors actually use (102 of the mentions) and because a bare word cannot be
+			// authors actually use (76 of the 90 backticked mentions) and because a bare word cannot be
 			// trusted: `\blist\b` matches inside `list-criteria` (a hyphen is a word
 			// boundary), and "Unnumbered list" means a bulleted list, not the `list`
 			// component. Bare matching produced 66 mentions, most of them wrong, which

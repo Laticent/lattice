@@ -57,6 +57,64 @@ describe('intent search — the exact passes still win', () => {
 		expect(hits?.[0].match).toBeNull();
 	});
 
+	// The regression this suite MISSED. Adding the intent pass ahead of Fuse quietly took
+	// misspelled-name lookup from 96.0% to 82.1% top-1 across every single-character deletion
+	// of every component name — `tabel` returned `compare-code`. Nothing caught it because all
+	// four bake-off corpora phrase their typos inside multi-word sentences, and this file
+	// tested exactly one typo, also multi-word. A lone token is a name lookup; it belongs to
+	// the fuzzy pass, and this asserts the whole surface of that, not one example.
+	it('a one-character typo in any component name still finds it', () => {
+		const missed: string[] = [];
+		for (const c of catalog) {
+			for (let i = 0; i < c.name.length; i++) {
+				const typo = c.name.slice(0, i) + c.name.slice(i + 1);
+				if (typo.length < 3) continue;
+				if (namesFor(typo)[0] !== c.name) missed.push(`${typo} → ${namesFor(typo)[0] ?? '(nothing)'}, wanted ${c.name}`);
+			}
+		}
+		// A handful are genuinely ambiguous after a deletion (`cards-grid`/`cards-stack` share a
+		// stem), so this pins the RATE at the pre-change baseline rather than demanding perfection.
+		const total = catalog.reduce((n, c) => n + c.name.length, 0);
+		expect(missed.length / total).toBeLessThan(0.05);
+	});
+
+	// The form the FIRST fix missed: people type hyphenated names with spaces, and generating
+	// typos from `c.name` verbatim (hyphens intact) cannot see it. `compare tabel` returned
+	// `compare-code` and this suite was green.
+	it('a one-character typo still finds the name when typed with spaces', () => {
+		const missed: string[] = [];
+		let total = 0;
+		for (const c of catalog.filter((x) => x.name.includes('-'))) {
+			for (let i = 0; i < c.name.length; i++) {
+				const typo = (c.name.slice(0, i) + c.name.slice(i + 1)).replace(/-/g, ' ').trim();
+				if (typo.length < 3) continue;
+				total++;
+				if (namesFor(typo)[0] !== c.name) missed.push(`${typo} → ${namesFor(typo)[0] ?? '(nothing)'}, wanted ${c.name}`);
+			}
+		}
+		expect(missed.length / total).toBeLessThan(0.1);
+	});
+
+	it('a long space-free paste cannot lock the thread', () => {
+		// `stem()` is quadratic in token length; uncapped, 20k chars blocked a real browser
+		// for 15s. Nothing in the index is longer than a word, so tokens are truncated.
+		const t0 = performance.now();
+		searchHits(catalog, index, 'a'.repeat(20000));
+		expect(performance.now() - t0).toBeLessThan(4000);
+	});
+
+	it('routes a lone token to the fuzzy pass and a phrase to the intent pass', () => {
+		expect(rankedHitsFor(catalog, index, 'tabel')?.[0].via).toBe('fuzzy');
+		expect(rankedHitsFor(catalog, index, 'cards-gid')?.[0].via).toBe('fuzzy');
+		expect(rankedHitsFor(catalog, index, 'who owns what on the team')?.[0].via).toBe('intent');
+	});
+
+	it('a lone word the fuzzy pass cannot place still reaches the synonym lexicon', () => {
+		// `choropleth` appears in no name and no description; only SYNONYMS maps it to `map`.
+		// This is what the fuzzy-first ordering must NOT cost.
+		expect(namesFor('choropleth').slice(0, 3)).toContain('map');
+	});
+
 	it('every tag still finds a component carrying it', () => {
 		const tags = [...new Set(catalog.flatMap((c) => c.tags))];
 		expect(tags.length).toBeGreaterThan(20);
