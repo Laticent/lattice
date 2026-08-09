@@ -581,3 +581,84 @@ test.describe('cinema', () => {
 		near(shell.box, app.box, 'cinema slide box');
 	});
 });
+
+// ── A RAISED BROWSER MINIMUM FONT SIZE (#1496) ────────────────────────────────────────────
+//
+// Runs only in the `minfont` project, which launches Chromium with the low-vision setting a
+// reader actually flips (Settings -> Appearance -> Customize fonts) turned up to 24px. Every
+// other case in this file runs at the default size, and that was a structural blind spot of
+// the same shape the trio's rule on #1444 names for CONTROLS — the shell can express viewport
+// width and the seeded stop, and nothing else — applied to BAND HEIGHTS, which are a
+// text-metrics question that is neither.
+//
+// What it is for: the shell's bands used to be frozen numbers, so the app's rows grew with the
+// reader's text and the shell's did not — 9/18px on the sub-bar, 20/38px on the footer, 11/20px
+// on the status strip. The skeletons now carry the app's own text metrics and the bands are
+// floored by the constants rather than pinned to them, so those three track. This asserts that,
+// AND pins the two residuals that do NOT track, so neither can grow in silence.
+test.describe('@minfont a raised browser minimum font size', () => {
+	for (const c of [
+		{ w: 1280, h: 720, why: 'laptop' },
+		{ w: 390, h: 844, why: 'phone — where the action bar also grows' },
+	] as const) {
+		test(`the bands track the app's own rows — ${c.w}x${c.h} (${c.why})`, async ({ page }) => {
+			await page.addInitScript(() => {
+				try {
+					const k = 'lattice-studio-settings';
+					localStorage.setItem(k, JSON.stringify({ ...JSON.parse(localStorage.getItem(k) || '{}'), posture: 'write' }));
+				} catch {
+					/* storage blocked — both surfaces fall back to the same defaults */
+				}
+			});
+			await page.setViewportSize({ width: c.w, height: c.h });
+			await page.route('**/lattice-playground.js', async (route) => {
+				await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
+				await route.continue();
+			});
+			await page.goto('/studio/', { waitUntil: 'commit' });
+			await page.locator('#studio-ssr-shell .ssr-paneftr').waitFor({ state: 'attached' });
+			await page.evaluate(() => document.fonts.ready);
+			const shell = await page.evaluate(READ_SHELL);
+			expect(shell.topbar?.[3], 'the shell was already dismissed — the engine hold is not working').toBe(54);
+
+			await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+			await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
+			await page.evaluate(() => document.fonts.ready);
+			const app = await page.evaluate(READ_APP, shell.titleText);
+
+			// The three bands that now size themselves from real text, as the app's rows do.
+			// HEIGHT only: `top` is a separate question, and on the phone it is still derived
+			// from a constant (pinned below rather than asserted equal).
+			expect(Math.abs((shell.panehdr as Rect)[3] - (app.panehdr as Rect)[3]), 'preview sub-bar height').toBeLessThanOrEqual(TOLERANCE);
+			expect(Math.abs((shell.status as Rect)[3] - (app.status as Rect)[3]), 'status strip height').toBeLessThanOrEqual(TOLERANCE);
+			const appFooterH = (app.rail as Rect)[3] + ((app.status as Rect | null)?.[3] ?? 0);
+			expect(Math.abs((shell.paneftr as Rect)[3] - appFooterH), 'preview footer height').toBeLessThanOrEqual(TOLERANCE);
+
+			// The phone's action bar was ALREADY fluid — it renders the app's own cells — so it
+			// is held to the same line as everything else, not to a bound.
+			if (shell.mobile) near(shell.actionbar, app.toolbar, 'action bar');
+
+			// ── The two KNOWN residuals ──────────────────────────────────────────────────────
+			// These are pinned, not passed. Each is a constant the shell still PLACES from, and
+			// each has a measured worst case at 24px; the bound is that measurement plus a
+			// little slack. If one grows, this fails and someone reads the note in
+			// preview-rect.ts rather than discovering it on a device.
+			//
+			// 1. The phone's sub-bar `top`: everything below the action bar is placed from
+			//    `mobileBarH`, which cannot grow. Measured 24px high at 24px minimum font.
+			//    A post-paint measure-and-republish fixes the number and loses a race against
+			//    the rotation re-seed (see the note in studio.astro), so it stays until that
+			//    correction can be folded into the re-seed path.
+			const topGap = Math.abs((shell.panehdr as Rect)[1] - (app.panehdr as Rect)[1]);
+			expect(topGap, 'phone sub-bar top drifted past its recorded bound').toBeLessThanOrEqual(shell.mobile ? 26 : TOLERANCE);
+
+			// 2. The slide box `top` on a wide viewport: the stage reserves footer space from
+			//    `--sh-ftr`, which is the CONSTANT, while the footer band itself now grows.
+			//    Measured 11px at 24px minimum font — an order of magnitude below the 39px the
+			//    bands used to be out by, and the box's SIZE is unaffected either way.
+			const boxTopGap = Math.abs((shell.box as Rect)[1] - (app.box as Rect)[1]);
+			expect(boxTopGap, 'slide box top drifted past its recorded bound').toBeLessThanOrEqual(shell.mobile ? TOLERANCE : 13);
+			expect(Math.abs((shell.box as Rect)[3] - (app.box as Rect)[3]), 'slide box height').toBeLessThanOrEqual(TOLERANCE);
+		});
+	}
+});

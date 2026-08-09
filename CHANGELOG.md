@@ -266,6 +266,31 @@ in patch versions.
   issue, and an issue per paid-API hiccup is alert fatigue. Note for anyone reading the Actions
   list afterwards: the deterministic job is green *by design* when specs fail (the house shape),
   so the green streak #800 waits on must be read off issue history, not the run list.
+- **The Studio's pre-paint shell ignored a raised browser minimum font size, so a low-vision
+  reader got a visible seam at hand-off.** The shell's structural bands were frozen
+  measurements taken once at the default font size. Raise Chrome's minimum font size (Settings
+  → Appearance → Customize fonts) and the app's rows grow with their text while the shell's
+  could not: measured against the real app at 24px, the preview sub-bar was **18px** short, the
+  footer **38px**, the status strip **20px**, and the footer's top landed **39px** high. The
+  cause was not stale numbers — it was that the skeletons had no text to measure. They were
+  built from a fixed 10px placeholder block, and putting text classes on the rows does not help,
+  because those rows are `display:flex` and a flex container has no strut: only a child that
+  genuinely contains text can track font size. The placeholder now carries a zero-width space,
+  so it occupies the line box the text it stands in for would, and three under-sized elements
+  were corrected against the app's own markup (the lens trigger's padding, the slide counter's,
+  and a duplicated footer hairline). The bands are now **floored** by `PREVIEW_CHROME` rather
+  than pinned to it — `min-height`, not `height` — so at the default size content lands exactly
+  on the constant and **nothing about the common case changed** (verified: 0px on every band,
+  and the full 38-case shell matrix green), while above it each band tracks the app's row to
+  ≤1px at both 18px and 24px. Two placements still derive from constants and are now **pinned
+  by a new `@minfont` Playwright project** rather than left invisible: the phone sub-bar's top
+  (≤24px) and the slide box's top on a wide viewport (≤11px; its size is unaffected). A
+  post-paint measure-and-republish would fix both numbers and was **backed out**: it coincided
+  with two orientation specs failing intermittently and was reverted on the reading that it
+  raced the rotation re-seed — an attribution that later proved **not established**, since clean
+  `main` fails those same two specs at a similar rate (#1514). The revert stands on the narrower
+  claim that the correction was never shown to be safe and the residual it fixes is bounded and
+  pinned.
 
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored

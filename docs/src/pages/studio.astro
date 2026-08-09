@@ -298,17 +298,34 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 :root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
 /* The preview pane's own sub-bar. Absent at Read, where the app renders the preview
    chromeless — so --sh-hdr is 0 and the band is dropped. */
-#studio-ssr-shell .ssr-panehdr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);top:var(--sh-pane-t,54px);height:var(--sh-hdr,0px);}
+/* min-height, NOT height. The constant is a FLOOR the band starts from, not a pin: the
+   skeleton inside now carries the app's own text metrics, so it grows exactly as the app's
+   row does when a reader raises the browser's minimum font size (#1496). Pinning the height
+   clipped that growth and left the band up to 18px short of the row it is standing in for.
+   At the default font size the content lands ON the constant (measured: 47.0 vs 47), so the
+   floor decides and this is byte-identical to the pinned version — which is what makes the
+   change safe for the surface everybody actually sees. */
+/* A SIZE CONTAINER, because the app's sub-bar lives inside one and its lens picker drops its
+   text label below 21rem of PANE width — which is what makes that bar 41px instead of 47.
+   The skeleton mirrors the query, so it needs the same query basis: this band's width IS the
+   pane width, so it is the container. Without this the narrow-pane case draws a 47px band
+   against the app's 41. */
+#studio-ssr-shell .ssr-panehdr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);top:var(--sh-pane-t,54px);min-height:var(--sh-hdr,0px);container-type:inline-size;}
 :root[data-ssr-read] #studio-ssr-shell .ssr-panehdr{display:none;}
 /* The footer is two stacked bands: the slide navigator, then the deck status strip. At Read
    it is one undivided affordance band (footerRead), so the inner rows are dropped. */
-#studio-ssr-shell .ssr-paneftr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);bottom:0;height:var(--sh-ftr,0px);border-top:1px solid var(--border,rgba(127,127,127,.16));}
+#studio-ssr-shell .ssr-paneftr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);bottom:0;min-height:var(--sh-ftr,0px);border-top:1px solid var(--border,rgba(127,127,127,.16));}
 /* The footer's internal split is a CONSTANT, not the natural height of the placeholder text:
    statusH is what the app measures, and the oracle compares this band to it. Pin the status
    row to it and let the navigator take the remainder, so the two rows land on the app's own
    line no matter what the placeholder inside them happens to be. */
-#studio-ssr-shell .ssr-status{height:var(--sh-status,0px);flex:0 0 auto;}
-#studio-ssr-shell .ssr-rail{flex:1 1 auto;min-height:0;}
+#studio-ssr-shell .ssr-status{min-height:var(--sh-status,0px);flex:0 0 auto;}
+/* flex:1 0 auto — grow to fill the footer at the default size, but do NOT shrink below the
+   navigator's own content, or a raised font size would be absorbed by squashing this row
+   instead of growing the band. (No backticks in these comments: this block is a JS template
+   literal, and one backtick here ends it and fails the build ~500 lines away. That is #1494,
+   and it cost a build during this very change.) */
+#studio-ssr-shell .ssr-rail{flex:1 0 auto;min-height:0;}
 :root[data-ssr-read] #studio-ssr-shell .ssr-paneftr > *{display:none;}
 /* CINEMA (a landscape phone): the app suppresses the header, the action bar and the navigator
    and runs the slide full-bleed, so the shell drops its chrome too rather than flashing a
@@ -654,6 +671,18 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							r.setAttribute('data-ssr-chrome', '1');
 						};
 						G.publish();
+						// NOT CORRECTED HERE, DELIBERATELY — see the note in preview-rect.ts on
+						// mobileBarH. The phone's action bar is content-sized and already tracks a
+						// raised minimum font size; everything below it is PLACED from the constant,
+						// which does not, so the sub-bar sits up to 24px high for those readers.
+						// A post-paint measure-and-republish fixes the number and loses the race:
+						// the callback can fire after a rotation re-seed and republish the previous
+						// orientation's geometry, and it does not re-run the box placement. It made
+						// `rotation into cinema` and `a rect from another orientation` fail
+						// intermittently (2 of 38 on one run, 0 on the next). An intermittent
+						// geometry race is worse than a static offset on one band, so the offset
+						// stays, measured and pinned by the @minfont matrix case, until the
+						// correction can be folded into the re-seed path itself.
 					} catch (e6) {
 						// Same clear-symmetry rule as publish(): on a FIRST seed there is nothing to
 						// undo, but a re-seed that throws would otherwise leave the previous
