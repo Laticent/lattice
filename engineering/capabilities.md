@@ -394,4 +394,5 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
+| `tools/verify-catalog-states.mjs` | Everything it demonstrated was jsdom + a stubbed fetch — code-path-exact, but by HARD |
 | `tools/verify-narrated-player.mjs` | HARD RULE #23: "verified" names a surface and carries an artifact from it. The claim here |

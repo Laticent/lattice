@@ -401,6 +401,16 @@ captions-only file's highlight advances on the wall clock with no audio element 
 and that no request is attempted at any point. Sign-off PNGs in both modes are written
 alongside.
 
+**Verified after the post-trio checker** (2026-08-09): `tools/verify-catalog-states.mjs` drives
+the served production build in a real Chromium and controls only the catalog request, because
+the defect it chases is a network state rather than a code state. Eight checks, all passing,
+across the three states that used to be two: **offline** (the request aborts, so `fetch`
+rejects) now names the catalog rather than the model and says the cost is unknown rather than
+absent; a **live catalog that lists nothing** is not explained away as a network problem; and a
+**slow-but-working catalog** (answering at 7 s, past the export panel's 6 s bound) still
+populates the Workspace's own voice roster — the regression the bound introduced on a surface
+this change had no business touching.
+
 **UNVERIFIED**, and not claimed:
 
 - ~~**A real end-to-end bake against a live OpenRouter key.**~~ **NOW VERIFIED** (2026-08-09).
