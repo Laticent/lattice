@@ -60,6 +60,10 @@ export function buildCatalog(manifests, bucketOf) {
 				family,
 				familyLabel: labelOf.get(family) || 'Other',
 				description: m.description || '',
+				// Carried for the intent ranker (intent-search.ts), not for browse: the
+				// manifest's "use this when…" prose is the second-strongest match signal
+				// after `description`, and nothing else on the client has it.
+				purpose: m.purpose || '',
 				tags: Array.isArray(m.tags) ? m.tags : [],
 			};
 		})

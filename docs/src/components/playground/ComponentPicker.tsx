@@ -3,7 +3,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
+import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedFor } from '@/lib/component-search';
 import { cn } from '@/lib/utils';
 
 /**
@@ -43,9 +43,9 @@ export function ComponentPicker({
 	onPick: (name: string) => void;
 }) {
 	const [open, setOpen] = React.useState(false);
-	const fuse = React.useMemo(() => makeFuse(components), [components]);
+	const index = React.useMemo(() => makeSearchIndex(components), [components]);
 
-	const ranked = rankedFor(components, fuse, query); // flat ranked list while searching
+	const ranked = rankedFor(components, index, query); // flat ranked list while searching
 	const lens = lenses.find((l) => l.id === lensId) ?? lenses[0];
 	const groups = ranked ? null : groupBy(components, lens);
 

@@ -1,11 +1,20 @@
 // Search + group-by logic for the component reference, ported from the vanilla
 // component-browser.js. Pure functions (no DOM) so they're unit-testable and
-// shared by both the index-grid island and the left-nav island.
+// shared by the index grid, the left nav, the Playground picker, and the
+// Studio's add-slide gallery.
 //
-// The primary pass is a precise SUBSTRING match so real terms (a name, a tag,
-// "legal", "charts") return tight, expected results; Fuse catches misspellings
-// ("tabel", "radr") only when the substring pass finds nothing.
+// THREE PASSES, in falling order of precision:
+//   1. SUBSTRING — a precise match so real terms (a name, a tag, "legal",
+//      "charts") return tight, expected results. Unchanged, and deliberately
+//      still first: when it fires it is almost always exactly right.
+//   2. INTENT — BM25 over the manifest, for a query that describes what the
+//      author wants to SAY rather than the component's name ("who owns what",
+//      "where do users drop off"). See intent-search.ts for why this is a
+//      stemmer and not a 1 MB language model.
+//   3. FUZZY — Fuse, for the single-token misspelling the other two miss
+//      ("tabel", "radr").
 import Fuse from 'fuse.js';
+import { buildIntentIndex, confidenceFor, type IntentIndex, scoreIntent } from './intent-search';
 
 export type CatalogItem = {
 	name: string;
@@ -21,6 +30,10 @@ export type CatalogItem = {
 	 *  term finds its parent component in the add-slide gallery. Optional: surfaces that
 	 *  don't care about variants (the playground picker) simply omit it. */
 	variants?: string[];
+	/** The manifest's "use this when…" prose. Measured as the second most valuable
+	 *  intent signal after `description` (~7 points of recall on real slide prose), so
+	 *  it is carried to the client even though browse-mode never renders it. */
+	purpose?: string;
 };
 
 export type LensOrder = { key: string; label: string };
@@ -42,6 +55,14 @@ function subScore(it: CatalogItem, q: string): number {
 	return 6; // description only
 }
 
+/** Both indexes an island needs, built once per mount and reused across keystrokes.
+ *  Cheap enough to build eagerly: 61 short documents, a couple of milliseconds. */
+export type SearchIndex = { fuse: Fuse<CatalogItem>; intent: IntentIndex };
+
+export function makeSearchIndex(items: CatalogItem[]): SearchIndex {
+	return { fuse: makeFuse(items), intent: buildIntentIndex(items) };
+}
+
 /** Build the Fuse index once per island mount; reused across keystrokes. */
 export function makeFuse(items: CatalogItem[]): Fuse<CatalogItem> {
 	return new Fuse(items, {
@@ -58,16 +79,52 @@ export function makeFuse(items: CatalogItem[]): Fuse<CatalogItem> {
 	});
 }
 
-/** Precise substring first; fall back to fuzzy for misspellings. */
-export function search(items: CatalogItem[], fuse: Fuse<CatalogItem>, q: string): CatalogItem[] {
+/** How a hit was found — surfaces use it to decide whether a match strength is
+ *  meaningful to show. Only the intent pass produces a comparable score. */
+export type HitVia = 'substring' | 'intent' | 'fuzzy';
+
+export type RankedHit = {
+	item: CatalogItem;
+	via: HitVia;
+	/** Match strength relative to the best hit (0–1) for an intent hit; null for the
+	 *  exact and fuzzy passes, which have no score worth showing. */
+	match: number | null;
+};
+
+export type SearchOptions = {
+	/** Run the natural-language pass. Default true. The Studio's Workspace settings
+	 *  turn it off for authors who want literal matching only. */
+	intent?: boolean;
+};
+
+/** Precise substring → natural-language intent → fuzzy, first pass that hits wins. */
+export function searchHits(items: CatalogItem[], index: SearchIndex, q: string, opts: SearchOptions = {}): RankedHit[] {
 	const sub = items.filter((it) => hay(it).includes(q));
 	if (sub.length) {
 		return sub
 			.map((it) => ({ it, s: subScore(it, q) }))
 			.sort((a, b) => a.s - b.s || a.it.name.localeCompare(b.it.name))
-			.map((x) => x.it);
+			.map((x) => ({ item: x.it, via: 'substring' as const, match: null }));
 	}
-	return fuse.search(q).map((r) => r.item);
+	if (opts.intent !== false) {
+		const hits = scoreIntent(index.intent, q);
+		if (hits.length) {
+			const byName = new Map(items.map((it) => [it.name, it]));
+			const best = hits[0].score;
+			const out: RankedHit[] = [];
+			for (const h of hits) {
+				const item = byName.get(h.name);
+				if (item) out.push({ item, via: 'intent', match: confidenceFor(h, best) });
+			}
+			if (out.length) return out;
+		}
+	}
+	return index.fuse.search(q).map((r) => ({ item: r.item, via: 'fuzzy' as const, match: null }));
+}
+
+/** Precise substring first; fall back to fuzzy for misspellings. */
+export function search(items: CatalogItem[], index: SearchIndex, q: string, opts?: SearchOptions): CatalogItem[] {
+	return searchHits(items, index, q, opts).map((h) => h.item);
 }
 
 /**
@@ -76,11 +133,22 @@ export function search(items: CatalogItem[], fuse: Fuse<CatalogItem>, q: string)
  */
 export function rankedFor(
 	items: CatalogItem[],
-	fuse: Fuse<CatalogItem>,
+	index: SearchIndex,
 	query: string,
+	opts?: SearchOptions,
 ): CatalogItem[] | null {
+	return rankedHitsFor(items, index, query, opts)?.map((h) => h.item) ?? null;
+}
+
+/** `rankedFor` with the match strengths kept — for surfaces that show confidence. */
+export function rankedHitsFor(
+	items: CatalogItem[],
+	index: SearchIndex,
+	query: string,
+	opts?: SearchOptions,
+): RankedHit[] | null {
 	const q = query.trim().toLowerCase();
-	if (q.length >= 2) return search(items, fuse, q);
+	if (q.length >= 2) return searchHits(items, index, q, opts);
 	return null;
 }
 

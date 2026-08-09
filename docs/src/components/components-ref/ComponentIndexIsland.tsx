@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { joinBase } from '@/lib/base-url.mjs';
 import { rehydrateFromStorage, useBrowserStore } from '@/lib/component-browser-store';
-import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
+import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedFor } from '@/lib/component-search';
 import { ComponentCard } from './ComponentCard';
 import { SearchControls } from './SearchControls';
 
@@ -26,7 +26,7 @@ export function ComponentIndexIsland({
 	base: string;
 }) {
 	const { query, lens: lensId } = useBrowserStore();
-	const fuse = React.useMemo(() => makeFuse(catalog), [catalog]);
+	const index = React.useMemo(() => makeSearchIndex(catalog), [catalog]);
 	const href = (it: CatalogItem) => joinBase(base, `components/${it.bucket}/${it.name}/`);
 
 	React.useEffect(() => {
@@ -36,7 +36,7 @@ export function ComponentIndexIsland({
 		return () => window.removeEventListener('pageshow', onShow);
 	}, []);
 
-	const ranked = rankedFor(catalog, fuse, query);
+	const ranked = rankedFor(catalog, index, query);
 	const lens = lenses.find((l) => l.id === lensId) ?? lenses[0];
 	const count = ranked ? `${ranked.length} of ${catalog.length}` : '';
 

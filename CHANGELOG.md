@@ -25,30 +25,18 @@ in patch versions.
 
 ## Unreleased
 
-- **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
-  where `# …` after whitespace is a comment — but every register read it with a pattern anchored
-  to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back
-  to the default palette, while the engine's own `parseFrontMatter` and an Export-to-Marp of the
-  same bytes both read `cuoio`. Two different decks from one source, on a line any author might
-  plausibly write. **~40 readers across 20 files** carried the defect: `theme:` on the CLI/export
-  path (`resolve-palette.js`), eleven `resolve-*` kernels (`finish`, `mode`, `split`, `stamp`,
-  `claim`, `rule`, `eyebrow`, `headline`, `lift`, `tone`, all four `spectrum*`), and — the reason
-  a unit suite could not see it — the same keys re-read *privately* by both render paths
-  (`markdown-it/plugins.js`, `lib/runtime/index.js`), so a commented `finish: atrium` produced no
-  finish class in the render while its own kernel read it fine. One rule now
-  (`frontMatterScalar` / `frontMatterName`, `lib/core/front-matter-key.js`) is shared by all of
-  them and by the engine's parse, and a `check-ownership` gate fails the build on a new private
-  reader (both the hand-rolled quote-strip and the `$`-anchored capture) as well as on a stale
-  sanction. Two ESM modules the docs site imports directly (`resolve-pace.mjs`,
-  `glossary-auto.mjs`) cannot require the CJS kernel under Rollup and stay sync-gated mirrors,
-  pinned by `front-matter-scalar-parity`. A quoted `#` is data, not a comment
-  (`meta: "Default layout · #1292"` — a real deck — is unchanged), an unquoted hex survives
-  (`backgroundColor: #ffffff`), and a URL fragment survives. **`color-mode:` changes behaviour
-  here:** a commented value used to be refused and reported as unknown; it is now honoured, so
-  `color-mode: light  # migrated` renders light and supersedes a legacy `class:` as the register
-  always specified. A commented *typo* is still caught. Found by rendering the real CLI — every
-  unit suite passed while `node dist/lattice-emulator.js` still emitted the wrong `--accent`.
-
+- **Slide search understands what you want to say, not just what a component is called.**
+  Typing "who owns what on the team" or "where do users drop off" into the add-slide gallery,
+  the Playground picker or the `/components` index now returns a ranked shortlist with a match
+  score, where it previously returned nothing. It is a third pass in the shared search core —
+  exact-name and tag lookups are untouched and still answered first — running entirely on the
+  device: no model, no download, no request, works offline and on first paint (~4 KB). Workspace
+  → AI → **On-device** turns it off for literal matching. Percentages shown are relative to the
+  closest match, not probabilities: the ranker's job is to shortlist, not to choose. The library
+  #1440 proposed (`wink-nlp` + a 1.03 MB English model, naive Bayes for confidence) was measured
+  against this and rejected — it cost 250× the payload to rank no better. Numbers, method, and a
+  reproducible harness (`npm run intent:bakeoff`):
+  `engineering/decisions/2026-08-09-on-device-intent-routing.md`. (#1440)
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator
   forms that were invisible to the Studio now split a slide, and a setext underline no longer
   does.** The engine breaks a slide on every top-level markdown-it `hr`; every caller-side splitter

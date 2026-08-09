@@ -76,6 +76,7 @@
     "scorecard": "node tools/theme-scorecard.js",
     "scorecard:check": "node tools/theme-scorecard.js --check",
     "equiv": "node tools/slice-equivalence.mjs",
+    "intent:bakeoff": "node tools/intent-bakeoff/bakeoff.mjs",
     "equiv:bless": "node tools/slice-equivalence.mjs --bless",
     "equiv:check": "node tools/slice-equivalence.mjs --check",
     "sweep:guide": "node tools/sweep-guide-gestures.mjs",

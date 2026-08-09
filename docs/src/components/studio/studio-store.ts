@@ -693,8 +693,12 @@ const isPosture = (v: unknown): v is Posture => POSTURES.includes(v as Posture);
 // orientation hint on the Read stop is shown until the newcomer edits or dismisses
 // it, then never again. (It is content attached to the Edit button, not a banner —
 // it points INTO the app, never recurs, and blocks nothing.)
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; overflowMarker: StandingOverflowMarker; lensDefaults: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true };
+// `intentSearch` is the On-Device tab's one switch: when on, the add-slide gallery
+// answers a described intent ("who owns what") as well as a remembered name. It runs
+// entirely in this tab — no model, no download, no request — so the only reason to
+// turn it off is a preference for literal matching. Default on.
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', overflowMarker: 'reader', lensDefaults: true, intentSearch: true };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing

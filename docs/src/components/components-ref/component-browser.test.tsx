@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setLens, setQuery } from '@/lib/component-browser-store';
-import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
+import { type CatalogItem, groupBy, type Lens, makeSearchIndex, rankedFor } from '@/lib/component-search';
 import { buildLenses } from '@/lib/families.mjs';
 import { ComponentIndexIsland } from './ComponentIndexIsland';
 import { ComponentNavIsland } from './ComponentNavIsland';
@@ -27,15 +27,15 @@ afterEach(() => {
 
 describe('component search — pure logic', () => {
 	it('rankedFor returns null below 2 chars, a ranked list at/above', () => {
-		const fuse = makeFuse(catalog);
-		expect(rankedFor(catalog, fuse, 'v')).toBeNull();
-		const hits = rankedFor(catalog, fuse, 'verdict');
+		const index = makeSearchIndex(catalog);
+		expect(rankedFor(catalog, index, 'v')).toBeNull();
+		const hits = rankedFor(catalog, index, 'verdict');
 		expect(hits?.map((h) => h.name)).toEqual(['verdict-grid']);
 	});
 
 	it('substring search matches tags, not just names', () => {
-		const fuse = makeFuse(catalog);
-		expect(rankedFor(catalog, fuse, 'scorecard')?.map((h) => h.name)).toEqual(['verdict-grid']);
+		const index = makeSearchIndex(catalog);
+		expect(rankedFor(catalog, index, 'scorecard')?.map((h) => h.name)).toEqual(['verdict-grid']);
 	});
 
 	const lensById = (id: string) => {
