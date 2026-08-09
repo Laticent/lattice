@@ -109,7 +109,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
 | `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/suono') and npm publish resolve — the audio engine's consumable artifact. |
 | `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
-| `theme-catalog:build` | Generate docs/src/components/studio/palettes.generated.ts — the Studio palette picker's groups (tier/order) and swatches, baked from themes/*.manifest.json so the docs bundle gets the one scope declaration without fs-loading 32 manifests at runtime. Replaces two hand-kept lists a test had to reconcile. |
+| `theme-catalog:build` | Generate docs/src/lib/theme-catalog.generated.ts — the palette picker's groups (tier/order) and swatches, baked from themes/*.manifest.json so the docs bundle gets the one scope declaration without fs-loading 32 manifests at runtime. Replaces two hand-kept lists a test had to reconcile. |
 | `theme-catalog:check` | Freshness gate for the generated Studio palette catalog. |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |

@@ -13,10 +13,23 @@
 // the dot — so they cannot disagree, and `checkThemeRoles` fails the build if a
 // picker-listed palette declares no swatch.
 //
+// The generated module lives in `@/lib/` rather than beside this file because the SITE
+// chrome (`components/site/PaletteSelectItems`) reads it too, and site code importing
+// from `components/studio/` would be backwards. This file stays the Studio's entry
+// point, so existing importers are unaffected.
+//
 // Still NOT the source of truth for palette COLORS: the on-disk CSS in themes/ is the
 // true color; `swatch` is only the menu dot.
 //
 // Regenerate with `npm run build`; `theme-catalog:check` gates freshness.
 // See engineering/decisions/2026-08-09-theme-token-contract.md.
 
-export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES, PALETTE_DOTS } from './palettes.generated';
+export {
+	A11Y_THEMES,
+	BUILTIN_PALETTES,
+	CURATED,
+	isA11yPalette,
+	MORE_THEMES,
+	PALETTE_DOTS,
+	THEME_FAMILY,
+} from '@/lib/theme-catalog.generated';

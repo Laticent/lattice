@@ -38,3 +38,36 @@ export const PALETTE_DOTS: Record<string, string> = {
 	'a11y-protanopia': '#9C6900',
 	'a11y-tritanopia': '#007131',
 };
+
+/**
+ * Each listed palette's FAMILY (manifest `family`) — what the site chrome groups by.
+ *
+ * This replaced `name.startsWith('a11y-')`. A filename prefix is a naming convention,
+ * not a declaration: it silently mis-groups any user theme whose name happens to begin
+ * `a11y-`, and it cannot be checked against anything. `family` is declared in the
+ * manifest and proved against the file by `checkThemeRoles`.
+ */
+export const THEME_FAMILY: Record<string, 'brand' | 'a11y'> = {
+	indaco: 'brand',
+	cuoio: 'brand',
+	burgundy: 'brand',
+	laguna: 'brand',
+	crepuscolo: 'brand',
+	atelier: 'brand',
+	carbone: 'brand',
+	onyx: 'brand',
+	ardesia: 'brand',
+	brina: 'brand',
+	carta: 'brand',
+	concrete: 'brand',
+	magnolia: 'brand',
+	mustard: 'brand',
+	'a11y-achromatopsia': 'a11y',
+	'a11y-deuteranopia': 'a11y',
+	'a11y-protanopia': 'a11y',
+	'a11y-tritanopia': 'a11y',
+};
+
+/** True for the curated color-vision palettes. Unknown names (a user's own theme) are
+ *  NOT a11y — the group is the curated set, not everything named like it. */
+export const isA11yPalette = (name: string): boolean => THEME_FAMILY[name] === 'a11y';

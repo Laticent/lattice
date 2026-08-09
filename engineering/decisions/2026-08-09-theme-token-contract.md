@@ -138,14 +138,26 @@ ships one), `:root{…}` is a **pin** (the `-dark` wrappers), `:root:root{…}` 
 **hard pin** (a11y-base, whose color-vision separation is tuned for one canvas). A pin
 narrows a palette to one face; a default does not.
 
-**Nine of the ten enumerations now read scope from the manifests**: `listBasePalettes`,
-`checkCatInkDeclared`, `derive-cat-ink.js`, `new-theme.js`, and the four palette
-suites via a shared `baseThemeNames()` helper. **The tenth is not rewired**:
-`docs/src/components/site/PaletteSelectItems.tsx` still decides family by string prefix
-(`p.startsWith('a11y-')`), and it is not a forgotten call site — its input is
-`palettes: string[]`, so it never receives `family` at all. Fixing it is a threading
-change through the site chrome, not a one-liner. Until it lands, the claim this note
-makes is nine-tenths true, and this sentence is the record of the missing tenth. `tools/build-theme-catalog.js` bakes the
+**All ten enumerations now read scope from the manifests**: `listBasePalettes`,
+`checkCatInkDeclared`, `derive-cat-ink.js`, `new-theme.js`, the four palette suites via
+a shared `baseThemeNames()` helper, the Studio picker via the generated catalog, and —
+last, and the only one still deciding by filename — the site chrome.
+
+`docs/src/components/site/PaletteSelectItems.tsx` split its list with
+`p.startsWith('a11y-')`. It could not simply read `family`, because its input is
+`palettes: string[]` and it never receives one. Rather than thread a prop through every
+caller, the generated catalog now emits a `THEME_FAMILY` map plus an `isA11yPalette`
+predicate, and the component consults that. The generated module moved from
+`components/studio/` to `docs/src/lib/theme-catalog.generated.ts` in the same change,
+because site chrome importing from `components/studio/` is backwards.
+
+**The prefix test was not merely unchecked, it was wrong**, which is what the new
+`PaletteSelectItems.test.ts` pins: a user's own theme named `a11y-mine` was filed under
+the curated color-vision group and had its name shortened in the menu. Family is now a
+declared fact proved against the theme file by `checkThemeRoles`, and an unknown name
+is `brand` — the group is the curated set, not everything named like it. The same test
+covers `a11y-base`, which is the family's shared machinery and correctly not offered as
+a pickable palette. `tools/build-theme-catalog.js` bakes the
 Studio picker's groups and swatches into `docs/src/components/studio/palettes.generated.ts`
 (the docs bundle cannot `fs`-load 32 manifests), gated by `theme-catalog:check`.
 
