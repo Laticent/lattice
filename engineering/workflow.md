@@ -789,9 +789,27 @@ it on issue events + daily). The render is pure, so it only commits on a real
 queue change. Issues own *status*; decision docs own *design*; the mirror never
 feeds back. If we ever leave GitHub, the repo still carries the queue.
 
-> The mirror workflow pushes `BACKLOG.md` to `main`. If `main` is protected
-> against direct pushes, allow `github-actions[bot]` to bypass for that path
-> (one-time setting) — otherwise the push step fails visibly.
+> **⚠️ The mirror is not currently updating.** `main` has a ruleset requiring a
+> pull request + the merge queue, so the workflow's direct push is rejected with
+> `GH013` on every run. It has not landed a commit since **2026-07-29**, so
+> `BACKLOG.md` under-reports the queue by roughly a hundred issues. **Read the
+> issue list, not this file, until #1439 closes.**
+>
+> Three ways out, none of which a workflow edit can grant itself:
+>
+> 1. **Bypass** — add `github-actions[bot]` to the ruleset's bypass list (step 5
+>    of the board setup below). One setting, no code, keeps today's behavior.
+> 2. **Open a PR instead of pushing** — needs a **PAT**, not the default token: a
+>    PR opened with `GITHUB_TOKEN` does not trigger `pull_request` workflows, so
+>    the required `ci` check never runs and the merge queue never admits it. Also
+>    puts one PR per sync through the train.
+> 3. **Retire the committed mirror** and read the queue from GitHub directly. The
+>    mirror's stated justification is *"if we ever leave GitHub, the repo still
+>    carries the queue"* — worth weighing against the fact that it sat a hundred
+>    issues wrong for eleven days without anyone noticing.
+>
+> The workflow classifies the rejection and prints these three in its job summary
+> rather than retrying a push that cannot succeed.
 
 ### Board setup (one-time, manual — needs your GitHub UI)
 

@@ -5,10 +5,13 @@ name: Sync backlog mirror
 # back. The render is pure (no timestamps), so this only commits on a real
 # queue change.
 #
-# NOTE: this pushes BACKLOG.md to main. If main is protected against direct
-# pushes, allow github-actions[bot] to bypass for this path (one-time branch-
-# protection setting) — otherwise the push step fails visibly. See
-# engineering/workflow.md § Work queue.
+# NOTE: this pushes BACKLOG.md to main, and `main` NOW HAS A RULESET that forbids
+# direct pushes (PR + merge queue required), so the push step currently fails on
+# every run — the mirror has not updated since 2026-07-29. The bypass this needs is
+# a repository SETTING, not something a workflow edit can grant itself; the commit
+# step classifies the rejection and prints the three available fixes rather than
+# retrying a push that cannot succeed. Tracked in #1439. See
+# engineering/workflow.md § BACKLOG.md — the one-way mirror.
 on:
   issues:
     # State-change events only. Label/assignee churn is deliberately EXCLUDED:
@@ -57,15 +60,50 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add BACKLOG.md
           git commit -m 'chore(backlog): sync BACKLOG.md to open issues'
-          # Rebase-and-retry: a human or another workflow can push to main
-          # between checkout and push (the concurrency group only serializes
-          # this workflow against itself). Re-fetch + rebase the single backlog
-          # commit and retry, like the golden-diff job in ci.yml.
+          # TWO failure modes, and they need opposite handling — which is the whole
+          # point of this block (#1439).
+          #
+          #   RACE  — a human or another workflow pushed to main between our checkout
+          #           and our push. Transient. Rebase the single backlog commit and
+          #           retry, like the golden-diff job in ci.yml.
+          #   RULE  — a repository ruleset forbids the push outright (GH013: "Changes
+          #           must be made through a pull request / the merge queue"). This is
+          #           a REPO CONFIGURATION fact, identical on every attempt. Retrying
+          #           it is pure waste: three rejections, ~25s of runner time, three
+          #           identical log walls, on every single issue event. It is also
+          #           what has actually been happening — this workflow has not landed
+          #           a commit since 2026-07-29, so BACKLOG.md has been silently wrong
+          #           by ~100 issues while the run went red on each one.
+          #
+          # So: classify, and only retry the one that retrying can fix.
           for i in 1 2 3; do
-            if git push; then exit 0; fi
-            echo "push rejected — rebasing on origin/main and retrying ($i)"
+            if git push 2>/tmp/push-err; then exit 0; fi
+            cat /tmp/push-err
+            if grep -q 'GH013\|protected branch\|merge queue\|must be made through' /tmp/push-err; then
+              {
+                echo "### Backlog mirror not updated"
+                echo
+                echo "\`main\` rejected the push because a repository ruleset requires changes to go"
+                echo "through a pull request and the merge queue. That is configuration, not a"
+                echo "transient failure, so this job did not retry."
+                echo
+                echo "**BACKLOG.md is stale until one of these is done** (see \`engineering/workflow.md\`"
+                echo "§ BACKLOG.md — the one-way mirror):"
+                echo
+                echo "1. Add \`github-actions[bot]\` to the ruleset's bypass list — the one-time setting"
+                echo "   the board-setup checklist already calls for, and the smallest change."
+                echo "2. Give the job a PAT and have it open a PR. Note the catch: a PR opened with the"
+                echo "   default \`GITHUB_TOKEN\` does **not** trigger \`pull_request\` workflows, so the"
+                echo "   required \`ci\` check never runs and the queue never admits it. This route needs"
+                echo "   a real token, not just a rewrite."
+                echo "3. Retire the committed mirror and read the queue from GitHub directly."
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::sync-backlog: main's ruleset forbids a direct push (GH013). Not retryable — see the job summary for the three ways to fix it. Tracked in #1439."
+              exit 1
+            fi
+            echo "push rejected by a RACE — rebasing on origin/main and retrying ($i)"
             git fetch -q origin main && git rebase origin/main || { git rebase --abort || true; }
             sleep $((i * 3))
           done
-          echo "::error::sync-backlog: push to main failed after retries (main moving fast, or github-actions[bot] lacks push/bypass on protected main)"
+          echo "::error::sync-backlog: push to main lost the race three times — main is moving unusually fast."
           exit 1
