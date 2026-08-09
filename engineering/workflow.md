@@ -604,7 +604,11 @@ The contract, and its limits — be precise about what it does and doesn't cover
 - **Merging requires explicit human authorization.** An agent drives the PR to
   green and *asks* to merge — it never merges on its own, and prior approval of
   one PR is not license to merge the next. A human reviews and authorizes every
-  merge.
+  merge. **Scope: authored work.** Two workflow-generated PRs auto-merge
+  themselves through the queue — the backlog mirror (`sync-backlog.yml`) and the
+  release (`release.yml`, where dispatching the workflow *is* the
+  authorization). Both render a source a human already decided; see
+  § Automation vs. the main ruleset.
 - PRs merge into `main` via **squash-and-merge by default** — across many
   parallel AI sessions a single PR can carry 20+ noisy commits, and squashing
   keeps `main` one reviewable, revertable commit per PR. Use rebase-and-merge
@@ -668,6 +672,107 @@ The contract, and its limits — be precise about what it does and doesn't cover
   is the verification source of truth — squash merges are committed by GitHub
   (`noreply@github.com`) and show **Verified** there regardless of the local
   `%G?` check.
+
+## Automation vs. the main ruleset
+
+The `Main Merge Queue` ruleset (`refs/heads/main`) requires a pull request, the
+merge queue, and a green `ci`, and it grants **no bypass to anyone**. So
+**nothing pushes `main` directly** — not you, not an agent, not a workflow. A
+workflow that tries gets:
+
+```
+remote: error: GH013: Repository rule violations found for refs/heads/main.
+```
+
+That is a *settings* verdict, not a race: rebasing and retrying cannot change
+it. This broke every `sync-backlog` run for weeks (#1439). Full reasoning:
+`decisions/2026-08-09-automation-under-the-merge-ruleset.md`.
+
+**The rule has no exceptions, and that is the point.** A workflow that needs to
+change the repo does exactly what you do: pushes a branch, opens a PR, and lets
+the queue land it. Two workflows do this today — `sync-backlog.yml` and
+`release.yml` — and what makes them feel automatic is not a shortcut past the
+queue, it is that they also switch **auto-merge** on, so the queue merges the PR
+the moment `ci` is green. Same gate, no human.
+
+### The one thing that makes it possible: `AUTOMATION_PAT`
+
+**GitHub suppresses workflow runs for events raised by the built-in
+`GITHUB_TOKEN`.** It is a loop-breaker, and it is absolute: a PR *opened* with
+the repo token never starts `ci`, and a push that *updates* such a PR never
+re-starts it either. The required check simply never appears, so the PR can
+never merge — it does not fail, it just sits there forever.
+
+So every step that raises an event another workflow must see — the branch push,
+the `gh pr create`, and the `gh pr merge --auto` whose merge must in turn
+trigger `release-publish.yml` — runs as **`secrets.AUTOMATION_PAT`**, a
+fine-grained PAT scoped to this repo with **Contents: write** and
+**Pull requests: write**, and nothing else. Both workflows **fail loudly** when
+it is missing rather than opening a PR that can never land.
+
+**It is an *environment* secret, not a repo secret — that distinction is the
+security control.** A repo secret is readable by any workflow that runs in the
+repo, including one added on a PR branch; in a repo driven by agents that is a
+live exfiltration path, not a hypothetical one (log masking is defeated by any
+encoding). So the token lives in an environment named **`automation`** whose
+deployment-branch rule admits only `main`, and every job that needs it declares
+`environment: automation`. A job referencing it from any other ref fails
+outright. To exfiltrate the token you would first have to land a malicious
+workflow *on `main`* — loud, reviewable, and through the queue.
+
+Two rules for that environment:
+
+- **Never add required reviewers to it.** That is an approval gate, and it would
+  park every unattended run waiting for a click — the exact thing this design
+  exists to avoid. Branch rule only.
+- **Put `NPM_TOKEN` there too.** It is the most dangerous secret the repo will
+  ever hold, and `release-publish.yml` already declares the environment. Repo-
+  and org-level secrets stay readable from a job with an environment, so moving
+  a secret *in* narrows access without breaking anything.
+
+> Rotating or replacing the PAT? Nothing else changes — all three workflows read
+> the same name from the same environment. When it expires the workflows fail
+> loudly, which is the intended failure mode: the alternative is a PR that
+> silently never merges. A GitHub App is the stronger credential if this is ever
+> worth hardening further — its installation token is minted per run and expires
+> in an hour, it is not tied to a personal account, and (like a PAT, unlike
+> `GITHUB_TOKEN`) its events do trigger CI.
+
+### What this costs, and why the mirror is nightly
+
+Each backlog sync is now a real PR through the real queue. On the PR itself
+`ci`'s `changes` filter skips almost everything (`BACKLOG.md` matches neither
+`code` nor `docs`, so only `lint` runs), but the **merge-queue run deliberately
+skips nothing** — `changes` forces `code` and `docs` true on `merge_group`,
+because that is the final pre-merge gate. So a backlog sync costs roughly one
+full CI run, and adds one merge-train entry every open PR must rebase past.
+
+**That price is why the mirror runs on a nightly cron and nothing else.** Under
+the old direct push a sync was free, so it fired on every issue event — up to
+~14 a day. Through the queue that would be ~14 full CI runs and ~14 rebase
+nudges landing during working hours, which is real money and real thrash for a
+generated file. Once a night, off-hours, costs one of each, and the mirror was
+already designed to tolerate a 24h lag (that is how label/assignee drift was
+always reconciled). Need it current before then: dispatch the workflow.
+
+If even that ever bites, the remaining lever is to retire the mirror from `main`
+entirely — an orphan artifact branch, the `ci-drift-images` idiom — which costs
+nothing at all and needs no ruleset change either.
+
+### Mechanics worth knowing before you automate against this
+
+- **One branch, one open PR.** `sync-backlog.yml` force-pushes a fixed branch
+  (`chore/backlog-sync`) to `main` + 1 commit, so a burst of issue activity
+  updates the PR in flight instead of opening a second one. Force-pushing a
+  queued PR drops it from the queue — correct, since the newer snapshot
+  supersedes it.
+- **Never `cancel-in-progress` on a workflow that opens a PR.** A run killed
+  between "PR opened" and "auto-merge enabled" leaves a PR parked forever with
+  nothing to land it.
+- **Tags are not covered.** The ruleset targets `refs/heads/main`; there is no
+  tag ruleset, so `release-publish.yml` pushing `v<x.y.z>` needs nothing special.
+- **Auto-merge must be enabled on the repo** (Settings → General →
+  *Allow auto-merge*). It is.
 
 ## Post-merge standup — orient me, every merge
 
@@ -785,13 +890,20 @@ either is missing — so `status:ready` is a guarantee, not a hope.
 
 `BACKLOG.md` is a committed, read-only snapshot of open issues grouped by column,
 regenerated by `tools/sync-backlog.js` (the **Sync backlog mirror** workflow runs
-it on issue events + daily). The render is pure, so it only commits on a real
-queue change. Issues own *status*; decision docs own *design*; the mirror never
-feeds back. If we ever leave GitHub, the repo still carries the queue.
+it **nightly**, and on demand via dispatch). The render is pure, so a night with
+no queue movement produces nothing. Issues own *status*; decision docs own
+*design*; the mirror never feeds back. If we ever leave GitHub, the repo still
+carries the queue.
 
-> The mirror workflow pushes `BACKLOG.md` to `main`. If `main` is protected
-> against direct pushes, allow `github-actions[bot]` to bypass for that path
-> (one-time setting) — otherwise the push step fails visibly.
+**Expect it to trail by up to a day, by design** — it is the lock-in snapshot,
+not the board. For current status, read the issues. Why nightly rather than
+per-event: § Automation vs. the main ruleset.
+
+> The mirror reaches `main` by **pull request**, like everything else — it
+> opens one on `chore/backlog-sync` and switches auto-merge on, so the queue
+> lands it with no human. It needs the `AUTOMATION_PAT` secret to do that (a
+> PR opened with the built-in token never starts CI, so it could never merge)
+> and fails loudly without it. See § Automation vs. the main ruleset.
 
 ### Board setup (one-time, manual — needs your GitHub UI)
 
@@ -805,9 +917,10 @@ the UI, once:
    *PR merged → Done*; auto-add issues/PRs from this repo. These cover the board
    *column* automation the ADR describes — no token or Action required.
 4. Optionally group/swim-lane by `area:` (the swimlane view).
-5. **Allow `github-actions[bot]` to push `BACKLOG.md` to `main`** — add it to the
-   branch-protection bypass list (or exempt the path). Without this, the
-   sync-backlog workflow's first push fails.
+5. **Add the `AUTOMATION_PAT` repo secret** — a PAT (or App token) with
+   `contents: write` + `pull_requests: write`. Without it sync-backlog fails
+   loudly: a PR opened with the built-in token never starts CI, so it could
+   never merge. Why: § Automation vs. the main ruleset.
 
 **Deliberate boundary — the `status:review` *label* has no automated writer.**
 The Project's built-in *PR → Done* workflow moves the board **column** when a PR

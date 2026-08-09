@@ -6,29 +6,51 @@
  * keeps ALL release logic here so CI is a thin trigger and the same flow is
  * reproducible on a laptop.
  *
- * Sequence (real run):
+ * TWO PHASES, because `main` does not take direct pushes. The "Main Merge
+ * Queue" ruleset requires a PR + the merge queue + a green `ci`, so the
+ * release commit CANNOT be pushed to main by anyone — bot or human (issue
+ * #1439). It goes up as a PR like every other change, and the tag is cut
+ * afterwards, on the squashed commit the queue actually merged:
+ *
+ *   --prepare   cut the release COMMIT on a branch. No tag, no zip, no push —
+ *               a tag here would name a commit the queue is about to rewrite.
+ *   --publish   on merged main: tag THAT commit, rebuild the zip from it, and
+ *               regenerate the notes from the changelog section --prepare
+ *               committed (release/ is gitignored, so nothing survives the
+ *               phase boundary except what is in git).
+ *
+ * --prepare sequence:
  *   1. Require a clean tree (a release is cut from committed state).
  *   2. Gate on build:check (no stale / colliding dist/).
  *   3. Read the bump level — `auto` derives it from CHANGELOG `## Unreleased`
  *      (tools/changelog.js); an explicit patch|minor|major overrides.
  *   4. Compute the next version from package.json.
- *   5. Capture the Unreleased body → release/notes-v<version>.md (the GitHub
- *      Release body).
- *   6. `npm version <next> --no-git-tag-version` (updates package.json + lock).
- *   7. Roll the changelog: `## Unreleased` → `## <version> - <date>`, fresh
+ *   5. `npm version <next> --no-git-tag-version` (updates package.json + lock).
+ *   6. Roll the changelog: `## Unreleased` → `## <version> - <date>`, fresh
  *      empty Unreleased seeded above it.
- *   8. `npm run build` — regenerate dist/ (the emulator bundle inlines
+ *   7. `npm run build` — regenerate dist/ (the emulator bundle inlines
  *      package.json, so the version bump restales it).
- *   9. Commit `release: v<version>` (hooks run — dist is fresh), tag it.
- *  10. Build the release zip from the tagged commit.
- *  11. With --push: push the branch + tag.
+ *   8. Commit `release: v<version>` (hooks run — dist is fresh).
+ *
+ * --publish sequence (HEAD = the merged release commit on main):
+ *   1. Require a clean tree; gate on build:check.
+ *   2. Read the version from package.json; refuse if `v<version>` already tags
+ *      something (the release already went out).
+ *   3. Rederive release/notes-v<version>.md from the `## <version>` section.
+ *   4. Tag HEAD, build the release zip from it.
+ *   5. With --push: push the TAG (the commit is already on main via the queue).
  *
  * Flags:
+ *   --prepare                       phase 1 — cut the release commit
+ *   --publish                       phase 2 — tag + package a merged release
  *   --bump=auto|patch|minor|major   default auto (read from the changelog)
  *   --dry-run                       print the plan; change nothing. Safe on a
  *                                   dirty tree.
- *   --push                          push the release commit + tag to origin
+ *   --push                          --publish only: push the tag to origin
  *   --skip-checks                   skip the build:check gate (CI ran it)
+ *
+ * Both phases append `version=<x.y.z>` to $GITHUB_OUTPUT when it is set, so
+ * the workflows never re-derive the version themselves.
  */
 
 const { spawnSync, execFileSync } = require('node:child_process');
@@ -48,6 +70,8 @@ function arg(name, fallback) {
   return eq === -1 ? true : hit.slice(eq + 1);
 }
 const DRY        = process.argv.includes('--dry-run');
+const PREPARE    = process.argv.includes('--prepare');
+const PUBLISH    = process.argv.includes('--publish');
 const PUSH       = process.argv.includes('--push');
 const SKIP_CHECK = process.argv.includes('--skip-checks');
 const BUMP_ARG   = String(arg('bump', 'auto'));
@@ -63,10 +87,95 @@ function run(cmd, args) {
   }
 }
 
+/** Hand the version back to the calling workflow, so CI never re-derives it. */
+function emitVersion(version) {
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+  }
+}
+
+function requireCleanTree() {
+  if (git(['status', '--porcelain'])) {
+    console.error('error: working tree is dirty. Commit or stash before releasing.');
+    process.exit(1);
+  }
+}
+
+/**
+ * Phase 2 — tag + package a release commit that is ALREADY on main.
+ *
+ * The version is read from package.json rather than recomputed: the bump
+ * decision was made (and reviewed) in phase 1, and the merged commit is now
+ * the only truth about what shipped.
+ */
+function publish() {
+  requireCleanTree();
+  if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check']);
+
+  const version = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8')).version;
+  const tag = `v${version}`;
+
+  if (git(['tag', '--list', tag])) {
+    console.error(`error: tag ${tag} already exists — that version has already been released.`);
+    process.exit(1);
+  }
+
+  // The notes file lives in the gitignored release/ dir, so phase 1's copy is
+  // long gone. Rederive it from the dated section phase 1 committed.
+  const section = cl.extractVersion(fs.readFileSync(CHANGELOG, 'utf8'), version);
+  if (!section) {
+    console.error(`error: CHANGELOG.md has no ## ${version} section — is HEAD the merged release commit?`);
+    process.exit(1);
+  }
+  fs.mkdirSync(RELEASE_DIR, { recursive: true });
+  const notesFile = path.join(RELEASE_DIR, `notes-${tag}.md`);
+  const fitted = cl.fitReleaseBody(cl.releaseNotes(section.body), version);
+  if (fitted.truncated) {
+    console.warn(
+      `warning: the ${version} changelog section exceeds GitHub's ${cl.RELEASE_BODY_MAX}-character\n` +
+      `  Release-body limit; the notes were trimmed to ${fitted.keptLines} lines with a pointer to CHANGELOG.md.`,
+    );
+  }
+  fs.writeFileSync(notesFile, fitted.body);
+
+  // Zip first, tag second: the archive is of HEAD, not of the tag, so nothing
+  // depends on the order — and this way a failed zip build doesn't leave a
+  // stray local tag that blocks the retry.
+  run(process.execPath, [path.join(ROOT, 'tools', 'build-release-zip.js')]);
+  run('git', ['tag', tag]);
+  // The commit reached main through the merge queue; only the tag needs pushing.
+  if (PUSH) run('git', ['push', 'origin', tag]);
+
+  emitVersion(version);
+  console.log(`\nPublished ${tag} at ${git(['rev-parse', '--short', 'HEAD'])}.`);
+  console.log(`  tag:   ${tag}${PUSH ? ' (pushed)' : ' (local — push it with `git push origin ' + tag + '`)'}`);
+  console.log(`  notes: ${path.relative(ROOT, notesFile)}`);
+  console.log(`  zip:   release/lattice-${tag}.zip`);
+}
+
 function main() {
   // Must be a git repo.
   try { git(['rev-parse', '--is-inside-work-tree'], { stdio: ['ignore', 'pipe', 'ignore'] }); }
   catch (_e) { console.error('error: not a git repository.'); process.exit(1); }
+
+  if (PREPARE && PUBLISH) {
+    console.error('error: --prepare and --publish are separate phases — pass one.');
+    process.exit(1);
+  }
+  if (PUBLISH) return publish();
+  if (!PREPARE && !DRY) {
+    console.error([
+      'error: pick a phase — a release is cut in two steps, because main takes',
+      'no direct pushes (the "Main Merge Queue" ruleset).',
+      '',
+      '  npm run release:dry        preview the bump, change nothing',
+      '  npm run release:prepare    cut the release commit → push a branch → PR',
+      '  npm run release:publish    after it merges: tag main, zip, notes',
+      '',
+      'See RELEASE.md § How to cut a release.',
+    ].join('\n'));
+    process.exit(1);
+  }
 
   const pkg = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8'));
   const current = pkg.version;
@@ -107,39 +216,41 @@ function main() {
   }
 
   // Real run from here — require a clean tree and a fresh dist.
-  if (git(['status', '--porcelain'])) {
-    console.error('error: working tree is dirty. Commit or stash before releasing.');
-    process.exit(1);
-  }
+  requireCleanTree();
   if (!SKIP_CHECK) run(process.execPath, [path.join(ROOT, 'tools', 'build.js'), '--check']);
-
-  // Capture notes before rolling the changelog.
-  fs.mkdirSync(RELEASE_DIR, { recursive: true });
-  const notesFile = path.join(RELEASE_DIR, `notes-v${next}.md`);
-  fs.writeFileSync(notesFile, notes);
 
   // Bump version, roll changelog, rebuild dist.
   run('npm', ['version', next, '--no-git-tag-version']);
   fs.writeFileSync(CHANGELOG, cl.rollUnreleased(fs.readFileSync(CHANGELOG, 'utf8'), next, date));
   run('npm', ['run', 'build']);
 
-  // Commit + tag (hooks run; dist is fresh so freshness gates pass).
+  // Commit only (hooks run; dist is fresh so freshness gates pass). No tag and
+  // no zip: the queue squashes this commit into a NEW sha on main, so anything
+  // cut here would name a commit that never lands. Phase 2 does both.
   git(['add', 'package.json', 'package-lock.json', 'CHANGELOG.md', 'dist']);
-  run('git', ['commit', '-m', `release: v${next}`]);
-  run('git', ['tag', `v${next}`]);
 
-  // Package the showcase zip from the tagged commit.
-  run(process.execPath, [path.join(ROOT, 'tools', 'build-release-zip.js')]);
-
-  if (PUSH) {
-    const branch = git(['rev-parse', '--abbrev-ref', 'HEAD']);
-    run('git', ['push', '--follow-tags', 'origin', branch]);
+  // `npm run build` regenerates 36 artifacts; only those four are the release
+  // surface. If it touched anything else the tree was stale before the release
+  // started — and the symptom would otherwise surface two phases later, as
+  // `--publish` refusing a dirty tree with no hint of why. Name it here.
+  const stray = git(['status', '--porcelain'])
+    .split('\n')
+    .filter((l) => l && l[1] !== ' ')
+    .map((l) => l.slice(3));
+  if (stray.length) {
+    console.error(
+      `error: the build changed files outside the release surface:\n  ${stray.join('\n  ')}\n` +
+      'Commit (or revert) them first — `npm run build` on a clean tree should be a no-op.',
+    );
+    process.exit(1);
   }
 
-  console.log(`\nReleased v${next}.`);
-  console.log(`  tag:   v${next}${PUSH ? ' (pushed)' : ' (local — run with --push or push manually)'}`);
-  console.log(`  notes: ${path.relative(ROOT, notesFile)}`);
-  console.log(`  zip:   release/lattice-v${next}.zip`);
+  run('git', ['commit', '-m', `release: v${next}`]);
+
+  emitVersion(next);
+  console.log(`\nPrepared v${next} — the release commit is on ${git(['rev-parse', '--abbrev-ref', 'HEAD'])}.`);
+  console.log('  next: push the branch, open the PR, get it merged through the queue,');
+  console.log('        then run `npm run release:publish` on the merged main.');
 }
 
 main();

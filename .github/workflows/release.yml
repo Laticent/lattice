@@ -1,8 +1,21 @@
-name: Release
+name: Release (prepare)
 
-# Manual trigger only. The bump level is derived deterministically from the
-# CHANGELOG `## Unreleased` section (tools/changelog.js) unless overridden.
-# See RELEASE.md.
+# Phase 1 of 2. Cuts the release COMMIT on a branch, opens it as a PR, and
+# turns auto-merge on so the queue lands it unattended.
+#
+# Why not straight to main: the "Main Merge Queue" ruleset requires a pull
+# request, the merge queue, and a green `ci` — nobody pushes main directly,
+# bot or human (issue #1439). So a release lands like every other change:
+# queued, and re-tested on the exact tree that merges. The tag is cut
+# afterwards by release-publish.yml, on the squashed commit main actually
+# got — tagging here would name a commit the queue is about to rewrite.
+#
+# THE HUMAN GATE IS THE DISPATCH, not a PR approval. Dispatching this workflow
+# IS the authorization to ship; from there the release is unattended. Nothing
+# else in the repo merges without a human — see CLAUDE.md rule 7.
+#
+# The bump level is derived deterministically from the CHANGELOG `## Unreleased`
+# section (tools/changelog.js) unless overridden. See RELEASE.md.
 on:
   workflow_dispatch:
     inputs:
@@ -11,26 +24,28 @@ on:
         type: choice
         default: auto
         options: [auto, patch, minor, major]
-      publish_npm:
-        description: 'Also publish to npm (requires NPM_TOKEN)'
-        type: boolean
-        default: false
 
-# A release mutates shared state (version bump, tag, dist rebuild, npm publish).
+# A release mutates shared state (version bump, changelog roll, dist rebuild).
 # Never run two concurrently — a racing dispatch or retry could double-cut.
 # cancel-in-progress: false so an in-flight release finishes rather than being
-# torn down mid-tag-push.
+# torn down mid-commit.
 concurrency:
   group: release
   cancel-in-progress: false
 
 permissions:
-  contents: write   # push the release commit + tag, create the GitHub Release
-  id-token: write   # npm provenance, when publishing
+  contents: write       # push the release branch
+  pull-requests: write  # open the release PR
 
 jobs:
-  release:
+  prepare:
     runs-on: ubuntu-latest
+    # AUTOMATION_PAT lives here rather than in the repo secrets, and the
+    # environment only admits `main` — so a PR branch can't read it. Dispatching
+    # this workflow from any other ref fails on the environment rule, which is
+    # correct: a release is cut from main. See
+    # engineering/workflow.md § Automation vs. the main ruleset.
+    environment: automation
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,13 +56,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci
 
-      # Fast gate. The integration tier already ran on this commit via ci.yml;
-      # the release adds only a version bump + changelog roll + dist rebuild.
+      # Fast gate, so an obviously broken release never becomes a PR. The full
+      # tier runs on the PR itself, and again in the merge queue.
       - name: Lint + unit + build gate
         run: |
           npm run lint
@@ -59,26 +73,51 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Cut release (bump, changelog, tag, zip)
-        run: node tools/release.js --bump=${{ inputs.bump }} --push --skip-checks
+      - name: Cut the release commit
+        id: cut
+        run: node tools/release.js --prepare --bump=${{ inputs.bump }} --skip-checks
 
-      - name: Read released version
-        id: ver
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
+      # Everything below runs as the PAT, not GITHUB_TOKEN: GitHub suppresses
+      # workflow runs for events raised by the repo token, so a branch pushed
+      # or a PR opened with it would never start `ci`. The required check would
+      # never appear and the release would sit unmergeable forever.
+      - name: Open the release PR, and let the queue land it
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT }}
+          V: ${{ steps.cut.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
-          V="${{ steps.ver.outputs.version }}"
-          gh release create "v$V" \
-            "release/lattice-v$V.zip" \
-            --title "v$V" \
-            --notes-file "release/notes-v$V.md" \
-            --verify-tag
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::release: the AUTOMATION_PAT secret is not set. The release reaches main by PR, and a PR opened with the built-in GITHUB_TOKEN never starts CI — so it could never merge. See RELEASE.md § Prerequisites."
+            exit 1
+          fi
+          git switch -c "release/v$V"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/release/v$V"
+          cat > /tmp/release-pr-body.md <<EOF
+          Cuts v$V. Generated by the **Release (prepare)** workflow, which someone dispatched deliberately — that dispatch was the authorization, so this **auto-merges** once \`ci\` is green. To stop it, disable auto-merge or close this PR before the queue takes it.
 
-      - name: Publish to npm
-        if: ${{ inputs.publish_npm }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public --provenance
+          ## Problem / Why
+
+          Time to ship v$V. The bump is derived from \`CHANGELOG.md\` \`## Unreleased\` by \`tools/changelog.js\`.
+
+          ## What changed
+
+          - \`package.json\` + \`package-lock.json\` — version bumped to $V.
+          - \`CHANGELOG.md\` — \`## Unreleased\` rolled into a dated \`## $V\` section, fresh empty Unreleased seeded above it.
+          - \`dist/\` — rebuilt (the emulator bundle inlines \`package.json\`, so the bump restales it).
+
+          ## Tests
+
+          \`npm run lint\`, \`npm test\` and \`npm run build:check\` ran before the commit was cut; the full CI tier runs on this PR and again in the merge queue.
+
+          ## Caveats / not verified
+
+          The tag, release zip, GitHub Release and npm publish are **not** part of this PR — \`release-publish.yml\` does all four once this merges, against the squashed commit on main.
+          EOF
+          gh pr create --base main --head "release/v$V" \
+            --title "release: v$V" --body-file /tmp/release-pr-body.md
+          # With a merge queue, --auto queues the PR the moment `ci` is green.
+          # release-publish.yml takes over from the resulting push to main.
+          gh pr merge "release/v$V" --auto --squash

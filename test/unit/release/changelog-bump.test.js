@@ -11,9 +11,12 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   extractUnreleased,
+  extractVersion,
   computeBump,
   nextVersion,
   releaseNotes,
+  fitReleaseBody,
+  RELEASE_BODY_MAX,
   rollUnreleased,
 } = require('../../../tools/changelog.js');
 
@@ -150,6 +153,64 @@ describe('changelog bump engine', () => {
     test('returns the trimmed Unreleased body', () => {
       const notes = releaseNotes('\n\n### Added\n\n- thing\n\n\n');
       assert.equal(notes, '### Added\n\n- thing\n');
+    });
+  });
+
+  // A Release body over GitHub's cap is rejected — at the last step of the
+  // release, after the tag is pushed and the run can't simply be repeated.
+  describe('fitReleaseBody', () => {
+    const long = Array.from({ length: 400 }, (_, i) => `- entry ${i}`).join('\n');
+
+    test('passes a body under the limit through untouched', () => {
+      const fitted = fitReleaseBody('### Added\n\n- thing\n', '1.1.0');
+      assert.equal(fitted.body, '### Added\n\n- thing\n');
+      assert.equal(fitted.truncated, false);
+    });
+    test('trims an oversized body to fit, pointer included', () => {
+      const fitted = fitReleaseBody(long, '1.1.0', 500);
+      assert.ok(fitted.truncated);
+      assert.ok(fitted.body.length <= 500, `body is ${fitted.body.length} chars`);
+      assert.match(fitted.body, /CHANGELOG\.md` § 1\.1\.0/);
+    });
+    test('cuts on a line boundary, never mid-entry', () => {
+      const fitted = fitReleaseBody(long, '1.1.0', 500);
+      const kept = fitted.body.split('\n---\n')[0].trimEnd().split('\n');
+      for (const line of kept) assert.match(line, /^- entry \d+$/);
+    });
+    test('the default limit is GitHub\'s', () => {
+      assert.equal(RELEASE_BODY_MAX, 125000);
+    });
+  });
+
+  // The release is cut in two phases across a merge (RELEASE.md): the notes
+  // file lives in the gitignored release/ dir, so the publishing phase cannot
+  // inherit it — it reads back the dated section the release PR committed.
+  // If this slices the wrong section, a Release ships another version's notes.
+  describe('extractVersion', () => {
+    const rolled = rollUnreleased(changelog('### Added\n\n- new thing'), '1.1.0', '2026-05-29');
+
+    test('slices the dated section a release roll wrote', () => {
+      assert.equal(extractVersion(rolled, '1.1.0').body.trim(), '### Added\n\n- new thing');
+    });
+    test('stops at the next release heading', () => {
+      assert.doesNotMatch(extractVersion(rolled, '1.1.0').body, /initial release/);
+    });
+    test('matches an undated heading', () => {
+      assert.match(extractVersion(rolled, '1.0.0').body, /initial release/);
+    });
+    test('tolerates a v prefix on either side, and the [1.2.3] link form', () => {
+      assert.ok(extractVersion(rolled, 'v1.1.0'));
+      assert.ok(extractVersion('## [2.0.0] - 2026-06-01\n\n- x', '2.0.0'));
+    });
+    test('does not confuse a version with a prefix of another', () => {
+      const md = '## 1.1.0 - 2026-05-29\n\n- eleven\n\n## 1.1 - 2026-05-01\n\n- one-one';
+      assert.match(extractVersion(md, '1.1').body, /one-one/);
+    });
+    test('returns null for a version that has not shipped', () => {
+      assert.equal(extractVersion(rolled, '9.9.9'), null);
+    });
+    test('never matches the Unreleased heading', () => {
+      assert.equal(extractVersion('## Unreleased\n\n- pending', 'Unreleased'), null);
     });
   });
 });
