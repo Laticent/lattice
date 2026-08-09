@@ -30,7 +30,8 @@
 
 import { buildTrack, interCueGapMs } from '@/lib/cadenza';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
-import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
+import { compressClip } from '@/playground/narration-encode.js';
+import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { stripFrontMatter } from './front-matter';
@@ -164,6 +165,12 @@ export function shippedBytes(rawBytes: number, mime = 'audio/mpeg'): number {
  * fixed overhead across a short clip; a 100-character deck sentence amortizes that and comes
  * in a little under this rate. Over-quoting means the file arrives smaller than promised,
  * which is the safe direction for a number someone is consenting to.
+ *
+ * THE ROSTER IS NOW ONE CODEC CLASS, and that is a recent and load-bearing change. Two engines
+ * used to return uncompressed audio — Gemini (PCM over the wire) and on-device Kokoro (Float32
+ * off the worker) — and both shipped as WAV, at roughly 7.7x the rest of this table. They are
+ * compressed at the rung now (docs/src/playground/narration-encode.js), so the spread below is
+ * 279–1246 B/char rather than 279–3799, and every number in it is the same kind of number.
  */
 export const ENGINE_BYTES_PER_CHAR: Record<string, number> = {
 	kokoro: 477,
@@ -174,31 +181,42 @@ export const ENGINE_BYTES_PER_CHAR: Record<string, number> = {
 	csm: 422,
 	'zonos-hybrid': 656,
 	'zonos-transformer': 674,
-	// UNCOMPRESSED. Gemini is the one engine that returns WAV, and it is 7.7x the median of
-	// the mp3 roster — which is exactly why omitting it was not a rounding error. It was
-	// missing from this table while being present in the catalog, so `estimateSynthBytes`
+	// Gemini is the one engine whose SPEECH ENDPOINT returns raw PCM rather than mp3 — it 400s
+	// on response_format:"mp3". It was 3799 B/char here, an uncompressed outlier 7.7x the rest
+	// of the roster, and before that it was missing from this table entirely: `estimateSynthBytes`
 	// fell through to DEFAULT_BYTES_PER_CHAR and quoted ~19 MB for a 300-sentence deck that
-	// lands at ~145 MB. That is the SAME failure as the flat-16 B/char version this table
-	// replaced, one engine narrower, and it beat the test written to prevent it.
-	gemini: 3799,
+	// landed at ~145 MB.
+	//
+	// Both problems are now upstream of this number. The rung encodes that PCM to mp3 before it
+	// is cached or baked, and the committed samples this row is measured from are encoded the
+	// same way at the same bitrate — so 645 is a reading of the same codec the deck ships, not
+	// a second guess about it.
+	gemini: 645,
 };
 
 /**
  * The rate for a model this catalog has no samples for.
  *
- * The MEDIAN of the measured mp3 engines, not the mean — one 1246 B/char outlier should not
- * move the answer for an unknown model. Gemini is deliberately EXCLUDED from that median: at
- * 3799 B/char it is a different codec class, and letting an uncompressed outlier drag the
- * default would over-quote every unknown mp3 model by several times.
+ * The MEDIAN of the measured engines, not the mean — one 1246 B/char outlier should not move
+ * the answer for an unknown model. Gemini is now IN that median rather than excluded from it:
+ * the exclusion existed because an uncompressed engine at 3799 B/char was a different codec
+ * class that would have dragged the default several times too high, and it no longer is one.
  *
- * The residual risk this leaves is honest and worth stating: a NEW uncompressed engine that
- * OpenRouter adds and this repo has no samples for will be under-quoted by roughly 7x until
- * someone generates samples for it. That is the gap `gemini` fell into. There is no way to
- * close it from a table — it needs the response's real byte count, which the pre-flight by
- * definition does not have — so the mitigation is the test below, which now fails when the
- * catalog lists an engine this table does not.
+ * THE UNCOMPRESSED GAP IS CLOSED, which is worth stating precisely because the previous version
+ * of this comment said it could not be. It used to read: "a NEW uncompressed engine that
+ * OpenRouter adds and this repo has no samples for will be under-quoted by roughly 7x… there is
+ * no way to close it from a table — it needs the response's real byte count, which the
+ * pre-flight by definition does not have." That was true of a table and false of the pipeline.
+ * The fix was not a better estimate but a bound: `bakeNarration` runs every clip through
+ * `compressClip` on its way into the file, so audio that arrives uncompressed cannot ship
+ * uncompressed no matter which engine produced it or whether this table has heard of it.
+ *
+ * The residual risk that remains is smaller and different: an unknown engine returning mp3 at
+ * an unusually HIGH bitrate is still quoted at the median and passes through untouched (we do
+ * not transcode already-compressed audio — that is generation loss for nothing). The worst case
+ * there is roughly 2x, bounded by the roster's own spread, not 7x.
  */
-export const DEFAULT_BYTES_PER_CHAR = 496;
+export const DEFAULT_BYTES_PER_CHAR = 645;
 
 /**
  * What `chars` of not-yet-synthesized text will add to the shipped file, in `modelId`'s voice
@@ -527,7 +545,17 @@ export async function bakeNarration(
 	/** Attach a clip's bytes to its cue — and to every repeat of the same sentence — as a
 	 *  `data:` URI, counting what each occurrence costs the file. */
 	const attach = async (job: { i: number; j: number; twins: { i: number; j: number }[] }, blob: ClipBytes) => {
-		const uri = `data:${safeMime(blob.type)};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
+		// LAST LINE OF DEFENSE on size. Both of today's uncompressed engines now compress at the
+		// rung, before their bytes are ever stored, so on the common path this is a MIME check
+		// that finds nothing to do. It earns its place on the two paths that bypass that: a clip
+		// cached BEFORE this shipped (still WAV on the author's device, and re-synthesizing it to
+		// save bytes would re-bill audio they already own), and any future engine returning a
+		// format nobody has compressed yet — the gap `DEFAULT_BYTES_PER_CHAR` names, where an
+		// unknown uncompressed engine is under-quoted ~7x. Compressing HERE bounds the shipped
+		// file by the codec regardless of what the rung handed back, so that gap can no longer
+		// reach the artifact.
+		const shipped = (await compressClip(blob, narrationBitrate())) ?? blob;
+		const uri = `data:${safeMime(shipped.type)};base64,${toBase64(new Uint8Array(await shipped.arrayBuffer()))}`;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;
 			bytes += uri.length;

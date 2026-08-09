@@ -551,6 +551,18 @@ describe('WorkspaceSheet — narration in Present', () => {
 		expect(localStorage.getItem('lattice-present-pace')).toBe('deliberate');
 	});
 
+	it('audio quality round-trips, and the recommended default is stored as absence', async () => {
+		// The default is written as "no entry" rather than "64", so the recommended value can be
+		// re-tuned later without every workspace that never touched the control being pinned to
+		// the old number by a stale localStorage row.
+		const { user, sheet } = await openGeneral();
+		const trigger = sheet.getByRole('combobox', { name: 'Audio quality' });
+		await pick(user, trigger, /128 kbps/);
+		expect(localStorage.getItem('lattice-present-narration-bitrate')).toBe('128');
+		await pick(user, sheet.getByRole('combobox', { name: 'Audio quality' }), /64 kbps/);
+		expect(localStorage.getItem('lattice-present-narration-bitrate')).toBeNull();
+	});
+
 	it('keeping narration on the device is on by default and switches off', async () => {
 		const { user, sheet } = await openGeneral();
 		const sw = sheet.getByRole('switch', { name: 'Keep narration on this device' });

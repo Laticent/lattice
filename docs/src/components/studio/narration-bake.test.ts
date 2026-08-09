@@ -176,15 +176,23 @@ describe('estimateSynthBytes — the one figure that cannot be exact', () => {
 		}
 	});
 
-	it('quotes the WAV engine at its real rate, not the mp3 median', () => {
-		// The concrete regression: a 300-sentence deck (~30k chars) in Gemini was quoted ~19 MB
-		// and lands at ~145 MB. Uncompressed audio is a different codec class and the table has
-		// to say so.
+	it('quotes the PCM engine as the compressed audio it now ships, not as WAV', () => {
+		// The original regression: a 300-sentence deck (~30k chars) in Gemini was quoted ~19 MB
+		// and landed at ~145 MB, because Gemini's PCM shipped as WAV — 7.7x the mp3 roster.
+		//
+		// The fix was upstream of the quote: that PCM is encoded to mp3 at the rung before it is
+		// cached or baked, so the deck no longer lands at 145 MB either. This pins the property
+		// that replaced the old one — the roster is ONE codec class now, so no engine may sit a
+		// multiple away from the rest. If a future engine reintroduces uncompressed audio without
+		// compressing it, this goes red.
 		const chars = 30_000;
+		const rates = Object.values(ENGINE_BYTES_PER_CHAR);
+		const spread = Math.max(...rates) / Math.min(...rates);
+		expect(spread, 'ENGINE_BYTES_PER_CHAR spans more than one codec class').toBeLessThan(5);
 		const gemini = estimateSynthBytes(chars, 'google/gemini-3.1-flash-tts-preview');
 		const kokoro = estimateSynthBytes(chars, 'hexgrad/kokoro-82m');
-		expect(gemini).toBeGreaterThan(140_000_000);
-		expect(gemini / kokoro).toBeGreaterThan(7);
+		expect(gemini).toBeLessThan(30_000_000);
+		expect(gemini / kokoro).toBeLessThan(2);
 	});
 
 	it('is nowhere near the flat 16 B/char the first version quoted', () => {

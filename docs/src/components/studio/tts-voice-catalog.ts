@@ -147,7 +147,12 @@ export function cachedSampleUrl(modelId: string, voiceId: string, speed: number)
 	const def = ENGINES[engine];
 	if (!def?.requiresAsset) return null;
 	if (!def.cachedVoices.includes(voiceId)) return null; // no committed sample — live path
-	const ext = def.audioFormat === 'wav' ? 'wav' : 'mp3';
+	// ALWAYS mp3 — `audioFormat` describes the WIRE, not the file on disk. The generator
+	// encodes a PCM-only engine's response to mp3 before committing it, so every sample under
+	// docs/public/voice-samples/ is the same codec regardless of what its provider returns.
+	// (It used to key the extension off `audioFormat`, which is how gemini's samples came to be
+	// 132 KB WAVs — see tools/generate-voice-samples.mjs's header.)
+	const ext = 'mp3';
 	// A voice id can contain characters invalid in a Windows filename (MAI-Voice-2's
 	// ids carry a literal ":") — mirrors tools/generate-voice-samples.mjs's own
 	// safeFilename EXACTLY, so a generated file and its lookup URL always agree.

@@ -29,8 +29,9 @@
 // The two on-device tiers this module writes through to. Both are plain, node-safe JS
 // with the same no-alias/no-TS constraint as this file (see the header) — the import
 // graph stays loadable under `node --test`, and both degrade to no-ops without a DOM.
+import { encodeMp3, mp3Clip, toInt16 } from './narration-encode.js';
 import { recordLatency } from './narration-latency.js';
-import { narrationCacheEnabled } from './narration-prefs.js';
+import { narrationBitrate, narrationCacheEnabled } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
 
 const KOKORO_URL = 'https://esm.run/kokoro-js';
@@ -318,9 +319,27 @@ export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 // avoids an extra Blob-wrap/unwrap round trip that buys nothing (the bytes are
 // already an ArrayBuffer). A real Blob works fine in every real browser target too,
 // if a future caller needs one — this just isn't that caller.
+// The response's declared PCM geometry, e.g. "audio/pcm;rate=24000;channels=1". ONE parser,
+// because both consumers below (the mp3 encode and the WAV fallback) have to agree about the
+// sample rate: a mismatch does not fail, it plays the clip back at the wrong speed.
+function parsePcmHeaderInfo(contentType) {
+  return {
+    rate: Number(/rate=(\d+)/.exec(contentType || '')?.[1]) || 24000,
+    channels: Number(/channels=(\d+)/.exec(contentType || '')?.[1]) || 1,
+  };
+}
+
+// Raw little-endian 16-bit PCM bytes → Int16Array. Copied through `slice` rather than viewed
+// in place: a view requires 2-byte alignment the response has no obligation to provide, and an
+// odd trailing byte would throw on construction. (Every browser target is little-endian, which
+// is the same assumption the WAV writers in this file already make.)
+function pcmToInt16(bytes) {
+  const usable = bytes.byteLength & ~1;
+  return new Int16Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + usable));
+}
+
 function pcmBlobFromResponse(pcmBytes, contentType) {
-  const rate = Number(/rate=(\d+)/.exec(contentType || '')?.[1]) || 24000;
-  const channels = Number(/channels=(\d+)/.exec(contentType || '')?.[1]) || 1;
+  const { rate, channels } = parsePcmHeaderInfo(contentType);
   const bitsPerSample = 16;
   const blockAlign = channels * (bitsPerSample / 8);
   const byteRate = rate * blockAlign;
@@ -405,6 +424,14 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         const contentType = res.headers.get('content-type') || '';
         const bytes = new Uint8Array(await res.arrayBuffer());
         if (!bytes.length) throw new Error('OpenRouter returned empty audio');
+        // COMPRESS before this leaves the rung. This is the one cloud model that answers in
+        // raw PCM, and at 3799 B/char it was 7.7x the rest of the roster in every place its
+        // bytes came to rest — the device cache, and the base64 payload of a shipped deck.
+        // Encoded straight from the PCM rather than via `pcmBlobFromResponse`'s WAV, so the
+        // header this would otherwise write and immediately re-parse is never built.
+        const { rate, channels } = parsePcmHeaderInfo(contentType);
+        const mp3 = await encodeMp3(pcmToInt16(bytes), rate, channels, narrationBitrate());
+        if (mp3) return mp3Clip(mp3);
         return pcmBlobFromResponse(bytes, contentType);
       }
       const blob = await res.blob();
@@ -525,7 +552,10 @@ function kokoroRung({ getVoice }) {
       if (d.type === 'progress') onProg?.({ progress: (d.progress || 0) / 100, text: d.file, status: d.status });
       else if (d.type === 'loaded') { isReady = true; inference = workerInference; onLoaded?.(true); }
       else if (d.type === 'load-error') onLoadErr?.(new Error(d.error || 'load failed'));
-      else if (d.type === 'audio') { const p = pending.get(d.id); pending.delete(d.id); p?.resolve?.(wavBlob(d.samples, d.rate)); }
+      // Two shapes, and the worker chooses: `mp3` when it could compress (the normal path),
+      // raw `samples` when the encoder was unavailable there. Wrapping the fallback in a WAV
+      // header here keeps the ORIGINAL contract intact as the floor — see kokoro-worker.js.
+      else if (d.type === 'audio') { const p = pending.get(d.id); pending.delete(d.id); p?.resolve?.(d.mp3 ? mp3Clip(d.mp3) : wavBlob(d.samples, d.rate)); }
       else if (d.type === 'gen-error') { const p = pending.get(d.id); pending.delete(d.id); p?.reject?.(new Error(d.error || 'synthesis failed')); }
     };
     worker.onerror = (ev) => onLoadErr?.(new Error(ev.message || 'worker error'));
@@ -555,12 +585,21 @@ function kokoroRung({ getVoice }) {
     const id = nextId++;
     return new Promise((resolve, reject) => {
       pending.set(id, { resolve, reject });
-      worker.postMessage({ type: 'generate', id, text, voice, speed });
+      worker.postMessage({ type: 'generate', id, text, voice, speed, kbps: narrationBitrate() });
       if (signal) signal.addEventListener('abort', () => { pending.delete(id); reject(new Error('aborted')); }, { once: true });
     });
   };
+  // The main-thread fallback compresses HERE rather than in the worker, for the obvious
+  // reason that there is no worker on this path. It is the degraded mode (no module Worker
+  // could be constructed at all), so the ~130 ms encode competes with nothing that was going
+  // to be smooth anyway — and shipping this path uncompressed would make the size of a baked
+  // deck depend on whether the author's browser could spawn a worker, which is not a thing an
+  // author can see or reason about.
   const mainInference = ({ text, voice, speed }) =>
-    mainTts.generate(text, { voice, ...(speed && speed !== 1 ? { speed } : {}) }).then((audio) => wavBlob(audio.audio, audio.sampling_rate));
+    mainTts.generate(text, { voice, ...(speed && speed !== 1 ? { speed } : {}) }).then(async (audio) => {
+      const mp3 = await encodeMp3(toInt16(audio.audio), audio.sampling_rate, 1, narrationBitrate());
+      return mp3 ? mp3Clip(mp3) : wavBlob(audio.audio, audio.sampling_rate);
+    });
 
   return {
     name: 'kokoro',

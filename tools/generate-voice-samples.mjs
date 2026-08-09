@@ -14,13 +14,24 @@
  * instant playback (HARD RULE #24 §OpenRouter budget; see the redesign section of
  * engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md).
  *
- * Most engines return mp3 directly. A model can instead declare
- * `"audioFormat": "wav"` in the catalog (today: gemini, whose speech endpoint 400s
- * on response_format:"mp3" and only returns raw PCM) — for those, this requests
- * response_format:"pcm", reads the actual sample rate/channels off the response's
- * Content-Type header (never hardcoded — a model-specific quirk, not assumed
- * universal), and wraps the PCM in a WAV container so the file is still directly
- * playable by a plain <audio> element with no decoding library.
+ * EVERY COMMITTED SAMPLE IS AN MP3, whatever the provider returned. `audioFormat`
+ * in the catalog describes THE WIRE, not the file on disk: most engines return mp3
+ * directly, and a model can declare `"audioFormat": "wav"` (today: gemini, whose
+ * speech endpoint 400s on response_format:"mp3" and only returns raw PCM) — for
+ * those, this requests response_format:"pcm", reads the actual sample rate/channels
+ * off the response's Content-Type header (never hardcoded — a model-specific quirk,
+ * not assumed universal), and ENCODES it to mp3 before writing.
+ *
+ * That split matters because the two facts used to be one field and they are not the
+ * same fact. Committing gemini's PCM as a WAV made its samples 132 KB where the mp3
+ * roster is 11–29 KB for the same 35-character sentence — 3.9 MB of the asset set,
+ * and, worse, the byte-rate table the export panel quotes from is DERIVED from these
+ * files (narration-bake.ts's ENGINE_BYTES_PER_CHAR), so an uncompressed sample set
+ * taught the quote that uncompressed audio is what ships. It no longer is: the rung
+ * compresses the same PCM the same way before it is cached or baked
+ * (docs/src/playground/narration-encode.js), so these files and the shipped artifact
+ * are once again the same codec at the same bitrate — which is the only reason
+ * measuring one to predict the other is honest.
  *
  * Kokoro is currently excluded (requiresAsset: false) — on-device it's free and
  * doesn't need caching; hosted as a cloud model it technically would benefit, but
@@ -45,6 +56,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_BITRATE_KBPS, encodeMp3 } from '../docs/src/playground/narration-encode.js';
+
+/** The bitrate committed samples are encoded at — the SAME default the rung compresses
+ *  narration to, deliberately shared rather than re-picked here. These files are what
+ *  ENGINE_BYTES_PER_CHAR is measured from, so a sample encoded at a different rate than the
+ *  audio it predicts would make the export panel's size quote wrong by exactly that ratio. */
+const SAMPLE_BITRATE_KBPS = DEFAULT_BITRATE_KBPS;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CATALOG_PATH = path.join(ROOT, 'docs/src/playground/tts-voice-catalog.json');
@@ -73,7 +91,8 @@ if (!engines.length) {
 
 let jobs = [];
 for (const [slug, def] of engines) {
-  for (const voice of def.cachedVoices) jobs.push({ slug, modelId: def.modelId, voice, format: def.audioFormat === 'wav' ? 'wav' : 'mp3' });
+  // `format` is what to ASK THE WIRE for, not what to write — every sample is written as mp3.
+  for (const voice of def.cachedVoices) jobs.push({ slug, modelId: def.modelId, voice, format: def.audioFormat === 'wav' ? 'pcm' : 'mp3' });
 }
 if (LIMIT) jobs = jobs.slice(0, LIMIT);
 
@@ -156,13 +175,27 @@ function parsePcmContentType(contentType) {
 }
 
 async function synth(modelId, voice, format) {
-  if (format === 'wav') {
+  if (format === 'pcm') {
     const { buf, contentType } = await speechRequest(modelId, voice, 'pcm');
     const { rate, channels } = parsePcmContentType(contentType);
+    // COMPRESS rather than commit the PCM as a WAV. Every sample on disk is mp3 now, whatever
+    // the wire returned — see the `audioFormat` note in the header. The WAV wrap survives as
+    // the fallback for a rate MPEG has no table for, because a large sample that plays is
+    // strictly better than a small one that plays at the wrong speed.
+    const mp3 = await encodeMp3(pcmToInt16(buf), rate, channels, SAMPLE_BITRATE_KBPS);
+    if (mp3) return Buffer.from(mp3);
+    console.warn(`  ! ${modelId}/${voice}: could not encode ${rate} Hz PCM to mp3 — committing WAV`);
     return pcmToWav(buf, rate, channels);
   }
   const { buf } = await speechRequest(modelId, voice, 'mp3');
   return buf;
+}
+
+/** Raw little-endian 16-bit PCM → Int16Array, copied (not viewed) so an unaligned or
+ *  odd-length response can't throw on construction. Twin of voice-model.js's `pcmToInt16`. */
+function pcmToInt16(buf) {
+  const usable = buf.byteLength & ~1;
+  return new Int16Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + usable));
 }
 
 // A voice id can contain characters invalid in a Windows filename (MAI-Voice-2's

@@ -124,8 +124,12 @@ describe('cachedSampleUrl — the pre-generated sample path, or null when nothin
 		expect(cachedSampleUrl('x-ai/grok-voice-tts-1.0', 'eve', 1)).toBe('/voice-samples/grok/eve.mp3');
 	});
 
-	it('resolves a cached Gemini voice with the wav extension its audioFormat declares', () => {
-		expect(cachedSampleUrl('google/gemini-3.1-flash-tts-preview', 'Puck', 1)).toBe('/voice-samples/gemini/Puck.wav');
+	it('resolves a cached Gemini voice to .mp3 even though its audioFormat declares wav', () => {
+		// `audioFormat` describes THE WIRE — Gemini's speech endpoint 400s on mp3 and answers in
+		// raw PCM — while the committed sample is what the generator WROTE, and it encodes that
+		// PCM to mp3 before writing. Keying the extension off `audioFormat` conflated the two and
+		// is how gemini's samples came to be 132 KB WAVs, 7.7x the rest of the roster.
+		expect(cachedSampleUrl('google/gemini-3.1-flash-tts-preview', 'Puck', 1)).toBe('/voice-samples/gemini/Puck.mp3');
 	});
 
 	it('resolves a cached MAI-Voice-2 voice, sanitizing the ":" a Windows filename can\'t hold', () => {

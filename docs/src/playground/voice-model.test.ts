@@ -707,19 +707,42 @@ describe('openrouter synth: PCM-only model quirk (Gemini 400s on mp3, only retur
     expect(requests[1].response_format).toBe('mp3');
   });
 
-  it('wraps the PCM response in a 44-byte-header WAV blob, reading sample rate/channels off Content-Type', async () => {
-    const fetchImpl = async () => ({
-      ok: true,
-      status: 200,
-      headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'audio/pcm;rate=24000;channels=1' : null) },
-      arrayBuffer: async () => new Uint8Array([10, 20, 30, 40]).buffer,
-    });
-    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+  /** A PCM response of `samples` 16-bit samples at `rate`, as the Gemini route answers. */
+  const pcmResponse = (samples: number, rate = 24000) => async () => ({
+    ok: true,
+    status: 200,
+    headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? `audio/pcm;rate=${rate};channels=1` : null) },
+    arrayBuffer: async () => {
+      const pcm = new Int16Array(samples);
+      for (let i = 0; i < samples; i++) pcm[i] = Math.round(Math.sin((2 * Math.PI * 220 * i) / rate) * 12000);
+      return pcm.buffer;
+    },
+  });
+
+  it('COMPRESSES the PCM response to mp3 before it leaves the rung', async () => {
+    // This is the one cloud model that answers in raw PCM. It used to be wrapped in a WAV
+    // header and handed on uncompressed, at 3799 B/char — 7.7x the rest of the roster, in the
+    // device cache and again in the base64 payload of every deck baked in this voice.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: pcmResponse(24000) });
     model.setOrModel('google/gemini-3.1-flash-tts-preview');
 
     const res = await model.synthOne({ text: 'Gemini line.' });
-    // The wrapped WAV is 44 header bytes + the 4 raw PCM bytes, tagged audio/wav — the
-    // exact blob-like the caller (Suono) will decode + play.
+    expect(res.bytes?.type).toBe('audio/mpeg');
+    // 1 s of 24 kHz 16-bit mono is 48 000 B of PCM; compressed it must be a fraction of that.
+    expect(res.bytes?.size).toBeLessThan(48_000 / 3);
+    expect(res.bytes?.size).toBeGreaterThan(0);
+    const bytes = new Uint8Array(await res.bytes!.arrayBuffer());
+    expect(bytes[0], 'MPEG frame sync').toBe(0xff);
+  });
+
+  it('falls back to the 44-byte-header WAV when the PCM cannot be encoded', async () => {
+    // 23 kHz is not a rate MPEG defines. The encoder declines rather than encoding against the
+    // nearest table (which would play back at the wrong speed), and the rung keeps its original
+    // bytes — the ORIGINAL contract, preserved as the floor. Shipping large beats shipping wrong.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: pcmResponse(2, 23000) });
+    model.setOrModel('google/gemini-3.1-flash-tts-preview');
+
+    const res = await model.synthOne({ text: 'Gemini line.' });
     expect(res.bytes?.type).toBe('audio/wav');
     expect(res.bytes?.size).toBe(44 + 4);
     expect((await res.bytes!.arrayBuffer()).byteLength).toBe(44 + 4);

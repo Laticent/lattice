@@ -41,6 +41,25 @@ in patch versions.
   `.code`-slide gap they would have covered, are recorded in the follow-up issue rather than
   left in dead CSS.
 
+- **A narrated deck is now several times smaller, because its audio is finally compressed.**
+  Two of the nine speech engines handed back raw, uncompressed audio — on-device Kokoro and
+  Gemini — and both shipped that way: a 300-sentence deck narrated on-device came to roughly
+  145 MB where the same deck in a cloud voice came to 19 MB. Both are encoded to mp3 now, at the
+  rung, before the audio is cached or baked, so the saving reaches the shipped webpage, the
+  device cache and the export panel's size quote alike. Measured on this repo's own committed
+  Gemini sample: **132 KB → 22 KB, 5.9× smaller**, which puts those two engines inside the range
+  the seven mp3 engines already ship at rather than 7.7× above it. Audio that is already
+  compressed is never re-encoded (that would be generation loss paid for nothing), and a clip
+  that cannot be encoded — an exotic sample rate — still ships uncompressed rather than
+  ship wrong. Workspace → Voice → **Audio quality** sets the bitrate (48/64/96/128 kbps, default
+  64); audio already recorded on the device keeps the quality it was recorded at, and is never
+  re-synthesized to change it, so raising the setting never re-bills a deck you already own.
+  The bake also compresses anything uncompressed on its way into the file, so a future engine
+  returning raw audio cannot land uncompressed in an artifact even before anyone measures it.
+  The 30 committed Gemini voice samples were re-encoded the same way, taking **3.15 MB out of
+  the repository**, and `ENGINE_BYTES_PER_CHAR` was re-measured from them (gemini 3799 → 645
+  B/char) so the quote and the file still come from one reading.
+
 - **Slide search understands what you want to say, not just what a component is called.**
   Typing "who owns what on the team" or "where do users drop off" into the add-slide gallery,
   the Playground picker or the `/components` index now returns a ranked shortlist with a match

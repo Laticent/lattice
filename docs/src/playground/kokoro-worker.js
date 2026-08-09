@@ -14,9 +14,20 @@
 // keeps Vite from trying to bundle the CDN URL; it's a runtime dynamic import,
 // exactly like architect-model's main-thread fallback.
 //
-// It posts raw Float32 PCM back (transferable) so the main thread encodes the WAV
-// — no dependency on a particular RawAudio.toBlob() shape. Mirrors voice-model's
-// rung contract; docs-only (the Drawing Board), touches no engine render path.
+// It COMPRESSES here and posts mp3 bytes back (transferable). Encoding on this side
+// rather than the main thread is the whole reason it happens here at all: the PCM is
+// already in this worker, so compressing costs no transfer, shrinks the postMessage
+// payload ~6x (566 KB → 95 KB for 12 s of speech), and — the point — keeps LAME's
+// ~130 ms per sentence off the thread that is animating the caption crawl. Encoding
+// the same clip on the main thread dropped frames on every sentence boundary.
+//
+// If the encoder is unavailable or the encode fails it posts raw Float32 PCM back
+// exactly as before, and the main thread wraps it in a WAV header — the original
+// contract, kept as the floor. No dependency on a particular RawAudio.toBlob() shape.
+// Mirrors voice-model's rung contract; docs-only (the Drawing Board), touches no
+// engine render path.
+
+import { encodeMp3, toInt16 } from './narration-encode.js';
 
 let tts = null;
 
@@ -36,7 +47,11 @@ self.onmessage = async (e) => {
       const audio = await tts.generate(d.text, { voice: d.voice, ...(d.speed && d.speed !== 1 ? { speed: d.speed } : {}) });
       const samples = audio.audio;
       const rate = audio.sampling_rate;
-      self.postMessage({ type: 'audio', id: d.id, samples, rate }, [samples.buffer]);
+      // Kokoro is mono. `d.kbps` comes from the workspace pref; an absent one lets
+      // encodeMp3 apply its own default rather than this worker inventing a second.
+      const mp3 = await encodeMp3(toInt16(samples), rate, 1, d.kbps);
+      if (mp3) self.postMessage({ type: 'audio', id: d.id, mp3, rate }, [mp3.buffer]);
+      else self.postMessage({ type: 'audio', id: d.id, samples, rate }, [samples.buffer]);
     }
   } catch (err) {
     self.postMessage({ type: d.type === 'load' ? 'load-error' : 'gen-error', id: d.id, error: String((err?.message) || err) });
