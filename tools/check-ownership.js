@@ -2742,7 +2742,7 @@ const OPENROUTER_KEY_NAME = /OPEN_ROUTER_KEY/; // the bare name catches bracket/
 // files) — exempt them so the scan doesn't flag itself, same as the US-English dictionary.
 const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']);
 // The ONLY paths allowed to spend our key — on-demand, opt-in, cost-printing (rule #24).
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs'];
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs'];
 
 // Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
 // unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,

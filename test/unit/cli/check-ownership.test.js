@@ -1431,8 +1431,19 @@ describe('check-ownership', () => {
     const REPO = path.join(__dirname, '..', '..', '..');
 
     test('every sanctioned spender is on the allowlist and exists', () => {
-      assert.deepEqual(SANCTIONED_OPENROUTER_SPENDERS, ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs']);
+      assert.deepEqual(SANCTIONED_OPENROUTER_SPENDERS, [
+        'tools/component-gen-eval.mjs',
+        'tools/generate-voice-samples.mjs',
+        'tools/intent-bakeoff/judge-eval.mjs',
+      ]);
       for (const rel of SANCTIONED_OPENROUTER_SPENDERS) assert.ok(fs.existsSync(path.join(REPO, rel)), `${rel} is sanctioned but missing`);
+      // A sanctioned spender must actually CARRY the opt-in guard, not merely be listed.
+      // The allowlist is what lets a file read our key; a listed file without the guard
+      // would spend it on any run, which is the hole HARD RULE #24 exists to close.
+      for (const rel of SANCTIONED_OPENROUTER_SPENDERS) {
+        const src = fs.readFileSync(path.join(REPO, rel), 'utf8');
+        assert.ok(/OPENROUTER_ALLOW_SPEND/.test(src), `${rel} is sanctioned but has no OPENROUTER_ALLOW_SPEND opt-in`);
+      }
     });
 
     test('every sanctioned workflow exists and still references the key (no stale sanction)', () => {
