@@ -111,8 +111,8 @@ earlier draft of this section claimed everything was "fitted only against dev";
 that was wrong and contradicted note 3 below. `bakeoff.mjs` reports all 50
 intent and all 25 adversarial queries every run, and at least 9 of the 17
 synonym entries map one-to-one onto a specific adversarial query (`choropleth`,
-`testimonial`, `accountable`, `swimlane`, `jargon`, `circle`, `qr`,
-`organisation`, `moving`). Those two columns are **train-on-test** and must be
+`testimonial`, `accountable`, `swimlane`, `jargon`, `circle`, `qr`, `moving`,
+and the British-spelling fold). Those two columns are **train-on-test** and must be
 read as an upper bound. Measured, the lexicon is worth 8 points there — without
 it the adversarial score is **76.0%**, not 84.0% — so any comparison against a
 library that was given no equivalent query-side treatment should quote 76.0%.

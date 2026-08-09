@@ -82,8 +82,13 @@ const K1 = 1.2;
 const B = 0.75;
 
 /** Fold the common British forms onto the American ones, so the house dialect
- *  (HARD RULE #21) is also the search dialect and "prioritise" finds what
- *  "prioritize" indexes. */
+ *  (HARD RULE #21) is also the SEARCH dialect: an author who types the -ise/-our
+ *  spelling of a word finds what the -ize/-or spelling indexes.
+ *
+ *  (Written without spelling the British forms out, deliberately — the US-English
+ *  ratchet counts prose, and a comment about the fold should not consume budget the
+ *  fold's own data needs. The remaining British strings in this feature are all
+ *  functional: the SYNONYMS keys and the adversarial test fixtures.) */
 const americanize = (w: string) =>
 	w.replace(/isation$/, 'ization').replace(/ising$/, 'izing').replace(/ise$/, 'ize').replace(/our$/, 'or');
 
