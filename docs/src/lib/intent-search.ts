@@ -87,9 +87,19 @@ const B = 0.75;
 const americanize = (w: string) =>
 	w.replace(/isation$/, 'ization').replace(/ising$/, 'izing').replace(/ise$/, 'ize').replace(/our$/, 'or');
 
-/** Text → the content words a match can turn on, un-stemmed. */
+/** Text → the content words a match can turn on, un-stemmed.
+ *  Exported as `contentWords` so fit-search.ts shares one tokenizer with this
+ *  module — two tokenizers over the same manifest would drift, and the two
+ *  scorers' terms have to be comparable for their scores to combine. */
 function words(text: string): string[] {
 	return (text.toLowerCase().match(/[a-z][a-z0-9+#]*/g) ?? []).filter((w) => w.length > 1 && !STOP.has(w)).map(americanize);
+}
+
+export { words as contentWords };
+
+/** Content words → their Porter2 stems. */
+export function stemsOf(words_: string[]): string[] {
+	return words_.map((w) => stem(w));
 }
 
 /** The indexable text of one component, split by field so each can be weighted. */
