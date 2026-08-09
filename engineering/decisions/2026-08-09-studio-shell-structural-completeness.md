@@ -355,6 +355,32 @@ control the shell mirrors, which makes "someone moved a band" a same-PR failure.
 full matrices follows the repo's existing escalation rule — an observed nightly green streak
 first (#800), never on hope.
 
+### Then: is it consistent across the three tiers?
+
+The matrices above were width-diverse but STOP-thin — most tiers were verified only at Write,
+the stop that happens to be the default. Filling them out to one case per **tier x stop**
+(and adding the one case that exercises the rect-REPLAY path rather than the compute path)
+found three more divergences, and all three are *tier-asymmetric* — behavior that differs
+between mobile, tablet and desktop, which is exactly the class a single-width check cannot see:
+
+| Tier | Was |
+|---|---|
+| **tablet** | the Build stop's 52px activity rail is DESKTOP-only (`bp === 'desktop'`, ≥1100). The seed derived it from "not mobile" (>699), so every tablet Build layout got a rail the app does not draw — bands 28px off. The rail's CSS gate re-derived the tier a *third* time; it now keys on a `data-ssr-rail` flag the seed publishes, so the gate and the geometry cannot disagree. |
+| **desktop** | at Read the slim header drops the deck switcher entirely for a plain title (deck navigation is a Write-and-up concern). The shell kept the pill and blanked its border, which left the title **27px** right of the app's and drew a live-dot the app has none of. The same unscoped rule flattened the switcher on a *phone*, where the app draws it in full. Two elements now, one shown — the same idiom as the header's left run. |
+| **tablet + desktop** | the persisted preview rect was captured with whatever side panels were docked. Panel docking is **not** persisted (`activeAssistant` / `activeSettings` are plain `useState(null)`), so the app always boots with them closed: a rect saved with the Coach open described a layout that cannot recur, and the shell replayed it — a 601px box on a 1440 Build reload that the app re-drew at 708px. Mobile was structurally immune, having no docked panels. The app now DROPS a rect it cannot boot into rather than storing one. |
+
+That last one also corrects a caveat this page used to carry — "not modelled: the Build stop's
+side panels; rect-replay covers a returning visitor there." Rect-replay did not cover it; it
+was the *source* of the divergence. Nothing needs to model docked panels, because no reload
+ever boots into them.
+
+**The rule the three share:** every place the shell answers a tier question, it must answer it
+from the app's own boundary, once. Two of the three were a second copy of a tier test (`>699`
+standing in for `>=1100`; a CSS gate re-deriving what the seed had already decided), and the
+third was persisted state describing a layout the app cannot reach. The matrices are now one
+case per tier x stop precisely so a tier-specific answer cannot be verified only at the tier
+where it happens to be right.
+
 **What stopped drifting by construction, not by test.** Three numbers the shell and the app used
 to each hold a copy of now have one home in `preview-rect.ts`, consumed by both: the split's px
 minimums (`splitEditorMin` / `splitPreviewMin`, which `StudioShell` now passes as the panels'

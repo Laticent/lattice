@@ -218,6 +218,11 @@ const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => 
 // bottom, seam down the middle" bug on mobile (two surfaces, two coordinate systems, one gated
 // on the flaky iOS reveal). One skeleton, one rect, one honest ground — the seam is now
 // structurally impossible. See engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
+// NOTE — these CSS blocks are JS TEMPLATE LITERALS. Do not use a backtick anywhere inside
+// them, including in a comment: it terminates the literal, and the build fails several
+// hundred lines away with "data is not defined" rather than at the character responsible.
+// Quote identifiers in these comments plainly, not in code spans.
+//
 // Chrome for the instant shell (topbar + centered stage). Keyed under #studio-ssr-shell so
 // it never touches the hydrated island. The shell ground is the theme `var(--bg)` (the SAME
 // token the hydrated app's root `bg-background` and the Nacre card resolve to) — NOT a hardcoded
@@ -310,9 +315,11 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    54px band the app is about to delete. No chrome vars are published in this mode, so the
    bands are already absent — this only has to take the topbar with them. */
 :root[data-ssr-cinema] #studio-ssr-shell .ssr-chrome{display:none;}
-/* The activity rail — desktop at Build only. */
+/* The activity rail — DESKTOP (>=1100) at Build only. The seed publishes data-ssr-rail when
+   it actually reserves the 52px, so this gate can't drift from the tier test that produced it
+   (it used to re-derive "not mobile", which put a rail into every tablet Build layout). */
 #studio-ssr-shell .ssr-activityrail{left:0;top:var(--sh-pane-t,54px);width:var(--sh-rail,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
-:root:not([data-ssr-stop="build"]) #studio-ssr-shell .ssr-activityrail,:root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-activityrail,:root[data-ssr-read] #studio-ssr-shell .ssr-activityrail{display:none;}
+:root:not([data-ssr-rail]) #studio-ssr-shell .ssr-activityrail{display:none;}
 /* At Build the app swaps the SLIM header for the FULL one: the launcher regains its wordmark
    and the tail regains Theme, the mode toggle and the tours launcher. Two tails, one shown. */
 :root[data-ssr-stop="build"] #studio-ssr-shell .ssr-desktop-tail{display:none;}
@@ -326,9 +333,13 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    STOP — so the three spans are re-gated here. Drawing the slim mark at Build put the deck
    pill 27px right of where the app puts it, which is a visible slide at hand-off. */
 @media (min-width:1100px){:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-slim-mark{display:none;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-build-lead{display:contents;}}
-/* READ on a wide viewport shows the deck title as plain text, not the bordered switcher. */
-:root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill{border-color:transparent;background:none;}
-:root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill > svg{display:none;}`;
+/* READ on a DESKTOP viewport shows the deck title as plain text, not the bordered switcher —
+   the app's slim header drops deck navigation there entirely. Two elements, one shown, like the
+   header's left run above; the shell used to keep the pill and merely blank its border, which
+   left the title 27px right of the app's and kept a live-dot the app does not draw at Read.
+   Below 1100 the app renders its FULL header at every stop, switcher included, so the pill
+   stays exactly as it is — an unscoped data-ssr-read rule flattened it on a phone too. */
+@media (min-width:1100px){:root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill{display:none;}:root[data-ssr-read] #studio-ssr-shell .ssr-read-title{display:contents;}}`;
 
 // The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
 // island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
@@ -493,7 +504,14 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							var C = PREVIEW_CHROME;
 							var vw2 = window.innerWidth, vh2 = window.innerHeight;
 							var cinema = !!(window.matchMedia && matchMedia('(orientation: landscape) and (max-height: 500px) and (pointer: coarse)').matches);
+							// The app has THREE tiers (use-breakpoint.ts), not two: mobile <= 699,
+							// tablet 700-1099, desktop >= 1100. The shell needs both boundaries — the
+							// action bar and the single-pane layout key off the mobile one, and the
+							// Build stop's activity rail is DESKTOP-only. Deriving the rail from
+							// "not mobile" put a 52px rail into the tablet Build layout, which moved
+							// every band right of it 28px.
 							var bpMobile = vw2 <= 699;
+							var bpDesktop = vw2 >= 1100;
 							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
 							// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
 							// store's own constant, handed in through define:vars rather than restated
@@ -541,7 +559,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							// The Build stop on a wide viewport puts a fixed activity rail down the left,
 							// OUTSIDE the split — so the editor|preview ratio divides what is left of the
 							// viewport, not the viewport.
-							var railW = (!bpMobile && !chromeless && posture === 'build') ? C.railBuildDesktop : 0;
+							var railW = (bpDesktop && !chromeless && posture === 'build') ? C.railBuildDesktop : 0;
 							var paneX, paneW;
 							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else {
 								var avail = vw2 - railW - C.splitSeparatorW;
@@ -575,6 +593,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 								r.style.setProperty('--sh-ftr', G.footerH + 'px');
 								r.style.setProperty('--sh-status', C.statusH + 'px');
 								r.style.setProperty('--sh-rail', G.railW + 'px');
+								// Presence, not width: the rail element carries a 1px border, so a
+								// 0-width rail still draws a hairline down the left edge of a tablet.
+								// The CSS gate keys on this attribute rather than re-deriving the tier.
+								if (G.railW > 0) r.setAttribute('data-ssr-rail', '1'); else r.removeAttribute('data-ssr-rail');
 								r.setAttribute('data-ssr-bp', G.bpMobile ? 'mobile' : 'wide');
 								if (G.chromeless) r.setAttribute('data-ssr-read', '1'); else r.removeAttribute('data-ssr-read');
 								r.setAttribute('data-ssr-stop', G.posture);

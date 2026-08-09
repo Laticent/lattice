@@ -49,6 +49,8 @@ const CASES: { w: number; h: number; stop: 'read' | 'write' | 'build'; why: stri
 	{ w: 639, h: 844, stop: 'write', why: 'just below Tailwind sm' },
 	{ w: 660, h: 844, stop: 'write', why: 'inside sm..app-tablet, where the launcher drifted' },
 	{ w: 820, h: 1180, stop: 'write', why: 'tablet' },
+	{ w: 390, h: 844, stop: 'build', why: 'phone at Build — the tier with no rail and no docked panels' },
+	{ w: 820, h: 1180, stop: 'read', why: 'tablet at Read' },
 	{ w: 820, h: 1180, stop: 'build', why: 'tablet at Build' },
 	{ w: 1024, h: 900, stop: 'write', why: 'Tailwind lg — Present/Share gain labels' },
 	{ w: 1099, h: 900, stop: 'write', why: 'top of the app tablet tier' },

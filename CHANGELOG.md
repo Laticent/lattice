@@ -106,7 +106,19 @@ in patch versions.
   breakpoints. All fixed — and the hand-listed oracle is replaced by two ENUMERATING matrices
   that compare the two surfaces as sets across 13 width × stop cases each, so a control added
   to the app's chrome and not the shell fails on the first run. Four of those cases are
-  `@smoke`, so the per-PR job catches band and control drift the same day.
+  `@smoke`, so the per-PR job catches band and control drift the same day. Filling the
+  matrices out to one case per **tier x stop** then found three more, each of them a
+  tier-asymmetric behavior the default case could never reach: the Build stop's 52px activity
+  rail is DESKTOP-only, and deriving it from "not mobile" put one into every tablet Build
+  layout (every band right of it 28px off); the desktop slim header drops the deck switcher at
+  Read for a plain title, and flattening the pill's border instead left the title 27px off
+  while drawing a live-dot the app has none of (the same rule also flattened the switcher on a
+  phone, where the app draws it in full); and the persisted preview rect was captured with
+  whatever side panels happened to be docked, while panel docking is *not* persisted — the app
+  always boots with them closed — so a reload after working with the Coach open replayed a
+  601px slide box that the app immediately re-drew at 708px. The app now drops a rect it
+  cannot boot into rather than storing one, and the shell's compute path (which models every
+  boot layout there is) takes over.
   See `engineering/decisions/2026-08-09-studio-shell-structural-completeness.md`.
 
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator

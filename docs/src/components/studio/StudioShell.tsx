@@ -449,9 +449,33 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// and can't drift from it. Geometry only — no slide content is stored (that stays the
 	// Nacre-only, state-blind skeleton). Skipped while Present is open (its box is the
 	// slide-row card, not the editor anchor) and for a parked/collapsed 0-size box.
+	// Is the CURRENT layout one the app can BOOT into? A stored rect is REPLAYED by the next
+	// load's shell, so it has to describe a layout the app will actually re-measure. Two
+	// pieces of layout state are transient in a way the rect cannot express:
+	//   · DOCKED PANELS are not persisted at all (`activeAssistant`/`activeSettings` start
+	//     null at every stop) — the app always boots with the Settings/assistant columns
+	//     closed. A rect captured with the Coach open painted a 601px box on a 1440 Build
+	//     reload that the app immediately re-drew at 708px.
+	//   · A COLLAPSED pane lives in sessionStorage while the rect lives in localStorage, so
+	//     the two disagree in a NEW TAB by construction.
+	// `splitConfigKey` already names the docked set ('EP' is the bare editor|preview pair),
+	// so it is the honest test for the first — the same value the layout store buckets by.
+	// When the layout is not boot-shaped, DROP the stored rect rather than leave a stale one
+	// to be replayed: the shell's compute path models every boot layout there is (stop,
+	// breakpoint, cinema, the Build activity rail, the persisted split AND the collapsed
+	// side), so falling back to it is correct, not a degradation.
+	//
+	// Through a REF (the `splitApiRef` idiom below) because the split hook is declared ~1200
+	// lines further down — and because the answer wanted is the one true when `pagehide`
+	// FIRES, not the one captured when the listener was registered.
+	const rectBootShapedRef = React.useRef(true);
 	React.useEffect(() => {
 		const persistRect = () => {
 			if (presentOpen) return;
+			if (!rectBootShapedRef.current) {
+				try { localStorage.removeItem(PREVIEW_RECT_KEY); } catch {}
+				return;
+			}
 			const el = previewBoxRef.current;
 			if (!el) return;
 			const r = el.getBoundingClientRect();
@@ -1678,6 +1702,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Playground's splitApiRef pattern).
 	const splitApiRef = React.useRef(split);
 	splitApiRef.current = split;
+	// Whether the CURRENT layout is one the app can boot into — read by the preview-rect
+	// persistence above at `pagehide` time. See the note there for why a docked panel or a
+	// collapsed pane disqualifies the rect.
+	rectBootShapedRef.current = splitConfigKey === 'EP' && !(splitUsable && split.collapsed);
 	// Collapse via a header glyph (or a ⌘K command): if focus was inside the
 	// now-inert pane it would drop to <body>; hand it to the always-visible rail.
 	const collapseFromHeader = React.useCallback((side: SplitSide) => {

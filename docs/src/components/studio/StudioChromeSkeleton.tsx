@@ -69,12 +69,22 @@ function ActionBar() {
 	);
 }
 
-/** The deck pill — content-sized exactly as the app's is (min-w-0 + truncating title). */
+/**
+ * The deck pill — content-sized exactly as the app's is (min-w-0 + truncating title).
+ *
+ * The app has TWO of these, and which one it renders is a tier AND stop question. The FULL
+ * header (phone, tablet, and desktop at Build) carries the bordered switcher below. The
+ * DESKTOP SLIM header at Read carries no switcher at all — deck navigation is a Write-and-up
+ * concern there — just a plain title and a mono slide count. `ReadTitle` is that second one;
+ * the CSS gate picks between them. Flattening the pill's borders and calling it a title, which
+ * is what the shell did, left the title 27px right of the app's and drew a live-dot the app
+ * does not have at Read.
+ */
 function DeckPill({ title }: { title: string }) {
 	return (
 		<span className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5">
 			<span className="hidden size-2 shrink-0 rounded-full bg-primary min-[1100px]:block" />
-			<span className="truncate text-sm font-semibold text-[var(--text-heading)]" id="ssr-deck-title">{title}</span>
+			<span className="ssr-deck-title truncate text-sm font-semibold text-[var(--text-heading)]" id="ssr-deck-title">{title}</span>
 			{/* The app shows a slide-count meta here from `xl` up ("7 slides"). The count is deck
 			    content the shell cannot know, so it is NOT drawn — but its WIDTH still has to be
 			    reserved, because the pill is content-sized and omitting the slot made it jump at
@@ -82,6 +92,18 @@ function DeckPill({ title }: { title: string }) {
 			    structure honest without asserting a number. */}
 			<span aria-hidden="true" className="hidden h-2.5 w-[53px] shrink-0 rounded-full bg-current opacity-25 xl:inline-block" />
 			<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+		</span>
+	);
+}
+
+/** The desktop SLIM header's deck line at Read: a plain title, plus the slide-count meta. */
+function ReadTitle({ title }: { title: string }) {
+	return (
+		<span className="ssr-read-title hidden">
+			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
+			{/* Same reasoning as the pill's meta slot: "7 slides" is deck content the shell must
+			    not draw, but its width is part of the row, so reserve it at the measured width. */}
+			<span aria-hidden="true" className="hidden h-2.5 w-[53px] shrink-0 rounded-full bg-current opacity-25 sm:inline-block" />
 		</span>
 	);
 }
@@ -140,6 +162,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				</span>
 
 				<DeckPill title={deckTitle} />
+				<ReadTitle title={deckTitle} />
 				<div className="flex-1" />
 
 				{/* PHONE tail: mode · workspace settings · menu. */}

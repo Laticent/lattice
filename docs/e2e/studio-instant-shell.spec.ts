@@ -92,6 +92,13 @@ const CASES: Case[] = [
 	{ w: 320, h: 844, stop: 'write', why: 'phone too narrow for the lens label — the 41px sub-bar' },
 	{ w: 390, h: 844, stop: 'read', why: 'phone at Read — chromeless preview' },
 	{ w: 820, h: 1180, stop: 'write', why: 'tablet' },
+	// One case per TIER x STOP, so no tier is verified only at the stop that happens to be the
+	// default. The three tiers render three different headers and three different pane
+	// arrangements, and every band the shell draws differs across them.
+	{ w: 390, h: 844, stop: 'build', why: 'phone at Build — no rail, no docked panels, the bar stays' },
+	{ w: 820, h: 1180, stop: 'read', why: 'tablet at Read — chromeless preview, no editor column' },
+	{ w: 820, h: 1180, stop: 'build', why: 'tablet at Build — full header, NO activity rail (desktop-only)' },
+	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, full-bleed preview' },
 	{ w: 1440, h: 900, stop: 'build', why: 'desktop at Build — the activity rail sits outside the split' },
 	// A dragged splitter is PERSISTED, so it is the state a returning visitor reloads into.
 	// The shell drew the 54% default regardless, which put the split line up to 288px off.
@@ -138,10 +145,27 @@ const READ_SHELL = () => {
 		// pill jumped 164.5px -> 185px at hand-off. Bands and the phone's bar cells are
 		// both width-constrained, so nothing else here can see that class of drift.
 		pill: r('#studio-ssr-shell .ssr-deck-pill'),
+		// The deck TITLE, which exists at every tier and stop — unlike the switcher, which the
+		// desktop slim header drops at Read. Compared by its own box, so the two surfaces are
+		// held to the same line whichever container the tier puts it in.
+		// BOTH deck-title elements are in the DOM (the switcher's and the slim header's); the
+		// CSS shows one. Pick the one with a box — `:not([hidden])` would match the collapsed
+		// one too, since it is hidden by a display rule, not the attribute.
+		title: (() => {
+			const el = [...document.querySelectorAll('#studio-ssr-shell .ssr-deck-title')].find(
+				(e) => e.getBoundingClientRect().width > 0,
+			);
+			if (!el) return null;
+			const b = el.getBoundingClientRect();
+			return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)];
+		})(),
+		titleText: document.querySelector('#studio-ssr-shell .ssr-deck-title')?.textContent?.trim() ?? '',
 	};
 };
 
-const READ_APP = () => {
+// Takes the deck title as an argument because it runs AFTER the shell node is gone — by
+// design; the app is only measured once it has fully replaced the shell.
+const READ_APP = (want: string) => {
 	const r = (el: Element | null | undefined) => {
 		if (!el) return null;
 		const b = el.getBoundingClientRect();
@@ -168,6 +192,17 @@ const READ_APP = () => {
 		// Write/Build stack the navigator and the deck status strip; Read has a single
 		// affordance and no status strip of its own.
 		status: below.length > 1 ? r(below[below.length - 1]) : null,
+		// The deck title, found by TEXT rather than by class: the app puts it inside the
+		// switcher button in its full header and bare in its slim one, and neither container is
+		// a contract. The deepest header element carrying exactly that string is.
+		title: (() => {
+			const header = document.querySelector('header');
+			if (!want || !header) return null;
+			const hit = [...header.querySelectorAll('*')]
+				.filter((e) => e.textContent?.trim() === want && !e.querySelector('*'))
+				.pop();
+			return r(hit);
+		})(),
 		// The slide CARD (the bordered, letterboxed box) — `[aria-label="Live deck preview"]`
 		// is the DeckPreview INSIDE it, 2px narrower for the card's 1px border. The shell's
 		// `#ssr-slidebox` is the card's counterpart, so comparing the inner element made every
@@ -222,7 +257,7 @@ for (const c of CASES) {
 		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
 		await page.evaluate(() => document.fonts.ready);
 
-		const app = await page.evaluate(READ_APP);
+		const app = await page.evaluate(READ_APP, shell.titleText);
 
 		near(shell.topbar, app.header, 'topbar');
 		// At Read the app strips the pane to just the slide — no sub-bar and no status strip.
@@ -237,7 +272,12 @@ for (const c of CASES) {
 			? [app.rail[0], app.rail[1], app.rail[2], app.rail[3] + (app.status?.[3] ?? 0)]
 			: null;
 		near(shell.paneftr, appFooter, 'preview footer');
-		near(shell.pill, app.pill, 'deck pill', PILL_TOLERANCE);
+		// The switcher exists only where the app draws one (everywhere but the desktop slim
+		// header at Read); the TITLE exists everywhere, so it is the assertion that holds at
+		// every tier and stop.
+		if (app.pill) near(shell.pill, app.pill, 'deck switcher', PILL_TOLERANCE);
+		else expect(shell.pill?.[2] ?? 0, 'the shell drew a deck switcher the app does not').toBe(0);
+		near(shell.title, app.title, 'deck title', PILL_TOLERANCE);
 		// The Nacre box itself. These contexts start with empty storage, so the shell has no
 		// persisted rect to replay and takes its COMPUTE path — the one that letterboxes the
 		// deck ratio into the pane it just derived. Comparing it is how a wrong pad, a wrong
@@ -258,6 +298,74 @@ for (const c of CASES) {
 		}
 	});
 }
+
+// The rect-REPLAY path, which the matrix above never enters (its contexts start with empty
+// storage, so every case there exercises the COMPUTE path instead).
+//
+// The shell prefers replaying the app's own last measured preview rect over computing one.
+// That is only sound while the stored rect describes a layout the app can BOOT into — and two
+// pieces of layout state are transient in a way the rect cannot express. Docked panels are the
+// sharp one: `activeAssistant` / `activeSettings` are plain `useState(null)`, never persisted,
+// so the app ALWAYS boots with the Settings/assistant columns closed. A rect captured with the
+// Coach open therefore describes a layout that cannot recur, and the shell replayed it: 601px
+// box on a 1440 Build reload, which the app re-drew at 708px the moment it mounted.
+//
+// This is a TIER-ASYMMETRIC failure — docked panels exist only on tablet and desktop, so a
+// phone was structurally immune and no phone test could have found it.
+test('@crosswidth a rect measured with a docked panel open is not replayed', async ({ page }) => {
+	await page.addInitScript(() => {
+		try {
+			localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'build' }));
+		} catch {
+			/* storage blocked — the app falls back to its default stop and the shell to the same */
+		}
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+	await page.evaluate(() => document.fonts.ready);
+
+	const card = () =>
+		page.evaluate(() => {
+			const el = document.querySelector('[aria-label="Live deck preview"]')?.closest('[style*="aspect-ratio"]');
+			if (!el) return null;
+			const b = el.getBoundingClientRect();
+			return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)];
+		});
+	const boot = await card();
+
+	// Dock a panel — the preview pane narrows and the slide box shrinks with it.
+	await page.getByRole('button', { name: 'Toggle Coach' }).first().click();
+	await expect(page.locator('#studio-assistant')).toBeVisible();
+	const docked = await card();
+	expect(docked?.[2], 'docking the Coach did not narrow the preview — the layout has changed').toBeLessThan(
+		(boot as number[])[2] - 20,
+	);
+
+	// This is what the app writes on unload. With a panel open it must DROP the stale rect
+	// rather than store one describing a layout that cannot boot.
+	await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+	expect(
+		await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2')),
+		'the app stored a preview rect measured with a docked panel open',
+	).toBeNull();
+
+	// And the next load must land on the boot geometry, not the docked one.
+	await page.route('**/lattice-playground.js', async (route) => {
+		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
+		await route.continue();
+	});
+	await page.reload({ waitUntil: 'commit' });
+	await page.locator('#ssr-slidebox').waitFor({ state: 'attached' });
+	await page.evaluate(() => document.fonts.ready);
+	const shellBox = await page.evaluate(() => {
+		const b = (document.querySelector('#ssr-slidebox') as Element).getBoundingClientRect();
+		return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)];
+	});
+	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+	await page.evaluate(() => document.fonts.ready);
+	near(shellBox, await card(), 'slide box after a docked-panel session');
+});
 
 // The landscape-phone CINEMA morph needs a COARSE pointer to exist at all (the app's
 // `useLandscapePhone` media query asks for one), which is a context option, not a viewport —
@@ -288,7 +396,7 @@ test.describe('cinema', () => {
 		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
 		await page.evaluate(() => document.fonts.ready);
 
-		const app = await page.evaluate(READ_APP);
+		const app = await page.evaluate(READ_APP, shell.titleText);
 		expect(app.header, 'the app grew a header in cinema — the morph has changed').toBeNull();
 		// No bands to compare here; the SLIDE BOX is the whole surface, so it is the assertion.
 		near(shell.box, app.box, 'cinema slide box');
