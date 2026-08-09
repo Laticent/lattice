@@ -752,6 +752,24 @@ in patch versions.
 
 ### Fixed
 
+- **A dependency bump could never go green, because bumping a dependency made the published
+  bundle stale.** `dist/lattice-emulator.js` is the package `bin`/`main`, built by esbuild from
+  the repo-root source — and the source did `require('./package.json')` for the version string.
+  esbuild treats that as a local relative import and inlines the **whole manifest**, so the
+  committed bundle carried every declared dependency range verbatim (`pptxgenjs: "^3.12.0"` sat
+  in the artifact). Editing any range therefore changed the bundle's bytes, `build:check`
+  reported `dist/lattice-emulator.js` stale, and `lint` went red on a diff no human wrote and no
+  bot could repair — Dependabot cannot run `npm run build`. This is why the auto-merge landed
+  one bullet above did not, in practice, land the bumps it was built for: **both** routine
+  groups sat red on it (13 root updates, 25 docs updates), and only bumps confined to the
+  lockfile — never touching `package.json` — were getting through. The version is now read at
+  runtime from `PKG_ROOT`, the walk the file already used for `themes/` and the bundled CSS, so
+  it resolves to the installed package's own manifest for an npm consumer and to the repo root
+  from source. Nothing else was ever wanted from the manifest. The bundle no longer moves when a
+  dependency does, and it stops shipping the devDependency list to consumers. Guarded by
+  `test/unit/cli/emulator-bundle.test.js`, which fails on the `require` returning, on any
+  declared range appearing in the artifact, and on `--version` breaking from either layout.
+
 - **Repo automation could not write to the repo at all: every workflow that pushed `main` was
   rejected by the merge ruleset.** The `Main Merge Queue` ruleset requires a PR, the queue and a
   green `ci`, and grants **no bypass to anyone** — so `sync-backlog` had failed 100% of its runs
