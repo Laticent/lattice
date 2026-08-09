@@ -1212,7 +1212,7 @@ export async function listTtsCatalog(): Promise<TtsCatalog> {
 		const TIMED_OUT = Symbol('tts-catalog-timeout');
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const raced = await Promise.race([
-			m.listOpenRouterVoiceModels(),
+			m.listOpenRouterVoiceCatalog(),
 			// Cleared below rather than left to fire into a settled race — a pending timer per
 			// call is harmless but pointless, and on a surface that remounts it is noise.
 			new Promise<typeof TIMED_OUT>((res) => {
@@ -1220,18 +1220,37 @@ export async function listTtsCatalog(): Promise<TtsCatalog> {
 			}),
 		]);
 		clearTimeout(timer);
-		return raced === TIMED_OUT ? { models: [], reachable: false } : { models: raced as OrVoiceModel[], reachable: true };
+		// A hang is silence too — the upstream promise is memoized and keeps running, so a later
+		// caller can still get the real answer once it lands.
+		return raced === TIMED_OUT ? { models: [], reachable: false } : (raced as TtsCatalog);
 	} catch {
-		// A throw is a real answer — the import or the fetch failed outright, which is a
-		// different thing from silence, but from the caller's side both mean "no roster and it
-		// is not the model's fault".
 		return { models: [], reachable: false };
 	}
 }
 
-/** The list alone, for callers with nothing to explain. */
+/**
+ * The roster alone, UNBOUNDED — and the missing bound is the point.
+ *
+ * The Workspace's TTS settings panel fetches once and guards with `if (models) return`, and
+ * `[]` is truthy, so whatever it is handed first is final for the life of the mount. Feeding it
+ * the bounded answer turned a slow-but-working catalog into a permanently empty, disabled voice
+ * roster at the 6s mark — the panel then blames the model for a list that had arrived two
+ * seconds later and was sitting memoized. That is strictly worse than waiting, because it is
+ * wrong rather than pending, and it is a surface this change had no business touching.
+ *
+ * So the timeout stays where it earns its keep: on the export panel, which has an explanation
+ * to render and a spend button underneath it. A caller with nothing to explain waits.
+ * (A blackholed fetch can still hang this one forever. That is the behavior it has always had,
+ * not something introduced here, and fixing it means giving that panel a retry — its own
+ * change.)
+ */
 export async function listTtsModels(): Promise<OrVoiceModel[]> {
-	return (await listTtsCatalog()).models;
+	try {
+		const m = await import('@/playground/voice-model.js');
+		return await m.listOpenRouterVoiceModels();
+	} catch {
+		return [];
+	}
 }
 
 /** How long to wait for the TTS catalog before calling it unreachable. Generous enough that a

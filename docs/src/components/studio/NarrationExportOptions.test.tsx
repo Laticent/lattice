@@ -37,10 +37,14 @@ vi.mock('./read-aloud', async (importOriginal) => ({
 // about the COPY, not about projection.
 vi.mock('./narration-bake', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./narration-bake')>()),
+	// A VALID NarrationMeasure. The first version of this fixture omitted `totalChars` and
+	// `missingBytes` and invented `onDeviceCached`, so the panel these tests render actually
+	// said "Adds to the file about NaN" — and nothing failed, because no assertion looked at the
+	// bill. A fixture that does not typecheck as the real thing is a test of a different panel.
 	measureNarration: async () => ({
-		total: 4, cached: 0, cachedBytes: 0, missing: 4, missingChars: 200,
-		estCostUsd: null, estSeconds: 3, voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
-		complete: true, onDeviceCached: 0,
+		total: 4, cached: 0, cachedBytes: 0, missing: 4, missingChars: 200, totalChars: 200,
+		missingBytes: 95_400, estCostUsd: null, estSeconds: 3,
+		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, complete: true,
 	}),
 }));
 
@@ -83,10 +87,12 @@ describe('when the voice catalog cannot be reached', () => {
 		// Scoped to the fallback line: the model id also appears in the model picker's own
 		// summary, so an unscoped query matches twice and proves nothing about THIS copy.
 		const line = await screen.findByText(/Couldn't reach the voice catalog/i);
-		const within = line.textContent ?? '';
-		expect(within).toContain('af_heart');
-		expect(within).toContain('hexgrad/kokoro-82m');
-		expect(within).toMatch(/which still works/i);
+		const within = (line.textContent ?? '').replace(/\s+/g, ' ');
+		// ORDER MATTERS, and asserting `toContain` on each name separately does not check it: a
+		// version that printed "your saved voice — hexgrad/kokoro-82m on af_heart" passed that
+		// way, which is the voice and the model swapped — a garbled sentence about the one thing
+		// the author needs to read correctly. Pin the phrase.
+		expect(within).toMatch(/saved voice — af_heart on hexgrad\/kokoro-82m/);
 	});
 
 	it('does NOT show the unreachable copy while the catalog is still in flight', async () => {
@@ -122,5 +128,20 @@ describe('when the catalog is REACHABLE but genuinely lists nothing', () => {
 		panel();
 		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
 		expect(screen.queryByText(/Couldn't reach the voice catalog/i)).toBeNull();
+	});
+});
+
+describe('the bill, which no assertion here used to look at', () => {
+	it('never renders NaN, and never calls an unreachable catalog a model without a price', async () => {
+		// Both halves caught by the checker: an invalid fixture rendered "about NaN" unnoticed,
+		// and the price line — fed by the same empty catalog as the roster — said "this model
+		// publishes no price" while sitting directly above a button that spends money.
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
+		panel();
+		await screen.findByText(/Couldn't reach the voice catalog/i);
+		const bill = document.body.textContent ?? '';
+		expect(bill).not.toMatch(/NaN/);
+		expect(bill).toMatch(/cost unknown until the catalog is reachable/i);
+		expect(bill).not.toMatch(/this model publishes no price/i);
 	});
 });

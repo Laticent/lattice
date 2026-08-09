@@ -83,26 +83,54 @@ function orPricePerM(raw) {
 // catalog fetch in this codebase.
 const OR_TTS_CATALOG_URL = 'https://openrouter.ai/api/v1/models?output_modalities=speech';
 let ttsCatalogPromise = null;
-export function listOpenRouterVoiceModels() {
+
+// REACHABILITY IS DECIDED HERE, because here is the only place that knows.
+//
+// Every failure below — a rejected fetch (offline, DNS, a blocked CORS preflight), a non-OK
+// status (503, rate limit), a malformed body — used to collapse into a bare `[]`, which is
+// also exactly what a live catalog listing no speech models returns. Downstream cannot undo
+// that: a caller holding `[]` cannot tell "we never got an answer" from "the answer was
+// nothing", and one that guesses will confidently explain the wrong one. The export panel did
+// precisely that, telling authors their model had published no voices and no price when the
+// truth was that their laptop had no network.
+//
+// So the catch records WHY, and the array-only export below stays exactly as it was for
+// callers with nothing to explain.
+function fetchTtsCatalog() {
   if (!ttsCatalogPromise) {
     ttsCatalogPromise = (async () => {
       try {
         const res = await fetch(OR_TTS_CATALOG_URL);
-        if (!res.ok) return [];
+        if (!res.ok) return { models: [], reachable: false };
         const j = await res.json();
-        return (j.data || []).map((m) => ({
-          id: m.id,
-          name: m.name || m.id,
-          promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
-          completionPerM: m.pricing ? orPricePerM(m.pricing.completion) : null,
-          voices: Array.isArray(m.supported_voices) ? m.supported_voices : [],
-        }));
+        return {
+          models: (j.data || []).map((m) => ({
+            id: m.id,
+            name: m.name || m.id,
+            promptPerM: m.pricing ? orPricePerM(m.pricing.prompt) : null,
+            completionPerM: m.pricing ? orPricePerM(m.pricing.completion) : null,
+            voices: Array.isArray(m.supported_voices) ? m.supported_voices : [],
+          })),
+          // We heard back. An empty roster now means OpenRouter genuinely lists nothing.
+          reachable: true,
+        };
       } catch {
-        return [];
+        return { models: [], reachable: false };
       }
     })();
   }
   return ttsCatalogPromise;
+}
+
+/** The catalog plus whether we actually heard back. `{models: [], reachable: false}` is
+ *  silence; `{models: [], reachable: true}` is a real answer that listed nothing. */
+export function listOpenRouterVoiceCatalog() {
+  return fetchTtsCatalog();
+}
+
+/** The roster alone — unchanged contract: never throws, `[]` on any failure. */
+export async function listOpenRouterVoiceModels() {
+  return (await fetchTtsCatalog()).models;
 }
 
 // localStorage prefs — namespaced by `keyPrefix` (default 'db', the Drawing

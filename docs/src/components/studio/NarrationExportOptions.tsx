@@ -307,7 +307,10 @@ export function NarrationExportOptions({
 									<p className="rounded-lg border border-border px-3 py-2 text-[11.5px] leading-snug text-muted-foreground">
 										Couldn't reach the voice catalog, so there is no list to choose from. This export will use your saved voice —{' '}
 										<span className="font-mono text-[var(--text-heading)]">{value.voice.voice || 'the workspace default'}</span> on{' '}
-										<span className="font-mono text-[var(--text-heading)]">{value.voice.model || 'the default model'}</span> — which still works. Reconnect to pick a different one.
+										<span className="font-mono text-[var(--text-heading)]">{value.voice.model || 'the default model'}</span>.
+										{measure && measure.missing === 0
+											? ' Every sentence is already on this device, so the export needs no connection at all.'
+											: ' The sentences that still need recording DO need a connection, so this export may not complete until it is back.'}
 									</p>
 								) : (
 									<VoicePicker
@@ -329,7 +332,13 @@ export function NarrationExportOptions({
 									<>
 										<Line
 											term="To synthesize"
-											detail={`${measure.missing} sentence${measure.missing === 1 ? '' : 's'} · ${measure.estCostUsd == null ? 'this model publishes no price' : `about ${formatUsd(measure.estCostUsd)}`} · about ${formatDuration(measure.estSeconds)}`}
+											// The price comes from the same catalog as the roster, so an unreachable one leaves
+											// `estCostUsd` null — and "this model publishes no price" would then be the SECOND
+											// false statement in this panel, sitting directly above a button that spends money.
+											// Say which of the two it is.
+											detail={`${measure.missing} sentence${measure.missing === 1 ? '' : 's'} · ${
+												measure.estCostUsd != null ? `about ${formatUsd(measure.estCostUsd)}` : catalogUnreachable ? 'cost unknown until the catalog is reachable' : 'this model publishes no price'
+											} · about ${formatDuration(measure.estSeconds)}`}
 										/>
 										{measure.cached === 0 && (
 											<p className="pt-1 leading-snug text-muted-foreground">

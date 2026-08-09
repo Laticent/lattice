@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { splitSentences as cadenzaSplit } from '@/lib/cadenza';
 import { createVoiceModel, splitSentences as voiceSplit } from './voice-model.js';
 
@@ -804,5 +804,44 @@ describe('allowBrowserVoice opt-in (production ban escape hatch)', () => {
     } finally {
       delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis;
     }
+  });
+});
+
+describe('listOpenRouterVoiceCatalog — silence is not an empty answer', () => {
+  // The distinction has to be made HERE, because here is the only place that knows why the
+  // array is empty. A rejected fetch, a 503 and a malformed body all used to collapse into the
+  // same bare `[]` a live-but-empty catalog returns, and the export panel — which has to
+  // EXPLAIN the emptiness next to a spend button — then told authors their model had published
+  // no voices and no price when their laptop simply had no network. Nothing downstream can
+  // recover a distinction that was erased upstream.
+  // `vi.stubGlobal` + `resetModules` so each case gets a FRESH module instance: the catalog
+  // promise is memoized for the session by design, so a second case would otherwise replay the
+  // first one's answer.
+  const withFetch = async (impl: unknown) => {
+    vi.stubGlobal('fetch', impl);
+    vi.resetModules();
+    return await import('./voice-model.js');
+  };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reports UNREACHABLE when the fetch rejects (offline, DNS, a blocked CORS preflight)', async () => {
+    const m = await withFetch(async () => { throw new TypeError('Failed to fetch'); });
+    expect(await m.listOpenRouterVoiceCatalog()).toEqual({ models: [], reachable: false });
+  });
+
+  it('reports UNREACHABLE on a non-OK status (503, rate limit)', async () => {
+    const m = await withFetch(async () => ({ ok: false, status: 503 }));
+    expect(await m.listOpenRouterVoiceCatalog()).toEqual({ models: [], reachable: false });
+  });
+
+  it('reports REACHABLE for a live answer that genuinely lists nothing', async () => {
+    // The case that must NOT be explained away as a network problem.
+    const m = await withFetch(async () => ({ ok: true, json: async () => ({ data: [] }) }));
+    expect(await m.listOpenRouterVoiceCatalog()).toEqual({ models: [], reachable: true });
+  });
+
+  it('keeps the array-only export on its old contract — never throws, [] on any failure', async () => {
+    const m = await withFetch(async () => { throw new TypeError('Failed to fetch'); });
+    await expect(m.listOpenRouterVoiceModels()).resolves.toEqual([]);
   });
 });
