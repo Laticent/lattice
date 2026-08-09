@@ -28,14 +28,19 @@ const TEMPLATE      = path.join(THEMES_DIR, 'indaco.css');
 const TEMPLATE_DARK = path.join(THEMES_DIR, 'indaco-dark.css');
 
 const NAME_RE  = /^[a-z][a-z0-9_-]{1,31}$/;
+// A visibly-unset picker dot: the author replaces it, and it is obvious in the menu
+// if they do not. Not a real palette color, deliberately.
+const PLACEHOLDER_SWATCH = '#FF00FF';
+// Every shipped palette, plus the engine itself. READ FROM THE MANIFESTS rather than
+// hand-listed: the array this replaces had gone stale and omitted `carta`,
+// `carta-dark` and all five `a11y-*`, so `new:theme carta` would have offered to
+// scaffold over a shipped palette. A name list that has to be remembered is one that
+// eventually is not. See engineering/decisions/2026-08-09-theme-token-contract.md.
 const RESERVED = new Set([
-  'lattice', 'indaco', 'indaco-dark',
-  'cuoio', 'cuoio-dark', 'atelier', 'atelier-dark',
-  'brina', 'brina-dark', 'burgundy', 'burgundy-dark',
-  'crepuscolo', 'crepuscolo-dark', 'laguna', 'laguna-dark',
-  'magnolia', 'magnolia-dark', 'mustard', 'mustard-dark',
-  'onyx', 'onyx-dark', 'ardesia', 'ardesia-dark',
-  'carbone', 'concrete', 'concrete-dark',
+  'lattice',
+  ...fs.readdirSync(THEMES_DIR)
+    .filter((f) => f.endsWith('.manifest.json'))
+    .map((f) => f.replace(/\.manifest\.json$/, '')),
 ]);
 
 function bail(msg, code = 1) {
@@ -169,13 +174,44 @@ function main() {
   fs.writeFileSync(outLight, transformPalette(tmplLight, name));
   fs.writeFileSync(outDark,  transformDarkWrapper(tmplDark, name));
 
+  // Every theme declares its identity in a manifest, and `checkThemeManifestCoverage`
+  // fails the build on a palette that has none — so the scaffolder writes them. The
+  // starter is a two-face brand palette in the "more" group (the same shape it copies
+  // from indaco); `swatch` is the one field a human must fill, so it is stamped with
+  // the template's placeholder accent and listed in the next-steps below.
+  const listedCount = [...RESERVED].filter((n) => n !== 'lattice').length;
+  fs.writeFileSync(path.join(THEMES_DIR, `${name}.manifest.json`), `${JSON.stringify({
+    $schema: './theme.schema.json',
+    name,
+    role: 'base',
+    family: 'brand',
+    tier: 'more',
+    modes: ['light', 'dark'],
+    darkCounterpart: `${name}-dark`,
+    order: listedCount,
+    swatch: PLACEHOLDER_SWATCH,
+  }, null, 2)}\n`);
+  fs.writeFileSync(path.join(THEMES_DIR, `${name}-dark.manifest.json`), `${JSON.stringify({
+    $schema: './theme.schema.json',
+    name: `${name}-dark`,
+    role: 'variant-dark',
+    extends: name,
+    family: 'brand',
+    modes: ['dark'],
+  }, null, 2)}\n`);
+
   process.stdout.write(
     `Created themes/${name}.css\n` +
     `        themes/${name}-dark.css\n` +
+    `        themes/${name}.manifest.json\n` +
+    `        themes/${name}-dark.manifest.json\n` +
     `\n` +
     `Next:\n` +
     `  1. Open themes/${name}.css; the TODO(palette) checklist at the top\n` +
     `     lists every edit point in order of impact.\n` +
+    `  1b. Set \`swatch\` in themes/${name}.manifest.json to the palette's picker dot\n` +
+    `     (it is stamped ${PLACEHOLDER_SWATCH} for now), and \`tier\`/\`order\` if it\n` +
+    `     should sit in the curated group. Then run \`npm run theme-catalog:build\`.\n` +
     `  2. Edit the brand axis first; everything else hangs off it.\n` +
     `  3. Build a deck:\n` +
     `       node lattice-emulator.js examples/gallery.md /tmp/${name}.pdf ${name}\n` +

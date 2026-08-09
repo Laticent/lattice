@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "indaco",
+  "role": "base",
+  "family": "brand",
+  "tier": "curated",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "indaco-dark",
+  "order": 0,
+  "swatch": "#006FA8"
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "cuoio",
+  "role": "base",
+  "family": "brand",
+  "tier": "curated",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "cuoio-dark",
+  "order": 1,
+  "swatch": "#7A5A10"
+}

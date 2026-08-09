@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "carbone",
+  "role": "base",
+  "family": "brand",
+  "tier": "curated",
+  "modes": [
+    "dark"
+  ],
+  "darkCounterpart": null,
+  "order": 6,
+  "swatch": "#7DE38A",
+  "note": "The one palette with no light face — deliberate. Its light-dark() surface arms are degenerate on purpose, so it renders dark on any canvas and has no -dark counterpart (#1302)."
+}

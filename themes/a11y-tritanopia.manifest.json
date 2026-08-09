@@ -1,0 +1,13 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "a11y-tritanopia",
+  "role": "derived-variant",
+  "extends": "a11y-base",
+  "family": "a11y",
+  "modes": [
+    "light"
+  ],
+  "order": 3,
+  "swatch": "#007131",
+  "cvd": "tritanopia"
+}

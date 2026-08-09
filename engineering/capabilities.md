@@ -248,6 +248,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
+| `theme-catalog:build` | **TODO: describe `theme-catalog:build` in tools/build-capabilities.js (SCRIPT_META).** |
+| `theme-catalog:check` | **TODO: describe `theme-catalog:check` in tools/build-capabilities.js (SCRIPT_META).** |
 
 ## Tools — `tools/`
 
@@ -368,6 +370,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
+| `tools/build-theme-catalog.js` | Generates docs/src/components/studio/palettes.generated.ts — the palette picker's |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |

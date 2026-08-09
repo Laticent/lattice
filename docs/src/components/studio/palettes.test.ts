@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES } from './palettes';
 import { PALETTE_DOTS } from './ThemePicker';
 
-// palettes.ts owns WHICH built-in palettes exist + their grouping; ThemePicker's
-// PALETTE_DOTS owns each palette's accent swatch. They're two hand-kept lists, so
-// they can drift: add a palette here and forget the dot → a menu item renders with
-// `color={undefined}`; remove one and leave the dot → a stale entry lingers. This
-// keeps them in exact lockstep by name.
+// Both the grouping and the swatches are now GENERATED from themes/*.manifest.json
+// (tools/build-theme-catalog.js → palettes.generated.ts), so the drift this suite was
+// written to catch — add a palette to one hand-kept list, forget the other, ship a
+// menu item with `color={undefined}` — is structurally impossible: they come from one
+// manifest each. What is checked here is the generated catalog's SHAPE, which the
+// generator could still get wrong: that the three groups compose BUILTIN_PALETTES
+// exactly, and that the dot map covers it. `checkThemeRoles` covers the other arm
+// (a picker-listed palette that declares no swatch fails the build).
 describe('palette name lists stay in lockstep', () => {
 	it('BUILTIN_PALETTES is exactly the three groups concatenated (no dupes, no drops)', () => {
 		expect(BUILTIN_PALETTES).toEqual([...CURATED, ...MORE_THEMES, ...A11Y_THEMES]);

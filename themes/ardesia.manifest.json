@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "ardesia",
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "ardesia-dark",
+  "order": 0,
+  "swatch": "#1F1F1F"
+}

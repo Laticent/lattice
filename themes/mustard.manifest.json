@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "mustard",
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "mustard-dark",
+  "order": 5,
+  "swatch": "#8C6A18"
+}

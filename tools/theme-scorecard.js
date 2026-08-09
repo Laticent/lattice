@@ -32,10 +32,15 @@ const ROOT = path.join(__dirname, '..');
 const THEMES_DIR = path.join(ROOT, 'themes');
 const DIST = path.join(ROOT, 'dist', 'lattice.css');
 
-const THEMES = [
-  'cuoio', 'indaco', 'onyx', 'ardesia', 'atelier', 'brina', 'burgundy',
-  'carbone', 'concrete', 'crepuscolo', 'laguna', 'magnolia', 'mustard',
-];
+// SCOPE COMES FROM THE MANIFESTS. The hardcoded array this replaces named 13 themes
+// and omitted `carta`, so `scorecard:check` never scored a shipped base palette. See
+// engineering/decisions/2026-08-09-theme-token-contract.md.
+const THEMES = fs.readdirSync(THEMES_DIR)
+  .filter((f) => f.endsWith('.manifest.json'))
+  .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
+  .filter((m) => m.role === 'base')
+  .map((m) => m.name)
+  .sort();
 
 // ── The variable contract (design/theming.md). The curated seams a palette
 // must self-define; engine-derived tiers (--on-accent-secondary/ghost/…,

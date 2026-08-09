@@ -401,10 +401,15 @@ function writeBlock(file, block) {
 
 function main() {
   const mode = process.argv.includes('--check') ? 'check' : process.argv.includes('--report') ? 'report' : 'write';
+  // SCOPE COMES FROM THE MANIFESTS. This used to read the directory and exclude
+  // `-dark` by FILENAME, which made the convention load-bearing; the role is now
+  // declared in themes/<name>.manifest.json and proved against the file by
+  // `checkThemeRoles`. See engineering/decisions/2026-08-09-theme-token-contract.md.
   const themes = fs.readdirSync(THEMES_DIR)
-    .filter((f) => f.endsWith('.css') && !f.includes('audit'))
-    .map((f) => f.replace(/\.css$/, ''))
-    .filter((t) => !/-dark$/.test(t)) // a `-dark` wrapper is a color-scheme flip over its base
+    .filter((f) => f.endsWith('.manifest.json'))
+    .map((f) => JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), 'utf8')))
+    .filter((m) => m.role !== 'variant-dark') // a variant-dark is a color-scheme flip over its base
+    .map((m) => m.name)
     // Only palettes that OWN a mark cycle get a block. The four a11y-* variants
     // declare just their status trio and inherit the ramp from a11y-base, so a
     // block there would be twelve redundant copies drifting out of one source.

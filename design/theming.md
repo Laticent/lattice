@@ -15,7 +15,14 @@ and the categorical-token taxonomy.
 
 ## Anatomy of a palette
 
-A palette is one CSS file: `themes/<name>.css`. Every palette extends
+A palette is one CSS file plus one small manifest. `themes/<name>.manifest.json`
+declares the palette's **identity and role** — which picker group it belongs to,
+which canvases it has a real face for, which theme it extends — and carries no
+token names or values at all; those live in the CSS, and every gate proves the
+declaration against it. Field reference: `themes/theme.schema.json`. The rest of
+this section is the CSS.
+
+Every palette extends
 the lattice engine via `@import 'lattice'` at the top of the file, then
 contains:
 

@@ -122,6 +122,8 @@
     "axis-dom-catalog:check": "node tools/build-axis-dom-catalog.js --check",
     "stage-catalog:build": "node tools/build-stage-catalog.js",
     "stage-catalog:check": "node tools/build-stage-catalog.js --check",
+    "theme-catalog:build": "node tools/build-theme-catalog.js",
+    "theme-catalog:check": "node tools/build-theme-catalog.js --check",
     "player-core:build": "node tools/build-player-core.js",
     "player-core:check": "node tools/build-player-core.js --check",
     "anima-player:build": "node tools/build-anima-player.js",

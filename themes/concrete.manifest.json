@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "concrete",
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "concrete-dark",
+  "order": 3,
+  "swatch": "#6B6B68"
+}

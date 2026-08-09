@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "onyx",
+  "role": "base",
+  "family": "brand",
+  "tier": "curated",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "onyx-dark",
+  "order": 7,
+  "swatch": "#000000"
+}

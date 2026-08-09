@@ -1,0 +1,13 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "a11y-protanopia",
+  "role": "derived-variant",
+  "extends": "a11y-base",
+  "family": "a11y",
+  "modes": [
+    "light"
+  ],
+  "order": 2,
+  "swatch": "#9C6900",
+  "cvd": "protanopia"
+}

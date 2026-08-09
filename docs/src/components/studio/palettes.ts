@@ -1,20 +1,22 @@
-// The built-in palette NAMES + grouping — the source of truth for WHICH palettes
-// exist and how they're grouped, extracted from ThemePicker so the pre-paint seed
-// script in `studio.astro` (which can't import a React component module) can inject
-// the SAME list instead of hand-copying a subset. Keeping these here, dependency-free,
-// is what lets `studio.astro` honor every built-in palette at first paint; a returning
-// visitor on a non-curated palette (ardesia, an a11y-* theme, …) would otherwise be
-// dropped back to indaco and lose the instant-shell + flash the wrong color.
-// ThemePicker re-exports these, so existing importers are unaffected.
+// The built-in palette NAMES + grouping + swatches, re-exported from the generated
+// catalog so the pre-paint seed script in `studio.astro` (which can't import a React
+// component module) gets the SAME list instead of hand-copying a subset. That is what
+// lets `studio.astro` honor every built-in palette at first paint; a returning visitor
+// on a non-curated palette (ardesia, an a11y-* theme, …) would otherwise be dropped
+// back to indaco and lose the instant-shell + flash the wrong color.
 //
-// NOT the source of truth for palette COLORS: the accent swatch each name maps to still
-// lives in ThemePicker's PALETTE_DOTS, and the on-disk CSS in themes/ is the true color.
-// palettes.test.ts keeps this name list and PALETTE_DOTS in lockstep, so a palette added
-// here can't ship a dot-less menu item (or a stale dot linger for a removed palette).
+// THE SOURCE IS `themes/<name>.manifest.json`. These lists used to be hand-maintained
+// here, with the swatches hand-maintained separately in ThemePicker, and a test
+// (palettes.test.ts) keeping the two in lockstep because adding a palette to one and
+// forgetting the other shipped a dot-less menu item or a stale entry. Both now derive
+// from one manifest field each — `tier`/`order`/`cvd` for the grouping, `swatch` for
+// the dot — so they cannot disagree, and `checkThemeRoles` fails the build if a
+// picker-listed palette declares no swatch.
+//
+// Still NOT the source of truth for palette COLORS: the on-disk CSS in themes/ is the
+// true color; `swatch` is only the menu dot.
+//
+// Regenerate with `npm run build`; `theme-catalog:check` gates freshness.
+// See engineering/decisions/2026-08-09-theme-token-contract.md.
 
-export const CURATED = ['indaco', 'cuoio', 'burgundy', 'laguna', 'crepuscolo', 'atelier', 'carbone', 'onyx'];
-export const MORE_THEMES = ['ardesia', 'brina', 'carta', 'concrete', 'magnolia', 'mustard'];
-export const A11Y_THEMES = ['a11y-achromatopsia', 'a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia'];
-
-/** Every palette the Studio can drive via `data-palette` — curated + more + the AA color-blind set. */
-export const BUILTIN_PALETTES = [...CURATED, ...MORE_THEMES, ...A11Y_THEMES];
+export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES, PALETTE_DOTS } from './palettes.generated';
