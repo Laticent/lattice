@@ -141,30 +141,6 @@ async function speechRequest(modelId, voice, responseFormat) {
   return { buf, contentType: res.headers.get('content-type') || '' };
 }
 
-/** Wraps raw 16-bit PCM in a standard 44-byte WAV header — no encoding library
- *  needed, just the RIFF/fmt/data chunk layout a browser <audio> element reads
- *  directly. */
-function pcmToWav(pcm, sampleRate, channels) {
-  const bitsPerSample = 16;
-  const blockAlign = channels * (bitsPerSample / 8);
-  const byteRate = sampleRate * blockAlign;
-  const header = Buffer.alloc(44);
-  header.write('RIFF', 0, 'ascii');
-  header.writeUInt32LE(36 + pcm.length, 4);
-  header.write('WAVE', 8, 'ascii');
-  header.write('fmt ', 12, 'ascii');
-  header.writeUInt32LE(16, 16); // fmt chunk size
-  header.writeUInt16LE(1, 20); // PCM format
-  header.writeUInt16LE(channels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(byteRate, 28);
-  header.writeUInt16LE(blockAlign, 32);
-  header.writeUInt16LE(bitsPerSample, 34);
-  header.write('data', 36, 'ascii');
-  header.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([header, pcm]);
-}
-
 /** Content-Type looks like "audio/pcm;rate=24000;channels=1" — read the real
  *  values rather than assume a rate, since it's a per-model quirk. Falls back to
  *  a conservative default only if the header is missing/unparseable. */
@@ -184,8 +160,10 @@ async function synth(modelId, voice, format) {
     // strictly better than a small one that plays at the wrong speed.
     const mp3 = await encodeMp3(pcmToInt16(buf), rate, channels, SAMPLE_BITRATE_KBPS);
     if (mp3) return Buffer.from(mp3);
-    console.warn(`  ! ${modelId}/${voice}: could not encode ${rate} Hz PCM to mp3 — committing WAV`);
-    return pcmToWav(buf, rate, channels);
+    // REFUSE rather than fall back. Every committed sample is `.mp3`, so writing WAV bytes under
+    // that name would give the site a file it cannot play and the gate a file it cannot check —
+    // worse than the missing-sample error this raises, which says exactly what happened.
+    throw new Error(`could not encode ${rate} Hz PCM to mp3 (not an MPEG sample rate) — no sample written`);
   }
   const { buf } = await speechRequest(modelId, voice, 'mp3');
   return buf;
@@ -221,7 +199,11 @@ async function main() {
     if (skippedEngines.has(job.slug)) continue;
     const dir = path.join(OUT_DIR, job.slug);
     fs.mkdirSync(dir, { recursive: true });
-    const filename = `${safeFilename(job.voice)}.${job.format}`;
+    // ALWAYS `.mp3` — `job.format` is what to ASK THE WIRE for, and for a PCM-only engine
+    // those two differ. Deriving the extension from it wrote `Achernar.pcm` (containing valid
+    // mp3 bytes), which `cachedSampleUrl` and `checkVoiceSampleAssets` both 404 / flag, so a
+    // regeneration would have produced 30 orphans and 30 missing files.
+    const filename = `${safeFilename(job.voice)}.mp3`;
     const file = path.join(dir, filename);
     try {
       const buf = await synth(job.modelId, job.voice, job.format);

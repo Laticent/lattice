@@ -72,6 +72,13 @@ in patch versions.
   what made reasonable. It still refuses rather than silently pulling an 80 MB model: if the
   on-device voice is not loaded, the export says so and tells you where to summon it.
 
+- **The narrator you pick is the narrator you are billed for.** The new **This device / Cloud
+  voice** choice originally moved only the *estimate*: an author who turned audio on and then
+  chose the on-device voice was shown "nothing is billed" and then charged for the whole deck in
+  the cloud voice, because the export reads a different value than the panel measured. The chosen
+  narrator is now written into the export's own choice, so the quote and the bill are computed
+  from one value and cannot disagree.
+
 - **The export panel no longer states things it has not measured.** At rest it claimed part of
   the deck "has not been rehearsed yet" — a statement about a count nobody had taken, and false
   for the author reading it — and flipping the unrelated Captions switch started the measurement
@@ -100,13 +107,15 @@ in patch versions.
   and the player's chrome is emitted after the slides — so a deck containing an element with
   `id="lp-next"` won tree order and the shipped **Next** button ended up with no click handler
   at all. Keyboard navigation still worked, which is why it went unnoticed: nothing looked
-  wrong until a viewer clicked the control. Every chrome lookup is now resolved through one
-  scoped helper rather than a bare `getElementById`, along a direct-child chain from the
-  player's own header and shell — a boundary authored content structurally cannot reach across,
-  since a slide is always nested inside the stage. The caption band and play control were
-  already protected this way; the other fifteen controls now are too. Verified by clicking the
-  real buttons in a real browser on a deck that forges all fifteen ids
-  (`tools/verify-narrated-player.mjs`).
+  wrong until a viewer clicked the control. Every chrome lookup is now ANCHORED: the shell and
+  the transport bar are resolved once via `body > #lp-app` / `body > #lp-bar` — positions a slide
+  can never occupy, because every slide is nested inside the stage — and each control is then
+  queried relative to that root. Scoping the selector alone was not enough, and the first attempt
+  at this fix did not work: a descendant selector like `#lp-app > #lp-nav > #lp-next` also matches
+  a chain a slide builds itself, and since the chrome is emitted after the slides the forged copy
+  won. Twelve lookups fell to that, including the caption band, which had been "scoped" this way
+  since narration first shipped. Verified by clicking the real controls in a real browser against
+  a deck that forges both the flat and the chained form (`tools/verify-narrated-player.mjs`).
 
 - **Fixed: narration the bake had already paid for was thrown away on a slow connection.**
   A speech request is billed when it is issued, so a sentence that overran the export's 45-second

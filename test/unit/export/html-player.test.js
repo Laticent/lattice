@@ -658,9 +658,12 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// combinator is a boundary a deck structurally cannot cross. Script-only: adds the
 	// CHROME map plus the helper, rewrites 21 lookups and roots the `#lp-toc a` /
 	// `#lp-article [id^=lp-sec-]` collection queries at the resolved element. No markup, no
-	// CSS, no layout. (`#lp-caption`/`#lp-play` were already scoped this way — this
-	// generalizes their fix to the other fifteen.)
-	assert.equal(sha, '41f50709fc32d36440a599bf15796ab633e60e99b602fd22c7e1ef5e7e78c3b3', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// CSS, no layout. Re-blessed AGAIN in the same PR: scoping the SELECTOR was not enough. The
+	// adversarial trio broke it before merge — a descendant selector matches a chain a slide
+	// builds itself, so twelve lookups still resolved to deck content. The lookups are now
+	// ANCHORED at roots resolved via `body > #lp-app` / `body > #lp-bar`, which a slide can
+	// never be a child of, and queried relative to those with `:scope`. Script-only.
+	assert.equal(sha, '42382569c7c7cbdae0a9f1e604daf8e8ea6060be7d73388f98623c8bcee39760', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -1065,8 +1068,9 @@ test('narration: the player binds to its OWN chrome, not to a deck element weari
 	// direct child of the player's own chrome, which a slide (nested in #lp-stage) never is.
 	const hostile = NARRATION_DOC.replace('<h1>One</h1>', '<h1>One</h1><div id="lp-caption"></div><button id="lp-play"></button>');
 	const { html } = await narratedPlayer({ docHtml: hostile, narration: NARRATION_NO_CAPTIONS });
-	assert.match(html, /querySelector\('#lp-app > #lp-caption'\)/, 'the band is resolved inside the player, not the document');
-	assert.match(html, /querySelector\('#lp-bar > #lp-play'\)/, 'and so is the play control');
+	assert.match(html, /querySelector\('body > #lp-app'\)/, 'the shell root is resolved from body, which a slide can never be a child of');
+	assert.match(html, /querySelector\(':scope > #lp-caption'\)/, 'and the band is queried RELATIVE to it, not from the document');
+	assert.match(html, /querySelector\(':scope > #lp-play'\)/, 'and so is the play control');
 	assert.doesNotMatch(html, /getElementById\('lp-caption'\)/, 'no bare id lookup survives for deck content to hijack');
 	// The forged element still ships (it is the author's markup, sanitized) — what must not
 	// happen is the transport binding to it.
@@ -1087,7 +1091,17 @@ test('the transport chrome is unforgeable too, not just the caption band and pla
 	// chain from #lp-bar or #lp-app, and authored content is always a descendant of #lp-stage,
 	// so a deck can never occupy one of those positions.
 	const forged = ['lp-next', 'lp-prev', 'lp-top', 'lp-bottom', 'lp-notes', 'lp-notes-body', 'lp-doc', 'lp-toc', 'lp-article', 'lp-stage', 'lp-count', 'lp-mode', 'lp-full', 'lp-notes-btn', 'lp-read-nav'];
-	const hostile = docHtml.replace('<p>Intro paragraph.</p>', `<p>Intro paragraph.</p>${forged.map((id) => `<div id="${id}"></div>`).join('')}`);
+	// FLAT *and* CHAINED. The first version of this test forged only flat divs, so it passed
+	// against a fix that did not work: a descendant selector like '#lp-app > #lp-nav > #lp-next'
+	// matches a chain a slide builds ITSELF, and that forgery wins document order because this
+	// chrome is emitted after the slides. Twelve lookups fell to it.
+	const chained =
+		'<div id="lp-app"><div id="lp-nav"><button id="lp-prev">F</button><button id="lp-next">F</button></div>' +
+		'<div id="lp-read-nav"><button id="lp-top">F</button><button id="lp-bottom">F</button></div>' +
+		'<div id="lp-notes"><div id="lp-notes-body">F</div></div>' +
+		'<div id="lp-doc"><div id="lp-toc">F</div><div id="lp-article">F</div></div>' +
+		'<div id="lp-caption">F</div><div id="lp-stage">F</div></div>';
+	const hostile = docHtml.replace('<p>Intro paragraph.</p>', `<p>Intro paragraph.</p>${forged.map((id) => `<div id="${id}"></div>`).join('')}${chained}`);
 	const { html } = await buildPlayerHtml({ docHtml: hostile, source, now: 0 });
 
 	for (const id of forged) {
@@ -1099,12 +1113,28 @@ test('the transport chrome is unforgeable too, not just the caption band and pla
 	// The forged elements still SHIP — they are the author's markup, sanitized. What must not
 	// happen is the player resolving to them.
 	assert.ok(doc.querySelector('section[data-lattice-slide] #lp-next'), "the author's element is still in their slide");
+	// Resolve exactly as the player does — ANCHORED at a root a slide cannot occupy, because
+	// `body > #lp-app` / `body > #lp-bar` require being a direct child of <body> and every slide
+	// is a descendant of #lp-stage. An UNROOTED query here would pick the forged node and this
+	// assertion would be testing the deck's markup instead of the player's.
+	const app = doc.querySelector('body > #lp-app');
+	const bar = doc.querySelector('body > #lp-bar');
+	assert.ok(app && bar, 'both roots resolve to the real shell');
+	const CHAINS = {
+		'lp-next': [app, ':scope > #lp-nav > #lp-next'], 'lp-prev': [app, ':scope > #lp-nav > #lp-prev'],
+		'lp-top': [app, ':scope > #lp-read-nav > #lp-top'], 'lp-bottom': [app, ':scope > #lp-read-nav > #lp-bottom'],
+		'lp-notes': [app, ':scope > #lp-notes'], 'lp-notes-body': [app, ':scope > #lp-notes > #lp-notes-body'],
+		'lp-doc': [app, ':scope > #lp-doc'], 'lp-toc': [app, ':scope > #lp-doc > #lp-toc'],
+		'lp-article': [app, ':scope > #lp-doc > #lp-article'], 'lp-stage': [app, ':scope > #lp-stage'],
+		'lp-read-nav': [app, ':scope > #lp-read-nav'],
+		'lp-count': [bar, ':scope > #lp-count'], 'lp-mode': [bar, ':scope > #lp-mode'],
+		'lp-full': [bar, ':scope > #lp-full'], 'lp-notes-btn': [bar, ':scope > #lp-notes-btn'],
+	};
 	for (const id of forged) {
-		const resolved = doc.querySelectorAll(`#lp-bar > #${id}, #lp-app > #${id}, #lp-app > #lp-nav > #${id}, #lp-app > #lp-read-nav > #${id}, #lp-app > #lp-notes > #${id}, #lp-app > #lp-doc > #${id}`);
-		assert.equal(resolved.length, 1, `exactly one ${id} sits at a chrome position, and it is the player's own`);
-		// `parentElement.closest`, not `closest`: #lp-stage is itself a chrome node, and
-		// `closest` matches the element it starts from.
-		assert.ok(!resolved[0].parentElement.closest('#lp-stage'), `the resolved ${id} is not inside the deck content`);
+		const [root, sel] = CHAINS[id];
+		const resolved = root.querySelector(sel);
+		assert.ok(resolved, `${id} resolves from its anchored root`);
+		assert.ok(!resolved.closest('section[data-lattice-slide]'), `the resolved ${id} is the player's own node, not the deck's`);
 	}
 });
 

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, render, screen, waitFor } from '@testing-library/react';
+import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // WHY THIS FILE EXISTS.
@@ -56,6 +57,7 @@ vi.mock('./narration-bake', async (importOriginal) => ({
 }));
 
 const { NarrationExportOptions } = await import('./NarrationExportOptions');
+type NarrationChoice = Parameters<typeof NarrationExportOptions>[0]['value'];
 
 const VOICE = { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 };
 const CHOICE = { captions: false, audio: true, voice: VOICE, allowPartial: false };
@@ -66,6 +68,27 @@ beforeEach(() => {
 	voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
 	onDeviceBakeVoice.mockResolvedValue(null);
 });
+
+
+/** The panel is CONTROLLED: `value.voice` is the single source of truth and the parent owns it.
+ *  A test that clicks with a no-op `onChange` therefore observes nothing — which is precisely
+ *  how the narrator picker shipped writing to local state only. Interactive tests use this. */
+function statefulPanel(initial = CHOICE) {
+	const emitted: NarrationChoice[] = [];
+	const Harness = () => {
+		const [v, setV] = React.useState<NarrationChoice>(initial);
+		return (
+			<NarrationExportOptions
+				source={'---\ntheme: indaco\n---\n\n# One\n\nA sentence.\n'}
+				project={async () => ['A sentence.']}
+				value={v}
+				onChange={(next) => { emitted.push(next); setV(next); }}
+			/>
+		);
+	};
+	render(<Harness />);
+	return emitted;
+}
 
 const panel = () =>
 	render(
@@ -184,9 +207,43 @@ describe('choosing the narrator when BOTH a cloud key and an on-device voice exi
 		expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('false');
 	});
 
+	it('WRITES the identity the bake will use — not just the one the panel measures', async () => {
+		// The defect this pins cost real money and shipped past three panel tests. The pick used
+		// to live in component state and feed only the pre-flight, so an author who turned audio
+		// on (defaulting to cloud) and then chose "This device" was measured against the device
+		// voice, told "nothing is billed", and then baked with the CLOUD voice — the whole deck
+		// synthesized and charged. Quoted $0, billed in full.
+		//
+		// The tests that missed it passed `onChange={() => {}}` with a constant `value`, so they
+		// could only ever see the measurement. THIS asserts the emitted choice.
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		const emitted = statefulPanel();
+		const btn = await screen.findByRole('button', { name: /This device/i });
+		await act(async () => { btn.click(); });
+		const last = emitted[emitted.length - 1];
+		expect(last, 'the pick must reach the caller at all').toBeTruthy();
+		expect(last.voice.rung, 'and it must carry the on-device identity the bake reads').toBe('kokoro');
+		expect(last.voice.voice).toBe('af_sky');
+	});
+
+	it('switching back to the cloud restores the author\'s own model and voice', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		const emitted = statefulPanel();
+		// Resolve the buttons OUTSIDE act() — a findBy* poll inside it does not see the async
+		// availability effect flush, and the node identity is stable across the re-measure.
+		const device = await screen.findByRole('button', { name: /This device/i });
+		const cloud = await screen.findByRole('button', { name: /Cloud voice/i });
+		await act(async () => { device.click(); });
+		await act(async () => { cloud.click(); });
+		const last = emitted[emitted.length - 1];
+		expect(last.voice.rung, 'back to the cloud identity').not.toBe('kokoro');
+		expect(last.voice.model, 'and the author\'s own model survived the detour').toBe(VOICE.model);
+		expect(last.voice.voice).toBe(VOICE.voice);
+	});
+
 	it('picking it names the rehearsed voice and promises no bill', async () => {
 		onDeviceBakeVoice.mockResolvedValue(DEVICE);
-		panel();
+		statefulPanel();
 		const btn = await screen.findByRole('button', { name: /This device/i });
 		await act(async () => { btn.click(); });
 		await waitFor(() => expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('true'));

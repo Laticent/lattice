@@ -110,7 +110,12 @@ export function toInt16(samples) {
  */
 export async function encodeMp3(int16, sampleRate, channels = 1, kbps = DEFAULT_BITRATE_KBPS) {
 	if (!(int16?.length > 0) || !MPEG_RATES.has(sampleRate)) return null;
-	const ch = channels === 2 ? 2 : 1;
+	// REFUSE an implausible channel count instead of mono-mixing it. `channels` is read off a
+	// response header, so 6 (or 0) is a thing the wire can say — and encoding 6-channel
+	// interleaved PCM as mono is exactly the silent quality cliff this function claims to avoid,
+	// playing back at a sixth speed. Returning null keeps the original bytes.
+	if (channels !== 1 && channels !== 2) return null;
+	const ch = channels;
 	const mod = await lame();
 	const Encoder = mod?.Mp3Encoder;
 	if (!Encoder) return null;

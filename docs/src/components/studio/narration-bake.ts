@@ -424,7 +424,7 @@ const BAKE_BACKOFF_MS = [600, 2400];
  * …`), and matched loosely on purpose: a false positive costs one retry, a false negative
  * costs the whole deck's worth of them.
  */
-const TERMINAL_SYNTH_ERROR = /\b(401|402|403|404)\b|unauthor|invalid api key|insufficient|quota|credit|not connected|billing/i;
+const TERMINAL_SYNTH_ERROR = /\b(401|402|403|404)\b|unauthor|invalid api key|insufficient|quota|credit|not connected|billing|not loaded/i;
 /** The per-request ceiling. Longer than playback's 20 s: nobody is waiting on this sentence
  *  to be spoken in a room, and a timeout here costs a whole retry. */
 const BAKE_TIMEOUT_MS = 45000;

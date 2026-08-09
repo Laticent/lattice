@@ -338,10 +338,25 @@ await variant(
 // This is the check that has to run on a real surface. A string assertion proves the selector
 // changed; only a real click proves the transport is bound to the player's own button.
 {
-  const hostileDoc = docHtml.replace(
-    '<h1>Slide one</h1>',
-    `<h1>Slide one</h1>${['lp-next', 'lp-prev', 'lp-count', 'lp-stage', 'lp-notes', 'lp-notes-body', 'lp-top', 'lp-bottom', 'lp-read-nav', 'lp-doc', 'lp-toc', 'lp-article', 'lp-mode', 'lp-full', 'lp-notes-btn'].map((id) => `<div id="${id}"></div>`).join('')}`,
-  );
+  // NESTED, not flat. A flat <div id="lp-next"> is the easy case and the one the first version
+  // of this check forged — which is exactly why it passed against a fix that did not work. A
+  // slide can rebuild the whole PARENT CHAIN, and a descendant selector like
+  // '#lp-app > #lp-nav > #lp-next' matches it; since this chrome is emitted after the slides,
+  // the forged copy wins document order. Twelve lookups fell to this, including #lp-caption,
+  // which had been "scoped" since #1393. Forge both shapes.
+  const flat = ['lp-count', 'lp-stage', 'lp-mode', 'lp-full', 'lp-notes-btn'].map((id) => `<div id="${id}"></div>`).join('');
+  const chained =
+    '<div id="lp-app">' +
+    '<div id="lp-nav"><button id="lp-prev">F</button><button id="lp-next">F</button></div>' +
+    '<div id="lp-read-nav"><button id="lp-top">F</button><button id="lp-bottom">F</button></div>' +
+    '<div id="lp-notes"><div id="lp-notes-body">FORGED NOTES</div></div>' +
+    '<div id="lp-doc"><div id="lp-toc">F</div><div id="lp-article">F</div></div>' +
+    '<div id="lp-caption">FORGED BAND</div>' +
+    '<div id="lp-stage"></div>' +
+    '</div>' +
+    '<div id="lp-bar"><div class="lp-seg"><button data-lp-btn="read-article">F</button></div>' +
+    '<button id="lp-play">F</button><span id="lp-count">99 / 99</span></div>';
+  const hostileDoc = docHtml.replace('<h1>Slide one</h1>', `<h1>Slide one</h1>${flat}${chained}`);
   const out = path.resolve('.scratch/out/narrated-player-forged-ids.html');
   writeFileSync(out, (await buildPlayerHtml({ docHtml: hostileDoc, source, title: 'Forged', now: 0, narration })).html);
   const p = await ctx.newPage();
@@ -353,25 +368,30 @@ await variant(
   await p.goto(`file://${out}`);
   await p.waitForSelector('#lp-play');
   check("forged ids: the author's elements really are in the shipped file", (await p.locator('section[data-lattice-slide] #lp-next').count()) === 1);
+  check('forged ids: the caption band resolves to the PLAYER\'s node, not the deck\'s', await p.evaluate(() => {
+    const app = document.querySelector('body > #lp-app');
+    const band = app?.querySelector(':scope > #lp-caption');
+    return !!band && !band.closest('section[data-lattice-slide]');
+  }));
 
   // THE ACTUAL REGRESSION: click the on-screen Next button.
-  const startedAt = await p.evaluate(() => document.querySelector('#lp-bar > #lp-count').textContent.trim());
-  await p.click('#lp-app > #lp-nav > #lp-next');
+  const startedAt = await p.evaluate(() => document.querySelector('body > #lp-bar > #lp-count').textContent.trim());
+  await p.click('body > #lp-app > #lp-nav > #lp-next');
   await p.waitForTimeout(150);
-  const afterClick = await p.evaluate(() => document.querySelector('#lp-bar > #lp-count').textContent.trim());
+  const afterClick = await p.evaluate(() => document.querySelector('body > #lp-bar > #lp-count').textContent.trim());
   check('forged ids: the on-screen Next button still advances the deck', afterClick !== startedAt, `${startedAt} -> ${afterClick}`);
 
-  await p.click('#lp-app > #lp-nav > #lp-prev');
+  await p.click('body > #lp-app > #lp-nav > #lp-prev');
   await p.waitForTimeout(150);
-  check('forged ids: and Previous comes back', (await p.evaluate(() => document.querySelector('#lp-bar > #lp-count').textContent.trim())) === startedAt);
+  check('forged ids: and Previous comes back', (await p.evaluate(() => document.querySelector('body > #lp-bar > #lp-count').textContent.trim())) === startedAt);
 
   // The counter must be the player's own, not the deck's empty div.
   check('forged ids: the slide counter reads the player\'s own element', /\d/.test(afterClick), afterClick);
 
   // And narration still binds — the path that failed loudest when a forged #lp-caption won.
-  await p.click('#lp-bar > #lp-play');
+  await p.click('body > #lp-bar > #lp-play');
   await p.waitForTimeout(300);
-  check('forged ids: narration still starts', (await p.getAttribute('#lp-bar > #lp-play', 'aria-pressed')) === 'true');
+  check('forged ids: narration still starts', (await p.getAttribute('body > #lp-bar > #lp-play', 'aria-pressed')) === 'true');
   check('forged ids: no page error from a hijacked lookup', seen.length === 0, seen.join(' | ') || 'clean');
   await p.close();
 }

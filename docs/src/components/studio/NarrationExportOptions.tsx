@@ -77,7 +77,7 @@ export function NarrationExportOptions({
 	const [catalogReachable, setCatalogReachable] = React.useState<boolean | null>(null);
 	const [cloudReady, setCloudReady] = React.useState<boolean | null>(null);
 	// The on-device narrator identity, resolved once. Offered whenever the rung is usable —
-	// see `narratorPick`; it is a first-class choice now, not a no-key fallback.
+	// see `pickNarrator`; it is a first-class choice now, not a no-key fallback.
 	const [onDevice, setOnDevice] = React.useState<BakeVoice | null>(null);
 	/** The model id currently auditioning, so its row shows a spinner rather than nothing. */
 	const [auditioning, setAuditioning] = React.useState<string | null>(null);
@@ -146,13 +146,30 @@ export function NarrationExportOptions({
 	// catalog only, and the on-device identity was unreachable from this branch. The panel gave
 	// advice the panel made impossible to take, and the consequence was money (#1462 item 2).
 	//
-	// `null` means the author has not chosen, so the default stands: the cloud voice when one
-	// is connected (a deck ships sounding like the rehearsal), the on-device one otherwise.
-	const [narratorPick, setNarratorPick] = React.useState<'cloud' | 'device' | null>(null);
+	// THE NARRATOR IS READ FROM `value.voice`, NEVER FROM COMPONENT STATE. `value.voice` is the
+	// only thing `bakeNarration` ever sees, so any second place that decides "which narrator"
+	// is a source of truth that can disagree with the one that spends money — and the first
+	// version of this fix did exactly that. The pick lived in local state and fed only the
+	// pre-flight, so an author who turned audio on (defaulting to cloud) and then chose
+	// "This device" was measured against the device voice, told "nothing is billed", and then
+	// baked with the CLOUD voice: every sentence a cache miss, the whole deck synthesized and
+	// charged. Quoted $0, billed in full — the exact quote-vs-bill split this panel exists to
+	// close, reintroduced by the fix for it. Found by the adversarial trio before merge.
+	//
+	// So the pick WRITES the identity, and everything else reads it back. There is one value.
 	const canPickDevice = !!onDevice;
-	const useOnDevice = canPickDevice && (narratorPick ?? (cloudReady === false ? 'device' : 'cloud')) === 'device';
-	/** The identity the pre-flight measures and the bake runs — always the same one. */
-	const bakeVoice = useOnDevice && onDevice ? onDevice : value.voice;
+	const useOnDevice = canPickDevice && value.voice?.rung === 'kokoro';
+	/** The cloud identity to restore when switching back — the author's model/voice choice must
+	 *  survive a detour through the on-device narrator. */
+	const cloudVoiceRef = React.useRef(value.voice);
+	if (value.voice?.rung !== 'kokoro') cloudVoiceRef.current = value.voice;
+	/** With no cloud key, the on-device narrator is the only one that can produce anything, so
+	 *  it is what turning audio on selects. */
+	const defaultsToDevice = canPickDevice && cloudReady === false;
+	const pickNarrator = (next: 'cloud' | 'device') => {
+		if (next === 'device' && onDevice) set({ voice: onDevice });
+		else if (next === 'cloud') set({ voice: cloudVoiceRef.current });
+	};
 	/** What the file is expected to gain: what the device already holds, plus what will be made. */
 	const projectedBytes = (measure?.cachedBytes ?? 0) + (measure?.missingBytes ?? 0);
 
@@ -174,7 +191,9 @@ export function NarrationExportOptions({
 			// another is how a quote and a bill come apart: quoting the cloud voice's coverage for
 			// a deck rehearsed on-device reports "nothing prepared" for a deck that is in fact
 			// complete, which is exactly backwards.
-			return measureNarration(source, projected, bakeVoice, pricePerM);
+			// `value.voice` — THE SAME OBJECT THE BAKE RECEIVES, never a locally-derived one.
+			// Measuring anything else is how a quote and a bill come apart.
+			return measureNarration(source, projected, value.voice, pricePerM);
 		})()
 			.then((m) => {
 				if (!live) return;
@@ -193,7 +212,7 @@ export function NarrationExportOptions({
 		return () => {
 			live = false;
 		};
-	}, [on, blockedReason, source, project, bakeVoice, pricePerM]);
+	}, [on, blockedReason, source, project, value.voice, pricePerM]);
 
 	const blocked = !!blockedReason;
 	const nothingToSay = !!measure && measure.total === 0;
@@ -218,7 +237,9 @@ export function NarrationExportOptions({
 			captionsBeforeAudio.current = value.captions;
 			// Adopt the identity the pre-flight was actually measured against, so the bill the
 			// author read and the bake that runs can never be for different voices.
-			set(useOnDevice && onDevice ? { audio: true, captions: true, voice: onDevice } : { audio: true, captions: true });
+			// With no cloud key the on-device narrator is the only one that can produce anything,
+			// so turning audio on selects it — and WRITES it, rather than merely displaying it.
+			set(defaultsToDevice && onDevice ? { audio: true, captions: true, voice: onDevice } : { audio: true, captions: true });
 		} else {
 			set({ audio: false, captions: captionsBeforeAudio.current });
 		}
@@ -310,7 +331,7 @@ export function NarrationExportOptions({
 													type="button"
 													disabled={disabled}
 													aria-pressed={active}
-													onClick={() => setNarratorPick(opt.id)}
+													onClick={() => pickNarrator(opt.id)}
 													className={`rounded-lg border px-3 py-2 text-left transition-colors ${active ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]' : 'border-border bg-background hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]'}`}
 												>
 													<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">{opt.label}</span>

@@ -309,12 +309,15 @@ export async function clipSizes(keys) {
  * Touches `meta` only: no audio is read, written or moved.
  */
 export async function touchClips(keys) {
-  const want = Array.isArray(keys) ? keys.filter(Boolean) : [];
-  if (!want.length || typeof indexedDB === 'undefined') return 0;
+  // A SET, not an array: `meta` can hold thousands of rows and the keys are long JSON
+  // strings, so `Array.includes` per row is ~1.5M string comparisons on a 300-sentence deck,
+  // synchronously, immediately before the bake starts.
+  const want = new Set(Array.isArray(keys) ? keys.filter(Boolean) : []);
+  if (!want.size || typeof indexedDB === 'undefined') return 0;
   try {
     const db = await openDB();
     const rows = (await read(db, META, (meta) => meta.getAll())) || [];
-    const present = rows.filter((m) => want.includes(m.key));
+    const present = rows.filter((m) => want.has(m.key));
     if (!present.length) return 0;
     await write(db, (_clips, meta) => {
       // One stamp per row, monotonic within the tab — same reason `putClip` uses nextStamp()
