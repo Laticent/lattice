@@ -87,6 +87,18 @@ const PKG_ROOT = (() => {
   return __dirname;
 })();
 
+// The package version, READ at runtime from PKG_ROOT — never `require`d.
+// `require('./package.json')` would look correct, but esbuild treats it as a
+// local relative import and inlines the WHOLE manifest into the bundle, so
+// dist/lattice-emulator.js carried every dependency range. That made the
+// committed bundle byte-stale on any dependency bump — reddening `build:check`
+// on a diff no human wrote and no bot could repair, since Dependabot cannot
+// run `npm run build`. Only `version` is ever wanted; read just that.
+const pkgVersion = () => {
+  try { return JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version; }
+  catch (_e) { return null; }
+};
+
 // ── KaTeX CSS ────────────────────────────────────────────────────────────────
 // The engine (lib/engine, created with `mathOutput:'htmlAndMathml'`) renders `$…$` /
 // `$$…$$` to KaTeX markup itself; the emulator only links KaTeX's stylesheet so
@@ -306,8 +318,7 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
   process.exit(0);
 }
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-  const pkg = require('./package.json');
-  console.log(`lattice-emulator ${pkg.version}`);
+  console.log(`lattice-emulator ${pkgVersion() ?? ''}`);
   process.exit(0);
 }
 
@@ -1322,9 +1333,7 @@ const PRESENT = !!flags.present || /^\s*present:\s*(?:true|yes|on)\s*$/im.test(f
 // --fluid (the player is the richer viewer). Frozen player-runtime version stamp.
 const PLAYER = !!flags.player || /^\s*player:\s*(?:true|yes|on)\s*$/im.test(fm);
 const PLAYER_VERSION = '1';
-const ENGINE_BUILD = (() => {
-  try { return require('./package.json').version; } catch { return ''; }
-})();
+const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
 // overflowing its box, and the slide has a seam (lib/core/auto-split.js `resplitDoc`, driven
 // by the `measureOverflow` evaluate below). The capacity map is hoisted to module scope so
@@ -3020,10 +3029,6 @@ async function renderBody(browser, g, closeBrowser) {
     // the PNG/JPEG bytes (pHYs / JFIF) so they drop into a print/office document at the right
     // physical size instead of the tool's 96dpi guess.
     const dpi = dpiFor(Math.round(slideW * rasterScale), Math.round(slideH * rasterScale));
-    const pkgVersion = (() => {
-      try { return JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version; }
-      catch (_e) { return null; }
-    })();
     const plan = assembleImageSetPlan({
       name: path.basename(outFile).replace(/\.zip$/i, ''),
       // Record the RESOLVED scheme + honored look so the manifest self-describes what the
@@ -3036,7 +3041,7 @@ async function renderBody(browser, g, closeBrowser) {
       svgs: svgAssets,
       title: deckTitle,
       palette: paletteName,
-      engineVersion: pkgVersion,
+      engineVersion: pkgVersion(),
       createdAt: new Date().toISOString(),
       slideTitles,
       generator: 'cli',

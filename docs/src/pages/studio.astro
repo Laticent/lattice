@@ -11,6 +11,7 @@
 // Board / Playground; the engine is loaded on demand exactly as those do.
 import '../styles/landing.css';
 import StudioIsland from '../components/studio/StudioIsland.tsx';
+import { StudioChromeSkeleton, StudioEditorPaneSkeleton, StudioPreviewBarSkeleton, StudioPreviewFooterSkeleton } from '../components/studio/StudioChromeSkeleton.tsx';
 import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.astro';
 import ViewportDebugOverlay from '../components/studio/ViewportDebugOverlay.astro';
 import PreviewFidelityOverlay from '../components/studio/PreviewFidelityOverlay.astro';
@@ -24,7 +25,7 @@ import { assetBase } from '../playground/asset-version.mjs';
 import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
-import { PREVIEW_CHROME, PREVIEW_RECT_KEY } from '../components/studio/preview-rect';
+import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_KEY } from '../components/studio/preview-rect';
 import { BOOT_POSTURE } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
@@ -217,18 +218,47 @@ const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => 
 // bottom, seam down the middle" bug on mobile (two surfaces, two coordinate systems, one gated
 // on the flaky iOS reveal). One skeleton, one rect, one honest ground — the seam is now
 // structurally impossible. See engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
+// NOTE — these CSS blocks are JS TEMPLATE LITERALS. Do not use a backtick anywhere inside
+// them, including in a comment: it terminates the literal, and the build fails several
+// hundred lines away with "data is not defined" rather than at the character responsible.
+// Quote identifiers in these comments plainly, not in code spans.
+//
 // Chrome for the instant shell (topbar + centered stage). Keyed under #studio-ssr-shell so
 // it never touches the hydrated island. The shell ground is the theme `var(--bg)` (the SAME
 // token the hydrated app's root `bg-background` and the Nacre card resolve to) — NOT a hardcoded
 // near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
 // Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
 // `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
-const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;}
+// FONT: the shell inherits the app's own `--font-body`, NOT a system stack. The system stack
+// was correct for the old hand-drawn shell (which believed the app's stylesheet was absent
+// pre-hydration); with the REAL chrome rendered here it made every label render in different
+// metrics from the app's. Invisible on a phone, where the deck pill is width-constrained and
+// truncates — but the pill is CONTENT-sized from tablet up, so the mismatch showed as the pill
+// jumping 164.5px -> 185px at hand-off (reported as "slight shift when the real things are
+// hydrated", measured at 820px). The fallback stays in the var() default, so a palette that
+// somehow lacks the token still gets a sane stack.
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:var(--font-body,system-ui,-apple-system,"Segoe UI",sans-serif);-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;--sk:color-mix(in srgb,currentColor 11%,transparent);--sk-band:color-mix(in srgb,currentColor 3%,transparent);}
 :root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:var(--text-body,#e8e8e8);--mark-bond:#4fa8da;--mark-halo:#15110d;}
-#studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border,rgba(127,127,127,.16));background:color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
-#studio-ssr-shell .ssr-logo{width:26px;height:26px;flex:0 0 auto;}
-#studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading,inherit);}
-#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);container-type:size;}
+/* TOPBAR + BAND CHROME — the app's REAL controls, rendered to static HTML at build time by
+   <StudioChromeSkeleton> (no client directive = zero JS). This block therefore holds NO box
+   model: every size, gap and glyph comes from the app's own Button/Separator/LatticeMark/
+   BarIcon/PostureDial and its Tailwind classes, which are already in the render-blocking
+   stylesheet this page ships. All that is left here is (a) placing the pane bands at the rect
+   the seed resolved, (b) picking the light/dark brand mark and the moon/sun glyph, and (c)
+   muting the whole layer so it never reads as live. */
+#studio-ssr-shell .ssr-chrome{flex:0 0 auto;opacity:.62;}
+#studio-ssr-shell .ssr-mark-dark{display:none;}
+#studio-ssr-shell .ssr-mode-to-light{display:none;}
+:root[data-mode="dark"] #studio-ssr-shell .ssr-mark-light{display:none;}
+:root[data-mode="dark"] #studio-ssr-shell .ssr-mark-dark{display:block;}
+:root[data-mode="dark"] #studio-ssr-shell .ssr-mode-to-dark{display:none;}
+:root[data-mode="dark"] #studio-ssr-shell .ssr-mode-to-light{display:inline-flex;}
+/* The stage is the LAST-RESORT layout: a centered box with no seeded rect. It applies only
+   when the geometry seed could not place the box (storage threw, or a viewport so small the
+   letterbox fit degenerates) — every other path sets data-ssr-rect and the rule below takes
+   over with padding:0. The --sh-ftr term keeps the box off the footer band in the one case
+   where the chrome DID publish and the box did not; it resolves to 0 when it didn't. */
+#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);padding-bottom:calc(clamp(12px,3vw,20px) + var(--sh-ftr,0px));container-type:size;}
 /* FALLBACK box (a visitor with no persisted rect): ONE full-bleed box at the deck's
    AUTHOR-CHOSEN aspect (--sb-ratio / numeric --sb-ar, seeded below; the engine's own 16:9
    only when a deck names no size), fit into the stage the SAME way the app fits its preview:
@@ -245,6 +275,74 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
    geometry reimplementation here, so it can't drift from the app's split/stop/ratio layout. */
 :root[data-ssr-rect] #studio-ssr-shell .ssr-stage{display:block;padding:0;container-type:normal;}
 :root[data-ssr-rect] #studio-ssr-shell .ssr-slidebox{position:absolute;left:var(--sb-l);top:var(--sb-t);width:var(--sb-w);height:var(--sb-h);max-width:none;max-height:none;aspect-ratio:auto;}`;
+
+// STRUCTURAL CHROME BANDS (#1438). Before this, the shell drew exactly two things — a topbar
+// and the slide box — so a reload showed those floating in an otherwise EMPTY page, and
+// hydration then dropped four more bands into place at once (the phone's eight-cell action
+// bar, the preview sub-bar, the slide navigator, the status strip) while the desktop's whole
+// editor column appeared from nothing. Reported as "the icons and the action bar are missing
+// on reload"; the honest description is that the shell was STRUCTURALLY INCOMPLETE, so the
+// hand-off was a re-layout rather than a cross-fade.
+//
+// The bands' CONTENT is the app's own chrome components, rendered to static HTML at build
+// time (see StudioChromeSkeleton) — no copied glyphs, no copied sizes. What lives here is
+// only the POSITIONING: each band is placed at the rect the chrome seed resolved from
+// PREVIEW_CHROME, the same numbers that place the slide box, so a band can never disagree
+// with the box it frames. The whole layer is muted and `pointer-events:none`, so real-looking
+// controls can't read as ready or swallow a tap.
+const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:none;box-sizing:border-box;flex-direction:column;overflow:hidden;opacity:.62;}
+:root[data-ssr-chrome] #studio-ssr-shell .ssr-band{display:flex;}
+/* Tablet + desktop: the editor column left of the split. Hidden on the phone (one swappable
+   pane) and at the Read stop (the editor track collapses to 0). */
+#studio-ssr-shell .ssr-editpane{left:var(--sh-rail,0px);top:var(--sh-pane-t,54px);width:calc(var(--sh-pane-l,0px) - var(--sh-rail,0px));bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
+:root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
+/* The preview pane's own sub-bar. Absent at Read, where the app renders the preview
+   chromeless — so --sh-hdr is 0 and the band is dropped. */
+#studio-ssr-shell .ssr-panehdr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);top:var(--sh-pane-t,54px);height:var(--sh-hdr,0px);}
+:root[data-ssr-read] #studio-ssr-shell .ssr-panehdr{display:none;}
+/* The footer is two stacked bands: the slide navigator, then the deck status strip. At Read
+   it is one undivided affordance band (footerRead), so the inner rows are dropped. */
+#studio-ssr-shell .ssr-paneftr{left:var(--sh-pane-l,0px);width:var(--sh-pane-w,100%);bottom:0;height:var(--sh-ftr,0px);border-top:1px solid var(--border,rgba(127,127,127,.16));}
+/* The footer's internal split is a CONSTANT, not the natural height of the placeholder text:
+   statusH is what the app measures, and the oracle compares this band to it. Pin the status
+   row to it and let the navigator take the remainder, so the two rows land on the app's own
+   line no matter what the placeholder inside them happens to be. */
+#studio-ssr-shell .ssr-status{height:var(--sh-status,0px);flex:0 0 auto;}
+#studio-ssr-shell .ssr-rail{flex:1 1 auto;min-height:0;}
+:root[data-ssr-read] #studio-ssr-shell .ssr-paneftr > *{display:none;}
+/* CINEMA (a landscape phone): the app suppresses the header, the action bar and the navigator
+   and runs the slide full-bleed, so the shell drops its chrome too rather than flashing a
+   54px band the app is about to delete. No chrome vars are published in this mode, so the
+   bands are already absent — this only has to take the topbar with them. */
+:root[data-ssr-cinema] #studio-ssr-shell .ssr-chrome{display:none;}
+/* The activity rail — DESKTOP (>=1100) at Build only. The seed publishes data-ssr-rail when
+   it actually reserves the 52px, so this gate can't drift from the tier test that produced it
+   (it used to re-derive "not mobile", which put a rail into every tablet Build layout). */
+#studio-ssr-shell .ssr-activityrail{left:0;top:var(--sh-pane-t,54px);width:var(--sh-rail,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
+:root:not([data-ssr-rail]) #studio-ssr-shell .ssr-activityrail{display:none;}
+/* At Build the app swaps the SLIM header for the FULL one: the launcher regains its wordmark
+   and the tail regains Theme, the mode toggle and the tours launcher. Two tails, one shown. */
+:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-desktop-tail{display:none;}
+:root:not([data-ssr-stop="build"]) #studio-ssr-shell .ssr-build-tail{display:none;}
+/* Guided tours are a PERSISTED PREFERENCE, not a width or a stop — the one chrome gate of that
+   kind. The seed publishes it so the shell can honor it; see the rule in the header note above. */
+:root[data-ssr-no-tours] #studio-ssr-shell .ssr-tours{display:none;}
+/* The dial lights the stop the visitor lands on — one dial per stop, CSS picks. Hardcoding
+   Write meant a Read visitor watched the highlight chip jump at hand-off. */
+#studio-ssr-shell .ssr-dial{display:none;}
+:root[data-ssr-stop="read"] #studio-ssr-shell .ssr-dial-read,:root[data-ssr-stop="write"] #studio-ssr-shell .ssr-dial-write,:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-dial-build{display:contents;}
+/* …and the header's LEFT run swaps with it: the full header leads with the launcher and a
+   rule, the slim one with a bare mark. Not expressible in a width class — it turns on the
+   STOP — so the three spans are re-gated here. Drawing the slim mark at Build put the deck
+   pill 27px right of where the app puts it, which is a visible slide at hand-off. */
+@media (min-width:1100px){:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-slim-mark{display:none;}:root[data-ssr-stop="build"] #studio-ssr-shell .ssr-build-lead{display:contents;}}
+/* READ on a DESKTOP viewport shows the deck title as plain text, not the bordered switcher —
+   the app's slim header drops deck navigation there entirely. Two elements, one shown, like the
+   header's left run above; the shell used to keep the pill and merely blank its border, which
+   left the title 27px right of the app's and kept a live-dot the app does not draw at Read.
+   Below 1100 the app renders its FULL header at every stop, switcher included, so the pill
+   stays exactly as it is — an unscoped data-ssr-read rule flattened it on a phone too. */
+@media (min-width:1100px){:root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill{display:none;}:root[data-ssr-read] #studio-ssr-shell .ssr-read-title{display:contents;}}`;
 
 // The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
 // island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
@@ -307,8 +405,8 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			   2026-07-19 splitter migration. */
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
-		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY }}>
+		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -318,6 +416,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 				// It's a palette-blind Nacre skeleton, so it is correct for every visitor with no
 				// per-visitor decision to make; palette/geometry seeds below only refine it.
 				r.setAttribute('data-ssr-shell', 'on');
+				// Declared and DEFAULTED before the storage reads below, because the geometry seed
+				// closes over it: if a blocked-storage throw skipped the assignment, `rr` would be
+				// undefined and the box could not be computed at all.
+				var rr = DEFAULT_RATIO;
 				try {
 					var p = localStorage.getItem('lattice-studio-palette');
 					var palette = 'cuoio';
@@ -339,7 +441,6 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// they last viewed the same way the app does (its `size:` front-matter → SIZE_RATIO,
 					// falling back to the engine's own 16:9 only when a deck names no size).
 					try {
-						var rr = DEFAULT_RATIO;
 						var act = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
 						var did = act && act.deckId;
 						// TITLE SEED — the returning user's actual deck, not the default. Precedence
@@ -387,13 +488,190 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							r.style.setProperty('--sb-ar', String(rr[0] / rr[1]));
 						}
 					} catch (e3) {}
-					// GEOMETRY SEED — place the Nacre box at the EXACT rect the app last had its
+					// GEOMETRY SEED (#1438) — resolve the app's structural bands (the phone action
+					// bar, the editor column, the preview sub-bar, the footer) AND the Nacre slide
+					// box from ONE derivation, and publish them as CSS vars so the shell can DRAW
+					// them rather than leave their space blank. One derivation, two consumers, so a
+					// band can never disagree with the box it frames.
+					//
+					// It is a FUNCTION because the viewport is not a constant during a load: a phone
+					// rotated while the ~505KB engine is still fetching would otherwise keep the
+					// portrait geometry until hydration and then snap. Re-run on resize /
+					// orientationchange until the app dismisses the shell (see the tail below).
+					//
+					// Cinema (a landscape phone) is the one surface with NO chrome at all — the app
+					// suppresses the header, the bar and the navigator and runs the slide full-bleed
+					// — so it is detected here from the SAME media query the app's `useLandscapePhone`
+					// uses, and it turns the whole shell chrome off rather than painting bands the
+					// app is about to delete.
+				} catch (e) {}
+				// OWN TRY. This block used to sit inside the palette try above, whose FIRST statement is
+				// a localStorage read — so in a storage-blocked context (private mode, blocked cookies,
+				// an enterprise policy) that read threw, the outer catch swallowed everything after it,
+				// and the visitor got no bands, no posture dial and a full-viewport Nacre box the app
+				// then snapped to a fraction of the width. Every storage read INSIDE seedGeometry is
+				// already individually defended, so it degrades to the default-shaped shell instead.
+				try {
+				var seedGeometry = function () {
+					var G = null;
+					try {
+						var C = PREVIEW_CHROME;
+						var vw2 = window.innerWidth, vh2 = window.innerHeight;
+						var cinema = !!(window.matchMedia && matchMedia('(orientation: landscape) and (max-height: 500px) and (pointer: coarse)').matches);
+						// The app has THREE tiers (use-breakpoint.ts), not two: mobile <= 699,
+						// tablet 700-1099, desktop >= 1100. The shell needs both boundaries — the
+						// action bar and the single-pane layout key off the mobile one, and the
+						// Build stop's activity rail is DESKTOP-only. Deriving the rail from
+						// "not mobile" put a 52px rail into the tablet Build layout, which moved
+						// every band right of it 28px.
+						var bpMobile = vw2 <= 699;
+						var bpDesktop = vw2 >= 1100;
+						// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
+						// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
+						// store's own constant, handed in through define:vars rather than restated
+						// here (#1286). This mirror is load-bearing: deriving a stop the app won't
+						// render makes the first load compute a full-bleed box against a split (or
+						// the reverse), and the hand-off shows as a jump — which is exactly what
+						// shipped when this line carried its own private copy of the answer.
+						// The full mirror is studio-store's `isPosture(saved.posture) ? saved.posture :
+						// derivePosture(saved.onboarded)` — and derivePosture returns BUILD for a
+						// legacy `onboarded: true`. Dropping that branch gave those visitors the Write
+						// shell and the Build app: a swapped header run, a 52px rail sliding in, and
+						// the box 29px off. Harmless while the stop only moved the box; not harmless
+						// now that it selects the header variant and the rail.
+						var posture = null, settings = null;
+						try { settings = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); } catch (e7) {}
+						if (settings && (settings.posture === 'read' || settings.posture === 'write' || settings.posture === 'build')) posture = settings.posture;
+						if (!posture) posture = (settings && settings.onboarded === true) ? 'build' : BOOT_POSTURE;
+						// THE ONE CHROME GATE THAT IS NEITHER WIDTH NOR STOP. The header's tours
+						// button is gated on `toursEnabled()` (playground/tour-prefs.js, key
+						// `lattice-tour-enabled`), a global preference a visitor can flip from any
+						// surface. Drawing it unconditionally gave anyone who turned tours off a
+						// phantom control plus a 44px slide of the three controls after it. Published
+						// as a flag rather than guessed — see the rule in the shell's header note.
+						var noTours = false;
+						try { noTours = localStorage.getItem('lattice-tour-enabled') === 'off'; } catch (e10) {}
+						// Read and cinema are both "chromeless" for the PREVIEW pane; cinema drops the
+						// surrounding app chrome too (handled by `cinema` below).
+						var chromeless = posture === 'read' || cinema;
+						// The holder pads BOTH axes everywhere except the cinema morph, which is
+						// `px-0 py-3` — one axis, and the axis that bounds a 16:9 box on a landscape
+						// phone. Modeling cinema as unpadded made the shell's slide 43px wider and
+						// 24px taller than the one the app was about to draw.
+						var padX = cinema ? 0 : (vw2 < 640 ? C.padMobile : C.padDesktop);
+						var padY = cinema ? C.padCinemaY : padX;
+						var paneTop = cinema ? 0 : C.topbarH + (bpMobile ? C.mobileBarH : 0);
+						var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite);
+						// No width cap — the app stopped capping the preview box (#1283), so a cap
+						// here would paint a narrower skeleton than the box the hydrated app
+						// measures, and the hand-off would show as a jump.
+						//
+						// THE SPLIT. react-resizable-panels distributes percentages over the group
+						// width minus its separators, and the app persists that percentage per panel
+						// set. Read the saved one rather than assuming the default: a visitor who
+						// dragged the divider gets it back on the next load, and a shell still drawing
+						// the 54% default put the split line up to 288px off — the largest divergence
+						// the adversarial trio found. A collapsed pane is a THIRD state, persisted
+						// separately (sessionStorage, so it survives reload), and it pins the collapsed
+						// side to its 46px rail rather than any percentage.
+						var frac = C.defaultPreviewFrac;
+						var collapsed = null;
+						try { collapsed = sessionStorage.getItem(STUDIO_SPLIT_KEY + '-collapsed'); } catch (e8) {}
+						try {
+							var store = JSON.parse(localStorage.getItem(STUDIO_SPLIT_KEY) || 'null');
+							var saved = store && store[STUDIO_SPLIT_BUCKET];
+							if (saved && typeof saved['studio-editor'] === 'number' && typeof saved['studio-preview'] === 'number') {
+								var tot = saved['studio-editor'] + saved['studio-preview'];
+								if (tot > 0) frac = saved['studio-preview'] / tot;
+							}
+						} catch (e9) {}
+						// The Build stop on a wide viewport puts a fixed activity rail down the left,
+						// OUTSIDE the split — so the editor|preview ratio divides what is left of the
+						// viewport, not the viewport.
+						var railW = (bpDesktop && !chromeless && posture === 'build') ? C.railBuildDesktop : 0;
+						var paneX, paneW;
+						if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else {
+							var avail = vw2 - railW - C.splitSeparatorW;
+							if (collapsed === 'a') paneW = avail - C.splitRailW;
+							else if (collapsed === 'b') paneW = C.splitRailW;
+							else {
+								// Restoring a saved share on a narrower viewport does NOT simply clamp to
+								// the px minimum: both panes are `collapsible`, and the library snaps a
+								// pane to `collapsedSize` once the requested size falls below the MIDPOINT
+								// of collapsedSize and minSize (react-resizable-panels' `A(o,l) < 0` pick).
+								// Clamping to the minimum instead painted a 300px preview where the app
+								// handed off to a 46px rail — 254px of pane and the whole slide gone at
+								// hand-off. Mirror the library's branch on both sides.
+								var want = avail * frac;
+								var otherWant = avail - want;
+								if (want < (C.splitRailW + C.splitPreviewMin) / 2) paneW = C.splitRailW;
+								else if (otherWant < (C.splitRailW + C.splitEditorMin) / 2) paneW = avail - C.splitRailW;
+								else paneW = Math.max(C.splitPreviewMin, Math.min(want, avail - C.splitEditorMin));
+								paneW = Math.min(Math.max(paneW, 0), avail); // a viewport too narrow for BOTH minimums
+							}
+							paneX = vw2 - paneW;
+						}
+						// The preview sub-bar's height is a CONTAINER query on the PANE, not the
+						// viewport — so it has to be resolved after the split, and it is why a
+						// dragged divider can shorten a band on a 1440px desktop.
+						var headerH = chromeless ? C.headerRead : (paneW >= C.headerNarrowPaneW ? C.headerWrite : (bpMobile ? C.headerWriteNarrowMobile : C.headerWriteNarrowSplit));
+						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, noTours: noTours, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
+						// Publishing is a function because the REPLAY seed below can widen the pane to
+						// contain a replayed box (see there) and must re-publish the corrected values.
+						// Every attribute is set OR cleared, never only set: a re-seed after a rotation
+						// crosses in and out of cinema, and a stale `data-ssr-cinema` would hide the
+						// chrome of the portrait layout it just switched to.
+						G.publish = function () {
+							if (G.cinema) {
+								// CLEAR the portrait layout's flags before returning. The bands are
+								// SIBLINGS of .ssr-chrome, so hiding the chrome does not hide them —
+								// data-ssr-chrome is what gates them, and leaving it set painted a
+								// portrait-width sub-bar and footer on top of a full-bleed cinema
+								// slide. Unreachable while publish ran once; the re-seed below made it
+								// reachable, which is precisely what a re-runnable publish has to own.
+								r.removeAttribute('data-ssr-chrome');
+								r.removeAttribute('data-ssr-rail');
+								r.removeAttribute('data-ssr-read');
+								r.setAttribute('data-ssr-cinema', '1');
+								return;
+							}
+							r.removeAttribute('data-ssr-cinema');
+							r.style.setProperty('--sh-pane-t', G.paneTop + 'px');
+							r.style.setProperty('--sh-pane-l', G.paneX + 'px');
+							r.style.setProperty('--sh-pane-w', G.paneW + 'px');
+							r.style.setProperty('--sh-hdr', G.headerH + 'px');
+							r.style.setProperty('--sh-ftr', G.footerH + 'px');
+							r.style.setProperty('--sh-status', C.statusH + 'px');
+							r.style.setProperty('--sh-rail', G.railW + 'px');
+							// Presence, not width: the rail element carries a 1px border, so a
+							// 0-width rail still draws a hairline down the left edge of a tablet.
+							// The CSS gate keys on this attribute rather than re-deriving the tier.
+							if (G.railW > 0) r.setAttribute('data-ssr-rail', '1'); else r.removeAttribute('data-ssr-rail');
+							r.setAttribute('data-ssr-bp', G.bpMobile ? 'mobile' : 'wide');
+							if (G.chromeless) r.setAttribute('data-ssr-read', '1'); else r.removeAttribute('data-ssr-read');
+							r.setAttribute('data-ssr-stop', G.posture);
+							if (G.noTours) r.setAttribute('data-ssr-no-tours', '1'); else r.removeAttribute('data-ssr-no-tours');
+							r.setAttribute('data-ssr-chrome', '1');
+						};
+						G.publish();
+					} catch (e6) {
+						// Same clear-symmetry rule as publish(): on a FIRST seed there is nothing to
+						// undo, but a re-seed that throws would otherwise leave the previous
+						// viewport's bands painted at the previous viewport's geometry.
+						G = null;
+						r.removeAttribute('data-ssr-chrome');
+						r.removeAttribute('data-ssr-rail');
+						r.removeAttribute('data-ssr-read');
+						r.removeAttribute('data-ssr-cinema');
+					}
+					// BOX SEED — place the Nacre box at the EXACT rect the app last had its
 					// preview box (persisted by StudioShell on unload as viewport fractions). On a
 					// same-device reload the shell box then lands pixel-identical to where the
 					// hydrated app re-measures it → no jump at hand-off. Computed to px from the
 					// CURRENT viewport (not vw/vh units) so it matches whatever the app measures
 					// now, and clamped on-screen in case the viewport changed since (rotation).
-					// No saved rect (newcomer) → the CSS falls back to a centered full-bleed box.
+					// No saved rect (newcomer) → the compute fallback below.
+					var hasRect = false;
 					try {
 						var rectRaw = localStorage.getItem(PREVIEW_RECT_KEY);
 						if (rectRaw) {
@@ -402,69 +680,100 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 								var vw = window.innerWidth, vh = window.innerHeight;
 								var bw = Math.min(q.w * vw, vw);
 								var bh = Math.min(q.h * vh, vh);
+								// ASPECT SANITY. The rect is stored as viewport FRACTIONS, so it only
+								// survives a change of viewport SHAPE if the shape did not change. Replay
+								// one measured in landscape on a portrait phone and the fractions resolve
+								// to a 300x791 panel where the app draws a 358x201 slide. The app's box
+								// always carries the deck's own aspect, so a resolved rect that does not
+								// is a rect from a layout this load cannot be in — drop it and compute.
+								// (Catches a corrupt/hand-edited rect for free.)
+								var wantAr = Array.isArray(rr) ? rr[0] / rr[1] : 0;
+								var gotAr = bh > 0 ? bw / bh : 0;
+								var aspectOk = wantAr > 0 && Math.abs(gotAr - wantAr) / wantAr <= 0.04;
+								if (aspectOk) {
 								var bl = Math.max(0, Math.min(q.l * vw, vw - bw));
 								var bt = Math.max(0, Math.min(q.t * vh, vh - bh));
 								r.style.setProperty('--sb-l', bl + 'px');
 								r.style.setProperty('--sb-t', bt + 'px');
 								r.style.setProperty('--sb-w', bw + 'px');
 								r.style.setProperty('--sb-h', bh + 'px');
-								r.setAttribute('data-ssr-rect', '1');
+								hasRect = true;
+								// The replayed box is the app's OWN measurement, so it already reflects a
+								// splitter the user dragged; the chrome bands above were derived from the
+								// PERSISTED split share, which is the same answer in every case we can
+								// check — but a rect saved under an older rule set (a different stop, a
+								// pre-migration key) can still disagree. Widen the pane to CONTAIN the
+								// replayed box when it does, so the slide can never sit on the editor
+								// band. Widening only — an agreeing rect comes through untouched.
+								if (G && !G.cinema && !G.bpMobile) {
+									if (bl - G.padX < G.paneX) { G.paneW += G.paneX - (bl - G.padX); G.paneX = bl - G.padX; }
+									if (bl + bw + G.padX > G.paneX + G.paneW) G.paneW = bl + bw + G.padX - G.paneX;
+									G.paneX = Math.max(0, G.paneX);
+									G.paneW = Math.min(G.paneW, G.vw - G.paneX);
+									G.publish();
+								}
+								}
 							}
 						}
 					} catch (e2) {}
-					// COMPUTE SEED (prototype, option B) — when there is NO persisted rect (a
-					// brand-new visitor, a cross-device first load), don't fall back to an
-					// approximate centered box: COMPUTE the exact rect from known inputs, the same
-					// pure function the validation proved matches the app to 0.1px. Inputs: the
-					// posture (chromeless = the full-bleed Read stop), the breakpoint (from vw), the
-					// deck ratio (rr, above), and the editor|preview split share, using the shared
-					// PREVIEW_CHROME constants. Not modeled: the Build stop's side panels +
-					// landscape-phone cinema (rect-replay still covers a returning visitor there);
-					// this only runs on a FIRST load, where replay has nothing to give.
+					// COMPUTE FALLBACK — when there is NO persisted rect (a brand-new visitor, a
+					// cross-device first load), don't fall back to an approximate centered box:
+					// COMPUTE the exact rect from known inputs, the same pure function the
+					// validation proved matches the app to 0.1px. Every input (posture, breakpoint,
+					// pane rect, per-stop chrome) comes from `G` above rather than being re-derived
+					// — the second copy of that derivation is exactly the kind of drift the shell
+					// keeps paying for — so this is only the letterbox fit of the deck ratio (`rr`)
+					// into `G`'s pane. Still not modeled: the Build stop's docked side panels
+					// (rect-replay covers a returning visitor there).
 					try {
-						if (!r.hasAttribute('data-ssr-rect')) {
-							var C = PREVIEW_CHROME;
-							var vw2 = window.innerWidth, vh2 = window.innerHeight;
-							var bpMobile = vw2 <= 699;
-							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
-							// stored posture wins; otherwise everyone falls back to BOOT_POSTURE — the
-							// store's own constant, handed in through define:vars rather than restated
-							// here (#1286). This mirror is load-bearing: deriving a stop the app won't
-							// render makes the first load compute a full-bleed box against a split (or
-							// the reverse), and the hand-off shows as a jump — which is exactly what
-							// shipped when this line carried its own private copy of the answer.
-							var posture = null;
-							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
-							if (!posture) posture = BOOT_POSTURE;
-							var chromeless = posture === 'read';
-							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
-							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);
-							var headerH = chromeless ? C.headerRead : C.headerWrite;
-							var footerH = chromeless ? C.footerRead : C.footerWrite;
-							// No width cap — the app stopped capping the preview box (#1283), so a cap
-							// here would paint a narrower skeleton than the box the hydrated app
-							// measures, and the hand-off would show as a jump.
-							var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
-							var paneX, paneW;
-							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
-							var paneH = vh2 - paneTop;
+						if (G && !hasRect) {
 							var ar2 = rr[0] / rr[1];
-							var cw = paneW - 2 * pad, ch = paneH - headerH - footerH - 2 * pad;
-							var bw2 = Math.max(0, Math.min(cw, ch * ar2));
+							var cw = G.paneW - 2 * G.padX, ch = G.paneH - G.headerH - G.footerH - 2 * G.padY;
+							// FLOOR, because the app does: the slide card's width is
+							// `Math.floor(min(paneW, paneH * ratio))px` and its height follows from
+							// `aspect-ratio`. Rounding the other way put the shell's box up to 1px wide
+							// of the app's and, through the aspect ratio, ~0.6px tall of it.
+							var bw2 = Math.floor(Math.max(0, Math.min(cw, ch * ar2)));
 							var bh2 = bw2 / ar2;
 							if (bw2 > 1 && bh2 > 1) {
-								r.style.setProperty('--sb-l', (paneX + pad + (cw - bw2) / 2) + 'px');
-								r.style.setProperty('--sb-t', (paneTop + headerH + pad + (ch - bh2) / 2) + 'px');
+								r.style.setProperty('--sb-l', (G.paneX + G.padX + (cw - bw2) / 2) + 'px');
+								r.style.setProperty('--sb-t', (G.paneTop + G.headerH + G.padY + (ch - bh2) / 2) + 'px');
 								r.style.setProperty('--sb-w', bw2 + 'px');
 								r.style.setProperty('--sb-h', bh2 + 'px');
-								r.setAttribute('data-ssr-rect', '1');
+								hasRect = true;
 							}
 						}
 					} catch (e4) {}
-					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
-					// with the react-resizable-panels migration: the hook restores the saved
-					// ratio post-mount via the panel imperative API. Studio is client:only,
-					// so there is no SSR split paint to seed anyway. 2026-07-19.)
+					// A re-seed that can no longer place the box must UNSET the flag, or the CSS
+					// keeps absolutely positioning the box at the previous viewport's rect.
+					if (hasRect) r.setAttribute('data-ssr-rect', '1'); else r.removeAttribute('data-ssr-rect');
+				};
+				seedGeometry();
+				// Re-seed while the shell is up. A phone rotated during the engine fetch is the
+				// case that matters: the geometry was derived once, at parse time, and the shell
+				// would hold the portrait layout until hydration corrected it in one jump. The
+				// listener retires itself the moment the app removes the shell node — latched on
+				// having SEEN it, because at parse time the node has not been created yet and a
+				// bare absence check would unhook immediately.
+				// Retire on the first resize that finds the shell GONE — but only once parsing has
+				// finished, because this script runs in <head> and an absent node before then means
+				// "not created yet", not "dismissed". The previous form latched on having SEEN the
+				// shell during a resize; for most visitors no resize fires while it is up, so the
+				// latch never set and the listener went on re-seeding a page with no shell, forever.
+				var reseed = function () {
+					if (document.readyState !== 'loading' && !document.getElementById('studio-ssr-shell')) {
+						window.removeEventListener('resize', reseed);
+						window.removeEventListener('orientationchange', reseed);
+						return;
+					}
+					seedGeometry();
+				};
+				window.addEventListener('resize', reseed);
+				window.addEventListener('orientationchange', reseed);
+				// (The editor|preview split ratio's pre-paint CSS-var seed is retired
+				// with the react-resizable-panels migration: the hook restores the saved
+				// ratio post-mount via the panel imperative API. Studio is client:only,
+				// so there is no SSR split paint to seed anyway. 2026-07-19.)
 				} catch (e) {}
 			})();
 		</script>
@@ -478,12 +787,28 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		{/* Pre-hydration INSTANT SHELL — Nacre-only skeleton, one contained 16:9 box, shown
 		    to every visitor and dismissed by the app once its own (identical) Nacre is up.
 		    No baked slide, no snapshot replay — one surface, no seam. */}
-		<div id="studio-ssr-shell" aria-hidden="true">
-			<div class="ssr-topbar">
-				<svg class="ssr-logo" viewBox="0 0 128 128" fill="none" aria-hidden="true"><g transform="rotate(45 64 64)" stroke="var(--mark-bond)" stroke-width="6.4" stroke-linecap="round"><line x1="31" y1="31" x2="97" y2="31"></line><line x1="97" y1="31" x2="97" y2="97"></line><line x1="97" y1="97" x2="31" y2="97"></line><line x1="31" y1="97" x2="31" y2="31"></line></g><circle cx="64" cy="17.3" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="17.3" r="11" fill="#5b86b8"></circle><circle cx="110.7" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="110.7" cy="64" r="11" fill="#a8628a"></circle><circle cx="64" cy="110.7" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="110.7" r="11" fill="#d08c42"></circle><circle cx="17.3" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="17.3" cy="64" r="11" fill="#7b72c0"></circle><circle cx="64" cy="64" r="16.2" fill="var(--mark-halo)"></circle><circle cx="64" cy="64" r="14" fill="#c8a040"></circle><circle cx="64" cy="64" r="10.4" fill="none" stroke="#7a5a10" stroke-width="1.5" opacity="0.55"></circle></svg>
-				<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
-				<script is:inline>(function(){var t=document.getElementById("ssr-deck-title"),v=document.documentElement.getAttribute("data-ssr-title");if(t&&v)t.textContent=v;})();</script>
-			</div>
+		<!-- `inert` is load-bearing now that the chrome is REAL controls: a <button> inside an
+		     aria-hidden subtree is still tabbable, so a keyboard user would land on buttons that
+		     do nothing while the app boots. `inert` takes them out of the tab order AND the a11y
+		     tree, and pointer-events:none already blocks the mouse.
+		     `lx-ui` is equally load-bearing: Tailwind Preflight is OFF site-wide, and shadcn's
+		     baseline reset is SCOPED to that class on every island root (styles/tailwind.css).
+		     Without it the shell's Buttons render on the browser's default box model and the
+		     eight-cell bar distributes its fractional cell widths differently from the app's —
+		     measured as a 3px drift by the sixth cell. -->
+		<div id="studio-ssr-shell" class="lx-ui" aria-hidden="true" inert>
+			{/* Chrome — the APP'S OWN controls, rendered to static HTML at build time (no client
+			    directive = zero JS). Everything visible here comes from the same Button /
+			    LatticeMark / BarIcon / PostureDial the hydrated app renders, so there is no
+			    copied glyph or size to drift. See StudioChromeSkeleton. */}
+			<div class="ssr-chrome"><StudioChromeSkeleton deckTitle={firstDeck.title} /></div>
+			<script is:inline>(function(){var v=document.documentElement.getAttribute("data-ssr-title");if(!v)return;var t=document.querySelectorAll(".ssr-deck-title");for(var i=0;i<t.length;i++)t[i].textContent=v;})();</script>
+			{/* The pane bands — positioned at the rect the CHROME SEED resolved, and dropped
+			    entirely if that seed didn't run. See SHELL_BANDS_CSS. */}
+			<div class="ssr-band ssr-activityrail"></div>
+			<div class="ssr-band ssr-editpane"><StudioEditorPaneSkeleton /></div>
+			<div class="ssr-band ssr-panehdr"><StudioPreviewBarSkeleton /></div>
+			<div class="ssr-band ssr-paneftr"><StudioPreviewFooterSkeleton /></div>
 			<div class="ssr-stage">
 				<div class="ssr-slidebox" id="ssr-slidebox">
 					<span class="nacre-loader" aria-hidden="true">
