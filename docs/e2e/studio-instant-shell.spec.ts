@@ -38,14 +38,21 @@ const TOLERANCE = 2;
 // the rects before dismissal) is a flake, not a test.
 const ENGINE_HOLD_MS = 2500;
 
-function near(actual: Rect | null, expected: Rect | null, label: string) {
+// The deck pill is the one control whose exact width is UNKNOWABLE to the shell: it is
+// content-sized, and part of that content is a per-deck string the shell must not draw
+// ("7 slides" vs "12 slides"). Its slot is reserved at the measured typical width, so a few
+// px of variance is by construction. This tolerance is still an order of magnitude tighter
+// than the drift it exists to catch — the shell forcing a system font stack moved it 20.5px.
+const PILL_TOLERANCE = 6;
+
+function near(actual: Rect | null, expected: Rect | null, label: string, tol = TOLERANCE) {
 	expect(actual, `${label}: shell band missing`).not.toBeNull();
 	expect(expected, `${label}: app band missing`).not.toBeNull();
 	for (const [i, axis] of ['left', 'top', 'width', 'height'].entries()) {
 		expect(
 			Math.abs((actual as Rect)[i] - (expected as Rect)[i]),
 			`${label} ${axis}: shell ${(actual as Rect)[i]} vs app ${(expected as Rect)[i]}`,
-		).toBeLessThanOrEqual(TOLERANCE);
+		).toBeLessThanOrEqual(tol);
 	}
 }
 
@@ -74,6 +81,12 @@ test('@crosswidth the instant shell frames the app it hands off to', async ({ pa
 			panehdr: r('#studio-ssr-shell .ssr-panehdr'),
 			paneftr: r('#studio-ssr-shell .ssr-paneftr'),
 			status: r('#studio-ssr-shell .ssr-status'),
+			// The deck pill is CONTENT-sized from tablet up, which makes it the one control
+			// that detects a text-metrics disagreement between the two surfaces — the shell
+			// used to force a system font stack while the app renders in --font-body, and the
+			// pill jumped 164.5px -> 185px at hand-off. Bands and the phone's bar cells are
+			// both width-constrained, so nothing else here can see that class of drift.
+			pill: r('#studio-ssr-shell .ssr-deck-pill'),
 		};
 	});
 	// A dismissed shell reads as all-zero rects and would pass every comparison below
@@ -116,6 +129,7 @@ test('@crosswidth the instant shell frames the app it hands off to', async ({ pa
 		return {
 			header: r(document.querySelector('header')),
 			toolbar: r(document.querySelector('[role="toolbar"][aria-label="Deck actions"]')),
+			pill: r(document.querySelector('header [data-demo="deck-switcher"]')),
 			panehdr: r(kids[0]),
 			rail: r(kids[kids.length - 2]),
 			status: r(kids[kids.length - 1]),
@@ -130,6 +144,7 @@ test('@crosswidth the instant shell frames the app it hands off to', async ({ pa
 	const appFooter: Rect | null =
 		app.rail && app.status ? [app.rail[0], app.rail[1], app.rail[2], app.rail[3] + app.status[3]] : null;
 	near(shell.paneftr, appFooter, 'preview footer');
+	near(shell.pill, app.pill, 'deck pill', PILL_TOLERANCE);
 
 	if (shell.mobile) {
 		// The phone's eight-cell deck-actions bar — the "middle action bar" of the report.

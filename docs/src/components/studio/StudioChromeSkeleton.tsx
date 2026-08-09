@@ -75,6 +75,12 @@ function DeckPill({ title }: { title: string }) {
 		<span className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5">
 			<span className="hidden size-2 shrink-0 rounded-full bg-primary min-[1100px]:block" />
 			<span className="truncate text-sm font-semibold text-[var(--text-heading)]" id="ssr-deck-title">{title}</span>
+			{/* The app shows a slide-count meta here from `xl` up ("7 slides"). The count is deck
+			    content the shell cannot know, so it is NOT drawn — but its WIDTH still has to be
+			    reserved, because the pill is content-sized and omitting the slot made it jump at
+			    hand-off. A neutral bar at the meta's own measured width (52.8px at 1440) keeps the
+			    structure honest without asserting a number. */}
+			<span aria-hidden="true" className="hidden h-2.5 w-[53px] shrink-0 rounded-full bg-current opacity-25 xl:inline-block" />
 			<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 		</span>
 	);

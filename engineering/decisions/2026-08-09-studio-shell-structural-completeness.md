@@ -256,9 +256,28 @@ Gates: `npm run lint`, `npm test` (5606), docs vitest (2658), docs `typecheck`,
 `npm run build:check`, `check:overflow`, plus the Studio e2e specs nearest this change
 (`studio-instant-shell`, `studio-header-fit`, `responsive`, `split`, `touch-chrome`) — green.
 
-**UNVERIFIED (HARD RULE #23):** real iOS Safari / Firefox iOS — the reporter's actual surface.
-This sandbox is headless Chromium, which cannot reproduce iOS's URL-bar reflow or its visual-
-vs-layout viewport split.
+**VERIFIED ON DEVICE (HARD RULE #23).** The reporter confirmed the shell on their own iPhone
+and iPad: structurally complete on both, and the missing icons and action bar are gone. That
+closes the claim this sandbox could not make — headless Chromium cannot reproduce iOS's
+URL-bar reflow or its visual-vs-layout viewport split.
+
+They also reported the one thing the band-and-cell oracle was blind to: **a slight shift when
+the real chrome hydrates.** Root cause, measured at 820px: the shell forced
+`font-family: system-ui`, while the app renders in `--font-body` (Outfit). Different text
+metrics, and the deck pill is CONTENT-sized from tablet up — so it painted at 164.5px and the
+app re-measured it at 185px. Not a font-loading race: identical before and after
+`document.fonts.ready`. That system stack was correct for the hand-drawn shell, which believed
+the app's stylesheet was absent pre-hydration; with the REAL chrome rendered here it was simply
+the wrong font. The shell now inherits `--font-body`, and shell and app agree exactly (185px
+both). The fallback stack survives inside the `var()` default.
+
+Why nothing caught it: every other thing the oracle compares — the bands, the phone's eight bar
+cells — is width-CONSTRAINED, so a text-metrics disagreement cannot move it. The pill is the
+only control whose width is set by its own content, which makes it the sole detector for that
+class of drift. It is now asserted, at a documented 6px tolerance: the pill also carries a
+per-deck slide count ("7 slides" vs "12 slides") that the shell must not draw, so its slot is
+reserved at the measured typical width and a few px of variance is by construction. Reverting
+the font to the system stack fails that assertion by 39px.
 
 **Pre-existing failure found, not caused here:** `demo-mobile.spec.ts` ("the phone demo types
 the 4-slide deck across pane-swaps and completes") fails on a toast assertion — it expects the

@@ -224,7 +224,15 @@ const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => 
 // near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
 // Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
 // `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
-const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;--sk:color-mix(in srgb,currentColor 11%,transparent);--sk-band:color-mix(in srgb,currentColor 3%,transparent);}
+// FONT: the shell inherits the app's own `--font-body`, NOT a system stack. The system stack
+// was correct for the old hand-drawn shell (which believed the app's stylesheet was absent
+// pre-hydration); with the REAL chrome rendered here it made every label render in different
+// metrics from the app's. Invisible on a phone, where the deck pill is width-constrained and
+// truncates — but the pill is CONTENT-sized from tablet up, so the mismatch showed as the pill
+// jumping 164.5px -> 185px at hand-off (reported as "slight shift when the real things are
+// hydrated", measured at 820px). The fallback stays in the var() default, so a palette that
+// somehow lacks the token still gets a sane stack.
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:var(--font-body,system-ui,-apple-system,"Segoe UI",sans-serif);-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;--sk:color-mix(in srgb,currentColor 11%,transparent);--sk-band:color-mix(in srgb,currentColor 3%,transparent);}
 :root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:var(--text-body,#e8e8e8);--mark-bond:#4fa8da;--mark-halo:#15110d;}
 /* TOPBAR + BAND CHROME — the app's REAL controls, rendered to static HTML at build time by
    <StudioChromeSkeleton> (no client directive = zero JS). This block therefore holds NO box

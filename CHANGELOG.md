@@ -111,8 +111,13 @@ in patch versions.
   rather than paint a header the app will replace; `mobileBarH` was 4px stale (53 → 49, left
   behind by the eight-cell redesign); and a new e2e oracle measures **both** surfaces in one
   page load — every band and every control — and fails on either drift. Verified at 393 / 820
-  / 1440, light and dark, at Read, at Build and in cinema. Real iOS remains UNVERIFIED
-  (HARD RULE #23).
+  / 1440, light and dark, at Read, at Build and in cinema, and **confirmed on a real iPhone
+  and iPad by the reporter**. One residual they caught on device: the shell forced
+  `font-family: system-ui` while the app renders in `--font-body`, so the content-sized deck
+  pill painted 164.5px and re-measured at 185px on hydration — a visible shift from tablet
+  up. The shell now inherits the app's font, and the pill is asserted by the oracle (the
+  bands and bar cells are all width-constrained, so none of them could see that class of
+  drift).
   See `engineering/decisions/2026-08-09-studio-shell-structural-completeness.md`.
 
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator
