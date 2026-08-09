@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "carta",
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "carta-dark",
+  "order": 2,
+  "swatch": "#38598C"
+}

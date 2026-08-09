@@ -16,19 +16,14 @@ import type { CatalogGroup } from './CatalogSelect';
 // this React component). Imported for local use here AND re-exported so existing
 // importers (StudioShell, PaletteControls, …) are unaffected. A Fabricated theme is
 // NOT here — it has no on-disk CSS and renders via extraTheme.
-import { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES } from './palettes';
+// PALETTE_DOTS comes from the same module now: both the grouping and each palette's
+// swatch are generated from themes/*.manifest.json, so the pair cannot drift. They
+// used to be two hand-kept lists here and in ./palettes, reconciled only by a test.
+import { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES, PALETTE_DOTS } from './palettes';
 
-export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES };
+export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES, PALETTE_DOTS };
 // US-English label (the shared site one uses the British "colour"); HARD RULE #21.
 export const A11Y_LABEL = 'Accessibility · color-blind safe';
-
-export const PALETTE_DOTS: Record<string, string> = {
-	indaco: '#006FA8', cuoio: '#7A5A10', burgundy: '#742532', laguna: '#006D77',
-	crepuscolo: '#5B3D8C', atelier: '#1A1A18', carbone: '#7DE38A', onyx: '#000000',
-	ardesia: '#1F1F1F', brina: '#3D6A82', carta: '#38598C', concrete: '#6B6B68',
-	magnolia: '#A04A55', mustard: '#8C6A18',
-	'a11y-achromatopsia': '#4D4D4D', 'a11y-deuteranopia': '#004982', 'a11y-protanopia': '#9C6900', 'a11y-tritanopia': '#007131',
-};
 
 export type SavedTheme = { id: string; name: string; label: string; accent?: string };
 

@@ -63,6 +63,31 @@ in patch versions.
   good (74.1% top-1); ruling the *wrong* component out is not (27%), and stays unsolved pending a
   model tier whose evaluation is written (`npm run intent:judge`) but not yet run to completion.
   No user-visible behavior change from this half. (#1440)
+
+### Added
+
+- **Every theme now declares itself in `themes/<name>.manifest.json`.** A small
+  file beside each palette states its identity and role — `role` (base ·
+  variant-dark · derived-variant), `family`, the picker `tier`/`order`/`swatch`,
+  the `modes` it has a real face for, and its `darkCounterpart`. It carries **no
+  token names and no token values**: those live in the CSS, and a second copy of
+  them is a drift surface rather than a fix. **Authoring a theme now means writing
+  a manifest too** — `npm run new:theme` stamps both, and `check:ownership` fails a
+  palette that has none. Schema: `themes/theme.schema.json`; reasoning:
+  `engineering/decisions/2026-08-09-theme-token-contract.md`.
+
+  Which themes a rule applies to used to be inferred three different ways in code
+  plus five hand-kept name arrays, and they disagreed: **`carta` is a shipped base
+  palette that two of those arrays never listed, so `token-parity` and
+  `scorecard:check` had never tested it.** Both cover all 14 palettes now, and
+  `new:theme carta` no longer offers to overwrite it. The Studio palette picker's
+  groups and swatches are generated from the manifests
+  (`docs/src/components/studio/palettes.generated.ts`, gated by
+  `theme-catalog:check`), replacing two hand-kept lists that a test had to
+  reconcile. No rendered output changes.
+
+### Fixed
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back

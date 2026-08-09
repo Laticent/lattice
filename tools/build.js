@@ -79,6 +79,9 @@ const STEPS = [
   // bundle time). The stage catalog is the single source of the stage-cell
   // classification the masthead kernel reads (stage-cell classification, step A).
   { label: 'stage catalog (lib/forms/cell/masthead)', script: 'build-stage-catalog.js' },
+  // The palette picker's groups + swatches, baked from themes/*.manifest.json — the
+  // docs bundle can't fs-load 32 manifests at runtime.
+  { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
   { label: 'lattice-runtime.js', script: 'build-runtime.js' },
   { label: 'lattice-emulator.js', script: 'build-emulator.js' },

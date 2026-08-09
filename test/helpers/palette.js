@@ -57,4 +57,24 @@ function loadPalette(name) {
   return { name, raw, vars: parsePaletteVars(combined) };
 }
 
-module.exports = { loadPalette, parsePaletteVars };
+/**
+ * Every base palette, read from the theme manifests.
+ *
+ * Four palette suites used to hardcode this list and they had drifted apart: three
+ * carried 13 names and omitted `carta` — a shipped base palette — so
+ * `token-parity`, `structural-text-contrast` and `chart-contrast` had never tested
+ * it, while `containment-contrast` had 14 and did. A hardcoded list cannot report
+ * what is missing from it; `themes/<name>.manifest.json` declares `role: "base"`,
+ * and `checkThemeRoles` proves that declaration against the file's own imports and
+ * token count. See engineering/decisions/2026-08-09-theme-token-contract.md.
+ */
+function baseThemeNames(themesDir = path.join(__dirname, '..', '..', 'themes')) {
+  return fs.readdirSync(themesDir)
+    .filter((f) => f.endsWith('.manifest.json'))
+    .map((f) => JSON.parse(fs.readFileSync(path.join(themesDir, f), 'utf8')))
+    .filter((m) => m.role === 'base')
+    .map((m) => m.name)
+    .sort();
+}
+
+module.exports = { loadPalette, parsePaletteVars, baseThemeNames };

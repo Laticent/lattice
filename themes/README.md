@@ -199,6 +199,47 @@ directive, and adds `TODO(palette):` markers on every value you're
 expected to change. It also stamps the matching `<name>-dark.css`
 wrapper so the dark variant works on day one.
 
+### Every palette declares itself — `<name>.manifest.json`
+
+Beside each `themes/<name>.css` sits a small `themes/<name>.manifest.json`.
+It carries what the CSS **cannot** say about a palette — and deliberately
+**no token names and no token values**, because a second copy of the CSS is a
+thing that drifts, not a thing that helps:
+
+```jsonc
+{
+  "name": "verdigris",
+  "role": "base",              // base | variant-dark | derived-variant
+  "family": "brand",           // brand | a11y
+  "tier": "more",              // which picker group
+  "order": 14,                 // position in that group (curated order is deliberate)
+  "modes": ["light", "dark"],  // the canvases this palette has a real face for
+  "darkCounterpart": "verdigris-dark",
+  "swatch": "#3E7A6B"          // the picker dot
+}
+```
+
+**Why it exists.** Which themes a rule applies to used to be worked out three
+different ways in code, plus five hand-kept name arrays — and they disagreed:
+`carta` shipped as a base palette that two of those arrays had never been told
+about, so two gates silently skipped it. The manifest is the one declaration
+they all read now.
+
+**It cannot lie.** `npm run check:ownership` proves each declaration against the
+file itself: the manifest's shape against `theme.schema.json`, `role` against what
+the CSS `@import`s (exactly one thing) and whether it declares tokens of its own,
+`modes` against the palette's own `color-scheme` specificity and whether its
+`light-dark()` surface arms are actually distinct, `darkCounterpart` against the
+file on disk. Change the CSS without changing the manifest and the build tells you.
+
+`new:theme` writes both manifests for you. Set `swatch` (it is stamped a
+deliberately-garish placeholder), pick `tier`/`order` if the palette belongs in
+the curated group, then run `npm run theme-catalog:build` so the Studio picker
+learns about it.
+
+The full field reference is `themes/theme.schema.json`; the reasoning is in
+`engineering/decisions/2026-08-09-theme-token-contract.md`.
+
 What to change, in order of impact:
 
 1. **Brand axis** (`--brand-<hue>-deep`, `--brand-<hue>-mid`,

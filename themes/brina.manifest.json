@@ -1,0 +1,14 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "brina",
+  "role": "base",
+  "family": "brand",
+  "tier": "more",
+  "modes": [
+    "light",
+    "dark"
+  ],
+  "darkCounterpart": "brina-dark",
+  "order": 1,
+  "swatch": "#3D6A82"
+}

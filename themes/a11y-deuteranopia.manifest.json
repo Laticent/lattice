@@ -1,0 +1,13 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "a11y-deuteranopia",
+  "role": "derived-variant",
+  "extends": "a11y-base",
+  "family": "a11y",
+  "modes": [
+    "light"
+  ],
+  "order": 1,
+  "swatch": "#004982",
+  "cvd": "deuteranopia"
+}

@@ -21,13 +21,17 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { baseThemeNames } = require('../../helpers/palette');
 
 const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
 
-const THEMES = [
-  'cuoio', 'indaco', 'onyx', 'ardesia', 'atelier', 'brina', 'burgundy',
-  'carbone', 'concrete', 'crepuscolo', 'laguna', 'magnolia', 'mustard',
-];
+// SCOPE COMES FROM THE MANIFESTS, not a hardcoded list. The hardcoded array this
+// replaces named 13 themes and omitted `carta` — a shipped base palette — so this
+// suite silently never tested it, and a hardcoded list cannot report what is missing
+// from it. `themes/<name>.manifest.json` declares `role: "base"`, and
+// `checkThemeRoles` (tools/check-ownership.js) proves that declaration against the
+// file's own imports. See engineering/decisions/2026-08-09-theme-token-contract.md.
+const THEMES = baseThemeNames();
 
 const CONTRACT = [
   'bg', 'bg-alt', 'surface-inverse', 'border', 'text-display', 'text-heading',

@@ -1,0 +1,13 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "a11y-achromatopsia",
+  "role": "derived-variant",
+  "extends": "a11y-base",
+  "family": "a11y",
+  "modes": [
+    "light"
+  ],
+  "order": 0,
+  "swatch": "#4D4D4D",
+  "cvd": "achromatopsia"
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "a11y-base",
+  "role": "derived-variant",
+  "extends": "onyx",
+  "family": "a11y",
+  "modes": [
+    "light"
+  ],
+  "note": "Not listed in the palette picker: it is the shared machinery (grayscale categorical ramp, texture wiring, status glyphs) the four CVD palettes extend, not a palette to pick. Its light scheme is pinned at :root:root so a deck cannot flip it — color-vision separation is tuned for one canvas."
+}

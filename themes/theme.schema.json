@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://slidewright.dev/schema/theme.manifest.json",
+  "title": "Lattice theme manifest",
+  "description": "Per-theme IDENTITY and SCOPE. Deliberately carries NO token names and NO token values: those live in the CSS, and duplicating them here is the drift surface that sank every earlier manifest proposal (see engineering/decisions/2026-08-09-theme-token-contract.md). The rule is: the manifest owns SCOPE (which themes a rule applies to), the code owns CONTRACT (what the rule requires). Every field is either impossible to state in CSS, or gated against the CSS by tools/check-ownership.js.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "role", "family", "modes"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Relative path to this schema, for editor completion."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "The palette slug. MUST equal the filename stem — a deck's `theme:` resolves to `themes/<name>.css`, so this is the same identifier the engine reads. Gated (G1)."
+    },
+    "role": {
+      "enum": ["base", "variant-dark", "derived-variant"],
+      "description": "What kind of theme file this is. `base` @imports 'lattice' and declares the full token contract. `variant-dark` @imports a base and declares no tokens of its own — it only pins the canvas. `derived-variant` @imports another theme and overrides a subset. This is the field the repo previously inferred three different, non-nested ways (listBasePalettes / checkCatInkDeclared / derive-cat-ink), which is why `carta` fell out of two gates entirely. Gated against the file's own imports and token count (G2)."
+    },
+    "extends": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "The theme this one @imports. Required unless role is `base` (which imports the engine, not a theme). Gated against the actual @import (G2)."
+    },
+    "family": {
+      "enum": ["brand", "a11y"],
+      "description": "Taxonomy, not derivable from the CSS. `brand` palettes carry a curated identity; `a11y` palettes exist to solve a color-vision constraint and are held to different distinctness rules."
+    },
+    "tier": {
+      "enum": ["curated", "more"],
+      "description": "Which group the palette picker lists this under. Required for `base` themes, meaningless for the others. Previously hand-maintained in docs/src/components/studio/palettes.ts as CURATED / MORE_THEMES."
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["light", "dark"] },
+      "description": "The canvases this palette declares a DISTINCT face for. A palette whose surface tokens are `light-dark(L, D)` with L !== D has both. One that pins its own `color-scheme` at `:root` narrows to that face; one whose surface tokens are static — carbone opts out of `light-dark()` entirely — has only the face its zero-specificity default names. This is what makes carbone's dark-only-ness an asserted, checkable fact instead of a comment (#1302). Gated against the CSS (G3)."
+    },
+    "darkCounterpart": {
+      "type": ["string", "null"],
+      "description": "The `variant-dark` theme that pins this palette's dark face, or null when it has none. Required for `base` themes. Replaces the implicit `<name>-dark` filename convention with a declaration a gate can check (G3)."
+    },
+    "order": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Position within this theme's picker group. Curated, not derivable — the brand group deliberately leads with indaco rather than sorting alphabetically. Required for every theme the picker lists, and must be unique within a group."
+    },
+    "swatch": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "description": "The dot the palette picker shows next to this theme. Curated menu data, not derivable from the palette (it is not simply --accent). Previously hand-maintained in ThemePicker's PALETTE_DOTS. Required for every theme the picker lists (role `base`, or any theme declaring `cvd`)."
+    },
+    "cvd": {
+      "enum": ["achromatopsia", "deuteranopia", "protanopia", "tritanopia"],
+      "description": "The color-vision deficiency this palette is designed for. Only meaningful in the `a11y` family, and impossible to state in CSS."
+    },
+    "note": {
+      "type": "string",
+      "description": "One line, for a deliberate oddity a reader would otherwise mistake for an omission. This is the field #1302 asked for."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "role": { "const": "base" } }, "required": ["role"] },
+      "then": { "required": ["tier", "darkCounterpart"] },
+      "else": { "required": ["extends"] }
+    }
+  ]
+}

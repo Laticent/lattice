@@ -1,0 +1,10 @@
+{
+  "$schema": "./theme.schema.json",
+  "name": "concrete-dark",
+  "role": "variant-dark",
+  "extends": "concrete",
+  "family": "brand",
+  "modes": [
+    "dark"
+  ]
+}
