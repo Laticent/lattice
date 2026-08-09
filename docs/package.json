@@ -62,7 +62,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "codemirror": "^6.0.2",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.13",
     "driver.js": "^1.4.0",
     "fuse.js": "^7.4.2",
     "html-to-image": "^1.11.13",
