@@ -73,6 +73,20 @@ export function speedSupported(modelId: string): boolean {
 	return engine ? (ENGINES[engine]?.speedSupport ?? false) : false;
 }
 
+/**
+ * Does this model's speech endpoint return UNCOMPRESSED audio (raw PCM) rather than mp3?
+ *
+ * Read from the catalog's own `audioFormat` — the same field `PCM_ONLY_MODELS` is pinned
+ * against — so there is one place that knows, and a future PCM engine is picked up by declaring
+ * it rather than by editing a second list. It matters to the SIZE QUOTE: those responses are
+ * transcoded by us, so their shipped size is set by the workspace bitrate, not by the sample
+ * table (see `estimateSynthBytes`).
+ */
+export function returnsUncompressed(modelId: string): boolean {
+	const engine = engineForModel(modelId || '');
+	return !!engine && ENGINES[engine]?.audioFormat === 'wav';
+}
+
 const KOKORO_LANG: Record<string, string> = { a: 'US', b: 'UK', e: 'ES', f: 'FR', h: 'HI', i: 'IT', j: 'JP', p: 'BR', z: 'CN' };
 
 function titleCase(s: string): string {

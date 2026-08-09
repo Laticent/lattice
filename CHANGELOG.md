@@ -95,6 +95,28 @@ in patch versions.
   them, billing *more* than quoted. A bake now protects its own deck's audio from its own
   writes.
 
+- **The size quote follows the Audio quality setting.** mp3 size is exactly linear in bitrate,
+  and the setting governs the two engines whose audio Lattice encodes itself — but the estimate
+  read only a per-engine table measured at the default. An author on 128 kbps was quoted half the
+  real size, and both payload warnings gated on the same halved number: the under-quote the byte
+  table exists to prevent, reintroduced by the setting itself. Audio that Lattice encodes is now
+  priced from duration and bitrate; audio that arrives already compressed keeps its measured
+  per-engine rate, since the setting is not in that path. Relatedly, the panel no longer suggests
+  lowering Audio quality when there is nothing left to record — for a fully rehearsed deck that
+  advice changes nothing, and offering it would be another instruction the panel cannot honor.
+
+- **On-device narration stops immediately when it times out.** A synthesis that overran its
+  deadline was left running for a grace window so its bytes could still be banked — right for a
+  cloud request, which is billed the moment it is issued, and wrong on-device, where nothing is
+  paid for and the thing being held is the only inference slot there is. A stuck sentence blocked
+  the retry that was waiting for that slot. Cloud requests keep the grace window; the on-device
+  rung now aborts at once.
+
+- **LAME's licence notice ships with the site that uses it.** Narration is compressed in the
+  browser by a JavaScript port of LAME (LGPL-3.0), which asks for acknowledgment and a link
+  rather than a bundled text. The deployed docs site now serves `/third-party-licenses.txt`, and
+  the notice is vendored in `assets/licenses/` so it is reviewable in the diff like the others.
+
 - **A shared deck's manifest says what narrated it, in terms that will still make sense later.**
   The `readAlong` section carried neither a `version` (the field whose whole purpose is to let a
   future player migrate an old file rather than treat "missing" as a legacy dialect forever) nor

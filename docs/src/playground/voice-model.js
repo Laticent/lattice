@@ -1364,13 +1364,15 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // This is the same reasoning the live reader already applies to a sentence it has stopped
       // waiting for; the bake path was the one place that contradicted it.
       //
-      // The retry picks the late clip up for free: `audioCache.get(key)` at the top of this
-      // function is checked on every attempt, and `bakeNarration` backs off 600 ms before
-      // attempt two — so a response that lands during the backoff is a cache hit rather than a
-      // second charge. That is also why this cannot re-open the "three charges for one clip"
-      // defect the controller chaining below was written to close: that one was three REQUESTS
-      // in flight for one sentence, and the cache check is what keeps the second and third from
-      // being issued at all.
+      // The retry picks the late clip up for free WHEN IT LANDS IN TIME: `audioCache.get(key)`
+      // is checked at the top of every attempt, and `bakeNarration` backs off 600 ms before
+      // attempt two, so a response arriving inside that window is a cache hit rather than a
+      // second charge. Stated precisely, because the first version of this comment claimed more
+      // than the code delivers: a response that lands LATER than the backoff does not prevent
+      // attempt two from being issued, and `synthFor` has no in-flight join (unlike the live
+      // reader's `synthOne`). Net cost is still no worse than aborting — those attempts were
+      // billed either way — but the clip is banked now instead of thrown away, which is the
+      // whole point. A real in-flight join belongs here and is a separate change.
       //
       // The CALLER's signal still aborts for real. A canceled export must stop spending, and it
       // does — `relay` fires `ctl.abort()` and the request dies with it. What is dropped here is
@@ -1388,12 +1390,19 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
           timer = setTimeout(() => {
             timedOut = true;
             res(null);
-            // A GRACE WINDOW, then a real abort. Letting an abandoned request finish is what
-            // banks the audio we already paid for; letting it run FOREVER would leak the socket
-            // and the abort listener on a host that never answers. So the request outlives our
-            // patience by a bounded margin and no longer — long enough for a slow response to
-            // land and be cached, short enough that a hung one is cleaned up.
-            graceTimer = setTimeout(() => ctl.abort(), SYNTH_GRACE_MS);
+            // ON-DEVICE, ABORT AT ONCE — there is no bill to salvage, and the thing being spent
+            // is the ONLY inference slot. Kokoro runs one generation at a time, and the serial
+            // queue drops a superseded job only when its signal aborts, so holding the abort for
+            // the grace window keeps a dead sentence in the slot the RETRY needs: measured at 105
+            // s of blockage instead of 45, with the abandoned job and its retry both eventually
+            // running. The grace window's whole justification ("the audio is already paid for, so
+            // finishing is free") is a claim about a cloud bill, and it is simply false here.
+            if (rung === 'kokoro') ctl.abort();
+            // CLOUD: a grace window, then a real abort. Letting an abandoned request finish is
+            // what banks the audio we already paid for; letting it run FOREVER would leak the
+            // socket and the abort listener on a host that never answers. So the request outlives
+            // our patience by a bounded margin and no longer.
+            else graceTimer = setTimeout(() => ctl.abort(), SYNTH_GRACE_MS);
           }, wait);
         }),
       ]);

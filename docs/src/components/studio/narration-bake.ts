@@ -30,7 +30,7 @@
 
 import { buildTrack, interCueGapMs } from '@/lib/cadenza';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
-import { compressClip } from '@/playground/narration-encode.js';
+import { compressClip, DEFAULT_BITRATE_KBPS } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart } from '@/playground/read-along-core.generated.js';
@@ -40,7 +40,7 @@ import { applyChartNarration, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
-import { engineForModel } from './tts-voice-catalog';
+import { engineForModel, returnsUncompressed } from './tts-voice-catalog';
 
 /** One spoken sentence, as it ships. */
 export type BakedCue = {
@@ -137,7 +137,10 @@ export class BakeTooLargeError extends Error {
 	readonly limit: number;
 	constructor(bytes: number, limit: number) {
 		super(
-			`This deck's narration would add about ${formatBytes(bytes)} to the file, past the ${formatBytes(limit)} ceiling — assembling it would likely run the browser out of memory before it finished. Ship it with captions only, lower Audio quality in the Workspace, or split the deck.`,
+			// The remedy names only what actually helps HERE. "Lower Audio quality" is deliberately
+			// absent: it governs audio not yet recorded, and a deck large enough to hit this
+			// ceiling is usually one that is already fully recorded, where it changes nothing.
+			`This deck's narration would add about ${formatBytes(bytes)} to the file, past the ${formatBytes(limit)} ceiling — assembling it would likely run the browser out of memory before it finished. Ship it with captions only, or split the deck.`,
 		);
 		this.name = 'BakeTooLargeError';
 		this.bytes = bytes;
@@ -257,6 +260,19 @@ export const ENGINE_BYTES_PER_CHAR: Record<string, number> = {
 export const DEFAULT_BYTES_PER_CHAR = 645;
 
 /**
+ * How many SECONDS of speech a character becomes — the one term a bitrate cannot supply.
+ *
+ * Measured from the committed Gemini sample: 2.760 s of audio for the 35-character sentence
+ * `tools/generate-voice-samples.mjs` uses, i.e. 0.0789 s/char. Rounded up slightly, because
+ * over-quoting is the safe direction for a number an author consents to before emailing a file.
+ *
+ * Used ONLY for audio this codebase encodes itself, where the bytes are `duration x bitrate` and
+ * the bitrate is a setting rather than a property of the engine. Cross-check: 0.0806 x 8000 B/s
+ * = 645 B/char at 64 kbps, which is what the Gemini row measures on disk.
+ */
+const SECONDS_PER_CHAR = 0.0806;
+
+/**
  * What `chars` of not-yet-synthesized text will add to the shipped file, in `modelId`'s voice
  * — audio bytes at that engine's measured rate, then base64's 4/3 inflation, since a data URI
  * is what actually ships.
@@ -266,8 +282,18 @@ export const DEFAULT_BYTES_PER_CHAR = 645;
  * displays it: the promise is that the size named before the write is the size the file
  * gains, and the only way to keep those honest is to compute both from one module.
  */
-export function estimateSynthBytes(chars: number, modelId?: string | null): number {
+export function estimateSynthBytes(chars: number, modelId?: string | null, opts?: { transcoded?: boolean; kbps?: number }): number {
 	if (!(chars > 0)) return 0;
+	// AUDIO WE ENCODE OURSELVES IS PRICED FROM THE BITRATE, not from the sample table. For the
+	// on-device rung and any PCM-only cloud model, the shipped size is set by the workspace's
+	// Audio quality setting — mp3 size is exactly linear in bitrate — so a table measured at one
+	// rate under-quotes every other rate by that ratio. An author on 128 kbps was being quoted
+	// HALF the real size, and the payload warnings gated on the same halved number: the
+	// under-quote failure class this table exists to prevent, reintroduced by the pref itself.
+	if (opts?.transcoded) {
+		const kbps = opts.kbps && opts.kbps > 0 ? opts.kbps : DEFAULT_BITRATE_KBPS;
+		return shippedBytes(Math.round(chars * SECONDS_PER_CHAR * kbps * 125)); // kbps * 1000 / 8 = bytes per second
+	}
 	const engine = engineForModel(modelId || '');
 	const rate = (engine && ENGINE_BYTES_PER_CHAR[engine]) || DEFAULT_BYTES_PER_CHAR;
 	// Through `shippedBytes`, not a second copy of its 4/3 arithmetic: the size named before
@@ -497,7 +523,11 @@ export async function measureNarration(source: string, projected: readonly strin
 	// know" are different answers and only one of them is safe to show next to a Bake button.
 	const estCostUsd = typeof priceMPerChar === 'number' && Number.isFinite(priceMPerChar) ? (missingChars / 1e6) * priceMPerChar : null;
 	const estSeconds = Math.ceil((missing * SECONDS_PER_SENTENCE) / BAKE_CONCURRENCY);
-	return { ...base, cached, cachedBytes, missing, missingChars, missingBytes: estimateSynthBytes(missingChars, voice.model), estCostUsd, estSeconds };
+	// The size of what is NOT yet recorded depends on how WE will encode it, when we are the one
+	// encoding it — the on-device rung and any PCM-only cloud model.
+	const transcoded = voice.rung === 'kokoro' || returnsUncompressed(voice.model);
+	const missingBytes = estimateSynthBytes(missingChars, voice.model, { transcoded, kbps: narrationBitrate() });
+	return { ...base, cached, cachedBytes, missing, missingChars, missingBytes, estCostUsd, estSeconds };
 }
 
 /** Progress, as the panel shows it: cached hits are instant, synthesis is what takes time. */

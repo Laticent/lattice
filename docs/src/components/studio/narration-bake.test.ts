@@ -766,3 +766,41 @@ describe('the "keep narration on this device" switch is honored by the export to
 		expect(banked.sort()).toEqual([keyFor(S1), keyFor(S2)].sort());
 	});
 });
+
+describe('the size quote follows the bitrate for audio WE encode', () => {
+	// mp3 size is exactly linear in bitrate, and the workspace Audio quality setting governs the
+	// two engines that hand back uncompressed audio. `estimateSynthBytes` had no bitrate term, so
+	// an author on 128 kbps was quoted HALF the real size — and both payload thresholds gated on
+	// the same halved number. That is the under-quote class ENGINE_BYTES_PER_CHAR exists to
+	// prevent, reintroduced by the pref itself.
+	const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+
+	it('doubles the quote when the bitrate doubles', () => {
+		const at64 = estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 64 });
+		const at128 = estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 128 });
+		expect(at128 / at64).toBeGreaterThan(1.95);
+		expect(at128 / at64).toBeLessThan(2.05);
+		expect(estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 48 })).toBeLessThan(at64);
+	});
+
+	it('leaves a wire-mp3 engine on its measured rate — the pref is not in that path', () => {
+		// Seven of the nine engines return mp3 we never touch, so their size is a property of the
+		// engine and moving the workspace setting must not move their quote.
+		const a = estimateSynthBytes(10_000, 'x-ai/grok-voice-tts-1.0');
+		const b = estimateSynthBytes(10_000, 'x-ai/grok-voice-tts-1.0', { transcoded: false, kbps: 128 });
+		expect(b).toBe(a);
+	});
+
+	it('agrees with the measured table at the default bitrate, so the two views cannot drift', () => {
+		// The transcoded estimate is duration x bitrate; the table is bytes measured off disk. At
+		// 64 kbps they describe the same audio and must land within a few percent of each other.
+		const fromBitrate = estimateSynthBytes(10_000, 'google/gemini-3.1-flash-tts-preview', { transcoded: true, kbps: 64 });
+		const fromTable = estimateSynthBytes(10_000, 'google/gemini-3.1-flash-tts-preview');
+		expect(Math.abs(fromBitrate - fromTable) / fromTable).toBeLessThan(0.05);
+	});
+
+	it('measureNarration prices the on-device narrator as audio it will encode itself', async () => {
+		const m = await measureNarration(DECK, PROJECTED, DEVICE, 0.62);
+		expect(m.missingBytes).toBe(estimateSynthBytes(m.missingChars, DEVICE.model, { transcoded: true, kbps: 64 }));
+	});
+});

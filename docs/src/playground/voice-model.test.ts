@@ -489,6 +489,31 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
     }
   });
 
+  it('ON-DEVICE, a timeout aborts AT ONCE — the scarce thing there is the inference slot, not money', async () => {
+    // The grace window exists to salvage audio that was already paid for. On the on-device rung
+    // nothing is paid for, and Kokoro runs ONE generation at a time: the serial queue only drops
+    // a superseded job when its signal aborts, so holding the abort for 60 s keeps a dead
+    // sentence in the slot the retry needs (measured at 105 s of blockage instead of 45, with
+    // the abandoned job and its retry both eventually running). The rung this PR just opened up
+    // for baking is exactly the one the delay hurts.
+    vi.useFakeTimers();
+    try {
+      let aborted = false;
+      const model = createVoiceModel({});
+      model.__setKokoroInference(({ signal }: { signal?: AbortSignal }) =>
+        new Promise((_res, rej) => {
+          signal?.addEventListener('abort', () => { aborted = true; rej(new Error('aborted')); }, { once: true });
+        }),
+      );
+      const p = model.synthFor({ rung: 'kokoro', text: 'A slow sentence.', timeoutMs: 45000 });
+      await vi.advanceTimersByTimeAsync(45000);
+      await p;
+      expect(aborted, 'the slot is freed the moment we stop waiting').toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('still aborts for real when the CALLER cancels — patience is dropped, cancellation is not', async () => {
     vi.useFakeTimers();
     try {
