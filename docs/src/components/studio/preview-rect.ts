@@ -105,10 +105,12 @@ export const PREVIEW_CHROME = {
 	// band that lands on the divider and one that lands beside it.
 	splitSeparatorW: 1, // <ResizableHandle> is `w-px`
 	splitRailW: 46, // a collapsed pane's width (ResizablePanel `collapsedSize={46}`)
-	// The library clamps a restored percentage to these px minimums, so the shell must too —
-	// otherwise a layout saved on a wide monitor paints a pane on a laptop that the app
-	// immediately widens. Consumed by StudioShell as the panels' own `minSize`, so the two
-	// cannot drift.
+	// A restored percentage is bounded by these px minimums — but NOT by clamping. Both panes
+	// are `collapsible`, and react-resizable-panels snaps a pane to `collapsedSize` once the
+	// requested size falls below the MIDPOINT of collapsedSize and minSize; only above that
+	// does it clamp to the minimum. The shell has to mirror both branches: clamping alone
+	// painted a 300px preview where the app handed off to a 46px rail. Consumed by StudioShell
+	// as the panels' own `minSize`, so the numbers themselves cannot drift.
 	splitEditorMin: 300,
 	splitPreviewMin: 300,
 } as const;

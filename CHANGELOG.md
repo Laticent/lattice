@@ -116,9 +116,24 @@ in patch versions.
   phone, where the app draws it in full); and the persisted preview rect was captured with
   whatever side panels happened to be docked, while panel docking is *not* persisted — the app
   always boots with them closed — so a reload after working with the Coach open replayed a
-  601px slide box that the app immediately re-drew at 708px. The app now drops a rect it
-  cannot boot into rather than storing one, and the shell's compute path (which models every
-  boot layout there is) takes over.
+  601px slide box that the app immediately re-drew at 708px. A third adversarial round then
+  found **nine** more, and they sort into one sentence: the shell predicts what the app renders
+  from what is knowable before paint, and each round finds one more input that is not. Rotating
+  a phone into the landscape cinema morph left two chrome bands painted over the full-bleed
+  slide (the re-seed made a stale publish reachable); the desktop slim header at Read showed the
+  **wrong deck name**, because the title-correction script found only one of the two title
+  elements; the tours button — gated on a persisted preference, not a width or a stop — was
+  drawn unconditionally, giving anyone who had turned tours off a phantom control and a 44px
+  slide; a transient stop (⌘. quiet) and a landscape orientation each stored a preview rect the
+  next boot could not be in; a restored split below the collapse midpoint *collapses* rather
+  than clamping, so the shell painted a 300px pane where the app handed off to a 46px rail; a
+  storage-blocked visitor lost the bands, the dial and the box placement to one swallowed
+  `localStorage` throw; a legacy `onboarded: true` derived Build in the app and Write in the
+  shell; and the re-seed listener never retired. All fixed. The rule that kills the class is
+  now recorded where the next person will meet it: **draw a control only where its presence is
+  a function of viewport width or the seeded stop — anything else is published as a
+  `data-ssr-*` flag or not drawn**, because omitting a control leaves a hole while drawing a
+  phantom shifts every sibling after it.
   See `engineering/decisions/2026-08-09-studio-shell-structural-completeness.md`.
 
 - **Breaking: slide boundaries are derived once, from the engine's own parser — eight separator

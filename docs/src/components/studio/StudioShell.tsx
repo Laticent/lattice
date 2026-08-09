@@ -458,6 +458,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	//     reload that the app immediately re-drew at 708px.
 	//   · A COLLAPSED pane lives in sessionStorage while the rect lives in localStorage, so
 	//     the two disagree in a NEW TAB by construction.
+	//   · A TRANSIENT STOP (`quietened` / `revealBuild`) changes what is rendered without
+	//     changing what is persisted, so the measured stop is not the stop that will boot.
 	// `splitConfigKey` already names the docked set ('EP' is the bare editor|preview pair),
 	// so it is the honest test for the first — the same value the layout store buckets by.
 	// When the layout is not boot-shaped, DROP the stored rect rather than leave a stale one
@@ -1690,7 +1692,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const split = useResizableSplit({
 		storageKey: STUDIO_SPLIT_KEY,
 		active: splitUsable,
-		defaultRatio: 46,
+		// The complement of the shell's `defaultPreviewFrac`, derived rather than restated: the
+		// two must sum to 100, and a designer re-tuning the default split will find one file.
+		defaultRatio: 100 - PREVIEW_CHROME.defaultPreviewFrac * 100,
 		configKey: splitConfigKey,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		// No onDragStart suspend — scaleFrame tracks the pane live (see above). One
@@ -1705,7 +1709,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Whether the CURRENT layout is one the app can boot into — read by the preview-rect
 	// persistence above at `pagehide` time. See the note there for why a docked panel or a
 	// collapsed pane disqualifies the rect.
-	rectBootShapedRef.current = splitConfigKey === 'EP' && !(splitUsable && split.collapsed);
+	// `effectiveStop === posture` is the third clause, and it is not optional: `quietened` (⌘.)
+	// and `revealBuild` change the RENDERED stop without persisting it, so a session that ends
+	// with either armed measures one stop and boots into another. Ending a Build session with
+	// quiet armed stored a Write-shaped rect that the next load replayed against Build — the box
+	// 29px off, through the replay path the shell trusts over compute.
+	rectBootShapedRef.current = splitConfigKey === 'EP' && effectiveStop === posture && !(splitUsable && split.collapsed);
 	// Collapse via a header glyph (or a ⌘K command): if focus was inside the
 	// now-inert pane it would drop to <body>; hand it to the always-visible rail.
 	const collapseFromHeader = React.useCallback((side: SplitSide) => {

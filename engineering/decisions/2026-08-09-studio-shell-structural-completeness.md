@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Reported (#1438) as "on a hard reload the utility icons and the middle action bar are missing while the deck dropdown and the slide rail render immediately". Reproduced on the built site at the reporter's 393x651, and the report's premise turned out to be inverted: nothing in the Studio is server-rendered, so there is no defensive `useMounted`, no cookie-vs-localStorage question and no IndexedDB coupling — the whole app is one Astro `client:only` island, and what a reload shows before it mounts is a static shell in `studio.astro`. That shell drew exactly TWO things, a topbar and the Nacre slide box, so it was STRUCTURALLY INCOMPLETE: hydration dropped four more bands in at once (the phone eight-cell action bar, the preview sub-bar, the slide navigator, the status strip) plus, above tablet, the entire editor column, and the hand-off read as a re-layout. FIX: the shell now renders the APP'S OWN chrome components to static HTML at BUILD time (Astro renders React with no client directive, so it ships markup and zero JS) — Button/Separator/LatticeMark/icons.ts plus BarIcon, PostureDial and EditorSkeleton, extracted from StudioShell into chrome-parts.tsx and now shared by both surfaces. No px constant and no copied SVG survive in the shell. A FIRST PASS hand-drew skeleton blocks at hand-measured sizes and left tablet+desktop with an empty topbar tail, justified by the belief that the app stylesheet does not exist pre-hydration; that belief is FALSE (one render-blocking stylesheet already carries every utility, arbitrary values included), and the section recording it is kept as the correction. Rule that replaced it: render the real control where its identity is fixed, never render per-deck content (slide names, counts, palette) — content gets a neutral bar inside the real control shape, so the retired second-content-surface failure cannot return. Also: `lx-ui` on the shell root is load-bearing (shadcn's baseline reset is scoped to it; without it the bar's fractional cells drift 3px by the sixth), landscape-phone cinema is modeled, the Build stop drops the slim tail rather than paint a header the app replaces, a 4px `mobileBarH` drift left by the eight-cell redesign is fixed, and a committed e2e oracle measures BOTH surfaces in one page load — bands AND every individual control — and fails on either drift. VERIFIED ON DEVICE: the reporter confirmed the shell on their own iPhone and iPad (the sandbox cannot reach iOS, so this is the only thing that could close that claim). The residual shift they reported was a font mismatch, fixed. A subsequent adversarial pass (HARD RULE #25) then found EIGHT divergences the hand-listed oracle passed green over — the Build stop's header and activity rail, a persisted splitter, a collapsed pane, the cinema morph's padding, the sub-bar's three heights, a rotation mid-load, and two mis-copied breakpoints — all fixed, and the hand-listed oracle replaced by two ENUMERATING matrices that compare the two surfaces as sets across 13 width x stop cases each.
+summary: Reported (#1438) as "on a hard reload the utility icons and the middle action bar are missing while the deck dropdown and the slide rail render immediately". Reproduced on the built site at the reporter's 393x651, and the report's premise turned out to be inverted: nothing in the Studio is server-rendered, so there is no defensive `useMounted`, no cookie-vs-localStorage question and no IndexedDB coupling — the whole app is one Astro `client:only` island, and what a reload shows before it mounts is a static shell in `studio.astro`. That shell drew exactly TWO things, a topbar and the Nacre slide box, so it was STRUCTURALLY INCOMPLETE: hydration dropped four more bands in at once (the phone eight-cell action bar, the preview sub-bar, the slide navigator, the status strip) plus, above tablet, the entire editor column, and the hand-off read as a re-layout. FIX: the shell now renders the APP'S OWN chrome components to static HTML at BUILD time (Astro renders React with no client directive, so it ships markup and zero JS) — Button/Separator/LatticeMark/icons.ts plus BarIcon, PostureDial and EditorSkeleton, extracted from StudioShell into chrome-parts.tsx and now shared by both surfaces. No px constant and no copied SVG survive in the shell. A FIRST PASS hand-drew skeleton blocks at hand-measured sizes and left tablet+desktop with an empty topbar tail, justified by the belief that the app stylesheet does not exist pre-hydration; that belief is FALSE (one render-blocking stylesheet already carries every utility, arbitrary values included), and the section recording it is kept as the correction. Rule that replaced it: render the real control where its identity is fixed, never render per-deck content (slide names, counts, palette) — content gets a neutral bar inside the real control shape, so the retired second-content-surface failure cannot return. Also: `lx-ui` on the shell root is load-bearing (shadcn's baseline reset is scoped to it; without it the bar's fractional cells drift 3px by the sixth), landscape-phone cinema is modeled, the Build stop drops the slim tail rather than paint a header the app replaces, a 4px `mobileBarH` drift left by the eight-cell redesign is fixed, and a committed e2e oracle measures BOTH surfaces in one page load — bands AND every individual control — and fails on either drift. VERIFIED ON DEVICE: the reporter confirmed the shell on their own iPhone and iPad (the sandbox cannot reach iOS, so this is the only thing that could close that claim). The residual shift they reported was a font mismatch, fixed. A subsequent adversarial pass (HARD RULE #25) then found EIGHT divergences the hand-listed oracle passed green over — the Build stop's header and activity rail, a persisted splitter, a collapsed pane, the cinema morph's padding, the sub-bar's three heights, a rotation mid-load, and two mis-copied breakpoints — all fixed, and the hand-listed oracle replaced by two ENUMERATING matrices that compare the two surfaces as sets. A THIRD adversarial round (red team + inversion + checker, run on what would actually ship) then found nine more — a rotation into cinema leaving stale bands, the desktop-Read title showing the wrong deck, a phantom tours button worth 44px, a transient stop and an orientation poisoning the replayed rect, a split restore that collapses rather than clamps, a storage-blocked visitor losing the whole shell, a legacy posture branch, and a listener that never retired — plus five false claims in this page and the PR. All fixed; the rule that kills the class is recorded below (draw only what width or the seeded stop can decide).
 ---
 
 # Studio instant shell — structural completeness on reload (#1438)
@@ -337,21 +337,27 @@ someone thought to list.
 driving the real built site and measuring BOTH surfaces in one page load:
 
 - `studio-shell-parity.spec.ts` does not list controls. It **enumerates** every visible control
-  in both chromes, keyed by `aria-label`, and requires the two SETS — and every box in them — to
-  agree, across 13 width × stop cases. A control added to the app's header and not to the shell
-  fails on the first run, without anyone remembering the file exists.
-- `studio-instant-shell.spec.ts` does the same for the BANDS and the slide box, across 13 cases
-  that each enter a state the old single default case never did: a dragged splitter, a collapsed
-  pane, a pane below the lens-label threshold, the Read stop, the Build stop, cinema, a rotation
-  mid-load.
+  in both chromes, keyed by `aria-label` (falling back to a stable hook, then to text), and
+  requires the two SETS — and every box in them — to agree, across 16 width × stop cases. A
+  control added to the app's header and not to the shell fails on the first run, without anyone
+  remembering the file exists.
+- `studio-instant-shell.spec.ts` does the same for the BANDS, the deck title and the slide box,
+  across 16 matrix cases plus five standalone ones, each entering a state the old single default
+  case never did: a dragged splitter, a collapsed pane, a share below the collapse midpoint, a
+  pane below the lens-label threshold, the Read stop, the Build stop, cinema, a rotation INTO
+  cinema, a docked-panel session, and the rect-REPLAY path.
 
-Widths are chosen at the tier BOUNDARIES (Tailwind's 640 and 1024, the app's 700 and 1100, plus
-one width inside each band) because that is where hand-copied gating goes wrong — three of the
-eight lived at a boundary.
+Widths BRACKET the tier boundaries (639 and 660 around Tailwind's 640, 1024 for `lg`, 1099 and
+1100 around the app's desktop line, plus one width inside each band) because that is where
+hand-copied gating goes wrong — three of the eight lived at a boundary. They bracket rather than
+sit on the line: a boundary bug shows as a disagreement on ONE side of it, so the two neighbors
+catch it without sampling the exact pixel.
 
 Both matrices run nightly; **two cases from each carry `@smoke`**, so the per-PR job runs one
-phone and one desktop case of each oracle. Between them those four cover every band and every
-control the shell mirrors, which makes "someone moved a band" a same-PR failure. Promoting the
+phone and one desktop case of each oracle. Be precise about what that covers — an earlier
+revision of this page was not: all four are at the **Write** stop, so they cover every band and
+control the shell draws at Write and nothing that is Build-only or Read-only. The activity rail,
+the Build header's tail, the Read dial and the chromeless preview are nightly. Promoting the
 full matrices follows the repo's existing escalation rule — an observed nightly green streak
 first (#800), never on hope.
 
@@ -380,6 +386,53 @@ standing in for `>=1100`; a CSS gate re-deriving what the seed had already decid
 third was persisted state describing a layout the app cannot reach. The matrices are now one
 case per tier x stop precisely so a tier-specific answer cannot be verified only at the tier
 where it happens to be right.
+
+### The third round: what the shell cannot know
+
+Asked whether the result was consistent across tiers, then run through the trio again on the
+delta, this round found **nine** more. They sort into one sentence: *the shell must predict what
+the app renders from what is knowable before paint, and each round has discovered one more input
+that is not.* Round 1 was width. Round 2 was tier × stop. This round is everything else.
+
+| Found | Was | Who caused it |
+|---|---|---|
+| rotation INTO cinema | `publish()` set `data-ssr-cinema` and returned without clearing `data-ssr-chrome`. The four bands are SIBLINGS of `.ssr-chrome`, so suppressing the chrome does not suppress them: a portrait-width sub-bar and footer stayed painted over the full-bleed slide. Unreachable while `publish` ran once — the re-seed made it reachable. | this delta |
+| desktop Read showed the WRONG deck name | the title-correction script used `getElementById`, and the new `ReadTitle` element carries no id — so the only VISIBLE title at desktop Read was the uncorrected build-time default. Per-deck content, drawn wrong, which the one-skeleton rule forbids outright. | this delta |
+| a phantom tours button | the header's tours control is gated on `toursEnabled()` — a persisted global preference. The shell drew it unconditionally: anyone with tours off got a control the app deletes plus a 44px slide of the three after it. | this delta |
+| a transient stop poisoned the replayed rect | `effectiveStop` is `revealBuild ? 'build' : quietened ? 'write' : posture`, and neither override persists. Ending a Build session with ⌘. quiet armed stored a Write-shaped rect the next boot replayed against Build — 29px off. The new boot-shape test checked the panel set and the collapse, not the stop. | this delta |
+| an orientation poisoned it too | the rect is viewport FRACTIONS, so it only survives if the viewport SHAPE did not change. A landscape session replayed in portrait resolved to a 300×791 panel where the app draws a 358×201 slide. | pre-existing, on-path |
+| a restored split COLLAPSES, it does not clamp | both panes are `collapsible`, so below the midpoint of 46 and 300 the library snaps to the rail. The shell clamped to 300 and painted a pane, and a slide in it, where the app handed off to a 46px rail with neither. | this delta |
+| a storage-blocked visitor lost everything | `seedGeometry()` sat inside a `try` whose first statement is a `localStorage` read, so one throw swallowed the bands, the dial and the box placement — leaving a full-viewport Nacre box the app then snapped to a fraction of the width. | pre-existing, tipped |
+| a legacy `onboarded: true` | `derivePosture` returns **build** for it; the seed's mirror had only the explicit-posture branch. Latent until the stop started selecting the header variant and the rail. | pre-existing, tipped |
+| the re-seed listener never retired | `sawShell` latched only if a resize fired WHILE the shell was up, which for most visitors never happens — so it re-seeded a page with no shell, on every resize, forever. | this delta |
+
+**And five claims that were false.** The trio audits prose as well as code, which this page has
+now needed three times: the guard sections said "13 width × stop cases" against arrays of 16;
+"widths at 640 and 700" against widths of 639 and 660; "those four `@smoke` cases cover every
+band and every control", when all four are at the Write stop and cover nothing Build- or
+Read-only; "the compute path models every boot layout there is", refuted by three of the nine
+above; and the CHANGELOG's "the app now drops a rect it cannot boot into", true only of the two
+disqualifiers it had enumerated. All corrected in place.
+
+### The rule that kills the class
+
+Three of the nine are the same defect wearing different clothes: the shell drew a control, or
+trusted a rect, whose correctness depended on something the shell cannot see. And the guard
+could not catch any of them, because the guard is a width × stop matrix — dense along exactly
+the two axes the design already answers by construction, and empty along every other axis the
+app branches on. A matrix like that always fights the last war.
+
+So the rule is a *design* rule, recorded in `StudioChromeSkeleton.tsx` where the next person will
+meet it:
+
+> **Draw a control only where its presence is a function of viewport width or `data-ssr-stop`.
+> Anything else is either published by the seed as its own `data-ssr-*` flag, or not drawn.**
+
+The asymmetry is what makes "not drawn" the safe default: omitting a control leaves a hole,
+while drawing one the app deletes shifts every sibling after it. `toursOn` is now a seeded flag
+(`data-ssr-no-tours`); the boot-shape test for a replayed rect gained the stop and an aspect
+check; and the parity matrix gained a case with tours OFF, because the axis existing at all is
+what the matrix could not see.
 
 **What stopped drifting by construction, not by test.** Three numbers the shell and the app used
 to each hold a copy of now have one home in `preview-rect.ts`, consumed by both: the split's px

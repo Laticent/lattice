@@ -76,13 +76,15 @@ type Case = {
 	smoke?: boolean;
 };
 
-// The matrix is a NIGHTLY cost (13 page loads x an engine hold). Two cases carry an `@smoke`
-// tag so the per-PR job runs them too: one desktop, one phone. They are the two surfaces the
-// bands differ most between, and between them they cover every band the shell draws — which
-// makes "someone moved a band" a same-PR failure rather than a next-morning one. The rest of
-// the matrix (the persisted states, the boundaries, the morphs) stays nightly, where a browser
-// matrix belongs. Promotion of the whole matrix follows the repo's escalation rule — an
-// observed nightly green streak first (#800).
+// The matrix is a NIGHTLY cost — 16 cases, each a page load with an engine hold, plus the
+// standalone tests below. Two cases carry an `@smoke` tag so the per-PR job runs them too: one
+// desktop, one phone.
+//
+// Be precise about what those two DO cover, because an earlier version of this note over-claimed
+// it: both are at the WRITE stop, so they cover every band the shell draws at Write and nothing
+// that is Build-only or Read-only — the activity rail, the Build header's tail, the Read dial and
+// the chromeless preview are all nightly. Promotion of the whole matrix follows the repo's
+// escalation rule — an observed nightly green streak first (#800).
 
 const CASES: Case[] = [
 	{ w: 1280, h: 720, stop: 'write', smoke: true, why: 'the shipped default — laptop, factory settings' },
@@ -159,7 +161,13 @@ const READ_SHELL = () => {
 			const b = el.getBoundingClientRect();
 			return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)];
 		})(),
-		titleText: document.querySelector('#studio-ssr-shell .ssr-deck-title')?.textContent?.trim() ?? '',
+		// Must be the VISIBLE one — reading the first match took the hidden pill's text, so the
+		// app-side lookup compared against a string the visitor never sees. That is exactly how
+		// the desktop-Read wrong-title bug passed this spec green.
+		titleText:
+			[...document.querySelectorAll('#studio-ssr-shell .ssr-deck-title')]
+				.find((e) => e.getBoundingClientRect().width > 0)
+				?.textContent?.trim() ?? '',
 	};
 };
 
@@ -212,7 +220,10 @@ const READ_APP = (want: string) => {
 };
 
 for (const c of CASES) {
-	const title = `@crosswidth${c.smoke ? ' @smoke' : ''} the instant shell frames the app — ${c.w}x${c.h} @ ${c.stop} (${c.why})`;
+	// NOT `@crosswidth`: that tag exists for assertions worth re-running at the project's own
+	// viewport, and every case here sets its own — so the tag ran the whole matrix twice, in two
+	// projects, for identical results and double the nightly wall-clock.
+	const title = `${c.smoke ? '@smoke ' : ''}the instant shell frames the app — ${c.w}x${c.h} @ ${c.stop} (${c.why})`;
 	test(title, async ({ page }) => {
 		await page.addInitScript(
 			([stop, split, collapsed]) => {
@@ -276,7 +287,10 @@ for (const c of CASES) {
 		// header at Read); the TITLE exists everywhere, so it is the assertion that holds at
 		// every tier and stop.
 		if (app.pill) near(shell.pill, app.pill, 'deck switcher', PILL_TOLERANCE);
-		else expect(shell.pill?.[2] ?? 0, 'the shell drew a deck switcher the app does not').toBe(0);
+		else {
+			expect(shell.pill, 'the .ssr-deck-pill element is gone — the selector has drifted').not.toBeNull();
+			expect(shell.pill?.[2], 'the shell drew a deck switcher the app does not').toBe(0);
+		}
 		near(shell.title, app.title, 'deck title', PILL_TOLERANCE);
 		// The Nacre box itself. These contexts start with empty storage, so the shell has no
 		// persisted rect to replay and takes its COMPUTE path — the one that letterboxes the
@@ -312,7 +326,7 @@ for (const c of CASES) {
 //
 // This is a TIER-ASYMMETRIC failure — docked panels exist only on tablet and desktop, so a
 // phone was structurally immune and no phone test could have found it.
-test('@crosswidth a rect measured with a docked panel open is not replayed', async ({ page }) => {
+test('a rect measured with a docked panel open is not replayed', async ({ page }) => {
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'build' }));
@@ -367,6 +381,171 @@ test('@crosswidth a rect measured with a docked panel open is not replayed', asy
 	near(shellBox, await card(), 'slide box after a docked-panel session');
 });
 
+// A saved share restored on a narrower viewport does NOT simply clamp to the 300px minimum.
+// Both panes are `collapsible`, so once the requested size falls below the midpoint of 46 and
+// 300 the library COLLAPSES the pane instead — and a shell that clamped painted a 300px preview
+// with a slide in it where the app handed off to a 46px rail with no preview at all.
+//
+// This one cannot use the band flow above: the app collapses the preview, so `iframe.live`
+// never becomes visible. What it asserts is the pane the shell reserves.
+test('a saved share below the collapse midpoint reserves the rail, not the minimum', async ({ page }) => {
+	await page.addInitScript((layout) => {
+		try {
+			localStorage.setItem('lattice-docs-split-studio', layout);
+		} catch {
+			/* storage blocked — nothing to restore, and the case proves nothing; asserted below */
+		}
+	}, splitLayout(20));
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await page.route('**/lattice-playground.js', async (route) => {
+		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
+		await route.continue();
+	});
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	await page.locator('#studio-ssr-shell .ssr-panehdr').waitFor({ state: 'attached' });
+	await page.evaluate(() => document.fonts.ready);
+	const shellPaneW = await page.evaluate(() =>
+		Math.round((document.querySelector('#studio-ssr-shell .ssr-panehdr') as Element).getBoundingClientRect().width),
+	);
+
+	// 20% of (820 - 1) is 163.8px, under the (46+300)/2 = 173 midpoint, so the app collapses.
+	await page.locator('[data-pane-role="preview"]').waitFor({ state: 'attached', timeout: 45_000 });
+	await expect(page.locator('[data-studio-split][data-split-collapsed="b"]')).toHaveCount(1);
+	const appPaneW = await page.evaluate(() =>
+		Math.round((document.querySelector('[data-pane-role="preview"]') as Element).getBoundingClientRect().width),
+	);
+	expect(appPaneW, 'the app did not collapse the preview — the library rule has changed').toBe(46);
+	expect(
+		Math.abs(shellPaneW - appPaneW),
+		`the shell reserved ${shellPaneW}px where the app collapsed to ${appPaneW}px`,
+	).toBeLessThanOrEqual(TOLERANCE);
+});
+
+// ROTATION INTO CINEMA — the case the matrix above cannot reach.
+//
+// `pointer: coarse` is a CONTEXT option, not a viewport, and neither Playwright project sets
+// `hasTouch`. So the matrix's `rotateTo` case lands at 844x390 with a FINE pointer, which is a
+// tablet, not cinema — and the re-seed bug that lived exactly in the portrait→cinema transition
+// was invisible to the matrix written to catch re-seed bugs. This is that transition: the four
+// bands are SIBLINGS of `.ssr-chrome`, so suppressing the chrome does not suppress them, and a
+// publish that set `data-ssr-cinema` without clearing `data-ssr-chrome` left a portrait-width
+// sub-bar and footer painted on top of the full-bleed slide.
+test.describe('rotation into cinema', () => {
+	test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+	test('rotating a phone into landscape leaves no chrome behind', async ({ page }) => {
+		await page.route('**/lattice-playground.js', async (route) => {
+			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
+			await route.continue();
+		});
+		await page.goto('/studio/', { waitUntil: 'commit' });
+		await page.locator('#studio-ssr-shell .ssr-paneftr').waitFor({ state: 'attached' });
+		await page.evaluate(() => document.fonts.ready);
+
+		const portrait = await page.evaluate(READ_SHELL);
+		expect(portrait.cinema, 'a portrait phone should not be in cinema').toBe(false);
+		expect(portrait.panehdr?.[3], 'the portrait shell drew no preview sub-bar to begin with').toBeGreaterThan(0);
+
+		await page.setViewportSize({ width: 844, height: 390 });
+		await page.evaluate(() => document.fonts.ready);
+
+		const landscape = await page.evaluate(READ_SHELL);
+		expect(landscape.cinema, 'the re-seed did not detect cinema after the rotation').toBe(true);
+		// Cinema is defined by what is ABSENT. Each of these is a band the app deletes.
+		for (const [name, box] of [
+			['topbar', landscape.topbar],
+			['action bar', landscape.actionbar],
+			['preview sub-bar', landscape.panehdr],
+			['preview footer', landscape.paneftr],
+		] as const) {
+			expect(box, `the .ssr-* element for ${name} is gone — the selector has drifted`).not.toBeNull();
+			expect(box?.[3], `the shell left the ${name} painted over the cinema morph`).toBe(0);
+		}
+
+		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
+		await page.evaluate(() => document.fonts.ready);
+		const app = await page.evaluate(READ_APP, landscape.titleText);
+		expect(app.header, 'the app grew a header in cinema — the morph has changed').toBeNull();
+		near(landscape.box, app.box, 'slide box after rotating into cinema');
+	});
+});
+
+// The rect-REPLAY path. Every case in the matrix above starts with EMPTY storage, so all of
+// them exercise the COMPUTE path — which means the replay path, the one the shell prefers when
+// a rect exists, had no coverage at all. Replacing the whole boot-shape guard with `false`
+// would have left every other test green.
+test('a boot-shaped rect IS replayed, and lands where the app re-measures', async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 720 });
+	// Registered BEFORE the first load: a reload can serve the engine from the memory cache,
+	// firing no request for a later-registered route to intercept — the shell would then be
+	// dismissed before it could be measured, and every comparison below would pass on zeros.
+	await page.route('**/lattice-playground.js', async (route) => {
+		await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
+		await route.continue();
+	});
+	await page.goto('/studio/', { waitUntil: 'commit' });
+	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+	await page.evaluate(() => document.fonts.ready);
+	// A plain Write session with nothing docked, nothing collapsed, no transient stop — the
+	// layout the next load WILL boot into, so the app must store its rect.
+	await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+	const stored = await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2'));
+	expect(stored, 'the app dropped a rect from a layout it can boot into').not.toBeNull();
+
+	await page.reload({ waitUntil: 'commit' });
+	await page.locator('#ssr-slidebox').waitFor({ state: 'attached' });
+	await page.evaluate(() => document.fonts.ready);
+	// `data-ssr-rect` is set by BOTH the replay and the compute path, so it does not prove
+	// replay ran. The stored rect surviving the seed does.
+	expect(
+		await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2')),
+		'the seed discarded a valid rect',
+	).not.toBeNull();
+	const shell = await page.evaluate(READ_SHELL);
+	expect(shell.box?.[2], 'the shell was dismissed before it could be measured').toBeGreaterThan(1);
+	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+	await page.evaluate(() => document.fonts.ready);
+	const app = await page.evaluate(READ_APP, shell.titleText);
+	near(shell.box, app.box, 'replayed slide box');
+});
+
+// A rect measured in landscape describes a viewport SHAPE this load does not have; the stored
+// fractions resolve to a 300x791 panel where the app draws a 358x201 slide. The aspect gate in
+// the seed is what rejects it — the deck's own ratio is the invariant the app's box always
+// carries, and a resolved rect that misses it came from a layout this load cannot be in.
+test.describe('a rect from another orientation', () => {
+	test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
+
+	test('is not replayed in portrait', async ({ page }) => {
+		// Held from the FIRST load: a reload can serve the engine from cache, so a route
+		// registered later never fires and the shell is gone before it can be measured.
+		await page.route('**/lattice-playground.js', async (route) => {
+			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
+			await route.continue();
+		});
+		await page.goto('/studio/', { waitUntil: 'commit' });
+		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+		await page.evaluate(() => document.fonts.ready);
+		await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+		expect(
+			await page.evaluate(() => localStorage.getItem('lattice-studio-preview-rect-v2')),
+			'the cinema session stored no rect, so this case proves nothing',
+		).not.toBeNull();
+
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.reload({ waitUntil: 'commit' });
+		await page.locator('#ssr-slidebox').waitFor({ state: 'attached' });
+		await page.evaluate(() => document.fonts.ready);
+		const shell = await page.evaluate(READ_SHELL);
+		expect(shell.box?.[2], 'the shell was dismissed before it could be measured').toBeGreaterThan(1);
+		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
+		await page.evaluate(() => document.fonts.ready);
+		const app = await page.evaluate(READ_APP, shell.titleText);
+		near(shell.box, app.box, 'portrait slide box after a landscape session');
+	});
+});
+
 // The landscape-phone CINEMA morph needs a COARSE pointer to exist at all (the app's
 // `useLandscapePhone` media query asks for one), which is a context option, not a viewport —
 // hence its own block. It is the case with no chrome whatsoever: no header, no bar, no
@@ -375,7 +554,7 @@ test('@crosswidth a rect measured with a docked panel open is not replayed', asy
 test.describe('cinema', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
 
-	test('@crosswidth the instant shell frames the app — landscape phone, the cinema morph', async ({ page }) => {
+	test('the instant shell frames the app — landscape phone, the cinema morph', async ({ page }) => {
 		await page.route('**/lattice-playground.js', async (route) => {
 			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
 			await route.continue();

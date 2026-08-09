@@ -23,10 +23,11 @@ import { expect, test } from './studio-fixture';
 // the app and absent from the shell fails here on the first run, without anyone remembering
 // this file exists.
 //
-// It runs a MATRIX, because every divergence above lived at a width or a stop the old spec
-// did not sample. The widths are the tier boundaries themselves (Tailwind's `sm` 640 and `lg`
-// 1024, the app's own 700 and 1100) plus one width inside each band — boundaries are where
-// hand-copied gating goes wrong.
+// It runs a MATRIX, because every divergence above lived at a width or a stop the old spec did
+// not sample. The widths bracket the tier boundaries — 639 and 660 around Tailwind's `sm` (640),
+// 1024 for `lg`, 1099 and 1100 around the app's own desktop line — plus one width inside each
+// band. (They bracket rather than sit ON 640/700: a boundary bug shows as a disagreement on ONE
+// side of the line, so the two neighbors catch it and the exact pixel need not be sampled.)
 
 type Box = [number, number, number, number];
 type Control = { name: string; box: Box };
@@ -42,7 +43,15 @@ const ENGINE_HOLD_MS = 2500;
 // Two cases carry `@smoke` so the SET comparison — the part that catches "someone added an
 // icon" — runs on the per-PR job as well as the nightly. One phone, one desktop: between them
 // they render every control the shell mirrors. The boundary widths stay nightly.
-const CASES: { w: number; h: number; stop: 'read' | 'write' | 'build'; why: string; smoke?: boolean }[] = [
+const CASES: {
+	w: number;
+	h: number;
+	stop: 'read' | 'write' | 'build';
+	why: string;
+	smoke?: boolean;
+	/** Persisted global preference that removes a header control (`lattice-tour-enabled`). */
+	toursOff?: boolean;
+}[] = [
 	{ w: 320, h: 844, stop: 'write', why: 'narrow phone — the preview sub-bar shrinks here' },
 	{ w: 390, h: 844, stop: 'write', smoke: true, why: 'phone, the reported surface' },
 	{ w: 390, h: 844, stop: 'read', why: 'phone at Read — chromeless preview' },
@@ -58,6 +67,10 @@ const CASES: { w: number; h: number; stop: 'read' | 'write' | 'build'; why: stri
 	{ w: 1440, h: 900, stop: 'write', smoke: true, why: 'desktop' },
 	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, plain title' },
 	{ w: 1440, h: 900, stop: 'build', why: 'desktop at Build — activity rail + full header' },
+	// The one chrome gate that is NEITHER width nor stop: the tours button reads a persisted
+	// global preference. A width x stop matrix is structurally blind to that axis, which is why
+	// the shell drew a phantom control and slid the three after it 44px.
+	{ w: 1440, h: 900, stop: 'build', toursOff: true, why: 'desktop at Build with guided tours turned OFF' },
 ];
 
 /**
@@ -73,10 +86,21 @@ const READ_CONTROLS = (roots: string[]) =>
 		const out = [];
 		for (const sel of ${JSON.stringify(roots)}) {
 			for (const root of document.querySelectorAll(sel)) {
-				for (const el of root.querySelectorAll('button, [role="switch"], [role="radio"]')) {
+				// The element list is wider than "button" because an <a>, a <select> or a text-labeled
+				// control would otherwise be invisible in BOTH sets, which reads as agreement. Same
+				// reason the key falls back to text: aria-label is a convention the chrome happens to
+				// follow, not a contract — the deck switcher, the most drift-prone control in the
+				// header, carries none and was silently skipped by both sets.
+				for (const el of root.querySelectorAll('button, a[href], input, select, [role="switch"], [role="radio"], [role="tab"], [role="link"], [role="button"]')) {
 					const b = el.getBoundingClientRect();
 					if (b.width < 1 || b.height < 1) continue;
-					const name = el.getAttribute('aria-label');
+					// Precedence matters: aria-label, then a stable hook, and only then text. The deck
+					// switcher carries no label and its TEXT is per-deck content the shell must not draw
+					// (the app says "...7 slides", the shell reserves a neutral slot), so keying it by
+					// text would demand the shell draw deck content. The hook's VALUE is its identity;
+					// the shell mirrors the value under data-ssr-demo so the tour toolkit that owns
+					// data-demo still resolves to exactly one element.
+					const name = el.getAttribute('aria-label') || el.getAttribute('data-demo') || el.getAttribute('data-ssr-demo') || (el.textContent || '').trim().slice(0, 40);
 					if (!name) continue;
 					out.push({ name, box: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] });
 				}
@@ -92,15 +116,22 @@ function index(list: Control[]) {
 }
 
 for (const c of CASES) {
-	test(`@crosswidth${c.smoke ? ' @smoke' : ''} shell and app agree on every control — ${c.w}px @ ${c.stop} (${c.why})`, async ({ page }) => {
-		await page.addInitScript((stop) => {
-			try {
-				const k = 'lattice-studio-settings';
-				localStorage.setItem(k, JSON.stringify({ ...JSON.parse(localStorage.getItem(k) || '{}'), posture: stop }));
-			} catch {
-				/* storage blocked — the app falls back to its default stop and the shell to the same */
-			}
-		}, c.stop);
+	// NOT `@crosswidth` — every case sets its own viewport, so the tag ran the matrix twice in
+	// two projects for identical results. `@smoke` still puts a phone and a desktop case on the
+	// per-PR job.
+	test(`${c.smoke ? '@smoke ' : ''}shell and app agree on every control — ${c.w}px @ ${c.stop} (${c.why})`, async ({ page }) => {
+		await page.addInitScript(
+			([stop, toursOff]) => {
+				try {
+					const k = 'lattice-studio-settings';
+					localStorage.setItem(k, JSON.stringify({ ...JSON.parse(localStorage.getItem(k) || '{}'), posture: stop }));
+					if (toursOff) localStorage.setItem('lattice-tour-enabled', 'off');
+				} catch {
+					/* storage blocked — the app falls back to its default stop and the shell to the same */
+				}
+			},
+			[c.stop, c.toursOff ? '1' : ''] as const,
+		);
 		await page.setViewportSize({ width: c.w, height: c.h });
 		await page.route('**/lattice-playground.js', async (route) => {
 			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));

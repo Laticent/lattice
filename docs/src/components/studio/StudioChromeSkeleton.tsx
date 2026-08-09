@@ -82,9 +82,25 @@ function ActionBar() {
  */
 function DeckPill({ title }: { title: string }) {
 	return (
-		<span className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5">
+		// A real <button>, because the app's switcher is one. It was a <span>, which meant the
+		// parity matrix — which ENUMERATES controls — saw the app's switcher and not the shell's,
+		// and reported the shell as missing a control it draws.
+		//
+		// `data-ssr-demo` deliberately mirrors the VALUE of the app's `data-demo` hook without
+		// reusing the attribute: the value is what matches the two by identity, so they are
+		// compared by box rather than by a text string that must differ (the app's carries a
+		// slide count the shell cannot know) — while the tour/demo toolkit that owns `data-demo`
+		// keeps resolving to exactly one element.
+		//
+		// The whole shell is `inert` + `aria-hidden`, so a button here is not reachable by
+		// keyboard or AT — see the note on the shell root in studio.astro.
+		<button
+			type="button"
+			data-ssr-demo="deck-switcher"
+			className="ssr-deck-pill flex min-w-[42px] items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left min-[1100px]:min-w-[62px] min-[1100px]:px-2.5"
+		>
 			<span className="hidden size-2 shrink-0 rounded-full bg-primary min-[1100px]:block" />
-			<span className="ssr-deck-title truncate text-sm font-semibold text-[var(--text-heading)]" id="ssr-deck-title">{title}</span>
+			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
 			{/* The app shows a slide-count meta here from `xl` up ("7 slides"). The count is deck
 			    content the shell cannot know, so it is NOT drawn — but its WIDTH still has to be
 			    reserved, because the pill is content-sized and omitting the slot made it jump at
@@ -92,7 +108,7 @@ function DeckPill({ title }: { title: string }) {
 			    structure honest without asserting a number. */}
 			<span aria-hidden="true" className="hidden h-2.5 w-[53px] shrink-0 rounded-full bg-current opacity-25 xl:inline-block" />
 			<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-		</span>
+		</button>
 	);
 }
 
@@ -128,6 +144,28 @@ function StopDial() {
 	);
 }
 
+/**
+ * THE RULE FOR WHAT THIS FILE MAY DRAW — read before adding a control.
+ *
+ * The shell is a static mirror with exactly TWO inputs it can express: the viewport WIDTH (a
+ * CSS media query) and the boot STOP (`data-ssr-stop`, seeded from localStorage). So:
+ *
+ *   Draw a control only where its presence is a function of width or `data-ssr-stop`.
+ *   Anything else must either be published by the seed as its own `data-ssr-*` flag,
+ *   or NOT BE DRAWN AT ALL.
+ *
+ * The asymmetry is why "not drawn" is the safe default: omitting a control costs a hole in the
+ * shell, while drawing one the app deletes shifts every sibling after it. The tours button is
+ * the worked example — gated on a persisted preference (`lattice-tour-enabled`), it was drawn
+ * unconditionally, and anyone who had turned tours off got a phantom control plus a 44px slide
+ * of the three controls after it at hand-off. It is now a seeded flag (`data-ssr-no-tours`).
+ *
+ * Before adding a control, find the app's gate for it in StudioShell and classify it: width →
+ * a media query here; stop → a `data-ssr-stop` rule; anything else (a preference, a flag, an
+ * entitlement, a deck property, an experiment) → seed a flag or leave it out. A control gated
+ * on something unknowable that you draw anyway will not fail the parity matrix, because the
+ * matrix samples width x stop — the two axes this rule already settles.
+ */
 export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 	return (
 		// The provider is required because BarIcon and PostureDial wrap their controls in
@@ -212,7 +250,7 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 							<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button><Button variant="ghost" size="icon-sm" aria-label="Switch to light mode" className="ssr-mode-to-light"><Sun className="size-[18px]" /></Button>
 						</span>
 						<Separator orientation="vertical" className="h-5" />
-						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="text-[var(--accent)]"><MonitorPlay className="size-[18px]" /></Button>
+						<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours text-[var(--accent)]"><MonitorPlay className="size-[18px]" /></Button>
 						<Button variant="outline" size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 						<Button size="sm" className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 						<Separator orientation="vertical" className="h-5" />
