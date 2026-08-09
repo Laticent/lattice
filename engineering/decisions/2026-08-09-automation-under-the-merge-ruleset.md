@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The "Main Merge Queue" ruleset has no bypass actors, so every workflow that pushed straight to main was rejected with GH013 — sync-backlog had failed 100% of its runs (73 of the last ~100 red runs repo-wide) and the never-yet-exercised release workflow carried the same latent break. Rejects the tempting bypass (granted to the INTEGRATION, it would let any GITHUB_TOKEN workflow push main) and instead routes BOTH workflows through the normal path — branch, PR, merge queue — with auto-merge switched on, so they land unattended through the same gate as human work. Hinges on one non-obvious constraint: GitHub suppresses workflow runs for events raised by GITHUB_TOKEN, so a bot-opened PR never starts ci and sits unmergeable forever; every event-raising step therefore runs as an AUTOMATION_PAT secret, and both workflows fail loudly without it. The mirror also drops to a NIGHTLY cron (+ dispatch) from per-issue-event, since a queue trip is no longer free — one CI run and one merge-train entry a night, off-hours, against ~14 during working hours; it force-pushes ONE fixed branch so a dispatch updates the open PR in flight; release.yml splits into prepare (commit → PR → auto-merge) and release-publish.yml (tag the squashed commit, zip, Release, npm). Auto-merging the release narrows CLAUDE.md rule 7 in writing: the dispatch is the authorization. Two latent release-killers found by exercising the real flow and fixed: the US-English ratchet counted the gitignored release/ notes file and aborted the build mid-release, and the 1.4 MB notes body exceeded GitHub's 125,000-character Release-body cap.
+summary: The "Main Merge Queue" ruleset has no bypass actors, so every workflow that pushed straight to main was rejected with GH013 — sync-backlog had failed 100% of its runs (73 of the last ~100 red runs repo-wide) and the never-yet-exercised release workflow carried the same latent break. Rejects the tempting bypass (granted to the INTEGRATION, it would let any GITHUB_TOKEN workflow push main) and instead routes BOTH workflows through the normal path — branch, PR, merge queue — with auto-merge switched on, so they land unattended through the same gate as human work. Hinges on one non-obvious constraint: GitHub suppresses workflow runs for events raised by GITHUB_TOKEN, so a bot-opened PR never starts ci and sits unmergeable forever; every event-raising step therefore runs as an AUTOMATION_PAT secret, and both workflows fail loudly without it. That PAT is fine-grained (one repo, Contents + Pull requests write — less than a write collaborator already holds) and lives in an ENVIRONMENT restricted to main rather than in repo secrets, because a repo secret is readable by any workflow in the repo including one added on a PR branch, and in an agent-driven repo that is a live exfiltration path; NPM_TOKEN belongs there too. A GitHub App was weighed as the stronger credential and deferred. The mirror also drops to a NIGHTLY cron (+ dispatch) from per-issue-event, since a queue trip is no longer free — one CI run and one merge-train entry a night, off-hours, against ~14 during working hours; it force-pushes ONE fixed branch so a dispatch updates the open PR in flight; release.yml splits into prepare (commit → PR → auto-merge) and release-publish.yml (tag the squashed commit, zip, Release, npm). Auto-merging the release narrows CLAUDE.md rule 7 in writing: the dispatch is the authorization. Two latent release-killers found by exercising the real flow and fixed: the US-English ratchet counted the gitignored release/ notes file and aborted the build mid-release, and the 1.4 MB notes body exceeded GitHub's 125,000-character Release-body cap.
 ---
 
 # Automation under the merge ruleset
@@ -71,9 +71,46 @@ never appears, so the PR does not fail — it *sits*, unmergeable, forever.
 
 This is the whole reason a naive "just open a PR" rewrite fails, and the reason
 this design needs a secret at all. Every step that raises an event another
-workflow must observe — the branch push, the `gh pr create` — runs as
-**`AUTOMATION_PAT`**. Both workflows fail loudly when it is missing rather than
-opening a PR that can never land.
+workflow must observe — the branch push, the `gh pr create`, and the
+`gh pr merge --auto` whose merge must in turn trigger `release-publish.yml` —
+runs as **`AUTOMATION_PAT`**. Both workflows fail loudly when it is missing
+rather than opening a PR that can never land.
+
+### Where the credential lives, and why it matters here
+
+The token is a fine-grained PAT scoped to this repo with **Contents: write** and
+**Pull requests: write** — strictly less than a write collaborator already holds,
+and far less than the rejected bypass, which would have let any workflow reach
+`main` with **no CI at all**. So it is not a privilege escalation; it automates
+an authority that already existed.
+
+What it *is* is a standing credential, and a repo secret is readable by any
+workflow that runs in the repo — including one added on a PR branch. Sizing that
+by "how many humans have write access" gives one. But **this repo is driven by
+agents**: an agent session that misbehaves, or one steered by injected text in
+an issue body or a CI log it reads, can open a PR whose workflow prints the
+token in obfuscated form. Log masking does not survive base64. That is the
+realistic exfiltration path, and it needs no malicious human.
+
+So the token is an **environment** secret: environment `automation`, deployment
+branch rule `main` only, declared by every job that needs it. A PR branch cannot
+read it — a job referencing the environment from another ref fails outright — so
+an attacker must first land a malicious workflow on `main`, which is loud,
+reviewable, and goes through the queue. `NPM_TOKEN` belongs in the same
+environment for the same reason, and `release-publish.yml` declares it on that
+basis alone (it needs no PAT — it pushes a tag, which the ruleset does not
+cover).
+
+**The environment carries a branch rule and nothing else.** Required reviewers
+there would be an approval gate, parking every unattended run on a click — the
+precise thing this design exists to remove.
+
+Not adopted, and worth naming: a **GitHub App** is the stronger credential —
+installation tokens are minted per run and expire in an hour, are not tied to a
+personal account, never silently expire, and (like a PAT, unlike `GITHUB_TOKEN`)
+their events do trigger CI. It was weighed against a PAT-in-an-environment and
+deferred as more setup than the current threat justifies for a
+single-collaborator repo. It is the upgrade path if that stops being true.
 
 ### What it costs
 

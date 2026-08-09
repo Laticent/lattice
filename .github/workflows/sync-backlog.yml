@@ -50,6 +50,15 @@ env:
 jobs:
   mirror:
     runs-on: ubuntu-latest
+    # AUTOMATION_PAT lives in this environment, NOT in the repo secrets, and the
+    # environment only admits `main`. A repo secret is readable by any workflow
+    # in the repo — including one added by a PR branch, which in an agent-driven
+    # repo is a real exfiltration path and not a hypothetical one. Scoped this
+    # way, a PR branch cannot read the token at all: an attacker would first
+    # have to land a malicious workflow ON main, which is loud and reviewable.
+    # A job that references this environment from any other ref fails outright.
+    # See engineering/workflow.md § Automation vs. the main ruleset.
+    environment: automation
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

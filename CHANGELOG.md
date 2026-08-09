@@ -674,7 +674,12 @@ in patch versions.
   silently: **GitHub
   suppresses workflow runs for events raised by `GITHUB_TOKEN`**, so a bot-opened PR never starts
   `ci` and sits unmergeable forever — every event-raising step therefore runs as a new
-  `AUTOMATION_PAT` secret, and both workflows fail loudly without it. Auto-merging the release
+  `AUTOMATION_PAT` secret, and both workflows fail loudly without it. That token is fine-grained
+  (one repo, `Contents` + `Pull requests` write — strictly less than a write collaborator already
+  holds) and lives in an **environment restricted to `main`**, not in repo secrets: a repo secret
+  is readable by any workflow in the repo, *including one added on a PR branch*, which in an
+  agent-driven repo is a live exfiltration path rather than a hypothetical one. `NPM_TOKEN`
+  belongs in the same environment. Auto-merging the release
   narrows `CLAUDE.md` rule 7 in writing: **dispatching the workflow is the authorization**, and
   the scope of "a human authorizes every merge" is now stated as *authored* work. (#1439)
 - **The first real release would have died twice, both times after the point of no return.**

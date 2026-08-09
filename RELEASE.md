@@ -210,22 +210,27 @@ Prerequisites:
 - **Nothing needs a ruleset bypass.** Phase 1 pushes a branch, phase 2 pushes a
   tag, and the ruleset targets `refs/heads/main` only. See
   `engineering/workflow.md` § Automation vs. the main ruleset.
-- **`AUTOMATION_PAT` (required).** A branch pushed or a PR opened with
-  `GITHUB_TOKEN` never starts `ci` — GitHub suppresses workflow runs for events
-  raised by the repo token — so the required check never appears and the PR
-  could never merge. Phase 1 uses a PAT (or App token) with `contents: write` +
-  `pull_requests: write`, and **fails loudly** if the secret is missing rather
-  than opening a PR that can never land. The same secret drives
-  `sync-backlog.yml`.
+- **`AUTOMATION_PAT` (required), in the `automation` environment.** A branch
+  pushed or a PR opened with `GITHUB_TOKEN` never starts `ci` — GitHub
+  suppresses workflow runs for events raised by the repo token — so the required
+  check never appears and the PR could never merge. Phase 1 uses a fine-grained
+  PAT with **Contents: write** + **Pull requests: write**, and **fails loudly**
+  if it is missing rather than opening a PR that can never land. It is an
+  *environment* secret restricted to `main`, so a PR branch cannot read it; both
+  release jobs therefore declare `environment: automation`. The same secret
+  drives `sync-backlog.yml`. Details:
+  `engineering/workflow.md` § Automation vs. the main ruleset.
 - The jobs declare the permissions they need: `contents: write` +
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).
-- **To enable npm publish:** add an **`NPM_TOKEN`** repo secret (publish rights,
+- **To enable npm publish:** add an **`NPM_TOKEN`** secret (publish rights,
   exposed as `NODE_AUTH_TOKEN`) and confirm the `@slidewright` scope exists and
-  the token can publish to it. **Setting the secret *is* the opt-in** — the
-  phase that publishes is no longer the phase you dispatch, so there is no run
-  to tick a checkbox on. Until it is set the step is skipped with a notice, and
-  the GitHub Release + zip still ship.
+  the token can publish to it. **Put it in the `automation` environment, not in
+  the repo secrets** — a registry-publish credential is the last thing that
+  should be readable from a PR branch. **Setting the secret *is* the opt-in** —
+  the phase that publishes is no longer the phase you dispatch, so there is no
+  run to tick a checkbox on. Until it is set the step is skipped with a notice,
+  and the GitHub Release + zip still ship.
 
 ### One caveat on the release notes
 

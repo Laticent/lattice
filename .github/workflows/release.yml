@@ -40,6 +40,12 @@ permissions:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    # AUTOMATION_PAT lives here rather than in the repo secrets, and the
+    # environment only admits `main` — so a PR branch can't read it. Dispatching
+    # this workflow from any other ref fails on the environment rule, which is
+    # correct: a release is cut from main. See
+    # engineering/workflow.md § Automation vs. the main ruleset.
+    environment: automation
     steps:
       - uses: actions/checkout@v4
         with:

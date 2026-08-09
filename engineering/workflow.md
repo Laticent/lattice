@@ -704,14 +704,39 @@ re-starts it either. The required check simply never appears, so the PR can
 never merge — it does not fail, it just sits there forever.
 
 So every step that raises an event another workflow must see — the branch push,
-the `gh pr create` — runs as **`secrets.AUTOMATION_PAT`**, a repo secret holding
-a PAT (or GitHub App installation token) with `contents: write` +
-`pull_requests: write` on this repo. Both workflows **fail loudly** when it is
-missing rather than opening a PR that can never land.
+the `gh pr create`, and the `gh pr merge --auto` whose merge must in turn
+trigger `release-publish.yml` — runs as **`secrets.AUTOMATION_PAT`**, a
+fine-grained PAT scoped to this repo with **Contents: write** and
+**Pull requests: write**, and nothing else. Both workflows **fail loudly** when
+it is missing rather than opening a PR that can never land.
 
-> Rotating or replacing it? Nothing else needs changing — both workflows read
-> the same secret name. `gh pr merge --auto` and the `gh issue list` read can
-> run on `GITHUB_TOKEN`, but they share the PAT for simplicity.
+**It is an *environment* secret, not a repo secret — that distinction is the
+security control.** A repo secret is readable by any workflow that runs in the
+repo, including one added on a PR branch; in a repo driven by agents that is a
+live exfiltration path, not a hypothetical one (log masking is defeated by any
+encoding). So the token lives in an environment named **`automation`** whose
+deployment-branch rule admits only `main`, and every job that needs it declares
+`environment: automation`. A job referencing it from any other ref fails
+outright. To exfiltrate the token you would first have to land a malicious
+workflow *on `main`* — loud, reviewable, and through the queue.
+
+Two rules for that environment:
+
+- **Never add required reviewers to it.** That is an approval gate, and it would
+  park every unattended run waiting for a click — the exact thing this design
+  exists to avoid. Branch rule only.
+- **Put `NPM_TOKEN` there too.** It is the most dangerous secret the repo will
+  ever hold, and `release-publish.yml` already declares the environment. Repo-
+  and org-level secrets stay readable from a job with an environment, so moving
+  a secret *in* narrows access without breaking anything.
+
+> Rotating or replacing the PAT? Nothing else changes — all three workflows read
+> the same name from the same environment. When it expires the workflows fail
+> loudly, which is the intended failure mode: the alternative is a PR that
+> silently never merges. A GitHub App is the stronger credential if this is ever
+> worth hardening further — its installation token is minted per run and expires
+> in an hour, it is not tied to a personal account, and (like a PAT, unlike
+> `GITHUB_TOKEN`) its events do trigger CI.
 
 ### What this costs, and why the mirror is nightly
 

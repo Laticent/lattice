@@ -30,6 +30,13 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # This phase needs no PAT — it pushes a tag, which the ruleset doesn't cover.
+    # It declares the environment for NPM_TOKEN, the most dangerous secret in the
+    # repo: stored here rather than repo-wide, it is unreadable from a PR branch,
+    # so nothing a PR can run is able to publish to the registry. Repo- and
+    # org-level secrets stay available to a job with an environment, so this
+    # narrows access without taking anything away.
+    environment: automation
     steps:
       - uses: actions/checkout@v4
         with:
