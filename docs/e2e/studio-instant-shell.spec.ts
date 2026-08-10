@@ -600,6 +600,14 @@ test.describe('@minfont a raised browser minimum font size', () => {
 	for (const c of [
 		{ w: 1280, h: 720, why: 'laptop' },
 		{ w: 390, h: 844, why: 'phone — where the action bar also grows' },
+		// SHORT viewports, which the rest of this file does not cover: every other case here is
+		// 720px tall or more, and a raised font size is the one input that makes height scarce.
+		// Three bands grow ~40px between them while the viewport does not, so the preview box is
+		// squeezed by more than any default-size case can produce — and the shell computes that
+		// box from constants that did not change. If the two surfaces are going to disagree
+		// about the box anywhere, it is here.
+		{ w: 390, h: 640, why: 'short phone — bands grow while the viewport cannot' },
+		{ w: 1024, h: 600, why: 'short laptop — the same squeeze with a split in play' },
 	] as const) {
 		test(`the bands track the app's own rows — ${c.w}x${c.h} (${c.why})`, async ({ page }) => {
 			await page.addInitScript(() => {
