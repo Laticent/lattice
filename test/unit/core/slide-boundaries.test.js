@@ -25,7 +25,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { boundaryParser: md, FRONT_MATTER, normalizeSource } = require('../../../lib/core/boundary-parser.js');
-const { slideBoundaries, splitSlideChunks, separatorRanges, normalizeSourceText, dropLeadingEmpty } = require('../../../lib/core/slide-boundaries.mjs');
+const { slideBoundaries, splitSlideChunks, separatorRanges, normalizeSourceText, dropLeadingEmpty, boundaryParseCount, resetBoundaryMemo } = require('../../../lib/core/slide-boundaries.mjs');
 const engine = require('../../../lib/engine/index.js');
 
 const ROOT = path.join(__dirname, '../../..');
@@ -297,8 +297,96 @@ test('the parse is memoized per source, so a keystroke pays for one', () => {
 	assert.equal(a, b, 'the same source returns the identical object');
 	const c = slideBoundaries('# Other\n\n---\n\n# Deck\n');
 	assert.notEqual(a, c);
-	// Single-entry: going back re-parses rather than growing without bound.
-	assert.notEqual(slideBoundaries(body), a, 'the memo holds one entry, not a growing map');
+	// A SECOND string no longer evicts the first. This used to assert the opposite
+	// (`notEqual` — "the memo holds one entry"), and that single entry THRASHED: one
+	// keystroke asks about the body and about a code-blanked copy of it, alternating,
+	// so each eviction paid a whole-deck parse to re-derive what it had just dropped.
+	assert.equal(slideBoundaries(body), a, 'a second string must not evict the first');
+});
+
+// The cache SIZE and the eviction ORDER are the two properties nothing else in this
+// file pins, and an independent check proved it: with only the tests above, both
+// `MEMO_MAX = 2` (one below the measured typing working set, i.e. thrashing restored)
+// and a plain FIFO (the recency re-insert deleted) passed everything. A constant with
+// no test is how this drifts back silently.
+const MEMO_MAX = 6;
+
+test('the cache holds the whole per-keystroke working set — the floor, not just a number', () => {
+	// Stated as a PROPERTY, not as a model of any particular caller: N distinct strings asked
+	// repeatedly cost N parses. An earlier version of this test claimed to replay "the
+	// per-keystroke working set" using three strings, one of which was a code-blanked copy —
+	// a fixture pinning a caller this same branch had already deleted. The real working set is
+	// documented beside MEMO_MAX; this test's job is only to prove the cache holds whatever it
+	// is handed, and that is what fails if MEMO_MAX drops below it.
+	const a = '# One\n\n```\ncode\n```\n\n---\n\n# Two\n';
+	const b = `${a}\n`; // a rebuilt copy: same deck, one byte apart — the editor/preview split
+	const c = '# Other\n\n---\n\n# Deck\n';
+	resetBoundaryMemo();
+	for (let round = 0; round < 3; round++) for (const s of [a, b, c]) slideBoundaries(s);
+	assert.equal(boundaryParseCount(), 3, 'three distinct strings, asked three times each, must cost three parses');
+});
+
+test('eviction is least-recently-USED, not least-recently-inserted', () => {
+	// The recency re-insert is the entire difference between an LRU and a FIFO, and it is
+	// what matters the moment the working set exceeds the cap. Fill the cache, TOUCH the
+	// oldest entry so it becomes the newest, then overflow by one: a FIFO drops the touched
+	// entry, an LRU drops the one after it.
+	const decks = Array.from({ length: MEMO_MAX + 1 }, (_, i) => `# Deck ${i}\n\n---\n\n# Two\n`);
+	resetBoundaryMemo();
+	for (let i = 0; i < MEMO_MAX; i++) slideBoundaries(decks[i]);
+	slideBoundaries(decks[0]); // hit — now the most recently used
+	slideBoundaries(decks[MEMO_MAX]); // overflow: evicts the LEAST recently used, which is deck 1
+	const afterOverflow = boundaryParseCount();
+
+	// Asserted as PARSE DELTAS, so each half can genuinely fail. An earlier cut asserted that
+	// deck 1 was `notEqual(undefined)` — `slideBoundaries` never returns undefined, so that
+	// assertion could not fail, and deleting it silently changed the total it was propping up.
+	slideBoundaries(decks[0]);
+	assert.equal(boundaryParseCount(), afterOverflow, 'the touched entry must still be cached — a FIFO would have dropped it');
+	slideBoundaries(decks[1]);
+	assert.equal(boundaryParseCount(), afterOverflow + 1, 'deck 1 was least recently USED and must have been the one evicted');
+});
+
+test('the memo stays BOUNDED — the oldest entry is evicted, not kept forever', () => {
+	// Boundedness was the single entry's real virtue and is the thing an LRU could
+	// quietly lose. MEMO_MAX+1 distinct strings must drop the oldest.
+	resetBoundaryMemo();
+	const decks = Array.from({ length: MEMO_MAX + 1 }, (_, i) => `# Deck ${i}\n\n---\n\n# Two\n`);
+	const first = slideBoundaries(decks[0]);
+	for (let i = 1; i < MEMO_MAX + 1; i++) slideBoundaries(decks[i]);
+	assert.notEqual(slideBoundaries(decks[0]), first, 'the oldest entry must have been evicted');
+	// N+1 cold parses, then the re-parse of the evicted deck 0. A cache that grew without
+	// bound would skip that last one, which is the regression this number exists to catch.
+	assert.equal(boundaryParseCount(), MEMO_MAX + 2, 'MEMO_MAX+1 cold parses + 1 re-parse of the evicted entry');
+});
+
+// THE COST THIS MEMO EXISTS TO REMOVE, pinned as a COUNT rather than a duration —
+// the stance test/benchmark/preview-budget.json argues for, and the one thing that
+// catches a thrash regression. `deckSectionFor` (lib/diagnostics) asks about the body
+// AND a code-blanked copy of it inside one derivation, while `positionIsTrustworthy`
+// asks about the body again; with a single-entry memo the alternation made one
+// byte-identical string parse twice per keystroke. Nothing else in the suite would
+// notice — every returned VALUE is identical either way, which is precisely why this
+// counts parses instead of comparing answers.
+test('one keystroke parses each DISTINCT string once, however the callers interleave', () => {
+	const body = '# One\n\n```\ncode\n```\n\n---\n\n# Two\n';
+	const blanked = body.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '');
+	assert.notEqual(body, blanked, 'the fixture must actually contain code, or this proves nothing');
+
+	// The interleaving that thrashed a single entry: A, B, A.
+	resetBoundaryMemo();
+	slideBoundaries(body);
+	slideBoundaries(blanked);
+	slideBoundaries(body);
+	assert.equal(boundaryParseCount(), 2, 'two distinct strings must cost two parses, not three');
+
+	// And the opposite order, because with one entry the winner and loser swapped
+	// depending purely on which caller ran first.
+	resetBoundaryMemo();
+	slideBoundaries(blanked);
+	slideBoundaries(body);
+	slideBoundaries(blanked);
+	assert.equal(boundaryParseCount(), 2, 'call order must not change the parse count');
 });
 
 test('degenerate input does not throw', () => {

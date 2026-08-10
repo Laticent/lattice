@@ -829,12 +829,25 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Supplied ONLY when the caller's indices are provably engine section indices
 				// (positionIsTrustworthy). Otherwise omit it and let the slide number itself 1 of 1 —
 				// the honest fallback, never a plausible wrong number.
-				// LAZY, and the laziness is load-bearing. `supplyablePosition` runs two regex sweeps over
-				// the WHOLE deck source (positionIsTrustworthy + deckSectionFor). Measured in Node,
-				// unthrottled: ~0.14ms on the 40-slide deck the perf spec builds, ~0.31ms on the full
-				// gallery — so roughly 0.5ms and 1.3ms at the 4× throttle the 46.3ms p50 baseline was
-				// captured under. (Node timings, not a Playwright measurement, and no committed bench
-				// scenario covers it.) Computing it eagerly for both routes paid
+				// LAZY, and the laziness is load-bearing — but the price tag on it was wrong for three
+				// months, so read the number before reasoning from it. `supplyablePosition` does NOT run
+				// "two regex sweeps over the deck", which is what this comment used to say and what was
+				// true when it was written (2026-08-02, #1298). #1433 (2026-08-05) replaced the caller-side
+				// splitters with the engine's own parser, so `positionIsTrustworthy` and `deckSectionFor`
+				// now cost THREE whole-deck `md.block.parse` passes between them — and the old "~0.14ms /
+				// ~0.31ms" survived that change, describing code that no longer existed.
+				//
+				// Re-measured (Node, 1× CPU, p50 of 60 renders, each on a freshly-edited deck string so
+				// every render starts cold the way a keystroke does — `.scratch/residual-breakdown.mjs`):
+				// the whole per-render deck-scan bundle (this call + the route gate + `sourceHasMath`)
+				// costs 0.27ms on the perf spec's 40-slide PROSE deck and 1.87ms on its 40-slide GALLERY
+				// deck — roughly 1.1ms and 7.5ms at the 4× throttle the perf spec runs under. The gallery
+				// figure is ~6× what this comment claimed, and it is the largest single item left between
+				// the preview's TOTAL p50 and its pre-deck-context baseline. Sized, attributed and left
+				// standing in engineering/decisions/2026-07-30-preview-deck-context-and-render-cost.md
+				// (Amendment 6), which also names the route that would close it.
+				//
+				// Computing it eagerly for both routes paid
 				// that on every keystroke of every deck already taking the slow path, to produce a value
 				// only the diagnostic's compare closure reads, and only on a button press. So the slice
 				// route computes it directly (the short-circuit it always had) and the counterfactual

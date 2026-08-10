@@ -449,6 +449,36 @@ in patch versions.
   allowlist: the two exits are derive the token, or give the read a fallback that resolves. It
   computes **8 of the 21** tokens that were missing — the other 13 carry fallbacks and are
   outside its reach, so it closes the hard-break subclass and not the silent-degrade one.
+
+- **The Studio preview no longer paints the wrong progress-rail dot or watermark glyph on a deck
+  whose code samples contain a thematic break.** The supplied divider section was counted over a
+  code-blanked copy of the deck but indexed with the caller's slide number, which counts raw
+  chunks — and blanking an inline code span can turn a paragraph into a break, shifting every later
+  slot. `---`a`` is the shape. On a four-slide repro two slides reported section 1 of 2 where the
+  deck says 2 of 2, and nothing fell back, because the guard compared divider *counts* and those
+  were unchanged. Sections are now counted over the RAW chunks with each chunk blanked for its own
+  divider test, so the two index spaces cannot desync, and the fail-safe that refuses when the two
+  readings of a chunk disagree is kept — a deck that merely *mentions* a divider inside code still
+  takes the whole-deck render rather than a guessed number. Verified against the engine's own
+  rendered sections as the oracle: across every committed deck whose chunks align with the engine's
+  sections: of the 130 decks in `examples/` + `test/integration/baseline-decks/`, the **128** that
+  split chunk-for-section give **127 correct, 1 fallback, 0 wrong**.
+
+- **Typing and navigating a divider-heavy deck are roughly twice as fast in the Studio preview.**
+  Two caching defects on the same path. (1) The preview derived the deck's divider sections **twice
+  on every render** — once for the route gate, which probes them to decide whether the fast path is
+  safe, and once to supply the shown slide's section. (2) `slideBoundaries` memoized its whole-deck
+  markdown parse with a **single entry**, which thrashed on *navigation*: the deck string does not
+  change, yet each interaction re-parsed it. Now a bounded 6-entry LRU, sized against the measured
+  per-keystroke working set.
+  **Counted, not timed** — the claim that needs no clock: whole-deck markdown parses per keystroke
+  on a 40-slide gallery deck drop **5 → 2**. Wall clock, measured on the real built Studio at 4× CPU
+  throttle with the arms **interleaved** across four rounds (this infrastructure cannot resolve a
+  sequential A/B): **typing TOTAL p50 ~26 → ~14ms** and **navigation ~26 → ~11ms**, ranges
+  non-overlapping. Plain and prose decks do not move — they never took the expensive path.
+  Full measurement, what each change is separately worth, and what is still owed in
+  `engineering/decisions/2026-07-30-preview-deck-context-and-render-cost.md` (Amendment 7).
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back

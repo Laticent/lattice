@@ -99,10 +99,12 @@ var init_boundary_parser = __esm({
 // lib/core/slide-boundaries.mjs
 var slide_boundaries_exports = {};
 __export(slide_boundaries_exports, {
+  boundaryParseCount: () => boundaryParseCount,
   chunkBoundaryLines: () => chunkBoundaryLines,
   dropLeadingEmpty: () => dropLeadingEmpty,
   frontMatterBlockOf: () => frontMatterBlockOf,
   normalizeSourceText: () => normalizeSourceText,
+  resetBoundaryMemo: () => resetBoundaryMemo,
   separatorRanges: () => separatorRanges,
   slideBoundaries: () => slideBoundaries,
   splitSlideChunks: () => splitSlideChunks
@@ -115,15 +117,29 @@ function frontMatterBlockOf(src) {
 }
 function slideBoundaries(body) {
   const text = normalizeSourceText(String(body ?? ""));
-  if (text === memoKey) return memoValue;
+  const hit = memo.get(text);
+  if (hit) {
+    memo.delete(text);
+    memo.set(text, hit);
+    return hit;
+  }
+  parses += 1;
   const tokens = [];
   boundaryParser.block.parse(text, boundaryParser, {}, tokens);
   const lines = [];
   for (const t of tokens) if (t.type === "hr" && t.level === 0 && Array.isArray(t.map)) lines.push(t.map[0]);
   const leadingEmpty = tokens.length > 0 && tokens[0].type === "hr" && tokens[0].level === 0;
-  memoKey = text;
-  memoValue = { lines, leadingEmpty };
-  return memoValue;
+  const out = { lines, leadingEmpty };
+  memo.set(text, out);
+  if (memo.size > MEMO_MAX) memo.delete(memo.keys().next().value);
+  return out;
+}
+function boundaryParseCount() {
+  return parses;
+}
+function resetBoundaryMemo() {
+  memo.clear();
+  parses = 0;
 }
 function splitSlideChunks(body) {
   const text = normalizeSourceText(String(body ?? ""));
@@ -168,12 +184,13 @@ function separatorRanges(text, offset = 0) {
   }
   return { ranges };
 }
-var memoKey, memoValue;
+var MEMO_MAX, memo, parses;
 var init_slide_boundaries = __esm({
   "lib/core/slide-boundaries.mjs"() {
     init_boundary_parser();
-    memoKey = null;
-    memoValue = null;
+    MEMO_MAX = 6;
+    memo = /* @__PURE__ */ new Map();
+    parses = 0;
   }
 });
 

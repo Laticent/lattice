@@ -626,6 +626,20 @@ describe('supplied SECTION position (the progress rail)', () => {
 // Supplying a count INVERTS the gate's failure direction: as a probe, a `divider` mentioned in
 // prose cost a wasted parse and produced correct output; as a counter the same match paints an
 // extra dot and bumps the watermark glyph. So an ambiguous deck goes back to the whole-deck render.
+// THIS BLOCK WAS FLIPPED AND FLIPPED BACK WITHIN ONE BRANCH, which is worth a note because the
+// round trip is the finding.
+//
+// An interim cut made these decks take the SLICE route with a true section, on the argument that
+// blanking each chunk separately removes the ambiguity "at its source". It removes the ambiguity
+// the bail was WRITTEN for and leaves every other one uncovered — the bail is a DIFFERENTIAL
+// between two readings, so it also catches divergences nobody enumerated. The one that bit:
+// `blankCode` blanks any four-space-indented line as code, but inside a list item that is
+// continuation content and the engine honors the directive there. Verified against the engine.
+//
+// So the bail stays, these decks keep the whole-deck render, and the cost is stated rather than
+// hidden: a deck that merely MENTIONS a divider inside code pays the slow route. What the branch
+// DOES keep is the index-space fix — chunks now come from the raw body, so a slide can no longer
+// be handed another slide's section. See lib/diagnostics/slice-equivalence-core.mjs.
 describe('an ambiguous divider count falls back to the deck render', () => {
 	const rendered = async (deck: string) => {
 		const r = createSingleSlideRenderer(opts);

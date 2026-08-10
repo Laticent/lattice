@@ -218,11 +218,99 @@ test('deckSectionFor counts dividers at or before the shown slide', () => {
   assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 });
 });
 
+// THE DUPLICATE THIS PINS. `renderInto` asks for the deck's divider sections TWICE per render,
+// from two callers that do not know about each other: the preview's route gate (the
+// `ambiguous divider count` fact probes index 0 to learn whether the count can be trusted) and
+// `supplyablePosition` (which needs the section for the shown slide). Each derivation is TWO
+// whole-deck `md.block.parse` passes, so the second one was pure waste — 1.35ms of every keystroke
+// on the perf spec's 40-slide gallery deck in Node, ~5ms at the 4x throttle the preview budget is
+// written against, and ~7.7ms of measured TOTAL p50 on the real Studio.
+//
+// COUNTED, NOT TIMED, for the reason `test/benchmark/preview-budget.json` gives: the regression is
+// an amount of WORK, and a wall-clock assertion on it would be the flaky gate. If someone splits
+// the derivation apart again this reads 2 and fails; nothing about the returned values changes, so
+// no other test in this file could catch it.
+test('the divider derivation runs ONCE per deck, however many callers ask', () => {
+  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- _class: divider -->\n# B';
+  core.clearSectionDerivationMemo();
+  core.deckSectionFor(deck, 0); // the route gate's probe
+  core.deckSectionFor(deck, 2); // supplyablePosition, same render
+  assert.equal(core.sectionDerivationCount(), 1, 'the second caller must hit the memo, not re-parse the deck');
+
+  // A KEYSTROKE MISSES BY CONSTRUCTION — the deck string changed — and that is correct: the memo
+  // collapses duplicate calls WITHIN one render, which is where the waste is. Pinned so nobody
+  // "improves" it into a stale-answer cache keyed on anything less than the whole source.
+  core.deckSectionFor(`${deck}x`, 0);
+  assert.equal(core.sectionDerivationCount(), 2, 'an edited deck must re-derive');
+});
+
 test('deckSectionFor bails when a divider appears inside code — FAIL SAFE, not fail wrong', () => {
   // As a probe, matching a divider in prose cost a wasted parse and produced correct output. As a
   // COUNTER the same match paints an extra dot and bumps the watermark glyph — wrong output.
   const deck = '<!-- _class: divider -->\n# A\n\n---\n\nWrite `<!-- _class: divider -->` to divide.';
   assert.equal(core.deckSectionFor(deck, 1), undefined);
+});
+
+// THE BAIL IS A DIFFERENTIAL, NOT A PATCH FOR THE CODE-SPAN CASE — and an interim version of this
+// branch deleted it on exactly that misreading, arguing that blanking per chunk removes the
+// disagreement "at its source". It removes the one disagreement it was written for, and leaves
+// every other one uncovered, because it assumes `blankCode` and the ENGINE agree about what code
+// is. They do not: four spaces of indent is an indented code block at top level and CONTINUATION
+// CONTENT inside a list item, where the engine honors the directive.
+//
+// Verified against the engine as oracle: it renders this deck's second section as a divider.
+// Without the bail the derivation reported none, `positionIsTrustworthy` stayed true, and the
+// preview painted no rail where the deck has one — a regression against `main`, which bails here.
+test('a directive the engine honors but blankCode hides makes the derivation REFUSE', () => {
+  const deck = ['# A', '', '---', '', '- item', '', '    <!-- _class: divider -->', '', '# B'].join('\n');
+  assert.equal(core.deckSectionFor(deck, 1), undefined, 'must refuse rather than report zero dividers');
+  assert.equal(core.deckSectionFor(deck, 0), undefined);
+});
+
+// THE INDEX-SPACE DESYNC. `slideIndex` indexes the CALLER's slides, which are chunked from the RAW
+// source. The derivation used to chunk a code-BLANKED copy and index it with that same
+// `slideIndex`, holding the two together by an unwritten assumption — that blanking code never
+// moves a thematic break. It does: `---`a`` is a paragraph to markdown-it, and blanking the inline
+// span leaves `--- `, which is an hr. Two of those shift every later slot by two, and the divider
+// COUNT is unchanged so the old ambiguity guard could not see it.
+//
+// Reproduced by a red-team pass: slides 2 and 3 both reported section 1 of 2 where the deck says
+// 2 of 2, with `positionIsTrustworthy` true — so nothing fell back and the preview painted the
+// wrong progress-rail dot and the wrong watermark glyph. Pre-existing (the old `chunks[i]` walk had
+// it too) and untripped by any committed deck, which is exactly why it needs a test.
+test('a code span that becomes a thematic break when blanked cannot shift the section index', () => {
+  const deck = [
+    '<!-- _class: divider -->',
+    '# Section A',
+    '',
+    '---',
+    '',
+    '# Slide 2',
+    '',
+    '---`a`', // paragraph raw; `--- ` (an hr) once the inline span is blanked
+    '',
+    'prose one',
+    '',
+    '---`b`',
+    '',
+    'prose two',
+    '',
+    '---',
+    '',
+    '<!-- _class: divider -->',
+    '# Section B',
+    '',
+    '---',
+    '',
+    '# Slide 4 in section B',
+  ].join('\n');
+  // Four caller slides: the two `---`x`` lines are NOT boundaries, so they sit inside slide 1.
+  assert.equal(core.splitSlides(deck).length, 4, 'the fixture must have 4 raw chunks, or it proves nothing');
+  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 2 });
+  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 2 });
+  // These two are the regression: they read slots 4 and 5 of a 6-slot blanked array and reported 1.
+  assert.deepEqual(core.deckSectionFor(deck, 2), { index: 2, total: 2 }, 'slide 2 is in the SECOND divider section');
+  assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 }, 'slide 3 is in the SECOND divider section');
 });
 
 test('deckSectionFor token-tests the class, exactly as the tiles do', () => {
