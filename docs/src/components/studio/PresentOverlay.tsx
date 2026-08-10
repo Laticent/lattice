@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Monitor, MousePointer2, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight,  EyeOff, Grid2x2, Minimize2, Monitor, MousePointer2, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
@@ -22,7 +22,8 @@ import { narrateChart } from '@/playground/read-along-core.generated.js';
 import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
-import { createWheelGate, keyAction, PRESENT_KEYMAP, swipeAction } from '../../../../lib/core/present-transport.mjs';
+import { keyAction, PRESENT_KEYMAP } from '../../../../lib/core/present-transport.mjs';
+import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { SLIDE_SEP } from './deck-ops';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
@@ -1004,34 +1005,48 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// reuse the shared kernel's geometry — swipe's threshold/ratio and the wheel gate's
 	// dominant-axis + cooldown — so Present, the Studio shell, the presenter screen and
 	// the export player all turn a deck on the same numbers (#1294).
-	const touchRef = React.useRef<{ x: number; y: number } | null>(null);
-	// Lazy — `useRef(createWheelGate())` builds and discards a gate on every render
-	// (the argument is evaluated unconditionally; useRef keeps only the first).
-	const wheelGateRef = React.useRef<ReturnType<typeof createWheelGate> | null>(null);
-	const wheelGate = (wheelGateRef.current ??= createWheelGate());
-	const onTouchStart = React.useCallback((e: React.TouchEvent) => {
-		wake();
-		const t = e.touches[0];
-		touchRef.current = t ? { x: t.clientX, y: t.clientY } : null;
-	}, [wake]);
-	const onTouchEnd = React.useCallback((e: React.TouchEvent) => {
-		const s = touchRef.current;
-		touchRef.current = null;
-		const t = e.changedTouches[0];
-		if (!s || !t || overviewOpen) return; // the overview owns navigation by tap while it's open
-		const act = swipeAction({ dx: t.clientX - s.x, dy: t.clientY - s.y });
-		if (act === 'next') goNext();
-		else if (act === 'prev') goPrev();
-	}, [goNext, goPrev, overviewOpen]);
-	const onWheel = React.useCallback((e: React.WheelEvent) => {
-		wake();
-		if (overviewOpen) return; // don't scrub the deck behind the open overview
-		const act = wheelGate(e.deltaX, e.deltaY, e.timeStamp);
-		if (act === 'next') goNext();
-		else if (act === 'prev') goPrev();
-		// `wheelGate` is the ref's value — a stable identity across renders, so listing it
-		// keeps the dep check honest without churning the callback.
-	}, [wake, goNext, goPrev, overviewOpen, wheelGate]);
+	// Every input verb on the backdrop — swipe, wheel, pinch, middle-drag — is bound
+	// by ONE native-listener controller (`attachPreviewZoom`), not by React props.
+	// Two reasons, both silent failures otherwise: React's synthetic touch/wheel
+	// listeners are PASSIVE, so `preventDefault()` in them cannot stop the browser
+	// zooming the whole page under the slide; and the swipe rule and the zoom rule
+	// have to agree about what the current gesture IS — a pinch used to clear the
+	// 45px swipe threshold here exactly as it did in the shell, so pinching to read a
+	// dense slide mid-talk turned it instead.
+	// Contract: engineering/decisions/2026-08-10-preview-pinch-zoom.md.
+	const backdropRef = React.useRef<HTMLDivElement>(null);
+	const zoomRef = React.useRef<PreviewZoomHandle | null>(null);
+	const [zoomScale, setZoomScale] = React.useState(1);
+	// Latest-ref idiom: the controller attaches ONCE per open (re-attaching mid-
+	// gesture would drop it), so it must not close over a `goNext`/`overviewOpen`
+	// that changes every slide.
+	const navRef = React.useRef({ goNext, goPrev, wake, overviewOpen });
+	navRef.current = { goNext, goPrev, wake, overviewOpen };
+	React.useEffect(() => {
+		const surface = backdropRef.current;
+		if (!open || !surface) return;
+		const handle = attachPreviewZoom(surface, {
+			viewport: () => cardRef.current,
+			target: () => cardRef.current?.querySelector<HTMLElement>('[aria-label="Presented slide"]') ?? null,
+			onNav: (action) => { if (action === 'next') navRef.current.goNext(); else if (action === 'prev') navRef.current.goPrev(); },
+			onZoom: setZoomScale,
+			onInput: () => navRef.current.wake(),
+			// The overview owns navigation by tap while it is open, and zooming the
+			// slide behind it would be invisible anyway.
+			inert: () => navRef.current.overviewOpen,
+		});
+		zoomRef.current = handle;
+		return () => {
+			zoomRef.current = null;
+			handle.dispose();
+		};
+	}, [open]);
+	// Zoom belongs to the slide being read, not to the deck — and never survives the
+	// talk: leaving Present at 3× would hand the next session a cropped first slide.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: these ARE the triggers; the handle is a ref.
+	React.useEffect(() => {
+		zoomRef.current?.reset();
+	}, [clamped, open]);
 
 	// First-run hint — teach the bloom + gestures exactly once, then never again.
 	//
@@ -1143,7 +1158,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// to the z-100 backdrop's swipe/wake handlers; each control re-enables pointer events.
 	return (
 		<>
+			{/* The gesture layer. Swipe / wheel / pinch / middle-drag are all bound to
+			    this node natively by `attachPreviewZoom` (see the effect above) rather
+			    than as React props — a passive synthetic listener cannot preventDefault
+			    the browser's page zoom, which is the whole point of owning the pinch. */}
 			<div
+				ref={backdropRef}
 				aria-hidden="true"
 				className="lx-ui fixed inset-0 z-[100] bg-background"
 				// The real pointer hides ONLY here and on the slide card — never on the dock, so
@@ -1151,9 +1171,6 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				// above), before anything else happens.
 				style={pointerHidden ? { cursor: 'none' } : undefined}
 				onPointerMove={wake}
-				onWheel={onWheel}
-				onTouchStart={onTouchStart}
-				onTouchEnd={onTouchEnd}
 			/>
 			<div
 				ref={dialogRef}
@@ -1177,6 +1194,13 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				<div className="flex min-w-0 flex-1 justify-center">
 					<LensPicker value={lens} onChange={pickLens} count={count} total={slides.length} align="center" lenses={lensEntries} menuClassName="z-[130] bg-card shadow-xl" />
 				</div>
+				{/* Only surfaced while zoomed — the way back to fit for a presenter who
+				    pinched to make a point and now needs the whole slide again. A pinch-in
+				    also returns to fit; this is the one-tap version, and the only route on a
+				    trackpad, which has no middle button. */}
+				{zoomScale > 1 && (
+					<Tip label="Reset zoom to fit"><button type="button" onClick={() => zoomRef.current?.reset()} aria-label={`Reset zoom to fit — currently ${Math.round(zoomScale * 100)}%`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--accent)] sm:text-[13px]"><Minimize2 className="size-4" />{Math.round(zoomScale * 100)}%</button></Tip>
+				)}
 				<Tip label="All slides (G) — jump anywhere"><button type="button" onClick={() => setOverviewOpen((v) => !v)} aria-pressed={overviewOpen} aria-label="Slides" className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', overviewOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Grid2x2 className="size-4" /><span className="hidden sm:inline">Slides</span></button></Tip>
 				<button type="button" onClick={toggleRehearse} aria-pressed={rehearse} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', rehearse ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Timer className="size-4" />Rehearse</button>
 				<Tip label="Presenter view on your second screen — current + next slide, speaker notes, timer"><button type="button" onClick={() => { const wasOpen = presenterRef.current?.isOpen(); presenterRef.current?.toggle(); if (!wasOpen && !presenterRef.current?.isOpen()) notify('Allow pop-ups to open the presenter view on your second screen.'); }} aria-pressed={presenterOn} className={cn('hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-semibold hover:text-foreground md:inline-flex', presenterOn ? 'text-[var(--accent)]' : 'text-muted-foreground')}><Monitor className="size-4" />{presenterOn ? 'Presenter on' : 'Presenter screen'}</button></Tip>

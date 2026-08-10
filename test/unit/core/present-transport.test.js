@@ -155,3 +155,123 @@ test('createWheelGate survives being inlined into an empty scope', () => {
 	assert.equal(gate(0, 120, 0), 'next', 'the inlined gate still gates');
 	assert.equal(gate(0, 120, 10), null, 'and still carries its own cooldown state');
 });
+
+// ── Zoom (the fourth input rule) ─────────────────────────────────────────────
+// The rule that stops a PINCH being measured as a swipe. Every surface used to
+// read `touches[0]` against `changedTouches[0]` and never count the fingers, so a
+// pinch cleared the 45px swipe threshold and turned the deck (measured on the real
+// Studio: pinch on slide 3 landed on slide 4 at 1440 and 820).
+// Contract: engineering/decisions/2026-08-10-preview-pinch-zoom.md.
+
+const VIEW = { w: 1000, h: 600 };
+/** Two pointers `gap` px apart, centered on the view. */
+const pair = (gap, cx = 500, cy = 300) => [
+	{ x: cx - gap / 2, y: cy },
+	{ x: cx + gap / 2, y: cy },
+];
+
+test('zoomStep zooms IN on a push away and out on a pull back', () => {
+	const { zoomStep } = K;
+	assert.ok(zoomStep(-100) > 1, 'wheel up / drag up zooms in');
+	assert.ok(zoomStep(100) < 1, 'wheel down / drag down zooms out');
+	assert.equal(zoomStep(0), 1, 'no delta, no change');
+	// Scale-relative: the same notch is the same RATIO wherever you are.
+	assert.ok(Math.abs(zoomStep(-100) * zoomStep(100) - 1) < 1e-12, 'a notch and its inverse cancel exactly');
+	// The drag rate is steeper than the wheel rate, per device.
+	assert.ok(zoomStep(-100, { rate: 0.006 }) > zoomStep(-100), 'a caller-supplied rate steepens the curve');
+});
+
+test('a pinch scales about its midpoint and never reads as a swipe', () => {
+	const { createZoomGesture } = K;
+	const z = createZoomGesture();
+	z.down(pair(100));
+	assert.equal(z.move(pair(200), VIEW), 'pinch');
+	assert.equal(z.state().scale, 2, 'doubling the finger gap doubles the scale');
+	// The finger that ends the pinch must not be measured as a swipe — this is the
+	// whole defect, so it is asserted at BOTH lifts, not only the last.
+	assert.equal(z.up(1).swipeBlocked, true, 'blocked while one finger is still down');
+	assert.equal(z.up(0).swipeBlocked, true, 'blocked on the final lift too');
+	// …and the NEXT gesture is a clean slate, so swipe-to-navigate still works.
+	z.reset();
+	z.down([{ x: 500, y: 300 }]);
+	assert.equal(z.up(0).swipeBlocked, false, 'a fresh one-finger gesture is a swipe again');
+});
+
+test('a second finger joining a drag retroactively kills the swipe', () => {
+	const { createZoomGesture } = K;
+	const z = createZoomGesture();
+	// One finger down and moving — a swipe, so far.
+	z.down([{ x: 300, y: 300 }]);
+	assert.equal(z.move([{ x: 380, y: 300 }], VIEW), null, 'at fit scale one finger is the caller\'s swipe');
+	// A second finger lands mid-gesture. There is no previous span, so the first
+	// two-finger sample only BASELINES — dividing by a zero span would fling the
+	// scale to Infinity.
+	z.down(pair(100));
+	assert.equal(z.state().scale, 1, 'the baselining sample does not scale');
+	assert.equal(z.up(0).swipeBlocked, true, 'the gesture became a pinch, so it is not a swipe');
+});
+
+test('zoom pins the point you aimed at, and pan can never expose the void', () => {
+	const { createZoomGesture } = K;
+	const z = createZoomGesture();
+	// Zoom 2× about the top-left corner: that corner stays put.
+	z.by(2, 0, 0, VIEW);
+	assert.deepEqual(z.state(), { scale: 2, x: 0, y: 0 });
+	// Zoom 2× about the exact center: the content grows equally in both directions,
+	// so the center pixel is still the center pixel.
+	const c = createZoomGesture();
+	c.by(2, 500, 300, VIEW);
+	assert.deepEqual(c.state(), { scale: 2, x: -500, y: -300 });
+	// Panning is bounded by the content edges — at 2× the content is 2000×1200, so
+	// x lives in [-1000, 0] and no drag can pull a gap into view.
+	c.anchor({ x: 0, y: 0 });
+	c.move([{ x: 9999, y: 9999 }], VIEW);
+	assert.deepEqual(c.state(), { scale: 2, x: 0, y: 0 }, 'dragging right stops at the content edge');
+	c.anchor({ x: 0, y: 0 });
+	c.move([{ x: -9999, y: -9999 }], VIEW);
+	assert.deepEqual(c.state(), { scale: 2, x: -1000, y: -600 }, 'dragging left stops at the far edge');
+});
+
+test('one finger pans only once zoomed, and the offset resets with the scale', () => {
+	const { createZoomGesture } = K;
+	const z = createZoomGesture();
+	assert.equal(z.zoomed(), false);
+	z.down([{ x: 500, y: 300 }]);
+	assert.equal(z.move([{ x: 420, y: 300 }], VIEW), null, 'at fit scale: not ours — the caller may swipe');
+	z.by(2, 500, 300, VIEW);
+	assert.equal(z.zoomed(), true);
+	z.anchor({ x: 500, y: 300 });
+	assert.equal(z.move([{ x: 420, y: 300 }], VIEW), 'pan', 'zoomed in, the same drag inspects instead');
+	assert.equal(z.up(0).swipeBlocked, true, 'a pan is not a swipe either — the deck must not turn');
+	z.reset();
+	assert.deepEqual(z.state(), { scale: 1, x: 0, y: 0 }, 'reset returns to fit AND re-centers');
+});
+
+test('zoom clamps to its configured range', () => {
+	const { createZoomGesture } = K;
+	const z = createZoomGesture({ min: 1, max: 4 });
+	z.by(100, 500, 300, VIEW);
+	assert.equal(z.state().scale, 4, 'cannot zoom past max');
+	z.by(0.001, 500, 300, VIEW);
+	assert.deepEqual(z.state(), { scale: 1, x: 0, y: 0 }, 'cannot zoom below fit, and fit is always centered');
+});
+
+test('onChange fires once per settled gesture sample', () => {
+	const { createZoomGesture } = K;
+	const seen = [];
+	const z = createZoomGesture({ onChange: (s) => seen.push(s.scale) });
+	z.down(pair(100));
+	z.move(pair(200), VIEW);
+	assert.deepEqual(seen, [2], 'a pinch that both scales and pans paints ONE frame, not two');
+});
+
+test('createZoomGesture survives being inlined into an empty scope', () => {
+	const { createZoomGesture } = K;
+	// Same contract as createWheelGate above: the presenter popup writes this kernel
+	// in via `.toString()`, which carries no closure.
+	const inlined = new Function(`"use strict"; var createZoomGesture = ${createZoomGesture.toString()}; return createZoomGesture;`)();
+	const z = inlined();
+	z.down(pair(100));
+	assert.equal(z.move(pair(200), VIEW), 'pinch', 'the inlined gesture still pinches');
+	assert.equal(z.state().scale, 2);
+});

@@ -33,7 +33,7 @@ import { DEFAULT_PALETTE, toggleMode as toggleDocMode } from '@/lib/site-chrome'
 import { hasFinePointer, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
-import { createWheelGate, swipeAction } from '../../../../lib/core/present-transport.mjs';
+import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -2253,10 +2253,37 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const previewRatioValue = previewRatio[0] / previewRatio[1];
 	const [previewPaneSize, setPreviewPaneSize] = React.useState<{ w: number; h: number } | null>(null);
 	const previewHolderRoRef = React.useRef<ResizeObserver | null>(null);
+	// The zoom controller rides the SAME callback ref as the observer, and for the
+	// same reason spelled out above: the holder is not a stable node, so a `[]`-dep
+	// effect would leave the listeners bound to a detached pre-rotation holder while
+	// the live one answered no gesture at all.
+	const zoomRef = React.useRef<PreviewZoomHandle | null>(null);
+	const [previewZoom, setPreviewZoom] = React.useState(1);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
 		previewHolderRoRef.current?.disconnect();
 		previewHolderRoRef.current = null;
+		zoomRef.current?.dispose();
+		zoomRef.current = null;
 		if (!holder || typeof ResizeObserver === 'undefined') return;
+		// ZOOM owns the preview's whole input stream — swipe and wheel navigation
+		// included. A NATIVE-listener controller rather than the React
+		// `onTouchStart`/`onWheel` handlers it replaces, for two reasons that both bite
+		// silently: React's synthetic touch/wheel listeners are PASSIVE, so a
+		// `preventDefault()` in them cannot stop the browser zooming the page under us;
+		// and the swipe rule and the zoom rule have to agree about what the current
+		// gesture IS. Two listeners racing over one touch stream is exactly how a pinch
+		// came to be measured as a 120px swipe and turned the deck (verified on the real
+		// Studio: pinch on slide 3 landed on slide 4 at 1440 and 820).
+		// Contract: engineering/decisions/2026-08-10-preview-pinch-zoom.md.
+		//
+		// Every getter is LAZY, so this never depends on child-vs-parent ref ordering,
+		// and `navRef` is the file's latest-ref idiom — the callback is `[]`-stable.
+		zoomRef.current = attachPreviewZoom(holder, {
+			viewport: () => previewBoxRef.current,
+			target: () => previewBoxRef.current?.querySelector<HTMLElement>('[aria-label="Live deck preview"]') ?? null,
+			onNav: (action) => navRef.current(action),
+			onZoom: setPreviewZoom,
+		});
 		const measure = (contentRect?: { width: number; height: number }) => {
 			// `entry.contentRect` is the CONTENT box (excludes padding/border) — the same box
 			// `100cqh` measured pre-fix. `clientWidth`/`clientHeight` are the PADDING box
@@ -2289,11 +2316,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// arrowing through the deck is intent to keep READING, and yanking focus into
 	// CodeMirror would hand the very next arrow press to the caret instead of the
 	// deck — one keystroke of navigation, then silence.
-	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
-	// Lazy: `useRef(createWheelGate())` would build and discard a gate on EVERY
-	// render (the argument is evaluated unconditionally; useRef keeps only the first).
-	const wheelGateRef = React.useRef<ReturnType<typeof createWheelGate> | null>(null);
-	const wheelGate = (wheelGateRef.current ??= createWheelGate());
 	// Every action the kernel can name gets its own landing, keyed by name. An
 	// `action === 'next' ? … : …` two-way collapse silently turned Home into "prev"
 	// and End into "prev" — the keymap carries four actions, not two, so a binary
@@ -2304,20 +2326,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		if (to === null) return; // an action this surface does not implement — do nothing, quietly
 		goToSlideRef.current(to, { focus: false, expand: false });
 	}, []);
-	const onPreviewTouchStart = (e: React.TouchEvent) => { const t = e.touches[0]; swipeRef.current = { x: t.clientX, y: t.clientY }; };
-	const onPreviewTouchEnd = (e: React.TouchEvent) => {
-		const s = swipeRef.current;
-		swipeRef.current = null;
-		if (!s) return;
-		const t = e.changedTouches[0];
-		if (!t) return;
-		const act = swipeAction({ dx: t.clientX - s.x, dy: t.clientY - s.y });
-		if (act) nav(act);
-	};
-	const onPreviewWheel = (e: React.WheelEvent) => {
-		const act = wheelGate(e.deltaX, e.deltaY, e.timeStamp);
-		if (act) nav(act);
-	};
+	// The latest-ref idiom this file already uses for `goToSlideRef`/`slideNoRef`:
+	// the holder's `[]`-stable callback ref reaches navigation through here rather
+	// than closing over a `nav` declared below it.
+	const navRef = React.useRef(nav);
+	navRef.current = nav;
+	// Zoom is a property of LOOKING AT ONE SLIDE, not of the deck — carrying 3× onto
+	// the next slide would land the reader in a random corner of it.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: slideNo IS the trigger; the handle is a ref.
+	React.useEffect(() => {
+		zoomRef.current?.reset();
+	}, [slideNo]);
 	// Arrow keys (and PageUp/PageDown, what a presentation clicker emits) turn the
 	// deck from anywhere in the shell that isn't a typing target — so Read, where
 	// there is no editor at all, arrows straight through, and Write/Build arrow
@@ -3123,6 +3142,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
 				<span className="flex-1" />
+				{/* The zoom's only chrome, and it earns its place twice: it tells a reader
+				    who zoomed by accident WHY the slide is cropped, and it is the pointer-free
+				    way back to fit (a middle-click also resets, but a trackpad has no middle
+				    button). Absent at fit scale — an always-on "100%" would be noise. */}
+				{previewZoom > 1 && (
+					<Tip label="Reset zoom to fit"><button type="button" onClick={() => zoomRef.current?.reset()} className="shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label={`Reset zoom to fit — currently ${Math.round(previewZoom * 100)}%`}>{Math.round(previewZoom * 100)}%</button></Tip>
+				)}
 				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
 				<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>
 				<button type="button" onClick={() => goToSlide(slideNo)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
@@ -3133,9 +3159,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{/* Swipe (touch) and wheel (mouse or trackpad, either axis) change slides
 			    here; the arrow keys do the same from the window listener above, so all
-			    three verbs work on every device. The card's aspect ratio follows the
-			    deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
+			    three verbs work on every device. A PINCH, a ctrl/⌘+wheel and a middle-
+			    button drag zoom the slide instead of turning the deck. Every one of those
+			    is bound by `attachPreviewZoom` on this node (see the holder ref above) —
+			    NOT as React props, whose synthetic touch/wheel listeners are passive and
+			    so cannot preventDefault the browser's own page zoom. The card's aspect
+			    ratio follows the deck's selected Size, not a fixed 16:9. */}
+			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered

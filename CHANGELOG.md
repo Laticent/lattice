@@ -25,6 +25,21 @@ in patch versions.
 
 ## Unreleased
 
+- **Added: pinch to zoom a slide, on every Studio surface and every device.** The
+  Studio preview, Present and the presenter screen now zoom the slide — not the
+  page — by pinch (touch), `ctrl`/`⌘`+wheel (mouse, and what a trackpad pinch
+  emits), or a middle-button drag. Once zoomed, one finger pans and a middle click
+  or the new zoom badge returns to fit; zoom clamps to 4× and never carries onto
+  the next slide. A **plain** wheel still turns the deck, so the keyboard/wheel/
+  touch navigation parity below is untouched.
+- **Fixed: a pinch no longer turns the deck.** Every slide surface measured the
+  first touch against the last and never counted the fingers, so two fingers
+  spreading cleared the swipe threshold and navigated — on the real Studio, a pinch
+  on slide 3 landed on slide 4. The trackpad half hit every machine with a
+  trackpad, touchscreen or not: Chromium delivers a trackpad pinch as a `ctrl`
+  +wheel, and no surface read `ctrlKey`, so pinching scrubbed the deck. The
+  finger-count rule now lives in the shared transport kernel, so a surface cannot
+  reintroduce it. See `engineering/decisions/2026-08-10-preview-pinch-zoom.md`.
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested

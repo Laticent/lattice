@@ -173,6 +173,17 @@ sequences are genuine CDP touch events in headless Chromium, which is not the sa
 surface as a physical phone. The swipe rule itself is unchanged from what already
 shipped and works there; only its reach (the presenter screen) is new.
 
+## The verb this change did not know about
+
+A **fourth** gesture was live on every one of these surfaces the whole time, and
+none of them could see it: a two-finger PINCH. The swipe rule this note reconciled
+reads the first touch against the last and never counts the fingers, so a pinch
+cleared its 45px threshold and turned the deck. The parity matrix above could not
+catch it for the same reason its own four defects escaped — *a verb matrix proves
+only the cells it contains*, and "pinch" was not a cell. Fixed, with zoom added as
+a first-class verb, in
+[`2026-08-10-preview-pinch-zoom.md`](./2026-08-10-preview-pinch-zoom.md).
+
 ## What this does NOT cover
 
 The exported HTML player (`lib/export/player-core.mjs`) has the keyboard and swipe

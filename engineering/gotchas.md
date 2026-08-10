@@ -3492,6 +3492,41 @@ own) is not a builder and needs no entry.
 - **Triggered by:** adding a new surface that shows slides, or "fixing" gesture
   navigation locally instead of in the kernel.
 
+### A pinch on a slide turns the deck (and `preventDefault` in your React handler does nothing)
+
+- **Symptom:** Two fingers on a slide surface navigate instead of zooming, and the
+  page zooms at the same time. On a laptop, pinching a trackpad scrubs back and
+  forth through the deck. Adding `e.preventDefault()` to the React `onWheel` /
+  `onTouchMove` handler changes nothing at all.
+- **Cause:** Two independent traps that show up together.
+  1. **Nobody counted the fingers.** The swipe rule reads the first touch against
+     the last (`touches[0]` vs `changedTouches[0]`). During a pinch each finger
+     travels ~100px horizontally, which clears `swipeAction`'s 45px threshold with
+     a perfect horizontality ratio — so it fires confidently on the gesture that
+     means the opposite. A trackpad pinch has the same shape through a different
+     door: Chromium delivers it as a `wheel` event with `ctrlKey` set, so a wheel
+     gate that ignores `ctrlKey` navigates on every pinch.
+  2. **React's synthetic touch/wheel listeners are PASSIVE.** They are attached at
+     the React root, and a passive listener cannot `preventDefault()`. The call is
+     a silent no-op: the code reads correctly in review and the browser keeps
+     zooming the page underneath you.
+- **Fix:** Take the rule from `lib/core/present-transport.mjs` —
+  `createZoomGesture` owns the finger count and returns `{swipeBlocked}` from
+  `up()`, which you must check *before* calling `swipeAction`. Bind the surface
+  with `docs/src/lib/preview-zoom.ts`'s `attachPreviewZoom`, which uses NATIVE
+  `{passive: false}` listeners, sets `touch-action: none` so the browser cannot
+  claim the gesture first, and suppresses Safari's `gesturestart`/`gesturechange`.
+  Let ONE controller own the surface's whole input stream — a second React handler
+  racing it over the same touch stream is how the swipe rule and the zoom rule
+  disagree about what a gesture is. See
+  `engineering/decisions/2026-08-10-preview-pinch-zoom.md`.
+- **Also check:** verify MID-DECK. A misfired `prev` on slide 1 clamps and looks
+  exactly like a gesture that was correctly ignored — a probe that starts on slide
+  1 will report a false pass.
+- **Triggered by:** adding gesture handling to a surface that shows a slide, or
+  reaching for React's `onTouchStart`/`onWheel` props for anything that must
+  preventDefault.
+
 ### A control's own icon renders sliced/outside its button, and every overflow guard is green
 
 - **Symptom:** A control in a tight toolbar paints part of itself outside its

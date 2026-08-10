@@ -22,7 +22,7 @@
 //     second screen. Framework-agnostic — the Drawing Board (vanilla) and the
 //     Studio (React, via a thin wrapper) both pass closures into their state.
 
-import { createWheelGate, fitScale, keyAction, PRESENT_KEYMAP, padInset, swipeAction } from '../../../../../lib/core/present-transport.mjs';
+import { createWheelGate, createZoomGesture, fitScale, keyAction, PRESENT_KEYMAP, padInset, swipeAction, zoomStep } from '../../../../../lib/core/present-transport.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { slideBox } from '../../../playground/frame-css.js';
 
@@ -151,7 +151,13 @@ export function buildPresenterDoc() {
 		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)};\n` +
 		`var keyAction=${keyAction.toString()};\n` +
 		`var swipeAction=${swipeAction.toString()};\n` +
-		`var createWheelGate=${createWheelGate.toString()};`;
+		`var createWheelGate=${createWheelGate.toString()};\n` +
+		// The ZOOM rule. Inlined for the same reason as the other three, and it carries
+		// the finger-count guard that stops `swipeAction` above being fed a pinch.
+		// `test/unit/export/inlinable-kernels.test.js` pins both against a refactor that
+		// reintroduces a module-scope reference.
+		`var zoomStep=${zoomStep.toString()};\n` +
+		`var createZoomGesture=${createZoomGesture.toString()};`;
 	return [
 		'<!doctype html><html><head><meta charset="utf-8"><title>Presenter view</title>',
 		'<meta name="viewport" content="width=device-width,initial-scale=1">',
@@ -195,6 +201,12 @@ export function buildPresenterDoc() {
 		// same rule the Studio shell's preview holder uses). Both stages are passive
 		// mirrors of the audience screen — there is nothing in them to click.
 		'.pp-screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}',
+		// The browser must not claim a pinch (page zoom) or a drag before our listeners
+		// see it — except in the notes, which genuinely scroll.
+		'.pp{touch-action:none}.pp-notes{touch-action:pan-y}',
+		'.pp-zoom{margin-left:.5rem;font:inherit;font-size:.68rem;font-weight:700;letter-spacing:.06em;',
+		'color:var(--pp-accent);background:var(--pp-accent-soft);border:1px solid var(--pp-accent);',
+		'border-radius:999px;padding:.1rem .5rem;cursor:pointer}',
 		// The NEXT preview is capped so it can never crowd the notes + nav off a short window
 		// (it yields; the notes 1fr scrolls; the nav row stays on screen).
 		'.pp-next{min-height:0}.pp-next .pp-screen{max-height:32vh}',
@@ -210,7 +222,10 @@ export function buildPresenterDoc() {
 		'<button class="pp-btn pp-reset" id="reset">Reset timer</button>',
 		'<span class="pp-count" id="count">– / –</span></div>',
 		'<div class="pp-body">',
-		'<div class="pp-stage"><span class="pp-label">Current</span>',
+		'<div class="pp-stage"><span class="pp-label">Current',
+		// Surfaced only while zoomed, and it doubles as the tap-target back to fit —
+		// the only route on a trackpad, which has no middle button.
+		'<button class="pp-zoom" id="zoom" hidden title="Reset zoom to fit"></button></span>',
 		'<div class="pp-screen"><iframe id="cur" title="Current slide"></iframe></div></div>',
 		'<div class="pp-side"><span class="pp-label">Next</span>',
 		'<div class="pp-next"><div class="pp-screen"><iframe id="next" title="Next slide"></iframe></div></div>',
@@ -254,21 +269,67 @@ export function buildPresenterDoc() {
 		'window.addEventListener("keydown",function(e){',
 		'if(e.metaKey||e.ctrlKey||e.altKey)return;',
 		'var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;e.preventDefault();nav(a)});',
+		// ZOOM — the fourth verb, on the CURRENT-slide stage. A presenter reads the same
+		// dense slide the room does, and the second screen is the one place they can
+		// magnify a number without the audience seeing it happen.
+		//
+		// Every listener below is `{passive:false}` where it may preventDefault: a
+		// pinch or a ctrl+wheel has to stop the BROWSER zooming this whole popup, which
+		// is the behavior being replaced. The old handlers were `{passive:true}` AND
+		// never counted fingers, so a pinch here read as a swipe and turned the deck for
+		// the whole room (2026-08-10-preview-pinch-zoom.md).
+		'var zb=document.getElementById("zoom");',
+		'var zoom=createZoomGesture({onChange:function(s){',
+		'cur.style.transformOrigin="0 0";',
+		'cur.style.transform=s.scale===1?"":"translate("+s.x+"px,"+s.y+"px) scale("+s.scale+")";',
+		'zb.hidden=s.scale===1;zb.textContent=Math.round(s.scale*100)+"%"}});',
+		'zb.onclick=function(){zoom.reset()};',
+		// The CURRENT stage's screen box is the coordinate space and the clip.
+		'function vf(){var r=cur.parentNode.getBoundingClientRect();return{w:r.width,h:r.height,left:r.left,top:r.top}}',
+		'function lp(p,f){return{x:p.clientX-f.left,y:p.clientY-f.top}}',
+		'function pts(l,f){var a=[],i=0;for(;i<l.length;i++)a.push(lp(l[i],f));return a}',
 		'var wheelGate=createWheelGate();',
 		'window.addEventListener("wheel",function(e){',
-		'if(inNotes(e.target))return;nav(wheelGate(e.deltaX,e.deltaY,e.timeStamp))},{passive:true});',
-		'var tsx=0,tsy=0;',
+		'if(inNotes(e.target))return;',
+		// ctrl/meta+wheel is BOTH a mouse zoom and how a trackpad pinch reaches the page.
+		'if(e.ctrlKey||e.metaKey){e.preventDefault();var f=vf(),p=lp(e,f);zoom.by(zoomStep(e.deltaY),p.x,p.y,f);return}',
+		'nav(wheelGate(e.deltaX,e.deltaY,e.timeStamp))},{passive:false});',
+		'var swStart=null;',
 		'window.addEventListener("touchstart",function(e){',
-		'var t=e.changedTouches[0];if(t){tsx=t.clientX;tsy=t.clientY}},{passive:true});',
+		'if(inNotes(e.target))return;var f=vf(),p=pts(e.touches,f);zoom.down(p);',
+		'if(p.length===1)swStart=p[0];if(p.length>1)e.preventDefault()},{passive:false});',
+		'window.addEventListener("touchmove",function(e){',
+		'if(inNotes(e.target))return;var f=vf();if(zoom.move(pts(e.touches,f),f))e.preventDefault()},{passive:false});',
 		'window.addEventListener("touchend",function(e){',
-		'var t=e.changedTouches[0];if(!t||inNotes(e.target))return;',
-		'nav(swipeAction({dx:t.clientX-tsx,dy:t.clientY-tsy}))},{passive:true});',
+		'if(inNotes(e.target))return;var f=vf(),rem=e.touches.length,r=zoom.up(rem);',
+		'if(rem>0){zoom.anchor(lp(e.touches[0],f));return}',
+		'var s=swStart;swStart=null;',
+		// THE FIX: a gesture that ever held two fingers, or panned a zoomed slide, is
+		// never measured as a swipe.
+		'if(r.swipeBlocked||!s)return;var t=e.changedTouches[0];if(!t)return;var p=lp(t,f);',
+		'nav(swipeAction({dx:p.x-s.x,dy:p.y-s.y}))},{passive:false});',
+		// Middle-button: drag to zoom, click to snap back to fit. preventDefault stops
+		// Chrome's autoscroll widget (Windows) and X11's middle-click paste.
+		'var mid=null;',
+		'window.addEventListener("mousedown",function(e){',
+		'if(e.button!==1||inNotes(e.target))return;e.preventDefault();',
+		'var f=vf(),p=lp(e,f);mid={x:p.x,y:p.y,t:0}},{passive:false});',
+		'window.addEventListener("mousemove",function(e){',
+		'if(!mid)return;var f=vf(),p=lp(e,f),dy=p.y-mid.y;',
+		'mid.t+=Math.abs(p.x-mid.x)+Math.abs(dy);zoom.by(zoomStep(dy,{rate:0.006}),mid.x,mid.y,f);',
+		'mid.x=p.x;mid.y=p.y});',
+		'window.addEventListener("mouseup",function(e){',
+		'if(!mid)return;if(e.button===1&&mid.t<4)zoom.reset();mid=null});',
+		'window.addEventListener("auxclick",function(e){if(e.button===1)e.preventDefault()},{passive:false});',
 		'window.addEventListener("message",function(e){var d=e.data||{};',
 		// Adopt the Studio\'s accent so the second screen speaks the deck\'s color, not a fixed one
 		// (falls back to the cuoio gold in :root when the opener sends none, e.g. the Drawing Board).
 		'if(d.accent){var rs=document.documentElement.style;rs.setProperty("--pp-accent",d.accent);if(d.onAccent)rs.setProperty("--pp-on-accent",d.onAccent)}',
 		'if(d.ppInit){doc=d.doc;total=d.total;cur.srcdoc=doc;nxt.srcdoc=doc;}',
 		'if(d.ppIndex!=null){last=d.ppIndex;',
+		// Zoom belongs to the slide you are reading, not to the deck — carrying 3× onto
+		// the next slide would land the presenter in a random corner of it mid-sentence.
+		'zoom.reset();',
 		'count.textContent=(d.ppIndex+1)+" / "+total;',
 		'applyFrames();',
 		'notes.innerHTML="";var ns=d.note?String(d.note).split(/\\n{2,}/):[];',
