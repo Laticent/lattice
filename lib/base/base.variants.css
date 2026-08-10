@@ -183,7 +183,16 @@ section {
    TINT of the brand accent (`--spectrum-quiet`), not flat neutral gray: it reads as an
    intentional, on-brand detail (echoing the accent-toned labels above it) and stays legible on
    dark canvases, while remaining clearly secondary to the full-spectrum bar. The tint strength
-   is a single dial; a theme may override `--spectrum-quiet`. The opt-in `spectrum-trim: on`
+   is a single dial, and it is ENGINE-OWNED: `--spectrum-quiet` is declared on the bare `section`
+   slide root just below, so a theme's `:root` value cannot reach any slide. `section` is a
+   DESCENDANT of `:root`, and a custom property resolves on the element that uses it — so the
+   nearer declaration wins on the slide and on everything inside it, whichever file the browser
+   loaded last. Measured in Chromium 131 with the theme's `:root` deliberately loaded AFTER the
+   engine's `section`: `rgb(1,2,3)` (engine) on the section and on its children, the theme's
+   value surviving only on `html`, where nothing renders. This comment used to invite the
+   override — "a theme may override `--spectrum-quiet`" — and a theme author who accepted the
+   invitation got silence, not an error (#1546). A theme that wants a different structural
+   hairline moves `--accent`/`--border`, which this derives from. The opt-in `spectrum-trim: on`
    register (→ section.spectrum-trim) points --spectrum-structure at --spectrum to flow the deck's
    full gradient onto the structure too. Design-trio treatment refinement — see
    2026-07-16-spectrum-structure-default.md. */

@@ -137,6 +137,22 @@ in patch versions.
   so re-arming it is a step you must take yourself.
   (`engineering/decisions/2026-08-10-decisions-index-merge-queue-race.md`)
 
+- **Fixed: `base.variants.css` no longer advertises a theme override that cannot work.**
+  The comment above `--spectrum-quiet` — the single dial behind the quiet structural
+  hairline — said "a theme may override `--spectrum-quiet`". A theme cannot: the engine
+  declares the token on the bare `section` slide root, and `section` is a *descendant* of
+  `:root`, so a theme's `:root` value loses on every slide and everything inside it,
+  whichever file the browser loads last. A theme author who accepted the invitation got
+  silence rather than an error. Verified in Chromium 131 in both load orders — the
+  engine's value on the section and its children, the theme's surviving only on `html`,
+  where nothing renders. The comment now says the dial is engine-owned and points a theme
+  at `--accent`/`--border`, which it derives from; the same correction is noted on
+  `engineering/decisions/2026-07-16-spectrum-structure-default.md`, which carried the
+  claim. **No rendered output changes** — this is a documentation fix, and the `:root`
+  value it describes was already unreachable. It also does not affect how
+  `checkNoSafeDefaultTokens` treats the token: that gate is right to consider
+  `--spectrum-quiet` defaulted, because the engine value really does win.
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested
