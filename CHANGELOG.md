@@ -306,6 +306,49 @@ in patch versions.
   `ResizablePanel`s, the seed's lookups and the bucket all derive from one declaration and a
   rename is a compile error. The one copy a shared module cannot reach — a CSS selector keyed
   on `#studio-editor` — now selects by `data-pane-role` instead.
+- **Scrolling the Studio's add-slide gallery no longer accumulates a live engine iframe per
+  tile — the mechanism behind "the tab died and reloaded".** The thumbnail windowing was one-way:
+  `useInView` disconnected its `IntersectionObserver` on a tile's *first* intersection, so
+  `visible` never returned to false and every tile the author had scrolled past kept its own
+  engine document mounted for the lifetime of the grid. Measured on the built site, one scroll
+  through the browse grid took the page from 12 live preview documents to 62 and Chrome's
+  resident set from ~1.1GB to ~1.6GB (~10MB per tile) — and 62 was only the size of the catalog,
+  not a ceiling the code enforced; expanded looks panels pushed it further. On a device with
+  less headroom that is a renderer OOM, which presents as the tab dying and reloading. (The
+  other candidate, a chunk-load reload, is ruled out: that path never reloads by itself — it
+  renders a card offering one.) Two-way now, with hysteresis from a **shared budget** of 32
+  mounted previews rather than a second distance threshold: a tile mounts on scroll-in, stays
+  mounted after it leaves the band, and is recycled least-recently-seen-first only when the grid
+  needs the slot — an on-screen tile is never torn down, and a recycled one leaves a placeholder
+  carrying the same box, so the scroll height never jumps. Flipping `active` alone would not have
+  helped: that gates re-renders, not the frame, so the fix unmounts the preview. Re-measured on
+  the same surface: **33 live frames and ~1.35GB, flat across four full traversals and five
+  open/close cycles.** Present's Slide Overview shares the hook and had the same profile on a
+  long deck, so it is fixed with it. What is verified is that the growth is now BOUNDED; the
+  reporting device was never reproduced (this sandbox has 4GB of heap headroom), and 33 live
+  documents is still substantial on a phone — so the budget being right for every device is
+  inference, not measurement. `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md`.
+
+- **A slide thumbnail no longer runs the overflow watcher — no QA chrome on a tile.** Every
+  preview frame boots the engine runtime, and a frame with no export-settings block resolves
+  to the `author` marker level by design. In a grid of thumbnails that is wrong twice: the
+  marks are unreadable at ~260px, and in the add-slide gallery they describe a *catalog
+  sample* the author neither wrote nor can fix — the shipped gallery painted an **"Overflows"
+  tab on the `image` tile** and type-floor alarms on `state-chart` and `quadrant`. The cost is
+  per-document too, so it multiplied by the grid: on every dispatch of the runtime's shared
+  post-mutation pass, each frame ran a cell-aware geometry probe, a text-rect walk over
+  anything clipping, culprit drill-down and the Fix-Me overlay draw — all layout-forcing —
+  plus the `scroll` listener that draw binds per document. The gallery's tiles and its looks
+  panel now stamp `data-lattice-specimen` on the frames they render, and the runtime routes
+  those to `overflow-marker: off` — the level that already sweeps and then installs nothing.
+  The type-floor alarm goes with it; it is the same watcher. **Scoped to catalog samples, not
+  to thumbnails**: Present's slide overview and Reshape's variant tiles show the AUTHOR'S OWN
+  slides, where a clipped slide is the whole thing the grid is being scanned for, so they keep
+  the signal — as do the Studio's own preview, the landing islands, the VS Code preview and an
+  Export-to-Marp bundle. New unit and e2e oracles pin both halves. Measured on
+  the same overflowing deck: RSS 1442 → 1337MB, 1336 → 1304 event listeners. *Not* a saving in
+  observers: the shared `MutationObserver` belongs to the geometry pass, which thumbnails keep.
+  `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md` §6.
 
 - **"Reshape to Default" no longer deletes the slide settings it never offered.** The
   base-form reset stripped every member of the *vocab* exclusive axes along with the

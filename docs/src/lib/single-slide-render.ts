@@ -114,6 +114,25 @@ export type SingleSlideOptions = {
 	 * staged by sync-playground-assets) so math previews stay off a third-party CDN.
 	 */
 	katexUrl?: string;
+	/**
+	 * This host renders a SPECIMEN — a catalog sample the author did not write and cannot
+	 * edit, shown so they can pick one (the add-slide gallery's tiles and its looks panel).
+	 * Stamps `data-lattice-specimen` on the frame's root element, which the runtime reads to
+	 * route its overflow/legibility watcher to the `off` level: the marks are unreadable at
+	 * ~260px, they describe content the author is not responsible for, and the watcher's
+	 * probe pass forces layout once per frame across the whole grid. See
+	 * `isSpecimenDocument()` in lib/runtime/index.js for the full reasoning — including why
+	 * `off` is the right lever rather than a bypass, and what the saving is NOT (it does not
+	 * remove an observer; the shared one belongs to the geometry pass).
+	 *
+	 * NOT "is this a thumbnail". A thumbnail of the AUTHOR'S OWN slide — Present's slide
+	 * overview, Reshape's variant tiles — must keep its watcher, because a clipped slide is
+	 * exactly what the author is scanning that grid for. Setting this from `SlideThumbFace`
+	 * unconditionally silenced those too, which was a measured regression (HARD RULE #18).
+	 * Full-size previews (the Studio's own, the landing islands, a component specimen page)
+	 * omit it as well, which `e2e/reader-alarms.spec.ts` controls for.
+	 */
+	specimen?: boolean;
 };
 
 /** Resolve `<html data-palette/-mode>` → the palette + mode to render with. */
@@ -476,6 +495,18 @@ function memoKey(markdown: string, theme: string, mode: string, extraCss: string
 export function clearDeckMemo(): void {
 	deckMemo = null;
 }
+/** Live renderer instances that have actually rendered, so `dispose()` releases the SHARED
+ *  whole-deck memo only when the last host on the page goes away. Recycling (#1463) turned unmount
+ *  into a scroll-frequency event, and a per-renderer teardown must not wipe module-level state its
+ *  siblings are still using — the argument `clearDeckMemo` above already makes for the slice cache.
+ *  Tests reset it via `__resetLiveRenderersForTest`. */
+let liveRenderers = 0;
+/** Test-only: reset the live-renderer refcount. Vitest shares module state across cases in a file,
+ *  so a test that constructs renderers without disposing them would otherwise leak the count into
+ *  the next case and stop the memo from ever being released. */
+export function __resetLiveRenderersForTest(): void {
+	liveRenderers = 0;
+}
 
 // Scan the just-rendered slide for dropped-to-black SVG chart paint (the #956
 // signal), feeding the live VizDiagnosticsOverlay — but ONLY while it's subscribed
@@ -505,7 +536,23 @@ function scheduleVizScan(getDoc: () => Document | null | undefined): void {
  *   - ready()           → window.LatticePlayground present?
  */
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
-	const { themeBase, runtimeUrl, engineUrl } = opts;
+	const { themeBase, runtimeUrl, engineUrl, specimen } = opts;
+	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
+	// RENDER, never at construction — because construction is not paired 1:1 with a dispose.
+	// `FieldCardsLive` and `RestyleShowcase` both write `useRef(createSingleSlideRenderer(...))`,
+	// and JavaScript evaluates that argument on EVERY render while `useRef` keeps only the first
+	// instance; each pairs it with exactly one dispose. Counting at construction therefore drifted
+	// upward once per re-render — and `RestyleShowcase` auto-cycles every 2.6s, so the landing
+	// page's count would climb forever and the memo would never be released. Only the harmless
+	// direction (the count cannot reach zero early), but it made a benign React idiom load-bearing
+	// for module-level state, which the next host would break again with no gate to catch it.
+	// Keying on first render makes the refcount independent of how a caller constructs.
+	let counted = false;
+	const countIn = () => {
+		if (counted) return;
+		counted = true;
+		liveRenderers += 1;
+	};
 	// Prefer a locally-vendored Mermaid (no CDN); fall back to jsdelivr.
 	const mermaidUrl = opts.mermaidUrl || MERMAID;
 	const themes = createThemeFetcher(themeBase);
@@ -602,7 +649,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		let s =
 			// The theme <style> carries an id so the RESTYLE fast path (renderInto) can find
 			// and swap it in place on a theme/mode change — no srcdoc rewrite, no new realm.
-			'<!doctype html><html><head><meta charset="utf-8"><style id="lattice-theme">' +
+			// `data-lattice-thumbnail` (opts.thumbnail) rides on the <html> tag rather than
+			// the body or the section: the runtime reads it once at boot, before it has a
+			// section to consult, and the restyle/patch fast paths never rewrite this tag —
+			// so the flag survives every re-render short of a full write, which rebuilds it.
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + '><head><meta charset="utf-8"><style id="lattice-theme">' +
 			themeStyleContent(css, mode, geom, extraCss) +
 			'</style></head><body>' +
 			html;
@@ -715,6 +766,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
+		// A render on an ALREADY-DISPOSED renderer is a no-op that returns the same sentinel the
+		// mid-flight bails use. Bail BEFORE `countIn()`: otherwise a `dispose()`-then-`renderInto()`
+		// order joins the refcount permanently — `counted` flips true, and dispose() will not
+		// decrement a second time (`wasDisposed`) — so the shared memo is pinned for the page's
+		// life. Latent rather than live (every shipped host tears its render triggers down before
+		// disposing), but it is the same upward drift the construction-time seam had, relocated to
+		// an unguarded edge, and one line closes the class instead of the instance.
+		if (disposed) return Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' });
+		countIn(); // first render joins the shared-memo refcount — see createSingleSlideRenderer
 		const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 		const mode = modeOverride ?? docMode;
 		// Perf-overlay timing: whole edit→paint span starts here (includes the
@@ -1398,13 +1458,38 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 * from the DOM — the caller owns the host node's lifecycle (React unmounts it).
 	 */
 	function dispose(): void {
+		const wasDisposed = disposed;
 		disposed = true; // stop any in-flight renderInto from re-registering below
-		// Release the whole-deck memo too. It is bounded at one entry, so it is not a leak — but this
-		// function's whole doctrine is that it releases every module-level root this file owns, and
-		// leaving the last-viewed deck's HTML (up to ~285KB on a 117-slide deck) resident after the
-		// final preview unmounts is exactly the kind of quiet retention it exists to prevent. Costs
-		// one re-render if a host mounts again.
-		clearDeckMemo();
+		// Release the whole-deck memo — but ONLY when this is the LAST live renderer on the page.
+		//
+		// It is bounded at one entry, so holding it is not a leak; the reason to drop it is that
+		// this function's doctrine is to release every module-level root the file owns, and leaving
+		// the last-viewed deck's HTML (up to ~285KB on a 117-slide deck) resident after the final
+		// preview unmounts is the kind of quiet retention it exists to prevent.
+		//
+		// THE REFCOUNT IS #1463's DOING. `dispose()` used to be a teardown event — a grid closing, a
+		// pane swapping — so clearing a shared cache from it cost one re-render, once. Two-way
+		// windowing (slide-thumb.tsx) makes a thumbnail unmount every time the budget reclaims its
+		// slot, i.e. at SCROLL FREQUENCY, and each of those wiped the memo for every OTHER host on
+		// the page. Worst exactly where the memo matters most: Present's overview on a deck with a
+		// deck-derived fact renders the WHOLE DECK per tile and shares one entry across the grid, so
+		// every eviction cost the next tile a cold whole-deck parse (~39ms on a 58-slide deck) where
+		// the grid had paid one in total. It reached the Studio's own preview behind an open picker.
+		//
+		// This is the SAME argument `clearDeckMemo`'s own doc comment already makes for why
+		// `dispose()` must not touch `sliceCache` ("dispose() is PER-RENDERER while the slice cache
+		// is module-level and shared"). Once recycling exists, the memo is in that category too.
+		//
+		// `counted` guards a renderer constructed but never rendered — it never joined the count, so
+		// it must not leave it. `wasDisposed` keeps the decrement exactly-once, since dispose() is
+		// documented idempotent.
+		if (!wasDisposed && counted) {
+			liveRenderers -= 1;
+			if (liveRenderers <= 0) {
+				liveRenderers = 0;
+				clearDeckMemo();
+			}
+		}
 		for (const ro of ownedObservers) {
 			try {
 				ro.disconnect();

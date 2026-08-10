@@ -18,10 +18,22 @@ import { loadSettings, SETTINGS_EVENT } from './studio-store';
 // Present's Slide Overview), so you pick a slide by SEEING it — with the name always
 // legible and search co-equal, so "I know what I want" stays a keystroke away.
 //
-// Preview-first, windowed (only the on-screen tiles render an iframe; the rest cost
-// a ref), palette/mode-aware, and sanitized for free (SlideThumbFace → DeckPreview →
-// single-slide-render's sanitized srcdoc — no new HARD RULE #22 builder). Search +
-// grouping + filter all sit on the shared component-search core (HARD RULE #15).
+// Preview-first, windowed, palette/mode-aware, and sanitized for free (SlideThumbFace
+// → DeckPreview → single-slide-render's sanitized srcdoc — no new HARD RULE #22
+// builder). Search + grouping + filter all sit on the shared component-search core
+// (HARD RULE #15).
+//
+// WINDOWED means TWO-WAY (#1463): a tile mounts its iframe on scroll-in and gives it
+// back once it is far enough off screen that the shared preview budget wants the slot
+// (slide-thumb.tsx). It used to be one-way — mount on scroll-in, keep forever — so a
+// scroll through the full gallery left every tile's engine document resident at once
+// and the tab could be OOM-killed. Off-screen tiles cost a ref and a placeholder box.
+//
+// These tiles are also SPECIMENS: every one renders a catalog sample the author did not
+// write and cannot edit, so the engine's authoring alarms (the overflow ring/tab, the
+// type-floor alarm) have no addressee and are silenced — the `specimen` prop on
+// SlideThumbFace. It is passed HERE and not by the face, because the other grids that
+// share that face show the author's OWN slides and must keep the signal.
 
 /** A slide the gallery can insert: a catalog component, a saved local component, or
  *  the synthetic Blank tile. A superset of the editor's completion shape, so it also
@@ -437,7 +449,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 				) : (
 					// pointer-events-none: the render is a separate-document iframe that would
 					// otherwise swallow the tile's click.
-					<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} className="pointer-events-none aspect-video w-full" />
+					<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
 				)}
 				{/* Name is ALWAYS legible (not a hover afterthought) — recognition + names together. */}
 				<div className={cn('flex items-center gap-1.5 px-2 py-1.5', onToggleLooks && 'pr-16')}>
@@ -515,7 +527,7 @@ function LookTile({ item, token, label, onInsert, options, frontMatter, paletteO
 			aria-label={token ? `Insert ${item.name} · ${label}` : `Insert ${item.name}, default look`}
 			className="group/lk relative overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-[var(--accent)] focus-visible:border-[var(--accent)] focus-visible:outline-none"
 		>
-			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} className="pointer-events-none aspect-video w-full" />
+			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={item.css} active={visible} specimen className="pointer-events-none aspect-video w-full" />
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{token ? label : 'Default'}</div>
 		</button>
 	);
