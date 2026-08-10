@@ -1,7 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { describe } = require('node:test');
 const {
 	LATTICE_DOC_VERSION,
+	READ_ALONG_VERSION,
+	buildReadAlong,
 	ENVELOPE_ID,
 	buildManifest,
 	serializeEnvelope,
@@ -187,4 +190,63 @@ test('first envelope node wins when a decoy id="lattice-doc" precedes the real o
 	const decoy = buildEnvelope({ source: '# DECOY\n', title: 'decoy' });
 	// Decoy first in document order → decoded (documented first-match behavior).
 	assert.equal(parseEnvelope(`<body>${decoy}\n${real}</body>`).source, '# DECOY\n');
+});
+
+// #1462 item 1 — the section shipped as `{ voice: { rung, model, voice, speed } }`: no
+// `version`, no `audioMode`, and one field that names a code path in this repository.
+describe('buildReadAlong — what narrated the deck, in a document format\'s own vocabulary', () => {
+  test('always carries a section version, so a future player can migrate rather than guess', () => {
+    const ra = buildReadAlong({ rung: 'openrouter', model: 'm', voice: 'v', speed: 1 }, { hasAudio: true });
+    assert.equal(ra.version, READ_ALONG_VERSION);
+    assert.ok(READ_ALONG_VERSION, 'and it is a real value, not an empty string');
+  });
+
+  test('says whether the artifact can speak on its own', () => {
+    // Without this a reader had to go looking for audio blocks to find out — and the only mode
+    // the shipping producer has is the one the prior ADR made the OPT-IN.
+    assert.equal(buildReadAlong({ model: 'm' }, { hasAudio: true }).audioMode, 'embedded');
+    assert.equal(buildReadAlong({ model: 'm' }, { hasAudio: false }).audioMode, 'regenerate');
+    assert.equal(buildReadAlong({ model: 'm' }).audioMode, 'regenerate', 'absent means not embedded');
+  });
+
+  test('translates the internal rung into the document\'s own word, and drops the rung', () => {
+    const device = buildReadAlong({ rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 }, { hasAudio: true });
+    assert.equal(device.voice.engine, 'on-device');
+    assert.equal(device.voice.rung, undefined, 'the Studio ladder name does not travel');
+    const cloud = buildReadAlong({ rung: 'openrouter', model: 'm', voice: 'v', speed: 1.25 }, { hasAudio: true });
+    assert.equal(cloud.voice.engine, 'cloud');
+    assert.equal(cloud.voice.speed, 1.25);
+  });
+
+  test('defaults an unstated rung to cloud, which is what an unstated one has always meant', () => {
+    assert.equal(buildReadAlong({ model: 'm' }, { hasAudio: true }).voice.engine, 'cloud');
+  });
+
+  test('carries `engine` because the model id genuinely cannot say it', () => {
+    // On-device and hosted Kokoro share a model id, so dropping the rung outright — rather than
+    // translating it — would have made the two indistinguishable in the artifact.
+    const same = 'hexgrad/kokoro-82m';
+    assert.notEqual(
+      buildReadAlong({ rung: 'kokoro', model: same }, { hasAudio: true }).voice.engine,
+      buildReadAlong({ rung: 'openrouter', model: same }, { hasAudio: true }).voice.engine,
+    );
+  });
+
+  test('returns undefined for no voice, so an un-narrated deck carries no section at all', () => {
+    assert.equal(buildReadAlong(undefined, { hasAudio: false }), undefined);
+    assert.equal(buildReadAlong(null), undefined);
+  });
+
+  test('coerces junk rather than writing it into a document other people open', () => {
+    const ra = buildReadAlong({ model: 42, voice: null, speed: 'fast' }, { hasAudio: true });
+    assert.equal(ra.voice.model, '42');
+    assert.equal(ra.voice.voice, '');
+    assert.equal(ra.voice.speed, 1, 'an unparseable speed falls back to normal pace');
+  });
+
+  test('rides the envelope through buildManifest unchanged', () => {
+    const ra = buildReadAlong({ rung: 'kokoro', model: 'm', voice: 'v', speed: 1 }, { hasAudio: true });
+    const m = buildManifest({ source: '# x', readAlong: ra });
+    assert.deepEqual(m.readAlong, ra);
+  });
 });

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import * as React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // WHY THIS FILE EXISTS.
@@ -22,6 +23,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const listTtsCatalog = vi.fn();
 const defaultBakeVoice = vi.fn();
 const voiceAvailability = vi.fn();
+const onDeviceBakeVoice = vi.fn();
 
 vi.mock('./read-aloud', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./read-aloud')>()),
@@ -29,7 +31,7 @@ vi.mock('./read-aloud', async (importOriginal) => ({
 	listTtsModels: async () => (await listTtsCatalog()).models,
 	defaultBakeVoice: () => defaultBakeVoice(),
 	voiceAvailability: () => voiceAvailability(),
-	onDeviceBakeVoice: async () => null,
+	onDeviceBakeVoice: () => onDeviceBakeVoice(),
 	previewTtsVoice: async () => ({ ok: true }),
 }));
 
@@ -41,23 +43,60 @@ vi.mock('./narration-bake', async (importOriginal) => ({
 	// `missingBytes` and invented `onDeviceCached`, so the panel these tests render actually
 	// said "Adds to the file about NaN" — and nothing failed, because no assertion looked at the
 	// bill. A fixture that does not typecheck as the real thing is a test of a different panel.
-	measureNarration: async () => ({
+	// `missingBytes` is DERIVED, not typed in. The literal here was 95_400 — which is
+	// missingChars * the engine rate, i.e. the RAW audio bytes, skipping the base64 step that
+	// `shippedBytes` applies. The real figure is 127_223, so the fixture was 25% low on the one
+	// number this module's own comment calls load-bearing, and every assertion above it passed
+	// (#1462 item 7). Computing it through the real function means it cannot drift again.
+	measureNarration: async (_s: string, _p: unknown, voice: { model: string }) => ({
 		total: 4, cached: 0, cachedBytes: 0, missing: 4, missingChars: 200, totalChars: 200,
-		missingBytes: 95_400, estCostUsd: null, estSeconds: 3,
-		voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, complete: true,
+		missingBytes: (await importOriginal<typeof import('./narration-bake')>()).estimateSynthBytes(200, voice?.model),
+		estCostUsd: null, estSeconds: 3,
+		voice: voice ?? { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, complete: true,
+		transcoded: true,
+		...measureOverride,
 	}),
 }));
 
+/** Per-test slice over the fixture above, for the cases that are ABOUT the measurement (a
+ *  fully-rehearsed deck, a voice we do not encode) rather than about the voice picker. Reset in
+ *  `beforeEach` so a test cannot leak its shape into the next one. */
+let measureOverride: Record<string, unknown> | null = null;
+
 const { NarrationExportOptions } = await import('./NarrationExportOptions');
+type NarrationChoice = Parameters<typeof NarrationExportOptions>[0]['value'];
 
 const VOICE = { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 };
 const CHOICE = { captions: false, audio: true, voice: VOICE, allowPartial: false };
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	measureOverride = null;
 	defaultBakeVoice.mockResolvedValue(VOICE);
 	voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
+	onDeviceBakeVoice.mockResolvedValue(null);
 });
+
+
+/** The panel is CONTROLLED: `value.voice` is the single source of truth and the parent owns it.
+ *  A test that clicks with a no-op `onChange` therefore observes nothing — which is precisely
+ *  how the narrator picker shipped writing to local state only. Interactive tests use this. */
+function statefulPanel(initial = CHOICE) {
+	const emitted: NarrationChoice[] = [];
+	const Harness = () => {
+		const [v, setV] = React.useState<NarrationChoice>(initial);
+		return (
+			<NarrationExportOptions
+				source={'---\ntheme: indaco\n---\n\n# One\n\nA sentence.\n'}
+				project={async () => ['A sentence.']}
+				value={v}
+				onChange={(next) => { emitted.push(next); setV(next); }}
+			/>
+		);
+	};
+	render(<Harness />);
+	return emitted;
+}
 
 const panel = () =>
 	render(
@@ -143,5 +182,164 @@ describe('the bill, which no assertion here used to look at', () => {
 		expect(bill).not.toMatch(/NaN/);
 		expect(bill).toMatch(/cost unknown until the catalog is reachable/i);
 		expect(bill).not.toMatch(/this model publishes no price/i);
+	});
+});
+
+// #1462 item 2. The on-device rung was reachable ONLY through `cloudReady === false`, so an
+// author who HAD a key and had rehearsed the whole deck on-device was measured against the
+// cloud voice, quoted for 100% of a deck already on their disk, and told by this panel that
+// they could "pick the voice you rehearsed in, to pay nothing". They could not: the pickers
+// were fed the OpenRouter catalog only. The panel gave advice the panel made impossible, and
+// the consequence was money.
+describe('choosing the narrator when BOTH a cloud key and an on-device voice exist', () => {
+	const DEVICE = { rung: 'kokoro' as const, model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+
+	beforeEach(() => {
+		listTtsCatalog.mockResolvedValue({ models: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', promptPerM: 0.62, completionPerM: null, voices: ['af_heart'] }], reachable: true });
+		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+	});
+
+	it('offers the on-device narrator even though a cloud voice IS connected', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		panel();
+		const pick = await screen.findByRole('button', { name: /This device/i });
+		expect(pick).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Cloud voice/i })).toBeTruthy();
+	});
+
+	it('defaults to the cloud voice, so a deck still ships sounding like the rehearsal', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		panel();
+		const cloud = await screen.findByRole('button', { name: /Cloud voice/i });
+		expect(cloud.getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('false');
+	});
+
+	it('WRITES the identity the bake will use — not just the one the panel measures', async () => {
+		// The defect this pins cost real money and shipped past three panel tests. The pick used
+		// to live in component state and feed only the pre-flight, so an author who turned audio
+		// on (defaulting to cloud) and then chose "This device" was measured against the device
+		// voice, told "nothing is billed", and then baked with the CLOUD voice — the whole deck
+		// synthesized and charged. Quoted $0, billed in full.
+		//
+		// The tests that missed it passed `onChange={() => {}}` with a constant `value`, so they
+		// could only ever see the measurement. THIS asserts the emitted choice.
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		const emitted = statefulPanel();
+		const btn = await screen.findByRole('button', { name: /This device/i });
+		await act(async () => { btn.click(); });
+		const last = emitted[emitted.length - 1];
+		expect(last, 'the pick must reach the caller at all').toBeTruthy();
+		expect(last.voice.rung, 'and it must carry the on-device identity the bake reads').toBe('kokoro');
+		expect(last.voice.voice).toBe('af_sky');
+	});
+
+	it('switching back to the cloud restores the author\'s own model and voice', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		const emitted = statefulPanel();
+		// Resolve the buttons OUTSIDE act() — a findBy* poll inside it does not see the async
+		// availability effect flush, and the node identity is stable across the re-measure.
+		const device = await screen.findByRole('button', { name: /This device/i });
+		const cloud = await screen.findByRole('button', { name: /Cloud voice/i });
+		await act(async () => { device.click(); });
+		await act(async () => { cloud.click(); });
+		const last = emitted[emitted.length - 1];
+		expect(last.voice.rung, 'back to the cloud identity').not.toBe('kokoro');
+		expect(last.voice.model, 'and the author\'s own model survived the detour').toBe(VOICE.model);
+		expect(last.voice.voice).toBe(VOICE.voice);
+	});
+
+	it('picking it names the rehearsed voice and promises no bill', async () => {
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		statefulPanel();
+		const btn = await screen.findByRole('button', { name: /This device/i });
+		await act(async () => { btn.click(); });
+		await waitFor(() => expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('true'));
+		const copy = (document.body.textContent ?? '').replace(/\s+/g, ' ');
+		expect(copy, 'the voice actually rehearsed in, not the cloud one').toMatch(/af_sky/);
+		expect(copy).toMatch(/nothing is billed/i);
+	});
+
+	it('does not offer the choice when the model is on disk but not LOADED', async () => {
+		// `kokoroReady`, not `kokoroReady || kokoroCached`. "Cached" means the weights are on
+		// disk; the offer promises a voice that answers NOW, and a cached-but-unloaded model has
+		// to be fetched into memory and warmed first. Offering it there is a button that appears
+		// to cost nothing and then stalls the export on a load the panel never mentioned.
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+		panel();
+		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByRole('button', { name: /This device/i })).toBeNull();
+	});
+
+	it('does not offer the choice when there is no on-device voice at all', async () => {
+		onDeviceBakeVoice.mockResolvedValue(null);
+		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
+		panel();
+		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByRole('button', { name: /This device/i })).toBeNull();
+	});
+});
+
+describe('the copy at rest', () => {
+	it('never claims the deck is part-rehearsed before anything has been measured', async () => {
+		// `measure` only runs once a switch is on. The old copy asserted at rest that "part of
+		// this deck has not been rehearsed yet" — a statement about a count nobody had taken, and
+		// false for the author it was shown to. Flipping the UNRELATED Captions switch then
+		// started the measurement and silently reversed it.
+		listTtsCatalog.mockResolvedValue({ models: [], reachable: true });
+		voiceAvailability.mockResolvedValue({ rung: 'kokoro', openRouterReady: false, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+		onDeviceBakeVoice.mockResolvedValue({ rung: 'kokoro' as const, model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 });
+		render(
+			<NarrationExportOptions
+				source={'---\ntheme: indaco\n---\n\n# One\n\nA sentence.\n'}
+				project={async () => ['A sentence.']}
+				value={{ captions: false, audio: false, voice: VOICE, allowPartial: false }}
+				onChange={() => {}}
+			/>,
+		);
+		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
+		expect(document.body.textContent ?? '').not.toMatch(/has not been rehearsed yet/i);
+	});
+});
+
+// A REHEARSED deck is the case this panel is least likely to be read carefully on, and the one
+// where it was most wrong. Compression moved to the bake, so the export now re-encodes every
+// clip the device already holds — free, but tens of seconds for a long deck. The panel went on
+// saying "free and instant" and showed no duration at all, because the duration line hung off
+// the SYNTHESIS branch, which a fully-prepared deck does not take.
+describe('a fully-rehearsed deck states its wait', () => {
+	const REHEARSED = { total: 4, cached: 4, cachedBytes: 40_000, missing: 0, missingChars: 0, missingBytes: 0, estCostUsd: null };
+
+	async function rehearsed(extra: Record<string, unknown>) {
+		measureOverride = { ...REHEARSED, ...extra };
+		listTtsCatalog.mockResolvedValue({ models: [{ id: VOICE.model, name: 'Kokoro', voices: ['af_heart'] }], reachable: true });
+		render(<NarrationExportOptions source={'---\ntheme: indaco\n---\n\n# One\n\nA sentence.\n'} project={async () => ['A sentence.']} value={CHOICE} onChange={() => {}} />);
+		// NOT /already prepared/ — the SPINNER says "checking what this device has already
+		// prepared…", so that regex matches before the measurement exists and every assertion
+		// below then reads an empty bill. Wait for a line only the settled bill renders.
+		await screen.findByText(/To synthesize/i);
+		return (document.body.textContent ?? '').replace(/\s+/g, ' ');
+	}
+
+	it('does not promise "instant" for a voice the export has to encode', async () => {
+		const copy = await rehearsed({ transcoded: true, estSeconds: 32 });
+		expect(copy, 'the promise the encode broke').not.toMatch(/free and instant/i);
+		expect(copy, 'still free — only the "instant" half was false').toMatch(/no charge/i);
+	});
+
+	it('shows the time even though there is nothing to synthesize', async () => {
+		const copy = await rehearsed({ transcoded: true, estSeconds: 32 });
+		expect(copy).toMatch(/Takes about/i);
+		expect(copy, 'formatDuration(32)').toMatch(/32 ?s/i);
+	});
+
+	it('keeps "free and instant" for a voice that ships its own compressed audio', async () => {
+		// The cloud engines that return mp3 are untouched by the bake, so a cached clip really
+		// is copied straight into the file. Narrowing the claim must not widen into a lie the
+		// other way — an honest panel does not hedge a wait that does not exist.
+		const copy = await rehearsed({ transcoded: false, estSeconds: 0 });
+		expect(copy).toMatch(/free and instant/i);
+		expect(copy, 'no wait, so no line about one').not.toMatch(/Takes about/i);
 	});
 });

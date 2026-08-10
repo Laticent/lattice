@@ -26,20 +26,84 @@ const DB_VERSION = 1;
 const CLIPS = 'clips';
 const META = 'meta';
 
-/** Default on-device budget for synthesized narration. ~100 MB holds several fully
- *  prepared decks (a spoken sentence is typically 10–40 KB of mp3) while staying well
- *  inside a normal origin quota. Exported so the Workspace surface and the tests read
- *  the same number. */
-export const DEFAULT_BUDGET_BYTES = 100 * 1024 * 1024;
+/**
+ * Default on-device budget for synthesized narration.
+ *
+ * SIZED FOR THE BIGGEST CLIPS, not the smallest. The previous 100 MB was reasoned from "a
+ * spoken sentence is typically 10–40 KB of mp3" — true for the seven engines that return
+ * compressed audio, and wrong for the two that do not. On-device Kokoro and Gemini hand back
+ * raw 24 kHz 16-bit mono, which this repo measures at ~3.8 KB per CHARACTER (the Gemini row of
+ * `ENGINE_BYTES_PER_CHAR` before compression), five to twenty times the figure the old budget
+ * assumed.
+ *
+ * WHAT A SENTENCE ACTUALLY COSTS, measured over the 384 narrated sentences in `examples/`:
+ * 49 characters at the median, 59 on average, 103 at p90 — so ~190 KB, ~225 KB and ~390 KB of
+ * raw audio respectively. A deck of long sentences costs twice a deck of short ones, which is
+ * why this is a range and not a figure.
+ *
+ * So the cache held ~4,000 sentences for most voices and barely 450–550 — under two full decks
+ * — for those two. Past that the LRU evicts, and eviction means re-synthesis: free but slow
+ * on-device, and BILLED for Gemini. The whole point of persisting a clip is not paying for it
+ * twice, and that promise did not hold for exactly the voices whose audio is largest.
+ *
+ * 400 MB puts them at roughly 1,000–2,200 sentences depending on how long a deck's sentences
+ * run — call it four to seven decks — in the same range the compressed engines already
+ * enjoyed. It remains well inside a normal origin quota — browsers typically allow an origin a
+ * large fraction of free disk — and the LRU still bounds it. The Workspace's Data tab shows
+ * what is actually used, so a large ceiling is not a large footprint.
+ *
+ * Exported so the Workspace surface and the tests read the same number.
+ */
+export const DEFAULT_BUDGET_BYTES = 400 * 1024 * 1024;
 
 let budgetBytes = DEFAULT_BUDGET_BYTES;
 /** Override the LRU budget (Workspace control / tests). Values ≤ 0 are ignored. */
 export function setBudgetBytes(n) {
   if (Number.isFinite(n) && n > 0) budgetBytes = n;
+  storedBytes = null;
+  quotaCapBytes = Infinity;
 }
 export function getBudgetBytes() {
   return budgetBytes;
 }
+
+/**
+ * The budget the ORIGIN will actually allow, discovered the only way that never lies: by
+ * being refused a write.
+ *
+ * A budget is a ceiling WE choose; the quota is a ceiling the browser chooses, from a
+ * fraction of free disk, and it can be the smaller of the two on a nearly-full machine.
+ * When it is, nothing here notices: the store stays under 400 MB so the LRU never runs, every
+ * write fails with QuotaExceededError, `putClip` swallows it, and the cache freezes at
+ * whatever size it reached — permanently, silently, with the "never pay twice" promise quietly
+ * no longer holding. Raising the budget from 100 MB to 400 MB made that trap four times easier
+ * to fall into, so it is closed here rather than left as the price of the raise.
+ *
+ * On a refusal the ceiling drops to 80% of what is stored and the LRU is run against THAT, so
+ * the store self-limits to what the device will take. Floored, because a cache of nothing is
+ * not a graceful degradation — below the floor the in-memory cache is the honest answer.
+ */
+let quotaCapBytes = Infinity;
+const MIN_BUDGET_BYTES = 16 * 1024 * 1024;
+const effectiveBudget = () => Math.min(budgetBytes, quotaCapBytes);
+
+/**
+ * Running total of stored bytes, or null when it is not known.
+ *
+ * `evictToBudget()` used to run `clipStats()` — `meta.getAll()`, a full scan of every row —
+ * on EVERY clip write, and clip writes happen unawaited while narration is playing. At the
+ * 100 MB budget's ~550-row steady state that was tolerable; at 400 MB's ~2,200 rows it is
+ * four times the main-thread work per sentence, on the reading path, in a change whose whole
+ * purpose was taking work OFF that path.
+ *
+ * So the total is carried instead of re-read, and the scan happens only when it must: when
+ * the total is unknown, when it says we are over budget, or every `SCAN_EVERY` writes to
+ * bound the drift (another tab writing, or an overwrite counted as an addition — see
+ * `putClip`, which errs HIGH so the error is always toward evicting sooner).
+ */
+let storedBytes = null;
+let writesSinceScan = 0;
+const SCAN_EVERY = 64;
 
 // The recency stamp: monotonic WITHIN THIS TAB, not a bare `Date.now()`.
 //
@@ -208,16 +272,47 @@ export async function putClip(key, blob) {
     const bytes = await blob.arrayBuffer();
     if (!bytes?.byteLength) return false;
     const db = await openDB();
-    const at = nextStamp();
-    await write(db, (clips, meta) => {
-      clips.put({ key, bytes, type: blob.type || 'audio/mpeg' });
-      meta.put({ key, size: bytes.byteLength, at });
-    });
-    await evictToBudget();
+    const store = async () => {
+      const at = nextStamp();
+      await write(db, (clips, meta) => {
+        clips.put({ key, bytes, type: blob.type || 'audio/mpeg' });
+        // `type` rides in meta so the export's PRE-FLIGHT can tell a compressed clip from an
+        // uncompressed one without materializing a byte of audio — see `clipSizes`.
+        meta.put({ key, size: bytes.byteLength, at, type: blob.type || 'audio/mpeg' });
+      });
+    };
+    try {
+      await store();
+    } catch (e) {
+      // The origin quota is below our budget. Drop the ceiling to what this device will
+      // actually hold, trim to it, and write once more — rather than returning false forever
+      // while the LRU sits idle because we are nominally under budget. See `quotaCapBytes`.
+      if (!isQuotaError(e)) throw e;
+      const { bytes: have } = await clipStats();
+      quotaCapBytes = Math.max(MIN_BUDGET_BYTES, Math.floor(have * 0.8));
+      await evictToBudget();
+      await store();
+    }
+    // Counted as an ADDITION even when it overwrites an existing key: knowing the difference
+    // would cost a read per write, and the two sizes are near-identical anyway (the key is
+    // content-complete, so a re-put is the same sentence in the same voice). The error runs
+    // high, which trims early rather than late — the safe direction for a quota.
+    if (storedBytes != null) storedBytes += bytes.byteLength;
+    writesSinceScan++;
+    if (storedBytes == null || storedBytes > effectiveBudget() || writesSinceScan >= SCAN_EVERY) {
+      await evictToBudget();
+    }
     return true;
   } catch {
     return false;
   }
+}
+
+/** A refusal by the STORAGE layer, told apart from an ordinary transaction failure. Named
+ *  rather than instance-checked: `DOMException` is not reliably comparable across the jsdom /
+ *  fake-indexeddb boundary the tests run on, and the name is the part the spec pins. */
+function isQuotaError(e) {
+  return e?.name === 'QuotaExceededError' || e?.name === 'NS_ERROR_DOM_QUOTA_REACHED';
 }
 
 /** `{count, bytes}` across every stored clip — the Data tab's stat line. Reads only the
@@ -229,6 +324,10 @@ export async function clipStats() {
     const rows = (await read(db, META, (meta) => meta.getAll())) || [];
     let bytes = 0;
     for (const m of rows) bytes += m.size || 0;
+    // The scan is paid for; bank its answer, so the carried total is re-anchored to the truth
+    // every time anything asks for the real figure (the Data tab, an eviction pass).
+    storedBytes = bytes;
+    writesSinceScan = 0;
     return { count: rows.length, bytes };
   } catch {
     return { count: 0, bytes: 0 };
@@ -282,10 +381,51 @@ export async function clipSizes(keys) {
   try {
     const db = await openDB();
     const rows = (await read(db, META, (meta) => meta.getAll())) || [];
-    for (const m of rows) if (want.has(m.key)) out.set(m.key, m.size || 0);
+    for (const m of rows) if (want.has(m.key)) out.set(m.key, { size: m.size || 0, type: m.type || '' });
     return out;
   } catch {
     return out;
+  }
+}
+
+/**
+ * Mark `keys` as just-used, so the LRU walk reaches them LAST.
+ *
+ * WHY A BAKE NEEDS THIS. The export's pre-flight counts a sentence as "already prepared — free
+ * and instant", and the bake then reads it back some minutes later. In between, every clip the
+ * bake SYNTHESIZES goes through `putClip`, which runs `evictToBudget()` on every write — so a
+ * long bake can evict the very clips its own quote counted as cached, and then re-synthesize
+ * and re-bill them. The panel's promise that "anything synthesized is kept, so a second attempt
+ * pays only for what is left" was true only modulo an eviction policy it never mentioned, and
+ * the bake could therefore bill MORE than quoted: the one direction a quote must never move
+ * (#1462 item 4).
+ *
+ * Touching the deck's own clips at the start of a bake makes them the most-recently-used
+ * entries in the store, so the budget is met by dropping OTHER decks' audio first. It is not a
+ * lock — a deck whose own narration exceeds the whole budget still cannot be held, and nothing
+ * here pretends otherwise — but it removes the case where a bake evicts its own quote.
+ *
+ * Touches `meta` only: no audio is read, written or moved.
+ */
+export async function touchClips(keys) {
+  // A SET, not an array: `meta` can hold thousands of rows and the keys are long JSON
+  // strings, so `Array.includes` per row is ~1.5M string comparisons on a 300-sentence deck,
+  // synchronously, immediately before the bake starts.
+  const want = new Set(Array.isArray(keys) ? keys.filter(Boolean) : []);
+  if (!want.size || typeof indexedDB === 'undefined') return 0;
+  try {
+    const db = await openDB();
+    const rows = (await read(db, META, (meta) => meta.getAll())) || [];
+    const present = rows.filter((m) => want.has(m.key));
+    if (!present.length) return 0;
+    await write(db, (_clips, meta) => {
+      // One stamp per row, monotonic within the tab — same reason `putClip` uses nextStamp()
+      // rather than Date.now(): same-millisecond ties make the LRU walk evict in key order.
+      for (const m of present) meta.put({ key: m.key, size: m.size, at: nextStamp(), type: m.type });
+    });
+    return present.length;
+  } catch {
+    return 0;
   }
 }
 
@@ -298,8 +438,11 @@ export async function clearClips() {
       clips.clear();
       meta.clear();
     });
+    storedBytes = 0;
+    writesSinceScan = 0;
   } catch {
     /* nothing to clear / no storage */
+    storedBytes = null;
   }
 }
 
@@ -327,8 +470,9 @@ function evictToBudget() {
 async function evictOnce() {
   try {
     const { bytes } = await clipStats();
-    if (bytes <= budgetBytes) return;
-    let over = bytes - budgetBytes;
+    if (bytes <= effectiveBudget()) return;
+    let over = bytes - effectiveBudget();
+    let freed = 0;
     const db = await openDB();
     await write(db, (clips, meta) => {
       const cursorReq = meta.index('at').openCursor();
@@ -339,11 +483,17 @@ async function evictOnce() {
         clips.delete(m.key);
         meta.delete(m.key);
         over -= m.size || 0;
+        freed += m.size || 0;
         cur.continue();
       };
     });
+    // Kept in step with what was deleted, rather than invalidated. Invalidating would force
+    // the next write to re-scan — and a store AT capacity is exactly where every write is,
+    // so that would reinstate the per-write full scan in the one state it is worst in.
+    if (storedBytes != null) storedBytes = Math.max(0, storedBytes - freed);
   } catch {
-    /* best-effort */
+    // The total can no longer be trusted: the deletes may have partly applied.
+    storedBytes = null;
   }
 }
 
@@ -352,6 +502,9 @@ export function __resetForTests() {
   dbPromise = null;
   budgetBytes = DEFAULT_BUDGET_BYTES;
   evictChain = Promise.resolve();
+  storedBytes = null;
+  writesSinceScan = 0;
+  quotaCapBytes = Infinity;
 }
 
 /** Test seam: resolve once every queued eviction has run. Eviction is deliberately fired

@@ -349,6 +349,21 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
     expect(requests[0]).toMatchObject({ model: 'the-export-model', voice: 'the-export-voice', input: 'A sentence from the deck.' });
   });
 
+  it('sends the SAME resolved voice it keys on, when the caller names no voice', async () => {
+    // A clip must never be banked under a key naming a voice it was not spoken in. The
+    // fallback to the stored pref used to be resolved twice — once for the key here, once
+    // inside the rung's own `voice || getVoice()` — and two expressions that agree by
+    // coincidence are how the latency key silently missed every lookup forever (#1352).
+    const requests: Array<{ model?: string; voice?: string }> = [];
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: okFetch(requests) });
+    model.setOrModel('the-workspace-model');
+    model.setOrVoice('the-workspace-voice');
+    const res = await model.synthFor({ rung: 'openrouter', text: 'No voice named.' });
+    expect(requests[0].voice, 'the voice that was actually spoken').toBe('the-workspace-voice');
+    expect(res.key, 'the voice the bytes are banked under').toContain('the-workspace-voice');
+    expect(res.key).toBe(model.clipKeyFor({ rung: 'openrouter', text: 'No voice named.' }));
+  });
+
   it('does NOT write the chosen voice back to the workspace prefs', async () => {
     // Picking a different narrator for one board deck is not a decision to re-record every
     // future rehearsal in that voice. The export panel's choice is per-export, full stop.
@@ -428,6 +443,93 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
       await vi.advanceTimersByTimeAsync(20000);
       await vi.advanceTimersByTimeAsync(25000);
       await expect(p).resolves.toMatchObject({ ok: false, error: expect.stringContaining('45s') });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('BANKS a clip that lands after the timeout — it was already paid for', async () => {
+    // A TTS request is billed when it is issued. Canceling the read does not refund it, so a
+    // sentence this call gave up on is already paid for and letting it finish costs nothing.
+    // Aborting instead threw away the money AND the audio: on a slow link the bake paid three
+    // times per sentence (once per attempt), banked nothing, and then refused the export.
+    vi.useFakeTimers();
+    try {
+      let land: (b: unknown) => void = () => {};
+      let fetches = 0;
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        // ABORT-AWARE, like the real fetch: it rejects the moment its signal aborts. A mock that
+        // ignored abort would let this test pass against the very code it exists to reject.
+        fetchImpl: (_u: string, opts: { signal?: AbortSignal }) => {
+          fetches++;
+          return new Promise((res, rej) => {
+            land = res;
+            opts.signal?.addEventListener('abort', () => rej(new Error('aborted')), { once: true });
+          });
+        },
+      });
+      const p = model.synthFor({ rung: 'openrouter', text: 'A slow sentence.', timeoutMs: 45000 });
+      await vi.advanceTimersByTimeAsync(45000);
+      await expect(p).resolves.toMatchObject({ ok: false, error: expect.stringContaining('45s') });
+      expect(fetches).toBe(1);
+
+      // The response arrives late — during what would have been the retry's backoff.
+      land({ ok: true, status: 200, blob: async () => ({ size: 8, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(8) }) });
+      await vi.advanceTimersByTimeAsync(0);
+
+      // The retry is now a CACHE HIT, not a second charge. This is also why letting the request
+      // run cannot re-open the "three billed requests for one sentence" defect: the second
+      // request is never ISSUED.
+      const retry = await model.synthFor({ rung: 'openrouter', text: 'A slow sentence.', timeoutMs: 45000 });
+      expect(retry.ok, 'the late clip was banked and served').toBe(true);
+      expect(fetches, 'the retry must not re-bill a sentence already paid for').toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ON-DEVICE, a timeout aborts AT ONCE — the scarce thing there is the inference slot, not money', async () => {
+    // The grace window exists to salvage audio that was already paid for. On the on-device rung
+    // nothing is paid for, and Kokoro runs ONE generation at a time: the serial queue only drops
+    // a superseded job when its signal aborts, so holding the abort for 60 s keeps a dead
+    // sentence in the slot the retry needs (measured at 105 s of blockage instead of 45, with
+    // the abandoned job and its retry both eventually running). The rung this PR just opened up
+    // for baking is exactly the one the delay hurts.
+    vi.useFakeTimers();
+    try {
+      let aborted = false;
+      const model = createVoiceModel({});
+      model.__setKokoroInference(({ signal }: { signal?: AbortSignal }) =>
+        new Promise((_res, rej) => {
+          signal?.addEventListener('abort', () => { aborted = true; rej(new Error('aborted')); }, { once: true });
+        }),
+      );
+      const p = model.synthFor({ rung: 'kokoro', text: 'A slow sentence.', timeoutMs: 45000 });
+      await vi.advanceTimersByTimeAsync(45000);
+      await p;
+      expect(aborted, 'the slot is freed the moment we stop waiting').toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('still aborts for real when the CALLER cancels — patience is dropped, cancellation is not', async () => {
+    vi.useFakeTimers();
+    try {
+      let aborted = false;
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        fetchImpl: (_u: string, opts: { signal?: AbortSignal }) =>
+          new Promise((_res, rej) => {
+            opts.signal?.addEventListener('abort', () => { aborted = true; rej(new Error('aborted')); }, { once: true });
+          }),
+      });
+      const ctl = new AbortController();
+      const p = model.synthFor({ rung: 'openrouter', text: 'Anything.', signal: ctl.signal });
+      ctl.abort();
+      await p;
+      expect(aborted, 'a canceled export must stop spending immediately').toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -707,21 +809,30 @@ describe('openrouter synth: PCM-only model quirk (Gemini 400s on mp3, only retur
     expect(requests[1].response_format).toBe('mp3');
   });
 
-  it('wraps the PCM response in a 44-byte-header WAV blob, reading sample rate/channels off Content-Type', async () => {
-    const fetchImpl = async () => ({
-      ok: true,
-      status: 200,
-      headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'audio/pcm;rate=24000;channels=1' : null) },
-      arrayBuffer: async () => new Uint8Array([10, 20, 30, 40]).buffer,
-    });
-    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl });
+  /** A PCM response of `samples` 16-bit samples at `rate`, as the Gemini route answers. */
+  const pcmResponse = (samples: number, rate = 24000) => async () => ({
+    ok: true,
+    status: 200,
+    headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? `audio/pcm;rate=${rate};channels=1` : null) },
+    arrayBuffer: async () => {
+      const pcm = new Int16Array(samples);
+      for (let i = 0; i < samples; i++) pcm[i] = Math.round(Math.sin((2 * Math.PI * 220 * i) / rate) * 12000);
+      return pcm.buffer;
+    },
+  });
+
+  it('wraps the PCM response in a WAV blob and does NOT compress it on the live path', async () => {
+    // Gemini is the one cloud model that answers in raw PCM. An earlier version encoded it to
+    // mp3 right here — on the main thread, on the path a live read uses — which is exactly the
+    // jank the Kokoro worker exists to avoid, and lamejs's missing gapless header opened every
+    // sentence with a fixed 46 ms of silence (1104 samples at 24 kHz) that nothing downstream
+    // can trim. Compression is an EXPORT concern now; playback gets exactly what the voice made.
+    const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: pcmResponse(2) });
     model.setOrModel('google/gemini-3.1-flash-tts-preview');
 
     const res = await model.synthOne({ text: 'Gemini line.' });
-    // The wrapped WAV is 44 header bytes + the 4 raw PCM bytes, tagged audio/wav — the
-    // exact blob-like the caller (Suono) will decode + play.
     expect(res.bytes?.type).toBe('audio/wav');
-    expect(res.bytes?.size).toBe(44 + 4);
+    expect(res.bytes?.size).toBe(44 + 4); // 44-byte header + 2 samples
     expect((await res.bytes!.arrayBuffer()).byteLength).toBe(44 + 4);
   });
 });

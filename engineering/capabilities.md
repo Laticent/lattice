@@ -315,7 +315,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/emulator-engine-parity.mjs` | Engine ↔ emulator HTML parity harness (P2 step 1 — see |
 | `tools/preview.js` | Preview tool — fast visual-iteration loop for Lattice decks. |
 | `tools/rasterize-for-review.sh` | Rasterize a PDF for inline review at FULL QUALITY. |
-| `tools/regression-gate.mjs` | Render every committed deck fresh, pixel-diff it against its golden PDF, and fail on unblessed drift. |
+| `tools/regression-gate.mjs` | Visual regression gate — engine-parity's single-renderer successor. |
 | `tools/screenshot-slides.js` | Screenshot each slide of a rendered deck to PNGs (dev helper). |
 | `tools/screenshot.js` | Screenshot a URL to a PNG with the puppeteer-cached Chromium. |
 
@@ -392,10 +392,10 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/fetch-emoji-font.js` | Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier. |
 | `tools/fetch-video-oembed.js` | fetch-video-oembed.js — the BUILD-TIME (authoring-time) half of the `video` |
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
-| `tools/golden-diff.mjs` | Post a PR comment + before/after montage of the gallery slides whose committed golden moved vs the base branch. |
+| `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
-| `tools/verify-catalog-states.mjs` | Everything it demonstrated was jsdom + a stubbed fetch — code-path-exact, but by HARD |
-| `tools/verify-narrated-player.mjs` | HARD RULE #23: "verified" names a surface and carries an artifact from it. The claim here |
+| `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
+| `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |

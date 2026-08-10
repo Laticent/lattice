@@ -3298,12 +3298,16 @@ function checkVoiceSampleAssets(errors) {
       );
       continue;
     }
-    const ext = def.audioFormat === 'wav' ? 'wav' : 'mp3';
+    // ALWAYS mp3, for every engine — `audioFormat` names what the PROVIDER returns, while the
+    // generator encodes a PCM-only response to mp3 before committing it, so the sample set is
+    // one codec throughout. This gate is therefore also what keeps a re-introduced .wav from
+    // silently landing back in the tree: it now reads as an orphan in every engine directory.
+    const ext = 'mp3';
     // Mirrors tools/generate-voice-samples.mjs's own safeFilename EXACTLY — a voice
     // id can carry a ":" (invalid in a Windows filename, e.g. MAI-Voice-2's ids).
     const want = new Set(def.cachedVoices.map((id) => `${id.replace(/:/g, '_')}.${ext}`));
     // The full listing (not filtered to `.${ext}`) — a file with the WRONG
-    // extension (e.g. a stray .mp3 in a wav-format engine's directory) is exactly
+    // extension (e.g. a leftover .wav from before the samples were compressed) is exactly
     // as orphaned as one with a retired voice id, and should be flagged the same way.
     const have = new Set(fs.readdirSync(dir));
     for (const f of want) {

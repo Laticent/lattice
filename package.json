@@ -263,6 +263,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "@breezystack/lamejs": "^1.2.7",
     "@types/react": "^19.2.17",
     "acorn": "^8.17.0",
     "axe-core": "^4.12.1",

@@ -41,6 +41,159 @@ in patch versions.
   `.code`-slide gap they would have covered, are recorded in the follow-up issue rather than
   left in dead CSS.
 
+- **A narrated deck is now several times smaller, because its audio is finally compressed.**
+  Two of the nine speech engines hand back raw, uncompressed audio — on-device Kokoro and
+  Gemini — and both shipped that way: a 300-sentence deck narrated on-device came to roughly
+  145 MB where the same deck in a cloud voice came to 19 MB. Both are encoded to mp3 when the
+  file is built, so the saving reaches the shipped webpage without touching how narration sounds
+  while you read. Measured on this repo's own committed Gemini sample: **132 KB → 22 KB, 5.9×
+  smaller**, which puts those two engines inside the range the seven mp3 engines already ship at
+  rather than 7.7× above it. Audio that is already compressed is never re-encoded (that would be
+  generation loss paid for nothing), and a clip that cannot be encoded — an exotic sample rate —
+  still ships uncompressed rather than ship wrong. Workspace → Voice → **Audio quality** sets the
+  bitrate (48/64/96/128 kbps, default 64) and applies to every export, including decks rehearsed
+  before you changed it; nothing is re-synthesized and nothing is re-billed.
+
+  **The silence the encoder adds is skipped, not shipped.** mp3 encoders put a fixed slug of
+  silence at the head of every stream, and this one writes no header telling a decoder to trim
+  it — so a compressed clip would start ~46 ms after its own caption, on every sentence, in the
+  copy your recipient opens. The exported player is told how much to skip, seeks past it, and
+  re-anchors the word crawl to the real speech rather than the padded length. Without it,
+  compressing for export would have moved the gaps you hear while reading onto the deck you
+  send someone, where nobody can fix them.
+
+  **The export panel states the wait, not just the bill.** Because compression now happens when
+  the file is built, a deck you have already rehearsed on-device is still free to export — but it
+  is no longer instant, since every sentence is encoded on the way out. The panel used to promise
+  "free and instant" and showed a time only for sentences it had to record, so the one case that
+  spends the most time on a bill of zero showed no time at all. It now says *no charge* for a
+  voice it has to encode, and gives the wait its own line whenever there is one.
+
+  **A larger cache does not mean a slower read, or a stuck one.** Raising the on-device budget
+  to 400 MB brought two costs with it, both fixed here rather than shipped as its price. Writing
+  a clip used to re-read the whole store's index to decide whether to evict — four times the
+  work per sentence at the larger size, on the path you are listening to — so the total is now
+  carried and the full read happens only when it must. And a device whose own storage quota is
+  *below* the budget used to refuse every write silently, freezing the cache forever with the
+  "never pay twice" promise quietly no longer holding; a refusal now lowers the ceiling to what
+  the device will take and trims to it.
+
+  **Compression happens at export, never while you read.** An earlier build of this compressed
+  as each sentence was recorded, to shrink the on-device cache too. It also put a codec on the
+  live reading path, and that cost more than it saved: the encoder writes no gapless header, so
+  every clip came back **56–70 ms longer than the audio that went into it** — a fixed 46 ms of
+  that at the front, the rest trailing padding. On every sentence — audio starting after its
+  caption, the tuned breath
+  between sentences a third longer, ~17 seconds added across a 300-sentence deck. Narration kept
+  on this device is now stored exactly as the voice made it, and the encoder runs once, on the
+  way into the file you share.
+  The bake also compresses anything uncompressed on its way into the file, which covers clips
+  recorded before this landed; if the compressor itself cannot be loaded the export stops rather
+  than silently shipping several times the size it quoted.
+  The 30 committed Gemini voice samples were re-encoded the same way, taking **3.15 MB out of
+  the repository**, and `ENGINE_BYTES_PER_CHAR` was re-measured from them (gemini 3799 → 645
+  B/char) so the quote and the file still come from one reading.
+
+- **The voice you rehearsed with is now a narrator you can actually pick.** The on-device voice
+  was reachable in the webpage export only when no cloud voice was connected — so an author who
+  had a key *and* had rehearsed the whole deck on their own machine was measured against the
+  cloud voice, quoted for 100% of a deck already sitting on their disk, and told by the panel
+  that they could "pick the voice you rehearsed in, to pay nothing". They could not: the pickers
+  offered the cloud catalog only. Share → Webpage now offers **This device** and **Cloud voice**
+  as an explicit choice whenever both exist, defaulting to cloud so a deck still ships sounding
+  like the rehearsal. The on-device voice can also record what is missing now, not just ship
+  what it already had — free, with no key and no request — which the compression change above is
+  what made reasonable. It still refuses rather than silently pulling an 80 MB model: if the
+  on-device voice is not loaded, the export says so and tells you where to summon it.
+
+- **Narration kept on this device no longer evicts itself after a deck and a half.** The
+  on-device cache budget was reasoned from "a spoken sentence is typically 10–40 KB of mp3" —
+  true for the seven voices that return compressed audio, and wrong for the two that hand back
+  raw samples, where a four-second sentence is nearer 190 KB. Those two therefore filled the
+  cache after roughly 550 sentences, under two full decks, and then started dropping clips. An
+  evicted clip has to be made again: slow but free on-device, and **billed** for Gemini — so the
+  one promise a cache exists to make, that you never pay twice for the same sentence, did not
+  hold for exactly the voices whose audio is largest. The ceiling is now sized for the biggest
+  clips rather than the smallest (~2,200 sentences for those voices, in the same range the
+  others already had). It is a ceiling, not a footprint: the LRU still bounds it, and Workspace
+  → Data shows what is actually stored.
+
+- **The narrator you pick is the narrator you are billed for.** The new **This device / Cloud
+  voice** choice originally moved only the *estimate*: an author who turned audio on and then
+  chose the on-device voice was shown "nothing is billed" and then charged for the whole deck in
+  the cloud voice, because the export reads a different value than the panel measured. The chosen
+  narrator is now written into the export's own choice, so the quote and the bill are computed
+  from one value and cannot disagree.
+
+- **The export panel no longer states things it has not measured.** At rest it claimed part of
+  the deck "has not been rehearsed yet" — a statement about a count nobody had taken, and false
+  for the author reading it — and flipping the unrelated Captions switch started the measurement
+  and silently reversed it. A measurement taken without a full read of the deck is now shown as
+  a floor rather than a size, instead of being presented as a price.
+
+- **Narrated exports have a size ceiling, and the quote can no longer be exceeded by the bake.**
+  Nothing capped the payload anywhere, and the browser holds it five or six times over while
+  assembling (23.4 MB of clips measured at 260 MB of memory before the tab's own copies), so a
+  large deck did not fail politely — it took the tab with it. The bake now refuses past a
+  ceiling and says what to do about it, and the panel warns when a file passes the ~25 MB most
+  mail servers accept. Separately, a long bake could evict the very clips its own quote counted
+  as free — every synthesized clip triggers a cache trim — and then re-synthesize and re-bill
+  them, billing *more* than quoted. A bake now protects its own deck's audio from its own
+  writes.
+
+- **The size quote follows the Audio quality setting.** mp3 size is exactly linear in bitrate,
+  and the setting governs the two engines whose audio Lattice encodes itself — but the estimate
+  read only a per-engine table measured at the default. An author on 128 kbps was quoted half the
+  real size, and both payload warnings gated on the same halved number: the under-quote the byte
+  table exists to prevent, reintroduced by the setting itself. Audio that Lattice encodes is now
+  priced from duration and bitrate; audio that arrives already compressed keeps its measured
+  per-engine rate, since the setting is not in that path. Relatedly, the panel no longer suggests
+  lowering Audio quality when there is nothing left to record — for a fully rehearsed deck that
+  advice changes nothing, and offering it would be another instruction the panel cannot honor.
+
+- **On-device narration stops immediately when it times out.** A synthesis that overran its
+  deadline is left running for a grace window so its bytes can still be banked — right for a
+  cloud request, which is billed the moment it is issued, and wrong on-device, where nothing is
+  paid for and the thing being held is the only inference slot there is. A stuck sentence blocked
+  the retry that was waiting for that slot. Cloud requests keep the grace window; the on-device
+  rung now aborts at once.
+
+- **LAME's licence notice ships with the site that uses it.** Narration is compressed in the
+  browser by a JavaScript port of LAME (LGPL-3.0), which asks for acknowledgment and a link
+  rather than a bundled text. The deployed docs site now serves `/third-party-licenses.txt`, and
+  the notice is vendored in `assets/licenses/` so it is reviewable in the diff like the others.
+
+- **A shared deck's manifest says what narrated it, in terms that will still make sense later.**
+  The `readAlong` section carried neither a `version` (the field whose whole purpose is to let a
+  future player migrate an old file rather than treat "missing" as a legacy dialect forever) nor
+  an `audioMode` (so nothing could say whether a file speaks on its own or needs a key), while
+  carrying `rung` — the name of an internal Studio code path — in a document format that goes
+  out to boards. It now carries `version`, `audioMode`, and `engine: "on-device" | "cloud"`.
+
+- **Fixed: a slide could disable the exported player's own buttons just by naming an element.**
+  The document body of a shared webpage export *is* deck content, `id` survives sanitization,
+  and the player's chrome is emitted after the slides — so a deck containing an element with
+  `id="lp-next"` won tree order and the shipped **Next** button ended up with no click handler
+  at all. Keyboard navigation still worked, which is why it went unnoticed: nothing looked
+  wrong until a viewer clicked the control. Every chrome lookup is now ANCHORED: the shell and
+  the transport bar are resolved once via `body > #lp-app` / `body > #lp-bar` — positions a slide
+  can never occupy, because every slide is nested inside the stage — and each control is then
+  queried relative to that root. Scoping the selector alone was not enough, and the first attempt
+  at this fix did not work: a descendant selector like `#lp-app > #lp-nav > #lp-next` also matches
+  a chain a slide builds itself, and since the chrome is emitted after the slides the forged copy
+  won. Twelve lookups fell to that, including the caption band, which had been "scoped" this way
+  since narration first shipped. Verified by clicking the real controls in a real browser against
+  a deck that forges both the flat and the chained form (`tools/verify-narrated-player.mjs`).
+
+- **Fixed: narration the bake had already paid for was thrown away on a slow connection.**
+  A speech request is billed when it is issued, so a sentence that overran the export's 45-second
+  ceiling was already paid for — but the export aborted it, discarding both the money and the
+  audio, then issued a fresh request. On a link where sentences genuinely run long that billed
+  three times per sentence, banked nothing, and refused the export. The timeout now stops
+  *waiting* without stopping the request: the response lands, the clip is banked, and the retry
+  is a cache hit rather than a second charge. Canceling an export still stops spending
+  immediately — what is dropped is the exporter's patience, never the author's cancellation.
+
 - **Slide search understands what you want to say, not just what a component is called.**
   Typing "who owns what on the team" or "where do users drop off" into the add-slide gallery,
   the Playground picker or the `/components` index now returns a ranked shortlist with a match
@@ -752,7 +905,7 @@ in patch versions.
   - **Narration audio** ships the voice itself as inline `data:` URIs. The device answers
     first — every sentence rehearsed in Present is already stored and costs nothing — and
     whatever is missing is synthesized at export in the chosen voice, banked in the store as
-    it lands, so a cancelled or failed run is never wasted money.
+    it lands, so a canceled or failed run is never wasted money.
   - **An incomplete set is refused.** If any sentence cannot be prepared, the export names the
     sentences and writes nothing. A live delivery that stumbles is a gap the author can hear
     and re-run; a baked file is opened once, by someone else, with no way to fix it — so the
@@ -3719,7 +3872,7 @@ in patch versions.
   the front-matter-STRIPPED body (`splitSlides(stripFrontMatter(source))`). A front-matter block's closing
   `---` is newline-flanked, so it matched the separator regex and was counted as separator #0: selecting
   rail slide *k* scrolled the editor to slide *k−1*, and a caret in slide 0 reported slide 1 to the rail.
-  Both directions were wrong the same way, so they compounded rather than cancelled. `slideStartOffset(src, 0)`
+  Both directions were wrong the same way, so they compounded rather than canceled. `slideStartOffset(src, 0)`
   framed the YAML block itself. A second, rarer shift stacked on top: `splitSlides` DROPS empty chunks and a
   raw separator count does not, so a stray double separator moved every later slide by one more.
   Both now derive from one `slideRanges` helper that indexes exactly what `splitSlides` returns, so the
@@ -11665,7 +11818,7 @@ in patch versions.
   rendered parsed lens labels via `innerHTML` — safe for the static demo but a copy-paste XSS footgun on a
   security-shaped reference page; labels now use `textContent`. (4) `/lente`'s storyboard beats scheduled
   deferred `setTimeout` steps that were never cleared, so a Stop / Reset / beat-switch let them fire out
-  of order after the user moved on; every beat timer is now tracked and cancelled on interruption (the same
+  of order after the user moved on; every beat timer is now tracked and canceled on interruption (the same
   discipline already applied to `/cadenza` and `/vetrina`). Also dropped an inaccurate "a scoping lens can
   be a redaction" line from the `/lente` demo (client-side filtering hides, it does not withhold bytes).
   (`docs/src/pages/cadenza.astro`, `docs/src/pages/lente.astro`.)

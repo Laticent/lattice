@@ -1578,19 +1578,22 @@ describe('check-ownership', () => {
       });
     });
 
-    test('fires on a file with the wrong extension for the engine\'s declared audioFormat', () => {
+    test('fires on a leftover .wav — every committed sample is mp3, whatever the wire returned', () => {
       withSandboxedSamplesDir(() => {
-        // gemini declares audioFormat: "wav" — a stray .mp3 there is as orphaned as a retired voice id.
+        // gemini declares audioFormat:"wav", but that names THE WIRE (its endpoint answers in raw
+        // PCM), not the file: the generator encodes that PCM to mp3 before committing it. So a
+        // .wav in this directory is a leftover from before the samples were compressed, and is as
+        // orphaned as a retired voice id — which is what keeps 3.8 MB of WAV from creeping back.
         const dir = path.join(SAMPLES_DIR, 'gemini');
         fs.mkdirSync(dir, { recursive: true });
         for (const v of ['Puck', 'Charon', 'Kore', 'Aoede', 'Fenrir', 'Leda', 'Orus', 'Zephyr', 'Umbriel', 'Autonoe']) {
-          fs.writeFileSync(path.join(dir, `${v}.wav`), 'x');
+          fs.writeFileSync(path.join(dir, `${v}.mp3`), 'x');
         }
-        fs.writeFileSync(path.join(dir, 'Puck.mp3'), 'x'); // wrong extension
+        fs.writeFileSync(path.join(dir, 'Puck.wav'), 'x'); // the uncompressed leftover
         const errors = [];
         checkVoiceSampleAssets(errors);
-        assert.ok(errors.some((e) => /gemini\/Puck\.mp3 is a stale\/orphaned sample/.test(e)));
-        assert.ok(!errors.some((e) => /gemini\/Puck\.wav is missing/.test(e))); // the correctly-named file still satisfies the roster
+        assert.ok(errors.some((e) => /gemini\/Puck\.wav is a stale\/orphaned sample/.test(e)));
+        assert.ok(!errors.some((e) => /gemini\/Puck\.mp3 is missing/.test(e))); // the correctly-named file still satisfies the roster
       });
     });
   });

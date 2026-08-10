@@ -15,49 +15,106 @@ const banked: string[] = [];
 const script = new Map<string, (number | string)[]>();
 /** Every text a synthesis was attempted for, in order. */
 const attempts: string[] = [];
+/** Every key the bake marked as recently-used, so its own quote cannot be evicted mid-run. */
+const touched: string[] = [];
 /** The error returned for any text with no script entry — so a test can make EVERY sentence
  *  fail the same way, which is what a revoked key or an exhausted balance actually looks like. */
 let defaultError = 'no audio returned';
+/** The "keep narration on this device" workspace switch, as the bake sees it. */
+let narrationCacheOn = true;
+/** The workspace Audio quality setting, as the bake sees it. */
+let mockBitrate = 64;
+/** Lets a test hand the bake a REAL clip (e.g. a legacy WAV) instead of a size-only stand-in. */
+let getClipOverride: ((key: string) => unknown) | null = null;
+/** Per-key stored MIME. Absent = 'audio/mpeg'; set 'audio/wav' for a pre-compression clip. */
+const storedType = new Map<string, string>();
+
+/** Can THIS session compress at all? The real `encoderAvailable` says yes here (lamejs loads
+ *  fine under node), so the encoder-down refusal — the branch that decides whether a deck
+ *  ships six times its quoted size or does not ship — had no way to be reached from a test. */
+let encoderUp = true;
+
+vi.mock('@/playground/narration-encode.js', async (importOriginal) => {
+	const real = await importOriginal<typeof import('@/playground/narration-encode.js')>();
+	return {
+		...real,
+		// Both, deliberately: a dead encoder makes `compressClip` return null AND
+		// `encoderAvailable` false, and the bake's guard is the CONJUNCTION of the two. Faking
+		// only one of them would test a state that cannot occur.
+		encoderAvailable: async () => (encoderUp ? real.encoderAvailable() : false),
+		compressClip: async (blob: Blob, kbps?: number) => (encoderUp ? real.compressClip(blob, kbps) : null),
+	};
+});
 
 const clipOf = (size: number, type = 'audio/mpeg') => ({ size, type, arrayBuffer: async () => new ArrayBuffer(size) });
 
+vi.mock('@/playground/narration-prefs.js', () => ({
+	narrationCacheEnabled: () => narrationCacheOn,
+	narrationBitrate: () => mockBitrate,
+}));
+
 vi.mock('@/playground/narration-store.js', () => ({
 	getClip: async (key: string) => {
+		if (getClipOverride) return getClipOverride(key);
 		const size = stored.get(key);
 		return size ? clipOf(size) : null;
 	},
 	putClip: async (key: string, blob: { size: number }) => {
 		banked.push(key);
 		stored.set(key, blob.size);
+		getClipOverride = null; // a re-banked clip supersedes the override, like the real store
 	},
-	clipSizes: async (keys: string[]) => new Map(keys.filter((k) => stored.has(k)).map((k) => [k, stored.get(k) as number])),
+	// `{size, type}` — the shape the real index returns, so a test can express a clip cached
+	// BEFORE compression shipped (WAV) as distinct from one cached after (mp3).
+	clipSizes: async (keys: string[]) => new Map(keys.filter((k) => stored.has(k)).map((k) => [k, { size: stored.get(k) as number, type: storedType.get(k) ?? 'audio/mpeg' }])),
+	touchClips: async (keys: string[]) => {
+		const hit = keys.filter((k) => stored.has(k));
+		touched.push(...hit);
+		return hit.length;
+	},
 }));
+
+/** The cache-key shape voice-model actually produces, including the rung the caller chose.
+ *  `'kokoro'` is the on-device rung's own `.name`; everything else resolves to the cloud one. */
+const rungKey = (text: string, voice: BakeVoice) => JSON.stringify([voice.rung === 'kokoro' ? 'kokoro' : 'openrouter-tts', voice.model, voice.voice, voice.speed, text]);
 
 vi.mock('./read-aloud', async (importOriginal) => ({
 	...(await importOriginal<typeof import('./read-aloud')>()),
 	// The key builder, standing in for voice-model's — same content-complete JSON shape, so a
 	// test that reconstructs a key by hand fails here exactly as it would in the browser.
-	bakeClipKeys: async (perSlide: string[][], voice: BakeVoice) => perSlide.map((row) => row.map((text) => JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]))),
+	//
+	// IT HONORS `voice.rung`, and it did not used to. The rung name was hardcoded to
+	// 'openrouter-tts' regardless, and no test passed a rung at all — so if the real builder
+	// ever diverged for the on-device tier, every bake test here would still pass while the
+	// browser missed 100% of its cache lookups and re-billed the whole deck (#1462 item 7). A
+	// mock that cannot express the second case cannot fail for it.
+	bakeClipKeys: async (perSlide: string[][], voice: BakeVoice) => perSlide.map((row) => row.map((text) => rungKey(text, voice))),
 	synthBakeClip: async (text: string, voice: BakeVoice) => {
 		attempts.push(text);
-		const key = JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]);
+		const key = rungKey(text, voice);
 		const next = script.get(text)?.shift();
 		if (typeof next === 'number') return { ok: true, bytes: clipOf(next), key };
 		return { ok: false, bytes: null, key, error: typeof next === 'string' ? next : defaultError };
 	},
 }));
 
-const { BakeIncompleteError, DEFAULT_BYTES_PER_CHAR, ENGINE_BYTES_PER_CHAR, bakeNarration, estimateSynthBytes, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes } = await import('./narration-bake');
+const { BakeIncompleteError, DEFAULT_BYTES_PER_CHAR, ENGINE_BYTES_PER_CHAR, PAYLOAD_MAX_BYTES, PAYLOAD_WARN_BYTES, bakeNarration, estimateSynthBytes, formatBytes, formatDuration, formatUsd, measureNarration, safeMime, shippedBytes } = await import('./narration-bake');
 
 const VOICE: BakeVoice = { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 };
-const keyFor = (text: string, voice: BakeVoice = VOICE) => JSON.stringify(['openrouter-tts', voice.model, voice.voice, voice.speed, text]);
+const keyFor = (text: string, voice: BakeVoice = VOICE) => rungKey(text, voice);
 
 beforeEach(() => {
 	stored.clear();
 	banked.length = 0;
 	script.clear();
 	attempts.length = 0;
+	touched.length = 0;
 	defaultError = 'no audio returned';
+	narrationCacheOn = true;
+	mockBitrate = 64;
+	getClipOverride = null;
+	storedType.clear();
+	encoderUp = true;
 });
 
 // The retry backoff is 600 ms + 2400 ms of REAL sleep per failing sentence, and several tests
@@ -176,15 +233,23 @@ describe('estimateSynthBytes — the one figure that cannot be exact', () => {
 		}
 	});
 
-	it('quotes the WAV engine at its real rate, not the mp3 median', () => {
-		// The concrete regression: a 300-sentence deck (~30k chars) in Gemini was quoted ~19 MB
-		// and lands at ~145 MB. Uncompressed audio is a different codec class and the table has
-		// to say so.
+	it('quotes the PCM engine as the compressed audio it now ships, not as WAV', () => {
+		// The original regression: a 300-sentence deck (~30k chars) in Gemini was quoted ~19 MB
+		// and landed at ~145 MB, because Gemini's PCM shipped as WAV — 7.7x the mp3 roster.
+		//
+		// The fix was upstream of the quote: that PCM is encoded to mp3 at the rung before it is
+		// cached or baked, so the deck no longer lands at 145 MB either. This pins the property
+		// that replaced the old one — the roster is ONE codec class now, so no engine may sit a
+		// multiple away from the rest. If a future engine reintroduces uncompressed audio without
+		// compressing it, this goes red.
 		const chars = 30_000;
+		const rates = Object.values(ENGINE_BYTES_PER_CHAR);
+		const spread = Math.max(...rates) / Math.min(...rates);
+		expect(spread, 'ENGINE_BYTES_PER_CHAR spans more than one codec class').toBeLessThan(5);
 		const gemini = estimateSynthBytes(chars, 'google/gemini-3.1-flash-tts-preview');
 		const kokoro = estimateSynthBytes(chars, 'hexgrad/kokoro-82m');
-		expect(gemini).toBeGreaterThan(140_000_000);
-		expect(gemini / kokoro).toBeGreaterThan(7);
+		expect(gemini).toBeLessThan(30_000_000);
+		expect(gemini / kokoro).toBeLessThan(2);
 	});
 
 	it('is nowhere near the flat 16 B/char the first version quoted', () => {
@@ -531,5 +596,370 @@ describe('the refusal, under a terminal failure', () => {
 		expect(err).toBeInstanceOf(BakeIncompleteError);
 		expect(err.terminal).toBeUndefined(); // a per-sentence refusal IS overridable
 		expect(err.voice).toEqual(VOICE);
+	});
+});
+
+describe('the on-device rung is a real bake identity, not an afterthought', () => {
+	// No test passed a `rung` at all before this, which is what let the key mock hardcode
+	// 'openrouter-tts' unnoticed (#1462 item 7). The rung is part of the cache key, so getting it
+	// wrong does not under-report — it misses every lookup and re-bills a deck already prepared.
+	const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+
+	it('keys on-device clips under a DIFFERENT identity than the cloud voice', () => {
+		expect(keyFor(S1, DEVICE)).not.toBe(keyFor(S1, VOICE));
+		expect(keyFor(S1, DEVICE)).toContain('kokoro');
+	});
+
+	it('reads a deck rehearsed on-device as fully prepared, and bills nothing for it', async () => {
+		stored.set(keyFor(S1, DEVICE), 4000);
+		stored.set(keyFor(S2, DEVICE), 4000);
+		const m = await measureNarration(DECK, PROJECTED, DEVICE, 0.62);
+		expect(m.total).toBe(2);
+		expect(m.cached, 'both sentences are already on this device').toBe(2);
+		expect(m.missing).toBe(0);
+		expect(m.missingChars).toBe(0);
+		expect(m.estCostUsd).toBe(0);
+	});
+
+	it('does NOT see those clips when the cloud voice is measured instead', async () => {
+		// The defect this whole area exists to prevent: measuring one identity and baking another
+		// quotes "nothing prepared" for a deck that is in fact complete.
+		stored.set(keyFor(S1, DEVICE), 4000);
+		stored.set(keyFor(S2, DEVICE), 4000);
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.cached).toBe(0);
+		expect(m.missing).toBe(2);
+	});
+
+	it('bakes end to end from the device store with no synthesis attempted', async () => {
+		stored.set(keyFor(S1, DEVICE), 4000);
+		stored.set(keyFor(S2, DEVICE), 4000);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: DEVICE, audio: true });
+		expect(bake.covered).toBe(2);
+		expect(bake.synthesized, 'nothing was synthesized — it was all already there').toBe(0);
+		expect(attempts, 'and nothing was even attempted').toEqual([]);
+		expect(bake.slides.flat().every((c) => c.audio?.startsWith('data:audio/mpeg;base64,'))).toBe(true);
+	});
+});
+
+describe('the payload ceiling (#1462 item 4 — nothing capped this before)', () => {
+	it('refuses a bake whose payload would blow the ceiling, and names the size', async () => {
+		// The failure being guarded is not "a big file" — it is the tab dying. The browser path
+		// holds the payload five or six times over (srcdoc parse, font subset, Blob), so 150 MB
+		// of data URIs is several hundred MB of live memory with no artifact at the end of it.
+		const big = 4000;
+		script.set(S1, [big]);
+		script.set(S2, [big]);
+		await expect(bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, maxBytes: 4000 })).rejects.toMatchObject({ name: 'BakeTooLargeError' });
+	});
+
+	it('stops the run rather than finishing and refusing afterwards', async () => {
+		// Discovering it at the end is exactly too late: the whole payload is already in hand and
+		// every remaining sentence was billed for a file nobody will get.
+		const big = 4000;
+		script.set(S1, [big]);
+		script.set(S2, [big]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, maxBytes: 4000 }).catch(() => {});
+		expect(attempts.length, 'the second sentence should not have been synthesized after the first blew the cap').toBeLessThanOrEqual(2);
+	});
+
+	it('is not an incomplete-set refusal — there is no list of sentences to override', async () => {
+		const big = 4000;
+		script.set(S1, [big]);
+		script.set(S2, [big]);
+		const err = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true, allowPartial: true, maxBytes: 4000 }).catch((e) => e);
+		// `allowPartial` must NOT get past this one: shipping half a deck does not make it fit.
+		expect(err.name).toBe('BakeTooLargeError');
+		expect(err.bytes).toBeGreaterThan(4000);
+	});
+
+	it('sets the two thresholds where they were reasoned to be, in the right order', () => {
+		// WARN is the mail-attachment ceiling an author actually collides with; MAX is a
+		// tab-survival backstop far above anything compression now produces (~22 MB for 300
+		// sentences). Pinned so a later edit cannot quietly turn the backstop into an opinion.
+		expect(PAYLOAD_WARN_BYTES).toBe(25 * 1024 * 1024);
+		expect(PAYLOAD_MAX_BYTES).toBeGreaterThan(PAYLOAD_WARN_BYTES * 4);
+	});
+
+	it('lets an ordinary deck through untouched', async () => {
+		script.set(S1, [4000]);
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(bake.covered).toBe(2);
+		expect(bake.bytes).toBeLessThan(PAYLOAD_WARN_BYTES);
+	});
+});
+
+describe('a bake cannot evict the clips its own quote counted', () => {
+	it('marks the deck\'s cached clips as recently-used before it starts writing', async () => {
+		// `putClip` runs evictToBudget() on EVERY write, so a long bake could drop the very clips
+		// the pre-flight counted as "free and instant" and then re-synthesize and re-bill them —
+		// billing MORE than quoted, the one direction a quote must never move.
+		stored.set(keyFor(S1), 4000);
+		script.set(S2, [4000]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(touched, 'the already-prepared sentence was protected from this run').toContain(keyFor(S1));
+	});
+});
+
+describe('a repeated sentence: quoted per occurrence, billed once', () => {
+	it('over-quotes rather than under-quotes when a deck repeats a line', async () => {
+		// `measureNarration` counts every OCCURRENCE; the bake dedupes by key and synthesizes each
+		// distinct sentence once (the `twins` list). So a deck with a refrain is quoted high and
+		// billed low. That is the safe direction — the bill never exceeds the quote — but it was
+		// unpinned, and a "fix" that made the quote match the bake by counting distinct sentences
+		// would silently move the error to the unsafe side if the dedup ever changed (#1462 item 7).
+		const REFRAIN = 'We hold the line.';
+		const deck = ['---', 'theme: indaco', '---', '', '# One', '', REFRAIN, '', '---', '', '# Two', '', REFRAIN, ''].join('\n');
+		const projected = [REFRAIN, REFRAIN];
+
+		const m = await measureNarration(deck, projected, VOICE, 0.62);
+		expect(m.total, 'both occurrences are counted').toBe(2);
+		expect(m.missingChars, 'and both are quoted for').toBe(REFRAIN.length * 2);
+
+		script.set(REFRAIN, [4000]);
+		const bake = await bakeNarration(deck, projected, { voice: VOICE, audio: true });
+		expect(attempts, 'but only ONE request is ever made').toEqual([REFRAIN]);
+		expect(bake.covered, 'while both cues still get audio').toBe(2);
+		expect(bake.slides.flat().every((c) => c.audio)).toBe(true);
+	});
+});
+
+describe('the measurement fields nothing used to assert (#1462 item 7)', () => {
+	// A checker's mutation run found these survive changes that should have gone red: swapping
+	// `missingChars`→`totalChars`, swapping model→voice, and zeroing `totalChars` all stayed
+	// green, because no test looked at the two fields the panel quotes SIZE from.
+	it('counts totalChars over the whole deck and missingChars over only what is unprepared', async () => {
+		const all = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(all.totalChars).toBe(S1.length + S2.length);
+		expect(all.missingChars, 'nothing cached yet, so every character is billable').toBe(all.totalChars);
+
+		stored.set(keyFor(S1), 4000);
+		const half = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(half.totalChars, 'the caption track still ships every character').toBe(S1.length + S2.length);
+		expect(half.missingChars, 'but only the unprepared sentence is billed').toBe(S2.length);
+		expect(half.totalChars).not.toBe(half.missingChars); // the swap the mutation exposed
+	});
+
+	it('derives missingBytes from missingChars AND the model, not from either alone', async () => {
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.missingBytes).toBe(estimateSynthBytes(m.missingChars, VOICE.model));
+		// Model-sensitive: the mutation that swapped model→voice survived because nothing checked
+		// that the ENGINE moved the number.
+		const pricey = await measureNarration(DECK, PROJECTED, { ...VOICE, model: 'microsoft/mai-voice-2' }, 0.62);
+		expect(pricey.missingBytes).toBeGreaterThan(m.missingBytes * 2);
+	});
+
+	it('reports zero billable bytes — not zero total characters — for a fully prepared deck', async () => {
+		stored.set(keyFor(S1), 4000);
+		stored.set(keyFor(S2), 4000);
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.missingBytes).toBe(0);
+		expect(m.missingChars).toBe(0);
+		expect(m.totalChars, 'the deck still has words in it').toBeGreaterThan(0);
+		expect(m.cachedBytes, 'and the file still gains what those clips weigh').toBeGreaterThan(0);
+	});
+
+	it('marks a measurement taken with NO projection as a floor, not a figure', async () => {
+		// `complete: false` is what tells the panel not to present the counts as a price.
+		const floor = await measureNarration(DECK, undefined, VOICE, 0.62);
+		expect(floor.complete).toBe(false);
+		expect((await measureNarration(DECK, PROJECTED, VOICE, 0.62)).complete).toBe(true);
+	});
+});
+
+describe('the "keep narration on this device" switch is honored by the export too', () => {
+	// Its comment says this path "would quietly break" the promise if the guard were dropped —
+	// and deleting the guard left the whole docs suite green (#1462 item 7). The switch is a
+	// promise ("narration is no longer kept between sessions"); an export that wrote anyway
+	// would be the one path that broke it silently.
+	it('does not BANK a synthesized clip when the author turned the cache off', async () => {
+		narrationCacheOn = false;
+		script.set(S1, [4000]);
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(bake.covered, 'the export still succeeds — it just keeps nothing').toBe(2);
+		expect(banked, 'nothing was written to the device store').toEqual([]);
+	});
+
+	it('does not READ from the store either, so the quote matches what it will actually do', async () => {
+		narrationCacheOn = false;
+		stored.set(keyFor(S1), 4000);
+		const m = await measureNarration(DECK, PROJECTED, VOICE, 0.62);
+		expect(m.cached, 'a clip it will not read must not be quoted as free').toBe(0);
+		expect(m.missing).toBe(2);
+	});
+
+	it('banks normally when the switch is on', async () => {
+		script.set(S1, [4000]);
+		script.set(S2, [4000]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(banked.sort()).toEqual([keyFor(S1), keyFor(S2)].sort());
+	});
+});
+
+describe('the size quote follows the bitrate for audio WE encode', () => {
+	// mp3 size is exactly linear in bitrate, and the workspace Audio quality setting governs the
+	// two engines that hand back uncompressed audio. `estimateSynthBytes` had no bitrate term, so
+	// an author on 128 kbps was quoted HALF the real size — and both payload thresholds gated on
+	// the same halved number. That is the under-quote class ENGINE_BYTES_PER_CHAR exists to
+	// prevent, reintroduced by the pref itself.
+	const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+
+	it('doubles the quote when the bitrate doubles', () => {
+		// Each engine is scaled from ITS OWN measured row, so a shared speaking-rate constant
+		// cannot quietly price one engine with another's number.
+		expect(estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 64 }))
+			.not.toBe(estimateSynthBytes(10_000, 'google/gemini-3.1-flash-tts-preview', { transcoded: true, kbps: 64 }));
+		const at64 = estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 64 });
+		const at128 = estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 128 });
+		expect(at128 / at64).toBeGreaterThan(1.95);
+		expect(at128 / at64).toBeLessThan(2.05);
+		expect(estimateSynthBytes(10_000, 'hexgrad/kokoro-82m', { transcoded: true, kbps: 48 })).toBeLessThan(at64);
+	});
+
+	it('leaves a wire-mp3 engine on its measured rate — the pref is not in that path', () => {
+		// Seven of the nine engines return mp3 we never touch, so their size is a property of the
+		// engine and moving the workspace setting must not move their quote.
+		const a = estimateSynthBytes(10_000, 'x-ai/grok-voice-tts-1.0');
+		const b = estimateSynthBytes(10_000, 'x-ai/grok-voice-tts-1.0', { transcoded: false, kbps: 128 });
+		expect(b).toBe(a);
+	});
+
+	it('agrees with the measured table at the default bitrate, so the two views cannot drift', () => {
+		// The transcoded estimate is duration x bitrate; the table is bytes measured off disk. At
+		// 64 kbps they describe the same audio and must land within a few percent of each other.
+		const fromBitrate = estimateSynthBytes(10_000, 'google/gemini-3.1-flash-tts-preview', { transcoded: true, kbps: 64 });
+		const fromTable = estimateSynthBytes(10_000, 'google/gemini-3.1-flash-tts-preview');
+		expect(Math.abs(fromBitrate - fromTable) / fromTable).toBeLessThan(0.05);
+	});
+
+	it('prices GEMINI from the bitrate too — not just the on-device rung', async () => {
+		// The on-device half was pinned; the cloud PCM half was not, so `returnsUncompressed`
+		// could be neutered to `false` with the whole suite still green — which is exactly the
+		// under-quote this fix exists to close, for the one engine that is also billed.
+		// AT A NON-DEFAULT BITRATE, deliberately. The transcoded path scales each engine's own
+		// measured row, and the rows were measured at 64 — so at 64 the two branches agree exactly
+		// and a mutation removing `returnsUncompressed` is invisible. Only a changed setting
+		// separates "this engine's audio is ours to encode" from "its size is fixed by the engine".
+		const GEMINI: BakeVoice = { model: 'google/gemini-3.1-flash-tts-preview', voice: 'Puck', speed: 1 };
+		mockBitrate = 128;
+		const m = await measureNarration(DECK, PROJECTED, GEMINI, 0.62);
+		expect(m.missingBytes).toBe(estimateSynthBytes(m.missingChars, GEMINI.model, { transcoded: true, kbps: 128 }));
+		expect(m.missingBytes, 'the setting moved the quote, so the PCM engine was recognized').toBeGreaterThan(
+			estimateSynthBytes(m.missingChars, GEMINI.model) * 1.9,
+		);
+	});
+
+	it('reads the WORKSPACE bitrate, not a hardcoded default', async () => {
+		// `{transcoded, kbps: narrationBitrate()}` -> `{transcoded, kbps: 64}` left every suite
+		// green, so nothing pinned that the setting reaches the quote at all — which is the whole
+		// headline of the change.
+		const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+		const at64 = await measureNarration(DECK, PROJECTED, DEVICE, null);
+		mockBitrate = 128;
+		const at128 = await measureNarration(DECK, PROJECTED, DEVICE, null);
+		expect(at128.missingBytes / at64.missingBytes).toBeGreaterThan(1.9);
+	});
+
+	it('measureNarration prices the on-device narrator as audio it will encode itself', async () => {
+		const m = await measureNarration(DECK, PROJECTED, DEVICE, 0.62);
+		expect(m.missingBytes).toBe(estimateSynthBytes(m.missingChars, DEVICE.model, { transcoded: true, kbps: 64 }));
+	});
+});
+
+describe('the quote counts a cached clip at what it will SHIP as', () => {
+	// The bake compresses anything uncompressed on its way into the file, but the pre-flight
+	// counted the STORED size — so an author whose cache predates compression was quoted ~6x the
+	// real figure, told their deck was too large to assemble, and denied the one remedy that
+	// applies. Over-quoting is the safe direction for money; it is not safe for a refusal.
+	it('scales a WAV cache entry to its compressed size, not its stored size', async () => {
+		stored.set(keyFor(S1, { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 }), 480_000);
+		storedType.set(keyFor(S1, { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 }), 'audio/wav');
+		const DEVICE: BakeVoice = { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
+		const m = await measureNarration(DECK, PROJECTED, DEVICE, null);
+		// 480 kB of 24 kHz mono WAV is 10 s; at 64 kbps that ships as ~80 kB, not 480 kB.
+		expect(m.cachedBytes).toBeLessThan(shippedBytes(480_000) / 4);
+		expect(m.cachedBytes).toBeGreaterThan(shippedBytes(60_000));
+	});
+
+	it('leaves an mp3 cache entry at its stored size — nothing re-encodes it', async () => {
+		stored.set(keyFor(S1), 20_000);
+		storedType.set(keyFor(S1), 'audio/mpeg');
+		const m = await measureNarration(DECK, PROJECTED, VOICE, null);
+		expect(m.cachedBytes).toBe(shippedBytes(20_000));
+	});
+});
+
+describe('the bake-time compressor is wired in, not merely present', () => {
+	// Every fixture above hands back `audio/mpeg`, so the "LAST LINE OF DEFENSE" in `attach` was
+	// never exercised: deleting it left the whole file green. That is the same defect class
+	// #1462 item 7 is about — a guard nothing would notice the loss of. These drive a WAV clip,
+	// which is what a cache recorded before compression shipped actually holds.
+	/** A real, decodable 16-bit PCM WAV of `seconds` at 24 kHz mono — what a legacy clip is. */
+	function wavClip(seconds: number) {
+		const rate = 24000;
+		const n = Math.floor(rate * seconds);
+		const buf = new ArrayBuffer(44 + n * 2);
+		const dv = new DataView(buf);
+		const ascii = (off: number, t: string) => { for (let i = 0; i < t.length; i++) dv.setUint8(off + i, t.charCodeAt(i)); };
+		ascii(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); ascii(8, 'WAVE');
+		ascii(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+		dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+		ascii(36, 'data'); dv.setUint32(40, n * 2, true);
+		const pcm = new Int16Array(buf, 44);
+		for (let i = 0; i < n; i++) pcm[i] = Math.round(Math.sin((2 * Math.PI * 220 * i) / rate) * 12000);
+		return { size: buf.byteLength, type: 'audio/wav', arrayBuffer: async () => buf.slice(0) };
+	}
+
+	it('compresses a legacy WAV clip on its way into the file', async () => {
+		const wav = wavClip(2);
+		stored.set(keyFor(S1), wav.size);
+		getClipOverride = () => wav;
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		const uri = bake.slides.flat().find((c) => c.audio)?.audio as string;
+		expect(uri.startsWith('data:audio/mpeg;base64,'), 'it ships as mp3, not as the WAV it was').toBe(true);
+		// The data URI must be a fraction of what the WAV would have cost.
+		expect(uri.length).toBeLessThan(shippedBytes(wav.size, 'audio/wav') / 2);
+	});
+
+	it('does NOT bank the compressed bytes — the store feeds PLAYBACK, which must stay uncompressed', async () => {
+		// Writing them back would make the next export cheap, and would also hand the live reader
+		// a codec-delayed clip: lamejs writes no gapless header, so every clip it produces opens
+		// with ENCDELAY + DECDELAY = 1104 samples of silence — 46 ms at 24 kHz, a constant, and
+		// untrimmable by anything downstream. That is precisely why compression was moved off the
+		// recording path. The cache holds what the voice produced; the file holds what the author
+		// chose to ship, where the player seeks past the lead it knows the exact size of.
+		const wav = wavClip(2);
+		stored.set(keyFor(S1), wav.size);
+		getClipOverride = () => wav;
+		script.set(S2, [4000]);
+		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(banked, 'the cached clip is left exactly as the voice made it').not.toContain(keyFor(S1));
+		expect(stored.get(keyFor(S1))).toBe(wav.size);
+	});
+
+	// The refusal. A dead encoder is not one bad clip — it is EVERY clip shipping ~6x the size
+	// the panel quoted, in a file the author cannot un-send. `attach` distinguishes the two by
+	// asking `encoderAvailable` only after a compress returns null on audio that needed it.
+	it('refuses the whole export rather than shipping WAV when the compressor cannot load', async () => {
+		encoderUp = false;
+		const wav = wavClip(2);
+		stored.set(keyFor(S1), wav.size);
+		getClipOverride = () => wav;
+		script.set(S2, [4000]);
+		await expect(bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true })).rejects.toThrow(/compressor could not be loaded/i);
+	});
+
+	it('still ships a deck whose audio arrives already compressed, encoder or no encoder', async () => {
+		// The guard must key on "this clip NEEDED encoding and did not get it", not on "the
+		// encoder is missing". A cloud engine that returns mp3 never touches lamejs, and
+		// refusing that export would ground every such deck on a library that is irrelevant to it.
+		encoderUp = false;
+		stored.set(keyFor(S1), 5000);
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(bake.slides.flat().filter((c) => c.audio).length).toBe(2);
 	});
 });

@@ -9,6 +9,7 @@
 // Node-safe and dependency-free (voice-model.js imports the cache flag): plain JS, no
 // `@/` alias, no TypeScript import, every entry point guards `localStorage`.
 
+import { BITRATE_CHOICES, DEFAULT_BITRATE_KBPS } from './narration-encode.js';
 import { latencyStats } from './narration-latency.js';
 
 const LOOKAHEAD_KEY = 'lattice-present-lookahead';
@@ -159,3 +160,35 @@ export function setNarrationCacheEnabled(on) {
 	writeLS(CACHE_KEY, on ? null : '0');
 	emit();
 }
+
+// ── Narration audio quality ──────────────────────────────────────────────────
+// The bitrate the two UNCOMPRESSED engines (on-device Kokoro, Gemini) are encoded to before
+// their audio is stored or shipped. It does not reach the seven engines that already return
+// mp3 — those pass through untouched at whatever rate the provider chose, and this pref is
+// simply not in their path.
+//
+// A WORKSPACE setting rather than a constant because the tradeoff is the author's to make and
+// nobody else can make it for them: the same 300-sentence deck is 145 MB uncompressed, 44 MB
+// at 128 kbps and 22 MB at 64, and which of those is "right" depends on whether the file is
+// going to a board over email or to a phone over a hotel connection.
+//
+// It is a SIZE/quality dial, not a correctness one — every value here produces audio that
+// plays everywhere — so it needs no migration and no gate.
+
+const BITRATE_KEY = 'lattice-present-narration-bitrate';
+
+/** The narration bitrate in kbps. Defaults to `DEFAULT_BITRATE_KBPS`; an unrecognized stored
+ *  value falls back to it rather than being honored, so a hand-edited localStorage entry can
+ *  never hand LAME a bitrate it has no table for. */
+export function narrationBitrate() {
+	const n = Number(readLS(BITRATE_KEY));
+	return BITRATE_CHOICES.includes(n) ? n : DEFAULT_BITRATE_KBPS;
+}
+
+export function setNarrationBitrate(kbps) {
+	const n = Number(kbps);
+	writeLS(BITRATE_KEY, BITRATE_CHOICES.includes(n) && n !== DEFAULT_BITRATE_KBPS ? String(n) : null);
+	emit();
+}
+
+export { BITRATE_CHOICES, DEFAULT_BITRATE_KBPS };

@@ -148,7 +148,11 @@ describe('narration-store', () => {
 	// the sibling `readyKeys` change was 7x SLOWER on a fresh store.
 
 	describe('budget', () => {
-		it('defaults to 100 MB and ignores nonsense overrides', async () => {
+		it('defaults to a budget sized for UNCOMPRESSED clips, and ignores nonsense overrides', async () => {
+			// Sized for the two engines that return raw audio (~190 KB a sentence), not for the
+			// seven that return mp3 (~25 KB). At the old 100 MB those two cached under two decks
+			// before evicting, and an eviction re-bills a Gemini deck the author already paid for.
+			expect(DEFAULT_BUDGET_BYTES).toBeGreaterThanOrEqual(300 * 1024 * 1024);
 			expect(getBudgetBytes()).toBe(DEFAULT_BUDGET_BYTES);
 			setBudgetBytes(0);
 			setBudgetBytes(-5);
@@ -207,8 +211,10 @@ describe('clipSizes — what a bake would cost, before it starts', () => {
 		await putClip('a', fakeBlob(30_000));
 		await putClip('b', fakeBlob(20_000));
 		const got = await clipSizes(['a', 'b', 'missing']);
-		expect(got.get('a')).toBe(30_000);
-		expect(got.get('b')).toBe(20_000);
+		// `{size, type}` — the type is what lets the export's pre-flight tell a compressed clip
+		// from an uncompressed one, which decides what it will weigh in the shipped file.
+		expect(got.get('a')).toEqual({ size: 30_000, type: 'audio/mpeg' });
+		expect(got.get('b')).toEqual({ size: 20_000, type: 'audio/mpeg' });
 	});
 
 	it('OMITS an absent key rather than reporting it as zero', async () => {
@@ -224,7 +230,15 @@ describe('clipSizes — what a bake would cost, before it starts', () => {
 		for (let i = 0; i < 40; i++) await putClip(`k${i}`, fakeBlob(50_000));
 		const got = await clipSizes(Array.from({ length: 40 }, (_, i) => `k${i}`));
 		expect(got.size).toBe(40);
-		expect([...got.values()].every((v) => v === 50_000)).toBe(true);
+		expect([...got.values()].every((v) => v.size === 50_000)).toBe(true);
+	});
+
+	it('carries the stored MIME, so a pre-compression WAV clip is not quoted as an mp3', async () => {
+		// A clip written before compression shipped is WAV and will be ~6x smaller in the file
+		// than it is in the store. Without the type the pre-flight quoted the stored size and told
+		// authors their deck was too large to assemble.
+		await putClip('w', fakeBlob(480_000, 'audio/wav'));
+		expect((await clipSizes(['w'])).get('w')).toEqual({ size: 480_000, type: 'audio/wav' });
 	});
 
 	it('an empty ask is an empty answer, and an unusable store under-promises', async () => {
@@ -232,5 +246,115 @@ describe('clipSizes — what a bake would cost, before it starts', () => {
 		expect((await clipSizes(undefined as unknown as string[])).size).toBe(0);
 		await clearClips();
 		expect((await clipSizes(['a'])).size).toBe(0);
+	});
+});
+
+// THE COST OF A WRITE, which is paid on the READING path.
+//
+// Clip writes are fired while narration plays. Eviction used to run `meta.getAll()` — a full
+// scan of every stored row — on every one of them; at the 400 MB budget's ~2,200-row steady
+// state that is four times the per-sentence main-thread work the 100 MB budget cost, in a
+// change series whose purpose was taking work off that path.
+describe('what a write costs once the store is large', () => {
+	/** Counts `meta.getAll()` calls — the full scan — across a body of work. */
+	async function scansDuring(body: () => Promise<void>) {
+		const proto = IDBObjectStore.prototype as unknown as { getAll: (...a: unknown[]) => unknown };
+		const real = proto.getAll;
+		let scans = 0;
+		proto.getAll = function patched(...args: unknown[]) {
+			if ((this as IDBObjectStore).name === 'meta') scans++;
+			return real.apply(this, args as []);
+		};
+		try {
+			await body();
+			await __evictionsSettled();
+		} finally {
+			proto.getAll = real;
+		}
+		return scans;
+	}
+
+	it('does not re-scan the whole store on every clip written', async () => {
+		setBudgetBytes(10_000_000);
+		for (let i = 0; i < 30; i++) await putClip(`k${i}`, fakeBlob(1000));
+		await __evictionsSettled();
+		const scans = await scansDuring(async () => {
+			for (let i = 30; i < 50; i++) await putClip(`k${i}`, fakeBlob(1000));
+		});
+		// One re-anchoring scan is fine; one PER WRITE is the defect. The old code scanned 20.
+		expect(scans, `20 writes cost ${scans} full scans`).toBeLessThan(3);
+	});
+
+	it('still evicts to budget, which is what the scan was buying', async () => {
+		// The optimization is only correct if the LRU still bounds the store. Carried totals
+		// that drift would show up here as a store that quietly grows past its ceiling.
+		setBudgetBytes(20_000);
+		for (let i = 0; i < 60; i++) await putClip(`k${i}`, fakeBlob(1000));
+		await __evictionsSettled();
+		const { bytes } = await clipStats();
+		expect(bytes).toBeLessThanOrEqual(20_000);
+		expect(await getClip('k59'), 'the newest survives').not.toBeNull();
+		expect(await getClip('k0'), 'the oldest does not').toBeNull();
+	});
+});
+
+// A budget is a ceiling WE choose. The quota is one the BROWSER chooses, out of free disk, and
+// on a full machine it can be the smaller of the two — in which case the LRU never runs (we are
+// under our own budget), every write is refused, and the cache silently freezes forever.
+describe('when the device refuses the write before the budget does', () => {
+	/** A stand-in origin quota, in the shape the browser actually presents one: a refusal, never
+	 *  a number. Holds its own key→size ledger so deletes give the space back — a ceiling that
+	 *  only ever counted upward would model a device nothing can be evicted from. */
+	function withQuota(ceiling: number) {
+		type Patchable = { put: (this: IDBObjectStore, value: never) => unknown; delete: (this: IDBObjectStore, key: never) => unknown };
+		const proto = IDBObjectStore.prototype as unknown as Patchable;
+		const realPut = proto.put;
+		const realDelete = proto.delete;
+		const sizes = new Map<string, number>();
+		const held = () => [...sizes.values()].reduce((a, b) => a + b, 0);
+		proto.put = function patched(this: IDBObjectStore, value: { key?: string; bytes?: ArrayBuffer }) {
+			if (this.name === 'clips') {
+				const size = value?.bytes?.byteLength ?? 0;
+				if (held() - (sizes.get(value?.key ?? '') ?? 0) + size > ceiling) {
+					const e = new Error('quota');
+					e.name = 'QuotaExceededError';
+					throw e;
+				}
+				sizes.set(value?.key ?? '', size);
+			}
+			return realPut.call(this, value as never);
+		} as Patchable['put'];
+		proto.delete = function patched(this: IDBObjectStore, key: string) {
+			if (this.name === 'clips') sizes.delete(key);
+			return realDelete.call(this, key as never);
+		} as Patchable['delete'];
+		return {
+			held,
+			restore: () => {
+				proto.put = realPut;
+				proto.delete = realDelete;
+			},
+		};
+	}
+
+	it('lowers its own ceiling and makes room, instead of failing every write forever', async () => {
+		// Our budget is far above what this device will take — the state where the LRU, which
+		// only ever consults OUR ceiling, never runs at all.
+		const quota = withQuota(24 * 1024 * 1024);
+		try {
+			let ok = 0;
+			for (let i = 0; i < 40; i++) {
+				if (await putClip(`q${i}`, fakeBlob(1024 * 1024))) ok++;
+				await __evictionsSettled();
+			}
+			// Without the quota response every write from ~24 on returns false and the cache is
+			// frozen at whatever it reached, permanently. The load-bearing claim is that the LATER
+			// sentences — the ones a reader is hearing now — still get cached.
+			expect(ok, `${ok} of 40 writes landed`).toBeGreaterThan(30);
+			expect(await getClip('q39'), 'the most recent sentence is cached').not.toBeNull();
+			expect(quota.held(), 'and the device is never over its own ceiling').toBeLessThanOrEqual(24 * 1024 * 1024);
+		} finally {
+			quota.restore();
+		}
 	});
 });

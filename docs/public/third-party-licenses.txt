@@ -1,0 +1,18 @@
+Third-party components in the Lattice docs site bundle
+======================================================
+
+LAME (via @breezystack/lamejs)
+------------------------------
+This site uses LAME for mp3 encoding. Narration audio recorded by the on-device
+voice, or by a cloud voice that returns uncompressed audio, is encoded to mp3 in
+your browser before it is stored or written into an exported deck.
+
+  Package : @breezystack/lamejs
+  License : LGPL-3.0  (https://www.gnu.org/licenses/lgpl-3.0.txt)
+  Upstream: LAME — https://lame.sourceforge.net
+
+Lattice links to LAME as a separate module and does not modify it.
+
+The remaining third-party license texts vendored by this project live in
+assets/licenses/ in the source repository; those cover the `dist/marp-kit`
+redistribution rather than this site.

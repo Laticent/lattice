@@ -14,7 +14,7 @@ const {
 	prunePlayerFontFaces,
 	normalizeFamily,
 } = require('../../../lib/export/html-player.js');
-const { parseEnvelope } = require('../../../lib/core/lattice-doc.js');
+const { READ_ALONG_VERSION, parseEnvelope } = require('../../../lib/core/lattice-doc.js');
 
 // `minifyCss` moved to the pure player-core (ESM) when the assembler was extracted
 // (2026-07-08-studio-html-player-export.md, P1). Loaded via dynamic import before the
@@ -396,7 +396,7 @@ test('the player inlines the transport kernel and fits the FRAME to the measured
 	// frame overflowed a short phone stage; grid top-aligned it and pushed the slide down.)
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /function fitScale\(/, 'the transport kernel is inlined into the player script');
-	assert.match(html, /var st=document\.getElementById\('lp-stage'\);if\(!st\)return/, 'fit measures the stage element directly');
+	assert.match(html, /var st=lpEl\('lp-stage'\);if\(!st\)return/, 'fit measures the stage element directly');
 	assert.match(html, /setProperty\('--lp-fit-present',fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight,slideW:1280,slideH:720,insetX:40,insetY:40\}\)\)/, 'the scale is published as a CSS var the frame sizes to');
 	// The active frame + its section size to that var — the frame is the scaled footprint.
 	assert.match(html, /\[data-lp-view=present\] \.lp-frame\.lp-active\{display:block;\s*width:calc\(1280px \* var\(--lp-fit-present,\.5\)\);height:calc\(720px \* var\(--lp-fit-present,\.5\)\)/, 'the active frame sizes to the scaled footprint, so it fits+centers at any stage height');
@@ -537,7 +537,7 @@ test('Read·Slides is unified onto Present\'s frame, with a floating Home/End ov
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	// fitRead now uses the SAME fitScale as Present (over ~86% of the stage height) so the
 	// first slide matches Present and the next peeks — NOT the old fill-the-width math.
-	assert.match(html, /function fitRead\(\)\{var st=document\.getElementById\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:1280,slideH:720,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
+	assert.match(html, /function fitRead\(\)\{var st=lpEl\('lp-stage'\);if\(!st\)return;[\s\S]*?fitScale\(\{stageW:st\.clientWidth,stageH:st\.clientHeight\*0\.86,slideW:1280,slideH:720,insetX:40,insetY:0\}\)/, 'read-slides fits to Present\'s footprint (86% height, 40px inset), reserving a peek');
 	assert.doesNotMatch(html, /avail\/1280/, 'the old fill-the-width read-slides fit is gone');
 	// The floating Home/End overlay: markup, view-scoped CSS, and the smooth-scroll handlers.
 	assert.match(html, /<div id="lp-read-nav">/, 'the floating read-slides nav is in the markup');
@@ -545,7 +545,7 @@ test('Read·Slides is unified onto Present\'s frame, with a floating Home/End ov
 	assert.match(html, /<button id="lp-bottom"[^>]*aria-label="Jump to last slide"/, 'an End (bottom) button');
 	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*position:absolute;right:calc\(16px \+ env\(safe-area-inset-right,0px\)\);bottom:calc\(16px \+ env\(safe-area-inset-bottom,0px\)\)/, 'the overlay is absolute bottom-right with SAFE-AREA insets, only in read-slides — the scroll flow is unobstructed');
 	assert.match(html, /if\(topBtn\)topBtn\.onclick=function\(\)\{scrollStage\(0\);\}/, 'Home scrolls the stage to the top');
-	assert.match(html, /if\(bottomBtn\)bottomBtn\.onclick=function\(\)\{var st=document\.getElementById\('lp-stage'\);if\(st\)scrollStage\(st\.scrollHeight\);\}/, 'End scrolls the stage to the bottom');
+	assert.match(html, /if\(bottomBtn\)bottomBtn\.onclick=function\(\)\{var st=lpEl\('lp-stage'\);if\(st\)scrollStage\(st\.scrollHeight\);\}/, 'End scrolls the stage to the bottom');
 	// AUTO-HIDE: starts hidden (opacity:0), reveals on scroll (.lp-show), idle-hides after
 	// 1.5s, and each button hides via the `hidden` attr when its direction isn't actionable.
 	assert.match(html, /\.lp-js \[data-lp-view=read-slides\] #lp-read-nav\{[^}]*opacity:0;transform:translateY\(6px\);pointer-events:none/, 'the overlay starts hidden (fades in on reveal)');
@@ -648,7 +648,22 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// A pure-attribute + tag change plus that one hidden-utility rule: no layout, no
 	// script behaviour. Deliberate.
 	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
-	assert.equal(sha, '7c05ca6413808f210cdbdc6e4ba13cecec5c50b663f62dcb8e157096392e9cc3', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for #1462 item 3 — the player now resolves ALL of its chrome through one
+	// scoped `lpEl(id)` helper instead of bare `getElementById`. The document body IS deck
+	// content and `id` survives sanitization, so a slide carrying `id="lp-next"` won tree
+	// order and left the shipped Next button with no handler at all (observed on a real
+	// exported artifact; keyboard nav still worked, so nothing looked wrong until someone
+	// clicked it). Every real chrome node sits on a direct-child chain from `#lp-bar` or
+	// `#lp-app`, while authored content is always a descendant of `#lp-stage` — so a child
+	// combinator is a boundary a deck structurally cannot cross. Script-only: adds the
+	// CHROME map plus the helper, rewrites 21 lookups and roots the `#lp-toc a` /
+	// `#lp-article [id^=lp-sec-]` collection queries at the resolved element. No markup, no
+	// CSS, no layout. Re-blessed AGAIN in the same PR: scoping the SELECTOR was not enough. The
+	// adversarial trio broke it before merge — a descendant selector matches a chain a slide
+	// builds itself, so twelve lookups still resolved to deck content. The lookups are now
+	// ANCHORED at roots resolved via `body > #lp-app` / `body > #lp-bar`, which a slide can
+	// never be a child of, and queried relative to those with `:scope`. Script-only.
+	assert.equal(sha, '42382569c7c7cbdae0a9f1e604daf8e8ea6060be7d73388f98623c8bcee39760', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -922,6 +937,8 @@ const NARRATION = [
 ];
 /** The same delivery with no word timings — an export whose captions switch was off. */
 const NARRATION_NO_CAPTIONS = NARRATION.map((cues) => cues.map((c) => ({ ...c, words: [] })));
+/** Captions with no clips — the read-along a player would have to synthesize to hear. */
+const NARRATION_NO_AUDIO = NARRATION.map((cues) => cues.map((c) => ({ ...c, audio: null })));
 
 async function narratedPlayer(extra = {}) {
 	return buildPlayerHtml({ docHtml: NARRATION_DOC, source: '---\ntheme: indaco\n---\n\n# One\n', title: 'Spoken', now: 0, narration: NARRATION, ...extra });
@@ -1051,8 +1068,9 @@ test('narration: the player binds to its OWN chrome, not to a deck element weari
 	// direct child of the player's own chrome, which a slide (nested in #lp-stage) never is.
 	const hostile = NARRATION_DOC.replace('<h1>One</h1>', '<h1>One</h1><div id="lp-caption"></div><button id="lp-play"></button>');
 	const { html } = await narratedPlayer({ docHtml: hostile, narration: NARRATION_NO_CAPTIONS });
-	assert.match(html, /querySelector\('#lp-app > #lp-caption'\)/, 'the band is resolved inside the player, not the document');
-	assert.match(html, /querySelector\('#lp-bar > #lp-play'\)/, 'and so is the play control');
+	assert.match(html, /querySelector\('body > #lp-app'\)/, 'the shell root is resolved from body, which a slide can never be a child of');
+	assert.match(html, /querySelector\(':scope > #lp-caption'\)/, 'and the band is queried RELATIVE to it, not from the document');
+	assert.match(html, /querySelector\(':scope > #lp-play'\)/, 'and so is the play control');
 	assert.doesNotMatch(html, /getElementById\('lp-caption'\)/, 'no bare id lookup survives for deck content to hijack');
 	// The forged element still ships (it is the author's markup, sanitized) — what must not
 	// happen is the transport binding to it.
@@ -1060,6 +1078,84 @@ test('narration: the player binds to its OWN chrome, not to a deck element weari
 	const doc = new JSDOM(html).window.document;
 	assert.equal(doc.querySelectorAll('#lp-app > #lp-caption').length, 0, 'an audio-only export has no band of its own');
 	assert.ok(doc.querySelector('section[data-lattice-slide] #lp-caption'), "the author's element is still in their slide");
+});
+
+test('the transport chrome is unforgeable too, not just the caption band and play control', async () => {
+	// #1462 item 3. #lp-caption and #lp-play were scoped; EVERY other lookup was a bare
+	// getElementById, and all of that chrome is emitted AFTER the slides — so a deck element
+	// won tree order. Observed on a real exported artifact: a slide carrying id="lp-next" left
+	// the shipped Next button with no handler at all. Keyboard nav still worked, so the deck
+	// looked healthy right up until someone clicked the control.
+	//
+	// The fix is structural, not a denylist: every real chrome node sits on a direct-child
+	// chain from #lp-bar or #lp-app, and authored content is always a descendant of #lp-stage,
+	// so a deck can never occupy one of those positions.
+	const forged = ['lp-next', 'lp-prev', 'lp-top', 'lp-bottom', 'lp-notes', 'lp-notes-body', 'lp-doc', 'lp-toc', 'lp-article', 'lp-stage', 'lp-count', 'lp-mode', 'lp-full', 'lp-notes-btn', 'lp-read-nav'];
+	// FLAT *and* CHAINED. The first version of this test forged only flat divs, so it passed
+	// against a fix that did not work: a descendant selector like '#lp-app > #lp-nav > #lp-next'
+	// matches a chain a slide builds ITSELF, and that forgery wins document order because this
+	// chrome is emitted after the slides. Twelve lookups fell to it.
+	const chained =
+		'<div id="lp-app"><div id="lp-nav"><button id="lp-prev">F</button><button id="lp-next">F</button></div>' +
+		'<div id="lp-read-nav"><button id="lp-top">F</button><button id="lp-bottom">F</button></div>' +
+		'<div id="lp-notes"><div id="lp-notes-body">F</div></div>' +
+		'<div id="lp-doc"><div id="lp-toc">F</div><div id="lp-article">F</div></div>' +
+		'<div id="lp-caption">F</div><div id="lp-stage">F</div></div>';
+	const hostile = docHtml.replace('<p>Intro paragraph.</p>', `<p>Intro paragraph.</p>${forged.map((id) => `<div id="${id}"></div>`).join('')}${chained}`);
+	const { html } = await buildPlayerHtml({ docHtml: hostile, source, now: 0 });
+
+	for (const id of forged) {
+		assert.doesNotMatch(html, new RegExp(`getElementById\\('${id}'\\)`), `${id} is no longer resolved by a bare id lookup`);
+	}
+
+	const { JSDOM } = require('jsdom');
+	const doc = new JSDOM(html).window.document;
+	// The forged elements still SHIP — they are the author's markup, sanitized. What must not
+	// happen is the player resolving to them.
+	assert.ok(doc.querySelector('section[data-lattice-slide] #lp-next'), "the author's element is still in their slide");
+	// EXECUTE THE PLAYER, do not re-implement it. The previous version of this test built its own
+	// map of the anchored selectors and asserted that ITS OWN copy resolved correctly — so
+	// reverting `lpEl` to the broken unrooted form left this green, and only the byte-golden hash
+	// noticed. A test that duplicates the fix cannot fail for the bug, which is the exact defect
+	// class #1462 item 7 is about. So: run the real script and click the real button.
+	const dom = new JSDOM(html, { runScripts: 'dangerously' });
+	const d = dom.window.document;
+	assert.ok(d.documentElement.classList.contains('lp-js'), 'the player script actually ran');
+
+	// Root the test's OWN selectors at `body >` too — an unrooted query here would hand us the
+	// forged node and we would be driving the deck's markup instead of the player's.
+	const realNext = d.querySelector('body > #lp-app > #lp-nav > #lp-next');
+	const counter = d.querySelector('body > #lp-bar > #lp-count');
+	assert.ok(realNext && counter, "the player's own controls exist");
+	assert.ok(d.querySelector('section[data-lattice-slide] #lp-next'), "the author's forged element also shipped");
+
+	const before = counter.textContent.trim();
+	realNext.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+	assert.notEqual(counter.textContent.trim(), before, 'the REAL Next button advances the deck');
+	assert.match(counter.textContent, /\d/, "and the counter read is the player's own element");
+
+	// The forged nodes still ship — they are the author's markup — they just cannot be found.
+	for (const id of ['lp-next', 'lp-notes-body', 'lp-toc']) {
+		const forgedNode = d.querySelector(`section[data-lattice-slide] #${id}`);
+		if (forgedNode) assert.ok(forgedNode.closest('#lp-stage'), `the forged ${id} stays inside the deck content`);
+	}
+});
+
+test('narration: an encoded clip carries its lead, and the player seeks past it', async () => {
+	// lamejs writes no gapless header, so ~46 ms of encoder silence sits at the head of every
+	// clip WE compress and no decoder trims it. Left in, audio starts after its own caption on
+	// every sentence and the tuned breath grows ~28% — the defect that drove compression off the
+	// live reading path, delivered instead to the recipient's copy. So the bake ships the figure
+	// and the player skips it.
+	const withLead = NARRATION.map((cues) => cues.map((c) => ({ ...c, leadMs: 46 })));
+	const { html } = await narratedPlayer({ narration: withLead });
+	assert.match(html, /"l":46/, 'the lead travels in the cue block');
+	assert.match(html, /a\.currentTime=lead\/1000/, 'and the player seeks past it before playing');
+	assert.match(html, /a\.duration\*1000-lead/, 'and re-anchors the crawl to the real speech duration, not the padded one');
+
+	// A clip that arrived already compressed carries none, and must not pay for a key.
+	const noLead = (await narratedPlayer()).html;
+	assert.doesNotMatch(noLead, /"l":/, 'no lead key when there is no encoder silence');
 });
 
 test('narration: the deck’s own pace is baked, because the player cannot read front matter', async () => {
@@ -1079,9 +1175,35 @@ test('narration: the manifest carries the read-along track, and NOT the audio by
 	// could only be reached by parsing the entire manifest to play one sentence. The track
 	// and the voice identity DO belong there — that is what lets the artifact say what
 	// narrated it, and what a re-import would restore.
-	const readAlong = { version: '1', audioMode: 'embedded', voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, slides: [{ index: 0 }] };
-	const { html } = await narratedPlayer({ readAlong });
+	//
+	// The section is SHAPED by the manifest kernel (`buildReadAlong`), not passed through
+	// verbatim: the caller hands over a Studio-internal voice object, and a document format that
+	// goes out to boards must not carry the Studio's own voice-ladder names (#1462 item 1).
+	const { html } = await narratedPlayer({ readAlong: { voice: { rung: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 } } });
 	const manifest = parseEnvelope(html);
-	assert.deepEqual(manifest.readAlong, readAlong);
+	assert.deepEqual(manifest.readAlong, {
+		version: READ_ALONG_VERSION,
+		audioMode: 'embedded',
+		voice: { engine: 'cloud', model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
+	});
 	assert.doesNotMatch(JSON.stringify(manifest), /base64/, 'no audio payload inside the envelope');
+});
+
+test('narration: the manifest says WHICH mode it is, and names the engine in its own vocabulary', async () => {
+	// Both fields were simply absent (#1462 item 1). `version` is the field whose entire purpose
+	// is to let a future player migrate an old artifact — without it every reader must treat
+	// "missing" as a legacy dialect forever, and that cost only grows once decks are in other
+	// people's inboxes. `audioMode` is how a reader knows whether the file can speak on its own
+	// or needs a key; it had to go looking for audio blocks to find out.
+	const withAudio = parseEnvelope((await narratedPlayer({ readAlong: { voice: { rung: 'kokoro', model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 } } })).html);
+	assert.equal(withAudio.readAlong.audioMode, 'embedded', 'this file carries its own audio');
+	assert.equal(withAudio.readAlong.voice.engine, 'on-device', "the document's word, not the Studio's rung name");
+	assert.ok(withAudio.readAlong.version, 'a section version, always');
+	assert.doesNotMatch(JSON.stringify(withAudio.readAlong), /rung|openrouter|kokoro-82m'/, 'no internal ladder identity leaks into the document');
+
+	// Captions with no clips: the deck ships a read-along that a player must synthesize to hear.
+	const captionsOnly = parseEnvelope(
+		(await narratedPlayer({ narration: NARRATION_NO_AUDIO, readAlong: { voice: { rung: 'openrouter', model: 'm', voice: 'v', speed: 1 } } })).html,
+	);
+	assert.equal(captionsOnly.readAlong.audioMode, 'regenerate', 'no audio rode along, and the artifact says so');
 });

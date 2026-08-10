@@ -73,6 +73,20 @@ export function speedSupported(modelId: string): boolean {
 	return engine ? (ENGINES[engine]?.speedSupport ?? false) : false;
 }
 
+/**
+ * Does this model's speech endpoint return UNCOMPRESSED audio (raw PCM) rather than mp3?
+ *
+ * Read from the catalog's own `audioFormat` — the same field `PCM_ONLY_MODELS` is pinned
+ * against — so there is one place that knows, and a future PCM engine is picked up by declaring
+ * it rather than by editing a second list. It matters to the SIZE QUOTE: those responses are
+ * transcoded by us, so their shipped size is set by the workspace bitrate, not by the sample
+ * table (see `estimateSynthBytes`).
+ */
+export function returnsUncompressed(modelId: string): boolean {
+	const engine = engineForModel(modelId || '');
+	return !!engine && ENGINES[engine]?.audioFormat === 'wav';
+}
+
 const KOKORO_LANG: Record<string, string> = { a: 'US', b: 'UK', e: 'ES', f: 'FR', h: 'HI', i: 'IT', j: 'JP', p: 'BR', z: 'CN' };
 
 function titleCase(s: string): string {
@@ -147,7 +161,12 @@ export function cachedSampleUrl(modelId: string, voiceId: string, speed: number)
 	const def = ENGINES[engine];
 	if (!def?.requiresAsset) return null;
 	if (!def.cachedVoices.includes(voiceId)) return null; // no committed sample — live path
-	const ext = def.audioFormat === 'wav' ? 'wav' : 'mp3';
+	// ALWAYS mp3 — `audioFormat` describes the WIRE, not the file on disk. The generator
+	// encodes a PCM-only engine's response to mp3 before committing it, so every sample under
+	// docs/public/voice-samples/ is the same codec regardless of what its provider returns.
+	// (It used to key the extension off `audioFormat`, which is how gemini's samples came to be
+	// 132 KB WAVs — see tools/generate-voice-samples.mjs's header.)
+	const ext = 'mp3';
 	// A voice id can contain characters invalid in a Windows filename (MAI-Voice-2's
 	// ids carry a literal ":") — mirrors tools/generate-voice-samples.mjs's own
 	// safeFilename EXACTLY, so a generated file and its lookup URL always agree.

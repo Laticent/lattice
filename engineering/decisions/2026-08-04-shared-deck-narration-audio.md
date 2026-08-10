@@ -385,9 +385,13 @@ Three findings were argued rather than fixed, and are recorded here as decisions
 - **The on-device rung is now a bake source.** The first build hard-coded the cloud rung, which
   locked out the author who rehearsed the whole deck on-device and has no key — 100% of the
   bytes on their own disk, 0% of the feature, on the rung that exists so no key is needed. It
-  is admitted READ-ONLY: `synthBakeClip` refuses to synthesize for it, so such a bake either
-  finds every clip or refuses. It cannot spend.
-- **The panel still has no rendering test.** Flagged and not closed — see UNVERIFIED below.
+  was admitted READ-ONLY: `synthBakeClip` refused to synthesize for it, so such a bake either
+  found every clip or refused. **Superseded 2026-08-09 (#1462 item 2)** — see §8.
+- **The panel had no rendering test at the time this list was written.** It has one now:
+  `NarrationExportOptions.test.tsx`, plus the real-browser walk described under UNVERIFIED
+  below. This bullet is left in place rather than deleted because it records what the trio
+  found; the correction is here, not by rewriting the finding. (The two statements sat
+  contradicting each other in the same section until #1462 item 7 caught it.)
 
 ### Verified, and UNVERIFIED (HARD RULE #23)
 
@@ -447,11 +451,15 @@ this change had no business touching.
   over-quotes a long sentence. Over-quoting is the safe direction — the file arrives smaller
   than promised — but the figure is an estimate and is worded as one. Cached bytes are exact.
 - **The export panel HAS now been driven** — the checker was right that it had not been, and
-  driving it found two more defects no test would have. A script starts the real docs dev
-  server, opens the real Studio, walks Share → Webpage, and photographs the panel at 1440 /
-  820 / 390 in three states (at rest, captions on, notes stripped), asserting each time that
-  the strip-notes veto actually locks both switches, that the sheet never scrolls sideways,
-  and that no page or console error fires. What it caught: `listTtsModels` — a network fetch
+  driving it found two more defects no test would have. It was driven by a throwaway script
+  that started the real docs dev server, opened the real Studio, walked Share → Webpage, and
+  photographed the panel at 1440 / 820 / 390 in three states (at rest, captions on, notes
+  stripped), asserting each time that the strip-notes veto actually locks both switches, that
+  the sheet never scrolls sideways, and that no page or console error fires.
+  **That script was never committed**, so nobody else can re-run it and the screenshots are the
+  only surviving record — this paragraph described it as if it were part of the repository,
+  which it is not (#1462 item 7). Treat the findings below as real and the method as
+  unreproducible until someone commits the harness. What it caught: `listTtsModels` — a network fetch
   to OpenRouter's public catalog — was joined into the same `Promise.all` as the local
   availability check, so on a blocked connection `cloudReady` stayed null and **the audio
   switch rendered ENABLED with no key behind it**; and a captions-only export left an empty
@@ -466,3 +474,99 @@ this change had no business touching.
   in the cue tree, then again in the per-slide JSON, then again in the assembled document —
   plausibly 120–180 MB of live strings before the Blob. Measured at ~46 MB for the URIs alone
   in Node; never measured in a real mobile tab, and there is no cap and no warning.
+
+### 8. What #1462 changed (2026-08-09)
+
+The trio's deferred findings, worked through in one pass. Three of them moved decisions this
+document had recorded, so they are recorded here rather than only in the changelog.
+
+**Narration is compressed, and that unlocked the rest.** Two of the nine engines returned raw
+uncompressed audio — on-device Kokoro (Float32 PCM off the worker) and Gemini (16-bit PCM off
+the OpenRouter speech route) — and both shipped as WAV. A 300-sentence deck narrated on-device
+came to ~145 MB where the same deck in a cloud voice came to ~19 MB. Both are now encoded to
+mp3 at the rung, before the bytes are cached or baked
+(`docs/src/playground/narration-encode.js`): measured on this repo's own committed Gemini
+sample, **132,524 B → 22,464 B, 5.9× smaller**, which puts those two engines inside the range
+the other seven already ship at. mp3 rather than Opus deliberately — the output is inlined into
+a page someone else opens once, offline, in whatever browser they have, and mp3 is the format
+with no practical decoder gap. Bitrate is a workspace setting (default 64 kbps mono); it is
+**not** part of the cache key, so changing it never re-synthesizes and never re-bills audio the
+author already owns.
+
+**§7's "the on-device rung is admitted READ-ONLY" is superseded.** That refusal rested on two
+reasons and only one survived compression. The size argument — "it returns WAV, several times
+the bytes of the same sentence as mp3, in a file whose size the author is being asked to
+consent to" — is simply no longer true. The other, that the rung needs an ~80 MB model resident
+and is desktop-only, is a **precondition rather than a reason to refuse**, so it became the
+gate: `synthBakeClip` synthesizes on-device when `kokoroReady` says the model is loaded right
+now, and still refuses (with instructions) when it is merely cached. An export must never
+silently trigger an 80 MB download.
+
+**The on-device narrator is no longer conditional on having no key.** It was reachable only
+through `cloudReady === false`, so an author who had a key *and* had rehearsed the whole deck
+on-device was measured against the cloud voice, quoted for 100% of a deck already on their
+disk, and told by the panel that they could "pick the voice you rehearsed in, to pay nothing" —
+advice the panel made impossible to take. The panel now offers the narrator as an explicit
+choice whenever both are available, defaulting to cloud so a deck still ships sounding like the
+rehearsal.
+
+**The manifest's `readAlong` section gained the fields the 2026-07-08 ADR specified**, and lost
+one it should never have carried: `version` (so a future player can migrate rather than treat
+"absent" as a legacy dialect forever), `audioMode` (so an artifact can say whether it speaks on
+its own), and `engine: 'on-device' | 'cloud'` in place of the Studio's internal `rung`. It is
+versioned **1.1**, not 1.0, because what ships is a different shape from what that ADR
+specified: the audio rides in inert per-slide blocks and the caption track travels beside it,
+so the spec's `slides[]` slot is deliberately unused rather than empty.
+
+**Two things are now bounded that were not.** Nothing capped the payload anywhere, and the
+browser path holds it five or six times over while assembling — so the bake refuses past a
+ceiling and the panel warns past the mail-attachment size. And a long bake could evict the very
+clips its own quote counted as cached (`putClip` runs `evictToBudget()` on every write), then
+re-synthesize and re-bill them; the bake now marks its deck's clips as recently-used before it
+starts writing, so the budget is met from other decks' audio.
+
+**Still open, honestly.** The provider-substitutes-a-voice case (§5 of the issue) cannot be
+detected from a client — the response carries no voice identity — so it is named in the code
+rather than guarded against. Real iOS Safari remains unreachable from this sandbox. And the
+export-panel screenshot harness described above is still uncommitted.
+
+### 9. Compression moved off the reading path (2026-08-09)
+
+§8 described compression happening at the RUNG — as each sentence was recorded, in the Kokoro
+worker and inline on the Gemini response. That is reversed. It now happens once, in
+`bakeNarration`'s `attach`, on the way into the exported file.
+
+**What went wrong.** The reason was never in doubt — encoding at record time shrinks the device
+cache as well as the artifact, and makes the export nearly free. What it also did was put a
+codec on the path a human listens to. lamejs writes no Xing/Info/LAME gapless header, so no
+decoder can trim the encoder delay and padding, and **every clip came back 56–70 ms longer than
+the audio that went into it, with the extra silence at the front.** Measured across every clip
+length from 0.02 s to 4 s; consistent throughout.
+
+Per sentence that is: audio starting after its caption has already highlighted, and a
+sentence-boundary breath tuned to ~165 ms stretched to ~225 ms. Across a 300-sentence deck it
+adds ~17 seconds of silence nobody asked for. Reported from real use as "gaps and pauses" before
+any of this was traced.
+
+**Why the reversal is the right shape rather than a retreat.** Compression exists to make the
+file someone else opens smaller. The device cache is an implementation detail; the reading
+experience is not. Encoding at export gets the entire size win — the artifact is the only place
+the bytes are counted — and costs the reading path nothing at all.
+
+**What it costs, stated plainly.** The on-device cache holds WAV again, so it fills ~6x faster
+against the same budget and evicts sooner. And a deck recorded on an uncompressed voice
+re-encodes on every export: ~107 ms of main-thread work per sentence, ~32 s for 300 sentences.
+The compressed bytes are deliberately NOT written back to the store, because the store is what
+playback reads — banking them would feed a codec-delayed clip to the live reader through the
+back door, which is the whole thing this change undoes.
+
+**The design critique this vindicates.** The Munger inversion in the first adversarial pass
+argued exactly this: that bake-time compression alone gets most of the value, and that the
+rung-level encode bought the smaller cache at a cost not worth paying. It was argued down at the
+time — on the grounds that rung-level encoding is what makes the export cheap, which is true and
+was not the whole picture. The evidence that settled it came from use, not from review.
+
+**Still open:** the ~56–70 ms of untrimmed codec delay now lands only on exported clips, where
+the player re-anchors each cue to the clip's real decoded duration on `loadedmetadata`, so it
+does not accumulate — but it is still 56 ms of leading silence per sentence in a shared deck.
+Tracked in #1503 alongside the missing gapless header.

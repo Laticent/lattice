@@ -1,0 +1,32 @@
+Can I use LAME in my commercial program?  
+
+Yes, you can, under the restrictions of the LGPL.  The easiest
+way to do this is to:
+
+1. Link to LAME as separate jar (lame.min.js or lame.all.js)
+
+2. Fully acknowledge that you are using LAME, and give a link
+   to our web site, lame.sourceforge.net
+
+3. If you make modifications to LAME, you *must* release these
+   these modifications back to the LAME project, under the LGPL.
+
+--------------------------------------------------------------------------
+Vendored by Lattice from node_modules/@breezystack/lamejs/LICENSE.
+
+Package : @breezystack/lamejs (a JavaScript port of LAME)
+License : LGPL-3.0
+Upstream: https://lame.sourceforge.net
+
+WHERE IT SHIPS. Unlike everything else in this directory, this component is not
+part of the `dist/marp-kit` redistribution. It is a runtime dependency of the
+DOCS SITE bundle: the Studio compresses narration audio to mp3 with it before a
+clip is cached or baked into an exported deck
+(docs/src/playground/narration-encode.js).
+
+The full LGPL-3.0 text is not reproduced here because the package does not
+vendor it either; it is available at https://www.gnu.org/licenses/lgpl-3.0.txt.
+What condition 2 above actually asks for — acknowledgment and a link — is
+discharged by this file plus docs/public/third-party-licenses.txt, which the
+deployed site serves. Lattice does not modify LAME, so condition 3 does not
+apply.

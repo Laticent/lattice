@@ -271,6 +271,12 @@ const REQUEST_CEILING_MS = 45000;
 // not a queue.
 const SYNTH_RETRY_DELAY_MS = 300;
 
+// How long a request that has already blown its caller's deadline is allowed to keep
+// running so its bytes can still be banked. See synthFor's timeout branch: the audio is
+// already paid for, so finishing is free and canceling wastes both the money and the clip
+// — but a host that never answers must not pin a socket and an abort listener forever.
+const SYNTH_GRACE_MS = 60000;
+
 // ── WAV encode (Kokoro returns Float32 PCM; OpenRouter returns MP3) ────────────
 // Unify playback on one <audio> element by encoding Kokoro's raw samples into a
 // 16-bit PCM WAV Blob. Pure → unit-tested for header correctness.
@@ -318,9 +324,18 @@ export const PCM_ONLY_MODELS = new Set(['google/gemini-3.1-flash-tts-preview']);
 // avoids an extra Blob-wrap/unwrap round trip that buys nothing (the bytes are
 // already an ArrayBuffer). A real Blob works fine in every real browser target too,
 // if a future caller needs one — this just isn't that caller.
+// The response's declared PCM geometry, e.g. "audio/pcm;rate=24000;channels=1". ONE parser,
+// because both consumers below (the mp3 encode and the WAV fallback) have to agree about the
+// sample rate: a mismatch does not fail, it plays the clip back at the wrong speed.
+function parsePcmHeaderInfo(contentType) {
+  return {
+    rate: Number(/rate=(\d+)/.exec(contentType || '')?.[1]) || 24000,
+    channels: Number(/channels=(\d+)/.exec(contentType || '')?.[1]) || 1,
+  };
+}
+
 function pcmBlobFromResponse(pcmBytes, contentType) {
-  const rate = Number(/rate=(\d+)/.exec(contentType || '')?.[1]) || 24000;
-  const channels = Number(/channels=(\d+)/.exec(contentType || '')?.[1]) || 1;
+  const { rate, channels } = parsePcmHeaderInfo(contentType);
   const bitsPerSample = 16;
   const blockAlign = channels * (bitsPerSample / 8);
   const byteRate = rate * blockAlign;
@@ -405,6 +420,10 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl }) {
         const contentType = res.headers.get('content-type') || '';
         const bytes = new Uint8Array(await res.arrayBuffer());
         if (!bytes.length) throw new Error('OpenRouter returned empty audio');
+        // NOT compressed here. This is the one cloud model that answers in raw PCM, and an
+        // earlier version encoded it to mp3 on the way out — on the main thread, on the live
+        // reading path, which is exactly the jank the Kokoro worker exists to avoid. Its size
+        // is dealt with once, at export. See kokoro-worker.js's header.
         return pcmBlobFromResponse(bytes, contentType);
       }
       const blob = await res.blob();
@@ -1268,6 +1287,23 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     if (!id) return { ok: false, bytes: null, key: '', error: 'unknown voice' };
     const { r, effSpeed, effVoice, effModel } = id;
     if (!r.ready()) return { ok: false, bytes: null, key: '', error: rung === 'openrouter' ? 'cloud voice not connected' : 'voice not ready' };
+    // The KEY the bytes will be banked under. `effVoice` — not the caller's raw `v` — and the
+    // request below sends the SAME resolved value, which is the whole point: a clip must never
+    // be stored under a key naming a voice it was not spoken in.
+    //
+    // It used to pass `voice: v` to the rung and key on `effVoice`, resolving the "no voice
+    // given, use the stored pref" fallback TWICE — once here and once inside the rung's own
+    // `voice || getVoice()`. The two agree today, so nothing is currently mis-keyed. They agree
+    // by coincidence of two separate expressions, though, and this file has already paid for
+    // exactly that shape once: the latency key was built by a writer and a reader that were
+    // "obviously" the same and were not, so every lookup missed forever while looking healthy
+    // (#1352). Resolving once and passing the result removes the second expression rather than
+    // documenting it.
+    //
+    // What this does NOT fix, because a client cannot: the PROVIDER may substitute its own
+    // default when it does not recognize the voice we ask for, and says nothing. Those bytes
+    // are then cached under the voice we requested. Unfalsifiable from here — the response
+    // carries no voice identity — so it is named rather than guarded against.
     const key = cacheKeyFor(r.name, effModel, effVoice, effSpeed, text);
     const cached = audioCache.get(key);
     if (cached) return { ok: true, bytes: cached, key };
@@ -1286,13 +1322,65 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       else signal.addEventListener('abort', relay, { once: true });
     }
     const sig = ctl.signal;
-    const done = () => { clearTimeout(timer); if (signal) signal.removeEventListener('abort', relay); };
+    let graceTimer;
+    const done = () => { clearTimeout(timer); clearTimeout(graceTimer); if (signal) signal.removeEventListener('abort', relay); };
+    let timedOut = false;
     try {
+      // THE TIMEOUT STOPS WAITING; IT DOES NOT STOP THE REQUEST.
+      //
+      // A TTS request is billed when it is ISSUED, on the input characters — canceling the read
+      // does not refund it. So a sentence this call has given up on is ALREADY PAID FOR, and
+      // letting it finish costs nothing beyond the socket while banking the audio. Aborting
+      // instead threw away both the money and the clip: on a link where a sentence genuinely
+      // takes longer than the ceiling, the bake paid three times per sentence (once per
+      // attempt), banked nothing, and then refused the export.
+      //
+      // This is the same reasoning the live reader already applies to a sentence it has stopped
+      // waiting for; the bake path was the one place that contradicted it.
+      //
+      // The retry picks the late clip up for free WHEN IT LANDS IN TIME: `audioCache.get(key)`
+      // is checked at the top of every attempt, and `bakeNarration` backs off 600 ms before
+      // attempt two, so a response arriving inside that window is a cache hit rather than a
+      // second charge. Stated precisely, because the first version of this comment claimed more
+      // than the code delivers: a response that lands LATER than the backoff does not prevent
+      // attempt two from being issued, and `synthFor` has no in-flight join (unlike the live
+      // reader's `synthOne`). Net cost is still no worse than aborting — those attempts were
+      // billed either way — but the clip is banked now instead of thrown away, which is the
+      // whole point. A real in-flight join belongs here and is a separate change.
+      //
+      // The CALLER's signal still aborts for real. A canceled export must stop spending, and it
+      // does — `relay` fires `ctl.abort()` and the request dies with it. What is dropped here is
+      // only OUR patience, never the caller's cancellation.
+      const inflight = r
+        .synth({ text, voice: effVoice, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig })
+        .then((b) => { if (b) cacheSet(key, b); return b; })
+        .finally(done);
+      // Swallow a late rejection so an abandoned request cannot surface as an unhandled
+      // rejection after this function has already returned its answer.
+      inflight.catch(() => {});
       const blob = await Promise.race([
-        r.synth({ text, voice: v, speed: effSpeed, model: rung === 'openrouter' ? effModel : undefined, signal: sig }).then((b) => { if (b) cacheSet(key, b); return b; }).finally(done),
-        new Promise((res) => { timer = setTimeout(() => { ctl.abort(); res(null); }, wait); }),
+        inflight,
+        new Promise((res) => {
+          timer = setTimeout(() => {
+            timedOut = true;
+            res(null);
+            // ON-DEVICE, ABORT AT ONCE — there is no bill to salvage, and the thing being spent
+            // is the ONLY inference slot. Kokoro runs one generation at a time, and the serial
+            // queue drops a superseded job only when its signal aborts, so holding the abort for
+            // the grace window keeps a dead sentence in the slot the RETRY needs: measured at 105
+            // s of blockage instead of 45, with the abandoned job and its retry both eventually
+            // running. The grace window's whole justification ("the audio is already paid for, so
+            // finishing is free") is a claim about a cloud bill, and it is simply false here.
+            if (rung === 'kokoro') ctl.abort();
+            // CLOUD: a grace window, then a real abort. Letting an abandoned request finish is
+            // what banks the audio we already paid for; letting it run FOREVER would leak the
+            // socket and the abort listener on a host that never answers. So the request outlives
+            // our patience by a bounded margin and no longer.
+            else graceTimer = setTimeout(() => ctl.abort(), SYNTH_GRACE_MS);
+          }, wait);
+        }),
       ]);
-      if (!blob?.size) return { ok: false, bytes: null, key, error: ctl.signal.aborted && !signal?.aborted ? `timed out waiting for audio (${Math.round(wait / 1000)}s) — check your connection` : 'no audio returned (empty response)' };
+      if (!blob?.size) return { ok: false, bytes: null, key, error: timedOut ? `timed out waiting for audio (${Math.round(wait / 1000)}s) — check your connection` : 'no audio returned (empty response)' };
       return { ok: true, bytes: blob, key };
     } catch (e) { return { ok: false, bytes: null, key, error: (e?.message) || String(e || 'synth failed') }; }
   }
