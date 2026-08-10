@@ -241,6 +241,32 @@ in patch versions.
 
 ### Fixed
 
+- **The Studio's nightly E2E workflow could not load at all, and could not have told anyone.**
+  Two defects, the second hiding the first. `#1500` fixed the real root-deps blackout, but its
+  diff replaced the `runs-on: ubuntu-latest` + `timeout-minutes: 30` pair with a comment and
+  `timeout-minutes: 60` — dropping **`runs-on`** as collateral. A job without it fails workflow
+  *validation*, so since that merge every run has been a startup failure with **zero jobs**,
+  named after the file path rather than the workflow; the cron could not fire and neither job
+  ran. Nothing catches that: no workflow lints workflows, this one has no `pull_request`
+  trigger, and in the Actions list a startup failure where *nothing ran* looks exactly like a
+  suite that ran 240 specs and had two fail. Which is the second defect — it is the only
+  nightly here that files **no issue on red** (`perf`, `preview-e2e`, `integration` and
+  `modulepreload-coverage` all do). `runs-on` is restored, and the deterministic job now opens
+  or appends a rolling `[studio-e2e]` tracking issue. Three bugs an adversarial checker found
+  in the first draft of that step are fixed with it: the **marker search idiom every sibling
+  workflow uses is broken** — GitHub tokenizes on brackets and hyphens, so `in:title
+  [studio-e2e]` degrades to `studio` + `e2e` and matches open human issues (#1507, #1514),
+  meaning the alarm would have commented on someone else's issue nightly and never created its
+  own, so matching is now client-side on the exact title; a **job-level timeout kills the job**
+  so no later step runs even under `always()`, so the test step now carries its own 45-minute
+  ceiling below the job's 60 and the issue step keys off the step *outcome* as well as its
+  output; and a **mass-failure body can exceed GitHub's 65,536-char cap** and 422 the step,
+  losing the alarm in the loudest case, so both sections are clamped. `e2e-ai` files nothing by
+  design — it shares the webServer path, so infrastructure breaks surface in the other job's
+  issue, and an issue per paid-API hiccup is alert fatigue. Note for anyone reading the Actions
+  list afterwards: the deterministic job is green *by design* when specs fail (the house shape),
+  so the green streak #800 waits on must be read off issue history, not the run list.
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back
