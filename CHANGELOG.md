@@ -306,6 +306,25 @@ in patch versions.
   `ResizablePanel`s, the seed's lookups and the bucket all derive from one declaration and a
   rename is a compile error. The one copy a shared module cannot reach — a CSS selector keyed
   on `#studio-editor` — now selects by `data-pane-role` instead.
+- **Scrolling the Studio's add-slide gallery no longer accumulates a live engine iframe per
+  tile — the crash behind "the tab died and reloaded".** The thumbnail windowing was one-way:
+  `useInView` disconnected its `IntersectionObserver` on a tile's *first* intersection, so
+  `visible` never returned to false and every tile the author had scrolled past kept its own
+  engine document mounted for the lifetime of the grid. Measured on the built site, one scroll
+  through the browse grid took the page from 12 live preview documents to 62 and Chrome's
+  resident set from ~1.1GB to ~1.6GB (~10MB per tile) — and 62 was only the size of the catalog,
+  not a ceiling the code enforced; expanded looks panels pushed it further. On a device with
+  less headroom that is a renderer OOM, which presents as the tab dying and reloading. (The
+  other candidate, a chunk-load reload, is ruled out: that path never reloads by itself — it
+  renders a card offering one.) Two-way now, with hysteresis from a **shared budget** of 32
+  mounted previews rather than a second distance threshold: a tile mounts on scroll-in, stays
+  mounted after it leaves the band, and is recycled least-recently-seen-first only when the grid
+  needs the slot — an on-screen tile is never torn down, and a recycled one leaves a placeholder
+  carrying the same box, so the scroll height never jumps. Flipping `active` alone would not have
+  helped: that gates re-renders, not the frame, so the fix unmounts the preview. Re-measured on
+  the same surface: **33 live frames and ~1.35GB, flat across four full traversals and five
+  open/close cycles.** Present's Slide Overview shares the hook and had the same profile on a
+  long deck, so it is fixed with it. `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md`.
 
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored

@@ -9,8 +9,11 @@ import { hasMermaid, SlideThumbFace, useInView } from './slide-thumb';
 // REUSE: each thumbnail is the SAME engine render as the main stage (via the shared
 // SlideThumbFace over DeckPreview), not a screenshot. PERF: a full deck could be
 // dozens of slides, and each DeckPreview is an engine iframe, so thumbnails are
-// WINDOWED (shared useInView) — a thumb defers its render until it scrolls into
-// view, then renders once and stays. Off-screen thumbs cost only a lightweight ref.
+// WINDOWED (shared useInView) — a thumb defers its render until it scrolls into view,
+// and gives the iframe back once it is far enough off screen that the shared preview
+// budget wants the slot (#1463; the window used to be one-way, so a long deck's grid
+// accumulated every thumb the user had scrolled past). Off-screen thumbs cost a ref
+// and a placeholder box; a recycled one re-renders from the slice cache on return.
 // The SAME windowing + face powers the Studio add-slide gallery (SlidePicker).
 
 function Thumb({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; slideIndex: number; slideCount: number; slideMarkdown: string; mermaid: boolean; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
