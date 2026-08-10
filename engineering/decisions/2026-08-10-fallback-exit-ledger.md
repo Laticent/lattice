@@ -101,6 +101,17 @@ The two entries today:
   name a different hue. Every other theme wants `--accent`, so the fallback is the intended
   value rather than a degradation.
 
+**A literal-terminated chain is in view too, after the trio showed it was not.** `bareVarReads`
+used to *skip* any chain bottoming out in a literal, which is exactly the form
+`checkNoSafeDefaultTokens`'s own remediation text recommends — so
+`var(--cat-1-texture, var(--cat-1-mark, transparent))` re-pointed a sanctioned read at a
+different-contract token and every arm stayed green, while the committed justification (which
+says in as many words that it lands on the same-role fill and *not* on a mark) went false. The
+`--cat-N-ink` construction, inside the change built to surface it. Such reads are now recorded
+and flagged rather than dropped: the main gate still treats `endsLiteral` as rescued, so its
+population is unchanged at zero, while the ledger compares their chain like any other. 255
+previously-invisible reads came into view; the ledger stayed at 13 rows.
+
 **The no-allowlist stance on the DERIVE exit is unchanged.** That stance is deliberate and
 this does not touch it: a token with an unrescued read still fails with no way to list it away.
 This ledger only covers tokens that are already, legitimately, out of the gate's sight.
@@ -129,14 +140,6 @@ all.
 
 ## 5. What this does not fix
 
-- **A literal-terminated fallback is invisible to the ledger, and the gate recommends it.**
-  `bareVarReads` skips any chain that bottoms out in a literal (`if (!parsed ||
-  parsed.endsLiteral) continue;`), so `var(--x, #ccc)` is recorded nowhere — not by the
-  original gate, not here. And `checkNoSafeDefaultTokens`'s own remediation text says *"give
-  every read a `var(--x, <fallback>)` that terminates in a literal"*, which steers an author
-  into the one form of the cheap exit this ledger cannot see. The blind spot is **unpopulated
-  today**, so it is prospective rather than a live hole — but the tooling points at it, which
-  is how a blind spot gets filled. Found by the adversarial trio.
 - **One fallback per token, across all its reads.** A token that legitimately falls back
   differently at different sites cannot be expressed; the gate would report the divergence as
   an error. No such token exists today.

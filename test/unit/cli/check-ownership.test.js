@@ -2468,6 +2468,27 @@ describe('no-safe-default token gate (#1457)', () => {
       }
     });
 
+    // The evasion the red team found: `bareVarReads` used to SKIP any chain bottoming out in
+    // a literal, so `var(--cat-1-texture, var(--cat-1-mark, transparent))` re-pointed the read
+    // at a different-contract token and every arm stayed green — while the committed
+    // justification, which says it lands on the same-role fill and NOT on a mark, went false.
+    // That is the --cat-N-ink construction, inside the change built to surface it. And it is
+    // the form `checkNoSafeDefaultTokens`'s own remediation text recommends.
+    test('a literal-TAILED fallback chain is still compared against the sanction', () => {
+      const litRead = (where, chain) => [{ where, kind: 'css', rootRead: false, chain, endsLiteral: true }];
+      const found = fallbackOnlyTokens(inputs({ bareReads: new Map([['c-container', litRead('lib/x.css:1', ['other'])]]) }));
+      assert.equal(found.length, 1, 'a literal-tailed chain is still taking the cheap exit');
+      assert.deepEqual(found[0].reads[0].chain, ['other'], 'and the ledger must see what it points at');
+    });
+
+    test('a literal-terminated read is RESCUED for the main gate — behavior unchanged', () => {
+      // Recording these reads must not make the gate itself start reporting them: a chain
+      // ending in a literal always resolves, which is why they were skipped in the first place.
+      const litOnly = new Map([['c-container', [{ where: 'lib/x.css:1', kind: 'css', rootRead: false, chain: [], endsLiteral: true }]]]);
+      assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: litOnly })), [],
+        'a literal fallback resolves, so the no-safe-default gate must stay silent');
+    });
+
     test('a synthetic themesDir does not drag the global ledger in with it', () => {
       // The seam exists so the gate can be bitten with synthetic input. Comparing a
       // repo-wide constant against a made-up palette would emit one stale error per row.
@@ -2554,12 +2575,20 @@ describe('no-safe-default token gate (#1457)', () => {
     assert.deepEqual(noSafeDefaultTokens(inputs({ themeTokens: new Set(['bg']) })), []);
   });
 
-  test('bareVarReads separates a bare read from a read with a fallback', () => {
+  // A literal-terminated read is RECORDED and FLAGGED rather than skipped (#1545). It is
+  // still not a no-safe-default hit — `noSafeDefaultTokens` treats `endsLiteral` as rescued,
+  // because a chain bottoming out in a literal always resolves — but the fallback LEDGER has
+  // to see it: `var(--x, var(--y, transparent))` is a cheap-exit fallback pointing at --y,
+  // and skipping it let a sanctioned token be silently re-pointed at a different-contract
+  // token with the gate green.
+  test('bareVarReads flags a literal-terminated read rather than dropping it', () => {
     const reads = bareVarReads('a{color:var(--one)}\nb{color:var(--two, red)}\nc{color:var( --three )}', 'f.css');
-    assert.deepEqual([...reads.keys()].sort(), ['one', 'three']);
+    assert.deepEqual([...reads.keys()].sort(), ['one', 'three', 'two']);
     assert.equal(reads.get('one')[0].where, 'f.css:1');
     assert.equal(reads.get('one')[0].kind, 'css');
     assert.equal(reads.get('one')[0].rootRead, false);
+    assert.equal(reads.get('one')[0].endsLiteral, false, 'a bare read is not literal-terminated');
+    assert.equal(reads.get('two')[0].endsLiteral, true, 'a literal fallback is flagged, not dropped');
   });
 
   // The first cut stripped comments by DELETING them, newlines included, so every

@@ -263,7 +263,10 @@ in patch versions.
   longer applies is an error, so the list cannot rot. Each entry must name what the fallback
   lands on and why that value carries the same contract the read needs — and that field is
   **checked, not just recorded**: re-point a read at a different-contract token and the gate
-  now names the read, which is the `--cat-N-ink` construction exactly. Two kinds of entry
+  now names the read, which is the `--cat-N-ink` construction exactly. That includes a chain
+  ending in a literal — `var(--x, var(--y, transparent))`, the form the gate's own remediation
+  text recommends — which the scanner used to drop entirely, letting a sanctioned read be
+  silently re-pointed while its justification went false. Two kinds of entry
   today, 13 rows: the twelve `--cat-N-texture` (falling back to their own `--cat-N-fill`,
   which is simply the un-textured rendering) and `--spectrum-solid` (falling back to
   `--accent`, the intended value for every theme that doesn't override it). The gate's

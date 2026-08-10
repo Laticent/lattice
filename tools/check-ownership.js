@@ -2700,15 +2700,22 @@ function bareVarReads(css, label, into = new Map()) {
     const close = matchParen(s, i + 3);
     if (close === -1) continue;
     const parsed = parseVarChain(s.slice(i + 4, close));
-    if (!parsed || parsed.endsLiteral) continue;
+    if (!parsed) continue;
     const line = s.slice(0, i).split('\n').length;
     const selector = selectorAt(i);
     if (!into.has(parsed.token)) into.set(parsed.token, []);
+    // A chain terminating in a LITERAL is recorded, flagged, NOT skipped. It always
+    // resolves, so `noSafeDefaultTokens` still treats it as rescued and the main gate's
+    // behavior is unchanged — but the #1545 LEDGER has to see it, because
+    // `var(--x, var(--y, transparent))` is a cheap-exit fallback pointing at --y, and
+    // skipping it let a sanctioned token be silently re-pointed at a different-contract
+    // token with the gate green (found by the adversarial trio, HARD RULE #25).
     into.get(parsed.token).push({
       where: `${label}:${line}`,
       kind: 'css',
       rootRead: selector === null || isUnconditionalRoot(selector),
       chain: parsed.chain,
+      endsLiteral: parsed.endsLiteral,
     });
   }
   return into;
@@ -2764,8 +2771,12 @@ function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefa
   // A read is rescued by a default the reader can reach — on the token itself, or on
   // any token its fallback chain falls through to. A chain token that is CONTRACT
   // -guaranteed rescues it too: every theme emits it, so the chain always resolves.
+  // `endsLiteral` reads are recorded now (so the #1545 ledger can compare their chain), and
+  // a chain bottoming out in a literal ALWAYS resolves — so it is rescued here, exactly as
+  // it was when such reads were skipped outright. The main gate's population is unchanged.
   const rescued = (name, read) =>
-    defaulted(name, read) || (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
+    defaulted(name, read) || read.endsLiteral === true
+    || (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
   return [...bareReads.keys()]
     .filter((t) => {
       if (!themeTokens.has(t) || contract.has(t)) return false;
@@ -2849,7 +2860,10 @@ function fallbackOnlyTokens({ themeTokens, rootDefaults, slideDefaults, mapDefau
     if (read.rootRead) return rootDefaults.has(name);
     return slideDefaults.has(name);
   };
-  const rescuedByChain = (read) => (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
+  // Taking the cheap exit includes a chain that bottoms out in a literal — that is the form
+  // `checkNoSafeDefaultTokens`'s own remediation text recommends, so it must be in view here.
+  const rescuedByChain = (read) =>
+    read.endsLiteral === true || (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
   const out = [];
   for (const token of [...bareReads.keys()].sort()) {
     if (!themeTokens.has(token) || contract.has(token)) continue;
