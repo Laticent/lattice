@@ -244,11 +244,68 @@ test('the divider derivation runs ONCE per deck, however many callers ask', () =
   assert.equal(core.sectionDerivationCount(), 2, 'an edited deck must re-derive');
 });
 
-test('deckSectionFor bails when a divider appears inside code — FAIL SAFE, not fail wrong', () => {
-  // As a probe, matching a divider in prose cost a wasted parse and produced correct output. As a
-  // COUNTER the same match paints an extra dot and bumps the watermark glyph — wrong output.
+test('a divider shown inside code is not counted — and no longer costs the bail', () => {
+  // THIS TEST CHANGED ITS ANSWER, and the reason is the point. It used to assert `undefined`: the
+  // derivation counted dividers over a WHOLE-BODY code-blanked copy, compared that against the raw
+  // reading, and refused when they disagreed — "fail safe, not fail wrong", because as a COUNTER a
+  // divider mentioned in prose paints an extra dot and bumps the watermark glyph.
+  //
+  // The disagreement is gone at its source. Chunks now come from the RAW body and each chunk is
+  // blanked for its own divider test, so a `_class: divider` inside a code span is simply not a
+  // divider for that slide. There is no second reading to be unsure between, so the deck gets a
+  // TRUE section on the cheap path instead of being pushed to the whole-deck render.
+  //
+  // What must still hold is the thing the bail was protecting: the code-span mention must not
+  // create a SECOND divider section.
   const deck = '<!-- _class: divider -->\n# A\n\n---\n\nWrite `<!-- _class: divider -->` to divide.';
-  assert.equal(core.deckSectionFor(deck, 1), undefined);
+  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 1 });
+  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 1 }, 'the code-span mention must not add a second section');
+});
+
+// THE INDEX-SPACE DESYNC. `slideIndex` indexes the CALLER's slides, which are chunked from the RAW
+// source. The derivation used to chunk a code-BLANKED copy and index it with that same
+// `slideIndex`, holding the two together by an unwritten assumption — that blanking code never
+// moves a thematic break. It does: `---`a`` is a paragraph to markdown-it, and blanking the inline
+// span leaves `--- `, which is an hr. Two of those shift every later slot by two, and the divider
+// COUNT is unchanged so the old ambiguity guard could not see it.
+//
+// Reproduced by a red-team pass: slides 2 and 3 both reported section 1 of 2 where the deck says
+// 2 of 2, with `positionIsTrustworthy` true — so nothing fell back and the preview painted the
+// wrong progress-rail dot and the wrong watermark glyph. Pre-existing (the old `chunks[i]` walk had
+// it too) and untripped by any committed deck, which is exactly why it needs a test.
+test('a code span that becomes a thematic break when blanked cannot shift the section index', () => {
+  const deck = [
+    '<!-- _class: divider -->',
+    '# Section A',
+    '',
+    '---',
+    '',
+    '# Slide 2',
+    '',
+    '---`a`', // paragraph raw; `--- ` (an hr) once the inline span is blanked
+    '',
+    'prose one',
+    '',
+    '---`b`',
+    '',
+    'prose two',
+    '',
+    '---',
+    '',
+    '<!-- _class: divider -->',
+    '# Section B',
+    '',
+    '---',
+    '',
+    '# Slide 4 in section B',
+  ].join('\n');
+  // Four caller slides: the two `---`x`` lines are NOT boundaries, so they sit inside slide 1.
+  assert.equal(core.splitSlides(deck).length, 4, 'the fixture must have 4 raw chunks, or it proves nothing');
+  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 2 });
+  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 2 });
+  // These two are the regression: they read slots 4 and 5 of a 6-slot blanked array and reported 1.
+  assert.deepEqual(core.deckSectionFor(deck, 2), { index: 2, total: 2 }, 'slide 2 is in the SECOND divider section');
+  assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 }, 'slide 3 is in the SECOND divider section');
 });
 
 test('deckSectionFor token-tests the class, exactly as the tiles do', () => {
