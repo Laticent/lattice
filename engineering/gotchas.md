@@ -371,6 +371,38 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   (commit body §"Marpit theme-scoper"), `43df18b` (owned-engine `packTheme`
   distribution + regression test).
 
+### A slide renders with NO canvas — white paper, invisible text — on a third-party theme
+
+- **Symptom:** A `_class: dark` slide, a `divider`, or a `code` panel renders
+  with no background at all: white paper, near-white display type on it,
+  around 1:1 contrast. Only on some themes; the shipped palettes are fine.
+  The ribbon/rail is missing too, but that is not the interesting part.
+- **Cause:** The theme is missing a token the engine paints with — `--spectrum`,
+  `--spectrum-vertical`, or `--accent` (which has no engine `:root` default at
+  all) — and the engine read it inside a `background:` **shorthand** that also
+  carried the canvas, e.g.
+  `background: var(--spectrum) top / 100% 1px no-repeat, var(--bg)`.
+  CSS invalidates the **entire declaration** when any `var()` in it is
+  undefined, and the property then takes its **initial** value. It does *not*
+  fall back to the earlier `section { background: var(--bg) }` rule, because
+  the declaration is invalid rather than absent — so `var(--bg)` sitting next
+  to the missing token goes down with it.
+- **Mitigation:** Fixed in the engine (#1528) — the six canvas-bearing sites
+  (`section.dark`, `section.accent.dark`, `section.divider`, and the `code` /
+  `compare-code` panels) paint `background-color:` and `background-image:` as
+  **longhands**, so a missing token costs the decoration alone. Pinned by
+  `test/unit/palette/spectrum-shorthand-safety.test.js`. If you are writing a
+  new rule: never put a theme token that may be absent in a shorthand
+  alongside something load-bearing.
+- **Triggered by:** any theme the generator's contract doesn't cover — a
+  third-party theme, a hand-edited palette, an imported asset bundle. A
+  Studio-generated theme also did this until #1535 taught `deriveTheme` to
+  emit the family.
+- **Removable when:** never — it is how `var()` is specified. The discipline
+  is the mitigation.
+- **See:** `decisions/2026-08-10-spectrum-out-of-the-background-shorthand.md`,
+  `decisions/2026-08-10-no-safe-default-token-contract.md`.
+
 ### Front-matter `style:` directive specificity vs. theme :root
 
 - **Symptom:** Author writes `style: ":root{color-scheme:dark}"` to

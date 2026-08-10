@@ -400,7 +400,29 @@ section:where(:not(.title):not(.divider):not(.closing):not(.split-panel):not(.bi
  * thin :root color-scheme:dark wrapper). */
 section.dark {
   color-scheme: dark;
-  background: var(--spectrum) top / 100% 1px no-repeat, var(--bg);
+  /* LONGHANDS, not the `background:` shorthand, so a theme missing --spectrum loses the
+   * RIBBON and not the CANVAS. One undefined var() makes the WHOLE declaration invalid at
+   * computed-value time, and the property falls to its INITIAL value — it does not fall
+   * back to the earlier `section { background: var(--bg) }` rule. Written as a shorthand,
+   * `background: var(--spectrum) …, var(--bg)` therefore painted `transparent`: measured in
+   * Chromium 131 on a theme short of --spectrum, a `_class: dark` slide rendered #FFFFFF
+   * with its near-white display headline on top of it, 1.02:1 — an invisible slide (#1457).
+   * Split this way, the miss invalidates `background-image` alone. #1535 fixed the SOURCE
+   * (the Studio's generator now emits the token); this closes the trap for every theme
+   * source the contract will never reach — third-party themes, hand-edited palettes,
+   * imported asset bundles. Same shape as the finish layer's `var(--fin-texture, none)`
+   * longhands in base.finish.css. Verified inert: every rule that also paints a background
+   * here is either a `background:` shorthand at higher specificity (which resets ALL
+   * longhands, so `spectrum-off` / `print` / the `*-cover` classes behave exactly as before)
+   * or a `background-image`-only rule the split does not affect (`finish-none`,
+   * `backdrop-none`, the `tint-*`/`mark-*` treatments) — 81 matching rules enumerated by
+   * CSSOM, then measured across 7 themes x 88 class combinations with zero substantive
+   * computed differences (#1528). */
+  background-color: var(--bg);
+  background-image: var(--spectrum);
+  background-position: top;
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
   border-top: none;
 }
 

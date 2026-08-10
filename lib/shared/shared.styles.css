@@ -45,10 +45,21 @@ section.accent h2 { color: var(--accent); }
 /* On the dark canvas the rainbow border is suppressed entirely; the accent
  * modifier restores a single-colour stripe so the visual signal still reads. */
 section.accent.dark {
-  /* section-OWN cqi (the accent strip height): route through --_sec-1cqi */
-  background:
-    linear-gradient(to right, var(--accent), var(--accent)) top / 100% calc(0.3125 * var(--_sec-1cqi, 1cqi)) no-repeat,
-    var(--bg);
+  /* LONGHANDS, not the `background:` shorthand, for the same reason as `section.dark`
+   * itself (base.modifiers.css, #1528): one undefined var() invalidates the WHOLE
+   * declaration at computed-value time and the property falls to its INITIAL value, so
+   * the shorthand form took `var(--bg)` down with a missing --accent and the slide
+   * rendered as white paper under near-white type. --accent is NOT rescued by an engine
+   * default — the only engine declaration of it is the print remap in base.modifiers.css
+   * — so this is reachable for any theme the generator's contract does not cover.
+   * Verified in Chromium 131: with --accent undefined, the old form computed
+   * `background-color: rgba(0,0,0,0)`, this one keeps the canvas and drops the stripe.
+   * section-OWN cqi (the accent strip height): route through --_sec-1cqi */
+  background-color: var(--bg);
+  background-image: linear-gradient(to right, var(--accent), var(--accent));
+  background-position: top;
+  background-size: 100% calc(0.3125 * var(--_sec-1cqi, 1cqi));
+  background-repeat: no-repeat;
   border-top: none;
 }
 section.accent.dark h2 { color: var(--accent); }

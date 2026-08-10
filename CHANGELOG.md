@@ -153,6 +153,32 @@ in patch versions.
   `checkNoSafeDefaultTokens` treats the token: that gate is right to consider
   `--spectrum-quiet` defaulted, because the engine value really does win.
 
+- **Fixed: a theme missing a token the engine paints with no longer loses the whole slide
+  canvas.** CSS invalidates the *entire* declaration when any `var()` in it is undefined,
+  and the property then falls to its **initial** value rather than back to an earlier rule
+  — so `background: var(--spectrum) top / 100% 1px no-repeat, var(--bg)` on `section.dark`
+  took `var(--bg)` down with it. Measured on the real export path in Chromium 131: the
+  dark slide rendered white with its near-white headline invisible on it, and the divider
+  the same. Six declarations across five files — `section.dark`, `section.accent.dark`,
+  `section.divider`, and the `code` / `compare-code` panels — are now written as
+  `background-color` + `background-image` longhands, so a miss invalidates the image alone
+  and the canvas survives. Three of the six were found by sweeping for the same *shape*
+  rather than the same token: `section.accent.dark` paints its stripe from `--accent`,
+  which has no engine `:root` default at all, and the code panels read
+  `--spectrum-structure`, which derives from `--accent`/`--border` by default and is
+  pointed straight at `--spectrum` under `spectrum-trim: on`. The ~10 remaining
+  single-layer sites (table-header rails, `hr`, the `list-steps` spine, `matrix-grid`) are
+  deliberately unchanged: an invalid declaration there already costs exactly the
+  decoration, which is the correct degradation. **No visual change on a well-formed
+  theme** — verified byte-identical across 26 renders (four palettes x a default/dark/
+  divider/code deck, a six-slide cascade-interaction deck at `spectrum-trim: on`, and an
+  `accent dark` slide), and independently across 7 themes x 88 section-class combinations
+  x 9 background longhands with zero substantive computed-style differences. Complements
+  the generator fix shipping alongside it: that stopped the Studio *producing* such a
+  theme, while this protects against every source the contract cannot reach — third-party
+  themes, hand-edited palettes, imported asset bundles.
+  (`engineering/decisions/2026-08-10-spectrum-out-of-the-background-shorthand.md`)
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested

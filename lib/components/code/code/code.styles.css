@@ -14,7 +14,26 @@ section.code > .cell-stage { display:flex; flex-direction:column; }
 section.code h3 { padding-bottom:0.3125cqi; }
 section.code h2 { padding-bottom:var(--sp-xs); }
 section.code > .cell-stage > em { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-label); padding-bottom:var(--sp-sm); font-style:normal; display:block; }
-section.code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
+/* Longhands so a missing ribbon can't take the code panel's SURFACE with it (#1528). This
+ * one is second-order: it reads `--spectrum-structure`, which is engine-declared but is NOT
+ * therefore safe. Its DEFAULT value derives from the theme — base.variants.css builds it
+ * from `--spectrum-quiet`, which is `color-mix(… var(--accent) …, var(--border))` — so a
+ * theme short of `--accent` or `--border` poisons it with no register set at all; and
+ * `section.spectrum-trim { --spectrum-structure: var(--spectrum) }` points it straight at a
+ * third token. A custom property that is invalid at computed-value time poisons every
+ * declaration that reads it, so the whole shorthand — `var(--code-bg)` included — went
+ * invalid and the panel fell to `transparent` over the slide canvas. Measured in Chromium
+ * 131 with `--accent` undefined and no trim: old `background-color: rgba(0,0,0,0)`, new
+ * keeps `--code-bg`. */
+section.code pre {
+  flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden;
+  background-color:var(--code-bg);
+  background-image:var(--spectrum-structure);
+  background-position:bottom;
+  background-size:100% 3px;
+  background-repeat:no-repeat;
+  padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box;
+}
 section.code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
 /* At claim-hero/bleed the stage grows tall; a short snippet in a `flex:1` panel
