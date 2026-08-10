@@ -61,7 +61,9 @@ async function swipeLeft(page: import('@playwright/test').Page, box: { x: number
 	const cdp = await page.context().newCDPSession(page);
 	const y = box.y + box.height / 2;
 	const from = box.x + box.width * 0.7;
-	const send = (type: string, x: number) =>
+	// The CDP event type is a union, not a free string — spelling it out is what
+	// keeps a typo ('touchesEnd') a compile error rather than a silently dead swipe.
+	const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number) =>
 		cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, radiusX: 12, radiusY: 12, force: 1 }] });
 	await send('touchStart', from);
 	for (let i = 1; i <= 5; i++) await send('touchMove', from - (200 * i) / 5);
