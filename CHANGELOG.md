@@ -326,6 +326,25 @@ in patch versions.
   open/close cycles.** Present's Slide Overview shares the hook and had the same profile on a
   long deck, so it is fixed with it. `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md`.
 
+- **A slide thumbnail no longer runs the overflow watcher — no QA chrome on a tile, and no
+  observer per frame.** Every preview frame boots the engine runtime, and a frame with no
+  export-settings block resolves to the `author` marker level by design. In a grid of
+  thumbnails that is wrong twice: the marks are unreadable at ~260px, and in the add-slide
+  gallery they describe a *catalog sample* the author neither wrote nor can fix — the
+  shipped gallery painted an **"Overflows" tab on the `image` tile** and type-floor alarms
+  on `state-chart` and `quadrant`. The cost is per-document too, so it multiplied by the
+  grid: each frame armed a permanent `MutationObserver` over `document.body` plus a resize
+  listener, rAF-dispatching a full-document scan whose probes force layout. `SlideThumbFace`
+  now stamps `<html data-lattice-thumbnail>` on the frames it renders (the add-slide gallery,
+  its looks panels, and Present's slide overview), and the runtime routes those to
+  `overflow-marker: off` — the level that already sweeps and then installs nothing: no probe,
+  no observer, no resize handler. The type-floor alarm goes with it; it is the same watcher.
+  **Every other surface is unchanged** and still watched at `author` — the Studio's own
+  preview, the landing islands, the VS Code preview, an Export-to-Marp bundle — which the new
+  tests control for explicitly. Measured on the same overflowing deck: RSS 1442 → 1337MB and
+  1336 → 1304 event listeners, about one per frame.
+  `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md` §6.
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back

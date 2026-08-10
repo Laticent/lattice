@@ -194,6 +194,12 @@ export function SlideThumbFace({ options, sample, slideIndex, slideCount, slideM
 			extraCss={extraCss}
 			active={active}
 			className={className}
+			// THE thumbnail declaration, made once for all three grids that use this face
+			// (the picker's tiles + looks, Present's overview). It stamps the frame so the
+			// engine runtime skips its overflow / type-floor watcher: at this size the marks
+			// are unreadable, in the gallery they describe a catalog sample nobody can fix,
+			// and the watcher's permanent observer would run once per frame across the grid.
+			thumbnail
 			aria-hidden
 		/>
 	);

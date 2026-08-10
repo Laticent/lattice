@@ -43,9 +43,9 @@ const SLIDE = '<section class="content"><h2>Title</h2><p>Body.</p></section>';
  * block. `fetch` is stubbed to reject so no network fallback can quietly supply an
  * answer — everything here comes from the block or from the surface default.
  */
-async function boot({ block = '', markup = SLIDE } = {}) {
+async function boot({ block = '', markup = SLIDE, thumbnail = false } = {}) {
   const dom = new JSDOM(
-    `<!DOCTYPE html><html><head></head><body>${markup}${block}</body></html>`,
+    `<!DOCTYPE html><html${thumbnail ? ' data-lattice-thumbnail' : ''}><head></head><body>${markup}${block}</body></html>`,
     { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
   );
   dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
@@ -122,6 +122,69 @@ describe('overflow-marker — `off` clears what is already there and stays stamp
     assert.deepEqual(levelsOn(document), ['off'], 'stamped, so the CSS suppression can key on it');
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'the rings are gone');
     assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'the tabs are gone');
+    dom.window.close();
+  });
+});
+
+describe('a THUMBNAIL document is watched by nothing (#1463)', () => {
+  // A thumbnail is a miniature in a grid of its peers — the add-slide gallery, Present's
+  // slide overview. The watcher has no addressee there (unreadable at ~260px, and in the
+  // gallery it describes a catalog sample nobody can fix) and its cost is per-DOCUMENT,
+  // so it multiplies by every frame the grid holds open. `<html data-lattice-thumbnail>`
+  // routes it to `off`, the level that installs nothing.
+  test('a thumbnail resolves to `off` — no authoring signal, whatever the surface default', async () => {
+    const dom = await boot({ thumbnail: true });
+    assert.deepEqual(levelsOn(dom.window.document), ['off'],
+      'no export-settings block, so this document would otherwise be an authoring surface at `author`');
+    dom.window.close();
+  });
+
+  // The load-bearing half. `off` is not "a quieter mark" — it returns before any probe,
+  // observer or resize handler exists, which is the whole reason a thumbnail uses it.
+  // Pinned behaviorally: mutate the document the way the shared observer watches for
+  // (attributes + childList) and require that nothing re-marks it.
+  test('nothing is installed — a later mutation draws no ring, tab or alarm', async () => {
+    const dom = await boot({ thumbnail: true });
+    const { document } = dom.window;
+    const s = document.querySelector('section[data-lattice-slide]');
+    s.setAttribute('data-poke', '1');
+    s.insertAdjacentHTML('beforeend', '<p>more content, arriving after boot</p>');
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'no ring was drawn');
+    assert.equal(document.querySelectorAll('.overflow-tab, .illegible-tab').length, 0, 'no tab was drawn');
+    dom.window.close();
+  });
+
+  // Strictly better than the bypass this replaced: a document that arrives pre-marked
+  // (a build-time stamp, or an earlier pass at a louder level) is CLEANED, not left
+  // carrying chrome nobody will ever remove.
+  test('a pre-marked thumbnail is swept clean', async () => {
+    const marked = '<section class="content overflow illegible">'
+      + '<h2>T</h2><div class="overflow-tab">Overflows</div>'
+      + '<div class="illegible-tab">Type 3px · floor 8.4px</div></section>';
+    const dom = await boot({ markup: marked, thumbnail: true });
+    const { document } = dom.window;
+    assert.deepEqual(levelsOn(document), ['off']);
+    assert.equal(document.querySelectorAll('.overflow, .illegible, .overflow-tab, .illegible-tab').length, 0);
+    dom.window.close();
+  });
+
+  // The flag is OPT-IN and nothing else sets it: every other surface — the Studio's own
+  // full-size preview, the landing islands, the VS Code preview, an Export-to-Marp
+  // bundle — must be byte-identical to before. This is the control for that claim, and
+  // it is what e2e/reader-alarms.spec.ts' positive control depends on still being true.
+  test('without the flag the surface default is untouched — still `author`', async () => {
+    const dom = await boot();
+    assert.deepEqual(levelsOn(dom.window.document), ['author']);
+    dom.window.close();
+  });
+
+  // A thumbnail is a RENDER TARGET, like an export — so if a document somehow carried
+  // both signals, the thumbnail wins. There is no surface that produces both today; this
+  // pins the precedence so a future one cannot resolve it by accident.
+  test('the thumbnail flag outranks an export-settings block', async () => {
+    const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'author' }), thumbnail: true });
+    assert.deepEqual(levelsOn(dom.window.document), ['off']);
     dom.window.close();
   });
 });

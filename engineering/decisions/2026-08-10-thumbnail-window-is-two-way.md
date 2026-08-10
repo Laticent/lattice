@@ -12,8 +12,16 @@ summary: >
   SHARED BUDGET (32 mounted previews) rather than a second distance threshold — an out-of-band tile
   is recycled LRU when the grid needs the slot, an on-screen tile never is. Re-measured on the same
   surface: 33 live frames and ~1.35GB, flat across four full traversals and five open/close cycles.
-  Also records one measurement trap (unforced GC reads `Documents` as a leak) and one pre-existing
-  bounded residue logged, not fixed.
+  A second pass then stops the engine runtime's overflow/type-floor watcher from running in a
+  thumbnail at all: every frame was booting it at `author` level, so the shipped gallery painted an
+  "Overflows" tab on the `image` tile and type-floor alarms on `state-chart`/`quadrant` — QA chrome
+  describing a catalog sample nobody can fix — while each frame armed a permanent MutationObserver
+  and a forced-layout probe, once per frame across the grid. `<html data-lattice-thumbnail>` routes
+  it to `off`, the level that already installs nothing. Measurement did NOT support the stronger
+  claim that overflow is a second crash cause, and that is recorded too. Also records two traps: an
+  unforced GC reads `Documents` as a leak, and `resolve-overflow-marker.js`'s "the probe always
+  runs" describes the export contract, not this watcher — believing it nearly bought a redundant
+  bypass. One pre-existing bounded residue logged, not fixed.
 ---
 
 # The thumbnail window only opened — #1463
@@ -153,7 +161,112 @@ overwrites the single memo slot anyway, so recycling costs it nothing that was n
 - The docs unit suite (2772 tests), lint, and typecheck are green, as are the neighboring e2e specs
   (`insert-component`, `present`, `present-guide`, `slide-ops`).
 
-## 6. Logged, not fixed
+## 6. The second half — a thumbnail is watched by nothing
+
+Raised while reviewing the fix: *"any slide that overflows crashes it too — for these
+multi-slide previews we should disable overflow detection."*
+
+**The first half of that is not supported by measurement, and the second half is right
+anyway.** Both are worth stating precisely, because the reasons differ.
+
+### What the overflow watcher was doing in a thumbnail
+
+Every preview frame boots the engine runtime, and a frame with no export-settings block
+resolves to `author` — the loudest level, by design (`resolve-overflow-marker.js`: "the
+live preview and the Studio always show `author`, because you are the one who can fix a
+clipped slide"). Confirmed in a real Studio frame: `data-lattice-overflow-marker="author"`,
+and on an overflowing slide, an `.overflow-tab` plus three Fix-Me culprit overlays.
+
+In a grid of thumbnails that is wrong twice over:
+
+1. **The signal has no addressee.** It is unreadable at ~260px, and in the add-slide
+   gallery it describes a *catalog sample* the author neither wrote nor can fix. A census
+   of the shipped gallery, scrolled to the bottom, found real chrome on real tiles:
+
+   ```
+   frames=33  .overflow=1  tabs=1  illegibleTabs=2
+      · image:       tab=["Overflows"]
+      · state-chart: type-floor alarm
+      · quadrant:    type-floor alarm
+   ```
+
+2. **The cost is per-document, so it multiplies by the grid.** Each frame arms a
+   permanent `MutationObserver` over `document.body` (`subtree + childList +
+   characterData + attributes`) plus a resize listener, rAF-dispatching a full-document
+   scan whose probes force layout — once per frame, across every frame the grid holds
+   open.
+
+### What it was NOT doing: crashing the tab
+
+Measured honestly, and it does not support the stronger claim. A 40-slide deck where
+*every* slide overflows, through Present's overview:
+
+| | fits | overflows |
+|---|---|---|
+| nodes at the bottom of the scroll | 17,440 | 32,422 |
+| Chrome RSS | 1282MB | 1442MB |
+| CPU over 8 idle seconds | 0.36s | 0.26s |
+
+Real, but not the dominant term — and the node difference is mostly the author's own
+content, since the watcher's own chrome is about four nodes per slide. Nothing churns
+once the grid settles. The 60fps redraw loop overflow *used* to cause was already found
+and closed by `drawFixMeTags`' painted-signature guard. So this is waste and noise
+compounding §1's frame accumulation, not a second cause of it.
+
+### The fix, and the wrong turn on the way to it
+
+`SlideThumbFace` — the one face all three grids share — stamps `<html
+data-lattice-thumbnail>` on the frame it renders, via `SingleSlideOptions.thumbnail` →
+`srcdoc()`. The runtime reads it and routes the watcher to `off`.
+
+The first cut instead added an early `return` past `startOverflowWatcher` entirely, on
+the belief that `off` still runs the probes. **That belief was wrong, and it came from
+reading the wrong document.** `resolve-overflow-marker.js`'s header says the probe
+"always runs" at `off` — true of the CLI/export contract it documents, and not of this
+watcher, whose `off` branch is explicit: *"Sweep once, install nothing: no probe, no
+observer, no resize handler."*
+
+So the two options collapse into one, and the existing level is strictly better than the
+bypass: it installs exactly as little, **and** it sweeps any pre-existing mark and stamps
+the attribute the CSS suppression keys on, which a bare `return` would skip. Reusing the
+tested vocabulary instead of adding a second way to be silent is HARD RULE #15.
+
+Deliberately narrow: only the overflow/legibility watcher changes. `patchSectionGeometry`
+still runs in a thumbnail — its `--_sec-1cqi` / `--_sec-1cqh` stamps and `data-orientation`
+are load-bearing for portrait sizes and every container-query reflow, so a thumbnail that
+skipped them would render *differently from the slide it depicts*: a worse defect than the
+one being fixed. Verified: the mid-grid screenshot is unchanged after the switch.
+
+The type-floor alarm goes with it — it lives inside the same `check()` — so `state-chart`
+and `quadrant` lose their amber tabs in the grids too. That is the intended scope, not a
+side effect: a reader of a thumbnail can no more resize a figure than fix a clipped one.
+
+### Verification
+
+- **Real bundled runtime in jsdom** — five cases added to
+  `test/integration/parity/runtime-overflow-marker.test.js` (the harness that boots
+  `dist/lattice-runtime.js`): a thumbnail resolves to `off`; a post-boot mutation draws no
+  ring, tab or alarm (so *nothing is installed*, not merely "nothing is showing"); a
+  pre-marked thumbnail is swept clean; the flag outranks an export-settings block; and —
+  the control — a document without the flag is still `author`.
+- **Real surface** — `e2e/gallery-preview-budget.spec.ts` walks every tile frame in the
+  scrolled gallery and requires `level === 'off'` with zero chrome, then asserts in the
+  same run that the Studio's own preview behind the dialog still reads `author`. Without
+  that control, "every tile reads off" would also pass if the flag had been wired to
+  every preview on the page.
+- **The existing control still holds** — `e2e/reader-alarms.spec.ts` passes unchanged,
+  including its positive control that injects a 4px figure into each landing preview and
+  requires the watcher to react. Landing islands are not thumbnails and keep their
+  watcher.
+- **Census, before → after** on the built site: the gallery went from
+  `.overflow=1, tabs=1, illegibleTabs=2` to zero across all 33 frames, and the `image`
+  tile's red ring is visibly gone at 390px.
+- **Cost**, same overflowing 40-slide overview: RSS 1442 → 1337MB, event listeners
+  1336 → 1304 (about one per frame — the resize handler the watcher no longer installs),
+  style recalc 1.15 → 0.97s. Modest, and the direction confirms the observers really are
+  absent.
+
+## 7. Logged, not fixed
 
 Closing the gallery leaves ~69 documents resident (it was ~80 before this change) with only the one
 live preview left in the page — a few hundred MB that the close does not hand back promptly. It is

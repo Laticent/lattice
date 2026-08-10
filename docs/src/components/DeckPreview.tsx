@@ -134,6 +134,14 @@ export type DeckPreviewProps = {
 	 * thumbnail / specimen host must stay static (a grid of popovers would be noise). Off by default.
 	 */
 	chartDetail?: boolean;
+	/**
+	 * This preview is a THUMBNAIL — a miniature in a grid of its peers, not a slide
+	 * anyone authors from. Folded into the renderer's options so the frame is stamped
+	 * `<html data-lattice-thumbnail>` and the engine runtime skips its overflow /
+	 * type-floor watcher (see `SingleSlideOptions.thumbnail`). Set by `SlideThumbFace`;
+	 * every full-size host omits it and keeps the watcher.
+	 */
+	thumbnail?: boolean;
 };
 
 /**
@@ -161,6 +169,7 @@ export function DeckPreview({
 	onRender,
 	loader = false,
 	chartDetail = false,
+	thumbnail = false,
 	...aria
 }: DeckPreviewProps) {
 	// Nacre loader = the SKELETON. It owns the screen for the whole load and yields ONLY
@@ -185,8 +194,12 @@ export function DeckPreview({
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
 	// (avoids re-running createSingleSlideRenderer every render).
+	// `thumbnail` is folded in HERE rather than pushed onto every caller's `options`:
+	// the flag is a property of THIS HOST (a grid tile vs a full-size preview), while
+	// `options` is page-level config the Studio hands identically to both. Read once,
+	// like `options` itself — a host does not become a thumbnail mid-life.
 	const engineRef = React.useRef<SingleSlideRenderer | null>(null);
-	if (engineRef.current === null) engineRef.current = createSingleSlideRenderer(options);
+	if (engineRef.current === null) engineRef.current = createSingleSlideRenderer(thumbnail ? { ...options, thumbnail: true } : options);
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
 	activeRef.current = active;

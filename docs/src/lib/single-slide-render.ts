@@ -114,6 +114,21 @@ export type SingleSlideOptions = {
 	 * staged by sync-playground-assets) so math previews stay off a third-party CDN.
 	 */
 	katexUrl?: string;
+	/**
+	 * This host renders THUMBNAILS — miniatures in a grid of their peers (the add-slide
+	 * gallery, Present's slide overview), not a slide anyone authors from. Stamps
+	 * `<html data-lattice-thumbnail>` on the frame, which the runtime reads to skip the
+	 * overflow/legibility watcher: at ~260px its marks are unreadable, in the gallery
+	 * they describe a catalog sample the author cannot fix, and its permanent
+	 * MutationObserver + forced-layout probe would run once per frame across the whole
+	 * grid. See `isThumbnailDocument()` in lib/runtime/index.js for the full reasoning
+	 * and for why this is not the same as the `off` marker level.
+	 *
+	 * Set by `SlideThumbFace` only. A full-size preview — the Studio's own, the landing
+	 * islands, a specimen — omits it and keeps the watcher, which is what
+	 * `e2e/reader-alarms.spec.ts` controls for.
+	 */
+	thumbnail?: boolean;
 };
 
 /** Resolve `<html data-palette/-mode>` → the palette + mode to render with. */
@@ -505,7 +520,7 @@ function scheduleVizScan(getDoc: () => Document | null | undefined): void {
  *   - ready()           → window.LatticePlayground present?
  */
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
-	const { themeBase, runtimeUrl, engineUrl } = opts;
+	const { themeBase, runtimeUrl, engineUrl, thumbnail } = opts;
 	// Prefer a locally-vendored Mermaid (no CDN); fall back to jsdelivr.
 	const mermaidUrl = opts.mermaidUrl || MERMAID;
 	const themes = createThemeFetcher(themeBase);
@@ -602,7 +617,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		let s =
 			// The theme <style> carries an id so the RESTYLE fast path (renderInto) can find
 			// and swap it in place on a theme/mode change — no srcdoc rewrite, no new realm.
-			'<!doctype html><html><head><meta charset="utf-8"><style id="lattice-theme">' +
+			// `data-lattice-thumbnail` (opts.thumbnail) rides on the <html> tag rather than
+			// the body or the section: the runtime reads it once at boot, before it has a
+			// section to consult, and the restyle/patch fast paths never rewrite this tag —
+			// so the flag survives every re-render short of a full write, which rebuilds it.
+			'<!doctype html><html' + (thumbnail ? ' data-lattice-thumbnail' : '') + '><head><meta charset="utf-8"><style id="lattice-theme">' +
 			themeStyleContent(css, mode, geom, extraCss) +
 			'</style></head><body>' +
 			html;
