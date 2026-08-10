@@ -188,7 +188,7 @@ var MEMO_MAX, memo, parses;
 var init_slide_boundaries = __esm({
   "lib/core/slide-boundaries.mjs"() {
     init_boundary_parser();
-    MEMO_MAX = 4;
+    MEMO_MAX = 6;
     memo = /* @__PURE__ */ new Map();
     parses = 0;
   }
