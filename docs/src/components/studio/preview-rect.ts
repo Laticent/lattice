@@ -44,6 +44,33 @@ export const PREVIEW_RECT_KEY = 'lattice-studio-preview-rect-v2';
 export const STUDIO_SPLIT_KEY = 'lattice-docs-split-studio';
 export const STUDIO_SPLIT_BUCKET = 'studio-editor,studio-preview';
 
+/**
+ * THESE ARE DEFAULT-FONT-SIZE MEASUREMENTS, and what that does and does not bound (#1496).
+ *
+ * Every content-sized band here was measured once, in a browser at its default font size. A
+ * reader who raises the browser's MINIMUM font size (Chrome: Settings -> Appearance ->
+ * Customize fonts — a low-vision setting) makes the app's rows grow; a frozen number cannot
+ * follow. Measured at 24px the shell was out by 18px on the sub-bar, 38px on the footer and
+ * 20px on the status strip — a visible seam, not a rounding nit.
+ *
+ * The fix was NOT to re-measure. The skeletons in StudioChromeSkeleton.tsx now carry the app's
+ * own text metrics, and the bands are FLOORED by these constants rather than pinned to them
+ * (min-height, not height, in studio.astro). At the default size content lands exactly on the
+ * constant, so nothing about the common case changed; above it, the band tracks the app's row.
+ *
+ * So read a number here as "the height this band has at the default font size, and the floor
+ * it never goes below" — not as "the height of this band".
+ *
+ * TWO PLACEMENTS still derive from the constants and therefore still drift for those readers.
+ * Both are pinned by the `@minfont` cases in studio-instant-shell.spec.ts so they cannot grow
+ * unseen:
+ *   - `mobileBarH` PLACES everything below the phone's action bar. The bar itself is fluid and
+ *     correct; the sub-bar under it sits up to 24px high at 24px minimum font.
+ *   - `footerWrite` reserves the stage's bottom padding, so the slide box's TOP is up to 11px
+ *     off on a wide viewport. Its SIZE is unaffected.
+ * A post-paint measure-and-republish fixes both numbers and loses a race against the rotation
+ * re-seed; the note in studio.astro records what broke when it was tried.
+ */
 export const PREVIEW_CHROME = {
 	topbarH: 54, // the studio topbar (StudioShell `header` h-[54px])
 	// Mobile only: the eight-cell deck-actions bar below the topbar (pane starts at 103).

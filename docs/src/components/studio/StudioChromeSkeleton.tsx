@@ -295,17 +295,53 @@ export function StudioEditorPaneSkeleton() {
  * the real control's shape, so the STRUCTURE is honest and nothing asserts a value.
  */
 function ContentBar({ className }: { className?: string }) {
-	return <span aria-hidden="true" className={cn('inline-block h-2.5 rounded-full bg-current opacity-25', className)} />;
+	return (
+		<span aria-hidden="true" className={cn('inline-flex items-center', className)}>
+			{/*
+			 * A ZERO-WIDTH SPACE, and it is structural rather than decorative.
+			 *
+			 * This bar stands in for TEXT, so it has to occupy the height that text would. A
+			 * bare `h-2.5` block does not: it is 10px at every font size, so a row built out of
+			 * these cannot follow the reader's font settings. Nor does putting text classes on
+			 * the row help — these rows are `display:flex`, and a flex container has no strut,
+			 * so the only thing that can track font size is a child that genuinely contains
+			 * text. That is the whole of #1496: at a raised browser minimum font size the app's
+			 * status strip grew to 42px and the shell's stayed at its frozen 30.6.
+			 *
+			 * The space is zero-width, so it contributes a line box and nothing else — the
+			 * visible bar keeps its own 10px height and is centered in whatever line box the
+			 * inherited font establishes. Nothing here asserts a per-deck value.
+			 */}
+			<span className="w-0 overflow-hidden">{'​'}</span>
+			<span className="h-2.5 flex-1 rounded-full bg-current opacity-25" />
+		</span>
+	);
 }
 
-/** The preview pane's sub-bar (scope chip + slide stepper) — dropped at the Read stop. */
+/**
+ * The preview pane's sub-bar (scope chip + slide stepper) — dropped at the Read stop.
+ *
+ * The container carries the app's OWN text classes, and that is load-bearing rather than
+ * cosmetic: a row's height is set by its strut (the line box the parent's font-size and
+ * line-height establish), so a skeleton with no text classes has a strut that cannot follow
+ * the reader's font settings. That is exactly how this band ended up 18px shorter than the
+ * app's at a raised browser minimum font size (#1496) — the app's row grew with its text and
+ * the shell's did not. Every height-driving property here is the app's; only the CONTENT is
+ * neutral (see the ContentBar rule above).
+ */
 export function StudioPreviewBarSkeleton() {
 	return (
-		<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5">
-			<span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Preview</span>
-			<span className="flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-muted-foreground"><FileText className="size-3.5" /><ContentBar className="w-12" /></span>
+		<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+			<span className="shrink-0">Preview</span>
+			{/* The app's LensPicker trigger — `px-3 py-1.5 font-sans text-[12.5px] font-semibold`.
+			    It is the TALLEST thing in this row, so under-sizing it (this was `px-2.5 py-1`)
+			    left the whole band ~8px short of the app's at every font size. */}
+			<span className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal"><FileText className="size-3.5 shrink-0" /><ContentBar className="hidden w-12 @[21rem]:inline-flex" /></span>
 			<span className="flex-1" />
-			<span className="rounded-full border border-border bg-card px-2.5 py-1.5"><ContentBar className="w-14" /></span>
+			{/* The app's slide counter: `px-2 py-0.5 font-sans text-[12px] font-semibold`. It was
+			    `px-2.5 py-1.5` here, which made the skeleton's natural height 52.6px against the
+			    app's 47 — invisible only because the band was pinned to a constant and clipped. */}
+			<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal"><ContentBar className="w-14" /></span>
 		</div>
 	);
 }
@@ -314,19 +350,30 @@ export function StudioPreviewBarSkeleton() {
 export function StudioPreviewFooterSkeleton() {
 	return (
 		<>
-			<div className="ssr-rail flex flex-1 items-center gap-1.5 overflow-hidden border-t border-border bg-background px-2.5">
+			{/* The app's navigator row: `px-3 py-2`, the five ops in a bordered `p-0.5` group of
+			    `size-7` buttons, then the slide pills. Both rows below carry the app's own text
+			    classes for the reason in StudioPreviewBarSkeleton's note — the strut is what
+			    tracks a raised browser minimum font size, and a skeleton without text has none. */}
+			{/* No border-t here: the .ssr-paneftr band already draws the footer's top hairline, so
+			    carrying one on this row too made the band 1px taller than the app's. Invisible
+			    while the band was pinned to a constant; a 1px disagreement the moment it is not. */}
+			<div className="ssr-rail flex flex-1 items-center gap-1.5 overflow-hidden bg-background px-3 py-2">
 				{/* Slide ops are fixed chrome — the app's own icons, at the app's own button size. */}
-				<Button variant="ghost" size="icon-sm" aria-label="Add slide"><Plus className="size-4" /></Button>
-				<Button variant="ghost" size="icon-sm" aria-label="Duplicate slide"><Copy className="size-4" /></Button>
-				<Button variant="ghost" size="icon-sm" aria-label="Move slide left"><ArrowLeftToLine className="size-4" /></Button>
-				<Button variant="ghost" size="icon-sm" aria-label="Move slide right"><ArrowRightToLine className="size-4" /></Button>
-				<Button variant="ghost" size="icon-sm" aria-label="Delete slide"><Trash2 className="size-4" /></Button>
-				{/* The slides themselves are the user's deck — structure only, never a name. */}
-				<span className="ml-1 flex items-center gap-2 rounded-lg border border-[var(--accent)] px-2.5 py-2"><ContentBar className="w-16" /></span>
-				<span className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2 text-muted-foreground"><ContentBar className="w-20" /></span>
-				<span className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2 text-muted-foreground"><ContentBar className="w-16" /></span>
+				<span className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Plus className="size-3.5" /></span>
+					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Copy className="size-3.5" /></span>
+					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><ArrowLeftToLine className="size-3.5" /></span>
+					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><ArrowRightToLine className="size-3.5" /></span>
+					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Trash2 className="size-3.5" /></span>
+				</span>
+				{/* The slides themselves are the user's deck — structure only, never a name. The
+				    numbered chip IS fixed chrome (slide N is always slide N), so it is drawn; the
+				    label beside it is the deck's content, so it stays a neutral bar. */}
+				<span className="ml-1 flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--accent)] px-2.5 py-1.5 text-[11px]"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold text-muted-foreground">1</span><ContentBar className="w-16" /></span>
+				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold">2</span><ContentBar className="w-20" /></span>
+				<span className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground"><span className="grid size-[18px] shrink-0 place-items-center rounded-md bg-card font-mono text-[10px] font-bold">3</span><ContentBar className="w-16" /></span>
 			</div>
-			<div className="ssr-status flex shrink-0 items-center gap-3 border-t border-border px-4 py-1.5 text-muted-foreground">
+			<div className="ssr-status flex shrink-0 items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
 				<ContentBar className="w-24" />
 				<span className="flex-1" />
 				<ContentBar className="w-20" />

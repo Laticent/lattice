@@ -86,6 +86,21 @@ export default defineConfig({
 			use: { viewport: { width: 1440, height: 900 } },
 			grepInvert: /@mobile|@webkit/,
 		},
+		// A RAISED BROWSER MINIMUM FONT SIZE — the low-vision setting at Chrome's
+		// Settings -> Appearance -> Customize fonts. `--blink-settings=minimumFontSize` is the
+		// same Blink knob that setting drives, so this is the real axis and not an emulation of
+		// one. It exists because every other project here runs at the default size, which made
+		// text metrics a structural blind spot: the shell's bands were frozen measurements and
+		// disagreed with the app by up to 39px for these readers, with nothing able to see it
+		// (#1496). 24px is the top of Chrome's own picker — the worst case, not a middling one.
+		{
+			name: 'minfont',
+			use: {
+				viewport: { width: 1280, height: 720 },
+				launchOptions: { args: ['--blink-settings=minimumFontSize=24,minimumLogicalFontSize=24'] },
+			},
+			grep: /@minfont/,
+		},
 		{
 			name: 'tablet',
 			use: { viewport: { width: 820, height: 1180 } },
