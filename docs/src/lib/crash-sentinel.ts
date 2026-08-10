@@ -151,6 +151,21 @@ export type SessionRecord = {
 
 export type CrashVerdict = 'memory' | 'discarded' | 'error' | 'stall' | 'unknown';
 
+/**
+ * What THIS boot knows about the session it is judging. Both facts are readable
+ * only at start-up, before the recorder overwrites its own tracks.
+ */
+export type ClassifyContext = {
+	/** The tab-scoped mirror still named this record — the same tab came back. */
+	sameTab: boolean;
+	/**
+	 * `document.wasDiscarded` on this load: the browser stating that THIS tab was
+	 * previously discarded. Only meaningful together with `sameTab` — it describes
+	 * the tab, so it can only speak for the record that tab was running.
+	 */
+	tabDiscarded?: boolean;
+};
+
 export type CrashReport = {
 	id: string;
 	record: SessionRecord;
@@ -237,7 +252,8 @@ const mb = (bytes: number): string => `${Math.round(bytes / 1_048_576)} MB`;
  * trail is exactly what a force-quit or a flat battery looks like, and dressing
  * that up as a crash would be the confident falsehood this module is built to avoid.
  */
-export function classifySession(rec: SessionRecord, sameTab: boolean): { verdict: CrashVerdict; reason: string; signals: string[] } {
+export function classifySession(rec: SessionRecord, ctx: boolean | ClassifyContext): { verdict: CrashVerdict; reason: string; signals: string[] } {
+	const { sameTab, tabDiscarded = false } = typeof ctx === 'boolean' ? { sameTab: ctx, tabDiscarded: false } : ctx;
 	const signals: string[] = [];
 	const endT = rec.lastBeat - rec.startedAt;
 	const frac = lastMemFraction(rec);
@@ -260,7 +276,13 @@ export function classifySession(rec: SessionRecord, sameTab: boolean): { verdict
 		signals.push('No heap readings — this browser does not expose `performance.memory` (Safari and Firefox do not).');
 	}
 
-	if (rec.frozen) signals.push('The tab was FROZEN by the browser (backgrounded and discard-eligible) and never resumed.');
+	// `document.wasDiscarded` is the browser ANSWERING the question rather than us
+	// inferring it: on the load after a discard, Chromium sets it on the restored
+	// tab. `frozen` is only "was eligible", which is the weaker claim — so when the
+	// native flag is present it supersedes, and the copy says which one we have.
+	const confirmedDiscard = sameTab && tabDiscarded;
+	if (confirmedDiscard) signals.push('The browser reports this tab as DISCARDED — `document.wasDiscarded` was set on the load that followed.');
+	else if (rec.frozen) signals.push('The tab was FROZEN by the browser (backgrounded and discard-eligible) and never resumed — a discard is likely but not confirmed.');
 	const errNearEnd = rec.lastError && endT - rec.lastError.t <= SIGNAL_WINDOW_MS;
 	if (rec.lastError) {
 		signals.push(
@@ -284,6 +306,19 @@ export function classifySession(rec: SessionRecord, sameTab: boolean): { verdict
 			: 'A different tab or a later visit — this session may also have ended with a force-quit, a shutdown, or a lost device.',
 	);
 
+	// A CONFIRMED discard outranks even heap pressure. The two are not rivals — the
+	// browser discards a background tab precisely BECAUSE memory is tight — but when
+	// `wasDiscarded` is set we are no longer guessing at the mechanism, and telling
+	// an author "you ran out of memory" (go split your deck) when the real answer is
+	// "the browser reclaimed a tab you had left in the background" points them at the
+	// wrong fix. Confirmation beats inference; the heap reading stays in `signals`.
+	if (confirmedDiscard) {
+		return {
+			verdict: 'discarded',
+			reason: 'The browser discarded this tab to reclaim memory while it was in the background — it says so itself on the reload. Returning to a discarded tab reloads the page, which is why it looked like a crash.',
+			signals,
+		};
+	}
 	if (memPressure) {
 		return {
 			verdict: 'memory',
@@ -294,7 +329,7 @@ export function classifySession(rec: SessionRecord, sameTab: boolean): { verdict
 	if (rec.frozen) {
 		return {
 			verdict: 'discarded',
-			reason: 'The browser froze this tab in the background and discarded it to reclaim memory. Returning to a discarded tab reloads the page, which is why it looked like a crash.',
+			reason: 'The browser froze this tab in the background, and it never came back — the likeliest explanation is a discard to reclaim memory. Returning to a discarded tab reloads the page, which is why it looked like a crash.',
 			signals,
 		};
 	}
@@ -498,6 +533,12 @@ export function pruneSessions(now: number, keepId?: string): void {
 // moment the previous tab session id is still readable.
 let priorTabSessionId: string | null = null;
 let liveId: string | null = null;
+/**
+ * `document.wasDiscarded` as read at start-up — the browser's own verdict that
+ * this tab was discarded and is now being restored. Latched here because the flag
+ * describes the LOAD, and everything downstream runs later.
+ */
+let priorTabDiscarded = false;
 
 /**
  * Every past session that ended without a clean unload, newest first. The live
@@ -511,7 +552,7 @@ export function collectCrashReports(now: number): CrashReport[] {
 		if (!rec || rec.id === liveId) continue;
 		const sameTab = !!priorTabSessionId && rec.id === priorTabSessionId;
 		if (!isUncleanEnd(rec, now, sameTab)) continue;
-		const { verdict, reason, signals } = classifySession(rec, sameTab);
+		const { verdict, reason, signals } = classifySession(rec, { sameTab, tabDiscarded: priorTabDiscarded });
 		out.push({
 			id: rec.id,
 			record: rec,
@@ -658,6 +699,10 @@ export function startCrashSentinel(): () => void {
 	// Read the tab mirror BEFORE overwriting it — this is the tab-continuity
 	// signal, and there is exactly one moment it is readable.
 	priorTabSessionId = safeGet(ss(), TAB_SESSION_KEY);
+	// The browser's OWN answer to "was this tab discarded?", available only on the
+	// load that follows the discard (Chromium; absent elsewhere, which reads as
+	// false and falls back to the `frozen` inference).
+	priorTabDiscarded = document.wasDiscarded === true;
 
 	const id = newId(now);
 	liveId = id;
@@ -676,7 +721,7 @@ export function startCrashSentinel(): () => void {
 		live.memLimit = mem0.jsHeapSizeLimit;
 		live.peakUsed = mem0.usedJSHeapSize;
 	}
-	breadcrumb('boot', `studio boot (${live.nav || 'navigate'})`);
+	breadcrumb('boot', `studio boot (${live.nav || 'navigate'})${priorTabDiscarded ? ', tab restored after a browser discard' : ''}`);
 	// Prune BEFORE the first persist so a full store has room for the new record.
 	pruneSessions(now, id);
 	persist();
@@ -826,5 +871,6 @@ export function __resetSentinelForTest(): void {
 	liveId = null;
 	stop = null;
 	priorTabSessionId = null;
+	priorTabDiscarded = false;
 	preStart.length = 0;
 }

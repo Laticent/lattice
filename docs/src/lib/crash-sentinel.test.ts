@@ -98,6 +98,24 @@ describe('classifySession', () => {
 		const { verdict, reason } = classifySession(withMem(0.2, { frozen: true }), false);
 		expect(verdict).toBe('discarded');
 		expect(reason).toMatch(/discard/i);
+		// The frozen path is an INFERENCE and must not read like the browser said so.
+		expect(classifySession(withMem(0.2, { frozen: true }), false).signals.join(' ')).toMatch(/not confirmed/i);
+	});
+
+	// `document.wasDiscarded` is the browser answering rather than us inferring.
+	it('prefers a CONFIRMED discard over heap pressure — different cause, different fix', () => {
+		const pressured = withMem(MEM_PRESSURE + 0.05);
+		expect(classifySession(pressured, { sameTab: true }).verdict).toBe('memory');
+		const { verdict, signals } = classifySession(pressured, { sameTab: true, tabDiscarded: true });
+		expect(verdict).toBe('discarded');
+		expect(signals.join(' ')).toMatch(/wasDiscarded/);
+		// The heap reading is not thrown away just because the verdict changed.
+		expect(signals.join(' ')).toMatch(/JavaScript heap at/);
+	});
+
+	it('ignores wasDiscarded for a record this tab was never running', () => {
+		// The flag describes the TAB, so it can only speak for the tab's own record.
+		expect(classifySession(withMem(0.2), { sameTab: false, tabDiscarded: true }).verdict).toBe('unknown');
 	});
 
 	it('blames an error only when it fired NEAR the end', () => {
