@@ -122,7 +122,20 @@ in patch versions.
   as the 23 waits it actually is. Costs ~600ms on `build:check`. Seeded from the current tree with the #1564 judgments
   transcribed and everything else labelled `UNJUDGED`, so "nobody looked" is now visible
   rather than implied by silence. No product behavior change. See #1575, #1526.
-
+- **Added: the Studio now tells you why it crashed.** A tab that dies of memory
+  pressure — or that the browser discards in the background — takes the whole page
+  with it: no error handler runs, and the reload that follows wipes the console. So
+  the Studio writes as it goes instead. A local flight recorder keeps a rolling
+  record of what you were doing, how memory was trending, any main-thread freezes
+  and the last error it saw, and stamps it closed on a clean exit. A record that was
+  never closed is a session that ended unexpectedly, and the next time you open the
+  Studio it says so — one toast, then a report naming the likeliest cause (out of
+  memory, a browser discard, an error, a freeze, or plainly "no idea" when the trail
+  is quiet), with the trail behind it. **Report on GitHub** hands you a pre-filled
+  issue under your own account; nothing is sent anywhere on its own, and nothing but
+  labels — deck title, slide count, deck size — ever enters the record. Reports are
+  reachable afterwards from Workspace → Crash reports, and clearable there. See
+  `engineering/decisions/2026-08-10-studio-crash-sentinel.md`.
 - **Added: pinch to zoom a slide, on every Studio surface and every device.** The
   Studio preview, Present and the presenter screen now zoom the slide — not the
   page — by pinch (touch), `ctrl`/`⌘`+wheel (mouse, and what a trackpad pinch

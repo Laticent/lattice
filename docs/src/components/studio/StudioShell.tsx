@@ -23,6 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
+import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, crashReportTitle, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -41,6 +42,7 @@ import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { type ComposeHandle, ComposeView } from './ComposeView';
+import { CrashReportSheet } from './CrashReportSheet';
 import { BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -393,6 +395,31 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [shareOpen, setShareOpen] = React.useState(false);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
+	// Sessions that ended without a clean unload — the crash sentinel's harvest
+	// (lib/crash-sentinel.ts). Collected once on mount, BEFORE anything else can
+	// write to storage, and surfaced as one non-blocking toast: a page that just
+	// came back from a crash owes the author their work, not a modal.
+	const [crashReports, setCrashReports] = React.useState<CrashReport[]>([]);
+	const [crashOpen, setCrashOpen] = React.useState(false);
+	React.useEffect(() => {
+		const found = collectCrashReports(Date.now());
+		if (!found.length) return;
+		setCrashReports(found);
+		const newest = found[0];
+		toast(`Last session ended unexpectedly — ${crashReportTitle(newest).toLowerCase()}`, {
+			duration: 12_000,
+			description: 'Your decks are safe. Open the report to see what the Studio recorded.',
+			action: { label: 'See report', onClick: () => setCrashOpen(true) },
+		});
+	}, []);
+	const dismissCrash = React.useCallback((id: string) => setCrashReports((was) => was.filter((r) => r.id !== id)), []);
+	// Workspace → Crash reports → View. See OPEN_CRASH_REPORT_EVENT for why this is
+	// an event and not a prop.
+	React.useEffect(() => {
+		const open = () => setCrashOpen(true);
+		addEventListener(OPEN_CRASH_REPORT_EVENT, open);
+		return () => removeEventListener(OPEN_CRASH_REPORT_EVENT, open);
+	}, []);
 	// Mobile StudioDrawer "back" behavior: a row that opens a further sheet (Library,
 	// Reader views, Version history, Search, Feedback, Insert component) used to just
 	// close the drawer and open the child — so dismissing the child dropped the user all
@@ -442,7 +469,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// global iframe count of 1, which silently destroyed unsaved fabrication state (Fabricate
 	// keeps it in un-persisted useState) — the adversarial trio flagged that as data loss, so
 	// Present now leaves Fabricate mounted.
-	const openPresent = React.useCallback(() => { setPresentOpen(true); }, []);
+	// Present is the heaviest thing the Studio opens (a second render surface, plus a
+	// popup window when the presenter view is used) — the crumb is what tells a later
+	// crash report that the heap climb started here.
+	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); setPresentOpen(true); }, []);
 	// PERSIST the live preview-box rect (viewport fractions) on unload, so the next reload's
 	// pre-hydration Nacre shell (studio.astro) can place its skeleton at the EXACT rect the
 	// app will re-measure — a same-device reload then shows zero geometry jump at hand-off.
@@ -605,6 +635,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// now covers the preview area) OR at the 8s backstop above. The editor DeckPreview lives
 	// in-flow in `previewBoxRef` and fires `onFirstRender` on its first paint — idempotent.
 	const onPreviewFirstRender = React.useCallback(() => {
+		crashCrumb('render', 'first preview paint');
 		dismissSsrShell();
 	}, [dismissSsrShell]);
 	// Saved LOCAL components from the same shared library (kind:'component') —
@@ -932,6 +963,31 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// no separate rename step. `deck.title` is only the fallback for a deck carrying
 	// neither (it holds the last name the deck was loaded/created under).
 	const deckTitle = React.useMemo(() => titleFromSource(source, deck.title), [source, deck.title]);
+
+	// Keep the crash record's header current: what was open when it died. LABELS and
+	// SIZES only — a deck's title and its slide count, never a line of its content —
+	// because this text is what a user is invited to paste into a public issue.
+	// Deck SIZE earns its place: a heavy deck is the leading suspect in an
+	// out-of-memory report, and it is invisible from any other field.
+	React.useEffect(() => {
+		setCrashContext({
+			Deck: deckTitle,
+			Slides: viewSlides.length,
+			'Deck size': `${Math.round(source.length / 1024)} KB`,
+			Stop: effectiveStop,
+			Palette: palette,
+		});
+	}, [deckTitle, viewSlides.length, source.length, effectiveStop, palette]);
+	// A deck SWITCH is a breadcrumb; typing inside one is not (it would flood the ring
+	// sixty entries deep in a minute and push out everything that mattered). Through a
+	// ref so the crumb carries the title at SWITCH time without making every keystroke
+	// that renames the deck re-fire the effect.
+	const deckTitleRef = React.useRef(deckTitle);
+	deckTitleRef.current = deckTitle;
+	// The id rides along with the title because the title is EDITABLE — two crumbs
+	// reading "deck: Untitled" are indistinguishable, and a report is read long after
+	// the deck has been renamed.
+	React.useEffect(() => { crashCrumb('nav', `deck: ${deckTitleRef.current} (${deck.id})`); }, [deck.id]);
 
 	// The deck list as the switcher + ⌘K should SEE it: `decks` holds each deck's
 	// stored title/meta, which for the ACTIVE deck goes stale the moment you type —
@@ -3293,7 +3349,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    editor + toolbar + slide navigator alive, instead of unmounting the whole
 					    island. `resetKeys` clears the fault when the user navigates to another
 					    slide or deck, so a per-slide fault self-recovers without a reload. */}
-					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]}>
+					{/* onError feeds the crash sentinel: a React fault is contained here and never
+					    reaches `window`, so without this hand-off the trail would show the preview
+					    going quiet with no reason recorded. */}
+					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
 						<DeckPreview focused options={options} sample={editorSample} slideIndex={viewIndex} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 					</ErrorBoundary>
 				</div>
@@ -4160,6 +4219,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} notify={notify} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
+			{/* The crash report — mounted only once there IS one, so a healthy session
+			    pays nothing for it. Opened from the boot toast, and from Workspace →
+			    Diagnostics via the `lattice:open-crash-report` event. */}
+			{crashReports.length > 0 && <CrashReportSheet open={crashOpen} onOpenChange={setCrashOpen} reports={crashReports} onDismiss={dismissCrash} />}
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector

@@ -3559,6 +3559,38 @@ own) is not a builder and needs no entry.
   reaching for React's `onTouchStart`/`onWheel` props for anything that must
   preventDefault.
 
+### The Studio "crashed" and reloaded itself, and nothing was logged anywhere
+
+- **Symptom:** the Studio vanishes and the page comes back fresh, mid-session. The
+  console is empty, no error card appeared, no boundary fired, and nothing in
+  `ErrorBoundary` / `chunk-load` / `window.onerror` has any record of it. Often
+  after a long session, a big deck, or time spent in Present.
+- **Cause:** this is not a JavaScript exception, so no in-page handler can see it.
+  Either the tab's **renderer process died** (out of memory is by far the most
+  common — the Studio holds a live preview iframe, Present's second render surface,
+  a presenter popup, export workers and on-device model workers at once) or the
+  browser **discarded** a backgrounded tab under memory pressure. In both cases the
+  page's JS is already gone: `beforeunload`, `pagehide` and every boundary are
+  dead, and the reload that follows wipes the console.
+- **Fix:** don't go looking in the console — there is nothing there and there never
+  will be. Read the crash report. The Studio records a rolling session record
+  (`docs/src/lib/crash-sentinel.ts`) and, on the boot after an unclean end, shows a
+  toast → a report with the heap trajectory, main-thread stalls, the last error and
+  the breadcrumb trail. It is also reachable at any time from **Workspace → Crash
+  reports**. A verdict of `memory` means the heap was ≥85% of the browser's limit at
+  the last reading; `discarded` means the browser reclaimed a backgrounded tab.
+- **Also check:** a verdict of `unknown` is a real answer, not a broken recorder —
+  a force-quit, a shutdown and a flat battery are indistinguishable from a crash
+  from inside the page. Check whether the report says the SAME tab came back; only
+  that line separates "it reloaded itself" from "you closed it". And on Safari and
+  Firefox there is no memory verdict at all: `performance.memory` is Chromium-only,
+  and the report says so rather than implying a healthy heap.
+- **Triggered by:** long Studio sessions, decks with many chart/diagram slides,
+  leaving Present or the presenter window open, or a phone backgrounding the tab.
+  See `engineering/decisions/2026-08-10-studio-crash-sentinel.md`; to hunt the leak
+  behind a repeating `memory` verdict, reach for `npm run torture`
+  (`tools/perf-torture/`).
+
 ### A control's own icon renders sliced/outside its button, and every overflow guard is green
 
 - **Symptom:** A control in a tight toolbar paints part of itself outside its

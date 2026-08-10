@@ -1,4 +1,5 @@
 import { type ComponentProps, StrictMode } from 'react';
+import { noteError } from '@/lib/crash-sentinel';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import StudioShell from './StudioShell.tsx';
 
@@ -19,7 +20,11 @@ export default function StudioIsland(props: ComponentProps<typeof StudioShell>) 
 	// common case — a preview fault — so this whole-shell fallback is the last resort.
 	return (
 		<StrictMode>
-			<ErrorBoundary label="Lattice Studio">
+			{/* onError hands the fault to the crash sentinel. A boundary catch never
+			    reaches `window.onerror`, so the recorder would otherwise have no idea
+			    the whole shell had just come down — and this is the fault most likely
+			    to precede the user reloading. */}
+			<ErrorBoundary label="Lattice Studio" onError={(err) => noteError(err, 'studio boundary')}>
 				<StudioShell {...props} />
 			</ErrorBoundary>
 		</StrictMode>
