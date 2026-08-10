@@ -96,9 +96,10 @@ in patch versions.
   Reproducing the race showed row *ordering* is not what failed, and that **dates do not
   decide it either**: what decides it is where the two rows insert. Two insertions at the
   same position conflict; two at any different positions merge cleanly — so the rare case
-  is two notes sorting as immediate neighbors, and in every other case git merges both
-  rows correctly and the only wrong line left is the footer's `_N notes — …_` tally,
-  because both sides rewrote it to the same `+1` text. The tally is therefore **gone**
+  is two notes sorting as immediate neighbors — or landing in different status groups, whose
+  tallies then differ and conflict visibly — and in every other case git merges both rows
+  correctly and the only wrong line left is the footer's `_N notes — …_` tally, because both
+  sides rewrote it to the same `+1` text. The tally is therefore **gone**
   rather than tolerated (a number that must be forgiven when wrong is worse than no
   number), which fixes the silent case on its own; and `npm run decisions:index:check`
   now verifies that each note has its own correct entry, in the right group, exactly

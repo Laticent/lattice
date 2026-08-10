@@ -60,6 +60,9 @@
  *     mechanically (HARD RULE #16) — but resolving it by keeping both sides leaves the
  *     rows in MERGE order, not sort order, which a byte-comparison would reject in
  *     turn. This is the RARE case: it needs the two notes to be neighbors among ~380.
+ *   - the two notes are in DIFFERENT STATUS GROUPS → the footer counts each group
+ *     separately, so the two sides rewrite that line to DIFFERENT text and git raises an
+ *     ordinary conflict. Also visible.
  *   - ANY other placement → git merges the two rows CLEANLY, both present and both
  *     correct, and the ONLY thing wrong in the merged file is the footer's
  *     `_N notes — …_` tally: both sides rewrote that one line to the same `+1` text,

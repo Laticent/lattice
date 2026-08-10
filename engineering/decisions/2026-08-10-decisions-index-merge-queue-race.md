@@ -13,7 +13,9 @@ summary: >
   merges clean with the footer's `_N notes — …_` tally as the ONLY wrong line, because
   both sides rewrote it to the same `+1` text and git took it without a conflict. #1535
   is the counterexample to the intuitive same-date rule: its two notes shared a date and
-  merged cleanly, with a third same-date note sorting between them. The tally is
+  merged cleanly, with a third same-date note sorting between them. The silent state also needs
+  both notes in the SAME STATUS GROUP — the footer counts groups separately, so a shipped/active
+  pair rewrites the line to different text and conflicts visibly. The tally is
   therefore gone rather than tolerated (which fixes the silent case on its own), and
   --check now verifies each note has its own correct row in the right group, exactly
   once, with no orphans — saying nothing about row order, which is what makes a
@@ -63,12 +65,20 @@ adjacent ones. Rows sort by date descending then filename, so:
 | how the two new rows land | git merge | rows after merge | what `--check` rejected |
 |---|---|---|---|
 | immediate neighbors, nothing already sorting between them | 1 conflict | — | the conflict markers |
+| different STATUS GROUPS (one active, one shipped) | 1 conflict | — | the conflict markers |
 | **anything else** | **clean** | both present, both correct | **only the footer tally** — one short |
 
-The clean case is the dangerous one, it is by far the common one (it takes two notes
-being neighbors among ~380 to hit the other), and it is entirely the tally. Both
-branches rewrite that single line to the *same* `+1` text, so a three-way merge takes it
-with no conflict and the committed count comes out one short.
+The clean case is the dangerous one and it is entirely the tally: both branches rewrite that
+single line to the *same* `+1` text, so a three-way merge takes it with no conflict and the
+committed count comes out one short.
+
+**The silent case needs the tally texts to MATCH, which means both notes in the same status
+group.** The trio found this: the footer counts each group separately, so a `shipped` note and
+a `proposed` one rewrite the line to *different* text (`224 shipped` vs `150 active`) and git
+raises an ordinary conflict — visible, not silent. Two of the five PRs in this very batch are
+that pair. So the silent state needs BOTH different insertion positions AND the same status
+group; every other combination fails loudly. That narrows the window without changing the fix,
+since the tally is deleted either way.
 
 **Dates do not decide it, and #1535 is the counterexample.** An earlier draft of this
 note — and of the code comment, the CHANGELOG entry and two test comments — said
