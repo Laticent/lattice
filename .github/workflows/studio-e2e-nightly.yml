@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: read
+  issues: write # open / append the rolling tracking issue
 
 concurrency:
   group: studio-e2e-nightly
@@ -31,6 +32,15 @@ concurrency:
 
 jobs:
   e2e:
+    # RESTORED. `runs-on` was dropped by #1500 (5e9deb3), whose diff replaced the
+    # `runs-on: ubuntu-latest` + `timeout-minutes: 30` pair with the comment below and
+    # `timeout-minutes: 60` — and did not put `runs-on` back. A job without it fails
+    # workflow VALIDATION, so since that merge this file has not been loadable: every
+    # run is a startup failure with ZERO jobs, and the run is named after the file path
+    # rather than the workflow. The cron cannot fire, and neither job below has run.
+    # Nothing catches this, because no workflow lints workflows and this one has no
+    # pull_request trigger.
+    runs-on: ubuntu-latest
     # 60, not 30. This ceiling is OURS, not GitHub's (a hosted job may run 360
     # minutes), and 30 was set when the suite fit it: the last run that actually
     # executed before the blackout took 20m02s of test time (2026-08-03). The
@@ -89,8 +99,26 @@ jobs:
       # would run the throttled suite (plus a full site build) twice a night on two runners, and a
       # breach would red THIS workflow — which files no issue — an hour before perf-nightly.yml,
       # which does. The perf axis belongs to the job that can raise the alarm.
+      # The suite exits non-zero on a failure. Capture the verdict into an output and keep
+      # the STEP green so the artifact upload + issue steps below always run and key off
+      # `failed` — the shape perf-nightly, preview-e2e-nightly and integration-nightly all
+      # use. `pipefail` is load-bearing: without it `tee` would swallow a non-zero exit and
+      # every run would report success.
+      #
+      # The STEP timeout is deliberately BELOW the job's 60. A job-level timeout kills the
+      # job outright and no later step runs — not even one guarded by always() — so the
+      # "suite killed mid-flight" case (#1498's failure mode) would file nothing at all.
+      # Failing the STEP instead leaves the job alive to raise the alarm.
       - name: Run Studio E2E
-        run: npm run test:e2e -- --grep-invert @perf
+        id: e2e
+        timeout-minutes: 45
+        run: |
+          set -uo pipefail
+          if npm run test:e2e -- --grep-invert @perf 2>&1 | tee "$GITHUB_WORKSPACE/studio-e2e-report.txt"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
         working-directory: docs
         env:
           CI: 'true'
@@ -105,6 +133,74 @@ jobs:
             docs/test-results/**
           if-no-files-found: warn
           retention-days: 14
+
+      # Open or append ONE rolling tracking issue. This is the half of #1498 that was never
+      # built: the root-deps fix (#1500) made the suite able to run, but a nightly that
+      # cannot raise an alarm still communicates only through a red X on a scheduled run
+      # nobody is paged for. perf, preview-e2e, integration and modulepreload-coverage all
+      # file; this one was the outlier.
+      #
+      # `always()` plus an outcome check, not just the output: the run step exits 0 by
+      # design when specs fail, so `failed` catches that — but a STEP timeout leaves the
+      # output unwritten, and that is the case most worth hearing about.
+      - name: Open / append regression issue
+        if: always() && (steps.e2e.outputs.failed == 'true' || steps.e2e.outcome != 'success')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TITLE='[studio-e2e] Studio E2E suite failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-e2e-report.txt"
+          BODY="$GITHUB_WORKSPACE/studio-e2e-body.md"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          [ -f "$REPORT" ] || echo '(the run step produced no report — it was killed before writing one)' > "$REPORT"
+          {
+            echo "The nightly Studio E2E suite failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.e2e.outcome }})."
+            echo ""
+            echo "What failed (full report + trace/video in the run's artifact):"
+            echo ""
+            echo '```'
+            # Matches the never-started case explicitly, not just spec-failure lines: a grep
+            # tuned only to failures produces an EMPTY report for a webServer that never
+            # booted, which is the most severe outcome available.
+            #
+            # CLAMPED. A broken shared selector across the 240-spec matrix yields hundreds of
+            # matched lines at ~350 bytes each; GitHub rejects a body over 65,536 chars with a
+            # 422, `set -e` fails the step, and the alarm is lost in exactly the loudest case.
+            grep -E '^\s+[0-9]+\) |✘|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ failed|[0-9]+ passed' \
+              "$REPORT" 2>/dev/null | head -c 20000 || echo '(no test markers — the suite likely never started; see the tail below)'
+            echo '```'
+            echo ""
+            echo "<details><summary>Last 120 lines</summary>"
+            echo ""
+            echo '```'
+            tail -n 120 "$REPORT" 2>/dev/null | head -c 20000 || true
+            echo '```'
+            echo "</details>"
+            echo ""
+            echo "_Run: ${RUN_URL}._"
+          } > "$BODY"
+          # Find the rolling issue by EXACT title, client-side. `--search "in:title [studio-e2e]"`
+          # looks right and is not: GitHub tokenizes on the brackets and the hyphen, so the query
+          # degrades to `studio` + `e2e` and matches human-authored issues (#1507, #1514 both
+          # qualify today). `.[0]` would then take someone else's issue and append to it nightly,
+          # and the rolling issue would never be created. The siblings all carry this latent bug;
+          # their markers just do not collide yet.
+          # --limit is deliberately far above the open-issue count (161 at time of writing).
+          # gh paginates to reach it; a limit that the backlog can outgrow would make the
+          # lookup silently miss the rolling issue and file a fresh duplicate every night —
+          # the same shape of quiet failure this whole workflow change is about.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create --title "$TITLE" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
 
   # The AI-assisted scenario tier (docs/e2e/scenarios/ai-architect.spec.ts):
   # drives the Architect against a LIVE OpenRouter model and asserts a real

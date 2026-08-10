@@ -566,6 +566,16 @@ Promotion to merge-**blocking** (move `studio-smoke` into `ci`'s `needs`) waits
 on an observed nightly green streak per the experience-gating doc's §3 — tracked
 in #800. The full suite still runs in the nightly.
 
+**Two things about that streak, before you go counting it.** The nightly workflow
+was **schema-invalid** from #1500 until 2026-08-10 — `runs-on` was dropped in a
+comment rewrite, so every run was a zero-job startup failure and the cron never
+fired. Any streak starts from that fix, not from the workflow's creation date. And
+the deterministic `e2e` job now exits **0 by design when specs fail** (the shape
+`perf`/`preview-e2e`/`integration` all use, so the artifact and issue steps always
+run), which means a green Actions list does **not** mean a green suite. Read the
+streak off the rolling `[studio-e2e]` issue's history instead. Both are recorded in
+`engineering/decisions/2026-08-10-nightly-invalid-and-silent.md`.
+
 ---
 
 ## Cross-cutting rules
