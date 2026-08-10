@@ -71,8 +71,15 @@ export function variantSample(skeleton: string, token: string): string {
  * anything else is added. The empty token clears every declared variant + axis member —
  * "reshape back to the base form" — keeping the component token and any non-variant
  * tokens (universal config applied via slide settings stays).
+ *
+ * BOTH `axes` and `componentVariants` are REQUIRED — deliberately, with no defaults.
+ * They are what makes a look EXCLUSIVE; a caller that omits them silently falls through
+ * to the additive branch, so every reshape stacks another token onto `_class` and
+ * "Default" no longer clears (#1281 — the apply path had dropped `componentVariants`
+ * while the preview tiles passed it, so the preview and the committed slide disagreed).
+ * Pass `{}` / `[]` explicitly when a caller genuinely has neither.
  */
-export function applyVariant(chunk: string, token: string, axes: Record<string, readonly string[]> = {}, componentVariants: readonly string[] = []): string {
+export function applyVariant(chunk: string, token: string, axes: Record<string, readonly string[]>, componentVariants: readonly string[]): string {
 	if (token) {
 		// The component's own variants are one pick-ONE family.
 		if (componentVariants.includes(token)) return setGroupToken(chunk, componentVariants.flatMap(parts), token);

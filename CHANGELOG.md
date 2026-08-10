@@ -307,6 +307,19 @@ in patch versions.
   rename is a compile error. The one copy a shared module cannot reach — a CSS selector keyed
   on `#studio-editor` — now selects by `data-pane-role` instead.
 
+- **Studio Reshape now REPLACES a slide's look instead of stacking classes.** Picking a
+  second look appended it to `_class` — `kpi ops spotlight trajectory` after three visits
+  to the gallery — and "Default" no longer cleared, because the apply handler called
+  `applyVariant` without the component's declared variants. That argument is what marks a
+  look exclusive, so every reshape fell through to the *additive* branch instead of the
+  pick-one family branch. All **179** declared variants across the catalog sit outside the
+  five vocab exclusive axes, so the stacking path ran on every real reshape. The picker's
+  preview tiles *did* pass the argument, so the tile showed the correctly-swapped slide
+  while the committed slide stacked — preview and result disagreed. `applyVariant` now
+  requires both `axes` and `componentVariants` (no defaults), making the omission a
+  compile error rather than a silent behavior change, and the Studio E2E suite drives the
+  real Reshape picker through four picks plus Default. (#1281)
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back

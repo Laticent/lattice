@@ -2387,7 +2387,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const activeChunk = slides[activeFullIndex] ?? '';
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
 	const reshapeVariants = React.useMemo(() => components.find((c) => c.name === reshapeComponent)?.variants ?? [], [components, reshapeComponent]);
-	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes));
+	// Both the axes AND the component's declared variants — the pair is what makes a look
+	// exclusive. Dropping `reshapeVariants` here made every reshape STACK a token instead of
+	// replacing (and made "Default" stop clearing), while the picker's preview tiles — which do
+	// pass it — showed the correctly-swapped result (#1281).
+	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes, reshapeVariants));
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.

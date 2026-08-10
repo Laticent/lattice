@@ -62,6 +62,18 @@ describe('slide-variants — variant looks are class tokens', () => {
 		expect(toks(applyVariant(cur, '', {}, KPI))).toEqual(['kpi', 'dark']);
 	});
 
+	it('applyVariant never stacks across repeated reshapes (#1281)', () => {
+		// The reported bug: reshaping again and again grew `_class` — `kpi ops spotlight
+		// trajectory` — instead of swapping. Walk the family and assert exactly one member
+		// survives at every step, then that Default returns the slide to the base form.
+		let cur = KBASE;
+		for (const look of ['ops', 'spotlight', 'trajectory', 'attention']) {
+			cur = applyVariant(cur, look, {}, KPI);
+			expect(toks(cur)).toEqual(['kpi', look]);
+		}
+		expect(toks(applyVariant(cur, '', {}, KPI))).toEqual(['kpi']);
+	});
+
 	it('variantActive requires ALL sub-tokens of a look to be present', () => {
 		const present = new Set(['quote', 'tint-corner', 'at-tl']);
 		expect(variantActive(present, 'tint-corner at-tl')).toBe(true);
