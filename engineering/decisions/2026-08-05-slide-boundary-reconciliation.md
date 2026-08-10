@@ -287,3 +287,31 @@ deck's mismatch, but the fallback stays reachable by other 1→N expansions, so 
 either way. (b) A stray interior front-matter block is a plausible authoring mistake, and a
 `lint-core.js` rule flagging `---`-delimited YAML below offset 0 would catch it at the source — the
 actionable cure, since the render fix can only refuse. Both are their own cards under HARD RULE #17.
+
+
+### Correction (2026-08-10, from the maker-checker) — it is the HEADING split, not an `hr`
+
+The paragraph above originally said the fallback failed because "the chunk still contains an
+`hr`". It does not, and the correction matters because it re-aims the follow-up work.
+
+The pasted block's closing `---` is a setext underline (stated correctly above) — and the
+`<h2>` it produces is the **second heading in the chunk**, which the DEFAULT `split: headings`
+ruler turns into a new section. Flip the same deck to `split: rule` and the counts agree and
+#1551 disappears entirely. So the residual is not the empty leading chunk: it is that
+`separatorRanges` / `splitSlides` model `hr` separators only and are blind to heading splits,
+while `lib/core/bake-splits.js` and `lib/core/section-source-split.js` already use
+`headingSplitPoints`.
+
+**That blindness is also why the first cut of the guard was wrong.** It REFUSED whenever a
+lone chunk rendered as more than one section, on the assumption that this only happens when
+the author has erred. It usually is not an error: `split: headings` is the engine default, so
+a deck written as `# Title` + two `##` with no `---` anywhere is one chunk to the caller and
+three sections to the engine. Refusing painted an error card over the most ordinary deck
+shape there is; `glossary: auto` (which appends a slide to every slice render) and
+`_focusSteps` did the same — 3 committed decks / 8 slides, and the corpus understates it
+because committed decks happen to use explicit separators. The guard now **narrows** to the
+caller's section and refuses only when the markup cannot be walked at all.
+
+Counting also moved from a `/<section\b/g` tally to `sectionsOf`: the tally counted the
+string inside an HTML comment, so `<!-- <section> -->` in author content scored 2 against 1
+real section and refused a working slide.

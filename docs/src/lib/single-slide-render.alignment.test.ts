@@ -18,6 +18,9 @@ import { SLIDE_SEP } from '../components/studio/deck-ops';
 import { frontMatterBlock, stripFrontMatter } from '../components/studio/front-matter';
 import { splitSlides } from '../components/studio/lint';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { sectionsOf } = require('../../../lib/diagnostics/slice-equivalence-core.mjs') as { sectionsOf: (h: string) => string[] };
+
 // The engine is CJS and Node-safe (no DOM) — load it directly rather than through the
 // browser bundle, so this test exercises the same numbering code the preview does.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -176,5 +179,50 @@ describe('a lone authored chunk is not necessarily one section (#1551)', () => {
 		for (const chunk of slides) {
 			expect(sectionCount(engine.render(fm + chunk, 'lattice').html)).toBe(1);
 		}
+	});
+});
+
+// ── The OVER-FIRE the first cut of the #1551 guard shipped ───────────────────────────
+// Found by the maker-checker. The guard was written to refuse whenever a lone chunk
+// rendered as more than one section, on the assumption that this only happens when the
+// author has made a mistake. It is usually not a mistake, and refusing painted an error
+// card over the most ordinary deck shape there is.
+//
+// These pin the SHAPES, not the guard's internals: each is a legitimate deck whose
+// authored chunk expands 1→N, and each must keep previewing.
+
+describe('a legitimate 1→N chunk must never be refused (#1551 over-fire)', () => {
+	it('the OUTLINE style — no `---` anywhere — is one chunk and several sections', () => {
+		// `split: headings` is the ENGINE DEFAULT while the Studio's chunker models only
+		// `hr` separators, so this deck is 1 slide to the caller and 3 to the engine. This
+		// is the shape `examples/split-headings.md` markets ("write the outline, skip the
+		// separators"), which the refusing guard turned into an error card.
+		const src = '---\ntheme: indaco\npaginate: true\n---\n\n# Title\n\nLead.\n\n## One\n\nBody.\n\n## Two\n\nMore body.\n';
+		const { fm, slides } = deckDoc(src);
+		expect(slides.length).toBe(1);
+		expect(sectionCount(engine.render(fm + slides[0], 'lattice').html)).toBeGreaterThan(1);
+		// The production guard narrows this to the first section; it must not refuse it.
+	});
+
+	it('a `_focusSteps` chunk expands, and is still a legitimate slide', () => {
+		const src = '---\ntheme: indaco\npaginate: true\n---\n\n<!-- _class: content -->\n<!-- _focusSteps: 2 -->\n\n## Focused\n\n- one\n- two\n';
+		const { fm, slides } = deckDoc(src);
+		expect(slides.length).toBe(1);
+		// Whatever the expansion count is, the caller still believes it is one slide.
+		expect(sectionCount(engine.render(fm + slides[0], 'lattice').html)).toBeGreaterThanOrEqual(1);
+	});
+});
+
+// ── The tally that counted a comment ─────────────────────────────────────────────────
+describe('counting sections structurally, not textually (#1551)', () => {
+	it('`<section` inside an HTML comment is not a section', () => {
+		// The first cut tallied `/<section\b/g` over raw HTML, so an author writing
+		// `<!-- <section> not real -->` scored 2 against 1 real section and had a working
+		// slide refused. `sectionsOf` walks open/close pairs and is not fooled.
+		const src = '---\ntheme: indaco\n---\n\n## Slide\n\n<!-- <section> not real -->\n\nBody.\n';
+		const { fm, slides } = deckDoc(src);
+		const html = engine.render(fm + slides[0], 'lattice').html;
+		expect((html.match(/<section\b/g) || []).length).toBe(2); // the naive tally
+		expect(sectionsOf(html).length).toBe(1); // the truth
 	});
 });

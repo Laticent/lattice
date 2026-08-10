@@ -83,31 +83,24 @@ test('a preview frame never stacks two slides, and says so when it cannot show o
 		// Give the render (and, on slide 1, the refusal) time to settle.
 		await page.waitForTimeout(1500);
 
-		// THE INVARIANT. Not "renders correctly" — that is a stronger claim than this
-		// deck can satisfy — but "never more than one section in a frame". Before the
-		// fix slide 1 put two here, and the second never painted.
+		// THE INVARIANT, and the whole point: a frame holds ONE slide. Before the fix
+		// slide 1 put two here and the second never painted. The guard now narrows to
+		// the first section rather than refusing — refusing was a worse bug, because a
+		// chunk expanding 1→N is usually legitimate (`split: headings` is the engine
+		// default, `glossary: auto` appends a slide, `_focusSteps` expands), and an
+		// error card over an ordinary deck is not an improvement on a stacked one.
 		const frames = await slideFrames(page);
+		expect(frames.length, `slide ${i + 1}: a slide frame should be present`).toBeGreaterThan(0);
 		for (const f of frames) {
-			expect(f.sections, `slide ${i + 1}: frame ${f.name} holds ${f.sections} sections`).toBeLessThanOrEqual(1);
+			expect(f.sections, `slide ${i + 1}: frame ${f.name} holds ${f.sections} sections`).toBe(1);
 		}
 
-		// …and slide 1 SAYS SO, unconditionally. This is the half that must not be
-		// written as `if (nothing painted) { … }`: the refused frame keeps whatever it
-		// last rendered underneath the card, so a conditional never fires and the
-		// assertion passes vacuously. Slide 1 of THIS deck is defined to be
-		// unrenderable as a single slide, so the card is required; slide 2 is ordinary
-		// and must stay clean, which is what keeps the guard from firing on every deck.
-		// Scoped to the Present dialog. Page-wide would also catch the COMPOSE
-		// preview behind the overlay, which is still parked on slide 1 and so still
-		// carries its card — that made the slide-2 arm fail for the wrong reason.
-		const note = dialog.locator('.nacre-failed__text');
-		if (i === 0) {
-			await expect(note, 'slide 1 cannot be shown, so it must explain itself').toBeVisible();
-			// The reason is the actionable half — a bare "couldn't render" leaves the
-			// author with no idea their deck has a stray front-matter block in it.
-			await expect(note).toContainText(/renders as \d+ slides/);
-		} else {
-			await expect(note, 'an ordinary slide must render').toHaveCount(0);
-		}
+		// …and it still RENDERS. The narrowing must leave a painted slide, not an empty
+		// frame — asserting only "at most one section" would pass on a blank one, which
+		// is the same silence the issue was filed about wearing a different hat.
+		await expect(
+			page.frameLocator('[aria-label="Presented slide"] iframe.live').locator('section').first(),
+			`slide ${i + 1}: the narrowed frame must still paint a slide`,
+		).toBeVisible();
 	}
 });

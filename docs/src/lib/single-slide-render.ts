@@ -975,46 +975,66 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// reachable from a caller that passed slideIndex without slideMarkdown.
 				}
 
-				// THE FRAME HOLDS ONE SLIDE — checked here, after EVERY route, because more than
-				// one route can put more than one section in it (#1551).
+				// THE FRAME HOLDS ONE SLIDE — enforced here, after EVERY route, because more
+				// than one route can put more than one section in it (#1551).
 				//
 				// The reported failure was silent content destruction: paste a deck carrying its
-				// own `---` front-matter block below an existing one, and the pasted block's
-				// delimiters become a thematic break plus a setext underline, so the chunk the
-				// caller believes is ONE slide renders as two. Both were written into a frame whose
-				// CSS and scale transform assume exactly one, so the second — the author's actual
-				// content — sat below the fold and never painted. Rail count, page number and chunk
-				// all agreed with each other and disagreed with the render, and nothing said so.
+				// own `---` front-matter block below an existing one, and the chunk the caller
+				// believes is one slide renders as two. Both were written into a frame whose CSS
+				// and scale transform assume exactly one, so the second — the author's actual
+				// content — sat below the fold and never painted, with rail, page number and
+				// chunk all agreeing with each other and disagreeing with the render.
 				//
 				// WHY IT SITS HERE AND NOT IN THE FALLBACK. The obvious home is the
-				// `narrowToSlide === null` branch above, since that is the route the bug report
-				// walks. It is the wrong home: `wantsContext` is false whenever the deck does NOT
-				// need deck context (line ~821), and then `renderSource` is `slideMarkdown`
-				// outright — the engine renders the lone chunk and nothing above is entered at all.
-				// A guard inside the fallback fires on neither the diverted route nor a future one.
-				// The invariant is about what reaches the FRAME, so it is enforced where the frame
-				// is fed.
+				// `narrowToSlide === null` branch, since that is the route the bug report walks.
+				// It is the wrong home: `wantsContext` is false whenever the deck does NOT need
+				// deck context (line ~821), and then `renderSource` is `slideMarkdown` outright —
+				// the engine renders the lone chunk and nothing above is entered at all.
+				//
+				// NARROW, DO NOT REFUSE. A first cut returned `ok:false` here, and that was a
+				// regression far worse than the bug: a chunk rendering as N sections is USUALLY
+				// legitimate, not an authoring mistake. `split: headings` is the ENGINE DEFAULT
+				// while the Studio's chunker models only `hr` separators, so a deck written in
+				// the outline style — `# Title` then two `##`, no `---` anywhere — is ONE chunk to
+				// the caller and THREE sections to the engine. Refusing painted an error card over
+				// the most ordinary deck shape there is; `glossary: auto` (which appends a slide to
+				// every slice render) and `_focusSteps` did the same. Measured across the committed
+				// corpus that was 3 decks / 8 slides, and the corpus understates it because
+				// committed decks happen to use explicit separators.
+				//
+				// So take the FIRST section, which is the one the caller's index names on the slice
+				// path and the one that painted before this guard existed. That keeps the frame's
+				// contract without inventing a failure, and it is strictly better than the old
+				// behavior: same visible slide, minus the stacked siblings underneath it.
+				//
+				// Refuse ONLY when the sections cannot be told apart — `sectionsOf` walking a shape
+				// it cannot pair (author raw `<section>`, nested markup). There the first section is
+				// not knowable, so guessing would re-open the "confident and wrong" failure the
+				// alignment guard above exists to prevent.
+				//
+				// Counting via `sectionsOf` rather than a `/<section\b/g` tally over raw HTML: a
+				// tally also counts the string inside an HTML comment, so `<!-- <section> -->` in
+				// author content scored 2 against 1 real section and refused a perfectly good slide.
 				//
 				// Gated on `slideMarkdown` so the one deliberate exception survives: a caller that
 				// passes `slideIndex` WITHOUT it has explicitly asked for the whole render.
-				//
-				// Counting open tags rather than walking, deliberately — the question is only "is
-				// this more than one", and a tally cannot be fooled by a shape the flat walker
-				// mis-pairs.
-				//
-				// Refusing rather than showing the first section: there is no principled way to
-				// pick one (here the first is the author's accident and the second is their
-				// content), and silently showing either is the destruction this exists to end.
-				// `ok:false` raises DeckPreview's failure card, which now carries the reason.
 				if (typeof opts?.slideIndex === 'number' && opts?.slideMarkdown) {
-					const framed = (out.html.match(/<section\b/g) || []).length;
-					if (framed > 1) {
+					const framed = sectionsOf(out.html);
+					const opens = (out.html.match(/<section\b/g) || []).length;
+					if (framed.length > 1 && opens === framed.length) {
+						// Walkable: keep the first section and drop its siblings, preserving the
+						// wrapper/inter-section text exactly as `narrowToSlide` does.
+						const narrowed = narrowToSlide(out.html, 0, framed.length);
+						if (narrowed !== null) out.html = narrowed;
+					} else if (opens > 1 && opens !== framed.length) {
+						// Unwalkable AND multi-section: we cannot say which markup is slide one, and
+						// stacking it is the defect. Fail closed, visibly.
 						return {
 							ok: false,
-							slides: framed,
+							slides: opens,
 							error:
-								`this slide's source renders as ${framed} slides, not one — it contains a slide separator ` +
-								'(a `---` line, or a stray front-matter block below the top of the deck), so the preview cannot show it as a single slide',
+								'this slide renders as more than one slide and its markup cannot be told apart ' +
+								'(nested or unbalanced `<section>`), so the preview cannot show it as a single slide',
 						};
 					}
 				}
