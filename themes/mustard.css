@@ -274,7 +274,7 @@
    * and chroma as --chart-catN; lightness solved until it clears AA on both slide
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
-   * the generator after re-hueing a seed. Gated by checkChartCatContrast. */
+   * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --chart-cat1-ink: light-dark(#7A6009, #AD9A69);
   --chart-cat2-ink: light-dark(#1D6B84, #6D9DAF);
   --chart-cat3-ink: light-dark(#42298E, #8981CB);

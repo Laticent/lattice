@@ -54,9 +54,11 @@ in patch versions.
   now carries a curated, committed `--chart-catN-ink`, solved by the same shared recipe the
   `--cat-N-ink` tier uses: hue and chroma held exactly, lightness moved only as far as AA
   against both slide surfaces requires. Worst hue shift drops from 18.9° to **2.33°** and
-  mean chroma kept rises from 66% to **100%**, with nothing below AA in either mode. The
-  visible change is the matrix-grid row label, which now reads in its own category color
-  rather than a muted version of it. Charts that paint categorical text on a *tinted* cell
+  mean chroma kept rises from 66% to **100%**, with nothing below AA in either mode. The visible
+  change reaches every surface that paints in a categorical ink — matrix-grid row labels
+  and filled-cell text, quadrant region labels and dots, pie wedge strokes, word-cloud
+  words — most visibly the matrix-grid row label, which now reads in its own category
+  color rather than a muted version of it. Charts that paint categorical text on a *tinted* cell
   (the quadrant region names, matrix-grid filled cells) deliberately keep the old mix —
   measured, taking the curated ink raw there would put 77 of 240 combinations below AA,
   because a tint is a much closer surface than the slide. (#1536)

@@ -183,7 +183,7 @@ function renderBlock(arms) {
 		'   * and chroma as --chart-catN; lightness solved until it clears AA on both slide',
 		'   * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to',
 		'   * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run',
-		'   * the generator after re-hueing a seed. Gated by checkChartCatContrast. */',
+		'   * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */',
 	];
 	for (let n = 1; n <= SLOTS; n += 1) {
 		lines.push(`  --chart-cat${n}-ink: light-dark(${arms[n].light.toUpperCase()}, ${arms[n].dark.toUpperCase()});`);

@@ -12057,13 +12057,15 @@ section.quadrant .quadrant-label, figure.chart-frame .quadrant-label{
    * — the whole job of a region label. `--cell-ink` is routed from the
    * `data-cell` the label carries.
    *
-   * But it is DARKENED toward the page's own heading ink first, because
-   * `--chart-cat-N-ink` is a GRAPHICAL ink: it was designed and gated at the
-   * 3:1 WCAG 1.4.11 floor for dots, strokes and borders. This is the first
-   * place it carries text, which needs 4.5:1 — and taking it raw put 12 of 216
-   * theme × mode × cell combinations below AA (`concrete` light bottom-right
-   * measured 3.04:1, down from 10.56:1 when the name was maximum-contrast
-   * black/white inside the tint).
+   * But it is DARKENED toward the page's own heading ink first — and the reason
+   * has CHANGED, so read this rather than assuming. `--chart-cat-N-ink` is now a
+   * curated, text-safe value on the shipped palettes (#1536,
+   * tools/derive-chart-cat-ink.js), but it is solved against the SLIDE SURFACES,
+   * `--bg` and `--bg-alt`. This label sits on the region TINT, which is a much
+   * closer surface: taking the curated ink raw here puts 77 of 240 palette × mode
+   * × slot combinations below AA, worst 3.33:1 (`concrete` light slot 5). Worse
+   * than the 12-of-216 the older graphical ink managed, not better. The mix stays
+   * until the cycle grows an on-fill ink solved against the tint itself.
    *
    * 65% is measured, not guessed: it is the largest hue share that clears AA in
    * EVERY theme (worst case `concrete` light at 4.99:1). More hue is prettier
@@ -17825,6 +17827,16 @@ section.print {
   --chart-cat3: var(--print-chart-3); --chart-cat4: var(--print-chart-4);
   --chart-cat5: var(--print-chart-5); --chart-cat6: var(--print-chart-6);
   --chart-cat7: var(--print-chart-7); --chart-cat8: var(--print-chart-8);
+  /* …and the chart cycle's INK follows the band for the same reason the --cat-N-ink
+   * block above does. It used to ride along for free, being derived from
+   * --chart-cat-N-hue; it is a committed per-theme token now (#1536), so it must be
+   * remapped explicitly or the seed inherits straight through and a printed slide
+   * shows a full-hue row label inside an otherwise grayscale grid. Reaches the PDF
+   * export path, so it is not merely a screen concern. */
+  --chart-cat1-ink: var(--print-chart-1); --chart-cat2-ink: var(--print-chart-2);
+  --chart-cat3-ink: var(--print-chart-3); --chart-cat4-ink: var(--print-chart-4);
+  --chart-cat5-ink: var(--print-chart-5); --chart-cat6-ink: var(--print-chart-6);
+  --chart-cat7-ink: var(--print-chart-7); --chart-cat8-ink: var(--print-chart-8);
   --chart-state-pass: var(--print-pass);
   --chart-state-warn: var(--print-warn);
   --chart-state-fail: var(--print-fail);
@@ -19726,24 +19738,33 @@ section.word-cloud,
    * seed exactly as `--chart-catN` -> `--chart-cat-N-hue` above, so a palette with
    * no chart cycle keeps the engine default untouched.
    *
-   * The fallback is the GRAPHICAL derivation this tier used to be: gated at the 3:1
-   * WCAG 1.4.11 floor for dots, strokes and borders, with no text-safe value in the
-   * cycle at all. Where a chart needed to paint TEXT in a categorical color it made
-   * that graphical ink safe at render time with `color-mix(… 65%, var(--text-heading))`
+   * THE FALLBACK KEEPS THE SAFETY MIX, deliberately. A theme that does not carry the
+   * committed token — a Studio-generated theme (lib/theme/derive.js emits
+   * `--chart-catN` but not the ink), or a consumer's hand-written one — would
+   * otherwise land on the bare GRAPHICAL derivation and paint it as TEXT, i.e. at the
+   * 3:1 floor. Measured against the repo's committed theme sampler that is 167 of 200
+   * generated themes below AA, worst 3.18:1. So the fallback stays mixed and the
+   * curated value simply wins wherever it exists: no theme is worse off than before,
+   * and the 15 shipped palettes get the un-sheared hue.
+   *
+   * The graphical derivation underneath is what this tier used to be: gated at the
+   * 3:1 WCAG 1.4.11 floor for dots, strokes and borders, with no text-safe value in
+   * the cycle at all. Where a chart needed to paint TEXT in a categorical color it
+   * made that graphical ink safe at render time with `color-mix(… 65%, var(--text-heading))`
    * — the exact recipe derive-cat-ink.js records as tried and replaced for the other
    * tier. Measured over 15 palettes x 2 modes x 8 slots it sheared the curated hue by
    * up to 18.9deg and mixed away a third of the chroma (worst 55%) to buy headroom it
    * did not need: the mix sat as high as 18.6:1 against a 4.5 floor. Nothing failed
    * AA — this was over-correction, not a contrast defect. The committed values hold
    * the hue to 2.33deg worst-case at 100% mean chroma. #1536. */
-  --chart-cat-1-ink: var(--chart-cat1-ink, light-dark(var(--chart-cat-1-hue), color-mix(in oklab, var(--chart-cat-1-hue) 78%, white)));
-  --chart-cat-2-ink: var(--chart-cat2-ink, light-dark(var(--chart-cat-2-hue), color-mix(in oklab, var(--chart-cat-2-hue) 78%, white)));
-  --chart-cat-3-ink: var(--chart-cat3-ink, light-dark(var(--chart-cat-3-hue), color-mix(in oklab, var(--chart-cat-3-hue) 78%, white)));
-  --chart-cat-4-ink: var(--chart-cat4-ink, light-dark(var(--chart-cat-4-hue), color-mix(in oklab, var(--chart-cat-4-hue) 78%, white)));
-  --chart-cat-5-ink: var(--chart-cat5-ink, light-dark(var(--chart-cat-5-hue), color-mix(in oklab, var(--chart-cat-5-hue) 78%, white)));
-  --chart-cat-6-ink: var(--chart-cat6-ink, light-dark(var(--chart-cat-6-hue), color-mix(in oklab, var(--chart-cat-6-hue) 78%, white)));
-  --chart-cat-7-ink: var(--chart-cat7-ink, light-dark(var(--chart-cat-7-hue), color-mix(in oklab, var(--chart-cat-7-hue) 78%, white)));
-  --chart-cat-8-ink: var(--chart-cat8-ink, light-dark(var(--chart-cat-8-hue), color-mix(in oklab, var(--chart-cat-8-hue) 78%, white)));
+  --chart-cat-1-ink: var(--chart-cat1-ink, color-mix(in oklab, light-dark(var(--chart-cat-1-hue), color-mix(in oklab, var(--chart-cat-1-hue) 78%, white)) 65%, var(--text-heading)));
+  --chart-cat-2-ink: var(--chart-cat2-ink, color-mix(in oklab, light-dark(var(--chart-cat-2-hue), color-mix(in oklab, var(--chart-cat-2-hue) 78%, white)) 65%, var(--text-heading)));
+  --chart-cat-3-ink: var(--chart-cat3-ink, color-mix(in oklab, light-dark(var(--chart-cat-3-hue), color-mix(in oklab, var(--chart-cat-3-hue) 78%, white)) 65%, var(--text-heading)));
+  --chart-cat-4-ink: var(--chart-cat4-ink, color-mix(in oklab, light-dark(var(--chart-cat-4-hue), color-mix(in oklab, var(--chart-cat-4-hue) 78%, white)) 65%, var(--text-heading)));
+  --chart-cat-5-ink: var(--chart-cat5-ink, color-mix(in oklab, light-dark(var(--chart-cat-5-hue), color-mix(in oklab, var(--chart-cat-5-hue) 78%, white)) 65%, var(--text-heading)));
+  --chart-cat-6-ink: var(--chart-cat6-ink, color-mix(in oklab, light-dark(var(--chart-cat-6-hue), color-mix(in oklab, var(--chart-cat-6-hue) 78%, white)) 65%, var(--text-heading)));
+  --chart-cat-7-ink: var(--chart-cat7-ink, color-mix(in oklab, light-dark(var(--chart-cat-7-hue), color-mix(in oklab, var(--chart-cat-7-hue) 78%, white)) 65%, var(--text-heading)));
+  --chart-cat-8-ink: var(--chart-cat8-ink, color-mix(in oklab, light-dark(var(--chart-cat-8-hue), color-mix(in oklab, var(--chart-cat-8-hue) 78%, white)) 65%, var(--text-heading)));
 
   /* The mix target for the categorical SVG gradients (pie wedges, quadrant
    * zones — emitted inline by the transforms). Light canvas mixes the hue into
@@ -25621,7 +25642,7 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
    * and chroma as --chart-catN; lightness solved until it clears AA on both slide
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
-   * the generator after re-hueing a seed. Gated by checkChartCatContrast. */
+   * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --chart-cat1-ink: light-dark(#9F570A, #BE895F);
   --chart-cat2-ink: light-dark(#007295, #6BA7C2);
   --chart-cat3-ink: light-dark(#352A84, #7C7FC1);
