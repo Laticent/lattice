@@ -80,8 +80,12 @@ becoming a render bug. See
 **Still deliberately outside the contract:** the purely *decorative* extras a
 hand-tuned palette adds on its own initiative — `--code-inline-fg`, the
 `--on-dark-*` tiers, the Marp chrome mappings, `--spectrum-quiet`. Each of those
-either has an engine `:root` default or is read with a fallback, so a generated
-theme without them renders exactly as intended.
+has a default the engine's own CSS supplies, so a generated theme without them
+renders exactly as intended. Note that "a default" is not always a `:root` one:
+`--spectrum-quiet` is declared on the bare `section` slide root, which is a real
+default for a CSS `var()` read and *not* one for the Mermaid map, whose reader
+parses `:root` blocks out of the palette text. The gate splits those cases; a
+sentence here that flattened them was wrong for a week.
 
 Tests: `test/unit/palette/theme-{color,contrast,cat-ink,derive,serialize}.test.js`
 (run via `npm run test:palette`).

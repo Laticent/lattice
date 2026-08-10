@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 
 const { deriveTheme, validateEssentials, requiredTokenList, ESSENTIAL_KEYS, RAMP_STRATEGIES, normalizeStrategy } = require('../../../lib/theme/derive.js');
 const { auditBoth } = require('../../../lib/theme/contrast.js');
-const { contrastRatio } = require('../../../lib/theme/color.js');
+const { contrastRatio, oklchToHex } = require('../../../lib/theme/color.js');
 const { STARTERS } = require('../../../lib/theme/starters.js');
 
 describe('theme-derive', () => {
@@ -130,18 +130,70 @@ describe('theme-derive', () => {
       }
     }
 
+    /** Every ink/surface pair of one derived theme, as ratios. */
+    const inkRatios = (t) => {
+      const out = [];
+      for (let m = 1; m <= 2; m++) {
+        for (let i = 1; i <= 12; i++) {
+          for (const surface of ['bg', 'bg-alt']) {
+            out.push([`--cat-${i}-ink on --${surface} (mode ${m})`, contrastRatio(arm(t[`cat-${i}-ink`], m), arm(t[surface], m))]);
+          }
+        }
+      }
+      return out;
+    };
+
     test('every categorical ink clears AA as TEXT on both surfaces, in both modes', () => {
       // The mark is repaired to 3:1 (a shape); the same hue as a LABEL needs 4.5:1.
       // That gap is the whole reason this tier exists rather than being borrowed.
       for (const [name, t] of cases) {
-        for (let m = 1; m <= 2; m++) {
-          for (let i = 1; i <= 12; i++) {
-            for (const surface of ['bg', 'bg-alt']) {
-              const r = contrastRatio(arm(t[`cat-${i}-ink`], m), arm(t[surface], m));
-              assert.ok(r >= 4.5, `${name}: --cat-${i}-ink on --${surface} (mode ${m}) is ${r.toFixed(2)}:1`);
-            }
-          }
+        for (const [what, r] of inkRatios(t)) {
+          assert.ok(r >= 4.5, `${name}: ${what} is ${r.toFixed(2)}:1`);
         }
+      }
+    });
+
+    // THE STARTERS ARE TOO KIND TO BE THE ONLY POPULATION. Mutating the tier away
+    // entirely — `cat-N-ink := cat-N-mark`, i.e. exactly the pre-#1457 fallback —
+    // fails the test above on ONE assertion out of 960, at 4.47 against a 4.50
+    // threshold. Any retune of DEEP_L, any starter `bg` change, any gamut-clip
+    // rounding shift takes that pair over the line and the test goes green with the
+    // tier deleted. So the real bite comes from the population the decision record
+    // measures on: seeded pseudo-random essential sets, where the fallback fails on
+    // 23-34 of 200 themes under the hue-spread ramps and 176 of 200 under brand-mono.
+    // Seeded, so it is a fixed test rather than a flaky one.
+    test('BITES on sampled essential sets, where deleting the tier fails in bulk', () => {
+      const sample = (strategy, n) => {
+        let seed = 42;
+        const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+        const out = [];
+        for (let k = 0; k < n; k++) {
+          const h = rnd() * 360;
+          const bgL = 0.9 + rnd() * 0.09;
+          out.push(deriveTheme({
+            bg: oklchToHex({ L: bgL, C: 0.005, h }),
+            bgAlt: oklchToHex({ L: bgL - 0.03 - rnd() * 0.06, C: 0.01, h }),
+            textHeading: oklchToHex({ L: 0.15 + rnd() * 0.1, C: 0.02, h }),
+            textBody: oklchToHex({ L: 0.35 + rnd() * 0.1, C: 0.02, h }),
+            textMuted: oklchToHex({ L: 0.6, C: 0.02, h }),
+            accent: oklchToHex({ L: 0.35 + rnd() * 0.3, C: 0.1 + rnd() * 0.08, h }),
+            accentSoft: oklchToHex({ L: 0.92, C: 0.03, h }),
+            pass: '#1F7A4D', warn: '#B26A00', fail: '#C0392B',
+          }, { rampStrategy: strategy }));
+        }
+        return out;
+      };
+      // The mutant: what every consumer resolves to when the tier is absent.
+      const asFallback = (t) => ({ ...t, ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`cat-${i + 1}-ink`, t[`cat-${i + 1}-mark`]])) });
+
+      for (const strategy of RAMP_STRATEGIES) {
+        const themes = sample(strategy, 40);
+        const failing = (list) => list.filter(t => inkRatios(t).some(([, r]) => r < 4.5)).length;
+        assert.equal(failing(themes), 0, `${strategy}: the derived tier must clear AA on every sampled theme`);
+        // And prove the assertion can fail: without the tier, this population does.
+        const mutantFailures = failing(themes.map(asFallback));
+        assert.ok(mutantFailures > 0,
+          `${strategy}: deleting the ink tier left every sampled theme AA-clean — this test cannot see the defect it exists for`);
       }
     });
 

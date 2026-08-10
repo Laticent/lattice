@@ -422,8 +422,11 @@ in patch versions.
   derived now: the 12 `--cat-N-ink` on-canvas inks, the 6 `--c-*` containment tokens, and
   `--spectrum` / `--spectrum-vertical` / `--spectrum-end`. After: **0 black pixels on all 8
   slides**, both canvases restored, no emulator warnings. The ink tier is not cosmetic either —
-  it used to fall back to `--cat-N-mark`, which is repaired to the **3:1 graphical** floor, so 63
-  of 200 sampled essential sets carried at least one sub-AA categorical label (worst 3.30:1).
+  it used to fall back to `--cat-N-mark`, which is repaired to the **3:1 graphical** floor. Sampling
+  200 essential sets per ramp strategy, 23-34 of 200 carried at least one sub-AA categorical label
+  under the four hue-spread ramps and **176 of 200** under `brand-mono` (worst 2.99:1) — with the
+  tier, 0 of 200 on every strategy. The seeded sampler is in the decision record, so the figures
+  reproduce.
   ([#1457](https://github.com/SlideWright/lattice/issues/1457),
   `engineering/decisions/2026-08-10-no-safe-default-token-contract.md`)
 - **The generator's contract is computed, not remembered.** `checkNoSafeDefaultTokens`

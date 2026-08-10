@@ -304,9 +304,10 @@ browser-facing throw driven by a user's ramp choice.
 > generator still throws, the browser one degrades and reports. (3) §5's ink-arm
 > correction above is itself too generous to the generator: sweeping the four starters
 > at the DEFAULT ramp does find zero sub-AA slots, but sweeping all five ramp
-> strategies finds one, and 200 randomly-sampled essential sets find **63 themes with a
-> sub-AA label, worst 3.30:1** — because the fallback lands on a mark repaired to the
-> 3:1 *graphical* floor. And the `--spectrum` arm turned out to be worse than the black
+> strategies finds one, and sampling 200 essential sets per strategy finds **23-34 of 200
+> with a sub-AA label under the hue-spread ramps and 176 of 200 under `brand-mono`,
+> worst 2.99:1** — because the fallback lands on a mark repaired to the 3:1 *graphical*
+> floor. And the `--spectrum` arm turned out to be worse than the black
 > box: a miss inside a `background:` shorthand drops the whole declaration, so divider
 > slides rendered white-on-white.
 

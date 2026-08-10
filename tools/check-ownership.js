@@ -2345,11 +2345,28 @@ function checkThemeTokenParity(errors) {
 //
 //   a THEME token          — declared at :root by at least one shipped palette,
 //                            i.e. part of the vocabulary a theme is expected to own
-//   with NO ENGINE DEFAULT — no :root declaration anywhere in lib/**.css
-//   read with NO FALLBACK  — a bare `var(--x)` in lib/**.css, or a `{ var: 'x' }`
-//                            entry in the Mermaid map (whose reader has no fallback
-//                            parameter at all — a miss IS the sentinel)
+//   with NO ENGINE DEFAULT — see WHAT COUNTS AS A DEFAULT below
+//   read with NO FALLBACK  — a bare `var(--x)` in lib/**.css, or an entry in the
+//                            Mermaid map (whose reader has no fallback parameter at
+//                            all — a miss IS the sentinel)
 //   ⟹ must be in REQUIRED_TOKENS.
+//
+// WHAT COUNTS AS A DEFAULT DEPENDS ON WHO IS READING, and collapsing that
+// distinction produces a false positive the engine's own comment invites. The
+// engine defaults `--spectrum-quiet` on `section {}` — the slide root, matched by
+// every slide — and `base.variants.css` explicitly says "a theme may override
+// `--spectrum-quiet`". A palette that accepts that invitation would put the token
+// in the theme vocabulary, and a `:root`-only model would then demand a contract
+// row for a token that IS defaulted. So:
+//
+//   read through CSS `var()`     a declaration on `:root` OR on the bare `section`
+//                                slide root is a real default — the cascade reaches
+//                                every slide either way.
+//   read through the Mermaid map ONLY `:root` counts. That reader is not CSS: the
+//                                export path's `parsePaletteVars` scans `:root`
+//                                blocks out of the palette TEXT, so a `section`
+//                                declaration is invisible to it and the miss still
+//                                becomes the black sentinel.
 //
 // There is deliberately no allowlist. A token caught here has two honest exits and
 // both are cheap: derive it (add the contract row), or give the read its
@@ -2379,10 +2396,10 @@ function cssRuleBlocks(css) {
 
 /**
  * True for a selector that applies UNCONDITIONALLY at the document root — the only
- * kind that is a default. `:root:root` (a11y-base's specificity hard pin) and
- * `:where(:root)` (a zero-specificity default) both qualify; `:root.print` does
- * not, because it waits for a class. One part of a selector LIST is enough:
- * `:root, section { … }` declares at the root.
+ * kind that is a default for the Mermaid map's reader. `:root:root` (a11y-base's
+ * specificity hard pin) and `:where(:root)` (a zero-specificity default) both
+ * qualify; `:root.print` does not, because it waits for a class. One part of a
+ * selector LIST is enough: `:root, section { … }` declares at the root.
  */
 function isUnconditionalRoot(selector) {
   return splitTopLevel(selector).some((part) => {
@@ -2391,53 +2408,97 @@ function isUnconditionalRoot(selector) {
   });
 }
 
-/** Custom-property names declared under an unconditional `:root` in one stylesheet. */
-function rootScopedTokens(css) {
+/**
+ * True for a selector that applies unconditionally to EVERY SLIDE — `:root`, or the
+ * bare `section` slide root. A declaration here is a real default for anything read
+ * through CSS (every slide is a `section`, and slide content inherits from it), but
+ * NOT for the Mermaid map, whose reader parses `:root` blocks out of the palette
+ * text and never sees a `section` rule. `section.print` does not qualify: it waits
+ * for a band.
+ */
+function isSlideRoot(selector) {
+  if (isUnconditionalRoot(selector)) return true;
+  return splitTopLevel(selector).some((part) => {
+    const bare = part.trim().replace(/:where\(\s*section\s*\)/g, 'section');
+    return bare === 'section';
+  });
+}
+
+/** Custom-property names declared under `accept`-ed selectors in one stylesheet. */
+function scopedTokens(css, accept) {
   const names = new Set();
   for (const { selector, body } of cssRuleBlocks(css)) {
-    if (!isUnconditionalRoot(selector)) continue;
+    if (!accept(selector)) continue;
     for (const m of body.matchAll(/(?:^|[;{])\s*--([\w-]+)\s*:/g)) names.add(m[1]);
   }
   return names;
 }
 
+/** Custom-property names declared under an unconditional `:root` in one stylesheet. */
+function rootScopedTokens(css) {
+  return scopedTokens(css, isUnconditionalRoot);
+}
+
+/** Custom-property names declared at `:root` OR on the bare `section` slide root. */
+function slideScopedTokens(css) {
+  return scopedTokens(css, isSlideRoot);
+}
+
 /**
  * Every `var(--name)` read in `css` that carries NO fallback, as
- * `name → ['file:line', …]`. A read WITH a fallback is a safe default by
+ * `name → [{ where, kind }, …]`. A read WITH a fallback is a safe default by
  * construction and is deliberately not reported.
+ *
+ * Comments are blanked with `stripCommentsKeepOffsets`, NOT deleted: deleting them
+ * removes their newlines too, so every reported line number came out shifted by the
+ * comment volume above it. The first cut of this arm did exactly that, and the wrong
+ * number was copied out of its output into a decision record before anyone read the
+ * file it pointed at.
  */
 function bareVarReads(css, label, into = new Map()) {
-  const s = stripComments(css);
+  const s = stripCommentsKeepOffsets(css);
   for (const m of s.matchAll(/var\(\s*--([\w-]+)\s*([,)])/g)) {
     if (m[2] === ',') continue;
     const line = s.slice(0, m.index).split('\n').length;
     if (!into.has(m[1])) into.set(m[1], []);
-    into.get(m[1]).push(`${label}:${line}`);
+    into.get(m[1]).push({ where: `${label}:${line}`, kind: 'css' });
   }
   return into;
 }
 
 /**
- * Every token the token→Mermaid map reads. The map's `readToken` takes a name and
- * nothing else, so EVERY entry here is a fallback-free read on both render paths —
- * and on the PDF path a miss is the black sentinel, not an absent property.
+ * Every token the token→Mermaid map reads. Sourced from the map's OWN
+ * `diagramThemeTokens()`, which the module documents as being "for gates that audit
+ * coverage" — re-scraping it with a regex (the first cut) missed `joinVars` entries,
+ * which travel through the same fallback-free `readToken` and the same black
+ * sentinel, and would have gone blind the day Biome reformatted a quote (HARD RULE
+ * #15).
  */
-function mermaidMapTokenReads(js, label, into = new Map()) {
-  for (const m of stripJsComments(js).matchAll(/\{\s*var:\s*'([^']+)'/g)) {
-    if (!into.has(m[1])) into.set(m[1], []);
-    into.get(m[1]).push(label);
+function mermaidMapTokenReads(tokens, label, into = new Map()) {
+  for (const name of tokens) {
+    if (!into.has(name)) into.set(name, []);
+    into.get(name).push({ where: label, kind: 'map' });
   }
   return into;
 }
 
 /**
- * The tokens that have no safe default anywhere and are read without one, given
- * the three inputs. Pure, so the gate can be bitten with synthetic input instead
- * of only asserted empty over the shipped tree.
+ * The tokens with no safe default that are read without one. Pure, so the gate can
+ * be bitten with synthetic input instead of only asserted empty over the shipped
+ * tree.
+ *
+ * `rootDefaults` are the engine's `:root` declarations; `slideDefaults` also counts
+ * the bare `section` slide root. Which one applies is decided PER TOKEN by who reads
+ * it — a token the Mermaid map reads is held to `rootDefaults`, because that reader
+ * parses `:root` blocks out of the palette text and cannot see a `section` rule.
  */
-function noSafeDefaultTokens({ themeTokens, engineDefaults, bareReads, contract }) {
+function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, bareReads, contract }) {
   return [...bareReads.keys()]
-    .filter((t) => themeTokens.has(t) && !engineDefaults.has(t) && !contract.has(t))
+    .filter((t) => {
+      if (!themeTokens.has(t) || contract.has(t)) return false;
+      const readByMap = bareReads.get(t).some((r) => r.kind === 'map');
+      return readByMap ? !rootDefaults.has(t) : !slideDefaults.has(t);
+    })
     .sort();
 }
 
@@ -2453,11 +2514,15 @@ function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB
   const themeTokens = new Set();
   for (const f of themeFiles) for (const t of rootScopedTokens(fs.readFileSync(f, 'utf8'))) themeTokens.add(t);
 
-  const engineDefaults = new Set();
+  const rootDefaults = new Set();
+  const slideDefaults = new Set();
   const bareReads = new Map();
+  let cssFiles = 0;
   for (const f of listCssFiles(libDir)) {
     const css = fs.readFileSync(f, 'utf8');
-    for (const t of rootScopedTokens(css)) engineDefaults.add(t);
+    cssFiles += 1;
+    for (const t of rootScopedTokens(css)) rootDefaults.add(t);
+    for (const t of slideScopedTokens(css)) slideDefaults.add(t);
     bareVarReads(css, path.relative(ROOT, f), bareReads);
   }
   for (const rel of NO_SAFE_DEFAULT_MAP_READERS) {
@@ -2466,16 +2531,29 @@ function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB
       errors.push(`checkNoSafeDefaultTokens expected a token-map reader at ${rel} and it is gone — either restore it or drop it from NO_SAFE_DEFAULT_MAP_READERS.`);
       continue;
     }
-    mermaidMapTokenReads(fs.readFileSync(full, 'utf8'), rel, bareReads);
+    mermaidMapTokenReads(require(full).diagramThemeTokens(), rel, bareReads);
+  }
+  // FAIL LOUD ON AN EMPTY SCAN. Each input is an intersection term, so any of them
+  // coming back empty makes the gate report clean — the failure mode where a gate is
+  // also a claim. A regex change, a palette restructure or a moved directory must
+  // read as broken here, not as green.
+  if (!themeTokens.size || !rootDefaults.size || !bareReads.size || !cssFiles) {
+    errors.push(
+      'checkNoSafeDefaultTokens scanned successfully but came back with an empty input set ' +
+      `(theme tokens ${themeTokens.size}, engine :root defaults ${rootDefaults.size}, bare reads ${bareReads.size}, ` +
+      `lib CSS files ${cssFiles}) — every one of those is an intersection term, so an empty one silently ` +
+      'makes this gate pass. Something moved or stopped parsing; fix the scan rather than trusting the green.',
+    );
+    return;
   }
 
   const contract = new Set(require('../lib/theme/derive.js').requiredTokenList());
-  const missing = noSafeDefaultTokens({ themeTokens, engineDefaults, bareReads, contract });
+  const missing = noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, bareReads, contract });
   if (missing.length) {
-    const shown = missing.slice(0, 6).map((t) => `--${t} (${bareReads.get(t)[0]})`).join(', ');
+    const shown = missing.slice(0, 6).map((t) => `--${t} (${bareReads.get(t)[0].where})`).join(', ');
     errors.push(
       `${missing.length} token(s) have NO SAFE DEFAULT — shipped palettes declare them, lib/ reads them with no ` +
-      `var() fallback, and nothing declares them at :root in the engine — yet REQUIRED_TOKENS in ` +
+      `var() fallback, and the engine declares no default they can reach — yet REQUIRED_TOKENS in ` +
       `lib/theme/derive.js does not promise them: ${shown}${missing.length > 6 ? `, +${missing.length - 6} more` : ''}. ` +
       'A theme generated outside this repo (the Studio) therefore ships without them, and a miss does not degrade: ' +
       'the Mermaid map substitutes a black sentinel that renders, and a bare read inside a `background:` shorthand ' +
@@ -5671,7 +5749,9 @@ module.exports = {
   noSafeDefaultTokens,
   cssRuleBlocks,
   rootScopedTokens,
+  slideScopedTokens,
   isUnconditionalRoot,
+  isSlideRoot,
   bareVarReads,
   mermaidMapTokenReads,
   VETRINA_DIR,

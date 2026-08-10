@@ -269,8 +269,10 @@ and re-hue it (the `new:theme` scaffold does this for you).
   ordering hazard: it applies only when the token is genuinely absent, which is
   what keeps a **third-party** palette on twelve distinct categorical marks rather
   than collapsing to one accent. The fallback is the floor, not the plan: it lands
-  on a mark curated to the 3:1 *graphical* floor, and across 200 sampled essential
-  sets 63 then carry at least one sub-AA categorical label (worst 3.30:1). So the
+  on a mark curated to the 3:1 *graphical* floor. Sampling 200 essential sets per ramp
+  strategy, 23-34 of 200 then carry at least one sub-AA categorical label under the four
+  hue-spread ramps and **176 of 200** under `brand-mono` (worst 2.99:1); with the tier,
+  0 of 200 on every strategy. So the
   Studio's `deriveTheme` emits this tier itself, from the shared solve in
   `lib/theme/cat-ink.js` — the same recipe `tools/derive-cat-ink.js` writes into the
   hand-authored palettes (#1457). The tier still reads *the ink is the mark, unless the mark fails*

@@ -715,6 +715,8 @@ var require_contrast = __commonJS({
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-fill`, "cat-on-fill", AA2, "categorical-pale"]);
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-mark`, "cat-on-mark", AA2, "categorical-deep"]);
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-mark`, "bg", AA_LARGE2, "categorical-edge"]);
+      for (let i = 1; i <= 12; i++) pairs.push(["bg", `cat-${i}-ink`, AA2, "categorical-ink"]);
+      for (let i = 1; i <= 12; i++) pairs.push(["bg-alt", `cat-${i}-ink`, AA2, "categorical-ink"]);
       pairs.push(["bg", "text-heading", AA2, "heading"]);
       pairs.push(["bg-alt", "text-heading", AA2, "heading"]);
       return pairs;

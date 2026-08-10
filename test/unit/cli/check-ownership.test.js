@@ -2318,17 +2318,21 @@ describe('theme manifest gates', () => {
 
 describe('no-safe-default token gate (#1457)', () => {
   const {
-    noSafeDefaultTokens, rootScopedTokens, isUnconditionalRoot, bareVarReads, mermaidMapTokenReads,
+    noSafeDefaultTokens, rootScopedTokens, slideScopedTokens, isUnconditionalRoot, isSlideRoot,
+    bareVarReads, mermaidMapTokenReads,
   } = require('../../../tools/check-ownership.js');
 
   // BITE-TESTS, not smoke tests. The arm this replaces would have passed while the
   // Studio shipped themes that painted solid black Mermaid clusters, so each test
   // below constructs the violation and asserts the arm names it — then asserts each
   // of the two legitimate exits (derive it, or give the read a fallback) silences it.
+  const cssRead = (where) => [{ where, kind: 'css' }];
+  const mapRead = (where) => [{ where, kind: 'map' }];
   const inputs = (over = {}) => ({
     themeTokens: new Set(['c-container', 'bg']),
-    engineDefaults: new Set(['bg']),
-    bareReads: new Map([['c-container', ['lib/x.css:1']], ['bg', ['lib/x.css:2']]]),
+    rootDefaults: new Set(['bg']),
+    slideDefaults: new Set(['bg']),
+    bareReads: new Map([['c-container', cssRead('lib/x.css:1')], ['bg', cssRead('lib/x.css:2')]]),
     contract: new Set(['bg']),
     ...over,
   });
@@ -2345,11 +2349,29 @@ describe('no-safe-default token gate (#1457)', () => {
     // A read WITH a fallback never enters `bareReads` at all; that is the mechanism
     // by which --cat-N-ink (no :root default anywhere, gated by checkCatInkFallback)
     // is correctly absent from this gate's findings.
-    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: new Map([['bg', ['lib/x.css:2']]]) })), []);
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: new Map([['bg', cssRead('lib/x.css:2')]]) })), []);
   });
 
   test('an ENGINE :root default is a safe default — not reported', () => {
-    assert.deepEqual(noSafeDefaultTokens(inputs({ engineDefaults: new Set(['bg', 'c-container']) })), []);
+    assert.deepEqual(noSafeDefaultTokens(inputs({
+      rootDefaults: new Set(['bg', 'c-container']),
+      slideDefaults: new Set(['bg', 'c-container']),
+    })), []);
+  });
+
+  // The false positive the engine's own comment invites: `--spectrum-quiet` is
+  // defaulted on the bare `section` slide root, and base.variants.css says a theme
+  // may override it. A :root-only model demands a contract row for a token that IS
+  // defaulted — and neither of the gate's two exits would be correct.
+  test('a `section` slide-root default satisfies a CSS read, but NOT a Mermaid-map read', () => {
+    const sectionOnly = { rootDefaults: new Set(['bg']), slideDefaults: new Set(['bg', 'c-container']) };
+    assert.deepEqual(noSafeDefaultTokens(inputs(sectionOnly)), [],
+      'a bare `section` declaration is a real default for a CSS var() read');
+    assert.deepEqual(
+      noSafeDefaultTokens(inputs({ ...sectionOnly, bareReads: new Map([['c-container', mapRead('map.js')]]) })),
+      ['c-container'],
+      'the Mermaid reader parses :root blocks out of the palette TEXT — a `section` rule is invisible to it',
+    );
   });
 
   test('a token no palette declares is not the theme contract\'s business', () => {
@@ -2362,12 +2384,29 @@ describe('no-safe-default token gate (#1457)', () => {
   test('bareVarReads separates a bare read from a read with a fallback', () => {
     const reads = bareVarReads('a{color:var(--one)}\nb{color:var(--two, red)}\nc{color:var( --three )}', 'f.css');
     assert.deepEqual([...reads.keys()].sort(), ['one', 'three']);
-    assert.equal(reads.get('one')[0], 'f.css:1');
+    assert.equal(reads.get('one')[0].where, 'f.css:1');
+    assert.equal(reads.get('one')[0].kind, 'css');
   });
 
-  test('the Mermaid map counts as a fallback-free reader — its readToken takes no default', () => {
-    const reads = mermaidMapTokenReads("const M={clusterBkg:{var:'c-container'},x:{literal:'14px'}};", 'map.js');
+  // The first cut stripped comments by DELETING them, newlines included, so every
+  // reported line was shifted by the comment volume above it — and a wrong number was
+  // copied straight out of the gate into a decision record.
+  test('bareVarReads reports the line in the REAL file, not the comment-stripped one', () => {
+    const css = '/* one\n * two\n * three\n */\na { color: var(--x) }';
+    assert.equal(bareVarReads(css, 'f.css').get('x')[0].where, 'f.css:5');
+  });
+
+  test('the Mermaid map counts as a fallback-free reader, joinVars included', () => {
+    // Sourced from the map's own diagramThemeTokens(), so a `joinVars` entry — which
+    // travels through the same readToken and the same black sentinel — cannot be
+    // missed the way a `{ var: '…' }` regex missed it.
+    const { diagramThemeTokens } = require('../../../lib/core/mermaid-theme-map.js');
+    const tokens = diagramThemeTokens();
+    assert.ok(tokens.includes('c-container'), 'the map must still read the containment fill');
+    assert.ok(tokens.includes('cat-1-mark'), 'and a joinVars-only token must be present');
+    const reads = mermaidMapTokenReads(['c-container'], 'map.js');
     assert.deepEqual([...reads.keys()], ['c-container']);
+    assert.equal(reads.get('c-container')[0].kind, 'map');
   });
 
   test('isUnconditionalRoot: a specificity pin and a :where() default both count; a class-gated root does not', () => {
@@ -2379,9 +2418,34 @@ describe('no-safe-default token gate (#1457)', () => {
     assert.ok(!isUnconditionalRoot('section.print'));
   });
 
-  test('rootScopedTokens reads only unconditionally-rooted blocks', () => {
-    const css = ':root{--a:1}\nsection.print{--b:2}\n:where(:root){--c:3}\n:root.x{--d:4}';
+  test('isSlideRoot additionally accepts the bare `section`, but never a banded one', () => {
+    assert.ok(isSlideRoot(':root'));
+    assert.ok(isSlideRoot('section'));
+    assert.ok(isSlideRoot(':where(section)'));
+    assert.ok(!isSlideRoot('section.print'));
+    assert.ok(!isSlideRoot('section .card'));
+    assert.ok(!isUnconditionalRoot('section'), 'and `section` is NOT a :root default');
+  });
+
+  test('rootScopedTokens / slideScopedTokens read the blocks they claim to', () => {
+    const css = ':root{--a:1}\nsection.print{--b:2}\n:where(:root){--c:3}\n:root.x{--d:4}\nsection{--e:5}';
     assert.deepEqual([...rootScopedTokens(css)].sort(), ['a', 'c']);
+    assert.deepEqual([...slideScopedTokens(css)].sort(), ['a', 'c', 'e']);
+  });
+
+  // Every input is an intersection term, so an empty one makes the gate report clean.
+  // A gate that cannot fail is also a claim.
+  test('the assembled gate FAILS LOUD when a scan comes back empty', () => {
+    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-safe-default-'));
+    try {
+      // A themes dir whose only palette declares nothing at :root.
+      fs.writeFileSync(path.join(dir, 'empty.css'), 'section.print { --x: red; }\n');
+      const errors = [];
+      checkNoSafeDefaultTokens(errors, { themesDir: dir });
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /empty input set/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
   test('the shipped tree is clean — REQUIRED_TOKENS covers every no-safe-default token', () => {
