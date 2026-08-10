@@ -135,11 +135,8 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 		expect(docLines.filter((l) => l === t).length, `sampled slide ${i}'s first editable line ${JSON.stringify(t)} is not unique in the deck, so it cannot identify a rendered line`).toBe(1);
 	}
 	const TOLERANCE = 40; // ~1.5 lines: absorbs yMargin + rounding, far under one slide
-	for (const i of indices) {
-		await railButtons(page).nth(i).click();
-		await page.waitForTimeout(350); // let the scroll settle before measuring geometry
-		const want = editableLineOf(authored[i]);
-		const m = await page.evaluate(
+	const measure = (text: string) =>
+		page.evaluate(
 			({ text }: { text: string }) => {
 				const scroller = document.querySelector('.cm-scroller');
 				if (!scroller) return null;
@@ -154,8 +151,27 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 				if (!el) return { found: false, offset: 0, atTopText };
 				return { found: true, offset: Math.round(el.getBoundingClientRect().top - s.top), atTopText };
 			},
-			{ text: want },
+			{ text },
 		);
+	for (const i of indices) {
+		await railButtons(page).nth(i).click();
+		const want = editableLineOf(authored[i]);
+		// POLL to the settled state rather than sleeping a guessed interval. The scroll is a synchronous
+		// CodeMirror dispatch, so this normally converges on the first read and costs nothing — but a
+		// fixed wait is a bet that a loaded CI box finishes in the time the author guessed, and losing
+		// that bet reads as a real failure. Bounded so a genuinely wrong position still reports: the loop
+		// exits on the deadline with the LAST measurement, which the assertions below then judge.
+		//
+		// Safe to poll to success here — unlike the settle in the caret→preview test below — because the
+		// state being measured is the one this click is supposed to produce, not a state that was already
+		// correct before the click. There is no window in which a stale-but-passing reading can be
+		// mistaken for the click's effect.
+		const deadline = Date.now() + 5_000;
+		let m = await measure(want);
+		while ((!m?.found || Math.abs(m.offset) > TOLERANCE) && Date.now() < deadline) {
+			await page.waitForTimeout(100);
+			m = await measure(want);
+		}
 		if (!m) {
 			wrong.push(`rail ${i}: no editor scroller found`);
 		} else if (!m.found) {
@@ -190,12 +206,26 @@ test('jargon deck: clicking into a slide previews THAT slide', async ({ page }) 
 		// selection that revealed it. Clicking the slide's LAST line (not its first) also guards the
 		// boundary: an off-by-one at the chunk edge would map it to the next slide.
 		await railButtons(page).nth(i).click();
-		await page.waitForTimeout(300);
 		const ownLines = authored[i].split('\n').map((l) => l.trim()).filter((l) => l.length > 8);
 		const target = ownLines[ownLines.length - 1];
 		const line = page.locator('.cm-line', { hasText: target }).first();
-		if (!(await line.count())) continue; // line not built (virtualized away) — skip rather than fake it
+		// Wait for the SIGNAL (the reveal built this slide's lines) instead of a guessed interval. A line
+		// that never appears was virtualized away — the timeout is this loop's SKIP condition, not a
+		// failure, which is why it is caught rather than allowed to fail the test.
+		try {
+			await expect.poll(() => line.count(), { timeout: 5_000 }).toBeGreaterThan(0);
+		} catch {
+			continue; // line not built (virtualized away) — skip rather than fake it
+		}
 		await line.click();
+		// THIS SETTLE IS LOAD-BEARING — do not replace it with a poll, and do not delete it. The rail
+		// click above ALREADY put the preview on slide i — that is not a guess, it is exactly what the
+		// FIRST test in this file proves — so the assertion below is true before the line click does
+		// anything. Polling it would pass instantly against that stale-but-correct state and never see
+		// the click's effect at all. What an off-by-one does here is MOVE the preview to slide i+1
+		// shortly after the click, so the test's power comes from reading the preview only AFTER the
+		// click has had time to land. There is no positive signal to poll for; "no change" is the pass,
+		// and a poll cannot distinguish "no change" from "not yet changed".
 		await page.waitForTimeout(400);
 		try {
 			await expect
