@@ -107,6 +107,10 @@ jobs:
       # ── Artifact freshness — ALWAYS runs, on EVERY PR ──────────────────────
       # build:check regenerates EVERY committed generated artifact (dist bundles,
       # spec docs, the capability + DECISION indexes, dist README) and byte-diffs.
+      # ONE exception, deliberately: the decision index is checked for CONTENT rather
+      # than bytes — every note has its own correct entry — because a byte-diff there
+      # cannot be satisfied by two decision-doc PRs sharing the queue, and ejected one
+      # of them (#1547, decisions/2026-08-10-decisions-index-merge-queue-race.md).
       # It lives in this ALWAYS-ON job, deliberately NOT behind the code/docs paths
       # filter, because some of its inputs match NEITHER filter — e.g. a new
       # engineering/decisions/*.md stales engineering/decisions/README.md, and
