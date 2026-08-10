@@ -128,24 +128,6 @@ export async function encoderAvailable() {
 }
 
 /**
- * Float32 samples in [-1, 1] → 16-bit PCM, the only shape LAME takes.
- *
- * Asymmetric scaling (0x8000 negative, 0x7fff positive), matching `wavBlob`'s own conversion:
- * int16 holds one more negative step than positive, and scaling both by 0x8000 clips the
- * loudest positive sample to -1.0 — an audible tick on a plosive. Kept identical to the WAV
- * path so the two encodings of the same utterance differ only in the codec.
- */
-export function toInt16(samples) {
-	const f32 = samples instanceof Float32Array ? samples : Float32Array.from(samples || []);
-	const out = new Int16Array(f32.length);
-	for (let i = 0; i < f32.length; i++) {
-		const v = f32[i] < -1 ? -1 : f32[i] > 1 ? 1 : f32[i];
-		out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
-	}
-	return out;
-}
-
-/**
  * Encode interleaved 16-bit PCM to mp3 bytes. Returns null when the encoder is unavailable,
  * the sample rate is not one MPEG defines, or the encode throws — every one of which means
  * "the caller keeps its uncompressed bytes", never "the sentence has no audio".

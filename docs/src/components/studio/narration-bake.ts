@@ -88,7 +88,8 @@ export type NarrationBake = {
 export type NarrationMeasure = {
 	/** Sentences the deck speaks in total. */
 	total: number;
-	/** Already on this device in the chosen voice — free and instant. */
+	/** Already on this device in the chosen voice — free, though not necessarily instant: see
+	 *  `transcoded`, which decides whether a cached clip still costs encode time at export. */
 	cached: number;
 	/** The bytes those cached clips will contribute to the file. */
 	cachedBytes: number;
@@ -104,8 +105,13 @@ export type NarrationMeasure = {
 	/** Estimated USD for those characters at the model's published rate, or null when the
 	 *  catalog has no price for it. Never a guess — an unpriced model quotes nothing. */
 	estCostUsd: number | null;
-	/** Rough wall-clock seconds for the synthesis, at the bake's real concurrency. */
+	/** Rough wall-clock seconds for the whole bake, at its real concurrency — synthesis of what
+	 *  is missing PLUS, for a transcoded voice, the encode of every clip including cached ones. */
 	estSeconds: number;
+	/** True when this codebase encodes this voice's audio itself, so the export spends real time
+	 *  on EVERY sentence rather than only the ones it has to synthesize. A fully-rehearsed deck
+	 *  in a transcoded voice is still free — it is not instant, and the panel must not say it is. */
+	transcoded: boolean;
 	/** The voice the measurement was taken FOR. */
 	voice: BakeVoice;
 	/** False when the measurement was taken WITHOUT the DOM speech projection — the counts are
@@ -217,8 +223,9 @@ export function shippedBytes(rawBytes: number, mime = 'audio/mpeg'): number {
  * THE ROSTER IS NOW ONE CODEC CLASS AS IT SHIPS, and that is a recent and load-bearing change. Two
  * engines return uncompressed audio — Gemini (PCM over the wire) and on-device Kokoro (Float32
  * off the worker) — and both used to ship as WAV, at roughly 7.7x the rest of this table. They
- * are compressed on the way into the exported file now (`attach`), so the spread below is
- * 279–1246 B/char rather than 279–3799, and every number in it is the same kind of number.
+ * are compressed on the way into the exported FILE now — by `attach` in this module, and
+ * nowhere else; a clip on the author's device is still raw — so the spread below is 279–1246
+ * B/char rather than 279–3799, and every number in it is the same kind of number.
  * NOTE the rows are measured from committed SAMPLES, which are compressed; the clips on an
  * author's device are not, which is why `estimateSynthBytes` prices those two from the bitrate.
  */
@@ -480,6 +487,24 @@ const BAKE_TIMEOUT_MS = 45000;
 const SECONDS_PER_SENTENCE = 1.6;
 
 /**
+ * Rough seconds to COMPRESS one clip, for an engine whose audio this codebase encodes itself.
+ *
+ * It exists because the reversal that moved compression to export (ADR §9) made a cached clip
+ * stop being free. Before it, a rehearsed deck's clips were already mp3 and `attach` was a MIME
+ * check costing microseconds; now every one of them is a WAV that must be re-encoded, on the
+ * main thread, at the moment of export. The panel went on saying "free and instant" — which was
+ * true when it was written and false afterwards, on the exact workflow this branch unlocked.
+ *
+ * Measured 47–59 ms per speech-length clip in Node and ~107 ms in a browser; 0.1 s is the round
+ * figure above the middle of that. Over-quoting time is the safe direction, and unlike the size
+ * line nothing gates on it — it only sets expectations for a run the author can cancel.
+ *
+ * NOT divided by BAKE_CONCURRENCY: the encode is synchronous on one thread, so the workers do
+ * not overlap it however many of them there are.
+ */
+const ENCODE_SECONDS_PER_CLIP = 0.1;
+
+/**
  * The pre-flight — what baking this deck in `voice` would cost, without synthesizing
  * anything or reading a single byte of audio.
  *
@@ -499,13 +524,14 @@ export async function measureNarration(source: string, projected: readonly strin
 	const { perSlide, projectionUsed: complete } = resolveDeck(source, projected);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
 	const totalChars = perSlide.reduce((n, row) => n + row.reduce((m, t) => m + t.length, 0), 0);
-	const base: NarrationMeasure = { total, cached: 0, cachedBytes: 0, missing: 0, missingChars: 0, totalChars, missingBytes: 0, estCostUsd: null, estSeconds: 0, voice, complete };
+	// Does this codebase encode this engine's audio? Then every clip costs encode time at export
+	// and its size follows the bitrate, rather than the engine's own measured rate. Resolved once.
+	const transcoded = voice.rung === 'kokoro' || returnsUncompressed(voice.model);
+	const base: NarrationMeasure = { total, cached: 0, cachedBytes: 0, missing: 0, missingChars: 0, totalChars, missingBytes: 0, estCostUsd: null, estSeconds: 0, voice, complete, transcoded };
 	if (!total) return base;
 
 	const keys = await bakeClipKeys(perSlide, voice);
 	const sizes = narrationCacheEnabled() ? await clipSizes(keys.flat()) : new Map<string, { size: number; type: string }>();
-	// Resolved once: whether audio for THIS voice is something the bake encodes itself.
-	const transcoded = voice.rung === 'kokoro' || returnsUncompressed(voice.model);
 	const bitrate = narrationBitrate();
 
 	let cached = 0;
@@ -543,11 +569,11 @@ export async function measureNarration(source: string, projected: readonly strin
 	// orPricePerM). An unpriced model quotes nothing rather than zero — "free" and "we don't
 	// know" are different answers and only one of them is safe to show next to a Bake button.
 	const estCostUsd = typeof priceMPerChar === 'number' && Number.isFinite(priceMPerChar) ? (missingChars / 1e6) * priceMPerChar : null;
-	const estSeconds = Math.ceil((missing * SECONDS_PER_SENTENCE) / BAKE_CONCURRENCY);
-	// The size of what is NOT yet recorded depends on how WE will encode it, when we are the one
-	// encoding it — the on-device rung and any PCM-only cloud model.
+	// Synthesis is concurrent; the encode is not, and it falls on EVERY clip of a transcoded
+	// engine — cached ones included, which is the whole point (see ENCODE_SECONDS_PER_CLIP).
+	const estSeconds = Math.ceil((missing * SECONDS_PER_SENTENCE) / BAKE_CONCURRENCY + (transcoded ? total * ENCODE_SECONDS_PER_CLIP : 0));
 	const missingBytes = estimateSynthBytes(missingChars, voice.model, { transcoded, kbps: bitrate });
-	return { ...base, cached, cachedBytes, missing, missingChars, missingBytes, estCostUsd, estSeconds };
+	return { ...base, cached, cachedBytes, missing, missingChars, missingBytes, estCostUsd, estSeconds, transcoded };
 }
 
 /** Progress, as the panel shows it: cached hits are instant, synthesis is what takes time. */

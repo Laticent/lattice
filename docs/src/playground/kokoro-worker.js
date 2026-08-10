@@ -21,9 +21,11 @@
 // IT DELIBERATELY DOES NOT COMPRESS. An earlier version encoded to mp3 here, to shrink
 // the device cache and make the export nearly free. It also put a codec on the LIVE
 // READING PATH, and that cost more than it saved: lamejs writes no gapless header, so
-// every clip came back 56–70 ms longer than the audio that went into it, with the extra
-// silence at the front. On every sentence. Audio started after its caption, the tuned
-// breath between sentences grew by a third, and a deck gained ~17 s over 300 sentences.
+// every clip came back 56–70 ms longer than the audio that went into it — 46 ms of that
+// at the FRONT (ENCDELAY + DECDELAY = 1104 samples at 24 kHz, a constant), the rest
+// trailing padding out to a whole 1152-sample frame. On every sentence. Audio started
+// after its caption, the tuned breath between sentences grew by a third, and a deck
+// gained ~17 s over 300 sentences.
 // Compression is for the file you SHIP, so it happens once, at export
 // (narration-bake.ts's `attach`), and playback plays exactly what the voice produced.
 

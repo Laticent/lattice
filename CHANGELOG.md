@@ -62,11 +62,19 @@ in patch versions.
   compressing for export would have moved the gaps you hear while reading onto the deck you
   send someone, where nobody can fix them.
 
+  **The export panel states the wait, not just the bill.** Because compression now happens when
+  the file is built, a deck you have already rehearsed on-device is still free to export — but it
+  is no longer instant, since every sentence is encoded on the way out. The panel used to promise
+  "free and instant" and showed a time only for sentences it had to record, so the one case that
+  spends the most time on a bill of zero showed no time at all. It now says *no charge* for a
+  voice it has to encode, and gives the wait its own line whenever there is one.
+
   **Compression happens at export, never while you read.** An earlier build of this compressed
   as each sentence was recorded, to shrink the on-device cache too. It also put a codec on the
   live reading path, and that cost more than it saved: the encoder writes no gapless header, so
-  every clip came back **56–70 ms longer than the audio that went into it**, with the extra
-  silence at the front. On every sentence — audio starting after its caption, the tuned breath
+  every clip came back **56–70 ms longer than the audio that went into it** — a fixed 46 ms of
+  that at the front, the rest trailing padding. On every sentence — audio starting after its
+  caption, the tuned breath
   between sentences a third longer, ~17 seconds added across a 300-sentence deck. Narration kept
   on this device is now stored exactly as the voice made it, and the encoder runs once, on the
   way into the file you share.

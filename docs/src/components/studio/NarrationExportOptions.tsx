@@ -430,7 +430,13 @@ export function NarrationExportOptions({
 
 							{/* The bill. Stated before the button, always. */}
 							<dl className="space-y-1 rounded-lg bg-[var(--accent-soft)] px-3 py-2.5 text-[11.5px]">
-								<Line term="Already prepared" detail={`${measure.cached} of ${measure.total} sentence${measure.total === 1 ? '' : 's'} — free and instant`} />
+								{/* "Free and instant" was true only while a cached clip was shipped byte-for-byte.
+								    Compression now happens when the file is BUILT, so for a voice this codebase
+								    encodes itself, every cached clip is still re-encoded on the way out — free,
+								    but measured in tens of seconds for a long deck. Promising "instant" above a
+								    button that then works for half a minute is the panel telling the author
+								    something it knows to be false. Say free, and put the time in its own line. */}
+								<Line term="Already prepared" detail={`${measure.cached} of ${measure.total} sentence${measure.total === 1 ? '' : 's'} — ${measure.transcoded ? 'no charge' : 'free and instant'}`} />
 								{measure.missing > 0 ? (
 									<>
 										<Line
@@ -441,7 +447,7 @@ export function NarrationExportOptions({
 											// Say which of the two it is.
 											detail={`${measure.missing} sentence${measure.missing === 1 ? '' : 's'} · ${
 												measure.estCostUsd != null ? `about ${formatUsd(measure.estCostUsd)}` : catalogUnreachable ? 'cost unknown until the catalog is reachable' : 'this model publishes no price'
-											} · about ${formatDuration(measure.estSeconds)}`}
+											}`}
 										/>
 										{measure.cached === 0 && (
 											<p className="pt-1 leading-snug text-muted-foreground">
@@ -452,6 +458,16 @@ export function NarrationExportOptions({
 									</>
 								) : (
 									<Line term="To synthesize" detail="nothing — this deck is fully prepared in this voice" />
+								)}
+								{/* The wait, stated for EVERY deck that has one — not just an unrehearsed one.
+								    This line used to hang off the synthesis line, so a fully-rehearsed deck in a
+								    transcoded voice showed no time at all while being the case that spends the
+								    most of it on a bill of zero. `estSeconds` already counts both halves. */}
+								{measure.estSeconds > 0 && (
+									<Line
+										term="Takes about"
+										detail={`${formatDuration(measure.estSeconds)}${measure.missing > 0 && measure.transcoded ? ' — recording, then compressing every sentence' : measure.transcoded ? ' — compressing every sentence into the file' : ''}`}
+									/>
 								)}
 								{/* `complete` is FALSE when the measurement was taken without the deck's speech
 							    projection, and `measureNarration` documents what that means: the counts are a
@@ -490,7 +506,9 @@ export function NarrationExportOptions({
 							<p className="text-[11px] leading-snug text-muted-foreground">
 								{measure.missing > 0
 									? 'The file is written only if every sentence succeeds — a deck that goes quiet halfway through is worse than one that never spoke. Anything synthesized is kept and this deck\u2019s existing audio is held back from the cache\u2019s size limit while the export runs, so a second attempt pays only for what is left.'
-									: 'Every sentence is already on this device, so nothing is synthesized and nothing is billed.'}
+									: measure.transcoded
+										? 'Every sentence is already on this device, so nothing is synthesized and nothing is billed. The export still compresses each one as it writes the file, which is where the time above goes.'
+										: 'Every sentence is already on this device, so nothing is synthesized and nothing is billed.'}
 							</p>
 						</>
 					)}

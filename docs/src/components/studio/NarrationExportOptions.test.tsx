@@ -53,8 +53,15 @@ vi.mock('./narration-bake', async (importOriginal) => ({
 		missingBytes: (await importOriginal<typeof import('./narration-bake')>()).estimateSynthBytes(200, voice?.model),
 		estCostUsd: null, estSeconds: 3,
 		voice: voice ?? { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 }, complete: true,
+		transcoded: true,
+		...measureOverride,
 	}),
 }));
+
+/** Per-test slice over the fixture above, for the cases that are ABOUT the measurement (a
+ *  fully-rehearsed deck, a voice we do not encode) rather than about the voice picker. Reset in
+ *  `beforeEach` so a test cannot leak its shape into the next one. */
+let measureOverride: Record<string, unknown> | null = null;
 
 const { NarrationExportOptions } = await import('./NarrationExportOptions');
 type NarrationChoice = Parameters<typeof NarrationExportOptions>[0]['value'];
@@ -64,6 +71,7 @@ const CHOICE = { captions: false, audio: true, voice: VOICE, allowPartial: false
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	measureOverride = null;
 	defaultBakeVoice.mockResolvedValue(VOICE);
 	voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
 	onDeviceBakeVoice.mockResolvedValue(null);
@@ -252,6 +260,18 @@ describe('choosing the narrator when BOTH a cloud key and an on-device voice exi
 		expect(copy).toMatch(/nothing is billed/i);
 	});
 
+	it('does not offer the choice when the model is on disk but not LOADED', async () => {
+		// `kokoroReady`, not `kokoroReady || kokoroCached`. "Cached" means the weights are on
+		// disk; the offer promises a voice that answers NOW, and a cached-but-unloaded model has
+		// to be fetched into memory and warmed first. Offering it there is a button that appears
+		// to cost nothing and then stalls the export on a load the panel never mentioned.
+		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+		panel();
+		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		expect(screen.queryByRole('button', { name: /This device/i })).toBeNull();
+	});
+
 	it('does not offer the choice when there is no on-device voice at all', async () => {
 		onDeviceBakeVoice.mockResolvedValue(null);
 		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
@@ -280,5 +300,46 @@ describe('the copy at rest', () => {
 		);
 		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
 		expect(document.body.textContent ?? '').not.toMatch(/has not been rehearsed yet/i);
+	});
+});
+
+// A REHEARSED deck is the case this panel is least likely to be read carefully on, and the one
+// where it was most wrong. Compression moved to the bake, so the export now re-encodes every
+// clip the device already holds — free, but tens of seconds for a long deck. The panel went on
+// saying "free and instant" and showed no duration at all, because the duration line hung off
+// the SYNTHESIS branch, which a fully-prepared deck does not take.
+describe('a fully-rehearsed deck states its wait', () => {
+	const REHEARSED = { total: 4, cached: 4, cachedBytes: 40_000, missing: 0, missingChars: 0, missingBytes: 0, estCostUsd: null };
+
+	async function rehearsed(extra: Record<string, unknown>) {
+		measureOverride = { ...REHEARSED, ...extra };
+		listTtsCatalog.mockResolvedValue({ models: [{ id: VOICE.model, name: 'Kokoro', voices: ['af_heart'] }], reachable: true });
+		render(<NarrationExportOptions source={'---\ntheme: indaco\n---\n\n# One\n\nA sentence.\n'} project={async () => ['A sentence.']} value={CHOICE} onChange={() => {}} />);
+		// NOT /already prepared/ — the SPINNER says "checking what this device has already
+		// prepared…", so that regex matches before the measurement exists and every assertion
+		// below then reads an empty bill. Wait for a line only the settled bill renders.
+		await screen.findByText(/To synthesize/i);
+		return (document.body.textContent ?? '').replace(/\s+/g, ' ');
+	}
+
+	it('does not promise "instant" for a voice the export has to encode', async () => {
+		const copy = await rehearsed({ transcoded: true, estSeconds: 32 });
+		expect(copy, 'the promise the encode broke').not.toMatch(/free and instant/i);
+		expect(copy, 'still free — only the "instant" half was false').toMatch(/no charge/i);
+	});
+
+	it('shows the time even though there is nothing to synthesize', async () => {
+		const copy = await rehearsed({ transcoded: true, estSeconds: 32 });
+		expect(copy).toMatch(/Takes about/i);
+		expect(copy, 'formatDuration(32)').toMatch(/32 ?s/i);
+	});
+
+	it('keeps "free and instant" for a voice that ships its own compressed audio', async () => {
+		// The cloud engines that return mp3 are untouched by the bake, so a cached clip really
+		// is copied straight into the file. Narrowing the claim must not widen into a lie the
+		// other way — an honest panel does not hedge a wait that does not exist.
+		const copy = await rehearsed({ transcoded: false, estSeconds: 0 });
+		expect(copy).toMatch(/free and instant/i);
+		expect(copy, 'no wait, so no line about one').not.toMatch(/Takes about/i);
 	});
 });

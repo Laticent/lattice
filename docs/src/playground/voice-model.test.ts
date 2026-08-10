@@ -824,9 +824,9 @@ describe('openrouter synth: PCM-only model quirk (Gemini 400s on mp3, only retur
   it('wraps the PCM response in a WAV blob and does NOT compress it on the live path', async () => {
     // Gemini is the one cloud model that answers in raw PCM. An earlier version encoded it to
     // mp3 right here — on the main thread, on the path a live read uses — which is exactly the
-    // jank the Kokoro worker exists to avoid, and lamejs's missing gapless header added 56–70 ms
-    // of silence to the front of every sentence. Compression is an EXPORT concern now; playback
-    // gets exactly what the voice produced.
+    // jank the Kokoro worker exists to avoid, and lamejs's missing gapless header opened every
+    // sentence with a fixed 46 ms of silence (1104 samples at 24 kHz) that nothing downstream
+    // can trim. Compression is an EXPORT concern now; playback gets exactly what the voice made.
     const model = createVoiceModel({ getOpenRouterKey: () => 'sk-test', fetchImpl: pcmResponse(2) });
     model.setOrModel('google/gemini-3.1-flash-tts-preview');
 

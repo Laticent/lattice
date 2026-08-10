@@ -7,7 +7,7 @@
 // re-render; one that fails quietly ships a deck that plays back at the wrong speed.
 
 import { describe, expect, it } from 'vitest';
-import { BITRATE_CHOICES, compressClip, DEFAULT_BITRATE_KBPS, encodeMp3, isCompressedAudio, mp3Clip, readPcmWav, toInt16 } from './narration-encode.js';
+import { BITRATE_CHOICES, compressClip, DEFAULT_BITRATE_KBPS, encodeMp3, isCompressedAudio, mp3Clip, readPcmWav } from './narration-encode.js';
 
 /** A canonical 44-byte mono 16-bit PCM WAV, the exact layout both producers write. */
 function wav(pcm: Int16Array, rate = 24000, channels = 1): ArrayBuffer {
@@ -98,22 +98,6 @@ describe('encodeMp3', () => {
 		// 1 s of stereo at 64 kbps ≈ 8 000 B. Encoded as mono it would have consumed the same
 		// sample count in half the time and come out near half the size.
 		expect(mp3!.byteLength).toBeGreaterThan(6000);
-	});
-});
-
-describe('toInt16', () => {
-	it('scales asymmetrically, so a full-scale positive sample does not wrap to silence', () => {
-		const out = toInt16(Float32Array.from([0, 1, -1, 0.5]));
-		expect(out[0]).toBe(0);
-		expect(out[1]).toBe(32767);
-		expect(out[2]).toBe(-32768);
-		expect(out[3]).toBe(16383);
-	});
-
-	it('clamps out-of-range samples instead of letting them wrap', () => {
-		const out = toInt16(Float32Array.from([2, -2]));
-		expect(out[0]).toBe(32767);
-		expect(out[1]).toBe(-32768);
 	});
 });
 

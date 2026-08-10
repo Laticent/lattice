@@ -29,6 +29,23 @@ let getClipOverride: ((key: string) => unknown) | null = null;
 /** Per-key stored MIME. Absent = 'audio/mpeg'; set 'audio/wav' for a pre-compression clip. */
 const storedType = new Map<string, string>();
 
+/** Can THIS session compress at all? The real `encoderAvailable` says yes here (lamejs loads
+ *  fine under node), so the encoder-down refusal — the branch that decides whether a deck
+ *  ships six times its quoted size or does not ship — had no way to be reached from a test. */
+let encoderUp = true;
+
+vi.mock('@/playground/narration-encode.js', async (importOriginal) => {
+	const real = await importOriginal<typeof import('@/playground/narration-encode.js')>();
+	return {
+		...real,
+		// Both, deliberately: a dead encoder makes `compressClip` return null AND
+		// `encoderAvailable` false, and the bake's guard is the CONJUNCTION of the two. Faking
+		// only one of them would test a state that cannot occur.
+		encoderAvailable: async () => (encoderUp ? real.encoderAvailable() : false),
+		compressClip: async (blob: Blob, kbps?: number) => (encoderUp ? real.compressClip(blob, kbps) : null),
+	};
+});
+
 const clipOf = (size: number, type = 'audio/mpeg') => ({ size, type, arrayBuffer: async () => new ArrayBuffer(size) });
 
 vi.mock('@/playground/narration-prefs.js', () => ({
@@ -97,6 +114,7 @@ beforeEach(() => {
 	mockBitrate = 64;
 	getClipOverride = null;
 	storedType.clear();
+	encoderUp = true;
 });
 
 // The retry backoff is 600 ms + 2400 ms of REAL sleep per failing sentence, and several tests
@@ -908,9 +926,11 @@ describe('the bake-time compressor is wired in, not merely present', () => {
 
 	it('does NOT bank the compressed bytes — the store feeds PLAYBACK, which must stay uncompressed', async () => {
 		// Writing them back would make the next export cheap, and would also hand the live reader
-		// a codec-delayed clip: lamejs adds 56-70 ms of silence to the front of every clip, which
-		// is precisely why compression was moved off the recording path. The cache holds what the
-		// voice produced; the file holds what the author chose to ship.
+		// a codec-delayed clip: lamejs writes no gapless header, so every clip it produces opens
+		// with ENCDELAY + DECDELAY = 1104 samples of silence — 46 ms at 24 kHz, a constant, and
+		// untrimmable by anything downstream. That is precisely why compression was moved off the
+		// recording path. The cache holds what the voice produced; the file holds what the author
+		// chose to ship, where the player seeks past the lead it knows the exact size of.
 		const wav = wavClip(2);
 		stored.set(keyFor(S1), wav.size);
 		getClipOverride = () => wav;
@@ -918,5 +938,28 @@ describe('the bake-time compressor is wired in, not merely present', () => {
 		await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
 		expect(banked, 'the cached clip is left exactly as the voice made it').not.toContain(keyFor(S1));
 		expect(stored.get(keyFor(S1))).toBe(wav.size);
+	});
+
+	// The refusal. A dead encoder is not one bad clip — it is EVERY clip shipping ~6x the size
+	// the panel quoted, in a file the author cannot un-send. `attach` distinguishes the two by
+	// asking `encoderAvailable` only after a compress returns null on audio that needed it.
+	it('refuses the whole export rather than shipping WAV when the compressor cannot load', async () => {
+		encoderUp = false;
+		const wav = wavClip(2);
+		stored.set(keyFor(S1), wav.size);
+		getClipOverride = () => wav;
+		script.set(S2, [4000]);
+		await expect(bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true })).rejects.toThrow(/compressor could not be loaded/i);
+	});
+
+	it('still ships a deck whose audio arrives already compressed, encoder or no encoder', async () => {
+		// The guard must key on "this clip NEEDED encoding and did not get it", not on "the
+		// encoder is missing". A cloud engine that returns mp3 never touches lamejs, and
+		// refusing that export would ground every such deck on a library that is irrelevant to it.
+		encoderUp = false;
+		stored.set(keyFor(S1), 5000);
+		script.set(S2, [4000]);
+		const bake = await bakeNarration(DECK, PROJECTED, { voice: VOICE, audio: true });
+		expect(bake.slides.flat().filter((c) => c.audio).length).toBe(2);
 	});
 });
