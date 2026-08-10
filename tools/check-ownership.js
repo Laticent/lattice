@@ -2354,10 +2354,14 @@ function checkThemeTokenParity(errors) {
 // WHAT COUNTS AS A DEFAULT DEPENDS ON WHO IS READING, and collapsing that
 // distinction produces a false positive the engine's own comment invites. The
 // engine defaults `--spectrum-quiet` on `section {}` — the slide root, matched by
-// every slide — and `base.variants.css` explicitly says "a theme may override
-// `--spectrum-quiet`". A palette that accepts that invitation would put the token
-// in the theme vocabulary, and a `:root`-only model would then demand a contract
-// row for a token that IS defaulted. So:
+// every slide. `base.variants.css` USED to say "a theme may override
+// `--spectrum-quiet`"; that invitation was false and has been corrected (#1546) —
+// `section` is a descendant of `:root`, so the engine's declaration wins on every
+// slide and a theme's `:root` value reaches nothing. The distinction this arm draws
+// survives the correction unchanged, and is if anything better founded by it: a
+// `:root`-only model would demand a contract row for a token that IS defaulted, and
+// `--spectrum-quiet` is defaulted precisely because the `section` declaration is the
+// one that reaches the read. So:
 //
 //   read through CSS `var()`     a declaration on `:root` OR on the bare `section`
 //                                slide root is a real default — the cascade reaches

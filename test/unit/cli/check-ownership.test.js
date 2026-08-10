@@ -2361,10 +2361,12 @@ describe('no-safe-default token gate (#1457)', () => {
     })), []);
   });
 
-  // The false positive the engine's own comment invites: `--spectrum-quiet` is
-  // defaulted on the bare `section` slide root, and base.variants.css says a theme
-  // may override it. A :root-only model demands a contract row for a token that IS
-  // defaulted — and neither of the gate's two exits would be correct.
+  // The false positive a `:root`-only model would produce: `--spectrum-quiet` is defaulted
+  // on the bare `section` slide root, so it IS defaulted for every CSS read — but a model
+  // that only counted `:root` would demand a contract row for it, and neither of the gate's
+  // two exits would be correct. (base.variants.css used to invite a theme to override the
+  // token; that invitation was false and was corrected in #1546 — `section` is a descendant
+  // of `:root`, so the engine's declaration wins. The distinction below is unaffected.)
   test('a `section` slide-root default satisfies a CSS read, but NOT a Mermaid-map read', () => {
     const sectionOnly = { rootDefaults: new Set(['bg']), slideDefaults: new Set(['bg', 'c-container']), mapDefaults: new Set(['bg']) };
     assert.deepEqual(noSafeDefaultTokens(inputs(sectionOnly)), [],
