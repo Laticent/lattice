@@ -243,6 +243,73 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 		expect(slideStartOffset(src, 1)).toBe(src.lastIndexOf('two'));
 		expect(slideIndexAt(src, src.indexOf('key: v'))).toBe(0);
 	});
+
+	// THE GAP BOTH TIERS ABOVE STILL MISS (#1548). A slide range carries two edges: `from`,
+	// the raw chunk start immediately after the separator, and `start`, which skips the
+	// leading whitespace. `slideIndexAt` deliberately keys on `from` — "a caret anywhere in a
+	// slide, INCLUDING the blank line above its first line, maps to that slide" (see
+	// slideRanges' header) — so the two differ by exactly the blank line a `---` leaves
+	// behind, at every boundary.
+	//
+	// Nothing covered that gap. The fuzz above asserts slideIndexAt(slideStartOffset(i)) === i,
+	// and slideStartOffset returns `start` — the ONE offset in the range that stays correct if
+	// the comparison is flipped to `start`. It is the same shape as the original #1315-era
+	// fuzz: a round-trip between two functions that share an assumption proves only that they
+	// share it. The e2e tier misses it too — studio-jargon-alignment clicks each slide's LAST
+	// line by design, so nothing ever clicks a leading edge.
+	//
+	// Flipping `ranges[i].from <= at` to `ranges[i].start <= at` in lint.ts leaves 33 unit
+	// tests and all three alignment specs green while inverting behavior at every boundary:
+	// click the blank line under a `---` — an ordinary thing to do when you are about to add a
+	// slide — and the preview jumps to the PREVIOUS slide. That is verbatim the report these
+	// functions exist to prevent. main is correct today; this is the missing coverage.
+
+	// Each case splits its separator into the LEAD (up to and including the newline that ends
+	// the `---` line) and the GAP (the whitespace after it, which belongs to the slide below).
+	// Splitting it this way lets the test compute both edges by arithmetic on a literal it
+	// authored — `from` = sep + lead.length, `start` = from + gap.length — instead of walking
+	// whitespace or re-deriving boundaries, which would re-share the assumption under test.
+	// The lead's trailing newline is NOT part of the gap: a caret there is still on the
+	// separator line, and mapping it to the slide above is correct.
+	const boundaryDecks = [
+		{ label: 'no front matter', fm: '', bodies: ['one', 'two', 'three'], lead: '\n\n---\n', gap: '\n' },
+		{ label: 'with front matter', fm: FM, bodies: ['one', 'two', 'three'], lead: '\n\n---\n', gap: '\n' },
+		// A wider gap: the caret can sit several lines above the text, not just one.
+		{ label: 'multi-blank-line gap', fm: '', bodies: ['one', 'two'], lead: '\n\n---\n', gap: '\n\n\n' },
+		// Whitespace that is not a newline — trailing spaces on the blank line.
+		{ label: 'gap containing spaces', fm: FM, bodies: ['one', 'two'], lead: '\n\n---\n', gap: '   \n\n' },
+	];
+
+	for (const { label, fm, bodies, lead, gap } of boundaryDecks) {
+		it(`a caret in the blank line above a slide maps to THAT slide — ${label}`, () => {
+			const sep = lead + gap;
+			const src = fm + bodies.join(sep);
+			expect(splitSlides(stripFrontMatter(src))).toHaveLength(bodies.length);
+
+			let searchAt = fm.length;
+			for (let i = 1; i < bodies.length; i++) {
+				const sepAt = src.indexOf(sep, searchAt);
+				expect(sepAt).toBeGreaterThan(-1);
+				const from = sepAt + lead.length; // raw chunk start — right after the `---` line
+				const start = from + gap.length; // first character of the slide's text
+				searchAt = start;
+
+				// Cross-check the arithmetic against the public inverse before relying on it —
+				// otherwise a miscomputed offset would quietly test the wrong character.
+				expect(slideStartOffset(src, i)).toBe(start);
+				// The offset the fuzz above already pins, kept so a regression in the gap is
+				// distinguishable from one at the text edge.
+				expect(slideIndexAt(src, start)).toBe(i);
+
+				// THE UNCOVERED OFFSETS: every caret from `from` up to `start`. Each sits inside
+				// slide i's range, so each must report i — not i - 1.
+				expect(start).toBeGreaterThan(from); // a separator always leaves a gap
+				for (let off = from; off < start; off++) {
+					expect(slideIndexAt(src, off), `caret at ${off} (gap above slide ${i})`).toBe(i);
+				}
+			}
+		});
+	}
 });
 
 // The toy `scoreDeck` heuristic was deleted (replaced by the engine's real scorecard
