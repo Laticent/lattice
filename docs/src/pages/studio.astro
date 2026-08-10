@@ -25,7 +25,7 @@ import { assetBase } from '../playground/asset-version.mjs';
 import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
-import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_KEY } from '../components/studio/preview-rect';
+import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from '../components/studio/preview-rect';
 import { BOOT_POSTURE } from '../components/studio/studio-store';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
@@ -420,10 +420,15 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			   div our className lands on, so a Tailwind class can't shrink the outer.
 			   The divider is hidden via its own class (a Separator is a single div).
 			   2026-07-19 splitter migration. */
-			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
+			/* Selected by ROLE, not by panel id: CSS cannot import STUDIO_SPLIT_PANEL_IDS, so an
+			   id selector here would be the one copy of the panel ids that the shared
+			   declaration in #1495 cannot reach — a rename would compile, pass types, and
+			   silently stop hiding the editor at Read. data-pane-role is set beside the id on
+			   the same element and is already relied on by the e2e suite, so it does render. */
+			[data-studio-split][data-studio-stop="read"] > [data-pane-role="editor"] { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -593,13 +598,18 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// side to its 46px rail rather than any percentage.
 						var frac = C.defaultPreviewFrac;
 						var collapsed = null;
-						try { collapsed = sessionStorage.getItem(STUDIO_SPLIT_KEY + '-collapsed'); } catch (e8) {}
+						// The '-collapsed' suffix and the sessionStorage-vs-localStorage split are the HOOK's
+						// format, handed in derived (STUDIO_SPLIT_COLLAPSE_KEY) rather than rebuilt here (#1495).
+						try { collapsed = sessionStorage.getItem(STUDIO_SPLIT_COLLAPSE_KEY); } catch (e8) {}
 						try {
 							var store = JSON.parse(localStorage.getItem(STUDIO_SPLIT_KEY) || 'null');
 							var saved = store && store[STUDIO_SPLIT_BUCKET];
-							if (saved && typeof saved['studio-editor'] === 'number' && typeof saved['studio-preview'] === 'number') {
-								var tot = saved['studio-editor'] + saved['studio-preview'];
-								if (tot > 0) frac = saved['studio-preview'] / tot;
+							// Indexed by the SHARED ids, so renaming a panel is a compile error at the
+							// declaration rather than a lookup that quietly misses here (#1495).
+							var edId = STUDIO_SPLIT_PANEL_IDS[0], pvId = STUDIO_SPLIT_PANEL_IDS[1];
+							if (saved && typeof saved[edId] === 'number' && typeof saved[pvId] === 'number') {
+								var tot = saved[edId] + saved[pvId];
+								if (tot > 0) frac = saved[pvId] / tot;
 							}
 						} catch (e9) {}
 						// The Build stop on a wide viewport puts a fixed activity rail down the left,

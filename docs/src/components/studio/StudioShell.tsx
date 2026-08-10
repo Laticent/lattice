@@ -67,7 +67,7 @@ import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-che
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { PresentOverlay } from './PresentOverlay';
-import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY } from './preview-rect';
+import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
@@ -3842,7 +3842,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Editor pane — collapsible to its rail (46px). Hidden at the Read stop so
 						    the preview fills the surface (the pane stays MOUNTED → no remount on the
 						    Read→Write step). */}
-						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={EDITOR_MIN} defaultSize="46" collapsible={split.ready} collapsedSize={PREVIEW_CHROME.splitRailW} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
+						<ResizablePanel id={STUDIO_SPLIT_PANEL_IDS[0]} data-pane-role="editor" minSize={EDITOR_MIN} defaultSize="46" collapsible={split.ready} collapsedSize={PREVIEW_CHROME.splitRailW} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
 							{editorPane}
 							{splitRailA}
 						</ResizablePanel>
@@ -3850,7 +3850,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Preview pane — collapsible to its rail (46px); fills the surface at Read
 						    (the editor Panel's OUTER div is hidden by id in studio.astro's is:global
 						    block; a Tailwind class lands on the inner div and can't shrink the outer). */}
-						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={PREVIEW_MIN} defaultSize="54" collapsible={split.ready} collapsedSize={PREVIEW_CHROME.splitRailW} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
+						<ResizablePanel id={STUDIO_SPLIT_PANEL_IDS[1]} data-pane-role="preview" minSize={PREVIEW_MIN} defaultSize="54" collapsible={split.ready} collapsedSize={PREVIEW_CHROME.splitRailW} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
 							{previewPane}
 							{splitRailB}
 						</ResizablePanel>

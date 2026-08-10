@@ -2,6 +2,10 @@
 
 import * as React from "react"
 import { type Layout, type LayoutChangedMeta, useGroupRef, usePanelRef } from "react-resizable-panels"
+// The storage FORMAT lives in its own dependency-free module because the Studio's pre-paint
+// shell has to read it before React exists (#1495). This hook owns the behavior; it does not
+// own the shape of the strings.
+import { bucketFor, collapseKeyFor } from "./split-storage"
 
 // Shared resizable-workspace state for the Playground + Studio, backed by
 // react-resizable-panels v4 (2026-07-19 splitter migration). It presents the
@@ -30,9 +34,7 @@ export type SplitSide = "a" | "b"
 type LayoutMap = Record<string, number>
 type LayoutStore = Record<string, LayoutMap>
 
-function collapseKey(storageKey: string) {
-	return `${storageKey}-collapsed`
-}
+const collapseKey = collapseKeyFor
 
 /**
  * The persistence bucket for a layout = its panel-id set, sorted + joined. Derived
@@ -40,9 +42,13 @@ function collapseKey(storageKey: string) {
  * layout can never be applied to a different panel set — the worst case of a
  * forgotten configKey extension is "no restore", never "wrong widths" (red-team F3
  * / Munger #2). `configKey` remains only the effect's re-run trigger.
+ *
+ * The derivation itself is `bucketFor` in ./split-storage — shared with the pre-paint
+ * seed, which has to compute the same bucket from statically-known ids. This wrapper is
+ * the layout-object-shaped call site the hook uses.
  */
 function bucketOf(layout: Record<string, unknown>): string {
-	return Object.keys(layout).sort().join(",")
+	return bucketFor(Object.keys(layout))
 }
 
 /** Read the full per-config layout store. Sanitize-on-read: bad JSON → {}. */

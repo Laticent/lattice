@@ -291,6 +291,21 @@ in patch versions.
   `main` fails those same two specs at a similar rate (#1514). The revert stands on the narrower
   claim that the correction was never shown to be safe and the residual it fixes is bounded and
   pinned.
+- **A rename inside the resizable-split hook can no longer silently move the Studio's split
+  line ~300px.** The split's storage KEY moved into a shared module in #1444, but its storage
+  FORMAT did not, and the format is the half with the silent failure mode: the bucket string,
+  the `-collapsed` sessionStorage suffix and the two panel ids were retyped by hand in the
+  pre-paint seed, and a third copy lived in the e2e helper — so the spec and the seed could
+  agree with each other while both disagreed with `useResizableSplit`. Nothing throws when they
+  drift; the seed's lookup simply misses, falls back to `defaultPreviewFrac`, and the shell
+  draws the 54% default while the app restores a dragged share. The format now lives in
+  `docs/src/components/ui/split-storage.ts` — deliberately import-free, so `studio.astro` can
+  still read it at build time without dragging React into the page's module graph — and
+  `bucketFor()` / `collapseKeyFor()` are used by the hook, the geometry contract, the seed and
+  the spec alike. The panel ids moved too (`STUDIO_SPLIT_PANEL_IDS`), so the shell's
+  `ResizablePanel`s, the seed's lookups and the bucket all derive from one declaration and a
+  rename is a compile error. The one copy a shared module cannot reach — a CSS selector keyed
+  on `#studio-editor` — now selects by `data-pane-role` instead.
 
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored

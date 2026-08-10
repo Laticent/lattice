@@ -1,3 +1,8 @@
+// The ONLY import this module may take, and it is deliberate: `split-storage` has no imports
+// of its own, so this file stays safe for `studio.astro` to pull in at build time without
+// dragging React (or react-resizable-panels) into the page's module graph. See #1495.
+import { bucketFor, collapseKeyFor } from '../ui/split-storage';
+
 // Fixed chrome constants for the Studio preview box — the CSS-fixed dimensions of the topbar,
 // pane padding, per-stop header/footer, and the split's default preview share. Measured from the live app (docs at 2026-07-21); identical across breakpoints, so they
 // live here as the shared contract. The pre-hydration shell's first-load COMPUTE fallback
@@ -42,7 +47,30 @@ export const PREVIEW_RECT_KEY = 'lattice-studio-preview-rect-v2';
  * The collapsed side lives in sessionStorage under `<key>-collapsed`.
  */
 export const STUDIO_SPLIT_KEY = 'lattice-docs-split-studio';
-export const STUDIO_SPLIT_BUCKET = 'studio-editor,studio-preview';
+
+/**
+ * The Studio split's panel ids — ONE declaration, consumed by every side (#1495).
+ *
+ * `StudioShell` passes these to its two `ResizablePanel`s, the bucket below is DERIVED from
+ * them, and the pre-paint seed indexes the restored layout with them. Before this they were
+ * retyped in three places (the shell's JSX, the seed's `saved['studio-editor']` lookups, and
+ * the e2e helper), so renaming a panel compiled cleanly and simply missed the lookup at
+ * runtime — no throw, a silent fall back to `defaultPreviewFrac`, and a split line up to
+ * ~300px from where the app was about to draw it.
+ *
+ * Ordered editor-then-preview to match the rendered order; `bucketFor` sorts, so the bucket
+ * string does not depend on that.
+ */
+export const STUDIO_SPLIT_PANEL_IDS = ['studio-editor', 'studio-preview'] as const;
+
+/** The stored bucket, DERIVED — never restated. See `bucketFor`'s note. */
+export const STUDIO_SPLIT_BUCKET = bucketFor(STUDIO_SPLIT_PANEL_IDS);
+
+/**
+ * Where the collapsed side lives — `sessionStorage`, under a key derived from the layout key.
+ * Derived rather than concatenated at each call site, so the hook and the seed cannot drift.
+ */
+export const STUDIO_SPLIT_COLLAPSE_KEY = collapseKeyFor(STUDIO_SPLIT_KEY);
 
 /**
  * THESE ARE DEFAULT-FONT-SIZE MEASUREMENTS, and what that does and does not bound (#1496).
