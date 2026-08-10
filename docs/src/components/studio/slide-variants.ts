@@ -1,5 +1,24 @@
 import { getClassTokens, setClassTokens, setGroupToken } from './slide-directives';
 
+/**
+ * A component's OWN classification of its declared variants (`variantAxes` in
+ * `<name>.manifest.json`, validated in `lib/components/index.js`, carried through
+ * `dist/docs/components.json`). This is the answer to "which looks are mutually
+ * exclusive and which stack" — `map` is `world` OR `us` for its Basemap, but
+ * `highlight` / `robinson` / `grouped` are independent modifiers that combine.
+ *
+ * `exclusive: true` → pick ONE of `members` (a radio group); `default` names the
+ * member the base form carries, so "reshape to Default" restores it rather than
+ * leaving the slide with no basemap at all.
+ * No `exclusive` → the members stack independently (each one toggles).
+ */
+export type VariantAxis = {
+	label: string;
+	exclusive?: boolean;
+	default?: string;
+	members: readonly string[];
+};
+
 // Variants as LOOKS — the model behind the add-slide gallery's variant children and
 // the Reshape control (engineering/decisions/2026-07-18-slide-variants-in-gallery.md).
 // A variant is not a different kind of slide: it is the SAME authored slide with a
@@ -14,6 +33,8 @@ export type VariantLook = {
 	label: string;
 	/** The axis family this look belongs to (from exclusiveAxes), or '' if additive. */
 	axis: string;
+	/** Pick-ONE (clicking swaps within its family) vs a toggle (clicking turns it off). */
+	exclusive: boolean;
 };
 
 /** `insight-key` → `insight key` (a readable look label; the mono chip keeps the token). */
@@ -28,13 +49,18 @@ export function humanizeVariant(token: string): string {
  * settings. Each is tagged with any vocab exclusive axis it belongs to. Order is
  * preserved from the catalog; the caller windows the previews.
  */
-export function componentLooks(variants: string[] | undefined, axes: Record<string, readonly string[]> = {}): VariantLook[] {
-	const axisOf = (token: string): string => {
-		for (const [name, members] of Object.entries(axes)) if (members.includes(token)) return name;
-		return '';
+export function componentLooks(variants: string[] | undefined, axes: Record<string, readonly string[]> = {}, variantAxes: readonly VariantAxis[] = []): VariantLook[] {
+	// Mirrors applyVariant's precedence: the component's own axes, then the vocab axes,
+	// then unclassified (which toggles). A look labelled exclusive here is one whose tile
+	// SWAPS; everything else turns off when you click it again.
+	const classify = (token: string): { axis: string; exclusive: boolean } => {
+		const own = variantAxes.find((a) => a.members.includes(token));
+		if (own) return { axis: own.label, exclusive: !!own.exclusive };
+		for (const [name, members] of Object.entries(axes)) if (members.includes(token)) return { axis: name, exclusive: true };
+		return { axis: '', exclusive: false };
 	};
-	const looks: VariantLook[] = [{ token: '', label: 'Default', axis: '' }];
-	for (const t of variants ?? []) looks.push({ token: t, label: humanizeVariant(t), axis: axisOf(t) });
+	const looks: VariantLook[] = [{ token: '', label: 'Default', axis: '', exclusive: true }];
+	for (const t of variants ?? []) looks.push({ token: t, label: humanizeVariant(t), ...classify(t) });
 	return looks;
 }
 
@@ -64,38 +90,62 @@ export function variantSample(skeleton: string, token: string): string {
 }
 
 /**
- * Apply a variant look to an EXISTING slide chunk (Reshape). `componentVariants` is the
- * component's DECLARED variant set (its own alternate forms) — treated as a mutually
- * EXCLUSIVE family, so reshaping to one form removes any other (a kpi is `ops` OR
- * `spotlight`, never both). A token in a vocab exclusive axis replaces within that axis;
- * anything else is added. The empty token clears every declared variant + axis member —
- * "reshape back to the base form" — keeping the component token and any non-variant
- * tokens (universal config applied via slide settings stays).
+ * Apply a variant look to an EXISTING slide chunk (Reshape).
  *
- * BOTH `axes` and `componentVariants` are REQUIRED — deliberately, with no defaults.
- * They are what makes a look EXCLUSIVE; a caller that omits them silently falls through
- * to the additive branch, so every reshape stacks another token onto `_class` and
- * "Default" no longer clears (#1281 — the apply path had dropped `componentVariants`
- * while the preview tiles passed it, so the preview and the committed slide disagreed).
+ * REPLACE-vs-STACK is decided per token, most specific rule first:
+ *
+ *   1. the component's OWN `variantAxes` (`variantAxes`), when it declares them —
+ *      an `exclusive` axis replaces within its members, a non-exclusive one toggles;
+ *   2. a vocab exclusive axis (`axes`, from lintVocab) — replaces within the axis;
+ *   3. anything else — UNCLASSIFIED, so it TOGGLES: on if off, off if on.
+ *
+ * Rule 3 is the safe fallback, and it is deliberately a toggle rather than either
+ * extreme. Treating every declared variant as one pick-ONE family is WRONG — our own
+ * decks legitimately stack `map world highlight robinson` (basemap + treatment +
+ * projection) and `video companion qr`, and a blanket replace would silently delete two
+ * of the author's three tokens. Blindly adding is the #1281 bug: `_class` grows
+ * `kpi ops spotlight trajectory` and never shrinks. A toggle fixes "it keeps adding"
+ * without ever destroying a token the author can't get back by clicking again — and it
+ * is exactly what #1281 asked for ("group what should be grouped and make them a
+ * toggle"). Classifying a component in its manifest moves its variants from rule 3 up
+ * into rule 1; until then the fallback is honest about not knowing.
+ *
+ * The empty token is "reshape back to the base form": clear every declared variant and
+ * axis member, then restore each exclusive axis's declared `default` (a `map` with no
+ * basemap is not a base form, it's a broken slide). The component token and any
+ * non-variant tokens — universal config applied via slide settings — always survive.
+ *
+ * EVERY parameter is REQUIRED, deliberately, with no defaults: they are what makes a
+ * look exclusive, and a caller that omits one silently falls through to a weaker rule.
+ * That is precisely how #1281 shipped — the apply path dropped `componentVariants`
+ * while the preview tiles passed it, so the tile and the committed slide disagreed.
  * Pass `{}` / `[]` explicitly when a caller genuinely has neither.
  */
-export function applyVariant(chunk: string, token: string, axes: Record<string, readonly string[]>, componentVariants: readonly string[]): string {
+export function applyVariant(chunk: string, token: string, axes: Record<string, readonly string[]>, componentVariants: readonly string[], variantAxes: readonly VariantAxis[]): string {
 	if (token) {
-		// The component's own variants are one pick-ONE family.
-		if (componentVariants.includes(token)) return setGroupToken(chunk, componentVariants.flatMap(parts), token);
-		// A vocab exclusive axis (e.g. insight-*, were it ever a declared variant).
+		// 1. The component's own classification wins — it is the most specific thing we know.
+		const own = variantAxes.find((a) => a.members.includes(token));
+		if (own) return own.exclusive ? setGroupToken(chunk, own.members.flatMap(parts), token) : toggleParts(chunk, token);
+		// 2. A vocab exclusive axis (e.g. insight-*, were it ever a declared variant).
 		for (const members of Object.values(axes)) {
 			if (members.includes(token)) return setGroupToken(chunk, members, token);
 		}
-		// Additive look — ensure each of its sub-tokens is on, without disturbing others.
-		const tokens = getClassTokens(chunk);
-		const merged = [...tokens];
-		for (const t of parts(token)) if (!merged.includes(t)) merged.push(t);
-		return merged.length === tokens.length ? chunk : setClassTokens(chunk, merged);
+		// 3. Unclassified — toggle, so picking never stacks and never silently strips.
+		return toggleParts(chunk, token);
 	}
 	// Base form: strip every declared variant + axis member, leaving the component
-	// (`tokens[0]`, never a variant) and any non-variant tokens.
-	const strip = new Set<string>([...componentVariants.flatMap(parts), ...Object.values(axes).flat()]);
+	// (`tokens[0]`, never a variant) and any non-variant tokens — then put back the
+	// declared default of each exclusive axis.
+	const strip = new Set<string>([...componentVariants.flatMap(parts), ...variantAxes.flatMap((a) => a.members.flatMap(parts)), ...Object.values(axes).flat()]);
 	const kept = getClassTokens(chunk).filter((t) => !strip.has(t));
+	for (const a of variantAxes) if (a.exclusive && a.default) kept.push(...parts(a.default));
 	return setClassTokens(chunk, kept);
+}
+
+/** Turn a look ON if any of its sub-tokens is missing, OFF when all are already present. */
+function toggleParts(chunk: string, token: string): string {
+	const tokens = getClassTokens(chunk);
+	const want = parts(token);
+	if (want.every((t) => tokens.includes(t))) return setClassTokens(chunk, tokens.filter((t) => !want.includes(t)));
+	return setClassTokens(chunk, [...tokens, ...want.filter((t) => !tokens.includes(t))]);
 }

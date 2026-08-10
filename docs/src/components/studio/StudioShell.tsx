@@ -2386,12 +2386,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
-	const reshapeVariants = React.useMemo(() => components.find((c) => c.name === reshapeComponent)?.variants ?? [], [components, reshapeComponent]);
-	// Both the axes AND the component's declared variants — the pair is what makes a look
-	// exclusive. Dropping `reshapeVariants` here made every reshape STACK a token instead of
-	// replacing (and made "Default" stop clearing), while the picker's preview tiles — which do
-	// pass it — showed the correctly-swapped result (#1281).
-	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes, reshapeVariants));
+	const reshapeEntry = React.useMemo(() => components.find((c) => c.name === reshapeComponent), [components, reshapeComponent]);
+	const reshapeVariants = React.useMemo(() => reshapeEntry?.variants ?? [], [reshapeEntry]);
+	// The component's OWN axes decide replace-vs-toggle; the vocab axes and its declared
+	// variant set are the fallbacks. Every one of these has to be passed: dropping the
+	// declared variants made each reshape STACK a token instead of replacing (and made
+	// "Default" stop clearing), while the picker's preview tiles — which did pass them —
+	// showed the correctly-swapped result (#1281).
+	const reshapeVariantAxes = React.useMemo(() => reshapeEntry?.variantAxes ?? [], [reshapeEntry]);
+	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes, reshapeVariants, reshapeVariantAxes));
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
@@ -2977,7 +2980,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</DropdownMenu>
 				)}
 				{insertComponents.length > 0 && <Tip label="Insert component"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button></Tip>}
-				{reshapeVariants.length > 0 && <ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} />}
+				{reshapeVariants.length > 0 && <ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} />}
 				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}

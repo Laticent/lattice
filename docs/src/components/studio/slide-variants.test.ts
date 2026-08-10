@@ -15,12 +15,36 @@ const KPI = ['attention', 'ops', 'compliance', 'trajectory', 'spotlight'];
 const KBASE = '<!-- _class: kpi -->\n\n1. 100\n   - Done';
 const kwith = (tokens: string[]) => setClassTokens(KBASE, tokens);
 
+// kpi's five looks really ARE one family — declare it the way a manifest would.
+const KPI_AXES = [{ label: 'Emphasis', exclusive: true, members: KPI }];
+
+// `map`'s real shape (lib/components/chart/map/map.manifest.json): a pick-ONE Basemap
+// with a default, PLUS independent modifiers that legitimately stack. The catalog ships
+// `map world highlight robinson`, so a blanket pick-one family would silently eat two of
+// the author's three tokens.
+const MAP = ['us', 'world', 'highlight', 'robinson', 'grouped'];
+const MAP_AXES = [
+	{ label: 'Basemap', exclusive: true, default: 'world', members: ['world', 'us'] },
+	{ label: 'Modifier', members: ['highlight', 'robinson', 'grouped'] },
+];
+const MBASE = '<!-- _class: map -->\n\n## Where we sell';
+const mwith = (tokens: string[]) => setClassTokens(MBASE, tokens);
+
 describe('slide-variants — variant looks are class tokens', () => {
 	it('componentLooks leads with Default then the declared variants', () => {
 		const looks = componentLooks(KPI);
-		expect(looks[0]).toEqual({ token: '', label: 'Default', axis: '' });
-		expect(looks.find((l) => l.token === 'ops')).toEqual({ token: 'ops', label: 'ops', axis: '' });
+		expect(looks[0]).toEqual({ token: '', label: 'Default', axis: '', exclusive: true });
+		// Unclassified — no manifest axes supplied — so the look TOGGLES rather than swaps.
+		expect(looks.find((l) => l.token === 'ops')).toEqual({ token: 'ops', label: 'ops', axis: '', exclusive: false });
 		expect(looks).toHaveLength(KPI.length + 1);
+	});
+
+	it('componentLooks tags each look from the component\'s OWN axes', () => {
+		const looks = componentLooks(MAP, {}, MAP_AXES);
+		// Pick-ONE basemap → the tile swaps…
+		expect(looks.find((l) => l.token === 'world')).toEqual({ token: 'world', label: 'world', axis: 'Basemap', exclusive: true });
+		// …while a modifier stacks, so its tile is a toggle.
+		expect(looks.find((l) => l.token === 'highlight')).toEqual({ token: 'highlight', label: 'highlight', axis: 'Modifier', exclusive: false });
 	});
 
 	it('humanizeVariant swaps dashes for spaces', () => {
@@ -37,29 +61,52 @@ describe('slide-variants — variant looks are class tokens', () => {
 		expect(variantSample(once, 'tint-corner at-tl')).toBe(once);
 	});
 
-	it("applyVariant treats a component's declared variants as a pick-ONE family", () => {
+	it('applyVariant swaps within an EXCLUSIVE axis the component declares', () => {
 		const cur = kwith(['kpi', 'ops']);
 		// Reshaping to another kpi form REPLACES the current one — never `kpi ops spotlight`.
-		expect(toks(applyVariant(cur, 'spotlight', {}, KPI))).toEqual(['kpi', 'spotlight']);
+		expect(toks(applyVariant(cur, 'spotlight', {}, KPI, KPI_AXES))).toEqual(['kpi', 'spotlight']);
+	});
+
+	it('applyVariant keeps INDEPENDENT axes independent — the #1281 over-strip trap', () => {
+		// `map world highlight robinson` ships in examples/global-south.md. Changing the
+		// basemap must not eat the modifiers, and adding a modifier must not eat the basemap.
+		const cur = mwith(['map', 'world', 'highlight', 'robinson']);
+		expect(toks(applyVariant(cur, 'us', {}, MAP, MAP_AXES))).toEqual(['map', 'highlight', 'robinson', 'us']);
+		expect(toks(applyVariant(cur, 'grouped', {}, MAP, MAP_AXES))).toEqual(['map', 'world', 'highlight', 'robinson', 'grouped']);
+	});
+
+	it('applyVariant TOGGLES an unclassified look, so it can never stack forever', () => {
+		// No manifest axes → we do not know the grouping. Adding is safe, and clicking the
+		// same tile again takes it back off. What must NOT happen is silent stripping.
+		let cur = kwith(['kpi', 'ops']);
+		cur = applyVariant(cur, 'spotlight', {}, KPI, []);
+		expect(toks(cur)).toEqual(['kpi', 'ops', 'spotlight']);
+		expect(toks(applyVariant(cur, 'spotlight', {}, KPI, []))).toEqual(['kpi', 'ops']);
+	});
+
+	it('applyVariant Default restores an exclusive axis\'s declared default', () => {
+		// A map with no basemap is not a base form, it is a broken slide.
+		const cur = mwith(['map', 'us', 'highlight', 'grouped']);
+		expect(toks(applyVariant(cur, '', {}, MAP, MAP_AXES))).toEqual(['map', 'world']);
 	});
 
 	it('applyVariant keeps non-variant tokens (universal config from slide settings) untouched', () => {
 		const cur = kwith(['kpi', 'ops', 'dark', 'no-footer']);
 		// dark / no-footer are not the component's variants → they survive a reshape.
-		expect(toks(applyVariant(cur, 'spotlight', {}, KPI))).toEqual(['kpi', 'dark', 'no-footer', 'spotlight']);
+		expect(toks(applyVariant(cur, 'spotlight', {}, KPI, KPI_AXES))).toEqual(['kpi', 'dark', 'no-footer', 'spotlight']);
 	});
 
-	it('applyVariant handles a multi-token additive look idempotently', () => {
-		const AXES = {};
-		const once = applyVariant(BASE, 'tint-corner at-tl', AXES, []);
+	it('applyVariant treats a multi-token look as one unit, on and back off', () => {
+		const once = applyVariant(BASE, 'tint-corner at-tl', {}, [], []);
 		expect(toks(once)).toEqual(['quote', 'tint-corner', 'at-tl']);
-		expect(applyVariant(once, 'tint-corner at-tl', AXES, [])).toBe(once); // no double-add
+		// Never a double-add; a second pick clears BOTH sub-tokens together.
+		expect(toks(applyVariant(once, 'tint-corner at-tl', {}, [], []))).toEqual(['quote']);
 	});
 
 	it('applyVariant default (empty token) strips every declared variant, keeps the rest', () => {
 		const cur = kwith(['kpi', 'ops', 'dark']);
 		// Back to the base kpi form; dark (universal config) stays — it's not a kpi variant.
-		expect(toks(applyVariant(cur, '', {}, KPI))).toEqual(['kpi', 'dark']);
+		expect(toks(applyVariant(cur, '', {}, KPI, KPI_AXES))).toEqual(['kpi', 'dark']);
 	});
 
 	it('applyVariant never stacks across repeated reshapes (#1281)', () => {
@@ -68,10 +115,10 @@ describe('slide-variants — variant looks are class tokens', () => {
 		// survives at every step, then that Default returns the slide to the base form.
 		let cur = KBASE;
 		for (const look of ['ops', 'spotlight', 'trajectory', 'attention']) {
-			cur = applyVariant(cur, look, {}, KPI);
+			cur = applyVariant(cur, look, {}, KPI, KPI_AXES);
 			expect(toks(cur)).toEqual(['kpi', look]);
 		}
-		expect(toks(applyVariant(cur, '', {}, KPI))).toEqual(['kpi']);
+		expect(toks(applyVariant(cur, '', {}, KPI, KPI_AXES))).toEqual(['kpi']);
 	});
 
 	it('variantActive requires ALL sub-tokens of a look to be present', () => {

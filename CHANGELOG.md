@@ -307,18 +307,24 @@ in patch versions.
   rename is a compile error. The one copy a shared module cannot reach — a CSS selector keyed
   on `#studio-editor` — now selects by `data-pane-role` instead.
 
-- **Studio Reshape now REPLACES a slide's look instead of stacking classes.** Picking a
-  second look appended it to `_class` — `kpi ops spotlight trajectory` after three visits
-  to the gallery — and "Default" no longer cleared, because the apply handler called
-  `applyVariant` without the component's declared variants. That argument is what marks a
-  look exclusive, so every reshape fell through to the *additive* branch instead of the
-  pick-one family branch. All **179** declared variants across the catalog sit outside the
-  five vocab exclusive axes, so the stacking path ran on every real reshape. The picker's
-  preview tiles *did* pass the argument, so the tile showed the correctly-swapped slide
-  while the committed slide stacked — preview and result disagreed. `applyVariant` now
-  requires both `axes` and `componentVariants` (no defaults), making the omission a
-  compile error rather than a silent behavior change, and the Studio E2E suite drives the
-  real Reshape picker through four picks plus Default. (#1281)
+- **Studio Reshape no longer stacks classes forever.** Picking a second look appended it
+  to `_class` — `kpi ops spotlight trajectory` after three visits to the gallery — and
+  "Default" no longer cleared, because the apply handler called `applyVariant` without the
+  arguments that decide replace-vs-stack. The picker's preview tiles *did* pass them, so
+  the tile showed one slide and the author got another. Reshape now resolves each look
+  most-specific-first: **(1)** the component's own `variantAxes` from its manifest — an
+  `exclusive` axis swaps within its members, a non-exclusive one toggles; **(2)** a vocab
+  exclusive axis; **(3)** anything unclassified **toggles**, so a look can always be taken
+  back off. "Default" returns the base form *and* restores each exclusive axis's declared
+  default (a `map` with no basemap is a broken slide, not a base form). The toggle
+  fallback is deliberate: treating every declared variant as one pick-one family would
+  silently delete tokens, since the catalog legitimately ships `map world highlight
+  robinson` and `video companion qr` — 17 slides across the galleries and examples stack
+  two or three declared variants of one component. `applyVariant` takes all five
+  parameters with no defaults, so omitting one is a compile error rather than a silent
+  behavior change, and the Studio E2E drives the real picker down both branches. Only 2 of
+  38 components with variants declare `variantAxes` today; classifying the rest moves them
+  from the toggle fallback to exact axis behavior. (#1281)
 
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored

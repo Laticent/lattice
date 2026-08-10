@@ -9,7 +9,7 @@ import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
 import { SlideThumbFace, useInView } from './slide-thumb';
-import { componentLooks, variantSample } from './slide-variants';
+import { componentLooks, type VariantAxis, variantSample } from './slide-variants';
 import { loadSettings, SETTINGS_EVENT } from './studio-store';
 
 // The add-slide GALLERY — the canonical "insert a slide" surface, replacing the
@@ -43,6 +43,9 @@ export type PickerItem = {
 	/** The component's variant tokens (the alternate LOOKS it offers). Each is a child
 	 *  of this component — insertable as skeleton + token. */
 	variants?: string[];
+	/** The component's own grouping of those variants (manifest `variantAxes`): which
+	 *  are mutually exclusive and which stack. Absent until a manifest declares it. */
+	variantAxes?: VariantAxis[];
 };
 
 // Back-compat alias: StudioShell's `insertComponents` and the editor completions

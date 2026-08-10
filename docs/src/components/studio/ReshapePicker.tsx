@@ -6,7 +6,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { getClassTokens } from './slide-directives';
 import { SlideThumbFace, useInView } from './slide-thumb';
-import { applyVariant, componentLooks, variantActive } from './slide-variants';
+import { applyVariant, componentLooks, type VariantAxis, variantActive } from './slide-variants';
 
 // Reshape — recast the CURRENT slide to a different variant look (the edit-mode
 // sibling of Insert). A variant is just a class token, so this previews the user's
@@ -14,13 +14,15 @@ import { applyVariant, componentLooks, variantActive } from './slide-variants';
 // so you never end up with two members of the same family. See
 // engineering/decisions/2026-07-18-slide-variants-in-gallery.md.
 
-export function ReshapePicker({ chunk, variants, axes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact }: {
+export function ReshapePicker({ chunk, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact }: {
 	/** The current slide's source chunk. */
 	chunk: string;
 	/** The current component's variant tokens (its offered looks). */
 	variants: string[];
 	/** Exclusive-axis groups (from lintVocab) — decides replace-vs-stack. */
 	axes: Record<string, readonly string[]>;
+	/** The component's OWN axes (manifest `variantAxes`) — the more specific answer. */
+	variantAxes: readonly VariantAxis[];
 	options: SingleSlideOptions;
 	frontMatter?: string;
 	paletteOverride?: string;
@@ -33,7 +35,7 @@ export function ReshapePicker({ chunk, variants, axes, options, frontMatter, pal
 }) {
 	const [open, setOpen] = React.useState(false);
 	const component = getClassTokens(chunk)[0] ?? '';
-	const looks = React.useMemo(() => componentLooks(variants, axes), [variants, axes]);
+	const looks = React.useMemo(() => componentLooks(variants, axes, variantAxes), [variants, axes, variantAxes]);
 	const tokens = React.useMemo(() => new Set(getClassTokens(chunk)), [chunk]);
 	const hasVariant = looks.some((l) => variantActive(tokens, l.token));
 
@@ -54,37 +56,45 @@ export function ReshapePicker({ chunk, variants, axes, options, frontMatter, pal
 					<span className="normal-case tracking-normal">— {looks.length - 1} variant{looks.length - 1 === 1 ? '' : 's'}</span>
 				</div>
 				<div className="grid max-h-[60vh] grid-cols-2 gap-2.5 overflow-y-auto overscroll-contain [touch-action:pan-y] sm:grid-cols-3 lg:grid-cols-4">
-					{looks.map((look) => (
-						<ReshapeTile
-							key={look.token || '__default'}
-							sample={(frontMatter ?? '') + applyVariant(chunk, look.token, axes, variants)}
-							label={look.token ? look.label : 'Default'}
-							active={look.token ? variantActive(tokens, look.token) : !hasVariant}
-							options={options}
-							paletteOverride={paletteOverride}
-							extraTheme={extraTheme}
-							modeOverride={modeOverride}
-							extraCss={extraCss}
-							onClick={() => {
-								onReshape(look.token);
-								setOpen(false);
-							}}
-						/>
-					))}
+					{looks.map((look) => {
+						// An ACTIVE toggle would preview itself turned OFF — that IS what clicking it
+						// does — which reads as the wrong slide on the tile badged "Current". Show the
+						// slide as it stands, and let the action name say what the click will do.
+						const on = look.token ? variantActive(tokens, look.token) : !hasVariant;
+						const removes = on && !!look.token && !look.exclusive;
+						return (
+							<ReshapeTile
+								key={look.token || '__default'}
+								sample={(frontMatter ?? '') + (on ? chunk : applyVariant(chunk, look.token, axes, variants, variantAxes))}
+								label={look.token ? look.label : 'Default'}
+								actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
+								active={on}
+								options={options}
+								paletteOverride={paletteOverride}
+								extraTheme={extraTheme}
+								modeOverride={modeOverride}
+								extraCss={extraCss}
+								onClick={() => {
+									onReshape(look.token);
+									setOpen(false);
+								}}
+							/>
+						);
+					})}
 				</div>
 			</PopoverContent>
 		</Popover>
 	);
 }
 
-function ReshapeTile({ sample, label, active, options, paletteOverride, extraTheme, modeOverride, extraCss, onClick }: { sample: string; label: string; active: boolean; options: SingleSlideOptions; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; onClick: () => void }) {
+function ReshapeTile({ sample, label, actionLabel, active, options, paletteOverride, extraTheme, modeOverride, extraCss, onClick }: { sample: string; label: string; actionLabel: string; active: boolean; options: SingleSlideOptions; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; onClick: () => void }) {
 	const [ref, visible] = useInView<HTMLButtonElement>();
 	return (
 		<button
 			type="button"
 			ref={ref}
 			onClick={onClick}
-			aria-label={`Reshape to ${label}`}
+			aria-label={actionLabel}
 			aria-pressed={active}
 			className={cn('relative overflow-hidden rounded-lg border-2 bg-card text-left transition-colors focus-visible:outline-none', active ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))]')}
 		>
