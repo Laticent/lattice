@@ -86,6 +86,15 @@ export type PlaygroundData = {
 
 // The Explore surface's walk position: a component's gallery plan (stable step
 // kinds) or a full gallery deck (slide-index positions — no plan exists).
+/**
+ * The split's panel ids — ONE declaration, used for the Panels themselves AND as the
+ * persistence bucket the hook seeds its `defaultLayout` from.
+ *
+ * Retyping them at the call sites is how the Studio's equivalent once drifted: a rename
+ * compiles, types fine, and simply misses the storage lookup at runtime (#1495).
+ */
+const PG_SPLIT_PANEL_IDS = ['pg-split-editor', 'pg-split-preview'] as const;
+
 type Walk =
 	| { kind: 'plan'; plan: Plan; index: number }
 	| { kind: 'deck'; label: string; index: number; count: number };
@@ -564,6 +573,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		active: splitActive,
 		defaultRatio: 45,
 		configKey: 'ep', // the Playground group is always just editor|preview
+		// …and those two ids are the storage bucket, so the hook can hand the remembered
+		// widths to the library as its starting layout instead of laying out at 45/55 and
+		// correcting after. Declared HERE (not derived in the hook) because the only runtime
+		// source of the real ids is the mounted group, which is one mount too late.
+		panelIds: PG_SPLIT_PANEL_IDS,
 
 		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {
@@ -1480,7 +1494,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				data-split-dragging={split.dragging ? '' : undefined}
 			>
 				<ResizablePanel
-					id="pg-split-editor"
+					id={PG_SPLIT_PANEL_IDS[0]}
 					className="pg-pane editor"
 					panelRef={split.editorRef}
 					minSize={280}
@@ -1523,7 +1537,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</ResizablePanel>
 				<ResizableHandle aria-label="Resize editor and preview" />
 				<ResizablePanel
-					id="pg-split-preview"
+					id={PG_SPLIT_PANEL_IDS[1]}
 					className="pg-pane preview"
 					panelRef={split.previewRef}
 					minSize={320}

@@ -3593,3 +3593,30 @@ own) is not a builder and needs no entry.
   the same one the two-pass bench gate encodes: **a check-run conclusion is not
   evidence until its inputs have completed.**
 - **Triggered by:** #1427.
+
+### The editor|preview divider snaps to the middle a moment after the page loads
+
+- **Symptom:** you drag the Studio's divider, reload, and the divider appears where
+  you left it — then jumps to roughly the middle, then jumps back. Reads as the
+  pre-paint placeholder not knowing where the splitter was.
+- **Why (and why the obvious reading is wrong):** the placeholder knows exactly. It
+  reads the persisted split in `studio.astro`'s pre-paint seed and draws it correctly.
+  It is the APP that was late. `StudioShell` rendered its panels at a hardcoded
+  46/54, and `useResizableSplit` applied the saved layout in an effect deferred by a
+  double `requestAnimationFrame` — frames that queue behind the ~505KB engine fetch.
+  Measured at 1440x900 with the split at editor 25%: the shell had the divider at
+  360.75px from t=320ms, the app mounted at 662/777 at t=1467ms, the shell was
+  dismissed at t=2896ms, and the saved layout landed at t=3317ms. So the corrected
+  paint arrived ~400ms AFTER the correct placeholder was taken away.
+- **Fix (shipped):** the saved layout is read during the first render and handed to
+  `react-resizable-panels` as the group's `defaultLayout`, so it initializes at the
+  remembered widths and the default share is never laid out. The consumer declares
+  its `panelIds` because the only runtime source of the real ids — the mounted
+  group — is one mount too late. Pinned by the `@smoke` case in
+  `docs/e2e/studio-instant-shell.spec.ts` that asserts the pane's whole width log is
+  one entry.
+- **The general rule:** the shell and the app share boot state through the same
+  storage, so they agree at rest; they disagree in the FIRST SECOND whenever one
+  reads before paint and the other corrects after it. If you add shared boot state,
+  make the app read it at render, not in an effect.
+- **Triggered by:** `engineering/decisions/2026-08-10-shell-app-boot-state-sharing.md`.

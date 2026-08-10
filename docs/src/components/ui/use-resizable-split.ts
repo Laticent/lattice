@@ -24,15 +24,87 @@ import { bucketFor, collapseKeyFor } from "./split-storage"
 // layout — EVERY panel's size, so the Studio's Settings/Assistant column widths
 // persist alongside the editor|preview ratio — keyed by `configKey` (which panels
 // are present), so each Studio configuration (Coach open, Library open, bare
-// Write, …) keeps its own remembered widths. Restored post-mount AND whenever the
-// config changes, via groupRef.setLayout — the post-hydration-restore contract
-// (React 19 drops inline-style hydration mismatches). Collapse is sessionStorage
-// (survives reload, not a new tab), restored via panelRef.collapse().
+// Write, …) keeps its own remembered widths. Restored via groupRef.setLayout in a
+// LAYOUT effect, so it lands BEFORE the browser paints the default share (#1523),
+// and stays an imperative post-hydration write — the only form that also works on
+// the server-rendered Playground (React 19 drops inline-style hydration mismatches,
+// so a render-time seed there would be silently ignored). Re-runs whenever the
+// config changes. Collapse is sessionStorage (survives reload, not a new tab),
+// restored via panelRef.collapse().
 
 export type SplitSide = "a" | "b"
 
 type LayoutMap = Record<string, number>
 type LayoutStore = Record<string, LayoutMap>
+
+/**
+ * `useLayoutEffect` on the client, `useEffect` on the server.
+ *
+ * The Playground mounts this hook through a `client:load` island, so the module DOES run
+ * under Astro's server render, where React logs a warning for every `useLayoutEffect` and
+ * runs none of them. The restore below has to be a LAYOUT effect on the client (see its
+ * note) and is a no-op on the server either way, so this is the standard swap rather than a
+ * behavior choice.
+ */
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect
+
+/**
+ * How long the BACKSTOP restore keeps trying, in ms.
+ *
+ * A deadline rather than a frame count on purpose. Frames are exactly what is scarce here —
+ * on the Studio the group settles behind a ~505KB engine fetch — so a budget of "ten frames"
+ * can expire in a tenth of a second on an idle page or take most of a second on a busy one:
+ * the wrong unit for "has this group settled yet".
+ *
+ * 3s is a ceiling, not an expectation. The loop stops the moment the group reports the saved
+ * layout back (usually the first attempt, and on a fresh load `defaultLayout` has already
+ * done the job before this runs at all). It only runs to the end for a group that never
+ * measures — mounted under `display:none` for the whole session — at the cost of one
+ * cancelled frame callback.
+ */
+const RESTORE_DEADLINE_MS = 3000
+
+/**
+ * How many times the backstop will re-assert the saved layout before accepting what it gets.
+ *
+ * It re-asserts at all because a `setLayout` issued while the library is still initializing is
+ * DISCARDED, silently: measured on the built site, the Playground applied its saved 25/75 at
+ * t=393ms and the library reported 46.667/53.333 — its own default — at t=417ms. So the
+ * backstop cannot treat "I called setLayout" as done; it re-asserts until the group reports
+ * the target back.
+ *
+ * It stops after a few because the group may legitimately refuse: a saved share below a pane's
+ * px minimum is CLAMPED, so the reported layout will never equal the target and re-asserting
+ * forever would just burn frames arguing with the clamp. Eight attempts is far more than the
+ * one or two an initializing group needs, and still ends promptly.
+ */
+const RESTORE_MAX_ATTEMPTS = 8
+
+/** Layouts agree to within half a percent — tolerance for the library's own rounding. */
+function layoutsMatch(a: LayoutMap, b: LayoutMap): boolean {
+	const ids = Object.keys(b)
+	if (ids.length !== Object.keys(a).length) return false
+	return ids.every((id) => typeof a[id] === "number" && Math.abs(a[id] - b[id]) < 0.5)
+}
+
+/**
+ * The saved layout for an EXACT panel set, or undefined if there isn't a complete one.
+ *
+ * Complete is the operative word: `defaultLayout` is ignored by the library unless it covers
+ * every panel in the group, and a partial layout would be worse than none — so a set missing
+ * even one id resolves to undefined and the panels' own defaults stand.
+ */
+function readSavedLayout(storageKey: string, panelIds: readonly string[] | undefined): LayoutMap | undefined {
+	if (!panelIds?.length || typeof window === "undefined") return undefined
+	const saved = readLayoutStore(storageKey)[bucketFor(panelIds)]
+	if (!saved) return undefined
+	const out: LayoutMap = {}
+	for (const id of panelIds) {
+		if (typeof saved[id] !== "number") return undefined
+		out[id] = saved[id]
+	}
+	return out
+}
 
 const collapseKey = collapseKeyFor
 
@@ -111,6 +183,20 @@ export interface UseResizableSplitOptions {
 	 *  (see bucketOf), so this only needs to change on a config change; it can't
 	 *  cause a wrong-config restore even if it under-specifies. */
 	configKey: string
+	/** The ids of the panels the consumer is about to render, in any order.
+	 *
+	 *  This is what lets the saved layout be handed to the library as its `defaultLayout`,
+	 *  so the group INITIALIZES at the remembered widths instead of laying out at the panels'
+	 *  defaults and being corrected afterwards. The hook cannot derive them itself: the only
+	 *  runtime source of the real ids is `groupRef.getLayout()`, which exists no earlier than
+	 *  mount — the whole problem.
+	 *
+	 *  Getting it wrong is safe, in both directions: an id set that doesn't match the rendered
+	 *  panels yields no saved layout for that bucket (or is rejected by the library, which
+	 *  ignores a `defaultLayout` that doesn't cover every panel), and the post-mount restore
+	 *  below re-derives the bucket from the ACTUAL panels and puts it right. It costs a jump,
+	 *  never wrong widths. */
+	panelIds?: readonly string[]
 	onCollapse?: (side: SplitSide) => void
 	onExpand?: (side: SplitSide) => void
 	/** Once per committed resize (drag release or keyboard step). */
@@ -135,6 +221,8 @@ export interface ResizableSplit {
 	/** Spread onto the <ResizablePanelGroup>. */
 	groupProps: {
 		groupRef: React.RefObject<import("react-resizable-panels").GroupImperativeHandle | null>
+		/** The remembered layout, handed to the library as the group's STARTING point. */
+		defaultLayout: Layout | undefined
 		onLayoutChange: (layout: Layout) => void
 		onLayoutChanged: (layout: Layout, meta: LayoutChangedMeta) => void
 	}
@@ -144,9 +232,25 @@ export interface ResizableSplit {
 }
 
 export function useResizableSplit(options: UseResizableSplitOptions): ResizableSplit {
-	const { storageKey, active, configKey } = options
+	const { storageKey, active, configKey, panelIds } = options
 	const optsRef = React.useRef(options)
 	optsRef.current = options
+
+	// THE SEED: the remembered layout, read from storage during RENDER and handed to the
+	// library as the group's `defaultLayout`, so it initializes at the user's widths and the
+	// default share is never laid out at all.
+	//
+	// Safe to compute during render even on the server-rendered Playground, because the
+	// library reads `defaultLayout` in its OWN init layout effect and never renders from it —
+	// the markup React hydrates is identical either way, so there is no style mismatch to
+	// reconcile (React 19 would silently keep the server's).
+	//
+	// Keyed on the panel ids rather than `configKey`: those ids ARE the storage bucket, so a
+	// consumer that renders a different set gets a different (or no) seed, never another
+	// config's widths.
+	const panelIdsKey = panelIds ? bucketFor(panelIds) : ""
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `panelIdsKey` IS `panelIds`, flattened to a primitive so a fresh array literal each render doesn't re-read storage.
+	const defaultLayout = React.useMemo(() => readSavedLayout(storageKey, panelIds), [storageKey, panelIdsKey])
 
 	const groupRef = useGroupRef()
 	const editorRef = usePanelRef()
@@ -170,10 +274,6 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	const [ready, setReady] = React.useState(false)
 	React.useEffect(() => setReady(true), [])
 
-	// Restore the saved layout for the CURRENT config after the group lays out
-	// (ready + double rAF) — on mount AND whenever `configKey` changes (a panel
-	// toggled → its remembered width comes back). Programmatic setLayout fires
-	// onLayoutChanged with isUserInteraction=false, so it never re-saves.
 	// Collapse tracking state — declared here so the restore effect below can read
 	// it (skip a width-restore while a pane is collapsed, so setLayout doesn't pop
 	// the pane back open). Updated by pollCollapse (onResize).
@@ -184,46 +284,118 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// transient expand/collapse as noise (no persist, no callbacks).
 	const configChangingRef = React.useRef(false)
 
+	// The pending-restore latch. `pending` is raised when a restore is WANTED (mount, or a
+	// config change) and lowered the moment the group can answer — layout applied, or
+	// answered "nothing saved for this panel set". `frame` is the queued backstop retry and
+	// `deadline` bounds it. Holding the want as a flag, rather than as a chain of frames, is
+	// what lets whichever signal arrives first satisfy it.
+	const restoreRef = React.useRef({ pending: false, frame: 0, deadline: 0, attempts: 0 })
+
+	/**
+	 * Assert the saved layout onto the panel set the group ACTUALLY has right now, and report
+	 * whether the restore is DONE (it lowers `pending` itself when it is).
+	 *
+	 * "Done" is deliberately not "I called setLayout". A setLayout issued while the library is
+	 * still initializing is discarded without a word — measured on the Playground, our 25/75
+	 * went in at t=393ms and the library reported its own 46.667/53.333 at t=417ms — so the
+	 * only honest end condition is the group reporting the target BACK. Hence: assert, and on
+	 * the next call check what came back, up to RESTORE_MAX_ATTEMPTS.
+	 */
+	const tryRestore = React.useCallback((): boolean => {
+		const state = restoreRef.current
+		const done = () => {
+			state.pending = false
+			return true
+		}
+		const g = groupRef.current
+		if (!g) return false
+		// Don't disturb a collapsed pane: we never save a layout while collapsed, so the
+		// saved one has the pane EXPANDED — setLayout would pop it open (collapse restore is
+		// its own effect below).
+		if (collapsedRef.current.a || collapsedRef.current.b) return done()
+		const current = g.getLayout() as LayoutMap
+		const ids = Object.keys(current)
+		// `{}` until the library has measured the group, and setLayout({}) would THROW.
+		// UNSETTLED, not "nothing to do" — treating it as the latter is what dropped the
+		// Playground's saved split on every load.
+		if (ids.length === 0) return false
+		// Bucket by the ACTUAL present ids (see bucketOf), so a saved layout is only ever
+		// applied to the exact panel set it was saved for.
+		const saved = readLayoutStore(storageKey)[bucketOf(current)]
+		if (!saved) return done()
+		const target: LayoutMap = {}
+		for (const id of ids) {
+			if (typeof saved[id] !== "number") return done() // incomplete → leave the layout alone
+			target[id] = saved[id]
+		}
+		// Already there — either `defaultLayout` seeded it (the normal path on a fresh load,
+		// where this whole backstop is a no-op) or an earlier assertion stuck.
+		if (layoutsMatch(current, target)) return done()
+		if (state.attempts++ >= RESTORE_MAX_ATTEMPTS) return done()
+		g.setLayout(target)
+		return false
+	}, [groupRef, storageKey])
+
+	// THE BACKSTOP behind the `defaultLayout` seed above — a LAYOUT effect, deliberately not
+	// `useEffect` + a double rAF.
+	//
+	// It covers the two cases the seed cannot: a CONFIG CHANGE (a panel toggled mid-session,
+	// long after the group initialized) and a consumer that passes no `panelIds`. On an
+	// ordinary load it finds the layout already correct and does nothing.
+	//
+	// WHAT THE RAF FORM COST (#1523), and why this is a layout effect. The old restore waited
+	// for `ready` (a post-mount state flip) and then two animation frames — and frames queue
+	// behind whatever else the page is doing, which on the Studio is fetching the ~505KB
+	// engine. Measured on the built site at 1440x900 with a dragged split (editor 25% /
+	// preview 75%): the app mounted at the hardcoded 46/54 default at t=1467ms, the pre-paint
+	// instant shell — which had drawn the divider at the REMEMBERED 360.75px since t=320ms —
+	// was dismissed at t=2896ms, and the saved layout only landed at t=3317ms. A returning
+	// visitor watched the divider sit 302px wrong for ~400ms of naked app, after the
+	// placeholder had had it right all along: right, then wrong, then right.
+	//
+	// It also gave up permanently the first time `getLayout()` came back `{}`, which on the
+	// Playground it always did — so a dragged Playground split was persisted on every drag and
+	// silently dropped on every load. Here `{}` keeps the restore PENDING, retried from the
+	// group's own layout callbacks and, failing those, from frames until RESTORE_DEADLINE_MS.
+	//
+	// Programmatic setLayout fires onLayoutChanged with isUserInteraction=false, so nothing
+	// this does is ever re-saved.
+	//
 	// `configKey` is deliberately a RE-RUN TRIGGER, not a value this effect reads — see
 	// the header note, "`configKey` remains only the effect's re-run trigger". Dropping it
 	// is behavior loss: the effect must fire again when a panel is toggled, which is
 	// exactly when the library expands a collapsed pane and this puts it back.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: re-run trigger, see above.
-	React.useEffect(() => {
-		if (!ready || !active) return
-		// Cancel BOTH frames on cleanup: without capturing the inner handle a stale
-		// config's layout could still apply if configKey churns within two frames.
-		let inner = 0
-		const outer = requestAnimationFrame(() => {
-			inner = requestAnimationFrame(() => {
-				const g = groupRef.current
-				if (!g) return
-				// Don't disturb a collapsed pane: we never save a layout while collapsed,
-				// so the saved one has the pane EXPANDED — setLayout would pop it open
-				// (collapse restore is the separate effect below).
-				if (collapsedRef.current.a || collapsedRef.current.b) return
-				const current = g.getLayout()
-				const ids = Object.keys(current)
-				// getLayout() is {} while the group is measured at 0 width (hydration /
-				// deferred); setLayout({}) would THROW. Skip until it has real panels.
-				if (ids.length === 0) return
-				// Bucket by the ACTUAL present ids (see bucketOf), so a saved layout is
-				// only ever applied to the exact panel set it was saved for.
-				const saved = readLayoutStore(storageKey)[bucketOf(current)]
-				if (!saved) return
-				const next: LayoutMap = {}
-				for (const id of ids) {
-					if (typeof saved[id] !== "number") return // incomplete → leave the layout alone
-					next[id] = saved[id]
-				}
-				g.setLayout(next)
-			})
-		})
-		return () => {
-			cancelAnimationFrame(outer)
-			if (inner) cancelAnimationFrame(inner)
+	useIsomorphicLayoutEffect(() => {
+		if (!active) {
+			restoreRef.current.pending = false
+			return
 		}
-	}, [ready, active, configKey, storageKey, groupRef])
+		const state = restoreRef.current
+		state.pending = true
+		state.attempts = 0
+		state.deadline = performance.now() + RESTORE_DEADLINE_MS
+		const attempt = () => {
+			state.frame = 0
+			if (!state.pending) return
+			if (!tryRestore()) {
+				// Not settled — the group is unmeasured, or it has not yet reported the
+				// asserted layout back. Keep asking until the deadline; the group's own layout
+				// callbacks race us to it and usually win, which is the point of holding the
+				// want as a flag rather than owning the timing here.
+				if (performance.now() < state.deadline) state.frame = requestAnimationFrame(attempt)
+				else state.pending = false
+			}
+		}
+		attempt()
+		// Drop the pending restore and any queued frame, so a stale config's layout can
+		// never apply after `configKey` has moved on.
+		return () => {
+			state.pending = false
+			if (state.frame) cancelAnimationFrame(state.frame)
+			state.frame = 0
+		}
+	}, [active, configKey, tryRestore])
 
 	// Restore / re-apply the collapsed side after the group lays out — on mount AND
 	// on every config change (a panel toggle makes the library expand a collapsed
@@ -310,6 +482,15 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	const onLayoutChanged = React.useCallback(
 		(layout: Layout, meta: LayoutChangedMeta) => {
 			setDrag(false)
+			// The group has just told us it HAS a layout — which is exactly what a pending
+			// restore was waiting to hear, and it usually arrives before the backstop frame.
+			// A user interaction while a restore is still pending abandons it instead: the
+			// hand on the divider outranks the remembered position, and re-applying it under
+			// the drag would fight the person doing it.
+			if (restoreRef.current.pending) {
+				if (meta.isUserInteraction) restoreRef.current.pending = false
+				else tryRestore()
+			}
 			if (!meta.isUserInteraction) return
 			// Persist the full layout for the ACTUAL present panel set UNLESS a pane is
 			// collapsed — a collapse is its own (sessionStorage) state, and its
@@ -319,7 +500,7 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 			}
 			optsRef.current.onSettle?.()
 		},
-		[setDrag, storageKey],
+		[setDrag, storageKey, tryRestore],
 	)
 
 	return {
@@ -331,7 +512,7 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		collapse,
 		expand,
 		reset,
-		groupProps: { groupRef, onLayoutChange, onLayoutChanged },
+		groupProps: { groupRef, defaultLayout, onLayoutChange, onLayoutChanged },
 		onEditorResize,
 		onPreviewResize,
 	}

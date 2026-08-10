@@ -42,6 +42,22 @@ in patch versions.
   cannot reintroduce it. **The exported HTML player is NOT fixed by this** — it
   carries the same defect in a worse form and is gated on export sign-off; tracked
   separately. See `engineering/decisions/2026-08-10-preview-pinch-zoom.md`.
+- **Fixed: the editor|preview divider now opens where you left it, instead of
+  jumping to the middle a moment after the page loads.** A returning visitor with a
+  dragged split watched the divider land in the right place, snap back to the
+  default, and jump again — measured at 1440px with the split at editor 25%: the
+  pre-paint placeholder drew the divider at the remembered 360px from 320ms, the app
+  mounted at its hardcoded 46/54 default at 1467ms, the placeholder was dismissed at
+  2896ms, and the saved widths were only applied at 3317ms. A 302px jump, ~400ms of
+  it in plain sight. The saved layout is now handed to the splitter as its STARTING
+  layout, read from storage during the first render rather than written back two
+  animation frames after mount — frames which, on the Studio, queue behind the
+  ~505KB engine fetch. The Studio's panes are now laid out at the remembered widths
+  on the first frame they exist, and never at any other width. The Playground's
+  saved split, which had never been restored at all (its group reports no layout for
+  ~245ms after mount, and the old restore gave up permanently the first time it
+  asked), is now re-asserted until the group takes it.
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested

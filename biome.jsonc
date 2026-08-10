@@ -133,6 +133,22 @@
         "useTemplate": "off",
         "useNodejsImportProtocol": "off"
       },
+      "correctness": {
+        // Teach the dependency check about our ONE hook alias. `useIsomorphicLayoutEffect`
+        // (docs/src/components/ui/use-resizable-split.ts) is `useLayoutEffect` on the client
+        // and `useEffect` on the server — a plain rename, so its dependency array deserves
+        // exactly the same scrutiny React's own hooks get. Without this entry Biome does not
+        // recognize it as a hook at all: it checks nothing, and the `biome-ignore` a caller
+        // writes for it reports as an unused suppression, which is how the omission shows up.
+        // `level` is stated because `options` requires it; "error" is the recommended default
+        // this rule already ran at, so nothing else changes.
+        "useExhaustiveDependencies": {
+          "level": "error",
+          "options": {
+            "hooks": [{ "name": "useIsomorphicLayoutEffect", "closureIndex": 0, "dependenciesIndex": 1 }]
+          }
+        }
+      },
       "complexity": {
         "noForEach": "off"
       },
