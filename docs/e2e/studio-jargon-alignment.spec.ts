@@ -74,6 +74,17 @@ test('jargon deck: every rail selection previews THAT slide', async ({ page }) =
 	expect(wrong, `${wrong.length} of ${authored.length} rail selections previewed the wrong slide:\n${wrong.join('\n')}`).toEqual([]);
 });
 
+/** The line `revealSlide` scrolls to: a slide's first line of actual CONTENT. Mirrors
+ *  `slideEditableOffset` in docs/src/components/studio/lint.ts — skip blank lines and lone directive
+ *  comments (`<!-- _class: … -->` and siblings), fall back to the slide's first line when a slide is
+ *  nothing but directives. Replicated rather than imported for the same reason `splitSlides` is: the
+ *  test states the contract independently of the module it is checking. */
+function editableLineOf(slide: string): string {
+	const isDirective = (l: string) => /^<!--(?:(?!-->).)*-->$/.test(l);
+	const lines = slide.split('\n').map((l) => l.trim());
+	return lines.find((l) => l && !isDirective(l)) ?? lines[0];
+}
+
 // THE REPORTED PAIR: rail selection vs what the EDITOR frames. The test above checks rail→preview,
 // which was already correct; the report was that the editor shows a DIFFERENT slide than the one
 // selected. `slideStartOffset` counted the front matter's closing `---` as separator #0, so
@@ -86,58 +97,73 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 	await expect.poll(() => railButtons(page).count(), { timeout: 60_000 }).toBe(authored.length);
 
 	const wrong: string[] = [];
-	// PRECISION MATTERS HERE, and two weaker signals were tried and thrown away. The DOM selection came
-	// back empty (a rail click moves focus off the editor). "Slide i's first line is in the rendered
-	// DOM" PASSED with the bug reintroduced, because CodeMirror builds a margin of lines around the
-	// viewport — a one-slide error still leaves the target line in the DOM. So this measures the SCROLL
-	// POSITION: `revealSlide` calls `scrollIntoView(..., { y: 'center' })`, so the selected slide's
-	// first line must sit near the scroller's vertical center, and centering the slide before it puts
-	// that line a whole slide (~10 lines) away — a difference this can actually see.
+	// PRECISION MATTERS HERE, and two weaker signals were tried and thrown away before any of this. The
+	// DOM selection came back empty (a rail click moves focus off the editor). "Slide i's first line is
+	// in the rendered DOM" PASSED with the bug reintroduced, because CodeMirror builds a margin of lines
+	// around the viewport — a one-slide error still leaves the target line in the DOM. So this measures
+	// the SCROLL POSITION, against the contract `revealSlide` ACTUALLY implements:
 	//
-	// A sample across the deck rather than all 58: each step scrolls and measures. Slide 0 and the last
-	// slide are included deliberately (0 is the front-matter case) and handled below, since CodeMirror
-	// clamps scrolling at the document edges and cannot center them.
+	//   `v.dispatch({ effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) })`
+	//   where `caret = slideEditableOffset(doc, index)`
+	//
+	// — TOP-ANCHOR the slide's first editable line, which is the line after its `<!-- _class: … -->`
+	// directive. So the discriminating measurement is that line's distance from the TOP of the
+	// scroller: 0 (± the 8px margin and sub-pixel rounding) when slide i is framed, and a whole slide
+	// away (≥ ~150px; the deck's slides are 6–16 lines at ~26px) under an off-by-one. Measured on a
+	// real run, all eight sampled rails land it at +5px.
+	//
+	// THIS ASSERTION WAS REWRITTEN, and the old one is why (#1315). It read "the editor's vertical
+	// center falls inside slide i", which was correct for the reveal of the day — `scrollIntoView` over
+	// the whole slide RANGE with `y: 'center'`. #1301 deliberately replaced that with the top-anchored
+	// editable line (centering leaves the previous slide's tail above the one you picked, and how much
+	// of it you see depends on how long that slide happens to be), and did not update this spec. It has
+	// been failing 7 of 8 rails on main ever since — on a suite that is NIGHTLY, off the PR gate — while
+	// the behavior it guards was correct the whole time. A guard pinned to a superseded contract reports
+	// nothing about the contract that replaced it.
+	//
+	// A sample across the deck rather than all 58: each step scrolls and measures. Index 0 and the last
+	// slide are in deliberately — 0 is the front-matter case, and the last is the one CodeMirror could
+	// not clamp-free center under the old contract. Both top-anchor cleanly here, because `scrollPastEnd`
+	// gives the scroller enough slack to bring the final line to the top.
 	const indices = [0, 1, 2, 3, 7, 20, 40, authored.length - 1];
+	// Matching a rendered line by its TEXT is only sound while that text is unique in the document —
+	// otherwise a duplicate elsewhere could stand in for the line under test. Assert it rather than
+	// assume it, so editing the deck surfaces here instead of silently weakening the measurement.
+	const docLines = DECK.split('\n').map((l) => l.trim());
+	for (const i of indices) {
+		const t = editableLineOf(authored[i]);
+		expect(docLines.filter((l) => l === t).length, `sampled slide ${i}'s first editable line ${JSON.stringify(t)} is not unique in the deck, so it cannot identify a rendered line`).toBe(1);
+	}
+	const TOLERANCE = 40; // ~1.5 lines: absorbs yMargin + rounding, far under one slide
 	for (const i of indices) {
 		await railButtons(page).nth(i).click();
 		await page.waitForTimeout(350); // let the scroll settle before measuring geometry
-		// `revealSlide` centers the whole slide RANGE, not its first line — so the first line sits half a
-		// slide above center (measured 120–191px, which is why "first line near center" was the wrong
-		// assertion). The property that actually means "this slide is framed" is that the editor's
-		// vertical center falls INSIDE slide i: between its first line and the first line of slide i+1.
-		// An off-by-one puts the center inside slide i-1, which this sees.
-		const want = authored[i].split('\n')[0].trim();
-		const next = i + 1 < authored.length ? authored[i + 1].split('\n')[0].trim() : null;
+		const want = editableLineOf(authored[i]);
 		const m = await page.evaluate(
-			({ text, nextText }: { text: string; nextText: string | null }) => {
+			({ text }: { text: string }) => {
 				const scroller = document.querySelector('.cm-scroller');
 				if (!scroller) return null;
-				const lines = [...scroller.querySelectorAll('.cm-line')];
-				const find = (t: string | null) => (t === null ? null : lines.find((l) => (l.textContent ?? '').trim() === t));
-				const first = find(text);
-				if (!first) return { found: false, inside: false, clamped: false };
 				const s = scroller.getBoundingClientRect();
-				const center = s.top + s.height / 2;
-				const top = first.getBoundingClientRect().top;
-				const nextEl = find(nextText);
-				const bottom = nextEl ? nextEl.getBoundingClientRect().top : s.bottom;
-				const atTop = scroller.scrollTop <= 2;
-				const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
-				return {
-					found: true,
-					inside: center >= top && center <= bottom,
-					// At a scroll extreme, centering is impossible; the honest assertion is "fully on screen".
-					clamped: (atTop || atBottom) && top >= s.top - 2 && top <= s.bottom,
-				};
+				const lines = [...scroller.querySelectorAll('.cm-line')];
+				const el = lines.find((l) => (l.textContent ?? '').trim() === text);
+				// What IS at the top right now — an off-by-one names the slide it framed instead. Skip
+				// blank lines: the line above a slide's first content is usually its directive's blank
+				// neighbor, and reporting "" tells the reader nothing.
+				const atTopEl = lines.find((l) => l.getBoundingClientRect().bottom > s.top + 1 && (l.textContent ?? '').trim());
+				const atTopText = (atTopEl?.textContent ?? '').trim().slice(0, 60);
+				if (!el) return { found: false, offset: 0, atTopText };
+				return { found: true, offset: Math.round(el.getBoundingClientRect().top - s.top), atTopText };
 			},
-			{ text: want, nextText: next },
+			{ text: want },
 		);
 		if (!m) {
 			wrong.push(`rail ${i}: no editor scroller found`);
 		} else if (!m.found) {
-			wrong.push(`rail ${i}: slide ${i}'s first line ${JSON.stringify(want)} is not rendered at all`);
-		} else if (!m.inside && !m.clamped) {
-			wrong.push(`rail ${i}: the editor's center is not inside slide ${i} (starts ${JSON.stringify(want)}) — a different slide is framed`);
+			wrong.push(`rail ${i}: slide ${i}'s first editable line ${JSON.stringify(want)} is not rendered at all`);
+		} else if (Math.abs(m.offset) > TOLERANCE) {
+			wrong.push(
+				`rail ${i}: slide ${i}'s first editable line ${JSON.stringify(want)} sits ${m.offset}px from the top of the editor (want 0 ±${TOLERANCE}) — a different slide is framed; the line at the top is ${JSON.stringify(m.atTopText)}`,
+			);
 		}
 	}
 	expect(wrong, `the editor framed the wrong slide:\n${wrong.join('\n')}`).toEqual([]);

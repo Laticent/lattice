@@ -245,12 +245,17 @@ export const Editor = React.forwardRef<EditorHandle, {
 		},
 		// Reveal a slide in the editor — called only from explicit NAV (rail / arrow /
 		// filmstrip / source click), never from a cursor-move effect, so typing never
-		// re-centers. Frames the WHOLE slide range centered (shows all of it when it
-		// fits; CodeMirror clamps to anchor the start on the first/last slide or a slide
-		// taller than the pane). Sets the caret to the slide start and pre-seeds
-		// lastSlideRef so the resulting selectionSet echoes the SAME index → onCursorSlide
-		// no-ops, no sync loop. A single scroll effect — NO end→start caret hop (that
-		// parked the caret in slide index+1 and flickered the preview).
+		// re-scrolls. TOP-ANCHORS the slide's first editable line (see below for why not
+		// centered). Sets the caret to that line and pre-seeds lastSlideRef so the
+		// resulting selectionSet echoes the SAME index → onCursorSlide no-ops, no sync
+		// loop. A single scroll effect — NO end→start caret hop (that parked the caret in
+		// slide index+1 and flickered the preview).
+		//
+		// GUARDED BY `docs/e2e/studio-jargon-alignment.spec.ts` ("the editor frames the
+		// slide the rail selected"), which measures the landed scroll position against the
+		// contract below. Changing where this scrolls means updating that spec in the same
+		// change: it is NIGHTLY, off the PR gate, so a stale assertion here goes red on
+		// main and blocks nothing (#1315).
 		revealSlide(index: number, opts?: { focus?: boolean }) {
 			const v = viewRef.current;
 			if (!v) return;
