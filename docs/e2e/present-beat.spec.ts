@@ -138,17 +138,23 @@ test.describe('Present — the between-slide beat', () => {
 
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 
-		// The fill must APPEAR and then MOVE, and both had a signal — so poll. But keep the
-		// original intervals as the poll BOUNDS instead of discarding them: each sleep was doing
-		// two jobs, settling AND capping how long the app may take, and an unbounded poll keeps
-		// only the first. The regression this guards is a starved rAF loop, whose signature is a
-		// fill that crawls rather than one that never paints — exactly what an unbounded poll
-		// would wait out and pass (the #1523 lesson). Measured on this project: the fill appears
-		// at ~110ms and climbs ~15px/s, so these bounds keep an order of magnitude of headroom.
+		// Two different things, and only ONE of them is pollable.
+		//
+		// "The fill appeared" is a STATE, so poll it, bounded at the interval the old sleep set.
+		//
+		// "The fill advances with the clock" is a RATE, and for a rate the SAMPLE POINT carries
+		// the power, not the bound. Sampling `early` at the first non-zero value (measured
+		// 0.047px at ~110ms) lets a single sub-pixel tick satisfy `later > early` — so a fill
+		// that starts and then STALLS, which is the reported #1352 symptom, passes. Verified:
+		// with an in-page break pinning the width 500ms after first paint, sampling `early` at
+		// first-paint PASSES (early=1.39px, pinned=1.61px) and dwelling first FAILS, correctly.
+		// So dwell across the original window before measuring. This sleep is a MEASUREMENT
+		// WINDOW, not a settle — shortening it is what breaks the test.
 		const progressPx = async () => (await segments())[0].progress;
 		await expect.poll(progressPx, { timeout: 1_500 }).toBeGreaterThan(0);
+		await page.waitForTimeout(1_500);
 		const early = await progressPx();
-		await expect.poll(progressPx, { timeout: 4_000 }).toBeGreaterThan(early);
+		await expect.poll(progressPx, { timeout: 3_000 }).toBeGreaterThan(early);
 		const later = await progressPx();
 
 		expect(early, 'the progress fill appeared once playback started').toBeGreaterThan(0);

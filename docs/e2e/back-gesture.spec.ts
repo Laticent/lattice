@@ -17,15 +17,17 @@ import { LIVE_PREVIEW } from './studio-fixture';
 const MENU = 'Menu';
 const HOST = 'Deck';
 
-// KEPT DELIBERATELY (#1526) — not an un-swept sleep. This spans the gap between a drawer
-// PAINTING and it REGISTERING the history entry a following `goBack()` pops: measured on this
-// project at ~162ms and ~165ms after the click, i.e. 3ms apart, so an assertion on the dialog
-// alone can win the race and pop the wrong entry. There is no signal to poll for the
-// registration: `history.length` does NOT grow on a door transition (Menu → Themes measured
-// 3 → 3) nor on a re-open after reload, where the module ADOPTS the surviving entry rather
-// than pushing (measured 3 → 3, which is the point of the reload test below). So "poll until
-// the length grows" would hang on precisely the cases that matter. Used only where a
-// `goBack()` follows; plain readiness now waits on the signals below instead.
+// KEPT for the cases below, where the registration genuinely has no signal — NOT as a blanket
+// settle. It spans drawer-PAINTS → drawer-REGISTERS the history entry a following `goBack()`
+// pops, which an assertion on the dialog alone can win the race against.
+//
+// Where a signal EXISTS, `backEntryRegistered` is used instead (see below). It does not exist
+// here, and these are the sites that keep the sleep:
+//   · a DOOR transition (Menu → Themes/Library). It pushes nothing — `history.length` holds at
+//     3 → 3 and the ownership flag is already `true` from the parent — so any poll for either
+//     is satisfied before the door is even open, i.e. it is not a wait at all.
+//   · a re-open AFTER RELOAD, where the module ADOPTS the surviving marked entry rather than
+//     pushing (3 → 3, which is the very thing that test asserts).
 const settle = (page: Page) => page.waitForTimeout(650);
 const dialog = (page: Page) => page.locator('[role=dialog]');
 
@@ -37,6 +39,17 @@ function studioLive(page: Page): Promise<void> {
 	return page.frameLocator(LIVE_PREVIEW).locator('.lattice').first().waitFor({ state: 'visible', timeout: 30_000 });
 }
 
+/** Wait until an overlay has REGISTERED the history entry a following `goBack()` pops.
+ *  `docs/src/lib/overlay-back.ts` records ownership in `history.state` under its STATE_KEY
+ *  (`__latticeOverlayBack`) — the observable the fixed settle was standing in for. Valid only
+ *  for the FIRST overlay over a bare page: measured `false → true` at 231ms on the site nav,
+ *  while a door transition leaves it already `true`, which is why those sites keep `settle`. */
+async function backEntryRegistered(page: Page): Promise<void> {
+	await expect
+		.poll(() => page.evaluate(() => (history.state as { __latticeOverlayBack?: boolean } | null)?.__latticeOverlayBack === true), { timeout: 10_000 })
+		.toBe(true);
+}
+
 /** A control backed by an Astro island is inert until that island hydrates — server HTML with
  *  no listeners, so the click is swallowed and the next assertion fails 15s later blaming the
  *  wrong thing. Ask the control's OWN island, never a global count: `/` keeps two below-fold
@@ -44,8 +57,12 @@ function studioLive(page: Page): Promise<void> {
  *  reaches zero there. */
 async function controlReady(control: Locator): Promise<void> {
 	await control.waitFor({ state: 'visible' });
+	// Fails CLOSED: a control with no island ancestor is NOT "ready" by default. Written the
+	// other way (`!el.closest(...)?.hasAttribute('ssr')`) this silently becomes a no-op the day
+	// the header moves out of an island — the same chrome drift `CHROME` exists to catch — and
+	// these tests would quietly revert to clicking straight after `networkidle`.
 	await expect
-		.poll(() => control.evaluate((el) => !el.closest('astro-island')?.hasAttribute('ssr')), { timeout: 20_000 })
+		.poll(() => control.evaluate((el) => { const i = el.closest('astro-island'); return !!i && !i.hasAttribute('ssr'); }), { timeout: 20_000 })
 		.toBe(true);
 }
 /** `.last()` — during a hand-off the outgoing drawer and its child are briefly BOTH
@@ -92,8 +109,8 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		await openStudio(page);
 		for (const opener of ['Toggle Coach', 'Toggle Chat', 'Settings', 'Share', 'Workspace settings']) {
 			await page.getByRole('button', { name: opener, exact: true }).first().click();
-			await settle(page);
 			await expect(dialog(page).first()).toBeVisible();
+			await backEntryRegistered(page);
 			await page.goBack();
 			await settle(page);
 			await expect(dialog(page)).toHaveCount(0);
@@ -242,7 +259,7 @@ test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 		await nav.click();
 		// `toHaveCount(1)` is itself the bounded poll for "the sheet opened".
 		await expect(page.locator('[role=dialog]')).toHaveCount(1);
-		await settle(page); // registration race, as above — a goBack follows
+		await backEntryRegistered(page);
 
 		await page.goBack();
 		await expect(page.locator('[role=dialog]')).toHaveCount(0);
@@ -265,7 +282,7 @@ test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 
 		await search.click();
 		await expect(page.locator('[role=dialog]')).toHaveCount(1);
-		await settle(page); // registration race, as above — a goBack follows
+		await backEntryRegistered(page);
 
 		await page.goBack();
 		await expect(page.locator('[role=dialog]')).toHaveCount(0);
@@ -280,7 +297,7 @@ test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 
 		await galleries.click();
 		await expect(page.locator('[role=dialog]')).toHaveCount(1);
-		await settle(page); // registration race, as above — a goBack follows
+		await backEntryRegistered(page);
 
 		await page.goBack();
 		await expect(page.locator('[role=dialog]')).toHaveCount(0);
