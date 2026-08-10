@@ -70,14 +70,19 @@ export const CHROME = {
 // gained an options step ("Export PDF · Choose what rides along" → `Download
 // PDF`), four specs kept clicking `PDF` and awaiting a download, and every one
 // of them timed out for a month against a working pipeline. Four specs
-// open-coding the same two-step flow is how it went unnoticed, so the flow
-// lives here once — the next step added to a format is a one-line fix in this
-// map, not an N-spec sweep.
+// open-coding the same two-step flow is how it went unnoticed, so EXPORT flows
+// route through `shareExport` below — a step added to a format is a one-line fix
+// here. Not yet universal: `share.spec.ts` still open-codes four row regexes for
+// its VISIBILITY assertions (it awaits no download, so it never drifted), and the
+// three Marp tests in `journeys/author-export.spec.ts` open-code their two-step
+// flow because they interact INSIDE the options step, which this helper can't
+// express. A row-label rename is still a 3-file sweep — grep before you rename.
 //
-// Every entry below was driven on the REAL Share sheet (desktop project) and
-// records what that run actually produced — not what the source implies.
-// Formats with no dedicated helper still live here so the contract is complete
-// and greppable, exactly as `CHROME.versionHistory` does.
+// Every entry below was driven on the REAL Share sheet (desktop project); the run
+// and its artifacts are recorded in #1552. Formats with no dedicated helper still
+// live here so the contract is complete and greppable, exactly as
+// `CHROME.versionHistory` does — but note those entries are verified-by-sweep, not
+// pinned by any spec, so they can rot without failing anything.
 export const SHARE_EXPORTS = {
 	/** Options step "Export PDF" (comments-as-sticky-notes toggle). → `.pdf` */
 	pdf: { row: /^PDF/, confirm: /^Download PDF/ },
@@ -120,8 +125,12 @@ export const SHARE_EXPORTS = {
 export async function shareExport(page: Page, format: keyof typeof SHARE_EXPORTS): Promise<void> {
 	const { row, confirm } = SHARE_EXPORTS[format];
 	const dialog = page.getByRole('dialog');
-	await dialog.getByRole('button', { name: row }).first().click();
-	if (confirm) await dialog.getByRole('button', { name: confirm }).first().click();
+	// NO `.first()` on either click. Every regex here resolves to exactly one button today,
+	// and this map exists to CATCH chrome drift — `.first()` would turn a future label
+	// collision into a silent click on whichever row sorts first in the DOM instead of the
+	// strict-mode failure that would tell us the contract moved.
+	await dialog.getByRole('button', { name: row }).click();
+	if (confirm) await dialog.getByRole('button', { name: confirm }).click();
 }
 
 // The live compose preview: the engine renders the deck INSIDE this srcdoc
