@@ -174,7 +174,12 @@ test('@crosswidth Reset names its target and arm-confirms over a dirty draft', a
 // is why the existing `split.spec.ts` reload test, which asserts `aria-valuenow`, sails
 // straight past it. So this test measures the PANE, and then nudges the separator by keyboard
 // and measures again: a frozen basis moves the pane by a fraction of what the share says.
-test('the split divider restores where it was dragged, and the pane measures that share', async ({ page }) => {
+//
+// @smoke — i.e. the PER-PR tier, not the nightly. It earns that because the failure it guards
+// is silent, permanent, and has already passed a fully green CI run once: the seeded build
+// shipped with every gate green, `aria-valuenow` correct, and the pane 206px out. A guard that
+// only runs overnight would have caught it a day after the merge.
+test('@smoke the split divider restores where it was dragged, and the pane measures that share', async ({ page }) => {
 	await gotoPlayground(page);
 	const group = page.locator('#pg-split');
 	const editor = page.locator('#pg-split-editor');
