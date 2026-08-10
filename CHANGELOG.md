@@ -87,6 +87,35 @@ in patch versions.
   wraps like CodeMirror does, instead of clipping every long line and re-flowing on
   mount.
 
+- **Fixed: two decision-doc PRs open at once no longer *silently* eject each other from
+  the merge queue.** `engineering/decisions/README.md` is generated from *every* note and
+  committed, so a PR adding one commits an index that is byte-correct only until the next
+  decision-doc PR merges — and the merge queue, which rebases onto current `main` and
+  re-runs CI there, turned that into an ejection with no visible cause (green on its own
+  head, red on a `main` it had never seen, and the ejection quietly cleared auto-merge).
+  Reproducing the race showed row *ordering* is not what failed, and that **dates do not
+  decide it either**: what decides it is where the two rows insert. Two insertions at the
+  same position conflict; two at any different positions merge cleanly — so the rare case
+  is two notes sorting as immediate neighbors — or landing in different status groups, whose
+  tallies then differ and conflict visibly — and in every other case git merges both rows
+  correctly and the only wrong line left is the footer's `_N notes — …_` tally, because both
+  sides rewrote it to the same `+1` text. The tally is therefore **gone**
+  rather than tolerated (a number that must be forgiven when wrong is worse than no
+  number), which fixes the silent case on its own; and `npm run decisions:index:check`
+  now verifies that each note has its own correct entry, in the right group, exactly
+  once, with no orphaned rows and nothing unrecognized inside the markers — while saying
+  nothing about row order, which is what makes a keep-both-sides conflict resolution
+  legal without a regeneration. `npm run decisions:index` still writes the canonical
+  sorted block. A missing entry, a summary that drifted from its note, a status that
+  moved a row to the wrong group, a duplicate, an orphan, an unresolved conflict marker,
+  a duplicated group heading and an empty block all still fail. Two notes that *do* sort
+  as neighbors still produce an ordinary git conflict, which is visible rather than
+  silent; and the index can now pass the gate while `npm run build` still re-sorts it,
+  which is the recorded cost of splitting write from check. Also documents in
+  `engineering/workflow.md` § Merging that a queue ejection clears auto-merge silently,
+  so re-arming it is a step you must take yourself.
+  (`engineering/decisions/2026-08-10-decisions-index-merge-queue-race.md`)
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested

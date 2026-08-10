@@ -632,6 +632,26 @@ The contract, and its limits — be precise about what it does and doesn't cover
   pre-merge re-rebase dance — the queue now owns it** (so step 2 of §Keeping
   mergeable no longer applies before an authorized merge). Background:
   `decisions/2026-06-17-workflow-efficiency-review.md` §F.
+- **An ejection CLEARS auto-merge, and nothing tells you** (observed on #1535, #1547).
+  The queue tests your
+  PR on a `main` it has never seen, so a PR that was green on its own head can
+  still go red there and be ejected. Going green again is **not** enough — the
+  ejection turned auto-merge *off*, so the PR then sits green, approved, and
+  un-queued indefinitely with no notification saying "nobody is going to merge
+  you." After any ejection: fix the cause, push, and **re-arm auto-merge**, then
+  confirm it actually re-entered by looking for a fresh
+  `gh-readonly-queue/main/pr-<N>-*` workflow run. A green check is evidence the
+  PR *can* merge, never that it *is* queued.
+- **What ejects a green PR is usually a COMMITTED GENERATED FILE, not a code
+  conflict.** `build:check` byte-diffs every generated artifact, and any artifact
+  generated from *all* of something (the decision index, `CHANGELOG.md`, `dist/`)
+  is stale the moment another PR touching the same input merges ahead of you —
+  which is exactly the state the queue constructs. That is why HARD RULE #16 says
+  resolve those mechanically and force-with-lease silently, and why a generated
+  file's freshness check should assert only what one PR can be responsible for.
+  The decision index was refitted that way in #1547
+  (`decisions/2026-08-10-decisions-index-merge-queue-race.md`); the same question
+  is worth asking of the next artifact that ejects a PR.
 - **Bind a closing keyword to *every* issue the PR resolves.** GitHub
   auto-closes only the issues whose number carries its own keyword, so
   `Closes #1, #2, #3` closes **only #1** and silently leaves the rest open.

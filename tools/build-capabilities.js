@@ -137,7 +137,7 @@ const SCRIPT_META = {
   'oracle:bless':             ['Test & verify', 'Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component\'s derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11).'],
   'oracle:check':             ['Test & verify', 'Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift.'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
-  'decisions:index:check':    ['Build & bundle', 'Freshness gate for the decisions-index (stale vs the notes\' front-matter).'],
+  'decisions:index:check':    ['Build & bundle', 'Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted).'],
 
   // Galleries & preview (rendered PDFs)
   'build:galleries':          ['Galleries & preview', 'Rebuild per-component gallery PDFs (light + dark).'],

@@ -54,7 +54,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `css:build` | Bundle dist/lattice.css (+ .min) — the palette-blind engine stylesheet. |
 | `css:check` | Freshness gate for dist/lattice.css. |
 | `decisions:index` | Regenerate the "Current notes" index in engineering/decisions/README.md from each note's YAML front-matter. |
-| `decisions:index:check` | Freshness gate for the decisions-index (stale vs the notes' front-matter). |
+| `decisions:index:check` | Gate for the decisions-index: every note has its own correct entry, in the right group, exactly once (content, not a byte-diff — row order is deliberately not asserted). |
 | `default:build` | Build dist/lattice-default.css — the flattened zero-config drop-in (engine + cuoio). |
 | `default:check` | Freshness gate for the default bundle. |
 | `dist-readme:build` | Generate dist/README.md — the distribution-folder index. |
