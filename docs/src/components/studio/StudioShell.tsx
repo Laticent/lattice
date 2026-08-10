@@ -2373,8 +2373,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// than closing over a `nav` declared below it.
 	const navRef = React.useRef(nav);
 	navRef.current = nav;
-	// Zoom is a property of LOOKING AT ONE SLIDE, not of the deck — carrying 3× onto
-	// the next slide would land the reader in a random corner of it.
+	// Zoom is a property of LOOKING AT ONE SLIDE, not of the deck.
+	//
+	// NOT because the offset would be "random" — this comment used to say so, and it
+	// was simply false. The kernel works in viewport-relative pixels and every slide
+	// renders into the same box at the same fit scale, so persisting (scale, x, y)
+	// would land on the IDENTICAL region of the next slide.
+	//
+	// The real reason is weaker, and is recorded as such: consecutive slides are often
+	// the same layout, but often enough they are not (a table, then a section title),
+	// and arriving at 3× on a slide whose content sits somewhere else reads as a bug.
+	// Reconsidered after #1555 with both directions written up — persisting serves the
+	// actual boardroom use ("row 3 in Q1, now Q2, now Q3"), and the asymmetry runs
+	// against resetting, since unwanted persistence is one click on the badge to undo
+	// where unwanted reset has no undo at all — and KEPT, on a human call: never
+	// surprising beats never re-pinching. Settled, not merely unexamined.
+	// See engineering/decisions/2026-08-10-preview-pinch-zoom.md § "Three judgment
+	// calls worth naming".
 	// biome-ignore lint/correctness/useExhaustiveDependencies: slideNo IS the trigger; the handle is a ref.
 	React.useEffect(() => {
 		zoomRef.current?.reset();

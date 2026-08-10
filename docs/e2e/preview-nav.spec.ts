@@ -226,7 +226,12 @@ test('@parity a middle-button drag zooms, and a middle click snaps back to fit',
 });
 
 test('@parity zoom does not leak onto the next slide', async ({ page }) => {
-	// 3× carried onto the next slide would land the reader in a random corner of it.
+	// This cell pins a PRODUCT decision, not a mechanism — worth saying, because the
+	// reason first written here was false: 3× carried onto the next slide would NOT
+	// land in "a random corner", it would land on the identical region (every slide
+	// fits the same box). It resets because arriving at 3× on a slide whose content
+	// sits elsewhere reads as a bug — reconsidered after #1555 against the case for
+	// persisting, and kept on a human call. Changing it is a decision, not a fix.
 	const n = await slideCount(page);
 	const box = await previewSurface(page).boundingBox();
 	expect(box).not.toBeNull();

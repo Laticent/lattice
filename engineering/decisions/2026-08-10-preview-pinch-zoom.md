@@ -102,8 +102,18 @@ a slide whose content is somewhere else reads as a bug. The cost is real and fal
 on a real use — *"row 3 in Q1, now Q2, now Q3"* is exactly what zoom is for in a
 boardroom deck, and that reader now re-pinches every slide. The asymmetry also runs
 against us: unwanted persistence is one click to fix, unwanted reset has no fix.
-This is the weakest of the three judgment calls here and the one most likely to be
-revisited; it is recorded that way rather than dressed up.
+
+**Reconsidered on that basis, and KEPT — a settled call now, not an unexamined
+one.** Both directions above were put to the human as a product decision rather
+than resolved as a bug, and the answer was to keep resetting: *never surprising*
+beats *never re-pinching*. What changes is the status, not the behavior. This was
+the weakest of the three judgment calls and the one flagged as most likely to be
+revisited; it has now been revisited, with the false premise removed from the
+argument, and it survives on its own merits. Both surviving in-code rationales say
+so — `StudioShell.tsx`'s comment carried the "random corner" claim verbatim until
+this pass and now carries the corrected one, and the presenter popup's already did.
+The thing that would reopen it is evidence from a reader, not a re-reading of these
+same two paragraphs.
 
 Present additionally resets on close, which is not in doubt: leaving a talk at 3×
 would hand the next session a cropped opening slide.
