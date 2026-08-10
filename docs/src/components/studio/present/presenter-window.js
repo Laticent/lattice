@@ -343,8 +343,9 @@ export function buildPresenterDoc() {
 		// Zoom belongs to the slide you are reading, not to the deck. (Not because the
 		// offset would be "random" — every slide fits the same box, so it would be the
 		// SAME region — but because arriving mid-sentence at 3x on a slide whose content
-		// sits elsewhere reads as a bug. See the decision note; this is the weakest of
-		// the judgment calls in that change.)
+		// sits elsewhere reads as a bug. Reconsidered after #1555 against the case for
+		// persisting, and KEPT on a human call — settled, not merely unexamined. See
+		// the decision note.)
 		'zoom.reset();',
 		'count.textContent=(d.ppIndex+1)+" / "+total;',
 		'applyFrames();',
