@@ -69,6 +69,15 @@ in patch versions.
   spends the most time on a bill of zero showed no time at all. It now says *no charge* for a
   voice it has to encode, and gives the wait its own line whenever there is one.
 
+  **A larger cache does not mean a slower read, or a stuck one.** Raising the on-device budget
+  to 400 MB brought two costs with it, both fixed here rather than shipped as its price. Writing
+  a clip used to re-read the whole store's index to decide whether to evict — four times the
+  work per sentence at the larger size, on the path you are listening to — so the total is now
+  carried and the full read happens only when it must. And a device whose own storage quota is
+  *below* the budget used to refuse every write silently, freezing the cache forever with the
+  "never pay twice" promise quietly no longer holding; a refusal now lowers the ceiling to what
+  the device will take and trims to it.
+
   **Compression happens at export, never while you read.** An earlier build of this compressed
   as each sentence was recorded, to shrink the on-device cache too. It also put a codec on the
   live reading path, and that cost more than it saved: the encoder writes no gapless header, so

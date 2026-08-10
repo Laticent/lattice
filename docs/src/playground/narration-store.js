@@ -60,10 +60,50 @@ let budgetBytes = DEFAULT_BUDGET_BYTES;
 /** Override the LRU budget (Workspace control / tests). Values ≤ 0 are ignored. */
 export function setBudgetBytes(n) {
   if (Number.isFinite(n) && n > 0) budgetBytes = n;
+  storedBytes = null;
+  quotaCapBytes = Infinity;
 }
 export function getBudgetBytes() {
   return budgetBytes;
 }
+
+/**
+ * The budget the ORIGIN will actually allow, discovered the only way that never lies: by
+ * being refused a write.
+ *
+ * A budget is a ceiling WE choose; the quota is a ceiling the browser chooses, from a
+ * fraction of free disk, and it can be the smaller of the two on a nearly-full machine.
+ * When it is, nothing here notices: the store stays under 400 MB so the LRU never runs, every
+ * write fails with QuotaExceededError, `putClip` swallows it, and the cache freezes at
+ * whatever size it reached — permanently, silently, with the "never pay twice" promise quietly
+ * no longer holding. Raising the budget from 100 MB to 400 MB made that trap four times easier
+ * to fall into, so it is closed here rather than left as the price of the raise.
+ *
+ * On a refusal the ceiling drops to 80% of what is stored and the LRU is run against THAT, so
+ * the store self-limits to what the device will take. Floored, because a cache of nothing is
+ * not a graceful degradation — below the floor the in-memory cache is the honest answer.
+ */
+let quotaCapBytes = Infinity;
+const MIN_BUDGET_BYTES = 16 * 1024 * 1024;
+const effectiveBudget = () => Math.min(budgetBytes, quotaCapBytes);
+
+/**
+ * Running total of stored bytes, or null when it is not known.
+ *
+ * `evictToBudget()` used to run `clipStats()` — `meta.getAll()`, a full scan of every row —
+ * on EVERY clip write, and clip writes happen unawaited while narration is playing. At the
+ * 100 MB budget's ~550-row steady state that was tolerable; at 400 MB's ~2,200 rows it is
+ * four times the main-thread work per sentence, on the reading path, in a change whose whole
+ * purpose was taking work OFF that path.
+ *
+ * So the total is carried instead of re-read, and the scan happens only when it must: when
+ * the total is unknown, when it says we are over budget, or every `SCAN_EVERY` writes to
+ * bound the drift (another tab writing, or an overwrite counted as an addition — see
+ * `putClip`, which errs HIGH so the error is always toward evicting sooner).
+ */
+let storedBytes = null;
+let writesSinceScan = 0;
+const SCAN_EVERY = 64;
 
 // The recency stamp: monotonic WITHIN THIS TAB, not a bare `Date.now()`.
 //
@@ -232,18 +272,47 @@ export async function putClip(key, blob) {
     const bytes = await blob.arrayBuffer();
     if (!bytes?.byteLength) return false;
     const db = await openDB();
-    const at = nextStamp();
-    await write(db, (clips, meta) => {
-      clips.put({ key, bytes, type: blob.type || 'audio/mpeg' });
-      // `type` rides in meta so the export's PRE-FLIGHT can tell a compressed clip from an
-      // uncompressed one without materializing a byte of audio — see `clipSizes`.
-      meta.put({ key, size: bytes.byteLength, at, type: blob.type || 'audio/mpeg' });
-    });
-    await evictToBudget();
+    const store = async () => {
+      const at = nextStamp();
+      await write(db, (clips, meta) => {
+        clips.put({ key, bytes, type: blob.type || 'audio/mpeg' });
+        // `type` rides in meta so the export's PRE-FLIGHT can tell a compressed clip from an
+        // uncompressed one without materializing a byte of audio — see `clipSizes`.
+        meta.put({ key, size: bytes.byteLength, at, type: blob.type || 'audio/mpeg' });
+      });
+    };
+    try {
+      await store();
+    } catch (e) {
+      // The origin quota is below our budget. Drop the ceiling to what this device will
+      // actually hold, trim to it, and write once more — rather than returning false forever
+      // while the LRU sits idle because we are nominally under budget. See `quotaCapBytes`.
+      if (!isQuotaError(e)) throw e;
+      const { bytes: have } = await clipStats();
+      quotaCapBytes = Math.max(MIN_BUDGET_BYTES, Math.floor(have * 0.8));
+      await evictToBudget();
+      await store();
+    }
+    // Counted as an ADDITION even when it overwrites an existing key: knowing the difference
+    // would cost a read per write, and the two sizes are near-identical anyway (the key is
+    // content-complete, so a re-put is the same sentence in the same voice). The error runs
+    // high, which trims early rather than late — the safe direction for a quota.
+    if (storedBytes != null) storedBytes += bytes.byteLength;
+    writesSinceScan++;
+    if (storedBytes == null || storedBytes > effectiveBudget() || writesSinceScan >= SCAN_EVERY) {
+      await evictToBudget();
+    }
     return true;
   } catch {
     return false;
   }
+}
+
+/** A refusal by the STORAGE layer, told apart from an ordinary transaction failure. Named
+ *  rather than instance-checked: `DOMException` is not reliably comparable across the jsdom /
+ *  fake-indexeddb boundary the tests run on, and the name is the part the spec pins. */
+function isQuotaError(e) {
+  return e?.name === 'QuotaExceededError' || e?.name === 'NS_ERROR_DOM_QUOTA_REACHED';
 }
 
 /** `{count, bytes}` across every stored clip — the Data tab's stat line. Reads only the
@@ -255,6 +324,10 @@ export async function clipStats() {
     const rows = (await read(db, META, (meta) => meta.getAll())) || [];
     let bytes = 0;
     for (const m of rows) bytes += m.size || 0;
+    // The scan is paid for; bank its answer, so the carried total is re-anchored to the truth
+    // every time anything asks for the real figure (the Data tab, an eviction pass).
+    storedBytes = bytes;
+    writesSinceScan = 0;
     return { count: rows.length, bytes };
   } catch {
     return { count: 0, bytes: 0 };
@@ -365,8 +438,11 @@ export async function clearClips() {
       clips.clear();
       meta.clear();
     });
+    storedBytes = 0;
+    writesSinceScan = 0;
   } catch {
     /* nothing to clear / no storage */
+    storedBytes = null;
   }
 }
 
@@ -394,8 +470,9 @@ function evictToBudget() {
 async function evictOnce() {
   try {
     const { bytes } = await clipStats();
-    if (bytes <= budgetBytes) return;
-    let over = bytes - budgetBytes;
+    if (bytes <= effectiveBudget()) return;
+    let over = bytes - effectiveBudget();
+    let freed = 0;
     const db = await openDB();
     await write(db, (clips, meta) => {
       const cursorReq = meta.index('at').openCursor();
@@ -406,11 +483,17 @@ async function evictOnce() {
         clips.delete(m.key);
         meta.delete(m.key);
         over -= m.size || 0;
+        freed += m.size || 0;
         cur.continue();
       };
     });
+    // Kept in step with what was deleted, rather than invalidated. Invalidating would force
+    // the next write to re-scan — and a store AT capacity is exactly where every write is,
+    // so that would reinstate the per-write full scan in the one state it is worst in.
+    if (storedBytes != null) storedBytes = Math.max(0, storedBytes - freed);
   } catch {
-    /* best-effort */
+    // The total can no longer be trusted: the deletes may have partly applied.
+    storedBytes = null;
   }
 }
 
@@ -419,6 +502,9 @@ export function __resetForTests() {
   dbPromise = null;
   budgetBytes = DEFAULT_BUDGET_BYTES;
   evictChain = Promise.resolve();
+  storedBytes = null;
+  writesSinceScan = 0;
+  quotaCapBytes = Infinity;
 }
 
 /** Test seam: resolve once every queued eviction has run. Eviction is deliberately fired
