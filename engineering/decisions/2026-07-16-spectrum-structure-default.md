@@ -94,6 +94,15 @@ The hairline now echoes the accent-toned labels above it (reads intentional + on
 dark canvases, and stays clearly secondary to the full-spectrum bar. Palette-blind, one dial,
 theme-overridable via `--spectrum-quiet`. Verified light + dark (indaco, indaco-dark, ardesia-dark).
 
+> **Correction (2026-08-10, #1546): "theme-overridable" above was never true.**
+> `--spectrum-quiet` is declared on the bare `section` slide root, not at `:root`, and
+> `section` is a *descendant* of `:root` — so the engine's value wins on every slide and
+> everything inside it, whichever file loads last. Measured in Chromium 131 with the theme's
+> `:root` deliberately loaded after the engine's `section`: the engine's value on the section
+> and its children, the theme's surviving only on `html`, where nothing renders. The dial is
+> **engine-owned**; a theme moves `--accent`/`--border`, which it derives from. Nothing else in
+> this record changes — the treatment, the tint recipe and the tier design all stand.
+
 **The one value added — `restrained`, a fixed middle tier (NOT the rejected style axis).** The
 human then asked to *"add restrained itself as an option that holds the restrained line."* This is
 precisely what the Munger inversion had endorsed: the value authors want from a two-tier look is

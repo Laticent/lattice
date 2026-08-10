@@ -413,7 +413,14 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
     assert.match(block, /section\.spectrum-edge-bottom:not\(\.divider\)/);
   });
 
+  // Comments are stripped first, matching the canonical HARD RULE #3 gate
+  // (`checkHexLiterals` in tools/check-ownership.js, which runs
+  // `stripCommentsKeepOffsets` before looking). Without that this assertion is
+  // STRICTER than the rule it mirrors: an issue reference in a comment is all hex
+  // digits, so `#1546` reads as a colour literal and fails a block whose CSS is
+  // perfectly palette-blind. A hex in prose is not a palette dependency.
   test('palette-blind — no hex literals anywhere in the SPECTRUM block', () => {
-    assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), 'spectrum CSS must be palette-blind (var(--token) only)');
+    const code = block.replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(code), 'spectrum CSS must be palette-blind (var(--token) only)');
   });
 });
