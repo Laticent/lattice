@@ -64,7 +64,7 @@ const useIsomorphicLayoutEffect = typeof window === "undefined" ? React.useEffec
  * layout back (usually the first attempt, and on a fresh load `defaultLayout` has already
  * done the job before this runs at all). It only runs to the end for a group that never
  * measures — mounted under `display:none` for the whole session — at the cost of one
- * cancelled frame callback.
+ * canceled frame callback.
  */
 const RESTORE_DEADLINE_MS = 3000
 

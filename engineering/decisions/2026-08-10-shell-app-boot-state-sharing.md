@@ -182,7 +182,7 @@ Per HARD RULE #23, on the real built surface, driven through the real divider:
 
 ## The Playground's pre-paint, which is the same problem with a different cure
 
-Fixing the Studio left the Playground looking worse than either of us realised, and a
+Fixing the Studio left the Playground looking worse than either of us realized, and a
 screen recording on a real iPad is what surfaced it — not any measurement taken here.
 
 That island server-renders, and until it hydrates its two panel wrappers carry **no
