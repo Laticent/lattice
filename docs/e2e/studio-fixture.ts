@@ -61,6 +61,78 @@ export const CHROME = {
 	moreControls: 'Menu',
 } as const;
 
+// ── Share-dialog export contract ───────────────────────────────────────────
+// The SAME implicit contract as `CHROME` above, for the Share sheet's format
+// rows: which rows download on one click, and which land on a pre-export
+// OPTIONS step whose own button is what actually starts the export.
+//
+// This is the #780 class again, and it bit exactly as predicted (#1507): PDF
+// gained an options step ("Export PDF · Choose what rides along" → `Download
+// PDF`), four specs kept clicking `PDF` and awaiting a download, and every one
+// of them timed out for a month against a working pipeline. Four specs
+// open-coding the same two-step flow is how it went unnoticed, so EXPORT flows
+// route through `shareExport` below — a step added to a format is a one-line fix
+// here. Not yet universal: `share.spec.ts` still open-codes four row regexes for
+// its VISIBILITY assertions (it awaits no download, so it never drifted), and the
+// three Marp tests in `journeys/author-export.spec.ts` open-code their two-step
+// flow because they interact INSIDE the options step, which this helper can't
+// express. A row-label rename is still a 3-file sweep — grep before you rename.
+//
+// Every entry below was driven on the REAL Share sheet (desktop project); the run
+// and its artifacts are recorded in #1552. Formats with no dedicated helper still
+// live here so the contract is complete and greppable, exactly as
+// `CHROME.versionHistory` does — but note those entries are verified-by-sweep, not
+// pinned by any spec, so they can rot without failing anything.
+export const SHARE_EXPORTS = {
+	/** Options step "Export PDF" (comments-as-sticky-notes toggle). → `.pdf` */
+	pdf: { row: /^PDF/, confirm: /^Download PDF/ },
+	/** One click. → `.pptx` */
+	pptx: { row: /^PowerPoint/, confirm: null },
+	/** Options step "Export images" (format/size/thumbnails/SVGs). → `.zip`
+	 *  NOTE its color-mode segment has a button literally labeled "Print" —
+	 *  a loose /^(Download|Print)/ confirm locator grabs that, not the export. */
+	images: { row: /^Images \(\.zip\)/, confirm: /^Download images/ },
+	/** Options step "Export webpage" (scheme / strip-notes / narration). → `.html` */
+	webpage: { row: /^Webpage \(\.html\)/, confirm: /^Download webpage/ },
+	/** One click. → `<deck>-captions.zip` — a ZIP of tracks, NOT a bare `.vtt`
+	 *  despite the row's label; a spec asserting /\.vtt$/ on it would fail. */
+	captions: { row: /^Captions \(\.vtt\)/, confirm: null },
+	/** One click. → `.lattice` */
+	lattice: { row: /^Lattice project/, confirm: null },
+	/** One click. → `.md`. The `^` anchor matters: the "Print source" row's
+	 *  description also contains the word "Markdown". */
+	markdown: { row: /^Markdown/, confirm: null },
+	/** Options step "Export Marp bundle" (overflow marker). → `.zip` */
+	marp: { row: /^Marp bundle/, confirm: /^Download bundle/ },
+	/** Options step "Print deck" (paper/color + sheet preview). TWO exits:
+	 *  `Print` hands off to the browser print dialog and emits NO download, so
+	 *  `Download PDF` is the only one a download-oracle spec can await. → `.pdf` */
+	print: { row: /^Print deck/, confirm: /^Download PDF/ },
+	/** One click, and NEITHER a step nor a download: it opens a print popup and
+	 *  the sheet stays on the format menu. Nothing here to await. */
+	printSource: { row: /^Print source/, confirm: null },
+} as const;
+
+/**
+ * Pick a format in the OPEN Share dialog and, when that format lands on a
+ * pre-export options step, click the step's own export button too.
+ *
+ * Takes the dialog as already open (the call sites vary in what they set up
+ * between opening it and exporting — chart-export arms a capture-frame probe
+ * first), and does NOT await the download: the caller owns that oracle, since
+ * `page.waitForEvent('download')` must be armed before the click that fires it.
+ */
+export async function shareExport(page: Page, format: keyof typeof SHARE_EXPORTS): Promise<void> {
+	const { row, confirm } = SHARE_EXPORTS[format];
+	const dialog = page.getByRole('dialog');
+	// NO `.first()` on either click. Every regex here resolves to exactly one button today,
+	// and this map exists to CATCH chrome drift — `.first()` would turn a future label
+	// collision into a silent click on whichever row sorts first in the DOM instead of the
+	// strict-mode failure that would tell us the contract moved.
+	await dialog.getByRole('button', { name: row }).click();
+	if (confirm) await dialog.getByRole('button', { name: confirm }).click();
+}
+
 // The live compose preview: the engine renders the deck INSIDE this srcdoc
 // iframe; `.lattice` is the slide root. Everything visual the user judges is in
 // here, so most cause-effect oracles read through this frame.

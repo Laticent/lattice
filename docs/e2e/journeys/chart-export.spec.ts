@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, gotoStudio, railButtons, setEditorContent, test, toastText } from '../studio-fixture';
+import { expect, gotoStudio, railButtons, setEditorContent, shareExport, test, toastText } from '../studio-fixture';
 
 // Journey: chart deck → PDF. Stylesheet-styled chart SVGs (radar, donut) are the
 // export rasterizer's blind spot: html-to-image inlines computed styles onto
@@ -46,10 +46,15 @@ test('a chart deck exports to PDF with styled (non-black) chart SVGs', async ({ 
 		// regression (flatten never runs) this times out, failing the test.
 		if (sizedTexts.length !== texts.length || rawVarStops.length) return null;
 		return `sizedText=${sizedTexts.length}/${texts.length} rawVarStops=0`;
-	}, { timeout: 60_000 });
+		// THREE-arg form on purpose. `waitForFunction(fn, options)` binds that object to `arg`,
+		// not to options — so the 60s here was silently ignored and the probe ran on the 15s
+		// `actionTimeout` while the export it watches is budgeted 60s. It was visible in a
+		// mutation run as "waitForFunction: Timeout 15000ms exceeded"; a slow-but-correct
+		// export would have flaked the same way.
+	}, undefined, { timeout: 60_000 });
 
 	const download = page.waitForEvent('download', { timeout: 60_000 });
-	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).click();
+	await shareExport(page, 'pdf');
 	await flattenProbe; // resolves only when the capture frame's charts are baked
 	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 	await expect(toastText(page)).toContainText('PDF ready.');
