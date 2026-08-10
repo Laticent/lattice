@@ -16,8 +16,10 @@ summary: >
   thumbnail at all: every frame was booting it at `author` level, so the shipped gallery painted an
   "Overflows" tab on the `image` tile and type-floor alarms on `state-chart`/`quadrant` — QA chrome
   describing a catalog sample nobody can fix — while each frame ran a layout-forcing probe pass on
-  every shared post-mutation dispatch. `<html data-lattice-thumbnail>` routes it to `off`, the level
-  that already installs nothing. Measurement did NOT support the stronger claim that overflow is a
+  every shared post-mutation dispatch. `<html data-lattice-specimen>` routes it to `off`, the level
+  that already installs nothing — and it is scoped to the grid that shows CATALOG SAMPLES, because
+  declaring it from the shared face silenced Present's overview and Reshape too, where the slides
+  are the author's own. Measurement did NOT support the stronger claim that overflow is a
   second crash cause, and that is recorded too. The adversarial trio (#25) then found two real
   defects in the fix itself — a coalesced IntersectionObserver batch could poison the budget
   registry into the very leak it closes, and recycling wiped a module-level cache at scroll
@@ -185,7 +187,7 @@ longer than 24 slides a full traversal can still outrun the slice cache.
   a fix that simply stopped rendering previews could not pass.
 - **Visual, real surface** — screenshots at 1440px and 390px at the bottom of the grid, immediately
   after jumping back to the top, and mid-grid. Every visible tile is rendered in all of them.
-- The docs unit suite (2856 tests), lint, and typecheck are green, as are the neighboring e2e specs
+- The docs unit suite (2860 tests), lint, and typecheck are green, as are the neighboring e2e specs
   (`insert-component`, `present`, `present-guide`, `slide-ops`).
 
 ## 6. The second half — a thumbnail is watched by nothing
@@ -254,9 +256,12 @@ compounding §1's frame accumulation, not a second cause of it.
 
 ### The fix, and the wrong turn on the way to it
 
-`SlideThumbFace` — the one face every thumbnail grid shares — stamps `<html
-data-lattice-thumbnail>` on the frame it renders, via `SingleSlideOptions.thumbnail` →
-`srcdoc()`. The runtime reads it and routes the watcher to `off`.
+The add-slide gallery's tiles stamp `<html data-lattice-specimen>` on the frames they render, via
+`SlideThumbFace`'s `specimen` prop → `SingleSlideOptions.specimen` → `srcdoc()`. The runtime reads
+it and routes the watcher to `off`.
+
+The flag is named for WHOSE CONTENT the tile shows, not for how big the tile is, and it is passed
+per-caller. The first cut got both wrong — see §7 finding #6.
 
 The first cut instead added an early `return` past `startOverflowWatcher` entirely, on
 the belief that `off` still runs the probes. **That belief was wrong, and it came from
@@ -365,6 +370,43 @@ now flick-scrolls from inside a `requestAnimationFrame` loop, three traversals, 
 asserts the settled count — a scale-free property, unlike the ceiling, so it does not quietly become
 a desktop-only assertion. Tagged `@crosswidth` so a 390px number exists at all.
 
+### D6 — the fix silenced the author's own slides, and I was logging it instead of fixing it
+
+The scope question I had surfaced as a product call was, on re-attack, a **demonstrated regression**
+— and HARD RULE #18 does not let that ship behind a note.
+
+`SlideThumbFace` declared the flag for everyone, so every grid sharing the face went silent. Two of
+them show the AUTHOR'S OWN slides: Present's slide overview and Reshape's variant tiles. Measured on
+the real Studio with a deliberately overflowing slide:
+
+```
+Studio main preview:            level=author  rings=1  tabs=1
+Present overview, SAME slide:   level=off     rings=0  tabs=0
+```
+
+The whole-deck overview is exactly where an author scans for the clipped slide. That surface worked
+before this change and did not after — self-inflicted, low-visibility, off the main path of the
+feature, which #18 enumerates as *not* exits.
+
+The name was the tell. `isThumbnailDocument` / `thumbnail` described the SIZE OF THE BOX, when the
+thing that actually decides is WHOSE CONTENT IS IN IT. Renamed to **`specimen`** — a catalog sample
+the author did not write and cannot edit — and moved from the shared face to the caller. The
+gallery's tiles and looks panel pass it; the overview and Reshape do not, and keep their alarms.
+Being small is not what makes a preview unworthy of the signal; not being yours is.
+
+Nothing in the diff had covered the overview's level, so a later re-decision would have been just as
+silent. Two unit cases now pin the default (a bare face is NOT a specimen) and an e2e drives the real
+Present overview over an overflowing deck and requires `author` on every tile — verified to fail,
+with the old unconditional flag restored, at `overview tiles silenced at off, off`.
+
+### D7 — the refcount seam still had an unguarded edge
+
+`countIn()` ran before `renderInto`'s disposed check, so `dispose()` → `renderInto()` joined the
+count permanently (`counted` flips true; `wasDisposed` blocks the second decrement). Latent — every
+shipped host tears its render triggers down before disposing — but it is the same upward drift as
+the construction-time seam, relocated. Now bails on `disposed` first, which closes the class rather
+than the instance.
+
 ### Still open, deliberately
 
 - **`PREVIEW_BUDGET = 32` is device-blind**, chosen from one desktop measurement. All three lenses
@@ -378,14 +420,9 @@ a desktop-only assertion. Tagged `@crosswidth` so a 390px number exists at all.
   one was.
 - **`SLICE_CACHE_MAX` (24) < `PREVIEW_BUDGET` (32)** — a long overview traversal can outrun the
   slice cache.
-- **Two of the four grids show the author's own content, and §6's justification was written only
-  about the gallery.** `ReshapePicker` previews the author's slide in each variant look, and
-  Present's **slide overview** shows their whole deck — so "a catalog sample the author neither
-  wrote nor can fix" is true of the picker and false of both of those. Naming Reshape while leaving
-  the overview implicit was an oversight, not a decision; both are listed here now. The shape that
-  would keep both wins is to make the level a property of the GRID rather than of `SlideThumbFace`:
-  `off` for the picker's catalog samples, and the authoring level for the two grids showing the
-  author's own slides. That is a product call, so it is surfaced rather than taken silently.
+- **`PREVIEW_BUDGET` counts TILES, not previews.** The picker's Blank tile calls `useInView` and
+  claims a slot while rendering no iframe, so the effective document ceiling is the budget minus
+  however many non-preview tiles are in band. Conservative, so harmless.
 
 ## 8. Logged, not fixed
 

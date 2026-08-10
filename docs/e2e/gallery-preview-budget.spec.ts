@@ -106,16 +106,16 @@ test('@crosswidth the add-slide gallery holds its live-preview count flat across
 	await expect.poll(() => liveFrames(page), { timeout: 15_000 }).toBeGreaterThan(1);
 });
 
-// #1463 — no tile is watched. Every thumbnail frame is stamped `<html
-// data-lattice-thumbnail>`, which routes the engine runtime's overflow / type-floor
-// watcher to `off`: it installs no probe, no MutationObserver and no resize handler, so
-// a scrolled grid is not running one per frame to draw marks nobody can read at ~260px.
+// #1463 — no GALLERY tile is watched. Each is stamped `data-lattice-specimen`, which
+// routes the engine runtime's overflow / type-floor watcher to `off`: it installs no
+// probe and no resize handler, so a scrolled grid is not running one per frame to draw
+// marks describing a catalog sample the author neither wrote nor can fix.
 //
 // This is the REAL-SURFACE oracle, and it caught real chrome: before the change the
 // shipped gallery painted an "Overflows" tab on the `image` tile and type-floor alarms
 // on `state-chart` and `quadrant` — QA badges describing a catalog sample the author
 // neither wrote nor can fix.
-test('no add-slide gallery tile paints an authoring alarm', async ({ page }, testInfo) => {
+test('@crosswidth no add-slide gallery tile paints an authoring alarm', async ({ page }, testInfo) => {
 	test.setTimeout(120_000);
 	await gotoStudio(page);
 	await openGallery(page, testInfo.project.name === 'mobile');
@@ -177,4 +177,66 @@ test('no add-slide gallery tile paints an authoring alarm', async ({ page }, tes
 		.first()
 		.getAttribute('data-lattice-overflow-marker');
 	expect(main, "the Studio's own preview must still be watched at author level").toBe('author');
+});
+
+// #1463, the other half — and the one a whole round of review nearly shipped broken.
+// Silencing the authoring alarms is right for the GALLERY, whose tiles are catalog samples.
+// It is wrong for Present's slide overview, which shows the AUTHOR'S OWN deck: the whole
+// point of a grid over your own slides is to spot the one that is clipped. The first cut
+// declared the flag inside the shared `SlideThumbFace`, so the overview lost the signal too
+// — measured on the real Studio at `rings=1, tabs=1` in the main preview against
+// `rings=0, tabs=0` on the same slide's overview tile.
+//
+// This is the oracle for that. It seeds a deck whose second slide massively overflows, then
+// requires the overview's tiles to be watched at the authoring level, so a future change
+// that pushes `specimen` back down into the shared face fails here instead of shipping.
+test("Present's slide overview keeps the authoring signal — those are the author's own slides", async ({ page }) => {
+	test.setTimeout(120_000);
+	await gotoStudio(page);
+
+	const overflowing = `---\ntheme: cuoio\n---\n\n<!-- _class: content -->\n\n## Fits\n\n- short\n\n---\n\n<!-- _class: content -->\n\n## Overflows\n\n${Array.from(
+		{ length: 60 },
+		(_, i) => `- Line ${i} — ${'lorem ipsum dolor sit amet consectetur adipiscing elit '.repeat(3)}`,
+	).join('\n')}\n`;
+	await page.getByLabel('Deck source').click();
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.press('Delete');
+	await page.keyboard.insertText(overflowing);
+	await page.waitForTimeout(4000);
+
+	// The control: the authoring preview really does mark this deck. Without it, "the overview
+	// is watched" could pass on a deck that simply does not overflow.
+	const mainLevel = await page
+		.frameLocator('[aria-label="Live deck preview"] iframe.live')
+		.locator('section[data-lattice-slide]')
+		.first()
+		.getAttribute('data-lattice-overflow-marker');
+	expect(mainLevel, 'the Studio preview must be an authoring surface').toBe('author');
+
+	await page.getByRole('button', { name: 'Present' }).click();
+	await page.waitForTimeout(2500);
+	await page.keyboard.press('g');
+	const overview = page.getByRole('dialog', { name: 'Slide overview' });
+	await overview.waitFor();
+	await page.waitForTimeout(4500); // the watcher re-measures once webfonts land
+
+	const tiles = overview.locator('iframe.live');
+	const n = await tiles.count();
+	expect(n, 'no overview tile rendered, so nothing was checked').toBeGreaterThan(1);
+
+	const levels: (string | null)[] = [];
+	for (let i = 0; i < n; i += 1) {
+		const level = await overview
+			.frameLocator('iframe.live >> nth=' + i)
+			.locator('section[data-lattice-slide]')
+			.first()
+			.getAttribute('data-lattice-overflow-marker')
+			.catch(() => null);
+		if (level !== null) levels.push(level);
+	}
+	expect(levels.length, `only ${levels.length} of ${n} overview tiles could be read`).toBeGreaterThanOrEqual(n - 1);
+	expect(
+		levels.filter((l) => l !== 'author'),
+		`overview tiles silenced at ${levels.filter((l) => l !== 'author').join(', ')} — these are the author's own slides`,
+	).toEqual([]);
 });

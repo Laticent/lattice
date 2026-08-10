@@ -107,8 +107,9 @@ export function useInView<T extends Element>(rootMargin = '250px'): [React.RefOb
 				// "update intersection observations" step runs twice before that task is
 				// serviced — which a flick-scroll over a grid of booting engine iframes does
 				// routinely — one target arrives with several entries. Measured on the real
-				// Studio: 4–10 coalesced `[intersecting, not-intersecting]` batches per
-				// flick-scroll of the gallery.
+				// Studio with the observer instrumented, across three flick traversals of the
+				// gallery: 87 coalesced batches at 1440px and 24 at 390px, EVERY one of them
+				// the shape `[intersecting, not-intersecting]`.
 				//
 				// The one-way version could destructure the first entry safely: a dropped
 				// record only delayed a mount that was going to happen anyway. This hook keeps
@@ -121,9 +122,10 @@ export function useInView<T extends Element>(rootMargin = '250px'): [React.RefOb
 				// falsifying this file's own central invariant.
 				//
 				// The last entry is the observer's current answer, which is the only one this
-				// hook has any use for. (The repo's other two IntersectionObserver call sites —
-				// RestyleShowcase, FieldCardsLive — take `entries.some(...)`; the destructure
-				// here was the outlier.)
+				// hook has any use for. (Nothing else in `docs/src` destructures the first entry:
+				// of the four other call sites, RestyleShowcase and FieldCardsLive take
+				// `entries.some(...)`, and anima/hydrate and deck-preview iterate the whole
+				// batch. This one was the outlier.)
 				const e = entries[entries.length - 1];
 				if (!e) return;
 				if (e.isIntersecting) {
@@ -185,6 +187,20 @@ export type SlideThumbFaceProps = {
 	 *  (see below), so pass a `className` that carries the tile's box (`aspect-video w-full`
 	 *  at every call site) and the placeholder holds the layout open. */
 	active: boolean;
+	/**
+	 * This tile shows a CATALOG SPECIMEN — a sample the author did not write and cannot edit
+	 * — so the engine's authoring alarms (the overflow ring/tab and the type-floor alarm)
+	 * have no addressee here and are silenced. See `SingleSlideOptions.specimen`.
+	 *
+	 * PER-CALLER, deliberately, and this face is the reason why. It used to declare
+	 * `thumbnail` for everyone, which silenced the alarms in Present's slide overview and
+	 * Reshape's variant tiles as well — and those show the AUTHOR'S OWN SLIDES, where a
+	 * clipped slide is the whole thing the grid is being scanned for. Measured on the real
+	 * Studio, an overflowing slide read `rings=1, tabs=1` in the main preview and
+	 * `rings=0, tabs=0` on its own overview tile. Being small is not what makes a preview
+	 * unworthy of the signal; not being yours is.
+	 */
+	specimen?: boolean;
 	className?: string;
 };
 
@@ -202,7 +218,7 @@ export type SlideThumbFaceProps = {
  * `<figure>`), which is what actually returns the memory. The placeholder inherits the
  * same `className`, so the tile's box — and therefore the scroll height — is unchanged.
  */
-export function SlideThumbFace({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, active, className }: SlideThumbFaceProps) {
+export function SlideThumbFace({ options, sample, slideIndex, slideCount, slideMarkdown, mermaid, paletteOverride, extraTheme, modeOverride, extraCss, active, className, specimen }: SlideThumbFaceProps) {
 	if (!active) return <span aria-hidden className={cn('block', className)} />;
 	return (
 		<DeckPreview
@@ -218,13 +234,7 @@ export function SlideThumbFace({ options, sample, slideIndex, slideCount, slideM
 			extraCss={extraCss}
 			active={active}
 			className={className}
-			// THE thumbnail declaration, made once for every grid that uses this face — the
-			// picker's tiles AND its looks panel, Present's slide overview, and Reshape's
-			// variant tiles. It stamps the frame so the engine runtime routes its overflow /
-			// type-floor watcher to `off`: at this size the marks are unreadable, and the
-			// watcher's probe pass forces layout once per frame across the whole grid.
-			// (It does NOT remove an observer — see isThumbnailDocument() in lib/runtime.)
-			thumbnail
+			specimen={specimen}
 			aria-hidden
 		/>
 	);

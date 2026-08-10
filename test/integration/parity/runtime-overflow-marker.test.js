@@ -43,15 +43,15 @@ const SLIDE = '<section class="content"><h2>Title</h2><p>Body.</p></section>';
  * block. `fetch` is stubbed to reject so no network fallback can quietly supply an
  * answer — everything here comes from the block or from the surface default.
  */
-async function boot({ block = '', markup = SLIDE, thumbnail = false, overflowing = false } = {}) {
+async function boot({ block = '', markup = SLIDE, specimen = false, overflowing = false } = {}) {
   const dom = new JSDOM(
-    `<!DOCTYPE html><html${thumbnail ? ' data-lattice-thumbnail' : ''}><head></head><body>${markup}${block}</body></html>`,
+    `<!DOCTYPE html><html${specimen ? ' data-lattice-specimen' : ''}><head></head><body>${markup}${block}</body></html>`,
     { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
   );
   // GEOMETRY, or the assertion is over an empty set. jsdom lays nothing out, so every element
   // reports scrollHeight === clientHeight === 0 and `probeSectionOverflow` finds no overflow AT ANY
   // LEVEL — which means a test that only asserts "no ring, no tab" passes just as happily with the
-  // fix reverted. (It did: the first cut of the thumbnail suite below was exactly that hollow gate,
+  // fix reverted. (It did: the first cut of the specimen suite below was exactly that hollow gate,
   // caught by the adversarial trio.) Faking a section that is 2000px of content in a 700px box
   // makes the probe fire, so `author` really marks and `off` really does not, and the difference is
   // what the tests read. Installed BEFORE the runtime boots, and only for the cases that ask.
@@ -145,21 +145,21 @@ describe('overflow-marker — `off` clears what is already there and stays stamp
   });
 });
 
-describe('a THUMBNAIL document is watched by nothing (#1463)', () => {
-  // A thumbnail is a miniature in a grid of its peers — the add-slide gallery, Present's
-  // slide overview. The watcher has no addressee there (unreadable at ~260px, and in the
-  // gallery it describes a catalog sample nobody can fix) and its cost is per-DOCUMENT,
-  // so it multiplies by every frame the grid holds open. `<html data-lattice-thumbnail>`
-  // routes it to `off`, the level that installs nothing.
-  test('a thumbnail resolves to `off` — no authoring signal, whatever the surface default', async () => {
-    const dom = await boot({ thumbnail: true });
+describe('a SPECIMEN document is watched by nothing (#1463)', () => {
+  // A SPECIMEN is a catalog sample the author did not write and cannot edit — the add-slide
+  // gallery's tiles. The watcher has no addressee there, and its cost is per-DOCUMENT so it
+  // multiplies by every frame the grid holds open. `<html data-lattice-specimen>` routes it
+  // to `off`, the level that installs nothing. A thumbnail of the AUTHOR'S OWN slide is not
+  // a specimen and keeps its watcher — the unflagged control below is what pins that.
+  test('a specimen resolves to `off` — no authoring signal, whatever the surface default', async () => {
+    const dom = await boot({ specimen: true });
     assert.deepEqual(levelsOn(dom.window.document), ['off'],
       'no export-settings block, so this document would otherwise be an authoring surface at `author`');
     dom.window.close();
   });
 
   // THE POSITIVE CONTROL, and it has to come first: it proves the geometry harness really does
-  // make the watcher fire, so the silence asserted below is the thumbnail flag's doing and not
+  // make the watcher fire, so the silence asserted below is the specimen flag's doing and not
   // jsdom's. Without this pair the "no ring, no tab" assertion is over an empty set — the exact
   // hollow-gate shape this repo has shipped once before.
   test('CONTROL: the same overflowing document, unflagged, IS marked', async () => {
@@ -172,9 +172,9 @@ describe('a THUMBNAIL document is watched by nothing (#1463)', () => {
   });
 
   // The load-bearing half, now with something to be silent ABOUT. `off` is not "a quieter mark" —
-  // it returns before any probe exists, which is the whole reason a thumbnail uses it.
-  test('an overflowing THUMBNAIL draws nothing at all', async () => {
-    const dom = await boot({ thumbnail: true, overflowing: true });
+  // it returns before any probe exists, which is the whole reason a specimen uses it.
+  test('an overflowing SPECIMEN draws nothing at all', async () => {
+    const dom = await boot({ specimen: true, overflowing: true });
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off']);
     assert.equal(document.querySelectorAll('section.overflow, section.illegible').length, 0, 'a ring was drawn');
@@ -186,7 +186,7 @@ describe('a THUMBNAIL document is watched by nothing (#1463)', () => {
   // practice: the shared post-mutation dispatch still runs (patchSectionGeometry owns it and is
   // deliberately kept), so a re-marking watcher WOULD get another chance here. It must not take it.
   test('nothing is installed — a later mutation still draws nothing', async () => {
-    const dom = await boot({ thumbnail: true, overflowing: true });
+    const dom = await boot({ specimen: true, overflowing: true });
     const { document } = dom.window;
     const s = document.querySelector('section[data-lattice-slide]');
     s.setAttribute('data-poke', '1');
@@ -200,11 +200,11 @@ describe('a THUMBNAIL document is watched by nothing (#1463)', () => {
   // Strictly better than the bypass this replaced: a document that arrives pre-marked
   // (a build-time stamp, or an earlier pass at a louder level) is CLEANED, not left
   // carrying chrome nobody will ever remove.
-  test('a pre-marked thumbnail is swept clean', async () => {
+  test('a pre-marked specimen is swept clean', async () => {
     const marked = '<section class="content overflow illegible">'
       + '<h2>T</h2><div class="overflow-tab">Overflows</div>'
       + '<div class="illegible-tab">Type 3px · floor 8.4px</div></section>';
-    const dom = await boot({ markup: marked, thumbnail: true });
+    const dom = await boot({ markup: marked, specimen: true });
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off']);
     assert.equal(document.querySelectorAll('.overflow, .illegible, .overflow-tab, .illegible-tab').length, 0);
@@ -221,11 +221,11 @@ describe('a THUMBNAIL document is watched by nothing (#1463)', () => {
     dom.window.close();
   });
 
-  // A thumbnail is a RENDER TARGET, like an export — so if a document somehow carried
-  // both signals, the thumbnail wins. There is no surface that produces both today; this
+  // A specimen is a RENDER TARGET, like an export — so if a document somehow carried
+  // both signals, the specimen wins. There is no surface that produces both today; this
   // pins the precedence so a future one cannot resolve it by accident.
-  test('the thumbnail flag outranks an export-settings block', async () => {
-    const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'author' }), thumbnail: true });
+  test('the specimen flag outranks an export-settings block', async () => {
+    const dom = await boot({ block: exportSettingsBlock({ overflowMarker: 'author' }), specimen: true });
     assert.deepEqual(levelsOn(dom.window.document), ['off']);
     dom.window.close();
   });

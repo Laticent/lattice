@@ -1,6 +1,17 @@
 import { render } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Capture what the face hands the renderer. The engine host is stubbed — these tests are
+// about the WINDOW and about WHO gets the authoring alarms, not about rendering a slide.
+let lastDeckPreviewProps: Record<string, unknown> | null = null;
+vi.mock('@/components/DeckPreview', () => ({
+	default: (props: Record<string, unknown>) => {
+		lastDeckPreviewProps = props;
+		return <figure data-testid="deck-preview" />;
+	},
+}));
+
 import { livePreviewCount, PREVIEW_BUDGET, SlideThumbFace, useInView } from './slide-thumb';
 
 // #1463 — the thumbnail window is TWO-WAY and budgeted. The old hook disconnected its
@@ -214,6 +225,28 @@ describe('useInView — the two-way, budgeted preview window (#1463)', () => {
 		expect(isLive(container, 0)).toBe(true);
 		expect(isLive(container, 1)).toBe(true);
 		unmount();
+	});
+});
+
+describe('SlideThumbFace — who gets the authoring alarms (#1463)', () => {
+	// The regression this pins: `specimen` used to be declared BY this face, so every grid
+	// sharing it lost the engine's overflow ring and type-floor alarm — including Present's
+	// slide overview and Reshape's variant tiles, which show the AUTHOR'S OWN slides. Being
+	// small is not what makes a preview unworthy of the signal; not being yours is. The flag
+	// is now per-caller, and these assert the default is to KEEP the signal.
+	const opts = { themeBase: '', runtimeUrl: '', engineUrl: '' };
+	beforeEach(() => {
+		lastDeckPreviewProps = null;
+	});
+
+	it('does not mark a tile as a specimen unless the caller says so', () => {
+		render(<SlideThumbFace options={opts} sample="# Hi" active className="aspect-video w-full" />);
+		expect(lastDeckPreviewProps?.specimen, "a thumbnail of the author's own slide was silenced").toBeFalsy();
+	});
+
+	it('forwards the caller\'s specimen declaration through to the renderer', () => {
+		render(<SlideThumbFace options={opts} sample="# Hi" active specimen className="aspect-video w-full" />);
+		expect(lastDeckPreviewProps?.specimen, 'a catalog specimen was not silenced').toBe(true);
 	});
 });
 

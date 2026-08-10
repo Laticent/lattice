@@ -1,7 +1,7 @@
-// #1463 — the THUMBNAIL flag on the rendered frame.
+// #1463 — the SPECIMEN flag on the rendered frame, and the shared-memo refcount.
 //
-// A thumbnail is a miniature in a grid of its peers (the add-slide gallery, Present's
-// slide overview). `options.thumbnail` stamps `<html data-lattice-thumbnail>` on the
+// A SPECIMEN is a catalog sample the author did not write and cannot edit — the add-slide
+// gallery's tiles. `options.specimen` stamps `<html data-lattice-specimen>` on the
 // frame it writes, and the engine runtime reads that to route its overflow / type-floor
 // watcher to `off` — the level that installs no probe, no observer and no resize
 // handler, so a grid of ~33 frames is not running ~33 of them to draw marks nobody can
@@ -59,10 +59,10 @@ const DECK3 = `<article class="lattice">\n${section(1)}\n${section(2)}\n${sectio
 
 /** Mount a host, render slide `index` of the deck through its own renderer, and hand back the
  *  renderer so the caller can dispose it the way a recycled tile does. */
-async function mountTile(index: number, thumbnail = true) {
+async function mountTile(index: number, specimen = true) {
 	const host = document.createElement('figure');
 	document.body.appendChild(host);
-	const r = createSingleSlideRenderer({ ...base, thumbnail });
+	const r = createSingleSlideRenderer({ ...base, specimen });
 	await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, {
 		slideIndex: index,
 		slideCount: 3,
@@ -73,7 +73,7 @@ async function mountTile(index: number, thumbnail = true) {
 
 describe('recycling must not wipe the SHARED whole-deck memo (#1463)', () => {
 	// THE REGRESSION THIS PINS. `dispose()` released the module-level deck memo, which was
-	// harmless while a thumbnail never unmounted — dispose fired once, at grid close. Two-way
+	// harmless while a tile never unmounted — dispose fired once, at grid close. Two-way
 	// windowing makes it fire every time the budget reclaims a slot, i.e. at scroll frequency,
 	// and each one cost every OTHER host on the page its memo. Worst on Present's overview,
 	// where the grid renders the WHOLE DECK per tile and shares one entry: every eviction cost
@@ -110,11 +110,32 @@ describe('recycling must not wipe the SHARED whole-deck memo (#1463)', () => {
 	it('a constructed-but-never-rendered renderer does not hold the count open', async () => {
 		const live = await mountTile(0);
 		// Twelve discarded constructions, exactly as a re-rendering host produces them.
-		for (let i = 0; i < 12; i++) createSingleSlideRenderer({ ...base, thumbnail: true });
+		for (let i = 0; i < 12; i++) createSingleSlideRenderer({ ...base, specimen: true });
 		const before = engineCalls();
 		live.dispose(); // the only renderer that ever rendered
 		await mountTile(0);
 		expect(engineCalls(), 'discarded constructions kept the memo pinned open').toBe(before + 1);
+	});
+
+	// The other edge of the same seam: `renderInto` after `dispose()` must not join the count.
+	// It returns the disposed sentinel either way, but joining would flip `counted` true while
+	// `wasDisposed` blocks any second decrement — pinning the shared memo for the page's life.
+	it('a render AFTER dispose does not join the count', async () => {
+		const live = await mountTile(0);
+		const late = createSingleSlideRenderer({ ...base, specimen: true });
+		late.dispose();
+		const host = document.createElement('figure');
+		document.body.appendChild(host);
+		const status = await late.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, {
+			slideIndex: 1,
+			slideCount: 3,
+			slideMarkdown: 'fallback',
+		});
+		expect(status.error).toBe('renderer disposed');
+		const before = engineCalls();
+		live.dispose(); // the only renderer that ever really rendered — the memo must release
+		await mountTile(0);
+		expect(engineCalls(), 'a post-dispose render pinned the memo open').toBe(before + 1);
 	});
 
 	it('the LAST host out still releases it — the retention dispose() exists to prevent', async () => {
@@ -128,20 +149,20 @@ describe('recycling must not wipe the SHARED whole-deck memo (#1463)', () => {
 	});
 });
 
-async function srcdocFor(thumbnail?: boolean): Promise<string> {
+async function srcdocFor(specimen?: boolean): Promise<string> {
 	const host = document.createElement('figure');
 	document.body.appendChild(host);
-	const r = createSingleSlideRenderer(thumbnail === undefined ? base : { ...base, thumbnail });
+	const r = createSingleSlideRenderer(specimen === undefined ? base : { ...base, specimen });
 	await r.renderInto(host, '# One', false);
 	const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
 	if (!fr) throw new Error('no live frame');
 	return fr.srcdoc;
 }
 
-describe('the thumbnail flag on the rendered frame (#1463)', () => {
-	it('stamps <html data-lattice-thumbnail> when the host renders thumbnails', async () => {
+describe('the specimen flag on the rendered frame (#1463)', () => {
+	it('stamps <html data-lattice-specimen> when the host renders catalog specimens', async () => {
 		const doc = await srcdocFor(true);
-		expect(doc).toMatch(/^<!doctype html><html data-lattice-thumbnail>/);
+		expect(doc).toMatch(/^<!doctype html><html data-lattice-specimen>/);
 	});
 
 	it('leaves the tag bare for a full-size host — every other preview keeps its watcher', async () => {
@@ -150,11 +171,11 @@ describe('the thumbnail flag on the rendered frame (#1463)', () => {
 		// e2e/reader-alarms.spec.ts' positive control depends on their watcher still running.
 		const doc = await srcdocFor(undefined);
 		expect(doc).toMatch(/^<!doctype html><html>/);
-		expect(doc).not.toContain('data-lattice-thumbnail');
+		expect(doc).not.toContain('data-lattice-specimen');
 	});
 
 	it('an explicit false is the same as omitting it', async () => {
-		expect(await srcdocFor(false)).not.toContain('data-lattice-thumbnail');
+		expect(await srcdocFor(false)).not.toContain('data-lattice-specimen');
 	});
 
 	it('does not disturb the rest of the document head — the theme style still carries its id', async () => {

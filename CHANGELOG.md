@@ -338,13 +338,14 @@ in patch versions.
   per-document too, so it multiplied by the grid: on every dispatch of the runtime's shared
   post-mutation pass, each frame ran a cell-aware geometry probe, a text-rect walk over
   anything clipping, culprit drill-down and the Fix-Me overlay draw — all layout-forcing —
-  plus the `scroll` listener that draw binds per document. `SlideThumbFace` now stamps
-  `data-lattice-thumbnail` on the frames it renders (the add-slide gallery, its looks panels,
-  Present's slide overview, and Reshape's variant tiles), and the runtime routes those to
-  `overflow-marker: off` — the level that already sweeps and then installs nothing. The
-  type-floor alarm goes with it; it is the same watcher. **Every other surface is unchanged**
-  and still watched at `author` — the Studio's own preview, the landing islands, the VS Code
-  preview, an Export-to-Marp bundle — which the new tests control for explicitly. Measured on
+  plus the `scroll` listener that draw binds per document. The gallery's tiles and its looks
+  panel now stamp `data-lattice-specimen` on the frames they render, and the runtime routes
+  those to `overflow-marker: off` — the level that already sweeps and then installs nothing.
+  The type-floor alarm goes with it; it is the same watcher. **Scoped to catalog samples, not
+  to thumbnails**: Present's slide overview and Reshape's variant tiles show the AUTHOR'S OWN
+  slides, where a clipped slide is the whole thing the grid is being scanned for, so they keep
+  the signal — as do the Studio's own preview, the landing islands, the VS Code preview and an
+  Export-to-Marp bundle. New unit and e2e oracles pin both halves. Measured on
   the same overflowing deck: RSS 1442 → 1337MB, 1336 → 1304 event listeners. *Not* a saving in
   observers: the shared `MutationObserver` belongs to the geometry pass, which thumbnails keep.
   `engineering/decisions/2026-08-10-thumbnail-window-is-two-way.md` §6.

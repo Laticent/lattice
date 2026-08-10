@@ -141,7 +141,7 @@ export type DeckPreviewProps = {
 	 * type-floor watcher (see `SingleSlideOptions.thumbnail`). Set by `SlideThumbFace`;
 	 * every full-size host omits it and keeps the watcher.
 	 */
-	thumbnail?: boolean;
+	specimen?: boolean;
 };
 
 /**
@@ -169,7 +169,7 @@ export function DeckPreview({
 	onRender,
 	loader = false,
 	chartDetail = false,
-	thumbnail = false,
+	specimen = false,
 	...aria
 }: DeckPreviewProps) {
 	// Nacre loader = the SKELETON. It owns the screen for the whole load and yields ONLY
@@ -199,7 +199,7 @@ export function DeckPreview({
 	// `options` is page-level config the Studio hands identically to both. Read once,
 	// like `options` itself — a host does not become a thumbnail mid-life.
 	const engineRef = React.useRef<SingleSlideRenderer | null>(null);
-	if (engineRef.current === null) engineRef.current = createSingleSlideRenderer(thumbnail ? { ...options, thumbnail: true } : options);
+	if (engineRef.current === null) engineRef.current = createSingleSlideRenderer(specimen ? { ...options, specimen: true } : options);
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
 	activeRef.current = active;

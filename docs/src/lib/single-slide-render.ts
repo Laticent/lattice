@@ -115,21 +115,24 @@ export type SingleSlideOptions = {
 	 */
 	katexUrl?: string;
 	/**
-	 * This host renders THUMBNAILS — miniatures in a grid of their peers (the add-slide
-	 * gallery, Present's slide overview, Reshape's variant tiles), not a slide anyone
-	 * authors from. Stamps `data-lattice-thumbnail` on the frame's root element, which the
-	 * runtime reads to route its overflow/legibility watcher to the `off` level: at ~260px
-	 * the marks are unreadable, in the add-slide gallery they describe a catalog sample the
-	 * author cannot fix, and the watcher's probe pass forces layout once per frame across the
-	 * whole grid. See `isThumbnailDocument()` in lib/runtime/index.js for the full reasoning —
-	 * including why `off` is the right lever rather than a bypass, and what the saving is not
-	 * (it does NOT remove an observer; the shared one belongs to the geometry pass).
+	 * This host renders a SPECIMEN — a catalog sample the author did not write and cannot
+	 * edit, shown so they can pick one (the add-slide gallery's tiles and its looks panel).
+	 * Stamps `data-lattice-specimen` on the frame's root element, which the runtime reads to
+	 * route its overflow/legibility watcher to the `off` level: the marks are unreadable at
+	 * ~260px, they describe content the author is not responsible for, and the watcher's
+	 * probe pass forces layout once per frame across the whole grid. See
+	 * `isSpecimenDocument()` in lib/runtime/index.js for the full reasoning — including why
+	 * `off` is the right lever rather than a bypass, and what the saving is NOT (it does not
+	 * remove an observer; the shared one belongs to the geometry pass).
 	 *
-	 * Set by `SlideThumbFace` only. A full-size preview — the Studio's own, the landing
-	 * islands, a specimen — omits it and keeps the watcher, which is what
-	 * `e2e/reader-alarms.spec.ts` controls for.
+	 * NOT "is this a thumbnail". A thumbnail of the AUTHOR'S OWN slide — Present's slide
+	 * overview, Reshape's variant tiles — must keep its watcher, because a clipped slide is
+	 * exactly what the author is scanning that grid for. Setting this from `SlideThumbFace`
+	 * unconditionally silenced those too, which was a measured regression (HARD RULE #18).
+	 * Full-size previews (the Studio's own, the landing islands, a component specimen page)
+	 * omit it as well, which `e2e/reader-alarms.spec.ts` controls for.
 	 */
-	thumbnail?: boolean;
+	specimen?: boolean;
 };
 
 /** Resolve `<html data-palette/-mode>` → the palette + mode to render with. */
@@ -533,7 +536,7 @@ function scheduleVizScan(getDoc: () => Document | null | undefined): void {
  *   - ready()           → window.LatticePlayground present?
  */
 export function createSingleSlideRenderer(opts: SingleSlideOptions) {
-	const { themeBase, runtimeUrl, engineUrl, thumbnail } = opts;
+	const { themeBase, runtimeUrl, engineUrl, specimen } = opts;
 	// Refcount membership for the shared whole-deck memo (see dispose()). Claimed on the first
 	// RENDER, never at construction — because construction is not paired 1:1 with a dispose.
 	// `FieldCardsLive` and `RestyleShowcase` both write `useRef(createSingleSlideRenderer(...))`,
@@ -650,7 +653,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
-			'<!doctype html><html' + (thumbnail ? ' data-lattice-thumbnail' : '') + '><head><meta charset="utf-8"><style id="lattice-theme">' +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + '><head><meta charset="utf-8"><style id="lattice-theme">' +
 			themeStyleContent(css, mode, geom, extraCss) +
 			'</style></head><body>' +
 			html;
@@ -763,6 +766,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	): Promise<RenderStatus> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.resolve({ ok: false, slides: 0, error: 'engine not loaded' });
+		// A render on an ALREADY-DISPOSED renderer is a no-op that returns the same sentinel the
+		// mid-flight bails use. Bail BEFORE `countIn()`: otherwise a `dispose()`-then-`renderInto()`
+		// order joins the refcount permanently — `counted` flips true, and dispose() will not
+		// decrement a second time (`wasDisposed`) — so the shared memo is pinned for the page's
+		// life. Latent rather than live (every shipped host tears its render triggers down before
+		// disposing), but it is the same upward drift the construction-time seam had, relocated to
+		// an unguarded edge, and one line closes the class instead of the instance.
+		if (disposed) return Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' });
 		countIn(); // first render joins the shared-memo refcount — see createSingleSlideRenderer
 		const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 		const mode = modeOverride ?? docMode;
