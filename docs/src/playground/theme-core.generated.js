@@ -278,7 +278,7 @@ var require_cat_ink = __commonJS({
         const n = i + 1;
         const range = feasibleRange(marks[i], bg, bgAlt);
         if (!range) {
-          const message = `${label}: --cat-${n}-mark has no legible lightness on the ${arm} canvas \u2014 no shade of its hue clears ${AA2}:1 against both --bg and --bg-alt. Re-running the generator cannot fix this: widen the gap between the two canvas surfaces, or re-hue the mark.`;
+          const message = `${label}: --cat-${n}-mark has no legible lightness on the ${arm} canvas \u2014 no shade of its hue clears ${AA2}:1 against both --bg and --bg-alt. Re-running the generator cannot fix this. ${surfaceDiagnosis(bg, bgAlt)}`;
           if (strict) throw new Error(message);
           degraded.push(message);
           continue;
@@ -290,19 +290,16 @@ var require_cat_ink = __commonJS({
       for (const [dir, slots] of groups) {
         slots.sort((a, b) => a.u - b.u);
         const uMax = dir === -1 ? 0 : 1;
-        let prevHex = null;
-        let prevN = null;
-        let prevI = null;
+        const placed = [];
         let prevU = -Infinity;
         for (const slot of slots) {
           let u = Math.max(slot.u, prevU);
-          const need = prevN === null ? 0 : separationTarget(marks[slot.i], marks[prevI]);
-          if (prevHex !== null) {
-            while (u <= uMax && oklabDistance(withLightness2(marks[slot.i], dir * u), prevHex) < need) {
-              u += Math.max(need, 1e-3) / 8;
-            }
+          const clearsPlaced = (cand) => placed.every((p) => oklabDistance(cand, p.hex) >= separationTarget(marks[slot.i], marks[p.i]));
+          if (placed.length) {
+            const step = Math.max(...placed.map((p) => separationTarget(marks[slot.i], marks[p.i])), 1e-3) / 8;
+            while (u <= uMax && !clearsPlaced(withLightness2(marks[slot.i], dir * u))) u += step;
             if (u > uMax + 1e-9) {
-              const message = `${label}: the ${arm} ink arm cannot hold ${marks.length} distinguishable slots \u2014 after clearing ${AA2}:1 there is not ${need.toFixed(4)} of perceptual room left between every pair (ran out at --cat-${slot.n}-ink). This is a property of the palette, not of the generator: re-running it will reproduce it. Widen the categorical marks' lightness range, or raise the contrast between --bg and --bg-alt.`;
+              const message = `${label}: the ${arm} ink arm cannot hold ${marks.length} distinguishable slots \u2014 after clearing ${AA2}:1 there is not enough perceptual room left between every pair (ran out at --cat-${slot.n}-ink). This is a property of the palette, not of the generator: re-running it will reproduce it. Widen the categorical marks' lightness range, or raise the contrast between --bg and --bg-alt.`;
               if (strict) throw new Error(message);
               degraded.push(message);
               u = uMax;
@@ -310,18 +307,19 @@ var require_cat_ink = __commonJS({
           }
           if (u !== slot.u) inks[slot.i] = withLightness2(marks[slot.i], dir * u);
           prevU = u;
-          prevN = slot.n;
-          prevI = slot.i;
-          prevHex = inks[slot.i];
+          placed.push({ i: slot.i, hex: inks[slot.i] });
         }
       }
+    }
+    function surfaceDiagnosis(bg, bgAlt) {
+      return contrastRatio2(bg, bgAlt) >= 3 ? "The two surfaces STRADDLE the legible range: one is light enough to need a dark ink and the other dark enough to need a light one, so no single value can serve both. Bring --bg and --bg-alt onto the same side of the canvas \u2014 this is a palette fact the generator cannot solve around." : "The two surfaces are close enough in lightness that no shade of any hue clears the floor against both. Widen the gap between --bg and --bg-alt \u2014 this is a palette fact the generator cannot solve around.";
     }
     function solveInkArm({ marks, bg, bgAlt, strict = false, label = "theme", arm = "light" }) {
       const degraded = [];
       const inks = marks.map((mark, i) => {
         const ink = solveInk(mark, bg, bgAlt);
         if (ink) return ink;
-        const message = `${label}: no legible --cat-${i + 1}-ink exists on the ${arm} canvas. --bg ${bg} and --bg-alt ${bgAlt} are close enough in lightness that no shade of --cat-${i + 1}-mark (${mark}) clears ${AA2}:1 against both. Widen the gap between the two surfaces \u2014 this is a palette fact the generator cannot solve around.`;
+        const message = `${label}: no legible --cat-${i + 1}-ink exists on the ${arm} canvas. No shade of --cat-${i + 1}-mark (${mark}) clears ${AA2}:1 against both --bg ${bg} and --bg-alt ${bgAlt}. ${surfaceDiagnosis(bg, bgAlt)}`;
         if (strict) throw new Error(message);
         degraded.push(message);
         return bestEffortInk(mark, bg, bgAlt);
@@ -340,7 +338,8 @@ var require_cat_ink = __commonJS({
       feasibleRange,
       armCollapsed,
       separateArm,
-      solveInkArm
+      solveInkArm,
+      surfaceDiagnosis
     };
   }
 });
@@ -636,11 +635,21 @@ var require_derive = __commonJS({
         ensureContrast2("#c20000", inkDark, AA2, "darken"),
         ensureContrast2(withLightness2("#c20000", 0.68), inkLight, AA2, "lighten")
       );
-      const ribbonC = Math.max(0.09, hexToOklch2(e.accent).C);
-      const spectrumStops = [
+      const accentC = hexToOklch2(e.accent).C;
+      const achromatic = accentC < 0.02;
+      const ribbonC = achromatic ? accentC : Math.max(0.09, accentC);
+      const endHue = achromatic ? accentHue : norm360(rampHue(strategy, accentHue, 4, CATEGORICAL_COUNT));
+      const spectrumStops = achromatic ? [
+        oklchToHex2({ L: 0.2, C: ribbonC, h: accentHue }),
+        oklchToHex2({ L: 0.45, C: ribbonC, h: accentHue }),
+        oklchToHex2({ L: 0.68, C: ribbonC, h: accentHue })
+      ] : [
         oklchToHex2({ L: 0.34, C: ribbonC * 0.85, h: accentHue }),
         oklchToHex2({ L: 0.62, C: ribbonC, h: accentHue }),
-        oklchToHex2({ L: 0.62, C: ribbonC, h: norm360(rampHue(strategy, accentHue, 4, CATEGORICAL_COUNT)) })
+        // Stop 3 sits a touch lighter than stop 2 as well as hue-rotated: on a tight
+        // ramp (`analogous` Δh ≈ 13.6°, `brand-mono` Δh = 8°) two stops at the same
+        // lightness read as one flat band across the last 45% of the bar.
+        oklchToHex2({ L: 0.68, C: ribbonC, h: endHue })
       ];
       const ribbon = (deg) => `linear-gradient(${deg}deg, ${spectrumStops[0]} 0%, ${spectrumStops[1]} 55%, ${spectrumStops[2]} 100%)`;
       t.spectrum = ribbon(90);

@@ -88,6 +88,12 @@ than the rest because a single-hue cycle separates by lightness, so most slots l
 the same band and fail together. With the tier, every strategy is clean at 4.65:1 (the
 solver's AA + 0.15 margin).
 
+**Read the table as 200 sets PER STRATEGY**, with the seed reset for each — a single
+continuous seed across all five gives 34/21/30/38/178, the same picture. And the
+population is "valid essential sets", not "otherwise-clean themes": at the audit's
+`full` level about half of them already fail an unrelated `accent-text` pair, which is
+pre-existing and outside this change.
+
 **The sampler, because a figure nobody can re-run is not evidence.** An earlier draft of
 this record cited a single mixed-strategy number (63 of 200) with the sampler left in a
 scratch directory; an independent sweep with a different distribution measured 4 of 200
@@ -195,13 +201,37 @@ candidate fails one surface — and sometimes the mark itself is the best compro
 **(d) The gate computes the obligation.** `checkNoSafeDefaultTokens`:
 
 > a token **shipped palettes declare at `:root`** (so it is part of the theme
-> vocabulary), that **the engine gives no default the reader can reach**, and that
-> **`lib/**` reads with no `var()` fallback** — counting the Mermaid map, whose
+> vocabulary), that **the engine gives no default THAT READ can reach**, and that
+> **`lib/**` reads with no fallback that RESOLVES** — counting the Mermaid map, whose
 > `readToken` has no fallback parameter at all — **must be in `REQUIRED_TOKENS`**.
 
 Run against the pre-fix contract it names exactly the 8 tokens that broke the render;
-against the current one, nothing. `--cat-N-ink` is correctly absent from its findings,
-because every read carries a fallback — which is the mechanism, not an exception.
+against the current one, nothing.
+
+**It computes 8 of the 21 tokens that were missing, and that limit is the honest
+headline.** The other 13 — the twelve `--cat-N-ink` and `--spectrum-end` — are outside
+its reach *because they carry fallbacks*, and by this record's own measurements the
+ink family is the LARGER half of the defect (176 of 200 `brand-mono` themes). So the
+gate closes the hard-break subclass — a miss that reaches a renderer as a black box or
+a dropped declaration — and the silent-degrade subclass is still carried by human
+judgment. Saying it "makes the class impossible to reintroduce" would be false.
+
+That matters most because of what the second exit is. **Adding a fallback is the exact
+construction that produced the ink defect**: it is a two-character edit that turns a
+red gate permanently green and removes the token from the gate's view for good, and
+with no allowlist there is no trace that anyone took it. 17 theme tokens sit in that
+blind spot today, including all twelve `--cat-N-texture` — which matter most for
+precisely the near-monochrome themes that are already the worst case. The gate's error
+message now names that history so the next person takes the exit deliberately; making
+the exit itself auditable (a sanctioned-fallback list with a justification per entry)
+is the obvious next move and is deliberately not in this change.
+
+A fallback also has to actually RESOLVE. `var(--x, )` and `var(--x, var(--never-declared))`
+are invalid at computed-value time — the exact failure this gate exists to prevent — so
+the chain is followed and only a terminal that is a literal, an engine default, or a
+contract token counts. `var(--cat-1-texture, var(--cat-1-fill))` is safe; the first cut
+of the chain check reported all twelve textures as false positives before it learned to
+resolve rather than parse.
 
 **"A default the reader can reach" is per-reader, and collapsing that produces a false
 positive the engine's own comment invites.** The first cut counted only `:root`
@@ -214,8 +244,20 @@ correct. So the model is split by reader: a CSS `var()` read is satisfied by `:r
 by the bare `section` (every slide is one, and slide content inherits from it); a
 **Mermaid map** read is satisfied only by `:root`, because that reader is not CSS — the
 export path's `parsePaletteVars` scans `:root` blocks out of the palette *text* and
-cannot see a `section` rule at all. 153 tokens in `lib/**` sit in the state that would
-otherwise have been latent false positives.
+cannot see a `section` rule at all.
+
+**And the decision is per READ, not per token** — a correction the trio forced. Custom
+properties resolve on the element that *uses* them, and `:root` is `html`, an
+**ancestor** of `section`, so a `section { --x }` default never reaches a `var(--x)`
+written inside a `:root` rule. `--spectrum` and `--spectrum-vertical` are read exactly
+there (`base.variants.css`'s `--sp-fill-rainbow-*`), so a per-token rule would have let
+one `section` declaration excuse the very tokens whose absence loses the canvas.
+Verified in Chromium: default on `section`, read at `:root`, and the whole `background`
+shorthand computes to `none`. Sizing, since an earlier draft of this paragraph cited
+"153 tokens" and that number reproduces under no reading anyone could find: **12**
+tokens are declared on the bare `section` root and not at `:root`, **9** of those are
+read bare, and **0** are theme vocabulary absent from the contract — so the widening is
+currently inert with respect to the verdict, and says so.
 
 **There is deliberately no allowlist.** Every other gate in that file has one because
 its rule admits justified exceptions; this one does not, because a token it catches has
@@ -249,8 +291,15 @@ on a purpose-built three-slide probe (a default slide, a `_class: dark` slide, a
 |---|---|---|---|
 | `examples/containment-tier.md` | black px | 2,853,031 across 5 of 8 slides | **0 across 0 of 8** |
 | `examples/containment-tier.md` | emulator warnings | `⚠ Palette missing CSS variable: --c-container`, `--c-container-edge` | none |
-| divider probe | `_class: dark` canvas | `#FFFFFF` (declaration dropped) | `#141823` |
+| divider probe | `_class: dark` canvas | `#FFFFFF` (declaration dropped) | a painted dark canvas |
 | divider probe | divider canvas / left rail | `#FFFFFF` / none | `#0B0D13` / the ribbon |
+
+The probe is three slides — a default, a `_class: dark`, and a `divider` — rendered
+under a theme derived from the `dusk` starter. Exact hexes are starter-dependent and
+deliberately not quoted for the dark slide: an independent reproduction with a
+different starter matched the divider at `#0B0D13` exactly and differed on the dark
+slide, which is the correct behavior and would have read as a discrepancy against a
+pinned value.
 
 Both renders were also opened and looked at, not merely pixel-counted: the containment
 slide shows the two-rung nested ladder with a legible blue edge, and the divider shows
@@ -260,8 +309,10 @@ An independent checker reproduced both, from its own generated theme, to within 
 pixels of the black-pixel total, and measured the divider headline at **1.02:1 before,
 19.11:1 after**.
 
-`npm run lint`, `npm test` (5714), `npm run build:check` and the integration tier all
-pass. `derive-cat-ink --check`: 15 palettes up to date.
+`npm run lint`, `npm test`, `npm run build:check` and the integration tier all pass;
+`derive-cat-ink --check` reports 15 palettes up to date. Test counts are deliberately
+not quoted here — they move every time a test is added, and a stale number in a record
+is the same defect as a stale number in a comment.
 
 ### What the checker caught, and what it means
 
@@ -306,6 +357,85 @@ reproduction of the export defect to within 35 pixels.
 review was in flight, under a stop-hook nudge. The rung says fold findings back, *then*
 commit. It went in as a follow-up commit instead.
 
+### What the trio caught (HARD RULE #25)
+
+Red team, Munger inversion and an independent checker ran on the shipping diff after
+the maker-checker pass. Two HIGH findings arrived independently, and both were defects
+this change had introduced.
+
+- **RED TEAM: the ink solver collapsed two categories onto one color.** `separateArm`
+  compared each slot only against its immediate predecessor, justified by a comment
+  claiming a monotone walk "gives all-pairs separation from the adjacent test alone."
+  It does not: the required separation varies per pair (it is capped at the *marks'*
+  own spacing) and ΔE is not monotone in lightness once two slots differ in chroma. So
+  a slot pushed to clear its predecessor could land on one two positions back, which
+  had not been visited yet. On a derived `brand-mono` palette `--cat-7-ink` and
+  `--cat-9-ink` came out **byte-identical** (`#5a5b00`) from marks 0.0274 apart, and
+  **neither slot had needed repair at all.** It shipped green through every gate
+  including the audit added in the same commit, because a collapse is not a contrast
+  failure. The walk now checks every already-placed slot. Unguarded separation loss
+  across the shipped palettes: 83 of 1,980 pairs; with the old walk, 18; **with this
+  one, 0.** Derived themes carrying a sub-floor pair: 21 of 2,000 → **0**. Seven
+  palettes' generated blocks were regenerated (24 declarations).
+  *The "18 of 4224 … different hues, not repeats" the module previously documented as
+  an accepted floor was not a floor. It was this bug, one order of magnitude milder.*
+- **CHECKER: the `section`-default rule was false for reads made inside a `:root`
+  block** — and `--spectrum` / `--spectrum-vertical` are read exactly there. Custom
+  properties resolve on the element that uses them; `:root` is `html`, an ancestor of
+  `section`. Deciding per token rather than per read would have let one `section`
+  declaration excuse the very tokens whose absence loses the canvas. Verified in
+  Chromium. Fixed by carrying the read's own scope.
+- **CHECKER: the empty-scan guard did not cover the map arm** — which is the *only*
+  path into the gate for `--c-container` and `--c-container-edge` (they have no bare
+  CSS read at all). Commit 2 had replaced a regex, which fails loudly, with a function
+  call that can legitimately return `[]`; with it empty the two black-sentinel tokens
+  drop out silently. Now guarded, and the `require` is wrapped so a renamed export
+  names its contract instead of taking every gate in the file down with a TypeError.
+- **CHECKER: the gate's `:root` model was more permissive than the reader it models.**
+  `parsePaletteVars` matches `/:root\s*\{/`, so `:root, section { … }` and
+  `:where(:root) { … }` are invisible to the export — 12 tokens were already counted as
+  `:root` defaults that the export never sees. The map arm now uses the reader's own
+  predicate.
+- **RED TEAM / CHECKER: 24 new audit rows evicted a failing row from the Studio's
+  meter.** The panel groups by role in audit order and caps at 6; `categorical-ink`
+  landed at position 4 and pushed out `secondary`, which fails on ~22% of sampled
+  essential sets — a red "review" badge above six green checks. The panel now orders
+  failures first, which makes the cap harmless whatever the contract grows to next.
+- **RED TEAM: four ways to hide a token from the gate, two to make it false-fire.**
+  `var(--x, )` and `var(--x, var(--undefined))` are invalid at computed-value time and
+  were treated as safe fallbacks; a theme `:root` inside `@media`, a nested rule inside
+  `:root`, `:is(:root)` and `@supports { :root { … } }` were each mis-read. All six are
+  closed: at-rule bodies are recursed, nested rules are excluded from a block's own
+  declarations, and a fallback is resolved rather than parsed. **Inversion measured the
+  cost of not doing the first one**: wrapping `base.tokens.css` in `@layer tokens { … }`
+  — which HARD RULE #26 explicitly anticipates — produced 15 false positives on a gate
+  with no allowlist.
+- **INVERSION: the ribbon invented a brand hue for an achromatic brand.** `#3A3A3A`
+  (chroma 0.0000, hue = rounding noise) produced a brown-gold-to-teal gradient across
+  every slide top, because the chroma floor had no opt-out. `onyx`, `carbone` and
+  `concrete` all answer that input by staying monochrome. Below a visible-chroma
+  threshold the ribbon is now a lightness ramp of the accent.
+- **INVERSION: the solver's diagnosis was backwards on its dominant failure.** It told
+  authors the two surfaces were "close enough in lightness" and to widen the gap — right
+  for one cause and exactly wrong for the other, which is the common one: a *straddling*
+  pair, where the surfaces are too far apart for any single ink. The message now
+  diagnoses which it is.
+
+Corrections to this record forced by the trio, beyond those above: the "153 tokens"
+figure (§4(d)) reproduced under no reading and is replaced with the measured 12/9/0; the
+"4 in 2,000, worst ΔE 0.0032" note in `cat-ink.js` was measured on an unpublished
+distribution and is really 21 in 2,000 with a worst of 0.0000; the claim that the old
+`{ var: '…' }` regex "missed `joinVars` entries" is false — both extractions return the
+same 38 tokens, and the switch buys robustness, not a bug fix; and a pinned test count
+and a pinned probe hex were removed rather than maintained.
+
+**What the trio tried to break and could not:** the containment derivation (8,900+
+hostile essential sets across two agents — zero invariant breaks, and inversion went in
+expecting the magic constants to be the weak spot), the extraction's behavior
+preservation (8,000 differential trials), the strict/non-strict seam (byte-identical
+inks on 2,089 arms), the step-widening loop's inertness (~600k combinations), and every
+number in the sampler table, which reproduced exactly.
+
 ## 6. What this does NOT fix
 
 - **The Studio preview still cannot show this class.** `lib/runtime/index.js` returns the
@@ -319,3 +449,27 @@ commit. It went in as a follow-up commit instead.
   Out of scope here, tracked in #1458.
 - **The 95-vs-91 `CONTRACT` drift** between `token-parity.test.js` and
   `theme-scorecard.js` (#1459) is untouched.
+
+## 7. Not verified
+
+- **The Studio's WCAG meter, as a rendered surface. UNVERIFIED, and not for want of
+  trying.** The row-ordering fix is pinned by `docs/src/components/studio/audit-meter.test.ts`
+  — the reduction was extracted out of `Fabricate.tsx` specifically so it could be —
+  and the reordering is provably correct on the data. But I could not photograph the
+  panel: reaching it in the built Studio needs the Library with a saved theme, and
+  driving Chromium through Build → Library → Themes never surfaced a Fabricate entry
+  on a fresh profile. So the QUALITY BAR's three-width evidence is **not** in hand for
+  this surface. The change adds no DOM, no CSS and no layout — it reorders an array
+  before an existing `.slice(0, 6)` — so the risk of visual jank is as close to zero as
+  a UI change gets, but that is an argument, not an artifact, and it is recorded as one.
+- **The two follow-up issues this opened are not fixed here**: #1527 (≈150 palette
+  declarations dead on the export path, because the bundle concatenates the theme
+  before the base and the base's `:root` block wins at equal specificity) and #1528
+  (hoist `var(--spectrum)` out of the `background:` shorthand, so a missing ribbon
+  drops the ribbon instead of the canvas — the source-agnostic half of this fix, which
+  protects third-party and hand-edited themes the contract will never reach).
+- **The fallback exit is now signposted but not audited.** The gate's message names the
+  history so the cheap exit is taken deliberately; making it *traceable* — a sanctioned
+  list with a justification per entry — is the obvious next move and is deliberately
+  not in this change. 17 theme tokens sit in that blind spot today, the twelve
+  `--cat-N-texture` among them.

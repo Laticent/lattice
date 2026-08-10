@@ -2326,12 +2326,13 @@ describe('no-safe-default token gate (#1457)', () => {
   // Studio shipped themes that painted solid black Mermaid clusters, so each test
   // below constructs the violation and asserts the arm names it — then asserts each
   // of the two legitimate exits (derive it, or give the read a fallback) silences it.
-  const cssRead = (where) => [{ where, kind: 'css' }];
-  const mapRead = (where) => [{ where, kind: 'map' }];
+  const cssRead = (where, over = {}) => [{ where, kind: 'css', rootRead: false, chain: [], ...over }];
+  const mapRead = (where) => [{ where, kind: 'map', chain: [] }];
   const inputs = (over = {}) => ({
     themeTokens: new Set(['c-container', 'bg']),
     rootDefaults: new Set(['bg']),
     slideDefaults: new Set(['bg']),
+    mapDefaults: new Set(['bg']),
     bareReads: new Map([['c-container', cssRead('lib/x.css:1')], ['bg', cssRead('lib/x.css:2')]]),
     contract: new Set(['bg']),
     ...over,
@@ -2356,6 +2357,7 @@ describe('no-safe-default token gate (#1457)', () => {
     assert.deepEqual(noSafeDefaultTokens(inputs({
       rootDefaults: new Set(['bg', 'c-container']),
       slideDefaults: new Set(['bg', 'c-container']),
+      mapDefaults: new Set(['bg', 'c-container']),
     })), []);
   });
 
@@ -2364,7 +2366,7 @@ describe('no-safe-default token gate (#1457)', () => {
   // may override it. A :root-only model demands a contract row for a token that IS
   // defaulted — and neither of the gate's two exits would be correct.
   test('a `section` slide-root default satisfies a CSS read, but NOT a Mermaid-map read', () => {
-    const sectionOnly = { rootDefaults: new Set(['bg']), slideDefaults: new Set(['bg', 'c-container']) };
+    const sectionOnly = { rootDefaults: new Set(['bg']), slideDefaults: new Set(['bg', 'c-container']), mapDefaults: new Set(['bg']) };
     assert.deepEqual(noSafeDefaultTokens(inputs(sectionOnly)), [],
       'a bare `section` declaration is a real default for a CSS var() read');
     assert.deepEqual(
@@ -2372,6 +2374,75 @@ describe('no-safe-default token gate (#1457)', () => {
       ['c-container'],
       'the Mermaid reader parses :root blocks out of the palette TEXT — a `section` rule is invisible to it',
     );
+  });
+
+  // Custom properties resolve on the element that USES them, and `:root` is `html` —
+  // an ANCESTOR of `section`. So a `section { --x }` default cannot reach a
+  // `var(--x)` written inside a `:root` rule, which is exactly where --spectrum and
+  // --spectrum-vertical are read (base.variants.css's --sp-fill-rainbow-*). Deciding
+  // per TOKEN rather than per READ would let one `section` declaration excuse the
+  // very tokens whose absence loses the canvas.
+  test('a `section` default does NOT satisfy a read made inside a :root block', () => {
+    const sectionOnly = { rootDefaults: new Set(['bg']), slideDefaults: new Set(['bg', 'c-container']), mapDefaults: new Set(['bg']) };
+    assert.deepEqual(
+      noSafeDefaultTokens(inputs({ ...sectionOnly, bareReads: new Map([['c-container', cssRead('lib/x.css:1', { rootRead: true })]]) })),
+      ['c-container'],
+    );
+  });
+
+  // A fallback is only as safe as what it RESOLVES to. `var(--x, var(--cat-1-fill))`
+  // is safe because the chain lands on a contract token; `var(--x, )` and
+  // `var(--x, var(--never-declared))` are both invalid at computed-value time.
+  test('a fallback CHAIN is rescued only when it lands on something that resolves', () => {
+    const chained = (chain) => new Map([['c-container', cssRead('lib/x.css:1', { chain })]]);
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: chained(['bg']) })), [],
+      'a chain landing on a contract token resolves');
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: chained(['never-declared']) })), ['c-container'],
+      'a chain landing on an undefined token is invalid at computed-value time');
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: chained([]) })), ['c-container'],
+      'an empty fallback is not a fallback');
+  });
+
+  test('parseVarChain reads the chain, and a literal terminal ends it', () => {
+    const { parseVarChain } = require('../../../tools/check-ownership.js');
+    assert.deepEqual(parseVarChain('--x'), { token: 'x', chain: [], endsLiteral: false });
+    assert.deepEqual(parseVarChain('--x, '), { token: 'x', chain: [], endsLiteral: false });
+    assert.deepEqual(parseVarChain('--x, red'), { token: 'x', chain: [], endsLiteral: true });
+    assert.deepEqual(parseVarChain('--x, var(--y)'), { token: 'x', chain: ['y'], endsLiteral: false });
+    assert.deepEqual(parseVarChain('--x, var(--y, #000)'), { token: 'x', chain: ['y'], endsLiteral: true });
+  });
+
+  // A :root default wrapped in an at-rule is still a default. HARD RULE #26
+  // anticipates a coordinated @layer activation pass; the first cut of this arm read
+  // only top-level rules, so wrapping base.tokens.css in `@layer tokens { … }`
+  // produced 15 false positives on a gate that has no allowlist.
+  test('at-rule bodies are recursed, and :is(:root) counts, but @keyframes does not', () => {
+    assert.deepEqual([...rootScopedTokens('@layer tokens { :root { --a: 1 } }')], ['a']);
+    assert.deepEqual([...rootScopedTokens('@media (min-width: 1px) { :root { --b: 1 } }')], ['b']);
+    assert.deepEqual([...rootScopedTokens('@supports (color: red) { :root { --c: 1 } }')], ['c']);
+    assert.deepEqual([...rootScopedTokens('@keyframes k { from { --d: 1 } }')], []);
+    assert.ok(isUnconditionalRoot(':is(:root)'));
+  });
+
+  test('a declaration in a NESTED rule is not harvested as the outer block\'s', () => {
+    assert.deepEqual([...rootScopedTokens(':root { --a: 1; .x { --b: 2 } }')], ['a']);
+    assert.deepEqual([...slideScopedTokens('section { --a: 1; &.dark { --b: 2 } }')], ['a']);
+  });
+
+  // The gate's :root model must not be MORE permissive than the export reader it
+  // models: parsePaletteVars matches /:root\s*\{/, so :root must sit immediately
+  // before the brace.
+  test('isExportParsedRoot matches what the export path actually parses', () => {
+    const { isExportParsedRoot } = require('../../../tools/check-ownership.js');
+    const parsed = (sel) => new RegExp(`${sel}\\s*\\{`).source && /:root\s*\{/.test(`${sel} {`);
+    for (const sel of [':root', ':root:root', 'section, :root']) {
+      assert.equal(isExportParsedRoot(sel), true, sel);
+      assert.equal(parsed(sel), true, `${sel} must also match the emulator's own regex`);
+    }
+    for (const sel of [':root, section', ':where(:root)', 'section']) {
+      assert.equal(isExportParsedRoot(sel), false, sel);
+      assert.equal(parsed(sel), false, `${sel} must also miss the emulator's own regex`);
+    }
   });
 
   test('a token no palette declares is not the theme contract\'s business', () => {
@@ -2386,6 +2457,7 @@ describe('no-safe-default token gate (#1457)', () => {
     assert.deepEqual([...reads.keys()].sort(), ['one', 'three']);
     assert.equal(reads.get('one')[0].where, 'f.css:1');
     assert.equal(reads.get('one')[0].kind, 'css');
+    assert.equal(reads.get('one')[0].rootRead, false);
   });
 
   // The first cut stripped comments by DELETING them, newlines included, so every
@@ -2394,6 +2466,12 @@ describe('no-safe-default token gate (#1457)', () => {
   test('bareVarReads reports the line in the REAL file, not the comment-stripped one', () => {
     const css = '/* one\n * two\n * three\n */\na { color: var(--x) }';
     assert.equal(bareVarReads(css, 'f.css').get('x')[0].where, 'f.css:5');
+  });
+
+  test('bareVarReads records WHERE a read sits, so the per-read rule can be applied', () => {
+    const reads = bareVarReads(':root { --a: var(--x) }\nsection { --b: var(--y) }', 'f.css');
+    assert.equal(reads.get('x')[0].rootRead, true);
+    assert.equal(reads.get('y')[0].rootRead, false);
   });
 
   test('the Mermaid map counts as a fallback-free reader, joinVars included', () => {

@@ -20,6 +20,7 @@ import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS, gateCss, NAME_RE, scaff
 // live WCAG report, serializeTheme → a real themes/*.css.
 import { auditBoth, contrastRatio, deriveTheme, STARTERS, serializeTheme, validateEssentials } from '@/playground/theme-core.generated.js';
 import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, refineComponent, useArchitectStatus } from './architect';
+import { auditMeterRows } from './audit-meter';
 import { CodeField } from './CodeField';
 import { type ComponentMeta, saveStudioComponent } from './component-library';
 import { downloadText } from './download';
@@ -298,17 +299,11 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	}, [compName, compCss, compSkeleton, compNameOk, compManifest, compJsonError]);
 	const compOk = compFindings.every((f) => f.level !== 'error');
 
-	// Curated WCAG rows: one per role, worst ratio across modes.
-	const auditRows = React.useMemo(() => {
-		const byRole = new Map<string, { role: string; ratio: number | null; status: string }>();
-		for (const mode of ['light', 'dark'] as const) {
-			for (const r of derived.audit[mode]?.results ?? []) {
-				const prev = byRole.get(r.role);
-				if (!prev || (r.ratio ?? 99) < (prev.ratio ?? 99)) byRole.set(r.role, { role: r.role, ratio: r.ratio, status: r.status });
-			}
-		}
-		return [...byRole.values()].filter((r) => r.status === 'pass' || r.status === 'fail').slice(0, 6);
-	}, [derived.audit]);
+	// Curated WCAG rows: one per role, worst ratio across modes, FAILURES FIRST so the
+	// cap can only ever hide a passing row. The reduction lives in ./audit-meter so it
+	// is provable without driving the Studio — see that file for what a cap over an
+	// unordered list cost when the contract grew (#1457).
+	const auditRows = React.useMemo(() => auditMeterRows(derived.audit), [derived.audit]);
 
 	// "Describe a look" → the model proposes essentials + a ramp strategy, the
 	// engine derives the full AA-clean palette, and the studio adopts it (clearing

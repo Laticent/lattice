@@ -187,17 +187,17 @@
    * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
    * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
   --cat-1-ink:   light-dark(#593E3E, #DFDDDD);
-  --cat-2-ink:   light-dark(#2F453A, #DDDFDE);
-  --cat-3-ink:   light-dark(#35414D, #DDDEDF);
-  --cat-4-ink:   light-dark(#4B4034, #DFDEDD);
+  --cat-2-ink:   light-dark(#283E33, #DDDFDE);
+  --cat-3-ink:   light-dark(#313D48, #DDDEDF);
+  --cat-4-ink:   light-dark(#493E31, #DFDEDD);
   --cat-5-ink:   light-dark(#58404C, #DFDDDE);
-  --cat-6-ink:   light-dark(#2E4444, #DDDFDF);
-  --cat-7-ink:   light-dark(#41412E, #DFDFDD);
-  --cat-8-ink:   light-dark(#2F432F, #DDDFDD);
+  --cat-6-ink:   light-dark(#273D3D, #DDDFDF);
+  --cat-7-ink:   light-dark(#3F3F2C, #DFDFDD);
+  --cat-8-ink:   light-dark(#293D29, #DDDFDD);
   --cat-9-ink:   light-dark(#404055, #DDDDDF);
   --cat-10-ink:  light-dark(#564056, #DFDDDF);
-  --cat-11-ink:  light-dark(#3A4330, #DEDFDD);
-  --cat-12-ink:  light-dark(#4B4156, #DEDDDF);
+  --cat-11-ink:  light-dark(#363F2C, #DEDFDD);
+  --cat-12-ink:  light-dark(#4B4056, #DEDDDF);
   /* ── end categorical on-canvas ink ── */
 
   --cat-on-fill: var(--text-heading);
