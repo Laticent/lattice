@@ -218,6 +218,32 @@ test('deckSectionFor counts dividers at or before the shown slide', () => {
   assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 });
 });
 
+// THE DUPLICATE THIS PINS. `renderInto` asks for the deck's divider sections TWICE per render,
+// from two callers that do not know about each other: the preview's route gate (the
+// `ambiguous divider count` fact probes index 0 to learn whether the count can be trusted) and
+// `supplyablePosition` (which needs the section for the shown slide). Each derivation is TWO
+// whole-deck `md.block.parse` passes, so the second one was pure waste — 1.35ms of every keystroke
+// on the perf spec's 40-slide gallery deck in Node, ~5ms at the 4x throttle the preview budget is
+// written against, and ~7.7ms of measured TOTAL p50 on the real Studio.
+//
+// COUNTED, NOT TIMED, for the reason `test/benchmark/preview-budget.json` gives: the regression is
+// an amount of WORK, and a wall-clock assertion on it would be the flaky gate. If someone splits
+// the derivation apart again this reads 2 and fails; nothing about the returned values changes, so
+// no other test in this file could catch it.
+test('the divider derivation runs ONCE per deck, however many callers ask', () => {
+  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- _class: divider -->\n# B';
+  core.clearSectionDerivationMemo();
+  core.deckSectionFor(deck, 0); // the route gate's probe
+  core.deckSectionFor(deck, 2); // supplyablePosition, same render
+  assert.equal(core.sectionDerivationCount(), 1, 'the second caller must hit the memo, not re-parse the deck');
+
+  // A KEYSTROKE MISSES BY CONSTRUCTION — the deck string changed — and that is correct: the memo
+  // collapses duplicate calls WITHIN one render, which is where the waste is. Pinned so nobody
+  // "improves" it into a stale-answer cache keyed on anything less than the whole source.
+  core.deckSectionFor(`${deck}x`, 0);
+  assert.equal(core.sectionDerivationCount(), 2, 'an edited deck must re-derive');
+});
+
 test('deckSectionFor bails when a divider appears inside code — FAIL SAFE, not fail wrong', () => {
   // As a probe, matching a divider in prose cost a wasted parse and produced correct output. As a
   // COUNTER the same match paints an extra dot and bumps the watermark glyph — wrong output.

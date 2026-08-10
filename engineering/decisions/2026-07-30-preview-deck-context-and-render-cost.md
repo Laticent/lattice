@@ -122,6 +122,14 @@ comparison, and they are the concrete payoff: they were not meaningfully runnabl
 
 ## 4. The performance model — and the claims I got wrong
 
+> **Superseded in two places by Amendment 6 (2026-08-10), which re-measured every row below on one
+> machine.** The `+73%` and `+345%` typing regressions in the table are **gone** — typing RENDER is
+> now *below* this section's `main` baseline on all three decks. And the model this section rests
+> on ("the fix is a gate, not a faster render", with the cost living in the engine) no longer
+> describes the remaining gap: on a divider-heavy deck the engine is 4.0ms of a 27.1ms TOTAL, and
+> the rest is the position-supply machinery's own whole-deck parses. Read this section as the
+> record of how the problem was framed, then read Amendment 6 for where it landed.
+
 **The cost axis is CONTENT, not slide count.** `main` renders one slide, so its typing barely moves
 between a 40-slide prose deck and 40 gallery slides (9.8 vs 10.4ms). A deck-context render makes the
 preview's cost scale with the **whole deck's content**, which is where the 4× spread comes from.
@@ -259,6 +267,13 @@ memo is the only thing that goes below that line, and on a one-slide render it i
 (17%). If parity is not
 acceptable, the different-in-kind option is moving the render off the main thread (a worker), which
 decouples typing latency from render cost instead of shrinking it.
+
+> **Amendment 6 (2026-08-10) settles both halves of that last sentence.** Parity was reached without
+> building step 3 at all — supplying the position (Amendment 2, #1272/#1280) took typing RENDER
+> *below* the `main` baseline, so structural gating has no latency left to buy and survives as the
+> correctness instrument it also is. And the worker is **rejected on the numbers**: render cost is
+> 4.0ms of a 27.1ms TOTAL on the deck that still lags, so decoupling it cannot reach the 17.7ms that
+> is spent deciding *which document to render* before any worker could start.
 
 ## 6. Memory cost
 
@@ -1168,3 +1183,201 @@ The second-order lesson is about the fixes, not the defects: the comment-spannin
 duplicate-id-across-gaps bug, and three separate wrong assertions in the verification scripts were
 all introduced *while fixing* the trio's findings, and all were caught by measuring the fix rather
 than by reading it. A fix is a change like any other.
+
+## Amendment 6 (2026-08-10): #1273's spike, answered — and what is left is not the engine
+
+#1273 asked one question: **can `paginate: true` typing return to `main`'s TOTAL p50, and by the
+cheapest of four named routes?** It listed the routes and required a recommendation with a
+prototype measurement rather than a shipped fix.
+
+The answer is **route 1 — supply the position instead of re-deriving it — and it already shipped**,
+as #1272 (page position) and #1280 (section position + the slice LRU), months before this spike was
+picked up. Routes 2–4 are rejected below with the number or constraint that rejects each.
+
+But the spike is not therefore empty, because measuring it turned up something the issue's model
+does not contain. #1273 states, correctly for the code it measured, that "the regression is 100%
+engine RENDER time — the frame cost is unchanged". **That is no longer true.** RENDER is fully
+recovered — it is now *better* than the pre-regression baseline on all three decks — while TOTAL on
+a divider-heavy deck sits at 1.7× its baseline, and every millisecond of that gap is outside both
+the engine and the frame. It is the position-supply machinery's own whole-deck scanning.
+
+### Three columns, one machine
+
+The spike's exit criteria ask for a comparison against `main`-side baselines, and #1273's table was
+captured on a different machine from this one — so all three columns below were re-measured here,
+same session, `docs/e2e/studio-preview-perf.spec.ts` at 4× CPU, `--project=desktop --workers=1`
+serial, 40-slide decks, navigation n=16–20 / typing n=14.
+
+The instrument is byte-identical across the three: the CURRENT spec file was copied into a worktree
+at each revision (it does not exist at the older ones). Only `test/benchmark/preview-budget.json`
+differed — its ceilings were inflated for the two baseline runs, because a known-regressed revision
+breaches them and a breach would abort the run before the typing half printed. Ceilings are budget
+data, not the instrument.
+
+| deck · interaction | pre-#1265 (`2d44d156^`) | at #1265 (`2d44d156`) | HEAD (2026-08-10) |
+|---|---|---|---|
+| | RENDER / FRAME / **TOTAL** | RENDER / FRAME / **TOTAL** | RENDER / FRAME / **TOTAL** |
+| default · navigation | 5.3 / 1.4 / **11.4** | 3.1 / 1.1 / **8.1** | 3.0 / 1.5 / **9.9** |
+| default · typing | 4.3 / 1.4 / **10.3** | 2.4 / 1.4 / **8.2** | 3.4 / 1.3 / **11.4** |
+| prose · navigation | 7.6 / 1.4 / **14.6** | 0.0 / 1.1 / **6.3** | 1.0 / 1.5 / **10.6** |
+| **prose · typing** | 4.3 / 1.9 / **11.2** | 13.5 / 1.5 / **19.9** | 3.6 / 1.6 / **11.9** |
+| gallery · navigation | 6.3 / 0.9 / **12.1** | 0.1 / 1.4 / **7.0** | 1.3 / 1.8 / **29.9** |
+| **gallery · typing** | 5.0 / 1.5 / **11.1** | 45.6 / 1.7 / **57.4** | 4.0 / 1.5 / **27.1** |
+
+**The regression reproduces here.** Gallery typing 11.1 → 57.4ms (+417%) and prose typing 11.2 →
+19.9ms (+78%), against the +345% and +73% #1273 recorded elsewhere. Different machine, same shape —
+so this machine's readings are comparable to the issue's, and the baseline column is a fair target.
+
+**Typing RENDER is recovered outright.** 4.3 → 13.5 → 3.6ms (prose) and 5.0 → 45.6 → 4.0ms
+(gallery). Both are now BELOW the pre-regression baseline, which is the parser memo (§4, wrong
+claim 3) paying out exactly as predicted once structural gating makes the render one slide.
+
+**Prose typing TOTAL is at parity** — 11.9 vs 11.2ms, inside this harness's run-to-run drift.
+
+**Gallery typing TOTAL is not**: 27.1 vs 11.1ms. And gallery NAVIGATION — where the markdown does
+not change at all — is 29.9 vs 12.1ms, worse than it was at #1265 (7.0ms). Whatever costs that is
+paid per render regardless of interaction, and it is not the engine: RENDER is 1.3ms.
+
+### The gap is 17.7ms of scanning, and it is measurable directly
+
+`render-metrics` publishes five spans; the committed spec prints three. Reading all of them (a
+throwaway `@breakdown` spec, same fixture, same throttle, 40 gallery slides, typing, n=14):
+
+| span | prose | gallery |
+|---|---|---|
+| engineMs | 4.2 | 5.0 |
+| sanitizeMs | 4.3 | 4.4 |
+| frameMs | 1.3 | 1.6 |
+| totalMs | 12.7 | 28.8 |
+| **residual** (total − engine − sanitize − frame) | **3.0** | **17.7** |
+
+`totalMs` spans all of `renderInto`, so the residual is everything the render path does *around* the
+engine: the theme-ready await, the route gate, `supplyablePosition`, the memo key, and the overlay's
+stats post-processing. On prose that is 3.0ms; on gallery, 17.7ms. The two decks have the same slide
+count and differ 6.5× in bytes.
+
+Timed in Node (1× CPU, p50 of 60, each render on a freshly-edited deck string so nothing is served
+warm — `.scratch/residual-breakdown.mjs`), one render's deck-scan work:
+
+| | prose (3.3KB) | gallery (21KB) |
+|---|---|---|
+| route gate (`deckDerivedFactsFor`) | 0.011ms | **1.42ms** |
+| `supplyablePosition` | 0.40ms | 2.06ms |
+| `sourceHasMath(whole deck)` | 0.014ms | 0.085ms |
+| **all three, one render** | **0.27ms** | **3.11ms** |
+| **× 4 (the spec's throttle)** | **1.1ms** | **12.4ms** |
+
+12.4 of the gallery's 17.7ms residual, and 1.1 of prose's 3.0ms. The model holds on both decks.
+
+**Where it comes from.** #1433 (2026-08-05) replaced every caller-side slide splitter with the
+engine's own `md.block.parse`, which is right — it is what made the boundary answers exact by
+construction — and it made each of these scans a whole-deck parse rather than a regex sweep. The
+cost note in `single-slide-render.ts` was written three days earlier and was never revisited, so it
+claimed "two regex sweeps … ~0.14ms / ~0.31ms" for something that had become three block parses
+costing ~6× that. Corrected in place, with the measurement.
+
+### One of those three parses was pure duplication — removed, and measured
+
+`deckSectionFor` is a pure function of `(deck, slideIndex)`, but the expensive half depends only on
+the deck: two whole-deck parses (code-blanked and raw) plus the code-blanking sweeps. The
+slideIndex half is a loop over a boolean array.
+
+Two callers ask for it per render, and neither knows about the other — the route gate's
+`ambiguous divider count` fact probes index 0 to learn whether the count can be trusted, and
+`supplyablePosition` needs the section for the shown slide. So a divider deck derived it **twice per
+render, identically**.
+
+The fix is a one-entry memo on the deck half, the same shape and the same reasoning as `deckMemo`.
+A keystroke still misses by construction — the deck string changed — because what is collapsed is
+duplication *within* one render, not across renders.
+
+**Prototype measurement, `studio-preview-perf.spec.ts`, three runs per side, same machine, same
+session, alternating nothing else** (TOTAL p50, ms):
+
+| deck · interaction | without | with | baseline (pre-#1265) |
+|---|---|---|---|
+| default · typing | 11.1 / 10.7 / 10.5 | 11.8 / 11.1 / 11.9 | 10.3 |
+| prose · typing | 10.3 / 11.0 / 10.6 | 10.3 / 11.1 / 11.5 | 11.2 |
+| **gallery · typing** | 26.6 / 25.3 / 26.7 | **18.9 / 19.3 / 18.3** | 11.1 |
+| **gallery · navigation** | 24.3 / 26.7 / 25.5 | **16.1 / 15.9 / 17.3** | 12.1 |
+
+Gallery typing **−7.7ms (−29%)** and navigation **−9.4ms (−37%)**, with non-overlapping ranges on
+both. Prose and default are unchanged, as the mechanism predicts: with no `_class: divider` in the
+source the gate's probe short-circuits before it ever asks, so there was no duplicate to remove.
+(Default typing reads ~1ms higher on the "with" side across all three runs. There is no mechanism
+for that — the code path is identical — and the ranges nearly touch, so it is recorded as drift
+rather than explained away or claimed as a cost.)
+
+**Behavior-preserving, verified rather than argued**: `npm run equiv:check` over the full corpus
+(1349 slides, 141 decks) prints byte-identical output with and without the change — same 1325/1349,
+same residual breakdown by cause and by deck. `npm test` (5690) and the docs vitest suite (2765) are
+green.
+
+**Counted, not timed.** A new unit case asserts the derivation runs ONCE per deck however many
+callers ask, and re-derives on an edited deck. It fails if the memo is removed (verified by removing
+it). This follows `preview-work-budget.test.ts`'s stance: the regression is an amount of WORK, and a
+wall-clock assertion on the same fact would be the flaky gate `preview-budget.json` argues against.
+
+### Verdict on the four routes #1273 named
+
+1. **Re-stamp / supply instead of re-render** — **ADOPTED, and shipped before this spike ran**
+   (#1272, #1280). It is what took gallery typing RENDER from 45.6ms to 4.0ms, below baseline. The
+   spike's remaining contribution to it is the duplicate-derivation removal above.
+2. **Full structural gating** (synthesized prelude + mechanical cascade + `seedRenderIds`) —
+   **REJECTED as unnecessary for this problem.** Its stated ceiling is parity with a one-slide
+   render (§5), and route 1 already reaches it: typing RENDER is 3.6/4.0ms against a 4.3/5.0ms
+   baseline. It is a correctness instrument, and it survives as one — the equivalence sweep is what
+   proves a slice renders like its section — but it has no latency left to buy.
+3. **Move the render off the main thread** — **REJECTED on the numbers.** It decouples typing from
+   *render* cost, and render cost is 4.0ms of a 27.1ms TOTAL. A worker cannot touch the 17.7ms
+   residual, because the gate and the position supply must run before you know which document to
+   render at all. Rejected as an answer to #1273; not judged as an answer to anything else.
+4. **Reduce the work the deck render does** (parse-once/transform-per-slide) — **NOT NEEDED for the
+   decks in the perf spec**, all three of which take the slice route today, and moot for the ones
+   that do not: those take the whole-deck route for correctness reasons the registry names.
+
+### Scope: which decks this recovers, and what the rest still pay
+
+Of the 141 committed decks in `examples/` + `test/integration/baseline-decks/`, the three shapes the
+perf spec measures — a plain deck, a paginated prose deck, and a paginated 40-slide slice of
+`gallery.md` — all take the cheap slice route now; `deckDerivedFactsFor` returns `[]` for each. The
+classes that still take the whole-deck route are the ones the registry names and #1333 tracks, the
+largest being the running-global directive probe.
+
+### What is still owed, stated as a cost rather than closed
+
+Gallery typing lands at 18.9ms against an 11.1ms baseline: **+70%, on a paginated divider-heavy
+deck**. The remaining ~7.8ms is the surviving deck scans — one `deckSectionFor` derivation (two
+block parses) and `positionIsTrustworthy` (one more), measured at ~7.5ms at 4× and matching the
+observed gap almost exactly. That is the honest state: **the regression #1273 opened is recovered on
+the engine axis and three-quarters recovered on the wall clock.**
+
+The route that would close the rest is **the same insight as Amendment 2, one level down: the
+caller already holds the answer.** `positionIsTrustworthy` re-derives the deck's chunk boundaries in
+order to check them against the count the caller passed — and since #1433 the Studio's own
+`splitSlides` derives that count from the *same* `slideBoundaries` parser, so for the Studio the
+check re-runs a parse to verify its own output. Handing the caller's boundaries in, the way the
+position itself is now handed in, removes the parse rather than shrinking it.
+
+Not done here, and the reason is not scope: the check is not tautological for *every* caller (the
+Studio's `splitSlides` trims and drops empty chunks where `splitSlideChunks` does not, so the two
+counts can legitimately differ), and it is the guard standing between a supplied position and a
+plausible wrong page number. Turning it into "trust the caller" needs the argument made properly and
+adversarially, on a surface where being wrong prints a false number on a board deck. That is its own
+change with its own evidence, not a rider on a spike.
+
+### Two findings logged, not fixed (HARD RULE #18, off-path)
+
+- **`npm run equiv:check` fails on `main` today**, and failed identically before this change:
+  `baseline 126 decks / 1223 slides` against `now 141 / 1349`, so it reports "the measurement
+  changed shape, so the rate is not comparable" four times and exits non-zero. The corpus grew and
+  nothing re-blessed the baseline. It is on-demand — no workflow runs it — so nothing went red and
+  nobody noticed. Off the path of this change: it was already failing, and this change does not
+  worsen it (proved above: byte-identical output).
+- **The perf spec's own instrumentation inflates the residual it measures.** Subscribing to
+  `__latticeRenderMetrics` sets `hasRenderListeners()`, which turns on the engine's per-stage stats
+  AND the post-render `sourceHasMath(markdown)` / chart / mermaid scans over the whole deck. A user
+  with no overlay open does not pay those. It is small here (0.085ms of 3.11ms in Node on the
+  gallery deck) and it applies equally to every column above, so no comparison in this note moves —
+  but "the measurement changed the thing measured" is worth writing down where the next person will
+  find it.

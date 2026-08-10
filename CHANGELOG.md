@@ -449,6 +449,22 @@ in patch versions.
   allowlist: the two exits are derive the token, or give the read a fallback that resolves. It
   computes **8 of the 21** tokens that were missing — the other 13 carry fallbacks and are
   outside its reach, so it closes the hard-break subclass and not the silent-degrade one.
+
+- **Typing in a divider-heavy deck is ~36% faster in the Studio preview**, and navigating one ~50%.
+  Two caching defects on the same path, both found by measuring rather than reading. (1) The preview
+  derived the deck's divider sections **twice on every render** — once for the route gate, which
+  probes them to decide whether the fast path is safe, and once to supply the shown slide's section.
+  (2) `slideBoundaries` memoized its whole-deck markdown parse with a **single entry**, which
+  *thrashed*: one keystroke asks about several nearly-identical strings (the editor's `source` vs the
+  preview's rebuilt `editorSample`, and a code-blanked copy of the body), so each eviction paid a
+  full parse to re-derive what it had just discarded. Counted rather than timed: 3 parses per
+  keystroke where 2 were distinct. Now a bounded 4-entry LRU. Measured on the real built Studio at 4×
+  CPU throttle, 40-slide gallery deck, three runs a side: **typing TOTAL p50 26.6 → 17.1ms** and
+  **navigation 25.5 → 12.6ms**. Decks without a `divider` class are unaffected by (1) — the gate
+  never asked. Output is byte-identical across all 1349 corpus slides. Full measurement, and the
+  remaining gap to the pre-regression baseline, in
+  `engineering/decisions/2026-07-30-preview-deck-context-and-render-cost.md` (Amendment 6).
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back
