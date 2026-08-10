@@ -25,7 +25,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { boundaryParser: md, FRONT_MATTER, normalizeSource } = require('../../../lib/core/boundary-parser.js');
-const { slideBoundaries, splitSlideChunks, separatorRanges, normalizeSourceText, dropLeadingEmpty } = require('../../../lib/core/slide-boundaries.mjs');
+const { slideBoundaries, splitSlideChunks, separatorRanges, normalizeSourceText, dropLeadingEmpty, boundaryParseCount, resetBoundaryMemo } = require('../../../lib/core/slide-boundaries.mjs');
 const engine = require('../../../lib/engine/index.js');
 
 const ROOT = path.join(__dirname, '../../..');
@@ -297,8 +297,53 @@ test('the parse is memoized per source, so a keystroke pays for one', () => {
 	assert.equal(a, b, 'the same source returns the identical object');
 	const c = slideBoundaries('# Other\n\n---\n\n# Deck\n');
 	assert.notEqual(a, c);
-	// Single-entry: going back re-parses rather than growing without bound.
-	assert.notEqual(slideBoundaries(body), a, 'the memo holds one entry, not a growing map');
+	// A SECOND string no longer evicts the first. This used to assert the opposite
+	// (`notEqual` — "the memo holds one entry"), and that single entry THRASHED: one
+	// keystroke asks about the body and about a code-blanked copy of it, alternating,
+	// so each eviction paid a whole-deck parse to re-derive what it had just dropped.
+	assert.equal(slideBoundaries(body), a, 'a second string must not evict the first');
+});
+
+test('the memo stays BOUNDED — the oldest entry is evicted, not kept forever', () => {
+	// Boundedness was the single entry's real virtue and is the thing an LRU could
+	// quietly lose. Five distinct strings through a 4-entry cache must drop the oldest.
+	resetBoundaryMemo();
+	const decks = Array.from({ length: 5 }, (_, i) => `# Deck ${i}\n\n---\n\n# Two\n`);
+	const first = slideBoundaries(decks[0]);
+	for (let i = 1; i < 5; i++) slideBoundaries(decks[i]);
+	assert.notEqual(slideBoundaries(decks[0]), first, 'the oldest entry must have been evicted');
+	// 5 cold parses, then the re-parse of the evicted deck 0. A cache that grew without
+	// bound would read 5 here, which is the regression this number exists to catch.
+	assert.equal(boundaryParseCount(), 6, '5 cold parses + 1 re-parse of the evicted entry');
+});
+
+// THE COST THIS MEMO EXISTS TO REMOVE, pinned as a COUNT rather than a duration —
+// the stance test/benchmark/preview-budget.json argues for, and the one thing that
+// catches a thrash regression. `deckSectionFor` (lib/diagnostics) asks about the body
+// AND a code-blanked copy of it inside one derivation, while `positionIsTrustworthy`
+// asks about the body again; with a single-entry memo the alternation made one
+// byte-identical string parse twice per keystroke. Nothing else in the suite would
+// notice — every returned VALUE is identical either way, which is precisely why this
+// counts parses instead of comparing answers.
+test('one keystroke parses each DISTINCT string once, however the callers interleave', () => {
+	const body = '# One\n\n```\ncode\n```\n\n---\n\n# Two\n';
+	const blanked = body.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, '');
+	assert.notEqual(body, blanked, 'the fixture must actually contain code, or this proves nothing');
+
+	// The interleaving that thrashed a single entry: A, B, A.
+	resetBoundaryMemo();
+	slideBoundaries(body);
+	slideBoundaries(blanked);
+	slideBoundaries(body);
+	assert.equal(boundaryParseCount(), 2, 'two distinct strings must cost two parses, not three');
+
+	// And the opposite order, because with one entry the winner and loser swapped
+	// depending purely on which caller ran first.
+	resetBoundaryMemo();
+	slideBoundaries(blanked);
+	slideBoundaries(body);
+	slideBoundaries(blanked);
+	assert.equal(boundaryParseCount(), 2, 'call order must not change the parse count');
 });
 
 test('degenerate input does not throw', () => {
