@@ -167,6 +167,50 @@ happened." Each cause-effect test names an **oracle** — what proves the effect
   the one present (per the Quality Bar's tight-space rule), not merely that *a*
   control rendered.
 
+### Timeouts — a setup wait is not an assertion (added 2026-08-10, #1572)
+
+`expect.timeout` (15s) is the budget for *an assertion about behavior*. Getting
+the app into the state a spec starts from is **setup**, and it deserves a
+setup-shaped budget of its own. `gotoStudio` inherited the assertion default for
+the Studio's cold first paint — an island hydrate, a lazy engine chunk and a full
+render inside a srcdoc iframe — and because nearly every spec calls it in a
+`beforeEach`, that one line became the suite-wide flake surface: the timeout was
+reported against whichever spec drew the slow worker, so it looked like a
+different bug each time it appeared.
+
+Measured on a 4-core box, deliberately oversubscribed 4× (`--workers=16`,
+`--retries=0`), 54 first paints:
+
+| median | p90 | p95 | max | over the 15s default |
+|---|---|---|---|---|
+| 7.5s | 19.5s | 20.6s | 22.0s | **13 / 54 (24%)** |
+
+So under starvation the old budget sat *inside* the observed distribution — the
+wait was not detecting a defect, it was sampling the load. The paint now gets
+`FIRST_PAINT_TIMEOUT` (45s, the budget `studio-instant-shell.spec.ts` already
+spends on the same iframe), which leaves 2× headroom over the worst observed
+paint and still sits under the 60s test timeout, so a genuine hang fails *here*,
+named, rather than as an unexplained runner timeout.
+
+Two rules generalize from it:
+
+- **A shared fixture wait states its own budget.** Inheriting an assertion
+  default couples every spec's reliability to a number tuned for something else.
+- **A shared fixture failure says what stalled and that it is the fixture.** The
+  wait throws "the Studio never painted its first slide within 45s", names which
+  of the two stages stalled, and says the cause is usually a starved worker — a
+  bare locator timeout sends the triager to read the reporting spec, which is the
+  one place the cause is not. Only a *timeout* is re-labeled; anything else
+  escapes as itself.
+
+CI (`workers: 2`, `retries: 1`) never ran the configuration that provoked this,
+and the E2E tier is nightly, off the PR gate — so this was latent triage cost, not
+a broken gate. **Still open at that stress:** at 4× oversubscription the 60s
+*test* timeout becomes the binding constraint for reload specs (one
+`persistence.spec.ts` run exceeded it, with both of its cold paints inside
+budget). That is a property of the runner budget, not of this wait, and nobody
+runs 16 workers on 4 cores.
+
 ### Watching a run — headed, UI mode, trace, video (RPA-style observability)
 
 A frequent ask: "can I watch it click through the UI, like an RPA bot?" Yes —

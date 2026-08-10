@@ -1,11 +1,14 @@
-import { appendToEditor, currentSlide, expect, gotoStudio, persistedSource, railButtons, readStorage, slideCount, test } from './studio-fixture';
+import { appendToEditor, expect, FIRST_PAINT_TIMEOUT, gotoStudio, persistedSource, railButtons, readStorage, slideCount, test, waitForStudioPaint } from './studio-fixture';
 
 // Persistence: edits and the palette choice survive a full reload (the app
 // restores from localStorage — the cause-effect the user relies on).
 
+// A reload is a cold first paint again, so the wait goes through the shared
+// fixture helper — re-deriving it here is what re-inherits the 15s assertion
+// default this suite's flake point came from (#1572).
 async function waitReady(page: import('@playwright/test').Page): Promise<void> {
-	await page.getByLabel('Deck source').waitFor({ state: 'visible' });
-	await currentSlide(page).waitFor({ state: 'visible' });
+	await page.getByLabel('Deck source').waitFor({ state: 'visible', timeout: FIRST_PAINT_TIMEOUT });
+	await waitForStudioPaint(page);
 }
 
 test('a deck edit survives a reload', async ({ page }) => {
