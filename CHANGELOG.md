@@ -25,6 +25,25 @@ in patch versions.
 
 ## Unreleased
 
+- **Investigated (no behavior change yet): 426 palette declarations are dead on the export
+  path, and the export holds two contradictory models of one cascade.** The bundle
+  concatenates the theme *before* the base, so `base.tokens.css`'s plain `:root` block lands
+  later at equal specificity and wins. Measured in Chromium 131 using each order verbatim:
+  **426 declarations across 36 tokens and 18 palettes** never render — the twelve `--hljs-*`,
+  the `--diagram-*` state tokens, and the semantic `--pass`/`--fail`/`--warn`/`--seq-500`.
+  The root cause is sharper than a mis-ordered concat: every theme opens with
+  `@import 'lattice';`, which in CSS means the base's rules come *first* and the theme wins,
+  and `lattice-emulator.js`'s own Mermaid token reader already models it that way — citing
+  that exact `@import` rationale in its comment — while the injected CSS does the opposite.
+  Consequently **9 tokens (134 declarations) resolve two different ways in one render**: a
+  gantt's baked SVG gets the palette's `--diagram-active` while the CSS around it gets the
+  base's. Flipping the concat is one line and fixes both, but it *activates* all 426 dead
+  declarations — verified visually, ardesia's code slide swaps the base's Night Owl syntax
+  colors for ardesia's own curated muted ramp, which is what its author wrote and no user has
+  ever seen. That changes exported PDF bytes across 18 palettes, so it is an export sign-off
+  gate and is deliberately **not** included here; this entry records the measurement and the
+  model. (`engineering/decisions/2026-08-10-palette-concat-order.md`)
+
 - **Added: pinch to zoom a slide, on every Studio surface and every device.** The
   Studio preview, Present and the presenter screen now zoom the slide — not the
   page — by pinch (touch), `ctrl`/`⌘`+wheel (mouse, and what a trackpad pinch
