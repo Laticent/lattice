@@ -1271,10 +1271,14 @@ warm — `.scratch/residual-breakdown.mjs`), one render's deck-scan work:
 
 > **The "all three" row is NOT the sum of the three above it** (gallery 1.42 + 2.06 + 0.085 = 3.57
 > against a measured 3.11), and a checker pass was right to flag that the layout invites you to add
-> them. They overlap: the route gate and `supplyablePosition` both reach `deckSectionFor`, so run
-> together the second one hits the derivation memo. The bundle row is measured as a bundle — one
-> render's real work — and it is the row to trust; the three above it are each measured alone and
-> are therefore an over-count when added. Same for prose (0.011 + 0.40 + 0.014 = 0.425 vs 0.27).
+> them. They overlap: the route gate and `supplyablePosition` both reach the same whole-deck
+> boundary parse, so run together the second one hits the memo in `slide-boundaries.mjs` and pays
+> nothing. (An earlier version of this note attributed the overlap to the DERIVATION memo instead.
+> Wrong: this table was measured on a tree that had no derivation memo — a checker re-ran the same
+> script on both trees to establish it. The arithmetic was right and the mechanism named was not.)
+> The bundle row is measured as a bundle — one render's real work — and it is the row to trust; the
+> three above it are each measured alone and are therefore an over-count when added. Same for prose
+> (0.011 + 0.40 + 0.014 = 0.425 vs 0.27).
 
 **Where it comes from.** #1433 (2026-08-05) replaced every caller-side slide splitter with the
 engine's own `md.block.parse`, which is right — it is what made the boundary answers exact by
@@ -1340,9 +1344,13 @@ same residual breakdown by cause and by deck.
 > implies: the sweep calls `supplyablePosition` but never the preview's route gate, so it does not
 > exercise the two-caller interleave the memo exists for. What it genuinely proves is that the
 > `chunks`→`flags` refactor preserves output across 1349 slides — real, and not nothing, but not
-> the memo's own contract. The guard that WOULD prove that (compare memoized against
-> cache-cleared-before-every-call over the whole corpus) was written afterwards and passes: 1794
-> comparisons across 144 decks, zero divergence, including under a forced-eviction interleave.
+> the memo's own contract. The guard that WOULD prove that is a differential — memoized answers
+> against cache-cleared-before-every-call, over the whole corpus, under a forced-eviction
+> interleave. It has been run twice, independently, with zero divergence both times (1794
+> comparisons over 144 decks; and 2724 comparisons over 144 decks by a later checker). **Neither
+> run is committed**, so this is a claim with no artifact anyone can re-run — a HARD RULE #23
+> shortfall, recorded as one rather than dressed up. Committing that differential as a test is the
+> obvious follow-up; it is the only guard that covers the memo's actual contract.
 
 **Counted, not timed.** A new unit case asserts the derivation runs ONCE per deck however many
 callers ask, and re-derives on an edited deck. It fails if the memo is removed (verified by removing
@@ -1497,27 +1505,50 @@ parse.
 divider inside code pays the whole-deck route, exactly as on `main`.
 
 **What the branch does keep** is the index-space fix, and it is now verified against the engine
-rather than against its own reasoning: over every committed deck whose chunks align with the
-engine's sections — **127 decks, 126 answered correctly, 1 bailed (the slower, correct route), 0
-answered wrong.**
+rather than against its own reasoning. Of the **130** decks in `examples/` +
+`test/integration/baseline-decks/`, **128** split chunk-for-section (the other two are the 1→N
+expanders, where no index can identify a slide): **127 answered correctly, 1 fell back to the
+whole-deck route, 0 answered wrong.**
+
+An independent pass over a wider population — 144 decks including the component `.docs.md` files,
+141 of them aligned — reached the same shape: **140 correct, 1 fell back, 0 wrong.** An earlier
+version of this paragraph reported "127 decks" as the *total*, which is the aligned subset of one
+population quoted as the size of another; both denominators are now stated with their scope.
 
 ### The checker refuted the LRU's stated justification
 
 Amendment 6 and the code comment claimed the single-entry memo thrashed on TYPING: three parses
 where two were distinct. **False on the real path**, and false for a reason worth keeping: it
 assumed the editor and the preview ask about the same string, which the very same comment says they
-never do (`StudioShell` rebuilds `editorSample` from trimmed chunks). Counted by wrapping
-`boundaryParser.block.parse`, the typing working set is THREE distinct strings and typing costs
-three parses with one entry and three with the LRU.
+never do (`StudioShell` rebuilds `editorSample` from trimmed chunks).
 
-What the LRU actually buys is **navigation**, where the deck string does not change at all: 5 parses
-→ 0. Corrected in the comment, which now leads with the refutation.
+**Re-measured on the code that ships, varying only `MEMO_MAX`** so nothing else is credited to it —
+40-slide gallery deck, real caller order, `boundaryParser.block.parse` wrapped:
 
-The checker also proved two guards were missing: **`MEMO_MAX = 2`** — one below the working set,
-i.e. thrashing restored — **and a plain FIFO both passed every test in the file.** Both now fail
-(mutation-verified). `MEMO_MAX` is 6 with its derivation written down: measured working set 3,
-largest enumerated configuration 5 (Present with a reader lens beside a live editor preview), so
-worst-case-plus-one. It was 4, which was working-set-plus-one and left no room for that case.
+| | typing | navigation |
+|---|---|---|
+| `MEMO_MAX = 1` | 2 parses | 2 |
+| `MEMO_MAX = 6` | 2 parses | **0** |
+
+So the LRU buys **nothing on typing** and removes **both** parses on navigation. Two earlier numbers
+in this amendment were wrong in the same direction, and a second checker caught them: "three parses
+either way" was measured on the intermediate tree, before the divider derivation stopped parsing a
+code-blanked copy; and "5 parses → 0" is the single-entry cost on the BASE tree, where neither the
+derivation memo nor the raw-chunk fix exists — quoting it credited one cache with three changes'
+savings. That is precisely the stacking error the section below says it corrected, committed inside
+the correction. The table above is `MEMO_MAX`-only.
+
+The checker also proved two guards were missing: **`MEMO_MAX = 2`** and **a plain FIFO both passed
+every test in the file.** Both now fail (mutation-verified, and every value in 3–8 now fails at
+least one test, so 6 is pinned rather than merely floored). `MEMO_MAX` is 6, and its derivation is
+written down beside it: the measured working set on the shipping code is **2** (the editor's body
+and the preview's rebuilt `editorSample` body), and the largest configuration anyone could
+*enumerate* across the `<DeckPreview>` call sites is 5 — Present with a reader lens beside a live
+editor preview. Six is that enumeration plus one, i.e. a comfort margin, not a threshold; overflow
+costs extra parses and never a wrong answer. It was 4, and its stated working set was 3 — a number
+that included the code-blanked copy this branch's own raw-chunk fix had already deleted. A sizing
+rationale that outlives its measurement is the same "reasoned rather than measured" failure this
+note keeps catching.
 
 ### The measurement Amendment 6 should have made
 
@@ -1541,9 +1572,18 @@ CPU. `docs/e2e/studio-preview-perf.spec.ts`, 4× throttle, `--workers=1`, 40-sli
 | prose · typing | 10.5 / 9.7 / 9.9 / 10.0 | 10.9 / 10.9 / 9.5 / 10.0 | — |
 | default · typing | 10.4 / 11.7 / 9.9 / 10.3 | 10.0 / 9.6 / 9.1 / 8.6 | ~1ms, at the noise floor |
 
-Gallery is 1.9× on typing and 2.4× on navigation, with non-overlapping ranges and a within-arm
-spread under 1.5ms — at or above the resolution this infrastructure admits to. Prose and default do
-not move, which is what the mechanism predicts: they never took the expensive path.
+Gallery is 1.9× on typing and 2.4× on navigation, with non-overlapping ranges on both. Prose and
+default do not move, which is what the mechanism predicts: they never took the expensive path.
+
+> **Two things this paragraph originally overstated, both caught by re-reading its own table.**
+> It claimed "a within-arm spread under 1.5ms": the gallery-navigation base arm spreads 5.2ms
+> (29.4–24.2), the default-typing base arm 1.8ms, and gallery-typing head is exactly 1.5 — one of
+> six arms actually meets that bound. And it called 1.9× "at or above the resolution this
+> infrastructure admits to" two paragraphs after quoting that same infrastructure as unable to
+> resolve "anything smaller than roughly 2×". By the standard cited here, the NAVIGATION arm (2.4×)
+> clears the bar and the TYPING arm (1.9×) does not — it is corroborated by the mechanism and the
+> parse count below, not settled by this table alone. The tabulated numbers are unchanged; only the
+> gloss on them was wrong.
 
 **The claim that does not need a clock at all**, and the one to quote: whole-deck `md.block.parse`
 calls per keystroke on the 40-slide gallery deck, modelling the real path where the editor's and the

@@ -461,7 +461,8 @@ in patch versions.
   readings of a chunk disagree is kept — a deck that merely *mentions* a divider inside code still
   takes the whole-deck render rather than a guessed number. Verified against the engine's own
   rendered sections as the oracle: across every committed deck whose chunks align with the engine's
-  sections, **127 decks — 126 answered correctly, 1 fell back, 0 answered wrong**.
+  sections: of the 130 decks in `examples/` + `test/integration/baseline-decks/`, the **128** that
+  split chunk-for-section give **127 correct, 1 fallback, 0 wrong**.
 
 - **Typing and navigating a divider-heavy deck are roughly twice as fast in the Studio preview.**
   Two caching defects on the same path. (1) The preview derived the deck's divider sections **twice
