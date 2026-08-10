@@ -1,4 +1,4 @@
-import { currentSlide, expect, gotoStudio, railButtons, setEditorContent, test, toastText } from '../studio-fixture';
+import { currentSlide, expect, gotoStudio, railButtons, setEditorContent, shareExport, test, toastText } from '../studio-fixture';
 
 // Journey: author → export. Draft a deck, then hand it off through Share. The
 // oracle is the ARTIFACT: a real browser download (the exporter's Blob anchor)
@@ -32,7 +32,7 @@ test('a drafted deck exports to a PDF artifact', async ({ page }) => {
 	// The download is the artifact; the toast is the app's own claim. Require BOTH
 	// so a fabricated toast or a stray download can't pass alone.
 	const download = page.waitForEvent('download', { timeout: 60_000 });
-	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).click();
+	await shareExport(page, 'pdf');
 	const d = await download;
 	expect(d.suggestedFilename()).toMatch(/\.pdf$/);
 	await expect(toastText(page)).toContainText('PDF ready.');
@@ -53,7 +53,7 @@ test('the Workspace "Fast (JPEG)" preference switches the PDF page images to DCT
 		window.localStorage.setItem(KEY, JSON.stringify({ ...cur, pdfPages: 'jpeg' }));
 	});
 	const download = page.waitForEvent('download', { timeout: 60_000 });
-	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).click();
+	await shareExport(page, 'pdf');
 	const d = await download;
 	expect(d.suggestedFilename()).toMatch(/\.pdf$/);
 	await expect(toastText(page)).toContainText('PDF ready.');
@@ -64,8 +64,7 @@ test('the Workspace "Fast (JPEG)" preference switches the PDF page images to DCT
 
 test('a drafted deck exports its Markdown source', async ({ page }) => {
 	const download = page.waitForEvent('download');
-	// /^Markdown/ avoids the "Print source … the Markdown" row.
-	await page.getByRole('dialog').getByRole('button', { name: /^Markdown/ }).click();
+	await shareExport(page, 'markdown');
 	expect((await download).suggestedFilename()).toMatch(/\.md$/);
 	await expect(toastText(page)).toContainText('Markdown ready.');
 });

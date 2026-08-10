@@ -1,4 +1,4 @@
-import { currentSlide, expect, gotoStudio, openArchitect, railButtons, setEditorContent, test, toastText } from '../studio-fixture';
+import { currentSlide, expect, gotoStudio, openArchitect, railButtons, setEditorContent, shareExport, test, toastText } from '../studio-fixture';
 
 // Persona: an exec prepping a board update. Goal: draft a ~6-slide quarterly
 // deck, have the Coach score it board-ready, and walk out with a PDF. The test
@@ -41,7 +41,13 @@ test('an exec drafts a quarterly deck, the Coach scores it board-ready, and it e
 		.locator('div.items-baseline')
 		.filter({ hasText: '/ 100' })
 		.innerText();
-	const score = Number.parseFloat(scoreLine.replace(/^[A-F+\-\s]*/, ''));
+	// Read the number out of "<band>\n<overall> / 100" by MATCHING it, rather than
+	// stripping a leading band off the front. The old strip (`/^[A-F+\-\s]*/`) used
+	// an ASCII hyphen, but scorecard.js bands with a TYPOGRAPHIC minus — `A−`
+	// (U+2212, the 85–92 band) survived the strip and `parseFloat('−\n90 / 100')`
+	// is NaN. This deck scores 90, so the assertion below failed on every run that
+	// got past the export step.
+	const score = Number.parseFloat(scoreLine.match(/(\d+(?:\.\d+)?)\s*\/\s*100/)?.[1] ?? '');
 	expect(score).toBeGreaterThanOrEqual(0);
 	expect(score).toBeLessThanOrEqual(100);
 
@@ -49,7 +55,7 @@ test('an exec drafts a quarterly deck, the Coach scores it board-ready, and it e
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	// Six slides at 2× raster take a while — give the pipeline room to finish.
 	const download = page.waitForEvent('download', { timeout: 60_000 });
-	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).click();
+	await shareExport(page, 'pdf');
 	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 	await expect(toastText(page)).toContainText('PDF ready.');
 });

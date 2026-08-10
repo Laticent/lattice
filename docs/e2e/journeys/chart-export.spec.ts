@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, gotoStudio, railButtons, setEditorContent, test, toastText } from '../studio-fixture';
+import { expect, gotoStudio, railButtons, setEditorContent, shareExport, test, toastText } from '../studio-fixture';
 
 // Journey: chart deck → PDF. Stylesheet-styled chart SVGs (radar, donut) are the
 // export rasterizer's blind spot: html-to-image inlines computed styles onto
@@ -49,7 +49,7 @@ test('a chart deck exports to PDF with styled (non-black) chart SVGs', async ({ 
 	}, { timeout: 60_000 });
 
 	const download = page.waitForEvent('download', { timeout: 60_000 });
-	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).click();
+	await shareExport(page, 'pdf');
 	await flattenProbe; // resolves only when the capture frame's charts are baked
 	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 	await expect(toastText(page)).toContainText('PDF ready.');
