@@ -3622,6 +3622,15 @@ own) is not a builder and needs no entry.
   The give-away is `aria-valuenow` staying right while the pixels go wrong. The
   Playground (`client:load`) therefore restores post-mount and only the Studio
   (`client:only`) is seeded.
+- **The Playground's version of the same disease, and its different cure:** that
+  island server-renders, so before hydration its panes carry no `flex-grow` and an
+  inline `flex-basis:45` — unitless, therefore invalid, therefore dropped. The panes
+  size to CONTENT and leave the row empty (measured: 123px + 300px = 29% of the row,
+  for ~1s on a reload). Because the inline value is invalid and the inline grow is
+  absent, a STYLESHEET can own that window — which is what the 2026-07-19 migration
+  note wrongly assumed was impossible when it retired the old CSS-var seed. The seed
+  is back (`playground.astro` + the `--pg-split-a/b` rules in `playground.css`), and
+  that, not `defaultLayout`, is how you give a hydrated splitter a correct first paint.
 - **The general rule:** the shell and the app share boot state through the same
   storage, so they agree at rest; they disagree in the FIRST SECOND whenever one
   reads before paint and the other corrects after it. If you add shared boot state,

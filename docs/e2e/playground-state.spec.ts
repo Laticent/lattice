@@ -197,11 +197,43 @@ test('@smoke the split divider restores where it was dragged, and the pane measu
 	// Guard against a vacuous pass: if the drag did nothing, every assertion below is trivial.
 	expect(dragged, 'the drag did not move the divider — the rest of this test proves nothing').toBeLessThan(600);
 
+	// Sample the panes every frame from document start, so the PRE-hydration paint is on the
+	// record too — that is where the reported jank actually lived. Before the CSS-var seed, a
+	// throttled reload showed the two panes at 123px and 300px covering 35% of the row, with the
+	// rest of the viewport simply empty, for about a second; then the 45/55 default; then the
+	// restore. Three states, two of them wrong.
+	await page.addInitScript(() => {
+		const log: { e: number; v: number; cover: number }[] = [];
+		(window as unknown as { __paneLog: typeof log }).__paneLog = log;
+		const t0 = performance.now();
+		const tick = () => {
+			const g = document.querySelector('#pg-split');
+			const e = document.querySelector('#pg-split-editor');
+			const v = document.querySelector('#pg-split-preview');
+			if (g && e && v) {
+				const gw = g.getBoundingClientRect().width;
+				const ew = Math.round(e.getBoundingClientRect().width);
+				const vw = Math.round(v.getBoundingClientRect().width);
+				const last = log[log.length - 1];
+				if (gw > 0 && (!last || last.e !== ew || last.v !== vw)) log.push({ e: ew, v: vw, cover: Math.round(((ew + vw) / gw) * 100) });
+			}
+			if (performance.now() - t0 < 10_000) requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await expect(editor).toBeVisible();
 	await expect
 		.poll(width, { timeout: 15_000, message: 'the saved split was not restored after reload' })
 		.toBeCloseTo(dragged, -1);
+
+	// The panes must FILL the row in every frame they were measured in. This is the assertion
+	// that would have caught the reported jank: the widths eventually being right says nothing
+	// about the second the user spent looking at two slivers against an empty viewport.
+	const paneLog = await page.evaluate(() => (window as unknown as { __paneLog: { e: number; v: number; cover: number }[] }).__paneLog);
+	expect(paneLog.length, 'the pane sampler recorded nothing — the assertion below would be vacuous').toBeGreaterThan(0);
+	const worst = Math.min(...paneLog.map((s) => s.cover));
+	expect(worst, `the split left the row uncovered at some point (${JSON.stringify(paneLog)})`).toBeGreaterThanOrEqual(99);
 
 	// …and the pane must MEASURE its share, not merely report it. One keyboard step moves the
 	// separator by a known percentage of the group; with a live flex-basis the pane follows,

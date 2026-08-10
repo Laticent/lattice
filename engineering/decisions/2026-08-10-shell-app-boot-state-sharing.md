@@ -180,6 +180,44 @@ Per HARD RULE #23, on the real built surface, driven through the real divider:
   the old jank, back for one load. The seed is what makes the common case exact; the
   backstop is what makes the pathological case merely late.
 
+## The Playground's pre-paint, which is the same problem with a different cure
+
+Fixing the Studio left the Playground looking worse than either of us realised, and a
+screen recording on a real iPad is what surfaced it — not any measurement taken here.
+
+That island server-renders, and until it hydrates its two panel wrappers carry **no
+`flex-grow` at all** and an inline `flex-basis:45`. A unitless number is not a valid
+CSS length, so the parser discards it. The panes therefore size to their CONTENT and
+leave the rest of the row empty. Measured at iPad width with the CPU throttled 6x, on
+a reload with a dragged split saved:
+
+| t | editor | preview | row covered |
+|---|---|---|---|
+| 410ms | **123px** | 300px | **35%** — the rest of the viewport blank |
+| 1460ms | 557px | 636px | 100% (the 45/55 default) |
+| 1550ms | 337px | 856px | 100% (the saved share, at last) |
+
+Three states, two of them wrong, on every reload — and the first one is not "the
+default painting early", it is no layout at all.
+
+The cure is not the Studio's. `defaultLayout` is exactly the thing that must not touch
+a hydrated surface. But the same property that made the SSR paint broken makes a
+STYLESHEET able to own it: the inline basis is invalid and the inline grow is absent,
+so CSS wins that window and loses it again the moment React commits a real inline
+`flex-grow`. So the pre-paint CSS-var seed is back — `playground.astro` writes
+`--pg-split-a/b` from the same saved layout the app will restore, and `playground.css`
+consumes them with the panels' own defaults as fallbacks.
+
+The 2026-07-19 migration note retired that seed on the reasoning that "the library owns
+the panel's inline flex, so a CSS var can't seed it". Before hydration the library owns
+no such thing. Worth remembering as a shape: *a claim about who owns a value is only
+true for the window in which that owner exists.*
+
+After: **one state**, 317px at 100% coverage from the first frame it is measurable.
+Pinned by the `@smoke` Playground case, which now asserts the panes cover the row in
+every frame it sampled — an assertion that fails on the old build with the three-state
+log printed in the message.
+
 ## Known gaps, recorded rather than fixed
 
 - **`defaultSize="45"` / `"55"` on the Playground's panels are invalid CSS lengths.**

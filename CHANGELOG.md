@@ -59,7 +59,19 @@ in patch versions.
   server-renders, deliberately keeps the post-mount restore it already had: seeding a
   hydrated splitter is silently destructive, because the seed reaches the panel's
   inline style during render and React does not patch inline-style hydration
-  mismatches — the pane's `flex-basis` would freeze for the life of the page.
+  mismatches — the pane's `flex-basis` would freeze for the life of the page. It gets
+  its pre-paint correctness from a stylesheet instead.
+
+- **Fixed: the Playground no longer opens as two slivers against an empty
+  viewport.** Until the editor island hydrated, the two panes carried no `flex-grow`
+  at all and an inline `flex-basis:45` — a unitless number, which is not a valid CSS
+  length, so the browser threw it away. The panes sized to their content and left the
+  rest of the row blank: measured on a reload at iPad width, 123px and 300px covering
+  29% of the row for about a second, then the 45/55 default, then the saved split.
+  Three states, two of them wrong, on every reload. A pre-paint script now seeds the
+  saved shares as CSS custom properties and the stylesheet owns that window, so the
+  first paint is already the split you left — one state, measured at 100% coverage
+  from the first frame.
 
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a

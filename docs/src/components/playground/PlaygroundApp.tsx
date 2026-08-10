@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, P
 import * as React from 'react';
 import { toast } from 'sonner';
 import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
+import { PG_SPLIT_KEY, PG_SPLIT_PANEL_IDS } from '@/components/playground/pg-split';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -87,19 +88,18 @@ export type PlaygroundData = {
 // The Explore surface's walk position: a component's gallery plan (stable step
 // kinds) or a full gallery deck (slide-index positions — no plan exists).
 /**
- * The split's panel ids — ONE declaration, used for both Panels. Retyping them at the call
- * sites is how the Studio's equivalent once drifted: a rename compiles, types fine, and simply
- * misses the storage lookup at runtime (#1495).
+ * The split is NOT seeded through `useResizableSplit`'s `clientOnlyPanelIds`, deliberately.
  *
- * NOT passed to `useResizableSplit` as `clientOnlyPanelIds`, deliberately. That option seeds
- * the library's `defaultLayout`, which reaches the panel's inline style during RENDER — and
- * this island is `client:load` (playground.astro), so it server-renders and hydrates. React 19
- * does not patch inline-style hydration mismatches, so seeding here froze the pane's
- * flex-basis for the life of the page: a divider dragged to 412px came back at 653px and then
- * mis-tracked every subsequent drag. The hook's post-mount backstop restores this split
- * instead, and lands on the same 412px. See the option's own note (#1553).
+ * That option hands the saved layout to the library as `defaultLayout`, which reaches the
+ * panel's inline style during RENDER — and this island is `client:load` (playground.astro), so
+ * it server-renders and hydrates. React 19 does not patch inline-style hydration mismatches, so
+ * seeding here froze the pane's flex-basis for the life of the page: a divider dragged to 412px
+ * came back at 653px and then mis-tracked every drag after (#1553).
+ *
+ * This surface gets its pre-paint correctness the other way — the CSS-var seed in
+ * `playground.astro` + `playground.css`, which touches nothing React renders — and the hook's
+ * post-mount backstop lands the authoritative layout after hydration.
  */
-const PG_SPLIT_PANEL_IDS = ['pg-split-editor', 'pg-split-preview'] as const;
 
 type Walk =
 	| { kind: 'plan'; plan: Plan; index: number }
@@ -575,7 +575,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// own the srcdoc iframe pointer shield + __latticeFit re-fit via the callbacks:
 	// onDragStart suspends the in-iframe FIT agent, onDragEnd/onSettle re-fit once.
 	const split = useResizableSplit({
-		storageKey: 'lattice-docs-split-playground',
+		storageKey: PG_SPLIT_KEY,
 		active: splitActive,
 		defaultRatio: 45,
 		configKey: 'ep', // the Playground group is always just editor|preview
