@@ -95,7 +95,11 @@ function touchAt(type: string, points: Array<[number, number]>, target?: Element
 	const ev = new Event(type, { bubbles: true });
 	// On touchend the lifted points are no longer down — that difference is what the
 	// finger-count guard reads to know a gesture has finished.
+	// `targetTouches` (contacts on THIS element) is what the handlers count — see the
+	// note in preview-zoom.ts. Here every contact is on the stage, so it matches
+	// `touches`; both are present because a real TouchEvent always carries both.
 	Object.defineProperty(ev, 'touches', { value: type === 'touchend' ? [] : list, configurable: true });
+	Object.defineProperty(ev, 'targetTouches', { value: type === 'touchend' ? [] : list, configurable: true });
 	Object.defineProperty(ev, 'changedTouches', { value: list, configurable: true });
 	if (target) Object.defineProperty(ev, 'target', { value: target, configurable: true });
 	return ev;

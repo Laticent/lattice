@@ -88,9 +88,25 @@ underneath the slide we are already transforming — the handler appears to work
 review and does the wrong thing in a browser. Every listener here is native and
 explicitly `{passive: false}`.
 
-**Zoom resets on slide change, everywhere.** Carrying 3× onto the next slide lands
-the reader in a random corner of it. Present additionally resets on close: leaving
-a talk at 3× would hand the next session a cropped opening slide.
+**Zoom resets on slide change, everywhere** — and the first version of this note
+justified it with a claim that is simply false: *"carrying 3× onto the next slide
+lands the reader in a random corner of it."* It does not. The kernel works in
+viewport-relative pixels and every slide renders into the same box at the same fit
+scale, so persisting `(scale, x, y)` would land on the **identical** region of the
+next slide.
+
+The honest argument is weaker and worth stating as such. Resetting is the choice
+that is never *surprising*: consecutive slides in a deck are often the same layout,
+but often enough they are not (a table then a section title), and arriving at 3× on
+a slide whose content is somewhere else reads as a bug. The cost is real and falls
+on a real use — *"row 3 in Q1, now Q2, now Q3"* is exactly what zoom is for in a
+boardroom deck, and that reader now re-pinches every slide. The asymmetry also runs
+against us: unwanted persistence is one click to fix, unwanted reset has no fix.
+This is the weakest of the three judgment calls here and the one most likely to be
+revisited; it is recorded that way rather than dressed up.
+
+Present additionally resets on close, which is not in doubt: leaving a talk at 3×
+would hand the next session a cropped opening slide.
 
 ## Interaction model
 
@@ -104,54 +120,102 @@ a talk at 3× would hand the next session a cropped opening slide.
 | Middle-button click | — | back to fit |
 | Zoom badge | hidden | back to fit |
 
-Zoom clamps to `[1, 4]` — 1 is fit, and pan is bounded so a zoomed slide can never
-be dragged far enough to expose a gap. The badge appears only above fit: an
-always-on "100%" is noise, and its absence is a truthful signal that nothing is
-cropped.
+`+`/`=`, `-`/`_` and `0` do the same three things from the keyboard, zooming about
+the viewport center — because there is no cursor to anchor on, and because a verb
+reachable only by pinch, wheel or middle button is *gated on pointer capability*,
+which is exactly what the parity rule forbids. A modified chord is never taken:
+`⌘+`/`ctrl+-` belong to the browser's own page zoom, and taking those would remove
+whole-UI enlargement from the readers a zoom feature is most for.
+
+Zoom clamps to `[1, 4]` — 1 is fit — and pan is bounded so a zoomed slide can never
+be dragged far enough to expose a gap. That bound is only true if the transform
+target really does fill the box at scale 1, which it did NOT at first: the clipping
+box carries a 1px border under `box-sizing: border-box`, so its border-box rect is
+2px larger than the child in each axis, and a measured 7px strip of background
+showed at the far corner at 4×. The controller reads the CONTENT box
+(`clientWidth`/`clientLeft`) instead, which makes the kernel's premise true rather
+than approximately true.
+
+The badge appears only above fit: an always-on "100%" is noise, and its absence is
+a truthful signal that nothing is cropped.
 
 ## Verification
 
 Real built Studio, real browser, genuine CDP touch and wheel events — never a
 synthesized DOM event (HARD RULE #23).
 
-- **`@parity` e2e, all three widths × both pointer states.** Four new cells on the
-  shell preview (pinch zooms and does not navigate; trackpad pinch likewise;
-  middle-drag zooms and middle-click resets; zoom does not leak across slides) and
-  three on Present. All pass at 1440 / 820 / 390, touch and non-touch.
+- **`@parity` e2e** across `desktop` / `desktop-touch` / `tablet-touch` /
+  `mobile-touch`. New cells: on the shell preview, pinch zooms and does not
+  navigate, trackpad pinch likewise, middle-drag zooms and middle-click resets,
+  zoom does not leak across slides, and a pane resize while zoomed never blanks the
+  slide; on Present, the same first three plus — added after the trio — a plain
+  wheel and a one-finger swipe still turning the deck. Three touch-only cells
+  **skip** rather than pass on the non-touch `desktop` project, which is correct
+  (that project models a machine with no touchscreen) but means "all pass at every
+  width, touch and non-touch" would be an overstatement.
 - **Visual evidence at 1440 / 820 / 390** — pinched and panned. The slide zooms
   crisply inside its card, the card's rounded corners still clip the transformed
   content (checked at pixel level against the fit state, in case the composited
   child leaked the radius), the page itself does not zoom, and the slide counter
   never moves.
-- **Unit tiers**: 8 kernel tests for the gesture machine including the inlining
-  contract, 12 for the DOM controller, plus a pinch and a `ctrl`+wheel case added
-  to the presenter-window suite — where the fixture had to be fixed first, because
-  it built touch events carrying only `changedTouches`, a shape no real TouchEvent
-  has and one in which a pinch is unrepresentable.
+- **Unit tiers**: 10 kernel tests for the gesture machine including the inlining
+  contract, 20 for the DOM controller, 4 for the keyboard route, plus a pinch and a
+  `ctrl`+wheel case added to the presenter-window suite — where the fixture had to
+  be fixed first, because it built touch events carrying only `changedTouches`, a
+  shape no real TouchEvent has and one in which a pinch is unrepresentable. The
+  same gap existed in this change's own controller fixture and was found the same
+  way.
 - **Exported artifact bytes are unchanged.** The export player inlines four named
   kernels by `.toString()`, not the module, so `createZoomGesture` and `zoomStep`
-  do not reach it — asserted by building `playerJs()` and grepping, not by reading
-  the source. No export sign-off was required.
+  do not reach it — asserted by building `playerJs()` and hashing the output before
+  and after, on both export paths, not by reading the source. No export sign-off
+  was required.
+
+**UNVERIFIED on a real surface: the presenter screen's zoom.** Its pinch and
+`ctrl`+wheel guards are covered by jsdom unit tests, and the generated script was
+driven in a harness — but the presenter view is a `window.open` popup that the
+Playwright suite does not drive, so no artifact from the real surface exists. The
+claim for that surface is "the rule is shared and the guards are unit-tested", not
+"verified".
 
 ## Performance — and the defect the measurement found
 
-Measured on the real built Studio under CPU throttle, the browser-side regime
-`docs/scripts/frame-bench.mjs` established (`npm run bench` is the ENGINE
-benchmark and has no gesture scenario, so it is not the instrument for this).
+Measured with **`docs/scripts/zoom-gesture-bench.mjs`**, committed with this change
+— the browser-side regime `frame-bench.mjs` established, extended to gestures
+(`npm run bench` is the ENGINE benchmark and has no gesture scenario, so it is not
+the instrument for this). It is committed precisely because the first version lived
+in `.scratch/`, which is gitignored: the only quantitative claim in this change
+would have shipped with no way to reproduce it.
+
+```
+cd docs && npm run build:e2e && npm run preview:e2e &
+CPU=6 WIDTH=390 HEIGHT=844 node scripts/zoom-gesture-bench.mjs
+```
+
 Three questions, each measured: does zooming trigger an engine render, what do
 frames look like during the gesture, and what does it cost at idle.
 
 The headline is structural: **a pinch causes ZERO engine renders**, at every
-throttle and viewport. That is the design working — a transform on a rendered
-layer is not a re-render, so the whole edit→paint pipeline stays asleep.
+throttle and viewport. That is the design working — a transform on a rendered layer
+is not a re-render, so the whole edit→paint pipeline stays asleep. The zero is a
+real zero and not an unwired counter: the same probe's `slide change` arm reports
+`engine renders: 1` in the same page session, so the metric demonstrably can go up.
 
 But the first measurement, at 6× throttle on a 390px viewport, found a defect
 that reasoning had missed:
 
-| pinch, 40 samples @ 6× CPU | p95 frame | frames > 32ms | long tasks |
-|---|---|---|---|
-| first cut | 50.0ms | 15 | 57ms, 51ms |
-| after the fix | 16.8ms | 1 | one ~55ms |
+| pinch, 40 samples @ 6× CPU | p95 frame | frames > 32ms |
+|---|---|---|
+| first cut | 50.0ms | 15 |
+| after the fix | 16.8ms | 1 |
+
+**The long-task count is deliberately not in that table.** The first write of this
+note claimed "57ms, 51ms → one ~55ms", and an independent re-measurement on a
+rebuilt first-cut bundle got **one** long task in *both* states across three runs —
+so on this hardware the long-task count does not discriminate between them, and
+citing it as a before/after was reading noise as signal. p95 and the janky-frame
+count do reproduce, and the p95 spread on the first cut (33.4 / 50.0 / 33.4 ms over
+three runs) contains the number originally quoted.
 
 The tell was that **panning was perfectly smooth (60fps, no long tasks) while
 pinching was not** — both write the same transform through the same code, so the
@@ -181,6 +245,63 @@ non-standard `gesturestart`/`gesturechange` events that Chromium never fires. Th
 events are suppressed here on the reasoning that `touch-action: none` has
 historically not been enough on Safari — but that reasoning has not been tested on
 the surface it is about, and this sandbox cannot reach it.
+
+## What the adversarial trio caught
+
+The change passed every gate — lint, 5766 unit, 2928 docs, `build:check`, and a
+green CI — and then the trio (HARD RULE #25: red team + Munger inversion +
+independent checker) found nine real defects in it. They are worth naming, because
+the pattern is sharper than any individual bug: **every correctness gate was green
+while three of these were live, and two of them were things this note explicitly
+claimed were handled.**
+
+1. **Resizing the pane while zoomed rendered the preview BLANK.** `bound()` runs
+   only inside a gesture, so nothing re-clamped the pan when the box changed size —
+   and the splitter drag, "Collapse editor", a window resize and a rotation all
+   change it. A 4× pan into a corner then sat entirely outside the new box. On the
+   chromeless surfaces (Read stop, landscape phone) there is no badge, so there was
+   no way out but a blind pan on a white box. Fixed with a `ResizeObserver` and a
+   kernel `nudge(0,0)` that re-clamps without moving.
+2. **The wrong fingers were counted.** `e.touches` is every contact on the
+   *document*; the correct list is `e.targetTouches`. A thumb resting on the editor
+   pane while the index finger swiped the preview — how a tablet is actually held —
+   counted as a second pinch finger, so navigation died and the slide zoomed
+   instead. The change whose entire premise is "count the fingers" counted the
+   wrong ones, on all three surfaces.
+3. **The zoom badge survived a remount, lied, and could not be dismissed.** Present
+   returns `null` while closed rather than unmounting, and the shell's holder is a
+   callback ref that re-fires on a breakpoint flip — so React state outlived the
+   handle. Reopening Present after a zoomed session showed a stale "246%" over a
+   slide at fit, and clicking it did nothing, because `reset()` early-returned
+   silently when already at fit. Fixed three ways: `reset()` always emits, a fresh
+   handle announces its scale at attach, and the announcement no longer rides on a
+   DOM lookup that can fail.
+4. **The pan bound was 2px too generous**, because the clipping box's 1px border
+   makes its border-box rect larger than the child that fills it — a measured 7px
+   strip of background at the far corner at 4×, against a note that claimed a gap
+   "can never" be exposed. Reading the content box makes the premise true.
+5. **A partial `touchcancel` lurched the slide ~200px**, and the presenter popup had
+   **no `touchcancel` handler at all** — so a palm rejection there latched the pinch
+   flag and silently ate the next swipe. The popup also skipped `deltaMode`
+   normalization, leaving ctrl+wheel zoom inert on Firefox. Two copies of one rule
+   had already diverged, which is the #1294 failure this module exists to end.
+6. **The middle drag never checked `e.buttons`**, so a release that delivered no
+   `mouseup` here left it live and bare cursor motion kept zooming.
+7. **Zoom was gated on pointer capability** — no keyboard route at all, in a change
+   that edits the CLAUDE.md row asserting no verb is so gated. `+`/`-`/`0` added.
+8. **Present's swipe and wheel navigation had zero coverage.** This change moved
+   them out of React props and into the zoom controller; nothing asserted they still
+   worked, so a later edit could have killed them with every gate green.
+9. **Three claims in this note were false or unreproducible** — the long-task
+   before/after (noise, not signal), the test counts, and "verified" applied to the
+   presenter screen, which has no artifact from a real surface. All corrected above.
+
+The generalizable lesson, beyond "run the trio": the two highest-severity findings
+(1 and 2) are both *state that only becomes wrong when something OUTSIDE the gesture
+changes* — the viewport resizing, a finger landing elsewhere on the page. A test
+suite built by driving the gesture can only ever exercise the gesture, so it was
+structurally incapable of seeing either. The `@parity` matrix proved the cells it
+contained, exactly as its predecessor warned.
 
 ## What this does NOT cover
 

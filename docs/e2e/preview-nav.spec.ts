@@ -281,3 +281,57 @@ test('arrow navigation does not re-open a preview the author collapsed', async (
 	await page.keyboard.press('End');
 	await expect(collapsed()).toHaveCount(1);
 });
+
+test('@parity resizing the pane while zoomed never blanks the slide', async ({ page }) => {
+	// The splitter drag, "Collapse editor" and a window resize all change the zoom
+	// box. Nothing re-bounded the pan, so a zoomed-and-panned slide sat entirely
+	// outside the new box: the preview rendered BLANK with a "400%" badge beside it,
+	// and on the chromeless surfaces there is no badge to click your way out with.
+	const box = await previewSurface(page).boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	// Zoom hard, anchored at the far corner so the pan runs to its bound.
+	for (let i = 0; i < 6; i++) {
+		await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: box.x + box.width, y: box.y + box.height, deltaX: 0, deltaY: -240, modifiers: 2 });
+	}
+	await expect(zoomBadge(page)).toBeVisible();
+	// Shrink the window — the same geometry change the splitter makes.
+	const vp = page.viewportSize();
+	expect(vp).not.toBeNull();
+	if (!vp) return;
+	await page.setViewportSize({ width: vp.width, height: Math.round(vp.height * 0.55) });
+	await page.waitForTimeout(400);
+
+	// TWO outcomes are correct here, and which one a project gets depends on whether
+	// the new geometry crosses a layout branch: either the slide is STILL ZOOMED (the
+	// pan re-bound against the new box), or the holder remounted and zoom RESET to fit
+	// — a fresh controller starts at fit and now announces it, so the badge goes with
+	// it. Asserting one specific outcome would be asserting this project's breakpoints.
+	// What must never happen is the third state: zoomed, but no longer covering its
+	// box — which is the blank preview this test exists for.
+	const state = await page.evaluate(() => {
+		const host = document.querySelector('[aria-label="Live deck preview"]');
+		const clip = host?.parentElement;
+		if (!host || !clip) return null;
+		const a = host.getBoundingClientRect();
+		const b = clip.getBoundingClientRect();
+		return {
+			transform: (host as HTMLElement).style.transform,
+			gaps: { left: a.left - b.left, top: a.top - b.top, right: b.right - a.right, bottom: b.bottom - a.bottom },
+		};
+	});
+	expect(state).not.toBeNull();
+	if (!state) return;
+	const zoomedNow = await zoomBadge(page).count();
+	if (zoomedNow === 0) {
+		// Reset to fit: the transform is cleared, so the slide fills its box by layout.
+		expect(state.transform, 'reset to fit must clear the transform, not strand one').toBe('');
+		return;
+	}
+	// Still zoomed — every edge must reach or overhang the clip box. A positive value
+	// is exposed background; before the re-bound this was the full width of the box.
+	for (const [edge, v] of Object.entries(state.gaps)) {
+		expect(v, `${edge} edge exposed ${v}px of background`).toBeLessThanOrEqual(1);
+	}
+});

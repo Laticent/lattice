@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { messageForFailure } from '@/lib/chunk-load';
-import { shellKeyAction } from '@/lib/deck-nav';
+import { shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
@@ -2383,6 +2383,24 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			// every such widget generically, including ones not written yet — a role
 			// allowlist has to be extended for each new one and silently misses the rest.
 			if (e.defaultPrevented) return;
+			// ZOOM BY KEYBOARD. The other three verbs are pointer-free; zoom shipped
+			// reachable only by pinch, ctrl+wheel or a middle button — i.e. gated on
+			// pointer capability, which is exactly what the input-verb parity rule
+			// forbids. `+`/`-`/`0` (the browser's own zoom keys) close it, so a
+			// keyboard-only or switch user has a route in and, crucially, a route back
+			// to fit: the reset badge only EXISTS once you have already zoomed.
+			// `zoomKeyAction` shares the typing/modifier guard with navigation, so it
+			// stands down in the editor and never steals a ⌘+/⌘- browser zoom.
+			const zoomAct = zoomKeyAction(e, document.activeElement);
+			if (zoomAct) {
+				e.preventDefault();
+				const h = zoomRef.current;
+				if (h) {
+					if (zoomAct === 'reset') h.reset();
+					else h.stepBy(zoomAct === 'in' ? 1 : -1);
+				}
+				return;
+			}
 			const act = shellKeyAction(e, document.activeElement);
 			if (!act) return;
 			e.preventDefault();

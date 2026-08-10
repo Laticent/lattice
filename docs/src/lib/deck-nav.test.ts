@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isTypingTarget, SHELL_KEYMAP, shellKeyAction } from './deck-nav';
+import { isTypingTarget, SHELL_KEYMAP, shellKeyAction, zoomKeyAction } from './deck-nav';
 
 // The DOM half of slide navigation (#1294): which keystrokes turn the deck, and
 // which belong to whatever the user is typing into.
@@ -90,5 +90,40 @@ describe('shellKeyAction', () => {
 		expect(shellKeyAction(key('Escape'), document.body)).toBeNull();
 		// Own-property lookup only — an inherited member must not become an action.
 		expect(shellKeyAction(key('toString'), document.body)).toBeNull();
+	});
+});
+
+describe('zoomKeyAction — the pointer-free route to the fourth verb', () => {
+	// Zoom shipped reachable only by pinch / ctrl+wheel / middle button, i.e. gated on
+	// pointer capability — which is what this module's parity rule forbids, and which
+	// left keyboard-only and switch users with no route to zoom and no route back.
+	const key = (k: string, mods: Partial<KeyboardEvent> = {}) =>
+		({ key: k, metaKey: false, ctrlKey: false, altKey: false, ...mods }) as KeyboardEvent;
+
+	it('maps both faces of each key, so Shift is never required', () => {
+		expect(zoomKeyAction(key('+'), null)).toBe('in');
+		expect(zoomKeyAction(key('='), null)).toBe('in');
+		expect(zoomKeyAction(key('-'), null)).toBe('out');
+		expect(zoomKeyAction(key('_'), null)).toBe('out');
+		expect(zoomKeyAction(key('0'), null)).toBe('reset');
+	});
+
+	it('never steals the browser its own page zoom', () => {
+		// ⌘+ / ctrl+- are the browser's, and taking them would remove a user's ability
+		// to enlarge the whole UI — the exact population a zoom feature is for.
+		expect(zoomKeyAction(key('+', { metaKey: true }), null)).toBeNull();
+		expect(zoomKeyAction(key('-', { ctrlKey: true }), null)).toBeNull();
+		expect(zoomKeyAction(key('0', { metaKey: true }), null)).toBeNull();
+	});
+
+	it('stands down while the author is typing', () => {
+		const input = document.createElement('input');
+		expect(zoomKeyAction(key('-'), input)).toBeNull();
+		expect(zoomKeyAction(key('0'), input)).toBeNull();
+	});
+
+	it('ignores keys it does not own', () => {
+		expect(zoomKeyAction(key('ArrowRight'), null)).toBeNull();
+		expect(zoomKeyAction(key('5'), null)).toBeNull();
 	});
 });

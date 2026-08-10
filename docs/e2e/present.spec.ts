@@ -154,3 +154,38 @@ test('@parity leaving a slide in Present drops the zoom with it', async ({ page 
 	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 	await expect(presentZoomBadge(page)).toHaveCount(0);
 });
+
+// Present's swipe and wheel NAVIGATION moved out of React props and into the zoom
+// controller. Nothing asserted it still worked there — so a later change to the
+// backdrop, the effect order, or that module could have killed wheel and swipe nav
+// in Present with every gate green. That is #1294's failure mode with a longer
+// causal chain, and these two cells are the guard against it.
+
+test('@parity a plain wheel still turns the deck in Present', async ({ page }) => {
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+	const box = await page.locator('[aria-label="Presented slide"]').first().boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.wheel(0, 260);
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+});
+
+test('@parity a one-finger swipe still turns the deck in Present', async ({ page }) => {
+	test.skip(!test.info().project.use.hasTouch, 'this project models a device with no touchscreen');
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+	const box = await page.locator('[aria-label="Presented slide"]').first().boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	const cdp = await page.context().newCDPSession(page);
+	const y = box.y + box.height / 2;
+	const from = box.x + box.width * 0.7;
+	const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number) =>
+		cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, radiusX: 12, radiusY: 12, force: 1 }] });
+	await send('touchStart', from);
+	for (let i = 1; i <= 5; i++) await send('touchMove', from - (200 * i) / 5);
+	await send('touchEnd', from - 200);
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+});

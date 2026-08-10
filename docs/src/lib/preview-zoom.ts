@@ -40,10 +40,17 @@ const WHEEL_RATE = 0.0015;
 const DRAG_RATE = 0.006;
 /** Under this much travel a middle-button press is a CLICK (reset), not a drag (zoom). */
 const CLICK_SLOP = 4;
+/** One keyboard notch, in the same units the wheel rate consumes: ~1.26x per press. */
+const KEY_STEP = 155;
 
 export interface PreviewZoomHandle {
 	/** Back to fit. Call on slide change so zoom never leaks between slides. */
 	reset(): void;
+	/**
+	 * One zoom notch about the viewport CENTER — the keyboard's route in, and the
+	 * only one that makes sense without a cursor to anchor on. `dir` is +1 in, -1 out.
+	 */
+	stepBy(dir: number): void;
 	/** Current scale — 1 is fit. For chrome that shows or clears the zoom. */
 	scale(): number;
 	dispose(): void;
@@ -88,24 +95,65 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 	// state: a pinch samples at pointer rate (~120Hz on a good trackpad) and a
 	// setState per sample would re-render the whole preview subtree mid-gesture.
 	const paint = (s: { scale: number; x: number; y: number }) => {
+		// ANNOUNCE FIRST, and unconditionally. `onZoom` is how chrome learns the scale,
+		// and the transform target is re-queried by selector every paint — so it can be
+		// legitimately absent for a frame (the preview's ErrorBoundary swaps it for a
+		// fallback; a remount is mid-flight). Coupling the announcement to that lookup
+		// meant a `reset()` during such a frame changed the state and never told anyone,
+		// stranding chrome at a scale that no longer existed.
+		onZoom?.(s.scale);
 		const el = target();
 		if (!el) return;
 		el.style.transformOrigin = '0 0';
 		el.style.transform = s.scale === 1 ? '' : `translate(${s.x}px, ${s.y}px) scale(${s.scale})`;
-		onZoom?.(s.scale);
 	};
 	const zoom = createZoomGesture({ max: opts.max ?? MAX_ZOOM, onChange: paint });
 
-	/** The viewport's size, and the origin gesture coordinates are measured from. */
+	/**
+	 * The viewport's CONTENT box, and the origin gesture coordinates are measured from.
+	 *
+	 * `clientWidth`/`clientHeight` + `clientLeft`/`clientTop`, NOT the bounding rect:
+	 * the clipping box carries a 1px border under `box-sizing: border-box`, so its
+	 * border-box rect is 2px larger in each axis than the child that fills it. The
+	 * kernel's pan bounds assume content fills the view at scale 1, so feeding it the
+	 * border-box made the bound 2·scale−1 px too generous — a measured 7px strip of
+	 * background showed at the far corner at 4×. The content box makes the kernel's
+	 * premise true instead of approximately true.
+	 */
 	const frame = () => {
 		const box = viewport() ?? surface;
 		const r = box.getBoundingClientRect();
-		return { w: r.width, h: r.height, left: r.left, top: r.top };
+		// `clientWidth`/`clientHeight` are ROUNDED integers; the box's real content size
+		// is fractional (its height comes from an aspect-ratio). Rounding UP overestimates
+		// the box, which LOOSENS the pan bound — and the error is multiplied by the scale,
+		// so a 0.5px rounding showed as a ~2px strip of background at 4x. The rect keeps
+		// the fraction, so subtract the (symmetric) border from it. `min` with the rounded
+		// value stays safe if a scrollbar ever makes the two disagree the other way:
+		// UNDER-estimating the box only over-constrains the pan, which can never expose a gap.
+		const bx = box.clientLeft;
+		const by = box.clientTop;
+		return {
+			w: Math.min(box.clientWidth, r.width - bx * 2),
+			h: Math.min(box.clientHeight, r.height - by * 2),
+			left: r.left + bx,
+			top: r.top + by,
+		};
 	};
 	const local = (p: { clientX: number; clientY: number }, f: ReturnType<typeof frame>) => ({
 		x: p.clientX - f.left,
 		y: p.clientY - f.top,
 	});
+	/**
+	 * TARGET touches only — the contacts on THIS surface, never `e.touches`.
+	 *
+	 * `e.touches` is every contact on the DOCUMENT regardless of target. Reading it
+	 * meant a finger resting anywhere else on the page — a thumb parked on the editor
+	 * pane while the index finger swipes the preview, which is simply how a tablet is
+	 * held — counted as a second pinch finger. The gesture then read as a pinch:
+	 * navigation died silently and the slide zoomed instead. Counting the fingers is
+	 * this module's whole job; counting the WRONG fingers is the same defect wearing
+	 * a different hat.
+	 */
 	const points = (list: TouchList, f: ReturnType<typeof frame>) => Array.from(list).map((t) => local(t, f));
 
 	// The browser must not claim the pinch (page zoom) or the drag (scroll) before a
@@ -127,7 +175,7 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 		onInput?.();
 		if (off()) return;
 		const f = frame();
-		const pts = points(e.touches, f);
+		const pts = points(e.targetTouches, f);
 		zoom.down(pts);
 		if (pts.length === 1) swipeStart = pts[0];
 		// A second finger is never a page gesture here — claim it before Safari does.
@@ -136,7 +184,7 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 	const onTouchMove = (e: TouchEvent) => {
 		if (off()) return;
 		const f = frame();
-		const kind = zoom.move(points(e.touches, f), f);
+		const kind = zoom.move(points(e.targetTouches, f), f);
 		// A pinch or a pan is OURS: without preventDefault the page zooms and scrolls
 		// underneath the slide we are already transforming.
 		if (kind) e.preventDefault();
@@ -145,7 +193,7 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 		// `up()` runs even while inert. It is the ONLY thing that clears the
 		// "this gesture was a pinch" flag, so skipping it when `inert` flips
 		// mid-gesture would strand that flag and mute every later swipe.
-		const remaining = e.touches.length;
+		const remaining = e.targetTouches.length;
 		const { swipeBlocked } = zoom.up(remaining);
 		if (off()) {
 			if (remaining === 0) swipeStart = null;
@@ -154,7 +202,7 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 		if (remaining > 0) {
 			// One finger of a pinch survives — re-anchor it so it pans smoothly from
 			// where it IS rather than jumping by the whole midpoint offset.
-			zoom.anchor(local(e.touches[0], frame()));
+			zoom.anchor(local(e.targetTouches[0], frame()));
 			return;
 		}
 		const start = swipeStart;
@@ -168,8 +216,18 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 		const act = swipeAction({ dx: p.x - start.x, dy: p.y - start.y });
 		if (act) onNav?.(act);
 	};
-	const onTouchCancel = () => {
-		zoom.up(0);
+	// A cancel may take a SUBSET of the contacts (palm rejection, a system edge
+	// gesture, a notification). Treating every cancel as "all fingers up" left the
+	// kernel's pan anchor at the two-finger MIDPOINT while a finger was still down,
+	// so that finger's next move jumped the slide by the whole midpoint offset — a
+	// measured ~200px lurch. Re-anchor on whatever survives, exactly as touchend does.
+	const onTouchCancel = (e: TouchEvent) => {
+		const remaining = e.targetTouches.length;
+		zoom.up(remaining);
+		if (remaining > 0) {
+			zoom.anchor(local(e.targetTouches[0], frame()));
+			return;
+		}
 		swipeStart = null;
 	};
 
@@ -214,22 +272,41 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 	};
 	const onMouseMove = (e: MouseEvent) => {
 		if (!mid) return;
+		// The middle button is the ONLY thing that authorizes this drag. `buttons` is a
+		// live bitmask (bit 2 = middle), so this ends the drag when the button is no
+		// longer held — covering the releases that never deliver a `mouseup` here at
+		// all (focus stolen, the OS grabs the pointer, a release outside the window).
+		// Without it, a stranded `mid` meant bare cursor motion kept zooming the slide.
+		if (!(e.buttons & 4)) {
+			endMiddleDrag(false);
+			return;
+		}
 		const f = frame();
 		const p = local(e, f);
 		const dy = p.y - mid.y;
 		mid.travel += Math.abs(p.x - mid.x) + Math.abs(dy);
-		// Zoom about where the button went down, not where the cursor has wandered to,
-		// so the slide grows around the thing the reader aimed at.
+		// Zoom about the cursor's CURRENT position, re-anchored each sample — so the
+		// drag keeps magnifying whatever is under the pointer as it travels, rather
+		// than pulling the slide away from it.
 		zoom.by(zoomStep(dy, { rate: DRAG_RATE }), mid.x, mid.y, f);
 		mid.x = p.x;
 		mid.y = p.y;
 	};
-	const onMouseUp = (e: MouseEvent) => {
+	/** One exit for the drag, so no path can leave `mid` set or the listeners bound. */
+	const endMiddleDrag = (reset: boolean) => {
 		if (!mid) return;
-		if (e.button === 1 && mid.travel < CLICK_SLOP) zoom.reset();
+		const click = mid.travel < CLICK_SLOP;
 		mid = null;
 		window.removeEventListener('mousemove', onMouseMove, true);
 		window.removeEventListener('mouseup', onMouseUp, true);
+		if (reset && click) zoom.reset();
+	};
+	const onMouseUp = (e: MouseEvent) => {
+		// A release of some OTHER button does not end this drag — the middle button is
+		// still down. Previously any mouseup tore the drag down while the button was
+		// still physically held, and the eventual middle release then did nothing.
+		if (!mid || e.button !== 1) return;
+		endMiddleDrag(true);
 	};
 	const onAuxClick = (e: MouseEvent) => {
 		if (e.button === 1) e.preventDefault();
@@ -266,12 +343,45 @@ export function attachPreviewZoom(surface: HTMLElement, opts: PreviewZoomOptions
 		fn('gesturechange', onGesture, OPTS);
 	};
 	bind(true);
+	// A FRESH HANDLE ANNOUNCES ITSELF. A new controller always starts at fit, but the
+	// chrome it is about to drive may not: React state outlives the handle wherever
+	// the surface remounts without the component unmounting — Present returns `null`
+	// while closed, and the shell's holder is a callback ref that re-fires on a
+	// breakpoint flip or a rotation. Without this, reopening Present after a zoomed
+	// session showed a stale "246%" badge over a slide at fit, and clicking it did
+	// nothing (reset was already a no-op). One idempotent call at attach closes it.
+	onZoom?.(zoom.state().scale);
+
+	// RE-BOUND ON RESIZE. `bound()` runs only inside a gesture, so a viewport that
+	// changes size while zoomed left the pan clamped to the OLD box — and the Studio
+	// resizes this box constantly (the splitter drag, "Collapse editor", a window
+	// resize, a phone rotation). A 4x pan into a corner then sat entirely outside the
+	// new content box: the preview rendered BLANK, with a "400%" badge beside it, and
+	// on the chromeless surfaces (Read stop, landscape phone) there was no badge to
+	// click and no way back except a blind pan. `nudge(0,0)` re-clamps against the
+	// current frame without moving the slide.
+	let ro: ResizeObserver | null = null;
+	if (typeof ResizeObserver !== 'undefined') {
+		ro = new ResizeObserver(() => {
+			if (zoom.zoomed()) zoom.nudge(0, 0, frame());
+		});
+		const box = viewport();
+		if (box) ro.observe(box);
+	}
 
 	return {
 		reset: () => zoom.reset(),
+		stepBy(dir) {
+			const f = frame();
+			// One notch is deliberately coarser than a wheel notch: a key press is a
+			// discrete intent, where a wheel delivers a burst.
+			zoom.by(zoomStep(-dir * KEY_STEP), f.w / 2, f.h / 2, f);
+		},
 		scale: () => zoom.state().scale,
 		dispose() {
 			surface.style.touchAction = priorTouchAction;
+			ro?.disconnect();
+			ro = null;
 			bind(false);
 			window.removeEventListener('mousemove', onMouseMove, true);
 			window.removeEventListener('mouseup', onMouseUp, true);

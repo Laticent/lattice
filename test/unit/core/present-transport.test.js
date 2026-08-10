@@ -275,3 +275,37 @@ test('createZoomGesture survives being inlined into an empty scope', () => {
 	assert.equal(z.move(pair(200), VIEW), 'pinch', 'the inlined gesture still pinches');
 	assert.equal(z.state().scale, 2);
 });
+
+// ── Regressions found by the adversarial trio (HARD RULE #25) ────────────────
+
+test('nudge re-clamps against the CURRENT view — the shrunk-viewport blank', () => {
+	const { createZoomGesture } = K;
+	// Zoom 4x and pan to the far corner of a 1000x600 box…
+	const z = createZoomGesture();
+	z.by(4, 0, 0, VIEW);
+	z.anchor({ x: 0, y: 0 });
+	z.move([{ x: -9999, y: -9999 }], VIEW);
+	assert.deepEqual(z.state(), { scale: 4, x: -3000, y: -1800 }, 'panned to the far edge');
+	// …then the box shrinks (a splitter drag). The old offset is now far outside it,
+	// which rendered the surface BLANK. A zero-delta nudge re-clamps without moving.
+	const small = { w: 260, h: 150 };
+	z.nudge(0, 0, small);
+	assert.deepEqual(z.state(), { scale: 4, x: -780, y: -450 }, 'clamped to the new box, still at the far edge');
+	// The content still covers the viewport: |x| <= w*(scale-1).
+	assert.ok(Math.abs(z.state().x) <= small.w * (z.state().scale - 1), 'no gap can be exposed');
+});
+
+test('reset ALWAYS announces, even when already at fit', () => {
+	const { createZoomGesture } = K;
+	// Chrome derives its own existence from these announcements. A reset that stayed
+	// silent because the state was already {1,0,0} left a stale badge on screen
+	// claiming a scale that no longer existed — and clicking it did nothing, because
+	// the click called this same silent reset.
+	const seen = [];
+	const z = createZoomGesture({ onChange: (s) => seen.push(s.scale) });
+	z.reset();
+	assert.deepEqual(seen, [1], 'an idempotent reset still tells the caller where it is');
+	z.by(2, 500, 300, VIEW);
+	z.reset();
+	assert.deepEqual(seen, [1, 2, 1], 'and a real reset announces exactly once');
+});

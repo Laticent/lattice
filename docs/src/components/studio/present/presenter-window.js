@@ -289,20 +289,33 @@ export function buildPresenterDoc() {
 		'function lp(p,f){return{x:p.clientX-f.left,y:p.clientY-f.top}}',
 		'function pts(l,f){var a=[],i=0;for(;i<l.length;i++)a.push(lp(l[i],f));return a}',
 		'var wheelGate=createWheelGate();',
+		// deltaMode normalization, same as the docs controller: Firefox reports LINES
+		// (deltaY ~ 3), so the pixel-tuned rate made ctrl+wheel zoom effectively inert
+		// here while it worked in the shell. Two copies of one rule diverging is the
+		// #1294 failure this module exists to prevent, so the popup carries it too.
+		'function wpx(e){return e.deltaMode===1?e.deltaY*16:e.deltaMode===2?e.deltaY*vf().h:e.deltaY}',
 		'window.addEventListener("wheel",function(e){',
 		'if(inNotes(e.target))return;',
 		// ctrl/meta+wheel is BOTH a mouse zoom and how a trackpad pinch reaches the page.
-		'if(e.ctrlKey||e.metaKey){e.preventDefault();var f=vf(),p=lp(e,f);zoom.by(zoomStep(e.deltaY),p.x,p.y,f);return}',
+		'if(e.ctrlKey||e.metaKey){e.preventDefault();var f=vf(),p=lp(e,f);zoom.by(zoomStep(wpx(e)),p.x,p.y,f);return}',
 		'nav(wheelGate(e.deltaX,e.deltaY,e.timeStamp))},{passive:false});',
 		'var swStart=null;',
+		// targetTouches, never touches: `touches` is every contact on the DOCUMENT, so a
+		// finger resting in the notes pane would count as a pinch finger for the stage.
 		'window.addEventListener("touchstart",function(e){',
-		'if(inNotes(e.target))return;var f=vf(),p=pts(e.touches,f);zoom.down(p);',
+		'if(inNotes(e.target))return;var f=vf(),p=pts(e.targetTouches,f);zoom.down(p);',
 		'if(p.length===1)swStart=p[0];if(p.length>1)e.preventDefault()},{passive:false});',
 		'window.addEventListener("touchmove",function(e){',
-		'if(inNotes(e.target))return;var f=vf();if(zoom.move(pts(e.touches,f),f))e.preventDefault()},{passive:false});',
+		'if(inNotes(e.target))return;var f=vf();if(zoom.move(pts(e.targetTouches,f),f))e.preventDefault()},{passive:false});',
+		// touchcancel was missing entirely — a system edge gesture or palm rejection left
+		// the pinch flag latched, silently eating the NEXT swipe on the surface where a
+		// lost slide-turn is most expensive.
+		'window.addEventListener("touchcancel",function(e){',
+		'var f=vf(),rem=e.targetTouches.length;zoom.up(rem);',
+		'if(rem>0){zoom.anchor(lp(e.targetTouches[0],f));return}swStart=null},{passive:false});',
 		'window.addEventListener("touchend",function(e){',
-		'if(inNotes(e.target))return;var f=vf(),rem=e.touches.length,r=zoom.up(rem);',
-		'if(rem>0){zoom.anchor(lp(e.touches[0],f));return}',
+		'if(inNotes(e.target))return;var f=vf(),rem=e.targetTouches.length,r=zoom.up(rem);',
+		'if(rem>0){zoom.anchor(lp(e.targetTouches[0],f));return}',
 		'var s=swStart;swStart=null;',
 		// THE FIX: a gesture that ever held two fingers, or panned a zoomed slide, is
 		// never measured as a swipe.
@@ -327,8 +340,11 @@ export function buildPresenterDoc() {
 		'if(d.accent){var rs=document.documentElement.style;rs.setProperty("--pp-accent",d.accent);if(d.onAccent)rs.setProperty("--pp-on-accent",d.onAccent)}',
 		'if(d.ppInit){doc=d.doc;total=d.total;cur.srcdoc=doc;nxt.srcdoc=doc;}',
 		'if(d.ppIndex!=null){last=d.ppIndex;',
-		// Zoom belongs to the slide you are reading, not to the deck — carrying 3× onto
-		// the next slide would land the presenter in a random corner of it mid-sentence.
+		// Zoom belongs to the slide you are reading, not to the deck. (Not because the
+		// offset would be "random" — every slide fits the same box, so it would be the
+		// SAME region — but because arriving mid-sentence at 3x on a slide whose content
+		// sits elsewhere reads as a bug. See the decision note; this is the weakest of
+		// the judgment calls in that change.)
 		'zoom.reset();',
 		'count.textContent=(d.ppIndex+1)+" / "+total;',
 		'applyFrames();',
