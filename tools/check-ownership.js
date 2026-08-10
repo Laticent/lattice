@@ -2323,6 +2323,168 @@ function checkThemeTokenParity(errors) {
   }
 }
 
+// ── The NO-SAFE-DEFAULT contract (#1457) ──────────────────────────────────────
+//
+// `lib/theme/derive.js`'s REQUIRED_TOKENS is what the Studio's generator promises
+// to emit. It shipped 21 tokens short, and the shortfall was invisible to every
+// theme gate in this file for one structural reason: THEY ALL SCAN `themes/`, and
+// a generated theme never lands there. It lands in a browser, in an asset bundle,
+// in someone's export.
+//
+// So the omission surfaced as a render bug instead. Measured on the export CLI:
+// `--c-container` / `--c-container-edge` are read through
+// `lib/core/mermaid-theme-map.js`, whose PDF-path reader warns and substitutes a
+// BLACK SENTINEL that ships — solid black subgraph boxes on 5 of 8 slides of
+// examples/containment-tier.md. `--spectrum` is read bare inside `background:`
+// shorthands, so a miss invalidates the whole declaration at computed-value time
+// and `section.dark` / `.divider` lost their canvas entirely, painting near-white
+// text on white paper.
+//
+// The old fix was to widen the list by hand, which is how it got short in the
+// first place. This gate computes the obligation instead:
+//
+//   a THEME token          — declared at :root by at least one shipped palette,
+//                            i.e. part of the vocabulary a theme is expected to own
+//   with NO ENGINE DEFAULT — no :root declaration anywhere in lib/**.css
+//   read with NO FALLBACK  — a bare `var(--x)` in lib/**.css, or a `{ var: 'x' }`
+//                            entry in the Mermaid map (whose reader has no fallback
+//                            parameter at all — a miss IS the sentinel)
+//   ⟹ must be in REQUIRED_TOKENS.
+//
+// There is deliberately no allowlist. A token caught here has two honest exits and
+// both are cheap: derive it (add the contract row), or give the read its
+// `var(--x, <fallback>)` — which is the same choice `--cat-N-ink` already made,
+// and why that family does not appear here despite having no :root default.
+const NO_SAFE_DEFAULT_MAP_READERS = ['lib/core/mermaid-theme-map.js'];
+
+/** Top-level `{ selector, body }` rule blocks, brace-aware, comments stripped. */
+function cssRuleBlocks(css) {
+  const s = stripComments(css);
+  const out = [];
+  let depth = 0;
+  let start = 0;
+  let selector = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '{') {
+      if (depth === 0) { selector = s.slice(start, i).trim().replace(/\s+/g, ' '); start = i + 1; }
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) { out.push({ selector, body: s.slice(start, i) }); start = i + 1; }
+    }
+  }
+  return out;
+}
+
+/**
+ * True for a selector that applies UNCONDITIONALLY at the document root — the only
+ * kind that is a default. `:root:root` (a11y-base's specificity hard pin) and
+ * `:where(:root)` (a zero-specificity default) both qualify; `:root.print` does
+ * not, because it waits for a class. One part of a selector LIST is enough:
+ * `:root, section { … }` declares at the root.
+ */
+function isUnconditionalRoot(selector) {
+  return splitTopLevel(selector).some((part) => {
+    const bare = part.trim().replace(/:where\(\s*:root\s*\)/g, ':root');
+    return /^(:root)+$/.test(bare);
+  });
+}
+
+/** Custom-property names declared under an unconditional `:root` in one stylesheet. */
+function rootScopedTokens(css) {
+  const names = new Set();
+  for (const { selector, body } of cssRuleBlocks(css)) {
+    if (!isUnconditionalRoot(selector)) continue;
+    for (const m of body.matchAll(/(?:^|[;{])\s*--([\w-]+)\s*:/g)) names.add(m[1]);
+  }
+  return names;
+}
+
+/**
+ * Every `var(--name)` read in `css` that carries NO fallback, as
+ * `name → ['file:line', …]`. A read WITH a fallback is a safe default by
+ * construction and is deliberately not reported.
+ */
+function bareVarReads(css, label, into = new Map()) {
+  const s = stripComments(css);
+  for (const m of s.matchAll(/var\(\s*--([\w-]+)\s*([,)])/g)) {
+    if (m[2] === ',') continue;
+    const line = s.slice(0, m.index).split('\n').length;
+    if (!into.has(m[1])) into.set(m[1], []);
+    into.get(m[1]).push(`${label}:${line}`);
+  }
+  return into;
+}
+
+/**
+ * Every token the token→Mermaid map reads. The map's `readToken` takes a name and
+ * nothing else, so EVERY entry here is a fallback-free read on both render paths —
+ * and on the PDF path a miss is the black sentinel, not an absent property.
+ */
+function mermaidMapTokenReads(js, label, into = new Map()) {
+  for (const m of stripJsComments(js).matchAll(/\{\s*var:\s*'([^']+)'/g)) {
+    if (!into.has(m[1])) into.set(m[1], []);
+    into.get(m[1]).push(label);
+  }
+  return into;
+}
+
+/**
+ * The tokens that have no safe default anywhere and are read without one, given
+ * the three inputs. Pure, so the gate can be bitten with synthetic input instead
+ * of only asserted empty over the shipped tree.
+ */
+function noSafeDefaultTokens({ themeTokens, engineDefaults, bareReads, contract }) {
+  return [...bareReads.keys()]
+    .filter((t) => themeTokens.has(t) && !engineDefaults.has(t) && !contract.has(t))
+    .sort();
+}
+
+function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB_DIR } = {}) {
+  const declared = themesDir === THEMES_DIR ? listThemeManifests() : null;
+  const themeFiles = declared
+    ? [...declared.keys()].sort().map((n) => path.join(themesDir, `${n}.css`)).filter((f) => fs.existsSync(f))
+    : fs.readdirSync(themesDir).filter((f) => f.endsWith('.css')).sort().map((f) => path.join(themesDir, f));
+  if (!themeFiles.length) {
+    errors.push('checkNoSafeDefaultTokens found no palettes to read the theme token vocabulary from — the contract is unverifiable.');
+    return;
+  }
+  const themeTokens = new Set();
+  for (const f of themeFiles) for (const t of rootScopedTokens(fs.readFileSync(f, 'utf8'))) themeTokens.add(t);
+
+  const engineDefaults = new Set();
+  const bareReads = new Map();
+  for (const f of listCssFiles(libDir)) {
+    const css = fs.readFileSync(f, 'utf8');
+    for (const t of rootScopedTokens(css)) engineDefaults.add(t);
+    bareVarReads(css, path.relative(ROOT, f), bareReads);
+  }
+  for (const rel of NO_SAFE_DEFAULT_MAP_READERS) {
+    const full = path.join(ROOT, rel);
+    if (!fs.existsSync(full)) {
+      errors.push(`checkNoSafeDefaultTokens expected a token-map reader at ${rel} and it is gone — either restore it or drop it from NO_SAFE_DEFAULT_MAP_READERS.`);
+      continue;
+    }
+    mermaidMapTokenReads(fs.readFileSync(full, 'utf8'), rel, bareReads);
+  }
+
+  const contract = new Set(require('../lib/theme/derive.js').requiredTokenList());
+  const missing = noSafeDefaultTokens({ themeTokens, engineDefaults, bareReads, contract });
+  if (missing.length) {
+    const shown = missing.slice(0, 6).map((t) => `--${t} (${bareReads.get(t)[0]})`).join(', ');
+    errors.push(
+      `${missing.length} token(s) have NO SAFE DEFAULT — shipped palettes declare them, lib/ reads them with no ` +
+      `var() fallback, and nothing declares them at :root in the engine — yet REQUIRED_TOKENS in ` +
+      `lib/theme/derive.js does not promise them: ${shown}${missing.length > 6 ? `, +${missing.length - 6} more` : ''}. ` +
+      'A theme generated outside this repo (the Studio) therefore ships without them, and a miss does not degrade: ' +
+      'the Mermaid map substitutes a black sentinel that renders, and a bare read inside a `background:` shorthand ' +
+      'invalidates the whole declaration. Either derive the token in deriveTheme and add it to REQUIRED_TOKENS, or ' +
+      'give every read a `var(--x, <fallback>)` — those are the two exits, and there is no allowlist.',
+    );
+  }
+}
+
 // Derived from the manifest schema (the contract's source of truth) — was a hand-mirror.
 const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').properties.adapt.properties.mode.enum);
 
@@ -5302,6 +5464,7 @@ function run() {
   checkVariantDeclaration(manifests, errors);
   checkTagClustering(manifests, errors);
   checkThemeTokenParity(errors);
+  checkNoSafeDefaultTokens(errors);
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
@@ -5504,6 +5667,13 @@ module.exports = {
   CAT_INK_COLLAPSE_DIST,
   catInkCollapsePairs,
   checkCatInkFallback,
+  checkNoSafeDefaultTokens,
+  noSafeDefaultTokens,
+  cssRuleBlocks,
+  rootScopedTokens,
+  isUnconditionalRoot,
+  bareVarReads,
+  mermaidMapTokenReads,
   VETRINA_DIR,
   VETRINA_ADAPTER,
   VETRINA_IMPORT,

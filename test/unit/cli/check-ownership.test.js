@@ -2315,3 +2315,79 @@ describe('theme manifest gates', () => {
     }
   });
 });
+
+describe('no-safe-default token gate (#1457)', () => {
+  const {
+    noSafeDefaultTokens, rootScopedTokens, isUnconditionalRoot, bareVarReads, mermaidMapTokenReads,
+  } = require('../../../tools/check-ownership.js');
+
+  // BITE-TESTS, not smoke tests. The arm this replaces would have passed while the
+  // Studio shipped themes that painted solid black Mermaid clusters, so each test
+  // below constructs the violation and asserts the arm names it — then asserts each
+  // of the two legitimate exits (derive it, or give the read a fallback) silences it.
+  const inputs = (over = {}) => ({
+    themeTokens: new Set(['c-container', 'bg']),
+    engineDefaults: new Set(['bg']),
+    bareReads: new Map([['c-container', ['lib/x.css:1']], ['bg', ['lib/x.css:2']]]),
+    contract: new Set(['bg']),
+    ...over,
+  });
+
+  test('BITES: a theme token with no engine default, read with no fallback, absent from the contract', () => {
+    assert.deepEqual(noSafeDefaultTokens(inputs()), ['c-container']);
+  });
+
+  test('exit 1 — deriving the token (adding the contract row) silences it', () => {
+    assert.deepEqual(noSafeDefaultTokens(inputs({ contract: new Set(['bg', 'c-container']) })), []);
+  });
+
+  test('exit 2 — giving every read a var() fallback silences it', () => {
+    // A read WITH a fallback never enters `bareReads` at all; that is the mechanism
+    // by which --cat-N-ink (no :root default anywhere, gated by checkCatInkFallback)
+    // is correctly absent from this gate's findings.
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: new Map([['bg', ['lib/x.css:2']]]) })), []);
+  });
+
+  test('an ENGINE :root default is a safe default — not reported', () => {
+    assert.deepEqual(noSafeDefaultTokens(inputs({ engineDefaults: new Set(['bg', 'c-container']) })), []);
+  });
+
+  test('a token no palette declares is not the theme contract\'s business', () => {
+    // Per-element locals the transformer writes as inline style (--actor-color,
+    // --pct) are read bare and defaulted nowhere; they are engine internals, and
+    // the theme-vocabulary filter is what keeps them out of a theme gate.
+    assert.deepEqual(noSafeDefaultTokens(inputs({ themeTokens: new Set(['bg']) })), []);
+  });
+
+  test('bareVarReads separates a bare read from a read with a fallback', () => {
+    const reads = bareVarReads('a{color:var(--one)}\nb{color:var(--two, red)}\nc{color:var( --three )}', 'f.css');
+    assert.deepEqual([...reads.keys()].sort(), ['one', 'three']);
+    assert.equal(reads.get('one')[0], 'f.css:1');
+  });
+
+  test('the Mermaid map counts as a fallback-free reader — its readToken takes no default', () => {
+    const reads = mermaidMapTokenReads("const M={clusterBkg:{var:'c-container'},x:{literal:'14px'}};", 'map.js');
+    assert.deepEqual([...reads.keys()], ['c-container']);
+  });
+
+  test('isUnconditionalRoot: a specificity pin and a :where() default both count; a class-gated root does not', () => {
+    assert.ok(isUnconditionalRoot(':root'));
+    assert.ok(isUnconditionalRoot(':root:root'));            // a11y-base's hard pin
+    assert.ok(isUnconditionalRoot(':where(:root)'));         // zero-specificity default
+    assert.ok(isUnconditionalRoot(':root, section'));        // one part is enough
+    assert.ok(!isUnconditionalRoot(':root.print'));          // waits for a class
+    assert.ok(!isUnconditionalRoot('section.print'));
+  });
+
+  test('rootScopedTokens reads only unconditionally-rooted blocks', () => {
+    const css = ':root{--a:1}\nsection.print{--b:2}\n:where(:root){--c:3}\n:root.x{--d:4}';
+    assert.deepEqual([...rootScopedTokens(css)].sort(), ['a', 'c']);
+  });
+
+  test('the shipped tree is clean — REQUIRED_TOKENS covers every no-safe-default token', () => {
+    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+    const errors = [];
+    checkNoSafeDefaultTokens(errors);
+    assert.deepEqual(errors, []);
+  });
+});

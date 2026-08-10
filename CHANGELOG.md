@@ -409,7 +409,30 @@ in patch versions.
   behavior change, and the Studio E2E drives the real picker down both branches. Only 2 of
   38 components with variants declare `variantAxes` today; classifying the rest moves them
   from the toggle fallback to exact axis behavior. (#1281)
-
+- **A Studio-generated theme no longer paints solid black Mermaid subgraph boxes — or loses the
+  canvas of every dark and divider slide.** `lib/theme/derive.js`'s `REQUIRED_TOKENS` promised 83
+  tokens and the engine reads 104 with **no safe default**: no `:root` default in the base layer
+  *and* no `var()` fallback at the read. Nothing could catch it, because every theme gate scans
+  `themes/` and a generated theme never lands there. Measured on the export CLI in Chromium:
+  `examples/containment-tier.md` rendered **2,853,031 black pixels across 5 of its 8 slides** (up
+  to 23.9% of a slide) via the PDF path's black sentinel, which `prune()` ships rather than drops;
+  and — not previously reported — a missing `--spectrum` invalidated the whole `background:`
+  shorthand it rides in at computed-value time, so `section.dark` and `.divider` fell to
+  `transparent` and rendered near-white display text on white paper, **1.0:1**. Three families are
+  derived now: the 12 `--cat-N-ink` on-canvas inks, the 6 `--c-*` containment tokens, and
+  `--spectrum` / `--spectrum-vertical` / `--spectrum-end`. After: **0 black pixels on all 8
+  slides**, both canvases restored, no emulator warnings. The ink tier is not cosmetic either —
+  it used to fall back to `--cat-N-mark`, which is repaired to the **3:1 graphical** floor, so 63
+  of 200 sampled essential sets carried at least one sub-AA categorical label (worst 3.30:1).
+  ([#1457](https://github.com/SlideWright/lattice/issues/1457),
+  `engineering/decisions/2026-08-10-no-safe-default-token-contract.md`)
+- **The generator's contract is computed, not remembered.** `checkNoSafeDefaultTokens`
+  (`build:check`) derives the obligation from the CSS itself — a token shipped palettes declare
+  at `:root`, that nothing declares at `:root` in `lib/**`, and that `lib/**` reads with no
+  `var()` fallback (counting the Mermaid map, whose reader has no fallback parameter) must be in
+  `REQUIRED_TOKENS`. It names exactly the 8 tokens that broke the render when run against the old
+  contract, and it found one the hand-written issue list had missed (`--spectrum-vertical`). No
+  allowlist: the two exits are derive the token, or give the read a fallback.
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back

@@ -14,8 +14,10 @@ import { cn } from '@/lib/utils';
 // shared header, so Fabricate owns the gate run that the body renders.
 import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS, gateCss, NAME_RE, scaffoldFiles, skeletonInvokes, validateManifest } from '@/playground/layout-core.generated.js';
 // The REAL theme engine — same maths as the Node tooling + the WCAG gate
-// (lib/theme/*, bundled browser-safe). deriveTheme → ~80 tokens (contrast-
-// repaired), auditBoth → live WCAG report, serializeTheme → a real themes/*.css.
+// (lib/theme/*, bundled browser-safe). deriveTheme → the full no-safe-default
+// contract (~100 tokens, contrast-repaired — the exact count is
+// `requiredTokenList().length`, deliberately not restated here), auditBoth →
+// live WCAG report, serializeTheme → a real themes/*.css.
 import { auditBoth, contrastRatio, deriveTheme, STARTERS, serializeTheme, validateEssentials } from '@/playground/theme-core.generated.js';
 import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, refineComponent, useArchitectStatus } from './architect';
 import { CodeField } from './CodeField';
