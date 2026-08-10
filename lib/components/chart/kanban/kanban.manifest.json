@@ -50,7 +50,8 @@
   ],
   "variantAxes": [
     {
-      "label": "Colour coding",
+      "label": "Color coding",
+      "exclusive": true,
       "members": [
         "keyline",
         "tinted"

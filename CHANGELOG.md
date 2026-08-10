@@ -307,6 +307,47 @@ in patch versions.
   rename is a compile error. The one copy a shared module cannot reach — a CSS selector keyed
   on `#studio-editor` — now selects by `data-pane-role` instead.
 
+- **"Reshape to Default" no longer deletes the slide settings it never offered.** The
+  base-form reset stripped every member of the *vocab* exclusive axes along with the
+  component's own looks — so `scale-xl`, `no-period` and `tone-*`, which an author sets in
+  the slide drawer and which no Reshape tile displays, vanished on a single click with no
+  affordance to get them back. It hit **all 38** components that declare variants. Default
+  now clears only *this component's* looks: its declared variants and its own
+  `variantAxes` members. Two smaller companions: re-picking the look a slide already has
+  is now byte-identical rather than a token reorder that dirtied the deck and burned an
+  undo checkpoint, and the "Current" badge means *clicking changes nothing* rather than
+  *this token is present* — on a bare `map` the Default tile claimed to be current and
+  then rewrote `_class` to `map world`. (#1281)
+
+- **`variantAxes` is an authoring contract now, not just docs furniture.** The manifest
+  field that groups a layout's variants into orthogonal axes is what the Studio's Reshape
+  reads to decide replace-vs-stack, so an axis whose CSS makes its members alternatives
+  must declare `exclusive` — otherwise Reshape will write a combination that can't render.
+  `kanban`'s `Color coding` axis is corrected accordingly: `keyline` and `tinted` are
+  alternatives (the base status treatment is scoped `:not(.keyline):not(.tinted)`, and
+  stacking them left a card with a squared-off left edge and no keyline drawn on it). The
+  schema description and `design/design-system.md` §6 say so; the render path is unchanged
+  — this is authoring intent, not a cascade rule. (#1281)
+
+- **Studio Reshape no longer stacks classes forever.** Picking a second look appended it
+  to `_class` — `kpi ops spotlight trajectory` after three visits to the gallery — and
+  "Default" no longer cleared, because the apply handler called `applyVariant` without the
+  arguments that decide replace-vs-stack. The picker's preview tiles *did* pass them, so
+  the tile showed one slide and the author got another. Reshape now resolves each look
+  most-specific-first: **(1)** the component's own `variantAxes` from its manifest — an
+  `exclusive` axis swaps within its members, a non-exclusive one toggles; **(2)** a vocab
+  exclusive axis; **(3)** anything unclassified **toggles**, so a look can always be taken
+  back off. "Default" returns the base form *and* restores each exclusive axis's declared
+  default (a `map` with no basemap is a broken slide, not a base form). The toggle
+  fallback is deliberate: treating every declared variant as one pick-one family would
+  silently delete tokens, since the catalog legitimately ships `map world highlight
+  robinson` and `video companion qr` — 17 slides across the galleries and examples stack
+  two or three declared variants of one component. `applyVariant` takes all five
+  parameters with no defaults, so omitting one is a compile error rather than a silent
+  behavior change, and the Studio E2E drives the real picker down both branches. Only 2 of
+  38 components with variants declare `variantAxes` today; classifying the rest moves them
+  from the toggle fallback to exact axis behavior. (#1281)
+
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back
