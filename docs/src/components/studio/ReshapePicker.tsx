@@ -6,7 +6,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { getClassTokens } from './slide-directives';
 import { SlideThumbFace, useInView } from './slide-thumb';
-import { applyVariant, componentLooks, type VariantAxis, variantActive } from './slide-variants';
+import { applyVariant, componentLooks, type VariantAxis, variantActive, variantNoop } from './slide-variants';
 
 // Reshape — recast the CURRENT slide to a different variant look (the edit-mode
 // sibling of Insert). A variant is just a class token, so this previews the user's
@@ -37,6 +37,8 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	const component = getClassTokens(chunk)[0] ?? '';
 	const looks = React.useMemo(() => componentLooks(variants, axes, variantAxes), [variants, axes, variantAxes]);
 	const tokens = React.useMemo(() => new Set(getClassTokens(chunk)), [chunk]);
+	// Is any real look on? Decides whether DEFAULT may claim the badge (see the tile map).
+	const anyLookOn = looks.some((l) => variantActive(tokens, l.token));
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -56,12 +58,16 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 				</div>
 				<div className="grid max-h-[60vh] grid-cols-2 gap-2.5 overflow-y-auto overscroll-contain [touch-action:pan-y] sm:grid-cols-3 lg:grid-cols-4">
 					{looks.map((look) => {
-						// "Current" means CLICKING CHANGES NOTHING, not "this token is present" — the
-						// two came apart on the Default tile, which restores an axis default, so on a
-						// bare `map` it claimed to be current and then rewrote `_class` to `map world`.
-						// Ask the model instead of guessing from the token set.
+						// "Current" means CLICKING CHANGES NOTHING, not "this token is present": the two
+						// came apart on the Default tile, which restores an axis default, so on a bare
+						// `map` it claimed to be current and then rewrote `_class` to `map world`. Ask
+						// the model rather than guessing from the token set.
 						const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
-						const on = next === chunk;
+						// …but a no-op is not enough for DEFAULT on its own. On `map world` both Default
+						// and the `world` tile are no-ops, and badging both put two "Current" tiles in one
+						// pick-one family. The look that is actually on wins; Default claims the badge
+						// only when no look is on AND clicking it really would do nothing.
+						const on = look.token ? next === chunk : !anyLookOn && variantNoop(chunk, '', axes, variants, variantAxes);
 						// An active TOGGLE is the one tile whose click is deliberately destructive: it
 						// removes the look. Preview the slide as it stands (previewing it turned off
 						// reads as the wrong slide) and say so — in the label AND on the badge, since

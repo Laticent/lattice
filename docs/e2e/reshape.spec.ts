@@ -84,9 +84,31 @@ test('the Default tile only claims "Current" when clicking really is a no-op @st
 	await dflt.click();
 	await settled(page).toEqual(['map', 'world']);
 
-	// Now it IS the base form, so the tile may claim Current — and clicking is inert.
+	// Now `world` is the look that's on, so IT owns the badge — not Default. Badging both
+	// (they are both no-ops here) put two "Current" tiles in one pick-one family.
 	await page.getByRole('button', { name: 'Reshape slide' }).click();
-	await expect(page.getByRole('button', { name: 'Reshape to Default', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Reshape to world', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Reshape to Default', exact: true })).toHaveAttribute('aria-pressed', 'false');
+	await expect(page.locator('button[aria-pressed="true"]').filter({ hasText: 'Current' })).toHaveCount(1);
+
+	// And clicking Default really is inert — assert it, don't just claim it.
+	await page.getByRole('button', { name: 'Reshape to Default', exact: true }).click();
+	await settled(page).toEqual(['map', 'world']);
+});
+
+test('an active toggle warns a SIGHTED author that the click removes @studio', async ({ page }) => {
+	// The removal affordance used to live only in the accessible name: the visible badge
+	// still read "Current", so a sighted author had no warning a click deletes a token.
+	await gotoStudio(page);
+	await setEditorContent(page, KPI_DECK);
+	await settled(page).toEqual(['kpi']);
+	await pick(page, 'Reshape to ops');
+	await settled(page).toEqual(['kpi', 'ops']);
+
+	await page.getByRole('button', { name: 'Reshape slide' }).click();
+	const opsTile = page.getByRole('button', { name: 'Remove ops', exact: true });
+	await expect(opsTile).toHaveAttribute('aria-pressed', 'true');
+	await expect(opsTile).toContainText('Current ×');
 });
 
 test('a classified component swaps within its axis and keeps the rest @studio', async ({ page }) => {

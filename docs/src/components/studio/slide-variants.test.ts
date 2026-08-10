@@ -138,6 +138,18 @@ describe('slide-variants — variant looks are class tokens', () => {
 		expect(applyVariant(cur, 'world', {}, MAP, MAP_AXES)).toBe(cur);
 	});
 
+	it('applyVariant Default is byte-identical when it has nothing to change', () => {
+		// The guard used to sit only on the exclusive branches, so Default still reordered:
+		// `map world dark` → `map dark world` (strip, then append the axis default AFTER the
+		// surviving `dark`). Same tokens, new bytes, an undo step spent on nothing.
+		const cur = mwith(['map', 'world', 'dark']);
+		expect(applyVariant(cur, '', {}, MAP, MAP_AXES)).toBe(cur);
+		// Protecting the universal tokens created MORE of these, not fewer: before the fix
+		// these were real edits (the vocab token got stripped), now they change nothing.
+		const withVocab = mwith(['map', 'world', 'scale-xl']);
+		expect(applyVariant(withVocab, '', { scale: ['scale-xl'] }, MAP, MAP_AXES)).toBe(withVocab);
+	});
+
 	it('variantNoop tells the Default tile whether clicking would really change nothing', () => {
 		// The bug this closes: a bare `map` has no look active, so the Default tile badged
 		// itself "Current" and previewed the slide unchanged — then clicking it wrote

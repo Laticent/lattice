@@ -126,13 +126,24 @@ export function variantSample(skeleton: string, token: string): string {
  * Pass `{}` / `[]` explicitly when a caller genuinely has neither.
  */
 export function applyVariant(chunk: string, token: string, axes: Record<string, readonly string[]>, componentVariants: readonly string[], variantAxes: readonly VariantAxis[]): string {
+	const next = resolve(chunk, token, axes, componentVariants, variantAxes);
+	// ONE guard for EVERY branch: if the tokens came back the same, hand back the ORIGINAL
+	// bytes. Both `setGroupToken` and the base-form rebuild remove-then-append, so a pick
+	// that changes nothing semantically would still rewrite `_class` — `map world highlight`
+	// → `map highlight world`, or `map world dark` → `map dark world` on Default. No visual
+	// change, but it dirties the deck and burns an undo step on a click that did nothing.
+	// Guarding only the exclusive branches left the Default path leaking exactly that.
+	return sameTokens(chunk, next) ? chunk : next;
+}
+
+function resolve(chunk: string, token: string, axes: Record<string, readonly string[]>, componentVariants: readonly string[], variantAxes: readonly VariantAxis[]): string {
 	if (token) {
 		// 1. The component's own classification wins — it is the most specific thing we know.
 		const own = variantAxes.find((a) => a.members.includes(token));
-		if (own) return own.exclusive ? swap(chunk, own.members.flatMap(parts), token) : toggleParts(chunk, token);
+		if (own) return own.exclusive ? setGroupToken(chunk, own.members.flatMap(parts), token) : toggleParts(chunk, token);
 		// 2. A vocab exclusive axis (e.g. insight-*, were it ever a declared variant).
 		for (const members of Object.values(axes)) {
-			if (members.includes(token)) return swap(chunk, members, token);
+			if (members.includes(token)) return setGroupToken(chunk, members, token);
 		}
 		// 3. Unclassified — toggle, so picking never stacks and never silently strips.
 		return toggleParts(chunk, token);
@@ -145,18 +156,6 @@ export function applyVariant(chunk: string, token: string, axes: Record<string, 
 	const kept = getClassTokens(chunk).filter((t) => !strip.has(t));
 	for (const a of variantAxes) if (a.exclusive && a.default) kept.push(...parts(a.default));
 	return setClassTokens(chunk, kept);
-}
-
-/**
- * Pick `token` out of a mutually-exclusive group — but leave the chunk BYTE-identical
- * when it already holds exactly that member. `setGroupToken` removes-then-appends, so
- * re-picking the look you already have would reorder `_class` (`map world highlight` →
- * `map highlight world`): no visual change, but it dirties the deck and burns an undo
- * checkpoint on a click that did nothing.
- */
-function swap(chunk: string, members: readonly string[], token: string): string {
-	const next = setGroupToken(chunk, members, token);
-	return sameTokens(chunk, next) ? chunk : next;
 }
 
 /** Do two chunks carry the same `_class` tokens, order aside? */
