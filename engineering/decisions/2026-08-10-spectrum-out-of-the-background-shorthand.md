@@ -185,14 +185,22 @@ integration tier all pass.
 
 ## 6. What this does not fix
 
-- **The guard is narrow, not general.** `test/unit/palette/spectrum-shorthand-safety.test.js`
-  fails on any `background:` shorthand in `lib/**` that pairs a **spectrum** read with a
-  **canvas/surface** read, and pins the four hoisted sites — so a fifth instance *of this
-  pair* is caught. It does not generalize: the same fragility exists for any multi-layer
-  shorthand mixing a droppable theme token with a load-bearing one, and knowing which layer
-  is load-bearing is the judgment this note makes by hand. A gate that decided that on its
-  own would be guessing. `checkNoSafeDefaultTokens` remains the gate for a *missing* token;
-  this is the gate for one known shape of *fragility*, and the general case is still human.
+- **The guard is a STRUCTURAL rule, after a token-list version was defeated four ways.**
+  `checkBackgroundLayerVars` in `tools/check-ownership.js` (budget 0, empty allowlist, the
+  `SANCTIONED_MARGINS` idiom) fails any multi-layer `background:` shorthand in `lib/**` that
+  reads a `var()`. The first cut was a unit test enumerating "droppable" tokens
+  (`--spectrum*`, `--sp-fill-*`, `--accent`) and "surface" tokens (`--bg`, `--code-bg`, …).
+  Two independent adversarial passes defeated it with four rules a reasonable author would
+  write, each losing the canvas in real Chromium: a single layer naming **both** kinds (the
+  `color-mix(… var(--accent) …, var(--bg-alt))` idiom, live in `roadmap.styles.css`), an
+  uppercase `BACKGROUND:` (CSS property names are case-insensitive; the scan was not), a
+  droppable token outside the list (there are **107** theme tokens with no engine `:root`
+  default), and a surface token outside the list (`--accent-soft`, `--tag-bg`, `--pass-bg`).
+  The structural rule subsumes all four, needs no judgment about which layer is load-bearing,
+  and has no list to rot. It is reachable **at budget 0 today**: after this change `lib/**`
+  holds exactly one multi-layer `background:` shorthand and it reads no `var()` at all.
+  That correction matters beyond this PR — #1535 landed a day earlier explicitly replacing a
+  hand-kept list with a computed obligation, and the first cut here reintroduced one.
 - **The single-layer sites stay as shorthands** (see §3), so the codebase now contains both
   spellings. The rule distinguishing them lives here and in the test's own comment rather
   than being enforceable.
