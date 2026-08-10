@@ -409,7 +409,46 @@ in patch versions.
   behavior change, and the Studio E2E drives the real picker down both branches. Only 2 of
   38 components with variants declare `variantAxes` today; classifying the rest moves them
   from the toggle fallback to exact axis behavior. (#1281)
-
+- **A Studio-generated theme no longer paints solid black Mermaid subgraph boxes — or loses the
+  canvas of every dark and divider slide.** `lib/theme/derive.js`'s `REQUIRED_TOKENS` promised 83
+  tokens where the engine reads **104**, and 21 of the missing ones had **no safe default**: no
+  `:root` default the reader could reach *and* no `var()` fallback that resolves. Nothing could catch it, because every theme gate scans
+  `themes/` and a generated theme never lands there. Measured on the export CLI in Chromium:
+  `examples/containment-tier.md` rendered **2,853,031 black pixels across 5 of its 8 slides** (up
+  to 23.9% of a slide) via the PDF path's black sentinel, which `prune()` ships rather than drops;
+  and — not previously reported — a missing `--spectrum` invalidated the whole `background:`
+  shorthand it rides in at computed-value time, so `section.dark` and `.divider` fell to
+  `transparent` and rendered near-white display text on white paper, **1.0:1**. Three families are
+  derived now: the 12 `--cat-N-ink` on-canvas inks, the 6 `--c-*` containment tokens, and
+  `--spectrum` / `--spectrum-vertical` / `--spectrum-end`. After: **0 black pixels on all 8
+  slides**, both canvases restored, no emulator warnings. The ink tier is not cosmetic either —
+  it used to fall back to `--cat-N-mark`, which is repaired to the **3:1 graphical** floor. Sampling
+  200 essential sets per ramp strategy, 23-34 of 200 carried at least one sub-AA categorical label
+  under the four hue-spread ramps and **176 of 200** under `brand-mono` (worst 2.99:1) — with the
+  tier, 0 of 200 on every strategy. The seeded sampler is in the decision record, so the figures
+  reproduce.
+  ([#1457](https://github.com/SlideWright/lattice/issues/1457),
+  `engineering/decisions/2026-08-10-no-safe-default-token-contract.md`)
+- **The categorical ink solver no longer collapses two categories onto one color.** The
+  anti-collapse walk compared each slot only against its immediate predecessor, on the argument
+  that a monotone walk "gives all-pairs separation from the adjacent test alone". That is false —
+  the required separation varies per pair and ΔE is not monotone in lightness once two slots
+  differ in chroma — so a slot pushed to clear its predecessor could land on one two positions
+  back that had not been visited yet. Measured on a derived `brand-mono` palette, `--cat-7-ink`
+  and `--cat-9-ink` came out **byte-identical** from marks 0.0274 apart, and neither slot had
+  needed repair at all. The walk now checks every already-placed slot: solve-induced separation
+  loss across the shipped palettes goes from 83 of 1,980 pairs (unguarded) to **0**, and derived
+  themes carrying a sub-floor ink pair from 21 of 2,000 to **0**. Seven palettes' generated ink
+  blocks are regenerated (24 declarations); no hand-authored value changed.
+- **The generator's contract is computed, not remembered.** `checkNoSafeDefaultTokens`
+  (`build:check`) derives the obligation from the CSS itself — a token shipped palettes declare
+  at `:root`, that nothing declares at `:root` in `lib/**`, and that `lib/**` reads with no
+  `var()` fallback (counting the Mermaid map, whose reader has no fallback parameter) must be in
+  `REQUIRED_TOKENS`. It names exactly the 8 tokens that broke the render when run against the old
+  contract, and it found one the hand-written issue list had missed (`--spectrum-vertical`). No
+  allowlist: the two exits are derive the token, or give the read a fallback that resolves. It
+  computes **8 of the 21** tokens that were missing — the other 13 carry fallbacks and are
+  outside its reach, so it closes the hard-break subclass and not the silent-degrade one.
 - **A trailing YAML comment no longer silently strips a deck register.** Front matter is YAML,
   where `# …` after whitespace is a comment — but every register read it with a pattern anchored
   to end-of-line, so `theme: cuoio  # our brand palette` matched *nothing* and the deck fell back

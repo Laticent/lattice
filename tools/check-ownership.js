@@ -2323,6 +2323,436 @@ function checkThemeTokenParity(errors) {
   }
 }
 
+// ── The NO-SAFE-DEFAULT contract (#1457) ──────────────────────────────────────
+//
+// `lib/theme/derive.js`'s REQUIRED_TOKENS is what the Studio's generator promises
+// to emit. It shipped 21 tokens short, and the shortfall was invisible to every
+// theme gate in this file for one structural reason: THEY ALL SCAN `themes/`, and
+// a generated theme never lands there. It lands in a browser, in an asset bundle,
+// in someone's export.
+//
+// So the omission surfaced as a render bug instead. Measured on the export CLI:
+// `--c-container` / `--c-container-edge` are read through
+// `lib/core/mermaid-theme-map.js`, whose PDF-path reader warns and substitutes a
+// BLACK SENTINEL that ships — solid black subgraph boxes on 5 of 8 slides of
+// examples/containment-tier.md. `--spectrum` is read bare inside `background:`
+// shorthands, so a miss invalidates the whole declaration at computed-value time
+// and `section.dark` / `.divider` lost their canvas entirely, painting near-white
+// text on white paper.
+//
+// The old fix was to widen the list by hand, which is how it got short in the
+// first place. This gate computes the obligation instead:
+//
+//   a THEME token          — declared at :root by at least one shipped palette,
+//                            i.e. part of the vocabulary a theme is expected to own
+//   with NO ENGINE DEFAULT — see WHAT COUNTS AS A DEFAULT below
+//   read with NO FALLBACK  — a bare `var(--x)` in lib/**.css, or an entry in the
+//                            Mermaid map (whose reader has no fallback parameter at
+//                            all — a miss IS the sentinel)
+//   ⟹ must be in REQUIRED_TOKENS.
+//
+// WHAT COUNTS AS A DEFAULT DEPENDS ON WHO IS READING, and collapsing that
+// distinction produces a false positive the engine's own comment invites. The
+// engine defaults `--spectrum-quiet` on `section {}` — the slide root, matched by
+// every slide — and `base.variants.css` explicitly says "a theme may override
+// `--spectrum-quiet`". A palette that accepts that invitation would put the token
+// in the theme vocabulary, and a `:root`-only model would then demand a contract
+// row for a token that IS defaulted. So:
+//
+//   read through CSS `var()`     a declaration on `:root` OR on the bare `section`
+//                                slide root is a real default — the cascade reaches
+//                                every slide either way.
+//   read through the Mermaid map ONLY `:root` counts. That reader is not CSS: the
+//                                export path's `parsePaletteVars` scans `:root`
+//                                blocks out of the palette TEXT, so a `section`
+//                                declaration is invisible to it and the miss still
+//                                becomes the black sentinel.
+//
+// There is deliberately no allowlist. A token caught here has two honest exits and
+// both are cheap: derive it (add the contract row), or give the read its
+// `var(--x, <fallback>)` — which is the same choice `--cat-N-ink` already made,
+// and why that family does not appear here despite having no :root default.
+const NO_SAFE_DEFAULT_MAP_READERS = ['lib/core/mermaid-theme-map.js'];
+
+/**
+ * `{ selector, body }` rule blocks, brace-aware, comments stripped — RECURSING
+ * THROUGH AT-RULES. A `:root` default wrapped in `@media`, `@supports`, `@layer` or
+ * `@container` is still a default, and the first cut only read top level: wrapping
+ * `base.tokens.css` in `@layer tokens { … }` produced 15 false positives on a gate
+ * with no allowlist, and HARD RULE #26 says a coordinated layer-activation pass is
+ * anticipated. `@keyframes` is skipped — its `from`/`to`/percent preludes are not
+ * selectors.
+ *
+ * `body` is the block's own text with any NESTED rule removed, so a declaration
+ * inside `section { &.dark { … } }` is not harvested as the outer selector's.
+ */
+function cssRuleBlocks(css, { _depth = 0 } = {}) {
+  const s = stripComments(css);
+  const out = [];
+  let depth = 0;
+  let start = 0;
+  let prelude = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '{') {
+      if (depth === 0) { prelude = s.slice(start, i).trim().replace(/\s+/g, ' '); start = i + 1; }
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        const body = s.slice(start, i);
+        if (prelude.startsWith('@')) {
+          const name = prelude.slice(1).split(/[\s({]/)[0].toLowerCase();
+          // A conditional/grouping at-rule wraps real rules — descend. Keyframes do not.
+          if (name !== 'keyframes' && name !== 'font-face' && _depth < 6) {
+            out.push(...cssRuleBlocks(body, { _depth: _depth + 1 }));
+          }
+        } else {
+          out.push({ selector: prelude, body });
+        }
+        start = i + 1;
+      }
+    }
+  }
+  return out;
+}
+
+/** A block body with every NESTED rule stripped, so only its own declarations remain. */
+function ownDeclarations(body) {
+  let out = '';
+  let depth = 0;
+  for (const ch of body) {
+    if (ch === '{') { depth++; continue; }
+    if (ch === '}') { depth--; continue; }
+    if (depth === 0) out += ch;
+  }
+  return out;
+}
+
+/**
+ * True for a selector that applies UNCONDITIONALLY at the document root — the only
+ * kind that is a default for the Mermaid map's reader. `:root:root` (a11y-base's
+ * specificity hard pin) and `:where(:root)` (a zero-specificity default) both
+ * qualify; `:root.print` does not, because it waits for a class. One part of a
+ * selector LIST is enough: `:root, section { … }` declares at the root.
+ */
+function isUnconditionalRoot(selector) {
+  return splitTopLevel(selector).some((part) => {
+    const bare = part.trim().replace(/:(?:where|is)\(\s*:root\s*\)/g, ':root');
+    return /^(:root)+$/.test(bare);
+  });
+}
+
+/**
+ * True for a selector that applies unconditionally to EVERY SLIDE — `:root`, or the
+ * bare `section` slide root. A declaration here is a real default for anything read
+ * through CSS (every slide is a `section`, and slide content inherits from it), but
+ * NOT for the Mermaid map, whose reader parses `:root` blocks out of the palette
+ * text and never sees a `section` rule. `section.print` does not qualify: it waits
+ * for a band.
+ */
+function isSlideRoot(selector) {
+  if (isUnconditionalRoot(selector)) return true;
+  return splitTopLevel(selector).some((part) => {
+    const bare = part.trim().replace(/:(?:where|is)\(\s*section\s*\)/g, 'section');
+    return bare === 'section';
+  });
+}
+
+/** Custom-property names declared under `accept`-ed selectors in one stylesheet. */
+function scopedTokens(css, accept) {
+  const names = new Set();
+  for (const { selector, body } of cssRuleBlocks(css)) {
+    if (!accept(selector)) continue;
+    for (const m of ownDeclarations(body).matchAll(/(?:^|[;{])\s*--([\w-]+)\s*:/g)) names.add(m[1]);
+  }
+  return names;
+}
+
+/** Custom-property names declared under an unconditional `:root` in one stylesheet. */
+function rootScopedTokens(css) {
+  return scopedTokens(css, isUnconditionalRoot);
+}
+
+/** Custom-property names declared at `:root` OR on the bare `section` slide root. */
+function slideScopedTokens(css) {
+  return scopedTokens(css, isSlideRoot);
+}
+
+/**
+ * The enclosing rule prelude for every byte offset in `css`, as sorted
+ * `{ start, end, selector }` ranges. Offsets are preserved (comments are BLANKED,
+ * not removed), so a range can be matched against a `RegExp.index` from the same
+ * text. At-rules contribute their inner rules, not themselves.
+ */
+function ruleRanges(css, from = 0, out = [], depth = 0) {
+  let d = 0;
+  let start = 0;
+  let prelude = '';
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i];
+    if (ch === '{') {
+      if (d === 0) { prelude = css.slice(start, i).trim().replace(/\s+/g, ' '); start = i + 1; }
+      d++;
+    } else if (ch === '}') {
+      d--;
+      if (d === 0) {
+        if (prelude.startsWith('@')) {
+          const name = prelude.slice(1).split(/[\s({]/)[0].toLowerCase();
+          if (name !== 'keyframes' && name !== 'font-face' && depth < 6) {
+            ruleRanges(css.slice(start, i), from + start, out, depth + 1);
+          }
+        } else {
+          out.push({ start: from + start, end: from + i, selector: prelude });
+        }
+        start = i + 1;
+      }
+    }
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
+/**
+ * True for a `:root` block the EXPORT PATH actually parses. `parsePaletteVars`
+ * (lattice-emulator.js) matches `/:root\s*\{/`, so `:root` must sit immediately
+ * before the brace: `:root {` and `:root:root {` qualify, `:root, section {` and
+ * `:where(:root) {` do NOT — the reader never sees them. The gate used to treat all
+ * four as equivalent, which is MORE PERMISSIVE THAN THE READER IT MODELS: 12 tokens
+ * in `base.tokens.css`'s `:root, section` block are already counted as `:root`
+ * defaults and are invisible to the export. None is a map token today; adding a
+ * `--c-*` or `--diagram-*` there would have been excused by the gate and
+ * black-sentinelled by the export.
+ */
+function isExportParsedRoot(selector) {
+  return /(^|[\s,])(:root)+\s*$/.test(String(selector).trim());
+}
+
+/**
+ * Every `var(--name)` read in `css` that carries NO SAFE fallback, as
+ * `name → [{ where, kind, rootRead }, …]`.
+ *
+ * Comments are blanked with `stripCommentsKeepOffsets`, NOT deleted: deleting them
+ * removes their newlines too, so every reported line number came out shifted by the
+ * comment volume above it. The first cut of this arm did exactly that, and the wrong
+ * number was copied out of its output into a decision record before anyone read the
+ * file it pointed at.
+ *
+ * `rootRead` records whether the read is made INSIDE an unconditional `:root` block,
+ * because that decides which defaults can rescue it. Custom properties resolve on
+ * the element that USES them, and `:root` is `html` — an ANCESTOR of `section` — so
+ * a `section { --x: … }` default never reaches a `var(--x)` read inside a `:root`
+ * rule. `--spectrum` and `--spectrum-vertical` are read exactly there
+ * (`base.variants.css`'s `--sp-fill-rainbow-*`), so deciding this per TOKEN rather
+ * than per READ would have let one `section` declaration excuse the very tokens
+ * whose absence loses the canvas. Verified in Chromium: with the default on
+ * `section` and the read at `:root`, the whole `background` shorthand computes to
+ * `none`.
+ *
+ * A fallback is only as safe as what it RESOLVES to, which is not a syntactic
+ * property. `var(--x, )` and `var(--x, var(--never-declared))` are invalid at
+ * computed-value time — the exact failure this gate exists to prevent — while
+ * `var(--cat-1-texture, var(--cat-1-fill))` is completely safe because `--cat-1-fill`
+ * is itself contract-guaranteed. So each read carries its fallback CHAIN and the
+ * chain is resolved in `noSafeDefaultTokens`, where the contract and the engine
+ * defaults are in scope. A chain ending in a literal is safe outright and is not
+ * recorded at all.
+ */
+
+/** The matching `)` for the `(` at `open`, or -1. */
+function matchParen(s, open) {
+  let d = 0;
+  for (let i = open; i < s.length; i++) {
+    if (s[i] === '(') d++;
+    else if (s[i] === ')' && --d === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * Parse the inside of a `var(…)` → `{ token, chain, endsLiteral }`. `chain` is the
+ * fallback tokens in order; `endsLiteral` is true when the chain bottoms out in
+ * anything that is not another bare `var()`.
+ */
+function parseVarChain(inner) {
+  const m = String(inner).match(/^\s*--([\w-]+)\s*(?:,([\s\S]*))?$/);
+  if (!m) return null;
+  const rest = (m[2] ?? '').trim();
+  if (m[2] === undefined) return { token: m[1], chain: [], endsLiteral: false };
+  if (!rest) return { token: m[1], chain: [], endsLiteral: false }; // `var(--x, )`
+  if (rest.startsWith('var(')) {
+    const close = matchParen(rest, 3);
+    const nested = close === -1 ? null : parseVarChain(rest.slice(4, close));
+    if (nested) return { token: m[1], chain: [nested.token, ...nested.chain], endsLiteral: nested.endsLiteral };
+  }
+  return { token: m[1], chain: [], endsLiteral: true };
+}
+
+function bareVarReads(css, label, into = new Map()) {
+  const s = stripCommentsKeepOffsets(css);
+  const ranges = ruleRanges(s);
+  const selectorAt = (idx) => {
+    for (const r of ranges) if (idx >= r.start && idx < r.end) return r.selector;
+    return null; // outside any rule — a bare declaration list; treat as root-scoped
+  };
+  for (let i = s.indexOf('var('); i !== -1; i = s.indexOf('var(', i + 1)) {
+    const close = matchParen(s, i + 3);
+    if (close === -1) continue;
+    const parsed = parseVarChain(s.slice(i + 4, close));
+    if (!parsed || parsed.endsLiteral) continue;
+    const line = s.slice(0, i).split('\n').length;
+    const selector = selectorAt(i);
+    if (!into.has(parsed.token)) into.set(parsed.token, []);
+    into.get(parsed.token).push({
+      where: `${label}:${line}`,
+      kind: 'css',
+      rootRead: selector === null || isUnconditionalRoot(selector),
+      chain: parsed.chain,
+    });
+  }
+  return into;
+}
+
+/**
+ * Every token the token→Mermaid map reads. Sourced from the map's OWN
+ * `diagramThemeTokens()`, which the module documents as being "for gates that audit
+ * coverage", rather than re-scraped with a `{ var: '…' }` regex (HARD RULE #15).
+ *
+ * STATED HONESTLY: the regex was not producing a wrong answer. Both extractions
+ * return the same 38 tokens today, because every `joinVars` name also appears as a
+ * `var:` entry elsewhere in the map — an earlier version of this comment claimed the
+ * regex "missed joinVars entries", and it did not. The switch buys robustness, not a
+ * bug fix: a `joinVars`-only token, a nested entry, or Biome reformatting a quote
+ * would each have blinded the regex silently, and this arm is the ONLY path into the
+ * gate for `--c-container` / `--c-container-edge`, which have no bare CSS read at
+ * all.
+ */
+function mermaidMapTokenReads(tokens, label, into = new Map()) {
+  for (const name of tokens) {
+    if (!into.has(name)) into.set(name, []);
+    into.get(name).push({ where: label, kind: 'map' });
+  }
+  return into;
+}
+
+/**
+ * The tokens with no safe default that are read without one. Pure, so the gate can
+ * be bitten with synthetic input instead of only asserted empty over the shipped
+ * tree.
+ *
+ * THE DECISION IS PER READ, not per token, because which defaults can rescue a read
+ * depends on where the read is:
+ *
+ *   a MAP read            only an export-parsed `:root` block rescues it — that
+ *                         reader scans the palette TEXT with `/:root\s*\{/`, so a
+ *                         `section` rule, a `:root, section` list and a
+ *                         `:where(:root)` wrapper are all invisible to it.
+ *   a CSS read at :root   only a `:root` default rescues it. `section { --x }` is
+ *                         set on a DESCENDANT of `:root`, so it cannot reach a
+ *                         `var(--x)` written inside a `:root` rule.
+ *   any other CSS read    `:root` or the bare `section` slide root both rescue it.
+ *
+ * One unrescued read is enough to report the token.
+ */
+function noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefaults, bareReads, contract }) {
+  const defaulted = (name, read) => {
+    if (read.kind === 'map') return (mapDefaults ?? rootDefaults).has(name);
+    if (read.rootRead) return rootDefaults.has(name);
+    return slideDefaults.has(name);
+  };
+  // A read is rescued by a default the reader can reach — on the token itself, or on
+  // any token its fallback chain falls through to. A chain token that is CONTRACT
+  // -guaranteed rescues it too: every theme emits it, so the chain always resolves.
+  const rescued = (name, read) =>
+    defaulted(name, read) || (read.chain ?? []).some((c) => contract.has(c) || defaulted(c, read));
+  return [...bareReads.keys()]
+    .filter((t) => {
+      if (!themeTokens.has(t) || contract.has(t)) return false;
+      return bareReads.get(t).some((r) => !rescued(t, r));
+    })
+    .sort();
+}
+
+function checkNoSafeDefaultTokens(errors, { themesDir = THEMES_DIR, libDir = LIB_DIR } = {}) {
+  const declared = themesDir === THEMES_DIR ? listThemeManifests() : null;
+  const themeFiles = declared
+    ? [...declared.keys()].sort().map((n) => path.join(themesDir, `${n}.css`)).filter((f) => fs.existsSync(f))
+    : fs.readdirSync(themesDir).filter((f) => f.endsWith('.css')).sort().map((f) => path.join(themesDir, f));
+  if (!themeFiles.length) {
+    errors.push('checkNoSafeDefaultTokens found no palettes to read the theme token vocabulary from — the contract is unverifiable.');
+    return;
+  }
+  const themeTokens = new Set();
+  for (const f of themeFiles) for (const t of rootScopedTokens(fs.readFileSync(f, 'utf8'))) themeTokens.add(t);
+
+  const rootDefaults = new Set();
+  const slideDefaults = new Set();
+  const mapDefaults = new Set();
+  const bareReads = new Map();
+  let cssFiles = 0;
+  for (const f of listCssFiles(libDir)) {
+    const css = fs.readFileSync(f, 'utf8');
+    cssFiles += 1;
+    for (const t of rootScopedTokens(css)) rootDefaults.add(t);
+    for (const t of slideScopedTokens(css)) slideDefaults.add(t);
+    for (const t of scopedTokens(css, isExportParsedRoot)) mapDefaults.add(t);
+    bareVarReads(css, path.relative(ROOT, f), bareReads);
+  }
+  let mapTokens = 0;
+  for (const rel of NO_SAFE_DEFAULT_MAP_READERS) {
+    const full = path.join(ROOT, rel);
+    if (!fs.existsSync(full)) {
+      errors.push(`checkNoSafeDefaultTokens expected a token-map reader at ${rel} and it is gone — either restore it or drop it from NO_SAFE_DEFAULT_MAP_READERS.`);
+      continue;
+    }
+    let tokens;
+    try {
+      tokens = require(full).diagramThemeTokens();
+    } catch (err) {
+      // An uncaught throw here takes EVERY gate in this file down with a raw
+      // TypeError. Name the contract that broke instead.
+      errors.push(`checkNoSafeDefaultTokens could not read the token list from ${rel} — it must export \`diagramThemeTokens()\` returning the palette tokens its map reads (${err.message}).`);
+      continue;
+    }
+    if (!Array.isArray(tokens) || !tokens.length) {
+      errors.push(`checkNoSafeDefaultTokens got no tokens from ${rel}'s diagramThemeTokens(). That arm is the ONLY path into this gate for --c-container and --c-container-edge (they have no bare CSS read at all), so an empty list silently drops the two tokens whose absence paints black boxes.`);
+      continue;
+    }
+    mapTokens += tokens.length;
+    mermaidMapTokenReads(tokens, rel, bareReads);
+  }
+  // FAIL LOUD ON AN EMPTY SCAN. Each input is an intersection term, so any of them
+  // coming back empty makes the gate report clean — the failure mode where a gate is
+  // also a claim. A regex change, a moved directory, or a renamed export must read
+  // as broken here, not as green.
+  if (!themeTokens.size || !rootDefaults.size || !bareReads.size || !cssFiles || !mapTokens) {
+    errors.push(
+      'checkNoSafeDefaultTokens scanned successfully but came back with an empty input set ' +
+      `(theme tokens ${themeTokens.size}, engine :root defaults ${rootDefaults.size}, bare reads ${bareReads.size}, ` +
+      `lib CSS files ${cssFiles}, map tokens ${mapTokens}) — every one of those is an intersection term, so an ` +
+      'empty one silently makes this gate pass. Something moved or stopped parsing; fix the scan rather than ' +
+      'trusting the green.',
+    );
+    return;
+  }
+
+  const contract = new Set(require('../lib/theme/derive.js').requiredTokenList());
+  const missing = noSafeDefaultTokens({ themeTokens, rootDefaults, slideDefaults, mapDefaults, bareReads, contract });
+  if (missing.length) {
+    const shown = missing.slice(0, 6).map((t) => `--${t} (${bareReads.get(t)[0].where})`).join(', ');
+    errors.push(
+      `${missing.length} token(s) have NO SAFE DEFAULT — shipped palettes declare them, lib/ reads them with no ` +
+      `var() fallback, and the engine declares no default those reads can reach — yet REQUIRED_TOKENS in ` +
+      `lib/theme/derive.js does not promise them: ${shown}${missing.length > 6 ? `, +${missing.length - 6} more` : ''}. ` +
+      'A theme generated outside this repo (the Studio) therefore ships without them, and a miss does not degrade: ' +
+      'the Mermaid map substitutes a black sentinel that renders, and a bare read inside a `background:` shorthand ' +
+      'invalidates the whole declaration. Either derive the token in deriveTheme and add it to REQUIRED_TOKENS, or ' +
+      'give every read a `var(--x, <fallback>)` that terminates in a literal. There is no allowlist — and note ' +
+      'which exit you are taking: the fallback exit is what --cat-N-ink already does, and it is exactly how the ' +
+      'ink tier went missing from the generator for a year without any gate noticing.',
+    );
+  }
+}
+
 // Derived from the manifest schema (the contract's source of truth) — was a hand-mirror.
 const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').properties.adapt.properties.mode.enum);
 
@@ -5302,6 +5732,7 @@ function run() {
   checkVariantDeclaration(manifests, errors);
   checkTagClustering(manifests, errors);
   checkThemeTokenParity(errors);
+  checkNoSafeDefaultTokens(errors);
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
@@ -5504,6 +5935,19 @@ module.exports = {
   CAT_INK_COLLAPSE_DIST,
   catInkCollapsePairs,
   checkCatInkFallback,
+  checkNoSafeDefaultTokens,
+  noSafeDefaultTokens,
+  cssRuleBlocks,
+  rootScopedTokens,
+  slideScopedTokens,
+  isUnconditionalRoot,
+  isSlideRoot,
+  isExportParsedRoot,
+  scopedTokens,
+  ruleRanges,
+  parseVarChain,
+  bareVarReads,
+  mermaidMapTokenReads,
   VETRINA_DIR,
   VETRINA_ADAPTER,
   VETRINA_IMPORT,

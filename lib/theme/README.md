@@ -49,29 +49,43 @@ const css = serializeTheme(map, { name: s.name, label: s.label });
 
 ## What this covers — and what's next
 
-**Covered (the contrast-critical + most-seen contract):** surfaces, the ink
-ramp, accent containers (with computed `on-accent`), semantic signals, the
-dark-variant band, the 12-slot categorical cycle (pale/deep tiers on the
-lightness contract, hue-spread around the accent), `c-ink-*`, structural
-strokes, the alarm fill, highlight.js syntax, and the chart-family spectrums.
-Every pair the shipped gate asserts is repaired to AA in both modes — see
-`test/unit/palette/theme-derive.test.js`.
+**Covered:** surfaces, the ink ramp, accent containers (with computed
+`on-accent`), semantic signals, the dark-variant band, the 12-slot categorical
+cycle (pale/deep tiers on the lightness contract, hue-spread around the accent)
+*plus its on-canvas ink tier*, the containment tier, the spectrum ribbon,
+structural strokes, the alarm fill, highlight.js syntax, and the chart-family
+spectrums. Every pair the shipped gate asserts is repaired to AA in both modes —
+see `test/unit/palette/theme-derive.test.js`.
 
-**Deliberately deferred (need a render session to verify visually):**
+**What decides whether a token belongs in the contract at all** is not how
+contrast-critical or how visible it is — it is whether the engine gives it a
+SAFE DEFAULT. `checkNoSafeDefaultTokens` computes that set from the CSS: a token
+shipped palettes declare, `lib/` reads with no `var()` fallback, and nothing
+declares at `:root` in the engine, must be in `REQUIRED_TOKENS`. Everything else
+is optional polish, because a miss genuinely falls through.
 
-1. **The Studio UI + live preview.** Wiring `deriveTheme` to the editing
-   surface and `PG.addThemes([cssText])` so an author *sees the style in
-   action*. Pure logic is done; the browser surface is the next slice and must
-   be checked visually (per CLAUDE.md "when you can't see the result").
-2. **The theme-asset bridge.** Emitting a `kind:'theme'` asset into the
-   Drawing Board store (asset note shape) and the export/graduation paths.
-3. **Full shipped-theme parity for graduation.** The purely-*decorative*
-   extras a hand-tuned theme like `cuoio.css` adds on top of the contract
-   (`--spectrum`, `--code-inline-fg`, `--on-dark-*` tiers, Marp chrome
-   mappings, `--c-container`/`--c-subcontainer`). A generated theme renders
-   today because these fall through to `lattice.css`/`base.tokens.css`
-   defaults; emitting curated values is a polish pass for first-class
-   graduation, to be done with a render to eyeball each.
+That distinction was learned the expensive way, and this file taught the wrong
+version of it until #1457. It used to call `--spectrum` and `--c-container`
+"purely decorative extras… a generated theme renders today because these fall
+through to `lattice.css`/`base.tokens.css` defaults." **Neither has a default
+anywhere.** `--c-container` is read through the Mermaid map, whose export-path
+reader substitutes a black sentinel that ships — solid black subgraph boxes on
+5 of 8 slides of `examples/containment-tier.md`. `--spectrum` is read bare
+inside `background:` shorthands, so a miss invalidated the whole declaration and
+`section.dark` / `.divider` lost their canvas, painting near-white text on white
+paper. Both are derived now, and the gate is what keeps the next one from
+becoming a render bug. See
+`engineering/decisions/2026-08-10-no-safe-default-token-contract.md`.
 
-Tests: `test/unit/palette/theme-{color,contrast,derive,serialize}.test.js`
+**Still deliberately outside the contract:** the purely *decorative* extras a
+hand-tuned palette adds on its own initiative — `--code-inline-fg`, the
+`--on-dark-*` tiers, the Marp chrome mappings, `--spectrum-quiet`. Each of those
+has a default the engine's own CSS supplies, so a generated theme without them
+renders exactly as intended. Note that "a default" is not always a `:root` one:
+`--spectrum-quiet` is declared on the bare `section` slide root, which is a real
+default for a CSS `var()` read and *not* one for the Mermaid map, whose reader
+parses `:root` blocks out of the palette text. The gate splits those cases; a
+sentence here that flattened them was wrong for a week.
+
+Tests: `test/unit/palette/theme-{color,contrast,cat-ink,derive,serialize}.test.js`
 (run via `npm run test:palette`).

@@ -26,8 +26,13 @@ describe('theme-contrast', () => {
       bg: '#ffffff', 'bg-alt': '#ffffff', 'text-heading': '#000000',
       'cat-on-mark': '#ffffff',
     };
-    // add 12 light + 12 deep pairs that all pass
-    for (let i = 1; i <= 12; i++) { clean[`cat-${i}-fill`] = '#f4f4f4'; clean[`cat-${i}-mark`] = '#222222'; }
+    // add 12 light + 12 deep pairs that all pass, plus the on-canvas ink tier the
+    // contract carries since #1457 (the same hue as LABEL TEXT on --bg / --bg-alt)
+    for (let i = 1; i <= 12; i++) {
+      clean[`cat-${i}-fill`] = '#f4f4f4';
+      clean[`cat-${i}-mark`] = '#222222';
+      clean[`cat-${i}-ink`] = '#222222';
+    }
     clean['cat-on-fill'] = '#111111';
     const ok = auditVars(clean, { mode: 'light', level: 'gate' });
     assert.ok(ok.ok, JSON.stringify(ok.failures.concat(ok.missing)));
@@ -51,7 +56,11 @@ describe('theme-contrast', () => {
       'text-heading': 'light-dark(#000000, #050505)',
       'cat-on-fill': '#000000', 'cat-on-mark': '#ffffff',
     };
-    for (let i = 1; i <= 12; i++) { vars[`cat-${i}-fill`] = '#f4f4f4'; vars[`cat-${i}-mark`] = '#222222'; }
+    for (let i = 1; i <= 12; i++) {
+      vars[`cat-${i}-fill`] = '#f4f4f4';
+      vars[`cat-${i}-mark`] = '#222222';
+      vars[`cat-${i}-ink`] = 'light-dark(#222222, #dddddd)'; // flips with the canvas
+    }
     const both = auditBoth(vars, { level: 'gate' });
     assert.ok(both.light.ok);
     assert.ok(!both.dark.ok); // heading on dark canvas fails

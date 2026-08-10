@@ -189,13 +189,13 @@
   --cat-3-ink:   light-dark(#5C1C92, #D5C3E4);
   --cat-4-ink:   light-dark(#3A6E00, #D3E4C3);
   --cat-5-ink:   light-dark(#921C54, #E4C3D3);
-  --cat-6-ink:   light-dark(#00720C, #C3E4C5);
+  --cat-6-ink:   light-dark(#006C0B, #C3E4C5);
   --cat-7-ink:   light-dark(#8A5612, #E4D5C3);
   --cat-8-ink:   light-dark(#221C92, #C5C3E4);
   --cat-9-ink:   light-dark(#1C5492, #C3D3E4);
   --cat-10-ink:  light-dark(#007043, #C3E4D5);
   --cat-11-ink:  light-dark(#636500, #E3E4C3);
-  --cat-12-ink:  light-dark(#921C90, #E4C3E3);
+  --cat-12-ink:  light-dark(#8E168C, #E4C3E3);
   /* ── end categorical on-canvas ink ── */
 
   --cat-on-fill: var(--text-heading);

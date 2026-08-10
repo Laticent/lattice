@@ -2315,3 +2315,221 @@ describe('theme manifest gates', () => {
     }
   });
 });
+
+describe('no-safe-default token gate (#1457)', () => {
+  const {
+    noSafeDefaultTokens, rootScopedTokens, slideScopedTokens, isUnconditionalRoot, isSlideRoot,
+    bareVarReads, mermaidMapTokenReads,
+  } = require('../../../tools/check-ownership.js');
+
+  // BITE-TESTS, not smoke tests. The arm this replaces would have passed while the
+  // Studio shipped themes that painted solid black Mermaid clusters, so each test
+  // below constructs the violation and asserts the arm names it — then asserts each
+  // of the two legitimate exits (derive it, or give the read a fallback) silences it.
+  const cssRead = (where, over = {}) => [{ where, kind: 'css', rootRead: false, chain: [], ...over }];
+  const mapRead = (where) => [{ where, kind: 'map', chain: [] }];
+  const inputs = (over = {}) => ({
+    themeTokens: new Set(['c-container', 'bg']),
+    rootDefaults: new Set(['bg']),
+    slideDefaults: new Set(['bg']),
+    mapDefaults: new Set(['bg']),
+    bareReads: new Map([['c-container', cssRead('lib/x.css:1')], ['bg', cssRead('lib/x.css:2')]]),
+    contract: new Set(['bg']),
+    ...over,
+  });
+
+  test('BITES: a theme token with no engine default, read with no fallback, absent from the contract', () => {
+    assert.deepEqual(noSafeDefaultTokens(inputs()), ['c-container']);
+  });
+
+  test('exit 1 — deriving the token (adding the contract row) silences it', () => {
+    assert.deepEqual(noSafeDefaultTokens(inputs({ contract: new Set(['bg', 'c-container']) })), []);
+  });
+
+  test('exit 2 — giving every read a var() fallback silences it', () => {
+    // A read WITH a fallback never enters `bareReads` at all; that is the mechanism
+    // by which --cat-N-ink (no :root default anywhere, gated by checkCatInkFallback)
+    // is correctly absent from this gate's findings.
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: new Map([['bg', cssRead('lib/x.css:2')]]) })), []);
+  });
+
+  test('an ENGINE :root default is a safe default — not reported', () => {
+    assert.deepEqual(noSafeDefaultTokens(inputs({
+      rootDefaults: new Set(['bg', 'c-container']),
+      slideDefaults: new Set(['bg', 'c-container']),
+      mapDefaults: new Set(['bg', 'c-container']),
+    })), []);
+  });
+
+  // The false positive the engine's own comment invites: `--spectrum-quiet` is
+  // defaulted on the bare `section` slide root, and base.variants.css says a theme
+  // may override it. A :root-only model demands a contract row for a token that IS
+  // defaulted — and neither of the gate's two exits would be correct.
+  test('a `section` slide-root default satisfies a CSS read, but NOT a Mermaid-map read', () => {
+    const sectionOnly = { rootDefaults: new Set(['bg']), slideDefaults: new Set(['bg', 'c-container']), mapDefaults: new Set(['bg']) };
+    assert.deepEqual(noSafeDefaultTokens(inputs(sectionOnly)), [],
+      'a bare `section` declaration is a real default for a CSS var() read');
+    assert.deepEqual(
+      noSafeDefaultTokens(inputs({ ...sectionOnly, bareReads: new Map([['c-container', mapRead('map.js')]]) })),
+      ['c-container'],
+      'the Mermaid reader parses :root blocks out of the palette TEXT — a `section` rule is invisible to it',
+    );
+  });
+
+  // Custom properties resolve on the element that USES them, and `:root` is `html` —
+  // an ANCESTOR of `section`. So a `section { --x }` default cannot reach a
+  // `var(--x)` written inside a `:root` rule, which is exactly where --spectrum and
+  // --spectrum-vertical are read (base.variants.css's --sp-fill-rainbow-*). Deciding
+  // per TOKEN rather than per READ would let one `section` declaration excuse the
+  // very tokens whose absence loses the canvas.
+  test('a `section` default does NOT satisfy a read made inside a :root block', () => {
+    const sectionOnly = { rootDefaults: new Set(['bg']), slideDefaults: new Set(['bg', 'c-container']), mapDefaults: new Set(['bg']) };
+    assert.deepEqual(
+      noSafeDefaultTokens(inputs({ ...sectionOnly, bareReads: new Map([['c-container', cssRead('lib/x.css:1', { rootRead: true })]]) })),
+      ['c-container'],
+    );
+  });
+
+  // A fallback is only as safe as what it RESOLVES to. `var(--x, var(--cat-1-fill))`
+  // is safe because the chain lands on a contract token; `var(--x, )` and
+  // `var(--x, var(--never-declared))` are both invalid at computed-value time.
+  test('a fallback CHAIN is rescued only when it lands on something that resolves', () => {
+    const chained = (chain) => new Map([['c-container', cssRead('lib/x.css:1', { chain })]]);
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: chained(['bg']) })), [],
+      'a chain landing on a contract token resolves');
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: chained(['never-declared']) })), ['c-container'],
+      'a chain landing on an undefined token is invalid at computed-value time');
+    assert.deepEqual(noSafeDefaultTokens(inputs({ bareReads: chained([]) })), ['c-container'],
+      'an empty fallback is not a fallback');
+  });
+
+  test('parseVarChain reads the chain, and a literal terminal ends it', () => {
+    const { parseVarChain } = require('../../../tools/check-ownership.js');
+    assert.deepEqual(parseVarChain('--x'), { token: 'x', chain: [], endsLiteral: false });
+    assert.deepEqual(parseVarChain('--x, '), { token: 'x', chain: [], endsLiteral: false });
+    assert.deepEqual(parseVarChain('--x, red'), { token: 'x', chain: [], endsLiteral: true });
+    assert.deepEqual(parseVarChain('--x, var(--y)'), { token: 'x', chain: ['y'], endsLiteral: false });
+    assert.deepEqual(parseVarChain('--x, var(--y, #000)'), { token: 'x', chain: ['y'], endsLiteral: true });
+  });
+
+  // A :root default wrapped in an at-rule is still a default. HARD RULE #26
+  // anticipates a coordinated @layer activation pass; the first cut of this arm read
+  // only top-level rules, so wrapping base.tokens.css in `@layer tokens { … }`
+  // produced 15 false positives on a gate that has no allowlist.
+  test('at-rule bodies are recursed, and :is(:root) counts, but @keyframes does not', () => {
+    assert.deepEqual([...rootScopedTokens('@layer tokens { :root { --a: 1 } }')], ['a']);
+    assert.deepEqual([...rootScopedTokens('@media (min-width: 1px) { :root { --b: 1 } }')], ['b']);
+    assert.deepEqual([...rootScopedTokens('@supports (color: red) { :root { --c: 1 } }')], ['c']);
+    assert.deepEqual([...rootScopedTokens('@keyframes k { from { --d: 1 } }')], []);
+    assert.ok(isUnconditionalRoot(':is(:root)'));
+  });
+
+  test('a declaration in a NESTED rule is not harvested as the outer block\'s', () => {
+    assert.deepEqual([...rootScopedTokens(':root { --a: 1; .x { --b: 2 } }')], ['a']);
+    assert.deepEqual([...slideScopedTokens('section { --a: 1; &.dark { --b: 2 } }')], ['a']);
+  });
+
+  // The gate's :root model must not be MORE permissive than the export reader it
+  // models: parsePaletteVars matches /:root\s*\{/, so :root must sit immediately
+  // before the brace.
+  test('isExportParsedRoot matches what the export path actually parses', () => {
+    const { isExportParsedRoot } = require('../../../tools/check-ownership.js');
+    const parsed = (sel) => new RegExp(`${sel}\\s*\\{`).source && /:root\s*\{/.test(`${sel} {`);
+    for (const sel of [':root', ':root:root', 'section, :root']) {
+      assert.equal(isExportParsedRoot(sel), true, sel);
+      assert.equal(parsed(sel), true, `${sel} must also match the emulator's own regex`);
+    }
+    for (const sel of [':root, section', ':where(:root)', 'section']) {
+      assert.equal(isExportParsedRoot(sel), false, sel);
+      assert.equal(parsed(sel), false, `${sel} must also miss the emulator's own regex`);
+    }
+  });
+
+  test('a token no palette declares is not the theme contract\'s business', () => {
+    // Per-element locals the transformer writes as inline style (--actor-color,
+    // --pct) are read bare and defaulted nowhere; they are engine internals, and
+    // the theme-vocabulary filter is what keeps them out of a theme gate.
+    assert.deepEqual(noSafeDefaultTokens(inputs({ themeTokens: new Set(['bg']) })), []);
+  });
+
+  test('bareVarReads separates a bare read from a read with a fallback', () => {
+    const reads = bareVarReads('a{color:var(--one)}\nb{color:var(--two, red)}\nc{color:var( --three )}', 'f.css');
+    assert.deepEqual([...reads.keys()].sort(), ['one', 'three']);
+    assert.equal(reads.get('one')[0].where, 'f.css:1');
+    assert.equal(reads.get('one')[0].kind, 'css');
+    assert.equal(reads.get('one')[0].rootRead, false);
+  });
+
+  // The first cut stripped comments by DELETING them, newlines included, so every
+  // reported line was shifted by the comment volume above it — and a wrong number was
+  // copied straight out of the gate into a decision record.
+  test('bareVarReads reports the line in the REAL file, not the comment-stripped one', () => {
+    const css = '/* one\n * two\n * three\n */\na { color: var(--x) }';
+    assert.equal(bareVarReads(css, 'f.css').get('x')[0].where, 'f.css:5');
+  });
+
+  test('bareVarReads records WHERE a read sits, so the per-read rule can be applied', () => {
+    const reads = bareVarReads(':root { --a: var(--x) }\nsection { --b: var(--y) }', 'f.css');
+    assert.equal(reads.get('x')[0].rootRead, true);
+    assert.equal(reads.get('y')[0].rootRead, false);
+  });
+
+  test('the Mermaid map counts as a fallback-free reader, joinVars included', () => {
+    // Sourced from the map's own diagramThemeTokens(), so a `joinVars` entry — which
+    // travels through the same readToken and the same black sentinel — cannot be
+    // missed the way a `{ var: '…' }` regex missed it.
+    const { diagramThemeTokens } = require('../../../lib/core/mermaid-theme-map.js');
+    const tokens = diagramThemeTokens();
+    assert.ok(tokens.includes('c-container'), 'the map must still read the containment fill');
+    assert.ok(tokens.includes('cat-1-mark'), 'and a joinVars-only token must be present');
+    const reads = mermaidMapTokenReads(['c-container'], 'map.js');
+    assert.deepEqual([...reads.keys()], ['c-container']);
+    assert.equal(reads.get('c-container')[0].kind, 'map');
+  });
+
+  test('isUnconditionalRoot: a specificity pin and a :where() default both count; a class-gated root does not', () => {
+    assert.ok(isUnconditionalRoot(':root'));
+    assert.ok(isUnconditionalRoot(':root:root'));            // a11y-base's hard pin
+    assert.ok(isUnconditionalRoot(':where(:root)'));         // zero-specificity default
+    assert.ok(isUnconditionalRoot(':root, section'));        // one part is enough
+    assert.ok(!isUnconditionalRoot(':root.print'));          // waits for a class
+    assert.ok(!isUnconditionalRoot('section.print'));
+  });
+
+  test('isSlideRoot additionally accepts the bare `section`, but never a banded one', () => {
+    assert.ok(isSlideRoot(':root'));
+    assert.ok(isSlideRoot('section'));
+    assert.ok(isSlideRoot(':where(section)'));
+    assert.ok(!isSlideRoot('section.print'));
+    assert.ok(!isSlideRoot('section .card'));
+    assert.ok(!isUnconditionalRoot('section'), 'and `section` is NOT a :root default');
+  });
+
+  test('rootScopedTokens / slideScopedTokens read the blocks they claim to', () => {
+    const css = ':root{--a:1}\nsection.print{--b:2}\n:where(:root){--c:3}\n:root.x{--d:4}\nsection{--e:5}';
+    assert.deepEqual([...rootScopedTokens(css)].sort(), ['a', 'c']);
+    assert.deepEqual([...slideScopedTokens(css)].sort(), ['a', 'c', 'e']);
+  });
+
+  // Every input is an intersection term, so an empty one makes the gate report clean.
+  // A gate that cannot fail is also a claim.
+  test('the assembled gate FAILS LOUD when a scan comes back empty', () => {
+    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'no-safe-default-'));
+    try {
+      // A themes dir whose only palette declares nothing at :root.
+      fs.writeFileSync(path.join(dir, 'empty.css'), 'section.print { --x: red; }\n');
+      const errors = [];
+      checkNoSafeDefaultTokens(errors, { themesDir: dir });
+      assert.equal(errors.length, 1);
+      assert.match(errors[0], /empty input set/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('the shipped tree is clean — REQUIRED_TOKENS covers every no-safe-default token', () => {
+    const { checkNoSafeDefaultTokens } = require('../../../tools/check-ownership.js');
+    const errors = [];
+    checkNoSafeDefaultTokens(errors);
+    assert.deepEqual(errors, []);
+  });
+});

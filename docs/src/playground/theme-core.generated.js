@@ -213,12 +213,145 @@ var require_color = __commonJS({
   }
 });
 
+// lib/theme/cat-ink.js
+var require_cat_ink = __commonJS({
+  "lib/theme/cat-ink.js"(exports, module) {
+    var { hexToOklch: hexToOklch2, withLightness: withLightness2, contrastRatio: contrastRatio2, oklabDistance, AA: AA2 } = require_color();
+    var MARGIN = 0.15;
+    var MIN_DIST = 0.035;
+    function separationTarget(markA, markB) {
+      return Math.min(MIN_DIST, oklabDistance(markA, markB));
+    }
+    function solveInk(mark, bg, bgAlt) {
+      const clears = (hex) => Math.min(contrastRatio2(hex, bg), contrastRatio2(hex, bgAlt)) >= AA2 + MARGIN;
+      if (clears(mark)) return mark;
+      const { L } = hexToOklch2(mark);
+      const solveToward = (target) => {
+        if (!clears(withLightness2(mark, target))) return null;
+        let near = L;
+        let far = target;
+        for (let i = 0; i < 40 && Math.abs(far - near) > 1e-4; i += 1) {
+          const mid = (near + far) / 2;
+          if (clears(withLightness2(mark, mid))) far = mid;
+          else near = mid;
+        }
+        return { L: far, hex: withLightness2(mark, far) };
+      };
+      const candidates = [solveToward(0), solveToward(1)].filter(Boolean);
+      if (!candidates.length) return null;
+      candidates.sort((a, b) => Math.abs(a.L - L) - Math.abs(b.L - L));
+      return candidates[0].hex;
+    }
+    function bestEffortInk(mark, bg, bgAlt) {
+      const worst = (hex) => Math.min(contrastRatio2(hex, bg), contrastRatio2(hex, bgAlt));
+      return [mark, withLightness2(mark, 0), withLightness2(mark, 1)].sort((a, b) => worst(b) - worst(a))[0];
+    }
+    function feasibleRange(mark, bg, bgAlt) {
+      const clears = (L) => {
+        const hex = withLightness2(mark, L);
+        return Math.min(contrastRatio2(hex, bg), contrastRatio2(hex, bgAlt)) >= AA2 + MARGIN;
+      };
+      const dir = clears(0) ? -1 : clears(1) ? 1 : null;
+      if (dir === null) return null;
+      let inside = dir === -1 ? 0 : 1;
+      let outside = dir === -1 ? 1 : 0;
+      for (let i = 0; i < 40 && Math.abs(outside - inside) > 1e-4; i += 1) {
+        const mid = (inside + outside) / 2;
+        if (clears(mid)) inside = mid;
+        else outside = mid;
+      }
+      return { dir, bound: inside, clears };
+    }
+    function armCollapsed(inks, marks) {
+      for (let i = 0; i < inks.length; i += 1) {
+        for (let j = i + 1; j < inks.length; j += 1) {
+          const a = inks[i], b = inks[j];
+          if (!a || !b) continue;
+          if (oklabDistance(a, b) < separationTarget(marks[i], marks[j]) - 1e-9) return true;
+        }
+      }
+      return false;
+    }
+    function separateArm({ inks, marks, bg, bgAlt, label, arm, strict, degraded }) {
+      const groups = /* @__PURE__ */ new Map();
+      for (let i = 0; i < marks.length; i += 1) {
+        const n = i + 1;
+        const range = feasibleRange(marks[i], bg, bgAlt);
+        if (!range) {
+          const message = `${label}: --cat-${n}-mark has no legible lightness on the ${arm} canvas \u2014 no shade of its hue clears ${AA2}:1 against both --bg and --bg-alt. Re-running the generator cannot fix this. ${surfaceDiagnosis(bg, bgAlt)}`;
+          if (strict) throw new Error(message);
+          degraded.push(message);
+          continue;
+        }
+        const { dir, bound } = range;
+        if (!groups.has(dir)) groups.set(dir, []);
+        groups.get(dir).push({ n, i, u: dir * hexToOklch2(inks[i]).L, uBound: dir * bound });
+      }
+      for (const [dir, slots] of groups) {
+        slots.sort((a, b) => a.u - b.u);
+        const uMax = dir === -1 ? 0 : 1;
+        const placed = [];
+        let prevU = -Infinity;
+        for (const slot of slots) {
+          let u = Math.max(slot.u, prevU);
+          const clearsPlaced = (cand) => placed.every((p) => oklabDistance(cand, p.hex) >= separationTarget(marks[slot.i], marks[p.i]));
+          if (placed.length) {
+            const step = Math.max(...placed.map((p) => separationTarget(marks[slot.i], marks[p.i])), 1e-3) / 8;
+            while (u <= uMax && !clearsPlaced(withLightness2(marks[slot.i], dir * u))) u += step;
+            if (u > uMax + 1e-9) {
+              const message = `${label}: the ${arm} ink arm cannot hold ${marks.length} distinguishable slots \u2014 after clearing ${AA2}:1 there is not enough perceptual room left between every pair (ran out at --cat-${slot.n}-ink). This is a property of the palette, not of the generator: re-running it will reproduce it. Widen the categorical marks' lightness range, or raise the contrast between --bg and --bg-alt.`;
+              if (strict) throw new Error(message);
+              degraded.push(message);
+              u = uMax;
+            }
+          }
+          if (u !== slot.u) inks[slot.i] = withLightness2(marks[slot.i], dir * u);
+          prevU = u;
+          placed.push({ i: slot.i, hex: inks[slot.i] });
+        }
+      }
+    }
+    function surfaceDiagnosis(bg, bgAlt) {
+      return contrastRatio2(bg, bgAlt) >= 3 ? "The two surfaces STRADDLE the legible range: one is light enough to need a dark ink and the other dark enough to need a light one, so no single value can serve both. Bring --bg and --bg-alt onto the same side of the canvas \u2014 this is a palette fact the generator cannot solve around." : "The two surfaces are close enough in lightness that no shade of any hue clears the floor against both. Widen the gap between --bg and --bg-alt \u2014 this is a palette fact the generator cannot solve around.";
+    }
+    function solveInkArm({ marks, bg, bgAlt, strict = false, label = "theme", arm = "light" }) {
+      const degraded = [];
+      const inks = marks.map((mark, i) => {
+        const ink = solveInk(mark, bg, bgAlt);
+        if (ink) return ink;
+        const message = `${label}: no legible --cat-${i + 1}-ink exists on the ${arm} canvas. No shade of --cat-${i + 1}-mark (${mark}) clears ${AA2}:1 against both --bg ${bg} and --bg-alt ${bgAlt}. ${surfaceDiagnosis(bg, bgAlt)}`;
+        if (strict) throw new Error(message);
+        degraded.push(message);
+        return bestEffortInk(mark, bg, bgAlt);
+      });
+      const collapsed = armCollapsed(inks, marks);
+      if (collapsed) separateArm({ inks, marks, bg, bgAlt, label, arm, strict, degraded });
+      return { inks, collapsed, degraded };
+    }
+    module.exports = {
+      AA: AA2,
+      MARGIN,
+      MIN_DIST,
+      separationTarget,
+      solveInk,
+      bestEffortInk,
+      feasibleRange,
+      armCollapsed,
+      separateArm,
+      solveInkArm,
+      surfaceDiagnosis
+    };
+  }
+});
+
 // lib/theme/derive.js
 var require_derive = __commonJS({
   "lib/theme/derive.js"(exports, module) {
     var {
       hexToOklch: hexToOklch2,
+      hexToRgb: hexToRgb2,
       oklchToHex: oklchToHex2,
+      relativeLuminance: relativeLuminance2,
       withLightness: withLightness2,
       withChroma: withChroma2,
       mix: mix2,
@@ -228,6 +361,7 @@ var require_derive = __commonJS({
       AA: AA2,
       AA_LARGE: AA_LARGE2
     } = require_color();
+    var { solveInkArm } = require_cat_ink();
     var ESSENTIAL_KEYS2 = Object.freeze([
       "bg",
       "bgAlt",
@@ -306,6 +440,10 @@ var require_derive = __commonJS({
       categorical: [
         ...Array.from({ length: CATEGORICAL_COUNT }, (_, i) => `cat-${i + 1}-fill`),
         ...Array.from({ length: CATEGORICAL_COUNT }, (_, i) => `cat-${i + 1}-mark`),
+        // The ON-CANVAS ink tier: the slot's hue as TEXT on --bg / --bg-alt, solved
+        // by lib/theme/cat-ink.js — the same recipe tools/derive-cat-ink.js writes
+        // into the hand-authored palettes.
+        ...Array.from({ length: CATEGORICAL_COUNT }, (_, i) => `cat-${i + 1}-ink`),
         "cat-on-fill",
         "cat-on-mark",
         // diagram-structural (flipped to canonical, group 2 — ADR §11.3)
@@ -313,6 +451,23 @@ var require_derive = __commonJS({
         "diagram-line",
         "diagram-accent-warm"
       ],
+      // Containment — two nested structural surfaces (flowchart cluster, sankey area,
+      // kanban column / a box nested in one), each with its own edge and label ink.
+      // No engine default at all, and Mermaid reads the first two through the export
+      // path's black sentinel, so an omission is a solid black box rather than a
+      // missing tint.
+      containment: [
+        "c-container",
+        "c-subcontainer",
+        "c-container-edge",
+        "c-subcontainer-edge",
+        "c-on-container",
+        "c-on-subcontainer"
+      ],
+      // The brand ribbon. `--spectrum` rides inside `background:` shorthands, where a
+      // miss takes the whole declaration down with it; `--spectrum-end` is the curated
+      // endpoint the `spectrum: duo` register reads.
+      spectrum: ["spectrum", "spectrum-vertical", "spectrum-end"],
       // Universal semantic — the others (c-warm/cool/mark/note) default in
       // lattice.css; the alarm fill is gate-checked (c-ink-dark on c-alarm) so a
       // generated theme must define it explicitly.
@@ -424,6 +579,8 @@ var require_derive = __commonJS({
       const inkDark = "#ffffff";
       t["cat-on-fill"] = ld(inkLight, inkDark);
       t["cat-on-mark"] = ld(inkDark, inkLight);
+      const marksLight = [];
+      const marksDark = [];
       for (let i = 0; i < CATEGORICAL_COUNT; i++) {
         const h = norm360(rampHue(strategy, accentHue, i, CATEGORICAL_COUNT));
         const cMul = rampChromaMul(strategy, i, CATEGORICAL_COUNT);
@@ -436,7 +593,41 @@ var require_derive = __commonJS({
         markDark = ensureContrast2(markDark, inkLight, AA2, "lighten");
         t[`cat-${i + 1}-fill`] = ld(fillLight, fillDark);
         t[`cat-${i + 1}-mark`] = ld(markLight, markDark);
+        marksLight.push(markLight);
+        marksDark.push(markDark);
       }
+      const inkLightArm = solveInkArm({ marks: marksLight, bg: e.bg, bgAlt: e.bgAlt, arm: "light" });
+      const inkDarkArm = solveInkArm({ marks: marksDark, bg: darkBgDeeper, bgAlt: darkBgAlt, arm: "dark" });
+      for (let i = 0; i < CATEGORICAL_COUNT; i++) {
+        t[`cat-${i + 1}-ink`] = ld(inkLightArm.inks[i], inkDarkArm.inks[i]);
+      }
+      const containment = (canvas, brandEdge) => {
+        const { L } = hexToOklch2(canvas);
+        const away = L >= 0.5 ? -1 : 1;
+        const lum = (hex) => relativeLuminance2(hexToRgb2(hex));
+        const canvasLum = lum(canvas);
+        const rung = (step2) => oklchToHex2({ L: Math.min(1, Math.max(0, L + away * step2)), C: 0.012, h: accentHue });
+        const step = (from, base) => {
+          let s = base;
+          for (let i = 0; i < 20 && (lum(rung(s)) - from) * away <= 0; i++) s = base + (i + 1) * 0.02;
+          return s;
+        };
+        const s1 = step(canvasLum, 0.06);
+        const container = rung(s1);
+        const s2 = step(lum(container), s1 + 0.07);
+        const subcontainer = rung(s2);
+        return {
+          "c-container": container,
+          "c-subcontainer": subcontainer,
+          "c-container-edge": ensureContrast2(brandEdge, container, AA_LARGE2),
+          "c-subcontainer-edge": ensureContrast2(brandEdge, subcontainer, AA_LARGE2),
+          "c-on-container": ensureContrast2(pickInk2(container, inkLight, inkDark), container, AA2),
+          "c-on-subcontainer": ensureContrast2(pickInk2(subcontainer, inkLight, inkDark), subcontainer, AA2)
+        };
+      };
+      const cLight = containment(e.bg, e.accent);
+      const cDark = containment(darkBgDeeper, darkAccent);
+      for (const name of REQUIRED_TOKENS2.containment) t[name] = ld(cLight[name], cDark[name]);
       t["diagram-stroke"] = withChroma2(withLightness2(e.accent, 0.5), 0.09);
       t["diagram-line"] = ld(withLightness2(e.textBody, 0.32), withLightness2(darkBody, 0.78));
       t["diagram-accent-warm"] = "var(--accent)";
@@ -444,6 +635,26 @@ var require_derive = __commonJS({
         ensureContrast2("#c20000", inkDark, AA2, "darken"),
         ensureContrast2(withLightness2("#c20000", 0.68), inkLight, AA2, "lighten")
       );
+      const accentC = hexToOklch2(e.accent).C;
+      const achromatic = accentC < 0.02;
+      const ribbonC = achromatic ? accentC : Math.max(0.09, accentC);
+      const endHue = achromatic ? accentHue : norm360(rampHue(strategy, accentHue, 4, CATEGORICAL_COUNT));
+      const spectrumStops = achromatic ? [
+        oklchToHex2({ L: 0.2, C: ribbonC, h: accentHue }),
+        oklchToHex2({ L: 0.45, C: ribbonC, h: accentHue }),
+        oklchToHex2({ L: 0.68, C: ribbonC, h: accentHue })
+      ] : [
+        oklchToHex2({ L: 0.34, C: ribbonC * 0.85, h: accentHue }),
+        oklchToHex2({ L: 0.62, C: ribbonC, h: accentHue }),
+        // Stop 3 sits a touch lighter than stop 2 as well as hue-rotated: on a tight
+        // ramp (`analogous` Δh ≈ 13.6°, `brand-mono` Δh = 8°) two stops at the same
+        // lightness read as one flat band across the last 45% of the bar.
+        oklchToHex2({ L: 0.68, C: ribbonC, h: endHue })
+      ];
+      const ribbon = (deg) => `linear-gradient(${deg}deg, ${spectrumStops[0]} 0%, ${spectrumStops[1]} 55%, ${spectrumStops[2]} 100%)`;
+      t.spectrum = ribbon(90);
+      t["spectrum-vertical"] = ribbon(180);
+      t["spectrum-end"] = spectrumStops[2];
       const onCode = darkBg;
       const synth = (rot, L = 0.72, C = 0.11) => ensureContrast2(oklchToHex2({ L, C, h: ((accentHue + rot) % 360 + 360) % 360 }), onCode, 3, "lighten");
       t["hljs-comment"] = ensureContrast2(mix2(e.textMuted, onCode, 0.2), onCode, 3, "lighten");
@@ -513,6 +724,8 @@ var require_contrast = __commonJS({
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-fill`, "cat-on-fill", AA2, "categorical-pale"]);
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-mark`, "cat-on-mark", AA2, "categorical-deep"]);
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-mark`, "bg", AA_LARGE2, "categorical-edge"]);
+      for (let i = 1; i <= 12; i++) pairs.push(["bg", `cat-${i}-ink`, AA2, "categorical-ink"]);
+      for (let i = 1; i <= 12; i++) pairs.push(["bg-alt", `cat-${i}-ink`, AA2, "categorical-ink"]);
       pairs.push(["bg", "text-heading", AA2, "heading"]);
       pairs.push(["bg-alt", "text-heading", AA2, "heading"]);
       return pairs;
@@ -653,7 +866,9 @@ ${SIZE_BLOCK}
         rootBlock(map, [...REQUIRED_TOKENS2.surfaces, ...REQUIRED_TOKENS2.ink, ...REQUIRED_TOKENS2.accent, ...REQUIRED_TOKENS2.semantic], "Surfaces \xB7 ink \xB7 accent \xB7 semantic signals"),
         rootBlock(map, REQUIRED_TOKENS2.dark, "Dark-variant tokens (section.dark + light-dark() dark sides)"),
         rootBlock(map, REQUIRED_TOKENS2.hljs, "highlight.js syntax"),
-        rootBlock(map, [...REQUIRED_TOKENS2.categorical, ...REQUIRED_TOKENS2.universal], "Categorical cycle (paired light/dark) + structural + alarm"),
+        rootBlock(map, [...REQUIRED_TOKENS2.categorical, ...REQUIRED_TOKENS2.universal], "Categorical cycle (paired light/dark) + on-canvas ink + structural + alarm"),
+        rootBlock(map, REQUIRED_TOKENS2.containment, "Containment tier \u2014 nested structural surfaces, their edges and label ink"),
+        rootBlock(map, REQUIRED_TOKENS2.spectrum, "Spectrum ribbon (brand bar, divider rail, structural hairline)"),
         rootBlock(map, REQUIRED_TOKENS2.chart, "Chart-family spectrums")
       ].filter(Boolean);
       return `${blocks.join("\n\n")}

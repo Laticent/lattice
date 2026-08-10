@@ -296,6 +296,21 @@ first draft wrongly claimed). One risk to settle first: the `brand-mono` ramp re
 the anti-collapse guard on a `pine` starter, which would give `deriveTheme` a
 browser-facing throw driven by a user's ramp choice.
 
+> **CLOSED (2026-08-10) — `2026-08-10-no-safe-default-token-contract.md`.** Three
+> corrections that record leaves behind. (1) The solve was **extracted, not ported**:
+> a second copy of a 150-line OKLCH search is what HARD RULE #1 exists to stop, so it
+> lives in `lib/theme/cat-ink.js` and both generators import it. (2) The throw risk is
+> settled by making the failure policy the **caller's parameter** — the committed
+> generator still throws, the browser one degrades and reports. (3) §5's ink-arm
+> correction above is itself too generous to the generator: sweeping the four starters
+> at the DEFAULT ramp does find zero sub-AA slots, but sweeping all five ramp
+> strategies finds one, and sampling 200 essential sets per strategy finds **23-34 of 200
+> with a sub-AA label under the hue-spread ramps and 176 of 200 under `brand-mono`,
+> worst 2.99:1** — because the fallback lands on a mark repaired to the 3:1 *graphical*
+> floor. And the `--spectrum` arm turned out to be worse than the black
+> box: a miss inside a `background:` shorthand drops the whole declaration, so divider
+> slides rendered white-on-white.
+
 Also still open, deliberately out of scope here: the 95-vs-91 `CONTRACT` drift between
 `token-parity.test.js` and `theme-scorecard.js` (#1459) — this change fixed the *scope*
 half of that pair, not the token-list half.
