@@ -3,7 +3,8 @@ status: proposed
 summary: >
   The export bundle concatenates the theme BEFORE the base, so base.tokens.css's plain :root
   block lands later at equal specificity and wins — 426 palette declarations across 36 tokens
-  and 18 palettes are dead on the export path. Measured in Chromium 131 using each order
+  and 18 palette files are dead on the export path — and because every -dark variant inlines its
+  parent, 31 of 32 selectable themes render with at least one dead declaration. Measured in Chromium 131 using each order
   verbatim. The root cause is sharper than "the concat is in the wrong order": every theme
   declares `@import 'lattice';` at its top, which in CSS means the imported sheet's rules come
   FIRST and the importing theme wins — and lattice-emulator.js's OWN Mermaid token reader
@@ -14,7 +15,7 @@ summary: >
   base's. Flipping the concat is one line and fixes both, but it ACTIVATES all 426 dead
   declarations — verified visually: ardesia's code slide swaps the base's Night Owl syntax
   colors for ardesia's own curated muted ramp, which is what its author wrote and nobody has
-  ever seen. That changes exported PDF bytes across 18 palettes, so it is a QUALITY-BAR
+  ever seen. That changes exported PDF bytes across nearly every theme, so it is a QUALITY-BAR
   sign-off gate and this record stops there rather than shipping the flip.
 ---
 
@@ -70,7 +71,18 @@ Real Chromium 131, loading each order verbatim and reading `getComputedStyle` on
 |---|---|
 | declarations shadowed on the export path | **426** |
 | distinct tokens | **36** |
-| palettes affected | **18** of 32 (the `-dark` variants declare nothing at `:root` of their own) |
+| palette FILES that lose declarations of their own | **18** of 32 |
+| selectable themes that RENDER with a dead declaration | **31** of 32 |
+
+**The two palette numbers are different, and the second is the one that matters.** 18 counts
+files carrying declarations of their *own* that die. The 13 `-dark` variants score 0 there
+because they declare nothing but `@import 'parent'; :root { color-scheme: dark; }` — but the
+emulator inlines the parent into the same `paletteCSS` string, so the base still lands after
+it and the parent's losses are inherited whole. Measured on `indaco-dark`: `--diagram-active`
+renders as the base's `#F5E6D8` where indaco declares `light-dark(#ECC0A8, #91450E)`. So every
+`-dark` variant carries its parent's dead declarations, and only `a11y-base` is genuinely
+clean — its own tokens (the categorical fills) are ones the base declares only under
+`section.print`, a conditional selector that never competes at `:root`.
 
 Worst affected: `cuoio` (35), `atelier`/`brina`/`burgundy`/`laguna`/`magnolia`/`mustard` (32
 each), `ardesia`/`concrete`/`crepuscolo` (31). The largest families are the twelve `--hljs-*`
@@ -106,11 +118,11 @@ is what ardesia's author wrote and what no user has ever seen.
 
 So the flip does not "fix a bug" so much as **turn on 426 curated declarations that have never
 rendered**. That is very likely the right outcome — the palettes were authored to be seen —
-but it is a change to the shipped appearance of 18 palettes, not a no-op.
+but it is a change to the shipped appearance of nearly every theme, not a no-op.
 
 ## 4. Why this record stops here
 
-**This changes the bytes of an exported artifact across 18 palettes.** CLAUDE.md's QUALITY BAR
+**This changes the bytes of an exported artifact across 31 of 32 selectable themes.** CLAUDE.md's QUALITY BAR
 makes that the one explicit exception to acting without being asked: it requires the owner's
 inspection, with a representative deck rendered in both dark and light mode, before it ships.
 So the deliverable here is the measurement and the model, and the flip is **not** in this
@@ -119,7 +131,7 @@ change.
 Three directions remain open, and the measurement changes how they rank:
 
 1. **Flip the concat** (`:691`). One line; fixes the dead declarations and the two-model split
-   together; changes exported bytes across 18 palettes. Now the clear front-runner, because
+   together; changes exported bytes across nearly every theme. Now the clear front-runner, because
    §1 shows the current order contradicts both the themes' own `@import` and the file's own
    token reader — this is restoring the declared cascade, not choosing a new one.
 2. **`:where(:root)` on the base's token defaults.** Zero-specificity, so any theme `:root`
@@ -147,8 +159,8 @@ declare an ink default — but the exemption itself should not be removed in the
 
 ## 6. Not verified
 
-- **No render sweep across all 18 affected palettes.** Four were rendered (ardesia, cuoio,
-  onyx, carta). A full before/after sweep, in both modes, is part of the sign-off package and
+- **No render sweep across the affected themes.** Four were rendered (ardesia, cuoio, onyx,
+  carta) out of 31. A full before/after sweep, in both modes, is part of the sign-off package and
   is not in hand.
 - **PPTX and HTML export paths.** Only the PDF/PNG path was exercised. Both consume the same
   bundle, so the same inversion should apply, but it was not measured. **UNVERIFIED.**

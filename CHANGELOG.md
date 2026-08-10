@@ -29,7 +29,9 @@ in patch versions.
   path, and the export holds two contradictory models of one cascade.** The bundle
   concatenates the theme *before* the base, so `base.tokens.css`'s plain `:root` block lands
   later at equal specificity and wins. Measured in Chromium 131 using each order verbatim:
-  **426 declarations across 36 tokens and 18 palettes** never render — the twelve `--hljs-*`,
+  **426 declarations across 36 tokens and 18 palette files** never render — and because every
+  `-dark` variant inlines its parent, **31 of 32 selectable themes** render with at least one
+  dead declaration — the twelve `--hljs-*`,
   the `--diagram-*` state tokens, and the semantic `--pass`/`--fail`/`--warn`/`--seq-500`.
   The root cause is sharper than a mis-ordered concat: every theme opens with
   `@import 'lattice';`, which in CSS means the base's rules come *first* and the theme wins,
