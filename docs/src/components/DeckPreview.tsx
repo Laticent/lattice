@@ -190,6 +190,11 @@ export function DeckPreview({
 	// deterministic; and (2) a generous ceiling elapses with the frame still unrevealed — the
 	// "renders ok but never paints" case. A later successful render clears it; Retry re-renders.
 	const [failed, setFailed] = React.useState(false);
+	// WHY it failed, when the renderer can say something an author can act on (#1551: "this
+	// slide's source renders as 2 slides…"). Generic "couldn't render" is visible but not
+	// actionable, and the whole complaint in #1551 was that the author had no way to know what
+	// was wrong. Empty for failures with nothing useful to add (the never-paint ceiling).
+	const [failedWhy, setFailedWhy] = React.useState('');
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -309,6 +314,7 @@ export function DeckPreview({
 			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
 			if (fr?.style.opacity && fr.style.opacity !== '0') {
 				setFailed(false);
+				setFailedWhy('');
 				return true;
 			}
 			return false;
@@ -328,9 +334,11 @@ export function DeckPreview({
 	React.useEffect(() => {
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 		if (!fr) return;
-		if (!loader && failed) fr.setAttribute('aria-hidden', 'true');
+		if (failed) fr.setAttribute('aria-hidden', 'true');
 		else fr.removeAttribute('aria-hidden');
-	}, [loader, failed]);
+		// `loader` is no longer a dependency: the failure card is raised on loader and
+		// non-loader hosts alike now (#1551), so this effect reads only `failed`.
+	}, [failed]);
 
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED
@@ -491,7 +499,18 @@ export function DeckPreview({
 		// successful render clears any prior failure. Guard on a PRESENT status: `render` returns
 		// `undefined` when it bails on an inactive host, and an undefined status must NOT touch the
 		// failure flag (else a deferred host would drop a real failure card without ever re-rendering).
-		if (!loader && status) setFailed(status.ok === false && status.error !== 'renderer disposed');
+		// A DETERMINISTIC failure counts on EVERY host, loader or not (#1551). The never-paint
+		// CEILING below stays non-loader-only — there, a spinning skeleton is honest, because the
+		// render may still land. Here it is not: `ok:false` means the render RESOLVED and cannot
+		// produce a slide, so a skeleton that spins forever tells the author nothing, which is the
+		// same silence #1551 was filed about. Present is a loader host, so without this the guard
+		// that refuses to stack two sections into a one-section frame would trade a silently
+		// missing slide for a permanently spinning one.
+		if (status) {
+			const isFailure = status.ok === false && status.error !== 'renderer disposed';
+			setFailed(isFailure);
+			setFailedWhy(isFailure ? String(status.error ?? '') : '');
+		}
 		// (Re)hydrate any live scene on the freshly rendered slide. `bindAnima` self-guards to
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
 		bindAnima();
@@ -605,6 +624,7 @@ export function DeckPreview({
 	// simply fail again; the point is to give the user agency instead of a dead blank box.
 	const retry = React.useCallback(() => {
 		setFailed(false);
+		setFailedWhy('');
 		schedulerRef.current?.schedule();
 	}, []);
 
@@ -622,7 +642,7 @@ export function DeckPreview({
 	return (
 		<>
 		<figure ref={stageRef} className={cn((loader || failed || chartDetail) && 'relative', 'm-0', className)} role={role} {...aria}>
-			{loader && (
+			{loader && !failed && (
 				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
 					<span className="nacre-loader__core" />
 					<span className="nacre-loader__layer nacre-loader__layer--0">
@@ -646,13 +666,13 @@ export function DeckPreview({
 			{/* #1164 — terminal failure affordance for a non-loader host (never shown on a loader host,
 			    which keeps its skeleton). Overlays the parked opacity:0 iframe with a minimal message +
 			    Retry, so a never-rendering preview reads as a recoverable failure, not a dead blank. */}
-			{!loader && failed && (
+			{failed && (
 				// The live-region role sits on the TEXT only — not the container — so a screen reader
 				// announces "couldn't render" without sweeping the focusable Retry button into the
 				// live-region update (which reads confusingly). Container is a block-level div.
 				<div className="nacre-failed">
 					<span className="nacre-failed__text" role="status">
-						This preview couldn’t render.
+						{failedWhy ? `This preview couldn’t render — ${failedWhy}.` : 'This preview couldn’t render.'}
 					</span>
 					<button type="button" className="nacre-failed__retry" onClick={retry}>
 						Retry

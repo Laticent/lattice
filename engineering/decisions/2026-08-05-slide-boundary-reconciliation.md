@@ -242,3 +242,48 @@ always split there. It survives as the right spelling for a rule *inside a conta
 
 Items 2 and 3 of #1271 — the adjacency-preserving equivalence harness, and structural gating — are
 untouched. They are a separate thread with their own dependency (2 → 3).
+
+---
+
+## Amendment (2026-08-10) — the invariant belongs where the frame is fed, not in the fallback
+
+#1551 walked straight through the guard this note established, and the escape route is worth
+recording because it generalizes.
+
+**What happened.** Paste a deck carrying its own `---` front-matter block below an existing one.
+Front matter is only front matter at offset 0, so the pasted block is ordinary markdown: its opening
+`---` becomes a thematic break, its closing one a setext underline under `header: "…"`. The engine
+splits one more section than the Studio counts, `alignmentFailure` fires, and `narrowToSlide`
+correctly returns `null` — every step above doing exactly what §4 says it should. The caller then
+falls back to "render that one authored chunk alone", **and the chunk still contains an `hr`**. Two
+sections went into a frame whose CSS and scale transform assume exactly one, so the second — the
+author's actual content — sat below the fold and never painted. Rail count, page number and chunk
+all agreed with each other and disagreed with the render. Silent, and content-destroying: the class
+§1 was written to end.
+
+**The near-miss.** The obvious home for the fix is the `narrowToSlide === null` branch, since that is
+the route the bug report walks. That is the wrong home, and a first cut that put it there passed its
+own e2e while the defect was still on screen. `wantsContext` is **false** whenever the deck does not
+need deck context, and then `renderSource` is `slideMarkdown` outright — the engine renders the lone
+chunk and the fallback is never entered at all. Two routes reach the frame; a guard in one of them
+protects neither reliably.
+
+So the check now sits **after every route, immediately before the frame is fed**: if a host asked for
+a single slide (`slideIndex` + `slideMarkdown`) and the HTML about to be written carries more than
+one `<section`, refuse. That is the same sentence §4's walker comment already states for the
+whole-deck path — "never stack every section into a frame whose CSS and scale transform assume
+exactly one" — applied to the surface it was always about.
+
+**Refusing had to become audible.** `ok:false` on a `loader` host (Present, the editor preview) used
+to leave the Nacre skeleton spinning forever with no message — a deterministic failure rendered as
+"still loading". Trading a silently missing slide for a silently spinning one is no trade, so
+`DeckPreview` now raises its failure card on a deterministic `ok:false` for loader hosts too, and
+carries the renderer's reason instead of a bare "This preview couldn't render." The never-paint
+ceiling stays non-loader-only: there a skeleton is honest, because the render may still land.
+
+**Left open, deliberately.** Two things this exposes are not fixed here. (a) `splitSlides` and
+`splitOnHr` still disagree about the empty leading chunk; making them agree would remove *this*
+deck's mismatch, but the fallback stays reachable by other 1→N expansions, so hardening was needed
+either way. (b) A stray interior front-matter block is a plausible authoring mistake, and a
+`lint-core.js` rule flagging `---`-delimited YAML below offset 0 would catch it at the source — the
+actionable cure, since the render fix can only refuse. Both are their own cards under HARD RULE #17.

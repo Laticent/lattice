@@ -234,13 +234,23 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 
-	it('a LOADER host does NOT show the failure affordance — it keeps its skeleton (unchanged contract)', async () => {
-		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+	it('a LOADER host DOES show the failure affordance on a deterministic ok:false, and drops its skeleton (#1551)', async () => {
+		// REVISED from #1164's "a loader host keeps its skeleton" — that contract was
+		// right about the never-paint CEILING (below, still loader-exempt: there the
+		// render may yet land, so a skeleton is honest) and wrong about a DETERMINISTIC
+		// failure. `ok:false` means the render resolved and cannot produce a slide, so a
+		// skeleton that spins forever tells the author nothing — which is precisely the
+		// silence #1551 was filed about. Present is a loader host, so leaving this as it
+		// was would have traded a silently missing slide for a permanently spinning one.
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 2, error: 'renders as 2 slides' }));
 		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} loader aria-label="p" />);
-		await waitFor(() => expect(renderInto).toHaveBeenCalled());
-		await new Promise((r) => setTimeout(r, 30));
-		expect(container.querySelector('.nacre-failed')).toBeNull();
-		expect(container.querySelector('.nacre-loader')).toBeTruthy();
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		// The skeleton stands down — two competing affordances at once reads as "loading
+		// AND broken".
+		expect(container.querySelector('.nacre-loader')).toBeNull();
+		// …and the card carries the renderer's REASON, not a bare "couldn't render". The
+		// reason is the actionable half; without it the author cannot tell what to change.
+		expect(container.querySelector('.nacre-failed__text')?.textContent).toContain('renders as 2 slides');
 	});
 
 	it('a transient "renderer disposed" (host detached mid-render) does NOT trip the failure affordance', async () => {

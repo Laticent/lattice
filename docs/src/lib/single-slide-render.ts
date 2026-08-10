@@ -974,6 +974,50 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// No fallback markdown supplied → show the whole render rather than nothing. Only
 					// reachable from a caller that passed slideIndex without slideMarkdown.
 				}
+
+				// THE FRAME HOLDS ONE SLIDE — checked here, after EVERY route, because more than
+				// one route can put more than one section in it (#1551).
+				//
+				// The reported failure was silent content destruction: paste a deck carrying its
+				// own `---` front-matter block below an existing one, and the pasted block's
+				// delimiters become a thematic break plus a setext underline, so the chunk the
+				// caller believes is ONE slide renders as two. Both were written into a frame whose
+				// CSS and scale transform assume exactly one, so the second — the author's actual
+				// content — sat below the fold and never painted. Rail count, page number and chunk
+				// all agreed with each other and disagreed with the render, and nothing said so.
+				//
+				// WHY IT SITS HERE AND NOT IN THE FALLBACK. The obvious home is the
+				// `narrowToSlide === null` branch above, since that is the route the bug report
+				// walks. It is the wrong home: `wantsContext` is false whenever the deck does NOT
+				// need deck context (line ~821), and then `renderSource` is `slideMarkdown`
+				// outright — the engine renders the lone chunk and nothing above is entered at all.
+				// A guard inside the fallback fires on neither the diverted route nor a future one.
+				// The invariant is about what reaches the FRAME, so it is enforced where the frame
+				// is fed.
+				//
+				// Gated on `slideMarkdown` so the one deliberate exception survives: a caller that
+				// passes `slideIndex` WITHOUT it has explicitly asked for the whole render.
+				//
+				// Counting open tags rather than walking, deliberately — the question is only "is
+				// this more than one", and a tally cannot be fooled by a shape the flat walker
+				// mis-pairs.
+				//
+				// Refusing rather than showing the first section: there is no principled way to
+				// pick one (here the first is the author's accident and the second is their
+				// content), and silently showing either is the destruction this exists to end.
+				// `ok:false` raises DeckPreview's failure card, which now carries the reason.
+				if (typeof opts?.slideIndex === 'number' && opts?.slideMarkdown) {
+					const framed = (out.html.match(/<section\b/g) || []).length;
+					if (framed > 1) {
+						return {
+							ok: false,
+							slides: framed,
+							error:
+								`this slide's source renders as ${framed} slides, not one — it contains a slide separator ` +
+								'(a `---` line, or a stray front-matter block below the top of the deck), so the preview cannot show it as a single slide',
+						};
+					}
+				}
 				// PREVIEW FIDELITY report — free, and only while the overlay is subscribed.
 				// Everything published here was already computed to make the render happen: which
 				// path this deck took, which registry facts forced it, and what position (if any) was

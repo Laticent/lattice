@@ -179,6 +179,19 @@ in patch versions.
   themes, hand-edited palettes, imported asset bundles.
   (`engineering/decisions/2026-08-10-spectrum-out-of-the-background-shorthand.md`)
 
+- **Fixed: a slide is no longer silently lost when a deck carries a stray front-matter
+  block.** Paste a deck with its own `---` front matter below an existing one and the
+  pasted keys rendered as a headline while the real slide became invisible — no error,
+  no notice, the slide simply gone. The engine split one more slide than the editor
+  counted, the preview correctly refused to guess which one to show, and then fell back
+  to rendering that authored chunk alone — but the chunk itself still contained a slide
+  separator, so TWO slides were written into a frame built for exactly one and the
+  second never painted. A preview frame now refuses to hold more than one slide by any
+  route, and says why: the failure card names the stray separator instead of showing a
+  blank. Present and the editor preview previously left their loading skeleton spinning
+  forever on a definite failure, which is the same silence — they now show the reason
+  too. (#1551)
+
 - **Fixed: every Studio surface now turns a deck by keyboard, wheel AND touch — on
   every device.** Arrow keys did nothing at the Read, Write and Build stops, and a
   plain mouse wheel did nothing anywhere in the shell: the wheel handler tested

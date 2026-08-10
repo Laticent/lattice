@@ -132,3 +132,49 @@ describe('narrowing fails closed on shapes the flat walker cannot resolve', () =
 		// production guard compares the tally to the walker's part count as well.
 	});
 });
+
+// ── The hole BELOW the guard: what the fallback falls back TO (#1551) ────────────────
+// Steps 1-3 of the reported failure each do their documented job — front matter is only
+// front matter at offset 0, so a pasted block is ordinary markdown; the engine therefore
+// renders one more section than the caller counts; the counts disagree so `narrowToSlide`
+// correctly refuses. Step 4 is the defect: the caller falls back to "render that one
+// authored chunk alone" and never re-checks that the chunk IS one slide.
+
+describe('a lone authored chunk is not necessarily one section (#1551)', () => {
+	it('a chunk carrying a stray front-matter block renders as MORE than one section', () => {
+		// The reported paste: a deck with its own `---` front matter dropped in below the
+		// deck's own block. The pasted opening `---` becomes a thematic break and the closing
+		// one is a setext underline under `header: "…"`, which is why the keys render as an
+		// `<h2>` and why the count shifts by one rather than two.
+		const src =
+			'---\ntheme: indaco\npaginate: true\n---\n\n---\nmarp: true\ntheme: indaco\npaginate: true\nheader: "Pasted deck"\n---\n\n<!-- _class: quadrant -->\n\n## A quadrant that should be reachable.\n\n- Fast\n- Slow\n\n---\n\n## An ordinary second slide.\n\nBody text.\n';
+		const { fm, slides } = deckDoc(src);
+
+		// What the fallback actually renders is `frontMatter + chunk` — the deck's own front
+		// matter prepended, as PresentOverlay's `presentSlideAlone` and SlideOverview's
+		// `slideMarkdown` both build it. That prefix is exactly what keeps the PASTED block off
+		// offset 0, so it stays a thematic break instead of being consumed as front matter.
+		// (Rendering the bare chunk hides the bug: alone, the pasted block IS at offset 0 and
+		// parses as front matter, giving one section and a green test that proves nothing.)
+		const slideAlone = fm + slides[0];
+
+		// The caller believes this is ONE slide; the engine makes two of it.
+		expect(sectionCount(engine.render(slideAlone, 'lattice').html)).toBeGreaterThan(1);
+
+		// Which is the whole point: the frame the fallback writes into assumes exactly one,
+		// so before the guard both sections were stacked in it and the second — the author's
+		// actual content — never painted. The production guard counts `<section` opens on the
+		// lone render and refuses rather than stacking.
+	});
+
+	it('an ORDINARY chunk still renders as exactly one section, so the guard stays quiet', () => {
+		// The guard must not fire on the common case, or it converts a working preview into an
+		// error banner. Every authored chunk of a well-formed deck is one section.
+		const src = '---\ntheme: indaco\npaginate: true\n---\n\n## One\n\nBody.\n\n---\n\n## Two\n\nBody.\n';
+		const { fm, slides } = deckDoc(src);
+		expect(slides.length).toBe(2);
+		for (const chunk of slides) {
+			expect(sectionCount(engine.render(fm + chunk, 'lattice').html)).toBe(1);
+		}
+	});
+});
