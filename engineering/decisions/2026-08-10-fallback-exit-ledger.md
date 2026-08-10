@@ -9,11 +9,11 @@ summary: >
   a value repaired to the 3:1 GRAPHICAL floor and then painted as 4.5:1 label text.
   SANCTIONED_FALLBACK_READS makes that exit a recorded decision instead of a silent one —
   same fails-both-ways idiom as SANCTIONED_MARGINS/HEX, so an unlisted token errors AND a
-  sanction that no longer applies errors. Corrects the issue's population figure: 17 does not
-  reproduce. The loose reading gives 25 and the honest one gives 13 — the twelve
-  --cat-N-texture plus --spectrum-solid — because a token the ENGINE also defaults is not
-  taking this exit at all, and listing it would pad the ledger with entries carrying no
-  decision. Deliberately does NOT weaken the no-allowlist stance on the DERIVE exit, and
+  sanction that no longer applies errors. The issue's own predicate ("read only with fallbacks")
+  gives exactly 17 and the ledger's gives 13; BOTH are right, and the extra term is that no
+  engine default rescues the read, which drops four tokens whose fallback is incidental. An
+  earlier draft of this note claimed 17 "does not reproduce" — that correction was itself the
+  error, and §2 records it rather than deleting it. Deliberately does NOT weaken the no-allowlist stance on the DERIVE exit, and
   deliberately does NOT add --cat-N-texture to REQUIRED_TOKENS: that is a supply-side
   feature, not a token addition, and is split to its own issue.
 ---
@@ -129,6 +129,17 @@ all.
 
 ## 5. What this does not fix
 
+- **A literal-terminated fallback is invisible to the ledger, and the gate recommends it.**
+  `bareVarReads` skips any chain that bottoms out in a literal (`if (!parsed ||
+  parsed.endsLiteral) continue;`), so `var(--x, #ccc)` is recorded nowhere — not by the
+  original gate, not here. And `checkNoSafeDefaultTokens`'s own remediation text says *"give
+  every read a `var(--x, <fallback>)` that terminates in a literal"*, which steers an author
+  into the one form of the cheap exit this ledger cannot see. The blind spot is **unpopulated
+  today**, so it is prospective rather than a live hole — but the tooling points at it, which
+  is how a blind spot gets filled. Found by the adversarial trio.
+- **One fallback per token, across all its reads.** A token that legitimately falls back
+  differently at different sites cannot be expressed; the gate would report the divergence as
+  an error. No such token exists today.
 - **The ledger records; it does not judge.** Nothing checks that a `why` is *true*. A wrong
   justification passes, exactly as a wrong `SANCTIONED_MARGINS` reason would. What it buys is
   that a human wrote one and a reviewer can read it.
