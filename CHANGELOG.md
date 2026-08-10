@@ -457,10 +457,11 @@ in patch versions.
   slot. `---`a`` is the shape. On a four-slide repro two slides reported section 1 of 2 where the
   deck says 2 of 2, and nothing fell back, because the guard compared divider *counts* and those
   were unchanged. Sections are now counted over the RAW chunks with each chunk blanked for its own
-  divider test, so the two index spaces cannot desync. A divider shown inside code is simply not a
-  divider for that slide, which also means such decks keep the fast path and print a true section
-  instead of being pushed onto the whole-deck render. Slice/deck equivalence over the committed
-  corpus rises **1325/1349 → 1330/1349**, and the "progress rail absent" residual halves, 10 → 5.
+  divider test, so the two index spaces cannot desync, and the fail-safe that refuses when the two
+  readings of a chunk disagree is kept — a deck that merely *mentions* a divider inside code still
+  takes the whole-deck render rather than a guessed number. Verified against the engine's own
+  rendered sections as the oracle: across every committed deck whose chunks align with the engine's
+  sections, **127 decks — 126 answered correctly, 1 fell back, 0 answered wrong**.
 
 - **Typing and navigating a divider-heavy deck are roughly twice as fast in the Studio preview.**
   Two caching defects on the same path. (1) The preview derived the deck's divider sections **twice

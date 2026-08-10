@@ -244,22 +244,27 @@ test('the divider derivation runs ONCE per deck, however many callers ask', () =
   assert.equal(core.sectionDerivationCount(), 2, 'an edited deck must re-derive');
 });
 
-test('a divider shown inside code is not counted — and no longer costs the bail', () => {
-  // THIS TEST CHANGED ITS ANSWER, and the reason is the point. It used to assert `undefined`: the
-  // derivation counted dividers over a WHOLE-BODY code-blanked copy, compared that against the raw
-  // reading, and refused when they disagreed — "fail safe, not fail wrong", because as a COUNTER a
-  // divider mentioned in prose paints an extra dot and bumps the watermark glyph.
-  //
-  // The disagreement is gone at its source. Chunks now come from the RAW body and each chunk is
-  // blanked for its own divider test, so a `_class: divider` inside a code span is simply not a
-  // divider for that slide. There is no second reading to be unsure between, so the deck gets a
-  // TRUE section on the cheap path instead of being pushed to the whole-deck render.
-  //
-  // What must still hold is the thing the bail was protecting: the code-span mention must not
-  // create a SECOND divider section.
+test('deckSectionFor bails when a divider appears inside code — FAIL SAFE, not fail wrong', () => {
+  // As a probe, matching a divider in prose cost a wasted parse and produced correct output. As a
+  // COUNTER the same match paints an extra dot and bumps the watermark glyph — wrong output.
   const deck = '<!-- _class: divider -->\n# A\n\n---\n\nWrite `<!-- _class: divider -->` to divide.';
-  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 1 });
-  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 1 }, 'the code-span mention must not add a second section');
+  assert.equal(core.deckSectionFor(deck, 1), undefined);
+});
+
+// THE BAIL IS A DIFFERENTIAL, NOT A PATCH FOR THE CODE-SPAN CASE — and an interim version of this
+// branch deleted it on exactly that misreading, arguing that blanking per chunk removes the
+// disagreement "at its source". It removes the one disagreement it was written for, and leaves
+// every other one uncovered, because it assumes `blankCode` and the ENGINE agree about what code
+// is. They do not: four spaces of indent is an indented code block at top level and CONTINUATION
+// CONTENT inside a list item, where the engine honors the directive.
+//
+// Verified against the engine as oracle: it renders this deck's second section as a divider.
+// Without the bail the derivation reported none, `positionIsTrustworthy` stayed true, and the
+// preview painted no rail where the deck has one — a regression against `main`, which bails here.
+test('a directive the engine honors but blankCode hides makes the derivation REFUSE', () => {
+  const deck = ['# A', '', '---', '', '- item', '', '    <!-- _class: divider -->', '', '# B'].join('\n');
+  assert.equal(core.deckSectionFor(deck, 1), undefined, 'must refuse rather than report zero dividers');
+  assert.equal(core.deckSectionFor(deck, 0), undefined);
 });
 
 // THE INDEX-SPACE DESYNC. `slideIndex` indexes the CALLER's slides, which are chunked from the RAW

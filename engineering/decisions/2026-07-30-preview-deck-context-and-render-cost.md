@@ -1453,11 +1453,53 @@ dot, wrong watermark glyph. The old ambiguity guard could not see it because it 
 Pre-existing — the old `chunks[i]` walk had it — and **no committed deck trips it** (verified across
 144). Fixed rather than logged because it is on the lines this branch rewrites (HARD RULE #18).
 
-Chunking raw and blanking each chunk asks the real question in the caller's own index space, and it
-pays three ways: the desync cannot happen, the ambiguity bail disappears (a divider shown in code is
-simply not a divider for that slide), and one whole-deck parse goes with it. **Corpus fidelity
-improved as a side effect: slice/deck equivalence 1325/1349 → 1330/1349, and the "progress rail
-absent" residual halved, 10 → 5** — real decks that used to bail and get no supplied rail.
+Chunking raw and blanking each chunk asks the real question in the caller's own index space, so the
+desync cannot happen, and one whole-deck parse goes with it.
+
+### The fix for that defect introduced a second one, and a later pass caught it before it shipped
+
+The first cut of the fix also **deleted the ambiguity bail**, arguing that per-chunk blanking removes
+the disagreement "at its source" — and reported a corpus win for it (equivalence 1325/1349 →
+1330/1349, "progress rail absent" 10 → 5). Both the argument and the win are withdrawn.
+
+The argument removes the one disagreement the bail was WRITTEN for (a `_class: divider` shown inside
+a code span) and leaves every other one uncovered, because it assumes `blankCode` and the engine
+agree about what code *is*. They do not:
+
+```
+- item
+
+      <!-- _class: divider -->
+```
+
+Four spaces of indent is an indented code block at top level and **continuation content inside a
+list item**, where the engine honors the directive. `blankCode` blanks it either way. Verified
+against the engine as oracle: it renders that section as a divider; the bail-less derivation
+reported none, `positionIsTrustworthy` stayed true, and nothing refused — so the preview painted no
+rail where the deck has one. **`main` gets that deck right** (the raw and blanked counts disagreed,
+so it bailed to the whole-deck render). The deletion made it wrong: a self-inflicted regression
+under HARD RULE #18, caught by an inversion pass on the shipping diff.
+
+The lesson is the red-team finding recurring one level up. The old code held two INDEX SPACES
+together with an unwritten assumption; the first fix held `blankCode` and the ENGINE together with a
+different one. **The bail is not a patch for the code-span case — it is a differential**, and a
+differential covers divergences nobody has thought of, in both directions. That is what cannot be
+recovered by enumerating cases.
+
+So the bail stays, now applied PER CHUNK (which is what preserves the index-space fix: the
+comparison is between two readings of the same chunk, so a disagreement makes the whole derivation
+refuse rather than silently shifting later slots). It costs one regex pass per chunk and no extra
+parse.
+
+**The price, stated rather than hidden:** the corpus win is given up. Equivalence returns to
+1325/1349 and the "progress rail absent" residual to 10 — that improvement was one deck
+(`state-chart.md`), and it came from answering where `main` refuses. A deck that merely mentions a
+divider inside code pays the whole-deck route, exactly as on `main`.
+
+**What the branch does keep** is the index-space fix, and it is now verified against the engine
+rather than against its own reasoning: over every committed deck whose chunks align with the
+engine's sections — **127 decks, 126 answered correctly, 1 bailed (the slower, correct route), 0
+answered wrong.**
 
 ### The checker refuted the LRU's stated justification
 
