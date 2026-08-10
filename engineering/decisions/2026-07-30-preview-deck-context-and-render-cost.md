@@ -1269,6 +1269,13 @@ warm — `.scratch/residual-breakdown.mjs`), one render's deck-scan work:
 
 12.4 of the gallery's 17.7ms residual, and 1.1 of prose's 3.0ms. The model holds on both decks.
 
+> **The "all three" row is NOT the sum of the three above it** (gallery 1.42 + 2.06 + 0.085 = 3.57
+> against a measured 3.11), and a checker pass was right to flag that the layout invites you to add
+> them. They overlap: the route gate and `supplyablePosition` both reach `deckSectionFor`, so run
+> together the second one hits the derivation memo. The bundle row is measured as a bundle — one
+> render's real work — and it is the row to trust; the three above it are each measured alone and
+> are therefore an over-count when added. Same for prose (0.011 + 0.40 + 0.014 = 0.425 vs 0.27).
+
 **Where it comes from.** #1433 (2026-08-05) replaced every caller-side slide splitter with the
 engine's own `md.block.parse`, which is right — it is what made the boundary answers exact by
 construction — and it made each of these scans a whole-deck parse rather than a regex sweep. The
@@ -1291,6 +1298,19 @@ The fix is a one-entry memo on the deck half, the same shape and the same reason
 A keystroke still misses by construction — the deck string changed — because what is collapsed is
 duplication *within* one render, not across renders.
 
+> **DO NOT QUOTE THE MAGNITUDES BELOW.** The experiment is sequential — three runs of one arm, a
+> rebuild, three of the other — and this repo already established, in
+> `2026-08-03-performance-guard.md`, that only an INTERLEAVED A/B resolves anything on this
+> infrastructure and that nothing smaller than ~2× is resolvable at all. The claimed effect is
+> ~1.4×. Re-run with the arms alternating, the gap shrank to roughly a third of what is tabulated
+> here and the ranges overlapped. The table is left in place because it is the record of how the
+> claim was made, not because the numbers are usable. Amendment 7 carries the interleaved figures
+> and the deterministic parse counts that should have led instead.
+>
+> The tell was already visible and was written down without being acted on: the default deck reads
+> ~1ms higher on the "after" side across all three runs, for a code path the change cannot touch.
+> That is a per-sitting offset, measured, and it is the same size as much of what is claimed below.
+
 **Prototype measurement, `studio-preview-perf.spec.ts`, three runs per side, same machine, same
 session, alternating nothing else** (TOTAL p50, ms):
 
@@ -1310,8 +1330,19 @@ rather than explained away or claimed as a cost.)
 
 **Behavior-preserving, verified rather than argued**: `npm run equiv:check` over the full corpus
 (1349 slides, 141 decks) prints byte-identical output with and without the change — same 1325/1349,
-same residual breakdown by cause and by deck. `npm test` (5690) and the docs vitest suite (2765) are
-green.
+same residual breakdown by cause and by deck.
+
+> **Two corrections to this paragraph, both from an independent checker.** (a) The suite counts it
+> originally gave — "`npm test` (5690) and the docs vitest suite (2765)" — are wrong and were never
+> true anywhere in this range; the real figures at the time were 5710 and 2838, and they move as
+> this branch adds tests. Counts that drift are a poor claim to hang on a doc, so the current
+> numbers live in the PR rather than here. (b) `equiv:check` is a WEAKER proof than the sentence
+> implies: the sweep calls `supplyablePosition` but never the preview's route gate, so it does not
+> exercise the two-caller interleave the memo exists for. What it genuinely proves is that the
+> `chunks`→`flags` refactor preserves output across 1349 slides — real, and not nothing, but not
+> the memo's own contract. The guard that WOULD prove that (compare memoized against
+> cache-cleared-before-every-call over the whole corpus) was written afterwards and passes: 1794
+> comparisons across 144 decks, zero divergence, including under a forced-eviction interleave.
 
 **Counted, not timed.** A new unit case asserts the derivation runs ONCE per deck however many
 callers ask, and re-derives on an edited deck. It fails if the memo is removed (verified by removing
@@ -1345,6 +1376,14 @@ classes that still take the whole-deck route are the ones the registry names and
 largest being the running-global directive probe.
 
 ### What is still owed, stated as a cost rather than closed
+
+> **STALE AS WRITTEN — superseded by Amendment 7.** The paragraph below describes the tree as it
+> stood at the first of this branch's commits. Two further changes landed after it: the
+> slide-boundary memo became a bounded LRU, and `dividerDerivation` was fixed to chunk the RAW body
+> (which removed one of the two block parses it names). The *shape* of the argument survives — the
+> residual is deck scanning, not engine render — but the parse arithmetic and the 18.9ms figure do
+> not. Read Amendment 7 for the current state, including why the wall-clock magnitudes in this
+> amendment should not be quoted.
 
 Gallery typing lands at 18.9ms against an 11.1ms baseline: **+70%, on a paginated divider-heavy
 deck**. The remaining ~7.8ms is the surviving deck scans — one `deckSectionFor` derivation (two
@@ -1381,3 +1420,124 @@ change with its own evidence, not a rider on a spike.
   gallery deck) and it applies equally to every column above, so no comparison in this note moves —
   but "the measurement changed the thing measured" is worth writing down where the next person will
   find it.
+
+## Amendment 7 (2026-08-10): what the adversarial trio changed, and the numbers that survived it
+
+Amendment 6 was written from a spike and reviewed by nobody. Running the trio (HARD RULE #25) over
+what would actually ship cost it two of its claims, turned up a wrong-output defect, and replaced
+its headline measurement. This records all of it, because the pattern — every finding landed on
+something *reasoned* rather than *measured* — is the same one Amendment 5 recorded, one branch later.
+
+### What ended up shipping
+
+Three changes, not the one the spike set out with:
+
+1. **`dividerDerivation` memo** (`lib/diagnostics/slice-equivalence-core.mjs`) — the deck half of
+   `deckSectionFor` is a pure function of the deck; two callers per render asked for it.
+2. **The slide-boundary memo became a bounded LRU** (`lib/core/slide-boundaries.mjs`), one entry → six.
+3. **`dividerDerivation` chunks the RAW body and blanks each chunk** — a correctness fix, below.
+
+### The red team found the preview reporting the wrong section
+
+`slideIndex` indexes the CALLER's slides, chunked from the RAW source — that is what
+`positionIsTrustworthy` validates against. The derivation chunked a code-BLANKED copy and indexed
+*that* with the same `slideIndex`. Two index spaces, held together by an unwritten assumption:
+blanking code never moves a thematic break. It does — `---`a`` is a paragraph to markdown-it, and
+blanking the inline span leaves `--- `, an hr.
+
+Reproduced on a four-slide deck: **slides 2 and 3 each reported section 1 of 2 where the deck says
+2 of 2**, with `positionIsTrustworthy` returning true, so nothing fell back. Wrong progress-rail
+dot, wrong watermark glyph. The old ambiguity guard could not see it because it compared divider
+*counts*, which were unchanged.
+
+Pre-existing — the old `chunks[i]` walk had it — and **no committed deck trips it** (verified across
+144). Fixed rather than logged because it is on the lines this branch rewrites (HARD RULE #18).
+
+Chunking raw and blanking each chunk asks the real question in the caller's own index space, and it
+pays three ways: the desync cannot happen, the ambiguity bail disappears (a divider shown in code is
+simply not a divider for that slide), and one whole-deck parse goes with it. **Corpus fidelity
+improved as a side effect: slice/deck equivalence 1325/1349 → 1330/1349, and the "progress rail
+absent" residual halved, 10 → 5** — real decks that used to bail and get no supplied rail.
+
+### The checker refuted the LRU's stated justification
+
+Amendment 6 and the code comment claimed the single-entry memo thrashed on TYPING: three parses
+where two were distinct. **False on the real path**, and false for a reason worth keeping: it
+assumed the editor and the preview ask about the same string, which the very same comment says they
+never do (`StudioShell` rebuilds `editorSample` from trimmed chunks). Counted by wrapping
+`boundaryParser.block.parse`, the typing working set is THREE distinct strings and typing costs
+three parses with one entry and three with the LRU.
+
+What the LRU actually buys is **navigation**, where the deck string does not change at all: 5 parses
+→ 0. Corrected in the comment, which now leads with the refutation.
+
+The checker also proved two guards were missing: **`MEMO_MAX = 2`** — one below the working set,
+i.e. thrashing restored — **and a plain FIFO both passed every test in the file.** Both now fail
+(mutation-verified). `MEMO_MAX` is 6 with its derivation written down: measured working set 3,
+largest enumerated configuration 5 (Present with a reader lens beside a live editor preview), so
+worst-case-plus-one. It was 4, which was working-set-plus-one and left no room for that case.
+
+### The measurement Amendment 6 should have made
+
+The inversion pass pointed at this repo's own record: `2026-08-03-performance-guard.md` measured six
+same-code runs spanning 93.9 → 43.1ms and concluded only an INTERLEAVED A/B resolves anything here,
+and that nothing under ~2× is resolvable at all. Amendment 6's experiment is sequential and its
+claimed effect ~1.4×. Re-run interleaved, that effect shrank to roughly a third and the ranges
+overlapped — so the numbers it quotes are drift, and the tell was already in its own table (the
+default deck moving ~1ms on a path the change cannot touch).
+
+Re-measured properly: **arms prebuilt and swapped as whole `dist` trees** (an arm switch cannot
+introduce a build difference), **alternating head/base for four rounds**, on an otherwise idle
+machine — the first two attempts were invalid because a subagent and a test suite were competing for
+CPU. `docs/e2e/studio-preview-perf.spec.ts`, 4× throttle, `--workers=1`, 40-slide decks. Base is
+`d7d0d6f0` (main, which already carries #1272/#1280); head is this branch. TOTAL p50, ms:
+
+| deck · interaction | base (4 rounds) | this branch (4 rounds) | |
+|---|---|---|---|
+| **gallery · typing** | 26.3 / 26.5 / 26.2 / 25.5 | **13.8 / 13.6 / 15.1 / 14.2** | **−47%** |
+| **gallery · navigation** | 29.4 / 27.8 / 24.8 / 24.2 | **11.5 / 12.5 / 10.4 / 10.0** | **−58%** |
+| prose · typing | 10.5 / 9.7 / 9.9 / 10.0 | 10.9 / 10.9 / 9.5 / 10.0 | — |
+| default · typing | 10.4 / 11.7 / 9.9 / 10.3 | 10.0 / 9.6 / 9.1 / 8.6 | ~1ms, at the noise floor |
+
+Gallery is 1.9× on typing and 2.4× on navigation, with non-overlapping ranges and a within-arm
+spread under 1.5ms — at or above the resolution this infrastructure admits to. Prose and default do
+not move, which is what the mechanism predicts: they never took the expensive path.
+
+**The claim that does not need a clock at all**, and the one to quote: whole-deck `md.block.parse`
+calls per keystroke on the 40-slide gallery deck, modelling the real path where the editor's and the
+preview's strings differ — **5 on base, 2 on this branch.** Deterministic, machine-independent,
+independently reproduced by the checker for the base side.
+
+### Do not stack the two memos' savings
+
+Both changes were separately credited with the same milliseconds. With the boundary LRU present the
+second `deckSectionFor` re-parses nothing, so the derivation memo's marginal value is the blanking
+sweeps and the chunk walk, not a parse — roughly a quarter of what the first comment claimed. The
+comments now say so. Two changes in one branch must not each bank the same saving.
+
+### Still owed
+
+- **The comparison to the PRE-#1265 baseline is cross-sitting** and therefore indicative only. This
+  branch's gallery typing (≈14ms) sits far below base (≈26ms) and near the ~11ms that sitting
+  recorded for pre-#1265 — but settling "is the regression closed" honestly needs a THREE-arm
+  interleave (pre-#1265, main, this branch) in one sitting. Not run; the two-arm result above is
+  what is actually measured.
+- **The sanitize span is now the largest single item on the cheap decks and nobody has looked at
+  it.** `sanitizeMs` reads ~4.3ms on the 3.3KB prose deck and ~4.4ms on the 21KB gallery deck —
+  flat across a 6.5× difference in bytes, which is the signature of a fixed per-call cost rather
+  than content-proportional work. On prose it is larger than the engine render. The inversion pass
+  proposed caching it in the existing `sliceCache` (on a hit the input HTML is byte-identical and
+  `sanitizeSlideHtml` is pure), which is a small change in one file — but it weakens HARD RULE #22's
+  "every preview builder calls the sanitizer" to "every distinct string was sanitized once", so it
+  needs its own adversarial pass rather than a rider here.
+- **A third off-path finding, logged** (HARD RULE #18): the new boundary-memo comment argues that a
+  hashed cache key is unacceptable because a collision returns another deck's boundaries. That
+  principle is violated today by `deckMemo` and the 24-entry `sliceCache` in
+  `docs/src/lib/single-slide-render.ts`, which key on a djb2-32 hash plus length — where a collision
+  returns another deck's rendered slide HTML. Either the comment's principle is wrong or that is a
+  live defect; both cannot hold. Not touched here, and not caused here.
+- **HARD RULE #19 (b)/(c) remain unmet in the strict sense.** No `engine-bench.mjs` scenario covers
+  this path and `baseline.json` is not ratcheted, because `bench` measures the engine and this is
+  the preview's route-decision path. The substitutes are the interleaved wall-clock above and, more
+  importantly, the parse-count and derivation-count tests, which are deterministic where a
+  wall-clock gate on this infrastructure would be flaky. Stated rather than skipped.
