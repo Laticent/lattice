@@ -9540,30 +9540,45 @@ section.math.compare > h3 {
 section.math.compare > h3 + * { padding-top: var(--sp-sm); }
 section.math.compare > h3:first-of-type { break-before: avoid; }
 
-/* Every column child is an ATOM — it may never split across a column boundary.
+/* THE MASTHEAD BAND AND THE COLUMN LABELS ARE ATOMS — they may not split across
+ * a column boundary. Captions deliberately still may.
  *
- * This states the layout's own contract: a column is one h3 group (label →
- * equation → caption), and each of those three is a unit. Nothing here was ever
- * meant to fragment, and in Chromium nothing does — applying this rule moves
- * ZERO pixels there (measured across the compare fixture set, both modes, 2 and
- * 3 columns).
+ * WHICH BOX ACTUALLY FRAGMENTS: the EYEBROW paragraph, not the h3. #1554 reads
+ * as "WebKit paints the first h3 twice", and that is the visible symptom, but
+ * the ghost is a paint copy — the box WebKit fragments across the
+ * `column-span: all` spanner is the in-flow content that PRECEDES the spanner.
+ * Measured on 8 compare shapes x light/dark x 1180x820 and 1180x703:
  *
- * Leaving it UNSAID is what broke WebKit. Without an explicit `break-inside`,
- * WebKit was free to fragment the first `h3` across the `column-span: all`
- * spanner and PAINT BOTH halves — a duplicate heading colliding with the h2
- * (#1554, reported from a real iPad). The duplicate is invisible to every gate
- * this repo owns because the BOXES stay correct: `getBoundingClientRect` and
- * `getClientRects` both report only the second fragment, `section.overflow` is
- * 0, and `scrollHeight == clientHeight`. Only a rasterized WebKit view sees it,
- * which is why the guard is a pixel spec (`docs/e2e/math-compare-webkit.spec.ts`,
- * tagged `@webkit-tablet`) rather than a measurement.
+ *   no rule at all …………………………………… 12/32 clean
+ *   `> h3 { break-inside: avoid }` … 12/32 clean   ← the "obvious" fix does NOTHING
+ *   eyebrow paragraph only ………………… 32/32 clean
+ *   this rule ……………………………………………… 32/32 clean
  *
- * Declared for `> *` rather than per-element so a future slot added to the
- * compare authoring shape inherits the guarantee instead of re-opening the bug.
+ * and a compare slide with NO eyebrow never had the bug. So the eyebrow arm
+ * below is load-bearing and must not be dropped; h2 and h3 are belt-and-braces
+ * on boxes that never wanted to split anyway. Do not "simplify" this to `> h3`.
+ *
+ * WHY NOT `> *`: it also makes the CAPTION prose an atom, and that is a real
+ * regression on a slide whose caption is taller than its column — the caption
+ * relocates whole instead of flowing, leaving a gap and pushing the next h3
+ * group off the slide entirely. Verified against the export path: with the
+ * arms below, an overflowing compare slide renders byte-identically to the
+ * unfixed engine, while `> *` does not.
+ *
+ * WHY IT WAS INVISIBLE: the BOXES stay correct. `getBoundingClientRect` and
+ * `getClientRects` alike report only the second fragment, `section.overflow` is
+ * 0, and `scrollHeight == clientHeight`, so every gate this repo owns — all of
+ * which measure boxes — passes. Only a rasterized WebKit view sees it, which is
+ * why the guard is a pixel spec (`docs/e2e/math-compare-webkit.spec.ts`, tagged
+ * `@webkit-tablet`) rather than a measurement.
+ *
  * See engineering/decisions/2026-08-10-compare-column-atoms.md. */
-section.math.compare > * { break-inside: avoid; }
+section.math.compare > :is(h2, h3, p:has(> code:only-child):has(+ h2)) {
+  break-inside: avoid;
+}
 
 section.math.compare > p:has(> :is(.katex-display, mjx-container[display="true"])) {
+  break-inside: avoid;
   padding-bottom: var(--sp-sm);
   text-align: center;
 }

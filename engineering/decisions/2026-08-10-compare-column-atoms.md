@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: WebKit fragmented the first h3 of a `math compare` slide across the `column-span: all` spanner and painted BOTH halves — a duplicate column label colliding with the h2, reported from a real iPad (#1554). Fixed by stating the layout's own contract, `section.math.compare > * { break-inside: avoid }`: every column child is an atom. Chosen over the structural alternative (retire the spanner, wrap each h3 group in a transformer-built column div and lay the body out as a grid), which also cleared the defect in a prototype but costs a new cross-renderer transformer and would move pixels in every committed compare PDF; the chosen fix moves ZERO Chromium pixels. Guarded by a WebKit raster spec — four earlier oracles each cleared a visibly ghosted slide, and the reasons are recorded here because the obvious ones do not work.
+summary: WebKit painted the first h3 of a `math compare` slide twice — a ghost column label colliding with the h2, reported from a real iPad (#1554). The box that fragments is the EYEBROW paragraph, not the h3: `break-inside: avoid` on the h3 alone changes nothing, and an eyebrow-less compare slide never had the bug. Fixed by making the masthead band and the column labels atoms while leaving caption prose breakable — `> *` also clears the ghost but regresses an overflowing slide, relocating the caption whole and pushing the next h3 group off the page. Chosen over the structural alternative (retire the spanner, wrap each h3 group in a transformer-built column div, grid the body), which also cleared the defect in a prototype but costs a new cross-renderer transformer and re-renders every committed compare PDF. Four earlier oracles each cleared a visibly ghosted slide; the reasons are recorded here because the obvious ones do not work.
 ---
 
 # `math compare` column children are atoms — and how not to test for it
@@ -13,22 +13,55 @@ correctly. Reported from an iPad (#1554).
 ## The fix
 
 ```css
-section.math.compare > * { break-inside: avoid; }
+section.math.compare > :is(h2, h3, p:has(> code:only-child):has(+ h2)) {
+  break-inside: avoid;
+}
 ```
 
-This is not a WebKit workaround bolted on top of the layout; it is the layout's
-own contract, previously left unsaid. A `.compare` column is one `h3` group —
-label, then a display equation, then a caption — and each of those is a unit.
-`break-before: column` on each `h3` already declares where columns *start*.
-Nothing was ever meant to split, and in Chromium nothing does: applying the rule
-moves **zero pixels** across the whole fixture set (8 shapes × light/dark ×
-1180×820 and 1180×703), so no committed PDF churns.
+The masthead band and the column labels are atoms. Caption prose deliberately is
+not — see "what `> *` costs" below.
 
-Leaving it unsaid is what let WebKit fragment the heading. The rule is written
-for `> *` rather than per element so a slot added to the compare authoring shape
-inherits the guarantee instead of quietly reopening the bug. It subsumes the
-`break-inside: avoid` that the display-equation paragraph rule carried, which is
-now dropped from that rule.
+### Which box actually fragments
+
+The issue title, and the first version of this note, both said WebKit fragments
+the **`h3`**. That is the visible symptom, not the mechanism, and getting it
+wrong matters because it points at the wrong fix. Measured over 8 compare shapes
+× light/dark × 1180×820 and 1180×703, counting slides that paint every `h3`
+exactly once:
+
+| rule | clean |
+|---|---|
+| none (the shipped state before this change) | 12/32 |
+| `> h3 { break-inside: avoid }` | **12/32** — the obvious fix does nothing |
+| the eyebrow paragraph alone | **32/32** |
+| the rule above | **32/32** |
+| `> *` | 32/32 |
+
+And a compare slide with **no eyebrow never had the bug at all**. What WebKit
+fragments is the in-flow content that *precedes* the spanner; the duplicated
+heading is a paint copy. So the eyebrow arm is load-bearing and must not be
+dropped — `h2` and `h3` are belt-and-braces on boxes that never wanted to split.
+Anyone "simplifying" this to `> h3` reopens #1554.
+
+### What `> *` costs
+
+`> *` is the tidier statement and it does clear the ghost, which is why it was
+the first thing shipped here. It also makes **caption prose** an atom, and that
+is a real regression on a slide whose caption is taller than its column: instead
+of flowing across the boundary, the caption relocates whole, leaving a gap under
+the equation and pushing the *next* `h3` group off the slide entirely. Rendered
+through the export path on an overflowing fixture, the arms above are
+**byte-identical to the unfixed engine** while `> *` is not. Found by the
+maker-checker pass, not by a gate: the emulator flags the slide as clipped in
+both states, so the overflow corpus check sees no new page.
+
+### Chromium drift
+
+Zero, **on slides that fit** — which is every committed one. `examples/adaptive-sweep.md`
+is the only corpus deck using `math compare`; rendered with and without the fix,
+31/31 rasterized pages are hash-identical, so no committed PDF churns. The
+qualifier is the honest form of the claim: on an *overflowing* compare slide the
+`> *` variant does move pixels, which is exactly why it is not what shipped.
 
 ## Why not drop the spanner (the structural option)
 
@@ -98,9 +131,23 @@ threshold sits at 0.65.
 ## Where the guard runs, and one honest limitation
 
 `docs/e2e/math-compare-webkit.spec.ts`, tagged `@webkit-tablet` so the nightly
-runs it at 1180×703. It drives the real Studio to Present — the reported surface,
-with the real engine, the real bundled CSS and the real webfonts — and then
-**re-hosts the presented document at top level** to read it.
+runs it. It drives the real Studio to Present — the reported surface, with the
+real engine, the real bundled CSS and the real webfonts — and then **re-hosts the
+presented document at top level** to read it.
+
+What the `webkit-tablet` project contributes is the **engine**, not the box: its
+1180×703 viewport is the Studio page's, while the document under test is rastered
+on a probe page at 1280×900, large enough to hold the 1280×720 slide without the
+page itself scrolling. The ghost reproduces at 1180×703, 1180×820 and 1400×900
+alike, so the box is not the variable here — unlike #1227, where it was.
+
+One trap worth naming, because the first cut of the spec fell into it: with
+Present open there are **two** frames holding a `section.math.compare`, and the
+composer's live preview comes first in `page.frames()`. A scan therefore reads
+the wrong document, both arms can raster the same slide, and the failure message
+names the wrong shape. The frame is reached through its owning element
+(`[aria-label="Presented slide"] iframe.live`) and each arm pins its exact column
+count, so neither can drift.
 
 That last step is not tidiness. In headless WebKit the duplicate does not paint
 while the document sits inside the Studio's `srcdoc` iframe; on real iOS Safari it
@@ -111,6 +158,25 @@ iframe produces a spec that passes against the *unfixed* engine, measured rather
 than assumed. The spec was checked in both directions: it fails on the unfixed
 build with `"Method of moments" at 64,358 also at 656,220 (iou 1)` and passes on
 the fixed one.
+
+### Verifying a CSS fix against the docs site: two traps
+
+Both of these produced confident, wrong measurements here before being caught.
+
+**The docs site does not read `dist/lattice.css`.** It serves a content-hashed
+copy under `docs/public/playground/v/<hash>/`, staged by
+`docs/scripts/sync-playground-assets.mjs`. A root `npm run build` updates `dist/`
+and leaves that copy alone, so a docs-site run can keep serving the *previous*
+CSS indefinitely — and `astro preview` plus Playwright's `reuseExistingServer`
+will happily hold that stale build across runs. The hash in the served
+`@font-face` URLs is the tell: if it did not change, neither did the CSS. Check
+the served bundle, not the source, before believing any result.
+
+**`git stash push <file>` reverts to HEAD, not to `origin/main`.** On a branch
+that already committed a first attempt, stashing the follow-up edit restores the
+first attempt — so a "negative control" run that way tests the old fix and passes,
+which reads as "the spec cannot fail". Use `git checkout origin/main -- <file>`
+for a real before-state.
 
 **UNVERIFIED:** real iOS Safari. It cannot be reached from this sandbox, so the
 claim that the fix holds on the reporter's iPad rests on the defect and the fix
