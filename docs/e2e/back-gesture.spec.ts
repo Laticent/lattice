@@ -44,11 +44,16 @@ const dialog = (page: Page) => page.locator('[role=dialog]');
  *  vacuously. */
 const title = (page: Page) => dialog(page).last().locator('h2,[data-slot=sheet-title]').first();
 
-/** Ready = the engine has PAINTED a slide. Both halves, exactly as `gotoStudio` defines it —
- *  waiting only for visibility would accept an empty frame. Replaces a fixed 1200ms bet, and is
- *  strictly stronger than the `toBeVisible()` it sat behind: the `/studio/` SSR skeleton ships two
- *  inert `aria-label="Menu"` buttons and no live preview at all, so the old gate could satisfy
- *  itself against dead markup. */
+/** Ready = the engine has PAINTED a slide — both halves, because waiting only for visibility would
+ *  accept an empty frame. Replaces a fixed 1200ms bet, and is strictly stronger than the
+ *  `toBeVisible()` it sat behind: the `/studio/` SSR skeleton ships two inert `aria-label="Menu"`
+ *  buttons and no live preview at all, so the old gate could satisfy itself against dead markup.
+ *
+ *  It is a LOCAL copy of the wait, not `waitForStudioPaint` (#1572): these are the WebKit-only
+ *  projects, unrunnable in the sandbox that centralized the fixture's version, and a shared helper
+ *  should not be introduced here by someone who cannot run the specs it would change. So the second
+ *  half still inherits the config's 15s `expect.timeout` where the shared helper no longer does —
+ *  pre-existing and logged rather than folded in (HARD RULE #18). */
 async function studioPainted(page: Page) {
 	await currentSlide(page).waitFor({ state: 'visible', timeout: 30_000 });
 	await expect(currentSlide(page)).not.toBeEmpty();

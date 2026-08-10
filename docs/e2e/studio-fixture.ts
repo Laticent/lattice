@@ -258,8 +258,136 @@ export async function gotoStudio(page: Page): Promise<void> {
 		}
 	});
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
-	await currentSlide(page).waitFor({ state: 'visible' });
-	await expect(currentSlide(page)).not.toBeEmpty();
+	await waitForStudioPaint(page);
+}
+
+/**
+ * The budget the Studio's cold first paint gets, instead of inheriting the two 15s
+ * defaults in `playwright.config.ts` — `use.actionTimeout` for the bare
+ * `locator.waitFor`, `expect.timeout` for the emptiness assertion. (Both are 15s
+ * here, which is why one number covered both; they are still two knobs, and a
+ * future retune of one would have moved half of this wait.)
+ *
+ * A first paint is not an assertion about behavior — it is setup, getting the app
+ * to the state a spec starts from, and it costs an island hydrate, a lazy engine
+ * chunk load and a full render inside a srcdoc iframe. Under CPU oversubscription
+ * that legitimately exceeds 15s, and 49 of 61 spec files reach the Studio through
+ * `gotoStudio` (14 of them from a `beforeEach`), so inheriting those defaults made
+ * this one wait the suite-wide flake surface: the timeout was reported against
+ * whichever spec drew the slow worker, so it looked like a different bug every
+ * time (#1572).
+ *
+ * 45s comes from the measured distribution (see the Playwright decision note) —
+ * about 2x the worst paint observed under deliberate 4x CPU oversubscription. That
+ * it matches the budget `studio-instant-shell.spec.ts` already spends on the same
+ * iframe is a cross-check, not the reason: those specs wait for the iframe ELEMENT,
+ * a strictly earlier and cheaper milestone than `.lattice` rendering inside it.
+ *
+ * It is the budget for the WHOLE wait, not per stage — `waitForStudioPaint` runs
+ * both halves against one deadline. That matters because a `beforeEach` and its
+ * test share ONE 60s slot: two independent 45s waits could not both fit, and the
+ * runner would kill the test before the diagnosis below ever ran. Bounded at 45s,
+ * a single `gotoStudio` at the top of a test always fails HERE, named. A spec that
+ * paints TWICE (a reload) needs more than the 60s default — see `persistence.spec.ts`.
+ */
+export const FIRST_PAINT_TIMEOUT = 45_000;
+
+/**
+ * Did this error come from one of the two waits below running out of time?
+ *
+ * The two shapes were read off real failures, not guessed, by forcing each one (a
+ * 1ms budget, and an inverted assertion). They need SEPARATE branches:
+ * `locator.waitFor` rejects with `name: 'TimeoutError'` and a message reading
+ * `Timeout 300ms exceeded` — no colon, so the regex below does not see it — while
+ * `expect(locator).not.toBeEmpty` rejects with a plain `Error` (name `'Error'`)
+ * whose message carries `Timeout:  <n>ms`. Playwright emits that line only when
+ * the matcher actually timed out, which is what makes it a sound marker: an
+ * `expect` that fails for another reason, or a page closed mid-wait, carries
+ * neither shape and escapes unlabeled.
+ */
+function isWaitTimeout(e: unknown): e is Error {
+	return e instanceof Error && (e.name === 'TimeoutError' || /Timeout:\s*\d+ms/.test(e.message));
+}
+
+/**
+ * Wait until the engine has painted a non-empty slide into the live preview. The
+ * rendered `.lattice` is the universal ready signal across viewports (the preview
+ * pane is the default at every width, and the engine only paints after the island
+ * hydrates and loads on demand — so this also proves the shell is interactive). On
+ * mobile/tablet the editor lives behind the Edit pane, so we do NOT gate on it.
+ *
+ * Exported because a reload is the same wait: a spec that re-enters the Studio
+ * without `gotoStudio` must not re-derive it and inherit the 15s defaults again.
+ *
+ * ONE deadline spans both halves, so the whole call is bounded by
+ * `FIRST_PAINT_TIMEOUT` rather than 2x it — see that constant's note for why the
+ * arithmetic against the 60s test slot is the point.
+ *
+ * `timeout` narrows that budget for a caller that already spent part of one. A
+ * ready-check built from several waits must bound the WHOLE sequence, not hand each
+ * step a fresh 45s — that additive shape is the defect this helper exists to end,
+ * and `persistence.spec.ts` had it one level up until an inversion pass caught it.
+ */
+export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIMEOUT } = {}): Promise<void> {
+	const slide = currentSlide(page);
+	const budget = Math.max(1, timeout);
+	const started = Date.now();
+	const deadline = started + budget;
+	let stalled = 'the live preview never rendered a slide root';
+	try {
+		await slide.waitFor({ state: 'visible', timeout: budget });
+		stalled = 'the slide root rendered but never filled with content';
+		// `Math.max(1, …)`: a 0 timeout means "no timeout" to Playwright, so a
+		// deadline already spent must ask for the smallest budget, not an endless one.
+		await expect(slide).not.toBeEmpty({ timeout: Math.max(1, deadline - Date.now()) });
+		// Record what the paint actually cost, on the real suite at real concurrency.
+		// The budget above is only re-derivable from a harness someone has to
+		// remember to run; this makes every nightly report carry the distribution it
+		// was sized against. Never allowed to fail a test — `test.info()` throws
+		// outside a running test, and an instrument must not become a failure mode.
+		try {
+			base.info().annotations.push({ type: 'first-paint', description: `${Date.now() - started}ms` });
+		} catch {
+			/* not inside a test (a bench script, a helper run standalone) — nothing to annotate */
+		}
+	} catch (cause) {
+		// ONLY a timeout gets re-labeled. Anything else — a closed page, a bug in
+		// this file — is a different failure, and dressing it as "never painted"
+		// would point the triager at the wrong thing. (Not hypothetical: while
+		// instrumenting this very function a stray `ReferenceError` came back
+		// wearing the paint-timeout message.) If the predicate ever stops matching,
+		// the original error is what escapes — you lose the nicety, not the truth.
+		if (!isWaitTimeout(cause)) throw cause;
+		// A root that appeared and then WENT AWAY reads, from stage 2's point of view,
+		// exactly like a root that never filled — same timeout, same locator. It is a
+		// different defect (a frame re-set, a re-mounted preview) and pointing the
+		// triager at the engine's render would be pointing at the wrong thing, so ask
+		// the page which one happened. A red-team pass demonstrated the mislabeling.
+		// The probe is best-effort: if the page is gone, keep the message we have.
+		if (stalled.startsWith('the slide root rendered')) {
+			try {
+				if ((await slide.count()) === 0) stalled = 'the slide root rendered and then vanished (the preview frame was re-set under the wait)';
+			} catch {
+				/* page/frame unreachable — the original wording stands */
+			}
+		}
+		// A bare locator timeout names the locator and nothing else, which sends a
+		// triager reading the reporting spec — the one place the cause is NOT. Say
+		// what stalled, and that it is the fixture's setup rather than the subject.
+		// Elapsed AND budget, not budget alone: a caller that narrowed the budget to
+		// near-zero (having spent it upstream) would otherwise report "within 0.001s".
+		// The underlying error is NOT re-printed here: Playwright renders `cause` as
+		// its own `[cause]:` block, so quoting the message would print it twice.
+		throw new Error(
+			`The Studio never painted its first slide — ${stalled} — after ` +
+				`${((Date.now() - started) / 1000).toFixed(1)}s of a ${(budget / 1000).toFixed(1)}s budget ` +
+				`(\`${LIVE_PREVIEW}\` » \`.lattice\`).\n` +
+				'This is the shared fixture wait, not an assertion in the spec that reported it: ' +
+				'the usual cause is a starved worker (re-run with --workers=2) or an engine chunk ' +
+				'that never loaded, not a defect in that spec’s subject. See #1572.',
+			{ cause },
+		);
+	}
 }
 
 /** The current slide total (rail buttons), read live so specs don't hard-code the seed deck's size. */
