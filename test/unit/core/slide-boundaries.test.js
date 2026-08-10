@@ -312,16 +312,18 @@ test('the parse is memoized per source, so a keystroke pays for one', () => {
 const MEMO_MAX = 6;
 
 test('the cache holds the whole per-keystroke working set — the floor, not just a number', () => {
-	// THREE distinct strings is what one keystroke actually asks about: the editor's body,
-	// the preview's `editorSample` body (StudioShell rebuilds it from trimmed chunks, so it
-	// is never byte-equal), and a code-blanked copy. Replay that, twice over, and nothing
-	// may re-parse. At MEMO_MAX below the working set this reads high and fails.
+	// Stated as a PROPERTY, not as a model of any particular caller: N distinct strings asked
+	// repeatedly cost N parses. An earlier version of this test claimed to replay "the
+	// per-keystroke working set" using three strings, one of which was a code-blanked copy —
+	// a fixture pinning a caller this same branch had already deleted. The real working set is
+	// documented beside MEMO_MAX; this test's job is only to prove the cache holds whatever it
+	// is handed, and that is what fails if MEMO_MAX drops below it.
 	const a = '# One\n\n```\ncode\n```\n\n---\n\n# Two\n';
-	const b = `${a}\n`; // the rebuilt preview string: same deck, one byte different
-	const c = a.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1/gm, ''); // the code-blanked copy
+	const b = `${a}\n`; // a rebuilt copy: same deck, one byte apart — the editor/preview split
+	const c = '# Other\n\n---\n\n# Deck\n';
 	resetBoundaryMemo();
-	for (let round = 0; round < 2; round++) for (const s of [a, b, c]) slideBoundaries(s);
-	assert.equal(boundaryParseCount(), 3, 'three distinct strings, asked twice, must cost three parses');
+	for (let round = 0; round < 3; round++) for (const s of [a, b, c]) slideBoundaries(s);
+	assert.equal(boundaryParseCount(), 3, 'three distinct strings, asked three times each, must cost three parses');
 });
 
 test('eviction is least-recently-USED, not least-recently-inserted', () => {
@@ -332,11 +334,17 @@ test('eviction is least-recently-USED, not least-recently-inserted', () => {
 	const decks = Array.from({ length: MEMO_MAX + 1 }, (_, i) => `# Deck ${i}\n\n---\n\n# Two\n`);
 	resetBoundaryMemo();
 	for (let i = 0; i < MEMO_MAX; i++) slideBoundaries(decks[i]);
-	const touched = slideBoundaries(decks[0]); // hit — now the most recently used
+	slideBoundaries(decks[0]); // hit — now the most recently used
 	slideBoundaries(decks[MEMO_MAX]); // overflow: evicts the LEAST recently used, which is deck 1
-	assert.equal(slideBoundaries(decks[0]), touched, 'the touched entry must survive — a FIFO would have dropped it');
-	assert.notEqual(slideBoundaries(decks[1]), undefined);
-	assert.equal(boundaryParseCount(), MEMO_MAX + 2, 'only deck 1 re-parsed: MEMO_MAX cold + the overflow + deck 1');
+	const afterOverflow = boundaryParseCount();
+
+	// Asserted as PARSE DELTAS, so each half can genuinely fail. An earlier cut asserted that
+	// deck 1 was `notEqual(undefined)` — `slideBoundaries` never returns undefined, so that
+	// assertion could not fail, and deleting it silently changed the total it was propping up.
+	slideBoundaries(decks[0]);
+	assert.equal(boundaryParseCount(), afterOverflow, 'the touched entry must still be cached — a FIFO would have dropped it');
+	slideBoundaries(decks[1]);
+	assert.equal(boundaryParseCount(), afterOverflow + 1, 'deck 1 was least recently USED and must have been the one evicted');
 });
 
 test('the memo stays BOUNDED — the oldest entry is evicted, not kept forever', () => {
