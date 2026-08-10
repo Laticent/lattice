@@ -186,7 +186,11 @@ jobs:
           # qualify today). `.[0]` would then take someone else's issue and append to it nightly,
           # and the rolling issue would never be created. The siblings all carry this latent bug;
           # their markers just do not collide yet.
-          ISSUE=$(gh issue list --state open --limit 200 --json number,title \
+          # --limit is deliberately far above the open-issue count (161 at time of writing).
+          # gh paginates to reach it; a limit that the backlog can outgrow would make the
+          # lookup silently miss the rolling issue and file a fresh duplicate every night —
+          # the same shape of quiet failure this whole workflow change is about.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
             --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
