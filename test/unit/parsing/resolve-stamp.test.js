@@ -100,7 +100,11 @@ describe('resolve-stamp', () => {
   test('the divider spectrum rail does not use ::before (keeps it free for state stamps)', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/components/anchor/divider/divider.styles.css'), 'utf8');
     assert.ok(!/section\.divider::before/.test(css), 'divider must not paint its rail with ::before — it collides with the state-stamp ::before');
-    assert.match(css, /section\.divider\s*\{[^}]*background:[^}]*var\(--spectrum/, 'the divider rail should ride the section background gradient');
+    // `background-image:`, not the `background:` shorthand this used to match. The rail was
+    // hoisted out of the shorthand in #1528 so a theme missing --spectrum loses the RAIL and
+    // not the canvas beside it — the guard here is about which LAYER paints the rail
+    // (background, not ::before), which the longhand satisfies exactly as the shorthand did.
+    assert.match(css, /section\.divider\s*\{[^}]*background-image:\s*var\(--spectrum/, 'the divider rail should ride the section background gradient');
   });
 
   // Non-flipping dark bookends (title/closing/dark divider) keep color-scheme:light, so

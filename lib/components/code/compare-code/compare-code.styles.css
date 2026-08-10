@@ -59,7 +59,19 @@ section.compare-code h2 ~ p:has(> code:only-child) > code {
   color:var(--accent);
   background:none; border:none; padding:0; border-radius:0;
 }
-section.compare-code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
+/* Longhands so a missing theme token can't take the panel SURFACE with it — see the note on
+ * `section.code pre` (code.styles.css). Reachable on the DEFAULT path (a theme short of
+ * `--accent`/`--border` poisons `--spectrum-structure`), not only under `spectrum-trim: on`
+ * (#1528). */
+section.compare-code pre {
+  flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden;
+  background-color:var(--code-bg);
+  background-image:var(--spectrum-structure);
+  background-position:bottom;
+  background-size:100% 3px;
+  background-repeat:no-repeat;
+  padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box;
+}
 /* NO wrap here — landscape code is verbatim, inheriting `white-space: pre` from
  * base.elements.css. A line past the pane is clipped by the `overflow:hidden` above,
  * inside its own pane, without displacing its neighbor. See the .code-cols note for
@@ -157,7 +169,12 @@ section.compare-code-block .split-runhead {
 section.compare-code-block pre {
   margin: 0; max-width: 100%; box-sizing: border-box;
   border-radius: var(--radius-md); overflow: hidden;
-  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg);
+  /* Longhands — same reason as the pane rule above (#1528). */
+  background-color: var(--code-bg);
+  background-image: var(--spectrum-structure);
+  background-position: bottom;
+  background-size: 100% 3px;
+  background-repeat: no-repeat;
   padding: var(--sp-md) var(--sp-lg);
   padding-bottom: calc(var(--sp-md) + 0.234375cqi);
 }

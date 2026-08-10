@@ -1627,6 +1627,104 @@ function checkSectionCqAnchoring(errors) {
 // HARD RULE #20 gate — keep `margin` out of the engine's layout CSS; space with
 // `gap`/`padding`, which measure cleanly (engineering/gotchas.md). Layout budget 0 +
 // the SANCTIONED allowlist above.
+/**
+ * A multi-layer `background:` shorthand may not contain a `var()`. Budget 0 (#1528).
+ *
+ * One undefined `var()` invalidates the WHOLE declaration at computed-value time, and the
+ * property then takes its INITIAL value — it does NOT fall back to an earlier rule that set
+ * the same property. So in `background: var(--spectrum) top / 100% 1px no-repeat, var(--bg)`
+ * a missing ribbon token took the CANVAS with it: measured in Chromium 131, a `_class: dark`
+ * slide rendered white with its near-white headline invisible on it.
+ *
+ * WHY THIS RULE AND NOT A TOKEN LIST. The first cut of this guard enumerated the tokens it
+ * considered droppable (`--spectrum*`, `--sp-fill-*`, `--accent`) and the ones it considered
+ * load-bearing (`--bg`, `--code-bg`, …). Two independent adversarial passes defeated it four
+ * ways, each with a rule a reasonable author would write:
+ *   · a single layer naming BOTH a droppable and a surface token (the `color-mix(… var(--accent)
+ *     …, var(--bg-alt))` idiom, live in roadmap.styles.css) collapsed the two indices and the
+ *     second layer's canvas was never considered;
+ *   · `BACKGROUND:` — CSS property names are case-insensitive, the scan was not;
+ *   · a droppable token outside the list (there are 107 theme tokens with no engine `:root`
+ *     default: `--cat-N-fill`, `--pass`/`--warn`/`--fail`, `--diagram-*`, `--brand-alt`, …);
+ *   · a surface token outside the list (`--accent-soft`, `--tag-bg`, `--pass-bg`, …).
+ * All four lose the canvas in real Chromium. The structural rule needs no judgment about
+ * which layer is load-bearing, has no list to rot, and subsumes every one of them.
+ *
+ * It is also reachable TODAY: after #1528, `lib/**` contains exactly ONE multi-layer
+ * `background:` shorthand and it reads no `var()` at all (an all-literal rgba stack), so the
+ * budget is 0 with an empty allowlist rather than a ratchet.
+ *
+ * A SINGLE-layer `background: var(--x)` is fine and deliberately not matched: an invalid
+ * declaration there costs exactly the decoration it was painting, which is the correct
+ * degradation. The hazard is only ever one layer taking another down with it.
+ */
+const SANCTIONED_BACKGROUND_LAYERS = [];
+
+/** Split a `background` value on its TOP-LEVEL commas — the layer separators. */
+function backgroundLayers(value) {
+  const out = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < value.length; i++) {
+    const c = value[i];
+    if (c === '(') depth++;
+    else if (c === ')') depth--;
+    else if (c === ',' && depth === 0) { out.push(value.slice(start, i)); start = i + 1; }
+  }
+  out.push(value.slice(start));
+  return out;
+}
+
+/** Every multi-layer `background:` shorthand in `css` that reads a `var()`, with its line. */
+function varInMultiLayerBackground(css) {
+  const s = stripComments(css);
+  const out = [];
+  // `i` flag: CSS property names are case-insensitive, so `BACKGROUND:` is the same
+  // declaration. Omitting it was one of the four evasions found by the trio.
+  for (const m of s.matchAll(/(^|[;{])\s*background\s*:([^;}]*)/gi)) {
+    const layers = backgroundLayers(m[2]);
+    if (layers.length > 1 && layers.some((l) => /var\(/.test(l))) {
+      out.push({ line: s.slice(0, m.index).split('\n').length, value: m[2].trim() });
+    }
+  }
+  return out;
+}
+
+function checkBackgroundLayerVars(errors) {
+  const offenders = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const rel = path.relative(ROOT, file);
+    for (const hit of varInMultiLayerBackground(fs.readFileSync(file, 'utf8'))) {
+      offenders.push({ file: rel, line: hit.line, value: hit.value });
+    }
+  }
+  const remaining = [...offenders];
+  const stale = [];
+  for (const s of SANCTIONED_BACKGROUND_LAYERS) {
+    const i = remaining.findIndex((o) => o.file === s.file && o.value.includes(s.value));
+    if (i === -1) stale.push(s);
+    else remaining.splice(i, 1);
+  }
+  if (remaining.length) {
+    const top = remaining.slice(0, 4).map((o) => `${o.file}:${o.line}`).join(', ');
+    errors.push(
+      `${remaining.length} multi-layer \`background:\` shorthand(s) in engine CSS read a var() ` +
+      `(budget 0). One undefined var() invalidates the WHOLE declaration and the property falls to ` +
+      'its INITIAL value, so a missing theme token takes the OTHER layers with it — that is how a ' +
+      '`_class: dark` slide rendered white with an invisible headline (#1528). Split into ' +
+      '`background-color:` + `background-image:` longhands so a miss costs only the layer that ' +
+      `named the token. Offending: ${top}. If a shorthand is provably the only answer, add it to ` +
+      'SANCTIONED_BACKGROUND_LAYERS in tools/check-ownership.js with its justification.',
+    );
+  }
+  for (const s of stale) {
+    errors.push(
+      `stale background-layer sanction in tools/check-ownership.js — \`${s.value}\` in ${s.file} is ` +
+      'no longer present. Remove the SANCTIONED_BACKGROUND_LAYERS entry so the allowlist stays honest.',
+    );
+  }
+}
+
 function checkMarginDiscipline(errors) {
   // Collect every offending (file, value) across lib/.
   const offences = [];
@@ -5740,6 +5838,7 @@ function run() {
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
+  checkBackgroundLayerVars(errors);
   checkMathRendererParity(errors);
   checkSectionBoxOwnership(errors);
   checkSectionCqAnchoring(errors);
@@ -5864,6 +5963,9 @@ module.exports = {
   checkSectionBoxOwnership,
   SANCTIONED_SECTION_BOXES,
   checkMarginDiscipline,
+  checkBackgroundLayerVars,
+  varInMultiLayerBackground,
+  SANCTIONED_BACKGROUND_LAYERS,
   checkMathRendererParity,
   katexOnlySelectors,
   LAYOUT_MARGIN_BUDGET,
