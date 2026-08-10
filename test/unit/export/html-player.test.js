@@ -560,7 +560,11 @@ test('Read·Slides is unified onto Present\'s frame, with a floating Home/End ov
 	assert.match(html, /rStage\.addEventListener\('touchmove',revealReadNav,\{passive:true\}\)/, 'a touch-drag scroll reveals the control on mobile');
 	assert.match(html, /if\(navIdle\)clearTimeout\(navIdle\);if\(!navEngaged\)navIdle=setTimeout\(hideReadNav,1500\)/, 'it idle-hides after 1.5s unless engaged');
 	// Present mouse wheel — one decisive notch = one slide (debounced), present-only.
-	assert.match(html, /addEventListener\('wheel',function\(e\)\{if\(view!=='present'\)return;if\(wheelBusy\)return;[\s\S]*?t\[d>0\?'next':'prev'\]\(\);e\.preventDefault\(\);\},\{passive:false\}\)/, 'present advances/reverses on a decisive wheel delta, debounced, present-only');
+	assert.match(html, /addEventListener\('wheel',function\(e\)\{if\(view!=='present'\)return;[\s\S]*?if\(wheelBusy\)return;[\s\S]*?t\[d>0\?'next':'prev'\]\(\);e\.preventDefault\(\);\},\{passive:false\}\)/, 'present advances/reverses on a decisive wheel delta, debounced, present-only');
+	// A TRACKPAD PINCH arrives as ctrl+wheel and must be declined BEFORE the debounce, and
+	// without preventDefault so the browser zooms instead (#1558's trackpad arm — the Studio
+	// got this in #1555 and the player did not).
+	assert.match(html, /if\(e\.ctrlKey\|\|e\.metaKey\)return;/, 'a trackpad pinch is not a wheel notch');
 });
 
 test('fileToDataUri returns null for a missing file (feeds the honesty report)', () => {
@@ -663,7 +667,32 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// builds itself, so twelve lookups still resolved to deck content. The lookups are now
 	// ANCHORED at roots resolved via `body > #lp-app` / `body > #lp-bar`, which a slide can
 	// never be a child of, and queried relative to those with `:scope`. Script-only.
-	assert.equal(sha, '42382569c7c7cbdae0a9f1e604daf8e8ea6060be7d73388f98623c8bcee39760', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for #1558 — the present stage's swipe rule now COUNTS THE FINGERS. A
+	// two-finger pinch used to turn the slide, and worse than on the Studio surfaces this
+	// mirrors: being pointer-based, the second finger's pointerdown overwrote the single
+	// sx/sy, so the first finger's pointerup was measured against the OTHER finger's start —
+	// a dx of roughly the whole inter-finger span, the strongest swipe signal there is.
+	// #lp-stage carries touch-action:none, so the browser's own pinch-zoom was suppressed too
+	// and the gesture did the wrong thing instead of the right one. Script-only: a pointer-id
+	// list plus a pinch flag, a window-level release for contacts that end off the stage, and
+	// a pointercancel handler. No markup, no CSS, no layout, and the one-finger swipe, the
+	// keyboard and every control behave exactly as before. Signed off with a demo deck
+	// exported in both schemes per CLAUDE.md's export gate.
+	// Re-blessed AGAIN in the same PR, after the adversarial trio: counting contacts on the
+	// STAGE left the player's own chrome (#lp-bar above, #lp-nav below — 119px, 14% of a phone
+	// screen) outside the count, so a pinch with one finger there counted as ONE contact and
+	// still turned the deck, at every width. Contacts are counted on the WINDOW now, plus an
+	// e.isPrimary re-sync so a release the platform eats cannot latch the guard. Still
+	// script-only.
+	// Re-blessed a THIRD time, after a second trio round found three things wrong with that:
+	// (1) a TRACKPAD pinch still turned the deck on every laptop — it arrives as ctrl+wheel,
+	// which no finger count can see, so the wheel handler now declines it (and does NOT
+	// preventDefault, so the browser zooms instead); (2) the re-sync was type-blind, and
+	// isPrimary is per pointer type — a mouse click or stylus tap wiped fingers that were still
+	// down and re-armed the very cross-contact measurement this change exists to kill; (3) the
+	// guard had three overlapping reads, none individually killable by a mutation, so it was
+	// reshaped to one. Script-only throughout: no markup, no CSS, no layout.
+	assert.equal(sha, 'c65687ef2d960de2ea2c90c99c1e4c9fb5fb48d345bd831d45259b29794bb2d1', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -1139,6 +1168,295 @@ test('the transport chrome is unforgeable too, not just the caption band and pla
 		const forgedNode = d.querySelector(`section[data-lattice-slide] #${id}`);
 		if (forgedNode) assert.ok(forgedNode.closest('#lp-stage'), `the forged ${id} stays inside the deck content`);
 	}
+});
+
+// ── the swipe rule counts the fingers (#1558) ────────────────────────────────
+//
+// A two-finger PINCH used to turn the slide. The stage bound pointerdown/pointerup with a
+// single sx/sy and no finger count, so the second finger's pointerdown OVERWROTE the start
+// point and the first finger's pointerup was measured against the OTHER finger's start — a
+// dx of roughly the whole inter-finger span, which is the strongest swipe signal there is.
+// The Studio surfaces were fixed in 2026-08-10-preview-pinch-zoom.md; this is the same rule
+// reaching the artifact a recipient actually opens.
+//
+// These EXECUTE the real player script (the file's own house rule: a test that re-implements
+// the fix cannot fail for the bug). They run MID-DECK on purpose — on slide 1 a misfired
+// `prev` clamps and reads identically to a gesture correctly ignored, which is exactly the
+// trap that produced a false pass while #1555 was being verified. The real-surface claim is
+// NOT made here: jsdom has no touch stack, so `tools/verify-player-input.mjs` drives a real
+// exported file with genuine CDP touch (HARD RULE #23). This tier is the cheap standing gate.
+
+// FIVE slides, parked on the third. The deck length is load-bearing: the first cut of these
+// tests used three slides and parked on the second, where a misfired `next` followed by a
+// swipe lands on the LAST slide and clamps — so "a pinch does not latch" passed against the
+// unguarded player by coincidence. A cell that cannot fail for the bug is not a gate. With
+// slack on both sides, every assertion below distinguishes the two behaviors.
+const GESTURE_DOC = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Deck</title></head><body>
+<section data-lattice-slide="1" id="1" class="title"><h1>One</h1></section>
+<section data-lattice-slide="2" id="2" class="content"><h2>Two</h2></section>
+<section data-lattice-slide="3" id="3" class="content"><h2>Three</h2></section>
+<section data-lattice-slide="4" id="4" class="content"><h2>Four</h2></section>
+<section data-lattice-slide="5" id="5" class="content"><h2>Five</h2></section>
+</body></html>`;
+
+/** Boot the real player in jsdom and park it on slide 3 of 5. */
+async function gesturePlayer() {
+	const { html } = await buildPlayerHtml({ docHtml: GESTURE_DOC, source, now: 0 });
+	const { JSDOM } = require('jsdom');
+	const dom = new JSDOM(html, { runScripts: 'dangerously' });
+	const d = dom.window.document;
+	assert.ok(d.documentElement.classList.contains('lp-js'), 'the player script actually ran');
+	const stage = d.querySelector('body > #lp-app > #lp-stage');
+	const bar = d.querySelector('body > #lp-bar');
+	const counter = d.querySelector('body > #lp-bar > #lp-count');
+	// jsdom has no PointerEvent, and the handlers read only pointerId/clientX/clientY/isPrimary
+	// — so a MouseEvent carrying those is the same event shape as far as this code is concerned.
+	//
+	// `isPrimary` is DERIVED from what is already down rather than hard-coded, because the guard
+	// reads it as "the UA has no other live contact of this type" and a test that asserted its
+	// own convenient value would be testing itself. `primary` overrides it for the one case that
+	// matters: a contact the browser released and we never heard about, where the browser's next
+	// press really is primary while our own list still thinks otherwise.
+	// `pointerType` is modeled too, because `isPrimary` is scoped to it: a mouse press is ALWAYS
+	// primary and a pen press is primary for pen while fingers are live. A helper that pretended
+	// every contact was the same type could not express the sequences that broke this code.
+	const live = new Map();
+	const send = (target, type, id, x, y = 400, opts = {}) => {
+		const kind = opts.pointerType || 'touch';
+		const e = new dom.window.MouseEvent(type, { bubbles: true, clientX: x, clientY: y });
+		Object.defineProperty(e, 'pointerId', { value: id });
+		Object.defineProperty(e, 'pointerType', { value: kind });
+		const sameKind = [...live.values()].filter((k) => k === kind).length;
+		Object.defineProperty(e, 'isPrimary', { value: opts.primary === undefined ? sameKind === 0 : opts.primary });
+		if (type === 'pointerdown') live.set(id, kind);
+		else live.delete(id);
+		target.dispatchEvent(e);
+	};
+	const next = d.querySelector('body > #lp-app > #lp-nav > #lp-next');
+	next.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+	next.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+	assert.equal(counter.textContent.trim(), '3 / 5', 'parked mid-deck, so a misfire cannot hide behind an edge clamp');
+	return { dom, d, stage, bar, counter, send, at: () => counter.textContent.trim() };
+}
+
+test('a two-finger pinch on the present stage never turns the deck (#1558)', async () => {
+	const { stage, send, at } = await gesturePlayer();
+	// A symmetric spread about the stage center: each finger travels 200px outward. Measured
+	// the old way that is a dx of ~±400 against swipeAction's 45px threshold, perfectly
+	// horizontal — the strongest possible swipe signal, from a gesture that meant the opposite.
+	//
+	// ASSERT AFTER EVERY RELEASE, not only at the end. A symmetric pinch that misfires twice in
+	// opposite directions nets to zero, so an end-state-only assertion passes while the deck
+	// visibly jumps away and back. An off-by-one in the finger count (`> 1` written `> 2`)
+	// does exactly that, and survived this cell until it checked each step.
+	send(stage, 'pointerdown', 1, 500);
+	send(stage, 'pointerdown', 2, 900);
+	send(stage, 'pointerup', 1, 300);
+	assert.equal(at(), '3 / 5', 'the first finger up moved nothing');
+	send(stage, 'pointerup', 2, 1100);
+	assert.equal(at(), '3 / 5', 'and neither did the second');
+});
+
+test('a pinch whose second finger lands on the player chrome is still a pinch (#1558)', async () => {
+	// THE HOLE THE FIRST CUT SHIPPED. Counting only contacts that landed on #lp-stage left the
+	// transport bar and the prev/next row — 119px, 14% of a phone screen, and the bottom edge
+	// where fingers actually rest — outside the count. One finger there made the gesture read as
+	// a single contact, and the finger on the slide was measured as the swipe the guard exists
+	// to refuse: on the real artifact, an ordinary bottom-of-screen pinch moved slide 4 to 3 at
+	// every width. The contacts are counted on the window now, so where a finger lands is no
+	// longer part of the rule.
+	const { stage, bar, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 500);
+	send(bar, 'pointerdown', 2, 900);
+	send(stage, 'pointerup', 1, 300);
+	assert.equal(at(), '3 / 5', 'the finger on the slide is not a swipe — the other one is on the bar');
+	send(bar, 'pointerup', 2, 1100);
+	assert.equal(at(), '3 / 5', 'and the deck is still where it was');
+});
+
+test('a pinch does not latch — the next one-finger swipe still turns the deck', async () => {
+	const { stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 500);
+	send(stage, 'pointerdown', 2, 900);
+	send(stage, 'pointerup', 1, 300);
+	send(stage, 'pointerup', 2, 1100);
+	// The whole risk of a guard is that it never turns off. The flag clears when the LAST
+	// pointer lifts, so the deck is navigable again immediately.
+	assert.equal(at(), '3 / 5', 'the pinch itself moved nothing');
+	send(stage, 'pointerdown', 3, 900);
+	send(stage, 'pointerup', 3, 600);
+	assert.equal(at(), '4 / 5', 'a plain swipe after a pinch advances exactly one slide');
+});
+
+test('a primary press re-syncs the finger count — the guard heals a release it never saw', async () => {
+	// Every enumerated leak is closed by the window-level release, but the list of ways a
+	// platform can eat a release is not knowable from here — an iOS edge swipe, the notification
+	// shade, a call arriving mid-touch. A guard that latches is worse than the defect it fixes,
+	// so it does not rely on that list being complete: `isPrimary` is the UA stating it has no
+	// other live contact of this type, which makes a primary press authoritative over whatever
+	// this code still believes. The kernel gets the same property for free by being handed the
+	// live contact list on every event.
+	const { stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 900); // …and its release never arrives.
+	send(stage, 'pointerdown', 2, 900, 400, { primary: true }); // a fresh gesture: the browser says nothing else is down
+	send(stage, 'pointerup', 2, 600);
+	assert.equal(at(), '4 / 5', 'the stale contact was dropped, so the swipe was measured');
+});
+
+test('a press of ANOTHER pointer type cannot wipe live contacts (#1558)', async () => {
+	// `isPrimary` is per pointer TYPE. A mouse press is always primary; a pen press is primary
+	// for pen even while fingers are on the glass. So a type-blind re-sync emptied the contact
+	// list mid-gesture and handed the surviving finger's travel straight to swipeAction — the
+	// exact cross-contact arithmetic this whole change exists to kill, reintroduced by its own
+	// self-heal. Reachable on a touchscreen laptop, an iPad with a Pencil, a tablet with a
+	// trackpad — device classes this repo declares in scope. Not reachable on a touch-only
+	// phone, which is why it was invisible to every touch-shaped test.
+	const { stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 900); // a finger rests on the slide
+	send(stage, 'pointerdown', 9, 320, 400, { pointerType: 'mouse' }); // always primary
+	send(stage, 'pointerup', 9, 322, 400, { pointerType: 'mouse' }); // a stationary click
+	assert.equal(at(), '3 / 5', 'the click did not turn the deck against the finger`s start');
+	// The same with a pen, mid-pinch, plus a third finger — the sequence that turned the deck
+	// with three contacts down.
+	const b = await gesturePlayer();
+	b.send(b.stage, 'pointerdown', 1, 500);
+	b.send(b.stage, 'pointerdown', 2, 900);
+	b.send(b.stage, 'pointerdown', 7, 600, 300, { pointerType: 'pen' });
+	b.send(b.stage, 'pointerup', 7, 600, 300, { pointerType: 'pen' });
+	b.send(b.stage, 'pointerdown', 3, 1000);
+	b.send(b.stage, 'pointerup', 1, 300);
+	assert.equal(b.at(), '3 / 5', 'a pen tap during a pinch does not release the guard');
+});
+
+test('a gesture whose release was eaten heals on the SAME swipe, not the next one', async () => {
+	// The re-sync cleared the contact list but not the pinch flag, and the stage runs before
+	// the window — so the first swipe after an eaten release was silently swallowed and only
+	// the second one worked. Silent, and the cell named for this property could not fail for
+	// it, because it set up a case where the flag had never been set.
+	const { stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 500);
+	send(stage, 'pointerdown', 2, 900); // a real pinch: the flag is genuinely set
+	send(stage, 'pointerup', 1, 300); // …and finger 2's release never arrives.
+	send(stage, 'pointerdown', 3, 900, 400, { primary: true }); // a fresh gesture, per the UA
+	send(stage, 'pointerup', 3, 600);
+	assert.equal(at(), '4 / 5', 'the FIRST swipe after the eaten release navigates');
+});
+
+test('a mouse drag on top of a live pinch is not a swipe (#1558)', async () => {
+	// A primary press of ANOTHER pointer type while a pinch is live must not release the guard.
+	// This is the shape a red team used to turn the deck against an earlier revision, where a
+	// type-blind re-sync emptied the contact list and re-armed the measurement.
+	const { stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 500);
+	send(stage, 'pointerdown', 2, 900);
+	send(stage, 'pointerdown', 9, 1000, 400, { pointerType: 'mouse' }); // primary, another type
+	send(stage, 'pointerup', 9, 300, 400, { pointerType: 'mouse' }); // a long leftward drag
+	assert.equal(at(), '3 / 5', 'a mouse drag on top of a live pinch is not a swipe');
+});
+
+test('a release for a contact we never saw cannot drop a real one', async () => {
+	// A stray pointerup — an id that is not in the list, while a real contact IS — must be a
+	// no-op. Without the not-found check, indexOf returns -1 and splice(-1, 1) removes the LAST
+	// entry instead: a live finger silently deleted from the count, which is exactly how a pinch
+	// stops looking like one. Pointer traces of a mouse-plus-touch sequence produce this case
+	// for real, so it is not hypothetical.
+	const { d, stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 500);
+	send(stage, 'pointerdown', 2, 900);
+	send(d.body, 'pointerup', 77, 0, 0); // never pressed
+	send(stage, 'pointerup', 1, 300); // the pinch must still be a pinch
+	assert.equal(at(), '3 / 5', 'the stray release did not evict a live contact');
+});
+
+test('pointercancel is what releases a canceled contact, not the next primary press', async () => {
+	// The primary re-sync also recovers a lost contact, which can mask a missing pointercancel
+	// handler — so this drives a follow-up gesture the UA reports as NON-primary (another
+	// contact of that type is, as far as it knows, still down). Only pointercancel can have
+	// cleared the canceled one.
+	const { d, stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 500);
+	send(d.body, 'pointercancel', 1, 500);
+	send(stage, 'pointerdown', 2, 900, 400, { primary: false });
+	send(stage, 'pointerup', 2, 600);
+	assert.equal(at(), '4 / 5', 'the canceled contact was released without help from a re-sync');
+});
+
+test('a contact held across a view switch is still counted', async () => {
+	// The counting listener used to stand down outside Present, so a finger pressed in Read
+	// view was invisible to the count forever — and its lift was then measured against another
+	// finger's start. Pre-existing, on the path of this change, fixed here rather than filed.
+	const { dom, d, stage, send, at } = await gesturePlayer();
+	const click = () => new dom.window.MouseEvent('click', { bubbles: true });
+	const readBtn = d.querySelector('body > #lp-bar > .lp-seg > [data-lp-btn="read-slides"]');
+	const presentBtn = d.querySelector('body > #lp-bar > .lp-seg > [data-lp-btn="present"]');
+	assert.ok(readBtn && presentBtn, 'the view controls resolve');
+	readBtn.dispatchEvent(click());
+	send(stage, 'pointerdown', 1, 60, 300); // a finger goes down while reading
+	presentBtn.dispatchEvent(click());
+	send(stage, 'pointerdown', 2, 1000);
+	send(stage, 'pointerup', 1, 300, 400);
+	assert.equal(at(), '3 / 5', 'the contact from the other view still counted as a finger');
+});
+
+test('a repeated pointerdown for one contact cannot fake a second finger', async () => {
+	// A multi-button mouse fires pointerdown twice for the SAME pointerId. Pushed twice, the id
+	// reads as two fingers and the single matching release only removes one copy — so the list
+	// never empties and the guard latches for the life of the page. The dedup on push is what
+	// stops that, and nothing else tests it.
+	const { stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 900);
+	send(stage, 'pointerdown', 1, 900);
+	send(stage, 'pointerup', 1, 600);
+	assert.equal(at(), '4 / 5', 'one contact pressed twice is still one contact');
+	send(stage, 'pointerdown', 2, 900);
+	send(stage, 'pointerup', 2, 600);
+	assert.equal(at(), '5 / 5', 'and the next swipe still works');
+});
+
+test('a one-finger swipe still turns the deck in both directions', async () => {
+	const { stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 900);
+	send(stage, 'pointerup', 1, 600);
+	assert.equal(at(), '4 / 5', 'a decisive leftward drag advances');
+	send(stage, 'pointerdown', 2, 600);
+	send(stage, 'pointerup', 2, 900);
+	assert.equal(at(), '3 / 5', 'and a rightward drag goes back');
+	// A mostly-vertical drag is still ignored, so the swipe rule never fights a scroll.
+	send(stage, 'pointerdown', 3, 900, 200);
+	send(stage, 'pointerup', 3, 800, 600);
+	assert.equal(at(), '3 / 5', 'a vertical drag is not a swipe');
+});
+
+test('a contact that ends off the stage is still released, and cannot be re-measured', async () => {
+	// A contact can end anywhere — over the transport bar, the prev/next row, outside the
+	// window. (Chromium's implicit pointer capture retargets a TOUCH release back to the stage,
+	// so this is really about mouse and pen, which have no such capture, and about cancel
+	// routing, which varies by engine. The window listener covers all of them without needing
+	// to know which.) Two things must hold: the id must be dropped, and the half-finished
+	// gesture must be forgotten — otherwise its stale start point is still armed, and the next
+	// release over the stage from a contact that never began there gets measured against it.
+	const { d, stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 900);
+	send(d.body, 'pointerup', 1, 200);
+	send(stage, 'pointerup', 2, 200);
+	assert.equal(at(), '3 / 5', 'a release with no press of its own is not a swipe');
+	send(stage, 'pointerdown', 3, 900);
+	send(stage, 'pointerup', 3, 600);
+	assert.equal(at(), '4 / 5', 'the leaked-elsewhere contact did not poison the next swipe');
+});
+
+test('pointercancel releases a contact — a palm rejection does not kill navigation', async () => {
+	// A canceled contact never fires pointerup. Its handler is what the Studio's presenter
+	// popup shipped without, where it latched the pinch flag and silently ate the next swipe.
+	const { d, stage, send, at } = await gesturePlayer();
+	send(stage, 'pointerdown', 1, 500);
+	send(stage, 'pointerdown', 2, 900);
+	send(d.body, 'pointercancel', 1, 500);
+	send(d.body, 'pointercancel', 2, 900);
+	send(stage, 'pointerdown', 3, 900);
+	send(stage, 'pointerup', 3, 600);
+	assert.equal(at(), '4 / 5', 'navigation survives a canceled pinch');
 });
 
 test('narration: an encoded clip carries its lead, and the player seeks past it', async () => {

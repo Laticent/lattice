@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: A pinch on any Studio slide surface used to TURN THE DECK. Every surface measured `touches[0]` against `changedTouches[0]` and none counted the fingers, so two fingers spreading 100px each cleared `swipeAction`'s 45px threshold — verified on the real Studio, where a pinch on slide 3 landed on slide 4 at 1440 and 820. The trackpad half was worse: Chromium delivers a trackpad pinch as `ctrl`+wheel, no surface read `ctrlKey`, so pinching scrubbed the deck at every width including plain desktop. Root cause is #1294's again — an input rule owned per surface instead of by `lib/core/present-transport.mjs`. Fix — `createZoomGesture` + `zoomStep` join the kernel, carrying the rule that a gesture which ever held 2+ pointers is a pinch and never a swipe; `docs/src/lib/preview-zoom.ts` holds the DOM half the kernel cannot (non-passive listeners, `touch-action: none`, iOS `gesture*` suppression, middle-button quirks). Zoom is now a first-class verb on the shell preview, Present and the presenter screen, by pinch, ctrl/⌘+wheel and middle-drag, at every breakpoint. A PLAIN wheel still turns the deck — the #1294 parity contract is intact. Real iOS/Android Safari is UNVERIFIED and stated as such.
+summary: A pinch on any Studio slide surface used to TURN THE DECK. Every surface measured `touches[0]` against `changedTouches[0]` and none counted the fingers, so two fingers spreading 100px each cleared `swipeAction`'s 45px threshold — verified on the real Studio, where a pinch on slide 3 landed on slide 4 at 1440 and 820. The trackpad half was worse: Chromium delivers a trackpad pinch as `ctrl`+wheel, no surface read `ctrlKey`, so pinching scrubbed the deck at every width including plain desktop. Root cause is #1294's again — an input rule owned per surface instead of by `lib/core/present-transport.mjs`. Fix — `createZoomGesture` + `zoomStep` join the kernel, carrying the rule that a gesture which ever held 2+ pointers is a pinch and never a swipe; `docs/src/lib/preview-zoom.ts` holds the DOM half the kernel cannot (non-passive listeners, `touch-action: none`, iOS `gesture*` suppression, middle-button quirks). Zoom is now a first-class verb on the shell preview, Present and the presenter screen, by pinch, ctrl/⌘+wheel and middle-drag, at every breakpoint. A PLAIN wheel still turns the deck — the #1294 parity contract is intact. Real iOS/Android Safari is UNVERIFIED and stated as such. FOLLOW-UP (#1558): the exported HTML player, which shipped one release behind because its bytes need sign-off, now carries the guard too — the rule alone, not the gesture machine, since it has no zoom to drive; verified on a real exported file with CDP touch at 390/820/1440.
 ---
 
 # Pinch-to-zoom: the gesture the swipe rule was eating
@@ -344,9 +344,183 @@ suite built by driving the gesture can only ever exercise the gesture, so it was
 structurally incapable of seeing either. The `@parity` matrix proved the cells it
 contained, exactly as its predecessor warned.
 
+## The exported player — the misfire, closed separately (#1558)
+
+This change deliberately stopped at the Studio's door: the exported HTML player
+(`lib/export/player-core.mjs`) alters the bytes of a shipped artifact and needs
+human sign-off, so it shipped one release behind, as a recorded gap rather than an
+oversight.
+
+Its version of the defect was **worse than the one fixed above**. The player binds
+`pointerdown`/`pointerup` rather than touch events, so the second finger's press
+*overwrote* the single start point and the first finger's release was then measured
+against the **other finger's** start — a `dx` of roughly the whole inter-finger
+span, where the touch-based surfaces at least measured one finger against itself.
+Measured on a real exported file at 390 / 820 / 1440, mid-deck, before the fix: a
+pinch out on slide 3 landed on slide 4, and pinching back in landed on slide 5. The
+stage also carries `touch-action: none`, so the browser's own pinch-zoom was
+suppressed: on a phone the gesture did the wrong thing *instead of* the right one.
+
+The fix is the GUARD alone — the rule ("a gesture that ever held 2+ pointers is
+never a swipe, until the last pointer lifts"), not the gesture machine. The player
+carries no zoom, and `createZoomGesture` is 5.9 KB of source — 23% of the whole
+player script, shipped into every recipient's file — to read two of its nine methods.
+That is a dead zoom engine in every deck anyone sends. The rule is stated at the
+call site with a pointer back here; the drift risk that buys is real and is the
+price of not shipping the bytes. **What earns those bytes is giving the player real
+zoom**, which is the next change, not this one.
+
+The honest version of that byte argument is narrower than it first looks: the player
+script is already **51% comments**, shipped verbatim, so "5.9 KB is too many bytes"
+does not survive its own premise. The argument that does survive is that dead code
+with no caller is a liability at any size, and the bar for shipping 400 lines of
+fresh gesture state machine into an artifact that is emailed to a board and **never
+patched** is higher than for a site you can redeploy. `createZoomGesture` alone would
+not even be enough — the Studio needed `docs/src/lib/preview-zoom.ts` (390 lines) to
+go with it, and the trio found nine defects in exactly that code.
+
+### The trio, and the hole the first cut shipped
+
+Three lenses ran against the finished change. The red team and the checker
+independently found the same live defect, and it is the one worth recording:
+
+**The first cut counted only pointers whose `pointerdown` landed on `#lp-stage`** —
+mirroring the Studio's `targetTouches`, whose documented reason is that a thumb
+parked on the *editor pane* must not count as a pinch finger. That rationale does not
+transfer. The Studio's preview is one pane among several; the player's stage is the
+whole screen minus its own 119 px of chrome (`#lp-bar` above, `#lp-nav` below). A
+pinch with one finger on either strip counted **one** contact, and the finger on the
+slide was measured as exactly the swipe the guard exists to refuse. Measured on the
+real artifact at 390 / 820 / 1440: an ordinary bottom-of-screen pinch straddling the
+nav row moved slide 4 to slide 3. For a narrated deck the caption band widens the
+uncounted strip to ~22% of a phone screen.
+
+Neither verification tier could see it, for the same reason: the harness's `pinch()`
+pins both contacts to the stage's vertical center, so no number of runs could ever
+place a finger off the stage, and every jsdom cell dispatched both presses on the
+stage. **The tests exercised the gesture that was imagined rather than the geometry
+that exists** — the `@parity` lesson again, one level down.
+
+So contacts are counted on the **window**, which makes the rule the kernel's without
+a region caveat. Its cost is real, deliberate, and named here rather than discovered
+later: **a second contact anywhere — a supporting thumb — declines the swipe for as
+long as it rests** — measured on the real artifact at 390: slide 3 stays on slide 3
+where `main` advanced. An earlier version of this note justified that by saying
+Present already behaves the same way. **It does not, and the claim has been
+withdrawn:** Present reads `targetTouches`, which is scoped to the event's target,
+so a contact on its rail or arrows never counts. The player's rule is strictly
+stricter, and this same record documents document-wide counting as a defect the
+first trio found and fixed — the honest statement is that stage-scoped was measurably
+too narrow here (a pinch straddling the nav row still turned the deck) and that
+window-scoped is the wider of two imperfect sets, not that it matches a precedent.
+Telling a resting thumb from a pinch needs *relative motion* between the contacts,
+which belongs in `createZoomGesture` for both surfaces. Tracked as its own defect.
+
+Two more things the guard needs, neither obvious:
+
+- **The release is on the window too**, and `pointercancel` beside it — a contact can
+  end anywhere, and a palm rejection or a system gesture ends one with no `pointerup`
+  at all. (The original justification for this was wrong in an instructive way: it
+  claimed a finger lifting over the chrome fires no `pointerup` on the stage, but
+  Chromium's implicit pointer capture retargets a *touch* release back to the stage.
+  The listener is still right — mouse and pen have no such capture and cancel routing
+  varies by engine — but for a different reason than the one first written down.)
+- **`e.isPrimary` re-syncs the count.** Enumerating the leaks you thought of does not
+  make a guard safe; the list of ways a platform can eat a release is not knowable
+  from here. A primary press is the UA stating it has no other live contact of that
+  type, so it is authoritative over whatever this code still believes. That is the
+  property the kernel gets for free by being handed the live contact list on every
+  event, and the one this local restatement would otherwise lack. **A guard that
+  latches is worse than the defect it fixes** — it kills swipe navigation silently,
+  on a file nobody can patch.
+
+### Verification
+
+Real artifact, genuine CDP touch (`tools/verify-player-input.mjs`, committed),
+mid-deck at all three widths — including the off-stage-contact case whose absence
+shipped the hole above. The run **replays the old measurement over the real
+coordinates**, so a pass reads "a gesture that would have turned the deck did not"
+rather than "nothing happened", and it refuses to emit sign-off images of a slide
+that overflows its frame.
+
+Both tiers were **mutation-tested rather than assumed**: counting on the stage,
+dropping the `isPrimary` re-sync, dropping the duplicate-id dedup, dropping the
+`sw` reset on the last release, and an off-by-one in the finger count are each
+killed by at least one cell (the off-by-one is caught by four). The guard was
+RESHAPED to make that true: an earlier form cleared `sw` from the counting listener
+*and* read `pinch` in both stage handlers, so no single deletion changed any behavior
+— three overlapping guards, none individually killable, and a comment describing them
+as redundant that a red team correctly took as an invitation to delete them. Now the
+counting listener owns `pinch`, the stage records where a press began, and one read
+decides; delete it and six cells fail. **One mutation still survives and is recorded
+rather than papered over:** dropping the not-found check before `splice`. Its failure
+direction is benign — an early disarm, a lost swipe, never a wrong turn — which is why
+it is documented instead of pinned. An earlier version of the headline cell asserted only the end
+state, where a symmetric pinch that misfires twice in opposite directions nets to
+zero; it now asserts after **every** release.
+
+Exported artifact bytes moved deliberately, and the frozen-artifact golden was
+re-blessed with the reason.
+
+**UNVERIFIED, and stated as such: real iOS and Android Safari.** Headless Chromium
+with CDP touch is not a phone, and CDP always delivers paired start/end events — so
+the latch path specifically is exercised only in jsdom. `docs/playwright.config.ts`
+records that a touch navigation guard once passed every Chromium check here and still
+failed on a real iPhone, which is why the `webkit-phone` project exists; no cell in it
+covers the exported player.
+
 ## What this does NOT cover
 
-The exported HTML player (`lib/export/player-core.mjs`) has keyboard and swipe, no
-wheel, and now no zoom. It stays deliberately untouched for the reason #1294 gave:
-a change there alters the bytes of an exported artifact and needs sign-off before
-it ships. It is a known, recorded gap rather than an oversight.
+**A correction, because the sentence that stood here was false and the falsehood hid a
+live bug.** It read: *"the exported HTML player still has no wheel and no zoom — one
+input verb short of the parity rule."* The player has had a working `wheel` handler
+since `6008dff`, on `main`, before this branch existed. That sentence was the
+justification for deferring everything wheel-shaped to a follow-up, and because it
+said there was nothing there, nobody looked — including the harness, which drove three
+widths of touch and never sent the one gesture a laptop actually makes.
+
+What was actually true: **a trackpad pinch turned the deck on every laptop**, after
+the touch guard shipped. A trackpad pinch is not touch — every engine delivers it as a
+`wheel` event with `ctrlKey` set — so no amount of finger counting can see it, and the
+wheel handler read it as a decisive notch and then called `preventDefault`, so the
+browser's own zoom could not happen either. Verbatim #1558, on the artifact this PR
+ships, at 1440 and 390: pinch out on slide 3 landed on slide 2. #1555 fixed exactly
+this arm for the Studio (`preview-zoom.ts` reads `ctrlKey || metaKey`); the player
+never got the line.
+
+It is fixed here rather than filed, because "the same defect, same file, one screen
+away, named in the title of the issue being closed" is on-path by any reading of HARD
+RULE #18. The handler now returns on `ctrlKey`/`metaKey` **without** `preventDefault`,
+so the gesture goes back to the browser and a desktop reader gets real page zoom out
+of it.
+
+What remains: **no zoom on touch**, where `touch-action: none` still suppresses the
+browser's own. That is tracked as **#1578**, which carries the measurement worth
+having before anyone writes code for it — `touch-action: pinch-zoom` instead of `none`
+gives the player real zoom for one CSS token and no JS, with the swipe intact at fit
+scale, unverified on Safari. #1540 records the player as having no wheel at all; that
+is stale for the same reason this sentence was, and is corrected there.
+
+**Verification owed, tracked as #1579.** The latch path is the one branch no harness
+here can reach: CDP always delivers paired touch events, so a contact whose release
+is *eaten* by a platform gesture is exercised only in jsdom. `docs/playwright.config.ts`
+records that a touch navigation guard once passed every Chromium check and still
+failed on a real iPhone, which is why the `webkit-phone` project exists — and no cell
+in it covers the exported player.
+
+**A pre-existing defect found while taking the sign-off images, logged as #1577
+rather than fixed** (HARD RULE #18's off-path rule — it lives in the fit/CSS
+subsystem, not the gesture block, and fixing it would move exported bytes for a whole
+class of decks): **the exported player hardcodes 1280×720 and breaks for any deck
+declaring a non-default `size:`.** `fit()`, `fitRead()`, the `.lp-frame.lp-active`
+sizing and the `section` override all assume the default canvas — seven sites, none
+of which reads the deck's declared size. Exporting `examples/gallery-jargon.md`
+(`size: 4K`) and measuring slide 3 at 1440×900: the section is forced to 1280×720
+while its content lays out at 3840×2160, so `scrollHeight` is 1503 px in a 708 px box
+and the heading renders at 112 px against a default deck's 37 px — type at ~3×,
+headings overlapping body text, the slide cut off mid-word. The PDF of the same slide
+is correct, so this is the export player alone. **54 committed decks declare a
+`size:`, and the 32 that are not the default aspect all export this way.** The
+verification harness now asserts its sign-off slide fits its frame, so this can no
+longer be photographed and handed over as evidence without someone noticing — which
+is exactly what happened the first time.

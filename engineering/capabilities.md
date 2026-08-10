@@ -400,3 +400,4 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
+| `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player's TOUCH input (#1558). |

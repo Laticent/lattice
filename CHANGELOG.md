@@ -77,9 +77,35 @@ in patch versions.
   with a trackpad, touchscreen or not: Chromium delivers a trackpad pinch as a
   `ctrl`+wheel, and no surface read `ctrlKey`, so pinching scrubbed the deck. The
   finger-count rule now lives in the shared transport kernel, so a Studio surface
-  cannot reintroduce it. **The exported HTML player is NOT fixed by this** — it
-  carries the same defect in a worse form and is gated on export sign-off; tracked
-  separately. See `engineering/decisions/2026-08-10-preview-pinch-zoom.md`.
+  cannot reintroduce it. See
+  `engineering/decisions/2026-08-10-preview-pinch-zoom.md`.
+- **Fixed: a pinch no longer turns the deck in a shared `.html` deck either.** The
+  exported player — the file a recipient actually opens — carried the same defect in
+  a worse form: it is pointer-based, so the second finger's press overwrote the
+  gesture's start point and the first finger's release was measured against the
+  *other* finger's start, producing the strongest possible swipe signal from a
+  gesture that meant the opposite. On a phone, pinching a deck someone sent you
+  turned the slide, and because the stage suppresses the browser's own pinch-zoom,
+  the page would not zoom either. Measured on a real exported file, mid-deck: a
+  pinch on slide 3 landed on slide 4 at 390, 820 and 1440. The player's swipe rule
+  now counts the fingers and declines any gesture that ever held two, wherever those
+  fingers land — a contact released off the slide, or canceled by a palm rejection,
+  is still released, and a fresh press re-syncs the count against the browser's own
+  (per pointer type, so a mouse click or a stylus tap cannot wipe fingers that are
+  still on the glass), so the guard cannot latch and silently kill navigation.
+  One-finger swipe, the keyboard and every control are unchanged.
+- **Fixed: a trackpad pinch no longer turns the slide in a shared `.html` deck.** A
+  trackpad pinch is not touch — every browser delivers it as a wheel event with
+  `ctrl` held — so no amount of finger-counting could see it, and the player read it
+  as a decisive scroll notch and turned the slide, then suppressed the browser's own
+  zoom on the way out. Measured on a real exported file: pinch out on slide 3 landed
+  on slide 2, at 1440 and at 390. Now the gesture is handed back to the browser, so a
+  reader on a laptop gets real page zoom where they previously lost their place. A
+  **plain** wheel still turns the deck, so keyboard/wheel/touch parity is intact.
+  **The cost, deliberately:** a second contact resting anywhere — a thumb supporting
+  the phone — declines the swipe until it lifts. On touch the player still has **no
+  zoom of its own**, so a pinch there is inert rather than wrong; giving it the zoom
+  the Studio has is a separate, sign-off-gated change.
 - **Fixed: the editor|preview divider now opens where you left it, instead of
   jumping to the middle a moment after the page loads.** A returning visitor with a
   dragged split watched the divider land in the right place, snap back to the
