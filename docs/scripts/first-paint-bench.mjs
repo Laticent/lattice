@@ -16,7 +16,13 @@
 //
 // Usage (from docs/, needs a built dist being served on :4321):
 //   npm run build:e2e && npm run preview:e2e &
-//   SAMPLES=54 CONC=16 node scripts/first-paint-bench.mjs
+//   SAMPLES=54 CONC=16 npm run perf:first-paint
+//
+// The suite ALSO measures this in band: `waitForStudioPaint` annotates every paint
+// it performs as `first-paint` in the Playwright report, so a nightly run carries
+// the real distribution at real concurrency without anyone remembering to run this.
+// Use this script when you want to sweep CONC deliberately; read the annotations
+// when you want to know what the suite actually experienced.
 //
 // CONC is the knob that matters: it models worker oversubscription, which is the
 // condition #1572 is about. CONC=2 is what the nightly runs; CONC=16 on a 4-core

@@ -322,17 +322,34 @@ function isWaitTimeout(e: unknown): e is Error {
  * ONE deadline spans both halves, so the whole call is bounded by
  * `FIRST_PAINT_TIMEOUT` rather than 2x it — see that constant's note for why the
  * arithmetic against the 60s test slot is the point.
+ *
+ * `timeout` narrows that budget for a caller that already spent part of one. A
+ * ready-check built from several waits must bound the WHOLE sequence, not hand each
+ * step a fresh 45s — that additive shape is the defect this helper exists to end,
+ * and `persistence.spec.ts` had it one level up until an inversion pass caught it.
  */
-export async function waitForStudioPaint(page: Page): Promise<void> {
+export async function waitForStudioPaint(page: Page, { timeout = FIRST_PAINT_TIMEOUT } = {}): Promise<void> {
 	const slide = currentSlide(page);
-	const deadline = Date.now() + FIRST_PAINT_TIMEOUT;
+	const budget = Math.max(1, timeout);
+	const started = Date.now();
+	const deadline = started + budget;
 	let stalled = 'the live preview never rendered a slide root';
 	try {
-		await slide.waitFor({ state: 'visible', timeout: FIRST_PAINT_TIMEOUT });
+		await slide.waitFor({ state: 'visible', timeout: budget });
 		stalled = 'the slide root rendered but never filled with content';
 		// `Math.max(1, …)`: a 0 timeout means "no timeout" to Playwright, so a
 		// deadline already spent must ask for the smallest budget, not an endless one.
 		await expect(slide).not.toBeEmpty({ timeout: Math.max(1, deadline - Date.now()) });
+		// Record what the paint actually cost, on the real suite at real concurrency.
+		// The budget above is only re-derivable from a harness someone has to
+		// remember to run; this makes every nightly report carry the distribution it
+		// was sized against. Never allowed to fail a test — `test.info()` throws
+		// outside a running test, and an instrument must not become a failure mode.
+		try {
+			base.info().annotations.push({ type: 'first-paint', description: `${Date.now() - started}ms` });
+		} catch {
+			/* not inside a test (a bench script, a helper run standalone) — nothing to annotate */
+		}
 	} catch (cause) {
 		// ONLY a timeout gets re-labeled. Anything else — a closed page, a bug in
 		// this file — is a different failure, and dressing it as "never painted"
@@ -347,7 +364,7 @@ export async function waitForStudioPaint(page: Page): Promise<void> {
 		// The underlying error is NOT re-printed here: Playwright renders `cause` as
 		// its own `[cause]:` block, so quoting the message would print it twice.
 		throw new Error(
-			`The Studio never painted its first slide within ${FIRST_PAINT_TIMEOUT / 1000}s — ${stalled} ` +
+			`The Studio never painted its first slide within ${budget / 1000}s — ${stalled} ` +
 				`(\`${LIVE_PREVIEW}\` » \`.lattice\`).\n` +
 				'This is the shared fixture wait, not an assertion in the spec that reported it: ' +
 				'the usual cause is a starved worker (re-run with --workers=2) or an engine chunk ' +

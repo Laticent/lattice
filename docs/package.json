@@ -22,6 +22,7 @@
     "perf:collect": "node scripts/perf-collect.mjs",
     "perf:compare": "node scripts/perf-regression.mjs",
     "perf:frame": "node scripts/frame-bench.mjs",
+    "perf:first-paint": "node scripts/first-paint-bench.mjs",
     "settle:check": "node scripts/runtime-settle-check.mjs",
     "check:overflow": "node scripts/check-overflow.mjs",
     "check:studio-shell": "node scripts/check-studio-shell.mjs",
